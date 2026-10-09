@@ -4,6 +4,7 @@ import {
   buildBulkMoveTaskOrderGroups,
   buildTaskOrderAssignments,
   buildTaskPlacement,
+  formatSelectedTasksForClipboard,
   getNewTaskOrder,
   isTaskPlacementCompatible,
   materializeTaskDocument,
@@ -236,5 +237,32 @@ describe('task ordering', () => {
         ['cat_a', 'cat_b']
       )
     ).toEqual([]);
+  });
+});
+
+describe('selected task clipboard export', () => {
+  it('uses visible category and task ordering rather than selection or array order', () => {
+    const selected = [
+      { ...task('later', 'cat_a', 8), title: 'Later task' },
+      { ...task('other', 'cat_b', 0), title: 'Other category' },
+      { ...task('earlier', 'cat_a', 0), title: 'First task' },
+    ];
+    expect(formatSelectedTasksForClipboard(selected, ['cat_b', 'cat_a']))
+      .toBe('- Other category\n- First task\n- Later task');
+  });
+
+  it('preserves unicode and keeps each title to one bullet line', () => {
+    expect(
+      formatSelectedTasksForClipboard(
+        [{ ...task('one', 'cat_a', 0), title: 'Buy 🥭\n tomorrow' }],
+        ['cat_a']
+      )
+    ).toBe('- Buy 🥭 tomorrow');
+  });
+
+  it('does not export tasks from unlisted categories and handles no selection', () => {
+    expect(formatSelectedTasksForClipboard([], ['cat_a'])).toBe('');
+    expect(formatSelectedTasksForClipboard([task('secret', 'cat_hidden', 0)], ['cat_a']))
+      .toBe('');
   });
 });

@@ -160,6 +160,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       if (message.isUnsent) return;
       onLongPress?.(message);
     },
+    onContextMenu: onLongPress ? () => onLongPress(message) : undefined,
     onSwipeReply: () => {
       if (message.isUnsent) return;
       onSwipeReply?.(message);

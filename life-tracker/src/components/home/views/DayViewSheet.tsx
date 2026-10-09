@@ -1,9 +1,10 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { runBulkTaskActions } from './bulkTaskActions';
+import { formatSelectedTasksForClipboard } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckSquare, ChevronLeft, ChevronRight, MoreHorizontal, Trash2 } from 'lucide-react';
+import { CheckSquare, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2 } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
@@ -147,6 +148,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [isBulkVisibilityOpen, setIsBulkVisibilityOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+  const copyPendingRef = useRef(false);
   const [isTaskReorderActive, setIsTaskReorderActive] = useState(false);
 
   const activeTask = useMemo(
@@ -374,6 +377,30 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setSelectedTaskIds(new Set());
     setIsSelectMode(true);
   }, [exitSelectMode, isSelectMode]);
+
+  const handleCopySelectedTasks = useCallback(async () => {
+    if (copyPendingRef.current || isBulkWorking || selectedTasks.length === 0) return;
+    const text = formatSelectedTasksForClipboard(
+      selectedTasks,
+      categories.map((category) => category.id)
+    );
+    if (!text) {
+      showFeedback('No selected tasks to copy');
+      return;
+    }
+    copyPendingRef.current = true;
+    setIsCopying(true);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(text);
+      showFeedback(`${selectedTasks.length} ${selectedTasks.length === 1 ? 'task' : 'tasks'} copied`);
+    } catch {
+      showFeedback('Could not copy selected tasks');
+    } finally {
+      copyPendingRef.current = false;
+      setIsCopying(false);
+    }
+  }, [categories, isBulkWorking, selectedTasks, showFeedback]);
 
   const runBulkUpdate = useCallback(async (updates: Partial<TaskDocument>) => {
     const snapshot = selectedTasks;
@@ -847,6 +874,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             aria-label={`${selectedTasks.length} selected ${selectedTasks.length === 1 ? 'task' : 'tasks'}`}
           >
             <span className="mr-auto pl-2 text-sm text-gray-300">{selectedTasks.length} selected</span>
+            <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking || isCopying} onClick={handleCopySelectedTasks} aria-label="Copy selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+              <Copy aria-hidden="true" />
+            </button>
             <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking} onClick={() => setIsBulkActionOpen(true)} aria-label="More actions for selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
               <MoreHorizontal aria-hidden="true" />
             </button>

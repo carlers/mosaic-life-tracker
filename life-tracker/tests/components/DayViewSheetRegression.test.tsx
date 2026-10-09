@@ -18,6 +18,8 @@ const taskMocks = vi.hoisted(() => ({
   moveTasksToCategory: vi.fn().mockResolvedValue(undefined),
 }));
 
+const feedbackMocks = vi.hoisted(() => ({ show: vi.fn() }));
+
 const settingsFixture = vi.hoisted(() => ({
   values: {} as Record<string, unknown>,
 }));
@@ -164,7 +166,7 @@ vi.mock('../../src/hooks/useAuth', () => ({
 }));
 
 vi.mock('../../src/hooks/useFeedback', () => ({
-  useFeedback: () => ({ message: null, show: vi.fn(), clear: vi.fn() }),
+  useFeedback: () => ({ message: null, show: feedbackMocks.show, clear: vi.fn() }),
 }));
 
 vi.mock('../../src/hooks/useSettings', () => ({
@@ -200,6 +202,7 @@ function renderSheet() {
 describe('DayViewSheet nested task actions', () => {
   beforeEach(() => {
     settingsFixture.values = {};
+    feedbackMocks.show.mockClear();
     fixture.task.image = 'image_1';
     swiperFixture.slidePrev.mockClear();
     swiperFixture.slideNext.mockClear();
@@ -213,6 +216,7 @@ describe('DayViewSheet nested task actions', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   // Regression: §2 (optional Today marker in the secondary header row).
@@ -267,6 +271,50 @@ describe('DayViewSheet nested task actions', () => {
     expect(screen.getByRole('button', { name: 'Do It Today' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Do It Tomorrow' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Visibility' })).toBeInTheDocument();
+  });
+
+  it('copies selected task titles to the clipboard and keeps selection active', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { clipboard: { writeText } }));
+    renderSheet();
+    const activeSelect = screen.getAllByRole('button', { name: 'Select tasks' })
+      .find((button) => button.getAttribute('tabindex') === '0');
+    fireEvent.click(activeSelect as HTMLElement);
+    const copyButton = screen.getByRole('button', { name: 'Copy selected tasks' });
+    expect(copyButton).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    expect(copyButton).toBeEnabled();
+    fireEvent.click(copyButton);
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('- Task with photo'));
+    await waitFor(() => expect(feedbackMocks.show).toHaveBeenCalledWith('1 task copied'));
+    expect(screen.getByRole('button', { name: 'Deselect mocked task' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Exit selection mode' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('reports clipboard rejection, retains selection, and supports retry', async () => {
+    const writeText = vi.fn().mockRejectedValueOnce(new Error('Denied')).mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { clipboard: { writeText } }));
+    renderSheet();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find((button) => button.getAttribute('tabindex') === '0') as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy selected tasks' }));
+    await waitFor(() => expect(feedbackMocks.show).toHaveBeenCalledWith('Could not copy selected tasks'));
+    expect(screen.getByRole('button', { name: 'Deselect mocked task' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy selected tasks' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(feedbackMocks.show).toHaveBeenCalledWith('1 task copied'));
+  });
+
+  it('reports an unavailable clipboard without clearing selection', async () => {
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), { clipboard: undefined }));
+    renderSheet();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find((button) => button.getAttribute('tabindex') === '0') as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy selected tasks' }));
+    await waitFor(() => expect(feedbackMocks.show).toHaveBeenCalledWith('Could not copy selected tasks'));
+    expect(screen.getByRole('button', { name: 'Deselect mocked task' })).toBeInTheDocument();
   });
 
   it('moves selected tasks to a chosen category through the bulk action sheet', async () => {

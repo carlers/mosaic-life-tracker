@@ -351,7 +351,7 @@ export const ChatPage: React.FC = () => {
                       });
                       setTimeout(() => composerRef.current?.focus(), 50);
                     }}
-                    gesturesDisabled={false}
+                    gesturesDisabled={!!actionMessage || !!reactionTarget || !!unsendTarget}
                   />
                 </div>
               )
