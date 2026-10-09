@@ -75,6 +75,21 @@ describe('SetUsernameSheet single display name source', () => {
     expect(state.checkUsername).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [null, 'Could not check. Try again.'],
+    [false, 'That username is already taken.'],
+  ])('releases the save control when username availability returns %s', async (availability, message) => {
+    state.checkUsername.mockResolvedValue(availability);
+    openSheet();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Username' }), {
+      target: { value: 'unverified_name' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Username' }));
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save Username' })).not.toBeDisabled();
+    expect(state.createProfile).not.toHaveBeenCalled();
+  });
+
   it('creates a missing legacy profile using the account name as fallback', async () => {
     state.profile = null;
     state.localName = '';
