@@ -446,6 +446,9 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
 27. **Animation scheduling stays owner-native.** Do not wrap all animations in an application-level `requestAnimationFrame` loop. CSS/compositor transitions and Swiper, Embla, or Framer motion should keep their native frame scheduling; use custom rAF only for a genuinely custom JavaScript visual loop or frame-batched DOM measurement/write path. Performance work should first remove React state, layout, allocation, and paint pressure from frame-critical gesture paths.
 
 
+28. **Owner Day View completion-order preference is a view projection.** Synced `taskCompletionSort` accepts `manual` (default), `completed-first`, `completed-last` within each category, shared by Calendar Day View and Todo's inline Day View. Manual placement from persisted `task.order` remains the source of truth; checking tasks or changing this preference does not persist any reorder. Clipboard export follows visible per-category grouping. All same-category and cross-category drag targets still work in auto modes: drop destination category wins, but completion grouping takes precedence over the exact dropped position; translate same-status peer positions back into canonical order instead of persisting display order or changing completion. Guard drag commits against stale membership, status, date or owner identity. Friend views are unaffected.
+
+
 ## 17. Native Input Quirks
 - **Theme-aware native controls:** date and other native form controls inherit Mosaic’s resolved color scheme (`light` in Light; `dark` in Dark/Black/System-dark). Do not hard-code `[color-scheme:dark]` now that appearance is selectable.
 - **Focus management:** focus sheets/inline inputs via `useRef` + `useEffect` on `[isOpen, taskId]`. NEVER `autoFocus` — Safari/iOS ignores it inside conditionally-rendered subtrees (any AnimatePresence-wrapped BottomSheet).

@@ -7,6 +7,81 @@ export interface TaskOrderGroup {
 
 export type TaskPlacement = Record<string, string[]>;
 
+export type TaskCompletionSortMode = 'manual' | 'completed-first' | 'completed-last';
+
+export function resolveTaskCompletionSortMode(value: unknown): TaskCompletionSortMode {
+  return value === 'completed-first' || value === 'completed-last' ? value : 'manual';
+}
+
+/** Display-only projection. Never persist this placement directly. */
+export function sortTaskPlacementByCompletion(
+  canonical: TaskPlacement,
+  tasks: readonly TaskDocument[],
+  mode: TaskCompletionSortMode
+): TaskPlacement {
+  if (mode === 'manual') return canonical;
+  const statuses = new Map(tasks.map((task) => [task.id, task.completed]));
+  const firstStatus = mode === 'completed-first';
+  return Object.fromEntries(Object.entries(canonical).map(([categoryId, ids]) => [
+    categoryId,
+    [
+      ...ids.filter((id) => statuses.get(id) === firstStatus),
+      ...ids.filter((id) => statuses.get(id) !== firstStatus),
+    ],
+  ]));
+}
+
+/** Convert a sorted visual drop into canonical manual order while retaining
+ * its target category and same-status sibling order. Cross-status slots are
+ * superseded by the active completion grouping after the drop.
+ */
+export function canonicalPlacementAfterSortedDrop(
+  canonical: TaskPlacement,
+  projectedDisplay: TaskPlacement,
+  taskId: string,
+  tasks: readonly TaskDocument[]
+): TaskPlacement | null {
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  const dragged = byId.get(taskId);
+  if (!dragged) return null;
+  const source = Object.keys(canonical).find((id) => canonical[id].includes(taskId));
+  const destination = Object.keys(projectedDisplay)
+    .find((id) => projectedDisplay[id].includes(taskId));
+  if (!source || !destination || !(destination in canonical)) return null;
+
+  const peers = projectedDisplay[destination]
+    .filter((id) => byId.get(id)?.completed === dragged.completed);
+  if (source === destination) {
+    const originalPeers = canonical[source]
+      .filter((id) => byId.get(id)?.completed === dragged.completed);
+    if (originalPeers.length === peers.length &&
+        originalPeers.every((id, position) => id === peers[position])) {
+      // Crossing a different-status visual slot must not rewrite manual order.
+      return canonical;
+    }
+  }
+  const index = peers.indexOf(taskId);
+  if (index < 0) return null;
+  const next: TaskPlacement = { ...canonical };
+  next[source] = canonical[source].filter((id) => id !== taskId);
+  const target = source === destination ? next[source] : [...canonical[destination]];
+  next[destination] = target;
+
+  const previous = peers[index - 1];
+  const following = peers[index + 1];
+  const anchorIndex = previous
+    ? target.indexOf(previous) + 1
+    : following
+      ? target.indexOf(following)
+      : target.length;
+  if (anchorIndex < 0 ||
+      (previous && !target.includes(previous)) ||
+      (following && !target.includes(following))) return null;
+  target.splice(anchorIndex, 0, taskId);
+  return next;
+}
+
+
 export interface TaskOrderAssignment {
   id: string;
   categoryId: string;
@@ -223,10 +298,13 @@ export function buildTaskOrderAssignments(
 /** Export the selected Day View tasks in the same category/task order as DaySlide. */
 export function formatSelectedTasksForClipboard(
   selectedTasks: readonly TaskDocument[],
-  categoryIds: readonly string[]
+  categoryIds: readonly string[],
+  mode: TaskCompletionSortMode = 'manual'
 ): string {
   const byId = new Map(selectedTasks.map((task) => [task.id, task]));
-  const placement = buildTaskPlacement(selectedTasks, categoryIds);
+  const placement = sortTaskPlacementByCompletion(
+    buildTaskPlacement(selectedTasks, categoryIds), selectedTasks, mode
+  );
   return categoryIds
     .flatMap((categoryId) => placement[categoryId] ?? [])
     .map((id) => byId.get(id))
