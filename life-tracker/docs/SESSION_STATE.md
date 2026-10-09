@@ -1,35 +1,25 @@
 # Session checkpoint
 
 Updated: 2026-10-09
-Current task: #409 — fix instant-closing sheets on Android Back/drag
-Task branch: `chatgpt/sheet-exit-lifecycle-fix`, based on v0.6.0 accepted Preview `1d2ffc9e`.
+Current task: #434 — default-first architecture / client SDK safety boundaries
+Branch: `chatgpt/default-first-boundaries`, from `dev` `d1b80db986d4b191bc7a8c857f3800cd63339146`
+Target stable Preview: `refactor/default-first-boundaries`
 
-## Root cause
-- v0.6.0 initializes `childrenMounted` from `isOpen`, but never sets it true when an initially closed sheet opens. The subsequent Back/drag close therefore unmounts its portal immediately.
-- Some feature-sheet owners also return null when task/message/friend state is cleared on close; Day View nested sheets and inline friend replies conditionally unmount.
-- Fix shared presence arming, retain last opened entity to `onExitComplete`, keep affected owners mounted, and test both lifecycle and real-browser Back/drag dismissals.
+## Objective and scope
 
-## Verification and size-budget decision
+- Finish an evidence-based audit of policy-vs-default gaps across client SDK, account async, backend configuration, CI and form actions (recorded in issue #434).
+- First implementation batch is non-user-visible: remove unused remote `guardedTablesDB.upsertRow`/`deleteRow` from browser API, broaden direct Appwrite unsafe-service/namespace lint guards, protect with meaningful regression tests.
+- Preserve local RxDB `upsert`, social outbox legacy action `kind: 'upsertRow'`, server Function hard deletes, and safe Appwrite Query/Role/Permission helpers.
+- Do not refactor sync/account lifecycle, migrate schema, change production Appwrite, UI behavior, theme, gesture or product version. Impact NONE; keep v0.6.1 unchanged.
 
-- Focused CI `37893803369` passed. PR #429 squash Preview `409cce5b`.
-- Canonical `37893958884`: both DOM shards, dependency audit and browser shard 2 passed; build failed only by 173 B in CI app-assets raw, Vercel by 337 B; all six other size metrics passed. The new browser drag test used a moving animation header and a mouse gesture rather than the supported CDP Android touch helper; checks also found this checkpoint lacked a machine-readable Next action field.
-- Apply one measured **1,024-byte increase** to **only** `appAssetsRawBytes` max, 2,293,300 → 2,294,324 (0.045% of previous cap). The baseline remains unchanged; gzip, startup/Home and precache constraints are **not** relaxed. This acknowledges intentional shared lifecycle coverage rather than repeated byte-golfing or widening every size gate.
-- Browser contract now waits for completed entrance and dispatches a real touch drag with the existing Playwright CDP strategy; keep timed Back and entity-clear tests.
+## Verification and next action
 
-Next action: verify the hook reopen regression on a task branch; squash passing task into the stable Preview and obtain a canonical CI + exact-SHA Vercel deployment. Keep dev/main unchanged.
+- #409 accepted v0.6.1 Preview `3e1af34a` promoted by PR #433 to dev `d1b80db9`; promotion CI `37897274044` SUCCESS and exact dev Vercel READY.
+- Source audit: `sdk.ts` exports remote PUT and hard delete, despite documented restrictions, with no observed feature call sites. ESLint named-service restriction misses `Client`, `Databases`, `Users` and wildcard namespace imports. Existing `accountWorkScope`, backend manifest/readiness and dev provenance gates already provide strong defaults; defer speculative refactors.
+- Browser SDK restriction changes passed focused CI `37897836410` and Preview PR #435 was squash-merged at `faaae155`.
+- Canonical Preview run `37898026584`: production build, dependency audit, both DOM shards and both browser shards **passed**; general checks failed only because this checkpoint used `Current issue:` rather than the required literal `Current task:` (and placed Next action under a bullet). The SDK method and ESLint fixture regressions passed. Fix the checkpoint markers, not product code.
+Next action: verify the checkpoint-contract repair using focused CI; squash into stable Preview and rerun full canonical CI plus exact-SHA Vercel. Update #434 and request separate dev promotion approval.
 
-## Delivery
-- User-visible Preview repair: **v0.6.1**, with no theme/visual/backend/gesture-threshold changes.
-- Focused CI, squash into stable `refactor/ui-behavior-standardization`, canonical CI, exact-SHA Vercel READY, issue update.
-- Physical Android/PWA/iOS tests and theme visual review remain manual; `dev`/`main` unchanged without explicit approval.
+## Manual / backend boundaries
 
-## Subsequent acceptance findings
-
-- Corrected candidate Preview `240fda82`, canonical CI `37894536501`: both browser-contract shards (including Android touch drag and Back/data-clear tests), both DOM shards, dependency audit and production build **passed**. Vercel deployment `dpl_781A27aFPen9xUcg6v5iUsWJJ8HE` **READY**; all seven size metrics passed.
-- Only remaining failing check: `tests/unit/buildSizeGuard.test.ts` still pinned the previous exact raw-asset limit `2293300`. Align its reviewed limit assertion with `2294324` without changing any production code or budget again.
-
-## Exact final-commit trigger recovery
-
-- Preview `7081cfea` includes the accepted `buildSizeGuard.test.ts` assertion correction from [PR #431](https://github.com/carlers/mosaic-life-tracker/pull/431). However, no GitHub Actions push run or Vercel deployment appeared for that exact SHA after merging. Do not infer acceptance from previous run `37894536501`.
-- Add regression coverage for data-backed sheet reopen after full exit. It checks that the old record survives while closing, clears after `onExitComplete`, and a different record appears on the next open.
-- A new verified Preview SHA requires exact-SHA canonical acceptance and Vercel readiness; no version bump beyond v0.6.1 for test-only refinement.
+- No manual/device testing claimed; no Scratch/production Appwrite mutation, schema or Function deployment is required for this frontend-only API/lint change.
