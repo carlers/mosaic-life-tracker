@@ -29,7 +29,7 @@ export function useCategories(enabled = true) {
         console.error(
           '[useCategories] Cannot add category: User not authenticated'
         );
-        return;
+        throw new Error('Cannot add category: not authenticated');
       }
       const db = getDatabase();
       const newCat: CategoryDocument = {
@@ -43,6 +43,7 @@ export function useCategories(enabled = true) {
         await db.categories.insert(newCat);
       } catch (error) {
         console.error('[useCategories] Error inserting category:', error);
+        throw error;
       }
     },
     [user?.$id]
@@ -53,7 +54,7 @@ export function useCategories(enabled = true) {
       const db = getDatabase();
       try {
         const doc = await db.categories.findOne(id).exec();
-        if (!doc) return;
+        if (!doc) throw new Error('Category no longer exists');
         let changed = false;
         for (const key of Object.keys(updates) as (keyof CategoryDocument)[]) {
           // `updatedAt` is hook-managed; a caller passing it is not a
@@ -71,6 +72,7 @@ export function useCategories(enabled = true) {
         });
       } catch (err) {
         console.error('[useCategories] updateCategory failed:', err);
+        throw err;
       }
     },
     []

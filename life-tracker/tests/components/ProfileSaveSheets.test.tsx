@@ -106,4 +106,33 @@ describe('profile save sheets', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
     expect(onSave).toHaveBeenCalledTimes(2);
   });
+
+  it('ignores the late success from a previous opening of the name sheet', async () => {
+    const prior = pendingSave();
+    const onSave = vi.fn().mockReturnValueOnce(prior.promise).mockResolvedValueOnce(undefined);
+    const onClose = vi.fn();
+    const props = { currentName: 'Previous', onClose, onSave };
+    const view = render(<EditNameSheet isOpen {...props} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Name' }));
+    expect(onSave).toHaveBeenCalledOnce();
+
+    // Forced parent teardown/reopen is possible even when gestures are locked.
+    view.rerender(<EditNameSheet isOpen={false} {...props} />);
+    view.rerender(<EditNameSheet isOpen {...props} />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Display Name' }), {
+      target: { value: 'Current' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Name' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(onSave).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      prior.resolve();
+      await prior.promise;
+    });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
 });
