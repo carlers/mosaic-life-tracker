@@ -287,6 +287,41 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
   await expect(page.getByTestId('primary-route')).toHaveText('explore');
 });
 
+// Regression: §2/§7 (desktop horizontal wheel reuses route gesture ownership).
+test('horizontal trackpad wheel follows the route compositor and detail edge rules', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.getByTestId('set-primary-explore').click();
+
+  const surface = page.getByTestId('primary-route-swipe-surface');
+  await surface.scrollIntoViewIfNeeded();
+  let box = await surface.boundingBox();
+  if (!box) throw new Error('Missing wheel route surface');
+  await page.mouse.move(box.x + box.width / 2, box.y + 32);
+  await page.mouse.wheel(0, 140);
+  await expect(page.getByTestId('primary-route')).toHaveText('explore');
+
+  await surface.scrollIntoViewIfNeeded();
+  box = await surface.boundingBox();
+  if (!box) throw new Error('Missing wheel route surface after scroll');
+  await page.mouse.move(box.x + box.width / 2, box.y + 32);
+  await page.mouse.wheel(150, 0);
+  await expect(page.getByTestId('primary-route')).toHaveText('account');
+
+  await page.getByTestId('set-primary-friend-detail').click();
+  await page.waitForTimeout(850); // the previous wheel's momentum cooldown
+  await surface.scrollIntoViewIfNeeded();
+  box = await surface.boundingBox();
+  if (!box) throw new Error('Missing detail route surface');
+  await page.mouse.move(box.x + box.width / 2, box.y + 40);
+  await page.mouse.wheel(-150, 0);
+  await page.waitForTimeout(350);
+  await expect(page.getByTestId('primary-route')).toHaveText('friend-detail');
+
+  await page.mouse.move(box.x + 20, box.y + 40);
+  await page.mouse.wheel(-150, 0);
+  await expect(page.getByTestId('primary-route')).toHaveText('explore');
+});
+
 // Regression: §24.17 (switch thumb remains inside its usable track).
 test('settings switches keep the thumb bounded and move it from left to right', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

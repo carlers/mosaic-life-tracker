@@ -17,7 +17,7 @@ Candidate Preview version: 0.8.0
 
 - Shared keyboard handler rendered only inside authenticated data shell.
 - Existing chat transient modes now mark handled Escape.
-- Reused pointer compositor for trackpad settling; unit/DOM coverage for route history, overlays, editable controls and wheel ownership.
+- Reused pointer compositor for trackpad settling; unit/DOM coverage for route history, overlays, editable controls and wheel ownership; browser-contract exercise for real Chromium wheel coordinates, vertical scroll and detail-edge gating.
 - Version 0.8.0 in all three required files.
 
 ## Next action
