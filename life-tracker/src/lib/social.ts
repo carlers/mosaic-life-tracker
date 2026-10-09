@@ -159,6 +159,18 @@ export async function updateProfileAvatar(userId: string, avatarFileId: string):
   await writeProfile({ databaseId: APPWRITE_CONFIG.databaseId, tableId: APPWRITE_CONFIG.tables.profiles, rowId: `profile_${userId}`, data: { avatar_file_id: avatarFileId, updated_at: new Date().toISOString() } });
 }
 
+/** Mirror the owner-synced displayName setting into their public profile. */
+export async function updateProfileDisplayName(userId: string, displayName: string): Promise<void> {
+  const current = await fetchMyProfile(userId);
+  if (!current || current.display_name === displayName) return;
+  await writeProfile({
+    databaseId: APPWRITE_CONFIG.databaseId,
+    tableId: APPWRITE_CONFIG.tables.profiles,
+    rowId: `profile_${userId}`,
+    data: { display_name: displayName, updated_at: new Date().toISOString() },
+  });
+}
+
 export async function createOrUpdateProfile(
   input: MyProfileInput,
   options: { queueOnTransient?: boolean } = {}

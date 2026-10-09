@@ -1,5 +1,5 @@
 import React, { useId, useState } from 'react';
-import { ChevronDown, Plus } from 'lucide-react';
+import { Check, ChevronDown, Plus } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
 import { TaskItem } from './TaskItem';
 import {
@@ -24,7 +24,7 @@ interface CategorySectionProps {
   currentUserId: string;
   tasks: TaskDocument[];
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
-  onAddTask: (title: string) => void;
+  onAddTask: (title: string, completed?: boolean) => void;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
   onEditTask: (task: TaskDocument) => void;
@@ -89,10 +89,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     setIsAdding(false);
   };
 
-  const commitAdd = () => {
+  const commitAdd = (completed = false) => {
     const trimmed = newTitle.trim();
     if (trimmed) {
-      onAddTask(trimmed);
+      onAddTask(trimmed, completed);
       if (continueAddingAfterSubmit) {
         setNewTitle('');
       } else {
@@ -272,12 +272,22 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           data-testid="pending-task-row"
           className="flex items-start gap-3 rounded-lg pl-0 pr-2 py-2"
         >
-          <span
+          <button
+            type="button"
             data-testid="pending-task-checkbox"
-            aria-hidden="true"
-            className="mt-0.5 h-6 w-6 shrink-0 rounded-full border-2"
+            aria-label="Create completed task"
+            disabled={!newTitle.trim()}
+            onPointerDown={(event) => {
+              // The adjacent input must retain focus until completion is committed.
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onClick={() => commitAdd(true)}
+            className="mt-0.5 h-6 w-6 shrink-0 rounded-full border-2 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-70"
             style={{ borderColor: categoryColor }}
-          />
+          >
+            <Check size={14} strokeWidth={3} aria-hidden="true" />
+          </button>
           <div className="min-w-0 flex-1">
             <label htmlFor={inputId} className="sr-only">
               New task title

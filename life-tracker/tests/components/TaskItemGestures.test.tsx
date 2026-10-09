@@ -130,6 +130,27 @@ describe('TaskItem owner gestures', () => {
     expect(callbacks.onOpenMemo).toHaveBeenCalledWith(task, 'edit');
   });
 
+  it('toggles completion while an existing title editor keeps focus until an intentional blur', () => {
+    const callbacks = {
+      onToggle: vi.fn(), onOpenActions: vi.fn(), onOpenMemo: vi.fn(),
+      onEditStart: vi.fn(), onEditChange: vi.fn(),
+      onEditSave: vi.fn(), onEditCancel: vi.fn(),
+    };
+    render(
+      <TaskItem task={task} categoryColor="#3B82F6" currentUserId="user_1"
+        isEditing editValue="Unsaved title" {...callbacks} />
+    );
+    const input = screen.getByRole('textbox', { name: 'Task title' });
+    const checkbox = screen.getByRole('button', { name: 'Mark complete' });
+    expect(input).toHaveFocus();
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(false);
+    fireEvent.click(checkbox);
+    expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith(task.id);
+    expect(callbacks.onEditSave).not.toHaveBeenCalled();
+    fireEvent.blur(input);
+    expect(callbacks.onEditSave).toHaveBeenCalledOnce();
+  });
+
   it('keeps the completion control normal while row selection suppresses task actions', () => {
     const onToggleSelection = vi.fn();
     const callbacks = {

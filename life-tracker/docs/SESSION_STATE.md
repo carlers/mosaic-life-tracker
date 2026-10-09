@@ -1,20 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: integrate user-approved #417 Settings cleanup with already promoted #402 sorting in dev.
-Baseline dev: `6e8a65d32a458734441d33df5b11bf06e0f8f6f1`, v0.9.0, [dev promotion 37962105759](https://github.com/carlers/mosaic-life-tracker/actions/runs/37962105759) SUCCESS.
-Task branch: `chatgpt/settings-clarity-integration`.
-Stable Preview target: `feature/settings-clarity-integrated`.
-Candidate version: **0.10.1** (existing separately accepted v0.10.0 Preview cannot be merged unchanged over already-promoted v0.9.0 because its independent tree lacks #402). Exact new combined tree requires new full canonical+Vercel acceptance.
+Current task: Implement #465 (focused task-input completion) and #466 (single Display Name editor).
+Baseline: `dev` `d4a32acff711f36e0b6e3dd4e4c8ae216df8c9c9` (v0.10.1). Main unchanged.
+Task branch: `chatgpt/focused-task-profile-fixes`.
+Stable Preview target: `fix/task-input-profile-name`.
+Proposed Preview candidate: **0.11.0** (new completion-from-input capability).
 
-## Approved behavior
+## Scope and implementation
+- Inline add-row checkbox creates a completed task with the pending title; Enter creates incomplete tasks. Respect continuous-entry mode, empty drafts and task order.
+- Existing task completion toggles while title input is focused, without an implicit blur-save.
+- Remove duplicate Display Name input from username setup. The owner-synced `displayName` setting is the only name editor; mirror it via settings replication to public `profiles.display_name`. Preserve signup and legacy name fallback.
+- Focused DOM and replication regressions. No Appwrite schema/Function change, redesign or production backend writes.
 
-- Keep #402 synced completion status sorting, unrestricted within/cross-category dragging, canonical/manual order safety and clipboard output unchanged.
-- Bring in #417 accepted SettingsPage and behavioral DOM regressions from Preview `5637241d33d91874460477d47801e8ae76913d9b`: clear account/upcoming/data/about/deletion headings, future-only labels, icons, backup activity placement, preserved app routes/actions/version disclosure/destructive confirmations.
-- Preserve higher #402 size budget ceilings (appAssetsRaw 2300600, gzip 707900, precacheUnique 2383100); do not replace with lower independent #417 budgets.
-- Merge both PROJECT_REFERENCE feature contract sections and include version in three files. Frontend-only, no new backend project, schema or Appwrite change.
-- The preexisting separate #410/#416 navigation/trackpad v0.8.0 Preview is **not** to enter dev yet. Following these promotions, investigate and polish animated browser Back/Escape/Android Back and trackpad gesture continuity and calendar integration in a newly versioned independent Preview.
+## Verification and delivery
+- Publish coherent task commit with `[verify:focused]`; repair focused checks before stable Preview squash.
+- Require exact stable Preview SHA canonical CI and Vercel READY; record manual input-focus, keyboard and mobile checks as not performed unless tested.
+- No Preview → dev or dev → main promotion without separate user authorization.
 
-## Next action
-
-Commit coherent combination on task branch with focused verification; squash into dedicated integration Preview after focused-green; verify exact Preview SHA canonical and Vercel READY, then promote this accepted combined Preview to dev under explicit approval. Main stays unchanged. Device checks are user-approved for #402/#417 (do not claim personally performed); navigation device acceptance remains required.
+Next action: Inspect focused CI at the task SHA, repair failures, squash to stable Preview, verify canonical CI/deployment, and hand off required device checks.

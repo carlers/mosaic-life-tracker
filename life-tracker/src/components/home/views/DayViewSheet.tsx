@@ -466,13 +466,14 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }, [deleteTask, exitSelectMode, isBulkWorking, selectedTasks, showFeedback]);
 
   const handleAddTask = useCallback(
-    (title: string, categoryId: string, dateStr: string) => {
+    (title: string, categoryId: string, dateStr: string, completed = false) => {
       addTask(
         {
           title,
           categoryId,
           date: dateStr,
-          completed: false,
+          completed,
+          ...(completed ? { completedAt: new Date().toISOString() } : {}),
           visibility: '',
         },
         addTasksToTop ? 'top' : 'bottom'

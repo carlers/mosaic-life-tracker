@@ -66,6 +66,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
   const { settings, isLoading: settingsLoading, setSetting } = useSettings();
 
   const prefs = useMemo(() => parsePrefs(settings[PREFS_KEY]), [settings]);
+  const ownDisplayName = typeof settings.displayName === 'string' ? settings.displayName : '';
 
   const attemptedBiosRef = useRef<Set<string>>(new Set());
 
@@ -129,6 +130,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
       userId: profile?.user_id || user?.$id || '',
       username: profile?.username || '',
       displayName:
+        ownDisplayName ||
         profile?.display_name ||
         profile?.username ||
         user?.name ||
@@ -167,7 +169,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
     }
 
     return list;
-  }, [friends, prefs, profile, user?.$id, user?.name]);
+  }, [friends, prefs, profile, ownDisplayName, user?.$id, user?.name]);
 
   const reorder = useCallback(
     async (newFriendOrder: string[]) => {

@@ -23,6 +23,7 @@ const uploadPendingImageMock = vi.hoisted(() => vi.fn());
 const makeProfileImageReadableMock = vi.hoisted(() => vi.fn());
 const deletePendingImageMock = vi.hoisted(() => vi.fn());
 const updateProfileAvatarMock = vi.hoisted(() => vi.fn());
+const updateProfileDisplayNameMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const sendAppActionMock = vi.hoisted(() => vi.fn());
 
@@ -85,6 +86,7 @@ vi.mock('../../src/lib/pendingImages', () => ({
 
 vi.mock('../../src/lib/social', () => ({
   updateProfileAvatar: updateProfileAvatarMock,
+  updateProfileDisplayName: updateProfileDisplayNameMock,
 }));
 
 vi.mock('../../src/lib/appAction', () => ({
@@ -153,6 +155,7 @@ beforeEach(async () => {
   makeProfileImageReadableMock.mockResolvedValue(undefined);
   deletePendingImageMock.mockResolvedValue(undefined);
   updateProfileAvatarMock.mockResolvedValue(undefined);
+  updateProfileDisplayNameMock.mockResolvedValue(undefined);
   sendAppActionMock.mockRejectedValue(
     Object.assign(new Error('Unknown action'), {
       code: 400,
@@ -538,6 +541,32 @@ describe('settings RxDB replication pilot', () => {
         }),
       })
     );
+  });
+
+  it('mirrors the owner display name to the public profile after settings push', async () => {
+    getRowMock.mockResolvedValue(remoteSetting({ key: 'displayName', value: 'Old name' }));
+    await __settingsReplicationPilotTestUtils.pushSettings(
+      [{
+        assumedMasterState: localSetting({ key: 'displayName', value: 'Old name' }),
+        newDocumentState: localSetting({ key: 'displayName', value: 'New name' }),
+      }],
+      'user_A'
+    );
+    expect(updateProfileDisplayNameMock).toHaveBeenCalledWith('user_A', 'New name');
+    expect(updateProfileAvatarMock).not.toHaveBeenCalled();
+  });
+
+  it('repairs the public name from the authoritative remote setting on a write conflict', async () => {
+    getRowMock.mockResolvedValue(remoteSetting({ key: 'displayName', value: 'Remote winner' }));
+    const conflicts = await __settingsReplicationPilotTestUtils.pushSettings(
+      [{
+        assumedMasterState: localSetting({ key: 'displayName', value: 'Old name' }),
+        newDocumentState: localSetting({ key: 'displayName', value: 'Losing local name' }),
+      }],
+      'user_A'
+    );
+    expect(conflicts).toEqual([expect.objectContaining({ value: 'Remote winner' })]);
+    expect(updateProfileDisplayNameMock).toHaveBeenCalledWith('user_A', 'Remote winner');
   });
 
   it('uploads pending profile images and returns the stored master state', async () => {

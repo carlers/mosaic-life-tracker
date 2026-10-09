@@ -9,7 +9,7 @@ import { CategorySection } from '../../src/components/home/views/CategorySection
 // Pins the inline-add flow:
 //   - Chip tap opens the inline input with the placeholder
 //     "Add a task to <Category>...".
-//   - Enter with non-whitespace content fires onAddTask(trimmed) and closes.
+//   - Enter with non-whitespace content fires onAddTask(trimmed, false) and closes.
 //   - Escape clears and closes without firing onAddTask.
 //   - Blur with empty content closes; blur with content stays open.
 // Deliberately NOT tested here:
@@ -87,10 +87,32 @@ describe('CategorySection', () => {
     fireEvent.change(input, { target: { value: '  Buy milk  ' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(cbs.onAddTask).toHaveBeenCalledTimes(1);
-    expect(cbs.onAddTask).toHaveBeenCalledWith('Buy milk');
+    expect(cbs.onAddTask).toHaveBeenCalledWith('Buy milk', false);
     expect(
       screen.queryByPlaceholderText('Add a task to Work...')
     ).toBeNull();
+  });
+
+  it('creates a completed task from the focused add input without discarding its text', () => {
+    const { cbs } = renderSection({ continueAddingAfterSubmit: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    fireEvent.change(input, { target: { value: '  Ready now  ' } });
+    input.focus();
+    const checkbox = screen.getByRole('button', { name: 'Create completed task' });
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(false);
+    expect(input).toHaveFocus();
+    fireEvent.click(checkbox);
+    expect(cbs.onAddTask).toHaveBeenCalledExactlyOnceWith('Ready now', true);
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue('');
+  });
+
+  it('does not create an empty task from the checkbox', () => {
+    const { cbs } = renderSection();
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    expect(screen.getByRole('button', { name: 'Create completed task' })).toBeDisabled();
+    expect(cbs.onAddTask).not.toHaveBeenCalled();
   });
 
   // Regression: §2 (continuous entry preserves same-category input focus).
@@ -103,7 +125,7 @@ describe('CategorySection', () => {
     fireEvent.change(input, { target: { value: 'First task' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(cbs.onAddTask).toHaveBeenCalledWith('First task');
+    expect(cbs.onAddTask).toHaveBeenCalledWith('First task', false);
     const nextInput = screen.getByPlaceholderText(
       'Add a task to Work...'
     ) as HTMLInputElement;
