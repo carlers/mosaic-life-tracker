@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
+import { AppearanceContext } from '../../../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import {
   format,
   startOfMonth,
@@ -40,6 +42,8 @@ export interface CalendarState {
 export function useCalendarState(
   { weekStartsOn = 0 }: { weekStartsOn?: WeekStartsOn } = {}
 ): CalendarState {
+  const appearance = useContext(AppearanceContext);
+  const reduceMotion = Boolean(appearance?.reduceAnimations || systemRequestsReducedMotion());
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
@@ -64,7 +68,7 @@ export function useCalendarState(
     align: 'start',
     skipSnaps: false,
     startIndex: CENTER_INDEX,
-    duration: 22,
+    duration: reduceMotion ? 0 : 22,
   });
 
   useEmblaTrackpadNavigation(emblaApi);

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   setAppearanceMode: vi.fn().mockResolvedValue(undefined),
+  setReduceAnimations: vi.fn().mockResolvedValue(undefined),
   setAccentColor: vi.fn().mockResolvedValue(undefined),
   setContentWidthMode: vi.fn().mockResolvedValue(undefined),
   setSheetWidthMode: vi.fn().mockResolvedValue(undefined),
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 beforeEach(() => {
   mocks.setAppearanceMode.mockClear();
+  mocks.setReduceAnimations.mockClear();
   mocks.setAccentColor.mockClear();
   mocks.setContentWidthMode.mockClear();
   mocks.setSheetWidthMode.mockClear();
@@ -30,6 +32,8 @@ vi.mock('../../src/hooks/useAppearance', () => ({
     mode: 'system',
     resolvedTheme: 'dark',
     setAppearanceMode: mocks.setAppearanceMode,
+    reduceAnimations: false,
+    setReduceAnimations: mocks.setReduceAnimations,
     accentColor: '#10B981',
     setAccentColor: mocks.setAccentColor,
     contentWidthMode: 'full',
@@ -78,6 +82,11 @@ describe('PreferencesPage', () => {
     expect(screen.getByRole('dialog', { name: 'Accent color' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('radio', { name: 'Select color #3B82F6' }));
     expect(mocks.setAccentColor).toHaveBeenCalledWith('#3B82F6');
+
+    const reduceAnimations = screen.getByRole('switch', { name: 'Reduce animations' });
+    expect(reduceAnimations).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(reduceAnimations);
+    expect(mocks.setReduceAnimations).toHaveBeenCalledWith(true);
 
     const escapeBack = screen.getByRole('switch', { name: 'Escape navigates back' });
     expect(escapeBack).toHaveAttribute('aria-checked', 'false');

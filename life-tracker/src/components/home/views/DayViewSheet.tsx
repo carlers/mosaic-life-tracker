@@ -6,6 +6,8 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckSquare, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2 } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { AppearanceContext } from '../../../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
 import { TaskActionSheet } from './TaskActionSheet';
@@ -91,6 +93,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   focusTaskId = null,
   holidayConfig: holidayConfigOverride,
 }) => {
+  const appearance = React.useContext(AppearanceContext);
+  const reducedMotion = Boolean(appearance?.reduceAnimations || systemRequestsReducedMotion());
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
 
@@ -302,8 +306,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       if (!target) return;
 
       const reduceMotion =
-        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ??
-        false;
+        document.documentElement.dataset.reduceMotion === 'true' ||
+        systemRequestsReducedMotion();
       target.scrollIntoView({
         block: 'center',
         behavior: reduceMotion ? 'auto' : 'smooth',
@@ -732,7 +736,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           }
         }}
         initialSlide={initialIndex}
-        speed={DAY_SWIPER_TRANSITION_SPEED_MS}
+        speed={reducedMotion ? 0 : DAY_SWIPER_TRANSITION_SPEED_MS}
         onSlideChange={handleSlideChangeFromUi}
         onSlideChangeTransitionEnd={handleSwipeSettledFromUi}
         data-testid="day-swiper"

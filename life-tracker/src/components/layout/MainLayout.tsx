@@ -6,6 +6,7 @@ import {
   type RouteSwipeActivationMode,
 } from './PrimaryRouteSwipeSurface';
 import type { PrimarySwipeDirection } from '../../lib/primarySwipeNavigation';
+import type { RouteTransitionDirection } from '../../lib/routeTransitions';
 import { useChatViewport } from '../messages/useChatViewport';
 import { AppearanceContext } from '../../hooks/appearanceContext';
 import { useConnectivity } from '../../hooks/useConnectivity';
@@ -21,6 +22,7 @@ export interface MainLayoutProps {
   activeTab: TabId;
   routeKey?: string;
   animateRouteBack?: boolean;
+  routeTransitionDirection?: RouteTransitionDirection;
   onTabChange: (tab: TabId) => void;
   canSwipeLeft?: boolean;
   canSwipeRight?: boolean;
@@ -34,21 +36,21 @@ export interface MainLayoutProps {
 
 const BACK_ROUTE_TRANSITION_MS = 210;
 const backRouteVariants = {
-  enter: ({ back, reduced }: { back: boolean; reduced: boolean }) => ({
-    x: back && !reduced ? '-100%' : '0%',
+  enter: ({ direction, reduced }: { direction: RouteTransitionDirection; reduced: boolean }) => ({
+    x: !reduced && direction !== 'none' ? (direction === 'backward' ? '-100%' : '100%') : '0%',
   }),
-  center: ({ back, reduced }: { back: boolean; reduced: boolean }) => ({
+  center: ({ direction, reduced }: { direction: RouteTransitionDirection; reduced: boolean }) => ({
     x: '0%',
     transition: {
-      duration: back && !reduced ? BACK_ROUTE_TRANSITION_MS / 1000 : 0,
+      duration: direction !== 'none' && !reduced ? BACK_ROUTE_TRANSITION_MS / 1000 : 0,
       ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
     },
   }),
-  exit: ({ back, reduced }: { back: boolean; reduced: boolean }) => ({
-    x: back && !reduced ? '100%' : '0%',
+  exit: ({ direction, reduced }: { direction: RouteTransitionDirection; reduced: boolean }) => ({
+    x: !reduced && direction !== 'none' ? (direction === 'backward' ? '100%' : '-100%') : '0%',
     pointerEvents: 'none' as const,
     transition: {
-      duration: back && !reduced ? BACK_ROUTE_TRANSITION_MS / 1000 : 0,
+      duration: direction !== 'none' && !reduced ? BACK_ROUTE_TRANSITION_MS / 1000 : 0,
       ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
     },
   }),
@@ -59,6 +61,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   activeTab,
   routeKey = activeTab,
   animateRouteBack = false,
+  routeTransitionDirection,
   onTabChange,
   canSwipeLeft = false,
   canSwipeRight = false,
@@ -73,7 +76,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const contentWidthMode = appearance?.contentWidthMode ?? 'full';
   const connectivity = useConnectivity();
   const reducedMotion = useReducedMotion();
-  const routeMotion = { back: animateRouteBack, reduced: Boolean(reducedMotion) };
+  const routeMotion = { direction: routeTransitionDirection ?? (animateRouteBack ? 'backward' : 'none'), reduced: Boolean(reducedMotion || appearance?.reduceAnimations) };
 
   const contentInsetClass = hideBottomNav
     ? ''
@@ -104,7 +107,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           <AnimatePresence initial={false} mode="popLayout" custom={routeMotion}>
             <motion.div
               key={routeKey}
-              data-route-back-animation={animateRouteBack ? 'true' : undefined}
+              data-route-back-animation={routeMotion.direction === 'backward' ? 'true' : undefined}
+              data-route-transition-direction={routeMotion.direction}
               custom={routeMotion}
               variants={backRouteVariants}
               initial="enter"
