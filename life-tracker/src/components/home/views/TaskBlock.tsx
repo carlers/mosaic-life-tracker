@@ -22,6 +22,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
   return (
     <div
       ref={targetRef}
+      data-completed={task.completed}
       className={`mosaic-task-block text-[10.5px] pt-0.5 w-full font-semibold rounded-[4.5px] overflow-hidden ${textColor}`}
       style={{ backgroundColor: bgColor, color: task.completed ? getReadableTextColor(categoryColor) : undefined }}
       title={task.title}
