@@ -100,6 +100,40 @@ import { APP_VERSION } from '../../src/lib/appVersion';
 
 // Regression: §24.13 (update checks expose meaningful stages).
 describe('SettingsPage navigation, updates, and data controls', () => {
+  it('separates working settings from future destinations and keeps data actions discoverable', () => {
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+
+    const available = screen.getByRole('region', { name: 'Account & preferences' });
+    expect(within(available).getByRole('button', { name: /Profile/i })).toBeEnabled();
+    expect(within(available).getByRole('button', { name: /Account/i })).toBeEnabled();
+    expect(within(available).getByRole('button', { name: /Preferences/i })).toBeEnabled();
+    expect(within(available).getByRole('button', { name: /Notifications/i })).toBeEnabled();
+
+    const upcoming = screen.getByRole('region', { name: 'Coming soon' });
+    for (const label of ['Privacy', 'App Permissions', 'Announcements',
+      'My stickers', 'Information', 'FAQs']) {
+      expect(within(upcoming).getByRole('button', {
+        name: new RegExp(label + ' Coming soon', 'i'),
+      })).toBeInTheDocument();
+    }
+    fireEvent.click(within(upcoming).getByRole('button', { name: /App Permissions/i }));
+    expect(screen.getByRole('status')).toHaveTextContent('Coming soon');
+
+    const data = screen.getByRole('region', { name: 'Data & sync' });
+    expect(within(data).getByRole('button', { name: 'Sync Status' })).toBeEnabled();
+    expect(within(data).getByRole('button', { name: 'Backup & Restore' })).toBeEnabled();
+    expect(within(data).getByLabelText('Backup activity')).toHaveTextContent('Last backup: Never');
+    expect(within(data).getByRole('button', { name: 'Import from TodoMate' })).toBeEnabled();
+
+    const about = screen.getByRole('region', { name: 'About & updates' });
+    expect(within(about).getByText('Version')).toBeInTheDocument();
+    expect(within(about).getByRole('button', { name: /Check for Updates/i })).toBeEnabled();
+    const safety = screen.getByRole('region', { name: 'Data deletion' });
+    expect(within(safety).getByRole('button', { name: 'Delete Account' })).toBeEnabled();
+    expect(within(safety).getByRole('button', { name: 'Clear Local Data' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Sign Out' })).toBeEnabled();
+  });
+
   it('shows the app version and a dedicated update control', () => {
     render(
       <MemoryRouter>

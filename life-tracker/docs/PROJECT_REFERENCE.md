@@ -223,6 +223,9 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 
 ## 7. UI/UX & Architectural Guardrails
 
+**Settings information hierarchy (issue #417):** Settings groups available account/preference navigation, explicitly future-only destinations, data/sync transfers, version/update controls, and destructive erasure in distinct named sections. Show upcoming options as such without pretending they navigate to implemented screens, but preserve their feedback until their workflows exist. Keep backup/restore timestamps beside the Backup & Restore action. Do not replace the existing collapsed Version/deployment-details disclosure, its nested commit-message expansion, or confirmation gates for Delete Account and Clear Local Data. Appearance/theming stays within the shared semantic role mapping; no separate Settings design system.
+
+
 
 ### UI behavior ownership (agent audit, issue #409)
 
