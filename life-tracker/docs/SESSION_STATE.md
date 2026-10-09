@@ -25,6 +25,7 @@ Candidate Preview version: `0.7.1` (PATCH after current `dev` v0.7.0)
 
 - First v0.7.1 canonical Preview build (GitHub run `37915827380`, Vercel deployment `dpl_9TBdU2fE7Hpi84aiqeiK3reykEDm`) tripped the app raw-assets budget by 59 bytes (2,296,659 > 2,296,600); aggregate gzip and PWA precache passed.
 - Reuse the same task-specific class only for completed blocks instead of adding a redundant data attribute and always-present class. Inline the background assignment to trim emitted assets without changing UI behavior.
+- First repair Vercel build was just 2 B over raw budget (2,296,602 / 2,296,600). Shorten the scoped CSS class while preserving exact behavior and all budgets.
 - Keep all build/size budgets and version 0.7.1 unchanged; rerun focused and full Preview checks.
 
 ## Next action
