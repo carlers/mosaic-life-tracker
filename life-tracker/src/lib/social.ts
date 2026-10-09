@@ -147,11 +147,8 @@ export async function fetchMyProfile(
   }
 }
 
-export async function fetchProfileByUserId(
-  userId: string
-): Promise<ProfileCard | null> {
-  return fetchMyProfile(userId);
-}
+// Both lookup entry points use the same account-scoped fetch implementation.
+export const fetchProfileByUserId = fetchMyProfile;
 
 // The two owner settings use the same safe partial profile mutation.
 async function updateExistingProfileField(

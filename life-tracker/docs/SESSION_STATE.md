@@ -22,4 +22,6 @@ Verification checkpoint: Focused task run 37963972298 passed at `7ae618e`. First
 
 Second Preview run 37964625258 reached the raw app-assets budget but exceeded unique precache by 31 B. Follow-up repair removes duplicated username availability/error branches and redundant early saving-state writes while preserving fallback/errors under regression tests.
 
-Next action: Run focused CI for the validation repair; squash into stable Preview, verify exact SHA canonical CI/build-size and Vercel READY, then hand off device acceptance.
+Third Preview run 38005187019 passed raw app-asset size but missed unique precache by 5 B. Final repair removes the unnecessary social-profile lookup wrapper; callers continue using the identical fetch implementation. Strict size thresholds remain unchanged.
+
+Next action: Verify the final size repair's focused run; squash it to the stable Preview, confirm full canonical CI and Vercel READY at exact SHA, then hand off unperformed mobile/authenticated-device checks.
