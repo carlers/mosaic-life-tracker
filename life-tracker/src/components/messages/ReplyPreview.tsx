@@ -1,5 +1,10 @@
 import React from 'react';
 import { X, Ban } from 'lucide-react';
+import { packStickerSummary, parsePackStickerMessage } from '../../lib/stickerPacks';
+import { giphyStickerSummary, parseGiphyStickerMessage } from '../../lib/giphyStickers';
+import { PackStickerImage } from './PackStickerImage';
+import { GiphyStickerImage } from './GiphyStickerImage';
+import { canonicalReplyStickerContent } from '../../lib/replyStickerContent';
 
 interface ReplyPreviewProps {
   senderName: string;
@@ -17,6 +22,9 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
   variant = 'composer',
 }) => {
   const isComposer = variant === 'composer';
+  const stickerWire = !isDeleted ? canonicalReplyStickerContent(content) : null;
+  const packSticker = stickerWire ? parsePackStickerMessage(stickerWire) : null;
+  const giphySticker = stickerWire && !packSticker ? parseGiphyStickerMessage(stickerWire) : null;
   return (
     <div
       className={`flex items-start gap-2 rounded-lg border-l-2 border-emerald-500 bg-surface px-2 py-1.5 ${
@@ -32,6 +40,17 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
             <Ban size={9} aria-hidden="true" />
             Message deleted
           </p>
+        ) : packSticker || giphySticker ? (
+          <div className="mt-1 flex min-w-0 items-center gap-2">
+            {packSticker ? (
+              <PackStickerImage sticker={packSticker} size="reply" />
+            ) : giphySticker ? (
+              <GiphyStickerImage id={giphySticker.id} label={giphySticker.label} compact />
+            ) : null}
+            <span className="min-w-0 line-clamp-2 text-[11px] leading-snug text-gray-400">
+              {packStickerSummary(giphyStickerSummary(stickerWire ?? content))}
+            </span>
+          </div>
         ) : (
           <p className="text-[11px] text-gray-400 line-clamp-2 leading-snug">
             {content}

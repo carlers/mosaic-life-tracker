@@ -19,6 +19,9 @@ import { useMessages } from '../hooks/useMessages';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
 import { useConnectivity } from '../hooks/useConnectivity';
+import { useSettings } from '../hooks/useSettings';
+import { useAppearance } from '../hooks/useAppearance';
+import { GIPHY_AUTOPLAY_SETTING_KEY } from '../lib/preferences';
 import { useChatScroll } from '../components/messages/useChatScroll';
 import { useChatSearch } from '../components/messages/useChatSearch';
 import { useChatReactions } from '../components/messages/useChatReactions';
@@ -27,6 +30,11 @@ import {
   messageMatchesQuery,
 } from '../components/messages/chatRenderItems';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
+import { packStickerMessage } from '../lib/stickerPacks';
+import { giphyStickerMessage, sendGiphyAnalytics, type GiphySticker } from '../lib/giphyStickers';
+
+const StickerPackSheet = React.lazy(() => import('../components/messages/StickerPackSheet').then(module => ({ default: module.StickerPackSheet })));
+
 
 interface ComposerReplyState {
   id: string;
@@ -50,6 +58,9 @@ export const ChatPage: React.FC = () => {
   const { user } = useAuth();
   const connectivity = useConnectivity();
   const myUserId = user?.$id ?? '';
+  const { getSetting } = useSettings();
+  const { effectiveReducedMotion } = useAppearance();
+  const autoplayGiphy = getSetting(GIPHY_AUTOPLAY_SETTING_KEY, false) === true;
 
   const {
     messages,
@@ -67,8 +78,11 @@ export const ChatPage: React.FC = () => {
   );
 
   const composerRef = useRef<MessageComposerHandle>(null);
+  const focusAfterActionReplyRef = useRef(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
+  const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
+  const [hasOpenedStickers, setHasOpenedStickers] = useState(false);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
@@ -221,6 +235,25 @@ export const ChatPage: React.FC = () => {
     setReplyTo(null);
   };
 
+  const handlePickSticker = async (packId: string, stickerId: string) => {
+    setStickerPacksOpen(false);
+    try {
+      await handleSend(packStickerMessage(packId, stickerId));
+    } catch {
+      setFeedback('Could not queue sticker. Try again.');
+    }
+  };
+
+  const handlePickGiphySticker = async (sticker: GiphySticker) => {
+    setStickerPacksOpen(false);
+    try {
+      await handleSend(giphyStickerMessage(sticker));
+      sendGiphyAnalytics(sticker, 'onsent');
+    } catch {
+      setFeedback('Could not queue GIPHY sticker. Try again.');
+    }
+  };
+
   const handleUnsend = async () => {
     if (!unsendTarget) return;
     await unsendMessage(unsendTarget.id);
@@ -243,8 +276,9 @@ export const ChatPage: React.FC = () => {
         senderName: resolveSenderName(actionMessage.senderId),
         content: actionMessage.content,
       });
+      // The action sheet traps focus until its exit animation completes.
+      focusAfterActionReplyRef.current = true;
       setActionMessageId(null);
-      setTimeout(() => composerRef.current?.focus(), 50);
     }
   };
 
@@ -338,6 +372,8 @@ export const ChatPage: React.FC = () => {
                     message={item.message}
                     isOutgoing={item.message.direction === 'outgoing'}
                     currentUserId={myUserId}
+                    autoplayGiphy={autoplayGiphy}
+                    reducedMotion={effectiveReducedMotion}
                     showTimestamp={item.showTimestamp}
                     statusKind={statusById.get(item.message.id)}
                     resolveSenderName={resolveSenderName}
@@ -345,13 +381,17 @@ export const ChatPage: React.FC = () => {
                     onQuoteTap={handleQuoteTap}
                     onReact={handleBubbleReact}
                     onSwipeReply={(m) => {
+                      // iOS WebKit only reliably summons the software keyboard
+                      // when focus occurs during the originating user gesture
+                      // (the reply swipe's pointerup), not in an effect/RAF.
+                      // The composer already exists; focus before React updates.
+                      composerRef.current?.focus();
                       setReplyTo({
                         id: m.id,
                         senderId: m.senderId,
                         senderName: resolveSenderName(m.senderId),
                         content: m.content,
                       });
-                      setTimeout(() => composerRef.current?.focus(), 50);
                     }}
                     gesturesDisabled={!!actionMessage || !!reactionTarget || !!unsendTarget}
                   />
@@ -375,6 +415,7 @@ export const ChatPage: React.FC = () => {
         <MessageComposer
           ref={composerRef}
           onSend={handleSend}
+          onOpenStickers={() => { setHasOpenedStickers(true); setStickerPacksOpen(true); }}
           disabled={!friendId}
           placeholder="Message..."
           replyTo={replyTo}
@@ -382,6 +423,18 @@ export const ChatPage: React.FC = () => {
         />
       </div>
 
+      {hasOpenedStickers && (
+        <React.Suspense fallback={null}>
+          <StickerPackSheet
+            key={myUserId}
+            isOpen={stickerPacksOpen}
+            onClose={() => setStickerPacksOpen(false)}
+            ownerId={myUserId}
+            onPick={handlePickSticker}
+            onPickGiphy={handlePickGiphySticker}
+          />
+        </React.Suspense>
+      )}
       <MessageActionSheet
         isOpen={!!actionMessage}
         onClose={() => setActionMessageId(null)}
@@ -389,6 +442,16 @@ export const ChatPage: React.FC = () => {
         isOwn={actionMessage?.senderId === myUserId}
         currentUserId={myUserId}
         onReply={handleReplyFromSheet}
+        onClosed={() => {
+          if (!focusAfterActionReplyRef.current) return;
+          focusAfterActionReplyRef.current = false;
+          // BottomSheet restores the previous focus on the frame after releasing
+          // app inertness. Focus the composer after that restoration, not during
+          // the sheet's closing animation.
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            composerRef.current?.focus();
+          }));
+        }}
         onCopy={() => {
           if (actionMessage) {
             navigator.clipboard.writeText(actionMessage.content);
