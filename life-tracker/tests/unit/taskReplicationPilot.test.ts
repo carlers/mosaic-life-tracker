@@ -772,6 +772,25 @@ describe('task RxDB replication pilot', () => {
     ]);
   });
 
+  it('fails closed on uncheckpointed owner bootstrap that would overwrite remote completion', async () => {
+    getRowMock.mockResolvedValue(remoteTask({
+      is_completed: true,
+      completed_at: '2026-10-02T00:00:04.000Z',
+      updated_at: '2026-10-02T00:00:04.000Z',
+    }));
+    const next = localTask({
+      title: 'Offline title edit',
+      updatedAt: '2026-10-02T00:00:07.000Z',
+    });
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks([
+      { newDocumentState: next },
+    ] as never, 'user_A');
+    expect(conflicts).toEqual([expect.objectContaining({
+      completed: true, completedAt: '2026-10-02T00:00:04.000Z',
+    })]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
   it('preserves a server-side friend reaction while pushing an owner edit', async () => {
     listRowsMock.mockImplementation(async ({ tableId }: any) => {
       if (tableId === 'friendships') {

@@ -168,7 +168,7 @@ describe('notifications backend', () => {
     }
   });
 
-  it('suppresses follower Alerts after a pending invitation changes an already completed task row', async () => {
+  it('suppresses follower Alerts for a task with a sharing history even after revoke', async () => {
     const completedAt = new Date().toISOString();
     const db = {
       getRow: vi.fn(async ({ tableId }: { tableId: string }) => {
@@ -183,7 +183,7 @@ describe('notifications backend', () => {
         throw Object.assign(new Error('not found'), { code: 404 });
       }),
       listRows: vi.fn().mockResolvedValue({ rows: [{
-        task_id: 'task_1', owner_id: 'user_a', invitee_id: 'user_b', status: 'pending',
+        task_id: 'task_1', owner_id: 'user_a', invitee_id: 'user_b', status: 'revoked',
       }] }),
       createRow: vi.fn(),
     };
@@ -196,7 +196,8 @@ describe('notifications backend', () => {
     expect(db.listRows.mock.calls[0][0].tableId).toBe('task_shares');
     expect(db.listRows.mock.calls[0][0].queries
       .map((query: string) => JSON.parse(query))).toEqual(expect.arrayContaining([
-        { method: 'equal', attribute: 'status', values: ['pending', 'accepted'] },
+        { method: 'equal', attribute: 'task_id', values: ['task_1'] },
+        { method: 'limit', values: [1] },
       ]));
     expect(db.createRow).not.toHaveBeenCalled();
   });

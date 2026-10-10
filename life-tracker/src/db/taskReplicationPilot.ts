@@ -552,6 +552,16 @@ async function pushTasks(
         conflicts.push(current);
         continue;
       }
+      // Missing replication metadata is not a license to overwrite a server
+      // completion merely because this client's local updatedAt is newer.
+      // Without an assumed master we cannot separate an owner completion
+      // intent from independent title/date edits; protect the remote truth.
+      if (completionChanged(next, current)) {
+        recordCompletionConflict(userId);
+        await cleanupPendingTaskImage(next, userId);
+        conflicts.push(current);
+        continue;
+      }
 
       // Reactions are server-mutated even for owner tasks. Preserve the
       // current remote reaction set while carrying the newer local owner edit.
