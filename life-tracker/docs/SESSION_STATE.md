@@ -18,7 +18,9 @@ Full task-branch diagnostic [Actions run 38011727704](https://github.com/carlers
 
 ## Next action
 
-Run focused CI on the repaired task commit, squash into stable Preview only when green, then require exact SHA canonical CI and Vercel READY. Any remaining browser/device checks must be explicitly reported.
+Repair the hardcoded aggregate-budget test on a new task branch based on the first stable Preview `0634d2e7`, run focused CI, squash the repair to stable Preview, and require canonical CI + Vercel READY on the **new** exact SHA. Remaining browser/device checks must be separately reported. Scratch Appwrite rejected exact-alias registration with 403 `additional_resource_not_allowed` (six registered platforms); the existing wildcard does not prove browser authentication.
+
+Stable Preview [Actions 38011934107](https://github.com/carlers/mosaic-life-tracker/actions/runs/38011934107) compiled production build and passed both DOM shards; the full unit suite found only the preexisting hardcoded v0.11.0 aggregate-budget assertions in `buildSizeGuard.test.ts`. Reconcile those assertions with the reviewed v0.12.0 thresholds, retaining the startup invariants.
 
 ## Verification and delivery
 - Single scoped task commit with `[verify:focused]`; focused green before squash to stable Preview.
