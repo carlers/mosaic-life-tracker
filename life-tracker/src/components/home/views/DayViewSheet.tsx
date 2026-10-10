@@ -15,7 +15,7 @@ const LazyShareTaskSheet = lazy(() =>
   import('./ShareTaskSheet').then(({ ShareTaskSheet }) => ({ default: ShareTaskSheet }))
 );
 import { useSharedTasks } from '../../../hooks/useSharedTasks';
-import { useFriends } from '../../../hooks/useFriends';
+import { useOptionalFriendList } from '../../../hooks/useFriends';
 import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { MemoSheet } from './MemoSheet';
@@ -148,7 +148,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     [currentUserId, ownerPendingRevision]);
   const sharedTasks = useSharedTasks('received', isOpen);
   const ownerShares = useSharedTasks('owned', isOpen);
-  const { friends: sharingFriends } = useFriends();
+  const sharingFriends = useOptionalFriendList();
   const labelMode = getSetting('sharedTaskLabelMode', 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting('showPendingSharedTaskInvites', false) === true;
   const ownerLabels = useMemo(() => ownerShareLabels(

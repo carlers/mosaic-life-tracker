@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
-import { useFriends } from '../../hooks/useFriends';
+import { useOptionalFriendList } from '../../hooks/useFriends';
 import type { SharedTaskItem } from '../../lib/taskShareQueue';
 
 export const SharedTaskInvitationInbox: React.FC = () => {
   const { items, online, isLoading, error, updateMembership,
     pendingMembershipFor, reload } = useSharedTasks('received');
-  const { friends } = useFriends();
+  const friends = useOptionalFriendList();
   const [busy, setBusy] = useState('');
   const [feedback, setFeedback] = useState('');
   const invitations = items.filter(item => item.status === 'pending');
