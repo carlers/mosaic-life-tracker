@@ -196,6 +196,60 @@ async function startDrag(page, locator, deltaX) {
   };
 }
 
+// Regression: #471 chat shell must never reflow during the route slide.
+test('chat entering and leaving keeps the outgoing viewport geometry stable', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?chatMotion=1`);
+  await expect(page.getByTestId('open-chat-motion')).toBeVisible();
+
+  async function sample(buttonId, exitingId) {
+    return page.evaluate(async ({ buttonId, exitingId }) => {
+      const outgoing = document.querySelector(`[data-testid="${exitingId}"]`);
+      const button = document.querySelector(`[data-testid="${buttonId}"]`);
+      if (!(outgoing instanceof HTMLElement) || !(button instanceof HTMLButtonElement)) {
+        throw new Error('Missing chat viewport test surface');
+      }
+      const before = outgoing.getBoundingClientRect();
+      button.click();
+      const measurements = [];
+      for (let i = 0; i < 8; i += 1) {
+        await new Promise(requestAnimationFrame);
+        if (!outgoing.isConnected) break;
+        const rect = outgoing.getBoundingClientRect();
+        measurements.push({
+          height: rect.height, top: rect.top, left: rect.left,
+          exiting: outgoing.closest('[data-viewport-mode]')?.getAttribute('aria-hidden'),
+        });
+      }
+      return { height: before.height, top: before.top, left: before.left, measurements };
+    }, { buttonId, exitingId });
+  }
+
+  const opening = await sample('open-chat-motion', 'motion-messages-screen');
+  expect(opening.measurements.length).toBeGreaterThan(2);
+  for (const rect of opening.measurements) {
+    expect(Math.abs(rect.height - opening.height)).toBeLessThan(2);
+    expect(Math.abs(rect.top - opening.top)).toBeLessThan(2);
+    expect(rect.exiting).toBe('true');
+  }
+  // Entering chat moves its outgoing standard page gently LEFT.
+  expect(opening.measurements.some((rect) => rect.left < opening.left - 2)).toBe(true);
+  const chat = page.getByTestId('motion-chat-screen');
+  await expect(chat).toBeVisible();
+  await expect(page.getByTestId('motion-chat-dock')).toBeVisible();
+  await expect(page.getByTestId('route-viewport-panel')).toHaveCount(1);
+
+  const closing = await sample('close-chat-motion', 'motion-chat-screen');
+  expect(closing.measurements.length).toBeGreaterThan(2);
+  for (const rect of closing.measurements) {
+    expect(Math.abs(rect.height - closing.height)).toBeLessThan(2);
+    expect(Math.abs(rect.top - closing.top)).toBeLessThan(2);
+    expect(rect.exiting).toBe('true');
+  }
+  // Back from chat must move the OLD chat RIGHT, not treat it as a standard page.
+  expect(closing.measurements.some((rect) => rect.left > closing.left + 2)).toBe(true);
+  await expect(page.getByTestId('motion-messages-screen')).toBeVisible();
+});
+
 // Regression: §2/§7 (primary-route swipe ownership and direct manipulation).
 test('primary route swipe is direct-manipulation with Home and Me ownership rules', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
@@ -287,6 +341,41 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
   await expect(page.getByTestId('primary-route')).toHaveText('explore');
 });
 
+// Regression: §2/§7 (desktop horizontal wheel reuses route gesture ownership).
+test('horizontal trackpad wheel follows the route compositor and detail edge rules', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.getByTestId('set-primary-explore').click();
+
+  const surface = page.getByTestId('primary-route-swipe-surface');
+  await surface.scrollIntoViewIfNeeded();
+  let box = await surface.boundingBox();
+  if (!box) throw new Error('Missing wheel route surface');
+  await page.mouse.move(box.x + box.width / 2, box.y + 32);
+  await page.mouse.wheel(0, 140);
+  await expect(page.getByTestId('primary-route')).toHaveText('explore');
+
+  await surface.scrollIntoViewIfNeeded();
+  box = await surface.boundingBox();
+  if (!box) throw new Error('Missing wheel route surface after scroll');
+  await page.mouse.move(box.x + box.width / 2, box.y + 32);
+  await page.mouse.wheel(150, 0);
+  await expect(page.getByTestId('primary-route')).toHaveText('account');
+
+  await page.getByTestId('set-primary-friend-detail').click();
+  await page.waitForTimeout(850); // the previous wheel's momentum cooldown
+  await surface.scrollIntoViewIfNeeded();
+  box = await surface.boundingBox();
+  if (!box) throw new Error('Missing detail route surface');
+  await page.mouse.move(box.x + box.width / 2, box.y + 40);
+  await page.mouse.wheel(-150, 0);
+  await page.waitForTimeout(350);
+  await expect(page.getByTestId('primary-route')).toHaveText('friend-detail');
+
+  await page.mouse.move(box.x + 20, box.y + 40);
+  await page.mouse.wheel(-150, 0);
+  await expect(page.getByTestId('primary-route')).toHaveText('explore');
+});
+
 // Regression: §24.17 (switch thumb remains inside its usable track).
 test('settings switches keep the thumb bounded and move it from left to right', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
@@ -347,6 +436,32 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
 
   await drag(page, page.getByTestId('friend-swipe-zone'), -260);
   await expect(friendIndex).toHaveText('1');
+});
+
+test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  const friendIndex = page.getByTestId('friend-index');
+  const calendarTitle = page.getByTestId('calendar-title');
+  const calendarRegion = page.getByTestId('calendar-region');
+  await expect(friendIndex).toHaveText('0');
+  const calendarBefore = await calendarTitle.textContent();
+  const calendarBox = await calendarRegion.boundingBox();
+  if (!calendarBox) throw new Error('Missing calendar wheel viewport');
+  await page.mouse.move(calendarBox.x + calendarBox.width / 2, calendarBox.y + 80);
+  await page.mouse.wheel(0, 130);
+  await expect(calendarTitle).toHaveText(calendarBefore);
+  await page.mouse.wheel(90, 0);
+  await expect.poll(() => calendarTitle.textContent()).not.toBe(calendarBefore);
+  await expect(friendIndex).toHaveText('0');
+
+  const todo = page.getByTestId('todo-calendar-region');
+  const todoBox = await todo.boundingBox();
+  if (!todoBox) throw new Error('Missing Todo wheel viewport');
+  await page.mouse.move(todoBox.x + todoBox.width / 2, todoBox.y + 70);
+  await expect(page.getByTestId('todo-month')).toHaveText('September 2026');
+  await page.mouse.wheel(90, 0);
+  await expect(page.getByTestId('todo-month')).toHaveText('October 2026');
+  await expect(friendIndex).toHaveText('0');
 });
 
 // Regression: §2/§7 (Todo calendar owns direct-manipulation swipes).

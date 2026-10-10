@@ -1,27 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: Implement #465 (focused task-input completion) and #466 (single Display Name editor).
-Baseline: `dev` `d4a32acff711f36e0b6e3dd4e4c8ae216df8c9c9` (v0.10.1). Main unchanged.
-Task branch: `chatgpt/focused-task-profile-fixes`.
-Stable Preview target: `fix/task-input-profile-name`.
-Proposed Preview candidate: **0.11.0** (new completion-from-input capability).
+Current task: integrate accepted navigation and chat jitter fixes (#410/#416/#471) into `dev` without losing #465/#466.
+Baseline: live dev `6ebb6ad78d27ce92d58df557ced5553ed5f59e2d` v0.11.0, Quality Gate `38006414938` SUCCESS. Accepted navigation Preview `feature/navigation-polish` `004ab5f0c503421d8f6813600f56f29d629c22c4` v0.11.2, canonical CI `38010048987` SUCCESS, Vercel READY. `main` unchanged.
+Task branch: `chatgpt/navigation-dev-integration`; stable integration Preview: `feature/navigation-dev-integration`. Candidate **v0.11.3** because the combined user-testable tree differs from the already-published v0.11.2 and must increase monotonically.
 
-## Scope and implementation
-- Inline add-row checkbox creates a completed task with the pending title; Enter creates incomplete tasks. Respect continuous-entry mode, empty drafts and task order.
-- Existing task completion toggles while title input is focused, without an implicit blur-save.
-- Remove duplicate Display Name input from username setup. The owner-synced `displayName` setting is the only name editor; mirror it via settings replication to public `profiles.display_name`. Preserve signup and legacy name fallback.
-- Focused DOM and replication regressions. No Appwrite schema/Function change, redesign or production backend writes.
+## Scope and resolved conflicts
+- Preserve dev issue #465's focused task input checkbox/complete semantics and #466's single Display Name editor, profile replication and corresponding regressions, untouched by navigation work.
+- Integrate issue #410 optional Escape-as-Back, #416 bounded trackpad and Calendar/Todo Embla wheel navigation, and #471 automatic directional route motion, reduced-animations preference, chat viewport jitter fix and associated browser/DOM tests.
+- Keep dev's `DayViewSheet` completed-creation callback; layer the nav animation imports/context, focused-task scrolling OS preference, and reduced-motion Swiper speed without substituting the older navigation branch version.
+- Use reviewed navigation aggregate build-size ceilings, preserve all startup/Home limits, and retain both dev product contracts (#465/#466) and navigation contracts in `PROJECT_REFERENCE.md`.
+- No new backend/Appwrite work, no #404 large-screen redesign, no other refactor.
 
 ## Verification and delivery
-- Publish coherent task commit with `[verify:focused]`; repair focused checks before stable Preview squash.
-- Require exact stable Preview SHA canonical CI and Vercel READY; record manual input-focus, keyboard and mobile checks as not performed unless tested.
-- No Preview → dev or dev → main promotion without separate user authorization.
+- Focused task CI on exact integration commit, then squash into stable integration Preview. Require exact-SHA canonical CI and Vercel READY for the **combined** source tree, not the old independent navigation CI.
+- User explicitly approved promotion to `dev`, but `main` remains unchanged. Promote integration Preview by a normal merge PR only after acceptance; confirm CI and matching Vercel commit.
+- Real Android Back and sheet-stack motion, physical laptop trackpad smoothness, Reduce animations in Light/Dark/Black, and authenticated Scratch Preview login remain separate manual/device checks; automated CI alone does not assert them.
 
-Verification checkpoint: Focused task run 37963972298 passed at `7ae618e`. First stable Preview commit `83c32ee` failed build-size policy by 215 B raw assets and 278 B precache bytes; repair removes redundant rendering and consolidates identical public-profile update paths without raising limits.
-
-Second Preview run 37964625258 reached the raw app-assets budget but exceeded unique precache by 31 B. Follow-up repair removes duplicated username availability/error branches and redundant early saving-state writes while preserving fallback/errors under regression tests.
-
-Third Preview run 38005187019 missed precache by 5 B. Profile lookup alias repair yielded exact Preview `5af2fc16`, with [canonical CI 38005381165] SUCCESS (all suites and size: raw assets 2,300,518 B, precache 2,383,081 B). Vercel Preview `dpl_42SVYwYo1k5A2x1TZuxPMGZd2sEj` independently failed size: raw assets 2,300,682 B (+82 B), precache 2,383,245 B (+145 B), despite all other metrics passing. These are measured environment-specific emitted-size differences, not application test failures. After repeated small optimizations, accept the user-visible v0.11.0 growth explicitly: increase **only** aggregate raw-assets and precache limits by 600 B each. Keep all startup/Home and gzip ceilings unchanged, and retain baseline for historical comparison. This is a reviewed bound adjustment (not disabling/rebasing the guard); source remains inside the new ceilings even on Vercel.
-
-Next action: Verify the documented budget revision's focused test run; squash it into stable Preview, require exact SHA canonical CI and Vercel READY, and hand off unperformed mobile/authenticated-device checks.
+## Next action
+Commit the reconciled code, version, docs and tests on `chatgpt/navigation-dev-integration`, run focused verification, repair failures before the stable Preview squash, and promote only the accepted integration tree to `dev`. Update #410/#416/#471 issue milestones. Close/clean up only verified obsolete integration PRs/task branches, retaining release-pending issues until `main` promotion.

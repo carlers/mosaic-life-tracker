@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { useOutlet, useLocation, useNavigate, useNavigationType, Navigate } from 'react-router-dom';
+import { resolveRouteTransition, readRouterHistoryIndex } from '../../lib/routeTransitions';
 import { WifiOff, UserX } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
@@ -101,6 +102,32 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
+  const outlet = useOutlet();
+  const navigationType = useNavigationType();
+  const [skipCompositorTo, setSkipCompositorTo] = useState<string | null>(null);
+  const backFromFallback = Boolean(location.state &&
+    typeof location.state === 'object' &&
+    'mosaicBackAnimation' in location.state &&
+    (location.state as { mosaicBackAnimation?: unknown }).mosaicBackAnimation === true);
+  const [routeTransition, setRouteTransition] = useState(() => ({
+    path, key: location.key, index: readRouterHistoryIndex(window.history.state),
+    direction: 'none' as import('../../lib/routeTransitions').RouteTransitionDirection,
+  }));
+  // React's guarded render-time adjustment keeps direction in lockstep with
+  // location, even when browser Back/Forward changes before an effect runs.
+  if (routeTransition.path !== path || routeTransition.key !== location.key) {
+    const index = readRouterHistoryIndex(window.history.state);
+    const historyDelta = index !== null && routeTransition.index !== null
+      ? index - routeTransition.index : null;
+    const direction = skipCompositorTo === path ? 'none' :
+      resolveRouteTransition(routeTransition.path, path, navigationType, historyDelta, backFromFallback);
+    setRouteTransition({ path, key: location.key, index, direction });
+  }
+  useEffect(() => {
+    if (skipCompositorTo !== path) return;
+    const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
+    return () => window.clearTimeout(timer);
+  }, [path, skipCompositorTo]);
   const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left', location.state);
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
@@ -224,11 +251,11 @@ export const AppLayout: React.FC = () => {
     };
 
     if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(preload, { timeout: 1800 });
+      const idleId = window.requestIdleCallback(preload, { timeout: 500 });
       return () => window.cancelIdleCallback(idleId);
     }
 
-    const timer = window.setTimeout(preload, 750);
+    const timer = window.setTimeout(preload, 180);
     return () => window.clearTimeout(timer);
   }, [messagesIsAdjacent, path, user?.$id]);
 
@@ -329,6 +356,9 @@ export const AppLayout: React.FC = () => {
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
     const destination = resolvePrimarySwipeDestination(path, direction, location.state);
     if (!destination) return;
+    // This route was already animated by PrimaryRouteSwipeSurface.
+    // Do not repeat the slide when its navigation is a browser-history POP.
+    setSkipCompositorTo(destination);
 
     const parent = resolveRouteParent(path, location.state);
     if (direction === 'right' && parent) {
@@ -359,6 +389,7 @@ export const AppLayout: React.FC = () => {
         includeConversations={includeConversations}
         activeTab={activeTab}
         routeKey={path}
+        routeTransitionDirection={routeTransition.direction}
         onTabChange={handleTabChange}
         canSwipeLeft={Boolean(leftSwipeDestination)}
         canSwipeRight={Boolean(rightSwipeDestination)}
@@ -378,7 +409,7 @@ export const AppLayout: React.FC = () => {
         }
         hideBottomNav={protectedRouteHidesBottomNav(path)}
       >
-        <Outlet />
+        {outlet}
       </LazyAppDataShell>
     </Suspense>
   );

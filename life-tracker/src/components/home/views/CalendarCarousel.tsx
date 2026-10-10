@@ -34,6 +34,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden py-2">
       <div
         className="swiper-no-swiping min-h-0 min-w-0 flex-1 overflow-hidden"
+        data-route-swipe-horizontal-owner="true"
         ref={emblaRef}
       >
         <div className="flex h-full min-h-full items-start will-change-transform">

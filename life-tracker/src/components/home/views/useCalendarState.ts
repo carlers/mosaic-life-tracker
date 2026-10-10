@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
+import { AppearanceContext } from '../../../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import {
   format,
   startOfMonth,
@@ -10,6 +12,7 @@ import {
   differenceInCalendarWeeks,
 } from 'date-fns';
 import useEmblaCarousel from 'embla-carousel-react';
+import { useEmblaTrackpadNavigation } from '../../../hooks/useEmblaTrackpadNavigation';
 import type { WeekStartsOn } from '../../../lib/preferences';
 
 export type CalendarViewMode = 'month' | 'week';
@@ -39,6 +42,8 @@ export interface CalendarState {
 export function useCalendarState(
   { weekStartsOn = 0 }: { weekStartsOn?: WeekStartsOn } = {}
 ): CalendarState {
+  const appearance = useContext(AppearanceContext);
+  const reduceMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
@@ -63,8 +68,10 @@ export function useCalendarState(
     align: 'start',
     skipSnaps: false,
     startIndex: CENTER_INDEX,
-    duration: 22,
+    duration: reduceMotion ? 0 : 22,
   });
+
+  useEmblaTrackpadNavigation(emblaApi);
 
   // Keep the active render window aligned to settled snaps. The active slide
   // already has both immediate neighbors mounted, so a one-step drag never

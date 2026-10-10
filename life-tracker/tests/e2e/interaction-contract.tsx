@@ -10,6 +10,7 @@ import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGr
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 import { AuthContext } from '../../src/hooks/authContext';
+import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
 import { MessageComposer } from '../../src/components/messages/MessageComposer';
@@ -17,6 +18,8 @@ import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrowNavigation';
 import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRouteSwipeSurface';
+import { MainLayout } from '../../src/components/layout/MainLayout';
+import { RouteViewportTransition } from '../../src/components/layout/RouteViewportTransition';
 import { applyAppearanceMode } from '../../src/lib/appearance';
 import { SettingsRow } from '../../src/components/ui/SettingsRow';
 
@@ -53,6 +56,41 @@ class DayViewProbeBoundary extends React.Component<
     }
     return this.props.children;
   }
+}
+
+function ChatViewportMotionProbe() {
+  const [chat, setChat] = useState(false);
+  const route = chat ? '/messages/friend_1' : '/messages';
+  const direction = chat ? 'forward' : 'backward';
+  return (
+    <RouteViewportTransition pathname={route} direction={direction}>
+      <MainLayout
+        activeTab="messages"
+        routeKey={route}
+        routeTransitionDirection={direction}
+        onTabChange={() => {}}
+        hideBottomNav={chat}
+      >
+        {chat ? (
+          <div data-testid="motion-chat-screen" className="flex h-full min-h-0 flex-col overflow-hidden">
+            <header className="shrink-0 border-b p-4">Conversation</header>
+            <div className="min-h-0 flex-1 overflow-y-auto" data-testid="motion-chat-scroller">
+              <div style={{ height: 1500 }}>Messages</div>
+            </div>
+            <footer className="shrink-0 p-3" data-testid="motion-chat-dock">
+              <button type="button" data-testid="close-chat-motion" onClick={() => setChat(false)}>Back to messages</button>
+            </footer>
+          </div>
+        ) : (
+          <div data-testid="motion-messages-screen" className="min-h-full">
+            <header className="p-4">Conversations</header>
+            <button type="button" data-testid="open-chat-motion" onClick={() => setChat(true)}>Open conversation</button>
+            <div style={{ height: 1300 }}>Conversation list</div>
+          </div>
+        )}
+      </MainLayout>
+    </RouteViewportTransition>
+  );
 }
 
 export function InteractionHarness() {
@@ -718,7 +756,9 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      <InteractionHarness />
+      {new URLSearchParams(window.location.search).has('chatMotion')
+        ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
+        : <InteractionHarness />}
     </AuthContext.Provider>
   </StrictMode>
 );
