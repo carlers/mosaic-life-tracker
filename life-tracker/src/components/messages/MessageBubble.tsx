@@ -13,6 +13,8 @@ import { activateOnEnterOrSpace } from '../../lib/keyboardActivation';
 import type { MessageDocument } from '../../db/schema';
 import { packStickerSummary, parsePackStickerMessage } from '../../lib/stickerPacks';
 import { PackStickerImage } from './PackStickerImage';
+import { giphyStickerSummary, parseGiphyStickerMessage } from '../../lib/giphyStickers';
+import { GiphyStickerImage } from './GiphyStickerImage';
 
 export type MessageStatusKind = 'pending' | 'delivered' | 'read';
 
@@ -48,7 +50,7 @@ function buildBubbleLabel(
   if (message.replyToId) {
     parts.push(`in reply to ${replySenderName}`);
   }
-  parts.push(packStickerSummary(message.content));
+  parts.push(packStickerSummary(giphyStickerSummary(message.content)));
   return parts.join(' ');
 }
 
@@ -175,6 +177,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   }
 
   const packSticker = parsePackStickerMessage(message.content);
+  const giphySticker = parseGiphyStickerMessage(message.content);
   const statusRow =
     isOutgoing && (statusKind || showTimestamp || showTimestampLocal);
 
@@ -208,7 +211,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             touchAction: 'pan-y',
           }}
           className={`select-none block w-full text-left rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
-            packSticker
+            packSticker || giphySticker
               ? 'bg-transparent px-1 py-1 text-white'
               : isOutgoing
                 ? 'bg-surfaceHighlight text-white px-3 py-2'
@@ -248,6 +251,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           )}
           {packSticker ? (
             <PackStickerImage sticker={packSticker} />
+          ) : giphySticker ? (
+            <GiphyStickerImage id={giphySticker.id} label={giphySticker.label} />
           ) : (
             <span className="text-sm whitespace-pre-wrap break-words">
               {message.content}

@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import type { GiphySticker } from '../../lib/giphyStickers';
+
+const GiphyStickerSearch = React.lazy(() => import('./GiphyStickerSearch').then(module => ({ default: module.GiphyStickerSearch })));
+
 import { Check, Plus, Search } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { PackStickerImage } from './PackStickerImage';
@@ -14,12 +18,13 @@ interface StickerPackSheetProps {
   onClose: () => void;
   ownerId: string;
   onPick: (packId: string, stickerId: string) => void;
+  onPickGiphy?: (sticker: GiphySticker) => void;
 }
 
 export const StickerPackSheet: React.FC<StickerPackSheetProps> = ({
-  isOpen, onClose, ownerId, onPick,
+  isOpen, onClose, ownerId, onPick, onPickGiphy,
 }) => {
-  const [tab, setTab] = useState<'installed' | 'discover'>('installed');
+  const [tab, setTab] = useState<'installed' | 'discover' | 'giphy'>('installed');
   const [query, setQuery] = useState('');
   const [activePackId, setActivePackId] = useState('reactions');
   const [prefs, setPrefs] = useState(() => ({
@@ -56,7 +61,17 @@ export const StickerPackSheet: React.FC<StickerPackSheetProps> = ({
             className={'flex-1 rounded-lg px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-emerald-500 ' +
               (tab === 'discover' ? 'bg-surfaceHighlight text-white' : 'bg-surface text-gray-400')}
             onClick={() => setTab('discover')}>Discover</button>
+          <button type="button" role="tab" aria-selected={tab === 'giphy'}
+            className={'flex-1 rounded-lg px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-emerald-500 ' +
+              (tab === 'giphy' ? 'bg-surfaceHighlight text-white' : 'bg-surface text-gray-400')}
+            onClick={() => setTab('giphy')}>GIPHY</button>
         </div>
+        {tab === 'giphy' ? (
+          <React.Suspense fallback={<div role="status" className="py-8 text-center text-sm text-gray-400">Opening GIPHY…</div>}>
+            <GiphyStickerSearch onPick={sticker => onPickGiphy?.(sticker)} />
+          </React.Suspense>
+        ) : (
+        <>
         <label className="flex items-center gap-2 rounded-xl border border-[#444444] bg-surface px-3 py-2 text-gray-400">
           <Search size={16} aria-hidden="true" />
           <span className="sr-only">Search stickers</span>
@@ -130,6 +145,8 @@ export const StickerPackSheet: React.FC<StickerPackSheetProps> = ({
           {' · '}<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" className="underline">CC BY 4.0</a>
           {' · '}Unmodified, delivered on demand. Packs saved on this device only.
         </p>
+        </>
+        )}
       </div>
     </BottomSheet>
   );

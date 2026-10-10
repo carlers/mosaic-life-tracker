@@ -1,22 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: Issue #489 — rights-cleared sticker libraries MVP, no private sticker imports.
-Baseline: `dev` `60fe24b7852d420ee9c0915ed597ee61bc71801b` (v0.12.1); `main` remains untouched.
-Task branch: `chatgpt/sticker-libraries-489`; stable Preview: `feature/sticker-libraries` from the same dev baseline.
-Version: v0.16.0 candidate (v0.14.0 and v0.15.0 reserved by other active Preview features).
+Current task: Issue #489 — optional direct-client GIPHY search in sticker libraries.
+Baseline: stable `feature/sticker-libraries` SHA `5bab5e5e123c063b248946748896ffdf280c54a0` v0.16.0, canonical Actions `38065229234` SUCCESS, Vercel `dpl_6Lbu2PbdugNwoUc6TL9K7Cg3sdTt` READY.
+Task branch: `chatgpt/giphy-stickers-489`; same stable Preview branch for v0.16.1.
+Neither `dev` nor `main` receives this work without explicit promotion approval.
 
-## Objective / changes
+## Scope and implementation
+- User requests smallest working sticker-provider search following acceptance of Twemoji sticker packs.
+- Direct browser GIPHY `/v1/stickers/search` with debounce and limited results, separate tab and visible attribution; no SDK dependency, proxy, caching layer, Appwrite binary uploads or schema updates.
+- Readable ID-only `[gp1:<id>]` references sent through existing offline text-message pipeline. Resolve by provider metadata only when visible; safely handle offline/withdrawn/provider-failed content. Provider URL/analytics origins validated; send no app user identity.
+- No GIPHY Web API key currently configured in Vercel, so integration will show a setup state. Key creation via https://developers.giphy.com/dashboard/ and Vercel `VITE_GIPHY_API_KEY` Preview environment is required for **live** functionality, after which rebuild and real two-account acceptance can happen. Key is public in client bundles per API design; do not use backend secrets. Rate limit 100 calls/h for beta keys; production review/fees may apply.
+- A GIPHY search result is NOT a Mosaic-licensed bundled pack; Pusheen/Sanrio/Adventure Time character collections remain rights-pending. Twemoji remains unchanged.
+- Version v0.16.1 is a user-visible Preview refinement. Check existing version reserves before further numbering.
 
-- Replace canceled #413 personal uploads and Android IME ingestion with licensed, server-storage-free curated sticker packs. #413 is closed not planned; do not merge its old feature branch.
-- Add immutable versioned pack registry and compact allowlisted message references; only pinned transparent Twemoji SVGs (CC BY 4.0, credited) are fetched directly on demand from jsDelivr. GIPHY is not active without approved key; Pusheen, Sanrio and Adventure Time remain rights-blocked.
-- Chat sticker button opens lazy-loaded shared BottomSheet with My Packs, Discover, filter and one-tap message sends, without touching draft text. Per-owner device-local bookmarks, no duplicate Appwrite file, no schema, Function or bucket change.
-- Preserve offline outgoing queue, unsend, replies, message search, reaction, status, quote and old-client readable fallback. No outside URLs from message content.
-
-## Verification
-
-Original task focused Actions 38064929307 SUCCESS; stable Preview SHA 1c33eefef0d709ac6aebc74d568c6eb105633878 full CI had build-size aggregate-only failure (CI +8,147 raw / +2,441 gzip / +8,534 precache; Vercel +8,311 / +2,628 / +8,698). Entry, startup and Home limits passed unchanged. This repair raises **only** the aggregate/precache budget by 13,000 / 5,000 / 13,000 bytes, preserving the original historical baseline and initial closure guard. Require new task focused CI and full stable acceptance + same-SHA READY Vercel. Unit/DOM coverage added for allowlist, typed wire, bookmarks, picker, rendering and fallback. These tests are not real phone, licensing for branded packs or two-user Scratch auth verification.
-
-## Next action
-
-Publish coherent task commit with `[verify:focused]`. Fix focused failures, squash task PR to stable Preview, verify exact-SHA canonical acceptance and Vercel READY. Collect manual/Scratch acceptance separately. Do not promote to dev or main without explicit permission.
+## Verification and next action
+- Add pure and DOM regression tests for strict refs, provider-only URLs, direct no-cache search and missing-key fallback. Original v0.16.0 canonical pass is historical; new revision needs focused check + stable canonical full gate and same-SHA READY Vercel.
+- Obtain a legitimate GIPHY Web API key before claiming live search or real media downloads. Scratch exact Preview origin remained unregistered at six-slot Free limit; real authenticated two-account, Diary, and phone UI/Back remain separate unverified manual gates.
+- Commit scoped changes with `[verify:focused]`, repair failures, squash into stable Preview, verify new exact SHA then issue handoff. Do not promote dev/main.

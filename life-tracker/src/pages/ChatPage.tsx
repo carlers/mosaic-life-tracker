@@ -28,6 +28,7 @@ import {
 } from '../components/messages/chatRenderItems';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 import { packStickerMessage } from '../lib/stickerPacks';
+import { giphyStickerMessage, sendGiphyAnalytics, type GiphySticker } from '../lib/giphyStickers';
 
 const StickerPackSheet = React.lazy(() => import('../components/messages/StickerPackSheet').then(module => ({ default: module.StickerPackSheet })));
 
@@ -236,6 +237,16 @@ export const ChatPage: React.FC = () => {
     }
   };
 
+  const handlePickGiphySticker = async (sticker: GiphySticker) => {
+    setStickerPacksOpen(false);
+    try {
+      await handleSend(giphyStickerMessage(sticker));
+      sendGiphyAnalytics(sticker, 'onsent');
+    } catch {
+      setFeedback('Could not queue GIPHY sticker. Try again.');
+    }
+  };
+
   const handleUnsend = async () => {
     if (!unsendTarget) return;
     await unsendMessage(unsendTarget.id);
@@ -401,10 +412,12 @@ export const ChatPage: React.FC = () => {
       {hasOpenedStickers && (
         <React.Suspense fallback={null}>
           <StickerPackSheet
+            key={myUserId}
             isOpen={stickerPacksOpen}
             onClose={() => setStickerPacksOpen(false)}
             ownerId={myUserId}
             onPick={handlePickSticker}
+            onPickGiphy={handlePickGiphySticker}
           />
         </React.Suspense>
       )}
