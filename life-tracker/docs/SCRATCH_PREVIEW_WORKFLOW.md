@@ -72,9 +72,13 @@ and the registered hostname check are mandatory for authenticated handoff.
 
 ## Synthetic fixture accounts
 
-Optional repeatable scratch identities are:
-`mosaic.preview.actor@example.com` and
-`mosaic.preview.viewer@example.com`. They are **not** a copy of production.
+Optional repeatable scratch identities for shared-task acceptance are:
+`mosaic.preview.actor406@example.com`,
+`mosaic.preview.friend406@example.com`, and
+`mosaic.preview.other406@example.com`. The older two-account fixtures
+used noncanonical profile/friendship row IDs and are deliberately **not**
+modified by this seed; they must not be used for shared-task acceptance.
+These synthetic identities are **not** a copy of production.
 Use a separate password with 12+ characters, supplied out-of-band through
 `MOSAIC_SCRATCH_TEST_PASSWORD`; a temporary project-scoped admin key with
 users.write/rows.write scopes is required. Do not use personal passwords.
@@ -87,9 +91,12 @@ npm run appwrite:preview:seed -- \
   --confirm-project 6a96e82d000d1310b3be
 ```
 
-This seeds two accounts, each with a profile, category, uncompleted
-friend-visible task, diary row containing `created_at`, and reciprocal
-accepted friendship. Both task and category use Mosaic's supported
+This seeds three accounts, each with a canonical profile ID, category,
+uncompleted friend-visible task, and diary row containing `created_at`. The
+actor is reciprocally accepted with each other account, with private
+(read-only) friendship grants; the two friends are not linked. All rows use
+the canonical IDs expected by the live server handlers. Both task and
+category use Mosaic's supported
 `followers` visibility (not `friends`), so an accepted friend can see the
 seeded uncompleted task. Repeated runs preserve existing records/passwords;
 they **never** clear or refresh existing data. To test notifications, subscribe

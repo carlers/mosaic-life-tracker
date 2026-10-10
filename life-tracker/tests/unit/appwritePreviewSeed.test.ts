@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { PREVIEW_IDENTITIES, runPreviewSeed, seedPreviewFixtures } from '../../scripts/appwrite-preview-seed.mjs';
 const password = 'synthetic-long-test-password';
@@ -9,12 +10,12 @@ function services() {
   };
 }
 describe('scratch reusable synthetic accounts', () => {
-  it('creates only two named users and owned fixture rows without production data', async () => {
+  it('creates three isolated accounts and canonical private friendship fixtures', async () => {
     const mock = services();
     const log = vi.fn();
     const result = await seedPreviewFixtures({ ...mock, password, log, now: '2026-10-08T00:00:00Z' });
-    expect(result).toEqual({ users: 2, rows: 10 });
-    expect(mock.users.create).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ users: 3, rows: 16 });
+    expect(mock.users.create).toHaveBeenCalledTimes(3);
     const created = mock.users.create.mock.calls.map(call => call[0]);
     expect(created.map((user: {userId: string}) => user.userId)).toEqual(PREVIEW_IDENTITIES.map(x => x.id));
     expect(mock.tablesDB.createRow).toHaveBeenCalledWith(expect.objectContaining({
@@ -26,14 +27,43 @@ describe('scratch reusable synthetic accounts', () => {
     expect(mock.tablesDB.createRow).toHaveBeenCalledWith(expect.objectContaining({
       tableId: 'tasks', data: expect.objectContaining({ visibility: 'followers' }),
     }));
+    for (const user of PREVIEW_IDENTITIES) {
+      expect(mock.tablesDB.createRow).toHaveBeenCalledWith(expect.objectContaining({
+        tableId: 'profiles', rowId: 'profile_' + user.id,
+        data: expect.objectContaining({ user_id: user.id }),
+      }));
+    }
+    for (const friend of PREVIEW_IDENTITIES.slice(1)) {
+      for (const [user, peer] of [[PREVIEW_IDENTITIES[0], friend], [friend, PREVIEW_IDENTITIES[0]]]) {
+        const friendshipId = 'fr_' + createHash('sha256')
+          .update(user.id + '|' + peer.id).digest('hex').slice(0, 32);
+        expect(mock.tablesDB.createRow).toHaveBeenCalledWith(expect.objectContaining({
+          tableId: 'friendships', rowId: friendshipId,
+          data: expect.objectContaining({ user_id: user.id, friend_id: peer.id, status: 'accepted' }),
+        }));
+      }
+    }
+    const friendships = mock.tablesDB.createRow.mock.calls
+      .map(call => call[0]).filter(row => row.tableId === 'friendships');
+    expect(friendships).toHaveLength(4);
+    for (const row of friendships) {
+      expect(row.permissions).toEqual([`read("user:${row.data.user_id}")`]);
+    }
     expect(JSON.stringify(log.mock.calls)).not.toContain(password);
   });
   it('is idempotent and does not reset existing account passwords or overwrite rows', async () => {
     const mock = services();
     mock.users.get.mockImplementation(async ({userId}: {userId:string}) =>
       ({ email: PREVIEW_IDENTITIES.find(x => x.id === userId)!.email }));
-    mock.tablesDB.getRow.mockImplementation(async ({rowId}: {rowId:string}) => {
-      const identity = PREVIEW_IDENTITIES.find(x => rowId.endsWith(x.id))!;
+    mock.tablesDB.getRow.mockImplementation(async ({rowId, tableId}: {rowId:string; tableId:string}) => {
+      const identity = PREVIEW_IDENTITIES.find(user => {
+        if (tableId !== 'friendships') return rowId.endsWith(user.id);
+        return PREVIEW_IDENTITIES.some(peer => peer.id !== user.id &&
+          (user.id === PREVIEW_IDENTITIES[0].id || peer.id === PREVIEW_IDENTITIES[0].id) &&
+          rowId === 'fr_' + createHash('sha256')
+            .update(user.id + '|' + peer.id).digest('hex').slice(0, 32));
+      });
+      if (!identity) throw missing;
       return { data: { user_id: identity.id } };
     });
     const result = await seedPreviewFixtures({ ...mock, password, log: vi.fn() });
