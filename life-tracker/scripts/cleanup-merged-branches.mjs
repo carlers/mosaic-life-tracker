@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { appendFileSync } from 'node:fs';
-import { assessBranch } from './lib/branch-hygiene.mjs';
+import { assessBranch, encodedBranchName, encodedRefPath } from './lib/branch-hygiene.mjs';
 
 const repository = process.env.GITHUB_REPOSITORY;
 const token = process.env.GITHUB_TOKEN;
@@ -45,10 +45,6 @@ async function allPages(path) {
   throw new Error('GitHub pagination exceeded safety limit: ' + path);
 }
 
-function branchPath(name) {
-  return name.split('/').map(encodeURIComponent).join('/');
-}
-
 function queryParam(value) {
   return encodeURIComponent(value);
 }
@@ -56,7 +52,7 @@ function queryParam(value) {
 async function recheck(branch, nowMs) {
   let current;
   try {
-    current = await github('/branches/' + branchPath(branch.name));
+    current = await github('/branches/' + encodedBranchName(branch.name));
   } catch (error) {
     if (error.status === 404) return { eligible: false, reason: 'already-removed' };
     throw error;
@@ -100,7 +96,7 @@ async function main() {
       continue;
     }
     try {
-      await github('/git/refs/heads/' + branchPath(branch.name), 'DELETE');
+      await github('/git/refs/heads/' + encodedRefPath(branch.name), 'DELETE');
       results.push({ name: branch.name, status: 'deleted', pr: fresh.pr });
     } catch (error) {
       if (error.status === 404 || error.status === 422) {

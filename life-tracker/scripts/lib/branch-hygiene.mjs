@@ -4,6 +4,16 @@ export const RETENTION_MS = 72 * 60 * 60 * 1000;
 export const TASK_PREFIXES = ['chatgpt/', 'codex/', 'task/'];
 export const PREVIEW_PREFIXES = ['feature/', 'fix/', 'perf/', 'security/', 'refactor/'];
 
+// GitHub's branch endpoint takes one URL path parameter. Git refs use a
+// slash-delimited ref path instead (heads/category/name).
+export function encodedBranchName(name) {
+  return encodeURIComponent(name);
+}
+
+export function encodedRefPath(name) {
+  return name.split('/').map(encodeURIComponent).join('/');
+}
+
 export function branchKind(name) {
   if (name === 'main' || name === 'dev') return 'permanent';
   if (TASK_PREFIXES.some((prefix) => name.startsWith(prefix) && name.length > prefix.length)) return 'task';

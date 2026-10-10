@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assessBranch, branchKind, RETENTION_MS } from '../../scripts/lib/branch-hygiene.mjs';
+import { assessBranch, branchKind, encodedBranchName, encodedRefPath, RETENTION_MS } from '../../scripts/lib/branch-hygiene.mjs';
 
 const repo = 'carlers/mosaic-life-tracker';
 const now = Date.parse('2026-10-11T12:00:00Z');
@@ -22,6 +22,13 @@ const pr = (name = 'chatgpt/example', options: {
 });
 
 describe('Mosaic branch hygiene (docs/DELIVERY.md)', () => {
+  it('encodes GitHub branch path parameters without changing git-ref slash semantics', () => {
+    expect(encodedBranchName('chatgpt/example')).toBe('chatgpt%2Fexample');
+    expect(encodedBranchName('feature/two words')).toBe('feature%2Ftwo%20words');
+    expect(encodedRefPath('chatgpt/example')).toBe('chatgpt/example');
+    expect(encodedRefPath('feature/two words')).toBe('feature/two%20words');
+  });
+
   it('always preserves permanent, protected, and unmanaged branches', () => {
     for (const name of ['main', 'dev', 'experimental']) {
       expect(assessBranch(branch(name), [pr(name)], repo, now).eligible).toBe(false);
