@@ -507,6 +507,47 @@ describe('controlled Appwrite Function deployments', () => {
     );
   });
 
+ 
+  it('rejects blind Scratch activation before any provider mutation', () => {
+    const base = ['activate', '--function', 'message-action',
+      '--endpoint', 'https://fra.cloud.appwrite.io/v1',
+      '--project', '6a96e82d000d1310b3be',
+      '--confirm-project', '6a96e82d000d1310b3be',
+      '--deployment', 'dep_new'];
+    expect(() => parseFunctionCommand(base, { APPWRITE_API_KEY: 'key' }))
+      .toThrow(/expected-current-deployment/);
+    expect(parseFunctionCommand([...base, '--expected-current-deployment', 'dep_old'],
+      { APPWRITE_API_KEY: 'key' }).expectedCurrentDeploymentId).toBe('dep_old');
+  });
+
+  it('refuses a changed active Scratch deployment without writing', async () => {
+    const functions = {
+      get: vi.fn(async () => ({ deploymentId: 'dep_other' })),
+      getDeployment: vi.fn(async () => ({ $id: 'dep_new', status: 'ready' })),
+      updateFunctionDeployment: vi.fn(async () => ({})),
+    };
+    await expect(activateFunctionVersion({
+      functions: functions as any, functionId: 'message_action',
+      deploymentId: 'dep_new', expectedCurrentDeploymentId: 'dep_old',
+    })).rejects.toThrow(/Scratch Function changed/);
+    expect(functions.updateFunctionDeployment).not.toHaveBeenCalled();
+  });
+
+  it('detects a competing activation between initial validation and activation', async () => {
+    const functions = {
+      get: vi.fn()
+        .mockResolvedValueOnce({ deploymentId: 'dep_old' })
+        .mockResolvedValueOnce({ deploymentId: 'dep_other' }),
+      getDeployment: vi.fn(async () => ({ $id: 'dep_new', status: 'ready' })),
+      updateFunctionDeployment: vi.fn(async () => ({})),
+    };
+    await expect(activateFunctionVersion({
+      functions: functions as any, functionId: 'message_action',
+      deploymentId: 'dep_new', expectedCurrentDeploymentId: 'dep_old',
+    })).rejects.toThrow(/Scratch Function changed/);
+    expect(functions.updateFunctionDeployment).not.toHaveBeenCalled();
+  });
+
   it('activates only a ready deployment and verifies the active ID', async () => {
     const functions = {
       getDeployment: vi.fn(async () => ({

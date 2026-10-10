@@ -1,0 +1,103 @@
+name: Scratch Backend Activation
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: 'Full 40-character SHA of reviewed combined Scratch backend candidate'
+        required: true
+        type: string
+      expected_deployment:
+        description: 'Current Scratch message-action active deployment ID'
+        required: true
+        type: string
+      confirm:
+        description: 'Enter activate-scratch after reviewing all active Preview consumers'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# One cooperative writer across all invocations, regardless of source ref.
+concurrency:
+  group: mosaic-scratch-backend-writer
+  cancel-in-progress: false
+
+jobs:
+  activate:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'activate-scratch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: scratch-backend
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      APPWRITE_ENDPOINT: https://fra.cloud.appwrite.io/v1
+      APPWRITE_PROJECT_ID: 6a96e82d000d1310b3be
+      APPWRITE_API_KEY: ${{ secrets.MOSAIC_SCRATCH_APPWRITE_API_KEY }}
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      EXPECTED_DEPLOYMENT: ${{ inputs.expected_deployment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact reviewed source
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo 'Invalid full source SHA'; exit 1; }
+          [[ "$EXPECTED_DEPLOYMENT" =~ ^[a-zA-Z0-9_]+$ ]] || { echo 'Invalid expected deployment ID'; exit 1; }
+          [[ -n "$APPWRITE_API_KEY" ]] || { echo 'Scratch-only API key is not configured'; exit 1; }
+          git -C .. cat-file -e "${SOURCE_SHA}^{commit}"
+          git -C .. checkout --detach "$SOURCE_SHA"
+          [[ "$(git -C .. rev-parse HEAD)" == "$SOURCE_SHA" ]] || exit 1
+          echo "Combined backend source: $SOURCE_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install and validate combined candidate
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm run contracts:check
+          npm run test:unit
+          npm run test:handlers
+      - name: Require clean managed-state and unchanged active deployment
+        run: |
+          npm run appwrite:preview:prepare -- \
+            --project "$APPWRITE_PROJECT_ID" \
+            --endpoint "$APPWRITE_ENDPOINT" \
+            --message-function-id 6aa8057f002a4c306fdd \
+            --expected-deployment "$EXPECTED_DEPLOYMENT"
+      - name: Build inactive exact-SHA Function
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(npm run appwrite:function:deploy -- \
+            --function message-action \
+            --function-id 6aa8057f002a4c306fdd \
+            --git-sha "$SOURCE_SHA" \
+            --project "$APPWRITE_PROJECT_ID" \
+            --confirm-project "$APPWRITE_PROJECT_ID")"
+          echo "$output"
+          id="$(printf '%s\n' "$output" | sed -n 's/.*deployment=\([a-zA-Z0-9_]*\).*/\1/p' | tail -1)"
+          [[ "$id" =~ ^[a-zA-Z0-9_]+$ ]] || { echo 'Missing ready deployment ID'; exit 1; }
+          echo "deployment_id=$id" >> "$GITHUB_OUTPUT"
+      - name: Activate reviewed candidate with stale-state guard
+        run: |
+          npm run appwrite:function:activate -- \
+            --function message-action \
+            --function-id 6aa8057f002a4c306fdd \
+            --deployment "${{ steps.build.outputs.deployment_id }}" \
+            --expected-current-deployment "$EXPECTED_DEPLOYMENT" \
+            --project "$APPWRITE_PROJECT_ID" \
+            --confirm-project "$APPWRITE_PROJECT_ID"
+      - name: Verify active Function and managed-state
+        run: |
+          npm run appwrite:preview:prepare -- \
+            --project "$APPWRITE_PROJECT_ID" \
+            --endpoint "$APPWRITE_ENDPOINT" \
+            --message-function-id 6aa8057f002a4c306fdd \
+            --expected-deployment "${{ steps.build.outputs.deployment_id }}"
