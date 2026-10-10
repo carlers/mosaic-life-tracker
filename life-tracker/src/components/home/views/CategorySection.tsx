@@ -23,6 +23,8 @@ interface CategorySectionProps {
   visibility?: Visibility;
   currentUserId: string;
   tasks: TaskDocument[];
+  ownerLabels?: ReadonlyMap<string, string>;
+  sharedRows?: React.ReactNode;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string, completed?: boolean) => void;
   onOpenActions: (task: TaskDocument) => void;
@@ -53,6 +55,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   visibility,
   currentUserId,
   tasks,
+  ownerLabels,
+  sharedRows,
   onToggleTask,
   onAddTask,
   onOpenActions,
@@ -130,6 +134,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
 
   const taskProps = (task: TaskDocument) => ({
     task,
+    shareLabel: ownerLabels?.get(task.id),
     categoryColor,
     currentUserId,
     onToggle: () => onToggleTask(task.id, task.completed),
@@ -315,6 +320,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           : tasks.map((task) => (
               <TaskItem key={task.id} {...taskProps(task)} />
             )))}
+      {!categoryCollapsed && sharedRows}
     </>
   );
 

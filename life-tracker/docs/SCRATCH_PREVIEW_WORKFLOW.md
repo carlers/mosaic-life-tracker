@@ -46,13 +46,21 @@ npm run appwrite:preview:prepare -- \
 
 `--apply` never touches production. It first compares the live scratch backend
 against Git, allows only an explicit small list of known missing resources, then
-runs the **existing ordered, idempotent** migrations 001, 002, 004, 005, and
-006, and checks the full managed state again. It does not apply migration 003
+runs the **existing ordered, idempotent** migrations 001, 002, 004, 005,
+006, 007 (server-owned task sharing), and 009 (owner-granted collaboration edits), and checks the full managed state again. It does not apply migration 003
 (the bucket-wide grant removal) implicitly because that is a permission
 change; use the separately reviewed backend migration procedure for it.
 Unexpected schema/permission/Function drift **fails closed**: inspect and
 extend Git-owned migrations rather than auto-copying production. The
 readiness command never silently deploys Functions or modifies auth policy.
+
+For the shared-task workstream, verify the `task_shares` membership table and
+all indexes first; a Function with shared-task event handlers must never be
+activated against an environment lacking migration 007. Scratch currently
+has no Git VCS linkage for `message-action`; deploy the source archive from
+the exact reviewed Git SHA using the documented Function packaging workflow,
+not a VCS-deployment API that requires a linked repository. Confirm the
+registered Scratch origin and dispose of synthetic accounts after testing.
 
 For new code, build the exact task SHA through
 `npm run appwrite:function:deploy` (inactive), confirm READY, explicitly
@@ -64,9 +72,13 @@ and the registered hostname check are mandatory for authenticated handoff.
 
 ## Synthetic fixture accounts
 
-Optional repeatable scratch identities are:
-`mosaic.preview.actor@example.com` and
-`mosaic.preview.viewer@example.com`. They are **not** a copy of production.
+Optional repeatable scratch identities for shared-task acceptance are:
+`mosaic.preview.actor406@example.com`,
+`mosaic.preview.friend406@example.com`, and
+`mosaic.preview.other406@example.com`. The older two-account fixtures
+used noncanonical profile/friendship row IDs and are deliberately **not**
+modified by this seed; they must not be used for shared-task acceptance.
+These synthetic identities are **not** a copy of production.
 Use a separate password with 12+ characters, supplied out-of-band through
 `MOSAIC_SCRATCH_TEST_PASSWORD`; a temporary project-scoped admin key with
 users.write/rows.write scopes is required. Do not use personal passwords.
@@ -79,9 +91,12 @@ npm run appwrite:preview:seed -- \
   --confirm-project 6a96e82d000d1310b3be
 ```
 
-This seeds two accounts, each with a profile, category, uncompleted
-friend-visible task, diary row containing `created_at`, and reciprocal
-accepted friendship. Both task and category use Mosaic's supported
+This seeds three accounts, each with a canonical profile ID, category,
+uncompleted friend-visible task, and diary row containing `created_at`. The
+actor is reciprocally accepted with each other account, with private
+(read-only) friendship grants; the two friends are not linked. All rows use
+the canonical IDs expected by the live server handlers. Both task and
+category use Mosaic's supported
 `followers` visibility (not `friends`), so an accepted friend can see the
 seeded uncompleted task. Repeated runs preserve existing records/passwords;
 they **never** clear or refresh existing data. To test notifications, subscribe
@@ -141,3 +156,15 @@ a problem.
 - A scratch API key is required for runnable CLI verification; if the connected
   environment has only Console access, agents must perform equivalent
   explicit-project read-only inspections and report the CLI limitation.
+
+## Shared-task friendship permission drift
+
+As of the 2026-10-10 read-only check, Scratch's existing `friendships` table has `create("users")` despite the Git manifest's `[]`. Do **not** hide this as an allowable drift or auto-apply a permission change. Use the separately reviewed, explicitly confirmed Git migration `008-friendship-permissions` once on the Scratch ID and endpoint; re-read `friendships` and verify old-client/server-controlled friendship behavior. Only then run the standard `--apply` additive preparation for `007-task-shares`. The Function must remain on its prior active deployment until table readiness and concurrent Preview requirements are verified.
+
+### Owner-granted shared edits (v0.14.2)
+Migration 009 adds optional, default-off booleans \`allow_title_edit\` and
+\`allow_date_edit\` to \`task_shares\`. Run and validate migration 009 on Scratch
+**before** activating a Function that emits these grants. Production must not
+be changed without separate promotion/rollout authorization. Retain the
+revocable grant epoch and compare-and-set \`$updatedAt\` checks, and test denied
+actions, stale-client retries, friend revocation and older mobile clients.

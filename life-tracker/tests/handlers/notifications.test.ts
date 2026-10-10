@@ -124,6 +124,7 @@ describe('notifications backend', () => {
         }),
         listRows: vi
           .fn()
+          .mockResolvedValueOnce({ rows: [] })
           .mockResolvedValueOnce({
             rows: [{
               $id: 'fr_a_b',
@@ -165,6 +166,40 @@ describe('notifications backend', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('suppresses follower Alerts for a task with a sharing history even after revoke', async () => {
+    const completedAt = new Date().toISOString();
+    const db = {
+      getRow: vi.fn(async ({ tableId }: { tableId: string }) => {
+        if (tableId === 'tasks') return {
+          $id: 'task_1', user_id: 'user_a', category_id: 'cat_1',
+          visibility: 'followers', is_completed: true, completed_at: completedAt,
+          deleted: false, source: '', title: 'Private shared task',
+        };
+        if (tableId === 'categories') return {
+          $id: 'cat_1', user_id: 'user_a', deleted: false, visibility: 'followers',
+        };
+        throw Object.assign(new Error('not found'), { code: 404 });
+      }),
+      listRows: vi.fn().mockResolvedValue({ rows: [{
+        task_id: 'task_1', owner_id: 'user_a', invitee_id: 'user_b', status: 'revoked',
+      }] }),
+      createRow: vi.fn(),
+    };
+    const result = await handleTaskCompletionEvent(db, {
+      $id: 'task_1', user_id: 'user_a', category_id: 'cat_1',
+      visibility: 'followers', is_completed: true, completed_at: completedAt,
+      deleted: false, source: '',
+    }, 'tablesdb.life_tracker.tables.tasks.rows.task_1.update', vi.fn(), vi.fn());
+    expect(result.body.ignored).toBe('shared-task');
+    expect(db.listRows.mock.calls[0][0].tableId).toBe('task_shares');
+    expect(db.listRows.mock.calls[0][0].queries
+      .map((query: string) => JSON.parse(query))).toEqual(expect.arrayContaining([
+        { method: 'equal', attribute: 'task_id', values: ['task_1'] },
+        { method: 'limit', values: [1] },
+      ]));
+    expect(db.createRow).not.toHaveBeenCalled();
   });
 
   it('does not create alerts for TodoMate-imported completions', async () => {
@@ -212,6 +247,7 @@ describe('notifications backend', () => {
       }),
       listRows: vi
         .fn()
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({
           rows: [
             {

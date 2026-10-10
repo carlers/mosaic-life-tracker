@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { handleFriendship, deleteAccountFriendships } = require('./friendship');
+const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
 const {
@@ -1261,6 +1262,9 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'friendship':
         result = await handleFriendship(tablesDB, callerId, payload);
+        break;
+      case 'task_shares':
+        result = await handleTaskShares(tablesDB, callerId, payload);
         break;
       case 'deliver':
         result = await handleDeliver(tablesDB, callerId, payload, log, error);
