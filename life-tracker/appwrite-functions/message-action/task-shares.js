@@ -1,0 +1,182 @@
+'use strict';
+
+const { createHash, randomUUID } = require('node:crypto');
+const { Query } = require('node-appwrite');
+const { idFor: friendshipId, read } = require('./friendship');
+
+const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
+const SHARES = 'task_shares';
+const TASKS = 'tasks';
+const FRIENDSHIPS = process.env.APPWRITE_TABLE_FRIENDSHIPS || 'friendships';
+const validId = (value) => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/.test(value);
+const shareId = (taskId, inviteeId) =>
+  'shr_' + createHash('sha256').update(taskId + '|' + inviteeId).digest('hex').slice(0, 32);
+const answer = (status, error) => ({ status, body: { error } });
+const live = (row) => row && row.deleted !== true;
+
+async function mutualFriends(db, left, right, transactionId) {
+  if (left === right || !validId(left) || !validId(right)) return false;
+  const [one, two] = await Promise.all([
+    read(db, FRIENDSHIPS, friendshipId(left, right), transactionId),
+    read(db, FRIENDSHIPS, friendshipId(right, left), transactionId),
+  ]);
+  return [one, two].every(row => live(row) && row.status === 'accepted');
+}
+
+// Never return an owner task row: it contains category, memo, image and other private fields.
+function projection(task, membership, includeInvitee) {
+  return {
+    id: membership.$id,
+    taskId: membership.task_id,
+    ownerId: membership.owner_id,
+    ...(includeInvitee ? { inviteeId: membership.invitee_id } : {}),
+    status: membership.status,
+    grantEpoch: membership.grant_epoch,
+    membershipRevision: membership.$updatedAt || membership.updated_at,
+    title: task.title,
+    date: task.date,
+    completed: task.is_completed === true,
+    completionRevision: task.$updatedAt,
+  };
+}
+
+async function list(db, caller, scope, cursor) {
+  if (scope !== 'received' && scope !== 'owned') return answer(400, 'Invalid share scope');
+  if (cursor && !validId(cursor)) return answer(400, 'Invalid cursor');
+  const field = scope === 'owned' ? 'owner_id' : 'invitee_id';
+  const query = [Query.equal(field, caller), Query.orderAsc('$id'), Query.limit(50)];
+  if (cursor) query.push(Query.cursorAfter(cursor));
+  const page = await db.listRows({
+    databaseId: DATABASE_ID, tableId: SHARES, queries: query, total: false,
+  });
+  const items = [];
+  for (const membership of page.rows || []) {
+    if (membership[field] !== caller || !['pending', 'accepted'].includes(membership.status)) continue;
+    if (!await mutualFriends(db, membership.owner_id, membership.invitee_id)) continue;
+    const task = await read(db, TASKS, membership.task_id);
+    if (!live(task) || task.user_id !== membership.owner_id) continue;
+    items.push(projection(task, membership, scope === 'owned'));
+  }
+  const rows = page.rows || [];
+  return { status: 200, body: { ok: true, items,
+    nextCursor: rows.length === 50 ? rows[rows.length - 1].$id : '' } };
+}
+
+async function handleTaskShares(db, caller, payload) {
+  const operation = payload?.operation;
+  if (operation === 'list') return list(db, caller, payload.scope, payload.cursor);
+
+  const taskId = payload?.taskId;
+  const ownerId = operation === 'invite' || operation === 'revoke' ? caller : payload?.ownerId;
+  const inviteeId = operation === 'invite' || operation === 'revoke' ? payload?.friendUserId : caller;
+  if (!validId(caller) || !validId(taskId) || !validId(ownerId) ||
+      !validId(inviteeId) || ownerId === inviteeId ||
+      !['invite', 'accept', 'decline', 'leave', 'revoke', 'set_completed'].includes(operation)) {
+    return answer(400, 'Invalid shared task request');
+  }
+  if (['accept', 'decline', 'leave', 'set_completed'].includes(operation) && ownerId === caller) {
+    return answer(403, 'Not a collaborator');
+  }
+  const key = shareId(taskId, inviteeId);
+  const tx = await db.createTransaction({ ttl: 60 });
+  let committed = false;
+  try {
+    const [task, membership, friends] = await Promise.all([
+      read(db, TASKS, taskId, tx.$id),
+      read(db, SHARES, key, tx.$id),
+      mutualFriends(db, ownerId, inviteeId, tx.$id),
+    ]);
+    if (!live(task) || task.user_id !== ownerId) return answer(404, 'Task unavailable');
+    if (!friends) return answer(403, 'Friendship required');
+    if (membership && (membership.task_id !== taskId ||
+        membership.owner_id !== ownerId || membership.invitee_id !== inviteeId)) {
+      return answer(409, 'Invalid membership');
+    }
+    const status = membership?.status;
+    const now = new Date().toISOString();
+    let patch = null;
+    let taskPatch = null;
+    if (operation === 'invite') {
+      if (['pending', 'accepted'].includes(status)) {
+        return { status: 200, body: { ok: true, item: projection(task, membership, true) } };
+      }
+      patch = {
+        task_id: taskId, owner_id: ownerId, invitee_id: inviteeId,
+        status: 'pending', grant_epoch: randomUUID(), last_command_id: '',
+        last_command_target: false, created_at: membership?.created_at || now,
+        updated_at: now,
+      };
+    } else {
+      if (!membership) return answer(404, 'Invitation unavailable');
+      if (operation === 'accept' || operation === 'decline') {
+        if (status !== 'pending') return answer(409, 'Invitation changed');
+        if (payload.grantEpoch !== membership.grant_epoch) return answer(409, 'Invitation changed');
+        patch = { status: operation === 'accept' ? 'accepted' : 'declined', updated_at: now };
+      } else if (operation === 'leave' || operation === 'revoke') {
+        if (status !== 'accepted' && status !== 'pending') return answer(409, 'Share changed');
+        if (operation === 'leave' && status !== 'accepted') return answer(409, 'Share changed');
+        if (payload.grantEpoch !== membership.grant_epoch) return answer(409, 'Share changed');
+        patch = { status: operation === 'leave' ? 'left' : 'revoked', updated_at: now };
+      } else if (operation === 'set_completed') {
+        if (status !== 'accepted' || payload.grantEpoch !== membership.grant_epoch) {
+          return answer(403, 'Share unavailable');
+        }
+        if (!validId(payload.operationId) || typeof payload.completed !== 'boolean' ||
+            typeof payload.expectedRevision !== 'string' || !payload.expectedRevision) {
+          return answer(400, 'Invalid completion command');
+        }
+        if (membership.last_command_id === payload.operationId) {
+          if (membership.last_command_target !== payload.completed) {
+            return answer(409, 'Command identity reused');
+          }
+          return { status: 200, body: { ok: true, duplicate: true,
+            item: projection(task, membership, false) } };
+        }
+        if (task.$updatedAt !== payload.expectedRevision) {
+          return { status: 409, body: { error: 'Completion changed',
+            item: projection(task, membership, false) } };
+        }
+        // Only the completion fields may change. All other owner fields remain untouched.
+        if ((task.is_completed === true) !== payload.completed) {
+          taskPatch = {
+            is_completed: payload.completed,
+            completed_at: payload.completed ? now : '',
+            updated_at: now,
+          };
+        }
+        patch = { last_command_id: payload.operationId,
+          last_command_target: payload.completed, updated_at: now };
+      }
+    }
+    if (!patch) return answer(400, 'Unsupported task share action');
+    const data = { ...(membership ? {} : patch), ...patch };
+    if (membership) {
+      await db.updateRow({ databaseId: DATABASE_ID, tableId: SHARES, rowId: key,
+        transactionId: tx.$id, data });
+    } else {
+      await db.createRow({ databaseId: DATABASE_ID, tableId: SHARES, rowId: key,
+        transactionId: tx.$id, permissions: [], data });
+    }
+    if (taskPatch) {
+      await db.updateRow({ databaseId: DATABASE_ID, tableId: TASKS, rowId: taskId,
+        transactionId: tx.$id, data: taskPatch });
+    }
+    await db.updateTransaction({ transactionId: tx.$id, commit: true });
+    committed = true;
+    const [updatedShare, updatedTask] = await Promise.all([
+      read(db, SHARES, key), read(db, TASKS, taskId),
+    ]);
+    if (!updatedShare || !updatedTask) return answer(409, 'Share changed after commit');
+    return { status: 200, body: { ok: true,
+      item: projection(updatedTask, updatedShare, ownerId === caller) } };
+  } catch (error) {
+    if (Number(error?.code) === 409) return answer(409, 'Share changed; refresh and retry');
+    throw error;
+  } finally {
+    if (!committed) {
+      await db.updateTransaction({ transactionId: tx.$id, rollback: true }).catch(() => {});
+    }
+  }
+}
+
+module.exports = { handleTaskShares, shareId, projection, mutualFriends };

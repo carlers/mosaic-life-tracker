@@ -11,6 +11,7 @@ import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket
 import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
 import { migratePushDetails } from './migrate-push-details.mjs';
+import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
 
 export const APPWRITE_MIGRATIONS = [
   {
@@ -47,6 +48,11 @@ export const APPWRITE_MIGRATIONS = [
     id: '006-push-details',
     description: 'Optional per-device push detail preference (default private)',
     run: ({ request, log, sleep }) => migratePushDetails({ request, log, sleep }),
+  },
+  {
+    id: '007-task-shares',
+    description: 'Server-only shared-task invitations and membership',
+    run: ({ request, log }) => migrateTaskSharesBackend({ request, log }),
   },
 ];
 
