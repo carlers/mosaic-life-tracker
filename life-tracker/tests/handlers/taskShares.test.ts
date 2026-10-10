@@ -30,7 +30,7 @@ function baseShare(changes: Record<string, unknown> = {}) {
     status: 'accepted', grant_epoch: 'grant_abc',
     friendship_version: friendshipVersion, last_command_id: '',
     last_membership_command_id: '',
-    last_command_target: false, created_at: '2026-10-10T00:00:00.000Z',
+    last_command_target: false, allow_title_edit: false, allow_date_edit: false, created_at: '2026-10-10T00:00:00.000Z',
     updated_at: '2026-10-10T00:00:02.000Z', ...changes,
   };
 }
@@ -227,4 +227,71 @@ describe('task sharing Function authorization and completion', () => {
     expect(result.status).toBe(403);
     expect(db.updateRow).not.toHaveBeenCalled();
   });
+
+  it('denies title and date writes without explicit owner grants', async () => {
+    for (const [operation, patch] of [
+      ['edit_title', { title: 'Altered by invitee' }],
+      ['edit_date', { date: '2026-10-11' }],
+    ] as const) {
+      const result = await invoke({ userId: invitee, mockDb: db,
+        body: { action: 'task_shares', operation, ownerId: owner, taskId,
+          grantEpoch: 'grant_abc', expectedRevision: task.$updatedAt, ...patch } });
+      expect(result.status).toBe(403);
+    }
+    expect(db.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('allows only title when owner granted title, and rejects stale revisions', async () => {
+    share.allow_title_edit = true;
+    const changed = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'edit_title', ownerId: owner,
+        taskId, grantEpoch: 'grant_abc', expectedRevision: task.$updatedAt, title: 'New shared title' } });
+    expect(changed.status).toBe(200);
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'tasks', rowId: taskId,
+      data: expect.objectContaining({ title: 'New shared title' }),
+    }));
+    const date = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'edit_date', ownerId: owner,
+        taskId, grantEpoch: 'grant_abc', expectedRevision: task.$updatedAt, date: '2026-10-11' } });
+    expect(date.status).toBe(403);
+    const stale = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'edit_title', ownerId: owner,
+        taskId, grantEpoch: 'grant_abc', expectedRevision: 'older', title: 'Oops' } });
+    expect(stale.status).toBe(409);
+  });
+
+  it('lets only the owner adjust edit permissions on an existing share', async () => {
+    const denied = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'set_permissions', taskId,
+        ownerId: owner, friendUserId: invitee, grantEpoch: 'grant_abc',
+        allowTitleEdit: true, allowDateEdit: true } });
+    expect(denied.status).not.toBe(200);
+    const granted = await invoke({ userId: owner, mockDb: db,
+      body: { action: 'task_shares', operation: 'set_permissions', taskId,
+        friendUserId: invitee, grantEpoch: 'grant_abc',
+        allowTitleEdit: true, allowDateEdit: false } });
+    expect(granted.status).toBe(200);
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'task_shares',
+      data: expect.objectContaining({ allow_title_edit: true, allow_date_edit: false }),
+    }));
+  });
+
+  it('rejects revoked grants and malformed shared-date edits', async () => {
+    share.allow_date_edit = true;
+    for (const date of ['2026-02-30', 'tomorrow', '2026-11-01T00:00:00Z']) {
+      const result = await invoke({ userId: invitee, mockDb: db,
+        body: { action: 'task_shares', operation: 'edit_date', ownerId: owner,
+          taskId, grantEpoch: 'grant_abc', expectedRevision: task.$updatedAt, date } });
+      expect(result.status).toBe(400);
+    }
+    share.status = 'revoked';
+    const denied = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'edit_date', ownerId: owner,
+        taskId, grantEpoch: 'grant_abc', expectedRevision: task.$updatedAt,
+        date: '2026-11-01' } });
+    expect(denied.status).toBe(403);
+  });
+
 });

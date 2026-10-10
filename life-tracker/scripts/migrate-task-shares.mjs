@@ -28,7 +28,7 @@ export async function migrateTaskSharesBackend({
     throw new Error('Incompatible shared-task membership table permissions');
   }
   const columns = new Map((existing.columns || []).map(c => [c.key, c]));
-  for (const column of expected.columns) {
+  for (const column of expected.columns.filter(c => !['allow_title_edit', 'allow_date_edit'].includes(c.key))) {
     const actual = columns.get(column.key);
     if (!actual || actual.type !== column.type || actual.required !== column.required ||
         (column.size && actual.size !== column.size) ||

@@ -1,22 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: issue #406 shared-task UX refinement; **approved implementation in progress** on a task branch from stable Preview \`feature/shared-tasks\` at \`a2ea2f92880fd56a511d83c448e45fb2d6c11211\`. Dev/main remain unapproved for this feature; Production unchanged.
+Current task: implement issue #406 follow-on collaborator categories, drag/copy and owner-granted edits from stable Preview feature/shared-tasks at 8afc36946180172d027a6dd24083d9baec4ff17f. User directly authorized implementation. Candidate version 0.14.2. dev/main and Production unchanged.
 
-## Source of truth / current baseline
-- Issue #406 latest UX plan: https://github.com/carlers/mosaic-life-tracker/issues/406#issuecomment-6099329226
-- Owner/participant base functionality is on Preview version 0.14.0, user confirmed initial invite → accept → completion flow on Scratch.
-- Preview full canonical Actions run 38053286955 succeeded and exact SHA Vercel deployment dpl_HWi692uxjcjDwQWDpJ1KhfNsCWYG was READY.
-- Scratch Function message-action \`6aa8057f002a4c306fdd\`, active rebuilt deployment \`6aca35aa368c0817cf93\` showed live:true; the original 0.14.0 authenticated advanced acceptance and strict CLI readiness remain incomplete.
-
-## Current UX revision (proposed Preview 0.14.1)
-- Persistent actionable task invitations in Alerts (not Explore), with pending badge; ordinary friend-completion Alerts retention/grouping/push remains unchanged.
-- Accepted collaborator projections shown in recipient Month/Week Calendar and Todo indicators; Day View remains a separate virtual group; owner task never cloned.
-- Owner canonical task subtitle includes active friend names or count and optional pending invite count; owner Calendar task blocks get shared glyph.
-- Two account-synced display preferences. Recipient task management allows leaving, while private memo, images and category never leave owner storage.
-- Refreshed remote projections on foreground/visibility returns with bounded request coalescing, no polling.
+## Completed working set
+- Owner-controlled per-invitee title and date permissions, default false, with Function transactional membership, friend, revocation, epoch and revision checks.
+- Git-owned additive task_shares columns and ordered migration 009; Scratch Preview prepare allowlist updated.
+- Recipient personal category assignment via per-membership account-synced Settings (no owner copy); share rows appear inside their category and support drag to category targets / order among received shares; independent personal duplicate; granted global title/date editors in the received share sheet.
+- Strict minimal projections and cache; private owner memo/images/categories not copied.
+- New handler and placement regression tests; build-size budgets adjusted narrowly for measured growth. Details: docs/SHARED_TASKS.md.
 
 ## Next action
-- Sandbox completed focused TypeScript, contracts, ESLint (only nonblocking prior lint warnings) and new pure unit test. Build initially exceeded the guarded limits by 2,732 B Home closure gzip, 4,500 B raw app assets, 731 B app-assets gzip and 4,581 B precache; documented narrow size allowances were made for the user-approved feature, not a blanket guard bypass. Rerun measured build and CI after this adjustment.
-- Review diffs, tests and any discovered integration regressions. Commit task on \`chatgpt/**\`, request focused CI, squash to **stable Preview only after green**; run full canonical CI and exact SHA Vercel. Do not mark physical device/browser acceptance as completed without proof.
-- If appwrite backend source/schema stays unchanged, don't redeploy Function gratuitously; verify Scratch compatibility before acceptance. No dev/main promotion without approval.
+- Repair any focused/CI failures; run contracts, TypeScript, build/PWA/size and focused/full checks.
+- Commit exact task tree on chatgpt/** with [verify:focused] and PR to feature/shared-tasks only. On focused green, squash; stable Preview canonical and exact-SHA Vercel.
+- Before preview acceptance, run migration 009 on **Scratch only**, package exact task SHA Function source, build inactive, review and activate. Reconcile read-only schema/Function and test disposable user auth flows. No Production schema or Function writes.
+- Issue #406 remains open; dev/main promotion needs separate approval. Exact phone/mobile gestures and advanced multi-account acceptance cannot be asserted without device proof.

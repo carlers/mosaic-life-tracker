@@ -34,6 +34,8 @@ function projection(task, membership, includeInvitee) {
     ownerId: membership.owner_id,
     ...(includeInvitee ? { inviteeId: membership.invitee_id } : {}),
     status: membership.status,
+    allowTitleEdit: membership.allow_title_edit === true,
+    allowDateEdit: membership.allow_date_edit === true,
     grantEpoch: membership.grant_epoch,
     membershipRevision: membership.$updatedAt || membership.updated_at,
     title: task.title,
@@ -87,14 +89,15 @@ async function handleTaskShares(db, caller, payload) {
   if (operation === 'list') return list(db, caller, payload.scope, payload.cursor);
 
   const taskId = payload?.taskId;
-  const ownerId = operation === 'invite' || operation === 'revoke' ? caller : payload?.ownerId;
-  const inviteeId = operation === 'invite' || operation === 'revoke' ? payload?.friendUserId : caller;
+  const ownerOperation = ['invite', 'revoke', 'set_permissions'].includes(operation);
+  const ownerId = ownerOperation ? caller : payload?.ownerId;
+  const inviteeId = ownerOperation ? payload?.friendUserId : caller;
   if (!validId(caller) || !validId(taskId) || !validId(ownerId) ||
       !validId(inviteeId) || ownerId === inviteeId ||
-      !['invite', 'accept', 'decline', 'leave', 'revoke', 'set_completed'].includes(operation)) {
+      !['invite', 'accept', 'decline', 'leave', 'revoke', 'set_completed', 'set_permissions', 'edit_title', 'edit_date'].includes(operation)) {
     return answer(400, 'Invalid shared task request');
   }
-  if (['accept', 'decline', 'leave', 'set_completed'].includes(operation) && ownerId === caller) {
+  if (['accept', 'decline', 'leave', 'set_completed', 'edit_title', 'edit_date'].includes(operation) && ownerId === caller) {
     return answer(403, 'Not a collaborator');
   }
   const key = shareId(taskId, inviteeId);
@@ -141,7 +144,7 @@ async function handleTaskShares(db, caller, payload) {
         task_id: taskId, owner_id: ownerId, invitee_id: inviteeId,
         status: 'pending', grant_epoch: randomUUID(), friendship_version: friends,
         last_command_id: '', last_membership_command_id: '',
-        last_command_target: false, created_at: now,
+        last_command_target: false, allow_title_edit: false, allow_date_edit: false, created_at: now,
         updated_at: now,
       };
     } else {
@@ -158,6 +161,41 @@ async function handleTaskShares(db, caller, payload) {
         if (payload.grantEpoch !== membership.grant_epoch) return answer(409, 'Share changed');
         patch = { status: operation === 'leave' ? 'left' : 'revoked',
           last_membership_command_id: payload.operationId || '', updated_at: now };
+      } else if (operation === 'set_permissions') {
+        if (status !== 'pending' && status !== 'accepted') return answer(409, 'Share changed');
+        if (payload.grantEpoch !== membership.grant_epoch) return answer(409, 'Share changed');
+        if (typeof payload.allowTitleEdit !== 'boolean' ||
+            typeof payload.allowDateEdit !== 'boolean') return answer(400, 'Invalid edit permissions');
+        patch = {
+          allow_title_edit: payload.allowTitleEdit,
+          allow_date_edit: payload.allowDateEdit,
+          updated_at: now,
+        };
+      } else if (operation === 'edit_title' || operation === 'edit_date') {
+        if (status !== 'accepted' || payload.grantEpoch !== membership.grant_epoch)
+          return answer(403, 'Share unavailable');
+        if (!(operation === 'edit_title' ? membership.allow_title_edit : membership.allow_date_edit))
+          return answer(403, 'Owner has not granted this edit');
+        if (typeof payload.expectedRevision !== 'string' || !payload.expectedRevision)
+          return answer(400, 'Missing task revision');
+        if (task.$updatedAt !== payload.expectedRevision)
+          return { status: 409, body: { error: 'Task changed; refresh and retry',
+            item: projection(task, membership, false) } };
+        if (operation === 'edit_title') {
+          if (typeof payload.title !== 'string' ||
+              payload.title !== payload.title.trim() ||
+              payload.title.length < 1 || payload.title.length > 255)
+            return answer(400, 'Invalid shared title');
+          taskPatch = { title: payload.title, updated_at: now };
+        } else {
+          const date = payload.date;
+          if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+              Number.isNaN(Date.parse(date + 'T00:00:00Z')) ||
+              new Date(date + 'T00:00:00Z').toISOString().slice(0, 10) !== date)
+            return answer(400, 'Invalid shared date');
+          taskPatch = { date, updated_at: now };
+        }
+        patch = { updated_at: now };
       } else if (operation === 'set_completed') {
         if (status !== 'accepted' || payload.grantEpoch !== membership.grant_epoch) {
           return answer(403, 'Share unavailable');

@@ -18,6 +18,8 @@ import { useSharedTasks } from '../../../hooks/useSharedTasks';
 import { useOptionalFriendList } from '../../../hooks/useFriends';
 import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
+import { editSharedTask } from '../../../lib/taskShareQueue';
+import { parseSharedPlacement, placementKey } from '../../../lib/sharedTaskPlacement';
 import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
 import { ImagePickerSheet } from './ImagePickerSheet';
@@ -119,7 +121,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     categoriesOverride === undefined
   );
   const { message: deleteFeedback, show: showFeedback } = useFeedback();
-  const { getSetting } = useSettings();
+  const { getSetting, setSetting, settings } = useSettings();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =
@@ -154,6 +156,50 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const ownerLabels = useMemo(() => ownerShareLabels(
     ownerShares.items, sharingFriends, labelMode, showPendingShares,
   ), [ownerShares.items, sharingFriends, labelMode, showPendingShares]);
+
+  const validCategoryIds = useMemo(() => new Set(categories.map(cat => cat.id)), [categories]);
+  const sharedCategoryFor = useCallback((item: SharedTaskItem): string => {
+    const raw = settings[placementKey(item.id)];
+    return parseSharedPlacement(raw, validCategoryIds)?.categoryId || '';
+  }, [settings, validCategoryIds]);
+  const sharedOrderFor = useCallback((item: SharedTaskItem) =>
+    parseSharedPlacement(settings[placementKey(item.id)], validCategoryIds)?.order ?? 0,
+  [settings, validCategoryIds]);
+  const moveSharedTask = useCallback(async (item: SharedTaskItem,
+    categoryId: string, targetId: string, position: string) => {
+    if (!validCategoryIds.has(categoryId)) throw new Error('Destination category unavailable');
+    if (item.id === targetId) return;
+    const others = sharedTasks.activeItems.filter(other =>
+      other.id !== item.id && other.status === 'accepted' &&
+      other.date === item.date && sharedCategoryFor(other) === categoryId)
+      .sort((a,b) => sharedOrderFor(a) - sharedOrderFor(b));
+    const targetIndex = others.findIndex(other => other.id === targetId);
+    const insertAt = targetIndex >= 0
+      ? targetIndex + (position === 'after' ? 1 : 0)
+      : position === 'start' ? 0 : others.length;
+    others.splice(insertAt, 0, item);
+    // Single per-share settings rows preserve private placement across devices.
+    await Promise.all(others.map((entry, index) =>
+      setSetting(placementKey(entry.id), { categoryId, order: index * 10 })
+    ));
+  }, [validCategoryIds, sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor, setSetting]);
+  const assignSharedCategory = useCallback(async (item: SharedTaskItem, categoryId: string) => {
+    if (categoryId && !validCategoryIds.has(categoryId)) throw new Error('Category unavailable');
+    await setSetting(placementKey(item.id), categoryId ? { categoryId, order: 0 } : null);
+  }, [setSetting, validCategoryIds]);
+  const copySharedToMine = useCallback(async (item: SharedTaskItem, categoryId: string) => {
+    if (!validCategoryIds.has(categoryId)) throw new Error('Choose one of your categories');
+    await addTask({ title: item.title, categoryId, date: item.date,
+      completed: false, visibility: '' }, addTasksToTop ? 'top' : 'bottom');
+  }, [validCategoryIds, addTask, addTasksToTop]);
+  const updateSharedTitle = useCallback(async (item: SharedTaskItem, title: string) => {
+    await editSharedTask(item, { title });
+    await sharedTasks.reload();
+  }, [sharedTasks.reload]);
+  const updateSharedDate = useCallback(async (item: SharedTaskItem, date: string) => {
+    await editSharedTask(item, { date });
+    await sharedTasks.reload();
+  }, [sharedTasks.reload]);
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
@@ -882,6 +928,14 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       editValue={editValue}
                       onToggleTask={handleToggleTask}
                       sharedItems={sharedTasks.activeItems}
+                      sharedCategoryFor={sharedCategoryFor}
+                      onAssignSharedCategory={assignSharedCategory}
+                      onCopySharedTask={copySharedToMine}
+                      onEditSharedTitle={updateSharedTitle}
+                      onChangeSharedDate={updateSharedDate}
+                      onMoveSharedTask={moveSharedTask}
+                      sharedOrderFor={sharedOrderFor}
+                      onSharedMoveError={(error) => showFeedback(error instanceof Error ? error.message : 'Could not move shared task.')}
                       ownerLabels={ownerLabels}
                       onSharedCompletion={handleSharedCompletion}
                       onLeaveSharedTask={async (item) => {

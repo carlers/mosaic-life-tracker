@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { useFriends } from '../../../hooks/useFriends';
 import { useSharedTasks } from '../../../hooks/useSharedTasks';
+import { setSharedTaskPermissions } from '../../../lib/taskShareQueue';
 import type { TaskDocument } from '../../../db/schema';
 
 interface ShareTaskSheetProps {
@@ -48,12 +49,26 @@ export const ShareTaskSheet: React.FC<ShareTaskSheetProps> = ({
     }
   };
 
+  const changePermission = async (memberId: string, field: 'title' | 'date', enabled: boolean) => {
+    const item = members.find(row => row.inviteeId === memberId);
+    if (!item || !online) return;
+    setWorkingId(memberId);
+    try {
+      await setSharedTaskPermissions(item,
+        field === 'title' ? enabled : item.allowTitleEdit === true,
+        field === 'date' ? enabled : item.allowDateEdit === true);
+      await reload();
+      setFeedback('Collaborator permissions saved.');
+    } catch (cause) {
+      setFeedback(cause instanceof Error ? cause.message : 'Could not update permissions.');
+    } finally { setWorkingId(''); }
+  };
   const close = () => { setFeedback(''); onClose(); };
   return (
     <BottomSheet isOpen={isOpen} onClose={close} title="Share task" height="auto" backdropBlur>
       <div className="space-y-4 px-4 pb-8 pt-2">
         <p className="text-sm text-gray-300">
-          Share this task's title, date and completion with friends. Memo, photos and
+          Share this task's title, date and completion with friends. You can allow each friend to edit the shared title or date. Memo, photos and
           category information remain private.
         </p>
         {!online && (
@@ -85,6 +100,22 @@ export const ShareTaskSheet: React.FC<ShareTaskSheetProps> = ({
                   <span className="shrink-0 text-xs text-gray-400">
                     {member.status === 'accepted' ? 'Sharing' : 'Invited'}
                   </span>
+                )}
+                {member && (
+                  <div className="flex shrink-0 flex-col gap-1 text-xs text-gray-400">
+                    <label className="flex items-center gap-1">
+                      <input type="checkbox" checked={member.allowTitleEdit}
+                        disabled={!online || busy}
+                        onChange={event => void changePermission(friend.friendId, 'title', event.target.checked)} />
+                      Edit title
+                    </label>
+                    <label className="flex items-center gap-1">
+                      <input type="checkbox" checked={member.allowDateEdit}
+                        disabled={!online || busy}
+                        onChange={event => void changePermission(friend.friendId, 'date', event.target.checked)} />
+                      Change date
+                    </label>
+                  </div>
                 )}
                 <button type="button"
                   disabled={!online || busy}

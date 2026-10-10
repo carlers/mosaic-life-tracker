@@ -8,7 +8,7 @@ const sample: SharedTaskItem = {
   title: 'Only user B may see this', date: '2026-10-10',
   completed: false, completionRevision: 'server_a',
   membershipRevision: 'membership_a', grantEpoch: 'epoch_a',
-  status: 'accepted',
+  status: 'accepted', allowTitleEdit: false, allowDateEdit: false,
 };
 
 describe('shared-task projection cache isolation', () => {

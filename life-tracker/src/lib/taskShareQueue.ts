@@ -7,6 +7,8 @@ export interface SharedTaskItem {
   ownerId: string;
   inviteeId?: string;
   status: 'pending' | 'accepted';
+  allowTitleEdit?: boolean;
+  allowDateEdit?: boolean;
   grantEpoch: string;
   membershipRevision: string;
   title: string;
@@ -397,7 +399,9 @@ export async function listSharedTasks(scope: 'owned' | 'received'): Promise<Shar
           typeof item.date === 'string' && typeof item.completed === 'boolean' &&
           (item.status === 'pending' || item.status === 'accepted') &&
           typeof item.grantEpoch === 'string' && typeof item.completionRevision === 'string' &&
-          typeof item.membershipRevision === 'string' && typeof item.id === 'string') {
+          typeof item.membershipRevision === 'string' && typeof item.id === 'string' &&
+          (item.allowTitleEdit === undefined || typeof item.allowTitleEdit === 'boolean') &&
+          (item.allowDateEdit === undefined || typeof item.allowDateEdit === 'boolean')) {
         items.push(item as SharedTaskItem);
       } else {
         throw new Error('Invalid shared-task entry');
@@ -421,4 +425,29 @@ export async function changeSharedTaskMembership(payload: {
 }): Promise<void> {
   const response = await sendAppAction({ action: 'task_shares', ...payload });
   if (response.ok !== true) throw new Error('Shared task action failed');
+}
+
+export async function setSharedTaskPermissions(item: SharedTaskItem,
+  allowTitleEdit: boolean, allowDateEdit: boolean): Promise<void> {
+  if (!item.inviteeId) throw new Error('Missing collaborator identity');
+  const response = await sendAppAction({
+    action: 'task_shares', operation: 'set_permissions', taskId: item.taskId,
+    friendUserId: item.inviteeId, grantEpoch: item.grantEpoch,
+    allowTitleEdit, allowDateEdit,
+  });
+  if (response.ok !== true) throw new Error('Could not update collaborator permissions');
+}
+
+export async function editSharedTask(item: SharedTaskItem, change:
+  { title: string } | { date: string }): Promise<void> {
+  if (item.status !== 'accepted') throw new Error('Share is no longer available');
+  const titleChange = 'title' in change;
+  if (titleChange && !item.allowTitleEdit) throw new Error('Owner has not allowed title edits');
+  if (!titleChange && !item.allowDateEdit) throw new Error('Owner has not allowed date changes');
+  const response = await sendAppAction({
+    action: 'task_shares', operation: titleChange ? 'edit_title' : 'edit_date',
+    taskId: item.taskId, ownerId: item.ownerId, grantEpoch: item.grantEpoch,
+    expectedRevision: item.completionRevision, ...change,
+  });
+  if (response.ok !== true) throw new Error('Shared task changed. Refresh and retry.');
 }

@@ -34,6 +34,7 @@ export function classifyScratchDrift(diffs) {
     /^table notifications: missing$/,
     /^table push_subscriptions: missing$/,
     /^table task_shares: missing$/,
+    /^table task_shares\.allow_(title|date)_edit: missing column$/,
     /^table notifications\.idx_notification_created: missing index$/,
     /^table push_subscriptions\.include_task_details: missing column$/,
   ];
@@ -68,7 +69,7 @@ export async function runPreviewPrepare({
     const additions = APPWRITE_MIGRATIONS.filter(m =>
       ['001-account-deletion', '002-diary-created-at',
         '004-notifications', '005-notification-retention',
-        '006-push-details', '007-task-shares'].includes(m.id));
+        '006-push-details', '007-task-shares', '009-share-permissions'].includes(m.id));
     // The bucket-security migration remains a separate reviewed action;
     // it can remove a grant and is not a safe implicit Preview prerequisite.
     await migrate({ request, migrations: additions, log });

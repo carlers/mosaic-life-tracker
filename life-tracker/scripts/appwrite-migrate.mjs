@@ -12,6 +12,7 @@ import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
 import { migratePushDetails } from './migrate-push-details.mjs';
 import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
+import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
 
 export const APPWRITE_MIGRATIONS = [
@@ -59,6 +60,11 @@ export const APPWRITE_MIGRATIONS = [
     id: '008-friendship-permissions',
     description: 'Explicit-only removal of legacy broad friendship create grant',
     run: ({ request, log }) => migrateFriendshipTablePermissions({ request, log }),
+  },
+  {
+    id: '009-share-permissions',
+    description: 'Optional collaborative title/date edit grants, off by default',
+    run: ({ request, log, sleep }) => migrateSharePermissions({ request, log, sleep }),
   },
 ];
 
