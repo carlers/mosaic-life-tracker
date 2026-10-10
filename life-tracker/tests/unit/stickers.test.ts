@@ -7,6 +7,9 @@ import {
 const images = vi.hoisted(() => ({
   getCachedImage: vi.fn(), cacheImage: vi.fn(), deleteCachedImage: vi.fn(),
 }));
+const pending = vi.hoisted(() => ({
+  stagePendingSticker: vi.fn(), getPendingSticker: vi.fn(), deletePendingSticker: vi.fn(),
+}));
 const storage = vi.hoisted(() => ({
   getFileView: vi.fn(),
   getFile: vi.fn(),
@@ -16,11 +19,12 @@ const storage = vi.hoisted(() => ({
 }));
 vi.mock('../../src/lib/sdk', () => ({ guardedStorage: storage }));
 vi.mock('../../src/lib/imageCache', () => images);
+vi.mock('../../src/lib/pendingImages', () => pending);
 vi.mock('../../src/lib/connectivity', () => ({
   getConnectivitySnapshot: () => ({ status: 'online' }),
   reportConnectivityResult: vi.fn(),
 }));
-import { allowStickerRecipient, loadStickerImage } from '../../src/lib/stickerStorage';
+import { allowStickerRecipient, loadStickerImage, recipientStickerId, prepareOutgoingSticker, settleOutgoingSticker } from '../../src/lib/stickerStorage';
 import { __resetAccountWorkScopeForTests, scopeAccountWork } from '../../src/lib/accountWorkScope';
 
 const fileId = 'stk_' + 'a'.repeat(32);
@@ -146,5 +150,53 @@ describe('efficient and account-scoped sticker downloads', () => {
     vi.stubGlobal('fetch', fetchMock);
     expect(await loadStickerImage(fileId, 'owner')).toBe('blob:sticker');
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+});
+
+describe('keyboard-native sticker send authorization', () => {
+  const bytes = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/webp' });
+  beforeEach(() => {
+    vi.resetAllMocks();
+    pending.getPendingSticker.mockResolvedValue(bytes);
+    pending.deletePendingSticker.mockResolvedValue(undefined);
+    storage.createFile.mockResolvedValue({});
+    storage.getFile.mockResolvedValue({ $permissions: [...owned, Permission.read(Role.user('friend'))] });
+  });
+
+  it('deduplicates the same sticker for one friend, but isolates different recipients', async () => {
+    const a = await recipientStickerId('owner', 'friend', bytes);
+    const same = await recipientStickerId('owner', 'friend', bytes);
+    const other = await recipientStickerId('owner', 'other', bytes);
+    const differentOwner = await recipientStickerId('someoneElse', 'friend', bytes);
+    expect(a).toEqual(same);
+    expect(a).toMatch(/^stk_[0-9a-f]{32}$/);
+    expect(new Set([a, other, differentOwner]).size).toBe(3);
+  });
+
+  it('uploads once with narrowly scoped permissions, without a permission array rewrite', async () => {
+    await prepareOutgoingSticker('owner', 'friend', fileId);
+    expect(storage.createFile).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      fileId,
+      permissions: [...owned, Permission.read(Role.user('friend'))],
+    }));
+    expect(storage.getFile).toHaveBeenCalledOnce();
+    expect(storage.updateFile).not.toHaveBeenCalled();
+    await settleOutgoingSticker('owner', fileId);
+    expect(pending.deletePendingSticker).toHaveBeenCalledExactlyOnceWith(fileId, 'owner');
+  });
+
+  it('fails closed when a colliding ID does not have verified recipient access', async () => {
+    storage.createFile.mockRejectedValueOnce({ code: 409 });
+    storage.getFile.mockResolvedValueOnce({ $permissions: [...owned, Permission.read(Role.user('wrong'))] });
+    await expect(prepareOutgoingSticker('owner', 'friend', fileId)).rejects.toThrow('permissions');
+    expect(storage.updateFile).not.toHaveBeenCalled();
+    expect(pending.deletePendingSticker).not.toHaveBeenCalled();
+  });
+
+  it('keeps legacy personal-picker stickers readable without reuploading', async () => {
+    pending.getPendingSticker.mockResolvedValueOnce(null);
+    await prepareOutgoingSticker('owner', 'friend', fileId);
+    expect(storage.createFile).not.toHaveBeenCalled();
+    expect(storage.updateFile).not.toHaveBeenCalled();
   });
 });

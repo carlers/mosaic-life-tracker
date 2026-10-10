@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useCallback,
   useImperativeHandle,
   useId,
   useRef,
@@ -20,7 +21,7 @@ interface ReplyToContext {
 interface MessageComposerProps {
   onSend: (content: string) => void;
   onOpenStickers?: () => void;
-  onPasteSticker?: (file: File) => void;
+  onSendImage?: (file: File) => void;
   disabled?: boolean;
   placeholder?: string;
   replyTo?: ReplyToContext | null;
@@ -42,7 +43,7 @@ export const MessageComposer = forwardRef<
     {
       onSend,
       onOpenStickers,
-      onPasteSticker,
+      onSendImage,
       disabled = false,
       placeholder = 'Message…',
       replyTo = null,
@@ -52,22 +53,41 @@ export const MessageComposer = forwardRef<
   ) => {
     const [value, setValue] = useState('');
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const richInputRef = useRef<HTMLDivElement>(null);
+    // A contenteditable editor gives Android Chrome's rich IME insertion a
+    // chance to expose image/*; normal textareas do not advertise that route.
+    const richEditor = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+    const handledInputRef = useRef<File | null>(null);
+    const composingRef = useRef(false);
+    const focusInput = useCallback(() => {
+      (richEditor ? richInputRef.current : inputRef.current)?.focus({ preventScroll: true });
+    }, [richEditor]);
+    const sendImage = (file: File) => {
+      if (disabled || !onSendImage) return;
+      if (handledInputRef.current === file) return;
+      handledInputRef.current = file;
+      queueMicrotask(() => {
+        if (handledInputRef.current === file) handledInputRef.current = null;
+      });
+      onSendImage(file);
+    };
     const counterId = useId();
 
     useEffect(() => {
       if (replyTo) {
-        setTimeout(() => inputRef.current?.focus(), 30);
+        const timer = setTimeout(focusInput, 30);
+        return () => clearTimeout(timer);
       }
-    }, [replyTo]);
+    }, [replyTo, focusInput]);
 
     useImperativeHandle(
       ref,
       () => ({
         focus: () => {
-          inputRef.current?.focus();
+          focusInput();
         },
       }),
-      []
+      [focusInput]
     );
 
     const handleSend = () => {
@@ -75,13 +95,65 @@ export const MessageComposer = forwardRef<
       if (!trimmed || disabled) return;
       onSend(trimmed);
       setValue('');
-      inputRef.current?.focus({ preventScroll: true });
+      if (richInputRef.current) richInputRef.current.textContent = '';
+      focusInput();
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !composingRef.current) {
         e.preventDefault();
         handleSend();
+      }
+    };
+
+    const imageFromTransfer = (transfer: DataTransfer | null | undefined): File | null => {
+      if (!transfer) return null;
+      const supported = ['image/png', 'image/webp', 'image/jpeg', 'image/gif'];
+      const fromFiles = Array.from(transfer.files ?? []).find(file => supported.includes(file.type));
+      if (fromFiles) return fromFiles;
+      for (const item of Array.from(transfer.items ?? [])) {
+        if (item.kind === 'file' && supported.includes(item.type)) {
+          const candidate = item.getAsFile();
+          if (candidate) return candidate;
+        }
+      }
+      return null;
+    };
+
+    const receiveImage = (file: File | null, event: { preventDefault(): void }) => {
+      if (!file || !onSendImage || disabled) return false;
+      event.preventDefault();
+      sendImage(file);
+      return true;
+    };
+
+    const richInput = () => {
+      const el = richInputRef.current;
+      if (!el) return;
+      // Chrome may insert an <img> rather than report an image File in
+      // beforeinput/paste. Accept *only* local data/blob images, never remote
+      // URLs. Remove injected image nodes regardless of their source.
+      const images = Array.from(el.querySelectorAll('img'));
+      for (const image of images) {
+        const src = image.getAttribute('src') ?? '';
+        if (onSendImage && !disabled &&
+            (/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(src) && src.length < 14_000_000 ||
+             src.startsWith('blob:'))) {
+          void fetch(src).then(response => response.blob()).then(blob => {
+            if (blob.size > 0 && blob.size <= 10 * 1024 * 1024 &&
+                ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(blob.type)) {
+              sendImage(new File([blob], 'keyboard-sticker', { type: blob.type }));
+            }
+          }).catch(() => {});
+        }
+        image.remove();
+      }
+      const text = el.textContent ?? '';
+      if (!composingRef.current && text.length > MAX_LENGTH) {
+        el.textContent = text.slice(0, MAX_LENGTH);
+        setValue(text.slice(0, MAX_LENGTH));
+      } else {
+        setValue(text.slice(0, MAX_LENGTH));
       }
     };
 
@@ -110,26 +182,50 @@ export const MessageComposer = forwardRef<
             </button>
           )}
           <div className="flex-1 min-w-0">
-            <textarea
-              ref={inputRef}
-              value={value}
-              onChange={(e) => setValue(e.target.value.slice(0, MAX_LENGTH))}
-              onPaste={event => {
-                const image = Array.from(event.clipboardData.files)
-                  .find(file => ['image/png', 'image/webp', 'image/jpeg'].includes(file.type));
-                if (image && onPasteSticker && !disabled) {
+            {richEditor ? (
+              <div
+                ref={richInputRef}
+                role="textbox"
+                aria-label="Message"
+                aria-multiline="true"
+                aria-describedby={showCounter ? counterId : undefined}
+                contentEditable={!disabled}
+                suppressContentEditableWarning
+                data-placeholder={placeholder}
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={() => { composingRef.current = false; richInput(); }}
+                onKeyDown={handleKeyDown}
+                onBeforeInput={event => {
+                  const data = (event.nativeEvent as InputEvent).dataTransfer;
+                  receiveImage(imageFromTransfer(data), event);
+                }}
+                onPaste={event => {
+                  if (receiveImage(imageFromTransfer(event.clipboardData), event)) return;
+                  // Never let remote HTML/images be pasted as active DOM nodes.
                   event.preventDefault();
-                  onPasteSticker(image);
-                }
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              rows={1}
-              aria-label="Message"
-              aria-describedby={showCounter ? counterId : undefined}
-              className="w-full bg-[#1E1E1E] text-white text-sm rounded-2xl px-4 py-2.5 border border-[#333333] focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400 resize-none max-h-32"
-              style={{ minHeight: '42px' }}
-            />
+                  document.execCommand('insertText', false, event.clipboardData.getData('text/plain'));
+                }}
+                onInput={richInput}
+                className="w-full min-h-[42px] max-h-32 overflow-y-auto bg-[#1E1E1E] text-white text-sm rounded-2xl px-4 py-2.5 border border-[#333333] focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none break-words whitespace-pre-wrap empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
+              />
+            ) : (
+              <textarea
+                ref={inputRef}
+                value={value}
+                onChange={e => setValue(e.target.value.slice(0, MAX_LENGTH))}
+                onBeforeInput={event => {
+                  receiveImage(imageFromTransfer((event.nativeEvent as InputEvent).dataTransfer), event);
+                }}
+                onPaste={event => { receiveImage(imageFromTransfer(event.clipboardData), event); }}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                rows={1}
+                aria-label="Message"
+                aria-describedby={showCounter ? counterId : undefined}
+                className="w-full bg-[#1E1E1E] text-white text-sm rounded-2xl px-4 py-2.5 border border-[#333333] focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400 resize-none max-h-32"
+                style={{ minHeight: '42px' }}
+              />
+            )}
             {showCounter && (
               <p
                 id={counterId}

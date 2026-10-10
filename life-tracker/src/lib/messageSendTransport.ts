@@ -1,7 +1,7 @@
 import type { MessageDocument } from '../db/schema';
 import { sendAppAction } from './appAction';
 import { parseStickerMessage } from './stickerProtocol';
-import { allowStickerRecipient } from './stickerStorage';
+import { prepareOutgoingSticker, settleOutgoingSticker } from './stickerStorage';
 
 /** Media authorization and network payload stay off the initial Home graph.
  * Plain messages reuse the same transport; stickers are shared only to the
@@ -9,7 +9,7 @@ import { allowStickerRecipient } from './stickerStorage';
 export async function deliverMessageWithMedia(doc: MessageDocument): Promise<void> {
   const sticker = parseStickerMessage(doc.content);
   if (sticker) {
-    await allowStickerRecipient(doc.userId, doc.recipientId, sticker.fileId);
+    await prepareOutgoingSticker(doc.userId, doc.recipientId, sticker.fileId);
   }
   await sendAppAction({
     action: 'deliver',
@@ -25,4 +25,8 @@ export async function deliverMessageWithMedia(doc: MessageDocument): Promise<voi
     replyToSenderId: doc.replyToSenderId || '',
     createdAt: doc.createdAt,
   });
+  if (sticker) {
+    // File now lives on Appwrite. Do not let a local pending blob outlive the delivery.
+    await settleOutgoingSticker(doc.userId, sticker.fileId).catch(() => {});
+  }
 }

@@ -1,23 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: Independent double-check and focused repair of approved issue #413 custom stickers.
-Source: `feature/custom-stickers` SHA `91725dbf5a246f6307f92a1dcf7fffc4beca97ec` v0.13.0, full canonical CI 38016785395 SUCCESS and exact Vercel READY. `dev` still `224f8a700f35bbe3853206ee208e1dc103ece5b3` v0.12.1; no promotion.
-Task branch: `chatgpt/custom-stickers-double-check` based on that stable feature SHA. Planned user-testable repaired Preview: **v0.13.1** per PATCH policy. Stable target stays `feature/custom-stickers`.
+Task: Issue #413 keyboard-native sticker direct-send revision (user rejected mandatory manual imports).
+Baseline: `feature/custom-stickers` v0.13.1 `163c73bd951a4e9948768c2a2a003d16a9356e24` full canonical Actions 38037389370 SUCCESS (attempt 2), Vercel READY. `dev` `224f8a700f35bbe3853206ee208e1dc103ece5b3` v0.12.1, untouched.
+Task branch: `chatgpt/keyboard-stickers-direct-send` targeting stable `feature/custom-stickers`. Candidate v0.13.2 (PATCH for user-testable revised Preview; do not bump again for failed CI attempts).
 
-## Verified bugs and repairs in task
-- Sticker images were fetched immediately for *every* message on chat mount and duplicate simultaneous messages downloaded the *same* file repeatedly, wasting Appwrite Free-tier bandwidth. `StickerImage` now loads only near viewport using IntersectionObserver with no-IO fallback; `stickerStorage` coalesces per-owner/generation/file inflight loads into one fetch.
-- A placeholder remained after connectivity returned; visible not-yet-loaded images now retry once on a real offline/checking → online status transition rather than repeatedly retrying on every health update.
-- Inflight image fetch could finish after account switch. Loader checks account generation before display/caching; an unusable IndexedDB cache does not prevent online rendering. Storage 401 is handled through guarded auth instead of being silently treated as not found.
-- Updated regression coverage targets concurrent reuse, account-switch race, cache failure, lazy viewport loading, offline recovery.
-- Candidate app version changed from 0.13.0 to 0.13.1. Backend manifest, bucket, Function and media format unchanged.
+## Implementation
+- On Android, Composer uses a contenteditable text box (rather than textarea) to expose rich keyboard image input when browsers support it; paste/beforeinput and local data/blob inline image are intercepted. Existing textarea remains for non-Android. Receiving an image directly queues a message without a sticker picker/library step, preserving reply context/draft.
+- Prep converts incoming supported PNG/JPEG/WebP/GIF to static, transparent WebP <=384px <=128KiB (GIF animation not preserved, complex opaque backgrounds rejected) and salts hash with owner+recipient; store in existing owner-only IndexedDB pending-image store *before* inserting pending message. No extra backend table/bucket/function.
+- Message transport uploads one physical file per unique owner+recipient+image and sets owner plus recipient read permissions directly on create, verifies exact ACL before trusted message delivery, and removes durable staged bytes only on success. Same sticker reused within one friendship; different friends deliberately get separate narrow files rather than racy mutable recipient grants.
+- Removing a personal-library sticker no longer deletes the underlying file based on one device's incomplete local message history, preventing offline cross-device data loss (safety over automatic storage reclamation). Legacy picker/wire remains optional and backward-compatible, but legacy mutable ACL path still has cross-device race.
+- Unit/DOM tests cover keyboard clipboard flow, Android rich-editor behavior, deterministic scoped IDs and media authorization. See PROJECT_REFERENCE §21.2.
 
-## Risks and acceptance
-- **Open critical race:** updating Appwrite Storage file-level recipient ACL is a last-writer-wins read-modify-write. Two devices sharing one owner sticker with different recipients can erase one another's read grants. There is no atomic compare-and-set in this existing client API; do NOT claim recipient isolation/cross-device sending accepted until proven on Scratch or a backend-authorized serialization design has been implemented.
-- Browser OS sticker keyboard/PWA input availability and transparent cutout of arbitrary photos remain explicitly limited; phone Photos/Files and clipboard image is the supported path. Existing alpha is preserved; near-solid white/black background removal is heuristic and can damage artwork; complex photos require OS cutout. Real mobile acceptance remains unverified.
-- Scratch Appwrite bucket `task_images` inspected read-only, fileSecurity true, bucket create-only permissions, usage 0 B. The actual stable Vercel alias `mosaic-life-tracker-git-feature-8511b9-carls-projects-72516fde.vercel.app` is NOT exactly registered in Scratch Web platform list; wildcard `*.vercel.app` exists but repo policy explicitly requires exact alias for authenticated handoff. Do not treat this as authenticated browser acceptance.
-- Character libraries remain issue #489, license-dependent. No copyrighted packs bundled.
+## Limitations
+- Actual Samsung Keyboard `commitContent` may not reach JavaScript in Android Chrome/PWA/Samsung Internet. This code handles forwarded rich events only; cannot guarantee all Android keyboards work from browser code. A native Android input bridge would require separately approved packaging and on-device validation; no such native shell is delivered here.
+- Real Samsung phone, clipboard, installed PWA, real Scratch two-user media ACL/login, transparent rendering, keyboard/Back/light/dark/black/manual acceptance are unverified.
+- No production backend writes, scratch auth/data imports or account data copying; shared Scratch remains unchanged. Vercel alias must be explicitly matched to Scratch Web platform before claiming authenticated usability.
+- Sticker library size is capped at 32 only for the optional legacy picker; keyboard sends have no permanent picker entries but per-recipient files can accumulate until safe cleanup retention is designed.
+
 ## Next action
-- Repair two independently diagnosed canonical test-contract failures: provide `reportConnectivityResult` in the sticker Storage test mock because the new guarded fetch reports reachability, and retain the required checkpoint `## Next action` section.
-- Task branch `chatgpt/custom-stickers-ci-repair` based on stable Preview `1344e5996b2c0d4004f7b55eeb48d810d86cecc6`. Previous task PR #495 was merged and focused passed; previous canonical Actions 38037175770 build, both DOM shards and Vercel succeeded, but `checks` failed only from the two test-contract errors above. No app runtime or version change for this repair; keep v0.13.1.
-- Request focused CI, squash PR to stable Preview, verify exact SHA full CI and Vercel READY. Two-user Scratch file ACL/remaining device tests still outstanding. Production and dev untouched. Do not merge/promote without explicit instruction.
+Complete coherent task commit `[verify:focused]`, repair test/compile failures, squash task PR into stable Preview, require full canonical CI and matching READY Vercel. Update issue #413 with final SHA and any unresolved blocker. Do not promote to `dev`/`main` without explicit user instruction. User's mandatory acceptance is Samsung keyboard tray tap → send automatically with no import; only real Samsung device check can prove that.
