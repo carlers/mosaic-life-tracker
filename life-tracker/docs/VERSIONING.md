@@ -67,6 +67,19 @@ For a multi-feature release, write a representative headline and summarize **the
 
 Production Git tags use `vMAJOR.MINOR.PATCH` on the **actual accepted main merge SHA**. Only create a tag/GitHub Release after successful main canonical checks and production deployment readiness are verified. Fail closed on an existing tag pointing at a different commit; no force-moving tags. A release note summarizes user-facing changes and links the production PR. Agents perform the tag/release step when permissions/tools are available, or report the exact missing capability. Preview revisions are never tagged as completed production releases. Backfill historical `v0.3.0` only against its verified production SHA, never guess an ancestor.
 
+## Public release history publication
+
+Settings → Release history reads **published, stable GitHub Releases** from the public `carlers/mosaic-life-tracker` repository, on demand. Drafts, prereleases, malformed tags and Preview-only versions are excluded. The browser retains only a bounded, public release-notes cache for offline reading; the application does not use Appwrite accounts or ship fabricated changelog records. The list is empty until genuine production Releases exist.
+
+For every approved `dev` → `main` production promotion:
+1. Verify the exact accepted `main` merge SHA, successful canonical Actions check, production deployment readiness, and final release version.
+2. Prepare user-facing notes **from the aggregate shipped changes since the preceding production release**, not raw commit messages. Include notable features, fixes and the production PR; avoid unreleased Preview features or internal/private metadata.
+3. Confirm any existing `vMAJOR.MINOR.PATCH` tag resolves to exactly that accepted `main` SHA. Never move/recreate mismatching tags. Create the missing tag only after all gates pass.
+4. Publish a **non-draft, non-prerelease** GitHub Release on that tag with notes and the real publication date. Verify it is visible in the public Releases feed; a tag alone does not populate Mosaic's history.
+5. If release/tag write access or a proof gate is unavailable, report the precise missing step for a repository maintainer. Do not claim publication or invent historical entries. Never create a release as a side effect of Preview CI.
+
+As of 2026-10-10, `main` has v0.6.2 in source, but its public Releases feed and tag list were empty. A truthful v0.6.2 release may be published only after its production CI/deployment evidence and tag target are checked; earlier releases must be reconstructed from verified evidence rather than inferred.
+
 ## Build identity and PWA
 
 Every hosted build embeds the Vercel SHA, branch, commit message (including body when provided), UTC timestamp and channel (`Preview` or `Production`). Local builds show `local`. Settings shows only the Version label and number by default; tapping Version expands the Appwrite backend identity, Git branch/commit and message metadata. The commit message has its own nested control to reveal/collapse the full multiline body. Git identity separates builds even if no app-version bump is required. As before, service-worker install/update prompts are separate from semantic versions and offline data sync.
