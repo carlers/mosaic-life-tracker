@@ -10,7 +10,7 @@ Stable Preview: `feature/shared-tasks` at `088cdb7ad0c9001af42b66c90ca854560637b
 - Owner task replication merges independent edits; shared completion uses server transaction CAS and old-client owner baseline guard. Notifications suppress misleading creator-attributed shared completion.
 - Appwrite migration 007 creates private indexed `task_shares`; 008 removes known Scratch broad friendship create grant **only** with explicit `--only` selection. Other migrations never auto-run 008.
 - Creator Share sheet, recipient Explore invitation inbox and virtual Shared day-group. Unit/handler/DOM/browser regressions added. Earlier task SHA `f7aaed30` passed focused CI.
-- Stable Preview first full check failed on TypeScript optional attempts narrowing in `src/lib/taskShareQueue.ts`, and checkpoint formatting/token budget. DOM/browser shards passed. Vercel build failed at same TS check. Current branch `chatgpt/shared-tasks-preview-repair` corrects these before a new focused and stable canonical run.
+- Stable Preview first full check failed on TypeScript optional attempts narrowing in `src/lib/taskShareQueue.ts`, and checkpoint formatting/token budget. DOM/browser shards passed. Vercel build failed at same TS check. The follow-up branch `chatgpt/shared-tasks-ts-guard-repair` corrects the membership-queue guard missed in the first Preview repair.
 
 ## Cloud safety gate
 Read-only Scratch `6a96e82d000d1310b3be` lacks `task_shares` and has legacy `friendships` permission `create("users")`. Current active Scratch Function must not be replaced until exact-source deployment and migrations are ready. The connected Console cannot run the required confirmed Git CLI migration and exact source-archive deployment; no Scratch or Production mutations were made.
