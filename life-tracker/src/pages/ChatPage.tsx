@@ -27,6 +27,10 @@ import {
   messageMatchesQuery,
 } from '../components/messages/chatRenderItems';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
+import { packStickerMessage } from '../lib/stickerPacks';
+
+const StickerPackSheet = React.lazy(() => import('../components/messages/StickerPackSheet').then(module => ({ default: module.StickerPackSheet })));
+
 
 interface ComposerReplyState {
   id: string;
@@ -69,6 +73,8 @@ export const ChatPage: React.FC = () => {
   const composerRef = useRef<MessageComposerHandle>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
+  const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
+  const [hasOpenedStickers, setHasOpenedStickers] = useState(false);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
@@ -219,6 +225,15 @@ export const ChatPage: React.FC = () => {
       : undefined;
     await sendMessage(content, reply);
     setReplyTo(null);
+  };
+
+  const handlePickSticker = async (packId: string, stickerId: string) => {
+    setStickerPacksOpen(false);
+    try {
+      await handleSend(packStickerMessage(packId, stickerId));
+    } catch {
+      setFeedback('Could not queue sticker. Try again.');
+    }
   };
 
   const handleUnsend = async () => {
@@ -375,6 +390,7 @@ export const ChatPage: React.FC = () => {
         <MessageComposer
           ref={composerRef}
           onSend={handleSend}
+          onOpenStickers={() => { setHasOpenedStickers(true); setStickerPacksOpen(true); }}
           disabled={!friendId}
           placeholder="Message..."
           replyTo={replyTo}
@@ -382,6 +398,16 @@ export const ChatPage: React.FC = () => {
         />
       </div>
 
+      {hasOpenedStickers && (
+        <React.Suspense fallback={null}>
+          <StickerPackSheet
+            isOpen={stickerPacksOpen}
+            onClose={() => setStickerPacksOpen(false)}
+            ownerId={myUserId}
+            onPick={handlePickSticker}
+          />
+        </React.Suspense>
+      )}
       <MessageActionSheet
         isOpen={!!actionMessage}
         onClose={() => setActionMessageId(null)}

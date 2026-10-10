@@ -1,22 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: Issue #506 — topic-based, zero-manual-handoff resume after ChatGPT conversation failures.
-Baseline: live `dev` `224f8a700f35bbe3853206ee208e1dc103ece5b3`.
-Task branch: `chatgpt/cross-chat-resume-506`; stable Preview: `feature/cross-chat-resume-506`.
-Scope: repository workflow/documentation only, no version bump, Appwrite schema, feature implementation, or dev/main promotion. The latest historical release-history snapshot described another task; that issue's actual state must be checked independently.
+Current task: Issue #489 — rights-cleared sticker libraries MVP, no private sticker imports.
+Baseline: `dev` `60fe24b7852d420ee9c0915ed597ee61bc71801b` (v0.12.1); `main` remains untouched.
+Task branch: `chatgpt/sticker-libraries-489`; stable Preview: `feature/sticker-libraries` from the same dev baseline.
+Version: v0.16.0 candidate (v0.14.0 and v0.15.0 reserved by other active Preview features).
 
-## Objective and changes
+## Objective / changes
 
-- Make natural-language topic recovery deterministic through exact GitHub issue matching, issue-local checkpoints, and live PR/branch/CI/deployment verification.
-- Distinguish old chat timeout from failed operations; do not replay remote mutations without checking live state.
-- Keep concurrent issues separate; `SESSION_STATE.md` is not the authoritative checkpoint for every issue.
-- Implement in `AGENTS.md`, `docs/ISSUE_WORKFLOW.md` and `docs/AI_WORKFLOW.md`.
-- Demonstration target: shared tasks #406; its accepted Preview branch and Scratch/manual blocker must be discoverable without original conversation.
+- Replace canceled #413 personal uploads and Android IME ingestion with licensed, server-storage-free curated sticker packs. #413 is closed not planned; do not merge its old feature branch.
+- Add immutable versioned pack registry and compact allowlisted message references; only pinned transparent Twemoji SVGs (CC BY 4.0, credited) are fetched directly on demand from jsDelivr. GIPHY is not active without approved key; Pusheen, Sanrio and Adventure Time remain rights-blocked.
+- Chat sticker button opens lazy-loaded shared BottomSheet with My Packs, Discover, filter and one-tap message sends, without touching draft text. Per-owner device-local bookmarks, no duplicate Appwrite file, no schema, Function or bucket change.
+- Preserve offline outgoing queue, unsend, replies, message search, reaction, status, quote and old-client readable fallback. No outside URLs from message content.
 
 ## Verification
 
+Pending focused task CI, stable Preview full canonical CI and same-SHA READY Vercel. Unit/DOM coverage added for allowlist, typed wire, bookmarks, picker, rendering and fallback. These tests are not real phone, licensing for branded packs or two-user Scratch auth verification.
+
 ## Next action
 
-Review exact docs diff, request `[verify:focused]` on the coherent task commit, then squash via PR into the stable Preview branch, verify full canonical CI and Vercel. Docs-only scope skips Appwrite cloud readiness. An actual fresh-chat/mobile acceptance has not been performed and must be reported separately.
-No `dev` or `main` promotion is authorized for #506 or #406 by this task.
+Publish coherent task commit with `[verify:focused]`. Fix focused failures, squash task PR to stable Preview, verify exact-SHA canonical acceptance and Vercel READY. Collect manual/Scratch acceptance separately. Do not promote to dev or main without explicit permission.

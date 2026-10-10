@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Ban } from 'lucide-react';
+import { packStickerSummary } from '../../lib/stickerPacks';
 
 interface ReplyPreviewProps {
   senderName: string;
@@ -34,7 +35,7 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
           </p>
         ) : (
           <p className="text-[11px] text-gray-400 line-clamp-2 leading-snug">
-            {content}
+            {packStickerSummary(content)}
           </p>
         )}
       </div>
