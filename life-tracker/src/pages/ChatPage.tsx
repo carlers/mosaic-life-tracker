@@ -17,6 +17,7 @@ import { ScrollToBottomButton } from '../components/messages/ScrollToBottomButto
 import { ChatSearchBar } from '../components/messages/ChatSearchBar';
 import { StickerPickerSheet } from '../components/messages/StickerPickerSheet';
 import { stickerMessage, type SavedSticker } from '../lib/stickerProtocol';
+import { stageKeyboardSticker } from '../lib/stickerStorage';
 import { useMessages } from '../hooks/useMessages';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
@@ -52,6 +53,8 @@ export const ChatPage: React.FC = () => {
   const { user } = useAuth();
   const connectivity = useConnectivity();
   const myUserId = user?.$id ?? '';
+  const activeThreadRef = useRef(`${myUserId}:${friendId}`);
+  activeThreadRef.current = `${myUserId}:${friendId}`;
 
   const {
     messages,
@@ -72,7 +75,6 @@ export const ChatPage: React.FC = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const [stickerPickerOpen, setStickerPickerOpen] = useState(false);
-  const [pastedStickerFile, setPastedStickerFile] = useState<File | null>(null);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
@@ -227,6 +229,30 @@ export const ChatPage: React.FC = () => {
 
   const handleSendSticker = async (sticker: SavedSticker) => {
     await handleSend(stickerMessage(sticker));
+  };
+
+  // Android keyboard, clipboard and rich input images all go directly into
+  // the ordinary durable message outbox. There is no import/collection step.
+  const handleKeyboardSticker = async (file: File) => {
+    if (!myUserId || !friendId) return;
+    const threadKey = activeThreadRef.current;
+    const reply = replyTo
+      ? { id: replyTo.id, senderId: replyTo.senderId, content: replyTo.content }
+      : undefined;
+    setFeedback('Preparing sticker…');
+    try {
+      const content = await stageKeyboardSticker(file, myUserId, friendId);
+      if (activeThreadRef.current !== threadKey) return;
+      await sendMessage(content, reply);
+      if (activeThreadRef.current !== threadKey) return;
+      closeSearch();
+      setReplyTo(null);
+      setFeedback(null);
+    } catch (error) {
+      if (activeThreadRef.current === threadKey) {
+        setFeedback(error instanceof Error ? error.message : 'Could not send sticker.');
+      }
+    }
   };
 
   const handleUnsend = async () => {
@@ -384,7 +410,7 @@ export const ChatPage: React.FC = () => {
           ref={composerRef}
           onSend={handleSend}
           onOpenStickers={() => setStickerPickerOpen(true)}
-          onPasteSticker={file => { setPastedStickerFile(file); setStickerPickerOpen(true); }}
+          onSendImage={file => { void handleKeyboardSticker(file); }}
           disabled={!friendId}
           placeholder="Message..."
           replyTo={replyTo}
@@ -423,8 +449,6 @@ export const ChatPage: React.FC = () => {
         isOpen={stickerPickerOpen}
         onClose={() => setStickerPickerOpen(false)}
         onPick={handleSendSticker}
-        initialFile={pastedStickerFile}
-        onInitialFileHandled={() => setPastedStickerFile(null)}
         userId={myUserId}
       />
       <EmojiPickerSheet

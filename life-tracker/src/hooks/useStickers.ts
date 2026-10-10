@@ -1,9 +1,8 @@
 import { useCallback, useMemo } from 'react';
-import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useSettings } from './useSettings';
 import { normalizeStickers, STICKER_SETTINGS_KEY, MAX_STICKERS, type SavedSticker } from '../lib/stickerProtocol';
-import { uploadSticker, deleteUnusedSticker } from '../lib/stickerStorage';
+import { uploadSticker } from '../lib/stickerStorage';
 import { captureAccountWorkGeneration, isAccountWorkCurrent } from '../lib/accountWorkScope';
 
 export function useStickers() {
@@ -32,18 +31,10 @@ export function useStickers() {
     const generation = captureAccountWorkGeneration(userId);
     if (generation === null) return;
     await setSetting(STICKER_SETTINGS_KEY, stickers.filter(s => s.fileId !== fileId));
+    // Never eagerly erase a sticker blob based on one device's local rows:
+    // another device could have a not-yet-synced offline message.
+    // Account erasure remains the server-owned permanent cleanup path.
     if (!isAccountWorkCurrent(userId, generation)) return;
-    // A recipient may still need a sticker from an earlier message; only
-    // delete if we can prove no local references *and* no remote recipient ACL.
-    try {
-      const rows = await getDatabase().messages.find({
-        selector: { userId, isDeleted: false },
-      }).exec();
-      const referenced = rows.some(row => row.content.includes(fileId));
-      await deleteUnusedSticker(fileId, userId, referenced);
-    } catch (error) {
-      console.warn('[Stickers] Deferred unused file cleanup:', error);
-    }
   }, [userId, stickers, setSetting]);
 
   return { stickers, isLoading, addSticker, removeSticker };

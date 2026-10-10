@@ -690,6 +690,54 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 - **Unsent bubbles:** all gestures disabled. No reply icon, no action sheet, no double-tap react. Status row still renders for timeline coherence.
 - **Reaction timeout toast:** `toggleReaction` returns `'ok' | 'timeout'`. When a reaction is applied optimistically to an outgoing message that stays `deliveryStatus: 'pending'` past the 5s delivery wait, the optimistic patch is reverted and the mutator returns `'timeout'`. All three `ChatPage` reaction call sites (`handleBubbleReact`, `handleReactFromSheet`, `handleEmojiPicked`) branch on this and show the existing toast pattern with the string `"Couldn't send reaction. Try again."`. Do not add new toast infrastructure — reuse the page-level `feedback` state that auto-dismisses after 2000ms.
 
+### 21.2 Android keyboard-native direct sticker send (issue #413; v0.13.2 Preview candidate)
+
+- **Primary product acceptance:** when an Android browser forwards a Samsung Keyboard
+  sticker to the focused chat editor as an image File or inline local image,
+  Mosaic queues/sends immediately: no Add, personal library, picker or second
+  send tap. An optional manual picker remains available as a fallback only.
+- On Android use a contenteditable chat textbox so MIME-rich keyboard insertion
+  has a better chance of reaching the web layer. Handle image data from paste,
+  beforeinput and locally inserted data/blob images; do not fetch arbitrary
+  remote image URLs. Outside Android preserve the existing textarea.
+  Preserve normal typing, IME composition, text drafts, replies and focus.
+  The editor must not report direct keyboard integration as successful unless
+  Android Chrome/Samsung Internet actually delivers that MIME in a phone test.
+- Static PNG/JPEG/WebP/GIF image content is decoded and WebP-encoded through
+  the existing bounded 384px/128KiB transparent-sticker preparation. Animated
+  GIF motion is not retained. Nontransparent complex photos are rejected, never
+  silently shown with a white/black background.
+- Direct sends derive a deterministic asset ID from owner, **recipient**, and
+  compressed bytes. Create one file per owner/recipient/unique image with
+  exactly those users' READ rights and owner UPDATE/DELETE rights; no file ACL
+  updates are necessary when sending to other friends, avoiding the old
+  read-modify-write lost-grant race. Additional friend destinations require a
+  separate small upload; this is an explicit security-vs-Free-tier cost tradeoff.
+- Stage the processed WebP as an owner-scoped **durable offline pending blob**
+  before queuing the message. The normal pending-message delivery loop uploads
+  and verifies the narrow file ACL before sending to the trusted Function,
+  then clears staged bytes only after the Function succeeds. 409 uploads
+  accept only a strictly matching permissions array. Existing personal-library
+  messages continue on the old readable wire contract; these legacy sends
+  retain the known cross-device ACL-update race.
+- Do **not** eagerly delete personal-library assets when removed from the
+  picker: another device may have offline pending chat messages absent from
+  local rows. Retain sent/unused files until a safe cross-device cleanup policy
+  exists; permanent account erasure remains authoritative. Images are capped
+  and deduplicated per chat, but an unbounded number of unique images over years
+  may grow Free-tier Storage usage, requiring later retention/account limits.
+- **Android limitation:** browser/PWA support for keyboard `commitContent` is
+  device/version-dependent; JavaScript cannot access content the browser does
+  not forward. The native Android `InputConnectionCompat` /
+  `OnReceiveContentListener` bridge is a separate potential packaging
+  workstream, not part of this browser Preview. This Preview must not be
+  described as universal Samsung sticker support without real-device checks.
+- Current test acceptance covers clipboard/direct image event routing,
+  narrowly scoped permissions, deterministic IDs, and replay staging contracts.
+  Human acceptance must prove an actual Samsung Keyboard tap in Chrome,
+  installed PWA and Samsung Internet, two-account Scratch sharing,
+  offline/reconnect and alpha transparency, before any dev/main promotion.
+
 ### 21.1 Custom static stickers (issue #413; Preview candidate)
 - Sticker selection lives only in Chat. The picker reuses the shared BottomSheet
   (animated drag dismissal, Android Back, Esc, backdrop/input locking), and

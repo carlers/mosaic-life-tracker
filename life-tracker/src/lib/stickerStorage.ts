@@ -4,7 +4,8 @@ import { APPWRITE_PROJECT_ID, APPWRITE_STORAGE_BUCKET_ID } from './appwriteConfi
 import { getCachedImage, cacheImage, deleteCachedImage } from './imageCache';
 import { getConnectivitySnapshot } from './connectivity';
 import { guardedCall, makeUnauthorizedError } from './authEvents';
-import { STICKER_FILE_ID } from './stickerProtocol';
+import { STICKER_FILE_ID, stickerMessage } from './stickerProtocol';
+import { stagePendingSticker, getPendingSticker, deletePendingSticker } from './pendingImages';
 import { captureAccountWorkGeneration, isAccountWorkCurrent } from './accountWorkScope';
 
 const MAX_INPUT_BYTES = 10 * 1024 * 1024;
@@ -31,8 +32,8 @@ function nearBg(value: number, bg: 0 | 255): boolean {
  * opaque backgrounds behind a fake transparent canvas. */
 export async function prepareSticker(file: File): Promise<Blob> {
   if (file.size <= 0 || file.size > MAX_INPUT_BYTES ||
-      !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-    throw new Error('Choose a PNG, JPEG or WebP image under 10 MB.');
+      !['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+    throw new Error('Choose a PNG, JPEG, GIF or WebP image under 10 MB.');
   }
   const bitmap = await createImageBitmap(file);
   try {
@@ -121,6 +122,78 @@ export async function prepareSticker(file: File): Promise<Blob> {
   }
 }
 
+export async function recipientStickerId(ownerId: string, recipientId: string, blob: Blob): Promise<string> {
+  if (!ownerId || !recipientId || blob.type !== 'image/webp' || blob.size === 0 || blob.size > MAX_STICKER_BYTES) {
+    throw new Error('Invalid sticker image or recipient.');
+  }
+  const salt = new TextEncoder().encode(ownerId + ':' + recipientId + ':');
+  const bytes = new Uint8Array(salt.byteLength + blob.size);
+  bytes.set(salt);
+  bytes.set(new Uint8Array(await blob.arrayBuffer()), salt.byteLength);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  const fileId = 'stk_' + Array.from(digest.slice(0, 16), b => b.toString(16).padStart(2, '0')).join('');
+  return fileId;
+}
+
+/**
+ * Keyboard images bypass the personal library. Prepare a deterministic
+ * per-conversation asset and stage it *before* writing the pending message.
+ * One file per (owner, recipient, image), reused across sends in that chat.
+ * File ACLs never need cross-recipient read-modify-write updates.
+ */
+export async function stageKeyboardSticker(file: File, ownerId: string, recipientId: string): Promise<string> {
+  const generation = captureAccountWorkGeneration(ownerId);
+  if (!ownerId || !recipientId || generation === null) throw new Error('Account changed; try the sticker again.');
+  const blob = await prepareSticker(file);
+  if (!isAccountWorkCurrent(ownerId, generation)) throw new Error('Account changed; try the sticker again.');
+  const fileId = await recipientStickerId(ownerId, recipientId, blob);
+  if (!isAccountWorkCurrent(ownerId, generation)) throw new Error('Account changed; try the sticker again.');
+  // Durable staging is required even online: connectivity may fail between
+  // the user's keyboard tap and the Appwrite file upload.
+  await stagePendingSticker(ownerId, fileId, blob);
+  if (!isAccountWorkCurrent(ownerId, generation)) throw new Error('Account changed; try the sticker again.');
+  await cacheImage(cachedKey(ownerId, fileId), blob).catch(() => {});
+  return stickerMessage({ fileId, label: 'Sticker' });
+}
+
+/** Called by the existing message outbox *before* delivering the message.
+ * A 409 from a second device is safe only if both users' permissions match
+ * exactly; we never widen permissions on these per-recipient assets. */
+async function ensureKeyboardStickerFile(ownerId: string, recipientId: string, fileId: string, blob: Blob): Promise<void> {
+  const expected = [...ownerPermissions(ownerId), Permission.read(Role.user(recipientId))];
+  try {
+    await guardedStorage.createFile({
+      bucketId: APPWRITE_STORAGE_BUCKET_ID,
+      fileId,
+      file: new File([blob], fileId + '.webp', { type: 'image/webp' }),
+      permissions: expected,
+    });
+  } catch (error) {
+    if (!isConflict(error)) throw error;
+  }
+  const existing = await guardedStorage.getFile({ bucketId: APPWRITE_STORAGE_BUCKET_ID, fileId });
+  if (existing.$permissions?.length !== expected.length ||
+      !expected.every(permission => existing.$permissions?.includes(permission))) {
+    throw new Error('Sticker sharing permissions could not be verified.');
+  }
+}
+
+export async function prepareOutgoingSticker(ownerId: string, recipientId: string, fileId: string): Promise<void> {
+  if (!STICKER_FILE_ID.test(fileId) || !ownerId || !recipientId) throw new Error('Invalid outgoing sticker');
+  const pending = await getPendingSticker(fileId, ownerId);
+  if (pending) {
+    await ensureKeyboardStickerFile(ownerId, recipientId, fileId, pending);
+  } else {
+    // Legacy personal-library sticker: still readable as before. The old
+    // picker has an ACL-update race and is not the keyboard send path.
+    await allowStickerRecipient(ownerId, recipientId, fileId);
+  }
+}
+
+export async function settleOutgoingSticker(ownerId: string, fileId: string): Promise<void> {
+  await deletePendingSticker(fileId, ownerId);
+}
+
 export async function uploadSticker(file: File, userId: string): Promise<string> {
   if (!userId) throw new Error('Missing account');
   if (getConnectivitySnapshot().status !== 'online') throw new Error('Connect to upload a sticker.');
@@ -186,6 +259,11 @@ async function getStickerBlob(fileId: string, viewerId: string, key: string): Pr
   const cached = await getCachedImage(key).catch(() => undefined);
   if (!isAccountWorkCurrent(viewerId, generation)) return null;
   if (cached) return cached;
+  // The durable offline outbox is also a local read source, even if the
+  // evictable image cache is full or unavailable.
+  const pending = await getPendingSticker(fileId, viewerId).catch(() => null);
+  if (!isAccountWorkCurrent(viewerId, generation)) return null;
+  if (pending) return pending;
   if (getConnectivitySnapshot().status !== 'online') return null;
 
   const url = guardedStorage.getFileView({ bucketId: APPWRITE_STORAGE_BUCKET_ID, fileId });
