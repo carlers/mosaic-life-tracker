@@ -121,7 +121,7 @@ export const MessageComposer = forwardRef<
                   event.preventDefault();
                   onPasteSticker(image);
                 }
-              }
+              }}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               rows={1}
