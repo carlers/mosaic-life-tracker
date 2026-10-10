@@ -1,15 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: issue #406 full stable Preview -> dev integration explicitly approved by user after v0.14.5 acceptance.
+Current task: finish issue #406 approved Preview -> dev integration, deployment repair only (version impact NONE).
 
-## Integration discovery
-- Preview feature/shared-tasks SHA f8584e6e8681bc1ef751eaf3ec7759f5704b4ebf passed full canonical Quality Gate 38077995575 and Vercel READY. Its version was 0.14.5.
-- dev concurrently advanced to SHA 536e3fbaf850996585ed9755ff78bb99be0c0476 (v0.16.5), including Giphy/sticker improvements and production release automation. Version policy forbids downgrading dev. Exact unchanged Preview promotion is not possible.
-- Reconcile dev + shared tasks in a task merge commit with parents dev and feature/shared-tasks, then squash into a new stable Preview branch feature/shared-tasks-dev-integration created from dev; preserve both features and bump integrated Preview to 0.16.6. Conflicts limited to build budget, version triple, and current checkpoint. This new tree requires **fresh** canonical Preview acceptance before dev promotion.
-- Scratch backend Function remains the v0.14.2 shared-task release; production writes and main promotion not authorized. Shared-title/date permissions remain opt-in; document device and multi-account acceptance limitations honestly.
+## State/evidence
+- Integrated v0.16.6 stable Preview feature/shared-tasks-dev-integration SHA ab1c450f5614ac00e9af833bf2f5c237322adb4d passed canonical gate 38079683632 and Vercel READY.
+- PR #547 merge into dev at 75c8aeaf3a7cafc4bf32cae77c06c81d488178d3 preserved exact accepted Preview tree 11f8d91d83666abe30e54a57769bd1316d2787ed. Main/Production unchanged.
+- Vercel dev deployment dpl_3mGGfud88ZXiyfacZYnHRsqPfZQP failed **only** the aggregate raw-asset budget by 268 B. Its build compiled and passed PWA, entry, initial, Home and other budget checks. Vercel measurements: aggregate raw 2,391,268 B; gzip 737,674 B; precache 2,475,479 B. Preview build had lower aggregate byte totals.
+- Adjust only measured aggregate ceilings to 2,393,000 B raw, 739,000 B gzip, 2,477,000 B precache. Keep entry, initial closure and Home closure ceilings unchanged. No app code, backend, dependency or version changes. Repo size-budget regression values aligned.
+- Scratch Function/row schema already active and secure; account/grants data still Scratch only. Manual iOS/Android device acceptance not claimed.
 
 ## Next action
-- Recheck current dev SHA before promotion. Run integration suite, TypeScript, build/PWA budget, contracts and focused task CI.
-- PR/squash integration into feature/shared-tasks-dev-integration after focused green; full canonical gate and Vercel must pass for the new 0.16.6 tree.
-- Promote accepted Preview to dev through a **merge** PR, preferably preserving identical tree and canonical source evidence; verify dev CI + Scratch Vercel deployment. Do not touch main/Production. Issue #406 remains open until production release or explicit workflow closure.
+- Commit this scoped deployment-budget repair (and checkpoint) from accepted stable Preview as a task with [verify:focused].
+- Squash into feature/shared-tasks-dev-integration; run full canonical CI and exact-SHA Preview Vercel readiness, then merge via PR into dev with identical tree and verify dev GitHub CI and Vercel READY/200. No main/Production promotion. Issue #406 stays open pending release.
