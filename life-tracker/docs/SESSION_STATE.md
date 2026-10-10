@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Issue: #406 shared tasks, version 0.14.0. Source dev `224f8a700f35bbe3853206ee208e1dc103ece5b3`; dev/main not changed.
+Current task: issue #406 shared tasks, version 0.14.0. Source dev `224f8a700f35bbe3853206ee208e1dc103ece5b3`; dev/main not changed.
 Stable Preview: `feature/shared-tasks` at `a8b71b0da219696a0e97ccd7d7eaeb7670d6d13a`. Owner-completion improvement merged from PR #497 after focused-green task SHA `0f49ce63`. Original implementation `chatgpt/shared-tasks-contract` diverged after squash and must not merge wholesale.
 Current repair task: `chatgpt/shared-tasks-size-repair` based on Preview, not dev.
 
@@ -18,5 +18,18 @@ Current repair task: `chatgpt/shared-tasks-size-repair` based on Preview, not de
 ## Backend and acceptance blocker
 Scratch `6a96e82d000d1310b3be` checked read-only: `life_tracker.task_shares` absent; `friendships` has `create("users")` instead of server-only `[]`. Before shared-task Function activation, use Git-owned, explicit confirmed CLI + scoped Scratch key for security migration 008, then additive 007; package exact source SHA as inactive deployment, verify READY, activate, retest. This connected environment lacks that Git CLI/scoped key execution. No Production writes. Existing READY frontend Preview is not a working authenticated shared-task acceptance environment.
 
-## Next
+## Next action
 Focused CI for the size repair → small PR squash into stable Preview → full canonical/size/PWA and Vercel READY for the exact new SHA. Then Scratch/three-account/old-client/DR/browser/mobile acceptance. Keep #406 open. Promotion to dev/main requires the user's separate approval.
+
+### Size audit / final verification
+The `f3cc8cf6` Preview build (Actions 38037980668) passed Vite/TS/PWA
+compilation, dependency audit and DOM shards but failed the guarded aggregate
+app raw (2,348,439 B vs 2,346,500 B) and precache
+(2,431,958 B vs 2,429,800 B), plus a documentation-contract test because
+this checkpoint omitted required literal heading anchors. The eager sharing
+hook regression was already eliminated: Home static closure 354,410 B gzip
+passes the original 357,000 B limit. The only threshold adjustments are
+measured aggregate raw/gzip/precache to 2,349,300 / 724,500 / 2,432,850 B
+with approximately 0.8 KB headroom each. See PROJECT_REFERENCE §24.14.
+Repair branch `chatgpt/shared-tasks-budget-contract` requires focused CI,
+small PR squash into Preview, new full canonical and Vercel READY.
