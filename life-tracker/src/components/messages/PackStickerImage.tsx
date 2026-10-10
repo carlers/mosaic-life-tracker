@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import type { ResolvedPackSticker } from '../../lib/stickerPacks';
 
 interface PackStickerImageProps {
@@ -9,7 +9,6 @@ interface PackStickerImageProps {
 /** A failed or withdrawn asset does not become a broken image or an arbitrary URL. */
 export const PackStickerImage: React.FC<PackStickerImageProps> = ({ sticker, size = 'chat' }) => {
   const [failed, setFailed] = useState(false);
-  useEffect(() => { setFailed(false); }, [sticker.url]);
 
   if (failed) {
     return <span className="text-xs text-gray-400" role="img" aria-label={'Sticker unavailable: ' + sticker.label}>
