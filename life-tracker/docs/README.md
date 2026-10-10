@@ -76,3 +76,5 @@ the [delivery guide](DELIVERY.md) owns release gates. Entrypoints should summari
 link rather than duplicate these rules. Audit/acceptance documents retain historical
 evidence, not permission to override executable code or current release status.
 Do not renumber project-reference sections merely to reorganize documentation.
+
+- [Shared tasks owner and collaborator contract](SHARED_TASKS.md)

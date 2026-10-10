@@ -48,7 +48,7 @@ export function findTaskCategory(
   return null;
 }
 
-function parseDropTarget(targetId: string): ParsedDropTarget | null {
+export function parseDropTarget(targetId: string): ParsedDropTarget | null {
   if (targetId.startsWith(CATEGORY_START_PREFIX)) {
     const categoryId = targetId.slice(CATEGORY_START_PREFIX.length);
     return categoryId ? { categoryId, position: 'start' } : null;

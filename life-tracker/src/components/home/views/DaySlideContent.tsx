@@ -20,6 +20,14 @@ export interface DaySlideProps {
   currentUserId: string;
   sharedItems?: SharedTaskItem[];
   ownerLabels?: ReadonlyMap<string, string>;
+  sharedCategoryFor?: (item: SharedTaskItem) => string;
+  onAssignSharedCategory?: (item: SharedTaskItem, categoryId: string) => Promise<void>;
+  onCopySharedTask?: (item: SharedTaskItem, categoryId: string) => Promise<void>;
+  onEditSharedTitle?: (item: SharedTaskItem, title: string) => Promise<void>;
+  onChangeSharedDate?: (item: SharedTaskItem, date: string) => Promise<void>;
+  onMoveSharedTask?: (item: SharedTaskItem, categoryId: string, targetId: string, position: string) => Promise<void>;
+  sharedOrderFor?: (item: SharedTaskItem) => number;
+  onSharedMoveError?: (error: unknown) => void;
   onSharedCompletion?: (item: SharedTaskItem, completed: boolean) => Promise<unknown> | void;
   onLeaveSharedTask?: (item: SharedTaskItem) => Promise<unknown> | void;
   sharedPendingFor?: (taskId: string) => SharedCompletionCommand | undefined;
@@ -62,6 +70,12 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   currentUserId,
   sharedItems = [],
   ownerLabels,
+  sharedCategoryFor,
+  onAssignSharedCategory,
+  onCopySharedTask,
+  onEditSharedTitle,
+  onChangeSharedDate,
+  sharedOrderFor,
   onSharedCompletion,
   onLeaveSharedTask,
   sharedPendingFor,
@@ -96,6 +110,21 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         null
       : null;
 
+  const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
+  const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
+  const sharedRowProps = {
+    onSetCompleted: onSharedCompletion!,
+    onLeave: onLeaveSharedTask,
+    pendingFor: sharedPendingFor!,
+    categories,
+    categoryFor: sharedCategoryFor,
+    onAssignCategory: onAssignSharedCategory,
+    onCopy: onCopySharedTask,
+    onEditTitle: onEditSharedTitle,
+    onChangeDate: onChangeSharedDate,
+    draggable: reorderRuntimeActive && !selectionMode,
+  };
+
   return (
     <div
       className={
@@ -118,6 +147,11 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           currentUserId={currentUserId}
           tasks={tasksByCategory.get(category.id) ?? []}
           ownerLabels={ownerLabels}
+          sharedRows={!selectionMode && onSharedCompletion && sharedPendingFor && currentShares.some(item => sharedCategoryFor?.(item) === category.id) && (
+            <SharedTaskRows items={currentShares.filter(item =>
+              sharedCategoryFor?.(item) === category.id)}
+              {...sharedRowProps} compact />
+          )}
           onToggleTask={onToggleTask}
           onAddTask={(title, completed) => onAddTask(title, category.id, dateStr, completed)}
           onOpenActions={onOpenActions}
@@ -147,14 +181,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           dragGapHeight={activeDrag?.rowHeight ?? 0}
         />
       ))}
-      {!selectionMode && sharedItems.some(item => item.status === 'accepted' && item.date === dateStr) &&
+      {!selectionMode && unassignedShares.length > 0 &&
         onSharedCompletion && sharedPendingFor && (
-        <SharedTaskRows
-          items={sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr)}
-          onSetCompleted={onSharedCompletion}
-          onLeave={onLeaveSharedTask}
-          pendingFor={sharedPendingFor}
-        />
+        <SharedTaskRows items={unassignedShares} {...sharedRowProps} />
       )}
     </div>
   );

@@ -38,7 +38,9 @@ function safeEntry(raw: unknown): raw is SharedTaskItem {
     (entry.status === 'pending' || entry.status === 'accepted') &&
     typeof entry.grantEpoch === 'string' &&
     typeof entry.membershipRevision === 'string' &&
-    typeof entry.completionRevision === 'string';
+    typeof entry.completionRevision === 'string' &&
+    (entry.allowTitleEdit === undefined || typeof entry.allowTitleEdit === 'boolean') &&
+    (entry.allowDateEdit === undefined || typeof entry.allowDateEdit === 'boolean');
 }
 
 function minimalEntry(item: SharedTaskItem): SharedTaskItem {
@@ -47,6 +49,7 @@ function minimalEntry(item: SharedTaskItem): SharedTaskItem {
     ...(typeof item.inviteeId === 'string' ? { inviteeId: item.inviteeId } : {}),
     status: item.status, grantEpoch: item.grantEpoch,
     membershipRevision: item.membershipRevision,
+    allowTitleEdit: item.allowTitleEdit === true, allowDateEdit: item.allowDateEdit === true,
     title: item.title, date: item.date, completed: item.completed,
     completionRevision: item.completionRevision,
   };

@@ -112,6 +112,8 @@ export const MOSAIC_TABLES = [
       { key: 'last_command_id', type: 'varchar', size: 36, required: false, default: '' },
       { key: 'last_membership_command_id', type: 'varchar', size: 36, required: false, default: '' },
       { key: 'last_command_target', type: 'boolean', required: false, default: false },
+      { key: 'allow_title_edit', type: 'boolean', required: false, default: false },
+      { key: 'allow_date_edit', type: 'boolean', required: false, default: false },
       { key: 'created_at', type: 'varchar', size: 50, required: true },
       { key: 'updated_at', type: 'varchar', size: 50, required: true },
     ],
