@@ -16,10 +16,10 @@
   "limits": {
     "entryRawBytes": 444400,
     "entryGzipBytes": 131600,
-    "initialClosureGzipBytes": 143700,
+    "initialClosureGzipBytes": 144850,
     "homeClosureGzipBytes": 357000,
-    "appAssetsRawBytes": 2321000,
-    "appAssetsGzipBytes": 715100,
-    "precacheUniqueBytes": 2403900
+    "appAssetsRawBytes": 2346500,
+    "appAssetsGzipBytes": 723700,
+    "precacheUniqueBytes": 2429800
   }
 }

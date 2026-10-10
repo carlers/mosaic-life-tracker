@@ -1246,6 +1246,30 @@ startup and Home ceilings remain unchanged. The build-size guard is still
 mandatory; this is a bounded, measured product exception rather than
 general CI relaxation.
 
+A 2026-10-10 measured exception covers shared tasks with friends (#406), including
+one canonical creator-owned task, server-authorized multiple invitations,
+minimal recipient projections, conflict-safe completion, durable offline
+completion/membership queues and the new sharing/recipient controls. The
+original stable Preview build exceeded the startup static closure by 3,536 B
+gzip. Moving durable-queue initialization behind the AuthProvider dynamic
+import reduced the measured startup excess to **349 B**, without weakening
+any feature or PWA policy.
+
+Vercel's exact `feature/shared-tasks` v0.14.0 tree at `203a6476`
+measured **441,671 B entry raw / 131,341 B entry gzip /
+144,049 B initial closure gzip / 353,377 B Home closure gzip /
+2,345,145 B app assets raw / 722,374 B app assets gzip /
+2,428,484 B unique precache**. The measured total asset growth is real
+feature code; removing the server-only Function does not affect the frontend
+bundle. Preserve the unchanged entry and Home limits. The exception sets
+initial-closure gzip to **144,850 B** (+1,150 B, only 801 B over the
+observed tree), and aggregate raw/gzip/precache to **2,346,500 B /
+723,700 B / 2,429,800 B**, leaving just **1,355 / 1,326 / 1,316 B**
+of Vercel headroom respectively. All seven guards remain mandatory;
+actual CI/Vercel remeasurement after the change is required. This is a
+scoped measured feature allowance, not a blanket limit reset or
+release acceptance; Scratch live deployment and testing remain separate.
+
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 
