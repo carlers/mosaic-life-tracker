@@ -1,3 +1,4 @@
+import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SharedTaskRows } from '../../src/components/home/views/SharedTaskRows';
@@ -73,6 +74,45 @@ describe('received shared task interactions', () => {
     expect(screen.getByRole('button', { name: 'Duplicate' })).not.toBeDisabled();
   });
 
+  it('keeps actions open when a category change relocates the originating row', async () => {
+    const Fixture = () => {
+      const [category, setCategory] = React.useState('');
+      const [selected, setSelected] = React.useState<SharedTaskItem | null>(null);
+      const handlers = {
+        ...baseProps,
+        categoryFor: () => category,
+        onSelectItem: setSelected,
+        onAssignCategory: async (_task: SharedTaskItem, next: string) => { setCategory(next); },
+      };
+      return <>
+        {!category && <SharedTaskRows {...handlers} items={[row]} />}
+        {category && <SharedTaskRows {...handlers} items={[row]} compact />}
+        <SharedTaskRows {...handlers} items={[row]} actionsOnly selectedItem={selected} />
+      </>;
+    };
+    render(<Fixture />);
+    fireEvent.click(screen.getByRole('button', { name: 'Shared presentation' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Assign shared task to my category' }),
+      { target: { value: 'cat_B' } });
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy();
+  });
+  it('opens the shared date calendar without a second date-field tap', async () => {
+    const editable = { ...row, allowDateEdit: true };
+    const Fixture = () => {
+      const [selected, setSelected] = React.useState<SharedTaskItem | null>(null);
+      return <>
+        <SharedTaskRows {...baseProps} items={[editable]} onSelectItem={setSelected} />
+        <SharedTaskRows {...baseProps} items={[editable]} actionsOnly
+          selectedItem={selected} onSelectItem={setSelected}
+          onChangeDate={vi.fn(async () => {})} />
+      </>;
+    };
+    render(<Fixture />);
+    fireEvent.click(screen.getByRole('button', { name: 'Shared presentation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Change Date' }));
+    await waitFor(() => expect(screen.getByRole('group', { name: 'Calendar dates' })).toBeTruthy());
+  });
   it('handles pointer double-tap as edit, rather than opening actions', async () => {
     const edit = vi.fn(async () => {});
     render(<SharedTaskRows {...baseProps} onEditTitle={edit} />);

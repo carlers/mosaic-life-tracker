@@ -78,3 +78,4 @@ evidence, not permission to override executable code or current release status.
 Do not renumber project-reference sections merely to reorganize documentation.
 
 - [Shared tasks owner and collaborator contract](SHARED_TASKS.md)
+- [Default task Change Date calendar](TASK_DATE_INTERACTION.md)

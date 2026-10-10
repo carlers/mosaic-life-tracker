@@ -1,15 +1,14 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: issue #406 shared task UI parity for recipient B, user authorized. Stable Preview feature/shared-tasks at 5ea5cff93b5e9807b3d805bec7a680aa261edb74 (v0.14.2); dev/main unchanged. Candidate patch 0.14.3; frontend only, Scratch Appwrite Function remains current.
+Current task: issue #406 v0.14.4 shared recipient placement and date calendar regressions. User reported accepted share drags/reorder and category assignment failing or changing Day View to the next day; user also requested immediate calendar on Change Date for shared and native tasks. Baseline stable Preview feature/shared-tasks at e744bb0a7852a391c47aa94ac506cb28b5fe666d (v0.14.3). dev/main and Production untouched.
 
-## Objective and implementation
-- B's accepted shared tasks resemble normal TaskItem: aligned 24px checkbox, category-colored completion, standard row/title spacing and muted owner attribution instead of card UI; no visible grip or three-dot controls.
-- Title uses Mosaic's useBubbleGestures with 200ms tap disambiguation: single tap Action Sheet, double tap owner-granted inline title edit, keyboard title activation opens actions. Long-press on title uses existing @dnd-kit native 500ms delay sensor; drag source is hidden, native-style overlay shown.
-- Permission-aware shared task Action Sheet uses familiar icon grid and rows for Edit, Duplicate, category selection, Copy Task Text, permitted Change Date, and Leave Share. Checkbox independently controls global completion; no private owner memo/photo/category access or grant escalation.
-- Regression coverage updated for single tap, double tap, checkbox independence, permissions, personal category assignment, duplicate. Build size allowance measured and guarded, entry/initial/Home closure budgets unchanged.
-- Product boundary in docs/SHARED_TASKS.md. No backend/schema changes.
+## Changes in task branch
+- SharedTaskRows action sheet ownership is now lifted into stable DaySlideContent, so category relocation doesn't unmount an open sheet/retire its browser-history guard or interfere with Swiper. Shared action/date sheets lock Day View background swipe.
+- TaskReorderRuntime preserves validated shared drop targets, instead of discarding them without a native drag session; pure placement planner handles before/after shared rows and maps native row/gap drops to the start of recipient's shared group. Serial account-scoped settings updates persist share order.
+- Shared title/date owner authorization unchanged. All individual, bulk and shared Change Date flows use reusable TaskDateCalendar shown immediately with month navigation and a visible calendar grid; DatePickerSheet accepts a minimal date-target shape, so no private owner fields are needed.
+- Added unit + DOM regression tests for move order, shared action survival across category changes, calendar immediate display and date confirmation. New Preview patch version 0.14.4, frontend only; reusable default documented in docs/TASK_DATE_INTERACTION.md.
 
 ## Next action
-- Run focus/DOM/contracts/build, fix failures and review changes. Commit exact task tree on chatgpt/** with [verify:focused], PR into feature/shared-tasks; after green squash and verify full canonical gate + exact Vercel Preview SHA.
-- Manual Samsung/Android installed-PWA long-press/drag, iOS/touch, settings/theme, online permission edits need user acceptance if cannot test with browser/device. Issue #406 remains open; dev/main promotion requires explicit permission.
+- Verify TypeScript, contracts, lint, focused/DOM, build/PWA/size. Repair failures; commit exact tested task tree on chatgpt/** with [verify:focused].
+- On focused green, PR/squash into feature/shared-tasks; verify canonical gate and exact-SHA Vercel Preview. Update issue #406 with evidence; no dev/main promotion without explicit approval. Real Android/iOS/PWA gesture + date sheet acceptance is a distinct manual check.

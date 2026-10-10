@@ -29,6 +29,7 @@ export interface DaySlideProps {
   sharedOrderFor?: (item: SharedTaskItem) => number;
   onSharedMoveError?: (error: unknown) => void;
   activeSharedDragId?: string | null;
+  onSharedSheetOpenChange?: (open: boolean) => void;
   onSharedCompletion?: (item: SharedTaskItem, completed: boolean) => Promise<unknown> | void;
   onLeaveSharedTask?: (item: SharedTaskItem) => Promise<unknown> | void;
   sharedPendingFor?: (taskId: string) => SharedCompletionCommand | undefined;
@@ -78,6 +79,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   onChangeSharedDate,
   sharedOrderFor,
   activeSharedDragId,
+  onSharedSheetOpenChange,
   onSharedCompletion,
   onLeaveSharedTask,
   sharedPendingFor,
@@ -114,6 +116,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
 
   const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
   const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
+  // Own the action sheet above category rows: moving a share must not unmount
+  // its open sheet or consume its history entry while Swiper navigates.
+  const [selectedSharedTask, setSelectedSharedTask] = React.useState<SharedTaskItem | null>(null);
   const sharedRowProps = {
     onSetCompleted: onSharedCompletion!,
     onLeave: onLeaveSharedTask,
@@ -124,6 +129,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
     onCopy: onCopySharedTask,
     onEditTitle: onEditSharedTitle,
     onChangeDate: onChangeSharedDate,
+    onSelectItem: setSelectedSharedTask,
     draggable: reorderRuntimeActive && !selectionMode,
     activeDragId: activeSharedDragId,
   };
@@ -187,6 +193,11 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       {!selectionMode && unassignedShares.length > 0 &&
         onSharedCompletion && sharedPendingFor && (
         <SharedTaskRows items={unassignedShares} {...sharedRowProps} />
+      )}
+      {!selectionMode && onSharedCompletion && sharedPendingFor && (
+        <SharedTaskRows items={currentShares} {...sharedRowProps}
+          selectedItem={selectedSharedTask} actionsOnly
+          onSheetOpenChange={onSharedSheetOpenChange} />
       )}
     </div>
   );
