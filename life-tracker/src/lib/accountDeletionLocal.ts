@@ -8,12 +8,15 @@ import { clearAllCachedImages } from './imageCache';
 import { clearOfflineDataReadiness } from './offlineReadiness';
 import { clearTodoMateImportMarker } from './todomateImportState';
 import { clearBackupActivity } from './backupActivity';
+import { clearSharedCompletionQueue } from './taskShareQueue';
+import { clearSharedTaskCache } from '../hooks/useSharedTasks';
 
 const ACCOUNT_STORAGE_KEYS = [
   'lastSyncTime_',
   'lastSyncTimePerCollection_',
   'reconciledMissingRows_',
   'mosaic_friendship_cache_v1:',
+  'mosaic_shared_completion_conflict_',
 ] as const;
 
 export async function clearDeletedAccountLocalData(
@@ -26,6 +29,8 @@ export async function clearDeletedAccountLocalData(
   clearCachedOwnProfile(userId);
   clearTodoMateImportMarker(userId);
   clearBackupActivity(userId);
+  clearSharedCompletionQueue(userId);
+  clearSharedTaskCache(userId);
   clearOfflineDataReadiness();
 
   try {

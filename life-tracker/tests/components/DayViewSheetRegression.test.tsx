@@ -177,6 +177,12 @@ vi.mock('../../src/hooks/useSettings', () => ({
   }),
 }));
 
+vi.mock('../../src/hooks/useSharedTasks', () => ({
+  useSharedTasks: () => ({ items: [], activeItems: [], error: '', online: false,
+    isLoading: false, pendingFor: () => undefined,
+    updateCompletion: vi.fn(), updateMembership: vi.fn(), invite: vi.fn(), reload: vi.fn() }),
+}));
+
 vi.mock('../../src/hooks/useTaskImage', () => ({
   useTaskImage: () => ({ imageUrl: 'blob:image_1', isLoading: false }),
 }));

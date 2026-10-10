@@ -63,6 +63,7 @@ function makeCallbacks() {
     onMemo: vi.fn(),
     onChangeDate: vi.fn(),
     onVisibility: vi.fn(),
+    onShare: vi.fn(),
     onAddPhoto: vi.fn(),
     onViewPhoto: vi.fn(),
     onDeletePhoto: vi.fn(),

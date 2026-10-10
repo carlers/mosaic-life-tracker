@@ -8,6 +8,7 @@ import { FriendRequestRow } from './FriendRequestRow';
 import { FriendRow } from './FriendRow';
 import { OutgoingRequestRow } from './OutgoingRequestRow';
 import { FriendActionSheet } from './FriendActionSheet';
+import { SharedTasksSection } from './SharedTasksSection';
 import { useFriends } from '../../hooks/useFriends';
 import { useProfileLookup } from '../../hooks/useProfileLookup';
 import { useMyProfile } from '../../hooks/useMyProfile';
@@ -259,6 +260,8 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             ))}
           </section>
         )}
+
+        <SharedTasksSection />
 
         <section className="space-y-2">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">

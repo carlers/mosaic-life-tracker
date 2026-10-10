@@ -25,6 +25,10 @@ import { useConnectivity } from "./useConnectivity";
 import { preloadHomePage } from "../lib/homePreload";
 import { scopeAccountWork } from "../lib/accountWorkScope";
 import {
+  scopeSharedTaskQueue, flushSharedCompletions, clearSharedCompletionQueue,
+} from "../lib/taskShareQueue";
+import { clearSharedTaskCache } from "./useSharedTasks";
+import {
   isValidUsername,
   normalizeUsername,
   USERNAME_REQUIREMENTS,
@@ -360,6 +364,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     scopeSyncStatusToUser(userId);
   }, [userId]);
+
+  useEffect(() => {
+    scopeSharedTaskQueue(userId);
+    return () => scopeSharedTaskQueue(null);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || connectivity.status !== "online") return;
+    void flushSharedCompletions(userId).catch(error => {
+      console.warn("[AuthProvider] Shared completion retry failed:", error);
+    });
+  }, [userId, connectivity.status]);
 
   useEffect(() => {
     let active = true;
@@ -1008,6 +1024,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       scopeAccountWork(null);
       clearCachedUser();
+      if (userId) {
+        clearSharedCompletionQueue(userId);
+        clearSharedTaskCache(userId);
+      }
       setUser(null);
       setIsLoading(false);
       broadcastAuth("logout");

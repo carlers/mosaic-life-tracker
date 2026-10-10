@@ -1,0 +1,169 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from './useAuth';
+import { useConnectivity } from './useConnectivity';
+import {
+  changeSharedTaskMembership, enqueueSharedCompletion, flushSharedCompletions,
+  listSharedTasks, pendingSharedCompletion, subscribeSharedTaskQueue,
+  type SharedCommandResult, type SharedTaskItem,
+} from '../lib/taskShareQueue';
+
+export type SharedTaskScope = 'received' | 'owned';
+const CACHE_PREFIX = 'mosaic_shared_tasks_cache_v1:';
+const CACHE_MAX = 1000;
+
+function cacheKey(userId: string, scope: SharedTaskScope): string {
+  return CACHE_PREFIX + encodeURIComponent(userId) + ':' + scope;
+}
+
+// No full TaskDocument (which includes private memo/image/category) is ever cached.
+function safeEntry(raw: unknown): raw is SharedTaskItem {
+  if (!raw || typeof raw !== 'object') return false;
+  const entry = raw as Partial<SharedTaskItem>;
+  return typeof entry.id === 'string' && typeof entry.taskId === 'string' &&
+    typeof entry.ownerId === 'string' && typeof entry.title === 'string' &&
+    typeof entry.date === 'string' && typeof entry.completed === 'boolean' &&
+    (entry.status === 'pending' || entry.status === 'accepted') &&
+    typeof entry.grantEpoch === 'string' &&
+    typeof entry.membershipRevision === 'string' &&
+    typeof entry.completionRevision === 'string';
+}
+
+function minimalEntry(item: SharedTaskItem): SharedTaskItem {
+  return {
+    id: item.id, taskId: item.taskId, ownerId: item.ownerId,
+    ...(typeof item.inviteeId === 'string' ? { inviteeId: item.inviteeId } : {}),
+    status: item.status, grantEpoch: item.grantEpoch,
+    membershipRevision: item.membershipRevision,
+    title: item.title, date: item.date, completed: item.completed,
+    completionRevision: item.completionRevision,
+  };
+}
+
+export function readSharedTaskCache(userId: string, scope: SharedTaskScope): SharedTaskItem[] {
+  try {
+    const raw = localStorage.getItem(cacheKey(userId, scope));
+    if (!raw) return [];
+    const data: unknown = JSON.parse(raw);
+    return Array.isArray(data) && data.length <= CACHE_MAX && data.every(safeEntry)
+      ? data.map(minimalEntry) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeSharedTaskCache(
+  userId: string, scope: SharedTaskScope, items: SharedTaskItem[]
+): void {
+  try {
+    localStorage.setItem(cacheKey(userId, scope), JSON.stringify(items.slice(0, CACHE_MAX).map(minimalEntry)));
+  } catch {
+    // Live data remains available if local persistence is unavailable.
+  }
+}
+
+export function clearSharedTaskCache(userId: string): void {
+  try {
+    localStorage.removeItem(cacheKey(userId, 'owned'));
+    localStorage.removeItem(cacheKey(userId, 'received'));
+  } catch {
+    // Best effort; server access is always checked on every online read.
+  }
+}
+
+export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
+  const { user } = useAuth();
+  const userId = user?.$id ?? null;
+  const connectivity = useConnectivity();
+  const online = connectivity.status === 'online';
+  const key = userId ? cacheKey(userId, scope) : null;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [state, setState] = useState<SharedTaskItem[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [lastMutation, setLastMutation] = useState<SharedCommandResult | null>(null);
+  const [queueRevision, setQueueRevision] = useState(0);
+
+  useEffect(() => subscribeSharedTaskQueue(
+    () => setQueueRevision(n => n + 1)
+  ), []);
+
+  const reload = useCallback(async () => {
+    if (!userId) return;
+    const list = await listSharedTasks(scope);
+    writeSharedTaskCache(userId, scope, list);
+    setState(list);
+    setLoadedKey(cacheKey(userId, scope));
+    setError('');
+  }, [scope, userId]);
+
+  useEffect(() => {
+    if (!userId || !key || !enabled) return;
+    let active = true;
+    const cached = readSharedTaskCache(userId, scope);
+    setState(cached);
+    setLoadedKey(key);
+    if (!online) return () => { active = false; };
+    setBusy(true);
+    void listSharedTasks(scope).then(items => {
+      if (!active) return;
+      writeSharedTaskCache(userId, scope, items);
+      setState(items);
+      setLoadedKey(key);
+      setError('');
+    }).catch(cause => {
+      if (!active) return;
+      // Offline cached membership is only stale reference, never remote authority.
+      setError(cause instanceof Error ? cause.message : 'Shared tasks unavailable');
+    }).finally(() => { if (active) setBusy(false); });
+    return () => { active = false; };
+  }, [userId, key, scope, online, enabled]);
+
+  const updateCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
+    if (!userId || !key || item.status !== 'accepted') {
+      throw new Error('Shared-task membership unavailable');
+    }
+    enqueueSharedCompletion(userId, item, desired);
+    setQueueRevision(n => n + 1);
+    if (!online) {
+      setLastMutation(null);
+      return { status: 'pending' } as const;
+    }
+    const results = await flushSharedCompletions(userId);
+    const latest = results.at(-1);
+    if (latest) {
+      setLastMutation(latest);
+      if (latest.status === 'rejected') setError(latest.reason || 'Shared completion failed');
+      if (latest.status === 'confirmed') await reload();
+    }
+    return latest ?? { status: 'pending' } as const;
+  }, [key, userId, online, reload]);
+
+  const updateMembership = useCallback(async (
+    item: SharedTaskItem, operation: 'accept' | 'decline' | 'leave' | 'revoke'
+  ) => {
+    await changeSharedTaskMembership({
+      taskId: item.taskId, ownerId: item.ownerId,
+      ...(operation === 'revoke' ? { friendUserId: item.inviteeId } : {}),
+      grantEpoch: item.grantEpoch, operation,
+    });
+    await reload();
+  }, [reload]);
+
+  const invite = useCallback(async (taskId: string, friendUserId: string) => {
+    await changeSharedTaskMembership({ operation: 'invite', taskId, friendUserId });
+    await reload();
+  }, [reload]);
+
+  // The account-scoped key prevents a retained view showing a prior user's data.
+  const items = loadedKey === key ? state : [];
+  const activeItems = useMemo(() => items.filter(item => item.status === 'accepted'), [items]);
+  const pendingFor = useCallback((taskId: string) => {
+    void queueRevision;
+    return userId ? pendingSharedCompletion(userId, taskId) : undefined;
+  }, [queueRevision, userId]);
+
+  return {
+    items, activeItems, isLoading: busy, error, online, pendingFor,
+    lastMutation, invite, updateCompletion, updateMembership, reload,
+  };
+}
