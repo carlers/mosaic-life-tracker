@@ -15,7 +15,7 @@ Version: v0.16.0 candidate (v0.14.0 and v0.15.0 reserved by other active Preview
 
 ## Verification
 
-Pending focused task CI, stable Preview full canonical CI and same-SHA READY Vercel. Unit/DOM coverage added for allowlist, typed wire, bookmarks, picker, rendering and fallback. These tests are not real phone, licensing for branded packs or two-user Scratch auth verification.
+Original task focused Actions 38064929307 SUCCESS; stable Preview SHA 1c33eefef0d709ac6aebc74d568c6eb105633878 full CI had build-size aggregate-only failure (CI +8,147 raw / +2,441 gzip / +8,534 precache; Vercel +8,311 / +2,628 / +8,698). Entry, startup and Home limits passed unchanged. This repair raises **only** the aggregate/precache budget by 13,000 / 5,000 / 13,000 bytes, preserving the original historical baseline and initial closure guard. Require new task focused CI and full stable acceptance + same-SHA READY Vercel. Unit/DOM coverage added for allowlist, typed wire, bookmarks, picker, rendering and fallback. These tests are not real phone, licensing for branded packs or two-user Scratch auth verification.
 
 ## Next action
 
