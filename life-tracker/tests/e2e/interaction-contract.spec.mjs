@@ -199,6 +199,7 @@ async function startDrag(page, locator, deltaX) {
 // Regression: #471 chat shell must never reflow during the route slide.
 test('chat entering and leaving keeps the outgoing viewport geometry stable', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?chatMotion=1`);
+  await expect(page.getByTestId('open-chat-motion')).toBeVisible();
 
   async function sample(buttonId, exitingId) {
     return page.evaluate(async ({ buttonId, exitingId }) => {
