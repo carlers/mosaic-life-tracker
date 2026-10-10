@@ -1,26 +1,23 @@
 # Session checkpoint
 
-Updated: 2026-10-10
-Current task: Reconcile and promote release-history issue #476 to `dev` (user explicitly approved).
-Baseline: live `dev` `4eb8cb39b078d20989d1325a97207b6e6d4fa1c9` (v0.11.3); original accepted release-history Preview `feature/release-history` `896beed48bb5606bb802af277b378ceb9475221e` (v0.12.0); `main` unchanged at `131a8289feee2af392b18fa675222ac8e76ef258`.
-Integration task branch: `chatgpt/release-history-dev-integration`. Stable Preview: `feature/release-history-dev-integration`. Combined candidate **v0.12.1**: v0.12.0 was already published as a user-testable Preview; a different combined release tree must not reuse its version.
+Updated: 2026-10-11
+Current task: #476 — automatic GitHub production release publishing.
+Baseline: live `dev` `60fe24b7852d420ee9c0915ed597ee61bc71801b`; `main` `95c8b25edeba5e2730252f6d265d392949890caa` (v0.12.1).
+Task branch: `chatgpt/production-release-automation-476`; target stable Preview: `feature/production-release-automation-476`.
 
-## Scope and conflicts
-- Preserve ALL independent v0.11.3 navigation, chat jitter, task-input and single-display-name fixes on `dev`.
-- Layer the accepted #476 lazy Settings → Release history route, GitHub published-production Releases model, bounded public offline cache, retry/loading/empty UI, unit+DOM+route regressions and release-publication checklist onto the latest dev tree.
-- Keep Settings build diagnostics and separate PWA update action unchanged; retain standard protected-route parent/back and gestures including current navigation motion defaults.
-- Appwrite data and schema are unaffected. Official Preview/dev use Scratch, main remains Production.
-- Current `dev` build-size ceilings are newer/larger than the original release-history Preview. Do not replace them with the older ceilings; measure the **combined** production asset growth before adjusting any limits. Preserve historical baseline and entry/startup/Home ceilings.
+## Objective and changes
+
+- Add a GitHub Actions publisher independent of which AI agent promotes an approved versioned change to main; no new external app/service and no user-facing version change.
+- Verify exact main canonical CI, version bump relative to prior main, approved merge PR + curated release notes, exact production Vercel status and public deployed build metadata before creating immutable version tags and stable GitHub Releases.
+- Idempotent retry, six-hour reconciliation, bounded production-ready polling, release readback, version/tag conflict refusal, no release from dev/Preview/workflow-only same-version pushes.
+- Add isolated unit tests for notes, publication guards, release eligibility and production identity; update delivery/versioning contracts.
+- No Appwrite, production data, theme, layout, or application runtime changes.
 
 ## Verification
-- Because combined source likely has under 1 KiB aggregate/headroom, use **one explicit full task diagnostic** to measure build growth before the stable Preview gate. Repair only observed failures, then request `[verify:focused]` on final coherent task branch commit.
-- Squash focused-green task into stable integration Preview; require exact SHA canonical full CI and Vercel READY on new combined tree. Then merge the accepted stable Preview via PR into `dev` under this user's existing explicit authorization. Verify resulting dev SHA, version, CI, deployment.
-- Manual authenticated phone/Android Back/swipe, Light/Dark/Black, offline cache and exact-origin Scratch preview remain separate checks and cannot be claimed as passed without evidence. Scratch Appwrite rejects additional exact Web platform registrations due to Free-plan platform quota; dev has an existing registered alias.
-- Production `main` stays unchanged. GitHub public Releases/tag list is still empty; creating production GitHub Releases is not part of this authorization, and #476 remains open until actual main release.
 
-## Measured combined build-size diagnostic
-
-Full task diagnostic [Actions 38012678389](https://github.com/carlers/mosaic-life-tracker/actions/runs/38012678389) compiled TypeScript/Vite/PWA and passed unit and both DOM shards; combined assets exceeded previous `dev` aggregate limits by **6,513 B raw**, **2,085 B gzip** and **6,484 B precache**. Entry raw 439,785/444,400 B, entry gzip 130,807/131,600 B, initial closure 143,493/143,700 B and Home closure 352,744/357,000 B all passed. Review-only aggregate limits updated to raw **2,321,000 B**, gzip **715,100 B**, precache **2,403,900 B**, retaining 1,987/1,315/2,016 B measured headroom respectively. `buildSizeGuard.test.ts` is updated to match; historical baseline and all startup/Home ceilings stay untouched. Real Preview/Vercel build variance still requires exact-SHA verification.
+- Unit and workflow CI remain to be run for exact task/Preview commits; live release publication cannot be exercised until the publisher is explicitly promoted to main.
+- The existing v0.12.1 main GitHub Release remains missing; creating it requires exact historical SHA and separately verified publication.
 
 ## Next action
-Finish combined source/tree, run measured task CI, repair and reverify, then stable Preview CI/Vercel, and authorized `dev` PR promotion.
+
+Complete source/diff review; run task `[verify:focused]` CI, repair failures, squash to stable Preview, verify full canonical CI and Preview Vercel READY. Do **not** promote to dev/main or create the v0.12.1 tag without explicit user approval. Record any live-provider/permission blockers in issue #476.
