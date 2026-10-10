@@ -76,7 +76,6 @@ let activePullStream:
   | null = null;
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
-let ownerCompletionSubscription: Subscription | null = null;
 let activeCollection: RxCollection<TaskDocument> | null = null;
 const todoMateCreatePacers = new Map<
   string,
@@ -808,8 +807,6 @@ async function stopTaskReplicationPilotNow(
   realtimeUnsubscribe = null;
   errorSubscription?.unsubscribe();
   errorSubscription = null;
-  ownerCompletionSubscription?.unsubscribe();
-  ownerCompletionSubscription = null;
   activePullStream?.complete();
   activePullStream = null;
 
@@ -866,11 +863,6 @@ async function startTaskReplicationPilotNow(
   realtimeUnsubscribe = subscribeToTaskRealtime(userId, pullStream);
   errorSubscription = replication.error$.subscribe((error) => {
     console.error('[TaskReplicationPilot] replication error:', error);
-  });
-  ownerCompletionSubscription = replication.sent$.subscribe((document) => {
-    if (activeOwnerId === userId && document.userId === userId) {
-      acknowledgeOwnerCompletionSent(userId, document);
-    }
   });
 }
 

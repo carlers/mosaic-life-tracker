@@ -3,8 +3,8 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
-import { readSharedTaskCache } from './useSharedTasks';
-import { markOwnerCompletionPending, restoreOwnerCompletionPending } from '../lib/ownerCompletionPending';
+
+import { hasCachedOwnedSharedTask, markOwnerCompletionPending, restoreOwnerCompletionPending } from '../lib/ownerCompletionPending';
 import {
   buildBulkMoveTaskOrderGroups,
   buildTaskOrderAssignments,
@@ -75,7 +75,7 @@ export function useTasks(enabled = true) {
         const uid = user?.$id;
         const isSharedCompletion = Boolean(uid && doc.userId === uid &&
           typeof updates.completed === 'boolean' && updates.completed !== doc.completed &&
-          readSharedTaskCache(uid, 'owned').some(item => item.taskId === id));
+          hasCachedOwnedSharedTask(uid, id));
         let marked = false;
         let previous: ReturnType<typeof markOwnerCompletionPending>;
         if (isSharedCompletion && uid) {
