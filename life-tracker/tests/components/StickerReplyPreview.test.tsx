@@ -78,6 +78,37 @@ describe('replying to actual sticker images', () => {
     expect(provider.getGiphySticker).toHaveBeenCalledTimes(2);
   });
 
+  it('rehydrates legacy flattened sent-message quotes, while preserving quote navigation', async () => {
+    const giphy = giphyStickerMessage({ id: 'gAbC123', label: 'Friendly hug' });
+    const oldGiphySnapshot = giphy.replace('\n', ' ');
+    const onQuoteTap = vi.fn();
+    const bubble = render(<MessageBubble message={message(oldGiphySnapshot)}
+      isOutgoing currentUserId="owner" onQuoteTap={onQuoteTap} />);
+    await waitFor(() => expect(screen.getByRole('img', { name: 'Friendly hug' }))
+      .toHaveAttribute('src', media.previewUrl));
+    expect(bubble.container).not.toHaveTextContent('[gp1:');
+    const quote = bubble.container.querySelector('button');
+    expect(quote).not.toBeNull();
+    fireEvent.click(quote as HTMLElement);
+    expect(onQuoteTap).toHaveBeenCalledWith('original');
+    bubble.unmount();
+
+    const pack = packStickerMessage('critters', 'cat');
+    render(<MessageBubble message={message(pack.replace('\n', ' '))}
+      isOutgoing currentUserId="owner" />);
+    expect(screen.getByRole('img', { name: 'Kitty' })).toBeInTheDocument();
+  });
+
+  it('updates the sent quote when a sync changes replyToContent on a memoized bubble', async () => {
+    const giphy = giphyStickerMessage({ id: 'gAbC123', label: 'Friendly hug' });
+    const { rerender } = render(<MessageBubble message={message('Sticker: Friendly hug')}
+      isOutgoing currentUserId="owner" />);
+    expect(screen.queryByRole('img', { name: 'Friendly hug' })).toBeNull();
+    rerender(<MessageBubble message={message(giphy)} isOutgoing currentUserId="owner" />);
+    await waitFor(() => expect(screen.getByRole('img', { name: 'Friendly hug' }))
+      .toHaveAttribute('src', media.previewUrl));
+  });
+
   it('keeps a readable quote if GIPHY is unavailable and never loads hostile markers', async () => {
     provider.getGiphySticker.mockResolvedValueOnce(null);
     const content = giphyStickerMessage({ id: 'gAbC123', label: 'Friendly hug' });

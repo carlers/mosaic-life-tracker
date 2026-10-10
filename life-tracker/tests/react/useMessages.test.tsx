@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import type { RxDatabase } from 'rxdb';
 import { useMessages } from '../../src/hooks/useMessages';
+import { giphyStickerMessage } from '../../src/lib/giphyStickers';
+import { packStickerMessage } from '../../src/lib/stickerPacks';
 import {
   createTestDb,
   destroyTestDb,
@@ -174,6 +176,22 @@ describe('useMessages', () => {
     expect(msg.replyToSenderId).toBe(FRIEND_ID);
     expect(msg.replyToContent).toHaveLength(100);
     expect(msg.replyToContent.endsWith('…')).toBe(true);
+  });
+
+  it.each([
+    ['GIPHY', giphyStickerMessage({ id: 'gAbC123', label: 'Friendly hug' })],
+    ['curated pack', packStickerMessage('critters', 'cat')],
+  ])('send message: keeps %s quotes as renderable stickers after the outgoing row is inserted', async (_, content) => {
+    const { result } = renderHook(() => useMessages(FRIEND_ID));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.sendMessage('Thanks', { id: 'msg_sticker', senderId: FRIEND_ID, content });
+    });
+
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+    expect(result.current.messages[0].replyToContent).toBe(content);
+    expect(result.current.messages[0].replyToContent).toContain(']\\n['.replace('\\n', '\n'));
   });
 
   it('toggleReaction: optimistic add patches the row immediately', async () => {

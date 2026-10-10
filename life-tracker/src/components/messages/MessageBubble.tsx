@@ -293,6 +293,11 @@ export const MessageBubble = React.memo(
     return (
       prev.message.id === next.message.id &&
       prev.message.content === next.message.content &&
+      // Remote delivery can repair the quoted snapshot independently of the
+      // message body; the thumbnail must update after that sync.
+      prev.message.replyToId === next.message.replyToId &&
+      prev.message.replyToContent === next.message.replyToContent &&
+      prev.message.replyToSenderId === next.message.replyToSenderId &&
       prev.message.reactions === next.message.reactions &&
       prev.message.readAt === next.message.readAt &&
       prev.message.deliveryStatus === next.message.deliveryStatus &&

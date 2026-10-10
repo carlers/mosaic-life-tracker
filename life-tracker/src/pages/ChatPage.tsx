@@ -381,6 +381,11 @@ export const ChatPage: React.FC = () => {
                     onQuoteTap={handleQuoteTap}
                     onReact={handleBubbleReact}
                     onSwipeReply={(m) => {
+                      // iOS WebKit only reliably summons the software keyboard
+                      // when focus occurs during the originating user gesture
+                      // (the reply swipe's pointerup), not in an effect/RAF.
+                      // The composer already exists; focus before React updates.
+                      composerRef.current?.focus();
                       setReplyTo({
                         id: m.id,
                         senderId: m.senderId,
