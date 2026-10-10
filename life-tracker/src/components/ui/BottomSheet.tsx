@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { AppearanceContext } from '../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../lib/motionPreferences';
+import { publishSheetVisibility } from '../../lib/sheetVisibility';
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -74,6 +75,7 @@ function updateVisibleSheet(sheetId: string, visible: boolean) {
     previousAppInert = appRoot?.inert ?? false;
   }
   if (appRoot) appRoot.inert = visibleSheetIds.length > 0 || previousAppInert;
+  publishSheetVisibility(visibleSheetIds.length > 0);
   for (const listener of sheetLayerListeners) listener();
   if (!visible) {
     const target = deferredFocusReturn.get(sheetId);
