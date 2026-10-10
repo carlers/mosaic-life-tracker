@@ -12,5 +12,9 @@ No dev/main promotion authorized; Appwrite schema/Functions and provider keys un
 - `MessageComposer` focuses when `replyTo` is set, without guesses based on setTimeout. `ChatPage` swipe reply delegates to this central behavior. Message action-sheet Reply sets focus intent and waits for sheet `onExitComplete`; after the sheet's own deferred focus restoration it focuses composer through existing imperative handle. Chat entry without a reply remains unfocused. Existing keyboard send focus preserved.
 - Version candidate `0.16.4` (PATCH Preview revision); focused regression covers GIPHY/curated thumbnails in both reply placements, provider unavailable/malicious tokens, deleted quotes, and composer focus transitions. Update project reference and version triplet in coherent task commit.
 
-## Verification and next action
-- Run focused task verification, repair if red; squash focused-green PR into stable Preview; require canonical exact-SHA GitHub acceptance and keyed Vercel READY; checkpoint issue #489. Appwrite backend verification skipped for frontend-only change. Device-only tests remain Android keyboard activation after sheet close and swipe-to-reply, actual GIPHY provider search/quote and two-account Scratch send; never claim manual tests without evidence.
+## Verification
+- First focused run [38075636223](https://github.com/carlers/mosaic-life-tracker/actions/runs/38075636223) failed only the documentation contract: checkpoint needs a separate `## Next action` heading. 1358 other unit checks passed; repair the checkpoint without changing source behavior.
+- Appwrite backend verification is not needed for this frontend-only refinement. Device-only checks remain Android keyboard activation after sheet close and swipe-to-reply, live GIPHY thumbnail resolution and two-account Scratch send.
+
+## Next action
+- Rerun focused task verification after fixing this checkpoint structure; if green, squash task PR into stable Preview. Require canonical exact-SHA GitHub acceptance and keyed Vercel READY; checkpoint issue #489. Do not claim unperformed manual/device checks or promote dev/main.
