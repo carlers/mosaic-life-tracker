@@ -106,6 +106,8 @@ describe('efficient and account-scoped sticker downloads', () => {
     scopeAccountWork('owner');
     images.getCachedImage.mockResolvedValue(undefined);
     images.cacheImage.mockResolvedValue(undefined);
+    // Keyboard media uses a durable pending store; these tests exercise remote reads.
+    pending.getPendingSticker.mockResolvedValue(null);
     storage.getFileView.mockReturnValue({ toString: () => 'https://fra.cloud.appwrite.io/v1/storage/mock' });
     originalCreateObjectURL = URL.createObjectURL;
     URL.createObjectURL = vi.fn(() => 'blob:sticker');
