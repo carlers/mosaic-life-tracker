@@ -1,32 +1,16 @@
-import React, { useState } from 'react';
-import type { CategoryDocument } from '../../../db/schema';
-import { Copy, Pencil, CalendarDays, FolderInput } from 'lucide-react';
-import { MoreHorizontal, UsersRound, GripVertical } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDraggable } from '@dnd-kit/react';
-import { TaskRowDropSurface } from './TaskReorderSurfaces';
-import { BottomSheet } from '../../ui/BottomSheet';
+import { CalendarDays, Check, Copy, FolderInput, Pencil, Trash2, UsersRound } from 'lucide-react';
+import type { CategoryDocument } from '../../../db/schema';
+import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { useOptionalFriendList } from '../../../hooks/useFriends';
-import type {
-  SharedCompletionCommand, SharedTaskItem,
-} from '../../../lib/taskShareQueue';
+import type { SharedCompletionCommand, SharedTaskItem } from '../../../lib/taskShareQueue';
+import { BottomSheet } from '../../ui/BottomSheet';
+import { TaskRowDropSurface } from './TaskReorderSurfaces';
 
-const SharedDragRow: React.FC<{ item: SharedTaskItem; categoryId: string;
-  children: React.ReactNode }> = ({ item, categoryId, children }) => {
-  const { ref, handleRef } = useDraggable({ id: item.id, type: 'task' });
-  const content = (
-    <div ref={ref} className="relative">
-      {children}
-      <button type="button" ref={handleRef}
-        aria-label={'Drag shared task ' + item.title}
-        className="absolute right-10 top-2 rounded p-1 text-gray-500 touch-none">
-        <GripVertical size={16} />
-      </button>
-    </div>
-  );
-  return categoryId ? (
-    <TaskRowDropSurface categoryId={categoryId} taskId={item.id}>{content}</TaskRowDropSurface>
-  ) : content;
-};
+const TASK_TAP_WINDOW = 200;
+const SHEET_ACTION_CLASS = 'flex w-full items-center gap-4 rounded-xl px-2 py-3.5 text-left text-white transition-colors hover:bg-surfaceHighlight focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40';
+const SHEET_ICON_CLASS = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full';
 
 interface SharedTaskRowsProps {
   items: SharedTaskItem[];
@@ -42,147 +26,336 @@ interface SharedTaskRowsProps {
   onChangeDate?: (item: SharedTaskItem, date: string) => Promise<void>;
   compact?: boolean;
   draggable?: boolean;
+  activeDragId?: string | null;
 }
+
+interface SharedTaskRowProps {
+  item: SharedTaskItem;
+  color: string;
+  ownerName: string;
+  pending?: SharedCompletionCommand;
+  showDate: boolean;
+  isEditing: boolean;
+  editValue: string;
+  onEditValue: (value: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+  onEditStart: () => void;
+  onOpenActions: () => void;
+  onToggle: () => void;
+  titleRef?: React.Ref<HTMLButtonElement>;
+}
+
+const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
+  item, color, ownerName, pending, showDate, isEditing, editValue,
+  onEditValue, onEditSave, onEditCancel, onEditStart, onOpenActions,
+  onToggle, titleRef,
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (isEditing) inputRef.current?.focus();
+  }, [isEditing]);
+
+  const canEdit = item.allowTitleEdit === true;
+  const titleGestures = useBubbleGestures({
+    disabled: isEditing,
+    doubleTapWindow: TASK_TAP_WINDOW,
+    onSingleTap: onOpenActions,
+    onDoubleTap: canEdit ? onEditStart : onOpenActions,
+  });
+  const completed = pending?.completed ?? item.completed;
+
+  return (
+    <div data-shared-task-id={item.id}
+      className="flex scroll-mt-16 items-start gap-3 rounded-lg pl-0 pr-2 py-2 transition-[background-color,box-shadow] duration-200">
+      <button type="button"
+        aria-label={completed ? 'Mark incomplete' : 'Mark complete'}
+        aria-pressed={completed}
+        disabled={Boolean(pending)}
+        onPointerDown={event => {
+          event.stopPropagation();
+          // Same checkbox/editor focus ownership as ordinary task rows.
+          if (isEditing) event.preventDefault();
+        }}
+        onClick={event => { event.stopPropagation(); onToggle(); }}
+        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-60"
+        style={{
+          borderColor: completed ? color : '#4B5563',
+          backgroundColor: completed ? color : 'transparent',
+        }}>
+        {completed && <Check size={15} strokeWidth={4} style={{ color: '#fff' }}
+          className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]" aria-hidden="true" />}
+      </button>
+      <div className="min-w-0 flex-1">
+        {isEditing ? (
+          <input ref={inputRef} type="text" maxLength={255}
+            aria-label="Shared task title"
+            value={editValue}
+            onChange={event => onEditValue(event.target.value)}
+            onKeyDown={event => {
+              if (event.key === 'Enter') { event.preventDefault(); onEditSave(); }
+              if (event.key === 'Escape') { event.preventDefault(); onEditCancel(); }
+            }}
+            onBlur={onEditSave}
+            onPointerDown={event => event.stopPropagation()}
+            className="w-full border-b-2 bg-transparent text-white outline-none"
+            style={{ borderBottomColor: color }}
+          />
+        ) : (
+          <button ref={titleRef} type="button"
+            aria-label={item.title}
+            data-day-swipe-through="true"
+            onPointerDown={titleGestures.onPointerDown}
+            onPointerMove={titleGestures.onPointerMove}
+            onPointerUp={titleGestures.onPointerUp}
+            onPointerCancel={titleGestures.onPointerCancel}
+            onContextMenu={titleGestures.onContextMenu}
+            onClick={event => {
+              event.stopPropagation();
+              if (event.detail === 0) onOpenActions(); // Keyboard activation.
+            }}
+            className="w-full touch-pan-y rounded text-left focus:outline-none">
+            <span className={completed ? 'text-gray-400 line-through' : 'text-white'}>
+              {item.title}
+            </span>
+          </button>
+        )}
+        <div className="mt-1 flex min-w-0 items-center gap-1 text-xs text-gray-400">
+          <UsersRound size={12} className="shrink-0" aria-hidden="true" />
+          <span className="min-w-0 truncate">
+            Shared by {ownerName}{showDate ? ' · ' + item.date : ''}
+          </span>
+        </div>
+        {pending && <p className="text-xs text-amber-400" role="status">
+          Pending sync · not yet confirmed
+        </p>}
+      </div>
+    </div>
+  );
+};
+
+const SharedDragRow: React.FC<{
+  item: SharedTaskItem;
+  categoryId: string;
+  rowProps: SharedTaskRowProps;
+  isActiveSource: boolean;
+}> = ({ item, categoryId, rowProps, isActiveSource }) => {
+  // Mirror DraggableTaskItem: only the title is a drag handle; no visible grip.
+  const { ref, handleRef } = useDraggable({ id: item.id, type: 'task' });
+  const content = (
+    <div className="relative" style={isActiveSource ? {
+      height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none',
+    } : undefined}>
+      <div ref={ref} aria-hidden="true" style={{
+        position: 'absolute', inset: 0, opacity: 0, pointerEvents: 'none',
+      }} />
+      <SharedTaskRow {...rowProps} titleRef={handleRef} />
+    </div>
+  );
+  return categoryId ? (
+    <TaskRowDropSurface categoryId={categoryId} taskId={item.id}
+      isActiveSource={isActiveSource}>{content}</TaskRowDropSurface>
+  ) : content;
+};
+
+export const SharedTaskDragOverlay: React.FC<{
+  item: SharedTaskItem;
+  color: string;
+}> = ({ item, color }) => (
+  <div aria-hidden="true"
+    className="flex items-start gap-3 rounded-lg py-2 pl-0 pr-2"
+    style={{ backgroundColor: 'var(--mosaic-bg)', boxShadow: '0 14px 36px rgba(0,0,0,0.38)', pointerEvents: 'none' }}>
+    <span className="mt-0.5 h-6 w-6 shrink-0 rounded-full border-2"
+      style={{ borderColor: item.completed ? color : '#4B5563',
+        backgroundColor: item.completed ? color : 'transparent' }} />
+    <div className="min-w-0 flex-1">
+      <span className={item.completed ? 'text-gray-400 line-through' : 'text-white'}>{item.title}</span>
+      <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+        <UsersRound size={12} /> Shared task
+      </div>
+    </div>
+  </div>
+);
 
 export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
   items, onSetCompleted, pendingFor, showDate = false, onLeave, categories = [],
-  categoryFor, onAssignCategory, onCopy, onEditTitle, onChangeDate, compact = false, draggable = false,
+  categoryFor, onAssignCategory, onCopy, onEditTitle, onChangeDate,
+  compact = false, draggable = false, activeDragId = null,
 }) => {
   const friends = useOptionalFriendList();
   const [selected, setSelected] = useState<SharedTaskItem | null>(null);
-  const [leaving, setLeaving] = useState(false);
-  const [titleInput, setTitleInput] = useState('');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
   const [dateInput, setDateInput] = useState('');
+  const [dateOpen, setDateOpen] = useState(false);
   const [categoryInput, setCategoryInput] = useState('');
-  const [editBusy, setEditBusy] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
-  if (!items.length) return null;
+  const savingRef = useRef(false);
+  const editingItem = items.find(item => item.id === editId);
+
+  const openActions = useCallback((item: SharedTaskItem) => {
+    setFeedback('');
+    setDateInput(item.date);
+    setCategoryInput(categoryFor?.(item) || '');
+    setDateOpen(false);
+    setSelected(item);
+  }, [categoryFor]);
+
+  const startEdit = useCallback((item: SharedTaskItem) => {
+    if (!onEditTitle || item.allowTitleEdit !== true) {
+      openActions(item);
+      return;
+    }
+    setEditValue(item.title);
+    setEditId(item.id);
+  }, [onEditTitle, openActions]);
+
+  const cancelEdit = useCallback(() => { setEditId(null); setEditValue(''); }, []);
+
+  const saveEdit = useCallback(() => {
+    if (!editingItem || savingRef.current) return;
+    const title = editValue.trim();
+    if (!title || title === editingItem.title) {
+      cancelEdit();
+      return;
+    }
+    savingRef.current = true;
+    void Promise.resolve(onEditTitle?.(editingItem, title))
+      .then(cancelEdit)
+      .catch(cause => setFeedback(cause instanceof Error ? cause.message : 'Could not edit shared title.'))
+      .finally(() => { savingRef.current = false; });
+  }, [editingItem, editValue, onEditTitle, cancelEdit]);
+
+  const runAction = (action: () => Promise<unknown>, success: string, close = false) => {
+    setBusy(true);
+    setFeedback('');
+    void Promise.resolve().then(action)
+      .then(() => {
+        if (close) setSelected(null);
+        else setFeedback(success);
+      })
+      .catch(cause => setFeedback(cause instanceof Error ? cause.message : 'Could not update shared task.'))
+      .finally(() => setBusy(false));
+  };
+
+  if (!items.length && !selected) return null;
+  const current = selected && (items.find(item => item.id === selected.id) || selected);
+  const currentOwner = current && friends.find(friend => friend.friendId === current.ownerId);
+  const currentOwnerName = currentOwner?.friendDisplayName || currentOwner?.friendUsername || 'a friend';
   return (
-    <section aria-label="Shared tasks" className={compact ? "min-w-0 space-y-1" : "mt-3 min-w-0 space-y-2"}>
-      {!compact && <h3 className="flex items-center gap-1 px-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <section aria-label="Shared tasks" className={compact ? 'min-w-0' : 'mt-3 min-w-0'}>
+      {!compact && <h3 className="flex items-center gap-1 px-0 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
         <UsersRound size={13} aria-hidden="true" /> Shared with me
       </h3>}
       {items.map(item => {
-        const pending = pendingFor(item.taskId);
         const owner = friends.find(friend => friend.friendId === item.ownerId);
-        const row = (
-          <div key={item.id} className={compact ? "flex min-w-0 items-center gap-3 rounded-lg px-1 py-2" : "flex min-w-0 items-center gap-3 rounded-xl bg-surfaceHighlight p-3"}>
-            <button type="button"
-              aria-pressed={pending?.completed ?? item.completed}
-              aria-label={`${(pending?.completed ?? item.completed) ? 'Mark incomplete' : 'Mark complete'}: ${item.title}`}
-              disabled={Boolean(pending)}
-              onClick={() => void onSetCompleted(item, !item.completed)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#444444] bg-surface text-white disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-emerald-500">
-              {(pending?.completed ?? item.completed) ? '✓' : ''}
-            </button>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{item.title}</p>
-              <p className="truncate text-xs text-gray-400">
-                Shared by {owner?.friendDisplayName || owner?.friendUsername || 'friend'}
-                {showDate ? ` · ${item.date}` : ''}
-              </p>
-              {pending && (
-                <p className="text-xs text-amber-400" role="status">
-                  Pending sync · not yet confirmed
-                </p>
-              )}
-            </div>
-            {onLeave && (
-              <button type="button" onClick={() => { setFeedback(''); setTitleInput(item.title); setDateInput(item.date); setCategoryInput(categoryFor?.(item) || ''); setSelected(item); }}
-                aria-label={'Manage shared task ' + item.title}
-                className="shrink-0 rounded-lg p-1.5 text-gray-400 focus-visible:outline-2 focus-visible:outline-emerald-500">
-                <MoreHorizontal size={18} />
-              </button>
-            )}
-          </div>
-        );
-        return draggable ? (
-          <SharedDragRow key={item.id} item={item} categoryId={categoryFor?.(item) || ''}>
-            {row}
-          </SharedDragRow>
-        ) : row;
+        const categoryId = categoryFor?.(item) || '';
+        const color = categories.find(category => category.id === categoryId)?.color || '#6B7280';
+        const rowProps: SharedTaskRowProps = {
+          item, color,
+          ownerName: owner?.friendDisplayName || owner?.friendUsername || 'a friend',
+          pending: pendingFor(item.taskId),
+          showDate,
+          isEditing: editId === item.id,
+          editValue,
+          onEditValue: setEditValue,
+          onEditSave: saveEdit,
+          onEditCancel: cancelEdit,
+          onEditStart: () => startEdit(item),
+          onOpenActions: () => openActions(item),
+          onToggle: () => void onSetCompleted(item, !(pendingFor(item.taskId)?.completed ?? item.completed)),
+        };
+        return draggable && editId !== item.id ? (
+          <SharedDragRow key={item.id} item={item} categoryId={categoryId}
+            isActiveSource={activeDragId === item.id} rowProps={rowProps} />
+        ) : <SharedTaskRow key={item.id} {...rowProps} />;
       })}
-      {onLeave && <BottomSheet isOpen={Boolean(selected)} onClose={() => setSelected(null)}
-        title="Shared task" height="auto">
-        <div className="space-y-3 px-4 pb-8 pt-2">
-          <p className="text-sm">{selected?.title}</p>
-          <p className="text-xs text-gray-400">Shared by {friends.find(f => f.friendId === selected?.ownerId)?.friendDisplayName ||
-            friends.find(f => f.friendId === selected?.ownerId)?.friendUsername || 'a friend'}. The owner keeps memo, photos, and private category. Editable shared fields depend on permissions.</p>
-          {feedback && <p role="status" className="text-sm text-gray-400">{feedback}</p>}
-          {selected && (
-            <div className="space-y-3">
-              <label className="block text-sm">
-                <span className="flex items-center gap-2 text-gray-300"><FolderInput size={15} /> My category</span>
-                <select aria-label="Assign shared task to my category"
-                  className="mt-1 w-full rounded-lg bg-surfaceHighlight p-2 text-white"
-                  value={categoryInput} disabled={editBusy}
-                  onChange={event => {
-                    const value = event.target.value;
-                    setCategoryInput(value);
-                    if (onAssignCategory) void onAssignCategory(selected, value)
-                      .catch(cause => setFeedback(cause instanceof Error ? cause.message : 'Could not assign category.'));
-                  }}>
-                  <option value="">Shared with me (unassigned)</option>
-                  {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-                </select>
-              </label>
-              <button type="button" disabled={!onCopy || editBusy || categories.length === 0}
-                className="flex w-full items-center gap-2 rounded-lg bg-surfaceHighlight p-3 text-left text-sm disabled:opacity-50"
+      {onLeave && <BottomSheet
+        isOpen={Boolean(current)} onClose={() => setSelected(null)}
+        title={current?.title || 'Shared task'} height="auto" backdropBlur>
+        <div className="px-4 pb-8 pt-2">
+          <div className="mb-4 text-xs text-gray-400">
+            <span className="inline-flex items-center gap-1"><UsersRound size={13} />
+              Shared by {currentOwnerName}
+            </span>
+            <p className="mt-1">The owner keeps private memos, photos, and category. Edit access depends on the owner's permissions.</p>
+          </div>
+          {feedback && <p role="status" className="mb-3 text-sm text-gray-400">{feedback}</p>}
+          {current && <>
+            <div className="mb-4 grid grid-cols-2 gap-3">
+              <button type="button"
+                disabled={busy || current.allowTitleEdit !== true || !onEditTitle}
+                className="flex flex-col items-center justify-center gap-2 rounded-xl bg-surfaceHighlight py-4 text-white transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40"
+                onClick={() => {
+                  setSelected(null);
+                  window.setTimeout(() => startEdit(current), 0);
+                }}>
+                <Pencil size={20} className="text-blue-400" aria-hidden="true" />
+                <span className="text-sm">{current.allowTitleEdit ? 'Edit' : 'Edit · owner only'}</span>
+              </button>
+              <button type="button" disabled={!onCopy || !categories.length || busy}
+                className="flex flex-col items-center justify-center gap-2 rounded-xl bg-surfaceHighlight py-4 text-white transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40"
                 onClick={() => {
                   if (!onCopy) return;
-                  setEditBusy(true);
-                  void onCopy(selected, categoryInput || categories[0].id)
-                    .then(() => setFeedback('Independent copy created in your tasks.'))
-                    .catch(cause => setFeedback(cause instanceof Error ? cause.message : 'Copy failed.'))
-                    .finally(() => setEditBusy(false));
-                }}><Copy size={16} /> Duplicate as my own task</button>
-              <label className="block text-sm">
-                <span className="flex items-center gap-2 text-gray-300"><Pencil size={15} /> Shared title {selected.allowTitleEdit ? '' : '· owner only'}</span>
-                <input type="text" aria-label="Edit shared title" maxLength={255}
-                  className="mt-1 w-full rounded-lg bg-surfaceHighlight p-2 text-white"
-                  value={titleInput} disabled={!selected.allowTitleEdit || editBusy}
-                  onChange={event => setTitleInput(event.target.value)} />
-              </label>
-              {selected.allowTitleEdit && onEditTitle && titleInput.trim() !== selected.title && (
-                <button type="button" disabled={!titleInput.trim() || editBusy}
-                  className="w-full rounded-lg bg-surfaceHighlight p-2 text-sm"
-                  onClick={() => {
-                    setEditBusy(true);
-                    void onEditTitle(selected, titleInput.trim()).then(() => { setSelected(null); })
-                      .catch(cause => setFeedback(cause instanceof Error ? cause.message : 'Edit failed.'))
-                      .finally(() => setEditBusy(false));
-                  }}>Save shared title for everyone</button>
-              )}
-              <label className="block text-sm">
-                <span className="flex items-center gap-2 text-gray-300"><CalendarDays size={15} /> Shared date {selected.allowDateEdit ? '' : '· owner only'}</span>
-                <input type="date" aria-label="Change shared date"
-                  className="mt-1 w-full rounded-lg bg-surfaceHighlight p-2 text-white"
-                  value={dateInput} disabled={!selected.allowDateEdit || editBusy}
-                  onChange={event => setDateInput(event.target.value)} />
-              </label>
-              {selected.allowDateEdit && onChangeDate && dateInput !== selected.date && (
-                <button type="button" disabled={!dateInput || editBusy}
-                  className="w-full rounded-lg bg-surfaceHighlight p-2 text-sm"
-                  onClick={() => {
-                    setEditBusy(true);
-                    void onChangeDate(selected, dateInput).then(() => setSelected(null))
-                      .catch(cause => setFeedback(cause instanceof Error ? cause.message : 'Date change failed.'))
-                      .finally(() => setEditBusy(false));
-                  }}>Change date for everyone</button>
-              )}
+                  runAction(() => onCopy(current, categoryInput || categories[0].id), 'Copied to your tasks.');
+                }}>
+                <Copy size={20} className="text-blue-400" aria-hidden="true" />
+                <span className="text-sm">Duplicate</span>
+              </button>
             </div>
-          )}
-          <button type="button" disabled={!selected || leaving || editBusy}
-            className="w-full rounded-lg bg-surfaceHighlight p-3 text-left text-sm disabled:opacity-50"
-            onClick={() => {
-              if (!selected) return;
-              setLeaving(true);
-              void Promise.resolve(onLeave(selected)).then(() => setSelected(null))
-                .catch(cause => setFeedback(cause instanceof Error ? cause.message : 'Could not leave task.'))
-                .finally(() => setLeaving(false));
-            }}>Leave shared task</button>
+            <label className="mb-3 block text-sm">
+              <span className="flex items-center gap-3"><span className={SHEET_ICON_CLASS + ' bg-surfaceHighlight'}>
+                <FolderInput size={16} /></span> My category</span>
+              <select aria-label="Assign shared task to my category"
+                value={categoryInput} disabled={busy}
+                onChange={event => {
+                  const id = event.target.value;
+                  setCategoryInput(id);
+                  if (onAssignCategory) runAction(() => onAssignCategory(current, id), 'Category updated.');
+                }}
+                className="mt-2 w-full rounded-lg border border-gray-600 bg-surfaceHighlight p-3 text-sm text-white">
+                <option value="">Shared with me (unassigned)</option>
+                {categories.map(category =>
+                  <option key={category.id} value={category.id}>{category.name}</option>)}
+              </select>
+            </label>
+            <button type="button" className={SHEET_ACTION_CLASS}
+              onClick={() => runAction(async () => {
+                await navigator.clipboard.writeText(current.title);
+              }, 'Task title copied.')}>
+              <span className={SHEET_ICON_CLASS + ' bg-gray-300'}><Copy size={16} className="text-black" /></span>
+              <span className="text-base font-medium">Copy Task Text</span>
+            </button>
+            <button type="button" className={SHEET_ACTION_CLASS}
+              disabled={!onChangeDate || current.allowDateEdit !== true || busy}
+              onClick={() => setDateOpen(value => !value)}>
+              <span className={SHEET_ICON_CLASS + ' bg-blue-400'}><CalendarDays size={16} className="text-black" /></span>
+              <span className="flex-1 text-base font-medium">Change Date</span>
+              {current.allowDateEdit !== true && <span className="text-xs text-gray-400">Owner only</span>}
+            </button>
+            {dateOpen && current.allowDateEdit && onChangeDate && <div className="space-y-2 pb-3 pl-11">
+              <input type="date" aria-label="Change shared date"
+                value={dateInput} disabled={busy}
+                onChange={event => setDateInput(event.target.value)}
+                className="w-full rounded-lg bg-surfaceHighlight p-2 text-sm text-white" />
+              <button type="button" disabled={busy || !dateInput || dateInput === current.date}
+                className="rounded-lg bg-surfaceHighlight px-3 py-2 text-sm disabled:opacity-40"
+                onClick={() => runAction(() => onChangeDate(current, dateInput), 'Date updated.', true)}>
+                Save shared date
+              </button>
+            </div>}
+            <button type="button" className={SHEET_ACTION_CLASS}
+              disabled={busy}
+              onClick={() => runAction(() => Promise.resolve(onLeave(current)), 'Left shared task.', true)}>
+              <span className={SHEET_ICON_CLASS + ' bg-red-400'}>
+                <Trash2 size={16} className="text-black" /></span>
+              <span className="text-base font-medium">Leave Shared Task</span>
+            </button>
+          </>}
         </div>
       </BottomSheet>}
+      {!selected && feedback && <p role="status" className="mt-2 text-sm text-amber-400">{feedback}</p>}
     </section>
   );
 };

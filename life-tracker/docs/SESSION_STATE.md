@@ -1,17 +1,15 @@
 # Session checkpoint
 
-Updated: 2026-10-10
-Current task: implement issue #406 follow-on collaborator categories, drag/copy and owner-granted edits from stable Preview feature/shared-tasks at 8afc36946180172d027a6dd24083d9baec4ff17f. User directly authorized implementation. Candidate version 0.14.2. dev/main and Production unchanged.
+Updated: 2026-10-11
+Current task: issue #406 shared task UI parity for recipient B, user authorized. Stable Preview feature/shared-tasks at 5ea5cff93b5e9807b3d805bec7a680aa261edb74 (v0.14.2); dev/main unchanged. Candidate patch 0.14.3; frontend only, Scratch Appwrite Function remains current.
 
-## Completed working set
-- Owner-controlled per-invitee title and date permissions, default false, with Function transactional membership, friend, revocation, epoch and revision checks.
-- Git-owned additive task_shares columns and ordered migration 009; Scratch Preview prepare allowlist updated.
-- Recipient personal category assignment via per-membership account-synced Settings (no owner copy); share rows appear inside their category and support drag to category targets / order among received shares; independent personal duplicate; granted global title/date editors in the received share sheet.
-- Strict minimal projections and cache; private owner memo/images/categories not copied.
-- New handler and placement regression tests; build-size budgets adjusted narrowly for measured growth. Details: docs/SHARED_TASKS.md.
+## Objective and implementation
+- B's accepted shared tasks resemble normal TaskItem: aligned 24px checkbox, category-colored completion, standard row/title spacing and muted owner attribution instead of card UI; no visible grip or three-dot controls.
+- Title uses Mosaic's useBubbleGestures with 200ms tap disambiguation: single tap Action Sheet, double tap owner-granted inline title edit, keyboard title activation opens actions. Long-press on title uses existing @dnd-kit native 500ms delay sensor; drag source is hidden, native-style overlay shown.
+- Permission-aware shared task Action Sheet uses familiar icon grid and rows for Edit, Duplicate, category selection, Copy Task Text, permitted Change Date, and Leave Share. Checkbox independently controls global completion; no private owner memo/photo/category access or grant escalation.
+- Regression coverage updated for single tap, double tap, checkbox independence, permissions, personal category assignment, duplicate. Build size allowance measured and guarded, entry/initial/Home closure budgets unchanged.
+- Product boundary in docs/SHARED_TASKS.md. No backend/schema changes.
 
 ## Next action
-- Repair any focused/CI failures; run contracts, TypeScript, build/PWA/size and focused/full checks.
-- Commit exact task tree on chatgpt/** with [verify:focused] and PR to feature/shared-tasks only. On focused green, squash; stable Preview canonical and exact-SHA Vercel.
-- Before preview acceptance, run migration 009 on **Scratch only**, package exact task SHA Function source, build inactive, review and activate. Reconcile read-only schema/Function and test disposable user auth flows. No Production schema or Function writes.
-- Issue #406 remains open; dev/main promotion needs separate approval. Exact phone/mobile gestures and advanced multi-account acceptance cannot be asserted without device proof.
+- Run focus/DOM/contracts/build, fix failures and review changes. Commit exact task tree on chatgpt/** with [verify:focused], PR into feature/shared-tasks; after green squash and verify full canonical gate + exact Vercel Preview SHA.
+- Manual Samsung/Android installed-PWA long-press/drag, iOS/touch, settings/theme, online permission edits need user acceptance if cannot test with browser/device. Issue #406 remains open; dev/main promotion requires explicit permission.

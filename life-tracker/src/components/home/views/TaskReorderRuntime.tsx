@@ -5,6 +5,7 @@ import {
   PointerSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
+import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import {
@@ -319,12 +320,13 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       <DaySlideContent
         {...props}
         tasksByCategory={tasksByCategory}
+        activeSharedDragId={activeSharedDrag?.id ?? null}
         activeDrag={activeDrag}
       />
       <DragOverlay dropAnimation={null}>
         {activeSharedDrag && (
-          <div className="rounded-lg bg-surfaceHighlight px-3 py-2 text-sm text-white"
-            aria-hidden="true">{activeSharedDrag.title}</div>
+          <SharedTaskDragOverlay item={activeSharedDrag}
+            color={categoryById.get(props.sharedCategoryFor?.(activeSharedDrag) || '')?.color || '#6B7280'} />
         )}
         {overlayTask && (
           <div
