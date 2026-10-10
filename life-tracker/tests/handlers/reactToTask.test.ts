@@ -147,6 +147,7 @@ describe('message-action / react_to_task', () => {
       .mockResolvedValueOnce({ rows: [friendshipRow()] });
     mockDb.getRow.mockResolvedValueOnce({
       user_id: OWNER,
+      date: '2026-10-10',
       deleted: true,
       visibility: 'public',
       category_id: '',
@@ -175,6 +176,7 @@ describe('message-action / react_to_task', () => {
       .mockResolvedValueOnce({ rows: [friendshipRow()] });
     mockDb.getRow.mockResolvedValueOnce({
       user_id: OWNER,
+      date: '2026-10-10',
       deleted: false,
       visibility: 'private',
       category_id: CATEGORY_ID,
@@ -204,6 +206,7 @@ describe('message-action / react_to_task', () => {
       .mockResolvedValueOnce({ rows: [friendshipRow()] });
     mockDb.getRow.mockResolvedValueOnce({
       user_id: OWNER,
+      date: '2026-10-10',
       deleted: false,
       visibility: '',
       category_id: '',
@@ -225,12 +228,27 @@ describe('message-action / react_to_task', () => {
     expect(res.body.error).toBe('Task is not visible to you');
   });
 
+
+  it('does not allow reactions to an unscheduled public task', async () => {
+    mockDb.listRows.mockResolvedValue({ rows: [friendshipRow()] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: OWNER, date: '', deleted: false, visibility: 'public', category_id: '',
+    });
+    const res = await invoke({ userId: CALLER, mockDb, body: {
+      action: 'react_to_task', taskId: TASK_ID, taskOwnerId: OWNER,
+      emoji: '👍', op: 'add',
+    } });
+    expect(res.status).toBe(404);
+    expect(mockDb.updateRow).not.toHaveBeenCalled();
+  });
+
   it('successful: patches the task row with the new reactions JSON', async () => {
     mockDb.listRows
       .mockResolvedValueOnce({ rows: [friendshipRow()] })
       .mockResolvedValueOnce({ rows: [friendshipRow()] });
     mockDb.getRow.mockResolvedValueOnce({
       user_id: OWNER,
+      date: '2026-10-10',
       deleted: false,
       visibility: 'public',
       category_id: '',
