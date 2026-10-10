@@ -14,6 +14,8 @@ export interface GiphySticker extends GiphyStickerReference {
   previewUrl: string;
   displayUrl: string;
   analytics: { onload?: string; onclick?: string; onsent?: string };
+  creator?: string;
+  pageUrl?: string;
 }
 
 function safeGiphyUrl(raw: unknown): string | null {
@@ -25,6 +27,17 @@ function safeGiphyUrl(raw: unknown): string | null {
     return raw;
   } catch {
     return null;
+  }
+}
+
+function safeGiphyPageUrl(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'https:' && (url.hostname === 'giphy.com' || url.hostname === 'www.giphy.com')
+      ? raw : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -48,12 +61,15 @@ export function parseGiphySticker(item: unknown): GiphySticker | null {
   const displayUrl = safeGiphyUrl(images?.fixed_height?.webp ?? images?.original?.webp);
   if (!previewUrl || !displayUrl) return null;
   const sourceAnalytics = obj.analytics as Record<string, { url?: unknown }> | undefined;
+  const user = obj.user as Record<string, unknown> | undefined;
   const label = giphyStickerLabel(typeof obj.title === 'string' ? obj.title : 'GIPHY sticker');
   return {
     id: obj.id,
     label,
     previewUrl,
     displayUrl,
+    creator: typeof user?.username === 'string' ? user.username.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 36) || undefined : undefined,
+    pageUrl: safeGiphyPageUrl(obj.url),
     analytics: {
       onload: safeAnalyticsUrl(sourceAnalytics?.onload?.url),
       onclick: safeAnalyticsUrl(sourceAnalytics?.onclick?.url),
@@ -63,7 +79,7 @@ export function parseGiphySticker(item: unknown): GiphySticker | null {
 }
 
 export function giphyStickerLabel(raw: string): string {
-  return raw.replace(/[\r\n<>\[\]]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || 'GIPHY sticker';
+  return raw.replace(/[\r\n<>]/g, ' ').replaceAll('[', ' ').replaceAll(']', ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || 'GIPHY sticker';
 }
 
 export function giphyStickerMessage(item: GiphyStickerReference): string {

@@ -47,9 +47,9 @@ export const GiphyStickerImage: React.FC<Props> = ({ id, label }) => {
             : 'Loading sticker: ' + label}
         </span>
       )}
-      <a href="https://giphy.com" target="_blank" rel="noopener noreferrer"
+      <a href={image?.pageUrl ?? "https://giphy.com"} target="_blank" rel="noopener noreferrer"
         className="mt-1 inline-block rounded bg-black px-1.5 py-0.5 text-[10px] font-bold text-white">
-        Powered by GIPHY
+        Powered by GIPHY{image?.creator ? ' · @' + image.creator : ''}
       </a>
     </div>
   );

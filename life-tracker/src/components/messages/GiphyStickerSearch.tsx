@@ -61,14 +61,22 @@ export const GiphyStickerSearch: React.FC<Props> = ({ onPick }) => {
           ) : (
             <div className="grid grid-cols-4 gap-2 pt-3" aria-label="GIPHY sticker search results">
               {state.results.map(sticker => (
-                <button key={sticker.id} type="button"
-                  aria-label={'Send GIPHY sticker ' + sticker.label}
-                  className="flex aspect-square items-center justify-center rounded-xl bg-surface focus-visible:ring-2 focus-visible:ring-emerald-500"
-                  onClick={() => { sendGiphyAnalytics(sticker, 'onclick'); onPick(sticker); }}>
-                  <img src={sticker.previewUrl} alt={sticker.label} loading="lazy" decoding="async"
-                    onLoad={() => sendGiphyAnalytics(sticker, 'onload')}
-                    className="h-16 w-16 object-contain" />
-                </button>
+                <div key={sticker.id} className="min-w-0">
+                  <button type="button"
+                    aria-label={'Send GIPHY sticker ' + sticker.label}
+                    className="flex w-full aspect-square items-center justify-center rounded-xl bg-surface focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    onClick={() => { sendGiphyAnalytics(sticker, 'onclick'); onPick(sticker); }}>
+                    <img src={sticker.previewUrl} alt={sticker.label} loading="lazy" decoding="async"
+                      onLoad={() => sendGiphyAnalytics(sticker, 'onload')}
+                      className="h-16 w-16 object-contain" />
+                  </button>
+                  {sticker.creator && sticker.pageUrl && (
+                    <a href={sticker.pageUrl} target="_blank" rel="noopener noreferrer"
+                      className="block truncate text-center text-[10px] text-gray-400 underline">
+                      @{sticker.creator}
+                    </a>
+                  )}
+                </div>
               ))}
             </div>
           )}

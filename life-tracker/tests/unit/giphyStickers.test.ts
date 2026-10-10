@@ -5,7 +5,9 @@ import {
 } from '../../src/lib/giphyStickers';
 
 const validItem = {
-  id: 'gAbC123', title: 'Happy Pusheen', images: {
+  id: 'gAbC123', title: 'Happy Pusheen',
+  url: 'https://giphy.com/gifs/sample-gAbC123',
+  user: { username: 'animator' }, images: {
     fixed_width: { webp: 'https://media1.giphy.com/media/gAbC123/100.webp?cid=abc' },
     fixed_height: { webp: 'https://media2.giphy.com/media/gAbC123/200.webp?cid=abc' },
   },
@@ -29,6 +31,7 @@ describe('GIPHY provider message safety', () => {
     const result = parseGiphySticker(validItem);
     expect(result).toMatchObject({
       id: 'gAbC123', label: 'Happy Pusheen',
+      creator: 'animator', pageUrl: 'https://giphy.com/gifs/sample-gAbC123',
       previewUrl: 'https://media1.giphy.com/media/gAbC123/100.webp?cid=abc',
       displayUrl: 'https://media2.giphy.com/media/gAbC123/200.webp?cid=abc',
       analytics: { onsent: 'https://giphy-analytics.giphy.com/v2/pingback_simple?token=a' },
@@ -42,6 +45,7 @@ describe('GIPHY provider message safety', () => {
       fixed_height: validItem.images.fixed_height,
     } })).toBeNull();
     expect(parseGiphySticker({ ...validItem, id: 'invalid/id' })).toBeNull();
+    expect(parseGiphySticker({ ...validItem, url: 'https://giphy.com.evil.example/sticker' })?.pageUrl).toBeUndefined();
   });
 
   it('calls provider search directly with exact search words, small result limit and no-store', async () => {
