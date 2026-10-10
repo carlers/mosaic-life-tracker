@@ -1039,11 +1039,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       clearCachedUser();
       if (userId) {
         try {
-          const [queue, shared] = await Promise.all([
+          const [queue, shared, ownerPending] = await Promise.all([
             import("../lib/taskShareQueue"), import("./useSharedTasks"),
+            import("../lib/ownerCompletionPending"),
           ]);
           queue.clearSharedCompletionQueue(userId);
           shared.clearSharedTaskCache(userId);
+          ownerPending.clearOwnerCompletionPending(userId);
         } catch (error) {
           console.warn("[AuthProvider] Shared cache logout cleanup failed:", error);
         }

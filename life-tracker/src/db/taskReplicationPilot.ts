@@ -1,4 +1,7 @@
 import { recordCompletionConflict } from '../lib/syncStatus';
+import {
+  acknowledgeOwnerCompletionSent, rejectOwnerCompletionPending,
+} from '../lib/ownerCompletionPending';
 import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 import {
   captureReplicationPushCheckpoint,
@@ -73,6 +76,7 @@ let activePullStream:
   | null = null;
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
+let ownerCompletionSubscription: Subscription | null = null;
 let activeCollection: RxCollection<TaskDocument> | null = null;
 const todoMateCreatePacers = new Map<
   string,
@@ -298,13 +302,20 @@ function mergeServerReactionDrift(
   assumed: ReplicatedTask
 ): ReplicatedTask | null {
   if (taskStateEquals(current, assumed)) return next;
-  if (!taskOwnerStateEquals(current, assumed)) return null;
+  if (!taskOwnerStateEquals(current, assumed)) {
+    if (completionChanged(next, assumed)) {
+      rejectOwnerCompletionPending(next.userId, next.id);
+      recordCompletionConflict(next.userId);
+    }
+    return null;
+  }
 
   const serverCompleted = completionChanged(current, assumed);
   const locallyCompleted = completionChanged(next, assumed);
   if (serverCompleted && locallyCompleted) {
     // Two completion intentions cannot be merged without choosing a winner.
     // Preserve the remote master, but durably surface the local conflict.
+    rejectOwnerCompletionPending(next.userId, next.id);
     recordCompletionConflict(next.userId);
     return null;
   }
@@ -544,6 +555,7 @@ async function pushTasks(
       // Appwrite. A byte-for-byte-equivalent task is therefore acknowledged
       // without a write. Only a genuinely newer application edit may win.
       if (taskStateEquals(current, next)) {
+        acknowledgeOwnerCompletionSent(userId, next);
         await cleanupPendingTaskImage(next, userId);
         continue;
       }
@@ -557,6 +569,7 @@ async function pushTasks(
       // Without an assumed master we cannot separate an owner completion
       // intent from independent title/date edits; protect the remote truth.
       if (completionChanged(next, current)) {
+        rejectOwnerCompletionPending(userId, next.id);
         recordCompletionConflict(userId);
         await cleanupPendingTaskImage(next, userId);
         conflicts.push(current);
@@ -648,8 +661,13 @@ async function pushTasks(
     }
 
     if (writeResult.status === 'conflict') {
+      const remote = toReplicatedTask(writeResult.row);
+      if (completionChanged(next, remote)) {
+        rejectOwnerCompletionPending(userId, next.id);
+        recordCompletionConflict(userId);
+      }
       await cleanupPendingTaskImage(next, userId);
-      conflicts.push(toReplicatedTask(writeResult.row));
+      conflicts.push(remote);
       continue;
     }
     if (writeResult.status === 'missing') {
@@ -664,6 +682,7 @@ async function pushTasks(
       }
     }
 
+    acknowledgeOwnerCompletionSent(userId, prepared.document);
     await finishSuccessfulPush(prepared.pendingImageId, userId);
     if (!taskStateEquals(prepared.document, next)) {
       conflicts.push(prepared.document);
@@ -789,6 +808,8 @@ async function stopTaskReplicationPilotNow(
   realtimeUnsubscribe = null;
   errorSubscription?.unsubscribe();
   errorSubscription = null;
+  ownerCompletionSubscription?.unsubscribe();
+  ownerCompletionSubscription = null;
   activePullStream?.complete();
   activePullStream = null;
 
@@ -845,6 +866,11 @@ async function startTaskReplicationPilotNow(
   realtimeUnsubscribe = subscribeToTaskRealtime(userId, pullStream);
   errorSubscription = replication.error$.subscribe((error) => {
     console.error('[TaskReplicationPilot] replication error:', error);
+  });
+  ownerCompletionSubscription = replication.sent$.subscribe((document) => {
+    if (activeOwnerId === userId && document.userId === userId) {
+      acknowledgeOwnerCompletionSent(userId, document);
+    }
   });
 }
 

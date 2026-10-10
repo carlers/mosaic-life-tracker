@@ -30,6 +30,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useFeedback } from '../../../hooks/useFeedback';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
+import { pendingOwnerCompletionIds, subscribeOwnerCompletionPending } from '../../../lib/ownerCompletionPending';
 import { useDayViewSwiper } from './useDayViewSwiper';
 import { deleteImage } from '../../../lib/storage';
 import { EMPTY_TASKS } from '../../../constants/empty';
@@ -139,6 +140,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
   const categories = categoriesOverride ?? hookCategories;
   const tasksByDate = useTasksByDate(tasks);
+  const [ownerPendingRevision, setOwnerPendingRevision] = useState(0);
+  useEffect(() => subscribeOwnerCompletionPending(() => setOwnerPendingRevision(n => n + 1)), []);
+  const pendingOwnedTaskIds = useMemo(() => pendingOwnerCompletionIds(currentUserId),
+    [currentUserId, ownerPendingRevision]);
   const sharedTasks = useSharedTasks('received', isOpen);
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -851,6 +856,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                         </button>
                       </div>
                     </div>
+                    {dayTasks.some(task => pendingOwnedTaskIds.has(task.id)) && (
+                      <p role="status" className="px-4 pb-1 text-xs text-amber-400">
+                        Shared completion pending sync
+                      </p>
+                    )}
                     <DaySlide
                       date={date}
                       dateStr={dateStr}
