@@ -48,7 +48,7 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
               <GiphyStickerImage id={giphySticker.id} label={giphySticker.label} compact />
             ) : null}
             <span className="min-w-0 line-clamp-2 text-[11px] leading-snug text-gray-400">
-              {packStickerSummary(giphyStickerSummary(content))}
+              {packStickerSummary(giphyStickerSummary(stickerWire ?? content))}
             </span>
           </div>
         ) : (
