@@ -12,6 +12,14 @@ Task branch: `chatgpt/release-history`; stable Preview: `feature/release-history
 - Tests for sorting/filtering/cache/failures, settings navigation and page states.
 - Add publication checklist to `docs/VERSIONING.md`. Public GitHub Releases and tag refs were empty when inspected; **do not create speculative historical release notes**.
 
+## Verification checkpoint
+
+Full task-branch diagnostic [Actions run 38011727704](https://github.com/carlers/mosaic-life-tracker/actions/runs/38011727704) compiled production source and passed DOM suites, but build-size policy measured +6,544 B raw app assets, +2,136 B gzip, and +6,771 B precache over existing ceilings. Entry/startup and Home closures passed without adjustment. Reviewed aggregate ceilings now become raw 2,309,200 B, gzip 711,200 B, precache 2,392,200 B, leaving about 1–1.7 KiB observed CI headroom. The historical baseline, entry, startup and Home limits remain unchanged. A first unit run also found a Node-only test storage stub, the protected-route registry list and the checkpoint's mandatory Next action marker; repaired together.
+
+## Next action
+
+Run focused CI on the repaired task commit, squash into stable Preview only when green, then require exact SHA canonical CI and Vercel READY. Any remaining browser/device checks must be explicitly reported.
+
 ## Verification and delivery
 - Single scoped task commit with `[verify:focused]`; focused green before squash to stable Preview.
 - Require exact stable Preview SHA full canonical CI and Vercel READY. Check bundle budgets; separate real-device/theme/Back acceptance remains manual if not performed.

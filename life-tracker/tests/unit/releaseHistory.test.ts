@@ -5,7 +5,16 @@ const entry = (tag: string, date: string, other: Record<string, unknown> = {}) =
   tag_name: tag, name: tag + ' changes', body: '- Feature update',
   published_at: date, draft: false, prerelease: false, ...other,
 });
-beforeEach(() => { localStorage.clear(); vi.unstubAllGlobals(); });
+beforeEach(() => {
+  vi.unstubAllGlobals();
+  const memory = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    clear: () => memory.clear(),
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => { memory.set(key, value); },
+    removeItem: (key: string) => { memory.delete(key); },
+  });
+});
 
 describe('public production release history', () => {
   it('accepts published stable releases, sorts dates and rejects invalid/preview entries', () => {
