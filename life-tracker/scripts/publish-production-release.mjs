@@ -6,6 +6,9 @@ import {
   PRODUCTION_DOMAIN, assertProductionEvidence, decidePublication, extractReleaseNotes,
   parseProductionBuild, releaseTag, isNewProductionVersion,
 } from './lib/production-release.mjs';
+import {
+  FIRST_PRODUCTION_RELEASE, FIRST_PRODUCTION_NOTES, historicalBootstrapDecision, assertHistoricalProof,
+} from './lib/historical-release-bootstrap.mjs';
 
 const repo = process.env.GITHUB_REPOSITORY;
 const token = process.env.GITHUB_TOKEN;
@@ -35,6 +38,98 @@ async function mainSha() {
   return branch.commit.sha;
 }
 
+
+/**
+ * Single-authorized bootstrap of v0.12.1 on the *original* accepted production merge.
+ * Uses the trusted publisher Actions token, not the GitHub chat connector; future
+ * same-version runs are idempotent, and newer versions never enter this path.
+ */
+async function bootstrapFirstProductionRelease() {
+  const historical = FIRST_PRODUCTION_RELEASE;
+  const suffix = '/contents/life-tracker/package.json?ref=';
+  const [comparison, historicCommit, historicPr, historicChecks, historicStatus,
+    historicPkg, currentChecks, currentStatus] = await Promise.all([
+    api('/compare/' + historical.sha + '...' + candidate),
+    api('/commits/' + historical.sha),
+    api('/pulls/' + historical.promotionPr),
+    api('/commits/' + historical.sha + '/check-runs?per_page=100'),
+    api('/commits/' + historical.sha + '/status'),
+    api(suffix + historical.sha),
+    api('/commits/' + candidate + '/check-runs?per_page=100'),
+    api('/commits/' + candidate + '/status'),
+  ]);
+  if (historicCommit.sha !== historical.sha || historicCommit.parents?.length !== 2) {
+    throw new Error('Historical version was not promoted through a merge commit');
+  }
+  const oldPkg = await api(suffix + historicCommit.parents[0].sha);
+  const fromGitHub = source => JSON.parse(Buffer.from(source.content, 'base64').toString('utf8')).version;
+  assertHistoricalProof({
+    pr: historicPr,
+    run: historicChecks,
+    statuses: historicStatus.statuses,
+    oldVersion: fromGitHub(oldPkg),
+    releasedVersion: fromGitHub(historicPkg),
+  });
+  extractReleaseNotes(historicPr.body); // Must have a genuine user-facing summary in the accepted PR.
+  if (comparison.merge_base_commit?.sha !== historical.sha ||
+      !['ahead', 'identical'].includes(comparison.status)) {
+    throw new Error('Historical production commit is not in the current main history');
+  }
+  if (!currentChecks.check_runs?.some(x =>
+    x.name === 'canonical-acceptance' && x.conclusion === 'success' &&
+    x.head_sha === candidate && x.app?.slug === 'github-actions')) {
+    throw new Error('Current main acceptance must finish before bootstrapping a Release');
+  }
+  if (!currentStatus.statuses?.some(x =>
+    x.context === 'Vercel' && x.state === 'success' &&
+    typeof x.target_url === 'string' &&
+    x.target_url.startsWith('https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/'))) {
+    throw new Error('Current production deployment has not been verified successful');
+  }
+
+  const existingTag = await tagSha();
+  const existingRelease = await api('/releases/tags/' + tag, { allow404: true });
+  const published = await api('/releases?per_page=100');
+  const versions = published.filter(x => !x.draft && !x.prerelease &&
+    typeof x.tag_name === 'string' &&
+    /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(x.tag_name)
+  ).map(x => x.tag_name.slice(1));
+  const decision = historicalBootstrapDecision({
+    currentVersion: version, previousVersion: oldVersion,
+    mergeBaseSha: comparison.merge_base_commit?.sha,
+    taggedSha: existingTag, existingRelease, publishedVersions: versions,
+  });
+  if (decision === 'already-published') {
+    console.log('Historical ' + tag + ' already published: ' + existingRelease.html_url);
+    return;
+  }
+  if (decision !== 'publish') throw new Error('Historical bootstrap unexpectedly not eligible');
+  if (await mainSha() !== candidate) throw new Error('Main changed before historical tag creation');
+  if (!existingTag) {
+    await api('/git/refs', {
+      method: 'POST', body: { ref: 'refs/tags/' + tag, sha: historical.sha },
+    });
+  }
+  if (await tagSha() !== historical.sha) throw new Error('Historical tag points to another commit');
+  if (await mainSha() !== candidate) throw new Error('Main changed before publishing historical notes');
+  const created = await api('/releases', { method: 'POST', body: {
+    tag_name: tag,
+    target_commitish: historical.sha,
+    name: 'Mosaic ' + tag + ' — Release history, navigation and everyday polish',
+    body: FIRST_PRODUCTION_NOTES +
+      '\n\nProduction promotion: https://github.com/' + repo + '/pull/' + historical.promotionPr,
+    draft: false, prerelease: false, generate_release_notes: false,
+  } });
+  const confirmed = await api('/releases/tags/' + tag);
+  if (!created.id || created.id !== confirmed.id || !confirmed.published_at ||
+      confirmed.draft || confirmed.prerelease || await tagSha() !== historical.sha) {
+    throw new Error('Historical release publication readback failed');
+  }
+  console.log('Published verified historical ' + tag + ': ' + confirmed.html_url);
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+    'Published verified historical ' + tag + ': ' + confirmed.html_url + '\n');
+}
+
 const checkoutSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 if (checkoutSha !== candidate) throw new Error('Checkout SHA differs from approved publication candidate');
 const version = validateVersionFiles(
@@ -54,7 +149,11 @@ if (commit.sha !== candidate || !Array.isArray(commit.parents) || commit.parents
 const previous = await api('/contents/life-tracker/package.json?ref=' + commit.parents[0].sha);
 const oldVersion = JSON.parse(Buffer.from(previous.content, 'base64').toString('utf8')).version;
 if (!isNewProductionVersion(version, oldVersion)) {
-  console.log('No product version increment (' + oldVersion + ' -> ' + version + '); no release.');
+  if (version === FIRST_PRODUCTION_RELEASE.version && oldVersion === version) {
+    await bootstrapFirstProductionRelease();
+  } else {
+    console.log('No product version increment (' + oldVersion + ' -> ' + version + '); no release.');
+  }
   process.exit(0);
 }
 
