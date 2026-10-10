@@ -1,3 +1,4 @@
+import { recordCompletionConflict } from '../lib/syncStatus';
 import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 import {
   captureReplicationPushCheckpoint,
@@ -144,19 +145,21 @@ function taskStateEquals(
 }
 
 /**
- * A friend reaction is the only ordinary server-side mutation of an owner's
- * task row. message-action changes both reactions and updated_at. Ignore those
- * two fields when deciding whether the remote row changed in an owner-controlled
- * field since RxDB's assumed master.
+ * Reactions and explicit shared-task completion are server-writable. Other
+ * task fields remain creator-owned. Never use timestamp-only last-writer-wins.
  */
 function taskOwnerStateEquals(
   left: ReplicatedTask,
   right: ReplicatedTask
 ): boolean {
   return taskStateEquals(
-    { ...left, reactions: '', updatedAt: '' },
-    { ...right, reactions: '', updatedAt: '' }
+    { ...left, reactions: '', updatedAt: '', completed: false, completedAt: '' },
+    { ...right, reactions: '', updatedAt: '', completed: false, completedAt: '' }
   );
+}
+function completionChanged(left: ReplicatedTask, right: ReplicatedTask): boolean {
+  return left.completed !== right.completed ||
+    (left.completedAt ?? '') !== (right.completedAt ?? '');
 }
 
 function laterIso(left: string, right: string): string {
@@ -297,8 +300,20 @@ function mergeServerReactionDrift(
   if (taskStateEquals(current, assumed)) return next;
   if (!taskOwnerStateEquals(current, assumed)) return null;
 
+  const serverCompleted = completionChanged(current, assumed);
+  const locallyCompleted = completionChanged(next, assumed);
+  if (serverCompleted && locallyCompleted) {
+    // Two completion intentions cannot be merged without choosing a winner.
+    // Preserve the remote master, but durably surface the local conflict.
+    recordCompletionConflict(next.userId);
+    return null;
+  }
   return {
     ...next,
+    ...(serverCompleted ? {
+      completed: current.completed,
+      completedAt: current.completedAt,
+    } : {}),
     reactions: current.reactions ?? '',
     updatedAt: laterIso(next.updatedAt, current.updatedAt),
   };
@@ -537,6 +552,16 @@ async function pushTasks(
         conflicts.push(current);
         continue;
       }
+      // Missing replication metadata is not a license to overwrite a server
+      // completion merely because this client's local updatedAt is newer.
+      // Without an assumed master we cannot separate an owner completion
+      // intent from independent title/date edits; protect the remote truth.
+      if (completionChanged(next, current)) {
+        recordCompletionConflict(userId);
+        await cleanupPendingTaskImage(next, userId);
+        conflicts.push(current);
+        continue;
+      }
 
       // Reactions are server-mutated even for owner tasks. Preserve the
       // current remote reaction set while carrying the newer local owner edit.
@@ -590,7 +615,8 @@ async function pushTasks(
         prepared.document as unknown as Record<string, unknown>,
         'tasks',
         userId
-      )
+      ),
+      master.document.completed
     );
 
     // A friend can mutate reactions between our master read and CAS. Preserve
@@ -615,7 +641,8 @@ async function pushTasks(
             prepared.document as unknown as Record<string, unknown>,
             'tasks',
             userId
-          )
+          ),
+          latest.completed
         );
       }
     }

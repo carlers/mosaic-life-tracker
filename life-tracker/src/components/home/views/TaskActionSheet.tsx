@@ -13,6 +13,7 @@ import {
   Image as ImageIcon,
   Eye,
   Copy,
+  Users,
 } from 'lucide-react';
 import { isToday } from 'date-fns';
 import {
@@ -33,6 +34,7 @@ interface TaskActionSheetProps {
   onMemo: () => void;
   onChangeDate: () => void;
   onVisibility: () => void;
+  onShare: () => void;
   onAddPhoto: () => void;
   onViewPhoto: () => void;
   onDeletePhoto: () => void;
@@ -49,6 +51,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onMemo,
   onChangeDate,
   onVisibility,
+  onShare,
   onAddPhoto,
   onViewPhoto,
   onDeletePhoto,
@@ -131,6 +134,17 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
           </div>
           <span className="text-base font-medium flex-1 text-left">Visibility</span>
           <span className="text-xs text-gray-400">{visibilityLabel}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { onShare(); onClose(); }}
+          className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white mb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        >
+          <div className="w-8 h-8 rounded-full bg-surfaceHighlight flex items-center justify-center" aria-hidden="true">
+            <Users size={16} className="text-white" />
+          </div>
+          <span className="text-base font-medium flex-1 text-left">Share with friends</span>
         </button>
 
         {/* Memo section */}

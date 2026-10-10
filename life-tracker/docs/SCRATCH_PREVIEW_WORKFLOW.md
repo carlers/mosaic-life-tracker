@@ -46,13 +46,21 @@ npm run appwrite:preview:prepare -- \
 
 `--apply` never touches production. It first compares the live scratch backend
 against Git, allows only an explicit small list of known missing resources, then
-runs the **existing ordered, idempotent** migrations 001, 002, 004, 005, and
-006, and checks the full managed state again. It does not apply migration 003
+runs the **existing ordered, idempotent** migrations 001, 002, 004, 005,
+006, and 007 (server-owned task sharing), and checks the full managed state again. It does not apply migration 003
 (the bucket-wide grant removal) implicitly because that is a permission
 change; use the separately reviewed backend migration procedure for it.
 Unexpected schema/permission/Function drift **fails closed**: inspect and
 extend Git-owned migrations rather than auto-copying production. The
 readiness command never silently deploys Functions or modifies auth policy.
+
+For the shared-task workstream, verify the `task_shares` membership table and
+all indexes first; a Function with shared-task event handlers must never be
+activated against an environment lacking migration 007. Scratch currently
+has no Git VCS linkage for `message-action`; deploy the source archive from
+the exact reviewed Git SHA using the documented Function packaging workflow,
+not a VCS-deployment API that requires a linked repository. Confirm the
+registered Scratch origin and dispose of synthetic accounts after testing.
 
 For new code, build the exact task SHA through
 `npm run appwrite:function:deploy` (inactive), confirm READY, explicitly
@@ -141,3 +149,7 @@ a problem.
 - A scratch API key is required for runnable CLI verification; if the connected
   environment has only Console access, agents must perform equivalent
   explicit-project read-only inspections and report the CLI limitation.
+
+## Shared-task friendship permission drift
+
+As of the 2026-10-10 read-only check, Scratch's existing `friendships` table has `create("users")` despite the Git manifest's `[]`. Do **not** hide this as an allowable drift or auto-apply a permission change. Use the separately reviewed, explicitly confirmed Git migration `008-friendship-permissions` once on the Scratch ID and endpoint; re-read `friendships` and verify old-client/server-controlled friendship behavior. Only then run the standard `--apply` additive preparation for `007-task-shares`. The Function must remain on its prior active deployment until table readiness and concurrent Preview requirements are verified.

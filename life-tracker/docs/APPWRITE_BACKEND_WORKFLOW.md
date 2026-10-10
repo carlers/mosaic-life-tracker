@@ -178,6 +178,16 @@ Current ordered baseline reconciliations are:
   `push_subscriptions.include_task_details` boolean. Apply on the explicit
   target before activating the Function that writes rich per-device push
   preferences; do not retrofit legacy subscriptions to opt in.
+- `007-task-shares` — adds the server-only membership table and owner/invitee/task
+  indexes from the portable manifest. Apply only on the explicitly confirmed
+  scratch backend before activating the new `message-action` code; the task
+  notification event handler now consults this table. Do not activate a Function
+  requiring `task_shares` before the schema is READY. The sharing Function
+  transaction removes legacy client direct-update permissions on newly shared
+  owner rows while retaining owner read/delete permissions; new owner edits use
+  `compare_and_set_owner_row`. This intentionally fences pre-upgrade browsers
+  from silently overwriting a collaborator's completion. Scratch old-client
+  compatibility tests remain required before user-facing rollout.
 
 The runner is not a replay of every historical pre-foundation Console/script change. Fresh
 forks bootstrap the current manifest, and production was already at the current historical
@@ -282,3 +292,7 @@ Future external integrations belong as isolated routes/modules in the existing t
 `message-action`/future `app-api` Function unless the architecture is deliberately changed.
 Provider secrets and OAuth tokens stay server-side. Use provider sandboxes/mocks first and
 the scratch project when real callback/webhook infrastructure is required.
+
+- `008-friendship-permissions` — **manual explicit-only security repair**, not part of automatic Scratch Preview preparation. The read-only Scratch check on 2026-10-10 found the legacy `create("users")` permission on `friendships`; the Git manifest requires `[]` because reciprocal friendship status is Function-owned. This narrow idempotent migration checks the existing table shape and indexes first, refuses unknown grants, removes only the known broad create permission, and confirms read-back. Execute with `appwrite:migrate -- --only 008-friendship-permissions --project 6a96e82d000d1310b3be --confirm-project 6a96e82d000d1310b3be` **with explicit Scratch endpoint and appropriately scoped Scratch API key in environment**. This is not authorized against Production by a Scratch acceptance. Legacy clients that created friendship rows directly can no longer do so; verify server-managed friendship flows and stale-client failure safety. After repair, `appwrite:preview:prepare --apply` may proceed with the additive migration 007.
+
+Migration 008 is programmatically excluded from **both** default CLI `selectMigrations()` and default `runAppwriteMigrations()`; only `--only 008-friendship-permissions` opts into it after the explicit project and confirm checks. Do not rely on a prose warning alone for this boundary.

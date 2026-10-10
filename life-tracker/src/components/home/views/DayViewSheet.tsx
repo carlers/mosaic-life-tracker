@@ -11,6 +11,11 @@ import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
 import { TaskActionSheet } from './TaskActionSheet';
+const LazyShareTaskSheet = lazy(() =>
+  import('./ShareTaskSheet').then(({ ShareTaskSheet }) => ({ default: ShareTaskSheet }))
+);
+import { useSharedTasks } from '../../../hooks/useSharedTasks';
+import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
 import { ImagePickerSheet } from './ImagePickerSheet';
@@ -134,9 +139,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
   const categories = categoriesOverride ?? hookCategories;
   const tasksByDate = useTasksByDate(tasks);
+  const sharedTasks = useSharedTasks('received', isOpen);
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [shareSheetMounted, setShareSheetMounted] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [imagePickerTaskId, setImagePickerTaskId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -214,6 +222,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     onDateChange,
     isDisabled:
       isActionSheetOpen ||
+      isShareSheetOpen ||
       isMemoOpen ||
       isDatePickerOpen ||
       isVisibilityOpen ||
@@ -494,6 +503,16 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const handleCloseActions = useCallback(() => {
     setIsActionSheetOpen(false);
   }, []);
+  const updateSharedCompletion = sharedTasks.updateCompletion;
+  const handleSharedCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
+    try {
+      const result = await updateSharedCompletion(item, desired);
+      if (result.status === 'pending') showFeedback('Shared completion queued for sync.');
+      if (result.status === 'rejected') showFeedback(result.reason || 'Shared completion failed.');
+    } catch (error) {
+      showFeedback(error instanceof Error ? error.message : 'Shared completion failed.');
+    }
+  }, [updateSharedCompletion, showFeedback]);
 
   const handleOpenMemo = useCallback(
     (task: TaskDocument, mode: 'view' | 'edit' = 'view') => {
@@ -672,6 +691,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const isBackgroundLocked =
     isActionSheetOpen ||
+    isShareSheetOpen ||
     isMemoOpen ||
     isDatePickerOpen ||
     isVisibilityOpen ||
@@ -841,6 +861,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       editingTaskId={editingTaskId}
                       editValue={editValue}
                       onToggleTask={handleToggleTask}
+                      sharedItems={sharedTasks.activeItems}
+                      onSharedCompletion={handleSharedCompletion}
+                      sharedPendingFor={sharedTasks.pendingFor}
                       onAddTask={handleAddTask}
                       onOpenActions={handleOpenActions}
                       onOpenMemo={handleOpenMemo}
@@ -940,11 +963,21 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         }}
         onChangeDate={handleOpenDatePicker}
         onVisibility={handleOpenVisibility}
+        onShare={() => { setShareSheetMounted(true); setIsShareSheetOpen(true); }}
         onAddPhoto={handleOpenImagePicker}
         onViewPhoto={handleOpenImageViewer}
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
       />
+      <Suspense fallback={null}>
+        {shareSheetMounted && (
+          <LazyShareTaskSheet
+            isOpen={isShareSheetOpen && !!activeTask}
+            onClose={() => setIsShareSheetOpen(false)}
+            task={activeTask}
+          />
+        )}
+      </Suspense>
       <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
       <DatePickerSheet isOpen={isDatePickerOpen && !!activeTask}

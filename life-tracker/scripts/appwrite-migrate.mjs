@@ -11,6 +11,8 @@ import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket
 import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
 import { migratePushDetails } from './migrate-push-details.mjs';
+import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
+import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
 
 export const APPWRITE_MIGRATIONS = [
   {
@@ -48,11 +50,23 @@ export const APPWRITE_MIGRATIONS = [
     description: 'Optional per-device push detail preference (default private)',
     run: ({ request, log, sleep }) => migratePushDetails({ request, log, sleep }),
   },
+  {
+    id: '007-task-shares',
+    description: 'Server-only shared-task invitations and membership',
+    run: ({ request, log }) => migrateTaskSharesBackend({ request, log }),
+  },
+  {
+    id: '008-friendship-permissions',
+    description: 'Explicit-only removal of legacy broad friendship create grant',
+    run: ({ request, log }) => migrateFriendshipTablePermissions({ request, log }),
+  },
 ];
 
 export function selectMigrations(argv = []) {
   const only = flagValue(argv, '--only');
-  if (!only) return APPWRITE_MIGRATIONS;
+  // Permission tightening is intentionally opt-in even for a confirmed
+  // normal migration run. Only --only 008 may authorize this security repair.
+  if (!only) return APPWRITE_MIGRATIONS.filter(m => m.id !== '008-friendship-permissions');
   const selected = APPWRITE_MIGRATIONS.filter(
     (migration) => migration.id === only
   );
@@ -64,7 +78,7 @@ export function selectMigrations(argv = []) {
 
 export async function runAppwriteMigrations({
   request,
-  migrations = APPWRITE_MIGRATIONS,
+  migrations = selectMigrations(),
   log = () => {},
   sleep,
 }) {

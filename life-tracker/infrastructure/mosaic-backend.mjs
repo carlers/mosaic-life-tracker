@@ -97,6 +97,31 @@ export const MOSAIC_TABLES = [
     ]
   ),
   {
+    id: 'task_shares',
+    name: 'Shared Task Membership',
+    permissions: [],
+    rowSecurity: true,
+    enabled: true,
+    columns: [
+      { key: 'task_id', type: 'varchar', size: 36, required: true },
+      { key: 'owner_id', type: 'varchar', size: 255, required: true },
+      { key: 'invitee_id', type: 'varchar', size: 255, required: true },
+      { key: 'status', type: 'varchar', size: 20, required: true },
+      { key: 'grant_epoch', type: 'varchar', size: 50, required: true },
+      { key: 'friendship_version', type: 'varchar', size: 40, required: true },
+      { key: 'last_command_id', type: 'varchar', size: 36, required: false, default: '' },
+      { key: 'last_membership_command_id', type: 'varchar', size: 36, required: false, default: '' },
+      { key: 'last_command_target', type: 'boolean', required: false, default: false },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    ],
+    indexes: [
+      { key: 'idx_task_share_owner', type: 'key', attributes: ['owner_id'] },
+      { key: 'idx_task_share_invitee', type: 'key', attributes: ['invitee_id'] },
+      { key: 'idx_task_share_task', type: 'key', attributes: ['task_id', 'status'] },
+    ],
+  },
+  {
     id: 'profiles',
     name: 'Profiles',
     permissions: ['create("users")', 'read("users")'],

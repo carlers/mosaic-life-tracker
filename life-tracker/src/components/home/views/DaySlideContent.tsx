@@ -1,5 +1,7 @@
 import React from 'react';
 import { CategorySection } from './CategorySection';
+import { SharedTaskRows } from './SharedTaskRows';
+import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
 import {
@@ -16,6 +18,9 @@ export interface DaySlideProps {
   tasks: TaskDocument[];
   categories: CategoryDocument[];
   currentUserId: string;
+  sharedItems?: SharedTaskItem[];
+  onSharedCompletion?: (item: SharedTaskItem, completed: boolean) => Promise<unknown> | void;
+  sharedPendingFor?: (taskId: string) => SharedCompletionCommand | undefined;
   editingTaskId: string | null;
   editValue: string;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
@@ -53,6 +58,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   scrollMode = 'page',
   categories,
   currentUserId,
+  sharedItems = [],
+  onSharedCompletion,
+  sharedPendingFor,
   editingTaskId,
   editValue,
   onToggleTask,
@@ -134,6 +142,14 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           dragGapHeight={activeDrag?.rowHeight ?? 0}
         />
       ))}
+      {!selectionMode && sharedItems.some(item => item.status === 'accepted' && item.date === dateStr) &&
+        onSharedCompletion && sharedPendingFor && (
+        <SharedTaskRows
+          items={sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr)}
+          onSetCompleted={onSharedCompletion}
+          pendingFor={sharedPendingFor}
+        />
+      )}
     </div>
   );
 };

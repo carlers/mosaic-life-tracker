@@ -25,6 +25,10 @@ import { useConnectivity } from "./useConnectivity";
 import { preloadHomePage } from "../lib/homePreload";
 import { scopeAccountWork } from "../lib/accountWorkScope";
 import {
+  scopeSharedTaskQueue, flushSharedCompletions, flushSharedMemberships, clearSharedCompletionQueue,
+} from "../lib/taskShareQueue";
+import { clearSharedTaskCache } from "./useSharedTasks";
+import {
   isValidUsername,
   normalizeUsername,
   USERNAME_REQUIREMENTS,
@@ -360,6 +364,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     scopeSyncStatusToUser(userId);
   }, [userId]);
+
+  useEffect(() => {
+    scopeSharedTaskQueue(userId);
+    return () => scopeSharedTaskQueue(null);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || connectivity.status !== "online") return;
+    void (async () => {
+      await flushSharedMemberships(userId);
+      await flushSharedCompletions(userId);
+    })().catch(error => {
+      console.warn("[AuthProvider] Shared action retry failed:", error);
+    });
+  }, [userId, connectivity.status]);
 
   useEffect(() => {
     let active = true;
@@ -1008,6 +1027,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       scopeAccountWork(null);
       clearCachedUser();
+      if (userId) {
+        clearSharedCompletionQueue(userId);
+        clearSharedTaskCache(userId);
+      }
       setUser(null);
       setIsLoading(false);
       broadcastAuth("logout");
@@ -1023,7 +1046,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       void verifyLiveSession(true);
       return false;
     }
-  }, [suspendCurrentAccountWork, verifyLiveSession]);
+  }, [suspendCurrentAccountWork, verifyLiveSession, userId]);
 
   const deleteAccount = useCallback(
     async (confirmation: string): Promise<boolean> => {

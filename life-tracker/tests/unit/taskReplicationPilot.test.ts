@@ -772,6 +772,25 @@ describe('task RxDB replication pilot', () => {
     ]);
   });
 
+  it('fails closed on uncheckpointed owner bootstrap that would overwrite remote completion', async () => {
+    getRowMock.mockResolvedValue(remoteTask({
+      is_completed: true,
+      completed_at: '2026-10-02T00:00:04.000Z',
+      updated_at: '2026-10-02T00:00:04.000Z',
+    }));
+    const next = localTask({
+      title: 'Offline title edit',
+      updatedAt: '2026-10-02T00:00:07.000Z',
+    });
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks([
+      { newDocumentState: next },
+    ] as never, 'user_A');
+    expect(conflicts).toEqual([expect.objectContaining({
+      completed: true, completedAt: '2026-10-02T00:00:04.000Z',
+    })]);
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
   it('preserves a server-side friend reaction while pushing an owner edit', async () => {
     listRowsMock.mockImplementation(async ({ tableId }: any) => {
       if (tableId === 'friendships') {
@@ -830,6 +849,48 @@ describe('task RxDB replication pilot', () => {
     ]);
   });
 
+
+  it('preserves remote shared completion while pushing an offline owner title edit', async () => {
+    const assumed = localTask();
+    getRowMock.mockResolvedValue(remoteTask({
+      is_completed: true, completed_at: '2026-10-02T00:00:05.000Z',
+      updated_at: '2026-10-02T00:00:05.000Z',
+    }));
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks([{
+      assumedMasterState: assumed,
+      newDocumentState: { ...assumed, title: 'Owner offline edit',
+        updatedAt: '2026-10-02T00:00:04.000Z' },
+    }] as never, 'user_A');
+
+    expect(updateRowMock).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        title: 'Owner offline edit',
+        is_completed: true,
+        completed_at: '2026-10-02T00:00:05.000Z',
+      }),
+    }));
+    expect(conflicts).toEqual([expect.objectContaining({
+      title: 'Owner offline edit', completed: true,
+    })]);
+  });
+
+  it('rejects conflicting owner/participant offline completion and displays warning', async () => {
+    const assumed = localTask();
+    getRowMock.mockResolvedValue(remoteTask({
+      is_completed: true, completed_at: '2026-10-02T00:00:05.000Z',
+      updated_at: '2026-10-02T00:00:05.000Z',
+    }));
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks([{
+      assumedMasterState: assumed,
+      newDocumentState: { ...assumed, completed: true,
+        completedAt: '2026-10-02T00:00:03.000Z',
+        updatedAt: '2026-10-02T00:00:03.000Z' },
+    }] as never, 'user_A');
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(conflicts).toEqual([expect.objectContaining({
+      completed: true, completedAt: '2026-10-02T00:00:05.000Z',
+    })]);
+  });
   it('returns the remote master when an owner-controlled field changed remotely', async () => {
     const assumed = localTask();
     getRowMock.mockResolvedValue(

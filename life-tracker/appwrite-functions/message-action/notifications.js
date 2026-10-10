@@ -259,6 +259,22 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
     return { status: 200, body: { ok: true, ignored: 'private-task' } };
   }
 
+  // Shared completion can be initiated by another account. The legacy task-event
+  // notification identifies task.user_id as the actor, so suppress all shared-task
+  // completion Alerts until explicit participant attribution is implemented.
+  // Keep this historical membership check even after revoke: delayed events
+  // must not be misattributed merely because a share has since been removed.
+  // This also prevents a private shared task from becoming a follower alert.
+  const shareResult = await tablesDB.listRows({
+    databaseId: DATABASE_ID,
+    tableId: 'task_shares',
+    queries: [Query.equal('task_id', taskId), Query.limit(1)],
+    total: false,
+  });
+  if ((shareResult.rows || []).some(row => row.owner_id === actorId)) {
+    return { status: 200, body: { ok: true, ignored: 'shared-task' } };
+  }
+
   const friends = await mutualFriendMap(tablesDB, actorId);
   if (friends.size === 0) {
     return { status: 200, body: { ok: true, created: 0 } };

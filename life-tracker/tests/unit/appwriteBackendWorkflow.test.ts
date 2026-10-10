@@ -320,7 +320,13 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '004-notifications',
       '005-notification-retention',
       '006-push-details',
+      '007-task-shares',
+      '008-friendship-permissions',
     ]);
+    expect(selectMigrations([]).map(item => item.id))
+      .not.toContain('008-friendship-permissions');
+    expect(selectMigrations(['--only', '008-friendship-permissions']))
+      .toEqual([APPWRITE_MIGRATIONS.at(-1)]);
     expect(
       selectMigrations(['--only', '002-diary-created-at'])
     ).toEqual([APPWRITE_MIGRATIONS[1]]);
