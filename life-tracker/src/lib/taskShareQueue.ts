@@ -34,6 +34,46 @@ export interface SharedCommandResult {
 }
 
 const KEY = 'mosaic_shared_completion_queue_v1';
+export interface SharedCompletionFailure {
+  operationId: string;
+  taskId: string;
+  reason: string;
+  rejectedAt: number;
+}
+
+const FAILURE_PREFIX = 'mosaic_shared_completion_failures_v1:';
+const FAILURE_MAX = 20;
+
+export function readSharedCompletionFailures(userId: string): SharedCompletionFailure[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(FAILURE_PREFIX + userId) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((r): r is SharedCompletionFailure =>
+      Boolean(r && typeof r === 'object' &&
+        typeof r.operationId === 'string' && ROW_ID.test(r.operationId) &&
+        typeof r.taskId === 'string' && ROW_ID.test(r.taskId) &&
+        typeof r.reason === 'string' && r.reason.length <= 150 &&
+        typeof r.rejectedAt === 'number' &&
+        Date.now() - r.rejectedAt <= TTL)).slice(-FAILURE_MAX);
+  } catch { return []; }
+}
+
+function rememberSharedCompletionFailure(userId: string, command: SharedCompletionCommand, reason: string) {
+  const prior = readSharedCompletionFailures(userId).filter(r => r.operationId !== command.operationId);
+  localStorage.setItem(FAILURE_PREFIX + userId, JSON.stringify([...prior, {
+    operationId: command.operationId,
+    taskId: command.taskId,
+    reason: reason.slice(0, 150),
+    rejectedAt: Date.now(),
+  }].slice(-FAILURE_MAX)));
+  listeners.forEach(listener => listener());
+}
+
+export function acknowledgeSharedCompletionFailures(userId: string) {
+  localStorage.removeItem(FAILURE_PREFIX + userId);
+  listeners.forEach(listener => listener());
+}
+
 const TTL = 7 * 24 * 60 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const ROW_ID = /^[a-zA-Z0-9][a-zA-Z0-9_]{0,35}$/;
@@ -97,6 +137,7 @@ export function pendingSharedCompletion(userId: string, taskId: string): SharedC
 export function clearSharedCompletionQueue(userId?: string): void {
   activeGeneration += 1;
   save(read().filter(c => Boolean(userId) && c.userId !== userId));
+  if (userId) acknowledgeSharedCompletionFailures(userId);
 }
 
 export function enqueueSharedCompletion(
@@ -136,6 +177,7 @@ async function drain(userId: string): Promise<SharedCommandResult[]> {
       return result;
     }
     if (Date.now() - current.enqueuedAt > TTL || current.attempts >= MAX_ATTEMPTS) {
+      rememberSharedCompletionFailure(userId, current, 'Queued completion expired');
       save(read().filter(c => c.operationId !== current.operationId));
       result.push({ operationId: current.operationId, status: 'rejected', reason: 'Queued completion expired' });
       continue;
@@ -162,11 +204,12 @@ async function drain(userId: string): Promise<SharedCommandResult[]> {
       const code = (error as { code?: number }).code;
       const permanent = typeof code === 'number' && code >= 400 && code < 500 && code !== 408 && code !== 429;
       if (permanent || attempt.attempts >= MAX_ATTEMPTS) {
+        const reason = code === 409 ? 'Completion changed. Refresh and retry.' :
+          code === 403 || code === 404 ? 'Share is no longer available.' :
+            'Could not synchronize completion.';
+        rememberSharedCompletionFailure(userId, attempt, reason);
         save(read().filter(c => c.operationId !== attempt.operationId));
-        result.push({ operationId: attempt.operationId, status: 'rejected',
-          reason: code === 409 ? 'Completion changed. Refresh and retry.' :
-            code === 403 || code === 404 ? 'Share is no longer available.' :
-              'Could not synchronize completion.' });
+        result.push({ operationId: attempt.operationId, status: 'rejected', reason });
       } else {
         result.push({ operationId: attempt.operationId, status: 'pending' });
         return result;

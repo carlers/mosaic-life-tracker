@@ -3,7 +3,8 @@ import { useAuth } from './useAuth';
 import { useConnectivity } from './useConnectivity';
 import {
   changeSharedTaskMembership, enqueueSharedCompletion, flushSharedCompletions,
-  listSharedTasks, pendingSharedCompletion, subscribeSharedTaskQueue,
+  listSharedTasks, pendingSharedCompletion, readSharedCompletionFailures,
+  acknowledgeSharedCompletionFailures, subscribeSharedTaskQueue,
   type SharedCommandResult, type SharedTaskItem,
 } from '../lib/taskShareQueue';
 
@@ -77,6 +78,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   const online = connectivity.status === 'online';
   const key = userId ? cacheKey(userId, scope) : null;
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [attemptedKey, setAttemptedKey] = useState<string | null>(null);
   const [state, setState] = useState<SharedTaskItem[]>([]);
   const [error, setError] = useState('');
   const [lastMutation, setLastMutation] = useState<SharedCommandResult | null>(null);
@@ -109,7 +111,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
       if (!active) return;
       // Keep reference-only cached data visible until the next authorized online read.
       setError(cause instanceof Error ? cause.message : 'Shared tasks unavailable');
-      setLoadedKey(key);
+      setAttemptedKey(key);
     });
     return () => { active = false; };
   }, [userId, key, scope, online, enabled]);
@@ -156,13 +158,21 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   const items = useMemo(() => loadedKey === key ? state : cachedItems,
     [loadedKey, key, state, cachedItems]);
   const activeItems = useMemo(() => items.filter(item => item.status === 'accepted'), [items]);
+  const failure = useMemo(() => {
+    void queueRevision;
+    return userId ? readSharedCompletionFailures(userId).at(-1)?.reason ?? '' : '';
+  }, [userId, queueRevision]);
+  const clearFailure = useCallback(() => {
+    if (userId) acknowledgeSharedCompletionFailures(userId);
+    setError('');
+  }, [userId]);
   const pendingFor = useCallback((taskId: string) => {
     void queueRevision;
     return userId ? pendingSharedCompletion(userId, taskId) : undefined;
   }, [queueRevision, userId]);
 
   return {
-    items, activeItems, isLoading: Boolean(online && enabled && key && loadedKey !== key), error, online, pendingFor,
+    items, activeItems, isLoading: Boolean(online && enabled && key && loadedKey !== key && attemptedKey !== key), error: error || failure, clearFailure, online, pendingFor,
     lastMutation, invite, updateCompletion, updateMembership, reload,
   };
 }

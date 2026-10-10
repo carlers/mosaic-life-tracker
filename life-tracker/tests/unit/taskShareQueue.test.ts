@@ -8,7 +8,7 @@ vi.mock('../../src/lib/connectivity', () => ({ getConnectivitySnapshot: () => co
 
 import {
   scopeSharedTaskQueue, enqueueSharedCompletion, flushSharedCompletions,
-  pendingSharedCompletion, clearSharedCompletionQueue,
+  pendingSharedCompletion, clearSharedCompletionQueue, readSharedCompletionFailures,
   type SharedTaskItem,
 } from '../../src/lib/taskShareQueue';
 
@@ -28,6 +28,7 @@ describe('durable shared-task completion queue', () => {
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => data.get(key) ?? null,
       setItem: (key: string, value: string) => { data.set(key, value); },
+      removeItem: (key: string) => { data.delete(key); },
     });
     vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
     vi.stubGlobal('navigator', { locks: undefined });
@@ -85,6 +86,9 @@ describe('durable shared-task completion queue', () => {
     expect(result[0].reason).toMatch(/Refresh and retry/);
     expect(pendingSharedCompletion('user_b', 'task_1')).toBeUndefined();
     expect(sendAction).toHaveBeenCalledTimes(1);
+    expect(readSharedCompletionFailures('user_b')).toMatchObject([{ taskId: 'task_1',
+      reason: 'Completion changed. Refresh and retry.' }]);
+    expect(readSharedCompletionFailures('user_a')).toEqual([]);
   });
 
   it('keeps a timed-out dispatch for replay with the same operation ID', async () => {
