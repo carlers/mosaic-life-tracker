@@ -55,7 +55,7 @@ function RouteViewportPanel({
       // or none when a finger swipe already finished the transition).
       variants={{ exit: (next: MotionDirection | undefined) => {
         const current = next ?? settings;
-        return { x: departureX(current), transition: transition(current) };
+        return { x: departureX({ ...current, isChat }), transition: transition(current) };
       } }}
       exit="exit"
       className={isChat

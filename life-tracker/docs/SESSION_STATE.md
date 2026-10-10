@@ -14,3 +14,5 @@ First full run 38008378910 detected a Framer variant initialization error plus 1
 Second full run 38008704702 passed build/PWA, lint, both DOM shards and Chromium shard 2; only the new browser fixture failed.
 Browser-focused run 38008914677 demonstrated that the new isolated harness never mounted. MainLayout's BottomNav requires UnreadMessagesContext normally provided by ConversationsProvider. The fixture now provides static unread context (no extra subscription), and the browser test first waits for the probe control to mount.
 Next: focused browser acceptance, stable Preview squash, full exact-SHA CI and Vercel READY. Physical Android/back/chat keyboard and Scratch-login acceptance remain manual.
+
+Final review: exit variant must use the outgoing panel's own Chat/standard geometry when applying the next navigation's Back/Forward direction. Regression should assert signed horizontal travel as well as stable heights/tops. Prior browser-focused 38009186695 passed, but this last directional hardening needs new focused-browser evidence before Preview squash.

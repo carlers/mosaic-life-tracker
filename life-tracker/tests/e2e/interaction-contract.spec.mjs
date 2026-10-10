@@ -216,11 +216,11 @@ test('chat entering and leaving keeps the outgoing viewport geometry stable', as
         if (!outgoing.isConnected) break;
         const rect = outgoing.getBoundingClientRect();
         measurements.push({
-          height: rect.height, top: rect.top,
+          height: rect.height, top: rect.top, left: rect.left,
           exiting: outgoing.closest('[data-viewport-mode]')?.getAttribute('aria-hidden'),
         });
       }
-      return { height: before.height, top: before.top, measurements };
+      return { height: before.height, top: before.top, left: before.left, measurements };
     }, { buttonId, exitingId });
   }
 
@@ -231,6 +231,8 @@ test('chat entering and leaving keeps the outgoing viewport geometry stable', as
     expect(Math.abs(rect.top - opening.top)).toBeLessThan(2);
     expect(rect.exiting).toBe('true');
   }
+  // Entering chat moves its outgoing standard page gently LEFT.
+  expect(opening.measurements.some((rect) => rect.left < opening.left - 2)).toBe(true);
   const chat = page.getByTestId('motion-chat-screen');
   await expect(chat).toBeVisible();
   await expect(page.getByTestId('motion-chat-dock')).toBeVisible();
@@ -243,6 +245,8 @@ test('chat entering and leaving keeps the outgoing viewport geometry stable', as
     expect(Math.abs(rect.top - closing.top)).toBeLessThan(2);
     expect(rect.exiting).toBe('true');
   }
+  // Back from chat must move the OLD chat RIGHT, not treat it as a standard page.
+  expect(closing.measurements.some((rect) => rect.left > closing.left + 2)).toBe(true);
   await expect(page.getByTestId('motion-messages-screen')).toBeVisible();
 });
 
