@@ -6,6 +6,8 @@ import { CalendarBody } from './views/CalendarBody';
 import { ComingSoon } from '../layout/ComingSoon';
 import { useCalendarState } from './views/useCalendarState';
 import { useAuth } from '../../hooks/useAuth';
+import { useSharedTasks } from '../../hooks/useSharedTasks';
+import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
 import {
   HOLIDAY_REGION_SETTING_KEY,
@@ -54,6 +56,12 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
+  const { activeItems: receivedShares } = useSharedTasks('received', isActive);
+  const { items: ownedShares } = useSharedTasks('owned', isActive);
+  const sharedByDay = useMemo(() => sharedByDate(receivedShares), [receivedShares]);
+  const ownedSharedTaskIds = useMemo(
+    () => new Set(ownedShares.map(share => share.taskId)), [ownedShares]
+  );
   const { getSetting } = useSettings();
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
@@ -125,6 +133,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
+          sharedByDay={sharedByDay}
+          ownedSharedTaskIds={ownedSharedTaskIds}
           currentUserId={currentUserId}
           isActive={isActive}
           onPrev={calendarState.handlePrev}
@@ -138,6 +148,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
             focusDate={todoFocusDate}
             tasks={ownerTasks}
             categories={ownerCategories}
+            sharedByDay={sharedByDay}
+            ownedSharedTaskIds={ownedSharedTaskIds}
             categoriesMap={categoriesMap}
             onFocusDateChange={setTodoFocusDate}
             weekStartsOn={weekStartsOn}

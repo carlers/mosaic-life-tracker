@@ -13,6 +13,16 @@ import {
 export type SharedTaskScope = 'received' | 'owned';
 const CACHE_PREFIX = 'mosaic_shared_tasks_cache_v1:';
 const CACHE_MAX = 1000;
+const inFlight = new Map<string, Promise<SharedTaskItem[]>>();
+function listDeduped(userId: string, scope: SharedTaskScope): Promise<SharedTaskItem[]> {
+  const key = cacheKey(userId, scope);
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+  const request = listSharedTasks(scope).finally(() => { inFlight.delete(key); });
+  inFlight.set(key, request);
+  return request;
+}
+
 
 function cacheKey(userId: string, scope: SharedTaskScope): string {
   return CACHE_PREFIX + encodeURIComponent(userId) + ':' + scope;
@@ -92,7 +102,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
 
   const reload = useCallback(async () => {
     if (!userId) return;
-    const list = await listSharedTasks(scope);
+    const list = await listDeduped(userId, scope);
     writeSharedTaskCache(userId, scope, list);
     setState(list);
     setLoadedKey(cacheKey(userId, scope));
@@ -103,7 +113,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     if (!userId || !key || !enabled) return;
     let active = true;
     if (!online) return () => { active = false; };
-    void listSharedTasks(scope).then(items => {
+    void listDeduped(userId, scope).then(items => {
       if (!active) return;
       writeSharedTaskCache(userId, scope, items);
       setState(items);
@@ -117,6 +127,23 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     });
     return () => { active = false; };
   }, [userId, key, scope, online, enabled]);
+
+  // Peer actions change membership outside this tab; revalidate on return.
+  useEffect(() => {
+    if (!userId || !online || !enabled) return;
+    let lastCheck = 0;
+    const recheck = () => {
+      if (document.visibilityState === 'hidden' || Date.now() - lastCheck < 15_000) return;
+      lastCheck = Date.now();
+      void reload().catch(() => {});
+    };
+    window.addEventListener('focus', recheck);
+    document.addEventListener('visibilitychange', recheck);
+    return () => {
+      window.removeEventListener('focus', recheck);
+      document.removeEventListener('visibilitychange', recheck);
+    };
+  }, [enabled, online, reload, userId]);
 
   useEffect(() => subscribeSharedTaskSettlements(result => {
     if (!userId || result.userId !== userId) return;
@@ -166,8 +193,10 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     setQueueRevision(n => n + 1);
     if (!online) return { status: 'pending' };
     const results = await flushSharedMemberships(userId);
-    return results.find(result => result.operationId === command.operationId) ||
-      { status: 'pending' };
+    const outcome = results.find(result => result.operationId === command.operationId) ||
+      { status: 'pending' } as const;
+    if (outcome.status === 'confirmed') await reload();
+    return outcome;
   }, [online, reload, userId]);
 
   const invite = useCallback(async (taskId: string, friendUserId: string) => {
