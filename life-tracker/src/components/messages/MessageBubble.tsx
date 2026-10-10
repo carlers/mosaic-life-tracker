@@ -11,6 +11,8 @@ import {
 import { parseReactions } from '../../lib/reactionUtils';
 import { activateOnEnterOrSpace } from '../../lib/keyboardActivation';
 import type { MessageDocument } from '../../db/schema';
+import { packStickerSummary, parsePackStickerMessage } from '../../lib/stickerPacks';
+import { PackStickerImage } from './PackStickerImage';
 
 export type MessageStatusKind = 'pending' | 'delivered' | 'read';
 
@@ -46,7 +48,7 @@ function buildBubbleLabel(
   if (message.replyToId) {
     parts.push(`in reply to ${replySenderName}`);
   }
-  parts.push(message.content);
+  parts.push(packStickerSummary(message.content));
   return parts.join(' ');
 }
 
@@ -172,6 +174,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     return <UnsentBubble isOutgoing={isOutgoing} />;
   }
 
+  const packSticker = parsePackStickerMessage(message.content);
   const statusRow =
     isOutgoing && (statusKind || showTimestamp || showTimestampLocal);
 
@@ -204,10 +207,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             transform: `translateX(${swipeOffset}px)`,
             touchAction: 'pan-y',
           }}
-          className={`select-none block w-full text-left rounded-2xl px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
-            isOutgoing
-              ? 'bg-surfaceHighlight text-white'
-              : 'bg-mosaicIncoming border border-[#444444] text-white'
+          className={`select-none block w-full text-left rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+            packSticker
+              ? 'bg-transparent px-1 py-1 text-white'
+              : isOutgoing
+                ? 'bg-surfaceHighlight text-white px-3 py-2'
+                : 'bg-mosaicIncoming border border-[#444444] text-white px-3 py-2'
           }`}
           aria-label={buildBubbleLabel(
             message,
@@ -241,9 +246,13 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               />
             </div>
           )}
-          <span className="text-sm whitespace-pre-wrap break-words">
-            {message.content}
-          </span>
+          {packSticker ? (
+            <PackStickerImage sticker={packSticker} />
+          ) : (
+            <span className="text-sm whitespace-pre-wrap break-words">
+              {message.content}
+            </span>
+          )}
           {reactions.length > 0 && (
             <div className="mt-1">
               <ReactionRow
