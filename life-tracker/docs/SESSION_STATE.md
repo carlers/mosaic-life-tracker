@@ -21,6 +21,9 @@ Task branch: `chatgpt/shared-tasks-contract` from `dev` `224f8a700f35bbe3853206e
 - Validate real Scratch transaction permissions, CAS/old-client behavior, friendship/race/notification, three synthetic accounts, two browser tabs/devices, offline/reconnect, account deletion and DR recovery; measure provider Appwrite Free limits before rollout.
 - Full theme/a11y/browser/device acceptance; version collision check and MINOR stamp, stable Preview full canonical CI and Vercel READY. Main/dev release approval remains separate.
 
+## Owner-side offline completion pending receipts (2026-10-10)
+Owner completions already queue durably through account-scoped RxDB replication; this work adds minimal per-account *display receipts* (only for tasks known to be shared) before patching, clears after successful versioned CAS/push, and rejects on conflicts. This is not a second command queue; bulk actions flow through the existing `useTasks.updateTask` path. A pending badge in Day View explicitly distinguishes unsynced shared owner completions. Focused CI and live scratch verification remain required; cached membership can be unknown on a second device until it fetches owned shares.
+
 ## Next
 Verify current focused test commit; diagnose any failure and repair. Then resolve owner completion and Scratch permissions drift without touching Production. Do not create user-facing Preview or promote before the backend/client consistency contract and Scratch acceptance pass. Issue #406 tracks scoped findings.
 

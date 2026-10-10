@@ -28,6 +28,7 @@ import {
   scopeSharedTaskQueue, flushSharedCompletions, flushSharedMemberships, clearSharedCompletionQueue,
 } from "../lib/taskShareQueue";
 import { clearSharedTaskCache } from "./useSharedTasks";
+import { clearOwnerCompletionPending } from "../lib/ownerCompletionPending";
 import {
   isValidUsername,
   normalizeUsername,
@@ -1030,6 +1031,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userId) {
         clearSharedCompletionQueue(userId);
         clearSharedTaskCache(userId);
+        clearOwnerCompletionPending(userId);
       }
       setUser(null);
       setIsLoading(false);

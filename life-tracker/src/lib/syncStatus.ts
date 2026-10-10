@@ -1,5 +1,5 @@
 const CONFLICT_PREFIX = 'mosaic_shared_completion_conflict_';
-const CONFLICT_NOTICE = 'A shared task completion changed on another device while you were offline. Review its current state before retrying.';
+const CONFLICT_NOTICE = 'A task changed on another device before your completion synced. Review its current state before retrying.';
 
 export function recordCompletionConflict(userId: string): void {
   if (!userId) return;

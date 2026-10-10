@@ -8,6 +8,7 @@ import { clearAllCachedImages } from './imageCache';
 import { clearOfflineDataReadiness } from './offlineReadiness';
 import { clearTodoMateImportMarker } from './todomateImportState';
 import { clearBackupActivity } from './backupActivity';
+import { clearOwnerCompletionPending } from './ownerCompletionPending';
 import { clearSharedCompletionQueue } from './taskShareQueue';
 import { clearSharedTaskCache } from '../hooks/useSharedTasks';
 
@@ -29,6 +30,7 @@ export async function clearDeletedAccountLocalData(
   clearCachedOwnProfile(userId);
   clearTodoMateImportMarker(userId);
   clearBackupActivity(userId);
+  clearOwnerCompletionPending(userId);
   clearSharedCompletionQueue(userId);
   clearSharedTaskCache(userId);
   clearOfflineDataReadiness();
