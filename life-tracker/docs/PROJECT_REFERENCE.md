@@ -224,6 +224,16 @@ See [offline implementation output](AI_WORKFLOW.md#offline-implementation-output
 
 ## 7. UI/UX & Architectural Guardrails
 
+**Unified route and motion defaults (issue #471):** All protected-route navigation methods (tab taps, detail links, Escape, Android/browser Back and Forward, gesture commits) share one directional policy in `routeTransitions` and one compositor in `MainLayout`. Primary tabs follow their fixed spatial sequence, detail pages enter from their parents and exit toward those parents, and `POP` honors the router's history index so Forward does not animate as Back. Initial/redirect/auth transitions are not animated. An already animated direct-manipulation swipe is never played again after navigation, and the outgoing page is inert on exit; retain chat viewport geometry and original single-owner providers.
+
+The account-synced Preferences switch **Reduce animations** defaults OFF, cached per account for first paint; the OS reduced-motion preference always takes precedence. `AppearanceProvider` owns the effective choice and applies Motion's reduced-motion policy plus a semantic root attribute for CSS. Route and shared BottomSheet transitions honor it, as do Day View Swiper and Calendar/Todo Embla snapping. Keep direct pointer feedback and essential activity/loading status. Do not duplicate animation state machines inside new pages or globally suppress essential control behavior; nested sheets, menus, carousels and gestures have separate motion directions/owners.
+
+
+**Chat transition viewport invariant (#471):** Keep outgoing and incoming MainLayout shells separately positioned during the short Chat ↔ Messages transition; do not mutate the old panel's scroll, height, or bottom-navigation geometry mid-animation. Keep data providers outside the presence boundary. When rendering the outgoing panel's exit, use the **next** navigation's direction but the **outgoing** panel's chat/standard identity. Continue using the existing inner MainLayout compositor for ordinary tab changes; reduced-motion and already-committed swipe rules still apply.
+
+**Navigation polish (#410/#416):** Opt-in synced Escape-as-Back honors modal, search, edit and focus ownership before safe route Back. Browser Back and Escape route transitions aim to reuse rightward swipe motion with reduced-motion support. Route wheel swipes must not steal native/nested vertical scroll, carousels or controls; Calendar/Todo Embla wheel input belongs to the calendar, not the primary route. Keep route data providers owned once and avoid duplicated subscriptions to render exit animations.
+
+
 **Settings information hierarchy (issue #417):** Settings groups live account/preference actions, future-only destinations, data/sync transfers, version/update, and data deletion in named sections. Unavailable rows say Coming soon; backup timestamps sit next to Backup & Restore. Preserve collapsed Version/build info, nested commit disclosure, and account/data deletion confirmations. Keep shared theme semantics and SettingsRow; no extra Settings framework.
 
 

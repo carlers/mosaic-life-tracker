@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useDragControls, usePresence } from 'framer-mo
 import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { AppearanceContext } from '../../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../../lib/motionPreferences';
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -297,7 +298,8 @@ function SheetPresenceSurface({
       initial={{ y: '100%' }}
       animate={{ y: isPresent ? 0 : '100%' }}
       transition={{
-        duration: 0.32,
+        duration: document.documentElement.dataset.reduceMotion === 'true' ||
+          systemRequestsReducedMotion() ? 0 : 0.32,
         ease: [0.32, 0.72, 0, 1],
       }}
       onAnimationComplete={() => {

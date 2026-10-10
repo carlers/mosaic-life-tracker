@@ -1,3 +1,4 @@
+import { MotionConfig } from 'framer-motion';
 import React, {
   useCallback,
   useEffect,
@@ -7,6 +8,7 @@ import React, {
 import { useSettings } from './useSettings';
 import { useAuth } from './useAuth';
 import { AppearanceContext } from './appearanceContext';
+import { REDUCE_ANIMATIONS_SETTING_KEY, readCachedReduceAnimations, cacheReduceAnimations, applyReducedMotionPreference, systemRequestsReducedMotion } from '../lib/motionPreferences';
 import {
   APPEARANCE_SETTING_KEY,
   applyAppearanceMode,
@@ -48,6 +50,9 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
   const userId = user?.$id ?? '';
   const { getSetting, setSetting, isLoading } = useSettings();
   const cachedMode = useMemo(() => readCachedAppearanceMode(), []);
+  const cachedReduceAnimations = useMemo(() => readCachedReduceAnimations(userId), [userId]);
+  const [reduceOverride, setReduceOverride] = useState<{ userId: string; enabled: boolean } | null>(null);
+  const [systemReducedMotion, setSystemReducedMotion] = useState(() => systemRequestsReducedMotion());
   const cachedAccentColor = useMemo(
     () => readCachedAccentColor(userId),
     [userId]
@@ -71,6 +76,15 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     ? undefined
     : getSetting(APPEARANCE_SETTING_KEY, undefined);
   const syncedMode = isAppearanceMode(syncedValue) ? syncedValue : null;
+  const syncedReduceValue = isLoading ? undefined : getSetting(REDUCE_ANIMATIONS_SETTING_KEY, undefined);
+  const syncedReduceAnimations = typeof syncedReduceValue === 'boolean' ? syncedReduceValue : null;
+  if (reduceOverride && (reduceOverride.userId !== userId || syncedReduceAnimations === reduceOverride.enabled)) {
+    setReduceOverride(null);
+  }
+  const reduceAnimations = reduceOverride?.userId === userId
+    ? reduceOverride.enabled
+    : syncedReduceAnimations ?? cachedReduceAnimations;
+  const effectiveReducedMotion = reduceAnimations || systemReducedMotion;
   const syncedAccentValue = isLoading
     ? undefined
     : getSetting(ACCENT_COLOR_SETTING_KEY, undefined);
@@ -126,6 +140,19 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => query.removeListener?.(handleChange);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setSystemReducedMotion(query.matches);
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+
+  useEffect(() => {
+    cacheReduceAnimations(userId, reduceAnimations);
+    applyReducedMotionPreference(effectiveReducedMotion);
+  }, [userId, reduceAnimations, effectiveReducedMotion]);
+
   const resolvedTheme = useMemo(
     () => resolveAppearanceMode(mode, systemPrefersDark),
     [mode, systemPrefersDark]
@@ -146,6 +173,14 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     cacheSheetWidthMode(sheetWidthMode);
     applyScreenLayoutModes(contentWidthMode, sheetWidthMode);
   }, [contentWidthMode, sheetWidthMode]);
+
+  const setReduceAnimations = useCallback(async (enabled: boolean) => {
+    if (!userId) return;
+    setReduceOverride({ userId, enabled });
+    cacheReduceAnimations(userId, enabled);
+    applyReducedMotionPreference(enabled || systemRequestsReducedMotion());
+    await setSetting(REDUCE_ANIMATIONS_SETTING_KEY, enabled);
+  }, [setSetting, userId]);
 
   const setAppearanceMode = useCallback(
     async (nextMode: AppearanceMode) => {
@@ -194,6 +229,9 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       mode,
       resolvedTheme,
       setAppearanceMode,
+      reduceAnimations,
+      effectiveReducedMotion,
+      setReduceAnimations,
       accentColor,
       setAccentColor,
       contentWidthMode,
@@ -206,6 +244,9 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
       contentWidthMode,
       mode,
       resolvedTheme,
+      reduceAnimations,
+      effectiveReducedMotion,
+      setReduceAnimations,
       setAccentColor,
       setAppearanceMode,
       setContentWidthMode,
@@ -216,7 +257,9 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AppearanceContext.Provider value={value}>
-      {children}
+      <MotionConfig reducedMotion={effectiveReducedMotion ? 'always' : 'user'}>
+        {children}
+      </MotionConfig>
     </AppearanceContext.Provider>
   );
 };
