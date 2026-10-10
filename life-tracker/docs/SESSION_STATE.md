@@ -14,7 +14,9 @@ Scope: repository workflow/documentation only, no version bump, Appwrite schema,
 - Implement in `AGENTS.md`, `docs/ISSUE_WORKFLOW.md` and `docs/AI_WORKFLOW.md`.
 - Demonstration target: shared tasks #406; its accepted Preview branch and Scratch/manual blocker must be discoverable without original conversation.
 
-## Verification and next action
+## Verification
+
+## Next action
 
 Review exact docs diff, request `[verify:focused]` on the coherent task commit, then squash via PR into the stable Preview branch, verify full canonical CI and Vercel. Docs-only scope skips Appwrite cloud readiness. An actual fresh-chat/mobile acceptance has not been performed and must be reported separately.
 No `dev` or `main` promotion is authorized for #506 or #406 by this task.
