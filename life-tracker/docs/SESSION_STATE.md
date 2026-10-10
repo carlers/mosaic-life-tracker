@@ -1,22 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: Issue #489 — optional GIPHY sticker search, v0.16.1 Preview revision.
-Baseline: `feature/sticker-libraries` v0.16.0 was canonically accepted at SHA `5bab5e5e123c063b248946748896ffdf280c54a0` (run 38065229234 SUCCESS; Vercel READY).
-Task branch: `chatgpt/giphy-vercel-budget-489`; stable Preview `feature/sticker-libraries`.
-Neither `dev` nor `main` is authorized for promotion.
+Current task: Issue #489 — activate optional GIPHY Web API search on sticker libraries Preview (v0.16.1).
+Baseline: `feature/sticker-libraries` SHA `3e50cb68a295b50bfa645641cf1620a01cbbfb51`, full canonical Quality Gate 38069125358 SUCCESS and Vercel dpl_B7rrj2miJXsb5yBUWarxbDhd6Fdq READY before the GIPHY key.
+Task branch: `chatgpt/giphy-key-budget-489`; stable Preview: `feature/sticker-libraries`.
+No changes to `dev` or `main` are authorized.
 
-## Delivered / approved scope
-- Separate lazily loaded GIPHY tab, direct-browser sticker search (debounced, capped, G-rated), safe media/analytics host checking, provider creator links/attribution; no GIPHY SDK, proxy, image caching, Appwrite file upload or Function/schema change.
-- Exact `[Sticker: <label>]\n[gp1:<id>]` message text; existing message delivery/outbox, reply, unsend, reactions and readable fallback for offline/removed providers. Visible chat images fetch metadata directly only near viewport. Curated Twemoji sticker packs preserved.
-- GIPHY requires a browser-visible Web beta key configured as `VITE_GIPHY_API_KEY` in Vercel; none currently exists in Preview, and no key has been invented or copied. Beta rate limit 100 API calls/hour. Character-owned commercial packs still rights-pending.
-- First two v0.16.1 stable candidates and PRs #513-#515 delivered code, tests and docs. Task focused CI succeeded. Stable Vercel CI failures occurred only on measured build-size ceilings. Current proposed final repair **reverts a GIPHY summary microoptimization that worsened asset sizes** and adjusts the initial gzip cap 143700 -> 143900 B (+200B, remains within the historical ~5% startup budget ratio) to cover Vercel's independently measured 143718 B. Existing entry/Home caps, baseline and aggregate ceilings remain untouched.
-- Latest budget before revert: aggregate ceilings 2337000 B raw, 721100 B gzip, 2419900 B PWA. GitHub build accepted; Vercel of SHA `1028148d2af54fc2ab6539c9042a2bd243054ea4` failed +18B initial, +801B aggregate raw and +1352B precache due to the code-only microoptimization; reverting restores the previously measured aggregate headroom.
+## Scope
+- GIPHY direct-client search (v0.16.1) already exists in the separate lazy picker tab, with ID-only message refs, provider attribution and no Appwrite media uploads, proxies, new SDK, or caching layer.
+- The user supplied their own GIPHY Web beta API key. It is now configured as `VITE_GIPHY_API_KEY`, encrypted in Vercel environment settings and restricted to Preview branch `feature/sticker-libraries` (Vercel env ID `Q7daO7foxQVCRAHW`). **Never put the key literal in Git commits, comments, logs or this checkpoint.** Vite intentionally exposes the configured GIPHY Web key to clients.
+- The first keyed deployment `dpl_4MHevzBVExRYQn9AjwkpgLrWRdvp`, same source SHA, failed the existing aggregate build-size guard with Vercel output `appAssetsRawBytes=2,337,487` vs `2,337,000` and `precacheUniqueBytes=2,420,938` vs `2,419,900`. Initial, Home, entry and aggregate gzip ceilings all passed. This configuration-only repair raises **only** the two impacted aggregate limits by 1,500 and 2,000 bytes, respectively. Baseline, entry, initial/Home and aggregate gzip limits stay unchanged. The build must still pass the production guard on fresh keyed Preview.
 
 ## Verification
-- v0.16.1 focused repair `53caa97a672cda12b949ae25e84070b16bd216d7` passed Actions run 38067493990. Stable Preview PR #517 squash SHA `481acb9e153ef480fe997c5e6a01932ad04eb858` passed Vercel build (same-SHA READY), but its canonical `checks` job failed an existing session-checkpoint format assertion because this file used `## Verification / next action` instead of `## Next action`. The rest of the CI must be reverified on the corrected head.
+- Source before the env change passed full canonical GitHub Actions 38069125358; its Vercel build without the key was READY. This does not prove the new keyed build.
+- Need new focused CI on task commit, squash task PR into stable Preview, new exact-SHA full canonical CI and branch-scoped key Vercel READY. Live GIPHY search/API status and provider attribution still require a real user/device check.
+- Scratch Preview origin still lacked exact Web platform registration because six Free-plan slots are occupied; no Appwrite platform or backend changes are authorized.
 
 ## Next action
-- Repair this exact checkpoint-heading contract and run focused CI; squash the repair into stable Preview. Require exact-SHA full canonical Quality Gate SUCCESS and Vercel READY before reporting automated acceptance.
-- Real search, provider response/brand audit, a valid GIPHY Web API key, Scratch two-account login/message/Diary and mobile/Android Back require separate checks. Scratch preview origin has no exact registration (six Appwrite Web platforms occupied); do not repurpose platform slots without approval.
-- Log final verified results in issue #489. No dev/main promotion or backend changes.
+- Complete focused CI; squash into `feature/sticker-libraries`; verify new full Quality Gate and matching-key Vercel deployment. Record results in issue #489 without posting the actual key.
+- Ask user to test GIPHY search and a two-account send on a device once deployed. Keep `dev` and `main` unchanged until explicit approval.

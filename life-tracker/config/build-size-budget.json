@@ -18,8 +18,8 @@
     "entryGzipBytes": 131600,
     "initialClosureGzipBytes": 143900,
     "homeClosureGzipBytes": 357000,
-    "appAssetsRawBytes": 2337000,
+    "appAssetsRawBytes": 2338500,
     "appAssetsGzipBytes": 721100,
-    "precacheUniqueBytes": 2419900
+    "precacheUniqueBytes": 2421900
   }
 }
