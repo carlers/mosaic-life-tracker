@@ -127,11 +127,25 @@ describe('SettingsPage navigation, updates, and data controls', () => {
 
     const about = screen.getByRole('region', { name: 'About & updates' });
     expect(within(about).getByText('Version')).toBeInTheDocument();
+    expect(within(about).getByRole('button', { name: 'Release history' })).toBeEnabled();
     expect(within(about).getByRole('button', { name: /Check for Updates/i })).toBeEnabled();
     const safety = screen.getByRole('region', { name: 'Data deletion' });
     expect(within(safety).getByRole('button', { name: 'Delete Account' })).toBeEnabled();
     expect(within(safety).getByRole('button', { name: 'Clear Local Data' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Sign Out' })).toBeEnabled();
+  });
+
+  it('navigates to release history from Settings', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/releases" element={<p>Release history destination</p>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Release history' }));
+    expect(screen.getByText('Release history destination')).toBeInTheDocument();
   });
 
   it('shows the app version and a dedicated update control', () => {

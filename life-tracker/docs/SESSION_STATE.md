@@ -1,21 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: integrate accepted navigation and chat jitter fixes (#410/#416/#471) into `dev` without losing #465/#466.
-Baseline: live dev `6ebb6ad78d27ce92d58df557ced5553ed5f59e2d` v0.11.0, Quality Gate `38006414938` SUCCESS. Accepted navigation Preview `feature/navigation-polish` `004ab5f0c503421d8f6813600f56f29d629c22c4` v0.11.2, canonical CI `38010048987` SUCCESS, Vercel READY. `main` unchanged.
-Task branch: `chatgpt/navigation-dev-integration`; stable integration Preview: `feature/navigation-dev-integration`. Candidate **v0.11.3** because the combined user-testable tree differs from the already-published v0.11.2 and must increase monotonically.
+Current task: Reconcile and promote release-history issue #476 to `dev` (user explicitly approved).
+Baseline: live `dev` `4eb8cb39b078d20989d1325a97207b6e6d4fa1c9` (v0.11.3); original accepted release-history Preview `feature/release-history` `896beed48bb5606bb802af277b378ceb9475221e` (v0.12.0); `main` unchanged at `131a8289feee2af392b18fa675222ac8e76ef258`.
+Integration task branch: `chatgpt/release-history-dev-integration`. Stable Preview: `feature/release-history-dev-integration`. Combined candidate **v0.12.1**: v0.12.0 was already published as a user-testable Preview; a different combined release tree must not reuse its version.
 
-## Scope and resolved conflicts
-- Preserve dev issue #465's focused task input checkbox/complete semantics and #466's single Display Name editor, profile replication and corresponding regressions, untouched by navigation work.
-- Integrate issue #410 optional Escape-as-Back, #416 bounded trackpad and Calendar/Todo Embla wheel navigation, and #471 automatic directional route motion, reduced-animations preference, chat viewport jitter fix and associated browser/DOM tests.
-- Keep dev's `DayViewSheet` completed-creation callback; layer the nav animation imports/context, focused-task scrolling OS preference, and reduced-motion Swiper speed without substituting the older navigation branch version.
-- Use reviewed navigation aggregate build-size ceilings, preserve all startup/Home limits, and retain both dev product contracts (#465/#466) and navigation contracts in `PROJECT_REFERENCE.md`.
-- No new backend/Appwrite work, no #404 large-screen redesign, no other refactor.
+## Scope and conflicts
+- Preserve ALL independent v0.11.3 navigation, chat jitter, task-input and single-display-name fixes on `dev`.
+- Layer the accepted #476 lazy Settings → Release history route, GitHub published-production Releases model, bounded public offline cache, retry/loading/empty UI, unit+DOM+route regressions and release-publication checklist onto the latest dev tree.
+- Keep Settings build diagnostics and separate PWA update action unchanged; retain standard protected-route parent/back and gestures including current navigation motion defaults.
+- Appwrite data and schema are unaffected. Official Preview/dev use Scratch, main remains Production.
+- Current `dev` build-size ceilings are newer/larger than the original release-history Preview. Do not replace them with the older ceilings; measure the **combined** production asset growth before adjusting any limits. Preserve historical baseline and entry/startup/Home ceilings.
 
-## Verification and delivery
-- Focused task CI on exact integration commit, then squash into stable integration Preview. Require exact-SHA canonical CI and Vercel READY for the **combined** source tree, not the old independent navigation CI.
-- User explicitly approved promotion to `dev`, but `main` remains unchanged. Promote integration Preview by a normal merge PR only after acceptance; confirm CI and matching Vercel commit.
-- Real Android Back and sheet-stack motion, physical laptop trackpad smoothness, Reduce animations in Light/Dark/Black, and authenticated Scratch Preview login remain separate manual/device checks; automated CI alone does not assert them.
+## Verification
+- Because combined source likely has under 1 KiB aggregate/headroom, use **one explicit full task diagnostic** to measure build growth before the stable Preview gate. Repair only observed failures, then request `[verify:focused]` on final coherent task branch commit.
+- Squash focused-green task into stable integration Preview; require exact SHA canonical full CI and Vercel READY on new combined tree. Then merge the accepted stable Preview via PR into `dev` under this user's existing explicit authorization. Verify resulting dev SHA, version, CI, deployment.
+- Manual authenticated phone/Android Back/swipe, Light/Dark/Black, offline cache and exact-origin Scratch preview remain separate checks and cannot be claimed as passed without evidence. Scratch Appwrite rejects additional exact Web platform registrations due to Free-plan platform quota; dev has an existing registered alias.
+- Production `main` stays unchanged. GitHub public Releases/tag list is still empty; creating production GitHub Releases is not part of this authorization, and #476 remains open until actual main release.
 
 ## Next action
-Commit the reconciled code, version, docs and tests on `chatgpt/navigation-dev-integration`, run focused verification, repair failures before the stable Preview squash, and promote only the accepted integration tree to `dev`. Update #410/#416/#471 issue milestones. Close/clean up only verified obsolete integration PRs/task branches, retaining release-pending issues until `main` promotion.
+Finish combined source/tree, run measured task CI, repair and reverify, then stable Preview CI/Vercel, and authorized `dev` PR promotion.
