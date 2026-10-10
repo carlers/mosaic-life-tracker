@@ -108,6 +108,7 @@ export const MOSAIC_TABLES = [
       { key: 'invitee_id', type: 'varchar', size: 255, required: true },
       { key: 'status', type: 'varchar', size: 20, required: true },
       { key: 'grant_epoch', type: 'varchar', size: 50, required: true },
+      { key: 'friendship_version', type: 'varchar', size: 40, required: true },
       { key: 'last_command_id', type: 'varchar', size: 36, required: false, default: '' },
       { key: 'last_command_target', type: 'boolean', required: false, default: false },
       { key: 'created_at', type: 'varchar', size: 50, required: true },

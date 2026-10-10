@@ -20,7 +20,10 @@ async function mutualFriends(db, left, right, transactionId) {
     read(db, FRIENDSHIPS, friendshipId(left, right), transactionId),
     read(db, FRIENDSHIPS, friendshipId(right, left), transactionId),
   ]);
-  return [one, two].every(row => live(row) && row.status === 'accepted');
+  if (![one, two].every(row => live(row) && row.status === 'accepted' &&
+      typeof row.updated_at === 'string' && row.updated_at)) return null;
+  return createHash('sha256').update([one.updated_at, two.updated_at].join('|'))
+    .digest('hex').slice(0, 40);
 }
 
 // Never return an owner task row: it contains category, memo, image and other private fields.
@@ -52,7 +55,8 @@ async function list(db, caller, scope, cursor) {
   const items = [];
   for (const membership of page.rows || []) {
     if (membership[field] !== caller || !['pending', 'accepted'].includes(membership.status)) continue;
-    if (!await mutualFriends(db, membership.owner_id, membership.invitee_id)) continue;
+    const friendshipVersion = await mutualFriends(db, membership.owner_id, membership.invitee_id);
+    if (!friendshipVersion || membership.friendship_version !== friendshipVersion) continue;
     const task = await read(db, TASKS, membership.task_id);
     if (!live(task) || task.user_id !== membership.owner_id) continue;
     items.push(projection(task, membership, scope === 'owned'));
@@ -93,21 +97,23 @@ async function handleTaskShares(db, caller, payload) {
       return answer(409, 'Invalid membership');
     }
     const status = membership?.status;
+    const sameFriendship = membership?.friendship_version === friends;
     const now = new Date().toISOString();
     let patch = null;
     let taskPatch = null;
     if (operation === 'invite') {
-      if (['pending', 'accepted'].includes(status)) {
+      if (sameFriendship && ['pending', 'accepted'].includes(status)) {
         return { status: 200, body: { ok: true, item: projection(task, membership, true) } };
       }
       patch = {
         task_id: taskId, owner_id: ownerId, invitee_id: inviteeId,
-        status: 'pending', grant_epoch: randomUUID(), last_command_id: '',
-        last_command_target: false, created_at: membership?.created_at || now,
+        status: 'pending', grant_epoch: randomUUID(), friendship_version: friends,
+        last_command_id: '', last_command_target: false, created_at: now,
         updated_at: now,
       };
     } else {
       if (!membership) return answer(404, 'Invitation unavailable');
+      if (!sameFriendship) return answer(403, 'Friendship changed; a new invitation is required');
       if (operation === 'accept' || operation === 'decline') {
         if (status !== 'pending') return answer(409, 'Invitation changed');
         if (payload.grantEpoch !== membership.grant_epoch) return answer(409, 'Invitation changed');

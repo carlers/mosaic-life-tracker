@@ -8,6 +8,9 @@ const { shareId } = require('../../appwrite-functions/message-action/task-shares
 const owner = 'user_A';
 const invitee = 'user_B';
 const taskId = 'task_demo';
+const friendshipVersion = require('node:crypto').createHash('sha256')
+  .update('2026-10-09T00:00:01.000Z|2026-10-09T00:00:01.000Z')
+  .digest('hex').slice(0, 40);
 const friendId = (one: string, two: string) =>
   'fr_' + require('node:crypto').createHash('sha256')
     .update(one + '|' + two).digest('hex').slice(0, 32);
@@ -24,7 +27,8 @@ function baseShare(changes: Record<string, unknown> = {}) {
   return {
     $id: shareId(taskId, invitee), $updatedAt: '2026-10-10T00:00:02.000Z',
     task_id: taskId, owner_id: owner, invitee_id: invitee,
-    status: 'accepted', grant_epoch: 'grant_abc', last_command_id: '',
+    status: 'accepted', grant_epoch: 'grant_abc',
+    friendship_version: friendshipVersion, last_command_id: '',
     last_command_target: false, created_at: '2026-10-10T00:00:00.000Z',
     updated_at: '2026-10-10T00:00:02.000Z', ...changes,
   };
@@ -45,7 +49,8 @@ describe('task sharing Function authorization and completion', () => {
       if (tableId === 'tasks' && rowId === taskId) return task;
       if (tableId === 'task_shares' && rowId === share.$id) return share;
       if (tableId === 'friendships' && [friendId(owner, invitee), friendId(invitee, owner)].includes(rowId)) {
-        return { status: friendship ? 'accepted' : 'blocked', deleted: false };
+        return { status: friendship ? 'accepted' : 'blocked', deleted: false,
+          updated_at: '2026-10-09T00:00:01.000Z' };
       }
       throw Object.assign(new Error('Not found'), { code: 404 });
     });
@@ -127,6 +132,20 @@ describe('task sharing Function authorization and completion', () => {
         expectedRevision: 'stale', operationId: 'cmd_repeat' } });
     expect(result.status).toBe(200);
     expect(result.body.duplicate).toBe(true);
+    expect(db.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('denies resurrecting a grant after unfriending and re-adding a friend', async () => {
+    share = baseShare({ friendship_version: 'obsolete_relation_version' });
+    db.listRows.mockResolvedValue({ rows: [share] });
+    const list = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'list', scope: 'received' } });
+    expect(list.body.items).toEqual([]);
+    const attempted = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'set_completed', ownerId: owner,
+        taskId, grantEpoch: 'grant_abc', completed: true,
+        expectedRevision: task.$updatedAt, operationId: 'cmd_stale' } });
+    expect(attempted.status).toBe(403);
     expect(db.updateRow).not.toHaveBeenCalled();
   });
 
