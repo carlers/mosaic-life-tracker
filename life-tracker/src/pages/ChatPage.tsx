@@ -15,6 +15,8 @@ import { MessageActionSheet } from '../components/messages/MessageActionSheet';
 import { EmojiPickerSheet } from '../components/messages/EmojiPickerSheet';
 import { ScrollToBottomButton } from '../components/messages/ScrollToBottomButton';
 import { ChatSearchBar } from '../components/messages/ChatSearchBar';
+import { StickerPickerSheet } from '../components/messages/StickerPickerSheet';
+import { stickerMessage, type SavedSticker } from '../lib/stickerProtocol';
 import { useMessages } from '../hooks/useMessages';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
@@ -69,6 +71,8 @@ export const ChatPage: React.FC = () => {
   const composerRef = useRef<MessageComposerHandle>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
+  const [stickerPickerOpen, setStickerPickerOpen] = useState(false);
+  const [pastedStickerFile, setPastedStickerFile] = useState<File | null>(null);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
@@ -221,6 +225,10 @@ export const ChatPage: React.FC = () => {
     setReplyTo(null);
   };
 
+  const handleSendSticker = async (sticker: SavedSticker) => {
+    await handleSend(stickerMessage(sticker));
+  };
+
   const handleUnsend = async () => {
     if (!unsendTarget) return;
     await unsendMessage(unsendTarget.id);
@@ -353,7 +361,7 @@ export const ChatPage: React.FC = () => {
                       });
                       setTimeout(() => composerRef.current?.focus(), 50);
                     }}
-                    gesturesDisabled={!!actionMessage || !!reactionTarget || !!unsendTarget}
+                    gesturesDisabled={stickerPickerOpen || !!actionMessage || !!reactionTarget || !!unsendTarget}
                   />
                 </div>
               )
@@ -375,6 +383,8 @@ export const ChatPage: React.FC = () => {
         <MessageComposer
           ref={composerRef}
           onSend={handleSend}
+          onOpenStickers={() => setStickerPickerOpen(true)}
+          onPasteSticker={file => { setPastedStickerFile(file); setStickerPickerOpen(true); }}
           disabled={!friendId}
           placeholder="Message..."
           replyTo={replyTo}
@@ -408,6 +418,14 @@ export const ChatPage: React.FC = () => {
           setActionMessageId(null);
         }}
         onMoreEmoji={handleMoreEmojiFromSheet}
+      />
+      <StickerPickerSheet
+        isOpen={stickerPickerOpen}
+        onClose={() => setStickerPickerOpen(false)}
+        onPick={handleSendSticker}
+        initialFile={pastedStickerFile}
+        onInitialFileHandled={() => setPastedStickerFile(null)}
+        userId={myUserId}
       />
       <EmojiPickerSheet
         isOpen={!!reactionTarget}

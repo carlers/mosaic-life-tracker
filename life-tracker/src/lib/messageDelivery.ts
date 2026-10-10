@@ -158,6 +158,16 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   return inFlightDeliveryPromise;
 }
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
+  // Avoid bringing sticker decoder/Storage into initial Home or unread-badge
+  // modules. Media ACL work runs only for actual sticker messages.
+  if (doc.content.includes('[ms1:')) {
+    const { parseStickerMessage } = await import('./stickerProtocol');
+    const sticker = parseStickerMessage(doc.content);
+    if (sticker) {
+      const { allowStickerRecipient } = await import('./stickerStorage');
+      await allowStickerRecipient(doc.userId, doc.recipientId, sticker.fileId);
+    }
+  }
   await sendMessageAction({
     action: 'deliver',
     messageId: doc.id,
