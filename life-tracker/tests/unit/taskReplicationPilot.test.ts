@@ -891,6 +891,28 @@ describe('task RxDB replication pilot', () => {
       completed: true, completedAt: '2026-10-02T00:00:05.000Z',
     })]);
   });
+
+  it('does not silently lose offline owner completion when a remote title edit wins', async () => {
+    const assumed = localTask();
+    getRowMock.mockResolvedValue(remoteTask({
+      title: 'Changed on another device',
+      updated_at: '2026-10-02T00:00:05.000Z',
+    }));
+    const conflicts = await __taskReplicationPilotTestUtils.pushTasks([{
+      assumedMasterState: assumed,
+      newDocumentState: {
+        ...assumed,
+        completed: true,
+        completedAt: '2026-10-02T00:00:03.000Z',
+        updatedAt: '2026-10-02T00:00:03.000Z',
+      },
+    }] as never, 'user_A');
+    expect(sendAppActionMock).not.toHaveBeenCalled();
+    expect(conflicts).toEqual([expect.objectContaining({
+      completed: false, title: 'Changed on another device',
+    })]);
+  });
+
   it('returns the remote master when an owner-controlled field changed remotely', async () => {
     const assumed = localTask();
     getRowMock.mockResolvedValue(

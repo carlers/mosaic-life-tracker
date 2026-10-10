@@ -3,6 +3,8 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
+import { readSharedTaskCache } from './useSharedTasks';
+import { markOwnerCompletionPending, restoreOwnerCompletionPending } from '../lib/ownerCompletionPending';
 import {
   buildBulkMoveTaskOrderGroups,
   buildTaskOrderAssignments,
@@ -69,13 +71,33 @@ export function useTasks(enabled = true) {
       const db = getDatabase();
       const doc = await db.tasks.findOne(id).exec();
       if (doc) {
-        await doc.patch({
-          ...updates,
-          updatedAt: new Date().toISOString(),
-        });
+        const now = new Date().toISOString();
+        const uid = user?.$id;
+        const isSharedCompletion = Boolean(uid && doc.userId === uid &&
+          typeof updates.completed === 'boolean' && updates.completed !== doc.completed &&
+          readSharedTaskCache(uid, 'owned').some(item => item.taskId === id));
+        let marked = false;
+        let previous: ReturnType<typeof markOwnerCompletionPending>;
+        if (isSharedCompletion && uid) {
+          try {
+            previous = markOwnerCompletionPending(uid, id, updates.completed as boolean, now);
+            marked = true;
+          } catch {
+            // The RxDB task itself still persists the durable offline write.
+          }
+        }
+        try {
+          await doc.patch({ ...updates, updatedAt: now });
+        } catch (error) {
+          if (marked && uid) {
+            try { restoreOwnerCompletionPending(uid, id, previous); }
+            catch { /* Failed local writes must still surface their original error. */ }
+          }
+          throw error;
+        }
       }
     },
-    []
+    [user?.$id]
   );
 
   const deleteTask = useCallback(
