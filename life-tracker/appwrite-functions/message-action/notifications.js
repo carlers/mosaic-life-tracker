@@ -266,7 +266,7 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
   const shareResult = await tablesDB.listRows({
     databaseId: DATABASE_ID,
     tableId: 'task_shares',
-    queries: [Query.equal('task_id', taskId), Query.equal('status', 'accepted'), Query.limit(25)],
+    queries: [Query.equal('task_id', taskId), Query.equal('status', ['pending', 'accepted']), Query.limit(25)],
     total: false,
   });
   if ((shareResult.rows || []).some(row => row.owner_id === actorId)) {

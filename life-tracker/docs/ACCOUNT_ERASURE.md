@@ -129,6 +129,7 @@ Current portable backend policy:
 | diary | delete rows owned by `user_id` |
 | settings | delete rows owned by `user_id`; scrub surviving `friend_carousel_prefs` |
 | friendships | delete rows matching `user_id` or `friend_id` |
+| task_shares | delete rows matching `owner_id` or `invitee_id`; do not allow restoration from personal backup |
 | profiles | hide, then hard-delete every row matching `user_id` |
 | messages | delete rows matching `user_id`, `sender_id`, or `recipient_id` |
 | account_deletions | server-only control job, deleted after final verification |

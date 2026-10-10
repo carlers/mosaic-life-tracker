@@ -80,6 +80,25 @@ describe('task sharing Function authorization and completion', () => {
     expect(JSON.stringify(result.body)).not.toContain('SECRET');
   });
 
+  it('fences legacy direct owner writes atomically with first invitation', async () => {
+    share = {};
+    db.getRow.mockImplementation(async ({ tableId, rowId }: { tableId: string, rowId: string }) => {
+      if (tableId === 'tasks' && rowId === taskId) return task;
+      if (tableId === 'friendships' && [friendId(owner, invitee), friendId(invitee, owner)].includes(rowId)) {
+        return { status: 'accepted', deleted: false, updated_at: '2026-10-09T00:00:01.000Z' };
+      }
+      throw Object.assign(new Error('Not found'), { code: 404 });
+    });
+    const result = await invoke({ userId: owner, mockDb: db,
+      body: { action: 'task_shares', operation: 'invite', taskId, friendUserId: invitee } });
+    expect(result.status).toBe(200);
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'tasks', rowId: taskId, transactionId: 'tx',
+      permissions: ['read("user:user_A")', 'delete("user:user_A")'],
+    }));
+    expect(db.updateTransaction).toHaveBeenCalledWith({ transactionId: 'tx', commit: true });
+  });
+
   it('refuses a forged invite from a non-owner', async () => {
     const result = await invoke({ userId: invitee, mockDb: db,
       body: { action: 'task_shares', operation: 'invite', taskId, friendUserId: 'user_C' } });

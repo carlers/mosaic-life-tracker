@@ -178,6 +178,16 @@ Current ordered baseline reconciliations are:
   `push_subscriptions.include_task_details` boolean. Apply on the explicit
   target before activating the Function that writes rich per-device push
   preferences; do not retrofit legacy subscriptions to opt in.
+- `007-task-shares` — adds the server-only membership table and owner/invitee/task
+  indexes from the portable manifest. Apply only on the explicitly confirmed
+  scratch backend before activating the new `message-action` code; the task
+  notification event handler now consults this table. Do not activate a Function
+  requiring `task_shares` before the schema is READY. The sharing Function
+  transaction removes legacy client direct-update permissions on newly shared
+  owner rows while retaining owner read/delete permissions; new owner edits use
+  `compare_and_set_owner_row`. This intentionally fences pre-upgrade browsers
+  from silently overwriting a collaborator's completion. Scratch old-client
+  compatibility tests remain required before user-facing rollout.
 
 The runner is not a replay of every historical pre-foundation Console/script change. Fresh
 forks bootstrap the current manifest, and production was already at the current historical

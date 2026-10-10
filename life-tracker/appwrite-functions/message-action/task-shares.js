@@ -1,7 +1,7 @@
 'use strict';
 
 const { createHash, randomUUID } = require('node:crypto');
-const { Query } = require('node-appwrite');
+const { Query, Permission, Role } = require('node-appwrite');
 const { idFor: friendshipId, read } = require('./friendship');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
@@ -175,6 +175,20 @@ async function handleTaskShares(db, caller, payload) {
     }
     if (!patch) return answer(400, 'Unsupported task share action');
     const data = { ...(membership ? {} : patch), ...patch };
+    if (operation === 'invite') {
+      // An old browser with direct Appwrite row update rights must not overwrite a
+      // collaborator's completion. New clients persist owner edits via the
+      // authenticated compare_and_set_owner_row Function, not row-level update.
+      // Fence legacy direct updates *atomically* with the first invitation.
+      await db.updateRow({
+        databaseId: DATABASE_ID, tableId: TASKS, rowId: taskId,
+        transactionId: tx.$id, data: {},
+        permissions: [
+          Permission.read(Role.user(ownerId)),
+          Permission.delete(Role.user(ownerId)),
+        ],
+      });
+    }
     if (membership) {
       await db.updateRow({ databaseId: DATABASE_ID, tableId: SHARES, rowId: key,
         transactionId: tx.$id, data });
