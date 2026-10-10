@@ -40,3 +40,19 @@ Delivery requires additive migration 009, an exact-SHA Scratch Function package
 and activation, full stable Preview CI and Vercel readiness; manual multi-account
 and device acceptance remain separate evidence. Do not activate backend changes on
 Production as a side effect of Preview testing.
+
+## Recipient task-row interaction parity (v0.14.3)
+
+Accepted shared tasks use the same Day View row structure and 24px category-colored
+checkbox as normal tasks. A small muted “Shared by <friend>” line remains the
+only visible distinction. The original 3-dot management button and drag-grip
+are removed. Single-tap or keyboard activation of the **title** opens the
+permission-aware shared task Action Sheet; double-tap edits the title inline
+when the owner has granted title editing. Without permission, double-tap opens
+the Action Sheet; it must never bypass server authorization. The Action Sheet
+presents Edit/Duplicate and text-copy, recipient category, permitted date and
+leave controls in the same UI language as owned TaskActionSheet. Checkbox
+remains independent from title gestures. When reorder mode is active, long-press
+the title (~500ms) to drag; the source row hides during drag and the overlay
+uses the same task silhouette and category color. This keeps the server-owned
+minimal projection and all owner-private data boundaries unchanged.

@@ -28,6 +28,7 @@ export interface DaySlideProps {
   onMoveSharedTask?: (item: SharedTaskItem, categoryId: string, targetId: string, position: string) => Promise<void>;
   sharedOrderFor?: (item: SharedTaskItem) => number;
   onSharedMoveError?: (error: unknown) => void;
+  activeSharedDragId?: string | null;
   onSharedCompletion?: (item: SharedTaskItem, completed: boolean) => Promise<unknown> | void;
   onLeaveSharedTask?: (item: SharedTaskItem) => Promise<unknown> | void;
   sharedPendingFor?: (taskId: string) => SharedCompletionCommand | undefined;
@@ -76,6 +77,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   onEditSharedTitle,
   onChangeSharedDate,
   sharedOrderFor,
+  activeSharedDragId,
   onSharedCompletion,
   onLeaveSharedTask,
   sharedPendingFor,
@@ -123,6 +125,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
     onEditTitle: onEditSharedTitle,
     onChangeDate: onChangeSharedDate,
     draggable: reorderRuntimeActive && !selectionMode,
+    activeDragId: activeSharedDragId,
   };
 
   return (
