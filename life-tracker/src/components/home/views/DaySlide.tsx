@@ -4,8 +4,34 @@ import { TaskReorderRuntime } from './TaskReorderRuntime';
 import {
   buildTaskPlacement,
   materializeTaskDocument,
+  sortTaskPlacementByCompletion,
 } from '../../../lib/taskOrder';
 import { buildRenderedTasksByCategory } from './taskReorder';
+
+interface ReadOnlySlideProps extends DaySlideProps {
+  livePlacement: import('../../../lib/taskOrder').TaskPlacement;
+  categoryIds: string[];
+}
+
+/** Keep the derived display projection outside the memoized task source. */
+const ReadOnlySlide: React.FC<ReadOnlySlideProps> = ({
+  livePlacement,
+  categoryIds,
+  taskSortMode = 'manual',
+  ...props
+}) => (
+  <DaySlideContent
+    {...props}
+    reorderEnabled={false}
+    reorderRuntimeActive={false}
+    tasksByCategory={buildRenderedTasksByCategory(
+      props.tasks,
+      sortTaskPlacementByCompletion(livePlacement, props.tasks, taskSortMode),
+      categoryIds
+    )}
+    activeDrag={null}
+  />
+);
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
   reorderRuntimeActive = true,
@@ -41,16 +67,10 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 
   if (!reorderRuntimeActive) {
     return (
-      <DaySlideContent
+      <ReadOnlySlide
         {...sharedProps}
-        reorderEnabled={false}
-        reorderRuntimeActive={false}
-        tasksByCategory={buildRenderedTasksByCategory(
-          materializedTasks,
-          livePlacement,
-          categoryIds
-        )}
-        activeDrag={null}
+        livePlacement={livePlacement}
+        categoryIds={categoryIds}
       />
     );
   }

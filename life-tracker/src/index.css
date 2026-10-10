@@ -152,6 +152,12 @@ html:is([data-theme='light'], [data-theme='black']) [class~="hover:text-white"]:
   color: var(--mosaic-text) !important;
 }
 
+/* Dark and Black task previews: completed titles are white, while
+   incomplete titles retain the muted secondary foreground. Light is unchanged. */
+html:not([data-theme=light]) .mosaic-done {
+  color: var(--mosaic-text) !important;
+}
+
 /* Light-mode calendar/day-view accents that should not retain dark fills. */
 html[data-theme='light'] .mosaic-holiday-label {
   background-color: #fee2e2 !important;
@@ -323,3 +329,21 @@ html[data-theme='light'] [class~="bg-emerald-500"] {
   }
 }
 
+
+
+/* Device accessibility and Mosaic's account-scoped Reduce animations preference.
+   Keep progress affordances and immediate drag feedback functional. */
+@media (prefers-reduced-motion: reduce) {
+  :where(*:not(.animate-spin):not([data-essential-motion])) {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+html[data-reduce-motion="true"] :where(*:not(.animate-spin):not([data-essential-motion])) {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

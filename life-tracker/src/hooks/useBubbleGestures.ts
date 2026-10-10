@@ -279,11 +279,14 @@ export function useBubbleGestures(
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
-      if (disabled) return;
+      if (disabled || !onContextMenu) return;
       e.preventDefault();
-      onContextMenu?.(e);
+      clearLongPress();
+      resetTapSequence();
+      startPosRef.current = null;
+      onContextMenu(e);
     },
-    [disabled, onContextMenu]
+    [clearLongPress, disabled, onContextMenu, resetTapSequence]
   );
 
   return {

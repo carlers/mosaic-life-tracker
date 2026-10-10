@@ -8,6 +8,9 @@ import { TaskItem } from './TaskItem';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import {
   isTaskPlacementCompatible,
+  sortTaskPlacementByCompletion,
+  canonicalPlacementAfterSortedDrop,
+  type TaskCompletionSortMode,
   type TaskPlacement,
 } from '../../../lib/taskOrder';
 import {
@@ -37,6 +40,9 @@ interface CommittedPlacement {
 
 interface DragSession {
   snapshot: TaskPlacement;
+  canonicalSnapshot: TaskPlacement;
+  mode: TaskCompletionSortMode;
+  taskIdentity: Map<string, string>;
   projection: TaskPlacement;
   hasValidTarget: boolean;
 }
@@ -58,6 +64,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     onReorderTasks,
     onReorderActiveChange,
     dateStr,
+    taskSortMode = 'manual',
   } = props;
 
   const [committedPlacement, setCommittedPlacement] =
@@ -78,7 +85,11 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       ? committedPlacement.placement
       : null;
   const basePlacement = activeCommittedPlacement ?? livePlacement;
-  const renderPlacement = activeDrag?.snapshot ?? basePlacement;
+  const displayPlacement = React.useMemo(
+    () => sortTaskPlacementByCompletion(basePlacement, tasks, taskSortMode),
+    [basePlacement, tasks, taskSortMode]
+  );
+  const renderPlacement = activeDrag?.snapshot ?? displayPlacement;
 
   const tasksByCategory = React.useMemo(
     () =>
@@ -108,7 +119,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       const taskId = String(source.id);
       if (!taskById.has(taskId)) return;
 
-      const snapshot = basePlacement;
+      const snapshot = displayPlacement;
       const initialCategoryId = findTaskCategory(snapshot, taskId);
       if (!initialCategoryId) return;
 
@@ -125,13 +136,17 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
 
       dragSessionRef.current = {
         snapshot,
+        canonicalSnapshot: basePlacement,
+        mode: taskSortMode,
+        taskIdentity: new Map(tasks.map((task) => [task.id,
+          `${task.userId}:${task.date}:${task.categoryId}:${task.completed}`])),
         projection: snapshot,
         hasValidTarget: false,
       };
       setActiveDrag(next);
       onReorderActiveChange?.(true);
     },
-    [basePlacement, onReorderActiveChange, taskById]
+    [basePlacement, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks]
   );
 
   const handleDragOver = React.useCallback(
@@ -200,20 +215,22 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         return;
       }
 
-      const { snapshot, projection: finalPlacement } = session;
-      if (
-        !isTaskPlacementCompatible(
-          finalPlacement,
-          livePlacement,
-          categoryIds
-        ) ||
-        taskPlacementsEqual(snapshot, finalPlacement, categoryIds)
-      ) {
-        return;
-      }
+      const { canonicalSnapshot, projection, mode } = session;
+      if (mode !== taskSortMode ||
+        tasks.some((task) => session.taskIdentity.get(task.id) !==
+          `${task.userId}:${task.date}:${task.categoryId}:${task.completed}`) ||
+        session.taskIdentity.size !== tasks.length ||
+        !isTaskPlacementCompatible(canonicalSnapshot, livePlacement, categoryIds)) return;
+
+      const finalPlacement = mode === 'manual'
+        ? projection
+        : canonicalPlacementAfterSortedDrop(canonicalSnapshot, projection, String(source.id), tasks);
+      if (!finalPlacement ||
+        !isTaskPlacementCompatible(finalPlacement, livePlacement, categoryIds) ||
+        taskPlacementsEqual(canonicalSnapshot, finalPlacement, categoryIds)) return;
 
       const groups = buildAffectedTaskOrderGroups(
-        snapshot,
+        canonicalSnapshot,
         finalPlacement,
         String(source.id)
       );
@@ -246,6 +263,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       livePlacement,
       onReorderActiveChange,
       onReorderTasks,
+      taskSortMode,
+      tasks,
     ]
   );
 

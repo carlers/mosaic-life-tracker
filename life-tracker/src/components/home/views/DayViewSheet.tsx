@@ -1,10 +1,13 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { runBulkTaskActions } from './bulkTaskActions';
+import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckSquare, ChevronLeft, ChevronRight, MoreHorizontal, Trash2 } from 'lucide-react';
+import { CheckSquare, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2 } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { AppearanceContext } from '../../../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
 import { TaskActionSheet } from './TaskActionSheet';
@@ -31,6 +34,7 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import { useSettings } from '../../../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
+  TASK_COMPLETION_SORT_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
@@ -89,6 +93,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   focusTaskId = null,
   holidayConfig: holidayConfigOverride,
 }) => {
+  const appearance = React.useContext(AppearanceContext);
+  const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
 
@@ -110,6 +116,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
+  const taskSortMode = resolveTaskCompletionSortMode(
+    getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
+  );
   const showCategoryCollapseButton =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
@@ -147,6 +156,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [isBulkVisibilityOpen, setIsBulkVisibilityOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+  const copyPendingRef = useRef(false);
   const [isTaskReorderActive, setIsTaskReorderActive] = useState(false);
 
   const activeTask = useMemo(
@@ -295,8 +306,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       if (!target) return;
 
       const reduceMotion =
-        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ??
-        false;
+        document.documentElement.dataset.reduceMotion === 'true' ||
+        systemRequestsReducedMotion();
       target.scrollIntoView({
         block: 'center',
         behavior: reduceMotion ? 'auto' : 'smooth',
@@ -375,6 +386,31 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setIsSelectMode(true);
   }, [exitSelectMode, isSelectMode]);
 
+  const handleCopySelectedTasks = useCallback(async () => {
+    if (copyPendingRef.current || isBulkWorking || selectedTasks.length === 0) return;
+    const text = formatSelectedTasksForClipboard(
+      selectedTasks,
+      categories.map((category) => category.id),
+      taskSortMode
+    );
+    if (!text) {
+      showFeedback('No selected tasks to copy');
+      return;
+    }
+    copyPendingRef.current = true;
+    setIsCopying(true);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(text);
+      showFeedback(`${selectedTasks.length} ${selectedTasks.length === 1 ? 'task' : 'tasks'} copied`);
+    } catch {
+      showFeedback('Could not copy selected tasks');
+    } finally {
+      copyPendingRef.current = false;
+      setIsCopying(false);
+    }
+  }, [categories, isBulkWorking, selectedTasks, showFeedback, taskSortMode]);
+
   const runBulkUpdate = useCallback(async (updates: Partial<TaskDocument>) => {
     const snapshot = selectedTasks;
     if (snapshot.length === 0 || isBulkWorking) return;
@@ -434,13 +470,14 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }, [deleteTask, exitSelectMode, isBulkWorking, selectedTasks, showFeedback]);
 
   const handleAddTask = useCallback(
-    (title: string, categoryId: string, dateStr: string) => {
+    (title: string, categoryId: string, dateStr: string, completed = false) => {
       addTask(
         {
           title,
           categoryId,
           date: dateStr,
-          completed: false,
+          completed,
+          ...(completed ? { completedAt: new Date().toISOString() } : {}),
           visibility: '',
         },
         addTasksToTop ? 'top' : 'bottom'
@@ -700,7 +737,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           }
         }}
         initialSlide={initialIndex}
-        speed={DAY_SWIPER_TRANSITION_SPEED_MS}
+        speed={reducedMotion ? 0 : DAY_SWIPER_TRANSITION_SPEED_MS}
         onSlideChange={handleSlideChangeFromUi}
         onSlideChangeTransitionEnd={handleSwipeSettledFromUi}
         data-testid="day-swiper"
@@ -815,6 +852,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       disableTaskLayoutAnimation={renderMode === 'sheet'}
                       continueAddingTasks={continueAddingTasks}
                       showCategoryCollapseButton={showCategoryCollapseButton}
+                      taskSortMode={taskSortMode}
                       selectionMode={isSelectMode && i === activeIndex}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
@@ -847,6 +885,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             aria-label={`${selectedTasks.length} selected ${selectedTasks.length === 1 ? 'task' : 'tasks'}`}
           >
             <span className="mr-auto pl-2 text-sm text-gray-300">{selectedTasks.length} selected</span>
+            <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking || isCopying} onClick={handleCopySelectedTasks} aria-label="Copy selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+              <Copy aria-hidden="true" />
+            </button>
             <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking} onClick={() => setIsBulkActionOpen(true)} aria-label="More actions for selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
               <MoreHorizontal aria-hidden="true" />
             </button>

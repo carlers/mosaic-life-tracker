@@ -36,5 +36,6 @@ export function resolveRouteSwipeSettleDuration(
 }
 
 export function prefersReducedRouteMotion(): boolean {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  return document.documentElement.dataset.reduceMotion === 'true' ||
+    (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
 }

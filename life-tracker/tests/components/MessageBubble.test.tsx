@@ -223,6 +223,68 @@ describe('MessageBubble', () => {
     fireEvent.click(replyButton as Element);
     expect(onQuoteTap).toHaveBeenCalledWith('msg_prev');
   });
+  it('right-click opens actions for the exact clicked message once and prevents the native menu', () => {
+    const onLongPress = vi.fn();
+    const first = makeMessage({ id: 'msg_first', content: 'first' });
+    const second = makeMessage({ id: 'msg_second', content: 'second' });
+    const { container } = render(
+      <>
+        <MessageBubble message={first} isOutgoing currentUserId="user_A" onLongPress={onLongPress} />
+        <MessageBubble message={second} isOutgoing currentUserId="user_A" onLongPress={onLongPress} />
+      </>
+    );
+    const secondBubble = container.querySelector('[data-message-id="msg_second"] [role="button"]');
+    expect(secondBubble).not.toBeNull();
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fireEvent(secondBubble as Element, event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(onLongPress).toHaveBeenCalledTimes(1);
+    expect(onLongPress).toHaveBeenCalledWith(second);
+  });
+
+  it('keeps the native menu when no action callback is supplied or gestures are disabled', () => {
+    const onLongPress = vi.fn();
+    const { container, rerender } = render(
+      <MessageBubble message={makeMessage()} isOutgoing currentUserId="user_A" />
+    );
+    const nativeEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fireEvent(getGestureSurface(container), nativeEvent);
+    expect(nativeEvent.defaultPrevented).toBe(false);
+
+    rerender(
+      <MessageBubble message={makeMessage()} isOutgoing currentUserId="user_A" onLongPress={onLongPress} gesturesDisabled />
+    );
+    const disabledEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fireEvent(getGestureSurface(container), disabledEvent);
+    expect(disabledEvent.defaultPrevented).toBe(false);
+    expect(onLongPress).not.toHaveBeenCalled();
+  });
+
+  it('does not expose actions or intercept context menus for unsent messages', () => {
+    const onLongPress = vi.fn();
+    const { container } = render(
+      <MessageBubble message={makeMessage({ isUnsent: true })} isOutgoing currentUserId="user_A" onLongPress={onLongPress} />
+    );
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fireEvent(container.firstElementChild as Element, event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(onLongPress).not.toHaveBeenCalled();
+  });
+
+  it('preserves touch long-press actions alongside right-click', () => {
+    vi.useFakeTimers();
+    const onLongPress = vi.fn();
+    const message = makeMessage({ id: 'msg_touch' });
+    const { container } = render(
+      <MessageBubble message={message} isOutgoing currentUserId="user_A" onLongPress={onLongPress} />
+    );
+    fireEvent.pointerDown(getGestureSurface(container), {
+      pointerId: 5, pointerType: 'touch', button: 0, clientX: 20, clientY: 20,
+    });
+    act(() => { vi.advanceTimersByTime(510); });
+    expect(onLongPress).toHaveBeenCalledTimes(1);
+    expect(onLongPress).toHaveBeenCalledWith(message);
+  });
 });
 
 

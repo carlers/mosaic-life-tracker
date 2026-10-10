@@ -187,8 +187,10 @@ export const ChatPage: React.FC = () => {
       }
       if (e.key === 'Escape') {
         if (isSearching) {
+          e.preventDefault();
           closeSearch();
         } else if (replyTo) {
+          e.preventDefault();
           setReplyTo(null);
         }
       }
@@ -351,7 +353,7 @@ export const ChatPage: React.FC = () => {
                       });
                       setTimeout(() => composerRef.current?.focus(), 50);
                     }}
-                    gesturesDisabled={false}
+                    gesturesDisabled={!!actionMessage || !!reactionTarget || !!unsendTarget}
                   />
                 </div>
               )

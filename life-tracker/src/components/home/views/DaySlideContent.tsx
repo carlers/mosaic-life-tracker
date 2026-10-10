@@ -1,7 +1,7 @@
 import React from 'react';
 import { CategorySection } from './CategorySection';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
-import type { TaskOrderGroup } from '../../../lib/taskOrder';
+import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
 import {
   findTaskCategory,
   type ActiveTaskDrag,
@@ -19,7 +19,7 @@ export interface DaySlideProps {
   editingTaskId: string | null;
   editValue: string;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
-  onAddTask: (title: string, categoryId: string, dateStr: string) => void;
+  onAddTask: (title: string, categoryId: string, dateStr: string, completed?: boolean) => void;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
   onEditTask: (task: TaskDocument) => void;
@@ -35,6 +35,7 @@ export interface DaySlideProps {
   onToggleTaskSelection?: (taskId: string) => void;
   reorderEnabled?: boolean;
   reorderRuntimeActive?: boolean;
+  taskSortMode?: TaskCompletionSortMode;
   onReorderTasks?: (
     dateStr: string,
     groups: readonly TaskOrderGroup[]
@@ -105,7 +106,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           currentUserId={currentUserId}
           tasks={tasksByCategory.get(category.id) ?? []}
           onToggleTask={onToggleTask}
-          onAddTask={(title) => onAddTask(title, category.id, dateStr)}
+          onAddTask={(title, completed) => onAddTask(title, category.id, dateStr, completed)}
           onOpenActions={onOpenActions}
           onOpenMemo={onOpenMemo}
           onEditTask={onEditTask}
