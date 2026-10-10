@@ -26,3 +26,9 @@ Verify current focused test commit; diagnose any failure and repair. Then resolv
 
 ### Latest owner-write safety proof
 New task owner CAS sends an explicitly observed completion baseline and requires the server's completion to match it atomically with `$updatedAt`. Legacy clients lacking that baseline cannot write a task with **any** share history (including revoked shares); they receive the current master as a conflict instead. Ordinary unshared tasks remain compatible. The extra historical-share lookup happens only for old clients and is bounded to one indexed row. Handler regression coverage added. Still requires real Scratch transaction testing; no release deployment.
+
+### Reviewed Scratch friendship permission repair
+Current Scratch `friendships` table has broader `create("users")` permissions than Git's Function-owned contract. Git migration 008 (explicit `--only`, never in automatic Preview --apply) is added with shape/index/permission guards and tests. Actual cloud mutation is blocked pending execution of Git's confirmed CLI with a scoped Scratch API key; the Console connector cannot run the required exact script and must not be used to bypass repository migration workflow. Real Scratch proof and Preview remain outstanding.
+
+### Versioned candidate
+Live dev is 0.12.1 and the active custom-stickers Preview reserves 0.13.0. Shared-task Preview candidate is provisionally 0.14.0; package manifest, lockfile, and APP_VERSION are stamped on this task branch, not dev/main. No authenticated Preview is ready until the Scratch migration/function boundary is verified. Focused CI must pass before creating stable Preview.

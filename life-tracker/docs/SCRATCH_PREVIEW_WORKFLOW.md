@@ -149,3 +149,7 @@ a problem.
 - A scratch API key is required for runnable CLI verification; if the connected
   environment has only Console access, agents must perform equivalent
   explicit-project read-only inspections and report the CLI limitation.
+
+## Shared-task friendship permission drift
+
+As of the 2026-10-10 read-only check, Scratch's existing `friendships` table has `create("users")` despite the Git manifest's `[]`. Do **not** hide this as an allowable drift or auto-apply a permission change. Use the separately reviewed, explicitly confirmed Git migration `008-friendship-permissions` once on the Scratch ID and endpoint; re-read `friendships` and verify old-client/server-controlled friendship behavior. Only then run the standard `--apply` additive preparation for `007-task-shares`. The Function must remain on its prior active deployment until table readiness and concurrent Preview requirements are verified.
