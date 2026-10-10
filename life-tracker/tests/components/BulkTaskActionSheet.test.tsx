@@ -9,7 +9,7 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
 
 describe('bulk task Change Date', () => {
   it('opens a visible app calendar on the same tap, without another sheet', async () => {
-    const save = vi.fn(async (_date: string) => {});
+    const save = vi.fn(async () => {});
     const close = vi.fn();
     render(<BulkTaskActionSheet isOpen count={2} onClose={close}
       onMoveCategory={vi.fn()} onChangeDate={save}
