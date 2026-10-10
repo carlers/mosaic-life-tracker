@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useCallback,
   useImperativeHandle,
   useId,
   useRef,
@@ -58,7 +59,9 @@ export const MessageComposer = forwardRef<
     const richEditor = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
     const handledInputRef = useRef<File | null>(null);
     const composingRef = useRef(false);
-    const focusInput = () => (richEditor ? richInputRef.current : inputRef.current)?.focus({ preventScroll: true });
+    const focusInput = useCallback(() => {
+      (richEditor ? richInputRef.current : inputRef.current)?.focus({ preventScroll: true });
+    }, [richEditor]);
     const sendImage = (file: File) => {
       if (disabled || !onSendImage) return;
       if (handledInputRef.current === file) return;
@@ -75,7 +78,7 @@ export const MessageComposer = forwardRef<
         const timer = setTimeout(focusInput, 30);
         return () => clearTimeout(timer);
       }
-    }, [replyTo]);
+    }, [replyTo, focusInput]);
 
     useImperativeHandle(
       ref,
@@ -84,7 +87,7 @@ export const MessageComposer = forwardRef<
           focusInput();
         },
       }),
-      []
+      [focusInput]
     );
 
     const handleSend = () => {

@@ -54,7 +54,7 @@ export const ChatPage: React.FC = () => {
   const connectivity = useConnectivity();
   const myUserId = user?.$id ?? '';
   const activeThreadRef = useRef(`${myUserId}:${friendId}`);
-  activeThreadRef.current = `${myUserId}:${friendId}`;
+  useEffect(() => { activeThreadRef.current = `${myUserId}:${friendId}`; }, [myUserId, friendId]);
 
   const {
     messages,
