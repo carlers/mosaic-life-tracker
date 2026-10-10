@@ -1,14 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: issue #406 v0.14.4 shared recipient placement and date calendar regressions. User reported accepted share drags/reorder and category assignment failing or changing Day View to the next day; user also requested immediate calendar on Change Date for shared and native tasks. Baseline stable Preview feature/shared-tasks at e744bb0a7852a391c47aa94ac506cb28b5fe666d (v0.14.3). dev/main and Production untouched.
+Current task: issue #406 v0.14.5 fix cross-platform first-tap calendar opening. User reports the v0.14.4 automatic calendar opening failed on iOS/Android/desktop. Stable Preview feature/shared-tasks at 08e0132fdd5d3309de8561f4ca3fe9670858170e, dev/main unchanged.
 
-## Changes in task branch
-- SharedTaskRows action sheet ownership is now lifted into stable DaySlideContent, so category relocation doesn't unmount an open sheet/retire its browser-history guard or interfere with Swiper. Shared action/date sheets lock Day View background swipe.
-- TaskReorderRuntime preserves validated shared drop targets, instead of discarding them without a native drag session; pure placement planner handles before/after shared rows and maps native row/gap drops to the start of recipient's shared group. Serial account-scoped settings updates persist share order.
-- Shared title/date owner authorization unchanged. All individual, bulk and shared Change Date flows use reusable TaskDateCalendar shown immediately with month navigation and a visible calendar grid; DatePickerSheet accepts a minimal date-target shape, so no private owner fields are needed.
-- Added unit + DOM regression tests for move order, shared action survival across category changes, calendar immediate display and date confirmation. New Preview patch version 0.14.4, frontend only; reusable default documented in docs/TASK_DATE_INTERACTION.md.
+## Root cause and working changes
+- Previous shared Change Date closed the current BottomSheet, then used window.setTimeout(...,0) to mount a different DatePickerSheet. This detached gesture-driven user activation from the visible calendar and raced the shared BottomSheet's portal/history/focus cleanup, particularly in installed PWAs and Safari.
+- App-owned month calendar now switches into the **same action sheet** directly on the click for owned, shared and bulk tasks. New TaskDateEditor composes existing TaskDateCalendar, tracks saving/error, preserves selected local date, and offers Back/Confirm. No native picker automation, timers or additional bottom-sheet history entries.
+- Android Back in date mode restores the actions through BottomSheet onTransientDismiss. Shared date editing still needs owner's grant and server authorization. Native Jump-to-date remains optional.
+- Added regression checks for single-tap visible calendar, exactly one dialog, ownership, bulk date saving and permission gates; docs/TASK_DATE_INTERACTION.md owns the default.
 
 ## Next action
-- Verify TypeScript, contracts, lint, focused/DOM, build/PWA/size. Repair failures; commit exact tested task tree on chatgpt/** with [verify:focused].
-- On focused green, PR/squash into feature/shared-tasks; verify canonical gate and exact-SHA Vercel Preview. Update issue #406 with evidence; no dev/main promotion without explicit approval. Real Android/iOS/PWA gesture + date sheet acceptance is a distinct manual check.
+- Run targeted UI tests, TypeScript, lint, full production build/PWA/size, and contracts; stamp 0.14.5.
+- Commit exact tested tree with [verify:focused] from feature/shared-tasks, PR/squash only into stable Preview after focused green; verify full canonical quality gate and Vercel readiness.
+- Real iOS Safari / Android installed-PWA acceptance cannot be claimed without testing on those devices; request a short final manual check if needed. Do not touch Production or dev/main without approval.

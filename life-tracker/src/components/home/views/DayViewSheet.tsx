@@ -21,12 +21,10 @@ import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { editSharedTask } from '../../../lib/taskShareQueue';
 import { parseSharedPlacement, placementKey, planSharedTaskMove } from '../../../lib/sharedTaskPlacement';
 import { MemoSheet } from './MemoSheet';
-import { DatePickerSheet } from './DatePickerSheet';
 import { ImagePickerSheet } from './ImagePickerSheet';
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
 import { BulkTaskActionSheet } from './BulkTaskActionSheet';
 import { BulkCategoryPickerSheet } from './BulkCategoryPickerSheet';
-import { BulkDatePickerSheet } from './BulkDatePickerSheet';
 import { BulkVisibilitySheet } from './BulkVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
@@ -210,7 +208,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [editValue, setEditValue] = useState('');
   const [isMemoOpen, setIsMemoOpen] = useState(false);
   const [memoInitialMode, setMemoInitialMode] = useState<'view' | 'edit'>('edit');
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isVisibilityOpen, setIsVisibilityOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
@@ -219,7 +216,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(() => new Set());
   const [isBulkActionOpen, setIsBulkActionOpen] = useState(false);
   const [isBulkCategoryOpen, setIsBulkCategoryOpen] = useState(false);
-  const [isBulkDateOpen, setIsBulkDateOpen] = useState(false);
   const [isBulkVisibilityOpen, setIsBulkVisibilityOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
@@ -259,7 +255,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setSelectedTaskIds(new Set());
     setIsBulkActionOpen(false);
     setIsBulkCategoryOpen(false);
-    setIsBulkDateOpen(false);
     setIsBulkVisibilityOpen(false);
     setIsBulkDeleteOpen(false);
   }, [isBulkWorking]);
@@ -283,14 +278,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       isActionSheetOpen ||
       isShareSheetOpen ||
       isMemoOpen ||
-      isDatePickerOpen ||
       isVisibilityOpen ||
       isDeleteConfirmOpen ||
       isImageViewerOpen ||
       deletePhotoConfirmOpen ||
       isBulkActionOpen ||
       isBulkCategoryOpen ||
-      isBulkDateOpen ||
       isBulkVisibilityOpen ||
       isBulkDeleteOpen ||
       isBulkWorking ||
@@ -488,8 +481,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     if (failedIds.size > 0) {
       setSelectedTaskIds(failedIds);
       setIsBulkActionOpen(false);
-      setIsBulkDateOpen(false);
-      setIsBulkVisibilityOpen(false);
+        setIsBulkVisibilityOpen(false);
       showFeedback(`${failedIds.size} ${failedIds.size === 1 ? 'task' : 'tasks'} could not be updated`);
       return;
     }
@@ -637,7 +629,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     async (newDate: string) => {
       if (!activeTask) return;
       await updateTask(activeTask.id, { date: newDate });
-      setIsDatePickerOpen(false);
       setActiveTaskId(null);
     },
     [activeTask, updateTask]
@@ -711,16 +702,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setActiveTaskId(null);
   }, []);
 
-  const handleCloseDatePicker = useCallback(() => {
-    setIsDatePickerOpen(false);
-    setActiveTaskId(null);
-  }, []);
-
-  const handleOpenDatePicker = useCallback(() => {
-    setIsDatePickerOpen(true);
-    setIsActionSheetOpen(false);
-  }, []);
-
   const handleOpenVisibility = useCallback(() => {
     setIsVisibilityOpen(true);
     setIsActionSheetOpen(false);
@@ -754,14 +735,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     isSharedSheetOpen ||
     isShareSheetOpen ||
     isMemoOpen ||
-    isDatePickerOpen ||
     isVisibilityOpen ||
     isDeleteConfirmOpen ||
     isImageViewerOpen ||
     deletePhotoConfirmOpen ||
     isBulkActionOpen ||
     isBulkCategoryOpen ||
-    isBulkDateOpen ||
     isBulkVisibilityOpen ||
     isBulkDeleteOpen ||
     isBulkWorking ||
@@ -1008,7 +987,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             isWorking={isBulkWorking}
             onClose={() => setIsBulkActionOpen(false)}
             onMoveCategory={() => { setIsBulkActionOpen(false); setIsBulkCategoryOpen(true); }}
-            onChangeDate={() => { setIsBulkActionOpen(false); setIsBulkDateOpen(true); }}
+            onChangeDate={async date => { await runBulkUpdate({ date }); }}
             onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
@@ -1024,7 +1003,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             onClose={() => setIsBulkCategoryOpen(false)}
             onSelect={handleBulkMoveCategory}
           />
-        <BulkDatePickerSheet isOpen={isBulkDateOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkDateOpen(false)} onSave={(date) => runBulkUpdate({ date })} />
         <BulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
       </AnimatePresence>
       <TaskActionSheet
@@ -1042,7 +1020,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           if (activeTask) handleOpenMemo(activeTask, 'edit');
           setIsActionSheetOpen(false);
         }}
-        onChangeDate={handleOpenDatePicker}
+        onChangeDate={handleDateChange}
         onVisibility={handleOpenVisibility}
         onShare={() => { setShareSheetMounted(true); setIsShareSheetOpen(true); }}
         onAddPhoto={handleOpenImagePicker}
@@ -1061,8 +1039,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       </Suspense>
       <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
-      <DatePickerSheet isOpen={isDatePickerOpen && !!activeTask}
-        onClose={handleCloseDatePicker} task={activeTask} onDateChange={handleDateChange} />
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
         onClose={handleCloseVisibility} task={activeTask} category={activeTaskCategory}
         onSave={handleVisibilitySave} />

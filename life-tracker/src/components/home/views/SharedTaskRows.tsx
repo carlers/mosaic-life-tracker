@@ -6,7 +6,7 @@ import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { useOptionalFriendList } from '../../../hooks/useFriends';
 import type { SharedCompletionCommand, SharedTaskItem } from '../../../lib/taskShareQueue';
 import { BottomSheet } from '../../ui/BottomSheet';
-import { DatePickerSheet } from './DatePickerSheet';
+import { TaskDateEditor } from './TaskDateEditor';
 import { TaskRowDropSurface } from './TaskReorderSurfaces';
 
 const TASK_TAP_WINDOW = 200;
@@ -194,20 +194,21 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
   const setSelected = onSelectItem ?? setLocalSelected;
   const [editId, setEditId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [dateTask, setDateTask] = useState<SharedTaskItem | null>(null);
+  const [dateMode, setDateMode] = useState(false);
   const [categoryInput, setCategoryInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
   const savingRef = useRef(false);
   React.useEffect(() => {
     if (!actionsOnly) return;
-    onSheetOpenChange?.(Boolean(selected || dateTask));
+    onSheetOpenChange?.(Boolean(selected));
     return () => onSheetOpenChange?.(false);
-  }, [actionsOnly, onSheetOpenChange, selected, dateTask]);
+  }, [actionsOnly, onSheetOpenChange, selected]);
   const editingItem = items.find(item => item.id === editId);
 
   const openActions = useCallback((item: SharedTaskItem) => {
     setFeedback('');
+    setDateMode(false);
     setCategoryInput(categoryFor?.(item) || '');
     setSelected(item);
   }, [categoryFor, setSelected]);
@@ -249,7 +250,7 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
       .finally(() => setBusy(false));
   };
 
-  if (!items.length && !selected && !dateTask) return null;
+  if (!items.length && !selected) return null;
   const current = selected && (items.find(item => item.id === selected.id) || selected);
   const currentOwner = current && friends.find(friend => friend.friendId === current.ownerId);
   const currentOwnerName = currentOwner?.friendDisplayName || currentOwner?.friendUsername || 'a friend';
@@ -282,9 +283,25 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
         ) : <SharedTaskRow key={item.id} {...rowProps} />;
       })}
       {onLeave && (actionsOnly || !onSelectItem) && <BottomSheet
-        isOpen={Boolean(current)} onClose={() => setSelected(null)}
-        title={current?.title || 'Shared task'} height="auto" backdropBlur>
-        <div className="px-4 pb-8 pt-2">
+        isOpen={Boolean(current)}
+        onClose={() => { setDateMode(false); setSelected(null); }}
+        onTransientDismiss={() => {
+          if (!dateMode) return false;
+          setDateMode(false);
+          return true;
+        }}
+        title={dateMode ? 'Change Date' : current?.title || 'Shared task'}
+        height="auto" backdropBlur preventDismiss={busy}>
+        {current && dateMode && current.allowDateEdit === true && onChangeDate ? (
+          <TaskDateEditor key={current.id} initialDate={current.date}
+            onCancel={() => setDateMode(false)}
+            onSave={async date => {
+              await onChangeDate(current, date);
+              setDateMode(false);
+              setSelected(null);
+            }}
+          />
+        ) : <div className="px-4 pb-8 pt-2">
           <div className="mb-4 text-xs text-gray-400">
             <span className="inline-flex items-center gap-1"><UsersRound size={13} />
               Shared by {currentOwnerName}
@@ -346,10 +363,7 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
             </button>
             <button type="button" className={SHEET_ACTION_CLASS}
               disabled={!onChangeDate || current.allowDateEdit !== true || busy}
-              onClick={() => {
-                setSelected(null);
-                window.setTimeout(() => setDateTask(current), 0);
-              }}>
+              onClick={() => setDateMode(true)}>
               <span className={SHEET_ICON_CLASS + ' bg-blue-400'}><CalendarDays size={16} className="text-black" /></span>
               <span className="flex-1 text-base font-medium">Change Date</span>
               {current.allowDateEdit !== true && <span className="text-xs text-gray-400">Owner only</span>}
@@ -362,20 +376,8 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
               <span className="text-base font-medium">Leave Shared Task</span>
             </button>
           </>}
-        </div>
+        </div>}
       </BottomSheet>}
-      {actionsOnly && <DatePickerSheet
-        isOpen={Boolean(dateTask)} task={dateTask} isWorking={busy}
-        onClose={() => setDateTask(null)}
-        onDateChange={(nextDate) => {
-          if (!dateTask || !onChangeDate || dateTask.allowDateEdit !== true) return;
-          setBusy(true);
-          void onChangeDate(dateTask, nextDate)
-            .then(() => { setDateTask(null); setFeedback('Date updated.'); })
-            .catch(cause => setFeedback(cause instanceof Error ? cause.message : 'Could not change date.'))
-            .finally(() => setBusy(false));
-        }}
-      />}
       {!selected && feedback && <p role="status" className="mt-2 text-sm text-amber-400">{feedback}</p>}
     </section>
   );
