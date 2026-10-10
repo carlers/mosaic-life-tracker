@@ -5,7 +5,7 @@ export const STICKER_FILE_ID = /^stk_[0-9a-f]{32}$/;
 export interface SavedSticker { fileId: string; label: string }
 
 export function stickerLabel(label: string): string {
-  return label.replace(/[\r\n\[\]<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Sticker';
+  return label.replace(/[\r\n<>]/g, ' ').replaceAll('[', ' ').replaceAll(']', ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Sticker';
 }
 
 export function stickerMessage(sticker: SavedSticker): string {

@@ -140,7 +140,7 @@ export async function uploadSticker(file: File, userId: string): Promise<string>
     const existing = await guardedStorage.getFile({ bucketId: APPWRITE_STORAGE_BUCKET_ID, fileId });
     if (!Array.isArray(existing.$permissions) ||
         !ownerPermissions(userId).every(permission => existing.$permissions.includes(permission))) {
-      throw new Error('Sticker ID belongs to a different owner.');
+      throw new Error('Sticker ID belongs to a different owner.', { cause: error });
     }
   }
   await cacheImage(cachedKey(userId, fileId), blob).catch(() => {});

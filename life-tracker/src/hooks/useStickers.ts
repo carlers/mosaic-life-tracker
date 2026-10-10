@@ -4,6 +4,7 @@ import { useAuth } from './useAuth';
 import { useSettings } from './useSettings';
 import { normalizeStickers, STICKER_SETTINGS_KEY, MAX_STICKERS, type SavedSticker } from '../lib/stickerProtocol';
 import { uploadSticker, deleteUnusedSticker } from '../lib/stickerStorage';
+import { captureAccountWorkGeneration, isAccountWorkCurrent } from '../lib/accountWorkScope';
 
 export function useStickers() {
   const { user } = useAuth();
@@ -17,7 +18,10 @@ export function useStickers() {
   const addSticker = useCallback(async (file: File, label: string) => {
     if (!userId) throw new Error('Sign in to add stickers.');
     if (stickers.length >= MAX_STICKERS) throw new Error('Sticker collection is full (32).');
+    const generation = captureAccountWorkGeneration(userId);
+    if (generation === null) throw new Error('Session changed. Retry sticker upload.');
     const fileId = await uploadSticker(file, userId);
+    if (!isAccountWorkCurrent(userId, generation)) throw new Error('Session changed. Retry sticker upload.');
     if (stickers.some(item => item.fileId === fileId)) return;
     const next: SavedSticker[] = [...stickers, { fileId, label }];
     await setSetting(STICKER_SETTINGS_KEY, normalizeStickers(next));
@@ -25,7 +29,10 @@ export function useStickers() {
 
   const removeSticker = useCallback(async (fileId: string) => {
     if (!userId) return;
+    const generation = captureAccountWorkGeneration(userId);
+    if (generation === null) return;
     await setSetting(STICKER_SETTINGS_KEY, stickers.filter(s => s.fileId !== fileId));
+    if (!isAccountWorkCurrent(userId, generation)) return;
     // A recipient may still need a sticker from an earlier message; only
     // delete if we can prove no local references *and* no remote recipient ACL.
     try {

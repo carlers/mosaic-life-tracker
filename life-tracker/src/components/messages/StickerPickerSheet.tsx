@@ -90,7 +90,7 @@ export const StickerPickerSheet: React.FC<StickerPickerSheetProps> = ({
           <label className={'flex shrink-0 items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2 border border-[#444444] text-sm ' + (busy || stickers.length >= MAX_STICKERS ? 'opacity-50' : '')}>
             <Plus size={16} aria-hidden="true" /> Add
             <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only"
-              aria-label="Import sticker image from phone" disabled={busy || stickers.length >= MAX_STICKERS}
+              aria-label="Import sticker image from phone" disabled={busy || isLoading || stickers.length >= MAX_STICKERS}
               onChange={event => {
                 const file = event.target.files?.[0];
                 event.target.value = '';

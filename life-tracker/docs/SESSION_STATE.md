@@ -16,7 +16,7 @@ Scope: UI, typed text envelope, existing Settings replication row and existing f
 ## Work and verification status
 - GitHub task branch created from exact dev SHA.
 - Source changes staged as Git blobs, pending task commit and CI: `stickerProtocol`, `stickerStorage`, `useStickers`, picker/image components, ChatPage/MessageComposer/MessageBubble/ConversationRow/ReplyPreview/MessageActionSheet/search, delivery guard, version/docs and regression tests.
-- No local npm/build/browser/phone verification: GitHub connector environment does not include a clonable networked checkout.
+- Initial exact-SHA full CI diagnostic (Actions 38015582873): TypeScript/Vite/PWA compiled, browser contracts and both DOM shards passed, dependency audit passed. Lint failed on an unnecessary regex escape and missing caught-error cause; build-size aggregate exceeded prior limits by raw 11,165 B, gzip 3,572 B, precache 11,408 B. Repairs: eliminate both lint errors; dynamically import sticker storage only on sticker delivery to spare Home/startup closure; adjust **aggregate only** limits to measured feature growth with ~2-3 KiB headroom. Entry/startup/Home ceilings unchanged. No local npm/device check in the GitHub-only connector environment.
 - Required next: create coherent commit (size headroom on dev is ~2 KiB aggregate); one measured full CI diagnostic for TypeScript/build-size, fix failures, request focused task SHA, squash to stable Preview and await canonical CI/Vercel READY. Verify Scratch file permissions and two disposable accounts before claiming delivery. `dev` and `main` promotions require separate explicit authorization.
 
 ## Blockers/limitations
