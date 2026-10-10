@@ -63,6 +63,31 @@ describe('task sharing Function authorization and completion', () => {
     expect(shareId(taskId, invitee)).not.toBe(shareId(taskId, 'user_C'));
   });
 
+
+  it('keeps backlogged tasks out of shared listing even with accepted membership', async () => {
+    task = baseTask({ date: '' });
+    db.listRows.mockResolvedValue({ rows: [share] });
+    const result = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'list', scope: 'received' } });
+    expect(result.status).toBe(200);
+    expect(result.body.items).toEqual([]);
+    expect(JSON.stringify(result.body)).not.toContain('Shared title');
+  });
+
+  it('blocks collaborator writes and new invitations for unscheduled tasks', async () => {
+    task = baseTask({ date: '' });
+    const result = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'set_completed', ownerId: owner, taskId,
+        grantEpoch: 'grant_abc', completed: true,
+        expectedRevision: task.$updatedAt, operationId: 'cmd_private' } });
+    expect(result.status).toBe(404);
+    const invited = await invoke({ userId: owner, mockDb: db,
+      body: { action: 'task_shares', operation: 'invite', taskId, friendUserId: invitee } });
+    expect(invited.status).toBe(404);
+    expect(db.updateRow).not.toHaveBeenCalled();
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
   it('returns a strict minimal projection even for private tasks', async () => {
     db.listRows.mockResolvedValue({ rows: [share] });
     const result = await invoke({ userId: invitee, mockDb: db,

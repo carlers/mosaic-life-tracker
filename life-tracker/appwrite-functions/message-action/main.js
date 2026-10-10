@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { isScheduledTask } = require('./task-placement');
 const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
@@ -923,7 +924,7 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
     error(`react_to_task: task ${taskId} is not owned by ${taskOwnerId}`);
     return { status: 403, body: { error: 'Task ownership mismatch' } };
   }
-  if (row.deleted === true) {
+  if (row.deleted === true || !isScheduledTask(row)) {
     error(`react_to_task: task ${taskId} is deleted`);
     return { status: 404, body: { error: 'Task not found' } };
   }
@@ -1009,7 +1010,7 @@ async function handleGetFriendTask(tablesDB, callerId, payload, log, error) {
     return { status: 404, body: { error: 'Task unavailable' } };
   }
   if (task.user_id !== friendUserId || task.deleted === true ||
-      task.is_completed !== true || task.completed_at !== completedAt) {
+      !isScheduledTask(task) || task.is_completed !== true || task.completed_at !== completedAt) {
     return { status: 404, body: { error: 'Task unavailable' } };
   }
   let category = null;
@@ -1097,6 +1098,7 @@ async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) 
     return String(a.$id).localeCompare(String(b.$id));
   });
   const visibleTasks = taskRows.filter((t) => {
+    if (!isScheduledTask(t)) return false;
     const taskVis = t.visibility;
     const effective =
       taskVis && taskVis !== ''

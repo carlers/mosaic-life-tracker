@@ -2,6 +2,7 @@
 
 const { createHash, randomUUID } = require('node:crypto');
 const { Query, Permission, Role } = require('node-appwrite');
+const { isScheduledTask } = require('./task-placement');
 const { idFor: friendshipId, read } = require('./friendship');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
@@ -75,7 +76,7 @@ async function list(db, caller, scope, cursor) {
       if (!friendshipVersion || membership.friendship_version !== friendshipVersion) return null;
       const task = await memo(taskReads, membership.task_id, () =>
         read(db, TASKS, membership.task_id));
-      if (!live(task) || task.user_id !== membership.owner_id) return null;
+      if (!live(task) || !isScheduledTask(task) || task.user_id !== membership.owner_id) return null;
       return projection(task, membership, scope === 'owned');
     }));
     for (const item of chunk) if (item) items.push(item);
@@ -109,7 +110,8 @@ async function handleTaskShares(db, caller, payload) {
       read(db, SHARES, key, tx.$id),
       mutualFriends(db, ownerId, inviteeId, tx.$id),
     ]);
-    if (!live(task) || task.user_id !== ownerId) return answer(404, 'Task unavailable');
+    // Unscheduled tasks are owner-only; no invite, projection or collaborator mutation.
+    if (!live(task) || !isScheduledTask(task) || task.user_id !== ownerId) return answer(404, 'Task unavailable');
     if (!friends) return answer(403, 'Friendship required');
     if (membership && (membership.task_id !== taskId ||
         membership.owner_id !== ownerId || membership.invitee_id !== inviteeId)) {
