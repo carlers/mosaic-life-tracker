@@ -196,6 +196,55 @@ async function startDrag(page, locator, deltaX) {
   };
 }
 
+// Regression: #471 chat shell must never reflow during the route slide.
+test('chat entering and leaving keeps the outgoing viewport geometry stable', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?chatMotion=1`);
+
+  async function sample(buttonId, exitingId) {
+    return page.evaluate(async ({ buttonId, exitingId }) => {
+      const outgoing = document.querySelector(`[data-testid="${exitingId}"]`);
+      const button = document.querySelector(`[data-testid="${buttonId}"]`);
+      if (!(outgoing instanceof HTMLElement) || !(button instanceof HTMLButtonElement)) {
+        throw new Error('Missing chat viewport test surface');
+      }
+      const before = outgoing.getBoundingClientRect();
+      button.click();
+      const measurements = [];
+      for (let i = 0; i < 8; i += 1) {
+        await new Promise(requestAnimationFrame);
+        if (!outgoing.isConnected) break;
+        const rect = outgoing.getBoundingClientRect();
+        measurements.push({
+          height: rect.height, top: rect.top,
+          exiting: outgoing.closest('[data-viewport-mode]')?.getAttribute('aria-hidden'),
+        });
+      }
+      return { height: before.height, top: before.top, measurements };
+    }, { buttonId, exitingId });
+  }
+
+  const opening = await sample('open-chat-motion', 'motion-messages-screen');
+  expect(opening.measurements.length).toBeGreaterThan(2);
+  for (const rect of opening.measurements) {
+    expect(Math.abs(rect.height - opening.height)).toBeLessThan(2);
+    expect(Math.abs(rect.top - opening.top)).toBeLessThan(2);
+    expect(rect.exiting).toBe('true');
+  }
+  const chat = page.getByTestId('motion-chat-screen');
+  await expect(chat).toBeVisible();
+  await expect(page.getByTestId('motion-chat-dock')).toBeVisible();
+  await expect(page.getByTestId('route-viewport-panel')).toHaveCount(1);
+
+  const closing = await sample('close-chat-motion', 'motion-chat-screen');
+  expect(closing.measurements.length).toBeGreaterThan(2);
+  for (const rect of closing.measurements) {
+    expect(Math.abs(rect.height - closing.height)).toBeLessThan(2);
+    expect(Math.abs(rect.top - closing.top)).toBeLessThan(2);
+    expect(rect.exiting).toBe('true');
+  }
+  await expect(page.getByTestId('motion-messages-screen')).toBeVisible();
+});
+
 // Regression: §2/§7 (primary-route swipe ownership and direct manipulation).
 test('primary route swipe is direct-manipulation with Home and Me ownership rules', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
