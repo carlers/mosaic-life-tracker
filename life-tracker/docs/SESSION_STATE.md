@@ -1,17 +1,21 @@
 # Session checkpoint
 
-Updated: 2026-10-10
-Current task: implement issue #406 follow-on collaborator categories, drag/copy and owner-granted edits from stable Preview feature/shared-tasks at 8afc36946180172d027a6dd24083d9baec4ff17f. User directly authorized implementation. Candidate version 0.14.2. dev/main and Production unchanged.
+Updated: 2026-10-11
+Current task: double-check and harden Scratch parallel-backend integration #526.
+Baseline: stable integration branch `refactor/scratch-backend-integration-526` at `0b0c1b35b532fec776f193f60c113cbf7d817cb7` before audit repair. This source contains #406's shared tasks and #407's Backlog privacy guards, **not** an approved dev/main promotion.
 
-## Completed working set
-- Owner-controlled per-invitee title and date permissions, default false, with Function transactional membership, friend, revocation, epoch and revision checks.
-- Git-owned additive task_shares columns and ordered migration 009; Scratch Preview prepare allowlist updated.
-- Recipient personal category assignment via per-membership account-synced Settings (no owner copy); share rows appear inside their category and support drag to category targets / order among received shares; independent personal duplicate; granted global title/date editors in the received share sheet.
-- Strict minimal projections and cache; private owner memo/images/categories not copied.
-- New handler and placement regression tests; build-size budgets adjusted narrowly for measured growth. Details: docs/SHARED_TASKS.md.
+## Verified before audit
+
+- Initial integration task PRs #529 and #533 squash-merged to stable Preview; full canonical run 38074726460 SUCCESS and exact Vercel READY.
+- Live Scratch `message-action` remains at older deployment `6aca71f3ec33c9501753`, not integrated source. No Scratch Function mutation or production changes from #526.
+- The activation workflow is only on Preview, not default branch; it needs manual GitHub environment configuration, preflight security and cross-feature hosted acceptance before operational usage.
+
+## Audit repair
+
+- Harden workflow so the selected SHA must equal the current reviewed integration head and a full successful exact-SHA stable CI run. Never execute an arbitrary supplied checkout with a Scratch API key.
+- Scope secret exposure only to backend read/build/activation steps; no persisted GitHub Checkout credentials, and document a required protected GitHub environment with human review.
+- Preserve scope limits: this is a Function deployment workflow; schema migrations and out-of-band Appwrite mutations still require coordination and cannot be claimed automatically serialized.
 
 ## Next action
-- Repair any focused/CI failures; run contracts, TypeScript, build/PWA/size and focused/full checks.
-- Commit exact task tree on chatgpt/** with [verify:focused] and PR to feature/shared-tasks only. On focused green, squash; stable Preview canonical and exact-SHA Vercel.
-- Before preview acceptance, run migration 009 on **Scratch only**, package exact task SHA Function source, build inactive, review and activate. Reconcile read-only schema/Function and test disposable user auth flows. No Production schema or Function writes.
-- Issue #406 remains open; dev/main promotion needs separate approval. Exact phone/mobile gestures and advanced multi-account acceptance cannot be asserted without device proof.
+
+Run focused CI for the audit task, squash-merge into the stable integration Preview, rerun full canonical CI/Vercel and record exact accepted SHA. Do not change live Scratch or promote to dev/main without a separate approved rollout. Issue #526 remains open pending credential/configuration enforcement, authenticated compatibility tests and backend activation.
