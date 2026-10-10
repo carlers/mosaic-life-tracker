@@ -23,6 +23,17 @@ function is404(error) {
   return Number(error?.code ?? error?.status) === 404;
 }
 
+// Validate every synthetic row ID before creating accounts, so seeding never
+// partially succeeds due to an Appwrite row ID longer than 36 characters.
+function fixtureRowId(tableId, ownerId) {
+  const prefixes = { profiles: 'profile_', categories: 'cat_', diary: 'diary_', tasks: 'task_' };
+  const rowId = prefixes[tableId] + ownerId;
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_]{0,35}$/.test(rowId)) {
+    throw new Error('Invalid scratch fixture row ID for ' + tableId);
+  }
+  return rowId;
+}
+
 async function ensureUser(users, user, password) {
   try {
     const existing = await users.get({ userId: user.id });
@@ -61,6 +72,12 @@ export async function seedPreviewFixtures({ users, tablesDB, password, log = con
   if (typeof password !== 'string' || password.length < 12) {
     throw new Error('MOSAIC_SCRATCH_TEST_PASSWORD must have at least 12 characters.');
   }
+  // Preflight all IDs before any writes to avoid partially seeded identities.
+  for (const user of PREVIEW_IDENTITIES) {
+    for (const tableId of ['profiles', 'categories', 'diary', 'tasks']) {
+      fixtureRowId(tableId, user.id);
+    }
+  }
   const result = { users: 0, rows: 0 };
   for (const user of PREVIEW_IDENTITIES) {
     if (await ensureUser(users, user, password)) result.users++;
@@ -68,10 +85,10 @@ export async function seedPreviewFixtures({ users, tablesDB, password, log = con
   for (const user of PREVIEW_IDENTITIES) {
     const id = user.id;
     const rows = [
-      ['profiles', 'profile_' + id, { user_id: id, username: user.username, display_name: user.name, created_at: now, updated_at: now, deleted: false }],
-      ['categories', 'fixture_cat_' + id, { user_id: id, name: 'Synthetic Preview', color: '#059669', order: 0, visibility: 'followers', updated_at: now, deleted: false }],
-      ['diary', 'fixture_diary_' + id, { user_id: id, date: now.slice(0, 10), content: 'Synthetic preview diary', visibility: 'private', created_at: now, updated_at: now, deleted: false }],
-      ['tasks', 'fixture_task_' + id, { user_id: id, title: 'Synthetic completion test', category_id: 'fixture_cat_' + id, date: now.slice(0, 10), created_at: now, updated_at: now, is_completed: false, visibility: 'followers', deleted: false }],
+      ['profiles', fixtureRowId('profiles', id), { user_id: id, username: user.username, display_name: user.name, created_at: now, updated_at: now, deleted: false }],
+      ['categories', fixtureRowId('categories', id), { user_id: id, name: 'Synthetic Preview', color: '#059669', order: 0, visibility: 'followers', updated_at: now, deleted: false }],
+      ['diary', fixtureRowId('diary', id), { user_id: id, date: now.slice(0, 10), content: 'Synthetic preview diary', visibility: 'private', created_at: now, updated_at: now, deleted: false }],
+      ['tasks', fixtureRowId('tasks', id), { user_id: id, title: 'Synthetic completion test', category_id: fixtureRowId('categories', id), date: now.slice(0, 10), created_at: now, updated_at: now, is_completed: false, visibility: 'followers', deleted: false }],
     ];
     for (const [table, rowId, data] of rows) {
       if (await ensureRow(tablesDB, table, rowId, data, id)) result.rows++;

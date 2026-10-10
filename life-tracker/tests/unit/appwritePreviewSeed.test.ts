@@ -27,6 +27,17 @@ describe('scratch reusable synthetic accounts', () => {
     expect(mock.tablesDB.createRow).toHaveBeenCalledWith(expect.objectContaining({
       tableId: 'tasks', data: expect.objectContaining({ visibility: 'followers' }),
     }));
+    // Appwrite rejects row IDs longer than 36 characters; fixture IDs must
+    // match the target schema before any writes are attempted.
+    const createdRows = mock.tablesDB.createRow.mock.calls.map(call => call[0]);
+    for (const row of createdRows) {
+      expect(row.rowId).toMatch(/^[a-zA-Z0-9][a-zA-Z0-9_]{0,35}$/);
+    }
+    for (const user of PREVIEW_IDENTITIES) {
+      const category = createdRows.find(row => row.tableId === 'categories' && row.data.user_id === user.id);
+      const task = createdRows.find(row => row.tableId === 'tasks' && row.data.user_id === user.id);
+      expect(task.data.category_id).toBe(category.rowId);
+    }
     for (const user of PREVIEW_IDENTITIES) {
       expect(mock.tablesDB.createRow).toHaveBeenCalledWith(expect.objectContaining({
         tableId: 'profiles', rowId: 'profile_' + user.id,
