@@ -4,6 +4,12 @@ import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { AppearanceContext } from '../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../lib/motionPreferences';
+import {
+  getTopVisibleSheetId,
+  queueSheetFocusReturn,
+  subscribeToSheetLayers,
+  updateVisibleSheet,
+} from '../../lib/sheetLayers';
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -41,54 +47,6 @@ const pendingCleanupTimers = new Map<string, number>();
 const HISTORY_GUARD_KEY = '__mosaicBottomSheetGuard';
 let historyGuardSequence = 0;
 let historyBackHandlerInstalled = false;
-/** Visible portals outlive isOpen until Framer finishes the exit animation. */
-const visibleSheetIds: string[] = [];
-const sheetLayerListeners = new Set<() => void>();
-const deferredFocusReturn = new Map<string, HTMLElement>();
-
-function queueFocusReturn(sheetId: string, target: HTMLElement) {
-  deferredFocusReturn.set(sheetId, target);
-}
-
-let previousAppInert = false;
-
-function subscribeSheetLayers(listener: () => void) {
-  sheetLayerListeners.add(listener);
-  return () => { sheetLayerListeners.delete(listener); };
-}
-
-function currentTopVisibleSheet(): string | null {
-  return visibleSheetIds[visibleSheetIds.length - 1] ?? null;
-}
-
-function updateVisibleSheet(sheetId: string, visible: boolean) {
-  const index = visibleSheetIds.indexOf(sheetId);
-  if ((index >= 0) === visible) return;
-  if (visible) visibleSheetIds.push(sheetId);
-  else visibleSheetIds.splice(index, 1);
-
-  // BottomSheet is portaled to body. Only the application tree (not other
-  // body-level overlays such as PhotoSwipe) becomes inert behind an open sheet.
-  const appRoot = document.getElementById('root');
-  if (visibleSheetIds.length === 1 && visible) {
-    previousAppInert = appRoot?.inert ?? false;
-  }
-  if (appRoot) appRoot.inert = visibleSheetIds.length > 0 || previousAppInert;
-  for (const listener of sheetLayerListeners) listener();
-  if (!visible) {
-    const target = deferredFocusReturn.get(sheetId);
-    deferredFocusReturn.delete(sheetId);
-    if (target) {
-      // Do not return focus while the owner is still inert. A frame gives
-      // the newly exposed parent sheet time to release its inert state.
-      window.requestAnimationFrame(() => {
-        if (!target.isConnected || target.closest('[inert]')) return;
-        target.focus({ preventScroll: true });
-      });
-    }
-  }
-}
-
 const HORIZONTAL_SWIPE_MIN_DISTANCE = 48;
 const HORIZONTAL_SWIPE_AXIS_RATIO = 1.2;
 const DIRECTIONAL_DRAG_MIN_DISTANCE = 8;
@@ -367,8 +325,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   }, [onClose, onTransientDismiss, preventDismiss]);
 
   const topVisibleSheetId = useSyncExternalStore(
-    subscribeSheetLayers,
-    currentTopVisibleSheet,
+    subscribeToSheetLayers,
+    getTopVisibleSheetId,
     () => null
   );
   const isTopLayer = topVisibleSheetId === sheetId;
@@ -378,7 +336,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     sheetRef,
     isOpen && !isBlockedLayer,
     () => !isOpen || isTopLayer,
-    (target) => queueFocusReturn(sheetId, target)
+    (target) => queueSheetFocusReturn(sheetId, target)
   );
 
   useEffect(() => {
