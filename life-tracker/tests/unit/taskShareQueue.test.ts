@@ -1,0 +1,109 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const sendAction = vi.hoisted(() => vi.fn());
+const connectivity = vi.hoisted(() => ({ status: 'offline' }));
+
+vi.mock('../../src/lib/appAction', () => ({ sendAppAction: sendAction }));
+vi.mock('../../src/lib/connectivity', () => ({ getConnectivitySnapshot: () => connectivity }));
+
+import {
+  scopeSharedTaskQueue, enqueueSharedCompletion, flushSharedCompletions,
+  pendingSharedCompletion, clearSharedCompletionQueue,
+  type SharedTaskItem,
+} from '../../src/lib/taskShareQueue';
+
+function item(overrides: Partial<SharedTaskItem> = {}): SharedTaskItem {
+  return {
+    id: 'shr_test', taskId: 'task_1', ownerId: 'user_a',
+    title: 'Shared', date: '2026-10-10', status: 'accepted',
+    completed: false, completionRevision: 'version1',
+    membershipRevision: 'membership1', grantEpoch: 'epoch1', ...overrides,
+  };
+}
+
+describe('durable shared-task completion queue', () => {
+  const data = new Map<string, string>();
+  beforeEach(() => {
+    data.clear();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => { data.set(key, value); },
+    });
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    vi.stubGlobal('navigator', { locks: undefined });
+    vi.stubGlobal('crypto', { randomUUID: () => '11111111-2222-4333-8444-555555555555' });
+    scopeSharedTaskQueue('user_b');
+    connectivity.status = 'offline';
+    sendAction.mockReset();
+  });
+
+  it('persists a desired state but does not dispatch while offline', async () => {
+    const command = enqueueSharedCompletion('user_b', item(), true);
+    expect(command.operationId).toMatch(/^cmd_[a-f0-9]{32}$/);
+    expect(pendingSharedCompletion('user_b', 'task_1')?.completed).toBe(true);
+    expect(await flushSharedCompletions('user_b')).toEqual([
+      { operationId: command.operationId, status: 'pending' },
+    ]);
+    expect(sendAction).not.toHaveBeenCalled();
+  });
+
+  it('refuses a second pending toggle and an unaccepted invitation', () => {
+    enqueueSharedCompletion('user_b', item(), true);
+    expect(() => enqueueSharedCompletion('user_b', item(), false)).toThrow(/already pending/);
+    expect(() => enqueueSharedCompletion('user_b', item({ status: 'pending', taskId: 'task_2' }), true))
+      .toThrow(/membership is not ready/);
+  });
+
+  it('does not replay a previous account command after switching accounts', async () => {
+    enqueueSharedCompletion('user_b', item(), true);
+    scopeSharedTaskQueue('user_c');
+    connectivity.status = 'online';
+    expect(await flushSharedCompletions('user_b')).toEqual([]);
+    expect(sendAction).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges an idempotent server result and clears the durable command', async () => {
+    const command = enqueueSharedCompletion('user_b', item(), true);
+    connectivity.status = 'online';
+    sendAction.mockResolvedValue({ ok: true, item: { taskId: 'task_1' } });
+    expect(await flushSharedCompletions('user_b')).toEqual([
+      { operationId: command.operationId, status: 'confirmed' },
+    ]);
+    expect(pendingSharedCompletion('user_b', 'task_1')).toBeUndefined();
+    expect(sendAction).toHaveBeenCalledWith(expect.objectContaining({
+      operationId: command.operationId, completed: true,
+      expectedRevision: 'version1', grantEpoch: 'epoch1',
+    }));
+  });
+
+  it('surfaces stale revisions and never automatically rebases the intended action', async () => {
+    enqueueSharedCompletion('user_b', item(), true);
+    connectivity.status = 'online';
+    sendAction.mockRejectedValue(Object.assign(new Error('Conflict'), { code: 409 }));
+    const result = await flushSharedCompletions('user_b');
+    expect(result[0].status).toBe('rejected');
+    expect(result[0].reason).toMatch(/Refresh and retry/);
+    expect(pendingSharedCompletion('user_b', 'task_1')).toBeUndefined();
+    expect(sendAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a timed-out dispatch for replay with the same operation ID', async () => {
+    const command = enqueueSharedCompletion('user_b', item(), true);
+    connectivity.status = 'online';
+    sendAction.mockRejectedValue(new Error('Timed out'));
+    expect((await flushSharedCompletions('user_b'))[0].status).toBe('pending');
+    expect(pendingSharedCompletion('user_b', 'task_1')?.operationId).toBe(command.operationId);
+    expect(pendingSharedCompletion('user_b', 'task_1')?.attempts).toBe(1);
+  });
+
+  it('reports storage failure instead of pretending to queue', () => {
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => { throw Error('quota'); } });
+    expect(() => enqueueSharedCompletion('user_b', item(), true)).toThrow('quota');
+  });
+
+  it('purges only the designated account and invalidates in-flight generations', () => {
+    enqueueSharedCompletion('user_b', item(), true);
+    clearSharedCompletionQueue('user_b');
+    expect(pendingSharedCompletion('user_b', 'task_1')).toBeUndefined();
+  });
+});
