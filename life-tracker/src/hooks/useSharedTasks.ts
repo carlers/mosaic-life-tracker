@@ -78,7 +78,6 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   const key = userId ? cacheKey(userId, scope) : null;
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [state, setState] = useState<SharedTaskItem[]>([]);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [lastMutation, setLastMutation] = useState<SharedCommandResult | null>(null);
   const [queueRevision, setQueueRevision] = useState(0);
@@ -99,11 +98,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   useEffect(() => {
     if (!userId || !key || !enabled) return;
     let active = true;
-    const cached = readSharedTaskCache(userId, scope);
-    setState(cached);
-    setLoadedKey(key);
     if (!online) return () => { active = false; };
-    setBusy(true);
     void listSharedTasks(scope).then(items => {
       if (!active) return;
       writeSharedTaskCache(userId, scope, items);
@@ -112,9 +107,10 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
       setError('');
     }).catch(cause => {
       if (!active) return;
-      // Offline cached membership is only stale reference, never remote authority.
+      // Keep reference-only cached data visible until the next authorized online read.
       setError(cause instanceof Error ? cause.message : 'Shared tasks unavailable');
-    }).finally(() => { if (active) setBusy(false); });
+      setLoadedKey(key);
+    });
     return () => { active = false; };
   }, [userId, key, scope, online, enabled]);
 
@@ -155,7 +151,10 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   }, [reload]);
 
   // The account-scoped key prevents a retained view showing a prior user's data.
-  const items = loadedKey === key ? state : [];
+  const cachedItems = useMemo(() => userId ? readSharedTaskCache(userId, scope) : [],
+    [userId, scope]);
+  const items = useMemo(() => loadedKey === key ? state : cachedItems,
+    [loadedKey, key, state, cachedItems]);
   const activeItems = useMemo(() => items.filter(item => item.status === 'accepted'), [items]);
   const pendingFor = useCallback((taskId: string) => {
     void queueRevision;
@@ -163,7 +162,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   }, [queueRevision, userId]);
 
   return {
-    items, activeItems, isLoading: busy, error, online, pendingFor,
+    items, activeItems, isLoading: Boolean(online && enabled && key && loadedKey !== key), error, online, pendingFor,
     lastMutation, invite, updateCompletion, updateMembership, reload,
   };
 }

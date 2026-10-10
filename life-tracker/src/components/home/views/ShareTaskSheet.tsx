@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { useFriends } from '../../../hooks/useFriends';
 import { useSharedTasks } from '../../../hooks/useSharedTasks';
@@ -18,10 +18,6 @@ export const ShareTaskSheet: React.FC<ShareTaskSheetProps> = ({
     isLoading, reload } = useSharedTasks('owned', isOpen);
   const [workingId, setWorkingId] = useState('');
   const [feedback, setFeedback] = useState('');
-
-  useEffect(() => {
-    if (isOpen) setFeedback('');
-  }, [isOpen]);
 
   const members = task ? items.filter(item => item.taskId === task.id &&
     item.ownerId === task.userId) : [];
@@ -52,8 +48,9 @@ export const ShareTaskSheet: React.FC<ShareTaskSheetProps> = ({
     }
   };
 
+  const close = () => { setFeedback(''); onClose(); };
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Share task" height="auto" backdropBlur>
+    <BottomSheet isOpen={isOpen} onClose={close} title="Share task" height="auto" backdropBlur>
       <div className="space-y-4 px-4 pb-8 pt-2">
         <p className="text-sm text-gray-300">
           Share this task's title, date and completion with friends. Memo, photos and

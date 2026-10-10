@@ -1043,7 +1043,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       void verifyLiveSession(true);
       return false;
     }
-  }, [suspendCurrentAccountWork, verifyLiveSession]);
+  }, [suspendCurrentAccountWork, verifyLiveSession, userId]);
 
   const deleteAccount = useCallback(
     async (confirmation: string): Promise<boolean> => {

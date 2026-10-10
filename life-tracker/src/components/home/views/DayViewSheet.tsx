@@ -503,15 +503,16 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const handleCloseActions = useCallback(() => {
     setIsActionSheetOpen(false);
   }, []);
+  const updateSharedCompletion = sharedTasks.updateCompletion;
   const handleSharedCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
     try {
-      const result = await sharedTasks.updateCompletion(item, desired);
+      const result = await updateSharedCompletion(item, desired);
       if (result.status === 'pending') showFeedback('Shared completion queued for sync.');
       if (result.status === 'rejected') showFeedback(result.reason || 'Shared completion failed.');
     } catch (error) {
       showFeedback(error instanceof Error ? error.message : 'Shared completion failed.');
     }
-  }, [sharedTasks.updateCompletion, showFeedback]);
+  }, [updateSharedCompletion, showFeedback]);
 
   const handleOpenMemo = useCallback(
     (task: TaskDocument, mode: 'view' | 'edit' = 'view') => {
