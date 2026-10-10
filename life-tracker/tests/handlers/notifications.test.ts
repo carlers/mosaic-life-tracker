@@ -109,7 +109,7 @@ describe('notifications backend', () => {
           if (tableId === 'tasks') return {
             $id: 'task_offline', user_id: 'user_a', category_id: 'cat_1',
             visibility: '', is_completed: true,
-            completed_at: '2026-10-08T12:00:00.000Z',
+            completed_at: '2026-10-08T12:00:00.000Z', date: '2026-10-08',
             deleted: false, source: '',
           };
           if (tableId === 'categories') {
@@ -206,7 +206,7 @@ describe('notifications backend', () => {
         if (tableId === 'tasks') return {
           $id: 'task_1', user_id: 'user_a', category_id: 'cat_1',
           visibility: '', is_completed: true, completed_at: completedAt,
-          deleted: false, source: '', title: 'Ship alerts',
+          date: '2026-10-10', deleted: false, source: '', title: 'Ship alerts',
         };
         throw Object.assign(new Error('not found'), { code: 404 });
       }),
