@@ -52,11 +52,11 @@ export const MessageComposer = forwardRef<
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const counterId = useId();
 
+    // Reply intent, not merely opening a chat, focuses the field by default.
+    // A reply chosen from a BottomSheet is also refocused after the sheet exits.
     useEffect(() => {
-      if (replyTo) {
-        setTimeout(() => inputRef.current?.focus(), 30);
-      }
-    }, [replyTo]);
+      if (replyTo && !disabled) inputRef.current?.focus({ preventScroll: true });
+    }, [replyTo, disabled]);
 
     useImperativeHandle(
       ref,

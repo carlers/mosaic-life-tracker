@@ -7,12 +7,14 @@ interface Props {
   label: string;
   autoplay?: boolean;
   reducedMotion?: boolean;
+  /** Noninteractive single-frame thumbnail safe inside a quoted-message button. */
+  compact?: boolean;
 }
 type AssetState = { id: string; image?: Awaited<ReturnType<typeof getGiphySticker>>; failed?: boolean };
 
 /** A static sticker until the user opts into animation. Never stores provider URLs. */
 export const GiphyStickerImage: React.FC<Props> = ({
-  id, label, autoplay = false, reducedMotion = false,
+  id, label, autoplay = false, reducedMotion = false, compact = false,
 }) => {
   const root = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
@@ -50,11 +52,25 @@ export const GiphyStickerImage: React.FC<Props> = ({
   // an explicit user tap from playing a sticker.
   const playing = playOverride?.id === id
     ? playOverride.playing : autoplay && !reducedMotion;
-  const src = image ? (playing ? image.animatedUrl : image.displayUrl) : null;
+  const src = image ? (compact ? image.previewUrl : playing ? image.animatedUrl : image.displayUrl) : null;
   const failedSrc = failedAsset?.id === id ? failedAsset.url : null;
   return (
-    <div ref={root} className="min-h-20 min-w-28">
-      {image && src && failedSrc !== src ? (
+    <div ref={root} className={compact ? "shrink-0" : "min-h-20 min-w-28"}>
+      {compact ? (
+        image && src && failedSrc !== src ? (
+          <span className="inline-flex w-12 flex-col items-center">
+            <img src={src} alt={label} width={44} height={44}
+              onLoad={() => sendGiphyAnalytics(image, 'onload')}
+              onError={() => setFailedAsset({ id, url: src })}
+              loading="lazy" decoding="async" className="h-11 w-11 object-contain" />
+            <span className="text-[9px] font-bold text-gray-400">GIPHY</span>
+          </span>
+        ) : (
+          <span role="status" className="flex h-11 w-11 items-center justify-center text-[9px] text-gray-400">
+            {!giphyEnabled || state?.id === id && state.failed || failedSrc === src ? 'Unavailable' : 'Loading…'}
+          </span>
+        )
+      ) : image && src && failedSrc !== src ? (
         <div className="relative inline-block max-w-36">
           <img src={src} alt={label} width={140} height={140}
             onLoad={() => sendGiphyAnalytics(image, 'onload')}
@@ -81,10 +97,12 @@ export const GiphyStickerImage: React.FC<Props> = ({
             : 'Loading sticker: ' + label}
         </span>
       )}
-      <a href={image?.pageUrl ?? "https://giphy.com"} target="_blank" rel="noopener noreferrer"
-        className="mt-1 inline-block rounded bg-black px-1.5 py-0.5 text-[10px] font-bold text-white">
-        Powered by GIPHY{image?.creator ? ' · @' + image.creator : ''}
-      </a>
+      {!compact && (
+        <a href={image?.pageUrl ?? "https://giphy.com"} target="_blank" rel="noopener noreferrer"
+          className="mt-1 inline-block rounded bg-black px-1.5 py-0.5 text-[10px] font-bold text-white">
+          Powered by GIPHY{image?.creator ? ' · @' + image.creator : ''}
+        </a>
+      )}
     </div>
   );
 };

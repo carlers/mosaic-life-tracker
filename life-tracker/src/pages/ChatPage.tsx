@@ -78,6 +78,7 @@ export const ChatPage: React.FC = () => {
   );
 
   const composerRef = useRef<MessageComposerHandle>(null);
+  const focusAfterActionReplyRef = useRef(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
@@ -275,8 +276,9 @@ export const ChatPage: React.FC = () => {
         senderName: resolveSenderName(actionMessage.senderId),
         content: actionMessage.content,
       });
+      // The action sheet traps focus until its exit animation completes.
+      focusAfterActionReplyRef.current = true;
       setActionMessageId(null);
-      setTimeout(() => composerRef.current?.focus(), 50);
     }
   };
 
@@ -385,7 +387,6 @@ export const ChatPage: React.FC = () => {
                         senderName: resolveSenderName(m.senderId),
                         content: m.content,
                       });
-                      setTimeout(() => composerRef.current?.focus(), 50);
                     }}
                     gesturesDisabled={!!actionMessage || !!reactionTarget || !!unsendTarget}
                   />
@@ -436,6 +437,16 @@ export const ChatPage: React.FC = () => {
         isOwn={actionMessage?.senderId === myUserId}
         currentUserId={myUserId}
         onReply={handleReplyFromSheet}
+        onClosed={() => {
+          if (!focusAfterActionReplyRef.current) return;
+          focusAfterActionReplyRef.current = false;
+          // BottomSheet restores the previous focus on the frame after releasing
+          // app inertness. Focus the composer after that restoration, not during
+          // the sheet's closing animation.
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            composerRef.current?.focus();
+          }));
+        }}
         onCopy={() => {
           if (actionMessage) {
             navigator.clipboard.writeText(actionMessage.content);
