@@ -18,5 +18,9 @@ Integration task branch: `chatgpt/release-history-dev-integration`. Stable Previ
 - Manual authenticated phone/Android Back/swipe, Light/Dark/Black, offline cache and exact-origin Scratch preview remain separate checks and cannot be claimed as passed without evidence. Scratch Appwrite rejects additional exact Web platform registrations due to Free-plan platform quota; dev has an existing registered alias.
 - Production `main` stays unchanged. GitHub public Releases/tag list is still empty; creating production GitHub Releases is not part of this authorization, and #476 remains open until actual main release.
 
+## Measured combined build-size diagnostic
+
+Full task diagnostic [Actions 38012678389](https://github.com/carlers/mosaic-life-tracker/actions/runs/38012678389) compiled TypeScript/Vite/PWA and passed unit and both DOM shards; combined assets exceeded previous `dev` aggregate limits by **6,513 B raw**, **2,085 B gzip** and **6,484 B precache**. Entry raw 439,785/444,400 B, entry gzip 130,807/131,600 B, initial closure 143,493/143,700 B and Home closure 352,744/357,000 B all passed. Review-only aggregate limits updated to raw **2,321,000 B**, gzip **715,100 B**, precache **2,403,900 B**, retaining 1,987/1,315/2,016 B measured headroom respectively. `buildSizeGuard.test.ts` is updated to match; historical baseline and all startup/Home ceilings stay untouched. Real Preview/Vercel build variance still requires exact-SHA verification.
+
 ## Next action
 Finish combined source/tree, run measured task CI, repair and reverify, then stable Preview CI/Vercel, and authorized `dev` PR promotion.
