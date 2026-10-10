@@ -17,13 +17,9 @@ export const GiphyStickerImage: React.FC<Props> = ({
   const root = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
   const [state, setState] = useState<AssetState | null>(null);
-  const [playOverride, setPlayOverride] = useState<boolean | null>(null);
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-
-  useEffect(() => {
-    setPlayOverride(null);
-    setFailedSrc(null);
-  }, [id]);
+  // Key local playback/error state by sticker ID without a reset effect.
+  const [playOverride, setPlayOverride] = useState<{ id: string; playing: boolean } | null>(null);
+  const [failedAsset, setFailedAsset] = useState<{ id: string; url: string } | null>(null);
 
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return;
@@ -52,8 +48,10 @@ export const GiphyStickerImage: React.FC<Props> = ({
   const image = state?.id === id ? state.image : null;
   // Reduce Motion always suppresses automatic playback, but does not prevent
   // an explicit user tap from playing a sticker.
-  const playing = playOverride ?? (autoplay && !reducedMotion);
+  const playing = playOverride?.id === id
+    ? playOverride.playing : autoplay && !reducedMotion;
   const src = image ? (playing ? image.animatedUrl : image.displayUrl) : null;
+  const failedSrc = failedAsset?.id === id ? failedAsset.url : null;
   return (
     <div ref={root} className="min-h-20 min-w-28">
       {image && src && failedSrc !== src ? (
@@ -61,12 +59,12 @@ export const GiphyStickerImage: React.FC<Props> = ({
           type="button"
           aria-label={(playing ? 'Pause' : 'Play') + ' animation: ' + label}
           aria-pressed={playing}
-          onClick={event => { event.stopPropagation(); setPlayOverride(!playing); }}
+          onClick={event => { event.stopPropagation(); setPlayOverride({ id, playing: !playing }); }}
           className="relative block max-w-36 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
         >
           <img src={src} alt={label} width={140} height={140}
             onLoad={() => sendGiphyAnalytics(image, 'onload')}
-            onError={() => setFailedSrc(src)}
+            onError={() => setFailedAsset({ id, url: src })}
             loading="lazy" decoding="async" className="max-h-36 max-w-36 object-contain" />
           <span aria-hidden="true" className="absolute bottom-1 right-1 rounded-md bg-black/70 p-1 text-white">
             {playing ? <Pause size={13} /> : <Play size={13} />}
