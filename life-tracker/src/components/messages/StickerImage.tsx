@@ -23,8 +23,11 @@ export function StickerImage({ fileId, viewerId, label, size = 'message', onRead
     const element = container.current;
     if (!element || !viewerId) return;
     if (typeof IntersectionObserver === 'undefined') {
-      setVisibleKey(key);
-      return;
+      let active = true;
+      queueMicrotask(() => {
+        if (active) setVisibleKey(key);
+      });
+      return () => { active = false; };
     }
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) {
