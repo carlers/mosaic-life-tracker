@@ -14,10 +14,13 @@ Scope: UI, typed text envelope, existing Settings replication row and existing f
 - Do not bundle Pusheen/Sanrio/Adventure Time imagery without rights. Later packs require separate licensing/original-art review.
 
 ## Work and verification status
-- GitHub task branch created from exact dev SHA.
+- GitHub task branch created from exact dev SHA. Added native PNG/WebP/JPEG clipboard image paste in chat as a second phone import path (when the browser actually exposes the clipboard image); picker imports it into the same private library without automatically sending.
 - Source changes staged as Git blobs, pending task commit and CI: `stickerProtocol`, `stickerStorage`, `useStickers`, picker/image components, ChatPage/MessageComposer/MessageBubble/ConversationRow/ReplyPreview/MessageActionSheet/search, delivery guard, version/docs and regression tests.
 - Initial exact-SHA full CI diagnostic (Actions 38015582873): TypeScript/Vite/PWA compiled, browser contracts and both DOM shards passed, dependency audit passed. Lint failed on an unnecessary regex escape and missing caught-error cause; build-size aggregate exceeded prior limits by raw 11,165 B, gzip 3,572 B, precache 11,408 B. Repairs: eliminate both lint errors; dynamically import sticker storage only on sticker delivery to spare Home/startup closure; adjust **aggregate only** limits to measured feature growth with ~2-3 KiB headroom. Entry/startup/Home ceilings unchanged. No local npm/device check in the GitHub-only connector environment.
 - Required next: create coherent commit (size headroom on dev is ~2 KiB aggregate); one measured full CI diagnostic for TypeScript/build-size, fix failures, request focused task SHA, squash to stable Preview and await canonical CI/Vercel READY. Verify Scratch file permissions and two disposable accounts before claiming delivery. `dev` and `main` promotions require separate explicit authorization.
+
+## Next action
+Run focused task verification on the paste/contract repair, then squash to stable Preview and complete full CI/Vercel. Scratch bucket file security and owner-only bucket create permission have been read-only verified; disposable two-account client read/write and physical phone import/transparency remain unverified.
 
 ## Blockers/limitations
 - Scratch registered Preview origin capacity is constrained on Appwrite Free; only use a registered stable Vercel alias.

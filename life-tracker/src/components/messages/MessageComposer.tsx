@@ -20,6 +20,7 @@ interface ReplyToContext {
 interface MessageComposerProps {
   onSend: (content: string) => void;
   onOpenStickers?: () => void;
+  onPasteSticker?: (file: File) => void;
   disabled?: boolean;
   placeholder?: string;
   replyTo?: ReplyToContext | null;
@@ -41,6 +42,7 @@ export const MessageComposer = forwardRef<
     {
       onSend,
       onOpenStickers,
+      onPasteSticker,
       disabled = false,
       placeholder = 'Message…',
       replyTo = null,
@@ -112,6 +114,14 @@ export const MessageComposer = forwardRef<
               ref={inputRef}
               value={value}
               onChange={(e) => setValue(e.target.value.slice(0, MAX_LENGTH))}
+              onPaste={event => {
+                const image = Array.from(event.clipboardData.files)
+                  .find(file => ['image/png', 'image/webp', 'image/jpeg'].includes(file.type));
+                if (image && onPasteSticker && !disabled) {
+                  event.preventDefault();
+                  onPasteSticker(image);
+                }
+              }
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               rows={1}

@@ -72,6 +72,7 @@ export const ChatPage: React.FC = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const [stickerPickerOpen, setStickerPickerOpen] = useState(false);
+  const [pastedStickerFile, setPastedStickerFile] = useState<File | null>(null);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
@@ -383,6 +384,7 @@ export const ChatPage: React.FC = () => {
           ref={composerRef}
           onSend={handleSend}
           onOpenStickers={() => setStickerPickerOpen(true)}
+          onPasteSticker={file => { setPastedStickerFile(file); setStickerPickerOpen(true); }}
           disabled={!friendId}
           placeholder="Message..."
           replyTo={replyTo}
@@ -421,6 +423,8 @@ export const ChatPage: React.FC = () => {
         isOpen={stickerPickerOpen}
         onClose={() => setStickerPickerOpen(false)}
         onPick={handleSendSticker}
+        initialFile={pastedStickerFile}
+        onInitialFileHandled={() => setPastedStickerFile(null)}
         userId={myUserId}
       />
       <EmojiPickerSheet

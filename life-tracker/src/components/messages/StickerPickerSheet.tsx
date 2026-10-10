@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { StickerImage } from './StickerImage';
@@ -10,6 +10,8 @@ interface StickerPickerSheetProps {
   onClose: () => void;
   onPick: (sticker: SavedSticker) => Promise<void>;
   userId: string;
+  initialFile?: File | null;
+  onInitialFileHandled?: () => void;
 }
 
 function StickerTile({ sticker, userId, onPick, onRemove, disabled }: {
@@ -38,13 +40,14 @@ function StickerTile({ sticker, userId, onPick, onRemove, disabled }: {
 }
 
 export const StickerPickerSheet: React.FC<StickerPickerSheetProps> = ({
-  isOpen, onClose, onPick, userId,
+  isOpen, onClose, onPick, userId, initialFile = null, onInitialFileHandled,
 }) => {
   const { stickers, isLoading, addSticker, removeSticker } = useStickers();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [label, setLabel] = useState('');
-  const importFile = async (file: File | undefined) => {
+  const seenClipboardFile = useRef<File | null>(null);
+  const importFile = useCallback(async (file: File | undefined) => {
     if (!file || busy) return;
     setBusy(true); setError(null);
     try {
@@ -56,7 +59,13 @@ export const StickerPickerSheet: React.FC<StickerPickerSheetProps> = ({
     } finally {
       setBusy(false);
     }
-  };
+  }, [busy, addSticker, label]);
+  useEffect(() => {
+    if (!isOpen || !initialFile || busy || seenClipboardFile.current === initialFile) return;
+    seenClipboardFile.current = initialFile;
+    onInitialFileHandled?.();
+    void importFile(initialFile);
+  }, [isOpen, initialFile, busy, onInitialFileHandled, importFile]);
   const send = async (sticker: SavedSticker) => {
     if (busy) return;
     setBusy(true); setError(null);
