@@ -36,6 +36,25 @@ describe('MessageComposer', () => {
     expect(document.activeElement).not.toBe(textarea);
   });
 
+  it('automatically focuses the composer when a reply starts, but never on plain chat entry', () => {
+    const { rerender } = render(<MessageComposer onSend={vi.fn()} />);
+    const textarea = screen.getByRole('textbox', { name: 'Message' });
+    expect(document.activeElement).not.toBe(textarea);
+
+    rerender(<MessageComposer onSend={vi.fn()} replyTo={{
+      id: 'first', senderId: 'friend', senderName: 'Friend', content: 'Hello',
+    }} />);
+    expect(document.activeElement).toBe(textarea);
+
+    // Replying to a different message also returns focus after another control
+    // has been used, without a fragile setTimeout guess.
+    textarea.blur();
+    rerender(<MessageComposer onSend={vi.fn()} replyTo={{
+      id: 'second', senderId: 'friend', senderName: 'Friend', content: 'Hi',
+    }} />);
+    expect(document.activeElement).toBe(textarea);
+  });
+
   it('send button is disabled when input is empty', () => {
     const onSend = vi.fn();
     render(<MessageComposer onSend={onSend} />);

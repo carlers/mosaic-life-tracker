@@ -11,6 +11,7 @@ import {
   ListPlus,
   Palette,
   Tag,
+  Sticker,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppearance } from '../hooks/useAppearance';
@@ -28,6 +29,7 @@ import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
+  GIPHY_AUTOPLAY_SETTING_KEY,
   TASK_COMPLETION_SORT_SETTING_KEY,
   ESCAPE_AS_BACK_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
@@ -214,6 +216,7 @@ export const PreferencesPage: React.FC = () => {
   const escapeAsBack = getSetting(ESCAPE_AS_BACK_SETTING_KEY, false) === true;
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
+  const giphyAutoplay = getSetting(GIPHY_AUTOPLAY_SETTING_KEY, false) === true;
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
   const taskSortMode = resolveTaskCompletionSortMode(
@@ -438,6 +441,15 @@ export const PreferencesPage: React.FC = () => {
             isToggle
             checked={reduceAnimations}
             onClick={() => void setReduceAnimations(!reduceAnimations)}
+          />
+          <SettingsRow
+            icon={<Sticker size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Autoplay GIPHY stickers"
+            value="Off by default; Reduce animations or device motion settings take priority."
+            showChevron={false}
+            isToggle
+            checked={giphyAutoplay}
+            onClick={() => void setSetting(GIPHY_AUTOPLAY_SETTING_KEY, !giphyAutoplay)}
           />
         </section>
         <section className="border-b border-[#333333] px-4 py-5">
