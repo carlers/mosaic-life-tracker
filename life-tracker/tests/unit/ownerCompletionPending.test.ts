@@ -3,7 +3,7 @@ import {
   readOwnerCompletionPending, markOwnerCompletionPending,
   restoreOwnerCompletionPending, pendingOwnerCompletionIds,
   acknowledgeOwnerCompletionSent, rejectOwnerCompletionPending,
-  clearOwnerCompletionPending,
+  clearOwnerCompletionPending, hasCachedOwnedSharedTask,
 } from '../../src/lib/ownerCompletionPending';
 
 describe('shared owner completion presentation receipts', () => {
@@ -56,6 +56,18 @@ describe('shared owner completion presentation receipts', () => {
     markOwnerCompletionPending('owner_a', 'task_2', true, '2026-10-10T09:00:01.000Z');
     rejectOwnerCompletionPending('owner_a', 'task_1');
     expect(pendingOwnerCompletionIds('owner_a')).toEqual(new Set(['task_2']));
+  });
+
+
+  it('finds only cached owned shared tasks without loading the network hook', () => {
+    data.set('mosaic_shared_tasks_cache_v1:owner_a:owned', JSON.stringify([
+      { taskId: 'task_1', status: 'accepted' },
+      { taskId: 'task_2', status: 'pending' },
+    ]));
+    expect(hasCachedOwnedSharedTask('owner_a', 'task_1')).toBe(true);
+    expect(hasCachedOwnedSharedTask('owner_a', 'task_2')).toBe(true);
+    expect(hasCachedOwnedSharedTask('owner_b', 'task_1')).toBe(false);
+    expect(hasCachedOwnedSharedTask('owner_a', 'task_3')).toBe(false);
   });
 
   it('refuses malformed or oversized caches instead of claiming delivery', () => {
