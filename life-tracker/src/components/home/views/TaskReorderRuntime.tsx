@@ -77,6 +77,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
 
   const dragSessionRef = React.useRef<DragSession | null>(null);
   const sharedDragRef = React.useRef<SharedTaskItem | null>(null);
+  const sharedTargetRef = React.useRef<string | null>(null);
   const [activeSharedDrag, setActiveSharedDrag] = React.useState<SharedTaskItem | null>(null);
   const commitIdRef = React.useRef(0);
 
@@ -125,6 +126,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       if (!taskById.has(taskId)) {
         const shared = props.sharedItems?.find(item => item.id === taskId && item.status === 'accepted');
         if (shared) {
+          sharedTargetRef.current = null;
           sharedDragRef.current = shared;
           setActiveSharedDrag(shared);
           onReorderActiveChange?.(true);
@@ -172,6 +174,12 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     ) => {
       const session = dragSessionRef.current;
       const { source, target } = event.operation;
+      if (sharedDragRef.current) {
+        const key = target ? String(target.id) : null;
+        const drop = key ? parseDropTarget(key) : null;
+        sharedTargetRef.current = drop && categoryIds.includes(drop.categoryId) ? key : null;
+        return;
+      }
       if (!session || !source) return;
 
       if (!target) {
@@ -218,7 +226,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       setActiveSharedDrag(null);
       if (draggedShared) {
         const target = event.operation.target;
-        const drop = target && parseDropTarget(String(target.id));
+        const targetKey = target ? String(target.id) : sharedTargetRef.current;
+        sharedTargetRef.current = null;
+        const drop = targetKey && parseDropTarget(targetKey);
         if (!event.canceled && drop && categoryIds.includes(drop.categoryId) && props.onMoveSharedTask) {
           void Promise.resolve(props.onMoveSharedTask(
             draggedShared, drop.categoryId, ('taskId' in drop ? drop.taskId || '' : ''), drop.position,

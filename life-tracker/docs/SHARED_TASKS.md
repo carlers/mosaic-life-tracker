@@ -56,3 +56,20 @@ remains independent from title gestures. When reorder mode is active, long-press
 the title (~500ms) to drag; the source row hides during drag and the overlay
 uses the same task silhouette and category color. This keeps the server-owned
 minimal projection and all owner-private data boundaries unchanged.
+
+## Recipient placement and date selection (v0.14.4)
+
+The recipient action sheet is hosted at DaySlideContent rather than inside a
+category row, so moving a share between personal categories cannot unmount
+the open action sheet or advance the Day View Swiper. All shared action/date
+sheets lock background Day View swiping. Drop targets are validated and
+remembered through drag release; before/after drops among shared rows preserve
+recipient ordering, and a drop onto a native task/header maps to the recipient
+shared segment of that category (not into the owner's task ordering). Updates
+remain recipient-owned account-synced settings.
+
+TaskDateCalendar is the single immediately visible date-selection default for
+ordinary-task, bulk-task, and permission-granted recipient shared-task Change
+Date actions. It displays the month grid on sheet open, with Today and jump-to-date
+controls; the existing server-side grant/revision authorization still governs
+global recipient date writes.

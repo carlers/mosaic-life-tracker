@@ -19,7 +19,7 @@ import { useOptionalFriendList } from '../../../hooks/useFriends';
 import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { editSharedTask } from '../../../lib/taskShareQueue';
-import { parseSharedPlacement, placementKey } from '../../../lib/sharedTaskPlacement';
+import { parseSharedPlacement, placementKey, planSharedTaskMove } from '../../../lib/sharedTaskPlacement';
 import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
 import { ImagePickerSheet } from './ImagePickerSheet';
@@ -145,6 +145,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const categories = categoriesOverride ?? hookCategories;
   const tasksByDate = useTasksByDate(tasks);
   const [ownerPendingRevision, setOwnerPendingRevision] = useState(0);
+  const [isSharedSheetOpen, setIsSharedSheetOpen] = useState(false);
   useEffect(() => subscribeOwnerCompletionPending(() => setOwnerPendingRevision(n => n + 1)), []);
   const pendingOwnedTaskIds = useMemo(() => pendingOwnerCompletionIds(currentUserId),
     [currentUserId, ownerPendingRevision]);
@@ -169,19 +170,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     categoryId: string, targetId: string, position: string) => {
     if (!validCategoryIds.has(categoryId)) throw new Error('Destination category unavailable');
     if (item.id === targetId) return;
-    const others = sharedTasks.activeItems.filter(other =>
-      other.id !== item.id && other.status === 'accepted' &&
-      other.date === item.date && sharedCategoryFor(other) === categoryId)
-      .sort((a,b) => sharedOrderFor(a) - sharedOrderFor(b));
-    const targetIndex = others.findIndex(other => other.id === targetId);
-    const insertAt = targetIndex >= 0
-      ? targetIndex + (position === 'after' ? 1 : 0)
-      : position === 'start' ? 0 : others.length;
-    others.splice(insertAt, 0, item);
-    // Single per-share settings rows preserve private placement across devices.
-    await Promise.all(others.map((entry, index) =>
-      setSetting(placementKey(entry.id), { categoryId, order: index * 10 })
-    ));
+    const updates = planSharedTaskMove(
+      item, categoryId, targetId,
+      position === 'start' || position === 'index' || position === 'after' || position === 'before'
+        ? position : 'start',
+      sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor,
+    );
+    // Distinct settings rows, but serialize the order to avoid stale RxDB
+    // projections racing against a same-moment gesture or sheet change.
+    for (const change of updates) {
+      await setSetting(placementKey(change.id), { categoryId: change.categoryId, order: change.order });
+    }
   }, [validCategoryIds, sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor, setSetting]);
   const assignSharedCategory = useCallback(async (item: SharedTaskItem, categoryId: string) => {
     if (categoryId && !validCategoryIds.has(categoryId)) throw new Error('Category unavailable');
@@ -752,6 +751,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const isBackgroundLocked =
     isActionSheetOpen ||
+    isSharedSheetOpen ||
     isShareSheetOpen ||
     isMemoOpen ||
     isDatePickerOpen ||
@@ -803,7 +803,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     <>
       <Swiper
         nested={renderMode === 'inline'}
-        allowTouchMove={!isTaskReorderActive}
+        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen}
         noSwiping={renderMode === 'sheet'}
         focusableElements={DAY_SWIPER_FOCUSABLE_ELEMENTS}
         touchStartPreventDefault={false}
@@ -928,6 +928,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       editValue={editValue}
                       onToggleTask={handleToggleTask}
                       sharedItems={sharedTasks.activeItems}
+                      onSharedSheetOpenChange={i === activeIndex ? setIsSharedSheetOpen : undefined}
                       sharedCategoryFor={sharedCategoryFor}
                       onAssignSharedCategory={assignSharedCategory}
                       onCopySharedTask={copySharedToMine}

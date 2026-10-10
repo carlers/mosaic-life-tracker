@@ -183,9 +183,9 @@ describe('build-size guard', () => {
     ));
 
     expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2368000,
-      appAssetsGzipBytes: 729000,
-      precacheUniqueBytes: 2452000,
+      appAssetsRawBytes: 2371000,
+      appAssetsGzipBytes: 730000,
+      precacheUniqueBytes: 2454000,
     });
   });
 
