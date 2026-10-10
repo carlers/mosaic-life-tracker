@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { isScheduledTask } = require('./task-placement');
 const { Query } = require('node-appwrite');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
@@ -248,7 +249,7 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
   // Validate the live task BEFORE creating any receipt or sending even a
   // generic push, not just before including task-title details in a push.
   const latestTask = await readRow(tablesDB, TASKS_TABLE, taskId);
-  if (!latestTask || latestTask.user_id !== actorId ||
+  if (!isScheduledTask(latestTask) || latestTask.user_id !== actorId ||
       latestTask.deleted === true || latestTask.is_completed !== true ||
       latestTask.completed_at !== completedAt ||
       latestTask.source === 'todomate') {
@@ -365,7 +366,7 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
 
       const task = await readRow(tablesDB, TASKS_TABLE, row.task_id);
       if (
-        !task ||
+        !isScheduledTask(task) ||
         task.deleted === true ||
         task.user_id !== row.actor_id ||
         task.is_completed !== true ||
@@ -446,7 +447,7 @@ async function handleGetNotification(tablesDB, callerId, payload) {
   const friendship = friends.get(row.actor_id);
   if (!friendship) return { status: 404, body: { error: 'Alert unavailable' } };
   const task = await readRow(tablesDB, TASKS_TABLE, row.task_id);
-  if (!task || task.deleted === true || task.user_id !== row.actor_id ||
+  if (!isScheduledTask(task) || task.deleted === true || task.user_id !== row.actor_id ||
       task.is_completed !== true || task.completed_at !== row.completed_at) {
     return { status: 404, body: { error: 'Alert unavailable' } };
   }
