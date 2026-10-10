@@ -25,10 +25,6 @@ import { useConnectivity } from "./useConnectivity";
 import { preloadHomePage } from "../lib/homePreload";
 import { scopeAccountWork } from "../lib/accountWorkScope";
 import {
-  scopeSharedTaskQueue, flushSharedCompletions, flushSharedMemberships, clearSharedCompletionQueue,
-} from "../lib/taskShareQueue";
-import { clearSharedTaskCache } from "./useSharedTasks";
-import {
   isValidUsername,
   normalizeUsername,
   USERNAME_REQUIREMENTS,
@@ -365,19 +361,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     scopeSyncStatusToUser(userId);
   }, [userId]);
 
+  // The sharing command engine is only needed after session startup; loading
+  // it lazily keeps the relatively large durable offline-queue code out of
+  // the initial unauthenticated app shell.
   useEffect(() => {
-    scopeSharedTaskQueue(userId);
-    return () => scopeSharedTaskQueue(null);
+    let active = true;
+    void import("../lib/taskShareQueue").then(({ scopeSharedTaskQueue }) => {
+      if (active) scopeSharedTaskQueue(userId);
+    }).catch(error => console.warn("[AuthProvider] Shared queue scope failed:", error));
+    return () => {
+      active = false;
+      void import("../lib/taskShareQueue").then(({ scopeSharedTaskQueue }) =>
+        scopeSharedTaskQueue(null)
+      ).catch(() => {});
+    };
   }, [userId]);
 
   useEffect(() => {
     if (!userId || connectivity.status !== "online") return;
-    void (async () => {
-      await flushSharedMemberships(userId);
-      await flushSharedCompletions(userId);
-    })().catch(error => {
-      console.warn("[AuthProvider] Shared action retry failed:", error);
+    let active = true;
+    void import("../lib/taskShareQueue").then(async queue => {
+      if (!active) return;
+      await queue.flushSharedMemberships(userId);
+      if (active) await queue.flushSharedCompletions(userId);
+    }).catch(error => {
+      if (active) console.warn("[AuthProvider] Shared action retry failed:", error);
     });
+    return () => { active = false; };
   }, [userId, connectivity.status]);
 
   useEffect(() => {
@@ -1028,8 +1038,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       scopeAccountWork(null);
       clearCachedUser();
       if (userId) {
-        clearSharedCompletionQueue(userId);
-        clearSharedTaskCache(userId);
+        try {
+          const [queue, shared] = await Promise.all([
+            import("../lib/taskShareQueue"), import("./useSharedTasks"),
+          ]);
+          queue.clearSharedCompletionQueue(userId);
+          shared.clearSharedTaskCache(userId);
+        } catch (error) {
+          console.warn("[AuthProvider] Shared cache logout cleanup failed:", error);
+        }
       }
       setUser(null);
       setIsLoading(false);
