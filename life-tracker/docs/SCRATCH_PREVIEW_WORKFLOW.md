@@ -168,3 +168,43 @@ Migration 009 adds optional, default-off booleans \`allow_title_edit\` and
 be changed without separate promotion/rollout authorization. Retain the
 revocable grant epoch and compare-and-set \`$updatedAt\` checks, and test denied
 actions, stale-client retries, friend revocation and older mobile clients.
+
+
+## Concurrent Preview / Scratch single-writer lane (#526)
+
+Frontend and local/CI testing can run on independent branches. Scratch is **one**
+project-wide runtime, so all active Previews share its Function code, tables,
+permissions, indexes and variables. A disposable user account isolates rows, not
+the backend contract.
+
+The **combined backend candidate** must include every in-flight Scratch
+consumer's server contracts before activation. In particular, Backlog #407's
+unscheduled-task privacy checks must coexist with shared-task #406's membership
+and permission handlers. A feature branch's Function archive is **not** safe to
+activate merely because its own focused checks passed.
+
+The repository's `.github/workflows/scratch-backend-activation.yml` is a
+manual, single-concurrency-group writer. After explicit approval and promotion
+of that workflow to `main`, supply an exact reviewed source SHA, the currently
+active Scratch deployment ID, and typed confirmation. It checks the live
+managed-state contract, runs unit/handler tests against the combined candidate,
+builds an **inactive** exact-SHA deployment, verifies the active ID did not
+change, activates it, and runs strict readiness against the new ID. It requires
+the `MOSAIC_SCRATCH_APPWRITE_API_KEY` Actions secret with narrowly scoped
+permissions; no secret is committed and missing credentials abort safely.
+
+Direct Scratch Function activation/configuration via
+`scripts/appwrite-function.mjs` now also requires
+`--expected-current-deployment <observed-id>` (or `none` for a verified
+empty slot). This detects stale agents, but **cannot atomically exclude**
+external Console/API writes between check and update. GitHub Actions
+`concurrency` also cannot lock direct CLI/Console writers: restrict API-key
+distribution and refrain from out-of-band Scratch mutations while an
+integration run is active. Schema migrations and config edits require the
+same coordinated lane and separate reviewed migration procedure; this
+activation workflow does not auto-apply migrations.
+
+After any Function activation, previously accepted backend-dependent Previews
+must revalidate their required server contract and authenticated scenarios.
+Static CI/Vercel READY alone is insufficient. Retain the previous deployment
+ID for a code rollback only if the current schema remains compatible.

@@ -34,6 +34,13 @@ export function parseFunctionCommand(argv = [], env = process.env) {
     );
   }
   const deploymentId = flagValue(argv, '--deployment');
+  const expectedCurrentDeploymentId = flagValue(argv, '--expected-current-deployment');
+  // The shared Scratch project has one active Function for all stable Previews.
+  // Refuse blind activation/configuration from a stale checkout.
+  if (target.projectId === '6a96e82d000d1310b3be' &&
+      ['configure', 'activate'].includes(action) && !expectedCurrentDeploymentId) {
+    throw new Error('Scratch Function writes require --expected-current-deployment from the reviewed live state.');
+  }
   const gitSha = flagValue(argv, '--git-sha');
   if (action === 'deploy' && !/^[0-9a-f]{7,64}$/i.test(gitSha)) {
     throw new Error('Deploy requires --git-sha <commit SHA>.');
@@ -49,6 +56,7 @@ export function parseFunctionCommand(argv = [], env = process.env) {
     functionName,
     functionId: flagValue(argv, '--function-id'),
     deploymentId,
+    expectedCurrentDeploymentId,
     gitSha,
   };
 }
@@ -121,12 +129,25 @@ async function waitForReady(
   );
 }
 
+export function assertExpectedCurrentDeployment(current, expected, intended = '') {
+  if (!expected) return;
+  const active = current.deploymentId || current.deployment || '';
+  const normalized = expected === 'none' ? '' : expected;
+  if (active !== normalized && (!intended || active !== intended)) {
+    throw new Error(
+      `Scratch Function changed: expected active ${expected}, found ${active || 'none'}. Reconcile all Preview consumers before retrying.`
+    );
+  }
+}
+
 export async function configureFunctionDefinition({
   functions,
   definition,
   functionId,
+  expectedCurrentDeploymentId = '',
 }) {
   const current = await functions.get({ functionId });
+  assertExpectedCurrentDeployment(current, expectedCurrentDeploymentId);
   const config = definition.config;
   await functions.update({
     functionId,
@@ -222,7 +243,12 @@ export async function activateFunctionVersion({
   functions,
   functionId,
   deploymentId,
+  expectedCurrentDeploymentId = '',
 }) {
+  if (expectedCurrentDeploymentId) {
+    const before = await functions.get({ functionId });
+    assertExpectedCurrentDeployment(before, expectedCurrentDeploymentId, deploymentId);
+  }
   const deployment = await functions.getDeployment({
     functionId,
     deploymentId,
@@ -233,6 +259,13 @@ export async function activateFunctionVersion({
     );
   }
   if (deployment.status !== 'active') {
+    // Recheck immediately before activation; the GitHub Actions lane serializes
+    // cooperative writers, while this check detects external intervening changes.
+    // This is not an Appwrite transaction/CAS against Console writes.
+    if (expectedCurrentDeploymentId) {
+      const beforeUpdate = await functions.get({ functionId });
+      assertExpectedCurrentDeployment(beforeUpdate, expectedCurrentDeploymentId, deploymentId);
+    }
     await functions.updateFunctionDeployment({
       functionId,
       deploymentId,
@@ -274,6 +307,7 @@ export async function runAppwriteFunctionCli({
       functions: resolvedServices.functions,
       definition,
       functionId,
+      expectedCurrentDeploymentId: config.expectedCurrentDeploymentId,
     });
     log(
       `Configured: function=${functionId} events=${result.events.length}. Deployment traffic unchanged.`
@@ -304,6 +338,7 @@ export async function runAppwriteFunctionCli({
     functions: resolvedServices.functions,
     functionId,
     deploymentId: config.deploymentId,
+    expectedCurrentDeploymentId: config.expectedCurrentDeploymentId,
   });
   log(
     `Active: function=${functionId} deployment=${result.deploymentId}.`

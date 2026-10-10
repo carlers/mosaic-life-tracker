@@ -296,3 +296,43 @@ the scratch project when real callback/webhook infrastructure is required.
 - `008-friendship-permissions` — **manual explicit-only security repair**, not part of automatic Scratch Preview preparation. The read-only Scratch check on 2026-10-10 found the legacy `create("users")` permission on `friendships`; the Git manifest requires `[]` because reciprocal friendship status is Function-owned. This narrow idempotent migration checks the existing table shape and indexes first, refuses unknown grants, removes only the known broad create permission, and confirms read-back. Execute with `appwrite:migrate -- --only 008-friendship-permissions --project 6a96e82d000d1310b3be --confirm-project 6a96e82d000d1310b3be` **with explicit Scratch endpoint and appropriately scoped Scratch API key in environment**. This is not authorized against Production by a Scratch acceptance. Legacy clients that created friendship rows directly can no longer do so; verify server-managed friendship flows and stale-client failure safety. After repair, `appwrite:preview:prepare --apply` may proceed with the additive migration 007.
 
 Migration 008 is programmatically excluded from **both** default CLI `selectMigrations()` and default `runAppwriteMigrations()`; only `--only 008-friendship-permissions` opts into it after the explicit project and confirm checks. Do not rely on a prose warning alone for this boundary.
+
+
+## Concurrent Preview / Scratch single-writer lane (#526)
+
+Frontend and local/CI testing can run on independent branches. Scratch is **one**
+project-wide runtime, so all active Previews share its Function code, tables,
+permissions, indexes and variables. A disposable user account isolates rows, not
+the backend contract.
+
+The **combined backend candidate** must include every in-flight Scratch
+consumer's server contracts before activation. In particular, Backlog #407's
+unscheduled-task privacy checks must coexist with shared-task #406's membership
+and permission handlers. A feature branch's Function archive is **not** safe to
+activate merely because its own focused checks passed.
+
+The repository's `.github/workflows/scratch-backend-activation.yml` is a
+manual, single-concurrency-group writer. After explicit approval and promotion
+of that workflow to `main`, supply an exact reviewed source SHA, the currently
+active Scratch deployment ID, and typed confirmation. It checks the live
+managed-state contract, runs unit/handler tests against the combined candidate,
+builds an **inactive** exact-SHA deployment, verifies the active ID did not
+change, activates it, and runs strict readiness against the new ID. It requires
+the `MOSAIC_SCRATCH_APPWRITE_API_KEY` Actions secret with narrowly scoped
+permissions; no secret is committed and missing credentials abort safely.
+
+Direct Scratch Function activation/configuration via
+`scripts/appwrite-function.mjs` now also requires
+`--expected-current-deployment <observed-id>` (or `none` for a verified
+empty slot). This detects stale agents, but **cannot atomically exclude**
+external Console/API writes between check and update. GitHub Actions
+`concurrency` also cannot lock direct CLI/Console writers: restrict API-key
+distribution and refrain from out-of-band Scratch mutations while an
+integration run is active. Schema migrations and config edits require the
+same coordinated lane and separate reviewed migration procedure; this
+activation workflow does not auto-apply migrations.
+
+After any Function activation, previously accepted backend-dependent Previews
+must revalidate their required server contract and authenticated scenarios.
+Static CI/Vercel READY alone is insufficient. Retain the previous deployment
+ID for a code rollback only if the current schema remains compatible.
