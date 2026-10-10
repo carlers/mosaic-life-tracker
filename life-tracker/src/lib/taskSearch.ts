@@ -6,6 +6,7 @@ import {
   startOfWeek,
 } from 'date-fns';
 import type { TaskDocument } from '../db/schema';
+import { isScheduledTaskDate } from './taskPlacement';
 
 export type TaskSearchDateFilter =
   | 'any'
@@ -42,7 +43,8 @@ function matchesDate(
   customStart = '',
   customEnd = ''
 ): boolean {
-  if (dateFilter === 'any') return true;
+  if (dateFilter === 'any') return taskDate === '' || isScheduledTaskDate(taskDate);
+  if (!isScheduledTaskDate(taskDate)) return false;
 
   if (dateFilter === 'today') {
     return taskDate === dateKey(now);

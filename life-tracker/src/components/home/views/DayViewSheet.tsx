@@ -573,6 +573,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setActiveTaskId(null);
   }, [activeTask, updateTask]);
 
+  const handleMoveToBacklog = useCallback(async () => {
+    if (!activeTask) return;
+    await updateTask(activeTask.id, { date: '' });
+    setActiveTaskId(null);
+  }, [activeTask, updateTask]);
+
   const handleRequestDeletePhoto = useCallback(() => {
     setDeletePhotoConfirmOpen(true);
     setIsActionSheetOpen(false);
@@ -944,6 +950,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onViewPhoto={handleOpenImageViewer}
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
+        onMoveToBacklog={handleMoveToBacklog}
       />
       <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />

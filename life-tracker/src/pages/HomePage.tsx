@@ -14,6 +14,12 @@ import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 
+const LazyBacklogSheet = React.lazy(() =>
+  import('../components/home/views/BacklogSheet').then(({ BacklogSheet }) => ({
+    default: BacklogSheet,
+  }))
+);
+
 const LazyDayViewSheet = React.lazy(() =>
   import('../components/home/views/DayViewSheet').then(({ DayViewSheet }) => ({
     default: DayViewSheet,
@@ -41,7 +47,7 @@ export const HomePage: React.FC = () => {
     hidden,
     isLoading: carouselLoading,
   } = useFriendCarousel();
-  const { tasks: ownerTasks = [], isLoading: tasksLoading } = useTasks();
+  const { tasks: ownerTasks = [], isLoading: tasksLoading, addTask, updateTask, toggleTaskCompletion } = useTasks();
   const {
     categories: ownerCategories = [],
     isLoading: categoriesLoading,
@@ -52,6 +58,9 @@ export const HomePage: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isBacklogOpen, setIsBacklogOpen] = useState(false);
+  const [backlogMounted, setBacklogMounted] = useState(false);
+  const [backlogFocusTaskId, setBacklogFocusTaskId] = useState<string | null>(null);
   const [searchDaySheetOpen, setSearchDaySheetOpen] = useState(false);
   const [searchSelectedDate, setSearchSelectedDate] = useState<Date | null>(
     null
@@ -195,7 +204,19 @@ export const HomePage: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isSearchOpen]);
 
+  const handleOpenBacklog = useCallback(() => {
+    setBacklogFocusTaskId(null);
+    setBacklogMounted(true);
+    setIsBacklogOpen(true);
+  }, []);
+
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
+    if (task.date === '') {
+      setBacklogFocusTaskId(task.id);
+      setBacklogMounted(true);
+      setIsBacklogOpen(true);
+      return;
+    }
     const date = parseISO(task.date);
     if (!isValid(date)) return;
     setSearchSelectedDate(date);
@@ -228,7 +249,7 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu />}
+          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} />}
         />
 
         <div inert={isSearchOpen ? true : undefined} className="flex-1 min-h-0 flex flex-col relative">
@@ -296,6 +317,21 @@ export const HomePage: React.FC = () => {
             onReorder={reorder}
             onToggleVisibility={toggleVisibility}
             onReset={resetOrder}
+          />
+        </React.Suspense>
+      )}
+
+      {backlogMounted && (
+        <React.Suspense fallback={null}>
+          <LazyBacklogSheet
+            isOpen={isBacklogOpen}
+            onClose={() => setIsBacklogOpen(false)}
+            tasks={ownerTasks}
+            categories={ownerCategories}
+            focusTaskId={backlogFocusTaskId}
+            onAddTask={addTask}
+            onUpdateTask={updateTask}
+            onToggleTask={toggleTaskCompletion}
           />
         </React.Suspense>
       )}

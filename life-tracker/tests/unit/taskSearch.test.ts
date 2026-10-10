@@ -25,6 +25,24 @@ function task(
 }
 
 describe('filterAndRankTasks', () => {
+  it('finds backlog tasks by title but excludes them from dated filters', () => {
+    const unscheduled = task('backlog', 'Renew passport', '');
+    const scheduled = task('scheduled', 'Renew passport', '2026-09-24');
+    const tasks = [unscheduled, scheduled];
+    expect(filterAndRankTasks(tasks, {
+      query: 'passport', categoryIds: [], dateFilter: 'any',
+      now: new Date('2026-09-24T12:00:00'),
+    }).results.map((item) => item.id)).toContain('backlog');
+    expect(filterAndRankTasks(tasks, {
+      query: 'passport', categoryIds: [], dateFilter: 'today',
+      now: new Date('2026-09-24T12:00:00'),
+    }).results.map((item) => item.id)).toEqual(['scheduled']);
+    expect(filterAndRankTasks([task('bad', 'Renew passport', '2026-02-30')], {
+      query: 'passport', categoryIds: [], dateFilter: 'any',
+      now: new Date('2026-09-24T12:00:00'),
+    }).total).toBe(0);
+  });
+
   const now = new Date('2026-09-24T12:00:00');
 
   it('matches titles case-insensitively, ranks prefixes first, then future before past', () => {
