@@ -64,7 +64,9 @@ export const APPWRITE_MIGRATIONS = [
 
 export function selectMigrations(argv = []) {
   const only = flagValue(argv, '--only');
-  if (!only) return APPWRITE_MIGRATIONS;
+  // Permission tightening is intentionally opt-in even for a confirmed
+  // normal migration run. Only --only 008 may authorize this security repair.
+  if (!only) return APPWRITE_MIGRATIONS.filter(m => m.id !== '008-friendship-permissions');
   const selected = APPWRITE_MIGRATIONS.filter(
     (migration) => migration.id === only
   );
@@ -76,7 +78,7 @@ export function selectMigrations(argv = []) {
 
 export async function runAppwriteMigrations({
   request,
-  migrations = APPWRITE_MIGRATIONS,
+  migrations = selectMigrations(),
   log = () => {},
   sleep,
 }) {

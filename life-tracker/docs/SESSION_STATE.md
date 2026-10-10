@@ -32,3 +32,5 @@ Current Scratch `friendships` table has broader `create("users")` permissions th
 
 ### Versioned candidate
 Live dev is 0.12.1 and the active custom-stickers Preview reserves 0.13.0. Shared-task Preview candidate is provisionally 0.14.0; package manifest, lockfile, and APP_VERSION are stamped on this task branch, not dev/main. No authenticated Preview is ready until the Scratch migration/function boundary is verified. Focused CI must pass before creating stable Preview.
+
+The explicit-only friendship permission migration is enforced in code: ordinary `appwrite:migrate` and default migration runner exclude 008. It runs only when `--only 008-friendship-permissions` is passed, with project+confirm required.
