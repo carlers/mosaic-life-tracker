@@ -3,7 +3,9 @@ import { guardedStorage } from './sdk';
 import { APPWRITE_PROJECT_ID, APPWRITE_STORAGE_BUCKET_ID } from './appwriteConfig';
 import { getCachedImage, cacheImage, deleteCachedImage } from './imageCache';
 import { getConnectivitySnapshot } from './connectivity';
+import { guardedCall, makeUnauthorizedError } from './authEvents';
 import { STICKER_FILE_ID } from './stickerProtocol';
+import { captureAccountWorkGeneration, isAccountWorkCurrent } from './accountWorkScope';
 
 const MAX_INPUT_BYTES = 10 * 1024 * 1024;
 const MAX_INPUT_PIXELS = 16_000_000;
@@ -172,22 +174,56 @@ export async function allowStickerRecipient(userId: string, recipientId: string,
   throw new Error('Could not share sticker with recipient.');
 }
 
-export async function loadStickerImage(fileId: string, viewerId: string): Promise<string | null> {
-  if (!STICKER_FILE_ID.test(fileId) || !viewerId) return null;
-  const key = cachedKey(viewerId, fileId);
-  const cached = await getCachedImage(key);
-  if (cached) return URL.createObjectURL(cached);
+// Concurrent appearances of the same sticker use one authenticated download.
+// A file reused across dozens of messages must not incur dozens of Appwrite reads.
+const pendingStickerLoads = new Map<string, Promise<Blob | null>>();
+
+async function getStickerBlob(fileId: string, viewerId: string, key: string): Promise<Blob | null> {
+  const generation = captureAccountWorkGeneration(viewerId);
+  if (generation === null) return null;
+
+  // Missing/broken IndexedDB must not prevent the user seeing online images.
+  const cached = await getCachedImage(key).catch(() => undefined);
+  if (!isAccountWorkCurrent(viewerId, generation)) return null;
+  if (cached) return cached;
   if (getConnectivitySnapshot().status !== 'online') return null;
+
   const url = guardedStorage.getFileView({ bucketId: APPWRITE_STORAGE_BUCKET_ID, fileId });
-  const response = await fetch(url.toString(), {
-    credentials: 'include',
-    headers: { 'X-Appwrite-Project': APPWRITE_PROJECT_ID },
+  const response = await guardedCall(async () => {
+    const result = await fetch(url.toString(), {
+      credentials: 'include',
+      headers: { 'X-Appwrite-Project': APPWRITE_PROJECT_ID },
+    });
+    if (result.status === 401) throw makeUnauthorizedError();
+    return result;
   });
   if (!response.ok) return null;
   const blob = await response.blob();
+  // An in-flight response from a previous login must never be cached or
+  // displayed under that account after the user switches identity.
+  if (!isAccountWorkCurrent(viewerId, generation)) return null;
   if (blob.size > MAX_STICKER_BYTES || !['image/webp', 'image/png'].includes(blob.type)) return null;
   await cacheImage(key, blob).catch(() => {});
-  return URL.createObjectURL(blob);
+  return isAccountWorkCurrent(viewerId, generation) ? blob : null;
+}
+
+export async function loadStickerImage(fileId: string, viewerId: string): Promise<string | null> {
+  if (!STICKER_FILE_ID.test(fileId) || !viewerId) return null;
+  const generation = captureAccountWorkGeneration(viewerId);
+  if (generation === null) return null;
+  const key = cachedKey(viewerId, fileId);
+  const pendingKey = key + ':' + generation;
+  let pending = pendingStickerLoads.get(pendingKey);
+  if (!pending) {
+    pending = getStickerBlob(fileId, viewerId, key);
+    pendingStickerLoads.set(pendingKey, pending);
+  }
+  try {
+    const blob = await pending;
+    return blob ? URL.createObjectURL(blob) : null;
+  } finally {
+    if (pendingStickerLoads.get(pendingKey) === pending) pendingStickerLoads.delete(pendingKey);
+  }
 }
 
 /** Only reclaim never-shared, never-messaged files. Sent images survive
