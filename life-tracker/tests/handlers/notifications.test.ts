@@ -193,10 +193,11 @@ describe('notifications backend', () => {
       deleted: false, source: '',
     }, 'tablesdb.life_tracker.tables.tasks.rows.task_1.update', vi.fn(), vi.fn());
     expect(result.body.ignored).toBe('shared-task');
-    expect(db.listRows).toHaveBeenCalledWith(expect.objectContaining({
-      tableId: 'task_shares',
-      queries: expect.arrayContaining([{ op: 'equal', key: 'status', value: ['pending', 'accepted'] }]),
-    }));
+    expect(db.listRows.mock.calls[0][0].tableId).toBe('task_shares');
+    expect(db.listRows.mock.calls[0][0].queries
+      .map((query: string) => JSON.parse(query))).toEqual(expect.arrayContaining([
+        { method: 'equal', attribute: 'status', values: ['pending', 'accepted'] },
+      ]));
     expect(db.createRow).not.toHaveBeenCalled();
   });
 

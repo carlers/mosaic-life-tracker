@@ -82,8 +82,13 @@ describe('task sharing Function authorization and completion', () => {
 
   it('fences legacy direct owner writes atomically with first invitation', async () => {
     share = {};
+    db.createRow.mockImplementation(async ({ rowId, data }: { rowId: string, data: Record<string, unknown> }) => {
+      share = { ...data, $id: rowId, $updatedAt: '2026-10-10T00:00:03.000Z' };
+      return {};
+    });
     db.getRow.mockImplementation(async ({ tableId, rowId }: { tableId: string, rowId: string }) => {
       if (tableId === 'tasks' && rowId === taskId) return task;
+      if (tableId === 'task_shares' && rowId === share.$id) return share;
       if (tableId === 'friendships' && [friendId(owner, invitee), friendId(invitee, owner)].includes(rowId)) {
         return { status: 'accepted', deleted: false, updated_at: '2026-10-09T00:00:01.000Z' };
       }
