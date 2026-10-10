@@ -19,6 +19,9 @@ import { useMessages } from '../hooks/useMessages';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
 import { useConnectivity } from '../hooks/useConnectivity';
+import { useSettings } from '../hooks/useSettings';
+import { useAppearance } from '../hooks/useAppearance';
+import { GIPHY_AUTOPLAY_SETTING_KEY } from '../lib/preferences';
 import { useChatScroll } from '../components/messages/useChatScroll';
 import { useChatSearch } from '../components/messages/useChatSearch';
 import { useChatReactions } from '../components/messages/useChatReactions';
@@ -55,6 +58,9 @@ export const ChatPage: React.FC = () => {
   const { user } = useAuth();
   const connectivity = useConnectivity();
   const myUserId = user?.$id ?? '';
+  const { getSetting } = useSettings();
+  const { effectiveReducedMotion } = useAppearance();
+  const autoplayGiphy = getSetting(GIPHY_AUTOPLAY_SETTING_KEY, false) === true;
 
   const {
     messages,
@@ -364,6 +370,8 @@ export const ChatPage: React.FC = () => {
                     message={item.message}
                     isOutgoing={item.message.direction === 'outgoing'}
                     currentUserId={myUserId}
+                    autoplayGiphy={autoplayGiphy}
+                    reducedMotion={effectiveReducedMotion}
                     showTimestamp={item.showTimestamp}
                     statusKind={statusById.get(item.message.id)}
                     resolveSenderName={resolveSenderName}

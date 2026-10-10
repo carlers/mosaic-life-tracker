@@ -88,7 +88,8 @@ export const GiphyStickerSearch: React.FC<Props> = ({ onPick }) => {
         Powered by GIPHY
       </a>
       <p className="mt-2 text-[11px] text-gray-400">
-        GIPHY media loads directly from its service, not Mosaic storage. Unavailable stickers cannot be restored offline.
+        Static previews from GIPHY. Tap sent stickers to play or pause; autoplay is in Settings → Preferences → Motion.
+        {' '}Media loads directly from GIPHY, not Mosaic storage; unavailable stickers cannot be restored offline.
       </p>
     </div>
   );

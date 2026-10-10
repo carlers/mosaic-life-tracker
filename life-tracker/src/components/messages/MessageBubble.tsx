@@ -22,6 +22,8 @@ interface MessageBubbleProps {
   message: MessageDocument;
   isOutgoing: boolean;
   currentUserId: string;
+  autoplayGiphy?: boolean;
+  reducedMotion?: boolean;
   showTimestamp?: boolean;
   statusKind?: MessageStatusKind;
   resolveSenderName?: (senderId: string) => string;
@@ -115,6 +117,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   message,
   isOutgoing,
   currentUserId,
+  autoplayGiphy = false,
+  reducedMotion = false,
   showTimestamp,
   statusKind,
   resolveSenderName,
@@ -252,7 +256,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           {packSticker ? (
             <PackStickerImage sticker={packSticker} />
           ) : giphySticker ? (
-            <GiphyStickerImage id={giphySticker.id} label={giphySticker.label} />
+            <GiphyStickerImage id={giphySticker.id} label={giphySticker.label}
+              autoplay={autoplayGiphy} reducedMotion={reducedMotion} />
           ) : (
             <span className="text-sm whitespace-pre-wrap break-words">
               {message.content}
@@ -295,7 +300,9 @@ export const MessageBubble = React.memo(
       prev.statusKind === next.statusKind &&
       prev.showTimestamp === next.showTimestamp &&
       prev.isOutgoing === next.isOutgoing &&
-      prev.gesturesDisabled === next.gesturesDisabled
+      prev.gesturesDisabled === next.gesturesDisabled &&
+      prev.autoplayGiphy === next.autoplayGiphy &&
+      prev.reducedMotion === next.reducedMotion
     );
   }
 );

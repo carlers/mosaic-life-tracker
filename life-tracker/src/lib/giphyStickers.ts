@@ -11,8 +11,12 @@ export const giphyEnabled = KEY.length > 0;
 
 export interface GiphyStickerReference { id: string; label: string }
 export interface GiphySticker extends GiphyStickerReference {
+  /** GIPHY-provided single-frame image for the small search grid. */
   previewUrl: string;
+  /** GIPHY-provided single-frame image for chat. */
   displayUrl: string;
+  /** Animated WebP, fetched only on explicit play or permitted autoplay. */
+  animatedUrl: string;
   analytics: { onload?: string; onclick?: string; onsent?: string };
   creator?: string;
   pageUrl?: string;
@@ -57,9 +61,20 @@ export function parseGiphySticker(item: unknown): GiphySticker | null {
   const obj = item as Record<string, unknown>;
   if (typeof obj.id !== 'string' || !GIF_ID.test(obj.id)) return null;
   const images = obj.images as Record<string, Record<string, unknown>> | undefined;
-  const previewUrl = safeGiphyUrl(images?.fixed_width?.webp ?? images?.fixed_height?.webp);
-  const displayUrl = safeGiphyUrl(images?.fixed_height?.webp ?? images?.original?.webp);
-  if (!previewUrl || !displayUrl) return null;
+  // Use only actual single-frame renditions. Never silently fall back to
+  // animation for the static-first UI or rewrite provider URLs.
+  const previewUrl = safeGiphyUrl(
+    images?.fixed_width_small_still?.url ??
+    images?.fixed_height_small_still?.url ??
+    images?.fixed_width_still?.url
+  );
+  const displayUrl = safeGiphyUrl(
+    images?.fixed_height_still?.url ??
+    images?.fixed_width_still?.url ??
+    images?.original_still?.url
+  );
+  const animatedUrl = safeGiphyUrl(images?.fixed_height?.webp ?? images?.original?.webp);
+  if (!previewUrl || !displayUrl || !animatedUrl) return null;
   const sourceAnalytics = obj.analytics as Record<string, { url?: unknown }> | undefined;
   const user = obj.user as Record<string, unknown> | undefined;
   const label = giphyStickerLabel(typeof obj.title === 'string' ? obj.title : 'GIPHY sticker');
@@ -68,6 +83,7 @@ export function parseGiphySticker(item: unknown): GiphySticker | null {
     label,
     previewUrl,
     displayUrl,
+    animatedUrl,
     creator: typeof user?.username === 'string' ? user.username.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 36) || undefined : undefined,
     pageUrl: safeGiphyPageUrl(obj.url),
     analytics: {

@@ -8,7 +8,8 @@ const validItem = {
   id: 'gAbC123', title: 'Happy Pusheen',
   url: 'https://giphy.com/gifs/sample-gAbC123',
   user: { username: 'animator' }, images: {
-    fixed_width: { webp: 'https://media1.giphy.com/media/gAbC123/100.webp?cid=abc' },
+    fixed_width_small_still: { url: 'https://media1.giphy.com/media/gAbC123/100w_s.gif?cid=abc' },
+    fixed_height_still: { url: 'https://media2.giphy.com/media/gAbC123/200_s.gif?cid=abc' },
     fixed_height: { webp: 'https://media2.giphy.com/media/gAbC123/200.webp?cid=abc' },
   },
   analytics: { onsent: { url: 'https://giphy-analytics.giphy.com/v2/pingback_simple?token=a' } },
@@ -32,16 +33,28 @@ describe('GIPHY provider message safety', () => {
     expect(result).toMatchObject({
       id: 'gAbC123', label: 'Happy Pusheen',
       creator: 'animator', pageUrl: 'https://giphy.com/gifs/sample-gAbC123',
-      previewUrl: 'https://media1.giphy.com/media/gAbC123/100.webp?cid=abc',
-      displayUrl: 'https://media2.giphy.com/media/gAbC123/200.webp?cid=abc',
+      previewUrl: 'https://media1.giphy.com/media/gAbC123/100w_s.gif?cid=abc',
+      displayUrl: 'https://media2.giphy.com/media/gAbC123/200_s.gif?cid=abc',
+      animatedUrl: 'https://media2.giphy.com/media/gAbC123/200.webp?cid=abc',
       analytics: { onsent: 'https://giphy-analytics.giphy.com/v2/pingback_simple?token=a' },
     });
     expect(parseGiphySticker({ ...validItem, images: {
-      fixed_width: { webp: 'https://evil.example/sticker.webp' },
+      fixed_width_small_still: { url: 'https://evil.example/sticker.gif' },
+      fixed_height_still: validItem.images.fixed_height_still,
       fixed_height: validItem.images.fixed_height,
     } })).toBeNull();
     expect(parseGiphySticker({ ...validItem, images: {
-      fixed_width: { webp: 'https://media.giphy.com.evil.example/x' },
+      fixed_width_small_still: { url: 'https://media.giphy.com.evil.example/x' },
+      fixed_height_still: validItem.images.fixed_height_still,
+      fixed_height: validItem.images.fixed_height,
+    } })).toBeNull();
+    expect(parseGiphySticker({ ...validItem, images: {
+      fixed_width_small_still: { url: validItem.images.fixed_width_small_still.url },
+      fixed_height_still: { url: 'https://evil.example/not-still.gif' },
+      fixed_height: validItem.images.fixed_height,
+    } })).toBeNull();
+    // No static rendition: do not fetch an animated asset as the "still" fallback.
+    expect(parseGiphySticker({ ...validItem, images: {
       fixed_height: validItem.images.fixed_height,
     } })).toBeNull();
     expect(parseGiphySticker({ ...validItem, id: 'invalid/id' })).toBeNull();
