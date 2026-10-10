@@ -1,14 +1,23 @@
 #!/usr/bin/env node
 // Optional synthetic, reusable Preview accounts. Never clone production users.
+import { createHash } from 'node:crypto';
 import { Permission, Role } from 'node-appwrite';
 import { createBootstrapServices } from './lib/mosaic-bootstrap.mjs';
 import { assertConfirmedProject, parseBackendTarget } from './lib/appwrite-backend.mjs';
 import { assertScratchPreviewTarget } from './appwrite-preview-prepare.mjs';
 
+// New identities avoid colliding with older synthetic profiles whose noncanonical
+// row IDs cannot be reconciled in-place due to unique profile-user indexes.
 export const PREVIEW_IDENTITIES = [
-  { id: 'mosaic_preview_actor', email: 'mosaic.preview.actor@example.com', name: 'Scratch Actor', username: 'scratch_actor' },
-  { id: 'mosaic_preview_viewer', email: 'mosaic.preview.viewer@example.com', name: 'Scratch Viewer', username: 'scratch_viewer' },
+  { id: 'mosaic_preview_actor_406', email: 'mosaic.preview.actor406@example.com', name: 'Scratch Actor', username: 'scratch_actor406' },
+  { id: 'mosaic_preview_friend_406', email: 'mosaic.preview.friend406@example.com', name: 'Scratch Friend', username: 'scratch_friend406' },
+  { id: 'mosaic_preview_other_406', email: 'mosaic.preview.other406@example.com', name: 'Scratch Other', username: 'scratch_other406' },
 ];
+
+// Match the canonical reciprocal row IDs used by the server friendship handler.
+function friendshipId(owner, friend) {
+  return 'fr_' + createHash('sha256').update(owner + '|' + friend).digest('hex').slice(0, 32);
+}
 
 function is404(error) {
   return Number(error?.code ?? error?.status) === 404;
@@ -37,11 +46,13 @@ async function ensureRow(tablesDB, tableId, rowId, data, ownerId) {
   }
   await tablesDB.createRow({
     databaseId: 'life_tracker', tableId, rowId, data,
-    permissions: [
-      Permission.read(Role.user(ownerId)),
-      Permission.update(Role.user(ownerId)),
-      Permission.delete(Role.user(ownerId)),
-    ],
+    permissions: tableId === 'friendships'
+      ? [Permission.read(Role.user(ownerId))]
+      : [
+        Permission.read(Role.user(ownerId)),
+        Permission.update(Role.user(ownerId)),
+        Permission.delete(Role.user(ownerId)),
+      ],
   });
   return true;
 }
@@ -57,7 +68,7 @@ export async function seedPreviewFixtures({ users, tablesDB, password, log = con
   for (const user of PREVIEW_IDENTITIES) {
     const id = user.id;
     const rows = [
-      ['profiles', id, { user_id: id, username: user.username, display_name: user.name, created_at: now, updated_at: now, deleted: false }],
+      ['profiles', 'profile_' + id, { user_id: id, username: user.username, display_name: user.name, created_at: now, updated_at: now, deleted: false }],
       ['categories', 'fixture_cat_' + id, { user_id: id, name: 'Synthetic Preview', color: '#059669', order: 0, visibility: 'followers', updated_at: now, deleted: false }],
       ['diary', 'fixture_diary_' + id, { user_id: id, date: now.slice(0, 10), content: 'Synthetic preview diary', visibility: 'private', created_at: now, updated_at: now, deleted: false }],
       ['tasks', 'fixture_task_' + id, { user_id: id, title: 'Synthetic completion test', category_id: 'fixture_cat_' + id, date: now.slice(0, 10), created_at: now, updated_at: now, is_completed: false, visibility: 'followers', deleted: false }],
@@ -66,10 +77,17 @@ export async function seedPreviewFixtures({ users, tablesDB, password, log = con
       if (await ensureRow(tablesDB, table, rowId, data, id)) result.rows++;
     }
   }
-  for (let i = 0; i < PREVIEW_IDENTITIES.length; i++) {
-    const user = PREVIEW_IDENTITIES[i], friend = PREVIEW_IDENTITIES[1 - i];
-    const data = { user_id: user.id, friend_id: friend.id, friend_username: friend.username, friend_display_name: friend.name, status: 'accepted', created_at: now, updated_at: now, deleted: false };
-    if (await ensureRow(tablesDB, 'friendships', 'fixture_friend_' + user.id, data, user.id)) result.rows++;
+  // Actor is reciprocally friends with both others; the two recipients
+  // are not automatically friends with one another.
+  for (const friend of PREVIEW_IDENTITIES.slice(1)) {
+    for (const [user, peer] of [[PREVIEW_IDENTITIES[0], friend], [friend, PREVIEW_IDENTITIES[0]]]) {
+      const data = {
+        user_id: user.id, friend_id: peer.id,
+        friend_username: peer.username, friend_display_name: peer.name,
+        status: 'accepted', created_at: now, updated_at: now, deleted: false,
+      };
+      if (await ensureRow(tablesDB, 'friendships', friendshipId(user.id, peer.id), data, user.id)) result.rows++;
+    }
   }
   log('Scratch synthetic fixtures ready: new users=' + result.users + ', new rows=' + result.rows);
   return result;

@@ -1,35 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: issue #406 shared tasks, version 0.14.0. Source dev `224f8a700f35bbe3853206ee208e1dc103ece5b3`; dev/main not changed.
-Stable Preview: `feature/shared-tasks` at `a8b71b0da219696a0e97ccd7d7eaeb7670d6d13a`. Owner-completion improvement merged from PR #497 after focused-green task SHA `0f49ce63`. Original implementation `chatgpt/shared-tasks-contract` diverged after squash and must not merge wholesale.
-Current repair task: `chatgpt/shared-tasks-size-repair` based on Preview, not dev.
+Current task: issue #406 shared tasks, version 0.14.0. dev remains at 224f8a700f35bbe3853206ee208e1dc103ece5b3; main not promoted.
 
-## Implemented
-- Server-owned private `task_shares`, additive migration 007, explicit-only Scratch friendship-permission migration 008, trusted Function/owner completion CAS, independent membership epochs, minimal DTO, erasure/privacy and notifications safeguards.
-- Multiple collaborators with invitations, offline account-scoped member/completion queues, observable conflicts, creator share sheets, recipient Explore + Day View.
-- Creator completions persist through existing RxDB outbox, now with small account-scoped UI pending receipts for known shared tasks; receipts clear on confirmed CAS/reject/logout/erasure. A competing remote title edit now surfaces an owner completion conflict. No separate owner server command queue.
-- Original Preview full canonical and Vercel READY at `33a003f4` (Actions 38027441167). New candidate `a8b71b0d` passed focused but full build-size CI failed (Actions 38037658668): Home closure +1511 B, app raw +1813 B, precache +2032 B. TypeScript/Vite/PWA compiled. Other CI shards require complete results before claiming green.
+## Verified Preview baseline
+- Stable Preview `feature/shared-tasks` SHA `48232bbf72a66e317ced475acab0b8c0578269b1`. Full canonical Actions 38038260964 succeeded on attempt 2, Vercel exact-SHA READY.
+- Server-owned task-sharing / optimistic owner completion, private projection and membership, offline queues, UI, owner-pending receipts and safeguards are implemented. See issue #406 and PROJECT_REFERENCE §24.14.
+- Live Scratch `6a96e82d000d1310b3be`: explicit Git-owned migration 008 hardened friendship table permissions and migration 007 created private task_shares; readback verified. Exact reviewed Function deployment `6ac9fbd7d43a5f48f949` is READY and activated. A real unauthenticated invocation selected it and returned 401. Production untouched.
+- Scratch read-only readiness still reports `function message-action has no live deployment`: Appwrite `live:false` despite matching active deployment ID and successful execution. Do not relax this invariant or claim readiness. Stable Preview branch alias CORS returned matching Access-Control-Allow-Origin via existing wildcard; Appwrite Free plan prevented adding another exact Web-platform hostname.
 
-## Size repair
-- Avoid importing `useSharedTasks` React hook from generic `useTasks`, which accidentally brought entire sharing queue into Home's static closure. Use a tiny local-only cache hint inside `ownerCompletionPending` instead; no additional Appwrite network calls. Remove redundant RxDB sent$ subscription because authoritative CAS success handles receipt settlement in `pushTasks`.
-- Focused verification, new canonical size measurements, and any scoped size budget decision are pending. Never simply disable guard or inflate budgets.
+## Current task
+The previous two-user scratch seeder was not valid for shared-task acceptance: it generated profile rows keyed by raw user ID and friendship rows under `fixture_friend_`, while the trusted Function requires `profile_<id>` and canonical hashed `fr_` IDs. Existing dummy profiles have unique user indexes, so silently adding corrected profiles under the same IDs cannot work. The new seed uses three distinct synthetic identities and compatible canonical rows, adds a second mutually accepted collaborator, restricts friendship row permissions to read-only, and leaves earlier fixtures untouched. Regression covers canonical IDs and permissions. No changes to production app behavior or user-facing version.
 
-## Backend and acceptance blocker
-Scratch `6a96e82d000d1310b3be` checked read-only: `life_tracker.task_shares` absent; `friendships` has `create("users")` instead of server-only `[]`. Before shared-task Function activation, use Git-owned, explicit confirmed CLI + scoped Scratch key for security migration 008, then additive 007; package exact source SHA as inactive deployment, verify READY, activate, retest. This connected environment lacks that Git CLI/scoped key execution. No Production writes. Existing READY frontend Preview is not a working authenticated shared-task acceptance environment.
+## Verification
+Before task commit, the new fixture regression failed against the old seeder and then passed after the correction: `tests/unit/appwritePreviewSeed.test.ts` 4/4, `contracts:check` green and scoped ESLint/diff check green. Final focused task CI and stable Preview canonical/READY remain to be completed for this repair.
 
 ## Next action
-Focused CI for the size repair → small PR squash into stable Preview → full canonical/size/PWA and Vercel READY for the exact new SHA. Then Scratch/three-account/old-client/DR/browser/mobile acceptance. Keep #406 open. Promotion to dev/main requires the user's separate approval.
-
-### Size audit / final verification
-The `f3cc8cf6` Preview build (Actions 38037980668) passed Vite/TS/PWA
-compilation, dependency audit and DOM shards but failed the guarded aggregate
-app raw (2,348,439 B vs 2,346,500 B) and precache
-(2,431,958 B vs 2,429,800 B), plus a documentation-contract test because
-this checkpoint omitted required literal heading anchors. The eager sharing
-hook regression was already eliminated: Home static closure 354,410 B gzip
-passes the original 357,000 B limit. The only threshold adjustments are
-measured aggregate raw/gzip/precache to 2,349,300 / 724,500 / 2,432,850 B
-with approximately 0.8 KB headroom each. See PROJECT_REFERENCE §24.14.
-Repair branch `chatgpt/shared-tasks-budget-contract` requires focused CI,
-small PR squash into Preview, new full canonical and Vercel READY.
+Commit fixture repair + this checkpoint on `chatgpt/**` based on current stable Preview, run focused CI, squash via PR to `feature/shared-tasks`, then canonical CI/Vercel. Reseed approved new Scratch fixtures through scoped Git CLI, investigate Appwrite `live:false`, and perform real authenticated three-account completion/privacy/revocation/CAS/offline and device acceptance as available. Never promote to dev/main without explicit separate approval. Keep issue #406 open.
