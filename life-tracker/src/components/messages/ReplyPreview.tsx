@@ -4,6 +4,7 @@ import { packStickerSummary, parsePackStickerMessage } from '../../lib/stickerPa
 import { giphyStickerSummary, parseGiphyStickerMessage } from '../../lib/giphyStickers';
 import { PackStickerImage } from './PackStickerImage';
 import { GiphyStickerImage } from './GiphyStickerImage';
+import { canonicalReplyStickerContent } from '../../lib/replyStickerContent';
 
 interface ReplyPreviewProps {
   senderName: string;
@@ -21,8 +22,9 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
   variant = 'composer',
 }) => {
   const isComposer = variant === 'composer';
-  const packSticker = !isDeleted ? parsePackStickerMessage(content) : null;
-  const giphySticker = !isDeleted && !packSticker ? parseGiphyStickerMessage(content) : null;
+  const stickerWire = !isDeleted ? canonicalReplyStickerContent(content) : null;
+  const packSticker = stickerWire ? parsePackStickerMessage(stickerWire) : null;
+  const giphySticker = stickerWire && !packSticker ? parseGiphyStickerMessage(stickerWire) : null;
   return (
     <div
       className={`flex items-start gap-2 rounded-lg border-l-2 border-emerald-500 bg-surface px-2 py-1.5 ${

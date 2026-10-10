@@ -2,6 +2,7 @@ import { getDatabase } from '../db/database';
 import { makeThreadId } from './threads';
 import { deliverPendingMessages } from './messageDelivery';
 import type { MessageDocument, TaskDocument } from '../db/schema';
+import { canonicalReplyStickerContent } from './replyStickerContent';
 
 export interface ReplyContext {
   id: string;
@@ -10,6 +11,10 @@ export interface ReplyContext {
 }
 
 function truncateForSnapshot(s: string, max = 100): string {
+  // Sticker references are short and already validated against the provider /
+  // curated catalog. Preserve the newline: flattening it destroys the token.
+  const sticker = canonicalReplyStickerContent(s);
+  if (sticker) return sticker;
   const trimmed = s.replace(/\s+/g, ' ').trim();
   if (trimmed.length <= max) return trimmed;
   return trimmed.slice(0, max - 1) + '…';
