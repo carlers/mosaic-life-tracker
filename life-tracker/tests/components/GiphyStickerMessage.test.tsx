@@ -34,6 +34,8 @@ describe('GIPHY message fallback without configured API key', () => {
     const preview = render(<ReplyPreview senderName="Friend" content={content} />);
     expect(preview.container).toHaveTextContent('Sticker: Friendly hug');
     expect(preview.container).not.toHaveTextContent('[gp1:');
+    // Without a configured provider key, the reply still carries a readable
+    // label, not the raw wire format or a broken untrusted image URL.
     preview.unmount();
 
     const hostile = '[Sticker: Bad]\n[gp1:https://evil.example]';

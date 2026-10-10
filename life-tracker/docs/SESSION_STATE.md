@@ -1,20 +1,16 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: Issue #489 — fix nonresponsive Play/Pause on static-first GIPHY stickers (Preview v0.16.3).
-Baseline: stable `feature/sticker-libraries` v0.16.2 SHA `216621b7053904aefa1c7a6c28be39a6264d6adf`, full canonical GitHub Actions [38073647855](https://github.com/carlers/mosaic-life-tracker/actions/runs/38073647855) SUCCESS and keyed Vercel Preview deployment `dpl_ADHk6YUwE95KLtQDMjwiK6TEL2N6` READY.
-Working task branch: `chatgpt/giphy-play-controls-489` based on the above stable SHA.
-No `dev` or `main` promotion authorized; no Appwrite changes.
+Current task: Issue #489 — sticker image reply previews and reliable reply composer focus (v0.16.4).
+Baseline: stable `feature/sticker-libraries` SHA `36ed071d614e95df0e0990d0c538c161600f01e6`, v0.16.3; canonical [Quality Gate 38074716399](https://github.com/carlers/mosaic-life-tracker/actions/runs/38074716399) SUCCESS and Vercel `dpl_A5358cwtqoxrT7Fsj8AD3Z8tKgjY` READY. Previous fix made touch Play/Pause work by letting only the small overlay control own pointerdown.
+Task branch: `chatgpt/sticker-reply-preview-focus-489` from exact baseline. Stable Preview remains `feature/sticker-libraries`.
+No dev/main promotion authorized; Appwrite schema/Functions and provider keys unchanged.
 
-## Root cause and repair
-- Mobile bubble gesture hook `useBubbleGestures` calls `setPointerCapture` on pointerdown of any bubble descendant. v0.16.2 wrapped the **entire sticker artwork** inside the Play/Pause `button`, so touch events originating on that child bubbled to the parent gesture surface. Browser pointer capture can retarget the resulting click to the bubble instead of the playback button. The isolated GiphyStickerImage click-only DOM test did not cover this interaction.
-- Fix by rendering the artwork as an ordinary `img` that still participates in bubble swipe-to-reply, and only the small, visually prominent, keyboard-accessible overlay Play/Pause control as a child `button`. It stops pointerdown propagation (and keydown to avoid invoking the bubble's keyboard tap) and handles its own click. Parent pointer capture is preserved for touches/swipes on the artwork. Do not add a blanket stopPropagation to the whole image or modify the shared gesture hook.
-- Add a DOM regression using the actual `useBubbleGestures` parent pointer handler: pointerdown on playback control must NOT invoke parent capture, while pointerdown+directional swipe on image must still capture and trigger reply. Test actual still/animated image source swaps after touch-style events and keyboard activation.
-- Patch Preview version to `0.16.3`. No media hosting/cache/schema/function/provider-key changes. GIPHY key remains restricted to the stable Vercel Preview environment; don't disclose it.
+## Objective and implementation
+- User confirmed v0.16.3 Play/Pause works but quoted replies still display sticker transport text and reply initiation sometimes fails to focus composer.
+- `ReplyPreview` currently renders only `packStickerSummary(giphyStickerSummary(content))`; it appears in the composer and nested clickable quote in sent messages. Reuse `parsePackStickerMessage` + `PackStickerImage` for 44px curated thumbs, and `parseGiphyStickerMessage` + new noninteractive **compact** `GiphyStickerImage` for 44px single-frame GIF/attribution. Keep readable text labels/fallback and exact quote wire content; do not nest buttons/links inside jump-to-original quote. No custom URL/media caches or Appwrite files. Additional GIPHY quote images resolve by ID on view; provider quota still applies.
+- `MessageComposer` focuses when `replyTo` is set, without guesses based on setTimeout. `ChatPage` swipe reply delegates to this central behavior. Message action-sheet Reply sets focus intent and waits for sheet `onExitComplete`; after the sheet's own deferred focus restoration it focuses composer through existing imperative handle. Chat entry without a reply remains unfocused. Existing keyboard send focus preserved.
+- Version candidate `0.16.4` (PATCH Preview revision); focused regression covers GIPHY/curated thumbnails in both reply placements, provider unavailable/malicious tokens, deleted quotes, and composer focus transitions. Update project reference and version triplet in coherent task commit.
 
-## Verification
-- Before repair: focused task branch work in progress; previous stable 0.16.2 canonical CI green did not prove real-device tap behavior.
-- Execute task focused CI, squash PR into `feature/sticker-libraries`, then require exact source-SHA canonical full CI SUCCESS and Vercel READY. Build size guard may need adjustment only if a measured breach occurs; do not weaken initial-loading caps without evidence.
-
-## Next action
-- Run focused verification on coherent v0.16.3 candidate, repair as needed. After focused green, squash into stable Preview and verify full CI + same-SHA Vercel READY. Update issue #489 with final SHA and evidence. Manual Samsung/Android tap-and-swipe, third-party GIPHY responsiveness, Scratch login and two-account send remain separate; do not assert these tests happened without proof.
+## Verification and next action
+- Run focused task verification, repair if red; squash focused-green PR into stable Preview; require canonical exact-SHA GitHub acceptance and keyed Vercel READY; checkpoint issue #489. Appwrite backend verification skipped for frontend-only change. Device-only tests remain Android keyboard activation after sheet close and swipe-to-reply, actual GIPHY provider search/quote and two-account Scratch send; never claim manual tests without evidence.
