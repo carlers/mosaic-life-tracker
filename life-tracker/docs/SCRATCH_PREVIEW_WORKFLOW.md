@@ -208,3 +208,28 @@ After any Function activation, previously accepted backend-dependent Previews
 must revalidate their required server contract and authenticated scenarios.
 Static CI/Vercel READY alone is insufficient. Retain the previous deployment
 ID for a code rollback only if the current schema remains compatible.
+
+### Exact source and secret-scope safeguards (audit follow-up)
+
+The activation workflow accepts only the **current exact SHA** of the explicit
+`refactor/scratch-backend-integration-526` allowlisted branch, **and** an
+exact-SHA successful full canonical `Quality Gate` push run on that same branch.
+This prevents arbitrary historic/foreign commits from being selected as
+Function source. To change the integration branch, update the workflow's
+allowlist through a reviewed default-branch change; do not weaken the proof to
+a branch-name prefix or an unchecked SHA. GitHub Actions `actions: read`
+permissions are needed for its CI evidence query.
+
+The Scratch API key is exposed only to the read-only readiness, inactive build,
+activation and final readiness steps, **not** to `npm ci`, candidate tests or
+source selection; Checkout does not persist GitHub credentials in its working
+tree. Configure the GitHub `scratch-backend` Environment with **required human
+reviewers**, restricted to `main`, and an appropriately scoped Scratch-only key
+before enabling the default-branch workflow. Without these settings, a typed
+confirmation and passing CI are **not** proof of authorization to deploy.
+
+This Function-only workflow does **not** serialize direct CLI, Console or schema
+migration writes. Grant mutating Scratch credentials only to its designated
+maintainer, coordinate schema migrations using the same writer window, and
+revalidate old clients before and after any schema change. Full enforcement of
+all Scratch schema writes remains an open part of #526, not a shipped guarantee.
