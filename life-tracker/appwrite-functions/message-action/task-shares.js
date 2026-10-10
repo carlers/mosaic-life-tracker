@@ -53,15 +53,31 @@ async function list(db, caller, scope, cursor) {
     databaseId: DATABASE_ID, tableId: SHARES, queries: query, total: false,
   });
   const items = [];
-  for (const membership of page.rows || []) {
-    if (membership[field] !== caller || !['pending', 'accepted'].includes(membership.status)) continue;
-    const friendshipVersion = await mutualFriends(db, membership.owner_id, membership.invitee_id);
-    if (!friendshipVersion || membership.friendship_version !== friendshipVersion) continue;
-    const task = await read(db, TASKS, membership.task_id);
-    if (!live(task) || task.user_id !== membership.owner_id) continue;
-    items.push(projection(task, membership, scope === 'owned'));
-  }
   const rows = page.rows || [];
+  // Owner lists often contain multiple invitees for one task. Reuse the same
+  // server reads within each paginated request and bound fan-out to keep the
+  // Appwrite Free-tier round-trip and concurrent request budgets predictable.
+  const taskReads = new Map();
+  const friendshipReads = new Map();
+  const memo = (cache, key, load) => {
+    if (!cache.has(key)) cache.set(key, load());
+    return cache.get(key);
+  };
+  for (let index = 0; index < rows.length; index += 6) {
+    const chunk = await Promise.all(rows.slice(index, index + 6).map(async membership => {
+      if (membership[field] !== caller ||
+          !['pending', 'accepted'].includes(membership.status)) return null;
+      const peerKey = membership.owner_id + '|' + membership.invitee_id;
+      const friendshipVersion = await memo(friendshipReads, peerKey, () =>
+        mutualFriends(db, membership.owner_id, membership.invitee_id));
+      if (!friendshipVersion || membership.friendship_version !== friendshipVersion) return null;
+      const task = await memo(taskReads, membership.task_id, () =>
+        read(db, TASKS, membership.task_id));
+      if (!live(task) || task.user_id !== membership.owner_id) return null;
+      return projection(task, membership, scope === 'owned');
+    }));
+    for (const item of chunk) if (item) items.push(item);
+  }
   return { status: 200, body: { ok: true, items,
     nextCursor: rows.length === 50 ? rows[rows.length - 1].$id : '' } };
 }

@@ -80,6 +80,31 @@ describe('task sharing Function authorization and completion', () => {
     expect(JSON.stringify(result.body)).not.toContain('SECRET');
   });
 
+  it('coalesces owner list task reads across multiple collaborators without leaking fields', async () => {
+    const recipients = ['user_B', 'user_C', 'user_D'];
+    db.listRows.mockResolvedValue({ rows: recipients.map(inviteeId => baseShare({
+      $id: shareId(taskId, inviteeId), invitee_id: inviteeId,
+    })) });
+    db.getRow.mockImplementation(async ({ tableId, rowId }: { tableId: string; rowId: string }) => {
+      if (tableId === 'tasks' && rowId === taskId) return task;
+      if (tableId === 'friendships' && recipients.some(friend =>
+        rowId === friendId(owner, friend) || rowId === friendId(friend, owner))) {
+        return { status: 'accepted', deleted: false,
+          updated_at: '2026-10-09T00:00:01.000Z' };
+      }
+      throw Object.assign(new Error('Not found'), { code: 404 });
+    });
+
+    const result = await invoke({ userId: owner, mockDb: db,
+      body: { action: 'task_shares', operation: 'list', scope: 'owned' } });
+    expect(result.status).toBe(200);
+    expect(result.body.items.map((item: { inviteeId: string }) => item.inviteeId))
+      .toEqual(recipients);
+    expect(db.getRow.mock.calls.filter(([query]: [{ tableId: string }]) =>
+      query.tableId === 'tasks')).toHaveLength(1);
+    expect(JSON.stringify(result.body)).not.toContain('SECRET');
+  });
+
   it('fences legacy direct owner writes atomically with first invitation', async () => {
     share = {};
     db.createRow.mockImplementation(async ({ rowId, data }: { rowId: string, data: Record<string, unknown> }) => {

@@ -23,3 +23,6 @@ Task branch: `chatgpt/shared-tasks-contract` from `dev` `224f8a700f35bbe3853206e
 
 ## Next
 Verify current focused test commit; diagnose any failure and repair. Then resolve owner completion and Scratch permissions drift without touching Production. Do not create user-facing Preview or promote before the backend/client consistency contract and Scratch acceptance pass. Issue #406 tracks scoped findings.
+
+### Latest owner-write safety proof
+New task owner CAS sends an explicitly observed completion baseline and requires the server's completion to match it atomically with `$updatedAt`. Legacy clients lacking that baseline cannot write a task with **any** share history (including revoked shares); they receive the current master as a conflict instead. Ordinary unshared tasks remain compatible. The extra historical-share lookup happens only for old clients and is bounded to one indexed row. Handler regression coverage added. Still requires real Scratch transaction testing; no release deployment.

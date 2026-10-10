@@ -615,7 +615,8 @@ async function pushTasks(
         prepared.document as unknown as Record<string, unknown>,
         'tasks',
         userId
-      )
+      ),
+      master.document.completed
     );
 
     // A friend can mutate reactions between our master read and CAS. Preserve
@@ -640,7 +641,8 @@ async function pushTasks(
             prepared.document as unknown as Record<string, unknown>,
             'tasks',
             userId
-          )
+          ),
+          latest.completed
         );
       }
     }
