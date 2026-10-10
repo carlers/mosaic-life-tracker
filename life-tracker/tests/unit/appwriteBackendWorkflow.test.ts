@@ -320,6 +320,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '004-notifications',
       '005-notification-retention',
       '006-push-details',
+      '007-task-shares',
     ]);
     expect(
       selectMigrations(['--only', '002-diary-created-at'])
