@@ -158,30 +158,10 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   return inFlightDeliveryPromise;
 }
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
-  // Avoid bringing sticker decoder/Storage into initial Home or unread-badge
-  // modules. Media ACL work runs only for actual sticker messages.
-  if (doc.content.includes('[ms1:')) {
-    const { parseStickerMessage } = await import('./stickerProtocol');
-    const sticker = parseStickerMessage(doc.content);
-    if (sticker) {
-      const { allowStickerRecipient } = await import('./stickerStorage');
-      await allowStickerRecipient(doc.userId, doc.recipientId, sticker.fileId);
-    }
-  }
-  await sendMessageAction({
-    action: 'deliver',
-    messageId: doc.id,
-    recipientId: doc.recipientId,
-    content: doc.content,
-    taskRefId: doc.taskRefId,
-    taskRefTitle: doc.taskRefTitle,
-    taskRefDate: doc.taskRefDate,
-    taskRefColor: doc.taskRefColor,
-    replyToId: doc.replyToId || '',
-    replyToContent: doc.replyToContent || '',
-    replyToSenderId: doc.replyToSenderId || '',
-    createdAt: doc.createdAt,
-  });
+  // No Sticker/Storage or transport work in the startup/unread-badge graph.
+  // Only hydrate the outbound transport when there are pending messages.
+  const { deliverMessageWithMedia } = await import('./messageSendTransport');
+  await deliverMessageWithMedia(doc);
 }
 export async function markReadOnRemote(
   userId: string,
