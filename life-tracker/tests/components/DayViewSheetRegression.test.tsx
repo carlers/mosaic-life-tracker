@@ -177,6 +177,12 @@ vi.mock('../../src/hooks/useSettings', () => ({
   }),
 }));
 
+vi.mock('../../src/hooks/useSharedTasks', () => ({
+  useSharedTasks: () => ({ items: [], activeItems: [], error: '', online: false,
+    isLoading: false, pendingFor: () => undefined,
+    updateCompletion: vi.fn(), updateMembership: vi.fn(), invite: vi.fn(), reload: vi.fn() }),
+}));
+
 vi.mock('../../src/hooks/useTaskImage', () => ({
   useTaskImage: () => ({ imageUrl: 'blob:image_1', isLoading: false }),
 }));
@@ -424,7 +430,6 @@ describe('DayViewSheet nested task actions', () => {
   it.each([
     ['Memo', 'memo-sheet'],
     ['Add Photo', 'image-picker-sheet'],
-    ['Change Date', 'date-sheet'],
     ['Visibility', 'visibility-sheet'],
   ])('opens %s without falling back to the bare day sheet', (label, testId) => {
     fixture.task.image = label === 'Add Photo' ? '' : 'image_1';
@@ -437,6 +442,15 @@ describe('DayViewSheet nested task actions', () => {
     expect(
       document.querySelector('[role="dialog"][aria-hidden="true"]')
     ).not.toBeNull();
+  });
+
+  it('shows a calendar on the first Change Date tap inside the existing task sheet', () => {
+    renderSheet();
+    fireEvent.click(screen.getByText('Open actions'));
+    fireEvent.click(screen.getByText('Change Date'));
+    expect(screen.getByRole('group', { name: 'Calendar dates' })).toBeInTheDocument();
+    expect(screen.getByText('Confirm Date')).toBeInTheDocument();
+    expect(screen.queryByTestId('date-sheet')).toBeNull();
   });
 
   it('opens the image viewer from the View Photo action', async () => {

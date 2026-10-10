@@ -5,6 +5,8 @@ import {
   PointerSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
+import { SharedTaskDragOverlay } from './SharedTaskRows';
+import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import {
   isTaskPlacementCompatible,
@@ -18,6 +20,7 @@ import {
   buildRenderedTasksByCategory,
   findTaskCategory,
   projectTaskPlacement,
+  parseDropTarget,
   taskPlacementsEqual,
   type ActiveTaskDrag,
 } from './taskReorder';
@@ -73,6 +76,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     React.useState<ActiveTaskDrag | null>(null);
 
   const dragSessionRef = React.useRef<DragSession | null>(null);
+  const sharedDragRef = React.useRef<SharedTaskItem | null>(null);
+  const sharedTargetRef = React.useRef<string | null>(null);
+  const [activeSharedDrag, setActiveSharedDrag] = React.useState<SharedTaskItem | null>(null);
   const commitIdRef = React.useRef(0);
 
   const activeCommittedPlacement =
@@ -117,7 +123,16 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       if (!source) return;
 
       const taskId = String(source.id);
-      if (!taskById.has(taskId)) return;
+      if (!taskById.has(taskId)) {
+        const shared = props.sharedItems?.find(item => item.id === taskId && item.status === 'accepted');
+        if (shared) {
+          sharedTargetRef.current = null;
+          sharedDragRef.current = shared;
+          setActiveSharedDrag(shared);
+          onReorderActiveChange?.(true);
+        }
+        return;
+      }
 
       const snapshot = displayPlacement;
       const initialCategoryId = findTaskCategory(snapshot, taskId);
@@ -146,7 +161,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       setActiveDrag(next);
       onReorderActiveChange?.(true);
     },
-    [basePlacement, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks]
+    [basePlacement, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems]
   );
 
   const handleDragOver = React.useCallback(
@@ -159,6 +174,12 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     ) => {
       const session = dragSessionRef.current;
       const { source, target } = event.operation;
+      if (sharedDragRef.current) {
+        const key = target ? String(target.id) : null;
+        const drop = key ? parseDropTarget(key) : null;
+        sharedTargetRef.current = drop && categoryIds.includes(drop.categoryId) ? key : null;
+        return;
+      }
       if (!session || !source) return;
 
       if (!target) {
@@ -200,6 +221,21 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       >[0]
     ) => {
       onReorderActiveChange?.(false);
+      const draggedShared = sharedDragRef.current;
+      sharedDragRef.current = null;
+      setActiveSharedDrag(null);
+      if (draggedShared) {
+        const target = event.operation.target;
+        const targetKey = target ? String(target.id) : sharedTargetRef.current;
+        sharedTargetRef.current = null;
+        const drop = targetKey && parseDropTarget(targetKey);
+        if (!event.canceled && drop && categoryIds.includes(drop.categoryId) && props.onMoveSharedTask) {
+          void Promise.resolve(props.onMoveSharedTask(
+            draggedShared, drop.categoryId, ('taskId' in drop ? drop.taskId || '' : ''), drop.position,
+          )).catch(error => props.onSharedMoveError?.(error));
+        }
+        return;
+      }
 
       const session = dragSessionRef.current;
       dragSessionRef.current = null;
@@ -265,6 +301,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       onReorderTasks,
       taskSortMode,
       tasks,
+      props,
     ]
   );
 
@@ -293,9 +330,14 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       <DaySlideContent
         {...props}
         tasksByCategory={tasksByCategory}
+        activeSharedDragId={activeSharedDrag?.id ?? null}
         activeDrag={activeDrag}
       />
       <DragOverlay dropAnimation={null}>
+        {activeSharedDrag && (
+          <SharedTaskDragOverlay item={activeSharedDrag}
+            color={categoryById.get(props.sharedCategoryFor?.(activeSharedDrag) || '')?.color || '#6B7280'} />
+        )}
         {overlayTask && (
           <div
             aria-hidden="true"

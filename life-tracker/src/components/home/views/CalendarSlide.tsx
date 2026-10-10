@@ -2,6 +2,7 @@ import React from 'react';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import type { TaskDocument } from '../../../db/schema';
+import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
@@ -11,6 +12,8 @@ interface CalendarSlideProps {
   viewMode: CalendarViewMode;
   onDayClick: (date: Date) => void;
   tasksByDate: Map<string, TaskDocument[]>;
+  sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
+  ownedSharedTaskIds?: ReadonlySet<string>;
   categoriesMap: Record<string, { color: string; name: string }>;
   weekStartsOn?: WeekStartsOn;
   holidaysByDate?: ReadonlyMap<string, readonly HolidayOccurrence[]>;
@@ -21,6 +24,8 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
   viewMode,
   onDayClick,
   tasksByDate,
+  sharedByDay,
+  ownedSharedTaskIds,
   categoriesMap,
   weekStartsOn = 0,
   holidaysByDate,
@@ -31,6 +36,8 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
         focusDate={date}
         onDayClick={onDayClick}
         tasksByDate={tasksByDate}
+      sharedByDay={sharedByDay}
+      ownedSharedTaskIds={ownedSharedTaskIds}
         categoriesMap={categoriesMap}
         weekStartsOn={weekStartsOn}
         holidaysByDate={holidaysByDate}
@@ -42,6 +49,8 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
       focusDate={date}
       onDayClick={onDayClick}
       tasksByDate={tasksByDate}
+      sharedByDay={sharedByDay}
+      ownedSharedTaskIds={ownedSharedTaskIds}
       categoriesMap={categoriesMap}
       weekStartsOn={weekStartsOn}
     />

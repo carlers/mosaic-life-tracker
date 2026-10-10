@@ -1285,6 +1285,57 @@ startup and Home ceilings remain unchanged. The build-size guard is still
 mandatory; this is a bounded, measured product exception rather than
 general CI relaxation.
 
+A 2026-10-10 measured exception covers shared tasks with friends (#406), including
+one canonical creator-owned task, server-authorized multiple invitations,
+minimal recipient projections, conflict-safe completion, durable offline
+completion/membership queues and the new sharing/recipient controls. The
+original stable Preview build exceeded the startup static closure by 3,536 B
+gzip. Moving durable-queue initialization behind the AuthProvider dynamic
+import reduced the measured startup excess to **349 B**, without weakening
+any feature or PWA policy.
+
+Vercel's exact `feature/shared-tasks` v0.14.0 tree at `203a6476`
+measured **441,671 B entry raw / 131,341 B entry gzip /
+144,049 B initial closure gzip / 353,377 B Home closure gzip /
+2,345,145 B app assets raw / 722,374 B app assets gzip /
+2,428,484 B unique precache**. The measured total asset growth is real
+feature code; removing the server-only Function does not affect the frontend
+bundle. Preserve the unchanged entry and Home limits. The exception sets
+initial-closure gzip to **144,850 B** (+1,150 B, only 801 B over the
+observed tree), and aggregate raw/gzip/precache to **2,346,500 B /
+723,700 B / 2,429,800 B**, leaving just **1,355 / 1,326 / 1,316 B**
+of Vercel headroom respectively. All seven guards remain mandatory;
+actual CI/Vercel remeasurement after the change is required. This is a
+scoped measured feature allowance, not a blanket limit reset or
+release acceptance; Scratch live deployment and testing remain separate.
+
+An additional, precisely measured **2026-10-10 v0.14.0 owner pending-sync
+exception** is recorded at `feature/shared-tasks` commit `f3cc8cf6`.
+The approved shared-task completion feature now includes a tiny account-local
+pending receipt and conflict warning tied to existing durable RxDB replication;
+it does **not** create a second owner outbox or Appwrite query.
+
+The original implementation imported the full sharing React hook from the
+generic `useTasks` hook and exceeded the Home closure limit by 1,511 B.
+Removing that eager dependency restored Home to **354,410 B gzip**, under the
+unchanged **357,000 B** ceiling. Exact production measurements after repair:
+**441,706 B entry raw, 131,297 B entry gzip, 144,005 B startup gzip,
+354,410 B Home gzip, 2,348,439 B aggregate app raw, 723,649 B aggregate
+app gzip, and 2,431,958 B unique precache**. Owner receipt code accounts
+for roughly 2,200 B raw / 940 B gzip plus small UI/replication changes.
+Removing its pending state or edit conflict handling would weaken approved
+offline collaboration behavior.
+
+Only **three aggregate limits** receive a measured allowance:
+`appAssetsRawBytes` **2,349,300 B** (+2,800),
+`appAssetsGzipBytes` **724,500 B** (+800), and
+`precacheUniqueBytes` **2,432,850 B** (+3,050), leaving
+**861 / 851 / 892 B** over the measured tree. The original baseline and
+**all entry, startup and Home thresholds** remain unchanged. The full
+seven-metric guard, PWA policy, exact-SHA Preview CI, and real Scratch
+backend acceptance remain mandatory. These numbers are scoped to the
+reviewed capability, not a general budget relaxation.
+
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 

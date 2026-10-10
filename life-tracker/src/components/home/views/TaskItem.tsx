@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { Check, UsersRound } from 'lucide-react';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
@@ -14,6 +14,7 @@ type MemoOpenMode = 'view' | 'edit';
 export interface TaskItemProps {
   task: TaskDocument;
   categoryColor: string;
+  shareLabel?: string;
   currentUserId: string;
   onToggle: (taskId: string) => void;
   onOpenActions: (task: TaskDocument) => void;
@@ -118,6 +119,7 @@ const TaskMemo: React.FC<{
 export const TaskItem: React.FC<TaskItemProps> = ({
   task,
   categoryColor,
+  shareLabel,
   currentUserId,
   onToggle,
   onOpenActions,
@@ -270,6 +272,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               {task.title}
             </span>
           </button>
+        )}
+        {shareLabel && !selectionMode && (
+          <p title={shareLabel} className="mt-1 flex min-w-0 items-center gap-1 text-xs text-gray-400">
+            <UsersRound size={12} className="shrink-0" aria-hidden="true" />
+            <span className="min-w-0 truncate">{shareLabel}</span>
+          </p>
         )}
         {task.memo && (
           <TaskMemo task={task} onOpenMemo={onOpenMemo} selectionMode={selectionMode} onSelect={onToggleSelection} />
