@@ -9,6 +9,7 @@ import {
   Globe2,
   ListFilter,
   ListPlus,
+  UsersRound,
   Palette,
   Tag,
 } from 'lucide-react';
@@ -29,6 +30,8 @@ import { useSettings } from '../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
   TASK_COMPLETION_SORT_SETTING_KEY,
+  SHARED_LABEL_MODE_SETTING_KEY,
+  SHOW_PENDING_SHARES_SETTING_KEY,
   ESCAPE_AS_BACK_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
@@ -219,6 +222,8 @@ export const PreferencesPage: React.FC = () => {
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
+  const shareLabelMode = getSetting(SHARED_LABEL_MODE_SETTING_KEY, 'names') === 'count' ? 'count' : 'names';
+  const showPendingShares = getSetting(SHOW_PENDING_SHARES_SETTING_KEY, false) === true;
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
@@ -334,6 +339,27 @@ export const PreferencesPage: React.FC = () => {
               TASK_COMPLETION_SORT_SETTING_KEY,
               resolveTaskCompletionSortMode(value) as TaskCompletionSortMode
             )}
+          />
+          <SelectSettingRow
+            id="shared-task-label"
+            icon={<UsersRound size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Shared task labels"
+            value={shareLabelMode}
+            options={[
+              { value: 'names', label: 'Friends names' },
+              { value: 'count', label: 'Number of friends' },
+            ]}
+            onChange={(value) => void setSetting(
+              SHARED_LABEL_MODE_SETTING_KEY, value === 'count' ? 'count' : 'names'
+            )}
+          />
+          <SettingsRow
+            icon={<UsersRound size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show pending shared invitations"
+            showChevron={false}
+            isToggle
+            checked={showPendingShares}
+            onClick={() => void setSetting(SHOW_PENDING_SHARES_SETTING_KEY, !showPendingShares)}
           />
           <SettingsRow
             icon={<ChevronsUpDown size={18} className="text-gray-400" aria-hidden="true" />}

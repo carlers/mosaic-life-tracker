@@ -1,22 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: issue #406 shared tasks, version 0.14.0. Stable Preview `feature/shared-tasks` at `47118000c4d129489a6184bdcd3bf9a6d96bfda3`; `dev` and `main` have not been authorized for this feature.
+Current task: issue #406 shared-task UX refinement; **approved implementation in progress** on a task branch from stable Preview \`feature/shared-tasks\` at \`a2ea2f92880fd56a511d83c448e45fb2d6c11211\`. Dev/main remain unapproved for this feature; Production unchanged.
 
-## Verified baseline
+## Source of truth / current baseline
+- Issue #406 latest UX plan: https://github.com/carlers/mosaic-life-tracker/issues/406#issuecomment-6099329226
+- Owner/participant base functionality is on Preview version 0.14.0, user confirmed initial invite → accept → completion flow on Scratch.
+- Preview full canonical Actions run 38053286955 succeeded and exact SHA Vercel deployment dpl_HWi692uxjcjDwQWDpJ1KhfNsCWYG was READY.
+- Scratch Function message-action \`6aa8057f002a4c306fdd\`, active rebuilt deployment \`6aca35aa368c0817cf93\` showed live:true; the original 0.14.0 authenticated advanced acceptance and strict CLI readiness remain incomplete.
 
-- Stable Preview exact-SHA [full canonical Actions 38047563899](https://github.com/carlers/mosaic-life-tracker/actions/runs/38047563899) succeeded; Vercel deployment `dpl_CXafqvdxEyRyXjAb9UVkNbFtSxVY` was READY for that SHA.
-- Scratch `6a96e82d000d1310b3be`: `task_shares` table exists, `friendships` table permissions are server-controlled. Active `message-action` deployment `6ac9fbd7d43a5f48f949` is READY and has executed requests successfully, but Appwrite returns `live:false`. Function configuration was updated after the active deployment was created; Appwrite documents redeploying after such a change. Do not weaken readiness or claim it green.
-- Scratch's corrected three test accounts exist as of 2026-10-10, but test rows had not been seeded when this task branch was started.
-
-## Current repair
-
-The prior `appwrite-preview-seed.mjs` fixture correction used `fixture_cat_`, `fixture_diary_`, `fixture_task_` prefixes on synthetic user IDs. This generates invalid Appwrite row IDs (up to 39 characters; maximum 36). Repair via short deterministic prefixes (`cat_`, `diary_`, `task_`), matching task category references, fail-fast preflight validation, and regression coverage for all row IDs. Preserve canonical `profile_` and hashed `fr_` identifiers and permission behavior. No production backend changes or version bump.
-
-## Verification
-
-Task branch focused Quality Gate is required for this change. Do not claim it passed before reading GitHub Actions. Full canonical CI and exact-SHA Vercel acceptance must run after squash to the stable Preview.
+## Current UX revision (proposed Preview 0.14.1)
+- Persistent actionable task invitations in Alerts (not Explore), with pending badge; ordinary friend-completion Alerts retention/grouping/push remains unchanged.
+- Accepted collaborator projections shown in recipient Month/Week Calendar and Todo indicators; Day View remains a separate virtual group; owner task never cloned.
+- Owner canonical task subtitle includes active friend names or count and optional pending invite count; owner Calendar task blocks get shared glyph.
+- Two account-synced display preferences. Recipient task management allows leaving, while private memo, images and category never leave owner storage.
+- Refreshed remote projections on foreground/visibility returns with bounded request coalescing, no polling.
 
 ## Next action
-
-Verify this task's focused CI; squash task PR to `feature/shared-tasks` only after green. Re-run canonical and Vercel. Seed the three isolated Scratch accounts using the corrected fixture schema, then verify owner/friend/unrelated auth, privacy, invite, CAS, revocation, retry/queued completion, and Diary through real logins. Rebuild the exact reviewed Function with the current scratch config to resolve `live:false`, check no shared Preview incompatibility, and rerun strict readiness. No `dev`/`main` promotion without separate approval.
+- Sandbox completed focused TypeScript, contracts, ESLint (only nonblocking prior lint warnings) and new pure unit test. Build initially exceeded the guarded limits by 2,732 B Home closure gzip, 4,500 B raw app assets, 731 B app-assets gzip and 4,581 B precache; documented narrow size allowances were made for the user-approved feature, not a blanket guard bypass. Rerun measured build and CI after this adjustment.
+- Review diffs, tests and any discovered integration regressions. Commit task on \`chatgpt/**\`, request focused CI, squash to **stable Preview only after green**; run full canonical CI and exact SHA Vercel. Do not mark physical device/browser acceptance as completed without proof.
+- If appwrite backend source/schema stays unchanged, don't redeploy Function gratuitously; verify Scratch compatibility before acceptance. No dev/main promotion without approval.

@@ -15,6 +15,8 @@ const LazyShareTaskSheet = lazy(() =>
   import('./ShareTaskSheet').then(({ ShareTaskSheet }) => ({ default: ShareTaskSheet }))
 );
 import { useSharedTasks } from '../../../hooks/useSharedTasks';
+import { useOptionalFriendList } from '../../../hooks/useFriends';
+import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { MemoSheet } from './MemoSheet';
 import { DatePickerSheet } from './DatePickerSheet';
@@ -145,6 +147,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const pendingOwnedTaskIds = useMemo(() => pendingOwnerCompletionIds(currentUserId),
     [currentUserId, ownerPendingRevision]);
   const sharedTasks = useSharedTasks('received', isOpen);
+  const ownerShares = useSharedTasks('owned', isOpen);
+  const sharingFriends = useOptionalFriendList();
+  const labelMode = getSetting('sharedTaskLabelMode', 'names') === 'count' ? 'count' : 'names';
+  const showPendingShares = getSetting('showPendingSharedTaskInvites', false) === true;
+  const ownerLabels = useMemo(() => ownerShareLabels(
+    ownerShares.items, sharingFriends, labelMode, showPendingShares,
+  ), [ownerShares.items, sharingFriends, labelMode, showPendingShares]);
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
@@ -508,6 +517,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const handleCloseActions = useCallback(() => {
     setIsActionSheetOpen(false);
   }, []);
+  const leaveSharedTask = sharedTasks.updateMembership;
   const updateSharedCompletion = sharedTasks.updateCompletion;
   const handleSharedCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
     try {
@@ -872,7 +882,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       editValue={editValue}
                       onToggleTask={handleToggleTask}
                       sharedItems={sharedTasks.activeItems}
+                      ownerLabels={ownerLabels}
                       onSharedCompletion={handleSharedCompletion}
+                      onLeaveSharedTask={async (item) => {
+                        const outcome = await leaveSharedTask(item, 'leave');
+                        if (outcome.status === 'pending') showFeedback('Leaving task queued for sync.');
+                        if (outcome.status === 'rejected') showFeedback(outcome.reason || 'Could not leave shared task.');
+                      }}
                       sharedPendingFor={sharedTasks.pendingFor}
                       onAddTask={handleAddTask}
                       onOpenActions={handleOpenActions}

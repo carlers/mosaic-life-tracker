@@ -152,7 +152,6 @@ describe('build-size guard', () => {
     for (const metric of [
       'entryRawBytes',
       'entryGzipBytes',
-      'homeClosureGzipBytes',
     ]) {
       const baselineBytes = configuredBudget.baseline.metrics[metric];
       const limitBytes = configuredBudget.limits[metric];
@@ -160,6 +159,12 @@ describe('build-size guard', () => {
       expect(ratio).toBeGreaterThanOrEqual(1.049);
       expect(ratio).toBeLessThanOrEqual(1.052);
     }
+    // v0.14.1 brings recipient Calendar and owner labels into Home. The
+    // measured Home closure was 359,732 B gzip. Cap its one-time increase
+    // tightly rather than weakening entry/initial startup limits.
+    expect(configuredBudget.limits.homeClosureGzipBytes).toBe(361000);
+    expect(configuredBudget.limits.homeClosureGzipBytes /
+      configuredBudget.baseline.metrics.homeClosureGzipBytes).toBeLessThanOrEqual(1.063);
     // v0.14.0 adds lazy, durable share queues and their account/reconnect
     // lifecycle. The measured Vercel initial closure was 144,049 B gzip:
     // this exceptional bound gives only 801 B headroom and preserves the
@@ -178,9 +183,9 @@ describe('build-size guard', () => {
     ));
 
     expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2349300,
-      appAssetsGzipBytes: 724500,
-      precacheUniqueBytes: 2432850,
+      appAssetsRawBytes: 2358000,
+      appAssetsGzipBytes: 727000,
+      precacheUniqueBytes: 2441000,
     });
   });
 

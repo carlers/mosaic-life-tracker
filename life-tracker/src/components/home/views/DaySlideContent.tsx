@@ -19,7 +19,9 @@ export interface DaySlideProps {
   categories: CategoryDocument[];
   currentUserId: string;
   sharedItems?: SharedTaskItem[];
+  ownerLabels?: ReadonlyMap<string, string>;
   onSharedCompletion?: (item: SharedTaskItem, completed: boolean) => Promise<unknown> | void;
+  onLeaveSharedTask?: (item: SharedTaskItem) => Promise<unknown> | void;
   sharedPendingFor?: (taskId: string) => SharedCompletionCommand | undefined;
   editingTaskId: string | null;
   editValue: string;
@@ -59,7 +61,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   categories,
   currentUserId,
   sharedItems = [],
+  ownerLabels,
   onSharedCompletion,
+  onLeaveSharedTask,
   sharedPendingFor,
   editingTaskId,
   editValue,
@@ -113,6 +117,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           visibility={category.visibility}
           currentUserId={currentUserId}
           tasks={tasksByCategory.get(category.id) ?? []}
+          ownerLabels={ownerLabels}
           onToggleTask={onToggleTask}
           onAddTask={(title, completed) => onAddTask(title, category.id, dateStr, completed)}
           onOpenActions={onOpenActions}
@@ -147,6 +152,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         <SharedTaskRows
           items={sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr)}
           onSetCompleted={onSharedCompletion}
+          onLeave={onLeaveSharedTask}
           pendingFor={sharedPendingFor}
         />
       )}

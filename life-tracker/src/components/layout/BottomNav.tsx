@@ -1,6 +1,7 @@
 import React from 'react';
 import { Home, Compass, Bell, MessageCircle, User } from 'lucide-react';
 import { useUnreadMessages } from '../../hooks/useUnreadMessages';
+import { useSharedTasks } from '../../hooks/useSharedTasks';
 
 export type TabId = 'home' | 'explore' | 'notifications' | 'messages' | 'account';
 
@@ -28,6 +29,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onTabChange,
 }) => {
   const { totalUnread } = useUnreadMessages();
+  const { items: invitations } = useSharedTasks('received');
+  const pendingInvitations = invitations.filter(item => item.status === 'pending').length;
   const activeIndex = Math.max(
     0,
     tabs.findIndex((tab) => tab.id === activeTab)
@@ -51,9 +54,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
-          const showBadge = tab.id === 'messages' && totalUnread > 0;
+          const badgeCount = tab.id === 'messages' ? totalUnread :
+            tab.id === 'notifications' ? pendingInvitations : 0;
+          const showBadge = badgeCount > 0;
           const accessibleLabel = showBadge
-            ? `${tab.label}, ${totalUnread} unread`
+            ? `${tab.label}, ${badgeCount} ${tab.id === 'notifications' ? 'task invitations' : 'unread'}`
             : tab.label;
 
           return (
@@ -77,7 +82,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                     className="absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center px-1 leading-none"
                     aria-hidden="true"
                   >
-                    {totalUnread > 9 ? '9+' : totalUnread}
+                    {badgeCount > 9 ? '9+' : badgeCount}
                   </div>
                 )}
               </div>
