@@ -131,10 +131,28 @@ describe('TaskActionSheet', () => {
     expect(cbs.onVisibility).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByText('Change Date'));
-    expect(cbs.onChangeDate).toHaveBeenCalledTimes(1);
+    // Calendar replaces actions synchronously in the same portaled sheet,
+    // rather than closing one sheet and opening another after a timer.
+    expect(screen.getByRole('group', { name: 'Calendar dates' })).toBeTruthy();
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(cbs.onChangeDate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
     fireEvent.click(screen.getByText('Do It Today'));
     expect(cbs.onDoItTomorrowOrToday).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves a calendar day through the existing owner task update callback', async () => {
+    const cbs = makeCallbacks();
+    render(<TaskActionSheet isOpen task={makeTask({ date: '2026-10-10' })}
+      category={makeCategory()} {...cbs} />);
+    fireEvent.click(screen.getByText('Change Date'));
+    fireEvent.click(screen.getByRole('button', { name: 'October 20, 2026' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Date' }));
+    await vi.waitFor(() => expect(cbs.onChangeDate).toHaveBeenCalledWith('2026-10-20'));
+    // The real BottomSheet may also request close through history cleanup
+    // while this test keeps the parent isOpen flag fixed at true.
+    await vi.waitFor(() => expect(cbs.onClose).toHaveBeenCalled());
   });
 
   it('copies the task title and closes the sheet', async () => {

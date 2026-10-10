@@ -111,7 +111,9 @@ describe('received shared task interactions', () => {
     render(<Fixture />);
     fireEvent.click(screen.getByRole('button', { name: 'Shared presentation' }));
     fireEvent.click(screen.getByRole('button', { name: 'Change Date' }));
-    await waitFor(() => expect(screen.getByRole('group', { name: 'Calendar dates' })).toBeTruthy());
+    // One activation, same bottom sheet, no timer or second portal.
+    expect(screen.getByRole('group', { name: 'Calendar dates' })).toBeTruthy();
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
   });
   it('handles pointer double-tap as edit, rather than opening actions', async () => {
     const edit = vi.fn(async () => {});

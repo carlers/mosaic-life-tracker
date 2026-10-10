@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { TaskDateEditor } from './TaskDateEditor';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
 import {
@@ -32,7 +33,7 @@ interface TaskActionSheetProps {
   onEdit: () => void;
   onDelete: () => void;
   onMemo: () => void;
-  onChangeDate: () => void;
+  onChangeDate: (date: string) => Promise<unknown> | unknown;
   onVisibility: () => void;
   onShare: () => void;
   onAddPhoto: () => void;
@@ -58,6 +59,9 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onDoItTomorrowOrToday,
 }) => {
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
+  const [dateMode, setDateMode] = useState(false);
+  const dismiss = () => { setDateMode(false); onClose(); };
+
   if (!task) return null;
 
   const isTaskToday = isToday(new Date(task.date));
@@ -91,12 +95,21 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   return (
     <BottomSheet onExitComplete={onExitComplete}
       isOpen={isOpen}
-      onClose={onClose}
-      title={task.title}
+      onClose={dismiss}
+      onTransientDismiss={() => {
+        if (!dateMode) return false;
+        setDateMode(false);
+        return true;
+      }}
+      title={dateMode ? 'Change Date' : task.title}
       height="auto"
       backdropBlur
     >
-      <div className="pt-2 pb-8 px-4">
+      {dateMode ? (
+        <TaskDateEditor key={task.id} initialDate={task.date}
+          onCancel={() => setDateMode(false)}
+          onSave={async date => { await onChangeDate(date); dismiss(); }} />
+      ) : <div className="pt-2 pb-8 px-4">
         {/* Grid */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
@@ -311,10 +324,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
 
           <button
             type="button"
-            onClick={() => {
-              onChangeDate();
-              onClose();
-            }}
+            onClick={() => setDateMode(true)}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <div
@@ -354,7 +364,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-base font-medium">Move to Backlog</span>
           </button>
         </div>
-      </div>
+      </div>}
     </BottomSheet>
   );
 };
