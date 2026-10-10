@@ -1,26 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: Reconcile and promote release-history issue #476 to `dev` (user explicitly approved).
-Baseline: live `dev` `4eb8cb39b078d20989d1325a97207b6e6d4fa1c9` (v0.11.3); original accepted release-history Preview `feature/release-history` `896beed48bb5606bb802af277b378ceb9475221e` (v0.12.0); `main` unchanged at `131a8289feee2af392b18fa675222ac8e76ef258`.
-Integration task branch: `chatgpt/release-history-dev-integration`. Stable Preview: `feature/release-history-dev-integration`. Combined candidate **v0.12.1**: v0.12.0 was already published as a user-testable Preview; a different combined release tree must not reuse its version.
+Current task: Issue #506 — topic-based, zero-manual-handoff resume after ChatGPT conversation failures.
+Baseline: live `dev` `224f8a700f35bbe3853206ee208e1dc103ece5b3`.
+Task branch: `chatgpt/cross-chat-resume-506`; stable Preview: `feature/cross-chat-resume-506`.
+Scope: repository workflow/documentation only, no version bump, Appwrite schema, feature implementation, or dev/main promotion. The latest historical release-history snapshot described another task; that issue's actual state must be checked independently.
 
-## Scope and conflicts
-- Preserve ALL independent v0.11.3 navigation, chat jitter, task-input and single-display-name fixes on `dev`.
-- Layer the accepted #476 lazy Settings → Release history route, GitHub published-production Releases model, bounded public offline cache, retry/loading/empty UI, unit+DOM+route regressions and release-publication checklist onto the latest dev tree.
-- Keep Settings build diagnostics and separate PWA update action unchanged; retain standard protected-route parent/back and gestures including current navigation motion defaults.
-- Appwrite data and schema are unaffected. Official Preview/dev use Scratch, main remains Production.
-- Current `dev` build-size ceilings are newer/larger than the original release-history Preview. Do not replace them with the older ceilings; measure the **combined** production asset growth before adjusting any limits. Preserve historical baseline and entry/startup/Home ceilings.
+## Objective and changes
+
+- Make natural-language topic recovery deterministic through exact GitHub issue matching, issue-local checkpoints, and live PR/branch/CI/deployment verification.
+- Distinguish old chat timeout from failed operations; do not replay remote mutations without checking live state.
+- Keep concurrent issues separate; `SESSION_STATE.md` is not the authoritative checkpoint for every issue.
+- Implement in `AGENTS.md`, `docs/ISSUE_WORKFLOW.md` and `docs/AI_WORKFLOW.md`.
+- Demonstration target: shared tasks #406; its accepted Preview branch and Scratch/manual blocker must be discoverable without original conversation.
 
 ## Verification
-- Because combined source likely has under 1 KiB aggregate/headroom, use **one explicit full task diagnostic** to measure build growth before the stable Preview gate. Repair only observed failures, then request `[verify:focused]` on final coherent task branch commit.
-- Squash focused-green task into stable integration Preview; require exact SHA canonical full CI and Vercel READY on new combined tree. Then merge the accepted stable Preview via PR into `dev` under this user's existing explicit authorization. Verify resulting dev SHA, version, CI, deployment.
-- Manual authenticated phone/Android Back/swipe, Light/Dark/Black, offline cache and exact-origin Scratch preview remain separate checks and cannot be claimed as passed without evidence. Scratch Appwrite rejects additional exact Web platform registrations due to Free-plan platform quota; dev has an existing registered alias.
-- Production `main` stays unchanged. GitHub public Releases/tag list is still empty; creating production GitHub Releases is not part of this authorization, and #476 remains open until actual main release.
-
-## Measured combined build-size diagnostic
-
-Full task diagnostic [Actions 38012678389](https://github.com/carlers/mosaic-life-tracker/actions/runs/38012678389) compiled TypeScript/Vite/PWA and passed unit and both DOM shards; combined assets exceeded previous `dev` aggregate limits by **6,513 B raw**, **2,085 B gzip** and **6,484 B precache**. Entry raw 439,785/444,400 B, entry gzip 130,807/131,600 B, initial closure 143,493/143,700 B and Home closure 352,744/357,000 B all passed. Review-only aggregate limits updated to raw **2,321,000 B**, gzip **715,100 B**, precache **2,403,900 B**, retaining 1,987/1,315/2,016 B measured headroom respectively. `buildSizeGuard.test.ts` is updated to match; historical baseline and all startup/Home ceilings stay untouched. Real Preview/Vercel build variance still requires exact-SHA verification.
 
 ## Next action
-Finish combined source/tree, run measured task CI, repair and reverify, then stable Preview CI/Vercel, and authorized `dev` PR promotion.
+
+Review exact docs diff, request `[verify:focused]` on the coherent task commit, then squash via PR into the stable Preview branch, verify full canonical CI and Vercel. Docs-only scope skips Appwrite cloud readiness. An actual fresh-chat/mobile acceptance has not been performed and must be reported separately.
+No `dev` or `main` promotion is authorized for #506 or #406 by this task.
