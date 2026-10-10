@@ -109,7 +109,7 @@ describe('notifications backend', () => {
           if (tableId === 'tasks') return {
             $id: 'task_offline', user_id: 'user_a', category_id: 'cat_1',
             visibility: '', is_completed: true,
-            completed_at: '2026-10-08T12:00:00.000Z',
+            completed_at: '2026-10-08T12:00:00.000Z', date: '2026-10-08',
             deleted: false, source: '',
           };
           if (tableId === 'categories') {
@@ -168,6 +168,27 @@ describe('notifications backend', () => {
     }
   });
 
+
+  it('never emits public Alerts or push for an undated task', async () => {
+    const completedAt = new Date().toISOString();
+    const db = {
+      getRow: vi.fn(async () => ({
+        $id: 'task_unscheduled', user_id: 'user_a', date: '',
+        is_completed: true, completed_at: completedAt, deleted: false,
+        source: '', visibility: 'followers',
+      })),
+      listRows: vi.fn(),
+      createRow: vi.fn(),
+    };
+    const result = await handleTaskCompletionEvent(db, {
+      $id: 'task_unscheduled', user_id: 'user_a', is_completed: true,
+      completed_at: completedAt, source: '',
+    }, 'tablesdb.life_tracker.tables.tasks.rows.task_unscheduled.update', vi.fn(), vi.fn());
+    expect(result.body.ignored).toBe('stale-completion');
+    expect(db.listRows).not.toHaveBeenCalled();
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
   it('suppresses follower Alerts for a task with a sharing history even after revoke', async () => {
     const completedAt = new Date().toISOString();
     const db = {
@@ -175,7 +196,7 @@ describe('notifications backend', () => {
         if (tableId === 'tasks') return {
           $id: 'task_1', user_id: 'user_a', category_id: 'cat_1',
           visibility: 'followers', is_completed: true, completed_at: completedAt,
-          deleted: false, source: '', title: 'Private shared task',
+          date: '2026-10-10', deleted: false, source: '', title: 'Private shared task',
         };
         if (tableId === 'categories') return {
           $id: 'cat_1', user_id: 'user_a', deleted: false, visibility: 'followers',
@@ -241,7 +262,7 @@ describe('notifications backend', () => {
         if (tableId === 'tasks') return {
           $id: 'task_1', user_id: 'user_a', category_id: 'cat_1',
           visibility: '', is_completed: true, completed_at: completedAt,
-          deleted: false, source: '', title: 'Ship alerts',
+          date: '2026-10-10', deleted: false, source: '', title: 'Ship alerts',
         };
         throw Object.assign(new Error('not found'), { code: 404 });
       }),

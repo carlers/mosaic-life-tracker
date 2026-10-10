@@ -1,4 +1,5 @@
 const { Query } = require('node-appwrite');
+const { isScheduledTask } = require('./task-placement');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const MAX_ROW_ID_LENGTH = 36;
@@ -72,6 +73,28 @@ async function handleOwnerWriteCas(db, callerId, payload) {
   ];
 
   if (tableId === 'tasks') {
+    // A shared task must never silently move into private Backlog while an
+    // accepted or pending collaborator still has a live membership. Reject
+    // malformed/undated placements before a CAS update; owner may unshare
+    // first, then retry the same task ID without cloning or deleting it.
+    if (Object.prototype.hasOwnProperty.call(data, 'date') &&
+        !isScheduledTask(data)) {
+      const activeShares = await db.listRows({
+        databaseId: DATABASE_ID, tableId: 'task_shares',
+        queries: [
+          Query.equal('task_id', rowId),
+          Query.equal('status', ['pending', 'accepted']),
+          Query.limit(1),
+        ], total: false,
+      });
+      if ((activeShares.rows || []).length > 0) {
+        const current = await db.getRow({ databaseId: DATABASE_ID, tableId, rowId });
+        if (current?.user_id !== callerId) {
+          return { status: 403, body: { error: 'Owner mismatch' } };
+        }
+        return { status: 200, body: { ok: true, status: 'conflict', row: current } };
+      }
+    }
     // A pre-sharing client may still call this Function even after its direct
     // Appwrite update permission was removed. Its old local bootstrap logic
     // could read a fresh server token, then overwrite collaborator completion

@@ -133,6 +133,41 @@ describe('message-action owner write CAS', () => {
     expect(mockDb.updateRows).not.toHaveBeenCalled();
   });
 
+
+  it('blocks an owner Backlog move when a collaborator is pending or accepted', async () => {
+    mockDb.listRows.mockResolvedValue({ rows: [{ status: 'accepted' }] });
+    const task = { $id: 'task_1', user_id: 'user_A', date: '2026-10-10' };
+    mockDb.getRow.mockResolvedValue(task);
+    const result = await invoke({ userId: 'user_A', mockDb,
+      body: { action: 'compare_and_set_owner_row', tableId: 'tasks',
+        rowId: 'task_1', expectedUpdatedAt: '2026-10-10T10:00:00.000Z',
+        expectedCompleted: false,
+        data: { user_id: 'user_A', date: '', is_completed: false } },
+    });
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ ok: true, status: 'conflict', row: task });
+    expect(mockDb.listRows).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'task_shares',
+      queries: expect.arrayContaining([
+        { op: 'equal', key: 'status', value: ['pending', 'accepted'] },
+      ]),
+    }));
+    expect(mockDb.updateRows).not.toHaveBeenCalled();
+  });
+
+  it('allows unscheduling an unshared task with the same task identity', async () => {
+    mockDb.listRows.mockResolvedValue({ rows: [] });
+    mockDb.updateRows.mockResolvedValue({ total: 1, rows: [{}] });
+    const result = await invoke({ userId: 'user_A', mockDb,
+      body: { action: 'compare_and_set_owner_row', tableId: 'tasks',
+        rowId: 'task_1', expectedUpdatedAt: '2026-10-10T10:00:00.000Z',
+        expectedCompleted: false,
+        data: { user_id: 'user_A', date: '', is_completed: false } },
+    });
+    expect(result.body.status).toBe('updated');
+    expect(mockDb.updateRows).toHaveBeenCalledOnce();
+  });
+
   it('preserves task completion precondition atomically on upgraded owner writes', async () => {
     mockDb.updateRows.mockResolvedValue({ total: 1, rows: [{}] });
     const result = await invoke({ userId: 'user_A', mockDb,
