@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DeferredAvatar } from '../ui/DeferredAvatar';
 import { formatRelative } from '../../lib/format';
+import { stickerSummary } from '../../lib/stickerProtocol';
 import { makeRouteParentState } from '../../lib/primarySwipeNavigation';
 import type { Conversation } from '../../hooks/useConversations';
 interface ConversationRowProps {
@@ -20,7 +21,7 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
     preview = 'Tap to start chatting';
     previewClass = 'text-gray-400 italic';
   } else if (lastMessage.content) {
-    preview = lastMessage.content;
+    preview = stickerSummary(lastMessage.content);
     previewClass =
       unreadCount > 0 ? 'text-gray-200 font-medium' : 'text-gray-400';
   } else if (lastMessage.taskRefTitle) {

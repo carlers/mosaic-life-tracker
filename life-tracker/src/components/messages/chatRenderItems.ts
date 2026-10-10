@@ -1,5 +1,6 @@
 import { format, isSameDay, subDays } from 'date-fns';
 import type { MessageDocument } from '../../db/schema';
+import { stickerSummary } from '../../lib/stickerProtocol';
 
 export const TIMESTAMP_GAP_MS = 5 * 60 * 1000;
 
@@ -25,7 +26,7 @@ export function messageMatchesQuery(
 ): boolean {
   if (!query) return true;
   const q = query.toLowerCase();
-  if (m.content.toLowerCase().includes(q)) return true;
+  if (stickerSummary(m.content).toLowerCase().includes(q)) return true;
   if (m.taskRefTitle && m.taskRefTitle.toLowerCase().includes(q)) return true;
   if (m.replyToContent && m.replyToContent.toLowerCase().includes(q))
     return true;

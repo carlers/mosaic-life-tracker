@@ -1,4 +1,6 @@
 import type { RxDocument } from 'rxdb';
+import { parseStickerMessage } from './stickerProtocol';
+import { allowStickerRecipient } from './stickerStorage';
 import { getDatabase } from '../db/database';
 import { isUnauthorizedError } from './authEvents';
 import {
@@ -158,6 +160,13 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   return inFlightDeliveryPromise;
 }
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
+  const sticker = parseStickerMessage(doc.content);
+  if (sticker) {
+    // Recipient-specific read is granted at delivery time, including after
+    // offline/restart retry. The media is a single reusable file, not a copy
+    // per message or recipient.
+    await allowStickerRecipient(doc.userId, doc.recipientId, sticker.fileId);
+  }
   await sendMessageAction({
     action: 'deliver',
     messageId: doc.id,

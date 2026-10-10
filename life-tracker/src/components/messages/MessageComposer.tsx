@@ -7,7 +7,7 @@ import React, {
   forwardRef,
 } from 'react';
 import { motion } from 'framer-motion';
-import { Send } from 'lucide-react';
+import { Send, Sticker } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
 
 interface ReplyToContext {
@@ -19,6 +19,7 @@ interface ReplyToContext {
 
 interface MessageComposerProps {
   onSend: (content: string) => void;
+  onOpenStickers?: () => void;
   disabled?: boolean;
   placeholder?: string;
   replyTo?: ReplyToContext | null;
@@ -39,6 +40,7 @@ export const MessageComposer = forwardRef<
   (
     {
       onSend,
+      onOpenStickers,
       disabled = false,
       placeholder = 'Message…',
       replyTo = null,
@@ -97,6 +99,14 @@ export const MessageComposer = forwardRef<
           />
         )}
         <div className="flex items-end gap-2">
+          {onOpenStickers && (
+            <button type="button" onClick={onOpenStickers} disabled={disabled}
+              onPointerDown={event => event.preventDefault()}
+              aria-label="Open stickers"
+              className="flex shrink-0 h-10 w-10 items-center justify-center rounded-full text-gray-300 hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50">
+              <Sticker size={21} aria-hidden="true" />
+            </button>
+          )}
           <div className="flex-1 min-w-0">
             <textarea
               ref={inputRef}

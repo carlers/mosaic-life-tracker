@@ -3,6 +3,8 @@ import { format } from 'date-fns';
 import { Check, CheckCheck, Ban, Reply } from 'lucide-react';
 import { TaskRefCard } from './TaskRefCard';
 import { ReplyPreview } from './ReplyPreview';
+import { StickerImage } from './StickerImage';
+import { parseStickerMessage, stickerSummary } from '../../lib/stickerProtocol';
 import { ReactionRow } from './ReactionRow';
 import {
   useBubbleGestures,
@@ -46,7 +48,7 @@ function buildBubbleLabel(
   if (message.replyToId) {
     parts.push(`in reply to ${replySenderName}`);
   }
-  parts.push(message.content);
+  parts.push(stickerSummary(message.content));
   return parts.join(' ');
 }
 
@@ -122,6 +124,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 }) => {
   const [showTimestampLocal, setShowTimestampLocal] = useState(false);
   const senderName = resolveSenderName?.(message.senderId) ?? 'Friend';
+  const sticker = parseStickerMessage(message.content);
   const replySenderName = message.replyToSenderId
     ? resolveSenderName?.(message.replyToSenderId) ?? 'Friend'
     : '';
@@ -204,10 +207,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             transform: `translateX(${swipeOffset}px)`,
             touchAction: 'pan-y',
           }}
-          className={`select-none block w-full text-left rounded-2xl px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
-            isOutgoing
-              ? 'bg-surfaceHighlight text-white'
-              : 'bg-mosaicIncoming border border-[#444444] text-white'
+          className={`select-none block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+            sticker ? 'rounded-lg bg-transparent text-white' : 'rounded-2xl px-3 py-2 ' +
+              (isOutgoing ? 'bg-surfaceHighlight text-white' : 'bg-mosaicIncoming border border-[#444444] text-white')
           }`}
           aria-label={buildBubbleLabel(
             message,
@@ -241,9 +243,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               />
             </div>
           )}
-          <span className="text-sm whitespace-pre-wrap break-words">
-            {message.content}
-          </span>
+          {sticker ? (
+            <StickerImage fileId={sticker.fileId} viewerId={currentUserId} label={sticker.label} />
+          ) : (
+            <span className="text-sm whitespace-pre-wrap break-words">{message.content}</span>
+          )}
           {reactions.length > 0 && (
             <div className="mt-1">
               <ReactionRow
@@ -273,6 +277,7 @@ export const MessageBubble = React.memo(
   (prev, next) => {
     return (
       prev.message.id === next.message.id &&
+      prev.currentUserId === next.currentUserId &&
       prev.message.content === next.message.content &&
       prev.message.reactions === next.message.reactions &&
       prev.message.readAt === next.message.readAt &&

@@ -3,6 +3,7 @@ import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { Copy, Reply, Trash2, Plus } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import type { MessageDocument } from '../../db/schema';
+import { parseStickerMessage } from '../../lib/stickerProtocol';
 
 interface MessageActionSheetProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
 
   const hasContent = message.content.trim().length > 0;
   const hasTaskRef = message.taskRefTitle.trim().length > 0;
-  const canCopy = hasContent || hasTaskRef;
+  const canCopy = !parseStickerMessage(message.content) && (hasContent || hasTaskRef);
   const isUnsent = message.isUnsent;
 
   if (isUnsent) {

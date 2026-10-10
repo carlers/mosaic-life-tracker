@@ -690,6 +690,56 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
 - **Unsent bubbles:** all gestures disabled. No reply icon, no action sheet, no double-tap react. Status row still renders for timeline coherence.
 - **Reaction timeout toast:** `toggleReaction` returns `'ok' | 'timeout'`. When a reaction is applied optimistically to an outgoing message that stays `deliveryStatus: 'pending'` past the 5s delivery wait, the optimistic patch is reverted and the mutator returns `'timeout'`. All three `ChatPage` reaction call sites (`handleBubbleReact`, `handleReactFromSheet`, `handleEmojiPicked`) branch on this and show the existing toast pattern with the string `"Couldn't send reaction. Try again."`. Do not add new toast infrastructure — reuse the page-level `feedback` state that auto-dismisses after 2000ms.
 
+### 21.1 Custom static stickers (issue #413; Preview candidate)
+- Sticker selection lives only in Chat. The picker reuses the shared BottomSheet
+  (animated drag dismissal, Android Back, Esc, backdrop/input locking), and
+  mounts no sticker image work on the Home route.
+- The small personal library is stored in the existing account-synced Settings
+  row `chat_stickers_v1` (up to 32 unique entries, each with ID + short label).
+  Imports use a native phone file picker. Original alpha is preserved; opaque
+  images with near-solid white or black borders have only connected perimeter
+  pixels removed. Complex backgrounds are **not** reliably segmentable without
+  a separate cutout process: such photos are rejected with a phone cutout
+  instruction rather than silently saving a white or black rectangle.
+- Every import is canvas-re-encoded as static transparent WebP, with a maximum
+  384px side and 128 KiB output; rejects oversized/unrecognized sources.
+  The image's stable `stk_` ID is SHA-256 of the authenticated user ID and
+  final compressed bytes. Re-importing the same processed bytes under the
+  same account reuses the single file. No original photos or base64 are stored
+  in the messages table. A per-viewer account-scoped IndexedDB cache avoids
+  cross-account reuse and is subject to the existing 50 MiB LRU.
+- Existing `task_images` file-secure bucket is reused **without any bucket
+  permission change**. New sticker files are owner-only, with the owner
+  retaining update/delete rights; the client widens only file-level **read**
+  permission to the recipient before posting the pre-existing outgoing text
+  message through the trusted `deliver` Function. One physical file is
+  reused across sends/chats; server still validates accepted friendship for
+  the message. No recipient-owned file copies or new Appwrite table/Function
+  are necessary. Because file grants accumulate as different recipients
+  receive the sticker, this choice prioritizes Free-tier storage/bandwidth
+  efficiency; recipients may retain previously downloaded bytes and access
+  to the file after an unsend or unfriend. Never widen sticker files to
+  `read("users")` or a bucket-wide read.
+- Wire format is readable legacy text `[Sticker: label]` followed by the
+  strict `[ms1:stk_<32 lowercase hex>]` marker on the next line.
+  Old clients show text; new clients render a transparent contained sticker.
+  Chat uses the original owner-scoped pending-message retry pipeline,
+  so cached stickers can be selected while offline; file permissions are
+  added only after reconnect. Read receipts, reactions, unsend, reply,
+  previews and search continue to use the existing message contract.
+  A removed library entry does not destroy media still used by a chat.
+  Never-shared, unreferenced removed files may be reclaimed.
+- **Limitations to verify before shipping:** Android/iOS OS sticker keyboards
+  do not necessarily expose stickers through the web file picker; use a
+  compatible image exported to device Photos/Files. Concurrent cross-device
+  changes to the same Settings key use the current settings sync contract,
+  which can resolve competing writes last-writer-wins. Concurrent sends
+  from independent devices may race their file-ACL updates; test on Scratch.
+  Complex-photo background extraction requires a separate explicit UX.
+- This is a candidate, not proof of cloud/device acceptance. Bundle no
+  copyrighted sticker libraries (Pusheen, Sanrio, Adventure Time) without
+  appropriate licensing; consider licensed packs separately after #413.
+
 ## 22. Task Reactions
 - **Storage:** `task.reactions` (exists in `TaskDocument` and `tasksSchema`). Format: JSON array of `{emoji, userIds}`. Parse/stringify via `src/lib/reactionUtils.ts`.
 - **UI:** Heart button beside the reply button in `FriendDayViewSheet`. Tapping opens `EmojiPickerSheet`. Picking calls `useFriendCalendar.reactToTask(task.id, emoji)` and, on `add`, `useMessages.sendTaskReaction(task, emoji, color)`.
