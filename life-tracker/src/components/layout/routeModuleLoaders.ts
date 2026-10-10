@@ -14,6 +14,7 @@ function memoizeImport<T>(load: () => Promise<T>): () => Promise<T> {
 export const loadHomePage = memoizeImport(() => import('../../pages/HomePage'));
 export const loadAccountPage = memoizeImport(() => import('../../pages/AccountPage'));
 export const loadSettingsPage = memoizeImport(() => import('../../pages/SettingsPage'));
+export const loadReleaseHistoryPage = memoizeImport(() => import('../../pages/ReleaseHistoryPage'));
 export const loadPreferencesPage = memoizeImport(() => import('../../pages/PreferencesPage'));
 export const loadNotificationSettingsPage = memoizeImport(() => import('../../pages/NotificationSettingsPage'));
 export const loadProfilePage = memoizeImport(() => import('../../pages/ProfilePage'));

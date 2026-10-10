@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   FileDown,
   RefreshCw,
+  History,
   Import,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
@@ -414,6 +415,11 @@ export const SettingsPage: React.FC = () => {
               )}
             </div>
           </details>
+          <SettingsRow
+            icon={<History size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Release history"
+            onClick={() => navigate('/settings/releases', { state: makeRouteParentState('/settings') })}
+          />
           <SettingsRow
             icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
             label={isUpdateReady ? 'Update now' : 'Check for Updates'}
