@@ -101,8 +101,7 @@ function validCommand(value: unknown): value is SharedCompletionCommand {
     c.grantEpoch.length <= 50 && typeof c.expectedRevision === 'string' &&
     c.expectedRevision.length > 0 && c.expectedRevision.length <= 50 &&
     typeof c.completed === 'boolean' && typeof c.enqueuedAt === 'number' &&
-    Number.isFinite(c.enqueuedAt) && typeof c.attempts === 'number' &&
-    typeof c.attempts === 'number' && Number.isInteger(c.attempts) &&
+    Number.isFinite(c.enqueuedAt) && typeof c.attempts === 'number' && Number.isInteger(c.attempts) &&
     c.attempts >= 0 && c.attempts <= MAX_ATTEMPTS;
 }
 
@@ -270,7 +269,8 @@ function validMembership(value: unknown): value is SharedMembershipCommand {
     c.grantEpoch.length > 0 && c.grantEpoch.length <= 50 &&
     (c.operation === 'accept' || c.operation === 'decline' || c.operation === 'leave') &&
     typeof c.enqueuedAt === 'number' && Number.isFinite(c.enqueuedAt) &&
-    Number.isInteger(c.attempts) && c.attempts >= 0 && c.attempts <= MAX_ATTEMPTS;
+    typeof c.attempts === 'number' && Number.isInteger(c.attempts) &&
+    c.attempts >= 0 && c.attempts <= MAX_ATTEMPTS;
 }
 
 function readMembership(): SharedMembershipCommand[] {
