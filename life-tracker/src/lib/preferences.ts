@@ -1,4 +1,5 @@
 export { REDUCE_ANIMATIONS_SETTING_KEY } from './motionPreferences';
+export const GIPHY_AUTOPLAY_SETTING_KEY = 'giphyStickerAutoplay';
 export const ESCAPE_AS_BACK_SETTING_KEY = 'escapeAsBack';
 export const CONTINUE_ADDING_TASKS_SETTING_KEY = 'continueAddingTasks';
 export const ADD_TASKS_TO_TOP_SETTING_KEY = 'addTasksToTop';

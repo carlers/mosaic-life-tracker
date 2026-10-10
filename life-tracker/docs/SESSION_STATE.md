@@ -1,21 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: Issue #489 — activate optional GIPHY Web API search on sticker libraries Preview (v0.16.1).
-Baseline: `feature/sticker-libraries` SHA `3e50cb68a295b50bfa645641cf1620a01cbbfb51`, full canonical Quality Gate 38069125358 SUCCESS and Vercel dpl_B7rrj2miJXsb5yBUWarxbDhd6Fdq READY before the GIPHY key.
-Task branch: `chatgpt/giphy-key-budget-489`; stable Preview: `feature/sticker-libraries`.
-No changes to `dev` or `main` are authorized.
+Current task: Issue #489 — static-first GIPHY sticker playback v0.16.2.
+Baseline: `feature/sticker-libraries` SHA `c0116e8f1f904b1963dbd28f2f26fb1e63fa7381` v0.16.1. Exact-SHA [full Quality Gate 38070001071](https://github.com/carlers/mosaic-life-tracker/actions/runs/38070001071) SUCCESS and Vercel `dpl_DUenndUAgnrAewS6aF5oCyuMwoyK` READY, with a branch-only GIPHY Web beta key in Vercel (no literal key in Git).
+Task branch: `chatgpt/giphy-static-first-489` from stable `feature/sticker-libraries`.
+Do not promote to `dev` or `main` without explicit approval.
 
-## Scope
-- GIPHY direct-client search (v0.16.1) already exists in the separate lazy picker tab, with ID-only message refs, provider attribution and no Appwrite media uploads, proxies, new SDK, or caching layer.
-- The user supplied their own GIPHY Web beta API key. It is now configured as `VITE_GIPHY_API_KEY`, encrypted in Vercel environment settings and restricted to Preview branch `feature/sticker-libraries` (Vercel env ID `Q7daO7foxQVCRAHW`). **Never put the key literal in Git commits, comments, logs or this checkpoint.** Vite intentionally exposes the configured GIPHY Web key to clients.
-- The first keyed deployment `dpl_4MHevzBVExRYQn9AjwkpgLrWRdvp`, same source SHA, failed the existing aggregate build-size guard with Vercel output `appAssetsRawBytes=2,337,487` vs `2,337,000` and `precacheUniqueBytes=2,420,938` vs `2,419,900`. Initial, Home, entry and aggregate gzip ceilings all passed. This configuration-only repair raises **only** the two impacted aggregate limits by 1,500 and 2,000 bytes, respectively. Baseline, entry, initial/Home and aggregate gzip limits stay unchanged. The build must still pass the production guard on fresh keyed Preview.
+## Objective and scope
+- Respond to feedback that static character-style images are preferred to always-moving GIFs, while retaining optional animation.
+- GIPHY search displays only provider-supplied still GIFs (prefer 100px grid rendition). Existing ID-only `gp1` messages display provider-supplied 200px still by default. Tap an accessible Play/Pause affordance to switch between provider-supplied still GIF and animated transparent WebP. Default autoplay is off. User may enable `Autoplay GIPHY stickers` in Settings → Preferences → Motion; synced per account via existing Settings hooks, effective Reduce animations/device system setting suppresses automatic movement but explicit tap can play.
+- Keep original ID transport, thumbnails attribution, one-tap send, offline outbox, reactions/replies/unsend, no provider URL/blob in Appwrite, no SDK/dependency, no external media cache, validated GIPHY hosts and failure-safe message fallback.
+- Source docs: https://developers.giphy.com/docs/api/schema/ and https://developers.giphy.com/docs/optional-settings/. Renditions are not universally available: do not guess/construct still URLs. Safe to fail closed with readable placeholder.
+- Version candidate v0.16.2 (PATCH refinement). Focused tests cover actual still selection, untrusted origins, default/reduced/explicit playback, provider fallback and account preference wiring. The Preview-only public Web key stays on Vercel; never commit its literal value.
 
 ## Verification
-- Source before the env change passed full canonical GitHub Actions 38069125358; its Vercel build without the key was READY. This does not prove the new keyed build.
-- Need new focused CI on task commit, squash task PR into stable Preview, new exact-SHA full canonical CI and branch-scoped key Vercel READY. Live GIPHY search/API status and provider attribution still require a real user/device check.
-- Scratch Preview origin still lacked exact Web platform registration because six Free-plan slots are occupied; no Appwrite platform or backend changes are authorized.
+- Source edits and test additions planned on task branch. Perform focused verification, squash into stable Preview, ensure full CI canonical acceptance and matching exact-SHA Vercel READY.
+- Performance: previous *keyed Vercel* measured 2,337,487 B aggregate raw, 720,877 B gzip, 2,420,938 B precache and 143,718 B initial gzip. Preflight modest extra budget headroom only for aggregate/precache due to static logic; do not relax entry, initial, Home or historical baseline without evidence.
+- Manual/device acceptance remains: Scratch exact origin at 6/6 occupied platforms, actual provider key/search/analytics, two-account send, Android touch swipe/play, reduced motion, and GIPHY production/provider rights. No Appwrite changes.
 
 ## Next action
-- Complete focused CI; squash into `feature/sticker-libraries`; verify new full Quality Gate and matching-key Vercel deployment. Record results in issue #489 without posting the actual key.
-- Ask user to test GIPHY search and a two-account send on a device once deployed. Keep `dev` and `main` unchanged until explicit approval.
+- Complete implementation and tests, run focused CI, repair failures, squash task PR to stable Preview, verify full canonical CI and same-SHA Vercel READY. Update issue #489 after verifiable results; don't add post-green status-only commit or promote dev/main.
