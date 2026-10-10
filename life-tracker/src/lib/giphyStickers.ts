@@ -7,7 +7,7 @@ const KEY = import.meta.env.VITE_GIPHY_API_KEY?.trim() || '';
 const GIF_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const WIRE = /^\[Sticker: ([^\]\r\n]{1,40})\]\n\[gp1:([a-zA-Z0-9_-]{1,64})\]$/;
 
-export const giphyEnabled = KEY.length > 0;
+export const giphyEnabled = Boolean(KEY);
 
 export interface GiphyStickerReference { id: string; label: string }
 export interface GiphySticker extends GiphyStickerReference {
@@ -93,8 +93,8 @@ export function parseGiphyStickerMessage(content: string): GiphyStickerReference
 }
 
 export function giphyStickerSummary(content: string): string {
-  const ref = parseGiphyStickerMessage(content);
-  return ref ? 'Sticker: ' + ref.label : content;
+  const match = WIRE.exec(content);
+  return match ? 'Sticker: ' + match[1] : content;
 }
 
 async function request(url: URL, signal?: AbortSignal): Promise<unknown> {
