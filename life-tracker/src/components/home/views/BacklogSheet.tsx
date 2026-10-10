@@ -44,19 +44,17 @@ export const BacklogSheet: React.FC<BacklogSheetProps> = ({
         b.createdAt.localeCompare(a.createdAt)),
     [tasks, categoryById]
   );
-  const shown = showCompleted ? unscheduled : unscheduled.filter((t) => !t.completed);
+  const effectiveShowCompleted = showCompleted || unscheduled.some((task) => task.id === focusTaskId && task.completed);
+  const shown = effectiveShowCompleted ? unscheduled : unscheduled.filter((t) => !t.completed);
   const completedCount = unscheduled.filter((t) => t.completed).length;
 
   useEffect(() => {
     if (!isOpen || !focusTaskId) return;
-    if (unscheduled.some((task) => task.id === focusTaskId && task.completed)) {
-      setShowCompleted(true);
-    }
     const frame = window.requestAnimationFrame(() => {
       document.getElementById('backlog-task-' + focusTaskId)?.scrollIntoView({ block: 'nearest' });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [isOpen, focusTaskId, unscheduled]);
+  }, [isOpen, focusTaskId]);
 
   const perform = async (operation: () => Promise<void> | void) => {
     setWorking(true);
@@ -134,7 +132,7 @@ export const BacklogSheet: React.FC<BacklogSheetProps> = ({
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-medium text-white">Unscheduled tasks ({unscheduled.length})</h3>
           <Button variant="ghost" type="button" onClick={() => setShowCompleted((v) => !v)}>
-            {showCompleted ? 'Hide completed' : `Show completed (${completedCount})`}
+            {effectiveShowCompleted ? 'Hide completed' : `Show completed (${completedCount})`}
           </Button>
         </div>
         {shown.length === 0 && (
