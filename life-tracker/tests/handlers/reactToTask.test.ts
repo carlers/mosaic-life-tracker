@@ -175,6 +175,7 @@ describe('message-action / react_to_task', () => {
       .mockResolvedValueOnce({ rows: [friendshipRow()] });
     mockDb.getRow.mockResolvedValueOnce({
       user_id: OWNER,
+      date: '2026-10-10',
       deleted: false,
       visibility: 'private',
       category_id: CATEGORY_ID,
@@ -204,6 +205,7 @@ describe('message-action / react_to_task', () => {
       .mockResolvedValueOnce({ rows: [friendshipRow()] });
     mockDb.getRow.mockResolvedValueOnce({
       user_id: OWNER,
+      date: '2026-10-10',
       deleted: false,
       visibility: '',
       category_id: '',
@@ -231,6 +233,7 @@ describe('message-action / react_to_task', () => {
       .mockResolvedValueOnce({ rows: [friendshipRow()] });
     mockDb.getRow.mockResolvedValueOnce({
       user_id: OWNER,
+      date: '2026-10-10',
       deleted: false,
       visibility: 'public',
       category_id: '',
