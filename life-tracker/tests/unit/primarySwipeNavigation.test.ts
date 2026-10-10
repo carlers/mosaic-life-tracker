@@ -32,6 +32,7 @@ describe('resolvePrimarySwipeDestination', () => {
   it('returns Settings from Profile and Preferences on a right swipe', () => {
     expect(resolvePrimarySwipeDestination('/profile', 'right')).toBe('/settings');
     expect(resolvePrimarySwipeDestination('/settings/preferences', 'right')).toBe('/settings');
+    expect(resolvePrimarySwipeDestination('/settings/releases', 'right')).toBe('/settings');
     expect(resolvePrimarySwipeDestination('/profile', 'left')).toBeNull();
     expect(resolvePrimarySwipeDestination('/settings/preferences', 'left')).toBeNull();
     expect(resolvePrimarySwipeDestination('/settings/notifications', 'right')).toBe('/settings');
@@ -45,7 +46,7 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(PROTECTED_ROUTES.map((route) => route.path)).toEqual([
       '/home', '/explore', '/friends/:friendId', '/notifications',
       '/messages', '/messages/:friendId', '/account', '/settings',
-      '/settings/preferences', '/settings/notifications', '/settings/screen', '/profile',
+      '/settings/releases', '/settings/preferences', '/settings/notifications', '/settings/screen', '/profile',
     ]);
     expect(new Set(PROTECTED_ROUTES.map((route) => route.path)).size).toBe(PROTECTED_ROUTES.length);
     expect(PRIMARY_ROUTE_PATHS).toEqual([

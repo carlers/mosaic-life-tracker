@@ -19,6 +19,7 @@ import {
   loadNotificationSettingsPage,
   loadProfilePage,
   loadSettingsPage,
+  loadReleaseHistoryPage,
 } from "./components/layout/routeModuleLoaders";
 
 const HomePage = lazy(() =>
@@ -29,6 +30,9 @@ const AccountPage = lazy(() =>
 );
 const SettingsPage = lazy(() =>
   loadSettingsPage().then(({ SettingsPage }) => ({ default: SettingsPage })),
+);
+const ReleaseHistoryPage = lazy(() =>
+  loadReleaseHistoryPage().then(({ ReleaseHistoryPage }) => ({ default: ReleaseHistoryPage })),
 );
 const PreferencesPage = lazy(() =>
   loadPreferencesPage().then(({ PreferencesPage }) => ({
@@ -125,6 +129,7 @@ const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
   chat: <RouteContent label="ChatPage"><ChatPage /></RouteContent>,
   account: <RouteContent label="AccountPage"><AccountPage /></RouteContent>,
   settings: <RouteContent label="SettingsPage"><SettingsPage /></RouteContent>,
+  releaseHistory: <RouteContent label="ReleaseHistoryPage"><ReleaseHistoryPage /></RouteContent>,
   preferences: <RouteContent label="PreferencesPage"><PreferencesPage /></RouteContent>,
   notificationSettings: <RouteContent label="NotificationSettingsPage"><NotificationSettingsPage /></RouteContent>,
   profile: <RouteContent label="ProfilePage"><ProfilePage /></RouteContent>,
