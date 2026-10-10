@@ -10,6 +10,7 @@ import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGr
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 import { AuthContext } from '../../src/hooks/authContext';
+import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
 import { MessageComposer } from '../../src/components/messages/MessageComposer';
@@ -756,7 +757,7 @@ createRoot(root).render(
       }}
     >
       {new URLSearchParams(window.location.search).has('chatMotion')
-        ? <ChatViewportMotionProbe />
+        ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
         : <InteractionHarness />}
     </AuthContext.Provider>
   </StrictMode>
