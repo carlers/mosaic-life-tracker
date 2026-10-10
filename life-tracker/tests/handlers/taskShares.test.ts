@@ -29,6 +29,7 @@ function baseShare(changes: Record<string, unknown> = {}) {
     task_id: taskId, owner_id: owner, invitee_id: invitee,
     status: 'accepted', grant_epoch: 'grant_abc',
     friendship_version: friendshipVersion, last_command_id: '',
+    last_membership_command_id: '',
     last_command_target: false, created_at: '2026-10-10T00:00:00.000Z',
     updated_at: '2026-10-10T00:00:02.000Z', ...changes,
   };
@@ -146,6 +147,25 @@ describe('task sharing Function authorization and completion', () => {
         taskId, grantEpoch: 'grant_abc', completed: true,
         expectedRevision: task.$updatedAt, operationId: 'cmd_stale' } });
     expect(attempted.status).toBe(403);
+    expect(db.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('replays an accepted offline invitation idempotently without rewriting', async () => {
+    share = baseShare({ last_membership_command_id: 'member_op_1' });
+    const result = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'accept', ownerId: owner, taskId,
+        grantEpoch: 'grant_abc', operationId: 'member_op_1' } });
+    expect(result.status).toBe(200);
+    expect(result.body.duplicate).toBe(true);
+    expect(db.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('requires versioned client operation IDs on accepted/declined/left transitions', async () => {
+    share = baseShare({ status: 'pending' });
+    const result = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'accept', ownerId: owner, taskId,
+        grantEpoch: 'grant_abc' } });
+    expect(result.status).toBe(400);
     expect(db.updateRow).not.toHaveBeenCalled();
   });
 

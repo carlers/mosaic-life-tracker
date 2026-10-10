@@ -25,7 +25,7 @@ import { useConnectivity } from "./useConnectivity";
 import { preloadHomePage } from "../lib/homePreload";
 import { scopeAccountWork } from "../lib/accountWorkScope";
 import {
-  scopeSharedTaskQueue, flushSharedCompletions, clearSharedCompletionQueue,
+  scopeSharedTaskQueue, flushSharedCompletions, flushSharedMemberships, clearSharedCompletionQueue,
 } from "../lib/taskShareQueue";
 import { clearSharedTaskCache } from "./useSharedTasks";
 import {
@@ -372,8 +372,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (!userId || connectivity.status !== "online") return;
-    void flushSharedCompletions(userId).catch(error => {
-      console.warn("[AuthProvider] Shared completion retry failed:", error);
+    void (async () => {
+      await flushSharedMemberships(userId);
+      await flushSharedCompletions(userId);
+    })().catch(error => {
+      console.warn("[AuthProvider] Shared action retry failed:", error);
     });
   }, [userId, connectivity.status]);
 

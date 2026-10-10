@@ -58,7 +58,7 @@ export function readSharedCompletionFailures(userId: string): SharedCompletionFa
   } catch { return []; }
 }
 
-function rememberSharedCompletionFailure(userId: string, command: SharedCompletionCommand, reason: string) {
+function rememberSharedCompletionFailure(userId: string, command: Pick<SharedCompletionCommand, 'operationId' | 'taskId'>, reason: string) {
   const prior = readSharedCompletionFailures(userId).filter(r => r.operationId !== command.operationId);
   localStorage.setItem(FAILURE_PREFIX + userId, JSON.stringify([...prior, {
     operationId: command.operationId,
@@ -125,7 +125,7 @@ function save(commands: SharedCompletionCommand[]): void {
 export function subscribeSharedTaskQueue(listener: () => void): () => void {
   listeners.add(listener);
   const onStorage = (event: StorageEvent) => {
-    if (event.key === KEY) listener();
+    if (event.key === KEY || event.key === MEMBERSHIP_KEY || event.key?.startsWith(FAILURE_PREFIX)) listener();
   };
   window.addEventListener('storage', onStorage);
   return () => {
@@ -146,6 +146,7 @@ export function pendingSharedCompletion(userId: string, taskId: string): SharedC
 export function clearSharedCompletionQueue(userId?: string): void {
   activeGeneration += 1;
   save(read().filter(c => Boolean(userId) && c.userId !== userId));
+  saveMembership(readMembership().filter(c => Boolean(userId) && c.userId !== userId));
   if (userId) acknowledgeSharedCompletionFailures(userId);
 }
 
@@ -240,6 +241,140 @@ export function flushSharedCompletions(userId: string): Promise<SharedCommandRes
       ? navigator.locks.request(KEY + ':' + userId, () => drain(userId))
       : drain(userId))
     : Promise.resolve([]);
+  const next = serial.catch(() => undefined).then(run);
+  serial = next.then(() => undefined, () => undefined);
+  return next;
+}
+
+
+export type SharedMembershipOperation = 'accept' | 'decline' | 'leave';
+export interface SharedMembershipCommand {
+  operationId: string;
+  userId: string;
+  ownerId: string;
+  taskId: string;
+  grantEpoch: string;
+  operation: SharedMembershipOperation;
+  enqueuedAt: number;
+  attempts: number;
+}
+const MEMBERSHIP_KEY = 'mosaic_shared_membership_queue_v1';
+
+function validMembership(value: unknown): value is SharedMembershipCommand {
+  if (!value || typeof value !== 'object') return false;
+  const c = value as Partial<SharedMembershipCommand>;
+  return [c.operationId, c.userId, c.ownerId, c.taskId].every(id =>
+    typeof id === 'string' && ROW_ID.test(id)) &&
+    c.ownerId !== c.userId && typeof c.grantEpoch === 'string' &&
+    c.grantEpoch.length > 0 && c.grantEpoch.length <= 50 &&
+    (c.operation === 'accept' || c.operation === 'decline' || c.operation === 'leave') &&
+    typeof c.enqueuedAt === 'number' && Number.isFinite(c.enqueuedAt) &&
+    Number.isInteger(c.attempts) && c.attempts >= 0 && c.attempts <= MAX_ATTEMPTS;
+}
+
+function readMembership(): SharedMembershipCommand[] {
+  const raw = localStorage.getItem(MEMBERSHIP_KEY);
+  if (!raw) return [];
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed) || !parsed.every(validMembership)) {
+    throw new Error('Shared membership queue is invalid; no actions were dispatched');
+  }
+  return parsed;
+}
+
+function saveMembership(commands: SharedMembershipCommand[]): void {
+  localStorage.setItem(MEMBERSHIP_KEY, JSON.stringify(commands));
+  listeners.forEach(listener => listener());
+}
+export function pendingSharedMembership(userId: string, taskId: string): SharedMembershipCommand | undefined {
+  return readMembership().find(c => c.userId === userId && c.taskId === taskId);
+}
+export function enqueueSharedMembership(
+  userId: string, item: SharedTaskItem, operation: SharedMembershipOperation
+): SharedMembershipCommand {
+  if (activeUserId !== userId || item.ownerId === userId ||
+      !ROW_ID.test(userId) || !ROW_ID.test(item.ownerId) || !ROW_ID.test(item.taskId) ||
+      !item.grantEpoch || item.grantEpoch.length > 50 ||
+      (operation === 'leave' ? item.status !== 'accepted' : item.status !== 'pending')) {
+    throw new Error('Invitation or share is not available for this account');
+  }
+  const pending = readMembership();
+  if (pending.some(c => c.userId === userId && c.taskId === item.taskId)) {
+    throw new Error('A task membership action is already pending');
+  }
+  const command: SharedMembershipCommand = {
+    operationId: 'mbr_' + crypto.randomUUID().replaceAll('-', ''),
+    userId, ownerId: item.ownerId, taskId: item.taskId, grantEpoch: item.grantEpoch,
+    operation, enqueuedAt: Date.now(), attempts: 0,
+  };
+  if (!validMembership(command)) throw new Error('Invalid membership command');
+  saveMembership([...pending, command]);
+  return command;
+}
+async function drainMembership(userId: string): Promise<SharedCommandResult[]> {
+  const generation = activeGeneration;
+  const results: SharedCommandResult[] = [];
+  for (const queued of readMembership().filter(c => c.userId === userId)) {
+    if (activeUserId !== userId || activeGeneration !== generation) return results;
+    const current = readMembership().find(c => c.operationId === queued.operationId);
+    if (!current) continue;
+    if (getConnectivitySnapshot().status !== 'online') {
+      results.push({ operationId: current.operationId, status: 'pending' });
+      return results;
+    }
+    if (Date.now() - current.enqueuedAt > TTL || current.attempts >= MAX_ATTEMPTS) {
+      const reason = 'Queued membership action expired';
+      rememberSharedCompletionFailure(userId, current, reason);
+      saveMembership(readMembership().filter(c => c.operationId !== current.operationId));
+      const result = { operationId: current.operationId, status: 'rejected', reason } as const;
+      results.push(result);
+      publishSettlement(userId, result);
+      continue;
+    }
+    const attempt = { ...current, attempts: current.attempts + 1 };
+    saveMembership(readMembership().map(c => c.operationId === attempt.operationId ? attempt : c));
+    try {
+      const response = await sendAppAction({
+        action: 'task_shares', operation: attempt.operation,
+        ownerId: attempt.ownerId, taskId: attempt.taskId,
+        grantEpoch: attempt.grantEpoch, operationId: attempt.operationId,
+      });
+      if (response.ok !== true || !response.item || typeof response.item !== 'object') {
+        throw new Error('Invalid membership command acknowledgment');
+      }
+      if (activeUserId !== userId || activeGeneration !== generation) return results;
+      saveMembership(readMembership().filter(c => c.operationId !== attempt.operationId));
+      const result = { operationId: attempt.operationId, status: 'confirmed' } as const;
+      results.push(result);
+      publishSettlement(userId, result);
+    } catch (error) {
+      if (activeUserId !== userId || activeGeneration !== generation) return results;
+      const code = (error as { code?: number }).code;
+      const terminal = typeof code === 'number' && code >= 400 && code < 500 &&
+        code !== 408 && code !== 429;
+      if (terminal || attempt.attempts >= MAX_ATTEMPTS) {
+        const reason = code === 409 ? 'Invitation changed. Refresh and retry.' :
+          code === 403 || code === 404 ? 'Share is no longer available.' :
+            'Could not synchronize shared membership.';
+        rememberSharedCompletionFailure(userId, attempt, reason);
+        saveMembership(readMembership().filter(c => c.operationId !== attempt.operationId));
+        const result = { operationId: attempt.operationId, status: 'rejected', reason } as const;
+        results.push(result);
+        publishSettlement(userId, result);
+      } else {
+        results.push({ operationId: attempt.operationId, status: 'pending' });
+        return results;
+      }
+    }
+  }
+  return results;
+}
+
+export function flushSharedMemberships(userId: string): Promise<SharedCommandResult[]> {
+  const run = () => activeUserId === userId
+    ? (typeof navigator !== 'undefined' && navigator.locks
+      ? navigator.locks.request(MEMBERSHIP_KEY + ':' + userId, () => drainMembership(userId))
+      : drainMembership(userId)) : Promise.resolve([]);
   const next = serial.catch(() => undefined).then(run);
   serial = next.then(() => undefined, () => undefined);
   return next;

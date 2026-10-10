@@ -3,6 +3,7 @@ import { useAuth } from './useAuth';
 import { useConnectivity } from './useConnectivity';
 import {
   changeSharedTaskMembership, enqueueSharedCompletion, flushSharedCompletions,
+  enqueueSharedMembership, flushSharedMemberships, pendingSharedMembership,
   listSharedTasks, pendingSharedCompletion, readSharedCompletionFailures,
   acknowledgeSharedCompletionFailures, subscribeSharedTaskQueue,
   subscribeSharedTaskSettlements,
@@ -150,14 +151,24 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
 
   const updateMembership = useCallback(async (
     item: SharedTaskItem, operation: 'accept' | 'decline' | 'leave' | 'revoke'
-  ) => {
-    await changeSharedTaskMembership({
-      taskId: item.taskId, ownerId: item.ownerId,
-      ...(operation === 'revoke' ? { friendUserId: item.inviteeId } : {}),
-      grantEpoch: item.grantEpoch, operation,
-    });
-    await reload();
-  }, [reload]);
+  ): Promise<SharedCommandResult | { status: 'pending' }> => {
+    if (!userId) throw new Error('Not authenticated');
+    if (operation === 'revoke') {
+      if (!online) throw new Error('Connect to remove a collaborator');
+      await changeSharedTaskMembership({
+        taskId: item.taskId, ownerId: item.ownerId,
+        friendUserId: item.inviteeId, grantEpoch: item.grantEpoch, operation,
+      });
+      await reload();
+      return { status: 'confirmed', operationId: '' };
+    }
+    const command = enqueueSharedMembership(userId, item, operation);
+    setQueueRevision(n => n + 1);
+    if (!online) return { status: 'pending' };
+    const results = await flushSharedMemberships(userId);
+    return results.find(result => result.operationId === command.operationId) ||
+      { status: 'pending' };
+  }, [online, reload, userId]);
 
   const invite = useCallback(async (taskId: string, friendUserId: string) => {
     await changeSharedTaskMembership({ operation: 'invite', taskId, friendUserId });
@@ -182,9 +193,13 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     void queueRevision;
     return userId ? pendingSharedCompletion(userId, taskId) : undefined;
   }, [queueRevision, userId]);
+  const pendingMembershipFor = useCallback((taskId: string) => {
+    void queueRevision;
+    return userId ? pendingSharedMembership(userId, taskId) : undefined;
+  }, [queueRevision, userId]);
 
   return {
     items, activeItems, isLoading: Boolean(online && enabled && key && loadedKey !== key && attemptedKey !== key), error: error || failure, clearFailure, online, pendingFor,
-    lastMutation, invite, updateCompletion, updateMembership, reload,
+    lastMutation, invite, updateCompletion, updateMembership, pendingMembershipFor, reload,
   };
 }

@@ -98,6 +98,22 @@ async function handleTaskShares(db, caller, payload) {
     }
     const status = membership?.status;
     const sameFriendship = membership?.friendship_version === friends;
+    const requiresOperationId = ['accept', 'decline', 'leave'].includes(operation);
+    if (requiresOperationId && !validId(payload.operationId)) {
+      return answer(400, 'Invalid membership operation ID');
+    }
+    if (payload.operationId !== undefined && !validId(payload.operationId)) {
+      return answer(400, 'Invalid operation ID');
+    }
+    const desiredMembershipStatus = {
+      accept: 'accepted', decline: 'declined', leave: 'left', revoke: 'revoked',
+    }[operation];
+    if (membership && desiredMembershipStatus &&
+      membership.last_membership_command_id === payload.operationId &&
+      status === desiredMembershipStatus && sameFriendship) {
+      return { status: 200, body: { ok: true, duplicate: true,
+        item: projection(task, membership, ownerId === caller) } };
+    }
     const now = new Date().toISOString();
     let patch = null;
     let taskPatch = null;
@@ -108,7 +124,8 @@ async function handleTaskShares(db, caller, payload) {
       patch = {
         task_id: taskId, owner_id: ownerId, invitee_id: inviteeId,
         status: 'pending', grant_epoch: randomUUID(), friendship_version: friends,
-        last_command_id: '', last_command_target: false, created_at: now,
+        last_command_id: '', last_membership_command_id: '',
+        last_command_target: false, created_at: now,
         updated_at: now,
       };
     } else {
@@ -117,12 +134,14 @@ async function handleTaskShares(db, caller, payload) {
       if (operation === 'accept' || operation === 'decline') {
         if (status !== 'pending') return answer(409, 'Invitation changed');
         if (payload.grantEpoch !== membership.grant_epoch) return answer(409, 'Invitation changed');
-        patch = { status: operation === 'accept' ? 'accepted' : 'declined', updated_at: now };
+        patch = { status: operation === 'accept' ? 'accepted' : 'declined',
+          last_membership_command_id: payload.operationId, updated_at: now };
       } else if (operation === 'leave' || operation === 'revoke') {
         if (status !== 'accepted' && status !== 'pending') return answer(409, 'Share changed');
         if (operation === 'leave' && status !== 'accepted') return answer(409, 'Share changed');
         if (payload.grantEpoch !== membership.grant_epoch) return answer(409, 'Share changed');
-        patch = { status: operation === 'leave' ? 'left' : 'revoked', updated_at: now };
+        patch = { status: operation === 'leave' ? 'left' : 'revoked',
+          last_membership_command_id: payload.operationId || '', updated_at: now };
       } else if (operation === 'set_completed') {
         if (status !== 'accepted' || payload.grantEpoch !== membership.grant_epoch) {
           return answer(403, 'Share unavailable');
