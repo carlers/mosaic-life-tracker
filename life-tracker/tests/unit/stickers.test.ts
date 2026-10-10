@@ -1,23 +1,26 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Permission, Role } from 'appwrite';
 import {
   normalizeStickers, parseStickerMessage, stickerLabel, stickerMessage, stickerSummary,
 } from '../../src/lib/stickerProtocol';
 
+const images = vi.hoisted(() => ({
+  getCachedImage: vi.fn(), cacheImage: vi.fn(), deleteCachedImage: vi.fn(),
+}));
 const storage = vi.hoisted(() => ({
+  getFileView: vi.fn(),
   getFile: vi.fn(),
   updateFile: vi.fn(),
   createFile: vi.fn(),
   deleteFile: vi.fn(),
 }));
 vi.mock('../../src/lib/sdk', () => ({ guardedStorage: storage }));
-vi.mock('../../src/lib/imageCache', () => ({
-  getCachedImage: vi.fn(), cacheImage: vi.fn(), deleteCachedImage: vi.fn(),
-}));
+vi.mock('../../src/lib/imageCache', () => images);
 vi.mock('../../src/lib/connectivity', () => ({
   getConnectivitySnapshot: () => ({ status: 'online' }),
 }));
-import { allowStickerRecipient } from '../../src/lib/stickerStorage';
+import { allowStickerRecipient, loadStickerImage } from '../../src/lib/stickerStorage';
+import { __resetAccountWorkScopeForTests, scopeAccountWork } from '../../src/lib/accountWorkScope';
 
 const fileId = 'stk_' + 'a'.repeat(32);
 const owned = [
@@ -85,5 +88,62 @@ describe('recipient-scoped sticker permissions', () => {
   it('rejects invalid IDs before any storage access', async () => {
     await expect(allowStickerRecipient('owner', 'friend', 'bad')).rejects.toThrow('Invalid');
     expect(storage.getFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('efficient and account-scoped sticker downloads', () => {
+  const source = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/webp' });
+  let originalCreateObjectURL: typeof URL.createObjectURL;
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    __resetAccountWorkScopeForTests();
+    scopeAccountWork('owner');
+    images.getCachedImage.mockResolvedValue(undefined);
+    images.cacheImage.mockResolvedValue(undefined);
+    storage.getFileView.mockReturnValue({ toString: () => 'https://fra.cloud.appwrite.io/v1/storage/mock' });
+    originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:sticker');
+  });
+  afterEach(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+    vi.unstubAllGlobals();
+  });
+
+  it('coalesces simultaneous renders of a single sticker into one network transfer', async () => {
+    let complete!: (response: Response) => void;
+    const fetched = new Promise<Response>(resolve => { complete = resolve; });
+    const fetchMock = vi.fn(() => fetched);
+    vi.stubGlobal('fetch', fetchMock);
+    const first = loadStickerImage(fileId, 'owner');
+    const second = loadStickerImage(fileId, 'owner');
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    complete({ ok: true, blob: async () => source } as Response);
+    expect(await Promise.all([first, second])).toEqual(['blob:sticker', 'blob:sticker']);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(images.getCachedImage).toHaveBeenCalledOnce();
+    expect(images.cacheImage).toHaveBeenCalledOnce();
+  });
+
+  it('does not display or cache a stale response after an account switch', async () => {
+    let complete!: (response: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>(resolve => { complete = resolve; }));
+    vi.stubGlobal('fetch', fetchMock);
+    const pending = loadStickerImage(fileId, 'owner');
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    scopeAccountWork('different');
+    complete({ ok: true, blob: async () => source } as Response);
+    expect(await pending).toBeNull();
+    expect(images.cacheImage).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('renders an online sticker even when IndexedDB caching is unavailable', async () => {
+    images.getCachedImage.mockRejectedValueOnce(new Error('IndexedDB inaccessible'));
+    images.cacheImage.mockRejectedValueOnce(new Error('Quota exceeded'));
+    const fetchMock = vi.fn(async () => ({ ok: true, blob: async () => source }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await loadStickerImage(fileId, 'owner')).toBe('blob:sticker');
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 });

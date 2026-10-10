@@ -729,6 +729,23 @@ Recipient-side `read_at` propagation depends on `markReadOnRemote` eventually su
   previews and search continue to use the existing message contract.
   A removed library entry does not destroy media still used by a chat.
   Never-shared, unreferenced removed files may be reclaimed.
+- **Bandwidth and recoverability (v0.13.1 candidate):** the same account/file
+  displayed by several chat messages shares one in-flight Appwrite download.
+  Messages outside the near-viewport IntersectionObserver margin defer image
+  fetching, with an eager fallback for older browsers. An offline-missing image
+  retries when Mosaic's connectivity state transitions back to online; existing
+  cached WebP assets are available offline. Cached sticker blobs and in-flight
+  transfers are both scoped to the authenticated generation; a stale response
+  following account switching is not displayed or cached. Raw storage reads
+  participate in the same 401 auth handling as other image operations.
+- **Important unresolved data-safety limit:** Appwrite per-file permissions
+  are overwritten by whole-array `updateFile` writes, not CAS. Concurrent
+  updates to the same owner's sticker by two devices for *different recipients*
+  may lose one grant, leaving a delivered sticker unreadable. Unit assertions
+  of one recipient and successful Preview build do **not** prove cross-device
+  ACL atomicity. Verify and design a reliable serialized authorization path
+  before accepting cross-device sticker delivery. Do not change bucket-wide
+  read permissions as a workaround.
 - **Limitations to verify before shipping:** Android/iOS OS sticker keyboards
   do not necessarily expose stickers through the web file picker; use a
   compatible image exported to device Photos/Files. Concurrent cross-device
