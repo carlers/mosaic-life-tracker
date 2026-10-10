@@ -18,6 +18,7 @@ vi.mock('../../src/lib/sdk', () => ({ guardedStorage: storage }));
 vi.mock('../../src/lib/imageCache', () => images);
 vi.mock('../../src/lib/connectivity', () => ({
   getConnectivitySnapshot: () => ({ status: 'online' }),
+  reportConnectivityResult: vi.fn(),
 }));
 import { allowStickerRecipient, loadStickerImage } from '../../src/lib/stickerStorage';
 import { __resetAccountWorkScopeForTests, scopeAccountWork } from '../../src/lib/accountWorkScope';
