@@ -1,14 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-10
-Current task: #407 Backlog safety foundation, user-approved staged implementation; no dev/main promotion approval.
-Base: dev 224f8a700f35bbe3853206ee208e1dc103ece5b3 (v0.12.1).
-Task branch: chatgpt/backlog-foundation-407.
+Current task: #407 Backlog user-approved implementation; no dev/main promotion approval.
+Baseline: dev 224f8a700f35bbe3853206ee208e1dc103ece5b3 (v0.12.1).
+Task branch: chatgpt/backlog-foundation-407, candidate Preview v0.15.0.
 
-## Findings and scope
-- Scratch Appwrite tasks.date required varchar(50) accepted date='' createRow. Follow-up row lookup was empty and delete returned 404; durable roundtrip/replication still unproven.
-- Friend calendar, friend task, reaction and notification paths previously allowed visible category tasks without requiring a scheduled date.
-- This non-user-facing foundation adds a shared server-side scheduled-date guard and handler test, **not** the full Backlog UI or Bucket List feature. No schema, feature version or production deployment change.
+## Progress and decisions
+- Foundation 2ccb42b guards server friend calendar, friend task lookup, reactions and notifications with valid scheduled dates; focused GitHub checks passed.
+- Pending client implementation: lazy Backlog sheet from Home menu, date-free quick add/edit/complete/delete and same-task-ID scheduling. Day View's "Move to Backlog" action now updates date; Home search labels and opens Backlog matches.
+- Existing task schema can represent date='' locally; Scratch Appwrite required-varchar create returned success but readback immediately found no row. **Durable remote/replication proof is unresolved** and must precede Scratch authenticated acceptance.
+- Restore updated for explicit undated dates while rejecting missing or invalid dates; old backup compatibility and friend privacy/DOM tests added.
+- Candidate feature version 0.15.0 chosen after dev v0.12.1 and concurrent 0.13.x/0.14.x Preview features. No Git-owned Appwrite schema migration or production changes.
+- Scope deliberately excludes TodoMate mapping changes, new goal domain, custom drag ordering and bulk scheduling; #406 shared task coexistence needs recheck before release.
 
-## Verification / next action
-Run focused handler CI for this commit and investigate failures. Then implement client Backlog placement with task IDs preserved, restore format support and search routing, reconcile #406 shared tasks, test old-client/offline/privacy contracts, and stage Scratch Function + Preview. Complete exact-SHA canonical CI, Vercel READY, and human browser/device checks before requesting dev promotion; production remains untouched.
+## Next action
+Run focused CI, repair failures, then build-size/full canonical Preview gates and Scratch Function deployment/readiness. Verify owner sync on disposable account, existing cross-user/alert privacy, old cached PWA, backup restore, account isolation, Light/Dark/Black and physical Android Back separately. Keep Bucket List #405 as separate next-phase feature. No dev/main promotion until user approval.

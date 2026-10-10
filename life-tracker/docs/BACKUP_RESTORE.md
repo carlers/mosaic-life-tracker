@@ -6,7 +6,7 @@ This document is the authoritative contract for Mosaic user-controlled backups a
 
 A user backup is a portable snapshot of the signed-in user's personal Mosaic data:
 
-- tasks
+- tasks (scheduled and explicitly undated Backlog tasks)
 - categories
 - diary entries
 - synced settings/preferences
@@ -19,6 +19,7 @@ Friendships may remain present in exported files for portability/reference, but 
 - New exports use backup format version 2.
 - Version 1 JSON/ZIP exports produced by Mosaic before this feature remain accepted for restore.
 - Backups include app/version metadata, export time, source-user metadata, record counts, the restorable data snapshot, friendship reference data, and image inventory.
+- For tasks, `date: ''` is the explicit unscheduled Backlog placement. Restore preserves this value and validates nonempty calendar dates; a missing `date` field is invalid. Diary dates remain required. Existing v1/v2 backup formats remain accepted.
 - JSON backups omit image blobs. ZIP backups may contain image blobs under `images/`.
 - Restore must validate the file before changing local data. Unsupported/corrupt files fail without partial application.
 

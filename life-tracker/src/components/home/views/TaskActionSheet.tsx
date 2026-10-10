@@ -37,6 +37,7 @@ interface TaskActionSheetProps {
   onViewPhoto: () => void;
   onDeletePhoto: () => void;
   onDoItTomorrowOrToday: () => void;
+  onMoveToBacklog: () => void;
 }
 
 export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
@@ -53,6 +54,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onViewPhoto,
   onDeletePhoto,
   onDoItTomorrowOrToday,
+  onMoveToBacklog,
 }) => {
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   if (!task) return null;
@@ -328,7 +330,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
 
           <button
             type="button"
-            onClick={() => alert('Move to Backlog coming soon')}
+            onClick={() => { onMoveToBacklog(); onClose(); }}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <div
