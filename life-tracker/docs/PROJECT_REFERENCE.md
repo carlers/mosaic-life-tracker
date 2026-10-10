@@ -1270,6 +1270,33 @@ actual CI/Vercel remeasurement after the change is required. This is a
 scoped measured feature allowance, not a blanket limit reset or
 release acceptance; Scratch live deployment and testing remain separate.
 
+An additional, precisely measured **2026-10-10 v0.14.0 owner pending-sync
+exception** is recorded at `feature/shared-tasks` commit `f3cc8cf6`.
+The approved shared-task completion feature now includes a tiny account-local
+pending receipt and conflict warning tied to existing durable RxDB replication;
+it does **not** create a second owner outbox or Appwrite query.
+
+The original implementation imported the full sharing React hook from the
+generic `useTasks` hook and exceeded the Home closure limit by 1,511 B.
+Removing that eager dependency restored Home to **354,410 B gzip**, under the
+unchanged **357,000 B** ceiling. Exact production measurements after repair:
+**441,706 B entry raw, 131,297 B entry gzip, 144,005 B startup gzip,
+354,410 B Home gzip, 2,348,439 B aggregate app raw, 723,649 B aggregate
+app gzip, and 2,431,958 B unique precache**. Owner receipt code accounts
+for roughly 2,200 B raw / 940 B gzip plus small UI/replication changes.
+Removing its pending state or edit conflict handling would weaken approved
+offline collaboration behavior.
+
+Only **three aggregate limits** receive a measured allowance:
+`appAssetsRawBytes` **2,349,300 B** (+2,800),
+`appAssetsGzipBytes` **724,500 B** (+800), and
+`precacheUniqueBytes` **2,432,850 B** (+3,050), leaving
+**861 / 851 / 892 B** over the measured tree. The original baseline and
+**all entry, startup and Home thresholds** remain unchanged. The full
+seven-metric guard, PWA policy, exact-SHA Preview CI, and real Scratch
+backend acceptance remain mandatory. These numbers are scoped to the
+reviewed capability, not a general budget relaxation.
+
 The current baseline and limits live in
 `config/build-size-budget.json` and are pinned by unit coverage.
 
