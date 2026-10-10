@@ -82,6 +82,15 @@ let activeUserId: string | null = null;
 let activeGeneration = 0;
 let serial = Promise.resolve();
 const listeners = new Set<() => void>();
+type Settlement = SharedCommandResult & { userId: string };
+const settlementListeners = new Set<(result: Settlement) => void>();
+export function subscribeSharedTaskSettlements(listener: (result: Settlement) => void): () => void {
+  settlementListeners.add(listener);
+  return () => settlementListeners.delete(listener);
+}
+function publishSettlement(userId: string, result: SharedCommandResult): void {
+  settlementListeners.forEach(listener => listener({ userId, ...result }));
+}
 
 function validCommand(value: unknown): value is SharedCompletionCommand {
   if (!value || typeof value !== 'object') return false;
@@ -179,7 +188,9 @@ async function drain(userId: string): Promise<SharedCommandResult[]> {
     if (Date.now() - current.enqueuedAt > TTL || current.attempts >= MAX_ATTEMPTS) {
       rememberSharedCompletionFailure(userId, current, 'Queued completion expired');
       save(read().filter(c => c.operationId !== current.operationId));
-      result.push({ operationId: current.operationId, status: 'rejected', reason: 'Queued completion expired' });
+      const final = { operationId: current.operationId, status: 'rejected', reason: 'Queued completion expired' } as const;
+      result.push(final);
+      publishSettlement(userId, final);
       continue;
     }
     // Persist each dispatch attempt *before* performing it; network timeout is
@@ -198,7 +209,9 @@ async function drain(userId: string): Promise<SharedCommandResult[]> {
       }
       if (activeUserId !== userId || activeGeneration !== generation) return result;
       save(read().filter(c => c.operationId !== attempt.operationId));
-      result.push({ operationId: attempt.operationId, status: 'confirmed' });
+      const final = { operationId: attempt.operationId, status: 'confirmed' } as const;
+      result.push(final);
+      publishSettlement(userId, final);
     } catch (error) {
       if (activeUserId !== userId || activeGeneration !== generation) return result;
       const code = (error as { code?: number }).code;
@@ -209,7 +222,9 @@ async function drain(userId: string): Promise<SharedCommandResult[]> {
             'Could not synchronize completion.';
         rememberSharedCompletionFailure(userId, attempt, reason);
         save(read().filter(c => c.operationId !== attempt.operationId));
-        result.push({ operationId: attempt.operationId, status: 'rejected', reason });
+        const final = { operationId: attempt.operationId, status: 'rejected', reason } as const;
+        result.push(final);
+        publishSettlement(userId, final);
       } else {
         result.push({ operationId: attempt.operationId, status: 'pending' });
         return result;

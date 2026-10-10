@@ -5,6 +5,7 @@ import {
   changeSharedTaskMembership, enqueueSharedCompletion, flushSharedCompletions,
   listSharedTasks, pendingSharedCompletion, readSharedCompletionFailures,
   acknowledgeSharedCompletionFailures, subscribeSharedTaskQueue,
+  subscribeSharedTaskSettlements,
   type SharedCommandResult, type SharedTaskItem,
 } from '../lib/taskShareQueue';
 
@@ -116,6 +117,17 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     return () => { active = false; };
   }, [userId, key, scope, online, enabled]);
 
+  useEffect(() => subscribeSharedTaskSettlements(result => {
+    if (!userId || result.userId !== userId) return;
+    if (result.status === 'rejected') {
+      setError(result.reason || 'Shared completion failed.');
+    } else if (result.status === 'confirmed') {
+      void reload().catch(cause => {
+        setError(cause instanceof Error ? cause.message : 'Could not refresh shared task.');
+      });
+    }
+  }), [reload, userId]);
+
   const updateCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
     if (!userId || !key || item.status !== 'accepted') {
       throw new Error('Shared-task membership unavailable');
@@ -131,7 +143,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     if (latest) {
       setLastMutation(latest);
       if (latest.status === 'rejected') setError(latest.reason || 'Shared completion failed');
-      if (latest.status === 'confirmed') await reload();
+      // The settlement subscription refreshes both foreground and background replay.
     }
     return latest ?? { status: 'pending' } as const;
   }, [key, userId, online, reload]);

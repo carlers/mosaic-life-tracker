@@ -9,6 +9,7 @@ vi.mock('../../src/lib/connectivity', () => ({ getConnectivitySnapshot: () => co
 import {
   scopeSharedTaskQueue, enqueueSharedCompletion, flushSharedCompletions,
   pendingSharedCompletion, clearSharedCompletionQueue, readSharedCompletionFailures,
+  subscribeSharedTaskSettlements,
   type SharedTaskItem,
 } from '../../src/lib/taskShareQueue';
 
@@ -65,12 +66,16 @@ describe('durable shared-task completion queue', () => {
 
   it('acknowledges an idempotent server result and clears the durable command', async () => {
     const command = enqueueSharedCompletion('user_b', item(), true);
+    const settled = vi.fn();
+    const unsubscribe = subscribeSharedTaskSettlements(settled);
     connectivity.status = 'online';
     sendAction.mockResolvedValue({ ok: true, item: { taskId: 'task_1' } });
     expect(await flushSharedCompletions('user_b')).toEqual([
       { operationId: command.operationId, status: 'confirmed' },
     ]);
     expect(pendingSharedCompletion('user_b', 'task_1')).toBeUndefined();
+    expect(settled).toHaveBeenCalledWith({ userId: 'user_b', operationId: command.operationId, status: 'confirmed' });
+    unsubscribe();
     expect(sendAction).toHaveBeenCalledWith(expect.objectContaining({
       operationId: command.operationId, completed: true,
       expectedRevision: 'version1', grantEpoch: 'epoch1',
