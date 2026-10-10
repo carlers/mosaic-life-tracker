@@ -57,14 +57,14 @@ export const APPWRITE_MIGRATIONS = [
     run: ({ request, log }) => migrateTaskSharesBackend({ request, log }),
   },
   {
-    id: '009-share-permissions',
-    description: 'Optional collaborative title/date edit grants, off by default',
-    run: ({ request, log, sleep }) => migrateSharePermissions({ request, log, sleep }),
-  },
-  {
     id: '008-friendship-permissions',
     description: 'Explicit-only removal of legacy broad friendship create grant',
     run: ({ request, log }) => migrateFriendshipTablePermissions({ request, log }),
+  },
+  {
+    id: '009-share-permissions',
+    description: 'Optional collaborative title/date edit grants, off by default',
+    run: ({ request, log, sleep }) => migrateSharePermissions({ request, log, sleep }),
   },
 ];
 
