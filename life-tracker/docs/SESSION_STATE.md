@@ -34,3 +34,10 @@ Refactor duplicate owner-only replication pilots to stay under unchanged size li
 - Exact stable `feature/bucket-list-405@f1829323` canonical run 38147075247 passed all 941 unit tests, handler, DOM, browser, dependency, TypeScript and PWA; build-size-only gate remained red. Measured: home closure gzip 363097/362900, app raw 2412778/2407000, app gzip 746374/744350, precache 2498249/2492250. Source refactor reduced raw by ~5KiB from prior stable d792f275.
 - Follow explicit reviewed-budget contract in `scripts/lib/build-budget-review.mjs`: record issue #405, this canonical evidence and original per-metric limits. Preserve entry + initial startup ceilings and pinned baseline. New ceilings permit only measured approved Bucket List growth with small variance margin.
 - `chatgpt/bucket-list-budget-review-405-20261011` requests focused; squash to stable Preview only after success, then full canonical plus Vercel READY; no `dev`/`main`/Appwrite rollout authorized.
+
+## Provider-parity size review (2026-10-11)
+
+- Exact stable commit `284ee316` GitHub full canonical [38147386717](https://github.com/carlers/mosaic-life-tracker/actions/runs/38147386717) SUCCESS, including build-size.
+- Same Vercel deployment `dpl_9boiSiqQfPVQxyULK69qQZ16wnQM` ERROR from `npm run build` because Vercel enables GIPHY: app total raw 2414992/2414000, gzip 747373/746900, precache 2500463/2499500. Entry/initial/home ceilings all passed. Do not change shared Vercel configuration or turn off GIPHY.
+- New task branch `chatgpt/bucket-list-vercel-budget-405-20261011`: preserve previous evidence in PR/history; permit only these three additional measured same-tree provider differences under new limits raw 2417000, gzip 749000, precache 2503000; remaining ceilings and original baseline preserved. Run focused then exact stable canonical/Vercel.
+- Read-only Scratch table list proves `bucket_list_items` missing from current 14-table Scratch backend, and active combined `message-action` deployment is `6acb0cd8735b3060c9af`; no mutation authorized. Feature cloud acceptance blocked until coordinated separate Scratch migration/Function rollout (#526).
