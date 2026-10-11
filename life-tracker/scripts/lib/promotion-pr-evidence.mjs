@@ -24,6 +24,17 @@ export function evaluatePromotionPrEvidence(e) {
     reasons.push('cross-repository or missing PR provenance');
   }
   if (e?.draft !== false) reasons.push('draft or missing PR readiness');
+  // Event payloads can become stale even when both branch tips stay unchanged:
+  // reread the PR before reporting acceptance (draft, retargeting or closure).
+  const live = e?.livePr;
+  if (!live || live.number !== e.prNumber || live.state !== 'open' ||
+      live.draft !== false || live.base?.sha !== e.baseSha ||
+      live.head?.sha !== e.headSha || live.base?.ref !== e.baseBranch ||
+      live.head?.ref !== e.headBranch ||
+      live.base?.repo?.full_name !== e.repository ||
+      live.head?.repo?.full_name !== e.repository) {
+    reasons.push('current PR metadata missing or changed since event');
+  }
   if (!SHA.test(e?.baseSha ?? '') || !SHA.test(e?.headSha ?? '')) {
     reasons.push('missing exact Git SHA');
   }

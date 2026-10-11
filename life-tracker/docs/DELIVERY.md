@@ -376,7 +376,10 @@ promoted to main.
 The proposed `Promotion PR Preflight` workflow runs read-only on **every PR to
 `dev` or `main`**, including documentation-only PRs (no `paths` filter). It checks
 the exact source canonical GitHub Actions result, current head/base SHAs,
-source repository/branch, integration-tree equality, and version regression.
+live PR metadata (including draft status, target, and source), source
+repository/branch, integration-tree equality, and version regression.
+Converting a previously ready PR back to draft also reruns the check; an
+outdated event payload cannot authorize a changed or closed PR.
 Its script is loaded from the **target base SHA**, not executed from the PR.
 It uses a read-only GitHub token, no Vercel/Appwrite keys, and changes nothing.
 

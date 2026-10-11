@@ -1,15 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: Mosaic #592 — isolated C0 PR-time promotion preflight candidate.
+Current task: #592 B/C — PR premerge live PR metadata freshness hardening.
 
 ## Verified baseline
-- User manually accepted Batch A. Batch B/C accepted stable `feature/workflow-bc-592` at `0ee0d8110eb59eecdc167d07e4af7c87233523da`, exact canonical run 38129571397 SUCCESS, Vercel `dpl_4y2MD1Dmug6UZ12ymDFSywzZGdj7` READY with Scratch/GIPHY and seven budgets PASS.
-- `dev=f65d348c2f537b4d8c1063096e6856a9ee3d629f`, `main=614cd1dccbd01bf70493874496559720b320151a`. Do not promote without a separate instruction.
-- B0 fresh-chat ambiguous/no-GitHub cases remain unproven; `SESSION_STATE.md` edit rule stays. C1 remains owned by #526/#557 with no backend write. GitHub dev/main branch-protection reads return 403; both branches report unprotected.
+- Batch A user-accepted. B/C stable `feature/workflow-bc-592` at `1cf5fc0fa233d4a1aa9aab5cd977534807227a32` passed canonical run 38131530011 and Vercel `dpl_J8ys869ozdpv616ThVk2n7HRefJu` READY, Scratch target/GIPHY enabled/seven size budgets PASS.
+- Live `dev=7898573e3eb5fba1c090cc1a35df0b543e671e46` (TaskBlock v0.17.3 independently promoted), `main=614cd1dccbd01bf70493874496559720b320151a`; B/C Preview still v0.17.2. Any changed integration or version correction requires newly accepted Preview, separate dev approval. No dev/main promotion here.
+- B0 topic-only fresh chat, ambiguity, unavailable GitHub still not fully validated; global checkpoint rule remains. C1 backend lane belongs to #526/#557. C0 branch administration not approved, branch-protection API 403.
 
 ## Current change
-- Task `chatgpt/workflow-pr-premerge-592` starts from accepted B/C Preview. Adds a cheap, read-only GitHub PR-time candidate check with trusted base code, fail-closed SHA/tree/canonical/version regression evidence and unit scenarios, plus delivery guidance. Does not add required status checks or change dev/main, Production, Vercel or Appwrite. App version NONE.
+- Isolated task `chatgpt/workflow-pr-freshness-592`: C0 read-only PR check rereads live PR identity, state, draft, source/target refs and repo in addition to earlier SHA/tree/CI checks; reruns on `converted_to_draft`. Focused regression cases. App version NONE, no user-facing Appwrite/Production change.
 
 ## Next action
-- Verify focused task CI for exact SHA, resolve any failures; squash task to `feature/workflow-bc-592`, then verify fresh exact-Preview canonical + Vercel READY. Keep C0 required-rule rollout blocked until real target PR checks and admin approval; B0 independent new-chat testing still required. Do not promote to dev/main.
+- Run focused task CI, fix any failures, squash into stable `feature/workflow-bc-592`, verify exact-SHA canonical/Vercel. For C0 bootstrap/required-rule activation, first separately approve dev/main workflow delivery, live target PR tests and GitHub admin review. B0 independent fresh-chat acceptance and C1 backend coordination remain outstanding.
