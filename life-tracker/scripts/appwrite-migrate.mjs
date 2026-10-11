@@ -5,6 +5,8 @@ import {
   flagValue,
   parseBackendTarget,
 } from './lib/appwrite-backend.mjs';
+import { migrateBucketTaskLinksBackend } from './migrate-bucket-task-links.mjs';
+import { migrateBucketListBackend } from './migrate-bucket-list.mjs';
 import { migrateAccountDeletionBackend } from './migrate-account-deletion.mjs';
 import { migrateDiaryCreatedAtBackend } from './migrate-diary-created-at.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
@@ -66,6 +68,8 @@ export const APPWRITE_MIGRATIONS = [
     description: 'Optional collaborative title/date edit grants, off by default',
     run: ({ request, log, sleep }) => migrateSharePermissions({ request, log, sleep }),
   },
+  { id: '010-bucket-list', description: 'Owner-scoped private aspirations', run: ({ request, log }) => migrateBucketListBackend({ request, log }) },
+  { id: '011-bucket-task-links', description: 'Private owner-only aspiration links', run: ({ request, log }) => migrateBucketTaskLinksBackend({ request, log }) },
 ];
 
 export function selectMigrations(argv = []) {

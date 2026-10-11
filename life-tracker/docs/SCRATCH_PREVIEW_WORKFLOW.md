@@ -47,12 +47,14 @@ npm run appwrite:preview:prepare -- \
 `--apply` never touches production. It first compares the live scratch backend
 against Git, allows only an explicit small list of known missing resources, then
 runs the **existing ordered, idempotent** migrations 001, 002, 004, 005,
-006, 007 (server-owned task sharing), and 009 (owner-granted collaboration edits), and checks the full managed state again. It does not apply migration 003
+006, 007 (server-owned task sharing), 009 (owner-granted collaboration edits), and 010 (private Bucket List), and checks the full managed state again. It does not apply migration 003
 (the bucket-wide grant removal) implicitly because that is a permission
 change; use the separately reviewed backend migration procedure for it.
 Unexpected schema/permission/Function drift **fails closed**: inspect and
 extend Git-owned migrations rather than auto-copying production. The
 readiness command never silently deploys Functions or modifies auth policy.
+
+For Bucket List (#405), additive migration 010 provisions only `bucket_list_items` with owner-only row permissions and the owner+updated-at index. When the table exists, the migration validates column/index/permissions compatibility without rewriting records. Run migration 010 before activating the source SHA that includes its CAS allowlist. Preserve the active shared-task/Backlog Function handlers; never replace them with a stale task branch.
 
 For the shared-task workstream, verify the `task_shares` membership table and
 all indexes first; a Function with shared-task event handlers must never be

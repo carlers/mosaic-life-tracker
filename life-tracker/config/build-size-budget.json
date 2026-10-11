@@ -14,27 +14,35 @@
     }
   },
   "limits": {
-    "entryRawBytes": 444400,
-    "entryGzipBytes": 132200,
-    "initialClosureGzipBytes": 145200,
-    "homeClosureGzipBytes": 362900,
-    "appAssetsRawBytes": 2409000,
-    "appAssetsGzipBytes": 744700,
-    "precacheUniqueBytes": 2494000
+    "entryRawBytes": 445250,
+    "entryGzipBytes": 132650,
+    "initialClosureGzipBytes": 145800,
+    "homeClosureGzipBytes": 364500,
+    "appAssetsRawBytes": 2447700,
+    "appAssetsGzipBytes": 758000,
+    "precacheUniqueBytes": 2534500
   },
   "review": {
-    "issue": "#624",
-    "reason": "The user-approved old task-photo recovery adds bounded retry and manual per-photo refresh while preserving offline originals; these exact three output metrics exceeded near-zero remaining caps in the measured Preview build.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/HkJ3A9xz5ppLrVrvzxCo8vwtRADj",
+    "issue": "#405",
+    "reason": "Merge-reviewed dev v0.17.9 cross-device authenticated task-photo recovery (#624) with user-approved Bucket List v0.19.2 (#405) and its independently accepted build-budget revisions (#631/#643). The integrated tree preserves the latest authenticated media download path and lazy Bucket List photo viewer; retain the pinned baseline and seven enforced metric-specific ceilings from accepted Bucket List Preview. All seven limits differ from current dev; further changes require exact merged-tree CI plus provider evidence and a new review.",
+    "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38157675597",
     "metrics": [
+      "entryRawBytes",
+      "entryGzipBytes",
+      "initialClosureGzipBytes",
+      "homeClosureGzipBytes",
       "appAssetsRawBytes",
       "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "appAssetsRawBytes": 2407000,
-      "appAssetsGzipBytes": 744350,
-      "precacheUniqueBytes": 2492250
+      "entryRawBytes": 444400,
+      "entryGzipBytes": 132200,
+      "initialClosureGzipBytes": 145200,
+      "homeClosureGzipBytes": 362900,
+      "appAssetsRawBytes": 2409000,
+      "appAssetsGzipBytes": 744700,
+      "precacheUniqueBytes": 2494000
     }
   }
 }

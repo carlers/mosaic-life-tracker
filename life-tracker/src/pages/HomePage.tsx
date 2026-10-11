@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -34,6 +34,7 @@ const INITIAL_RENDER_WINDOW = 0;
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     persons,
     reorder,
@@ -198,9 +199,35 @@ export const HomePage: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isSearchOpen]);
 
+  const handleOpenBucketList = useCallback(() => {
+    navigate('/bucket-list', { state: makeRouteParentState('/home') });
+  }, [navigate]);
+
   const handleOpenBacklog = useCallback(() => {
     navigate('/backlog', { state: makeRouteParentState('/home') });
   }, [navigate]);
+
+  // Deep-link a real dated task from its private Bucket List aspiration.
+  useEffect(() => {
+    const state = location.state as { bucketLinkedFocusTaskId?: string; bucketLinkedFocusDate?: string } | null;
+    if (!state?.bucketLinkedFocusTaskId || !state.bucketLinkedFocusDate) return;
+    const date = parseISO(state.bucketLinkedFocusDate);
+    if (!isValid(date)) return;
+    // Navigation is an external event. Defer this update to its microtask,
+    // not a synchronous state cascade inside the effect.
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setSearchSelectedDate(date);
+      setSearchFocusTaskId(state.bucketLinkedFocusTaskId ?? null);
+      setSearchSheetKey(current => current + 1);
+      searchDaySheetOpenRef.current = true;
+      setSearchDaySheetOpen(true);
+      // Consume the route intent exactly once, including on Android Back.
+      navigate('/home', { replace: true, state: null });
+    });
+    return () => { cancelled = true; };
+  }, [location.key, location.state, navigate]);
 
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
     if (task.date === '') {
@@ -241,7 +268,7 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} />}
+          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} />}
         />
 
         <div inert={isSearchOpen ? true : undefined} className="flex-1 min-h-0 flex flex-col relative">

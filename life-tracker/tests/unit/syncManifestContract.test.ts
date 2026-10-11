@@ -15,6 +15,8 @@ const syncedCollections = [
   'settings',
   'friendships',
   'messages',
+  'bucketList',
+  'bucketTaskLinks',
 ] as const;
 
 const manifest = new Map(MOSAIC_TABLES.map((table) => [table.id, table]));
@@ -22,7 +24,7 @@ const manifest = new Map(MOSAIC_TABLES.map((table) => [table.id, table]));
 describe('synchronized Appwrite serialization contract', () => {
   for (const collection of syncedCollections) {
     it(collection + ': every emitted remote field exists in the managed manifest', () => {
-      const table = manifest.get(collection);
+      const table = manifest.get(collection === 'bucketList' ? 'bucket_list_items' : collection === 'bucketTaskLinks' ? 'bucket_task_links' : collection);
       expect(table, 'manifest table for ' + collection).toBeDefined();
 
       const columnNames = new Set(table!.columns.map((column) => column.key));
@@ -48,7 +50,7 @@ describe('synchronized Appwrite serialization contract', () => {
     });
 
     it(collection + ': declared remote columns are accepted without drift warnings', () => {
-      const table = manifest.get(collection);
+      const table = manifest.get(collection === 'bucketList' ? 'bucket_list_items' : collection === 'bucketTaskLinks' ? 'bucket_task_links' : collection);
       expect(table).toBeDefined();
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       __resetDriftWarningsForTests();
