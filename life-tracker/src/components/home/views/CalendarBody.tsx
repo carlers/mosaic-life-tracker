@@ -4,6 +4,7 @@ import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
+import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
@@ -38,6 +39,8 @@ interface CalendarBodyProps {
   categories?: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
+  sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
+  ownedSharedTaskIds?: ReadonlySet<string>;
   friendCategories?: CategoryDocument[];
   friendName?: string;
   friendUserId?: string | null;
@@ -60,6 +63,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   categories,
   categoriesMap,
   variant,
+  sharedByDay,
+  ownedSharedTaskIds,
   friendCategories,
   friendName,
   friendUserId,
@@ -127,6 +132,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       viewMode={viewMode}
       onDayClick={handleDayClick}
       tasksByDate={tasksByDate}
+      sharedByDay={variant === 'me' ? sharedByDay : undefined}
+      ownedSharedTaskIds={variant === 'me' ? ownedSharedTaskIds : undefined}
       categoriesMap={categoriesMap}
       weekStartsOn={weekStartsOn}
       holidaysByDate={holidaysByDate}

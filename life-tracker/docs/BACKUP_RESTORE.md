@@ -14,6 +14,8 @@ A user backup is a portable snapshot of the signed-in user's personal Mosaic dat
 
 Friendships may remain present in exported files for portability/reference, but personal restore never creates, deletes, or rewrites friendships. Messages, login/account state, and reciprocal social/profile state are outside personal restore. On cross-account restore, friendship-bound preferences such as friend-carousel ordering/hidden IDs are also preserved from the destination account rather than imported or replaced. Whole-system disaster recovery is a separate backend concern.
 
+Shared-task invitations and memberships (`task_shares`) are server-owned social grants. Recipient personal exports must not include another owner's task or copy/restore shared grants. Creator personal restore may restore the creator's task content but must **not** recreate invitations or grant epochs. Whole-system DR snapshots may contain `task_shares` via the portable manifest; privacy-deletion markers must filter memberships involving the deleted owner or invitee before recovery.
+
 ## Format
 
 - New exports use backup format version 2.

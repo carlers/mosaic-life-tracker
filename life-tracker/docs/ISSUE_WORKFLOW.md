@@ -76,6 +76,87 @@ API, or automation must never block basic capture.
 - If an issue has uncertain scope, confirm only the blocking decision. Do not force
   prioritization or a full specification for a quick captured idea.
 
+## Natural-language cross-chat resume
+
+A request like **"pick up where we left off on the shared tasks issue"**,
+**"continue the sticker work"**, or **"where were we on backlog?"** is a
+repository-backed resume request, including from a brand-new ChatGPT conversation.
+The user need not supply the original chat, a handoff prompt, a branch, or an issue
+number. Follow this procedure before resuming work:
+
+1. **Resolve the intended issue.** Search the connected
+   `carlers/mosaic-life-tracker` GitHub repository's open **and closed** issues
+   by distinctive title/topic terms and issue references. Include variants and
+   established aliases (e.g. "shared tasks" ↔ "Explore shared tasks with
+   friends"). Prefer an explicit number or unambiguous title match, not the
+   newest global checkpoint or most recently updated unrelated issue. If
+   multiple plausible issues remain, present the matches and ask which one;
+   never silently pick a task to mutate.
+2. **Recover the issue's latest durable state.** Read the full issue
+   (including its end), its most recent **Resume checkpoint** comment if any,
+   related open/merged/closed PRs and their target branches, and task/stable
+   Preview branch heads. The newest issue checkpoint is an *index* to verify,
+   not authoritative proof that work deployed. Read the global
+   `docs/SESSION_STATE.md` only as additional context when its task matches;
+   a different active task must not override the requested issue.
+3. **Reconcile actual work.** Verify exact branch/SHA, PR merges, Actions
+   results for that SHA, Vercel deployment when relevant, and backend readiness
+   separately. Check `dev`/`main` before claiming promotion. If the prior
+   chat stalled after a GitHub write, merge, workflow dispatch, or cloud
+   operation, **check whether it already succeeded before retrying**. If
+   checkpoint text conflicts with live evidence, prefer the live evidence and
+   repair the checkpoint at the next meaningful milestone.
+4. **Continue safely.** Identify the last verified milestone, outstanding
+   blockers, and **next permitted action**. "Pick up" or "continue" can carry
+   forward the user's existing authorization to implement or fix an active
+   task; it cannot invent authorization to implement a planning-only issue,
+   run a security-sensitive migration, or promote to `dev`/`main`. An
+   explicit approval gate still requires approval. If the issue only asked
+   for status, report status rather than acting. If connected repository
+   access is missing, state the exact access blocker instead of guessing.
+5. **Minimize interruption.** Do not require the user to re-explain the
+   task or copy an old-chat summary when the above evidence is available.
+   Work through approved steps with the normal [AI](AI_WORKFLOW.md) and
+   [delivery](DELIVERY.md) workflow; distinguish automated, hosted,
+   browser/device and manual evidence. Preserve account and Scratch/Production
+   boundaries.
+
+### Durable per-issue resume checkpoint
+
+At a **meaningful milestone** (approved design; coherent verified task
+commit; stable Preview CI/ready deployment; backend acceptance; failed gate
+with diagnosed blocker; approved promotion; or genuine handoff), add a **short
+issue comment** headed `## Resume checkpoint`. This is the stable entry point
+for later conversations, independent of any one branch's session file.
+Prefer a new milestone comment to repeatedly replacing the issue's long
+plan or copying chat transcripts. Do not comment on every CI poll or write
+post-green status-only commits.
+
+Include only what a new reader needs:
+
+- **Task/status:** issue number and stage (planning, task branch, Preview,
+  blocked, dev, main); relevant authorization and any outstanding approval.
+- **Exact refs:** active task branch/PR if relevant; accepted stable Preview
+  branch and SHA, with evidence links; dev/main status if a promotion is in scope.
+- **Verified:** exact-SHA tests, CI, deployment and backend evidence; explicitly
+  identify what has *not* been tested, especially real login/device acceptance.
+- **Next safe action:** one concrete next step, prerequisites and blocker if any.
+
+Keep the comment compact, factual, and safe for this **public** repository;
+never expose credentials, real-user account contents or private prompts.
+A latest checkpoint from a failed or incomplete agent operation must not be
+mistaken for completion. Later agents must re-check the GitHub facts it cites.
+
+**Cold-start acceptance:** In a fresh chat in this Mosaic project with
+working GitHub access, the phrase "pick up where we left off on the shared
+tasks issue" must resolve to #406, inspect its most recent checkpoint,
+verify the stable `feature/shared-tasks` SHA, PR/Actions/Preview evidence,
+and identify outstanding Scratch/manual gates **without requiring the old
+chat or implementing/promotion without approval**. Also evaluate ambiguous
+matches, unavailable GitHub access and stale checkpoints. A same-chat
+connector dry run is useful but is **not** proof of actual fresh-chat/device
+acceptance.
+
 ## Lifecycle and completion
 
 A **single active implementation task** is the default; independent read-only planning

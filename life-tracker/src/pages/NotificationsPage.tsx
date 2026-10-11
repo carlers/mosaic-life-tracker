@@ -22,6 +22,7 @@ import { EmojiPickerSheet } from '../components/messages/EmojiPickerSheet';
 import { ReactionRow } from '../components/messages/ReactionRow';
 import { ReplyComposerSheet } from '../components/messages/ReplyComposerSheet';
 import { Spinner } from '../components/ui/Spinner';
+import { SharedTaskInvitationInbox } from '../components/explore/SharedTaskInvitationInbox';
 import { useAuth } from '../hooks/useAuth';
 import { useConnectivity } from '../hooks/useConnectivity';
 import { useTaskActivityActions } from '../hooks/useTaskActivityActions';
@@ -42,6 +43,7 @@ import {
   ALERTS_READ_RETENTION_SETTING_KEY, ALERTS_UNREAD_RETENTION_SETTING_KEY,
 } from '../lib/notificationRetention';
 import { useSettings } from '../hooks/useSettings';
+import { useSharedTasks } from '../hooks/useSharedTasks';
 import { groupNotificationActivity } from '../lib/notificationGrouping';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { reactToTaskOnRemote } from '../lib/messageDelivery';
@@ -70,6 +72,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { items: receivedShares } = useSharedTasks('received', !preview);
+  const hasPendingInvitations = receivedShares.some(item => item.status === 'pending');
   const { getSetting } = useSettings();
   const retentionPolicy = {
     unreadDays: resolveUnreadRetentionDays(getSetting(ALERTS_UNREAD_RETENTION_SETTING_KEY)),
@@ -537,6 +541,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
         </div>
       </header>
 
+      {!preview && feedIsCurrent && <SharedTaskInvitationInbox />}
+
       {isInitialLoading ? (
         <div
           className="flex min-h-[55vh] items-center justify-center"
@@ -545,7 +551,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           <Spinner size="w-7 h-7" />
           <span className="sr-only">Loading alerts</span>
         </div>
-      ) : groups.length === 0 ? (
+      ) : groups.length === 0 && !hasPendingInvitations ? (
         <div className="flex min-h-[55vh] flex-col items-center justify-center px-6 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#1E1E1E]">
             <Bell
@@ -556,7 +562,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           </div>
           <h2 className="text-base font-semibold">No activity yet</h2>
           <p className="mt-2 max-w-xs text-sm leading-relaxed text-gray-400">
-            Shared task completions from friends will appear here.
+            Friend activity and shared-task invitations will appear here.
           </p>
           {error && (
             <p className="mt-4 text-xs text-red-300" role="alert">
@@ -565,7 +571,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           )}
           <div className="w-full max-w-sm">{loadMoreButton}</div>
         </div>
-      ) : (
+      ) : groups.length === 0 ? null : (
         <div className="px-4 pb-28 pt-3">
           {error && (
             <p

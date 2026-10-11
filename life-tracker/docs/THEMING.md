@@ -45,6 +45,17 @@ remain semantically fixed colors; do not reroute them through the user accent.
 Translucent overlays and photo backdrops are intentionally separate from
 normal readable content surfaces.
 
+## Nested BottomSheet depth
+
+Shared BottomSheet owns sheet/backdrop paint order for every open layer. Each
+nested backdrop must shade the sheet below it (not sit behind the parent's
+surface), and the inactive parent recedes subtly while keeping its contents
+mounted for a smooth return. Only the top sheet owns focus, pointer actions,
+drag gestures, and Back dismissal. Child sheets use existing semantic surface
+and border colors across Light/Dark/Black; no caller should assign its own
+stack z-index or themed child-sheet color. Reduced-motion preferences apply
+to depth transitions as well as opening and closing animations.
+
 ## New-feature checklist
 
 1. Preview each state in Light, Dark, Black, and System-following-Light/Dark.

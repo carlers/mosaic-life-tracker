@@ -41,6 +41,21 @@ PRs and keep the issue open until the documented acceptance/release boundary.
 If GitHub issue tools are unavailable, return a copy-ready issue and state that
 nothing was saved; never fabricate issue numbers, links, or updates.
 
+## Interruptions and independent-chat recovery
+
+For an interrupted, disconnected, timed-out or switched-device chat, use the
+[topic-based issue resume procedure](ISSUE_WORKFLOW.md#natural-language-cross-chat-resume).
+The requested issue's latest **Resume checkpoint** and live GitHub PR/branch/CI
+state outrank a global session checkpoint about another issue. Do not ask for
+a conversation link, handoff text or issue number if issue search resolves it.
+
+Write a short per-issue checkpoint comment at meaningful task milestones, then
+verify existing remote side effects **before** replaying an operation whose
+response was lost. Keep `docs/SESSION_STATE.md` for the currently working
+branch's implementation state, not as a singleton index for all concurrent
+issues. Preserve explicit deployment/promotion approvals and report true
+blockers instead of claiming silent background continuation.
+
 ## Preview version and promotion subject
 
 New user-visible capabilities get a planned MINOR version; each later successfully delivered user-testable refinement gets one PATCH. A failed provider build consumes no new version. Reconcile reserved versions against main, dev and other active Preview branches; independent feature versions cannot collide. Apply the version in the **same task commit** as the deliverable changes, synchronize package.json, package-lock.json and src/lib/appVersion.ts with `npm run version:set -- X.Y.Z` or `version:bump`, and validate with `npm run version:check`. Never bump during an accepted stable Preview -> dev -> main promotion; changing the accepted tree mandates a fresh Preview acceptance. Follow [versioning](VERSIONING.md).

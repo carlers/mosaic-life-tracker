@@ -260,6 +260,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           </section>
         )}
 
+
         <section className="space-y-2">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
             My friends ({friends.length})

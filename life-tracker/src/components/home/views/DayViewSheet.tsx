@@ -11,13 +11,20 @@ import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
 import { TaskActionSheet } from './TaskActionSheet';
+const LazyShareTaskSheet = lazy(() =>
+  import('./ShareTaskSheet').then(({ ShareTaskSheet }) => ({ default: ShareTaskSheet }))
+);
+import { useSharedTasks } from '../../../hooks/useSharedTasks';
+import { useOptionalFriendList } from '../../../hooks/useFriends';
+import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
+import type { SharedTaskItem } from '../../../lib/taskShareQueue';
+import { editSharedTask } from '../../../lib/taskShareQueue';
+import { parseSharedPlacement, placementKey, planSharedTaskMove } from '../../../lib/sharedTaskPlacement';
 import { MemoSheet } from './MemoSheet';
-import { DatePickerSheet } from './DatePickerSheet';
 import { ImagePickerSheet } from './ImagePickerSheet';
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
 import { BulkTaskActionSheet } from './BulkTaskActionSheet';
 import { BulkCategoryPickerSheet } from './BulkCategoryPickerSheet';
-import { BulkDatePickerSheet } from './BulkDatePickerSheet';
 import { BulkVisibilitySheet } from './BulkVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
@@ -25,6 +32,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useFeedback } from '../../../hooks/useFeedback';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
+import { pendingOwnerCompletionIds, subscribeOwnerCompletionPending } from '../../../lib/ownerCompletionPending';
 import { useDayViewSwiper } from './useDayViewSwiper';
 import { deleteImage } from '../../../lib/storage';
 import { EMPTY_TASKS } from '../../../constants/empty';
@@ -112,7 +120,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     categoriesOverride === undefined
   );
   const { message: deleteFeedback, show: showFeedback } = useFeedback();
-  const { getSetting } = useSettings();
+  const { getSetting, setSetting, settings } = useSettings();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =
@@ -136,16 +144,72 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const backlogTasks = useMemo(() => tasks.filter((task) => task.date === '' && !task.isDeleted), [tasks]);
   const categories = categoriesOverride ?? hookCategories;
   const tasksByDate = useTasksByDate(tasks);
+  const [ownerPendingRevision, setOwnerPendingRevision] = useState(0);
+  const [isSharedSheetOpen, setIsSharedSheetOpen] = useState(false);
+  useEffect(() => subscribeOwnerCompletionPending(() => setOwnerPendingRevision(n => n + 1)), []);
+  const pendingOwnedTaskIds = useMemo(() => pendingOwnerCompletionIds(currentUserId),
+    [currentUserId, ownerPendingRevision]);
+  const sharedTasks = useSharedTasks('received', isOpen);
+  const ownerShares = useSharedTasks('owned', isOpen);
+  const sharingFriends = useOptionalFriendList();
+  const labelMode = getSetting('sharedTaskLabelMode', 'names') === 'count' ? 'count' : 'names';
+  const showPendingShares = getSetting('showPendingSharedTaskInvites', false) === true;
+  const ownerLabels = useMemo(() => ownerShareLabels(
+    ownerShares.items, sharingFriends, labelMode, showPendingShares,
+  ), [ownerShares.items, sharingFriends, labelMode, showPendingShares]);
+
+  const validCategoryIds = useMemo(() => new Set(categories.map(cat => cat.id)), [categories]);
+  const sharedCategoryFor = useCallback((item: SharedTaskItem): string => {
+    const raw = settings[placementKey(item.id)];
+    return parseSharedPlacement(raw, validCategoryIds)?.categoryId || '';
+  }, [settings, validCategoryIds]);
+  const sharedOrderFor = useCallback((item: SharedTaskItem) =>
+    parseSharedPlacement(settings[placementKey(item.id)], validCategoryIds)?.order ?? 0,
+  [settings, validCategoryIds]);
+  const moveSharedTask = useCallback(async (item: SharedTaskItem,
+    categoryId: string, targetId: string, position: string) => {
+    if (!validCategoryIds.has(categoryId)) throw new Error('Destination category unavailable');
+    if (item.id === targetId) return;
+    const updates = planSharedTaskMove(
+      item, categoryId, targetId,
+      position === 'start' || position === 'index' || position === 'after' || position === 'before'
+        ? position : 'start',
+      sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor,
+    );
+    // Distinct settings rows, but serialize the order to avoid stale RxDB
+    // projections racing against a same-moment gesture or sheet change.
+    for (const change of updates) {
+      await setSetting(placementKey(change.id), { categoryId: change.categoryId, order: change.order });
+    }
+  }, [validCategoryIds, sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor, setSetting]);
+  const assignSharedCategory = useCallback(async (item: SharedTaskItem, categoryId: string) => {
+    if (categoryId && !validCategoryIds.has(categoryId)) throw new Error('Category unavailable');
+    await setSetting(placementKey(item.id), categoryId ? { categoryId, order: 0 } : null);
+  }, [setSetting, validCategoryIds]);
+  const copySharedToMine = useCallback(async (item: SharedTaskItem, categoryId: string) => {
+    if (!validCategoryIds.has(categoryId)) throw new Error('Choose one of your categories');
+    await addTask({ title: item.title, categoryId, date: item.date,
+      completed: false, visibility: '' }, addTasksToTop ? 'top' : 'bottom');
+  }, [validCategoryIds, addTask, addTasksToTop]);
+  const updateSharedTitle = useCallback(async (item: SharedTaskItem, title: string) => {
+    await editSharedTask(item, { title });
+    await sharedTasks.reload();
+  }, [sharedTasks.reload]);
+  const updateSharedDate = useCallback(async (item: SharedTaskItem, date: string) => {
+    await editSharedTask(item, { date });
+    await sharedTasks.reload();
+  }, [sharedTasks.reload]);
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [shareSheetMounted, setShareSheetMounted] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [imagePickerTaskId, setImagePickerTaskId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [isMemoOpen, setIsMemoOpen] = useState(false);
   const [memoInitialMode, setMemoInitialMode] = useState<'view' | 'edit'>('edit');
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isVisibilityOpen, setIsVisibilityOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
@@ -154,7 +218,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(() => new Set());
   const [isBulkActionOpen, setIsBulkActionOpen] = useState(false);
   const [isBulkCategoryOpen, setIsBulkCategoryOpen] = useState(false);
-  const [isBulkDateOpen, setIsBulkDateOpen] = useState(false);
   const [isBulkVisibilityOpen, setIsBulkVisibilityOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
@@ -194,7 +257,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setSelectedTaskIds(new Set());
     setIsBulkActionOpen(false);
     setIsBulkCategoryOpen(false);
-    setIsBulkDateOpen(false);
     setIsBulkVisibilityOpen(false);
     setIsBulkDeleteOpen(false);
   }, [isBulkWorking]);
@@ -216,15 +278,14 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     onDateChange,
     isDisabled:
       isActionSheetOpen ||
+      isShareSheetOpen ||
       isMemoOpen ||
-      isDatePickerOpen ||
       isVisibilityOpen ||
       isDeleteConfirmOpen ||
       isImageViewerOpen ||
       deletePhotoConfirmOpen ||
       isBulkActionOpen ||
       isBulkCategoryOpen ||
-      isBulkDateOpen ||
       isBulkVisibilityOpen ||
       isBulkDeleteOpen ||
       isBulkWorking ||
@@ -422,8 +483,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     if (failedIds.size > 0) {
       setSelectedTaskIds(failedIds);
       setIsBulkActionOpen(false);
-      setIsBulkDateOpen(false);
-      setIsBulkVisibilityOpen(false);
+        setIsBulkVisibilityOpen(false);
       showFeedback(`${failedIds.size} ${failedIds.size === 1 ? 'task' : 'tasks'} could not be updated`);
       return;
     }
@@ -496,6 +556,17 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const handleCloseActions = useCallback(() => {
     setIsActionSheetOpen(false);
   }, []);
+  const leaveSharedTask = sharedTasks.updateMembership;
+  const updateSharedCompletion = sharedTasks.updateCompletion;
+  const handleSharedCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
+    try {
+      const result = await updateSharedCompletion(item, desired);
+      if (result.status === 'pending') showFeedback('Shared completion queued for sync.');
+      if (result.status === 'rejected') showFeedback(result.reason || 'Shared completion failed.');
+    } catch (error) {
+      showFeedback(error instanceof Error ? error.message : 'Shared completion failed.');
+    }
+  }, [updateSharedCompletion, showFeedback]);
 
   const handleOpenMemo = useCallback(
     (task: TaskDocument, mode: 'view' | 'edit' = 'view') => {
@@ -560,7 +631,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     async (newDate: string) => {
       if (!activeTask) return;
       await updateTask(activeTask.id, { date: newDate });
-      setIsDatePickerOpen(false);
       setActiveTaskId(null);
     },
     [activeTask, updateTask]
@@ -640,16 +710,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     setActiveTaskId(null);
   }, []);
 
-  const handleCloseDatePicker = useCallback(() => {
-    setIsDatePickerOpen(false);
-    setActiveTaskId(null);
-  }, []);
-
-  const handleOpenDatePicker = useCallback(() => {
-    setIsDatePickerOpen(true);
-    setIsActionSheetOpen(false);
-  }, []);
-
   const handleOpenVisibility = useCallback(() => {
     setIsVisibilityOpen(true);
     setIsActionSheetOpen(false);
@@ -680,15 +740,15 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const isBackgroundLocked =
     isActionSheetOpen ||
+    isSharedSheetOpen ||
+    isShareSheetOpen ||
     isMemoOpen ||
-    isDatePickerOpen ||
     isVisibilityOpen ||
     isDeleteConfirmOpen ||
     isImageViewerOpen ||
     deletePhotoConfirmOpen ||
     isBulkActionOpen ||
     isBulkCategoryOpen ||
-    isBulkDateOpen ||
     isBulkVisibilityOpen ||
     isBulkDeleteOpen ||
     isBulkWorking ||
@@ -770,7 +830,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       ) : (
       <Swiper
         nested={renderMode === 'inline'}
-        allowTouchMove={!isTaskReorderActive}
+        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen}
         noSwiping={renderMode === 'sheet'}
         focusableElements={DAY_SWIPER_FOCUSABLE_ELEMENTS}
         touchStartPreventDefault={false}
@@ -879,6 +939,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                         </button>
                       </div>
                     </div>
+                    {dayTasks.some(task => pendingOwnedTaskIds.has(task.id)) && (
+                      <p role="status" className="px-4 pb-1 text-xs text-amber-400">
+                        Shared completion pending sync
+                      </p>
+                    )}
                     <DaySlide
                       date={date}
                       dateStr={dateStr}
@@ -889,6 +954,24 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       editingTaskId={editingTaskId}
                       editValue={editValue}
                       onToggleTask={handleToggleTask}
+                      sharedItems={sharedTasks.activeItems}
+                      onSharedSheetOpenChange={i === activeIndex ? setIsSharedSheetOpen : undefined}
+                      sharedCategoryFor={sharedCategoryFor}
+                      onAssignSharedCategory={assignSharedCategory}
+                      onCopySharedTask={copySharedToMine}
+                      onEditSharedTitle={updateSharedTitle}
+                      onChangeSharedDate={updateSharedDate}
+                      onMoveSharedTask={moveSharedTask}
+                      sharedOrderFor={sharedOrderFor}
+                      onSharedMoveError={(error) => showFeedback(error instanceof Error ? error.message : 'Could not move shared task.')}
+                      ownerLabels={ownerLabels}
+                      onSharedCompletion={handleSharedCompletion}
+                      onLeaveSharedTask={async (item) => {
+                        const outcome = await leaveSharedTask(item, 'leave');
+                        if (outcome.status === 'pending') showFeedback('Leaving task queued for sync.');
+                        if (outcome.status === 'rejected') showFeedback(outcome.reason || 'Could not leave shared task.');
+                      }}
+                      sharedPendingFor={sharedTasks.pendingFor}
                       onAddTask={handleAddTask}
                       onOpenActions={handleOpenActions}
                       onOpenMemo={handleOpenMemo}
@@ -953,7 +1036,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             isWorking={isBulkWorking}
             onClose={() => setIsBulkActionOpen(false)}
             onMoveCategory={() => { setIsBulkActionOpen(false); setIsBulkCategoryOpen(true); }}
-            onChangeDate={() => { setIsBulkActionOpen(false); setIsBulkDateOpen(true); }}
+            onChangeDate={async date => { await runBulkUpdate({ date }); }}
             onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
@@ -969,7 +1052,6 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             onClose={() => setIsBulkCategoryOpen(false)}
             onSelect={handleBulkMoveCategory}
           />
-        <BulkDatePickerSheet isOpen={isBulkDateOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkDateOpen(false)} onSave={(date) => runBulkUpdate({ date })} />
         <BulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
       </AnimatePresence>
       <TaskActionSheet
@@ -987,18 +1069,26 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           if (activeTask) handleOpenMemo(activeTask, 'edit');
           setIsActionSheetOpen(false);
         }}
-        onChangeDate={handleOpenDatePicker}
+        onChangeDate={handleDateChange}
         onVisibility={handleOpenVisibility}
+        onShare={() => { setShareSheetMounted(true); setIsShareSheetOpen(true); }}
         onAddPhoto={handleOpenImagePicker}
         onViewPhoto={handleOpenImageViewer}
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
         onMoveToBacklog={handleMoveToBacklog}
       />
+      <Suspense fallback={null}>
+        {shareSheetMounted && (
+          <LazyShareTaskSheet
+            isOpen={isShareSheetOpen && !!activeTask}
+            onClose={() => setIsShareSheetOpen(false)}
+            task={activeTask}
+          />
+        )}
+      </Suspense>
       <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
-      <DatePickerSheet isOpen={isDatePickerOpen && !!activeTask}
-        onClose={handleCloseDatePicker} task={activeTask} onDateChange={handleDateChange} />
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
         onClose={handleCloseVisibility} task={activeTask} category={activeTaskCategory}
         onSave={handleVisibilitySave} />

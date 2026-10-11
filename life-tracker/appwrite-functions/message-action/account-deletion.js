@@ -12,6 +12,7 @@ const DELETE_CONCURRENCY = 8;
 
 const OWNED_TABLES = ['tasks', 'categories', 'diary', 'settings', 'push_subscriptions'];
 const CROSS_REFERENCE_QUERIES = {
+  task_shares: ['owner_id', 'invitee_id'],
   friendships: ['user_id', 'friend_id'],
   messages: ['user_id', 'sender_id', 'recipient_id'],
   notifications: ['recipient_id', 'actor_id'],

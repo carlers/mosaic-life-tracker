@@ -1,3 +1,21 @@
+const CONFLICT_PREFIX = 'mosaic_shared_completion_conflict_';
+const CONFLICT_NOTICE = 'A task changed on another device before your completion synced. Review its current state before retrying.';
+
+export function recordCompletionConflict(userId: string): void {
+  if (!userId) return;
+  try {
+    localStorage.setItem(CONFLICT_PREFIX + userId, '1');
+  } catch {
+    // Still display the conflict for the active account.
+  }
+  if (ownerId === userId) publishSyncStatus({ notice: CONFLICT_NOTICE });
+}
+
+export function acknowledgeCompletionConflict(userId: string): void {
+  try { localStorage.removeItem(CONFLICT_PREFIX + userId); } catch { /* no storage */ }
+  if (ownerId === userId && status.notice === CONFLICT_NOTICE) publishSyncStatus({ notice: null });
+}
+
 export interface SyncProgress {
   completed: number;
   total: number;
@@ -45,7 +63,10 @@ export function scopeSyncStatusToUser(userId: string | null): void {
     isSyncing: false,
     lastSync,
     errors: [],
-    notice: null,
+    notice: userId && (() => {
+      try { return localStorage.getItem(CONFLICT_PREFIX + userId) ? CONFLICT_NOTICE : null; }
+      catch { return null; }
+    })(),
     progress: null,
   };
   for (const listener of listeners) {

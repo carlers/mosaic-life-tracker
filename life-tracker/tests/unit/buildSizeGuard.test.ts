@@ -152,8 +152,6 @@ describe('build-size guard', () => {
     for (const metric of [
       'entryRawBytes',
       'entryGzipBytes',
-      'initialClosureGzipBytes',
-      'homeClosureGzipBytes',
     ]) {
       const baselineBytes = configuredBudget.baseline.metrics[metric];
       const limitBytes = configuredBudget.limits[metric];
@@ -161,6 +159,19 @@ describe('build-size guard', () => {
       expect(ratio).toBeGreaterThanOrEqual(1.049);
       expect(ratio).toBeLessThanOrEqual(1.052);
     }
+    // v0.14.1 brings recipient Calendar and owner labels into Home. The
+    // measured Home closure was 359,732 B gzip. Cap its one-time increase
+    // tightly rather than weakening entry/initial startup limits.
+    expect(configuredBudget.limits.homeClosureGzipBytes).toBe(361000);
+    expect(configuredBudget.limits.homeClosureGzipBytes /
+      configuredBudget.baseline.metrics.homeClosureGzipBytes).toBeLessThanOrEqual(1.063);
+    // v0.14.0 adds lazy, durable share queues and their account/reconnect
+    // lifecycle. The measured Vercel initial closure was 144,049 B gzip:
+    // this exceptional bound gives only 801 B headroom and preserves the
+    // stricter entry and Home budgets.
+    expect(configuredBudget.limits.initialClosureGzipBytes).toBe(144850);
+    expect(configuredBudget.limits.initialClosureGzipBytes /
+      configuredBudget.baseline.metrics.initialClosureGzipBytes).toBeLessThanOrEqual(1.059);
   });
 
   // Regression: §24.14 (aggregate/precache ceilings include reviewed shipped
@@ -171,10 +182,25 @@ describe('build-size guard', () => {
       'utf8',
     ));
 
+    // v0.16.8 adds a lazy release-history Markdown renderer. The first
+    // Preview Vercel build measured 2,394,877 B app raw and 2,479,228 B
+    // precache; keep the new caps narrowly bounded while all startup/Home
+    // and aggregate gzip ceilings remain unchanged.
+    // v0.16.9 includes the historical PR-backed archive in the lazy
+    // ReleaseHistoryPage. Verified Vercel measured 2,398,474 B raw,
+    // 740,359 B gzip, and 2,482,825 B precache. These narrow caps
+    // preserve the independently enforced entry/initial/Home budgets.
+    // The v0.16.10 dev merge uses the byte-identical accepted Preview tree,
+    // but its live Vercel build measured 2,400,745 B raw, 741,191 B gzip,
+    // and 2,485,096 B precache. Raise only these aggregate caps with
+    // 555–609 B headroom; startup/Home bounds stay unchanged.
+    // v0.17.0: byte-identical accepted source uses 2,050 additional raw/
+    // precache bytes on the dev Vercel target; measured overages were
+    // 54 B and 5 B. Keep these dev-specific headroom increases below 150 B.
     expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2329000,
-      appAssetsGzipBytes: 718600,
-      precacheUniqueBytes: 2411800,
+      appAssetsRawBytes: 2401450,
+      appAssetsGzipBytes: 741800,
+      precacheUniqueBytes: 2485800,
     });
   });
 

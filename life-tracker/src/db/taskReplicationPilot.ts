@@ -1,3 +1,7 @@
+import { recordCompletionConflict } from '../lib/syncStatus';
+import {
+  acknowledgeOwnerCompletionSent, rejectOwnerCompletionPending,
+} from '../lib/ownerCompletionPending';
 import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 import {
   captureReplicationPushCheckpoint,
@@ -144,19 +148,21 @@ function taskStateEquals(
 }
 
 /**
- * A friend reaction is the only ordinary server-side mutation of an owner's
- * task row. message-action changes both reactions and updated_at. Ignore those
- * two fields when deciding whether the remote row changed in an owner-controlled
- * field since RxDB's assumed master.
+ * Reactions and explicit shared-task completion are server-writable. Other
+ * task fields remain creator-owned. Never use timestamp-only last-writer-wins.
  */
 function taskOwnerStateEquals(
   left: ReplicatedTask,
   right: ReplicatedTask
 ): boolean {
   return taskStateEquals(
-    { ...left, reactions: '', updatedAt: '' },
-    { ...right, reactions: '', updatedAt: '' }
+    { ...left, reactions: '', updatedAt: '', completed: false, completedAt: '' },
+    { ...right, reactions: '', updatedAt: '', completed: false, completedAt: '' }
   );
+}
+function completionChanged(left: ReplicatedTask, right: ReplicatedTask): boolean {
+  return left.completed !== right.completed ||
+    (left.completedAt ?? '') !== (right.completedAt ?? '');
 }
 
 function laterIso(left: string, right: string): string {
@@ -295,10 +301,29 @@ function mergeServerReactionDrift(
   assumed: ReplicatedTask
 ): ReplicatedTask | null {
   if (taskStateEquals(current, assumed)) return next;
-  if (!taskOwnerStateEquals(current, assumed)) return null;
+  if (!taskOwnerStateEquals(current, assumed)) {
+    if (completionChanged(next, assumed)) {
+      rejectOwnerCompletionPending(next.userId, next.id);
+      recordCompletionConflict(next.userId);
+    }
+    return null;
+  }
 
+  const serverCompleted = completionChanged(current, assumed);
+  const locallyCompleted = completionChanged(next, assumed);
+  if (serverCompleted && locallyCompleted) {
+    // Two completion intentions cannot be merged without choosing a winner.
+    // Preserve the remote master, but durably surface the local conflict.
+    rejectOwnerCompletionPending(next.userId, next.id);
+    recordCompletionConflict(next.userId);
+    return null;
+  }
   return {
     ...next,
+    ...(serverCompleted ? {
+      completed: current.completed,
+      completedAt: current.completedAt,
+    } : {}),
     reactions: current.reactions ?? '',
     updatedAt: laterIso(next.updatedAt, current.updatedAt),
   };
@@ -529,10 +554,22 @@ async function pushTasks(
       // Appwrite. A byte-for-byte-equivalent task is therefore acknowledged
       // without a write. Only a genuinely newer application edit may win.
       if (taskStateEquals(current, next)) {
+        acknowledgeOwnerCompletionSent(userId, next);
         await cleanupPendingTaskImage(next, userId);
         continue;
       }
       if (!isBootstrapLocalNewer(next.updatedAt, current.updatedAt)) {
+        await cleanupPendingTaskImage(next, userId);
+        conflicts.push(current);
+        continue;
+      }
+      // Missing replication metadata is not a license to overwrite a server
+      // completion merely because this client's local updatedAt is newer.
+      // Without an assumed master we cannot separate an owner completion
+      // intent from independent title/date edits; protect the remote truth.
+      if (completionChanged(next, current)) {
+        rejectOwnerCompletionPending(userId, next.id);
+        recordCompletionConflict(userId);
         await cleanupPendingTaskImage(next, userId);
         conflicts.push(current);
         continue;
@@ -590,7 +627,8 @@ async function pushTasks(
         prepared.document as unknown as Record<string, unknown>,
         'tasks',
         userId
-      )
+      ),
+      master.document.completed
     );
 
     // A friend can mutate reactions between our master read and CAS. Preserve
@@ -615,14 +653,20 @@ async function pushTasks(
             prepared.document as unknown as Record<string, unknown>,
             'tasks',
             userId
-          )
+          ),
+          latest.completed
         );
       }
     }
 
     if (writeResult.status === 'conflict') {
+      const remote = toReplicatedTask(writeResult.row);
+      if (completionChanged(next, remote)) {
+        rejectOwnerCompletionPending(userId, next.id);
+        recordCompletionConflict(userId);
+      }
       await cleanupPendingTaskImage(next, userId);
-      conflicts.push(toReplicatedTask(writeResult.row));
+      conflicts.push(remote);
       continue;
     }
     if (writeResult.status === 'missing') {
@@ -637,6 +681,7 @@ async function pushTasks(
       }
     }
 
+    acknowledgeOwnerCompletionSent(userId, prepared.document);
     await finishSuccessfulPush(prepared.pendingImageId, userId);
     if (!taskStateEquals(prepared.document, next)) {
       conflicts.push(prepared.document);
