@@ -325,15 +325,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     }
   }, [activeDateStr, exitSelectMode, isBulkWorking, isSelectMode]);
 
-  // #10: precompute the header label per slide so the render loop doesn't
-  // re-run date-fns' format() on every render for every in-window slide.
-  // Effectiveness depends on slideDates identity being stable across
-  // renders — if the hook returns a fresh array each time this is a
-  // no-op, never a regression.
-  const slideDateLabels = useMemo(
-    () => slideDates.map((d) => format(d, 'EEEE, MMMM d, yyyy')),
-    [slideDates]
-  );
+  // Only the active day and its six fast-swipe neighbors need labels.
+  // Formatting all 181 geometry dates during the opening render delays the
+  // sheet without making the off-window slides any more usable.
+  const slideDateLabels = useMemo(() => {
+    const labels = new Map<number, string>();
+    const start = Math.max(0, activeIndex - renderWindow);
+    const end = Math.min(slideDates.length - 1, activeIndex + renderWindow);
+    for (let i = start; i <= end; i += 1) {
+      labels.set(i, format(slideDates[i], 'EEEE, MMMM d, yyyy'));
+    }
+    return labels;
+  }, [activeIndex, renderWindow, slideDates]);
 
   const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
   // #7: this fires on any BottomSheet animation completion (entrance and
@@ -897,7 +900,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                           className="min-w-0 text-center text-base font-semibold text-white"
                           aria-live={i === activeIndex ? 'polite' : undefined}
                         >
-                          <span className="block truncate">{slideDateLabels[i]}</span>
+                          <span className="block truncate">{slideDateLabels.get(i)}</span>
                         </h3>
                         <button
                           type="button"
