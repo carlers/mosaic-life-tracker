@@ -310,7 +310,7 @@ function validatePayload(value: unknown): BackupPayload {
   ) {
     throw new Error('This Mosaic backup version is not supported.');
   }
-  if (value.version === 2 && value.format !== 'mosaic-user-backup') {
+  if (value.version >= 2 && value.format !== 'mosaic-user-backup') {
     throw new Error('This file is not a valid Mosaic backup v2.');
   }
   if (
@@ -329,12 +329,16 @@ function validatePayload(value: unknown): BackupPayload {
   const diary = value.data.diary;
   const settings = value.data.settings;
   const friendships = value.data.friendships;
+  const bucketList = value.data.bucketList;
 
   if (!Array.isArray(tasks) || !Array.isArray(categories) || !Array.isArray(diary)) {
     throw new Error('Backup personal data is invalid.');
   }
   if (!(Array.isArray(settings) || isRecord(settings))) {
     throw new Error('Backup settings are invalid.');
+  }
+  if ((value.version >= 3 && !Array.isArray(bucketList)) || (bucketList !== undefined && !Array.isArray(bucketList))) {
+    throw new Error('Backup Bucket List data is invalid.');
   }
   if (friendships !== undefined && !Array.isArray(friendships)) {
     throw new Error('Backup friendship reference data is invalid.');
@@ -358,6 +362,7 @@ function validatePayload(value: unknown): BackupPayload {
       tasks,
       categories,
       diary,
+      bucketList: Array.isArray(bucketList) ? bucketList : [],
       settings,
       friendships: Array.isArray(friendships) ? friendships : [],
     },
