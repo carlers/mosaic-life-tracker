@@ -1082,6 +1082,20 @@ test('DayView reopens on another and the same date after teardown', async ({ pag
   });
   await expect(dialog).toBeVisible();
   await expect(page.getByTestId('day-view-probe-error')).toHaveCount(0);
+
+  // Jump 60 days within the 181-date logical range after Swiper has mounted.
+  // A stale virtual DOM window must not hide the selected date or its neighbor.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.getByTestId('open-far-day-view-sheet').click();
+  dialog = page.getByRole('dialog', { name: 'Saturday, November 14, 2026' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.swiper-slide-active'))
+    .toContainText('Saturday, November 14, 2026');
+  await waitForStableVerticalPosition(dialog);
+  await drag(page, dialog.getByTestId('day-swiper'), -260);
+  await expect(dialog.locator('.swiper-slide-active'))
+    .toContainText('Sunday, November 15, 2026');
 });
 
 // Regression: §2/§7 (Day View date row owns horizontal navigation and vertical close).
@@ -1276,6 +1290,8 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
   await waitForStableVerticalPosition(dialog);
 
   const swiper = page.getByTestId('day-swiper');
+  // 181 logical days must not mean 181 mounted layout nodes.
+  await expect.poll(() => swiper.locator('.swiper-slide').count()).toBeLessThan(20);
   await drag(page, swiper, -260);
   await drag(page, swiper, -260);
   await drag(page, swiper, -260);
@@ -1404,4 +1420,50 @@ test('interaction harness has no detectable non-visual WCAG A/AA axe violations'
     .analyze();
 
   expect(results.violations).toEqual([]);
+});
+
+
+// #640: actual CalendarBody/DayCell first tap must paint the sheet shell
+// before running the expensive DayViewSheet subtree. This is an ordering
+// contract, not a machine-dependent millisecond performance budget.
+test('Calendar first sheet open commits a shell before Day View slides', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&calendarPath=1`);
+  const calendar = page.getByTestId('real-calendar-cold-probe');
+  const day = calendar.locator('button[aria-label*="September 15, 2026"]').first();
+  await expect(day).toBeVisible();
+  await expect(calendar).toHaveAttribute('data-module-ready', 'true');
+  const result = await page.evaluate(async () => {
+    const dayCell = document.querySelector(
+      '[data-testid="real-calendar-cold-probe"] button[aria-label*="September 15, 2026"]'
+    );
+    if (!(dayCell instanceof HTMLButtonElement)) throw new Error('Calendar day unavailable');
+    let shellBeforeContent = false;
+    let sawContent = false;
+    const inspect = () => {
+      const shell = document.querySelector('[role="dialog"]');
+      const content = document.querySelector('[role="dialog"] [data-testid="day-swiper"]');
+      if (shell && !content) shellBeforeContent = true;
+      if (content) sawContent = true;
+    };
+    const observer = new MutationObserver(inspect);
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.__mosaicFlushCalendarClick(() => dayCell.click());
+    const sameCommitShell = Boolean(document.querySelector('[role="dialog"]'));
+    const start = performance.now();
+    while (!sawContent && performance.now() - start < 5000) {
+      await new Promise(requestAnimationFrame);
+      inspect();
+    }
+    observer.disconnect();
+    return { shellBeforeContent, sawContent, sameCommitShell };
+  });
+  expect(result.sameCommitShell).toBe(true);
+  expect(result.sawContent).toBe(true);
+  expect(result.shellBeforeContent).toBe(true);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.mouse.click(5, 5);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await day.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, cleanup } from '@testing-library/react';
+import { render, fireEvent, cleanup, act } from '@testing-library/react';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 
 const noop = () => {};
@@ -73,23 +73,64 @@ describe('BottomSheet', () => {
     expect(document.body.style.overflow).toBe('hidden');
   });
 
-  it('keeps deferred children mounted during the exit transition', () => {
+  it('paints the open sheet shell before expensive children and retains them during exit', () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      const frameId = ++nextFrameId;
+      frames.set(frameId, callback);
+      return frameId;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((frameId) => {
+      frames.delete(frameId);
+    });
+    const flushFrame = () => {
+      const currentFrame = [...frames.values()];
+      frames.clear();
+      act(() => currentFrame.forEach((callback) => callback(performance.now())));
+    };
+
+    const child = <div data-marker="sheet-child">inner</div>;
     const { rerender } = render(
-      <BottomSheet isOpen onClose={noop} deferChildrenUntilPaint>
-        <div data-marker="sheet-child">inner</div>
-      </BottomSheet>
+      <BottomSheet isOpen onClose={noop} deferChildrenUntilPaint>{child}</BottomSheet>
     );
+
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-marker="sheet-child"]')).toBeNull();
+    flushFrame();
+    expect(document.body.querySelector('[data-marker="sheet-child"]')).toBeNull();
+    flushFrame();
+    expect(document.body.querySelector('[data-marker="sheet-child"]')).not.toBeNull();
 
     rerender(
-      <BottomSheet isOpen={false} onClose={noop} deferChildrenUntilPaint>
-        <div data-marker="sheet-child">inner</div>
-      </BottomSheet>
+      <BottomSheet isOpen={false} onClose={noop} deferChildrenUntilPaint>{child}</BottomSheet>
     );
 
-    // happy-dom does not run compositor CSS transitions, so the browser
-    // contract owns the eventual transitionend/removal assertion. This test
-    // pins the important React contract: exit starts with children still mounted.
+    // The child persists while the closing portal animates out.
     expect(document.body.querySelector('[data-marker="sheet-child"]')).not.toBeNull();
+  });
+
+  it('does not mount deferred content if the user dismisses before its first paint', () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      const frameId = ++nextFrameId;
+      frames.set(frameId, callback);
+      return frameId;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((frameId) => {
+      frames.delete(frameId);
+    });
+
+    const child = <div data-marker="too-soon">content</div>;
+    const { rerender } = render(
+      <BottomSheet isOpen onClose={noop} deferChildrenUntilPaint>{child}</BottomSheet>
+    );
+    rerender(<BottomSheet isOpen={false} onClose={noop} deferChildrenUntilPaint>{child}</BottomSheet>);
+    const callbacks = [...frames.values()];
+    frames.clear();
+    act(() => callbacks.forEach((callback) => callback(performance.now())));
+    expect(document.body.querySelector('[data-marker="too-soon"]')).toBeNull();
   });
 
   it('preserves dialog semantics on the draggable sheet surface', () => {

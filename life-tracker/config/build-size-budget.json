@@ -18,21 +18,23 @@
     "entryGzipBytes": 132650,
     "initialClosureGzipBytes": 145800,
     "homeClosureGzipBytes": 365100,
-    "appAssetsRawBytes": 2447700,
-    "appAssetsGzipBytes": 759400,
-    "precacheUniqueBytes": 2534500
+    "appAssetsRawBytes": 2455000,
+    "appAssetsGzipBytes": 761400,
+    "precacheUniqueBytes": 2542000
   },
   "review": {
-    "issue": "#405",
-    "reason": "Exact integrated stable Preview combines Bucket List v0.19.2 with current dev v0.17.9 authenticated task-photo recovery. The GIPHY-enabled Vercel build dpl_697A8hncetjNgj1FrTRnAjw7BKo3 completed compile/PWA but failed only Home closure gzip +91 B and total app gzip +324 B. This narrowly reviewed repair raises only those two limits by 600 B and 1400 B respectively, keeps the pinned baseline, explicit app raw/precache caps, all other limits, and the enabled guard. The original combined dev/feature seven-limit review is in PR #646; no new Home eager work or media copies were added.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/697A8hncetjNgj1FrTRnAjw7BKo3",
+    "issue": "#640",
+    "reason": "Dev integration of device-accepted Day View v0.19.4 onto v0.19.2 independently added Bucket List/photo/discovery changes. Exact local GIPHY-enabled integrated build exceeds only the three aggregate emitted asset/precache ceilings by 6124 raw, 1345 gzip and 6275 unique precache bytes; entry, initial and Home hard ceilings all pass unchanged. Review increases only the three aggregate ceilings narrowly, retains pinned historical baseline, and must be rechecked against exact Vercel Scratch/GIPHY build before promoting to dev. Parent #405 reviewed limits retained as previousLimits.",
+    "evidence": "https://github.com/carlers/mosaic-life-tracker/issues/640",
     "metrics": [
-      "homeClosureGzipBytes",
-      "appAssetsGzipBytes"
+      "appAssetsRawBytes",
+      "appAssetsGzipBytes",
+      "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 364500,
-      "appAssetsGzipBytes": 758000
+      "appAssetsRawBytes": 2447700,
+      "appAssetsGzipBytes": 759400,
+      "precacheUniqueBytes": 2534500
     }
   }
 }
