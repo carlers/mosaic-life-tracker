@@ -27,6 +27,7 @@ const HomePage = lazy(() =>
 );
 // No preloading path needs Backlogs; direct import avoids a redundant memoized loader.
 const BacklogPage = lazy(() => import('./pages/BacklogPage'));
+const BucketListPage = lazy(() => import('./pages/BucketListPage'));
 const AccountPage = lazy(() =>
   loadAccountPage().then(({ AccountPage }) => ({ default: AccountPage })),
 );
@@ -125,6 +126,7 @@ function HomeRouteFallback() {
 const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
   home: <RouteContent label="HomePage" fallback={<HomeRouteFallback />}><HomePage /></RouteContent>,
   backlog: <RouteContent label="BacklogPage"><BacklogPage /></RouteContent>,
+  bucketList: <RouteContent label="BucketListPage"><BucketListPage /></RouteContent>,
   explore: <RouteContent label="ExplorePage"><ExplorePage /></RouteContent>,
   friendCalendar: <RouteContent label="FriendCalendarPage"><FriendCalendarPage /></RouteContent>,
   notifications: <RouteContent label="NotificationsPage"><NotificationsPage /></RouteContent>,
