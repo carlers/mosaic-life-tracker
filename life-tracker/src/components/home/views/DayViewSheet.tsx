@@ -92,7 +92,22 @@ interface DayViewSheetProps {
   holidayConfig?: HolidayDisplayConfig;
 }
 
-export const DayViewSheet: React.FC<DayViewSheetProps> = ({
+interface SheetContentControls {
+  close: () => void;
+  settled: () => void;
+  transientDismiss: () => boolean;
+  horizontalSwipe: (direction: 'left' | 'right') => void;
+}
+
+interface SheetContentLock {
+  background: boolean;
+  reorder: boolean;
+}
+
+const DayViewSheetInner: React.FC<DayViewSheetProps & {
+  shellControlsRef?: React.MutableRefObject<SheetContentControls | null>;
+  onLockChange?: (next: SheetContentLock) => void;
+}> = ({
   isOpen,
   onClose,
   selectedDate,
@@ -102,6 +117,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   categories: categoriesOverride,
   focusTaskId = null,
   holidayConfig: holidayConfigOverride,
+  shellControlsRef,
+  onLockChange,
 }) => {
   const isBacklogView = renderMode === 'backlog';
   const appearance = React.useContext(AppearanceContext);
@@ -776,6 +793,27 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     onRight: handleNextDayFromUi,
   });
 
+  const handleTransientDismiss = useCallback(() => {
+    if (!isSelectMode || isBackgroundLocked) return false;
+    exitSelectMode();
+    return true;
+  }, [exitSelectMode, isBackgroundLocked, isSelectMode]);
+
+  React.useLayoutEffect(() => {
+    if (!shellControlsRef) return;
+    shellControlsRef.current = {
+      close: handleSheetClose,
+      settled: handleSheetSettled,
+      transientDismiss: handleTransientDismiss,
+      horizontalSwipe: handleSheetHorizontalSwipe,
+    };
+    return () => { shellControlsRef.current = null; };
+  }, [handleSheetClose, handleSheetSettled, handleSheetHorizontalSwipe, handleTransientDismiss, shellControlsRef]);
+
+  React.useEffect(() => {
+    onLockChange?.({ background: isBackgroundLocked, reorder: isTaskReorderActive });
+  }, [onLockChange, isBackgroundLocked, isTaskReorderActive]);
+
   const imageViewerUnavailable = (
     <div className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6">
       <div className="text-center">
@@ -1179,31 +1217,57 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }
 
   return (
-    <BottomSheet
-      isOpen={isOpen}
-      onClose={handleSheetClose}
-      ariaLabel={format(selectedDate, 'EEEE, MMMM d, yyyy')}
-      height="full"
-      isLocked={isBackgroundLocked || isTaskReorderActive}
-      preventDismiss={isTaskReorderActive}
-      suspendInteraction={isBackgroundLocked}
-      contentMode="fixed"
-      onHorizontalSwipe={handleSheetHorizontalSwipe}
-      onAnimationComplete={handleSheetSettled}
-      deferChildrenUntilPaint
-      onTransientDismiss={() => {
-        if (!isSelectMode || isBackgroundLocked) return false;
-        exitSelectMode();
-        return true;
-      }}
+    <div
+      data-testid="day-sheet-swipe-surface"
+      data-day-view-focus-scope={focusTaskId ? 'true' : undefined}
+      className="flex h-full min-h-0 flex-col"
     >
-      <div
-        data-testid="day-sheet-swipe-surface"
-        data-day-view-focus-scope={focusTaskId ? 'true' : undefined}
-        className="flex h-full min-h-0 flex-col"
-      >
-        {content}
-      </div>
+      {content}
+    </div>
+  );
+};
+
+/**
+ * Keep the shared BottomSheet shell outside the expensive Day View subtree.
+ * Calendar's first tap must be able to commit and paint the entrance sheet
+ * BEFORE DayViewSheetInner runs its data hooks, Swiper init, and task rendering.
+ * BottomSheet's existing two-frame child deferral now covers the entire subtree,
+ * not just reconciliation of elements already built by its parent.
+ */
+export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
+  const isSheet = (props.renderMode ?? 'sheet') === 'sheet';
+  const shellControlsRef = useRef<SheetContentControls | null>(null);
+  const [lock, setLock] = useState<SheetContentLock>({ background: false, reorder: false });
+  const onLockChange = useCallback((next: SheetContentLock) => {
+    setLock(current => current.background === next.background && current.reorder === next.reorder
+      ? current : next);
+  }, []);
+
+  if (!isSheet) return <DayViewSheetInner {...props} />;
+
+  return (
+    <BottomSheet
+      isOpen={props.isOpen}
+      onClose={() => {
+        if (shellControlsRef.current) shellControlsRef.current.close();
+        else props.onClose();
+      }}
+      ariaLabel={format(props.selectedDate, 'EEEE, MMMM d, yyyy')}
+      height="full"
+      isLocked={lock.background || lock.reorder}
+      preventDismiss={lock.reorder}
+      suspendInteraction={lock.background}
+      contentMode="fixed"
+      onHorizontalSwipe={(direction) => shellControlsRef.current?.horizontalSwipe(direction)}
+      onAnimationComplete={() => shellControlsRef.current?.settled()}
+      deferChildrenUntilPaint
+      onTransientDismiss={() => shellControlsRef.current?.transientDismiss() ?? false}
+    >
+      <DayViewSheetInner
+        {...props}
+        shellControlsRef={shellControlsRef}
+        onLockChange={onLockChange}
+      />
     </BottomSheet>
   );
 };

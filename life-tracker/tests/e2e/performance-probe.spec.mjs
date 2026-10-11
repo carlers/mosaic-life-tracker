@@ -637,3 +637,45 @@ test('@performance Day View genuine first-mount timeline', async ({ page }) => {
   await page.waitForTimeout(520);
   await measureOpen('empty-reopen');
 });
+
+
+// Measure the actual Calendar DayCell click → DayViewSheet route (not the isolated probe).
+// These numbers remain diagnostic, never correctness thresholds.
+test('@performance Calendar path first sheet paint', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&calendarPath=1`);
+  const cell = page.getByTestId('real-calendar-cold-probe').getByRole('button', { name: /September 15, 2026/i }).first();
+  await cell.waitFor({ state: 'visible' });
+  await page.waitForTimeout(1600); // allow module warmup; isolate first React mount
+
+  async function open(name) {
+    const result = await page.evaluate(async () => {
+      const button = [...document.querySelectorAll('[data-testid="real-calendar-cold-probe"] button')]
+        .find(node => node.getAttribute('aria-label')?.includes('September 15, 2026'));
+      if (!button) throw new Error('Cannot locate September 15 calendar cell');
+      const start = performance.now();
+      let shell = null, header = null, content = null, firstFrame = null;
+      const tasks = [];
+      const observer = new PerformanceObserver(list => {
+        for (const entry of list.getEntries()) tasks.push({ start: entry.startTime - start, duration: entry.duration });
+      });
+      try { observer.observe({ type: 'longtask' }); } catch {}
+      button.click();
+      for (let i = 0; i < 50; i++) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const now = performance.now();
+        firstFrame ??= now - start;
+        if (shell === null && document.querySelector('[role="dialog"]')) shell = now - start;
+        if (header === null && document.querySelector('[role="dialog"] [data-day-view-navigation="true"]')) header = now - start;
+        if (content === null && document.querySelector('[role="dialog"] button[aria-label="Add task"]')) content = now - start;
+      }
+      observer.disconnect();
+      return { shellMs: shell, headerMs: header, contentMs: content, firstFrameMs: firstFrame, tasks, slideCount: document.querySelectorAll('[role="dialog"] .swiper-slide').length };
+    });
+    console.log(`MOSAIC_CALENDAR_FIRST_PAINT ${name} ${JSON.stringify(result)}`);
+  }
+  await open('first');
+  await page.mouse.click(5, 5);
+  await page.waitForTimeout(550);
+  await open('reopen');
+});

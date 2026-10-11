@@ -1421,3 +1421,46 @@ test('interaction harness has no detectable non-visual WCAG A/AA axe violations'
 
   expect(results.violations).toEqual([]);
 });
+
+
+// #640: actual CalendarBody/DayCell first tap must paint the sheet shell
+// before running the expensive DayViewSheet subtree. This is an ordering
+// contract, not a machine-dependent millisecond performance budget.
+test('Calendar first sheet open commits a shell before Day View slides', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&calendarPath=1`);
+  const day = page.getByTestId('real-calendar-cold-probe')
+    .locator('button[aria-label*="September 15, 2026"]').first();
+  await expect(day).toBeVisible();
+  const result = await page.evaluate(async () => {
+    const dayCell = document.querySelector(
+      '[data-testid="real-calendar-cold-probe"] button[aria-label*="September 15, 2026"]'
+    );
+    if (!(dayCell instanceof HTMLButtonElement)) throw new Error('Calendar day unavailable');
+    let shellBeforeContent = false;
+    let sawContent = false;
+    const inspect = () => {
+      const shell = document.querySelector('[role="dialog"]');
+      const content = document.querySelector('[role="dialog"] [data-testid="day-swiper"]');
+      if (shell && !content) shellBeforeContent = true;
+      if (content) sawContent = true;
+    };
+    const observer = new MutationObserver(inspect);
+    observer.observe(document.body, { childList: true, subtree: true });
+    dayCell.click();
+    const start = performance.now();
+    while (!sawContent && performance.now() - start < 5000) {
+      await new Promise(requestAnimationFrame);
+      inspect();
+    }
+    observer.disconnect();
+    return { shellBeforeContent, sawContent };
+  });
+  expect(result.sawContent).toBe(true);
+  expect(result.shellBeforeContent).toBe(true);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.mouse.click(5, 5);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await day.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+});
