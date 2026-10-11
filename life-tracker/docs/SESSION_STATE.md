@@ -13,7 +13,10 @@ Current task: nested BottomSheet visual depth and paint-order correction, Previe
 - Browser regression checks painted backdrop ordering, parent geometry while nested, and restoration after Back.
 - `docs/THEMING.md` records the depth contract. Product version is 0.16.7 consistently across three files.
 
-## Verification and next action
-- Publish one coherent task SHA with `[verify:focused]`, review changed files, and address any focused CI failure.
+## Verification
+- The first focused run passed 1,454 tests and found only the required checkpoint heading missing.
+
+## Next action
+- Re-run focused verification on the checkpoint repair SHA and review the resulting checks.
 - Squash task PR into `feature/nested-sheet-depth`; require stable Preview canonical acceptance and exact-commit Vercel Preview readiness.
 - Do not merge into `dev` or `main` without explicit approval. Real iOS, Android, and desktop visual/touch acceptance remains manual and unclaimed.
