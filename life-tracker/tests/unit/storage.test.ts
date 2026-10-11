@@ -63,6 +63,7 @@ import {
   makeProfileImageReadable,
   uploadPendingImage,
   deleteImage,
+  getLocalImageUrl,
 } from '../../src/lib/storage';
 import { isOfflineError } from '../../src/lib/authEvents';
 import { markConnectivityOnline, markConnectivityOffline } from '../../src/lib/connectivity';
@@ -309,5 +310,105 @@ describe('storage.saveImage — offline staging', () => {
       'localimg_0123456789abcdef0123456789'
     );
     expect(sdkRef.guardedStorageDeleteFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('storage.getLocalImageUrl — cross-device downloads', () => {
+  it('displays the complete remote image when browser caching fails', async () => {
+    markConnectivityOnline('test');
+    imageCacheRef.get.mockResolvedValueOnce(undefined);
+    imageCacheRef.cache.mockRejectedValueOnce(new Error('QuotaExceededError'));
+    sdkRef.guardedStorageGetFileView.mockReturnValueOnce(
+      new URL('https://storage.example.test/file')
+    );
+    const remoteFetch = vi.fn().mockResolvedValue(
+      new Response(new Blob(['valid-image'], { type: 'image/webp' }), {
+        status: 200,
+      })
+    );
+    vi.stubGlobal('fetch', remoteFetch);
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:remote-photo');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(getLocalImageUrl('img_remote')).resolves.toBe(
+        'blob:remote-photo'
+      );
+      expect(remoteFetch).toHaveBeenCalledOnce();
+      expect(imageCacheRef.cache).toHaveBeenCalledOnce();
+      expect(warn).toHaveBeenCalledWith(expect.any(Error));
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      warn.mockRestore();
+      vi.unstubAllGlobals();
+      markConnectivityOffline('test-reset');
+    }
+  });
+
+  it('downloads from Appwrite when desktop IndexedDB reads fail', async () => {
+    markConnectivityOnline('test');
+    imageCacheRef.get.mockRejectedValueOnce(new Error('IndexedDB disabled'));
+    sdkRef.guardedStorageGetFileView.mockReturnValueOnce(
+      new URL('https://storage.example.test/file')
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(new Blob(['valid-image'], { type: 'image/webp' }), { status: 200 })
+    ));
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:restored');
+    try {
+      await expect(getLocalImageUrl('img_cache_read_failure')).resolves.toBe(
+        'blob:restored'
+      );
+      expect(fetch).toHaveBeenCalledOnce();
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      vi.unstubAllGlobals();
+      markConnectivityOffline('test-reset');
+    }
+  });
+
+  it('ignores a damaged pre-existing cache entry when the user refreshes the photo', async () => {
+    markConnectivityOnline('test');
+    imageCacheRef.get.mockResolvedValueOnce(new Blob(['bad'], { type: 'image/webp' }));
+    sdkRef.guardedStorageGetFileView.mockReturnValueOnce(
+      new URL('https://storage.example.test/file')
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(new Blob(['recovered'], { type: 'image/webp' }), { status: 200 })
+    ));
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:recovered-old-photo');
+    try {
+      await expect(getLocalImageUrl('img_existing', true)).resolves.toBe(
+        'blob:recovered-old-photo'
+      );
+      expect(imageCacheRef.get).not.toHaveBeenCalled();
+      expect(imageCacheRef.cache).toHaveBeenCalledWith(
+        'img_existing', expect.any(Blob)
+      );
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      vi.unstubAllGlobals();
+      markConnectivityOffline('test-reset');
+    }
+  });
+
+  it('does not cache or display a partial HTTP image response', async () => {
+    markConnectivityOnline('test');
+    imageCacheRef.get.mockResolvedValueOnce(undefined);
+    sdkRef.guardedStorageGetFileView.mockReturnValueOnce(
+      new URL('https://storage.example.test/file')
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response('partial-bytes', { status: 206 })
+    ));
+    try {
+      await expect(getLocalImageUrl('img_partial')).resolves.toBeNull();
+      expect(imageCacheRef.cache).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      markConnectivityOffline('test-reset');
+    }
   });
 });

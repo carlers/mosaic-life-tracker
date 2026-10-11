@@ -25,19 +25,13 @@ const APPWRITE_CONFIG = {
 };
 
 export async function compressImage(file: File): Promise<Blob> {
-  const options = {
+  const { default: imageCompression } = await import('browser-image-compression');
+  return imageCompression(file, {
     maxSizeMB: 0.15,
     maxWidthOrHeight: 1024,
     useWebWorker: true,
     fileType: 'image/webp',
-  };
-  try {
-    const { default: imageCompression } = await import('browser-image-compression');
-    return await imageCompression(file, options);
-  } catch (error) {
-    console.error('[Storage] Image compression failed:', error);
-    throw error;
-  }
+  });
 }
 
 function generateFileId(): string {
@@ -115,12 +109,7 @@ async function uploadCompressedBlobWithId(
       file: webpFile,
       permissions: buildFilePermissions(userId, readForAllUsers),
     });
-    await cacheImage(fileId, compressedBlob).catch((error) => {
-      console.warn('[Storage] Failed to cache uploaded image:', error);
-    });
-    return fileId;
   } catch (error) {
-    console.error('[Storage] Upload failed:', error);
     throw new Error(
       `Appwrite Storage Upload Error: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -128,6 +117,9 @@ async function uploadCompressedBlobWithId(
       { cause: error }
     );
   }
+  // Upload success must not depend on optional IndexedDB cache availability.
+  await cacheImage(fileId, compressedBlob).catch(console.warn);
+  return fileId;
 }
 
 async function uploadImageWithId(
@@ -194,19 +186,11 @@ export async function uploadPendingImage(
   }
 }
 
+// Profiles and task photos share the same upload, staging, and permissions
+// contract; retain the profile-specific missing-user diagnostic.
 export async function saveProfileImage(file: File, userId: string): Promise<string> {
   if (!userId) throw new Error('Cannot save profile image: no authenticated user');
-  const compressedBlob = await compressImage(file);
-  if (getConnectivitySnapshot().status !== 'online') return createPendingImage(userId, compressedBlob);
-  try {
-    return await uploadCompressedBlobWithId(compressedBlob, generateFileId(), userId, true);
-  } catch (error) {
-    const cause = (error as Error & { cause?: unknown }).cause;
-    const code = (cause as { code?: number } | null)?.code;
-    const transient = !isUnauthorizedError(cause) && (typeof code !== 'number' || code === 429 || code >= 500);
-    if (!transient) throw error;
-    return createPendingImage(userId, compressedBlob);
-  }
+  return saveImage(file, userId);
 }
 
 export async function makeProfileImageReadable(fileId: string, userId: string): Promise<void> {
@@ -296,38 +280,39 @@ export async function ensureRestoredImage(
   }
 }
 
-export async function getLocalImageUrl(fileId: string): Promise<string | null> {
+export async function getLocalImageUrl(fileId: string, refreshFromCloud = false): Promise<string | null> {
   if (!fileId) return null;
-  if (isPendingImageId(fileId)) {
-    const pendingBlob = await getPendingImage(fileId);
-    return pendingBlob ? URL.createObjectURL(pendingBlob) : null;
-  }
-  const cachedBlob = await getCachedImage(fileId);
-  if (cachedBlob) {
-    return URL.createObjectURL(cachedBlob);
-  }
-  if (getConnectivitySnapshot().status !== 'online') return null;
   try {
-    const url = guardedStorage.getFileView({
-      bucketId: APPWRITE_CONFIG.bucketId,
-      fileId: fileId,
+    const pending = isPendingImageId(fileId);
+    // IndexedDB failure must not block the authorized online file download.
+    const cached = pending
+      ? await getPendingImage(fileId)
+      : refreshFromCloud ? undefined : await getCachedImage(fileId).catch(() => undefined);
+    if (cached) return URL.createObjectURL(cached);
+    if (pending || getConnectivitySnapshot().status !== 'online') return null;
+
+    const response = await guardedCall(async () => {
+      const result = await fetch(
+        guardedStorage.getFileView({
+          bucketId: APPWRITE_CONFIG.bucketId,
+          fileId,
+        }).toString(),
+        {
+          credentials: 'include',
+          headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+        }
+      );
+      if (result.status === 401) throw makeUnauthorizedError();
+      return result;
     });
-    const res = await guardedCall(async () => {
-      const r = await fetch(url.toString(), {
-        credentials: 'include',
-        headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
-      });
-      if (r.status === 401) {
-        throw makeUnauthorizedError();
-      }
-      return r;
-    });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    await cacheImage(fileId, blob);
+    // Do not cache partial responses as complete photos.
+    if (response.status !== 200) return null;
+    const blob = await response.blob();
+    // Display the complete download even if the browser rejects caching it.
+    void cacheImage(fileId, blob).catch(console.warn);
     return URL.createObjectURL(blob);
-  } catch (err) {
-    console.error('[Storage] Failed to fetch image:', err);
+  } catch (error) {
+    console.error('[Storage] Failed to fetch image:', error);
     return null;
   }
 }
