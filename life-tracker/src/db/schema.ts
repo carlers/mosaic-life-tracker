@@ -339,7 +339,7 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
   ],
 };
 export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   required: [
