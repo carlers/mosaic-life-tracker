@@ -10,4 +10,4 @@ Current task: #405 Bucket List v0.19.2 — linked-task photo viewing.
 - Current dev/master not touched. Schema/migrations, remote Appwrite rows/buckets, and attachments are unchanged.
 
 ## Next steps
-- Add focused accessible DOM tests for thumbnail, missing/loading attachment, click, no-photo and image identity updates; focused CI, repair, squash to stable, exact canonical CI + Vercel READY. Confirm previously deployed Scratch Function unchanged. Then user can test on the stable registered Preview alias; no dev/main promotion until approved.
+- Accessible DOM tests cover loaded thumbnails, click-to-view, deferred loads, unavailable/missing/loading photos and live attachment identity changes. Run focused CI, repair, squash to stable, exact canonical CI + Vercel READY. Confirm previously deployed Scratch Function unchanged. Then user can test on the stable registered Preview alias; no dev/main promotion until approved.
