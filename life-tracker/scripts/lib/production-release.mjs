@@ -67,3 +67,35 @@ export function decidePublication({ version, priorVersion, currentSha, mainSha, 
   }
   return 'publish';
 }
+
+
+// When a production promotion was deployed but its CI was blocked by a
+// workflow-only regression, one immediately following verified maintenance
+// merge may publish that *unpublished* version. The release tag points to the
+// green, live maintenance merge, never the failed original CI commit.
+// Regular releases must still increment the first-parent version.
+export const RELEASE_RECOVERY_PATHS = new Set([
+  '.github/workflows/quality-gate.yml',
+  'life-tracker/scripts/check-build-budget-review.mjs',
+  'life-tracker/scripts/lib/build-budget-review.mjs',
+  'life-tracker/scripts/lib/production-release.mjs',
+  'life-tracker/scripts/publish-production-release.mjs',
+  'life-tracker/tests/unit/buildBudgetReview.test.ts',
+  'life-tracker/tests/unit/productionRelease.test.ts',
+  'life-tracker/docs/SESSION_STATE.md',
+  'life-tracker/docs/VERSIONING.md',
+]);
+export function eligibleUnpublishedReleaseRecovery({
+  version, firstParentVersion, earlierVersion,
+  previousPromotionVerified, originalMergeMatchesSource,
+  currentMergeMatchesSource, changedFiles,
+}) {
+  return version === firstParentVersion &&
+    typeof earlierVersion === 'string' &&
+    compareVersions(version, earlierVersion) > 0 &&
+    previousPromotionVerified === true &&
+    originalMergeMatchesSource === true &&
+    currentMergeMatchesSource === true &&
+    Array.isArray(changedFiles) && changedFiles.length > 0 &&
+    changedFiles.every(file => RELEASE_RECOVERY_PATHS.has(file));
+}

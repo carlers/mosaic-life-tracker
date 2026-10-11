@@ -67,6 +67,24 @@ For a multi-feature release, write a representative headline and summarize **the
 
 Production Git tags use `vMAJOR.MINOR.PATCH` on the **actual accepted main merge SHA**. Only create a tag/GitHub Release after successful main canonical checks and production deployment readiness are verified. Fail closed on an existing tag pointing at a different commit; no force-moving tags. A release note summarizes user-facing changes and links the production PR. The trusted production release-publisher workflow performs tag/release publication after verified main CI and the exact live Production deployment. Agents do not manually create production releases during ordinary promotions. Publication failure remains a visible Actions failure and must be investigated. Preview revisions are never tagged as completed production releases. Backfill historical `v0.3.0` only against its verified production SHA, never guess an ancestor.
 
+## Same-version production CI recovery (#592)
+
+If a user-approved production promotion merge deployed its product but the new
+`main` canonical CI was blocked by an internal workflow-only regression,
+the next **immediately adjacent**, same-version, two-parent maintenance
+promotion may publish the missing stable release *after that maintenance SHA*
+has successful full canonical CI and a verified exact public Production
+deployment. This is a repair of publication, not a new product version.
+The publisher checks the older versioned merge's real merged main PR and
+unchanged source tree; the maintenance merge must also have an identical
+second-parent tree and may change only an explicit allowlist of workflow,
+verification, documentation and regression-test paths. An already existing
+tag/release skips recovery without retagging. Recovered notes come from the
+original user-facing production PR and the resulting tag points at the
+**verified, currently live** maintenance main commit, with a link to its
+CI recovery PR. This does not bypass any product version, backend, CI,
+Vercel or production-approval check and cannot backfill arbitrary ancestors.
+
 ## Automatic production release publisher (#476)
 
 The trusted `.github/workflows/publish-production-release.yml` listens for successful `Quality Gate` completions on `main`. It also supports a manual workflow retry and checks every six hours for delayed/missed triggers. It requires the exact new main SHA to remain current, a two-parent approved production promotion merge, all three consistent version files, a **strictly increased product version compared with main's first parent**, a successful exact-commit `canonical-acceptance`, and the merged production PR's `## User-facing release notes` section (legacy `### User-facing changes since vX.Y.Z` is also recognized). Agent-written notes must include all user-facing changes since the previous production release and no private or placeholder material.
