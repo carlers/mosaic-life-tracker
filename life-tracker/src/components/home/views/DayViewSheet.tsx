@@ -3,6 +3,8 @@ import { runBulkTaskActions } from './bulkTaskActions';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
+import { Virtual } from 'swiper/modules';
+import 'swiper/css/virtual';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckSquare, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2 } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -832,6 +834,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         </>
       ) : (
       <Swiper
+        // Preserve all 181 logical dates for direct jumps, but avoid 181 DOM
+        // slides (and their synchronous layout) on every sheet open.
+        modules={renderMode === 'sheet' ? [Virtual] : undefined}
+        virtual={renderMode === 'sheet' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
         nested={renderMode === 'inline'}
         allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen}
         noSwiping={renderMode === 'sheet'}
@@ -870,6 +876,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           return (
             <SwiperSlide
               key={date.toISOString()}
+              virtualIndex={i}
               className="min-w-0"
               aria-hidden={i === activeIndex ? undefined : true}
               style={{ height: renderMode === 'inline' ? 'auto' : '100%' }}

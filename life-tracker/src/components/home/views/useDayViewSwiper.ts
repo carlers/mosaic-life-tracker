@@ -95,6 +95,9 @@ export function useDayViewSwiper({
     // The expensive DaySlide content is windowed by React below, so a large
     // selected-date jump cannot leave Swiper Virtual's internal window stale.
     swiper.slideTo(initialIndex, 0);
+    // React Swiper virtual can retain a stale DOM window after a large date
+    // jump; force that small window to the newly selected logical index.
+    swiper.virtual?.update?.(true, false, initialIndex);
     swiper.updateSlides?.();
 
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
