@@ -200,7 +200,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
             <button
               type="button"
               onClick={onOpen}
-              className="rounded-lg border border-[#333333] bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              className="rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               aria-label="Search tasks"
             >
               <Search size={20} aria-hidden="true" />
