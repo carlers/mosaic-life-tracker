@@ -17,32 +17,22 @@
     "entryRawBytes": 445250,
     "entryGzipBytes": 132650,
     "initialClosureGzipBytes": 145800,
-    "homeClosureGzipBytes": 364500,
+    "homeClosureGzipBytes": 365100,
     "appAssetsRawBytes": 2447700,
-    "appAssetsGzipBytes": 758000,
+    "appAssetsGzipBytes": 759400,
     "precacheUniqueBytes": 2534500
   },
   "review": {
     "issue": "#405",
-    "reason": "Merge-reviewed dev v0.17.9 cross-device authenticated task-photo recovery (#624) with user-approved Bucket List v0.19.2 (#405) and its independently accepted build-budget revisions (#631/#643). The integrated tree preserves the latest authenticated media download path and lazy Bucket List photo viewer; retain the pinned baseline and seven enforced metric-specific ceilings from accepted Bucket List Preview. All seven limits differ from current dev; further changes require exact merged-tree CI plus provider evidence and a new review.",
-    "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38157675597",
+    "reason": "Exact integrated stable Preview combines Bucket List v0.19.2 with current dev v0.17.9 authenticated task-photo recovery. The GIPHY-enabled Vercel build dpl_697A8hncetjNgj1FrTRnAjw7BKo3 completed compile/PWA but failed only Home closure gzip +91 B and total app gzip +324 B. This narrowly reviewed repair raises only those two limits by 600 B and 1400 B respectively, keeps the pinned baseline, explicit app raw/precache caps, all other limits, and the enabled guard. The original combined dev/feature seven-limit review is in PR #646; no new Home eager work or media copies were added.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/697A8hncetjNgj1FrTRnAjw7BKo3",
     "metrics": [
-      "entryRawBytes",
-      "entryGzipBytes",
-      "initialClosureGzipBytes",
       "homeClosureGzipBytes",
-      "appAssetsRawBytes",
-      "appAssetsGzipBytes",
-      "precacheUniqueBytes"
+      "appAssetsGzipBytes"
     ],
     "previousLimits": {
-      "entryRawBytes": 444400,
-      "entryGzipBytes": 132200,
-      "initialClosureGzipBytes": 145200,
-      "homeClosureGzipBytes": 362900,
-      "appAssetsRawBytes": 2409000,
-      "appAssetsGzipBytes": 744700,
-      "precacheUniqueBytes": 2494000
+      "homeClosureGzipBytes": 364500,
+      "appAssetsGzipBytes": 758000
     }
   }
 }
