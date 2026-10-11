@@ -1,4 +1,4 @@
-import React, { useContext, useDeferredValue, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { motion, AnimatePresence, useDragControls, usePresence } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -348,9 +348,24 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
-  const deferredContentOpen = useDeferredValue(
-    deferChildrenUntilPaint ? isOpen : true
-  );
+  // useDeferredValue does not postpone the first mount of an already-open
+  // sheet: its initial value is immediately true. Prepare the portal's light
+  // drag/backdrop shell first, then commit expensive children after a paint.
+  const [deferredChildrenReady, setDeferredChildrenReady] = useState(!deferChildrenUntilPaint);
+  useEffect(() => {
+    if (!isOpen || !deferChildrenUntilPaint || deferredChildrenReady) return;
+
+    let nextFrame: number | null = null;
+    const firstFrame = window.requestAnimationFrame(() => {
+      // Two frames ensure the shell gets a paint opportunity before mounting
+      // the Day View swiper, task rows, and drag/drop runtime.
+      nextFrame = window.requestAnimationFrame(() => setDeferredChildrenReady(true));
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (nextFrame !== null) window.cancelAnimationFrame(nextFrame);
+    };
+  }, [isOpen, deferChildrenUntilPaint, deferredChildrenReady]);
   const [childrenMounted, setChildrenMounted] = useState(isOpen);
   // Most sheets mount closed. Arm presence synchronously when an open
   // arrives, so a subsequent Back or drag can animate instead of returning null.
@@ -358,11 +373,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   if (isOpen && !childrenMounted) {
     setChildrenMounted(true);
   }
-  const shouldRenderChildren = deferChildrenUntilPaint
-    ? isOpen
-      ? deferredContentOpen
-      : childrenMounted
-    : isOpen || childrenMounted;
+  // Once shown, retain content through the exit animation and subsequent
+  // opens. If dismissed before frame two, no expensive child ever mounts.
+  const shouldRenderChildren =
+    (isOpen || childrenMounted) && (!deferChildrenUntilPaint || deferredChildrenReady);
 
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
@@ -386,7 +400,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   useFocusTrap(
     sheetRef,
-    isOpen && !isBlockedLayer,
+    isOpen && !isBlockedLayer && shouldRenderChildren,
     () => !isOpen || isTopLayer,
     (target) => queueFocusReturn(sheetId, target)
   );
