@@ -954,7 +954,8 @@ async function tombstoneMissing(
   data: NormalizedBackup,
   userId: string,
   timestamp: string,
-  assertOwner?: () => void
+  assertOwner?: () => void,
+  includeBucketList = true
 ): Promise<number> {
   const wanted: Record<RestorableCollection, Set<string>> = {
     tasks: new Set(data.tasks.map((doc) => doc.id)),
@@ -966,6 +967,7 @@ async function tombstoneMissing(
 
   let tombstoned = 0;
   for (const name of RESTORABLE_COLLECTIONS) {
+    if (name === 'bucketList' && !includeBucketList) continue;
     assertOwner?.();
     const collection = collectionFor(name);
     const currentDocs = await collection
@@ -1262,7 +1264,8 @@ export async function restoreUserData(
       data,
       currentUser.id,
       replaceTimestamp,
-      assertOwner
+      assertOwner,
+      loaded.payload.version >= 3
     );
   }
 
