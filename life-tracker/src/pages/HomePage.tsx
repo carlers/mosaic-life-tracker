@@ -97,32 +97,23 @@ export const HomePage: React.FC = () => {
   // This does not mount the sheet or start its data hooks. Early taps still load
   // on demand through the same cached import.
   useEffect(() => {
-    if (tasksLoading || categoriesLoading || carouselLoading || activePersonId !== 'me') return;
+    // Friend/profile reads can remain pending while the owner Calendar is usable.
+    // They must not indefinitely suppress idle Day View module warmup.
+    if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
 
-    let cancelled = false;
     const warm = () => {
-      if (cancelled || document.visibilityState !== 'visible') return;
-      void loadDayViewSheet().catch(() => {
-        // An idle warmup failure must not block the next on-demand attempt.
+      if (document.visibilityState === 'visible') void loadDayViewSheet().catch(() => {
+        // A warmup failure must not block the on-demand retry.
       });
     };
-
-    if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(warm, { timeout: 1200 });
-      return () => {
-        cancelled = true;
-        window.cancelIdleCallback?.(idleId);
-      };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1200 });
+      return () => window.cancelIdleCallback?.(id);
     }
-
-    // Safari lacks requestIdleCallback; allow startup and Home's existing
-    // render-window expansion to settle before attempting the import.
-    const timer = window.setTimeout(warm, 900);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [activePersonId, carouselLoading, categoriesLoading, tasksLoading]);
+    // Safari fallback retains the delayed, startup-safe import.
+    const id = window.setTimeout(warm, 900);
+    return () => window.clearTimeout(id);
+  }, [activePersonId, categoriesLoading, tasksLoading]);
 
   useEffect(() => {
     const schedule = () => setRenderWindow(RENDER_WINDOW);
@@ -341,18 +332,16 @@ export const HomePage: React.FC = () => {
       )}
 
       {searchSelectedDate && (
-        <React.Suspense fallback={null}>
-          <LazyDayViewSheet
-            key={searchSheetKey}
-            isOpen={searchDaySheetOpen}
-            onClose={handleCloseSearchDaySheet}
-            selectedDate={searchSelectedDate}
-            onDateChange={handleSearchDateChange}
-            tasks={ownerTasks}
-            categories={ownerCategories}
-            focusTaskId={searchFocusTaskId}
-          />
-        </React.Suspense>
+        <LazyDayViewSheet
+          key={searchSheetKey}
+          isOpen={searchDaySheetOpen}
+          onClose={handleCloseSearchDaySheet}
+          selectedDate={searchSelectedDate}
+          onDateChange={handleSearchDateChange}
+          tasks={ownerTasks}
+          categories={ownerCategories}
+          focusTaskId={searchFocusTaskId}
+        />
       )}
     </>
   );

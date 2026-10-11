@@ -187,17 +187,15 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     <>
       {calendarContent(carousel)}
       {daySheetMounted && (
-        <React.Suspense fallback={null}>
-          <LazyDayViewSheet
-            isOpen={daySheetOpen}
-            onClose={handleCloseDaySheet}
-            selectedDate={selectedDate}
-            onDateChange={handleDateChange}
-            tasks={tasks}
-            categories={categories ?? []}
-            holidayConfig={holidayConfig}
-          />
-        </React.Suspense>
+        <LazyDayViewSheet
+          isOpen={daySheetOpen}
+          onClose={handleCloseDaySheet}
+          selectedDate={selectedDate}
+          onDateChange={handleDateChange}
+          tasks={tasks}
+          categories={categories ?? []}
+          holidayConfig={holidayConfig}
+        />
       )}
     </>
   );

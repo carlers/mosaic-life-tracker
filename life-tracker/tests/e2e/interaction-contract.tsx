@@ -1,5 +1,6 @@
 import React, { Profiler, StrictMode, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
@@ -184,14 +185,22 @@ function ColdDayViewProbe({ tasks, categories, emptyDayTasks }: {
 /** The actual CalendarBody / DayCell / lazy DayViewSheet entry path, rather than an isolated open button. */
 function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; categories: CategoryDocument[] }) {
   const calendar = useCalendarState();
+  const [moduleReady, setModuleReady] = useState(false);
+  React.useEffect(() => {
+    // Test-only bridge: let the browser assert the already-warm first click
+    // commits the sheet in the *same* React transaction (no lazy suspension).
+    (window as typeof window & { __mosaicFlushCalendarClick?: typeof flushSync }).__mosaicFlushCalendarClick = flushSync;
+    void loadDayViewSheet().then(() => setModuleReady(true));
+    return () => {
+      delete (window as typeof window & { __mosaicFlushCalendarClick?: typeof flushSync }).__mosaicFlushCalendarClick;
+    };
+  }, []);
   const categoriesMap = React.useMemo(
     () => Object.fromEntries(categories.map(category => [category.id, { name: category.name, color: category.color }])),
     [categories],
   );
-  // The application already attempts to warm the module during Home idle.
-  React.useEffect(() => { void loadDayViewSheet(); }, []);
   return (
-    <div data-testid="real-calendar-cold-probe" className="flex h-[600px] w-[390px] flex-col overflow-hidden">
+    <div data-testid="real-calendar-cold-probe" data-module-ready={moduleReady ? "true" : "false"} className="flex h-[600px] w-[390px] flex-col overflow-hidden">
       <CalendarBody
         viewMode={calendar.viewMode}
         slides={calendar.slides}
