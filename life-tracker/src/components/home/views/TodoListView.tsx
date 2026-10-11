@@ -8,6 +8,7 @@ import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { TodoCalendarGrid } from './TodoCalendarGrid';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import {
   DISABLED_HOLIDAY_CONFIG,
@@ -23,6 +24,8 @@ const ReplyComposerSheet = lazy(() =>
 interface TodoListViewProps {
   focusDate: Date;
   tasks: TaskDocument[];
+  sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
+  ownedSharedTaskIds?: ReadonlySet<string>;
   categories: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   onFocusDateChange: (date: Date) => void;
@@ -38,6 +41,8 @@ interface TodoListViewProps {
 export const TodoListView: React.FC<TodoListViewProps> = ({
   focusDate,
   tasks,
+  sharedByDay,
+  ownedSharedTaskIds,
   categories,
   categoriesMap,
   onFocusDateChange,
@@ -90,6 +95,8 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
           focusDate={focusDate}
           selectedDate={selectedDate}
           tasks={tasks}
+          sharedByDay={variant === 'me' ? sharedByDay : undefined}
+          ownedSharedTaskIds={variant === 'me' ? ownedSharedTaskIds : undefined}
           categories={categories}
           categoriesMap={categoriesMap}
           onDateSelect={handleDateChange}

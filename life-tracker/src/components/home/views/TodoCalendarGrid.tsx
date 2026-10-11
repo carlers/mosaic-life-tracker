@@ -19,6 +19,8 @@ import { useEmblaTrackpadNavigation } from '../../../hooks/useEmblaTrackpadNavig
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import type { SharedTaskItem } from '../../../lib/taskShareQueue';
+import { UsersRound } from 'lucide-react';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
 import {
@@ -33,6 +35,8 @@ interface TodoCalendarGridProps {
   focusDate: Date;
   selectedDate: Date;
   tasks: TaskDocument[];
+  sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
+  ownedSharedTaskIds?: ReadonlySet<string>;
   categories: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   onDateSelect: (date: Date) => void;
@@ -60,6 +64,8 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
   selectedDate,
   tasksByDate,
   holidaysByDate,
+  sharedByDay,
+  ownedSharedTaskIds,
   categories,
   onDateSelect,
   isActive,
@@ -131,13 +137,15 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
             {week.map((day) => {
               const dateKey = format(day, 'yyyy-MM-dd');
               const dayTasks = tasksByDate.get(dateKey) ?? [];
+              const received = sharedByDay?.get(dateKey) ?? [];
+              const hasShares = received.length > 0 || dayTasks.some(task => ownedSharedTaskIds?.has(task.id));
               const dayHolidays = holidaysByDate.get(dateKey) ?? EMPTY_HOLIDAYS;
               const selected = isSameDay(day, selectedDate);
               const currentMonth = isSameMonth(day, monthDate);
               const dateLabel = format(day, 'EEEE, MMMM d, yyyy');
               const incompleteCount = dayTasks.reduce(
                 (count, task) => count + (task.completed ? 0 : 1),
-                0
+                received.filter(item => !item.completed).length
               );
               const completedCategoryIds = new Set(
                 dayTasks
@@ -149,7 +157,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                 .slice(0, 4)
                 .map((category) => category.color);
               const markerColors = Array.from({ length: 4 }, (_, index) => {
-                if (completedColors.length === 0) return '#333333';
+                if (completedColors.length === 0) return received.some(item => item.completed) ? '#6B7280' : '#333333';
                 const colorIndex = Math.min(
                   completedColors.length - 1,
                   Math.floor((index * completedColors.length) / 4)
@@ -157,7 +165,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                 return completedColors[colorIndex] ?? '#333333';
               });
               const allComplete =
-                dayTasks.length > 0 && incompleteCount === 0;
+                dayTasks.length + received.length > 0 && incompleteCount === 0;
 
               const handleKeyDown = (
                 event: React.KeyboardEvent<HTMLButtonElement>
@@ -226,6 +234,10 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                         {incompleteCount}
                       </span>
                     ) : null}
+                    {hasShares && (
+                      <UsersRound size={11} aria-hidden="true"
+                        className="absolute -right-2 -top-1 text-gray-300" />
+                    )}
                   </span>
                   <span
                     data-testid={`todo-day-number-${dateKey}`}
@@ -255,6 +267,8 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   focusDate,
   selectedDate,
   tasks,
+  sharedByDay,
+  ownedSharedTaskIds,
   categories,
   categoriesMap,
   onDateSelect,
@@ -349,6 +363,8 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
           focusDate={focusDate}
           selectedDate={selectedDate}
           tasksByDate={tasksByDate}
+          sharedByDay={sharedByDay}
+          ownedSharedTaskIds={ownedSharedTaskIds}
           holidaysByDate={holidaysByDate}
           categories={categories}
           categoriesMap={categoriesMap}
@@ -366,6 +382,8 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
       onDateSelect,
       selectedDate,
       tasksByDate,
+      sharedByDay,
+      ownedSharedTaskIds,
       holidaysByDate,
       weekStartsOn,
     ]

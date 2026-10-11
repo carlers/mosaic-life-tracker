@@ -1,25 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: Fix PWA update/install prompt visibility and keyboard focus around BottomSheet portals.
-Baseline: `dev` `c02536a2b37ddd04c7fd81c93a8233db8bc67e0d` (version 0.12.1).
-Task branch: `chatgpt/pwa-prompt-size-repair` (after task PR #534); stable Preview: `fix/pwa-prompt-sheet-layers`.
-Planned Preview version: 0.12.2 PATCH; reconcile any newer independent Preview/dev versions before promotion.
+Current task: finish issue #406 approved Preview -> dev integration, deployment repair only (version impact NONE).
 
-## Root cause
-
-`PwaPrompt` renders inside `#root` with a high z-index, while the shared BottomSheet correctly makes `#root` inert and traps focus in its body portal. The visible prompt can overlap a modal despite being non-interactive. Raising z-index alone cannot fix inert/focus restrictions.
-
-## Changes
-
-- Keep modal stacking, inertness and focus-return logic inside lazy BottomSheet; share only a small Boolean visibility signal with the always-mounted PWA notice (first Preview exceeded initial gzip budget by 153 B).
-- Defer non-modal install/update offers until the last visible sheet finishes exiting; retain lifecycle availability, never auto-activate an update or consume an install request.
-- Reset the PWA action's busy state after resolved browser install/update actions.
-- Add component regression coverage for nested sheets, preserved offers, focus ownership, and re-enabled install actions.
-- Document the prompt/sheet invariant in Project Reference §24.13.
+## State/evidence
+- Integrated v0.16.6 stable Preview feature/shared-tasks-dev-integration SHA ab1c450f5614ac00e9af833bf2f5c237322adb4d passed canonical gate 38079683632 and Vercel READY.
+- PR #547 merge into dev at 75c8aeaf3a7cafc4bf32cae77c06c81d488178d3 preserved exact accepted Preview tree 11f8d91d83666abe30e54a57769bd1316d2787ed. Main/Production unchanged.
+- Vercel dev deployment dpl_3mGGfud88ZXiyfacZYnHRsqPfZQP failed **only** the aggregate raw-asset budget by 268 B. Its build compiled and passed PWA, entry, initial, Home and other budget checks. Vercel measurements: aggregate raw 2,391,268 B; gzip 737,674 B; precache 2,475,479 B. Preview build had lower aggregate byte totals.
+- Adjust only measured aggregate ceilings to 2,393,000 B raw, 739,000 B gzip, 2,477,000 B precache. Keep entry, initial closure and Home closure ceilings unchanged. No app code, backend, dependency or version changes. Repo size-budget regression values aligned.
+- Scratch Function/row schema already active and secure; account/grants data still Scratch only. Manual iOS/Android device acceptance not claimed.
 
 ## Next action
-
-Run repair task `[verify:focused]`, squash into stable Preview after green, and recheck full canonical acceptance and Vercel READY. The first stable Preview had DOM/static/browser successes but failed the initial compressed bundle budget by 153 B. This repair reduces startup-only JS instead of raising the budget. No Appwrite backend changes. Device/browser acceptance remains: update/install prompt pending through nested, drag-dismiss, Escape/Android Back, and sheet exit.
-
-Parallel work: issue #476 historic v0.12.1 release bootstrap has separate branch/issue history; verify its live state independently if resuming it.
+- Commit this scoped deployment-budget repair (and checkpoint) from accepted stable Preview as a task with [verify:focused].
+- Squash into feature/shared-tasks-dev-integration; run full canonical CI and exact-SHA Preview Vercel readiness, then merge via PR into dev with identical tree and verify dev GitHub CI and Vercel READY/200. No main/Production promotion. Issue #406 stays open pending release.
