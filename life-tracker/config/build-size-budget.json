@@ -14,27 +14,35 @@
     }
   },
   "limits": {
-    "entryRawBytes": 444400,
-    "entryGzipBytes": 132200,
-    "initialClosureGzipBytes": 145200,
-    "homeClosureGzipBytes": 363400,
-    "appAssetsRawBytes": 2417000,
-    "appAssetsGzipBytes": 749000,
-    "precacheUniqueBytes": 2503000
+    "entryRawBytes": 445250,
+    "entryGzipBytes": 132650,
+    "initialClosureGzipBytes": 145800,
+    "homeClosureGzipBytes": 364500,
+    "appAssetsRawBytes": 2445500,
+    "appAssetsGzipBytes": 758000,
+    "precacheUniqueBytes": 2532300
   },
   "review": {
     "issue": "#405",
-    "reason": "This is a measured cross-provider Budget Review for the approved Bucket List MVP. The exact 284ee316 tree passed GitHub canonical CI but the GIPHY-enabled Vercel Preview build emitted about one additional kilobyte of assets and precache data. Preserve startup/entry caps, existing GIPHY configuration, baseline and the size guard while providing a narrow provider-parity allowance.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/9boiSiqQfPVQxyULK69qQZ16wnQM",
+    "reason": "Reviewed v0.19.0 approved Bucket List UX and owner-only task-linking capability. All new goal/detail/task-link screens are lazy and no new Home data subscriptions are added. Exact canonical GitHub and GIPHY-enabled Vercel provider builds both compiled but their measured asset sizes exceeded the previous ceilings. Limits rise only by the measured shipped functionality with small variance allowances (entry/startup +0.2–0.3%, total assets ~1%). Preserve pinned baseline, the build-size guard and GIPHY configuration.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/BMzc9SJf11QerUkB3JvFQFcLNbqe",
     "metrics": [
+      "entryRawBytes",
+      "entryGzipBytes",
+      "initialClosureGzipBytes",
+      "homeClosureGzipBytes",
       "appAssetsRawBytes",
       "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "appAssetsRawBytes": 2414000,
-      "appAssetsGzipBytes": 746900,
-      "precacheUniqueBytes": 2499500
+      "entryRawBytes": 444400,
+      "entryGzipBytes": 132200,
+      "initialClosureGzipBytes": 145200,
+      "homeClosureGzipBytes": 363400,
+      "appAssetsRawBytes": 2417000,
+      "appAssetsGzipBytes": 749000,
+      "precacheUniqueBytes": 2503000
     }
   }
 }
