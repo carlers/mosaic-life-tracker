@@ -60,6 +60,9 @@ function acquireObjectUrl(fileId: string): {
           return null;
         }
         e.url = url;
+        // A failed/offline acquisition should not poison this shared file ID
+        // forever. Reacquire on the next visibility/connection opportunity.
+        if (!url) e.promise = null;
         return url;
       });
   }
@@ -92,6 +95,7 @@ export function resetTaskImageCacheForTests(): void {
 export function useTaskImage(fileId: string | undefined, enabled = true) {
   const [trackedFileId, setTrackedFileId] = useState<string | undefined>(fileId);
   const [trackedEnabled, setTrackedEnabled] = useState(enabled);
+  const [retryKey, setRetryKey] = useState(0);
   const [state, setState] = useState<ImageState>(() => {
     const cached = readCachedUrl(fileId);
     return { url: cached, isLoading: enabled && !cached && !!fileId };
@@ -119,7 +123,23 @@ export function useTaskImage(fileId: string | undefined, enabled = true) {
       isMounted = false;
       release();
     };
-  }, [fileId, enabled]);
+  }, [fileId, enabled, retryKey]);
+
+  useEffect(() => {
+    if (!fileId || !enabled || state.isLoading || state.url) return;
+    const retryWhenVisible = () => {
+      if (document.visibilityState === 'hidden') return;
+      setRetryKey((key) => key + 1);
+    };
+    window.addEventListener('online', retryWhenVisible);
+    window.addEventListener('focus', retryWhenVisible);
+    document.addEventListener('visibilitychange', retryWhenVisible);
+    return () => {
+      window.removeEventListener('online', retryWhenVisible);
+      window.removeEventListener('focus', retryWhenVisible);
+      document.removeEventListener('visibilitychange', retryWhenVisible);
+    };
+  }, [fileId, enabled, state.isLoading, state.url]);
 
   return { imageUrl: state.url, isLoading: state.isLoading };
 }

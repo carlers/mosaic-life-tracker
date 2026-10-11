@@ -132,4 +132,24 @@ describe('useTaskImage', () => {
     );
     errorSpy.mockRestore();
   });
+  it('retries a failed remote image on focus without requiring a remount', async () => {
+    mockGetLocalImageUrl
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce('blob:recovered-image');
+
+    const { result } = renderHook(() => useTaskImage('file_retry_test'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.imageUrl).toBeNull();
+    expect(mockGetLocalImageUrl).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
+    await waitFor(() =>
+      expect(result.current.imageUrl).toBe('blob:recovered-image')
+    );
+    expect(mockGetLocalImageUrl).toHaveBeenCalledTimes(2);
+  });
+
 });

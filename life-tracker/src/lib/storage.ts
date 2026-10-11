@@ -322,9 +322,15 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
       }
       return r;
     });
-    if (!res.ok) return null;
+    // A 206 response represents a byte range, not a complete image.
+    // Never persist a partial response as the canonical offline photo.
+    if (res.status !== 200) return null;
     const blob = await res.blob();
-    await cacheImage(fileId, blob);
+    // IndexedDB is optional for online viewing. A quota/private-mode failure
+    // must not hide an image that Appwrite successfully returned.
+    await cacheImage(fileId, blob).catch((error) => {
+      console.warn('[Storage] Failed to cache downloaded image:', error);
+    });
     return URL.createObjectURL(blob);
   } catch (err) {
     console.error('[Storage] Failed to fetch image:', err);
