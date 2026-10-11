@@ -22,7 +22,7 @@ Appwrite changes, Vercel behavior changes, or automatic dev/main promotion.
   life-tracker/tests/unit/branch-hygiene.test.ts,
   and docs/DELIVERY.md.
 
-## Verification and next action
+## Next action
 
 Review the coherent task diff and run focused CI on its final task commit.
 After focused green, squash PR into feature/branch-hygiene and verify the
