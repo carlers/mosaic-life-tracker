@@ -42,7 +42,7 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void }> = ({ onOpenB
           setMenuSheetMounted(true);
           setIsMenuOpen(true);
         }}
-        className="p-2 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        className="p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label="Open menu"
       >
         <Menu size={20} aria-hidden="true" />

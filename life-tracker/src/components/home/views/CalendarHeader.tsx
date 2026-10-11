@@ -57,7 +57,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             type="button"
             onClick={onPrev}
             onPointerDown={(e) => e.stopPropagation()}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label="Previous month"
           >
             <ChevronLeft size={16} aria-hidden="true" />
@@ -66,7 +66,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             type="button"
             onClick={onNext}
             onPointerDown={(e) => e.stopPropagation()}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label="Next month"
           >
             <ChevronRight size={16} aria-hidden="true" />
