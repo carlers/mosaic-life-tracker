@@ -151,6 +151,31 @@ describe('TaskItem owner gestures', () => {
     expect(callbacks.onEditSave).toHaveBeenCalledOnce();
   });
 
+  it('toggles another task while a different task title is being edited', () => {
+    const callbacks = {
+      onToggle: vi.fn(), onOpenActions: vi.fn(), onOpenMemo: vi.fn(),
+      onEditStart: vi.fn(), onEditChange: vi.fn(),
+      onEditSave: vi.fn(), onEditCancel: vi.fn(),
+    };
+    render(
+      <>
+        <TaskItem task={task} categoryColor="#3B82F6" currentUserId="user_1"
+          isEditing editValue="Unsaved title" {...callbacks} />
+        <TaskItem task={{ ...task, id: 'task_2', title: 'Review draft' }}
+          categoryColor="#3B82F6" currentUserId="user_1"
+          isEditing={false} editValue="" {...callbacks} />
+      </>
+    );
+    const input = screen.getByRole('textbox', { name: 'Task title' });
+    const checkbox = screen.getAllByRole('button', { name: 'Mark complete' })[1];
+    expect(input).toHaveFocus();
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'mouse' })).toBe(false);
+    fireEvent.click(checkbox);
+    expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith('task_2');
+    expect(callbacks.onEditSave).not.toHaveBeenCalled();
+    expect(input).toHaveFocus();
+  });
+
   it('keeps the completion control normal while row selection suppresses task actions', () => {
     const onToggleSelection = vi.fn();
     const callbacks = {
