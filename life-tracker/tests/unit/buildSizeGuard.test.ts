@@ -137,80 +137,38 @@ describe('build-size guard', () => {
     });
   });
 
-  // Regression: §24.14 (reviewed startup closure headroom).
-  it('keeps startup closure limits near five percent above the reviewed baseline', async () => {
+  // Current ceilings belong only in config/build-size-budget.json. Numerical
+  // revisions require an explicit review record and the diff-based CI contract.
+  it('loads the canonical seven-metric budget without duplicating cap numbers', async () => {
     const configuredBudget = JSON.parse(await readFile(
-      new URL('../../config/build-size-budget.json', import.meta.url),
-      'utf8',
+      new URL('../../config/build-size-budget.json', import.meta.url), 'utf8',
     ));
-
-    expect(configuredBudget.baseline).toMatchObject({
-      measuredAt: '2026-10-03',
-      commit: '9ca52e2',
-    });
-
-    for (const metric of ['entryRawBytes']) {
-      const baselineBytes = configuredBudget.baseline.metrics[metric];
-      const limitBytes = configuredBudget.limits[metric];
-      const ratio = limitBytes / baselineBytes;
-      expect(ratio).toBeGreaterThanOrEqual(1.049);
-      expect(ratio).toBeLessThanOrEqual(1.052);
+    expect(() => validateBuildSizeBudget(configuredBudget)).not.toThrow();
+    expect(Object.keys(configuredBudget.limits).sort()).toEqual(Object.keys(budget.limits).sort());
+    for (const metric of Object.keys(configuredBudget.limits)) {
+      expect(configuredBudget.limits[metric]).toBeGreaterThanOrEqual(
+        configuredBudget.baseline.metrics[metric],
+      );
     }
-    // v0.17.2 Backlogs + current dev composition measured 131,925 B entry
-    // gzip; keep 275 B of deployment headroom instead of treating the
-    // original baseline percentage as an unchangeable entry ceiling.
-    expect(configuredBudget.limits.entryGzipBytes).toBe(132200);
-    expect(configuredBudget.limits.entryGzipBytes /
-      configuredBudget.baseline.metrics.entryGzipBytes).toBeLessThanOrEqual(1.056);
-    // v0.14.1 brings recipient Calendar and owner labels into Home. The
-    // measured Home closure was 359,732 B gzip. Cap its one-time increase
-    // tightly rather than weakening entry/initial startup limits.
-    // The combined v0.17.2 build measured 362,385 B gzip; retain 515 B headroom.
-    expect(configuredBudget.limits.homeClosureGzipBytes).toBe(362900);
-    expect(configuredBudget.limits.homeClosureGzipBytes /
-      configuredBudget.baseline.metrics.homeClosureGzipBytes).toBeLessThanOrEqual(1.068);
-    // v0.14.0 adds lazy, durable share queues and their account/reconnect
-    // lifecycle. The measured Vercel initial closure was 144,049 B gzip:
-    // this exceptional bound gives only 801 B headroom and preserves the
-    // stricter entry and Home budgets.
-    // The combined v0.17.2 build measured 144,883 B gzip; retain 317 B headroom.
-    expect(configuredBudget.limits.initialClosureGzipBytes).toBe(145200);
-    expect(configuredBudget.limits.initialClosureGzipBytes /
-      configuredBudget.baseline.metrics.initialClosureGzipBytes).toBeLessThanOrEqual(1.061);
+    expect(configuredBudget.baseline.commit).toMatch(/^[a-f0-9]{7,40}$/);
   });
 
-  // Regression: §24.14 (aggregate/precache ceilings include reviewed shipped
-  // product growth without widening startup/Home limits).
-  it('preserves the reviewed aggregate and precache ceilings', async () => {
-    const configuredBudget = JSON.parse(await readFile(
-      new URL('../../config/build-size-budget.json', import.meta.url),
-      'utf8',
-    ));
-
-    // v0.16.8 adds a lazy release-history Markdown renderer. The first
-    // Preview Vercel build measured 2,394,877 B app raw and 2,479,228 B
-    // precache; keep the new caps narrowly bounded while all startup/Home
-    // and aggregate gzip ceilings remain unchanged.
-    // v0.16.9 includes the historical PR-backed archive in the lazy
-    // ReleaseHistoryPage. Verified Vercel measured 2,398,474 B raw,
-    // 740,359 B gzip, and 2,482,825 B precache. These narrow caps
-    // preserve the independently enforced entry/initial/Home budgets.
-    // The v0.16.10 dev merge uses the byte-identical accepted Preview tree,
-    // but its live Vercel build measured 2,400,745 B raw, 741,191 B gzip,
-    // and 2,485,096 B precache. Raise only these aggregate caps with
-    // 555–609 B headroom; startup/Home bounds stay unchanged.
-    // v0.17.0: byte-identical accepted source uses 2,050 additional raw/
-    // precache bytes on the dev Vercel target; measured overages were
-    // 54 B and 5 B. Keep these dev-specific headroom increases below 150 B.
-    // The accepted Preview measured 2,404,437 raw / 743,010 gzip /
-    // 2,489,652 precache. Its byte-identical dev merge measured
-    // 2,406,651 raw / 744,003 gzip / 2,491,866 precache on Vercel.
-    // Preserve narrow dev-only headroom: 349 / 347 / 384 bytes.
-    expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2407000,
-      appAssetsGzipBytes: 744350,
-      precacheUniqueBytes: 2492250,
-    });
+  it('fails a meaningful shipped-growth regression instead of silently inflating aggregate caps', async () => {
+    const configured = validateBuildSizeBudget(JSON.parse(await readFile(
+      new URL('../../config/build-size-budget.json', import.meta.url), 'utf8',
+    )));
+    const measured = { ...configured.baseline.metrics };
+    for (const metric of Object.keys(configured.limits)) measured[metric] = configured.limits[metric];
+    // Historical notifications growth: raw +13,487, gzip +6,711 and
+    // precache +23,354 B; a legitimate regression must remain blocking.
+    measured.appAssetsRawBytes += 13487;
+    measured.appAssetsGzipBytes += 6711;
+    measured.precacheUniqueBytes += 23354;
+    const result = evaluateBuildSizeBudget(configured, measured);
+    expect(result.passed).toBe(false);
+    expect(result.metrics.filter(entry => !entry.passed).map(entry => entry.name)).toEqual([
+      'appAssetsRawBytes', 'appAssetsGzipBytes', 'precacheUniqueBytes',
+    ]);
   });
 
   // Regression: a longer release commit body must not consume PWA code-size
