@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { planFocusedVerification } from './lib/focused-verification.mjs';
+import { isOnlyVersionMetadataChange, planFocusedVerification } from './lib/focused-verification.mjs';
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
@@ -17,7 +17,7 @@ function run(command, args, capture = false) {
     if (capture) child.stdout.on('data', (chunk) => { output += chunk.toString(); });
     child.on('error', reject);
     child.on('close', (code, signal) => {
-      if (signal || code !== 0) reject(new Error(`${command} exited with ${signal ?? code}`));
+      if (signal || code !== 0) reject(new Error(command + ' exited with ' + (signal ?? code)));
       else resolve(output);
     });
   });
@@ -28,7 +28,20 @@ await run(npm, ['run', 'test:discovery']);
 
 const diff = await run('git', ['-C', '..', 'diff', '--name-only', base, 'HEAD'], true);
 const changed = diff.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-const { lintable, broad, docsContract } = planFocusedVerification(changed);
+const verifiedVersionOnly = new Set();
+for (const path of ['package.json', 'package-lock.json']) {
+  if (!changed.includes('life-tracker/' + path)) continue;
+  try {
+    const [before, after] = await Promise.all([
+      run('git', ['-C', '..', 'show', base + ':life-tracker/' + path], true),
+      run('git', ['-C', '..', 'show', 'HEAD:life-tracker/' + path], true),
+    ]);
+    if (isOnlyVersionMetadataChange(path, before, after)) verifiedVersionOnly.add(path);
+  } catch {
+    // Missing base/HEAD evidence must never reduce verification.
+  }
+}
+const { lintable, broad, docsContract } = planFocusedVerification(changed, undefined, verifiedVersionOnly);
 
 if (lintable.length > 0) {
   await run(npx, ['--no-install', 'eslint', ...lintable]);
@@ -44,5 +57,5 @@ if (broad) {
 }
 
 process.stdout.write(
-  `Focused verification passed for ${changed.length} changed file(s). Full canonical acceptance runs after squash on the stable Preview branch.\n`
+  'Focused verification passed for ' + changed.length + ' changed file(s). Full canonical acceptance runs after squash on the stable Preview branch.\n'
 );
