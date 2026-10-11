@@ -7,6 +7,27 @@ function groupKey(key, kind, index = 0) {
   return `${key}:${kind}:${index}`;
 }
 
+// Account for every emitted JS/CSS asset, including files missing from Vite's
+// manifest (for example emitted by plugins after Vite's normal file listing).
+// Assign each path once: shared CSS entries must not inflate file diagnostics.
+export function groupEmittedAssets(manifest, diskSizes) {
+  const files = {};
+  const assigned = new Set();
+  for (const [key, chunk] of Object.entries(manifest)) {
+    const paths = [[chunk.file, groupKey(key, 'js')],
+      ...(chunk.css ?? []).map((path, index) => [path, groupKey(key, 'css', index)])];
+    for (const [path, logical] of paths) {
+      if (!diskSizes.has(path) || assigned.has(path)) continue;
+      files[logical] = { path, ...diskSizes.get(path) };
+      assigned.add(path);
+    }
+  }
+  for (const [path, sizes] of diskSizes) {
+    if (!assigned.has(path)) files[`unmapped:${path}`] = { path, ...sizes };
+  }
+  return files;
+}
+
 export function compareSizeSnapshots(before, after) {
   const names = new Set([...Object.keys(before.files), ...Object.keys(after.files)]);
   const files = [...names].map(name => {
@@ -38,14 +59,7 @@ export async function readBuildSizeSnapshot(directory) {
     const data = await readFile(join(directory, path));
     diskSizes.set(path, { rawBytes: data.length, gzipBytes: gzipSync(data).length });
   }
-  const files = {};
-  for (const [key, chunk] of Object.entries(manifest)) {
-    const paths = [[chunk.file, groupKey(key, 'js')], ...(chunk.css ?? []).map((p, i) => [p, groupKey(key, 'css', i)])];
-    for (const [path, logical] of paths) {
-      if (!path || !diskSizes.has(path)) continue;
-      files[logical] = { path, ...diskSizes.get(path) };
-    }
-  }
+  const files = groupEmittedAssets(manifest, diskSizes);
   const entry = Object.entries(manifest).find(([, chunk]) => chunk.isEntry);
   const home = Object.entries(manifest).find(([key, chunk]) =>
     key === 'src/pages/HomePage.tsx' || chunk.src === 'src/pages/HomePage.tsx');
@@ -53,7 +67,10 @@ export async function readBuildSizeSnapshot(directory) {
   const initial = measureManifestStaticClosure(manifest, diskSizes, [entry[0]]);
   const homeClosure = measureManifestStaticClosure(manifest, diskSizes, [entry[0], home[0]]);
   const deferredGzipBytes = metrics.appAssetsGzipBytes - homeClosure.gzipBytes;
-  return { metrics, files, initial, homeClosure, deferredGzipBytes };
+  const unmappedGzipBytes = Object.entries(files)
+    .filter(([key]) => key.startsWith('unmapped:'))
+    .reduce((total, [, asset]) => total + asset.gzipBytes, 0);
+  return { metrics, files, initial, homeClosure, deferredGzipBytes, unmappedGzipBytes };
 }
 
 export function formatSizeDiagnostics(snapshot, comparison = null) {
@@ -63,6 +80,7 @@ export function formatSizeDiagnostics(snapshot, comparison = null) {
     `Home static closure: ${snapshot.homeClosure.gzipBytes}`,
     `other shipped assets outside Home closure: ${snapshot.deferredGzipBytes}`,
     `normalized precache: ${snapshot.metrics.precacheUniqueBytes}`,
+    `emitted assets absent from Vite manifest (gzip): ${snapshot.unmappedGzipBytes ?? 'unknown'}`,
   ];
   if (comparison) {
     lines.push('Deltas vs reference build (same manifest key, not hashed filename):');
@@ -71,12 +89,12 @@ export function formatSizeDiagnostics(snapshot, comparison = null) {
       lines.push(`  ${file.name}: raw ${file.rawDelta >= 0 ? '+' : ''}${file.rawDelta}, gzip ${file.gzipDelta >= 0 ? '+' : ''}${file.gzipDelta} (${file.state}; ${file.path ?? file.oldPath})`);
     }
   } else {
-    lines.push('Largest emitted manifest assets:');
+    lines.push('Largest emitted JS/CSS assets (including untracked):');
     for (const [name, file] of Object.entries(snapshot.files)
       .sort((a, b) => b[1].gzipBytes - a[1].gzipBytes).slice(0, 10)) {
       lines.push(`  ${name}: raw ${file.rawBytes}, gzip ${file.gzipBytes} (${file.path})`);
     }
   }
-  lines.push('Manifest groups describe emitted assets; authoritative totals are the seven budget metrics.');
+  lines.push('All emitted JS/CSS assets are grouped once; authoritative totals are the seven budget metrics.');
   return lines.join('\n');
 }

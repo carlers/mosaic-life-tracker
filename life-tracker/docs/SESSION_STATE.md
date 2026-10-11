@@ -1,23 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: Issue #592, approved Batch A only. No dev or main promotion authorized.
+Current task: Issue #592 Batch A diagnostics follow-up; no dev/main promotion authorized.
 
 ## Verified
-- dev: f65d348c2f537b4d8c1063096e6856a9ee3d629f (v0.17.2); main unchanged by this task.
-- Issue #592 contains the hardened plan and linked workstreams; #520 and #526 remain separate.
-- Read-only Vercel env metadata: GIPHY key scope exists for dev and two sticker Preview branches, not generic stable Preview or Production. Production GIPHY functionality requires effective artifact/browser confirmation.
-- Scratch/Production backend target isolation exists in vite.config.ts and preview-backend-isolation.ts.
-- Prior same-tree Preview/dev aggregate size difference was measured in #592, but identical-tree artifact byte attribution is not proven. Vercel deployment source file retrieval is not available for the cited deployment IDs.
-- Existing seven measured metrics and budget caps remain unchanged.
+- dev remains f65d348c2f537b4d8c1063096e6856a9ee3d629f (v0.17.2), main 614cd1dccbd01bf70493874496559720b320151a.
+- Stable Preview feature/workflow-batch-a-592 accepted at 2ba57bc0dcf260c6bd53225c92c09d5dbdffe0c3: canonical CI 38123006068 SUCCESS, Vercel dpl_8WjCco5A3Tqu76KYPniUMrcskXCM READY, Scratch build and size guard passed.
+- Vercel config still scopes GIPHY only to dev and sticker Preview branches, not generic Preview or Production. Batch A Preview build explicitly logs disabled.
+- Matching source-shipped entry/initial/Home closure counts coexist with aggregate JS/CSS differences; Vercel logs show ChatPage chunk hash/size differences. Exact 2,050-B raw/786-B gzip delta remains incompletely attributed because Vercel Git deployment files API returns 404. No secrets or environment variables have been changed.
+- Older budget failures were legitimate guard detections, not proof the bundle was broken. Seven limits remain blocking, unchanged.
 
 ## Working set
-- Task: chatgpt/workflow-batch-a-592; stable Preview target: feature/workflow-batch-a-592.
-- New: scripts/lib/build-feature-parity.mjs, scripts/check-build-feature-parity.mjs, tests/unit/buildFeatureParity.test.ts.
-- New: scripts/lib/build-size-diagnostics.mjs, scripts/compare-build-size.mjs, tests/unit/buildSizeDiagnostics.test.ts.
-- New: scripts/lib/build-budget-review.mjs, scripts/check-build-budget-review.mjs, tests/unit/buildBudgetReview.test.ts.
-- Updated: check-build-size, vite.config, buildSizeGuard tests, quality-gate workflow, Delivery guide.
-- Feature presence preflight reports scope only; Vercel effective build logs report actual nonempty GIPHY flag. Do not print keys or change shared env config automatically.
+- Current follow-up task branch chatgpt/workflow-batch-a-diagnostics-592 from stable Preview SHA 2ba57bc0; target stable Preview feature/workflow-batch-a-592.
+- Improve build-size diagnostics to account for unmanifested emitted JS/CSS and shared asset deduplication. Regression tests cover orphan emitted chunks and historical notifications-size growth.
+- Prior Batch A feature scope comparison and reviewer-record contract remain intact. App version NONE; no Appwrite changes.
 
 ## Next action
-Verify coherent task SHA with focused Quality Gate; squash into stable Preview and check exact-SHA canonical CI/Vercel READY. Run scope preflight against live Vercel metadata and report known mismatch; do not promote or alter Preview/Production env without reviewed service change. Artifact-level same-tree attribution and production GIPHY acceptance remain outstanding if not observable. No Appwrite mutation.
+Verify focused CI on the follow-up task and squash into stable Preview, then verify fresh canonical CI plus exact-SHA Vercel READY. Record unresolved GIPHY generic Preview scope vs dev and Production browser artifact questions in #592. Do not make a service-wide GIPHY scope change or promote dev/main without explicitly reviewed authorization. Reproduce exact source/target build output only when artifacts are accessible.
