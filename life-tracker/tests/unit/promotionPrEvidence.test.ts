@@ -10,7 +10,11 @@ const valid = () => ({
   baseRepository: 'carlers/mosaic-life-tracker',
   headRepository: 'carlers/mosaic-life-tracker',
   baseSha: a, headSha: b, liveBaseSha: a, liveHeadSha: b,
-  draft: false, sourceTree: t, mergedTree: t, mergeConflict: false,
+  draft: false, prNumber: 42,
+  livePr: { number: 42, state: 'open', draft: false,
+    base: { ref: 'dev', sha: a, repo: { full_name: 'carlers/mosaic-life-tracker' } },
+    head: { ref: 'feature/workflow', sha: b, repo: { full_name: 'carlers/mosaic-life-tracker' } } },
+  sourceTree: t, mergedTree: t, mergeConflict: false,
   checkRuns: [{ id: 10, name: 'canonical-acceptance', head_sha: b, status: 'completed',
     conclusion: 'success', app: { slug: 'github-actions' } }],
   baseVersion: '0.17.2', headVersion: '0.17.2',
@@ -20,8 +24,13 @@ describe('trusted-base promotion PR preflight', () => {
     expect(evaluatePromotionPrEvidence(valid())).toEqual({ passed: true, reasons: [] });
   });
   it('permits dev to main with a non-regressing version', () => {
-    expect(evaluatePromotionPrEvidence({ ...valid(), baseBranch: 'main', headBranch: 'dev',
-      baseVersion: '0.16.0', headVersion: '0.17.2' }).passed).toBe(true);
+    const proof = valid();
+    proof.baseBranch = 'main';
+    proof.headBranch = 'dev';
+    proof.livePr.base.ref = 'main';
+    proof.livePr.head.ref = 'dev';
+    proof.baseVersion = '0.16.0';
+    expect(evaluatePromotionPrEvidence(proof).passed).toBe(true);
   });
   it.each([
     [{ baseBranch: 'feature/workflow' }, 'target'],
@@ -29,6 +38,13 @@ describe('trusted-base promotion PR preflight', () => {
     [{ baseBranch: 'main', headBranch: 'feature/workflow' }, 'originate from dev'],
     [{ headRepository: 'attacker/fork' }, 'cross-repository'],
     [{ draft: true }, 'draft'],
+    [{ livePr: null }, 'PR metadata'],
+    [{ prNumber: 43 }, 'PR metadata'],
+    [{ livePr: { ...valid().livePr, state: 'closed' } }, 'PR metadata'],
+    [{ livePr: { ...valid().livePr, draft: true } }, 'PR metadata'],
+    [{ livePr: { ...valid().livePr, head: { ...valid().livePr.head, sha: a } } }, 'PR metadata'],
+    [{ livePr: { ...valid().livePr, base: { ...valid().livePr.base, ref: 'main' } } }, 'PR metadata'],
+    [{ livePr: { ...valid().livePr, head: { ...valid().livePr.head, repo: { full_name: 'other/repo' } } } }, 'PR metadata'],
     [{ liveBaseSha: b }, 'changed'],
     [{ liveHeadSha: a }, 'changed'],
     [{ mergedTree: a }, 'differs'],

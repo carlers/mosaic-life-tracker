@@ -54,14 +54,16 @@ async function main() {
   } catch { mergeConflict = true; }
   const sourceTree = git('rev-parse', headSha + '^{tree}');
   const repoPrefix = '/repos/' + repository;
-  const [runs, liveBase, liveHead] = await Promise.all([
+  const [runs, liveBase, liveHead, livePr] = await Promise.all([
     github(repoPrefix + '/commits/' + headSha + '/check-runs?per_page=100'),
     github(repoPrefix + '/git/ref/heads/' + baseBranch),
     github(repoPrefix + '/git/ref/heads/' + headBranch),
+    github(repoPrefix + '/pulls/' + pr.number),
   ]);
   const result = evaluatePromotionPrEvidence({
     repository, baseRepository: pr.base.repo.full_name, headRepository: pr.head.repo.full_name,
     baseBranch, headBranch, baseSha, headSha, draft: pr.draft,
+    prNumber: pr.number, livePr,
     liveBaseSha: liveBase.object?.sha, liveHeadSha: liveHead.object?.sha,
     mergedTree, sourceTree, mergeConflict, checkRuns: runs.check_runs,
     baseVersion: versionAt(baseSha), headVersion: versionAt(headSha),
