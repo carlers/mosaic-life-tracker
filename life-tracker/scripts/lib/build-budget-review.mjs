@@ -1,0 +1,31 @@
+import { BUILD_SIZE_METRICS, validateBuildSizeBudget } from './build-size-guard.mjs';
+
+const unchanged = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+
+export function assertReviewedBudgetChange(previous, candidate) {
+  validateBuildSizeBudget(previous);
+  validateBuildSizeBudget(candidate);
+  if (unchanged(previous, candidate)) return { changed: [] };
+  // A new performance baseline is a separate, explicitly measured governance task.
+  if (!unchanged(previous.baseline, candidate.baseline)) {
+    throw new Error('Build-size baseline changed; preserve the pinned measured baseline and review separately');
+  }
+  const changed = BUILD_SIZE_METRICS.filter(metric => previous.limits[metric] !== candidate.limits[metric]);
+  if (!changed.length) throw new Error('Budget changed without a limit change; review unexpected metadata edits');
+  const increased = changed.filter(metric => candidate.limits[metric] > previous.limits[metric]);
+  if (increased.length) {
+    const review = candidate.review;
+    const error = 'Raising build-size ceilings requires a new, metric-specific review record (issue, reason, evidence, previous limits)';
+    if (!review || typeof review !== 'object' || unchanged(previous.review, review) ||
+      !/^#[1-9]\d*$/.test(review.issue ?? '') ||
+      typeof review.reason !== 'string' || review.reason.trim().length < 30 ||
+      typeof review.evidence !== 'string' || !/^https:\/\//.test(review.evidence) ||
+      !Array.isArray(review.metrics) ||
+      [...review.metrics].sort().join('|') !== [...increased].sort().join('|') ||
+      !review.previousLimits || typeof review.previousLimits !== 'object' ||
+      increased.some(metric => review.previousLimits[metric] !== previous.limits[metric])) {
+      throw new Error(error);
+    }
+  }
+  return { changed, increased };
+}

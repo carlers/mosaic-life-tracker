@@ -20,16 +20,22 @@ function plan(changed: string[]) {
 describe('focused verification selection', () => {
   it('lints existing project code and ignores documentation and outside paths', () => {
     expect(plan(['life-tracker/tests/current.test.ts', 'life-tracker/README.md', '.github/workflows/quality-gate.yml']))
-      .toEqual({ lintable: ['tests/current.test.ts'], broad: false });
+      .toEqual({ lintable: ['tests/current.test.ts'], broad: false, docsContract: true });
   });
 
   it('excludes deleted code from ESLint without losing broad verification intent', () => {
     expect(plan(['life-tracker/tests/deleted.test.ts', 'life-tracker/vitest.config.ts']))
-      .toEqual({ lintable: [], broad: true });
+      .toEqual({ lintable: [], broad: true, docsContract: false });
+  });
+
+  it('selects documentation contracts even when no import graph can reach the Markdown', () => {
+    expect(plan(['life-tracker/docs/SESSION_STATE.md']).docsContract).toBe(true);
+    expect(plan(['AGENTS.md']).docsContract).toBe(true);
+    expect(plan(['life-tracker/src/App.tsx']).docsContract).toBe(false);
   });
 
   it('lints the destination of a rename but not the deleted source', () => {
     expect(plan(['life-tracker/tests/old.test.ts', 'life-tracker/tests/current.test.ts']))
-      .toEqual({ lintable: ['tests/current.test.ts'], broad: false });
+      .toEqual({ lintable: ['tests/current.test.ts'], broad: false, docsContract: false });
   });
 });

@@ -28,7 +28,7 @@ await run(npm, ['run', 'test:discovery']);
 
 const diff = await run('git', ['-C', '..', 'diff', '--name-only', base, 'HEAD'], true);
 const changed = diff.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-const { lintable, broad } = planFocusedVerification(changed);
+const { lintable, broad, docsContract } = planFocusedVerification(changed);
 
 if (lintable.length > 0) {
   await run(npx, ['--no-install', 'eslint', ...lintable]);
@@ -37,6 +37,9 @@ if (lintable.length > 0) {
 if (broad) {
   await run(npm, ['test', '--', '--passWithNoTests']);
 } else {
+  if (docsContract) {
+    await run(npx, ['--no-install', 'vitest', 'run', 'tests/unit/documentationContracts.test.ts']);
+  }
   await run(npx, ['--no-install', 'vitest', 'run', '--changed', base, '--passWithNoTests']);
 }
 

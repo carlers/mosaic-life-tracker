@@ -9,6 +9,13 @@ if (verifiedPreviewBackend) {
   console.info(`[Mosaic] Preview backend: scratch Appwrite ${verifiedPreviewBackend.projectId} (${verifiedPreviewBackend.endpoint})`);
 }
 
+// Effective non-secret feature presence is logged on every hosted build so
+// identical-tree deployments can be compared without exposing Vite API keys.
+if (process.env.VERCEL_ENV) {
+  console.info('[Mosaic] Build features: GIPHY stickers ' +
+    (process.env.VITE_GIPHY_API_KEY?.trim() ? 'enabled' : 'disabled'));
+}
+
 const isLocalBuild = !process.env.VERCEL_ENV;
 const isOfficialMosaicBuild =
   process.env.GITHUB_REPOSITORY === 'carlers/mosaic-life-tracker' ||
