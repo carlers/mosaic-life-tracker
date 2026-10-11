@@ -92,7 +92,8 @@ export interface SyncMetaDocument {
     | 'settings'
     | 'friendships'
     | 'messages'
-    | 'bucketList';
+    | 'bucketList'
+    | 'bucketTaskLinks';
   replicationIdentifier: string;
   lastFreshAt: string;
 }

@@ -272,7 +272,7 @@ export async function exportUserData(
       friendships: raw.friendships,
     },
     restore: {
-      restorable: ['tasks', 'categories', 'diary', 'settings', 'bucketList'],
+      restorable: ['tasks', 'categories', 'diary', 'settings', 'bucketList', 'bucketTaskLinks'],
       referenceOnly: ['friendships'],
       excluded: ['messages'],
     },
