@@ -9,7 +9,7 @@ Current task: integrate accepted Settings history-return swipe v0.17.0 with late
 - Apply only the feature's navigation source, its unit/DOM regressions, project reference and three v0.17.0 version fields over that baseline. Merge build budget by preserving dev aggregate/precache limits and accepting entry gzip 131752 (within existing baseline ratio); avoid resetting other ceilings.
 - Settings left swipe reopens the last Settings child only after one-entry Back, with guarded route ownership and lazy child-page preview. Preserve right swipe, sheets, direct links, Alerts navigation, reduced motion, and Android/browser/Escape Back.
 
-## Verification and next action
+## Next action
 - AI task branch `chatgpt/settings-forward-dev-integration` targets stable integration Preview `feature/settings-forward-integration`. Request focused CI, squash to integration Preview, require full canonical Quality Gate and Scratch Vercel READY on exact Preview SHA.
 - Then merge accepted integration Preview to `dev` via PR with source-provenance/tree acceptance, verify dev CI and Scratch Vercel readiness. Do not promote main.
 - Manual iOS/Android swipe and Back with open sheets, and Escape-as-Back remain device-specific acceptance; do not claim them completed.
