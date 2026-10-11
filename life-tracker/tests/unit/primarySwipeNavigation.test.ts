@@ -75,7 +75,10 @@ describe('resolvePrimarySwipeDestination', () => {
     ]);
     expect(matchProtectedRoute('/backlog')?.id).toBe('backlog');
     expect(resolveRouteParent('/backlog')).toBe('/home');
-    expect(protectedRouteSwipeMode('/backlog')).toBe('edge-back');
+    expect(protectedRouteSwipeMode('/backlog')).toBe('full');
+    expect(protectedRouteSwipeMode('/settings/releases')).toBe('full');
+    // Detail routes inherit swipe-back; nested horizontal gesture owners opt into edge-back.
+    expect(protectedRouteSwipeMode('/profile')).toBe('full');
     expect(matchProtectedRoute('/messages/user_1')?.id).toBe('chat');
     expect(matchProtectedRoute('/friends/friend_1')?.id).toBe('friendCalendar');
     expect(matchProtectedRoute('/friends/')?.id).toBeUndefined();

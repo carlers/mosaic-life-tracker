@@ -3,7 +3,8 @@ import type { TabId } from '../components/layout/BottomNav';
 /**
  * Single registration point for protected app pages and their navigation
  * defaults. Adding an ordinary detail route requires only its path, page ID,
- * tab owner, and parent; the layout supplies edge-back automatically.
+ * tab owner, and parent; the layout supplies full-page swipe back automatically.
+ * Gesture-heavy nested detail pages opt in to edge-back explicitly.
  *
  * The protected <Route> elements in App.tsx are generated from this table.
  * Authentication/reset routes live outside the protected shell.
@@ -47,10 +48,10 @@ export const PROTECTED_ROUTES = [
   { id: 'home', path: '/home', kind: 'primary', tab: 'home', preview: 'supported', swipeMode: 'home-zone' },
   { id: 'backlog', path: '/backlog', kind: 'detail', tab: 'home', parent: '/home', alternateParents: ['/account'], preview: 'none' },
   { id: 'explore', path: '/explore', kind: 'primary', tab: 'explore', preview: 'supported' },
-  { id: 'friendCalendar', path: '/friends/:friendId', kind: 'detail', tab: 'explore', parent: '/explore', preview: 'none' },
+  { id: 'friendCalendar', path: '/friends/:friendId', kind: 'detail', tab: 'explore', parent: '/explore', preview: 'none', swipeMode: 'edge-back' },
   { id: 'notifications', path: '/notifications', kind: 'primary', tab: 'notifications', preview: 'supported' },
   { id: 'messages', path: '/messages', kind: 'primary', tab: 'messages', preview: 'supported' },
-  { id: 'chat', path: '/messages/:friendId', kind: 'detail', tab: 'messages', parent: '/messages', preview: 'none', hideBottomNav: true },
+  { id: 'chat', path: '/messages/:friendId', kind: 'detail', tab: 'messages', parent: '/messages', preview: 'none', hideBottomNav: true, swipeMode: 'edge-back' },
   { id: 'account', path: '/account', kind: 'primary', tab: 'account', extraLeft: '/settings', preview: 'supported' },
   // Existing Settings navigation uses full-width swipes. Preserve this
   // behavior rather than silently changing its gesture threshold.
@@ -84,7 +85,7 @@ export function protectedRouteSwipeMode(pathname: string): 'full' | 'home-zone' 
   const route = matchProtectedRoute(pathname);
   if (!route) return 'full';
   if ('swipeMode' in route && route.swipeMode) return route.swipeMode;
-  return route.kind === 'detail' ? 'edge-back' : 'full';
+  return 'full';
 }
 
 export function protectedRouteHidesBottomNav(pathname: string): boolean {

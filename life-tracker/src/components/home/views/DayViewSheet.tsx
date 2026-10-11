@@ -1036,6 +1036,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             isWorking={isBulkWorking}
             onClose={() => setIsBulkActionOpen(false)}
             onMoveCategory={() => { setIsBulkActionOpen(false); setIsBulkCategoryOpen(true); }}
+            onMoveToBacklog={isBacklogView ? undefined : () => runBulkUpdate({ date: '' })}
             onChangeDate={async date => { await runBulkUpdate({ date }); }}
             onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
