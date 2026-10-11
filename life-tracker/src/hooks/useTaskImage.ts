@@ -95,7 +95,6 @@ export function resetTaskImageCacheForTests(): void {
 export function useTaskImage(fileId: string | undefined, enabled = true) {
   const [trackedFileId, setTrackedFileId] = useState<string | undefined>(fileId);
   const [trackedEnabled, setTrackedEnabled] = useState(enabled);
-  const [retryKey, setRetryKey] = useState(0);
   const [state, setState] = useState<ImageState>(() => {
     const cached = readCachedUrl(fileId);
     return { url: cached, isLoading: enabled && !cached && !!fileId };
@@ -110,36 +109,38 @@ export function useTaskImage(fileId: string | undefined, enabled = true) {
 
   useEffect(() => {
     if (!fileId || !enabled) return;
-    let isMounted = true;
-    const { promise, release } = acquireObjectUrl(fileId);
-    promise.then((url) => {
-      if (!isMounted) return;
-      setState((prev) => {
-        if (prev.url === url && !prev.isLoading) return prev;
-        return { url, isLoading: false };
-      });
-    });
-    return () => {
-      isMounted = false;
+    let active = true;
+    let failed = false;
+    let release = () => {};
+    const load = () => {
+      failed = false;
       release();
+      const acquired = acquireObjectUrl(fileId);
+      release = acquired.release;
+      acquired.promise.then((url) => {
+        if (!active) return;
+        failed = !url;
+        setState((prev) =>
+          prev.url === url && !prev.isLoading ? prev : { url, isLoading: false }
+        );
+      });
     };
-  }, [fileId, enabled, retryKey]);
-
-  useEffect(() => {
-    if (!fileId || !enabled || state.isLoading || state.url) return;
-    const retryWhenVisible = () => {
-      if (document.visibilityState === 'hidden') return;
-      setRetryKey((key) => key + 1);
+    const retry = () => {
+      if (failed && document.visibilityState !== 'hidden') load();
     };
-    window.addEventListener('online', retryWhenVisible);
-    window.addEventListener('focus', retryWhenVisible);
-    document.addEventListener('visibilitychange', retryWhenVisible);
+    load();
+    const events = [
+      [window, 'focus'],
+      [window, 'online'],
+      [document, 'visibilitychange'],
+    ] as const;
+    events.forEach(([target, name]) => target.addEventListener(name, retry));
     return () => {
-      window.removeEventListener('online', retryWhenVisible);
-      window.removeEventListener('focus', retryWhenVisible);
-      document.removeEventListener('visibilitychange', retryWhenVisible);
+      active = false;
+      release();
+      events.forEach(([target, name]) => target.removeEventListener(name, retry));
     };
-  }, [fileId, enabled, state.isLoading, state.url]);
+  }, [fileId, enabled]);
 
   return { imageUrl: state.url, isLoading: state.isLoading };
 }

@@ -328,9 +328,8 @@ export async function getLocalImageUrl(fileId: string): Promise<string | null> {
     const blob = await res.blob();
     // IndexedDB is optional for online viewing. A quota/private-mode failure
     // must not hide an image that Appwrite successfully returned.
-    await cacheImage(fileId, blob).catch((error) => {
-      console.warn('[Storage] Failed to cache downloaded image:', error);
-    });
+    // Cache writes are optional and must not delay image display.
+    void cacheImage(fileId, blob).catch(console.warn);
     return URL.createObjectURL(blob);
   } catch (err) {
     console.error('[Storage] Failed to fetch image:', err);

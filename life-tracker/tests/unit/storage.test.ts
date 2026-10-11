@@ -336,10 +336,7 @@ describe('storage.getLocalImageUrl — cross-device downloads', () => {
       );
       expect(remoteFetch).toHaveBeenCalledOnce();
       expect(imageCacheRef.cache).toHaveBeenCalledOnce();
-      expect(warn).toHaveBeenCalledWith(
-        '[Storage] Failed to cache downloaded image:',
-        expect.any(Error)
-      );
+      expect(warn).toHaveBeenCalledWith(expect.any(Error));
     } finally {
       URL.createObjectURL = originalCreateObjectURL;
       warn.mockRestore();
