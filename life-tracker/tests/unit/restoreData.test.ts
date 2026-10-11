@@ -40,6 +40,46 @@ function jsonBackup(overrides: Record<string, unknown> = {}) { return new File([
 function zipBackup(overrides: Record<string, unknown>, images: Record<string, string> = {}) { const encoder = new TextEncoder(); const files: Record<string, Uint8Array> = { 'manifest.json': encoder.encode(JSON.stringify(backupPayload(overrides))) }; for (const [fileId, contents] of Object.entries(images)) files[`images/${fileId}.webp`] = encoder.encode(contents); const zipped = zipSync(files); const buffer = zipped.slice().buffer as ArrayBuffer; return new File([buffer], 'backup.zip', { type: 'application/zip' }); }
 
 describe('backup restore', () => {
+  it('restores v3 achievements as private aspirations with portable cross-account IDs', async () => {
+    const item = {
+      id: 'goal_original', userId: 'source_owner', title: 'Visit Kyoto', description: 'Someday',
+      achieved: true, achievedAt: '2026-10-11T00:00:00.000Z',
+      createdAt: '2026-10-10T00:00:00.000Z', updatedAt: '2026-10-11T00:00:00.000Z', isDeleted: false,
+    };
+    const file = jsonBackup({
+      version: 3, user: { id: 'source_owner', email: '', name: '' },
+      data: { tasks: [], categories: [], diary: [], settings: [], friendships: [], bucketList: [item] },
+    });
+    await restoreUserData(file, currentUser, { mode: 'merge' });
+    const rows = [...state.rows.bucketList.values()];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ userId: 'user_A', title: item.title, achieved: true, achievedAt: item.achievedAt });
+    expect(rows[0].id).not.toBe(item.id);
+    await restoreUserData(file, currentUser, { mode: 'merge' });
+    expect(state.rows.bucketList.size).toBe(1);
+  });
+  it('legacy v2 Replace does not erase newer aspirations absent from old backup formats', async () => {
+    state.rows.bucketList.set('goal_keep', {
+      id: 'goal_keep', userId: 'user_A', title: 'Keep aspiration',
+      description: '', achieved: false, achievedAt: '', isDeleted: false,
+      createdAt: '2026-10-11T00:00:00.000Z', updatedAt: '2026-10-11T00:00:00.000Z',
+    });
+    await restoreUserData(jsonBackup(), currentUser, { mode: 'replace' });
+    expect(state.rows.bucketList.get('goal_keep')?.isDeleted).toBe(false);
+  });
+  it('v3 Replace tombstones aspirations not present in the authoritative backup', async () => {
+    state.rows.bucketList.set('goal_old', {
+      id: 'goal_old', userId: 'user_A', title: 'Delete from replacement',
+      description: '', achieved: false, achievedAt: '', isDeleted: false,
+      createdAt: '2026-10-11T00:00:00.000Z', updatedAt: '2026-10-11T00:00:00.000Z',
+    });
+    const file = jsonBackup({ version: 3,
+      data: { tasks: [], categories: [], diary: [], settings: [], friendships: [], bucketList: [] },
+    });
+    await restoreUserData(file, currentUser, { mode: 'replace' });
+    expect(state.rows.bucketList.get('goal_old')?.isDeleted).toBe(true);
+  });
+
   it('restores explicitly undated backlog tasks without inventing a calendar date', async () => {
     const item = {
       id: 'task_backlog', title: 'Later task', categoryId: '', date: '',
