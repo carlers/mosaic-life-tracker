@@ -1,17 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: integrate accepted Settings history-return swipe v0.17.0 with latest `dev` v0.16.10. User authorized cleanup and promotion to `dev`, not `main`.
+Current task: complete user-approved v0.17.0 Settings history-return integration deployment on dev. No main promotion.
 
-## Provenance and scope
-- Settings feature stable Preview `feature/settings-history-forward` at `50a64692b8866134ddba7a39c38390e8b5df03aa`: full canonical run 38117583132 SUCCESS; Vercel deployment `dpl_6vRkuba7UudATeB1Hpx9douVJzeM` READY with Scratch.
-- Current dev baseline `6a097ada3bf729d55fa959e7d03da551fea51930` includes granular release-history v0.16.10, release publishing work and corrected aggregate build budgets. Preserve it all.
-- Apply only the feature's navigation source, its unit/DOM regressions, project reference and three v0.17.0 version fields over that baseline. Merge build budget by preserving dev aggregate/precache limits and accepting entry gzip 131752 (within existing baseline ratio); avoid resetting other ceilings.
-- Settings left swipe reopens the last Settings child only after one-entry Back, with guarded route ownership and lazy child-page preview. Preserve right swipe, sheets, direct links, Alerts navigation, reduced motion, and Android/browser/Escape Back.
+## Verified
+- Settings and granular release-history combined Preview `feature/settings-forward-integration` at `cfaf89dcf61636820289fe418f30b3b2b368b5b5`: full canonical run 38118593714 SUCCESS; Vercel `dpl_B9CNKb7G6257t65LWpqVdNHb5rQq` READY using Scratch. All seven size budgets passed (entry gzip 131696/131752).
+- User-approved promotion PR #580 merged to dev `5c8b1efda131ed7cd1315a9e41f9115ec03e7665` (v0.17.0). Dev CI 38118734273 SUCCESS. Source and merged dev tree both `5e456b21b2633b7cf83d27fe4130994fd1067944`; dev first parent was previous dev `6a097ada3bf729d55fa959e7d03da551fea51930`.
+- Exact dev Vercel `dpl_HkFmS81yqaE91YKwHBe83ZZnvqY7` builds against Scratch and compiles/PWA checks, but dev-specific output is 2,050 B larger raw/precache than byte-identical accepted Preview. Raw 2401354 vs limit 2401300 (+54); precache 2485705 vs 2485700 (+5). Other five limits including entry, initial/Home and aggregate gzip pass.
+
+## Repair
+- Budget-only: raise aggregate app raw cap to 2401450 (96 B headroom) and precache cap to 2485800 (95 B headroom) and update the exact regression expectations. Keep entry, initial, Home and aggregate gzip caps unchanged; no UI, Appwrite or app version changes.
+- Task branch `chatgpt/settings-forward-dev-size` targets stable Preview `fix/settings-forward-dev-size`, both based on failed-deploy dev SHA `5c8b1ef`.
 
 ## Next action
-- After the first source optimization, Vercel measured entry gzip 131770 B / 131752 B (+18 B). Consolidate the exhaustively typed lazy route preview switch into a static component map, preserving deferred page mounting, and re-run focused then canonical/Preview acceptance. No size-ceiling increases.
-- The first combined Preview (e8d5900) compiled but Vercel rejected entry gzip 131769 B vs strict 131752 B (+17 B); all other size limits passed. Reuse the already resolved current route parent during swipe navigation, then run focused CI and reaccept full stable Preview/Vercel before dev promotion. Preserve the startup-size ratio guard.
-- AI task branch `chatgpt/settings-forward-dev-integration` targets stable integration Preview `feature/settings-forward-integration`. Request focused CI, squash to integration Preview, require full canonical Quality Gate and Scratch Vercel READY on exact Preview SHA.
-- Then merge accepted integration Preview to `dev` via PR with source-provenance/tree acceptance, verify dev CI and Scratch Vercel readiness. Do not promote main.
-- Manual iOS/Android swipe and Back with open sheets, and Escape-as-Back remain device-specific acceptance; do not claim them completed.
+- Require task focused CI success, squash to stable fix Preview and verify exact canonical/READY Scratch Vercel; then user-authorized budget correction PR to dev.
+- Verify dev CI and live Scratch Vercel READY for the final commit; do not touch main. Device-specific iOS/Android gesture, Android Back with sheets and Escape-as-Back remain manual acceptance.
