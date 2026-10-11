@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assertProductionEvidence, decidePublication, extractReleaseNotes,
   parseProductionBuild, releaseTag, isNewProductionVersion, PRODUCTION_DOMAIN, VERCEL_STATUS_PREFIX,
+  eligibleUnpublishedReleaseRecovery,
 } from '../../scripts/lib/production-release.mjs';
 
 const sha = '95c8b25edeba5e2730252f6d265d392949890caa';
@@ -48,5 +49,27 @@ describe('production release publication safeguards', () => {
     expect(() => decidePublication({ ...base, priorVersion: '0.12.1' })).toThrow();
     expect(() => decidePublication({ ...base, version: '0.5.0' })).toThrow();
     expect(() => decidePublication({ ...base, version: '0.12.1-rc.1' })).toThrow();
+  });
+});
+
+describe('bounded automatic publication recovery', () => {
+  const eligible = {
+    version: '0.17.4', firstParentVersion: '0.17.4', earlierVersion: '0.16.6',
+    previousPromotionVerified: true, originalMergeMatchesSource: true,
+    currentMergeMatchesSource: true,
+    changedFiles: [
+      '.github/workflows/quality-gate.yml',
+      'life-tracker/scripts/check-build-budget-review.mjs',
+    ],
+  };
+  it('recovers a single missed release only for immediately adjacent, approved maintenance', () => {
+    expect(eligibleUnpublishedReleaseRecovery(eligible)).toBe(true);
+    expect(eligibleUnpublishedReleaseRecovery({ ...eligible, earlierVersion: '0.17.4' })).toBe(false);
+    expect(eligibleUnpublishedReleaseRecovery({ ...eligible, firstParentVersion: '0.17.3' })).toBe(false);
+    expect(eligibleUnpublishedReleaseRecovery({ ...eligible, previousPromotionVerified: false })).toBe(false);
+    expect(eligibleUnpublishedReleaseRecovery({ ...eligible, originalMergeMatchesSource: false })).toBe(false);
+    expect(eligibleUnpublishedReleaseRecovery({ ...eligible, currentMergeMatchesSource: false })).toBe(false);
+    expect(eligibleUnpublishedReleaseRecovery({ ...eligible, changedFiles: [] })).toBe(false);
+    expect(eligibleUnpublishedReleaseRecovery({ ...eligible, changedFiles: ['life-tracker/src/App.tsx'] })).toBe(false);
   });
 });

@@ -29,3 +29,21 @@ export function assertReviewedBudgetChange(previous, candidate) {
   }
   return { changed, increased };
 }
+
+
+/**
+ * A production promotion may inherit ceilings already accepted by the exact
+ * second-parent dev tree. This is NOT permission to raise caps in a merge.
+ * Its caller must first verify the source's canonical GitHub acceptance and
+ * the identity of both Git trees; any mismatch fails closed.
+ */
+export function assertAcceptedMainBudgetInheritance({
+  sourceAccepted, exactSourceTree, sourceBudget, candidate,
+}) {
+  if (sourceAccepted !== true || exactSourceTree !== true ||
+      !unchanged(sourceBudget, candidate)) {
+    throw new Error('Main release budget differs from an accepted exact source tree');
+  }
+  validateBuildSizeBudget(sourceBudget);
+  return { inherited: true };
+}

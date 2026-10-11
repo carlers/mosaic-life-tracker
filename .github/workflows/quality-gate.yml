@@ -360,6 +360,8 @@ jobs:
         if: steps.build-app-modules-cache.outputs.cache-hit != 'true'
         run: npm ci --prefer-offline --no-audit
       - name: Reject unreviewed budget relaxation
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # Read-only accepted source evidence for main merge budgets.
         run: node scripts/check-build-budget-review.mjs HEAD^
       - name: Build production app
         run: npm run build

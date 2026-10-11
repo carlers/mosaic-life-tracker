@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { validateVersionFiles, compareVersions } from './lib/versioning.mjs';
 import {
   PRODUCTION_DOMAIN, assertProductionEvidence, decidePublication, extractReleaseNotes,
-  parseProductionBuild, releaseTag, isNewProductionVersion,
+  parseProductionBuild, releaseTag, isNewProductionVersion, eligibleUnpublishedReleaseRecovery,
 } from './lib/production-release.mjs';
 import {
   FIRST_PRODUCTION_RELEASE, FIRST_PRODUCTION_NOTES, historicalBootstrapDecision, assertHistoricalProof,
@@ -149,13 +149,62 @@ if (commit.sha !== candidate || !Array.isArray(commit.parents) || commit.parents
 }
 const previous = await api('/contents/life-tracker/package.json?ref=' + commit.parents[0].sha);
 const oldVersion = JSON.parse(Buffer.from(previous.content, 'base64').toString('utf8')).version;
+let recovered = null;
 if (!isNewProductionVersion(version, oldVersion)) {
   if (version === FIRST_PRODUCTION_RELEASE.version && oldVersion === version) {
     await bootstrapFirstProductionRelease();
-  } else {
-    console.log('No product version increment (' + oldVersion + ' -> ' + version + '); no release.');
+    process.exit(0);
   }
-  process.exit(0);
+  if (version !== oldVersion) {
+    console.log('Production version did not increase; no release.');
+    process.exit(0);
+  }
+  // A missing tag may be recovered only by the *next* fully verified, same-version
+  // maintenance merge. It may not introduce product changes or skip the main CI.
+  const [existingRef, existingRelease, priorPromotion, currentSource] = await Promise.all([
+    api('/git/ref/tags/' + tag, { allow404: true }),
+    api('/releases/tags/' + tag, { allow404: true }),
+    api('/commits/' + commit.parents[0].sha),
+    api('/commits/' + commit.parents[1].sha),
+  ]);
+  if (existingRef || existingRelease) {
+    console.log('Version ' + version + ' already has a release/tag; maintenance merge skips.');
+    process.exit(0);
+  }
+  if (priorPromotion.parents?.length !== 2) {
+    console.log('No immediate prior versioned main promotion; no release.');
+    process.exit(0);
+  }
+  const [earlierPackage, priorSource, priorPRs] = await Promise.all([
+    api('/contents/life-tracker/package.json?ref=' + priorPromotion.parents[0].sha),
+    api('/commits/' + priorPromotion.parents[1].sha),
+    api('/commits/' + priorPromotion.sha + '/pulls?per_page=100'),
+  ]);
+  const earlierVersion = JSON.parse(Buffer.from(earlierPackage.content, 'base64').toString('utf8')).version;
+  const priorPR = priorPRs.find(pr =>
+    pr.merge_commit_sha === priorPromotion.sha && pr.base?.ref === 'main' &&
+    pr.merged_at && pr.state === 'closed'
+  );
+  const changedFiles = execFileSync('git', ['diff', '--name-only', commit.parents[0].sha, candidate], {
+    encoding: 'utf8', timeout: 12000,
+  }).trim().split(String.fromCharCode(10)).filter(Boolean);
+  if (!eligibleUnpublishedReleaseRecovery({
+    version, firstParentVersion: oldVersion, earlierVersion,
+    previousPromotionVerified: !!priorPR,
+    originalMergeMatchesSource: priorPromotion.commit?.tree?.sha === priorSource.commit?.tree?.sha,
+    currentMergeMatchesSource: commit.commit?.tree?.sha === currentSource.commit?.tree?.sha,
+    changedFiles,
+  })) {
+    throw new Error('Unpublished version recovery rejected: source, first-parent, promotion or maintenance scope mismatch');
+  }
+  // The original PR must contain the real product notes; never create new
+  // human-facing notes from the maintenance PR's implementation details.
+  extractReleaseNotes(priorPR.body);
+  recovered = { originalPr: priorPR, earlierVersion,
+    devHead: priorPromotion.parents[1].sha,
+    originalCommit: priorPromotion.sha };
+  console.log('Recovering unpublished version ' + version + ' after reviewed maintenance: ' +
+    priorPromotion.sha + ' -> ' + candidate);
 }
 
 const runs = await api('/commits/' + candidate + '/check-runs?per_page=100');
@@ -168,11 +217,14 @@ const prs = await api('/commits/' + candidate + '/pulls?per_page=100');
 const pr = prs.find(x => x.merge_commit_sha === candidate &&
   x.base?.ref === 'main' && x.merged_at && x.state === 'closed');
 if (!pr) throw new Error('No merged production promotion PR for exact main SHA');
-const notes = extractReleaseNotes(pr.body);
+const notesPr = recovered?.originalPr ?? pr;
+const notes = extractReleaseNotes(notesPr.body);
 const milestoneNotes = formatVersionMilestones(collectProductionMilestones({
-  devHead: commit.parents[1].sha, previousVersion: oldVersion, version,
+  devHead: recovered?.devHead ?? commit.parents[1].sha,
+  previousVersion: recovered?.earlierVersion ?? oldVersion, version,
 }));
-const releaseBody = notes + '\n\nProduction promotion: ' + pr.html_url +
+const releaseBody = notes + '\n\nProduction promotion: ' + notesPr.html_url +
+  (recovered ? '\nVerified CI recovery: ' + pr.html_url : '') +
   (milestoneNotes ? '\n\n' + milestoneNotes : '');
 
 let statuses;
