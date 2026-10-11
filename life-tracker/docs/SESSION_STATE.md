@@ -17,4 +17,4 @@ Current task: fix task completion checkboxes losing pointer clicks while a *diff
 
 ## Verification and handoff
 - Coherent task branch commit requests `[verify:focused]`. Focused CI, full stable Preview canonical gate, Vercel Preview and real mobile/device acceptance are not yet verified.
-- Next action: inspect focused results; fix any failures before squash into `fix/task-checkbox-cross-input-focus`; then confirm exact stable Preview CI and Vercel readiness. No dev/main promotion without explicit approval.
+Next action: inspect focused results; fix any failures before squash into `fix/task-checkbox-cross-input-focus`; then confirm exact stable Preview CI and Vercel readiness. No dev/main promotion without explicit approval.
