@@ -20,6 +20,7 @@ const sdkRef = vi.hoisted(() => ({
   guardedStorageCreateFile: vi.fn(),
   guardedStorageDeleteFile: vi.fn(),
   guardedStorageGetFile: vi.fn(),
+  guardedStorageGetFileBlob: vi.fn(),
   guardedStorageGetFileView: vi.fn(),
   guardedStorageGetFilePreview: vi.fn(),
   guardedStorageUpdateFile: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock('../../src/lib/sdk', () => ({
     deleteFile: sdkRef.guardedStorageDeleteFile,
     getFile: sdkRef.guardedStorageGetFile,
     getFileView: sdkRef.guardedStorageGetFileView,
+    getFileBlob: sdkRef.guardedStorageGetFileBlob,
     getFilePreview: sdkRef.guardedStorageGetFilePreview,
     updateFile: sdkRef.guardedStorageUpdateFile,
   },
@@ -79,6 +81,7 @@ beforeEach(() => {
   sdkRef.guardedAccountGet.mockReset();
   sdkRef.guardedStorageCreateFile.mockReset();
   sdkRef.guardedStorageGetFile.mockReset();
+  sdkRef.guardedStorageGetFileBlob.mockReset();
   sdkRef.guardedStorageUpdateFile.mockReset();
   sdkRef.guardedStorageDeleteFile.mockReset();
   pendingRef.create.mockReset();
@@ -313,102 +316,90 @@ describe('storage.saveImage — offline staging', () => {
   });
 });
 
-describe('storage.getLocalImageUrl — cross-device downloads', () => {
-  it('displays the complete remote image when browser caching fails', async () => {
+describe('storage.getLocalImageUrl — authenticated cross-device downloads', () => {
+  it('uses the SDK-authenticated download and displays complete bytes even if offline caching fails', async () => {
     markConnectivityOnline('test');
     imageCacheRef.get.mockResolvedValueOnce(undefined);
     imageCacheRef.cache.mockRejectedValueOnce(new Error('QuotaExceededError'));
-    sdkRef.guardedStorageGetFileView.mockReturnValueOnce(
-      new URL('https://storage.example.test/file')
-    );
-    const remoteFetch = vi.fn().mockResolvedValue(
-      new Response(new Blob(['valid-image'], { type: 'image/webp' }), {
-        status: 200,
-      })
-    );
-    vi.stubGlobal('fetch', remoteFetch);
-    const originalCreateObjectURL = URL.createObjectURL;
-    URL.createObjectURL = vi.fn(() => 'blob:remote-photo');
+    const blob = new Blob(['valid-image'], { type: 'image/png' });
+    sdkRef.guardedStorageGetFileBlob.mockResolvedValueOnce(blob);
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:remote-photo');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      await expect(getLocalImageUrl('img_remote')).resolves.toBe(
-        'blob:remote-photo'
-      );
-      expect(remoteFetch).toHaveBeenCalledOnce();
-      expect(imageCacheRef.cache).toHaveBeenCalledOnce();
-      expect(warn).toHaveBeenCalledWith(expect.any(Error));
+      await expect(getLocalImageUrl('img_remote')).resolves.toBe('blob:remote-photo');
+      expect(sdkRef.guardedStorageGetFileBlob).toHaveBeenCalledWith({
+        bucketId: 'task_images',
+        fileId: 'img_remote',
+      });
+      expect(createUrl).toHaveBeenCalledWith(blob);
+      expect(imageCacheRef.cache).toHaveBeenCalledWith('img_remote', blob);
+      expect(warn).toHaveBeenCalled();
     } finally {
-      URL.createObjectURL = originalCreateObjectURL;
+      createUrl.mockRestore();
       warn.mockRestore();
-      vi.unstubAllGlobals();
       markConnectivityOffline('test-reset');
     }
   });
 
-  it('downloads from Appwrite when desktop IndexedDB reads fail', async () => {
+  it('downloads from Appwrite when IndexedDB reads fail on a new device', async () => {
     markConnectivityOnline('test');
     imageCacheRef.get.mockRejectedValueOnce(new Error('IndexedDB disabled'));
-    sdkRef.guardedStorageGetFileView.mockReturnValueOnce(
-      new URL('https://storage.example.test/file')
-    );
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
-      new Response(new Blob(['valid-image'], { type: 'image/webp' }), { status: 200 })
-    ));
-    const originalCreateObjectURL = URL.createObjectURL;
-    URL.createObjectURL = vi.fn(() => 'blob:restored');
+    sdkRef.guardedStorageGetFileBlob.mockResolvedValueOnce(new Blob(['complete']));
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:restored');
     try {
-      await expect(getLocalImageUrl('img_cache_read_failure')).resolves.toBe(
-        'blob:restored'
-      );
-      expect(fetch).toHaveBeenCalledOnce();
+      await expect(getLocalImageUrl('img_cache_read_failure')).resolves.toBe('blob:restored');
+      expect(sdkRef.guardedStorageGetFileBlob).toHaveBeenCalledOnce();
     } finally {
-      URL.createObjectURL = originalCreateObjectURL;
-      vi.unstubAllGlobals();
+      createUrl.mockRestore();
       markConnectivityOffline('test-reset');
     }
   });
 
-  it('ignores a damaged pre-existing cache entry when the user refreshes the photo', async () => {
+  it('bypasses a damaged old cache entry on manual Retry', async () => {
     markConnectivityOnline('test');
     imageCacheRef.get.mockResolvedValueOnce(new Blob(['bad'], { type: 'image/webp' }));
-    sdkRef.guardedStorageGetFileView.mockReturnValueOnce(
-      new URL('https://storage.example.test/file')
-    );
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
-      new Response(new Blob(['recovered'], { type: 'image/webp' }), { status: 200 })
-    ));
-    const originalCreateObjectURL = URL.createObjectURL;
-    URL.createObjectURL = vi.fn(() => 'blob:recovered-old-photo');
+    const replacement = new Blob(['recovered'], { type: 'image/webp' });
+    sdkRef.guardedStorageGetFileBlob.mockResolvedValueOnce(replacement);
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:recovered-old-photo');
     try {
-      await expect(getLocalImageUrl('img_existing', true)).resolves.toBe(
-        'blob:recovered-old-photo'
-      );
+      await expect(getLocalImageUrl('img_existing', true)).resolves.toBe('blob:recovered-old-photo');
       expect(imageCacheRef.get).not.toHaveBeenCalled();
-      expect(imageCacheRef.cache).toHaveBeenCalledWith(
-        'img_existing', expect.any(Blob)
-      );
+      expect(imageCacheRef.cache).toHaveBeenCalledWith('img_existing', replacement);
     } finally {
-      URL.createObjectURL = originalCreateObjectURL;
-      vi.unstubAllGlobals();
+      createUrl.mockRestore();
       markConnectivityOffline('test-reset');
     }
   });
 
-  it('does not cache or display a partial HTTP image response', async () => {
+  it.each([401, 403, 404, 206])('preserves the old cache when the cloud responds HTTP %s', async (code) => {
     markConnectivityOnline('test');
-    imageCacheRef.get.mockResolvedValueOnce(undefined);
-    sdkRef.guardedStorageGetFileView.mockReturnValueOnce(
-      new URL('https://storage.example.test/file')
+    imageCacheRef.get.mockResolvedValueOnce(new Blob(['old-photo']));
+    sdkRef.guardedStorageGetFileBlob.mockRejectedValueOnce(
+      Object.assign(new Error('Cloud file unavailable'), { code })
     );
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
-      new Response('partial-bytes', { status: 206 })
-    ));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
-      await expect(getLocalImageUrl('img_partial')).resolves.toBeNull();
+      await expect(getLocalImageUrl('img_existing', true)).resolves.toBeNull();
+      expect(imageCacheRef.get).not.toHaveBeenCalled();
       expect(imageCacheRef.cache).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith('[Storage] Failed to fetch image:', expect.objectContaining({ code }));
     } finally {
-      vi.unstubAllGlobals();
+      log.mockRestore();
       markConnectivityOffline('test-reset');
+    }
+  });
+
+  it('reads a pending offline original from its own device without a remote request', async () => {
+    const original = new Blob(['offline-original'], { type: 'image/webp' });
+    pendingRef.get.mockResolvedValueOnce(original);
+    markConnectivityOffline('test');
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:pending');
+    try {
+      await expect(getLocalImageUrl('localimg_a1')).resolves.toBe('blob:pending');
+      expect(createUrl).toHaveBeenCalledWith(original);
+      expect(sdkRef.guardedStorageGetFileBlob).not.toHaveBeenCalled();
+    } finally {
+      createUrl.mockRestore();
     }
   });
 });

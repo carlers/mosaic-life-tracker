@@ -1,6 +1,6 @@
 import { Functions, Storage, TablesDB } from 'appwrite';
 import { client, account } from './appwrite';
-import { dispatchUnauthorized, guardedCall } from './authEvents';
+import { dispatchUnauthorized, guardedCall, makeUnauthorizedError } from './authEvents';
 
 const rawTablesDB = new TablesDB(client);
 const rawStorage = new Storage(client);
@@ -150,6 +150,27 @@ export const guardedStorage = {
     guardedCall(() => rawStorage.updateFile(params as never)),
   getFile: (params: GetFileParams): Promise<GetFileResult> =>
     guardedCall(() => rawStorage.getFile(params as never)),
+  // The Appwrite SDK prepares requests with its fallback session header
+  // (needed on browsers that block cross-site session cookies). Keep the
+  // response status so partial file responses are never cached as originals.
+  getFileBlob: (params: GetFileViewParams): Promise<Blob> =>
+    guardedCall(async () => {
+      const { uri, options } = client.prepareRequest(
+        'GET',
+        new URL(rawStorage.getFileView(params as never)),
+        { 'X-Appwrite-Project': client.config.project, accept: '*/*' }
+      );
+      const response = await fetch(uri, options);
+      if (response.status !== 200) {
+        if (response.status === 401) throw makeUnauthorizedError();
+        throw Object.assign(new Error(`Image download failed (HTTP ${response.status})`), {
+          code: response.status,
+        });
+      }
+      const blob = await response.blob();
+      if (blob.size === 0) throw new Error('Image download was empty.');
+      return blob;
+    }),
   // URL builders are synchronous — no network call, no guardedCall needed.
   getFileView: (params: GetFileViewParams): GetFileViewResult =>
     rawStorage.getFileView(params as never),

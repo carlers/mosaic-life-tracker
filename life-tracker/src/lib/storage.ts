@@ -1,7 +1,5 @@
 import { Permission, Role } from 'appwrite';
 import {
-  guardedCall,
-  makeUnauthorizedError,
   isUnauthorizedError,
   OfflineError,
 } from './authEvents';
@@ -14,13 +12,9 @@ import {
   getPendingImage,
   isPendingImageId,
 } from './pendingImages';
-import {
-  APPWRITE_PROJECT_ID,
-  APPWRITE_STORAGE_BUCKET_ID,
-} from './appwriteConfig';
+import { APPWRITE_STORAGE_BUCKET_ID } from './appwriteConfig';
 
 const APPWRITE_CONFIG = {
-  projectId: APPWRITE_PROJECT_ID,
   bucketId: APPWRITE_STORAGE_BUCKET_ID,
 };
 
@@ -291,23 +285,10 @@ export async function getLocalImageUrl(fileId: string, refreshFromCloud = false)
     if (cached) return URL.createObjectURL(cached);
     if (pending || getConnectivitySnapshot().status !== 'online') return null;
 
-    const response = await guardedCall(async () => {
-      const result = await fetch(
-        guardedStorage.getFileView({
-          bucketId: APPWRITE_CONFIG.bucketId,
-          fileId,
-        }).toString(),
-        {
-          credentials: 'include',
-          headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
-        }
-      );
-      if (result.status === 401) throw makeUnauthorizedError();
-      return result;
+    const blob = await guardedStorage.getFileBlob({
+      bucketId: APPWRITE_CONFIG.bucketId,
+      fileId,
     });
-    // Do not cache partial responses as complete photos.
-    if (response.status !== 200) return null;
-    const blob = await response.blob();
     // Display the complete download even if the browser rejects caching it.
     void cacheImage(fileId, blob).catch(console.warn);
     return URL.createObjectURL(blob);
