@@ -194,10 +194,13 @@ describe('build-size guard', () => {
     // but its live Vercel build measured 2,400,745 B raw, 741,191 B gzip,
     // and 2,485,096 B precache. Raise only these aggregate caps with
     // 555–609 B headroom; startup/Home bounds stay unchanged.
+    // v0.17.0: byte-identical accepted source uses 2,050 additional raw/
+    // precache bytes on the dev Vercel target; measured overages were
+    // 54 B and 5 B. Keep these dev-specific headroom increases below 150 B.
     expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2401300,
+      appAssetsRawBytes: 2401450,
       appAssetsGzipBytes: 741800,
-      precacheUniqueBytes: 2485700,
+      precacheUniqueBytes: 2485800,
     });
   });
 
