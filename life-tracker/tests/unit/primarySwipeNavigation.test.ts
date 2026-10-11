@@ -31,7 +31,7 @@ describe('resolvePrimarySwipeDestination', () => {
 
   // Regression: §2 (Settings can swipe forward only after a verified Back).
   it('reopens only the adjacent Settings child preserved by browser/Android Back', () => {
-    const previous = (path: string, parent: string | null = '/settings') =>
+    const previous = (path: string, parent: string | null = resolveRouteParent(path)) =>
       ({ path, parent });
     const settings = '/settings';
     const delta = -1;
