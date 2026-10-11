@@ -29,6 +29,21 @@ when the stable Preview gate already owns canonical acceptance; do not weaken ex
 checks by reclassifying a source/config change as prose. The executable Quality Gate in
 `../../.github/workflows/quality-gate.yml` remains authoritative for what CI actually runs.
 
+## Batch B/C workflow status (#592)
+
+The stable Batch A Preview is a proven workflow-only starting point; it is not
+a shortcut to `dev` or `main`. New changes need a fresh task-focused gate,
+stable Preview canonical success and Vercel READY. Use the read-only
+`promotion:preflight` in [delivery](DELIVERY.md) before requesting an approved
+`dev` promotion; never automatically reconcile semantic or version conflicts.
+
+Do not relax mandatory global `SESSION_STATE.md` edits until a real
+**new-chat** issue/topic recovery comparison demonstrates equivalent fidelity.
+Issue checkpoints are already the preferred cross-chat resume index. A
+same-chat exercise or documentation unit test alone is insufficient evidence.
+Existing #526 Scratch single-writer workflow and #520 branch hygiene remain
+separate workstreams rather than being reimplemented here.
+
 ## Issues as work intake
 
 For "add to backlog", "plan issue #N", "critique issue #N", and "implement #N",

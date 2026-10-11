@@ -102,6 +102,37 @@ category branches such as `fix/*`, `feature/*`, and `perf/*` are stable Preview
 branches. There is no deployment-only `preview` branch. Source development continues on
 these branches and AI task branches.
 
+## Read-only promotion preflight (#592)
+
+Before creating a new stable Preview → `dev` promotion PR, use the optional
+`promotion:preflight` tool from `life-tracker/` with a locally available full Git
+history and **read-scoped** GitHub/Vercel environment tokens. It is **not a merge
+command**, a queue, or a replacement for explicit user approval.
+
+```bash
+GITHUB_TOKEN=<read-scoped-token> VERCEL_TOKEN=<read-scoped-token> \
+PROMOTION_VERSION_IMPACT=none PROMOTION_BACKEND_DEPENDENT=false \
+npm run promotion:preflight -- feature/example <expected-exact-dev-sha>
+```
+
+The tool reads live source/dev refs, exact source canonical CI, the Preview
+Vercel deployment, sanitized build-feature scopes and application versions.
+It runs local `git merge-tree --write-tree` without modifying Git HEAD, and
+re-reads refs to reject an observed race. A conflict, missing/failed CI or
+deployment, changed dev HEAD, feature scope drift, or version regression blocks
+promotion. A different integration tree means **create a new integrated Preview
+and rerun acceptance**. For backend-dependent work set
+`PROMOTION_BACKEND_DEPENDENT=true` with `EXPECTED_SCRATCH_DEPLOYMENT_ID`
+and read-back `OBSERVED_SCRATCH_DEPLOYMENT_ID`, and validate live Scratch
+schema/consumer compatibility separately under the Scratch runbook.
+
+A safe result is **advisory and short-lived**, never permission to merge;
+verify GitHub HEAD/PR tree, current Vercel build and relevant active Scratch
+deployment again immediately before an approved merge. Existing post-merge
+promotion-verification and deployment gates remain authoritative. If
+provider permissions or tokens are unavailable, fail closed and verify the
+same evidence with connected GitHub/Vercel read tools; never skip it.
+
 ## Preview branch promotion policy
 
 Individual development branches such as `chatgpt/*` and `codex/*` should enter the active stable Preview branch through **Squash and merge**. This keeps experimental development commits out of the durable Preview history while preserving the detailed development history in the pull request.

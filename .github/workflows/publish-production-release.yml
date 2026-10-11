@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: ['Quality Gate']
     types: [completed]
+    branches: [main] # Avoid a skipped publication run for every non-main Quality Gate.
   workflow_dispatch:
   schedule:
     - cron: '17 */6 * * *'
