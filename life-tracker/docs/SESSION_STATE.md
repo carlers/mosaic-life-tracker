@@ -10,7 +10,7 @@ Current task: granular production version history and compact offline-first rele
 - Frontend + trusted release publisher/workflow only. No Appwrite schema, Function, keys or production deployments touched.
 
 ## Candidate
-- Verified dev first-parent version milestones are embedded in published GitHub Release notes (one genuine production tag per promotion). Historical v0.16.6 notes may be backfilled on a later production publication only after pinned tag/ancestry/prod proof.
+- Verified dev first-parent version milestones are embedded in published GitHub Release notes (one genuine production tag per promotion). Existing v0.12.1/v0.12.2/v0.16.6 notes may be backfilled on a later production publication only after pinned tag/parent-version/ancestry/prod proof.
 - Settings release list groups individual milestone rows under each actual production release, retains original aggregate notes, safely formats Markdown and reduces spacing.
 - Public account-independent localStorage history is rendered immediately from cache with on-demand refresh and offline fallback. Lazy route preserved.
 - Version synchronized to 0.16.8; parser, UI, publisher and cache regressions included.

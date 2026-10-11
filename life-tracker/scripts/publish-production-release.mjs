@@ -198,43 +198,59 @@ for (let attempt = 1; attempt <= 12; attempt++) {
 }
 if (!ready) throw new Error('Production not READY');
 
-// Evidence-backed one-time reconstruction of the versions folded into v0.16.6.
-// Never move the historical tag or backfill an unverified or later release.
-async function reconcileV0166Milestones() {
-  const sha = '614cd1dccbd01bf70493874496559720b320151a';
-  const tag = 'v0.16.6';
-  if (compareVersions(version, '0.16.6') < 0) return;
-  const [release, ref, historical, ancestry] = await Promise.all([
-    api('/releases/tags/' + tag, { allow404: true }),
-    api('/git/ref/tags/' + tag, { allow404: true }),
-    api('/commits/' + sha),
-    api('/compare/' + sha + '...' + candidate),
-  ]);
-  if (!release) return;
-  if (ref?.object?.sha !== sha || ref.object.type !== 'commit' ||
-      historical.parents?.length !== 2 ||
-      ancestry.merge_base_commit?.sha !== sha ||
-      !['identical', 'ahead'].includes(ancestry.status) ||
-      release.tag_name !== tag || release.target_commitish !== sha ||
-      release.draft || release.prerelease || !release.published_at ||
-      typeof release.body !== 'string') {
-    throw new Error('Historical v0.16.6 publication proof mismatched; no backfill');
-  }
-  if (release.body.includes(MILESTONE_START)) return;
-  const records = collectProductionMilestones({
-    devHead: historical.parents[1].sha, previousVersion: '0.12.2', version: '0.16.6',
-  });
-  const details = formatVersionMilestones(records);
-  if (!details) return;
-  if (await mainSha() !== candidate) throw new Error('Main changed before historical notes backfill');
-  const updated = await api('/releases/' + release.id, {
-    method: 'PATCH', body: { body: release.body.trim() + '\n\n' + details },
-  });
-  if (updated.id !== release.id || !updated.body?.includes(MILESTONE_START)) {
-    throw new Error('Historical release notes backfill was not confirmed');
+// Notes-only reconstruction for the three already-published production merges.
+// Verified first-parent version bounds and exact direct tag SHAs prevent invented
+// releases and prevent a backfill from silently rewriting any Git history.
+async function reconcileHistoricalMilestones() {
+  const historical = [
+    { tag: 'v0.12.1', sha: '95c8b25edeba5e2730252f6d265d392949890caa',
+      previousVersion: '0.6.2', version: '0.12.1' },
+    { tag: 'v0.12.2', sha: 'dbc19acd901e545511255553ed5d8b9b4deda4c1',
+      previousVersion: '0.12.1', version: '0.12.2' },
+    { tag: 'v0.16.6', sha: '614cd1dccbd01bf70493874496559720b320151a',
+      previousVersion: '0.12.2', version: '0.16.6' },
+  ];
+  for (const item of historical) {
+    if (compareVersions(version, item.version) < 0) continue;
+    const release = await api('/releases/tags/' + item.tag, { allow404: true });
+    if (!release) continue;
+    if (typeof release.body !== 'string' || release.body.includes(MILESTONE_START)) continue;
+    const [ref, archived, ancestry] = await Promise.all([
+      api('/git/ref/tags/' + item.tag, { allow404: true }),
+      api('/commits/' + item.sha),
+      api('/compare/' + item.sha + '...' + candidate),
+    ]);
+    const prior = archived.parents?.[0]?.sha;
+    let priorVersion;
+    try {
+      priorVersion = JSON.parse(execFileSync('git', [
+        'show', prior + ':life-tracker/package.json',
+      ], { encoding: 'utf8' })).version;
+    } catch { throw new Error('Missing historical parent version for ' + item.tag); }
+    if (ref?.object?.sha !== item.sha || ref.object.type !== 'commit' ||
+        archived.parents?.length !== 2 || priorVersion !== item.previousVersion ||
+        ancestry.merge_base_commit?.sha !== item.sha ||
+        !['identical', 'ahead'].includes(ancestry.status) ||
+        release.tag_name !== item.tag || release.target_commitish !== item.sha ||
+        release.draft || release.prerelease || !release.published_at) {
+      throw new Error('Historical publication proof mismatched for ' + item.tag);
+    }
+    const records = collectProductionMilestones({
+      devHead: archived.parents[1].sha,
+      previousVersion: item.previousVersion, version: item.version,
+    });
+    const details = formatVersionMilestones(records);
+    if (!details) continue;
+    if (await mainSha() !== candidate) throw new Error('Main changed before historical notes backfill');
+    const updated = await api('/releases/' + release.id, {
+      method: 'PATCH', body: { body: release.body.trim() + '\n\n' + details },
+    });
+    if (updated.id !== release.id || !updated.body?.includes(MILESTONE_START)) {
+      throw new Error('Historical release notes backfill failed for ' + item.tag);
+    }
   }
 }
-await reconcileV0166Milestones();
+await reconcileHistoricalMilestones();
 
 async function tagSha() {
   const ref = await api('/git/ref/tags/' + tag, { allow404: true });
