@@ -19,5 +19,10 @@ Current task: Mosaic issue #592 — approved Batch B/C workflow improvements, is
 - Batch B1 adds explicit focused documentation-contract unit verification for Markdown changes; regression covers the selector and #520's previously missed checkpoint failure class. No app version/budget/backend/UI changes.
 - Existing #592 preflight/publisher stable Preview is separate; check its canonical CI and Vercel before asserting acceptance.
 
+## Integrated branch hygiene (#520)
+
+- User-authorized C2 has a separate verified hygiene Preview `feature/branch-hygiene` SHA `40523470d504a4eacee9782ecd54c175a5ed0b96` and exact canonical run 38129050918 SUCCESS after browser-test retry. Its 72-hour policy/scripts/tests/workflow are being carried into this **current v0.17.2 B/C Preview** without transferring the obsolete old-dev checkpoint.
+- Source-control-only: scheduled cleanup is not active until a future separately approved main promotion. No branch deletion or Appwrite operation performed.
+
 ## Next action
 Run focused task checks, repair failures, squash accepted task into a separate stable Preview, verify full canonical CI and Vercel READY. Independently verify #520 stable Preview canonical/Vercel. No dev/main promotion without user instruction.
