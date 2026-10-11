@@ -129,6 +129,42 @@ test('nested sheets automatically prevent underlay interaction without caller su
   await expect.poll(() => root.evaluate((node) => node.inert)).toBe(false);
 });
 
+test('nested sheets paint in depth order and restore the parent surface on Back', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/bottom-sheet-history.html`);
+  await page.getByRole('button', { name: 'Open parent sheet' }).click();
+  const parent = page.getByRole('dialog', { name: 'Parent sheet', includeHidden: true });
+  await expect(parent).toBeVisible();
+  const initialWidth = await parent.evaluate((element) => element.getBoundingClientRect().width);
+
+  await page.getByRole('button', { name: 'Open nested sheet' }).click();
+  const nested = page.getByRole('dialog', { name: 'Nested sheet' });
+  await expect(nested).toBeVisible();
+
+  // Geometry/paint order is the product contract: the parent must recede,
+  // and the nested backdrop must actually shade it, not render behind it.
+  await expect.poll(() => parent.evaluate((element) => element.getBoundingClientRect().width))
+    .toBeLessThan(initialWidth - 2);
+  await expect.poll(() => page.evaluate(() => {
+    const dialogs = [...document.querySelectorAll('[role="dialog"]')];
+    const backdrops = [...document.body.children].filter((element) =>
+      element.getAttribute('aria-hidden') === 'true' &&
+      !element.hasAttribute('role') &&
+      getComputedStyle(element).position === 'fixed'
+    );
+    if (dialogs.length !== 2 || backdrops.length !== 2) return false;
+    const depth = (element) => Number.parseInt(getComputedStyle(element).zIndex, 10);
+    return depth(backdrops[0]) < depth(dialogs[0]) &&
+      depth(dialogs[0]) < depth(backdrops[1]) &&
+      depth(backdrops[1]) < depth(dialogs[1]);
+  })).toBe(true);
+
+  await page.evaluate(() => window.history.back());
+  await expect(nested).toBeHidden();
+  await expect(page.getByRole('dialog', { name: 'Parent sheet' })).toBeVisible();
+  await expect.poll(() => parent.evaluate((element) => element.getBoundingClientRect().width))
+    .toBeGreaterThan(initialWidth - 1);
+});
+
 async function armExitTiming(page, title) {
   await page.evaluate((name) => {
     const sheet = [...document.querySelectorAll('[role="dialog"]')]
