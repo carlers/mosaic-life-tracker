@@ -1,15 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Cross-device task-photo authenticated downloads (user-approved Preview bug fix).
+Current task: #645 — Speed up fresh-chat-to-Preview delivery (Phase 1).
 
 ## Objective and isolation
-- Fix photo download failures on phone/desktop when third-party cookies are blocked. The prior raw fetch sent credentials but omitted Appwrite's X-Fallback-Cookies session header; task-sync and per-photo Retry cannot repair that HTTP authorization failure.
-- Base dev: `5ec3f3f2250beacf55cd9c23a7f35d53e68275f2` (v0.17.8). Task branch: `chatgpt/task-photo-authenticated-download-20261012`. Stable Preview: `fix/task-photo-authenticated-download-20261012`. Candidate Preview v0.17.9.
-- Add `guardedStorage.downloadFileBlob` using Appwrite SDK `client.prepareRequest` for the fallback session and normal cookie credentials. Demand HTTP 200 before caching; 401 remains distinguishable. Reuse for task thumbnails, full-view cache and photo backup export, without changing bucket permissions or deleting pending offline originals.
-- Read-only Appwrite inspection: Production has 89 active task-photo references, every file exists and is authenticated-user readable; Scratch has 46 references, every file exists, with four legacy different permission grants. No Appwrite mutation authorized. Preview is Scratch-only and cannot access real production photos.
+- User approved implementation of issue #645 after hardened plan. First batch fixes unnecessarily broad focused Vitest when a Preview version stamp changes only package version metadata.
+- Base dev: `48005f0f9327a0ac5d028f2615034a5e2c1ed80f`, version v0.17.9. Task: `chatgpt/focused-version-stamps-645`. Stable Preview: `refactor/focused-version-stamps-645`. Product version impact NONE.
+- `scripts/lib/focused-verification.mjs` compares entire parsed previous/current package JSON after normalizing only root version (and lockfile `packages[""].version`); missing/ambiguous/malformed/unrelated changes stay broad. `scripts/verify-focused.mjs` reads exact Git base and HEAD blobs before selecting tests.
+- Regression tests cover version-only metadata, lockfile dependency drift, malformed/missing evidence, unchanged/version-inconsistent data, mixed frontend + docs changes, and retained config broad triggers. All standard contracts, doc checks and full stable Preview canonical gates remain.
+- No Appwrite/config changes, no auto-merge, and no dev/main promotion authorization. #592/#506/#412 scopes remain separate.
 
 ## Next action
-- Complete one coherent focused task commit with regression tests (SDK session fallback, non-200 handling, cache-bypass recovery, offline staged originals and backup export).
-- After focused CI passes, squash PR into stable Preview; verify exact stable SHA Quality Gate canonical success, Vercel READY/Scratch identity and build-size guard.
-- User must manually test real Android/iOS and two-device photo fetch, including previously unavailable images. No authorization to merge dev/main or touch Production.
+- Verify the coherent task commit with `[verify:focused]`; investigate any failures before PR squash.
+- Squash accepted task PR into stable Preview, then verify exact-source canonical GitHub CI and Vercel READY.
+- Add issue #645 evidence/checkpoint; measure subsequent comparable tasks before designing optional Phase 2 shortcuts. A later unattended task-PR squash mechanism is explicitly conditional on actual measured benefit.
+- Keep dev and main unchanged until separately authorized.
