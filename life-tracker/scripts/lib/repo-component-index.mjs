@@ -35,13 +35,15 @@ export function listSourceModules(root = projectRoot) {
 }
 
 function escapeMarkdown(value) {
-  return value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')
+  return value.replace(/\r/g, '\\r').replace(/\n/g, '\\n')
+    .replace(/\\/g, '\\\\').replace(/\|/g, '\\|')
     .replace(/\[/g, '\\[').replace(/\]/g, '\\]')
     .replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function encodedLink(path) {
-  return path.split('/').map(encodeURIComponent).join('/');
+  return path.split('/').map((part) => encodeURIComponent(part).replace(/[!'()*]/g,
+    (char) => '%' + char.charCodeAt(0).toString(16).toUpperCase())).join('/');
 }
 
 function groupFor(path) {

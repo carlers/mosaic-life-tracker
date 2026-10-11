@@ -69,12 +69,12 @@ describe('repository module inventory', () => {
   it('escapes potentially hostile filenames in markdown tables and source links', () => {
     const { root, add } = fixture();
     try {
-      add('src/components/ui/Bad]|#<name>.tsx');
+      add('src/components/ui/Bad]|#<name>(v1).tsx');
       add('src/pages/A|B.tsx');
       const output = renderComponentIndex(listSourceModules(root));
       expect(output).toContain('A\\|B');
-      expect(output).toContain('Bad\\]\\|#&lt;name&gt;');
-      expect(output).toContain('Bad%5D%7C%23%3Cname%3E.tsx');
+      expect(output).toContain('Bad\\]\\|#&lt;name&gt;(v1)');
+      expect(output).toContain('Bad%5D%7C%23%3Cname%3E%28v1%29.tsx');
       expect(output).not.toContain('](../src/components/ui/Bad]|');
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
