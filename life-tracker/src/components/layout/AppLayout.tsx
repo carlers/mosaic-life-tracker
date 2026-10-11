@@ -370,7 +370,7 @@ export const AppLayout: React.FC = () => {
     // Do not repeat the slide when its navigation is a browser-history POP.
     setSkipCompositorTo(destination);
 
-    const parent = resolveRouteParent(path, location.state);
+    const parent = currentTransition.parent;
     if (direction === 'right' && parent) {
       if (hasExpectedRouteParent(location.key, location.state, parent)) {
         navigate(-1);
