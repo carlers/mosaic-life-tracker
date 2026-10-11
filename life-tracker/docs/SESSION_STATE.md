@@ -1,20 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-12 UTC
-Current task: Mosaic #640, persistent first Calendar → Day View sheet delay after refresh even when Home idles for one minute.
+Active issue: #640 — first Calendar day-cell tap after reload delayed even after a minute idle; every later tap instant.
 
-## Live verified basis
-- v0.17.9 stable Preview `perf/day-view-idle-warmup-20261011` @ `9d6b631f6a7ce57809e0430d96b44ebae39b4579` is Vercel READY at `https://mosaic-life-tracker-git-perf-day-38751e-carls-projects-72516fde.vercel.app`; user reports first tap still slow but later opens instant. No dev/main promotion authorized.
-- Earlier synthetic Chromium probe (not real device): 181 physical Swiper slides reduced to ~9 Virtual DOM slides; longest 50-task first-open main-thread task 235→82ms. This did not establish tap-to-first-visible-sheet latency. Prior module warmup and two-frame content defer alone had also failed user acceptance.
-- Real-path source review: `CalendarBody` lazily mounts the entire `DayViewSheet` after a day-cell click. The old `BottomSheet` only deferred child reconciliation; `DayViewSheet` data hooks and JSX slide construction still ran before the shell could paint.
+## Verified defect and fix
+- User rejected prior v0.17.7-v0.19.3 stable Preview optimizations. v0.19.3 exact stable Preview commit `08da46514fae1bbaded4b6a74812d642725d4728` had canonical CI SUCCESS and Scratch Vercel READY but failed mobile perceived-latency acceptance.
+- Root cause now isolated by deterministic RED/GREEN DOM regression: `loadDayViewSheet()` warmed its dynamic import but `React.lazy` remained uninitialized until the first render. Its `Suspense fallback={null}` committed **no Day View sheet** on the first synchronous React commit despite a resolved preload. Running `DayViewPreloadFirstCommit.test.tsx` against the unchanged v0.19.3 module failed (`expected null not to be null`); against the new loader passed.
+- Candidate task `chatgpt/dayview-preloaded-lazy-20261012`, v0.19.4, branches from v0.19.3 stable Preview: cache the actual resolved component, choose direct component at first mount when warm, preserve the original lazy+Suspense cold path for early taps. Freeze selected component type per mount so a still-loading tap does not unmount/remount when the import resolves. Remove redundant outer Suspense wrappers in Calendar and Home Search. Preserve idle scheduling, avoiding startup fetches and backend changes. Extend the real CalendarBody browser test to assert its first warmed tap paints the shell in the same React flush, not merely eventually.
+- Reference: React docs specify lazy(load) first invokes load at first render; May 2026 React issue #36569 reproduces ~300ms first mount delay on an already-preloaded module (unconfirmed upstream). The RED/GREEN Mosaic unit test independently establishes the actual faulty rendering branch; device-sized latency is still unmeasured.
 
-## Candidate implementation
-- `chatgpt/day-view-first-paint-20261012`, v0.19.3, based on accepted stable Preview. Split lightweight `BottomSheet` outer host from `DayViewSheetInner`, so the existing two-frame portal-content delay defers cold hook/Swiper/task initialization until after the shell can paint. Forward close/reset, settled animation, horizontal gestures, select-to-dismiss and nested/reorder lock controls; leave inline/backlog behavior unchanged.
-- Added actual `CalendarBody → DayCell → lazy DayViewSheet` browser harness, opt-in timeline and shell-before-slides browser ordering regression; the old isolated-button perf probe remains diagnostic only. No backend/Appwrite changes.
-- Local verification: TypeScript passes, ESLint 0 new errors (three pre-existing warnings), 460 DOM tests pass, production build and all seven size budgets pass, version and project contracts pass.
-- Task commit `8da8a66329e0a5b6b2ac5ae0dd3729b13acf5a50`: GitHub browser shards 1/2 and 2/2 passed, focused failed ONLY because this checkpoint breached the documentation handoff size limit (3082/3000 estimated tokens). Condense checkpoint and rerun focused CI without changing behavior.
-
-## Next action / guardrails
-1. Confirm repaired task focused CI success, squash task PR to the stable `perf/**` Preview, and verify exact-source full canonical Quality Gate and Vercel Scratch READY alias. Do not bump again for internal repair.
-2. Ask user to verify v0.19.3 on affected device after hard reload, first click immediately and after idle, reopen, rapid swipes, far date jump, close/back/focus. Never imply browser diagnostics equal device acceptance.
-3. Keep #640 open and do not promote dev/main without explicit approval; reconcile intervening dev commits and version at promotion.
+## Verification and rollout
+- Local new regression RED on v0.19.3, GREEN on v0.19.4, TypeScript/ESLint and Vite/PWA seven size budgets passed. Local GIPHY-enabled build also passed without relaxing limits.
+- Next: run complete DOM and project/version contracts; task `[verify:browser]` GitHub run, squash into existing `perf/day-view-idle-warmup-20261011` stable Preview branch; verify exact-source canonical CI, Vercel Scratch build/alias and build info. Do not promote dev/main or close #640.
+- Real-device acceptance remains separate: verify v0.19.4 first day-cell tap after reload, both immediately and after one minute idle, then repeat opens/Back/swipes/far date. If lag remains, collect actual phone tap-to-paint timing before any further architecture change.

@@ -1429,9 +1429,10 @@ test('interaction harness has no detectable non-visual WCAG A/AA axe violations'
 test('Calendar first sheet open commits a shell before Day View slides', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&calendarPath=1`);
-  const day = page.getByTestId('real-calendar-cold-probe')
-    .locator('button[aria-label*="September 15, 2026"]').first();
+  const calendar = page.getByTestId('real-calendar-cold-probe');
+  const day = calendar.locator('button[aria-label*="September 15, 2026"]').first();
   await expect(day).toBeVisible();
+  await expect(calendar).toHaveAttribute('data-module-ready', 'true');
   const result = await page.evaluate(async () => {
     const dayCell = document.querySelector(
       '[data-testid="real-calendar-cold-probe"] button[aria-label*="September 15, 2026"]'
@@ -1447,15 +1448,17 @@ test('Calendar first sheet open commits a shell before Day View slides', async (
     };
     const observer = new MutationObserver(inspect);
     observer.observe(document.body, { childList: true, subtree: true });
-    dayCell.click();
+    window.__mosaicFlushCalendarClick(() => dayCell.click());
+    const sameCommitShell = Boolean(document.querySelector('[role="dialog"]'));
     const start = performance.now();
     while (!sawContent && performance.now() - start < 5000) {
       await new Promise(requestAnimationFrame);
       inspect();
     }
     observer.disconnect();
-    return { shellBeforeContent, sawContent };
+    return { shellBeforeContent, sawContent, sameCommitShell };
   });
+  expect(result.sameCommitShell).toBe(true);
   expect(result.sawContent).toBe(true);
   expect(result.shellBeforeContent).toBe(true);
   await expect(page.getByRole('dialog')).toBeVisible();
