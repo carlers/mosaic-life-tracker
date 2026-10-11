@@ -13,7 +13,11 @@ Current task: reconcile accepted granular release-history Preview with newer dev
 - Reuse the accepted Preview's release-only code/docs/tests/build budget, preserve the dev project reference and ownership behavior.
 - Keep no Appwrite backend changes and no changes to main. Three version files must match v0.16.10.
 
-## Verification and next action
+## Verification
+- First focused task run `38113531416` failed only the checkpoint documentation contract: a combined heading was not recognized; all other tests passed (1,466 passing, 1 failing).
+- Corrected the heading without changing application behavior or product version.
+
+## Next action
 - Check task focused CI, squash into `feature/granular-release-history-dev-integration`, then verify exact-source full canonical CI and Vercel Preview READY.
 - Only then create/promote a merge PR into dev, retaining its existing checkbox fixes.
 - Review production build-size thresholds and failure output; repair before promotion if necessary.
