@@ -127,7 +127,7 @@ export const AppLayout: React.FC = () => {
     const nextTransition = {
       path, key: location.key, index, direction,
       parent: resolveRouteParent(path, location.state),
-      forwardSettingsChild: resolveSettingsHistoryForward(routeTransition, path, index, navigationType),
+      forwardSettingsChild: resolveSettingsHistoryForward(routeTransition, path, historyDelta, navigationType),
     };
     setRouteTransition(nextTransition);
     currentTransition = nextTransition;

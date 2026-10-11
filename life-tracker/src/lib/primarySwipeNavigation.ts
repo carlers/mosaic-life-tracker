@@ -41,15 +41,13 @@ export function makeRouteParentState(parentPath: string) {
  * from a Settings child to Settings. Never guess at the browser's forward URL.
  */
 export function resolveSettingsHistoryForward(
-  previous: { path: string; parent: string | null; index: number | null },
+  previous: { path: string; parent: string | null },
   pathname: string,
-  index: number | null,
+  historyDelta: number | null,
   navigationType: 'PUSH' | 'REPLACE' | 'POP'
 ): string | null {
   if (navigationType !== 'POP' || pathname !== '/settings' ||
-    previous.parent !== '/settings' ||
-    previous.index === null || index === null ||
-    previous.index !== index + 1) return null;
+    previous.parent !== '/settings' || historyDelta !== -1) return null;
 
   const route = matchProtectedRoute(previous.path);
   return route?.kind === 'detail' ? previous.path : null;
