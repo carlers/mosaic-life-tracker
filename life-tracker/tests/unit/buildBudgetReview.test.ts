@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertReviewedBudgetChange } from '../../scripts/lib/build-budget-review.mjs';
+import { assertAcceptedMainBudgetInheritance, assertReviewedBudgetChange } from '../../scripts/lib/build-budget-review.mjs';
 
 const metrics = {
   entryRawBytes: 100, entryGzipBytes: 50, initialClosureGzipBytes: 60,
@@ -41,5 +41,19 @@ describe('reviewed build-size budget changes', () => {
   });
   it('accepts explicitly documented reviewed growth without making the guard permissive', () => {
     expect(assertReviewedBudgetChange(budget, reviewed).increased).toEqual(['homeClosureGzipBytes']);
+  });
+});
+
+describe('exact-tree accepted main budget inheritance (#592)', () => {
+  it('accepts inherited source ceilings only after canonical acceptance and identical tree proof', () => {
+    const inherited = { sourceAccepted: true, exactSourceTree: true, sourceBudget: raised, candidate: raised };
+    expect(assertAcceptedMainBudgetInheritance(inherited).inherited).toBe(true);
+    expect(() => assertAcceptedMainBudgetInheritance({ ...inherited, sourceAccepted: false })).toThrow(/accepted exact source tree/);
+    expect(() => assertAcceptedMainBudgetInheritance({ ...inherited, exactSourceTree: false })).toThrow(/accepted exact source tree/);
+    expect(() => assertAcceptedMainBudgetInheritance({ ...inherited, candidate: budget })).toThrow(/accepted exact source tree/);
+  });
+
+  it('does not silently approve the same increase without source proof', () => {
+    expect(() => assertReviewedBudgetChange(budget, raised)).toThrow(/review record/);
   });
 });
