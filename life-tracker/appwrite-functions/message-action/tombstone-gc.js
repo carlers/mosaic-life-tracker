@@ -6,6 +6,7 @@ const TABLES = [
   'categories',
   'diary',
   'settings',
+  'bucket_list_items',
   'friendships',
   'messages',
 ];
