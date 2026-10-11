@@ -3,6 +3,7 @@ import type {
   TaskDocument,
   CategoryDocument,
   DiaryDocument,
+  BucketListDocument,
   SettingsDocument,
 } from '../db/schema';
 import { isRateLimitError, refreshSync } from '../db/sync';
@@ -31,6 +32,7 @@ const RESTORABLE_COLLECTIONS = [
   'tasks',
   'diary',
   'settings',
+  'bucketList',
 ] as const;
 
 const POST_RESTORE_SYNC_MIN_TIMEOUT_MS = 90_000;
@@ -45,7 +47,8 @@ type RestorableDocument =
   | TaskDocument
   | CategoryDocument
   | DiaryDocument
-  | SettingsDocument;
+  | SettingsDocument
+  | BucketListDocument;
 
 const ROW_ID_PATTERN = /^[a-zA-Z0-9_]+$/;
 const FILE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
@@ -53,7 +56,7 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const FORBIDDEN_SETTING_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const CROSS_ACCOUNT_PRESERVED_SETTING_KEYS = new Set(['friend_carousel_prefs']);
 const MAX_ROW_ID_LENGTH = 36;
-const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2]);
+const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2, 3]);
 
 interface BackupPayload {
   format?: string;
@@ -66,6 +69,7 @@ interface BackupPayload {
     tasks: unknown[];
     categories: unknown[];
     diary: unknown[];
+    bucketList?: unknown[];
     settings: unknown[] | JsonRecord;
     friendships?: unknown[];
   };
@@ -87,6 +91,7 @@ interface NormalizedBackup {
   tasks: TaskDocument[];
   categories: CategoryDocument[];
   diary: DiaryDocument[];
+  bucketList: BucketListDocument[];
   settings: SettingsDocument[];
 }
 
@@ -103,6 +108,7 @@ export interface BackupPreview {
     tasks: number;
     categories: number;
     diary: number;
+    bucketList: number;
     settings: number;
     images: number;
   };
@@ -194,7 +200,7 @@ function isValidRowId(id: string): boolean {
 }
 
 function portableRowId(
-  prefix: 't' | 'c',
+  prefix: 't' | 'c' | 'b',
   currentUserId: string,
   sourceUserId: string,
   sourceId: string
