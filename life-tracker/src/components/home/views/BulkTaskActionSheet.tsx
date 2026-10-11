@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TaskDateEditor } from './TaskDateEditor';
-import { ArrowRight, CalendarDays, Eye, Inbox } from 'lucide-react';
+import { ArrowRight, CalendarDays, Eye } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 
 interface BulkTaskActionSheetProps {
@@ -32,7 +32,7 @@ export const BulkTaskActionSheet: React.FC<BulkTaskActionSheetProps> = ({
   const dismiss = () => { setDateMode(false); onClose(); };
   const actions = [
     { label: 'Move to Category', icon: ArrowRight, action: onMoveCategory },
-    ...(onMoveToBacklog ? [{ label: 'Move to Backlog', icon: Inbox, action: onMoveToBacklog }] : []),
+    ...(onMoveToBacklog ? [{ label: 'Move to Backlog', icon: ArrowRight, action: onMoveToBacklog }] : []),
     { label: 'Change Date', icon: CalendarDays, action: () => setDateMode(true) },
     { label: 'Do It Today', icon: ArrowRight, action: onDoToday },
     { label: 'Do It Tomorrow', icon: ArrowRight, action: onDoTomorrow },
