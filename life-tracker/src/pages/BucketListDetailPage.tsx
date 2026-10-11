@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useMemo, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Circle, Link2, Plus, Pencil, Trash2, CalendarDays, ArrowUpRight, Sparkles } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
@@ -8,6 +8,11 @@ import { useBucketTaskLinks } from '../hooks/useBucketTaskLinks';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
+import { useTaskImage } from '../hooks/useTaskImage';
+import { LinkedTaskPhoto } from './LinkedTaskPhoto';
+
+// PhotoSwipe is only downloaded when a linked task photo is opened.
+const ImageViewer = lazy(() => import('../components/home/views/ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer })));
 
 type EditorMode = 'none' | 'edit' | 'createTask' | 'linkTask';
 export function BucketListDetailPage() {
@@ -24,6 +29,7 @@ export function BucketListDetailPage() {
   const [search, setSearch] = useState(''), [error, setError] = useState(''), [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false), [confirmDelete, setConfirmDelete] = useState(false);
   const [pendingCreatedTask, setPendingCreatedTask] = useState<string | null>(null);
+  const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const categoryMap = useMemo(() => new Map(categories.map(cat => [cat.id, cat])), [categories]);
   const ownedTasks = useMemo(() => tasks.filter(task => !task.isDeleted), [tasks]);
   const activeLinks = useMemo(() => links.filter(link => link.bucketListId === id), [links,id]);
@@ -31,6 +37,8 @@ export function BucketListDetailPage() {
   const linkedTasks = useMemo(() => ownedTasks.filter(task => linkedIds.has(task.id))
     .sort((a,b) => Number(a.completed) - Number(b.completed) || a.createdAt.localeCompare(b.createdAt)), [ownedTasks,linkedIds]);
   const done = linkedTasks.filter(task=>task.completed).length;
+  const viewingTask = linkedTasks.find(task => task.id === viewingTaskId);
+  const { imageUrl: viewingImageUrl, isLoading: viewingImageLoading } = useTaskImage(viewingTask?.image, !!viewingTask?.image);
   const availableTasks = useMemo(() => ownedTasks.filter(task => !linkedIds.has(task.id) &&
     (task.title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) ||
     (categoryMap.get(task.categoryId)?.name ?? '').toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())))
@@ -109,6 +117,7 @@ export function BucketListDetailPage() {
                   <span className={`block text-sm font-medium ${task.completed?'text-muted-foreground line-through':''}`}>{task.title}</span>
                   <span className="mt-1 block text-xs text-muted-foreground">{category?.name??'Uncategorized'} · {task.date?new Date(task.date+'T12:00:00').toLocaleDateString():'Backlog'}</span>
                 </button>
+                {task.image && <LinkedTaskPhoto task={task} onView={(selected) => setViewingTaskId(selected.id)} />}
                 <button type="button" aria-label={'Unlink '+task.title} title="Unlink task (does not delete it)" onClick={()=>void run(async()=>{await setLinked(goal.id,task.id,false);setMessage('Task unlinked. It remains in Mosaic.');})}
                   className="rounded-lg p-1.5 text-muted-foreground focus-visible:ring-2 focus-visible:ring-current"><Link2 size={16}/></button>
                 <ArrowUpRight size={14} className="mt-2 shrink-0 text-muted-foreground" aria-hidden="true"/>
@@ -125,6 +134,21 @@ export function BucketListDetailPage() {
         {message && <div role="status" className="mt-5 rounded-xl bg-surfaceHighlight px-3 py-3 text-sm">{message}</div>}
       </div>
     </main>
+    {viewingTaskId && (viewingTask?.image && viewingImageUrl
+      ? <Suspense fallback={
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black" role="status" aria-label="Opening task photo">
+          <span className="text-sm text-white">Opening photo…</span>
+        </div>
+      }>
+        <ImageViewer isOpen imageUrl={viewingImageUrl} taskTitle={viewingTask.title} taskDate={viewingTask.date} onClose={() => setViewingTaskId(null)}/>
+      </Suspense>
+      : <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black px-6" role="dialog" aria-modal="true" aria-label="Task photo">
+        <div className="text-center text-white">
+          <p className="mb-4 text-sm" role="status">{viewingImageLoading ? 'Loading photo…' : 'Photo unavailable on this device'}</p>
+          <button type="button" className="rounded-xl bg-white/20 px-4 py-2 text-sm font-medium" onClick={() => setViewingTaskId(null)}>Close</button>
+        </div>
+      </div>
+    )}
     <BottomSheet isOpen={mode==='edit'} onClose={()=>setMode('none')} title="Edit aspiration" height="auto" preventDismiss={busy}>
       <form onSubmit={saveEdit} className="space-y-4 px-4 pb-9 pt-3">
         <label htmlFor="goal-title" className="block text-sm">Your dream</label>
