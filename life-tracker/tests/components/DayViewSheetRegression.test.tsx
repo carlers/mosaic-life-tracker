@@ -1,6 +1,6 @@
 // Regression: §2/§13 (Day View header and nested sheet context).
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -201,15 +201,39 @@ vi.mock('../../src/lib/storage', () => ({
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 
 function renderSheet() {
-  return render(
+  // This suite verifies interactions *after* the sheet's paint-deferred
+  // controls mount. The separate BottomSheet regression verifies that the
+  // shell paints first, rather than accidentally testing an eager mount.
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    const frameId = ++nextFrame;
+    frames.set(frameId, callback);
+    return frameId;
+  });
+  const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((frameId) => {
+    frames.delete(frameId);
+  });
+
+  const result = render(
     <DayViewSheet
       isOpen
       onClose={vi.fn()}
       selectedDate={new Date(2026, 8, 20)}
       onDateChange={vi.fn()}
-      deferContentUntilAnimationComplete={false}
     />
   );
+  try {
+    for (let frame = 0; frame < 2; frame += 1) {
+      const pending = [...frames.values()];
+      frames.clear();
+      act(() => pending.forEach((callback) => callback(performance.now())));
+    }
+  } finally {
+    raf.mockRestore();
+    cancel.mockRestore();
+  }
+  return result;
 }
 
 describe('DayViewSheet nested task actions', () => {
