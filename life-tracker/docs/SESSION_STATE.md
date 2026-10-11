@@ -1,21 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: finish v0.17.2 Backlogs promotion cleanup. User approved promotion to dev, **not main**.
+Current task: Issue #592, approved Batch A only. No dev or main promotion authorized.
 
 ## Verified
-- Settings forward swipe PR #580 merged to dev (v0.17.0) and survived the Backlogs merge; device gesture acceptance is pending.
-- Backlogs issue #407: private date-free category Day View at `/backlog`, Home/Me navigation, calendar ↔ Backlogs moves preserving task ID, task search and no sharing/Alerts for unscheduled tasks. Original PR #581 is obsolete/conflicted.
-- Replacement Backlogs stable Preview `feature/backlog-dev-407` SHA `a4a3d292`: focused CI 38119798653 SUCCESS; full canonical CI 38119851398 SUCCESS; Vercel Preview READY.
-- Promotion PR #588 merged Backlogs to dev `383b2fa553b16209357ea035614ffeb20aed3f8f`; exact dev and accepted Preview trees match. Dev promotion CI 38120002742 SUCCESS.
-- Dev Vercel deployment `dpl_2T6Ms2Rp9jREyoHjxqv96HT9DS6W` failed only size caps. All TypeScript, Vite and PWA steps passed, and Preview/backend target stayed Scratch.
-- Measured dev Vercel: entry raw 443770; gzip 132026; initial gzip 144984; Home gzip 362523; assets raw 2406651; assets gzip 744003; precache 2491866 bytes. Retain all entry/initial/Home limits. Narrow aggregate caps: raw 2407000; gzip 744350; precache 2492250 (349/347/384 B headroom).
-- Budget-only task PR #589 focused CI 38120135059 SUCCESS, squash merged to stable `fix/backlog-dev-vercel-budget-407` SHA `e8a313a`. Vercel Preview READY; build and DOM jobs passed. Full CI 38120188624 found only an oversized handoff packet: 3221 estimated tokens vs maximum 3000 in `documentationContracts.test.ts`. This checkpoint is condensed to repair it. No runtime or version change.
+- dev: f65d348c2f537b4d8c1063096e6856a9ee3d629f (v0.17.2); main unchanged by this task.
+- Issue #592 contains the hardened plan and linked workstreams; #520 and #526 remain separate.
+- Read-only Vercel env metadata: GIPHY key scope exists for dev and two sticker Preview branches, not generic stable Preview or Production. Production GIPHY functionality requires effective artifact/browser confirmation.
+- Scratch/Production backend target isolation exists in vite.config.ts and preview-backend-isolation.ts.
+- Prior same-tree Preview/dev aggregate size difference was measured in #592, but identical-tree artifact byte attribution is not proven. Vercel deployment source file retrieval is not available for the cited deployment IDs.
+- Existing seven measured metrics and budget caps remain unchanged.
 
-## Remaining
-- Require focused CI for this checkpoint-only repair, squash into the same stable fix Preview, then require its new full canonical CI and exact-SHA Vercel READY.
-- Promote the accepted fix Preview to dev, validate exact merged tree, dev CI and Vercel READY. Then close superseded PR #581 (do not merge its stale code). Keep issue #407 open until main release.
-- Scratch Appwrite `message-action` live Function currently has a ready newer deployment **not verified as active or matching the combined code**; do not claim backend parity. Authenticated multi-device, direct-route and iOS/Android gestures remain manual/unverified. Production/main untouched.
+## Working set
+- Task: chatgpt/workflow-batch-a-592; stable Preview target: feature/workflow-batch-a-592.
+- New: scripts/lib/build-feature-parity.mjs, scripts/check-build-feature-parity.mjs, tests/unit/buildFeatureParity.test.ts.
+- New: scripts/lib/build-size-diagnostics.mjs, scripts/compare-build-size.mjs, tests/unit/buildSizeDiagnostics.test.ts.
+- New: scripts/lib/build-budget-review.mjs, scripts/check-build-budget-review.mjs, tests/unit/buildBudgetReview.test.ts.
+- Updated: check-build-size, vite.config, buildSizeGuard tests, quality-gate workflow, Delivery guide.
+- Feature presence preflight reports scope only; Vercel effective build logs report actual nonempty GIPHY flag. Do not print keys or change shared env config automatically.
 
 ## Next action
-Finish the checkpoint repair via focused task → stable Preview canonical/Vercel → approved dev promotion. Inspect any failure before promoting; close PR #581 only after dev deployment is READY.
+Verify coherent task SHA with focused Quality Gate; squash into stable Preview and check exact-SHA canonical CI/Vercel READY. Run scope preflight against live Vercel metadata and report known mismatch; do not promote or alter Preview/Production env without reviewed service change. Artifact-level same-tree attribution and production GIPHY acceptance remain outstanding if not observable. No Appwrite mutation.

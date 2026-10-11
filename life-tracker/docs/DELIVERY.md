@@ -247,3 +247,54 @@ external service state.
 A local Cloudflare Tunnel remains a fallback when testing an uncommitted local workspace.
 Its temporary hostname must also be registered in Appwrite before authenticated browser
 requests will work.
+
+## Build-feature parity and size diagnostics (issue #592, Batch A)
+
+Vercel Preview is not one effective environment: branch-scoped overrides can
+change frontend Vite feature availability even when the accepted Preview and
+dev Git trees match. The October 11 read-only audit found
+`VITE_GIPHY_API_KEY` scoped to `dev` and sticker Preview branches, **not**
+generic `feature/*`/`fix/*` branches or Production. Do not assume a
+same-tree Vercel output is identical to the accepted Preview. Ordinary Vite
+build logs now report only whether GIPHY is effectively enabled. No variable
+value is logged. Production availability still requires published-artifact or
+browser verification: scope metadata alone is not an effective-build proof.
+
+Before promoting an accepted Preview to `dev`, compare material frontend
+feature-variable **presence/scope** with the read-only preflight:
+
+```bash
+# Save ONLY the key, target, gitBranch fields from Vercel's encrypted
+# environment metadata. Never save decrypted or encrypted "value" fields.
+node scripts/check-build-feature-parity.mjs feature/my-feature dev /tmp/vercel-env-scopes.json
+```
+
+The tool exits nonzero on material divergence. It intentionally ignores
+Appwrite endpoint/Function differences between Scratch and Production. Scope
+metadata cannot prove a configured value is nonempty; compare the effective
+`[Mosaic] Build features` messages from the accepted and target Vercel
+builds. If metadata, logs or access are missing, parity remains unverified and
+promotion should stop. Batch B is responsible for wiring this preflight into
+the existing promotion path; Batch A does not silently add another full gate,
+alter Vercel scopes or copy keys.
+
+The existing seven byte ceilings remain blocking and unchanged. Failed local,
+CI and Vercel size checks now include a largest-emitted-asset and static
+closure diagnostic; if both exact build artifact directories are available,
+use `node scripts/compare-build-size.mjs <accepted-dist> <candidate-dist>`
+to compare manifest-logical JS/CSS units, initial/Home closure and normalized
+precache. This is read-only diagnostics, not an exemption from the guard.
+Absent old artifacts, a reported same-tree footprint difference remains
+unattributed; do not invent a byte-level cause from metadata alone.
+
+Changes to `config/build-size-budget.json` require the cheap
+`scripts/check-build-budget-review.mjs <base-commit>` Git diff contract,
+enforced during focused verification and the canonical build. A raised
+ceiling requires a *new* `review` record with an issue reference (e.g.
+`#592`), meaningful rationale, a measurement/evidence HTTPS URL, the exact
+list of raised metric names and their previous limit values. The review
+record makes the policy change explicit for a human reviewer; it does not
+constitute human approval on its own. A measured baseline reset is rejected
+for separate review. Numerical ceilings are defined **only** in the budget
+JSON, not repeated in the tests. Branch-protection enforcement and production
+build parity are separate gates, not established by this script.
