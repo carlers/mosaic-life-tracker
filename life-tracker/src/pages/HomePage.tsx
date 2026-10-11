@@ -97,7 +97,9 @@ export const HomePage: React.FC = () => {
   // This does not mount the sheet or start its data hooks. Early taps still load
   // on demand through the same cached import.
   useEffect(() => {
-    if (tasksLoading || categoriesLoading || carouselLoading || activePersonId !== 'me') return;
+    // Friend/profile reads can remain pending while the owner Calendar is usable.
+    // They must not indefinitely suppress idle Day View module warmup.
+    if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
 
     const warm = () => {
       if (document.visibilityState === 'visible') void loadDayViewSheet().catch(() => {
@@ -111,7 +113,7 @@ export const HomePage: React.FC = () => {
     // Safari fallback retains the delayed, startup-safe import.
     const id = window.setTimeout(warm, 900);
     return () => window.clearTimeout(id);
-  }, [activePersonId, carouselLoading, categoriesLoading, tasksLoading]);
+  }, [activePersonId, categoriesLoading, tasksLoading]);
 
   useEffect(() => {
     const schedule = () => setRenderWindow(RENDER_WINDOW);

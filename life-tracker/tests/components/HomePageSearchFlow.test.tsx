@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 const mockWarmDayView = vi.hoisted(() => vi.fn(async () => undefined));
 let idleCallbacks: IdleRequestCallback[] = [];
+let carouselLoading = false;
 const mockPersons = [
   { id: 'me', kind: 'me', displayName: 'Me' },
   { id: 'friend_1', kind: 'friend', displayName: 'Friend' },
@@ -49,6 +50,7 @@ vi.mock('swiper/css', () => ({}));
 vi.mock('../../src/hooks/useFriendCarousel', () => ({
   useFriendCarousel: () => ({
     persons: mockPersons,
+    isLoading: carouselLoading,
     reorder: vi.fn(),
     toggleVisibility: vi.fn(),
     resetOrder: vi.fn(),
@@ -136,6 +138,7 @@ const renderHome = () => render(<MemoryRouter><HomePage /></MemoryRouter>);
 describe('HomePage task-search wiring', () => {
   beforeEach(() => {
     idleCallbacks = [];
+    carouselLoading = false;
     mockWarmDayView.mockClear();
     vi.stubGlobal('requestIdleCallback', (cb: IdleRequestCallback) => {
       idleCallbacks.push(cb);
@@ -169,6 +172,18 @@ describe('HomePage task-search wiring', () => {
     });
     expect(mockWarmDayView).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('search-day-view')).not.toBeInTheDocument();
+  });
+
+  it('warms owner Day View even while friend carousel data is unresolved', () => {
+    carouselLoading = true;
+    renderHome();
+    expect(mockWarmDayView).not.toHaveBeenCalled();
+    act(() => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+    });
+    expect(mockWarmDayView).toHaveBeenCalledTimes(1);
   });
 
   // Regression: §2 (Home task-search history and owner Day View integration).
