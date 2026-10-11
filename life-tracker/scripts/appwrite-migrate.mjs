@@ -17,7 +17,6 @@ import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
 
 export const APPWRITE_MIGRATIONS = [
-  { id: '010-bucket-list', description: 'Owner-scoped private aspirations', run: ({ request, log }) => migrateBucketListBackend({ request, log }) },
   {
     id: '001-account-deletion',
     description: 'Account deletion table and message indexes',
@@ -68,6 +67,7 @@ export const APPWRITE_MIGRATIONS = [
     description: 'Optional collaborative title/date edit grants, off by default',
     run: ({ request, log, sleep }) => migrateSharePermissions({ request, log, sleep }),
   },
+  { id: '010-bucket-list', description: 'Owner-scoped private aspirations', run: ({ request, log }) => migrateBucketListBackend({ request, log }) },
 ];
 
 export function selectMigrations(argv = []) {
