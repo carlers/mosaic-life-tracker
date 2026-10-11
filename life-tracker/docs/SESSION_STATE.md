@@ -14,4 +14,4 @@ Current task: Backlog #407 navigation and Day View parity refinement. Task branc
 - Added route/back-navigation and date-free task-regression tests, removed unused standalone BacklogSheet.
 - Task commit requests `[verify:focused]`; focused CI, full stable Preview gate, exact Vercel Preview deployment, and manual browser/device tests are not yet confirmed. No production/Function mutations in this change.
 
-Next: confirm focused CI; fix failures; squash task PR into `feature/backlog-407`; verify canonical acceptance and Vercel READY. Keep the previously activated Scratch shared/backlog Function intact. Require user approval before dev/main promotion.
+Next action: confirm focused CI; fix failures; squash task PR into `feature/backlog-407`; verify canonical acceptance and Vercel READY. Keep the previously activated Scratch shared/backlog Function intact. Require user approval before dev/main promotion.
