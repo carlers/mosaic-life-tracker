@@ -28,3 +28,9 @@ Refactor duplicate owner-only replication pilots to stay under unchanged size li
 - Stable Preview `feature/bucket-list-405@d792f275` canonical CI 38146449849: 941/941 unit, DOM/browser and dependency jobs green; build exceeds four unchanged size ceilings (homeClosure gzip +190B; total assets raw +10,745B, gzip +2,451B, precache +10,966B). Two handler assertions expected six rather than seven GC tables.
 - Task repair `chatgpt/bucket-list-size-repair-405-20261011` consolidates the same owner-only Diary/Category/BucketList replication logic into one shared primitive, retaining per-domain mappings and equality fields; handler regression counts updated. Request focused and then stable Preview full gate. No budget increases.
 - No scratch backend changes or `dev`/`main` promotion; feature is NOT authenticated Preview-accepted. Conditional next stage: coordinate additive `010-bucket-list` migration and reviewed Function deployment only after explicit shared Scratch authorization.
+
+## Measured budget review (2026-10-11)
+
+- Exact stable `feature/bucket-list-405@f1829323` canonical run 38147075247 passed all 941 unit tests, handler, DOM, browser, dependency, TypeScript and PWA; build-size-only gate remained red. Measured: home closure gzip 363097/362900, app raw 2412778/2407000, app gzip 746374/744350, precache 2498249/2492250. Source refactor reduced raw by ~5KiB from prior stable d792f275.
+- Follow explicit reviewed-budget contract in `scripts/lib/build-budget-review.mjs`: record issue #405, this canonical evidence and original per-metric limits. Preserve entry + initial startup ceilings and pinned baseline. New ceilings permit only measured approved Bucket List growth with small variance margin.
+- `chatgpt/bucket-list-budget-review-405-20261011` requests focused; squash to stable Preview only after success, then full canonical plus Vercel READY; no `dev`/`main`/Appwrite rollout authorized.
