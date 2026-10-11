@@ -36,6 +36,24 @@ export function makeRouteParentState(parentPath: string) {
   return { [ROUTE_PARENT_STATE_KEY]: parentPath };
 }
 
+/**
+ * Offer a child-return swipe only after a one-entry browser/Android Back
+ * from a Settings child to Settings. Never guess at the browser's forward URL.
+ */
+export function resolveSettingsHistoryForward(
+  previous: { pathname: string; parent: string | null; index: number | null },
+  current: { pathname: string; index: number | null },
+  navigationType: 'PUSH' | 'REPLACE' | 'POP'
+): string | null {
+  if (navigationType !== 'POP' || current.pathname !== '/settings' ||
+    previous.parent !== '/settings' ||
+    previous.index === null || current.index === null ||
+    previous.index !== current.index + 1) return null;
+
+  const route = matchProtectedRoute(previous.pathname);
+  return route?.kind === 'detail' ? previous.pathname : null;
+}
+
 export function resolvePrimarySwipeDestination(
   pathname: string,
   direction: PrimarySwipeDirection,

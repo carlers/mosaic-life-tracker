@@ -6,6 +6,10 @@ import {
   loadHomePage,
   loadMessagesPage,
   loadSettingsPage,
+  loadPreferencesPage,
+  loadNotificationSettingsPage,
+  loadReleaseHistoryPage,
+  loadProfilePage,
 } from './routeModuleLoaders';
 
 import type { PROTECTED_ROUTES } from '../../lib/protectedRoutes';
@@ -24,6 +28,10 @@ const PRELOADERS: Record<PreloadPath, () => Promise<unknown>> = {
   '/messages': loadMessagesPage,
   '/account': loadAccountPage,
   '/settings': loadSettingsPage,
+  '/settings/preferences': loadPreferencesPage,
+  '/settings/notifications': loadNotificationSettingsPage,
+  '/settings/releases': loadReleaseHistoryPage,
+  '/profile': loadProfilePage,
 };
 
 function isPreloadPath(pathname: string): pathname is PreloadPath {
