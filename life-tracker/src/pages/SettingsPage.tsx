@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   User,
@@ -80,9 +80,18 @@ export const SettingsPage: React.FC = () => {
       ? backupActivityOverride.activity
       : storedBackupActivity;
 
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (feedbackTimer.current !== null) clearTimeout(feedbackTimer.current);
+  }, []);
+
   const showFeedback = (msg: string) => {
+    if (feedbackTimer.current !== null) clearTimeout(feedbackTimer.current);
     setFeedback(msg);
-    setTimeout(() => setFeedback(null), 2000);
+    feedbackTimer.current = setTimeout(() => {
+      feedbackTimer.current = null;
+      setFeedback(null);
+    }, 2000);
   };
 
   const formatActivityDate = (value: string | null) =>

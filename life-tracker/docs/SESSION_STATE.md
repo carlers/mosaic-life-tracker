@@ -15,5 +15,7 @@ Current task: Issue #592 Batch A diagnostics follow-up; no dev/main promotion au
 - Improve build-size diagnostics to account for unmanifested emitted JS/CSS and shared asset deduplication. Regression tests cover orphan emitted chunks and historical notifications-size growth.
 - Prior Batch A feature scope comparison and reviewer-record contract remain intact. App version NONE; no Appwrite changes.
 
+- First follow-up Preview d18ba979 emitted an intermittent DOM shard 2 error: SettingsPage feedback timeout fired after test teardown (window undefined). Timer cleanup and a focused unmount regression are in the next task candidate. CI failure was not caused by size diagnostics, but must not be labeled passing.
+
 ## Next action
-Verify focused CI on the follow-up task and squash into stable Preview, then verify fresh canonical CI plus exact-SHA Vercel READY. Record unresolved GIPHY generic Preview scope vs dev and Production browser artifact questions in #592. Do not make a service-wide GIPHY scope change or promote dev/main without explicitly reviewed authorization. Reproduce exact source/target build output only when artifacts are accessible.
+Verify timer-cleanup task focused CI, squash into stable Preview and verify full canonical CI plus exact-SHA Vercel READY. Keep d18ba979's failing canonical run distinguishable from the next accepted SHA. Record unresolved GIPHY generic Preview scope vs dev and Production browser artifact questions in #592. Do not make a service-wide GIPHY scope change or promote dev/main without explicitly reviewed authorization. Reproduce exact source/target build output only when artifacts are accessible.

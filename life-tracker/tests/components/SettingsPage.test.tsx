@@ -100,6 +100,22 @@ import { APP_VERSION } from '../../src/lib/appVersion';
 
 // Regression: §24.13 (update checks expose meaningful stages).
 describe('SettingsPage navigation, updates, and data controls', () => {
+  // Regression: transient feedback cannot dispatch React updates after route unmount.
+  it('cancels feedback timeout when leaving Settings', () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+      fireEvent.click(screen.getByRole('button', { name: /App Permissions/i }));
+      expect(screen.getByRole('status')).toHaveTextContent('Coming soon');
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
   it('separates working settings from future destinations and keeps data actions discoverable', () => {
     render(<MemoryRouter><SettingsPage /></MemoryRouter>);
 
