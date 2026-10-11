@@ -1,26 +1,16 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: issue #405, approved private Bucket List MVP. See issue #405 latest Resume checkpoint for cross-chat status.
+Current task: #405 private Bucket List, Scratch-only rollout explicitly approved. Stable Preview `feature/bucket-list-405` v0.18.0; `dev`/`main` remain v0.17.4, unchanged.
 
-## Scope and code
+## Delivered
 
-- Based on `dev@832fc932`; stable Preview `feature/bucket-list-405` v0.18.0. Main/dev not promoted.
-- Private owner-only aspirations separate from tasks/backlogs/friends: title, optional description, achieve with timestamp, reopen (clears timestamp), edit/delete. No images, archive, grouping, target dates or social feed.
-- New lazy route /bucket-list from Home/Me; independent RxDB collection and seventh owner-only replication pilot using shared Diary/Category owner-only replication mechanics.
-- Appwrite Git manifest and additive migration `010-bucket-list`, CAS allowlist, tombstone GC, owner/account erasure and portable backup v3 (legacy v1/v2 compatible). Regression coverage includes sync mapping, backup, migrations, access isolation, GC and workflow contracts.
-- PRs #612, #613, #614, #615 squash-merged to stable Preview.
-
-## Verification and blockers
-
-- Full canonical GitHub [38147386717](https://github.com/carlers/mosaic-life-tracker/actions/runs/38147386717) SUCCESS on stable SHA `284ee316`: TypeScript, 941 unit tests, handlers, DOM, browser, dependencies, PWA and GitHub size guard.
-- Exact-SHA Vercel deployment `dpl_9boiSiqQfPVQxyULK69qQZ16wnQM` ERROR: GIPHY-enabled provider build produced 2,414,992 app raw vs 2,414,000 cap, 747,373 gzip vs 746,900, and 2,500,463 precache vs 2,499,500. Entry, initial and Home closure all passed.
-- Current repair task `chatgpt/bucket-list-vercel-budget-405-20261011` adds metric-specific reviewed allowances referencing that exact Vercel deployment. First focused run [38147668951](https://github.com/carlers/mosaic-life-tracker/actions/runs/38147668951) failed because this checkpoint exceeded the 3,000-token cap; it is condensed here. Baseline and entry/initial/startup limits unchanged. No shared Vercel GIPHY changes.
-- Read-only Scratch project `6a96e82d000d1310b3be`: table `bucket_list_items` missing; existing active Function deployment `6acb0cd8735b3060c9af` belongs to #526 integration. No Appwrite schema/Function deployment/activation, Production write, or dev/main promotion authorized or performed.
+- Stable Preview frontend and offline-first owner-only Bucket List; separate from task/backlog/social data, title+memo, achieve/reopen, edit/delete, portable backup v3, erasure, tombstone retention, owner CAS. Existing Diary/Category shared replication implementation preserved. Final pre-rollout GitHub canonical [38147856267](https://github.com/carlers/mosaic-life-tracker/actions/runs/38147856267) SUCCESS at `207ab3db`, Vercel deployment `dpl_Aj7h73gvcnAy7PPn1dZ8qt9NYGbF` READY on same SHA. Stable alias: https://mosaic-life-tracker-git-feature-7a0dd1-carls-projects-72516fde.vercel.app .
+- Explicitly confirmed Scratch project `6a96e82d000d1310b3be` (`life_tracker`, fra): provisioned additive Git-owned table `bucket_list_items` with eight available columns, owner-only row security + `create("users")`, `idx_bucket_owner_updated` index available; no preexisting records changed.
+- Recorded prior active Scratch `message-action` deployment `6acb0cd8735b3060c9af` (#526), retained for rollback. From exact stable Git SHA `207ab3dbdb90edf08d5a9553796e7b20146c17ef`, packaged 11 source/runtime files, built new deployment **inactive**, confirmed READY, activated **`6acba22560abbd99d124`**, read-back verified. Preserved existing task-shares and Backlog handlers, variables, trigger events and empty schedule.
+- Live new-deployment no-user-data smoke: `get_notifications` 200 empty, invalid `task_shares` 400, invalid `get_friend_calendar` 400, all completed under active deployment; origin wildcard `*.vercel.app` currently registered.
+- Current task branch `chatgpt/bucket-list-scratch-readiness-405-20261011` updates `appwrite:preview:prepare` additive migration allowlist for migration 010 and associated unit/docs recovery contract. Must pass focused → stable Preview canonical/Vercel again.
 
 ## Next action
 
-1. Run focused checks on repair task and fix failures.
-2. Squash into stable `feature/bucket-list-405`, rerun full canonical and verify exact SHA Vercel READY + stable alias.
-3. Before authenticated feature acceptance, obtain separate shared Scratch rollout authorization (#526), migrate table `010`, deploy/review/activate exact Function, verify backend, CORS/origin, synthetic cross-account/offline behavior. Human iOS/Android/swipe/theme checks are outstanding.
-4. No dev/main promotion without explicit user approval. Keep issue #405 open.
+Verify additive 010 guard and tests; merge task into stable Preview after focused. Confirm exact final GitHub canonical & Vercel READY and new active deployment unchanged. User can then test authenticated create/edit/achieve/reopen, two devices/offline, owner privacy and routes. A green server smoke does NOT prove signed-in browser or physical iOS/Android acceptance; those require user testing. No Production, `dev`, or `main` mutation; keep #405 open until acceptance/release approval.
