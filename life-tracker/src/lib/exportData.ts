@@ -11,6 +11,7 @@ import type {
   CategoryDocument,
   DiaryDocument,
   BucketListDocument,
+  BucketTaskLinkDocument,
   SettingsDocument,
   FriendshipDocument,
 } from '../db/schema';
@@ -26,7 +27,7 @@ const APPWRITE_CONFIG = {
 
 const DEBUG = import.meta.env.DEV;
 const APP_NAME = 'Mosaic';
-const EXPORT_VERSION = 3;
+const EXPORT_VERSION = 4;
 
 export interface ExportUser {
   id: string;
@@ -44,6 +45,7 @@ export interface ExportCounts {
   categories: number;
   diary: number;
   bucketList: number;
+  bucketTaskLinks: number;
   settings: number;
   friendships: number;
   images: number;
@@ -62,11 +64,13 @@ export interface ExportPayload {
     categories: CategoryDocument[];
     diary: DiaryDocument[];
     bucketList: BucketListDocument[];
+  bucketTaskLinks: BucketTaskLinkDocument[];
+    bucketTaskLinks: BucketTaskLinkDocument[];
     settings: SettingsDocument[];
     friendships: FriendshipDocument[];
   };
   restore: {
-    restorable: ['tasks', 'categories', 'diary', 'settings', 'bucketList'];
+    restorable: ['tasks', 'categories', 'diary', 'settings', 'bucketList', 'bucketTaskLinks'];
     referenceOnly: ['friendships'];
     excluded: ['messages'];
   };
@@ -104,7 +108,7 @@ interface RawCollections {
 
 async function collectCollections(userId: string): Promise<RawCollections> {
   const db = getDatabase();
-  const [tasks, categories, diary, settings, friendships, bucketList] = await Promise.all([
+  const [tasks, categories, diary, settings, friendships, bucketList, bucketTaskLinks] = await Promise.all([
     db.tasks
       .find({
         selector: { userId, isDeleted: false },
@@ -135,9 +139,12 @@ async function collectCollections(userId: string): Promise<RawCollections> {
       })
       .exec(),
     db.bucketList.find({ selector: { userId, isDeleted: false } }).exec(),
+    db.bucketTaskLinks.find({ selector: { userId, isDeleted: false } }).exec(),
   ]);
   return {
     bucketList: bucketList.map((d) => toDoc<BucketListDocument>(d)),
+    bucketTaskLinks: bucketTaskLinks.filter(link => tasks.some(t=>t.id===link.taskId) && bucketList.some(g=>g.id===link.bucketListId))
+      .map(d => toDoc<BucketTaskLinkDocument>(d)),
     tasks: tasks.map((d) => toDoc<TaskDocument>(d)),
     categories: categories.map((d) => toDoc<CategoryDocument>(d)),
     diary: diary.map((d) => toDoc<DiaryDocument>(d)),
@@ -249,6 +256,7 @@ export async function exportUserData(
       categories: raw.categories.length,
       diary: raw.diary.length,
       bucketList: raw.bucketList.length,
+      bucketTaskLinks: raw.bucketTaskLinks.length,
       settings: raw.settings.length,
       friendships: raw.friendships.length,
       images: 0,
@@ -259,6 +267,7 @@ export async function exportUserData(
       categories: raw.categories,
       diary: raw.diary,
       bucketList: raw.bucketList,
+      bucketTaskLinks: raw.bucketTaskLinks,
       settings: raw.settings,
       friendships: raw.friendships,
     },
@@ -313,6 +322,7 @@ export async function exportUserData(
     JSON.stringify(raw.diary, null, 2)
   );
   files['data/bucketList.json'] = encoder.encode(JSON.stringify(raw.bucketList, null, 2));
+  files['data/bucketTaskLinks.json'] = encoder.encode(JSON.stringify(raw.bucketTaskLinks, null, 2));
   files['data/settings.json'] = encoder.encode(
     JSON.stringify(raw.settings, null, 2)
   );
