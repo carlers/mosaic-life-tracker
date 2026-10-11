@@ -6,6 +6,8 @@ import 'swiper/css';
 import '../../src/index.css';
 import { format } from 'date-fns';
 import { CalendarCarousel } from '../../src/components/home/views/CalendarCarousel';
+import { CalendarBody } from '../../src/components/home/views/CalendarBody';
+import { loadDayViewSheet } from '../../src/components/home/views/dayViewSheetModule';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
@@ -179,11 +181,42 @@ function ColdDayViewProbe({ tasks, categories, emptyDayTasks }: {
   );
 }
 
+/** The actual CalendarBody / DayCell / lazy DayViewSheet entry path, rather than an isolated open button. */
+function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; categories: CategoryDocument[] }) {
+  const calendar = useCalendarState();
+  const categoriesMap = React.useMemo(
+    () => Object.fromEntries(categories.map(category => [category.id, { name: category.name, color: category.color }])),
+    [categories],
+  );
+  // The application already attempts to warm the module during Home idle.
+  React.useEffect(() => { void loadDayViewSheet(); }, []);
+  return (
+    <div data-testid="real-calendar-cold-probe" className="flex h-[600px] w-[390px] flex-col overflow-hidden">
+      <CalendarBody
+        viewMode={calendar.viewMode}
+        slides={calendar.slides}
+        renderStart={calendar.renderStart}
+        renderEnd={calendar.renderEnd}
+        emblaRef={calendar.emblaRef}
+        tasks={tasks}
+        categories={categories}
+        categoriesMap={categoriesMap}
+        variant="me"
+        currentUserId="user_1"
+        isActive
+        onPrev={calendar.handlePrev}
+        onNext={calendar.handleNext}
+      />
+    </div>
+  );
+}
+
 export function InteractionHarness() {
   const calendar = useCalendarState();
   const searchParams = new URLSearchParams(window.location.search);
   const performanceHeavy = searchParams.get('perf') === 'heavy';
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
+  const performanceCalendarPath = searchParams.get('calendarPath') === '1';
   const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
   const [friendIndex, setFriendIndex] = useState(0);
   const [todoDayIndex, setTodoDayIndex] = useState(0);
@@ -526,8 +559,9 @@ export function InteractionHarness() {
         </div>
       </BottomSheet>
 
-      {performanceHeavy && (
-        <ColdDayViewProbe tasks={todoTasks} categories={todoCategories} emptyDayTasks={emptyDayTasks} />
+      {performanceHeavy && (performanceCalendarPath
+        ? <CalendarPathColdProbe tasks={emptyDayTasks ? [] : todoTasks} categories={todoCategories} />
+        : <ColdDayViewProbe tasks={todoTasks} categories={todoCategories} emptyDayTasks={emptyDayTasks} />
       )}
       <button
         type="button"

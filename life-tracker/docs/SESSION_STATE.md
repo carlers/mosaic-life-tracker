@@ -27,3 +27,10 @@ Current task: Eliminate Calendar Day View first-mount CPU blockage after unchang
 - Run production-build/size preflight on task branch if needed for near-limit budgets. Squash into stable Preview only after focused success, then run one full canonical gate and verify exact Vercel READY SHA.
 - Manually compare cold opening, refresh, instant/one-minute tap, and rapid swipes on mobile; browser diagnostics do not certify device perceived latency.
 - Never merge to dev or main without separate approval.
+
+
+## #640 follow-up after v0.17.9 mobile rejection
+- User confirms the v0.17.9 stable Preview still delays on first Calendar day-cell click even after a minute; reopened sheets are immediate. Previous CI/virtualization benchmark did not certify perceived latency.
+- Added a full CalendarBody → DayCell → lazy DayViewSheet browser fixture, opt-in first-paint timeline and an ordering regression. Existing isolated synthetic button did not measure this path.
+- Task change splits the DayViewSheet component into a lightweight shared BottomSheet host and delayed DayViewSheetInner. The shared two-frame deferral now covers the *whole* expensive hook/Swiper subtree, rather than only its already-constructed children. The original sheet controls (back/focus, close/reset, horizontal gestures, motion settling, select-to-dismiss, reorder/nested lock) are forwarded via a mounted child control ref. Inline Todo/Backlog rendering remains unchanged.
+- Verification still needed: focused type/lint/DOM/browser, production size preflight and exact-SHA canonical stable Preview delivery. Manual mobile perceived-latency acceptance remains required; do not promote dev/main or close #640 before approval.
