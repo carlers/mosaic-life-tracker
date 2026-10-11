@@ -311,7 +311,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             >
               <RotateCcw size={16} className="text-black" />
             </div>
-            <span className="text-base font-medium">Change Date</span>
+            <span className="text-base font-medium">{task.date === '' ? 'Schedule' : 'Change Date'}</span>
           </button>
 
           <button
@@ -328,7 +328,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-base font-medium">Make It a Routine</span>
           </button>
 
-          <button
+          {task.date !== '' && <button
             type="button"
             onClick={() => { onMoveToBacklog(); onClose(); }}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
@@ -340,7 +340,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               <Archive size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Move to Backlog</span>
-          </button>
+          </button>}
         </div>
       </div>
     </BottomSheet>

@@ -417,6 +417,29 @@ describe('DayViewSheet nested task actions', () => {
     expect(screen.getByText('Visibility')).toBeInTheDocument();
   });
 
+  it('uses the same task workspace for undated Backlogs without date navigation', () => {
+    const undatedTask = { ...fixture.task, id: 'task_backlog', date: '', image: '' };
+    render(
+      <DayViewSheet
+        isOpen
+        onClose={vi.fn()}
+        selectedDate={new Date(2026, 8, 20)}
+        renderMode="backlog"
+        tasks={[fixture.task, undatedTask]}
+        categories={[fixture.category, fixture.secondCategory]}
+      />
+    );
+
+    expect(screen.getByTestId('backlog-day-view')).toBeInTheDocument();
+    expect(screen.queryByTestId('day-swiper')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Previous day' })).toBeNull();
+    expect(screen.queryByText('Sunday, September 20, 2026')).toBeNull();
+    expect(screen.getByText('Open actions')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Open actions'));
+    expect(screen.getByText('Schedule')).toBeInTheDocument();
+    expect(screen.queryByText('Move to Backlog')).toBeNull();
+  });
+
   // Supplied task/category rendering is covered through the real DaySlide in
   // TodoListIntegration.test.tsx; an "Open actions" smoke assertion here could
   // also pass with fallback hook data and did not establish that contract.
