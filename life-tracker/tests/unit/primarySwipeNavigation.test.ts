@@ -31,21 +31,22 @@ describe('resolvePrimarySwipeDestination', () => {
 
   // Regression: §2 (Settings can swipe forward only after a verified Back).
   it('reopens only the adjacent Settings child preserved by browser/Android Back', () => {
-    const previous = (pathname: string, parent: string | null = '/settings', index: number | null = 3) =>
-      ({ pathname, parent, index });
-    const settings = { pathname: '/settings', index: 2 };
+    const previous = (path: string, parent: string | null = '/settings', index: number | null = 3) =>
+      ({ path, parent, index });
+    const settings = '/settings';
+    const index = 2;
 
     for (const child of ['/settings/preferences', '/settings/notifications', '/settings/releases', '/profile']) {
-      expect(resolveSettingsHistoryForward(previous(child), settings, 'POP')).toBe(child);
+      expect(resolveSettingsHistoryForward(previous(child), settings, index, 'POP')).toBe(child);
     }
-    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, 'PUSH')).toBeNull();
-    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, 'REPLACE')).toBeNull();
-    expect(resolveSettingsHistoryForward(previous('/settings/preferences', '/notifications'), settings, 'POP')).toBeNull();
-    expect(resolveSettingsHistoryForward(previous('/messages'), settings, 'POP')).toBeNull();
-    expect(resolveSettingsHistoryForward(previous('/settings/preferences', '/settings', 5), settings, 'POP')).toBeNull();
-    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), { pathname: '/account', index: 2 }, 'POP')).toBeNull();
-    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), { pathname: '/settings', index: null }, 'POP')).toBeNull();
-    expect(resolveSettingsHistoryForward(previous('/settings/preferences', '/settings', null), settings, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, index, 'PUSH')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, index, 'REPLACE')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences', '/notifications'), settings, index, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/messages'), settings, index, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences', '/settings', 5), settings, index, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), '/account', index, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, null, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences', '/settings', null), settings, index, 'POP')).toBeNull();
   });
 
   // Regression: §2 (Settings child pages are right-swipe detail routes).

@@ -8,7 +8,6 @@ import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
 import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
 import {
-  getPrimaryRoutePreloadTargets,
   preloadPrimaryRoute,
 } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
@@ -128,11 +127,7 @@ export const AppLayout: React.FC = () => {
     const nextTransition = {
       path, key: location.key, index, direction,
       parent: resolveRouteParent(path, location.state),
-      forwardSettingsChild: resolveSettingsHistoryForward(
-        { pathname: routeTransition.path, parent: routeTransition.parent, index: routeTransition.index },
-        { pathname: path, index },
-        navigationType
-      ),
+      forwardSettingsChild: resolveSettingsHistoryForward(routeTransition, path, index, navigationType),
     };
     setRouteTransition(nextTransition);
     currentTransition = nextTransition;
@@ -142,7 +137,7 @@ export const AppLayout: React.FC = () => {
     const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
   }, [path, skipCompositorTo]);
-  const settingsForwardChild = path === '/settings' ? currentTransition.forwardSettingsChild : null;
+  const settingsForwardChild = currentTransition.forwardSettingsChild;
   const leftSwipeDestination = settingsForwardChild ??
     resolvePrimarySwipeDestination(path, 'left', location.state);
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
@@ -248,8 +243,8 @@ export const AppLayout: React.FC = () => {
   useEffect(() => {
     if (!user?.$id) return;
 
-    const destinations = getPrimaryRoutePreloadTargets(path);
-    if (settingsForwardChild) destinations.push(settingsForwardChild);
+    const destinations = [leftSwipeDestination, rightSwipeDestination]
+      .filter((target): target is string => target !== null);
     if (destinations.length === 0) return;
 
     if (messagesIsAdjacent) {
@@ -274,7 +269,7 @@ export const AppLayout: React.FC = () => {
 
     const timer = window.setTimeout(preload, 180);
     return () => window.clearTimeout(timer);
-  }, [messagesIsAdjacent, path, settingsForwardChild, user?.$id]);
+  }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, user?.$id]);
 
   if (!user && isOffline) {
     const headline =
@@ -371,21 +366,11 @@ export const AppLayout: React.FC = () => {
     navigate(`/${tab}`);
   };
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
-    const destination = direction === 'left' && settingsForwardChild
-      ? settingsForwardChild
-      : resolvePrimarySwipeDestination(path, direction, location.state);
+    const destination = direction === 'left' ? leftSwipeDestination : rightSwipeDestination;
     if (!destination) return;
     // This route was already animated by PrimaryRouteSwipeSurface.
     // Do not repeat the slide when its navigation is a browser-history POP.
     setSkipCompositorTo(destination);
-
-    if (direction === 'left' && path === '/settings' && settingsForwardChild) {
-      // Reopen the recorded child with the normal parent state. A push
-      // replaces the former forward branch, and still works if opening a
-      // BottomSheet consumed that browser forward entry after Back.
-      navigate(destination, { state: makeRouteParentState('/settings') });
-      return;
-    }
 
     const parent = resolveRouteParent(path, location.state);
     if (direction === 'right' && parent) {
