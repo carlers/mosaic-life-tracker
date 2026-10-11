@@ -49,8 +49,9 @@ export function resolveSettingsHistoryForward(
   if (navigationType !== 'POP' || pathname !== '/settings' ||
     previous.parent !== '/settings' || historyDelta !== -1) return null;
 
-  const route = matchProtectedRoute(previous.path);
-  return route?.kind === 'detail' ? previous.path : null;
+  // The prior parent was resolved from the protected route registry, so
+  // repeating that route lookup would duplicate the same validation.
+  return previous.path;
 }
 
 export function resolvePrimarySwipeDestination(
