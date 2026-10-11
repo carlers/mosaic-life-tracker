@@ -1,22 +1,25 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: nested BottomSheet visual depth and paint-order correction, Preview v0.16.7. No dev/main promotion authorized.
+Current task: granular production version history and compact offline-first release UI, Preview v0.16.8. No dev/main promotion authorized.
 
 ## Verified baseline
-- Started from `dev` `61f7b00696d50ee3fbc117ae7ccbcc26fca78c93` (v0.16.6), on task branch `chatgpt/nested-sheet-depth` and stable Preview `feature/nested-sheet-depth`.
-- Scope is frontend-only. No Appwrite schema, Function, sync, or production environment changes.
+- Source dev: `b76ca6295a8409309c232b25d44fa7f63cbc6878` (v0.16.7); production main `614cd1dccbd01bf70493874496559720b320151a` (v0.16.6).
+- Branch `chatgpt/granular-release-history`; stable Preview target `feature/granular-release-history`.
+- Published GitHub Releases: v0.12.1, v0.12.2 and v0.16.6. Intermediate versions were absent because only production release tags were listed.
+- Frontend + trusted release publisher/workflow only. No Appwrite schema, Function, keys or production deployments touched.
 
 ## Candidate
-- Shared `BottomSheet` gives every visible portal a depth-ordered sheet/backdrop pair, a lighter nested veil, a theme-aware border and shadow, and subtle parent recession with reduced-motion support.
-- Preserve top-layer-only focus/interaction, browser/Android Back history, parent state retention until exit, drag dismissal and existing caller APIs.
-- Browser regression checks painted backdrop ordering, parent geometry while nested, and restoration after Back.
-- `docs/THEMING.md` records the depth contract. Product version is 0.16.7 consistently across three files.
+- Verified dev first-parent version milestones are embedded in published GitHub Release notes (one genuine production tag per promotion). Historical v0.16.6 notes may be backfilled on a later production publication only after pinned tag/ancestry/prod proof.
+- Settings release list groups individual milestone rows under each actual production release, retains original aggregate notes, safely formats Markdown and reduces spacing.
+- Public account-independent localStorage history is rendered immediately from cache with on-demand refresh and offline fallback. Lazy route preserved.
+- Version synchronized to 0.16.8; parser, UI, publisher and cache regressions included.
 
 ## Verification
-- The first focused run passed 1,454 tests and found only the required checkpoint heading missing.
+- Focused task-branch CI and stable Preview canonical CI/Vercel deployment are required. Do not claim completed until live checks confirm.
+- No browser, iOS or Android visual acceptance has been performed.
 
 ## Next action
-- Re-run focused verification on the checkpoint repair SHA and review the resulting checks.
-- Squash task PR into `feature/nested-sheet-depth`; require stable Preview canonical acceptance and exact-commit Vercel Preview readiness.
-- Do not merge into `dev` or `main` without explicit approval. Real iOS, Android, and desktop visual/touch acceptance remains manual and unclaimed.
+- Confirm task diff, focused verification and any CI repairs on task branch.
+- Squash accepted task commit into stable Preview `feature/granular-release-history`; require canonical full gate and exact Vercel Preview readiness.
+- Obtain explicit approval before promoting to dev or main. Historical release-note reconciliation will not run until trusted post-main publisher.

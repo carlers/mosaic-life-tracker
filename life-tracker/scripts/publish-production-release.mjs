@@ -1,5 +1,6 @@
 // Runs only on the trusted default-branch workflow after main CI. Never executes PR code.
 import { readFileSync, appendFileSync } from 'node:fs';
+import { collectProductionMilestones, formatVersionMilestones, MILESTONE_START } from './lib/release-milestones.mjs';
 import { execFileSync } from 'node:child_process';
 import { validateVersionFiles, compareVersions } from './lib/versioning.mjs';
 import {
@@ -168,7 +169,11 @@ const pr = prs.find(x => x.merge_commit_sha === candidate &&
   x.base?.ref === 'main' && x.merged_at && x.state === 'closed');
 if (!pr) throw new Error('No merged production promotion PR for exact main SHA');
 const notes = extractReleaseNotes(pr.body);
-const releaseBody = notes + '\n\nProduction promotion: ' + pr.html_url;
+const milestoneNotes = formatVersionMilestones(collectProductionMilestones({
+  devHead: commit.parents[1].sha, previousVersion: oldVersion, version,
+}));
+const releaseBody = notes + '\n\nProduction promotion: ' + pr.html_url +
+  (milestoneNotes ? '\n\n' + milestoneNotes : '');
 
 let statuses;
 async function readyProduction() {
@@ -192,6 +197,44 @@ for (let attempt = 1; attempt <= 12; attempt++) {
   }
 }
 if (!ready) throw new Error('Production not READY');
+
+// Evidence-backed one-time reconstruction of the versions folded into v0.16.6.
+// Never move the historical tag or backfill an unverified or later release.
+async function reconcileV0166Milestones() {
+  const sha = '614cd1dccbd01bf70493874496559720b320151a';
+  const tag = 'v0.16.6';
+  if (compareVersions(version, '0.16.6') < 0) return;
+  const [release, ref, historical, ancestry] = await Promise.all([
+    api('/releases/tags/' + tag, { allow404: true }),
+    api('/git/ref/tags/' + tag, { allow404: true }),
+    api('/commits/' + sha),
+    api('/compare/' + sha + '...' + candidate),
+  ]);
+  if (!release) return;
+  if (ref?.object?.sha !== sha || ref.object.type !== 'commit' ||
+      historical.parents?.length !== 2 ||
+      ancestry.merge_base_commit?.sha !== sha ||
+      !['identical', 'ahead'].includes(ancestry.status) ||
+      release.tag_name !== tag || release.target_commitish !== sha ||
+      release.draft || release.prerelease || !release.published_at ||
+      typeof release.body !== 'string') {
+    throw new Error('Historical v0.16.6 publication proof mismatched; no backfill');
+  }
+  if (release.body.includes(MILESTONE_START)) return;
+  const records = collectProductionMilestones({
+    devHead: historical.parents[1].sha, previousVersion: '0.12.2', version: '0.16.6',
+  });
+  const details = formatVersionMilestones(records);
+  if (!details) return;
+  if (await mainSha() !== candidate) throw new Error('Main changed before historical notes backfill');
+  const updated = await api('/releases/' + release.id, {
+    method: 'PATCH', body: { body: release.body.trim() + '\n\n' + details },
+  });
+  if (updated.id !== release.id || !updated.body?.includes(MILESTONE_START)) {
+    throw new Error('Historical release notes backfill was not confirmed');
+  }
+}
+await reconcileV0166Milestones();
 
 async function tagSha() {
   const ref = await api('/git/ref/tags/' + tag, { allow404: true });
