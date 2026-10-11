@@ -33,7 +33,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isSha
             exactly where the outer padding begins, so the right gutter is
             preserved on hard-cut text. */}
         <div className="px-[0.3rem] pb-0.5">
-          <span className="flex items-center gap-0.5 overflow-hidden whitespace-nowrap">{isShared && <UsersRound size={10} className="shrink-0" aria-hidden="true" />}<span className="min-w-0 truncate">{task.title}</span></span>
+          <span className="flex items-center gap-0.5 overflow-hidden whitespace-nowrap">{isShared && <UsersRound size={10} className="shrink-0" aria-hidden="true" />}<span className="min-w-0">{task.title}</span></span>
         </div>
         {task.image && (
           <div className="w-full h-10 overflow-hidden bg-black/20">
