@@ -18,25 +18,23 @@
     "entryGzipBytes": 132200,
     "initialClosureGzipBytes": 145200,
     "homeClosureGzipBytes": 363400,
-    "appAssetsRawBytes": 2414000,
-    "appAssetsGzipBytes": 746900,
-    "precacheUniqueBytes": 2499500
+    "appAssetsRawBytes": 2417000,
+    "appAssetsGzipBytes": 749000,
+    "precacheUniqueBytes": 2503000
   },
   "review": {
     "issue": "#405",
-    "reason": "Measured Bucket List MVP adds an isolated aspirations route, owner-only sync, and portable backup/restore; reusing existing owner replication mechanisms reduced the size impact, but the legitimate new product data and UI exceed four prior 2026-10-03 limits. Keep entry and initial startup ceilings unchanged and preserve the pinned baseline.",
-    "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38147075247",
+    "reason": "This is a measured cross-provider Budget Review for the approved Bucket List MVP. The exact 284ee316 tree passed GitHub canonical CI but the GIPHY-enabled Vercel Preview build emitted about one additional kilobyte of assets and precache data. Preserve startup/entry caps, existing GIPHY configuration, baseline and the size guard while providing a narrow provider-parity allowance.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/9boiSiqQfPVQxyULK69qQZ16wnQM",
     "metrics": [
-      "homeClosureGzipBytes",
       "appAssetsRawBytes",
       "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 362900,
-      "appAssetsRawBytes": 2407000,
-      "appAssetsGzipBytes": 744350,
-      "precacheUniqueBytes": 2492250
+      "appAssetsRawBytes": 2414000,
+      "appAssetsGzipBytes": 746900,
+      "precacheUniqueBytes": 2499500
     }
   }
 }
