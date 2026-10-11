@@ -14,7 +14,7 @@ Current task: First-open Calendar Day View performance optimization (frontend on
 - Warm the import after Home's local task/category/carousel readiness, during idle time; keep the closed sheet unmounted, preserve the seven-slide buffer, and allow immediate user interaction to load on demand.
 - Add module-dedup and idle-mount regression coverage; document the startup invariant. No backend schema, Function, or Production changes.
 
-## Verification and next action
+## Next action
 - The task commit requests `[verify:focused]`. Inspect actual Actions results and repair failures.
 - After focused success, squash into `perf/day-view-idle-warmup-20261011` and verify canonical acceptance, version, Vercel Preview and user/device acceptance.
 - Never merge to `dev` or `main` without separate approval. Compare actual startup/open timing and bundle sizes; device timing is pending.
