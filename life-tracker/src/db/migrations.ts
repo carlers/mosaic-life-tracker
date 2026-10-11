@@ -44,6 +44,7 @@ export const settingsMigrationStrategies = {
 };
 
 export const syncMetaMigrationStrategies = {
+  2: (oldDoc: Record<string, unknown>) => oldDoc,
   1: (oldDoc: Record<string, unknown>) => {
     const { collection, ...rest } = oldDoc;
     return {
