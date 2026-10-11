@@ -1,21 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: finish v0.17.2 Backlogs promotion cleanup. User approved promotion to dev, **not main**.
+Current task: Calendar TaskBlock title hard clipping instead of ellipsis. User requested the change, not dev/main promotion.
 
-## Verified
-- Settings forward swipe PR #580 merged to dev (v0.17.0) and survived the Backlogs merge; device gesture acceptance is pending.
-- Backlogs issue #407: private date-free category Day View at `/backlog`, Home/Me navigation, calendar ↔ Backlogs moves preserving task ID, task search and no sharing/Alerts for unscheduled tasks. Original PR #581 is obsolete/conflicted.
-- Replacement Backlogs stable Preview `feature/backlog-dev-407` SHA `a4a3d292`: focused CI 38119798653 SUCCESS; full canonical CI 38119851398 SUCCESS; Vercel Preview READY.
-- Promotion PR #588 merged Backlogs to dev `383b2fa553b16209357ea035614ffeb20aed3f8f`; exact dev and accepted Preview trees match. Dev promotion CI 38120002742 SUCCESS.
-- Dev Vercel deployment `dpl_2T6Ms2Rp9jREyoHjxqv96HT9DS6W` failed only size caps. All TypeScript, Vite and PWA steps passed, and Preview/backend target stayed Scratch.
-- Measured dev Vercel: entry raw 443770; gzip 132026; initial gzip 144984; Home gzip 362523; assets raw 2406651; assets gzip 744003; precache 2491866 bytes. Retain all entry/initial/Home limits. Narrow aggregate caps: raw 2407000; gzip 744350; precache 2492250 (349/347/384 B headroom).
-- Budget-only task PR #589 focused CI 38120135059 SUCCESS, squash merged to stable `fix/backlog-dev-vercel-budget-407` SHA `e8a313a`. Vercel Preview READY; build and DOM jobs passed. Full CI 38120188624 found only an oversized handoff packet: 3221 estimated tokens vs maximum 3000 in `documentationContracts.test.ts`. This checkpoint is condensed to repair it. No runtime or version change.
+## Verified baseline
+- Task branch and stable Preview start from dev `f65d348c2f537b4d8c1063096e6856a9ee3d629f` (v0.17.2).
+- `src/components/home/views/TaskBlock.tsx` title uses `truncate`, which creates an ellipsis; its parent already clips overflow and prevents wrapping.
+- Preview candidate v0.17.3 is a user-visible PATCH refinement; no Appwrite/backend or schema change.
 
-## Remaining
-- Require focused CI for this checkpoint-only repair, squash into the same stable fix Preview, then require its new full canonical CI and exact-SHA Vercel READY.
-- Promote the accepted fix Preview to dev, validate exact merged tree, dev CI and Vercel READY. Then close superseded PR #581 (do not merge its stale code). Keep issue #407 open until main release.
-- Scratch Appwrite `message-action` live Function currently has a ready newer deployment **not verified as active or matching the combined code**; do not claim backend parity. Authenticated multi-device, direct-route and iOS/Android gestures remain manual/unverified. Production/main untouched.
+## Candidate
+- Remove only the title's `truncate` class, retaining `min-w-0` and the parent overflow clipping.
+- Synchronize package.json, package-lock.json and src/lib/appVersion.ts to v0.17.3.
+- No CSS-implementation assertion test: the change is purely visual, and repository test rules prohibit locking incidental Tailwind class structure.
+
+## Verification / remaining
+- Request focused task CI with `[verify:focused]`; review and repair any failures.
+- Squash task branch `chatgpt/taskblock-hard-cut-20261011` into stable `fix/taskblock-hard-cut-20261011`, then verify full canonical CI, build-size checks and Vercel Preview at the exact stable commit.
+- Manual desktop/mobile visual acceptance is still required to confirm hard-cut behavior at narrow widths and with the shared-task icon.
+- Do not merge to dev/main or modify Production/Appwrite without user approval.
 
 ## Next action
-Finish the checkpoint repair via focused task → stable Preview canonical/Vercel → approved dev promotion. Inspect any failure before promoting; close PR #581 only after dev deployment is READY.
+Complete CI + Preview delivery, then request user acceptance of the Preview before promotion.
