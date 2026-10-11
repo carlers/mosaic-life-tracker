@@ -13,6 +13,7 @@ Current task: Eliminate Calendar Day View first-mount CPU blockage after unchang
 - Preserve all 181 logical selected-date positions while using Swiper Virtual to render only nearby DOM slides in sheet mode, avoiding layout of 181 initially mounted elements. Keep full seven-day fast-swipe buffer, explicit virtual update on far date jumps, and original inline Todo renderer.
 - Correct cold-mount performance harness and keep an opt-in @performance diagnostic outside canonical browser correctness suite.
 - Add browser regression for bounded slide DOM and far date jump plus swipe; maintain existing accessibility/gesture behavior.
+- Issue #640 records the CPU measurements and metric-specific build-size review. Production app assets were 2,412,056 raw / 745,792 gzip, precache 2,497,415 B while entry, initial and Home caps remained green; reviewed aggregate ceilings are 2,413,000 raw / 746,300 gzip / 2,498,300 precache. Full gate's only red job was the old aggregate budget; DOM, lint/unit and browser including far-date jump passed.
 - Frontend-only. No Appwrite, Production, schema or service changes.
 
 ## Next action
