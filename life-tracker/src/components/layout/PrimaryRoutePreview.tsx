@@ -85,49 +85,24 @@ const Fallback: React.FC<{ pathname: PreviewPath }> = ({ pathname }) => (
   </div>
 );
 
+// A route added to the supported registry must also have a lazy preview.
+const PAGES: Record<PreviewPath, React.ComponentType> = {
+  '/home': HomePreview,
+  '/explore': ExplorePreview,
+  '/notifications': () => <NotificationsPreview preview />,
+  '/messages': MessagesPreview,
+  '/account': AccountPreview,
+  '/settings': SettingsPreview,
+  '/settings/preferences': PreferencesPreview,
+  '/settings/notifications': NotificationSettingsPreview,
+  '/settings/releases': ReleaseHistoryPreview,
+  '/profile': ProfilePreview,
+};
+
 const PrimaryRoutePreviewComponent: React.FC<{ pathname: string }> = ({ pathname }) => {
   if (!isPreviewPath(pathname)) return null;
-
-  let content: React.ReactNode;
-  switch (pathname) {
-    case '/home':
-      content = <HomePreview />;
-      break;
-    case '/explore':
-      content = <ExplorePreview />;
-      break;
-    case '/notifications':
-      content = <NotificationsPreview preview />;
-      break;
-    case '/messages':
-      content = <MessagesPreview />;
-      break;
-    case '/account':
-      content = <AccountPreview />;
-      break;
-    case '/settings':
-      content = <SettingsPreview />;
-      break;
-    case '/settings/preferences':
-      content = <PreferencesPreview />;
-      break;
-    case '/settings/notifications':
-      content = <NotificationSettingsPreview />;
-      break;
-    case '/settings/releases':
-      content = <ReleaseHistoryPreview />;
-      break;
-    case '/profile':
-      content = <ProfilePreview />;
-      break;
-    default: {
-      // Compile-time exhaustive check for a newly enabled Preview route.
-      const unreachable: never = pathname;
-      throw new Error('Unsupported route preview: ' + unreachable);
-    }
-  }
-
-  return <Suspense fallback={<Fallback pathname={pathname} />}>{content}</Suspense>;
+  const Page = PAGES[pathname];
+  return <Suspense fallback={<Fallback pathname={pathname} />}><Page /></Suspense>;
 };
 
 export const PrimaryRoutePreview = memo(PrimaryRoutePreviewComponent);
