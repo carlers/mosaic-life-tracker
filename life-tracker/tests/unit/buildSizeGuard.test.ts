@@ -182,10 +182,18 @@ describe('build-size guard', () => {
       'utf8',
     ));
 
+    // v0.16.8 adds a lazy release-history Markdown renderer. The first
+    // Preview Vercel build measured 2,394,877 B app raw and 2,479,228 B
+    // precache; keep the new caps narrowly bounded while all startup/Home
+    // and aggregate gzip ceilings remain unchanged.
+    // v0.16.9 includes the historical PR-backed archive in the lazy
+    // ReleaseHistoryPage. Verified Vercel measured 2,398,474 B raw,
+    // 740,359 B gzip, and 2,482,825 B precache. These narrow caps
+    // preserve the independently enforced entry/initial/Home budgets.
     expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2393000,
-      appAssetsGzipBytes: 739000,
-      precacheUniqueBytes: 2477000,
+      appAssetsRawBytes: 2399000,
+      appAssetsGzipBytes: 741000,
+      precacheUniqueBytes: 2483500,
     });
   });
 
