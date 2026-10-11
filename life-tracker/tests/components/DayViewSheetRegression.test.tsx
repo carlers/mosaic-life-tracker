@@ -382,7 +382,8 @@ describe('DayViewSheet nested task actions', () => {
     await waitFor(() => expect(taskMocks.updateTask).toHaveBeenCalledTimes(2));
     expect(taskMocks.updateTask).toHaveBeenCalledWith('task_1', { date: '' });
     expect(taskMocks.updateTask).toHaveBeenCalledWith('task_2', { date: '' });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Select tasks' }))
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find((button) => button.getAttribute('tabindex') === '0'))
       .toHaveAttribute('aria-pressed', 'false'));
   });
 
