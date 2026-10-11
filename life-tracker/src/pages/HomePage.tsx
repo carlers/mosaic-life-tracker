@@ -15,12 +15,8 @@ import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
+import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
 
-const LazyDayViewSheet = React.lazy(() =>
-  import('../components/home/views/DayViewSheet').then(({ DayViewSheet }) => ({
-    default: DayViewSheet,
-  }))
-);
 const LazyFriendCarouselSettingsSheet = React.lazy(() =>
   import('../components/home/FriendCarouselSettingsSheet').then(
     ({ FriendCarouselSettingsSheet }) => ({
@@ -96,6 +92,37 @@ export const HomePage: React.FC = () => {
     if (tasksLoading || categoriesLoading || carouselLoading) return;
     markStartup('home:local-data-ready');
   }, [carouselLoading, categoriesLoading, tasksLoading]);
+
+  // Warm the code after first usable local Home data, never in the startup graph.
+  // This does not mount the sheet or start its data hooks. Early taps still load
+  // on demand through the same cached import.
+  useEffect(() => {
+    if (tasksLoading || categoriesLoading || carouselLoading || activePersonId !== 'me') return;
+
+    let cancelled = false;
+    const warm = () => {
+      if (cancelled || document.visibilityState !== 'visible') return;
+      void loadDayViewSheet().catch(() => {
+        // An idle warmup failure must not block the next on-demand attempt.
+      });
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(warm);
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback?.(idleId);
+      };
+    }
+
+    // Safari lacks requestIdleCallback; allow startup and Home's existing
+    // render-window expansion to settle before attempting the import.
+    const timer = window.setTimeout(warm, 1800);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activePersonId, carouselLoading, categoriesLoading, tasksLoading]);
 
   useEffect(() => {
     const schedule = () => setRenderWindow(RENDER_WINDOW);

@@ -1,7 +1,8 @@
 import { format } from 'date-fns';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-let idleCallback: IdleRequestCallback | null = null;
+const mockWarmDayView = vi.hoisted(() => vi.fn(async () => undefined));
+let idleCallbacks: IdleRequestCallback[] = [];
 const mockPersons = [
   { id: 'me', kind: 'me', displayName: 'Me' },
   { id: 'friend_1', kind: 'friend', displayName: 'Friend' },
@@ -33,6 +34,11 @@ const ownerCategory = {
   isDeleted: false,
   updatedAt: '2026-09-01T00:00:00.000Z',
 };
+
+vi.mock('../../src/components/home/views/dayViewSheetModule', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/components/home/views/dayViewSheetModule')>();
+  return { ...actual, loadDayViewSheet: mockWarmDayView };
+});
 
 vi.mock('swiper/react', () => ({
   Swiper: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -129,10 +135,11 @@ const renderHome = () => render(<MemoryRouter><HomePage /></MemoryRouter>);
 
 describe('HomePage task-search wiring', () => {
   beforeEach(() => {
-    idleCallback = null;
+    idleCallbacks = [];
+    mockWarmDayView.mockClear();
     vi.stubGlobal('requestIdleCallback', (cb: IdleRequestCallback) => {
-      idleCallback = cb;
-      return 1;
+      idleCallbacks.push(cb);
+      return idleCallbacks.length;
     });
     vi.stubGlobal('cancelIdleCallback', vi.fn());
   });
@@ -142,9 +149,26 @@ describe('HomePage task-search wiring', () => {
     renderHome();
     expect(screen.getAllByText('Pane')).toHaveLength(1);
     act(() => {
-      idleCallback?.({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
     });
     expect(screen.getAllByText('Pane')).toHaveLength(2);
+  });
+
+  // Regression: §19 (lazy interaction code must not delay first usable Home).
+  it('loads Day View code only in idle time without mounting a closed sheet', () => {
+    renderHome();
+    expect(mockWarmDayView).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('search-day-view')).not.toBeInTheDocument();
+
+    act(() => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+    });
+    expect(mockWarmDayView).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('search-day-view')).not.toBeInTheDocument();
   });
 
   // Regression: §2 (Home task-search history and owner Day View integration).
