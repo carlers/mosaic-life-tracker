@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PwaPrompt } from '../../src/components/ui/PwaPrompt';
+import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { silenceExpectedConsole } from '../helpers/expectedConsole';
 
 const mocks = vi.hoisted(() => ({
@@ -74,5 +75,49 @@ describe('PwaPrompt', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss install prompt' }));
     expect(mocks.dismissInstall).toHaveBeenCalledOnce();
+  });
+
+  // Regression: app-root notices must not sit above an active modal while
+  // remaining inert/unfocusable. Availability survives nested and closing sheets.
+  it('defers an update through nested sheet layers and resumes it after they clear', async () => {
+    mocks.updateAvailable = true;
+    const parent = <BottomSheet isOpen onClose={() => undefined}><button>Parent action</button></BottomSheet>;
+    const nested = <BottomSheet isOpen onClose={() => undefined}><button>Nested action</button></BottomSheet>;
+    const { rerender } = render(<>{parent}{nested}<PwaPrompt /></>);
+
+    expect(screen.queryByRole('complementary', { name: 'App update available' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Nested action' })).toHaveFocus();
+
+    rerender(<>{parent}<PwaPrompt /></>);
+    expect(screen.queryByRole('complementary', { name: 'App update available' })).toBeNull();
+
+    rerender(<PwaPrompt />);
+    expect(screen.getByRole('complementary', { name: 'App update available' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Update now' }));
+    await waitFor(() => expect(mocks.applyUpdate).toHaveBeenCalledOnce());
+  });
+
+  it('hides an install notice when a sheet opens without consuming the install offer', async () => {
+    mocks.installAvailable = true;
+    const { rerender } = render(<PwaPrompt />);
+    expect(screen.getByRole('button', { name: 'Install' })).toBeEnabled();
+
+    rerender(
+      <>
+        <BottomSheet isOpen onClose={() => undefined}>
+          <button>Sheet action</button>
+        </BottomSheet>
+        <PwaPrompt />
+      </>
+    );
+    expect(screen.queryByRole('complementary', { name: 'Install Mosaic' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Sheet action' })).toHaveFocus();
+    expect(mocks.dismissInstall).not.toHaveBeenCalled();
+
+    rerender(<PwaPrompt />);
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    await waitFor(() => expect(mocks.requestInstall).toHaveBeenCalledOnce());
+    // A dismissed system install request must not leave subsequent offers disabled.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Install' })).toBeEnabled());
   });
 });

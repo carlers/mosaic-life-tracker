@@ -11,6 +11,8 @@ interface MessageActionSheetProps {
   isOwn: boolean;
   currentUserId: string;
   onReply: () => void;
+  /** Fired after the sheet's closing animation, when focus can leave its trap. */
+  onClosed?: () => void;
   onCopy: () => void;
   onUnsend: () => void;
   onReact: (emoji: string) => void;
@@ -25,6 +27,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   message: incomingMessage,
   isOwn,
   onReply,
+  onClosed,
   onCopy,
   onUnsend,
   onReact,
@@ -40,7 +43,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
 
   if (isUnsent) {
     return (
-      <BottomSheet onExitComplete={onExitComplete}
+      <BottomSheet onExitComplete={() => { onExitComplete(); onClosed?.(); }}
         isOpen={isOpen}
         onClose={onClose}
         title="Message"

@@ -11,6 +11,12 @@ additional reading. Current code and Git override stale progress prose.
 - Use [GitHub Issues workflow](docs/ISSUE_WORKFLOW.md) for explicitly requested idea capture,
   issue-first planning, cross-chat recovery, and lifecycle tracking. An issue is not
   implementation or promotion authorization; the repo's contracts remain authoritative.
+- For a fresh-chat request such as "pick up where we left off on shared tasks", use
+  [issue-specific resume](docs/ISSUE_WORKFLOW.md#natural-language-cross-chat-resume):
+  resolve the topic through GitHub, inspect its latest resume checkpoint and live
+  branches/PRs/checks, then resume only previously authorized work. The global session
+  checkpoint can belong to another issue. Do not require the old chat or an issue number
+  when the repository can resolve the request.
 - Resolve routine choices and complete authorized work without repeated confirmation.
 - Use focused tests during edits; broaden for shared behavior or failures. Report actual
   results and unresolved limitations. Do not manufacture red evidence or add trivial tests.

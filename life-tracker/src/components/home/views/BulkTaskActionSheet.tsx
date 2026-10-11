@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { TaskDateEditor } from './TaskDateEditor';
 import { ArrowRight, CalendarDays, Eye } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 
@@ -7,7 +8,7 @@ interface BulkTaskActionSheetProps {
   count: number;
   onClose: () => void;
   onMoveCategory: () => void;
-  onChangeDate: () => void;
+  onChangeDate: (date: string) => Promise<unknown> | unknown;
   onDoToday: () => void;
   onDoTomorrow: () => void;
   onVisibility: () => void;
@@ -25,9 +26,11 @@ export const BulkTaskActionSheet: React.FC<BulkTaskActionSheetProps> = ({
   onVisibility,
   isWorking = false,
 }) => {
+  const [dateMode, setDateMode] = useState(false);
+  const dismiss = () => { setDateMode(false); onClose(); };
   const actions = [
     { label: 'Move to Category', icon: ArrowRight, action: onMoveCategory },
-    { label: 'Change Date', icon: CalendarDays, action: onChangeDate },
+    { label: 'Change Date', icon: CalendarDays, action: () => setDateMode(true) },
     { label: 'Do It Today', icon: ArrowRight, action: onDoToday },
     { label: 'Do It Tomorrow', icon: ArrowRight, action: onDoTomorrow },
     { label: 'Visibility', icon: Eye, action: onVisibility },
@@ -42,7 +45,11 @@ export const BulkTaskActionSheet: React.FC<BulkTaskActionSheetProps> = ({
       backdropBlur
       preventDismiss={isWorking}
     >
-      <div className="space-y-1 px-4 pb-8 pt-2">
+      {dateMode ? (
+        <TaskDateEditor initialDate=""
+          onCancel={() => setDateMode(false)}
+          onSave={async date => { await onChangeDate(date); dismiss(); }} />
+      ) : <div className="space-y-1 px-4 pb-8 pt-2">
         {actions.map(({ label, icon: Icon, action }) => (
           <button
             key={label}
@@ -57,7 +64,7 @@ export const BulkTaskActionSheet: React.FC<BulkTaskActionSheetProps> = ({
             <span className="text-base font-medium">{label}</span>
           </button>
         ))}
-      </div>
+      </div>}
     </BottomSheet>
   );
 };

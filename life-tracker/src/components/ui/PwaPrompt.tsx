@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { Download, RefreshCw, X } from 'lucide-react';
 import { usePwaLifecycle } from '../../hooks/usePwaLifecycle';
+import { isSheetVisible, subscribeToSheetVisibility } from '../../lib/sheetVisibility';
 
 export function PwaPrompt() {
   const {
@@ -12,9 +13,13 @@ export function PwaPrompt() {
     requestInstall,
   } = usePwaLifecycle();
   const [isWorking, setIsWorking] = useState(false);
+  const hasVisibleSheet = useSyncExternalStore(subscribeToSheetVisibility, isSheetVisible, () => false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!updateAvailable && !installAvailable) return null;
+  // A sheet portal owns keyboard and pointer focus until its exit completes.
+  // Do not display a non-modal PWA notice inside the inert #root.
+  // Lifecycle availability stays pending and is shown once the stack clears.
+  if ((!updateAvailable && !installAvailable) || hasVisibleSheet) return null;
 
   const isUpdate = updateAvailable;
   const handleAction = async () => {
@@ -26,6 +31,7 @@ export function PwaPrompt() {
     } catch (cause) {
       console.error(`[PWA] ${isUpdate ? 'Update' : 'Install'} action failed:`, cause);
       setError(`${isUpdate ? 'Update' : 'Install'} failed. Please try again.`);
+    } finally {
       setIsWorking(false);
     }
   };

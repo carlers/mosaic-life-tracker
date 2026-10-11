@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { isToday, format } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
+import { UsersRound } from 'lucide-react';
+import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { TaskDocument } from '../../../db/schema';
 import {
   EMPTY_HOLIDAYS,
@@ -11,6 +13,8 @@ import {
 interface DayCellProps {
   date: Date;
   tasks: TaskDocument[];
+  sharedItems?: SharedTaskItem[];
+  ownedSharedTaskIds?: ReadonlySet<string>;
   categories: Record<string, { color: string; name: string }>;
   holidays?: readonly HolidayOccurrence[];
   isCurrentMonth?: boolean;
@@ -20,6 +24,8 @@ interface DayCellProps {
 const DayCellComponent: React.FC<DayCellProps> = ({
   date,
   tasks,
+  sharedItems = [],
+  ownedSharedTaskIds,
   categories,
   holidays = EMPTY_HOLIDAYS,
   isCurrentMonth = true,
@@ -56,10 +62,10 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     if (holidays.length > 0) {
       parts.push(`holiday: ${holidayNames(holidays)}`);
     }
-    const n = tasks.length;
+    const n = tasks.length + sharedItems.length;
     parts.push(n === 0 ? 'no tasks' : `${n} task${n === 1 ? '' : 's'}`);
     return parts.join(', ');
-  }, [date, holidays, tasks.length, isTodayDate]);
+  }, [date, holidays, tasks.length, sharedItems.length, isTodayDate]);
 
   const handleClick = onDayClick ? () => onDayClick(date) : undefined;
 
@@ -105,7 +111,15 @@ const DayCellComponent: React.FC<DayCellProps> = ({
             key={task.id}
             task={task}
             categoryColor={categories[task.categoryId]?.color || '#6B7280'}
+            isShared={ownedSharedTaskIds?.has(task.id)}
           />
+        ))}
+        {sharedItems.map(item => (
+          <div key={item.id} title={'Shared by a friend: ' + item.title}
+            className="flex min-w-0 items-center gap-1 rounded bg-surfaceHighlight px-1 py-0.5 text-[10px] text-gray-300">
+            <UsersRound size={10} aria-hidden="true" className="shrink-0" />
+            <span className="min-w-0 truncate">{item.title}</span>
+          </div>
         ))}
       </div>
     </button>

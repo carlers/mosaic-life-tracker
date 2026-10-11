@@ -117,6 +117,50 @@ describe('message-action owner write CAS', () => {
     expect(result.body).toEqual({ ok: true, status: 'missing' });
   });
 
+
+  it('rejects legacy owner CAS writes on a task that has ever been shared', async () => {
+    mockDb.listRows.mockResolvedValue({ rows: [{ $id: 'shr_previous', status: 'revoked' }] });
+    const server = { $id: 'task_1', user_id: 'user_A',
+      is_completed: true, title: 'Current task', $updatedAt: '2026-10-10T10:00:00.000Z' };
+    mockDb.getRow.mockResolvedValue(server);
+    const result = await invoke({ userId: 'user_A', mockDb,
+      body: { action: 'compare_and_set_owner_row', tableId: 'tasks',
+        rowId: 'task_1', expectedUpdatedAt: '2026-10-10T10:00:00.000Z',
+        data: { user_id: 'user_A', title: 'Older local edit', is_completed: false } },
+    });
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ ok: true, status: 'conflict', row: server });
+    expect(mockDb.updateRows).not.toHaveBeenCalled();
+  });
+
+  it('preserves task completion precondition atomically on upgraded owner writes', async () => {
+    mockDb.updateRows.mockResolvedValue({ total: 1, rows: [{}] });
+    const result = await invoke({ userId: 'user_A', mockDb,
+      body: { action: 'compare_and_set_owner_row', tableId: 'tasks',
+        rowId: 'task_1', expectedUpdatedAt: '2026-10-10T10:00:00.000Z',
+        expectedCompleted: true,
+        data: { user_id: 'user_A', title: 'Updated task', is_completed: true } },
+    });
+    expect(result.status).toBe(200);
+    expect(mockDb.listRows).not.toHaveBeenCalled();
+    expect(mockDb.updateRows).toHaveBeenCalledWith(expect.objectContaining({
+      queries: expect.arrayContaining([
+        { op: 'equal', key: 'is_completed', value: true },
+      ]),
+    }));
+  });
+
+  it('rejects invalid expected completion baselines without writing', async () => {
+    const result = await invoke({ userId: 'user_A', mockDb,
+      body: { action: 'compare_and_set_owner_row', tableId: 'tasks',
+        rowId: 'task_1', expectedUpdatedAt: '2026-10-10T10:00:00.000Z',
+        expectedCompleted: 'true',
+        data: { user_id: 'user_A', title: 'Bad', is_completed: true } },
+    });
+    expect(result.status).toBe(400);
+    expect(mockDb.updateRows).not.toHaveBeenCalled();
+  });
+
   it('rejects cross-account and non-owner-table writes', async () => {
     const foreign = await invoke({
       userId: 'user_A',

@@ -8,7 +8,6 @@ import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
 import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
 import {
-  getPrimaryRoutePreloadTargets,
   preloadPrimaryRoute,
 } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
@@ -18,6 +17,7 @@ import {
   makeRouteParentState,
   resolvePrimarySwipeDestination,
   resolveRouteParent,
+  resolveSettingsHistoryForward,
   type PrimarySwipeDirection,
 } from '../../lib/primarySwipeNavigation';
 
@@ -111,24 +111,34 @@ export const AppLayout: React.FC = () => {
     (location.state as { mosaicBackAnimation?: unknown }).mosaicBackAnimation === true);
   const [routeTransition, setRouteTransition] = useState(() => ({
     path, key: location.key, index: readRouterHistoryIndex(window.history.state),
+    parent: resolveRouteParent(path, location.state),
+    forwardSettingsChild: null as string | null,
     direction: 'none' as import('../../lib/routeTransitions').RouteTransitionDirection,
   }));
   // React's guarded render-time adjustment keeps direction in lockstep with
   // location, even when browser Back/Forward changes before an effect runs.
+  let currentTransition = routeTransition;
   if (routeTransition.path !== path || routeTransition.key !== location.key) {
     const index = readRouterHistoryIndex(window.history.state);
     const historyDelta = index !== null && routeTransition.index !== null
       ? index - routeTransition.index : null;
     const direction = skipCompositorTo === path ? 'none' :
       resolveRouteTransition(routeTransition.path, path, navigationType, historyDelta, backFromFallback);
-    setRouteTransition({ path, key: location.key, index, direction });
+    const nextTransition = {
+      path, key: location.key, index, direction,
+      parent: resolveRouteParent(path, location.state),
+      forwardSettingsChild: resolveSettingsHistoryForward(routeTransition, path, historyDelta, navigationType),
+    };
+    setRouteTransition(nextTransition);
+    currentTransition = nextTransition;
   }
   useEffect(() => {
     if (skipCompositorTo !== path) return;
     const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
   }, [path, skipCompositorTo]);
-  const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left', location.state);
+  const leftSwipeDestination = currentTransition.forwardSettingsChild ??
+    resolvePrimarySwipeDestination(path, 'left', location.state);
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
     leftSwipeDestination === '/messages' ||
@@ -232,7 +242,7 @@ export const AppLayout: React.FC = () => {
   useEffect(() => {
     if (!user?.$id) return;
 
-    const destinations = getPrimaryRoutePreloadTargets(path);
+    const destinations = [leftSwipeDestination, rightSwipeDestination].filter(Boolean);
     if (destinations.length === 0) return;
 
     if (messagesIsAdjacent) {
@@ -244,7 +254,7 @@ export const AppLayout: React.FC = () => {
 
     const preload = () => {
       for (const destination of destinations) {
-        if (destination !== '/messages' || !messagesIsAdjacent) {
+        if (destination !== '/messages') {
           preloadPrimaryRoute(destination);
         }
       }
@@ -257,7 +267,7 @@ export const AppLayout: React.FC = () => {
 
     const timer = window.setTimeout(preload, 180);
     return () => window.clearTimeout(timer);
-  }, [messagesIsAdjacent, path, user?.$id]);
+  }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, user?.$id]);
 
   if (!user && isOffline) {
     const headline =
@@ -354,13 +364,13 @@ export const AppLayout: React.FC = () => {
     navigate(`/${tab}`);
   };
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
-    const destination = resolvePrimarySwipeDestination(path, direction, location.state);
+    const destination = direction === 'left' ? leftSwipeDestination : rightSwipeDestination;
     if (!destination) return;
     // This route was already animated by PrimaryRouteSwipeSurface.
     // Do not repeat the slide when its navigation is a browser-history POP.
     setSkipCompositorTo(destination);
 
-    const parent = resolveRouteParent(path, location.state);
+    const parent = currentTransition.parent;
     if (direction === 'right' && parent) {
       if (hasExpectedRouteParent(location.key, location.state, parent)) {
         navigate(-1);

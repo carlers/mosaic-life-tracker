@@ -33,6 +33,7 @@ describe('portable Mosaic backend manifest', () => {
       'diary',
       'settings',
       'friendships',
+      'task_shares',
       'profiles',
       'messages',
       'notifications',
@@ -139,6 +140,7 @@ describe('portable Mosaic backend manifest', () => {
         enabled: true,
       });
     }
+    expect(byId.task_shares).toMatchObject({ permissions: [], rowSecurity: true, enabled: true });
     expect(MOSAIC_BUCKET).toEqual({
       id: 'task_images',
       name: 'task_images',

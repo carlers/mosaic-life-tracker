@@ -1,4 +1,5 @@
 import React from 'react';
+import { UsersRound } from 'lucide-react';
 import { getReadableTextColor } from '../../../constants/colors';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
@@ -7,13 +8,14 @@ import type { TaskDocument } from '../../../db/schema';
 interface TaskBlockProps {
   task: TaskDocument;
   categoryColor: string;
+  isShared?: boolean;
 }
 
 // TaskBlock is a decorative preview rendered inside DayCell. The cell
 // itself owns the accessible name (date + task count); the block is a
 // visual density indicator. It is wrapped in `aria-hidden` by DayCell,
 // so no ARIA is added here — `title` remains for pointer-hover tooltips.
-export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => {
+export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isShared = false }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
   const textColor = task.completed ? 'mosaic-done' : 'text-gray-300';
@@ -31,7 +33,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor }) => 
             exactly where the outer padding begins, so the right gutter is
             preserved on hard-cut text. */}
         <div className="px-[0.3rem] pb-0.5">
-          <span className="block overflow-hidden whitespace-nowrap">{task.title}</span>
+          <span className="flex items-center gap-0.5 overflow-hidden whitespace-nowrap">{isShared && <UsersRound size={10} className="shrink-0" aria-hidden="true" />}<span className="min-w-0 truncate">{task.title}</span></span>
         </div>
         {task.image && (
           <div className="w-full h-10 overflow-hidden bg-black/20">

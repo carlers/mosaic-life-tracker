@@ -46,7 +46,8 @@ export async function updateOwnerRowWithCas(
   rowId: string,
   userId: string,
   expectedUpdatedAt: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  expectedCompleted?: boolean
 ): Promise<OwnerWriteCasStatus> {
   let response: Record<string, unknown>;
   try {
@@ -57,6 +58,8 @@ export async function updateOwnerRowWithCas(
         rowId,
         expectedUpdatedAt,
         data,
+        ...(tableId === 'tasks' && typeof expectedCompleted === 'boolean'
+          ? { expectedCompleted } : {}),
       },
       15_000
     );

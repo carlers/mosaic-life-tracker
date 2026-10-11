@@ -15,11 +15,11 @@
   },
   "limits": {
     "entryRawBytes": 444400,
-    "entryGzipBytes": 131600,
-    "initialClosureGzipBytes": 144000,
-    "homeClosureGzipBytes": 357000,
-    "appAssetsRawBytes": 2329000,
-    "appAssetsGzipBytes": 718600,
-    "precacheUniqueBytes": 2411800
+    "entryGzipBytes": 131752,
+    "initialClosureGzipBytes": 144850,
+    "homeClosureGzipBytes": 361000,
+    "appAssetsRawBytes": 2401450,
+    "appAssetsGzipBytes": 741800,
+    "precacheUniqueBytes": 2485800
   }
 }

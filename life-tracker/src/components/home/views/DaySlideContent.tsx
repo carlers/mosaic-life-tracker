@@ -1,5 +1,7 @@
 import React from 'react';
 import { CategorySection } from './CategorySection';
+import { SharedTaskRows } from './SharedTaskRows';
+import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
 import {
@@ -16,6 +18,21 @@ export interface DaySlideProps {
   tasks: TaskDocument[];
   categories: CategoryDocument[];
   currentUserId: string;
+  sharedItems?: SharedTaskItem[];
+  ownerLabels?: ReadonlyMap<string, string>;
+  sharedCategoryFor?: (item: SharedTaskItem) => string;
+  onAssignSharedCategory?: (item: SharedTaskItem, categoryId: string) => Promise<void>;
+  onCopySharedTask?: (item: SharedTaskItem, categoryId: string) => Promise<void>;
+  onEditSharedTitle?: (item: SharedTaskItem, title: string) => Promise<void>;
+  onChangeSharedDate?: (item: SharedTaskItem, date: string) => Promise<void>;
+  onMoveSharedTask?: (item: SharedTaskItem, categoryId: string, targetId: string, position: string) => Promise<void>;
+  sharedOrderFor?: (item: SharedTaskItem) => number;
+  onSharedMoveError?: (error: unknown) => void;
+  activeSharedDragId?: string | null;
+  onSharedSheetOpenChange?: (open: boolean) => void;
+  onSharedCompletion?: (item: SharedTaskItem, completed: boolean) => Promise<unknown> | void;
+  onLeaveSharedTask?: (item: SharedTaskItem) => Promise<unknown> | void;
+  sharedPendingFor?: (taskId: string) => SharedCompletionCommand | undefined;
   editingTaskId: string | null;
   editValue: string;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
@@ -53,6 +70,19 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   scrollMode = 'page',
   categories,
   currentUserId,
+  sharedItems = [],
+  ownerLabels,
+  sharedCategoryFor,
+  onAssignSharedCategory,
+  onCopySharedTask,
+  onEditSharedTitle,
+  onChangeSharedDate,
+  sharedOrderFor,
+  activeSharedDragId,
+  onSharedSheetOpenChange,
+  onSharedCompletion,
+  onLeaveSharedTask,
+  sharedPendingFor,
   editingTaskId,
   editValue,
   onToggleTask,
@@ -84,6 +114,26 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         null
       : null;
 
+  const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
+  const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
+  // Own the action sheet above category rows: moving a share must not unmount
+  // its open sheet or consume its history entry while Swiper navigates.
+  const [selectedSharedTask, setSelectedSharedTask] = React.useState<SharedTaskItem | null>(null);
+  const sharedRowProps = {
+    onSetCompleted: onSharedCompletion!,
+    onLeave: onLeaveSharedTask,
+    pendingFor: sharedPendingFor!,
+    categories,
+    categoryFor: sharedCategoryFor,
+    onAssignCategory: onAssignSharedCategory,
+    onCopy: onCopySharedTask,
+    onEditTitle: onEditSharedTitle,
+    onChangeDate: onChangeSharedDate,
+    onSelectItem: setSelectedSharedTask,
+    draggable: reorderRuntimeActive && !selectionMode,
+    activeDragId: activeSharedDragId,
+  };
+
   return (
     <div
       className={
@@ -105,6 +155,12 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           visibility={category.visibility}
           currentUserId={currentUserId}
           tasks={tasksByCategory.get(category.id) ?? []}
+          ownerLabels={ownerLabels}
+          sharedRows={!selectionMode && onSharedCompletion && sharedPendingFor && currentShares.some(item => sharedCategoryFor?.(item) === category.id) && (
+            <SharedTaskRows items={currentShares.filter(item =>
+              sharedCategoryFor?.(item) === category.id)}
+              {...sharedRowProps} compact />
+          )}
           onToggleTask={onToggleTask}
           onAddTask={(title, completed) => onAddTask(title, category.id, dateStr, completed)}
           onOpenActions={onOpenActions}
@@ -134,6 +190,15 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           dragGapHeight={activeDrag?.rowHeight ?? 0}
         />
       ))}
+      {!selectionMode && unassignedShares.length > 0 &&
+        onSharedCompletion && sharedPendingFor && (
+        <SharedTaskRows items={unassignedShares} {...sharedRowProps} />
+      )}
+      {!selectionMode && onSharedCompletion && sharedPendingFor && (
+        <SharedTaskRows items={currentShares} {...sharedRowProps}
+          selectedItem={selectedSharedTask} actionsOnly
+          onSheetOpenChange={onSharedSheetOpenChange} />
+      )}
     </div>
   );
 };

@@ -65,15 +65,43 @@ async function handleOwnerWriteCas(db, callerId, payload) {
     return { status: 400, body: { error: 'Invalid owner write CAS request' } };
   }
 
+  const queries = [
+    Query.equal('$id', rowId),
+    Query.equal('$updatedAt', expectedUpdatedAt),
+    Query.equal('user_id', callerId),
+  ];
+
+  if (tableId === 'tasks') {
+    // A pre-sharing client may still call this Function even after its direct
+    // Appwrite update permission was removed. Its old local bootstrap logic
+    // could read a fresh server token, then overwrite collaborator completion
+    // with a stale local value. Require a client-observed completion baseline
+    // for *every* task with a sharing history, even after the last revoke.
+    const observed = payload?.expectedCompleted;
+    if (observed !== undefined && typeof observed !== 'boolean') {
+      return { status: 400, body: { error: 'Invalid expected completion state' } };
+    }
+    if (typeof observed === 'boolean') {
+      // Atomic with the normal row revision predicate. This extra condition
+      // is cheap for upgraded clients (no additional listRows request).
+      queries.push(Query.equal('is_completed', observed));
+    } else {
+      const sharePage = await db.listRows({
+        databaseId: DATABASE_ID, tableId: 'task_shares',
+        queries: [Query.equal('task_id', rowId), Query.limit(1)], total: false,
+      });
+      if ((sharePage.rows || []).length > 0) {
+        const current = await db.getRow({ databaseId: DATABASE_ID, tableId, rowId });
+        if (current?.user_id !== callerId) {
+          return { status: 403, body: { error: 'Owner mismatch' } };
+        }
+        return { status: 200, body: { ok: true, status: 'conflict', row: current } };
+      }
+    }
+  }
+
   const result = await db.updateRows({
-    databaseId: DATABASE_ID,
-    tableId,
-    data,
-    queries: [
-      Query.equal('$id', rowId),
-      Query.equal('$updatedAt', expectedUpdatedAt),
-      Query.equal('user_id', callerId),
-    ],
+    databaseId: DATABASE_ID, tableId, data, queries,
   });
 
   const updatedCount =
