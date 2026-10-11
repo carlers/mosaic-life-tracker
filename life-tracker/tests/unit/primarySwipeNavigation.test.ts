@@ -65,7 +65,7 @@ describe('resolvePrimarySwipeDestination', () => {
   });
   it('derives page layout and swipe defaults from the same protected-route entries', () => {
     expect(PROTECTED_ROUTES.map((route) => route.path)).toEqual([
-      '/home', '/backlog', '/explore', '/friends/:friendId', '/notifications',
+      '/home', '/bucket-list', '/backlog', '/explore', '/friends/:friendId', '/notifications',
       '/messages', '/messages/:friendId', '/account', '/settings',
       '/settings/releases', '/settings/preferences', '/settings/notifications', '/settings/screen', '/profile',
     ]);
@@ -73,6 +73,9 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(PRIMARY_ROUTE_PATHS).toEqual([
       '/home', '/explore', '/notifications', '/messages', '/account',
     ]);
+    expect(matchProtectedRoute('/bucket-list')?.id).toBe('bucketList');
+    expect(resolveRouteParent('/bucket-list')).toBe('/home');
+    expect(protectedRouteSwipeMode('/bucket-list')).toBe('full');
     expect(matchProtectedRoute('/backlog')?.id).toBe('backlog');
     expect(resolveRouteParent('/backlog')).toBe('/home');
     expect(protectedRouteSwipeMode('/backlog')).toBe('full');
