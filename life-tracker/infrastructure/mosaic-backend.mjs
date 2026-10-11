@@ -23,6 +23,16 @@ export const MOSAIC_LEGACY_TABLE_IDS = [
 ];
 
 export const MOSAIC_TABLES = [
+  ownerTable('bucket_list_items', 'Bucket List', [
+    { key: 'user_id', type: 'varchar', size: 255, required: true },
+    { key: 'title', type: 'varchar', size: 255, required: true },
+    { key: 'description', type: 'varchar', size: 2000, required: false, default: '' },
+    { key: 'achieved', type: 'boolean', required: false, default: false },
+    { key: 'achieved_at', type: 'varchar', size: 50, required: false, default: '' },
+    { key: 'created_at', type: 'varchar', size: 50, required: true },
+    { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    { key: 'deleted', type: 'boolean', required: false, default: false },
+  ], [{ key: 'idx_bucket_owner_updated', type: 'key', attributes: ['user_id', 'updated_at'] }]),
   ownerTable('tasks', 'tasks', [
     { key: 'title', type: 'varchar', size: 255, required: true },
     { key: 'is_completed', type: 'boolean', required: false, default: false },
