@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, LogOut, BarChart3, Sticker, ListTodo } from 'lucide-react';
+import { Settings, LogOut, BarChart3, Sticker, ListTodo, Star } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
@@ -77,6 +77,11 @@ export const AccountPage: React.FC = () => {
             <span className="text-xs text-gray-400">Sticker Shop</span>
           </div>
         </div>
+        <button type="button" onClick={() => navigate('/bucket-list', { state: makeRouteParentState('/account') })}
+          className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+          <div><h3 className="text-base font-bold text-white">Bucket List</h3><p className="text-sm text-gray-400">Life aspirations</p></div>
+          <Star size={24} className="text-gray-400" aria-hidden="true" />
+        </button>
         <button type="button" onClick={() => navigate('/backlog', { state: makeRouteParentState('/account') })}
           className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <div>
