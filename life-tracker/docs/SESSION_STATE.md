@@ -14,5 +14,10 @@ Current task: Mosaic issue #592 — approved Batch B/C workflow improvements, is
 - On `chatgpt/workflow-bc-preflight-592`, built from the accepted Batch A SHA: add pure fail-closed dev preflight with tests; CLI reads GitHub/Vercel and merge-tree with no PR or merge side effect; scope the publisher workflow_run to main while preserving dispatch/scheduled recovery; update docs. App version NONE, budgets unchanged.
 - B0 global session-checkpoint relaxation deferred pending actual new-chat recovery parity; no production/backend mutation. C0 branch protection administration requires explicit settings review; C1 stays with #526/#557.
 
+## Focused documentation-contract repair
+
+- Batch B1 adds explicit focused documentation-contract unit verification for Markdown changes; regression covers the selector and #520's previously missed checkpoint failure class. No app version/budget/backend/UI changes.
+- Existing #592 preflight/publisher stable Preview is separate; check its canonical CI and Vercel before asserting acceptance.
+
 ## Next action
 Run focused task checks, repair failures, squash accepted task into a separate stable Preview, verify full canonical CI and Vercel READY. Independently verify #520 stable Preview canonical/Vercel. No dev/main promotion without user instruction.

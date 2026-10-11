@@ -16,5 +16,14 @@ export function planFocusedVerification(changed, fileExists = existsSync) {
     path.startsWith('vite.config') ||
     path.startsWith('scripts/lib/test-projects.')
   );
-  return { lintable, broad };
+  // Markdown is read via fs by documentationContracts.test.ts, not imported
+  // through Vitest's changed-file graph. The exact failure from #520 would
+  // otherwise slip through focused CI and fail only on stable Preview.
+  const docsContract = changed.some((path) =>
+    path === 'AGENTS.md' ||
+    path === 'life-tracker/AGENTS.md' ||
+    path === 'life-tracker/README.md' ||
+    path.startsWith('life-tracker/docs/') && path.endsWith('.md')
+  );
+  return { lintable, broad, docsContract };
 }
