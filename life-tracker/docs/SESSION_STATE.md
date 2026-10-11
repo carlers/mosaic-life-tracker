@@ -1,36 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-12 UTC
-Current task: Eliminate Calendar Day View first-mount CPU blockage after unchanged v0.17.7/v0.17.8 user experience.
+Current task: Mosaic #640, persistent first Calendar → Day View sheet delay after refresh even when Home idles for one minute.
 
-## Verified basis
-- Stable Preview `perf/day-view-idle-warmup-20261011=05d61403d303775d00f4917bb329a365a4c6f5e3` (v0.17.8) with full canonical acceptance and READY Vercel; user reported persistent delay even after one minute of waiting.
-- The original performance harness mounted the sheet *closed* before measuring open, hiding cold mount; first diagnostic wrongly rerendered the entire oversized harness on click. Corrected via a separate ColdDayViewProbe state owner and paired matched browser runs.
-- Controlled Playwright Chromium dev-server comparison, heavy 50-task synthetic fixture: first-open longest main-thread task 235 ms (181 DOM slides) versus 82 ms (9 DOM slides); reopened 251 ms vs 136 ms; empty first-open 109 ms vs no recorded 50 ms+ task. Diagnostic, not mobile production timing. Runs: baseline 38156892853, virtual 38156899850. Both browser suites passed.
-- Rapid swipe and existing date navigation browser contracts passed during the virtualization experiment. Task branch `chatgpt/day-view-root-cause-20261012` based on stable Preview, proposed user-testable v0.17.9. `dev` advanced independently; do not promote without approval.
+## Live verified basis
+- v0.17.9 stable Preview `perf/day-view-idle-warmup-20261011` @ `9d6b631f6a7ce57809e0430d96b44ebae39b4579` is Vercel READY at `https://mosaic-life-tracker-git-perf-day-38751e-carls-projects-72516fde.vercel.app`; user reports first tap still slow but later opens instant. No dev/main promotion authorized.
+- Earlier synthetic Chromium probe (not real device): 181 physical Swiper slides reduced to ~9 Virtual DOM slides; longest 50-task first-open main-thread task 235→82ms. This did not establish tap-to-first-visible-sheet latency. Prior module warmup and two-frame content defer alone had also failed user acceptance.
+- Real-path source review: `CalendarBody` lazily mounts the entire `DayViewSheet` after a day-cell click. The old `BottomSheet` only deferred child reconciliation; `DayViewSheet` data hooks and JSX slide construction still ran before the shell could paint.
 
-## Change
-- Preserve all 181 logical selected-date positions while using Swiper Virtual to render only nearby DOM slides in sheet mode, avoiding layout of 181 initially mounted elements. Keep full seven-day fast-swipe buffer, explicit virtual update on far date jumps, and original inline Todo renderer.
-- Correct cold-mount performance harness and keep an opt-in @performance diagnostic outside canonical browser correctness suite.
-- Add browser regression for bounded slide DOM and far date jump plus swipe; maintain existing accessibility/gesture behavior.
-- Issue #640 records the CPU measurements and metric-specific build-size review. Production app assets were 2,412,056 raw / 745,792 gzip, precache 2,497,415 B while entry, initial and Home caps remained green; reviewed aggregate ceilings are 2,413,000 raw / 746,300 gzip / 2,498,300 precache. Full gate's only red job was the old aggregate budget; DOM, lint/unit and browser including far-date jump passed.
-- Frontend-only. No Appwrite, Production, schema or service changes.
+## Candidate implementation
+- `chatgpt/day-view-first-paint-20261012`, v0.19.3, based on accepted stable Preview. Split lightweight `BottomSheet` outer host from `DayViewSheetInner`, so the existing two-frame portal-content delay defers cold hook/Swiper/task initialization until after the shell can paint. Forward close/reset, settled animation, horizontal gestures, select-to-dismiss and nested/reorder lock controls; leave inline/backlog behavior unchanged.
+- Added actual `CalendarBody → DayCell → lazy DayViewSheet` browser harness, opt-in timeline and shell-before-slides browser ordering regression; the old isolated-button perf probe remains diagnostic only. No backend/Appwrite changes.
+- Local verification: TypeScript passes, ESLint 0 new errors (three pre-existing warnings), 460 DOM tests pass, production build and all seven size budgets pass, version and project contracts pass.
+- Task commit `8da8a66329e0a5b6b2ac5ae0dd3729b13acf5a50`: GitHub browser shards 1/2 and 2/2 passed, focused failed ONLY because this checkpoint breached the documentation handoff size limit (3082/3000 estimated tokens). Condense checkpoint and rerun focused CI without changing behavior.
 
-## Delivery evidence and repaired Preview parity
-- Task full canonical run #38157480612 was SUCCESS and v0.17.9 merged into the stable Preview via PR #642 at `fdb36eae4d291be5f14c2abc71e6ba36cde3d9a4`.
-- First Vercel Preview deployment `dpl_FwoVGXEqZsakh3oRtTNuJeRt4ZWx` failed production bundling, while GitHub task build passed: Vercel scratch/GIPHY features emitted appAssetsRawBytes 2,414,270 vs cap 2,413,000; appAssetsGzipBytes 746,786 vs cap 746,300; precacheUniqueBytes 2,499,629 vs cap 2,498,300. Initial/entry/Home caps passed with Home closure 362,877/362,900.
-- Review #640 raises **only** those three aggregate caps again, using failing Vercel deployment as evidence and preserving pinned baseline and original entry, initial, Home limits; no production config/Appwrite changes.
-- Repair task branch `chatgpt/day-view-preview-size-parity-20261012`, based on stable Preview. Remains v0.17.9 because internal repair, not a new user-testable implementation.
-
-## Next action
-- Verify new far-jump/browser regression and focused checks on the complete v0.17.9 task commit; repair if needed.
-- Run production-build/size preflight on task branch if needed for near-limit budgets. Squash into stable Preview only after focused success, then run one full canonical gate and verify exact Vercel READY SHA.
-- Manually compare cold opening, refresh, instant/one-minute tap, and rapid swipes on mobile; browser diagnostics do not certify device perceived latency.
-- Never merge to dev or main without separate approval.
-
-
-## #640 follow-up after v0.17.9 mobile rejection
-- User confirms the v0.17.9 stable Preview still delays on first Calendar day-cell click even after a minute; reopened sheets are immediate. Previous CI/virtualization benchmark did not certify perceived latency.
-- Added a full CalendarBody → DayCell → lazy DayViewSheet browser fixture, opt-in first-paint timeline and an ordering regression. Existing isolated synthetic button did not measure this path.
-- Task change splits the DayViewSheet component into a lightweight shared BottomSheet host and delayed DayViewSheetInner. The shared two-frame deferral now covers the *whole* expensive hook/Swiper subtree, rather than only its already-constructed children. The original sheet controls (back/focus, close/reset, horizontal gestures, motion settling, select-to-dismiss, reorder/nested lock) are forwarded via a mounted child control ref. Inline Todo/Backlog rendering remains unchanged.
-- Verification still needed: focused type/lint/DOM/browser, production size preflight and exact-SHA canonical stable Preview delivery. Manual mobile perceived-latency acceptance remains required; do not promote dev/main or close #640 before approval.
+## Next action / guardrails
+1. Confirm repaired task focused CI success, squash task PR to the stable `perf/**` Preview, and verify exact-source full canonical Quality Gate and Vercel Scratch READY alias. Do not bump again for internal repair.
+2. Ask user to verify v0.19.3 on affected device after hard reload, first click immediately and after idle, reopen, rapid swipes, far date jump, close/back/focus. Never imply browser diagnostics equal device acceptance.
+3. Keep #640 open and do not promote dev/main without explicit approval; reconcile intervening dev commits and version at promotion.
