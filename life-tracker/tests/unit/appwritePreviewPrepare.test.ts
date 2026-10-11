@@ -24,13 +24,14 @@ describe('scratch-only Preview backend preparation', () => {
       'table diary.created_at: missing column',
       'table account_deletions: missing',
       'table bucket_list_items: missing',
+      'table bucket_task_links: missing',
       'table messages.idx_sender_id: missing index',
     ])).toEqual([]);
     expect(classifyScratchDrift([
       'table diary.created_at size: expected 50, got 36',
       'table tasks: missing', 'table bucket_list_items.title size: expected 255, got 100', 'bucket task_images permissions differ',
       'function message-action variable DR_PRIVACY_DELETION_REQUIRED: missing',
-    ])).toHaveLength(5);
+    ])).toHaveLength(6);
   });
   it('runs a read-only check and never migrates without --apply', async () => {
     const migrate = vi.fn();
@@ -52,7 +53,7 @@ describe('scratch-only Preview backend preparation', () => {
       fetchImpl: vi.fn(), log: vi.fn(),
     });
     const migrations = migrate.mock.calls[0][0].migrations.map((m: {id: string}) => m.id);
-    expect(migrations).toEqual(['001-account-deletion','002-diary-created-at','004-notifications','005-notification-retention','006-push-details','007-task-shares','009-share-permissions','010-bucket-list']);
+    expect(migrations).toEqual(['001-account-deletion','002-diary-created-at','004-notifications','005-notification-retention','006-push-details','007-task-shares','009-share-permissions','010-bucket-list','011-bucket-task-links']);
     expect(inspect).toHaveBeenCalledTimes(2);
   });
   it('rejects unreviewed drift before any mutation', async () => {

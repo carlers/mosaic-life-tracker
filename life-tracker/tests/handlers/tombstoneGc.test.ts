@@ -77,10 +77,11 @@ describe('message-action / scheduled tombstone GC', () => {
       'diary',
       'settings',
       'bucket_list_items',
+      'bucket_task_links',
       'friendships',
       'messages',
     ]);
-    expect(listRows).toHaveBeenCalledTimes(7);
+    expect(listRows).toHaveBeenCalledTimes(8);
   });
 
   // Regression: docs/TOMBSTONE_RETENTION.md — Garbage collection.
@@ -142,7 +143,7 @@ describe('message-action / scheduled tombstone GC', () => {
     ]);
     // One server-only read checks durable account-deletion jobs before the
     // seven ordinary tombstone-GC table scans.
-    expect(mockDb.listRows).toHaveBeenCalledTimes(9);
+    expect(mockDb.listRows).toHaveBeenCalledTimes(10);
     expect(response.logs).toContain(
       'account-deletion: scheduled processed=0 failed=0'
     );

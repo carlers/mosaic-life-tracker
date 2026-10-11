@@ -324,6 +324,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '008-friendship-permissions',
       '009-share-permissions',
       '010-bucket-list',
+      '011-bucket-task-links',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');

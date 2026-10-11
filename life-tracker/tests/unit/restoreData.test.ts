@@ -2,17 +2,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { zipSync } from 'fflate';
 
-type CollectionName = 'tasks' | 'categories' | 'diary' | 'settings' | 'friendships' | 'messages' | 'bucketList';
+type CollectionName = 'tasks' | 'categories' | 'diary' | 'settings' | 'friendships' | 'messages' | 'bucketList' | 'bucketTaskLinks';
 type Stored = Record<string, unknown>;
 
 const state = vi.hoisted(() => {
-  const rows = { tasks: new Map<string, Stored>(), categories: new Map<string, Stored>(), diary: new Map<string, Stored>(), settings: new Map<string, Stored>(), friendships: new Map<string, Stored>(), messages: new Map<string, Stored>(), bucketList: new Map<string, Stored>() };
+  const rows = { tasks: new Map<string, Stored>(), categories: new Map<string, Stored>(), diary: new Map<string, Stored>(), settings: new Map<string, Stored>(), friendships: new Map<string, Stored>(), messages: new Map<string, Stored>(), bucketList: new Map<string, Stored>(), bucketTaskLinks: new Map<string, Stored>() };
   return { rows, accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A'), subscribeTaskPushProgress: vi.fn().mockReturnValue(null) };
 });
 function resetRows() { for (const map of Object.values(state.rows)) map.clear(); }
 function wrap(collection: CollectionName, id: string) { const map = state.rows[collection]; return { get id() { return id; }, toJSON: () => ({ ...(map.get(id) ?? {}) }), incrementalPatch: vi.fn(async (patch: Stored) => { map.set(id, { ...(map.get(id) ?? {}), ...patch }); }) }; }
 function dbCollection(collection: CollectionName) { const map = state.rows[collection]; return { findOne: (id: string) => ({ exec: async () => (map.has(id) ? wrap(collection, id) : null) }), findByIds: (ids: string[]) => ({ exec: async () => new Map(ids.filter((id) => map.has(id)).map((id) => [id, wrap(collection, id)])) }), find: () => ({ exec: async () => Array.from(map.keys(), (id) => wrap(collection, id)) }), insert: async (doc: Stored) => { map.set(String(doc.id), { ...doc }); } }; }
-vi.mock('../../src/db/database', () => ({ getDatabase: () => ({ tasks: dbCollection('tasks'), categories: dbCollection('categories'), diary: dbCollection('diary'), settings: dbCollection('settings'), friendships: dbCollection('friendships'), messages: dbCollection('messages'), bucketList: dbCollection('bucketList') }) }));
+vi.mock('../../src/db/database', () => ({ getDatabase: () => ({ tasks: dbCollection('tasks'), categories: dbCollection('categories'), diary: dbCollection('diary'), settings: dbCollection('settings'), friendships: dbCollection('friendships'), messages: dbCollection('messages'), bucketList: dbCollection('bucketList'), bucketTaskLinks: dbCollection('bucketTaskLinks') }) }));
 vi.mock('../../src/lib/localUpsert', () => ({ upsertLocalDoc: state.upsertLocalDoc }));
 vi.mock('../../src/lib/accountWorkScope', () => ({
   captureAccountWorkGeneration: (userId: string) =>
