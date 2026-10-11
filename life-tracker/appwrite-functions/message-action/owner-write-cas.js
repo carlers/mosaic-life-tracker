@@ -5,6 +5,8 @@ const MAX_ROW_ID_LENGTH = 36;
 const ROW_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
 const TABLE_FIELDS = {
+  bucket_task_links: new Set(['user_id', 'bucket_list_id', 'task_id', 'created_at', 'updated_at', 'deleted']),
+  bucket_list_items: new Set(['user_id', 'title', 'description', 'achieved', 'achieved_at', 'created_at', 'updated_at', 'deleted']),
   tasks: new Set([
     'title', 'is_completed', 'category_id', 'order', 'tags', 'date', 'memo',
     'image', 'created_at', 'completed_at', 'updated_at', 'source', 'user_id',

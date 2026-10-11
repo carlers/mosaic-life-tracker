@@ -72,6 +72,51 @@ describe('replication local freshness state', () => {
     });
   });
 
+  it('upgrades persisted syncMeta v2 to v3 without losing offline freshness records (DB6 regression)', () => {
+    expect(syncMetaSchema.version).toBe(3);
+    expect(Object.keys(syncMetaMigrationStrategies).map(Number).sort()).toEqual([1, 2, 3]);
+    const names = syncMetaSchema.properties.collectionName;
+    expect(names).toHaveProperty('enum');
+    expect((names as { enum: string[] }).enum).toContain('bucketTaskLinks');
+
+    // These are the shape of records persisted by v0.18.0 before v0.19.0
+    // expanded the enum without incrementing the RxDB schema version.
+    const oldRows = ['tasks', 'bucketList', 'messages'].map(collectionName => ({
+      id: `replication:${collectionName}:user_A`,
+      userId: 'user_A',
+      collectionName,
+      replicationIdentifier: `mosaic-appwrite-tablesdb-${collectionName}-v1:user_A`,
+      lastFreshAt: '2026-10-11T12:34:56.000Z',
+    }));
+    for (const oldRow of oldRows) {
+      const migrated = syncMetaMigrationStrategies[3](oldRow);
+      expect(migrated).toEqual(oldRow);
+      expect(migrated).toBe(oldRow);
+    }
+    expect(syncMetaMigrationStrategies[2](oldRows[0])).toEqual(oldRows[0]);
+  });
+
+  it('keeps the full v0-to-v3 migration path for existing devices', () => {
+    const legacy = {
+      id: 'replication:tasks:user_B',
+      userId: 'user_B',
+      collection: 'tasks',
+      replicationIdentifier: 'mosaic-appwrite-tablesdb-tasks-v1:user_B',
+      lastFreshAt: '2026-10-10T06:00:00.000Z',
+    };
+    const current = syncMetaMigrationStrategies[3](
+      syncMetaMigrationStrategies[2](syncMetaMigrationStrategies[1](legacy))
+    );
+    expect(current).toMatchObject({
+      id: legacy.id,
+      userId: legacy.userId,
+      collectionName: 'tasks',
+      replicationIdentifier: legacy.replicationIdentifier,
+      lastFreshAt: legacy.lastFreshAt,
+    });
+    expect(current).not.toHaveProperty('collection');
+  });
+
   beforeEach(() => {
     markOfflineDataReadyMock.mockReset();
     const syncMeta = makeSyncMetaCollection();

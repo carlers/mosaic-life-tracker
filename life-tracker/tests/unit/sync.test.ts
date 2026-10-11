@@ -59,6 +59,17 @@ const messagePilotStartMock = vi.hoisted(() => vi.fn());
 const messagePilotRefreshMock = vi.hoisted(() => vi.fn());
 const messagePilotStopMock = vi.hoisted(() => vi.fn());
 
+const bucketPilotActiveMock = vi.hoisted(() => vi.fn());
+const bucketPilotResyncMock = vi.hoisted(() => vi.fn());
+const bucketPilotStartMock = vi.hoisted(() => vi.fn());
+const bucketPilotRefreshMock = vi.hoisted(() => vi.fn());
+const bucketPilotStopMock = vi.hoisted(() => vi.fn());
+const bucketLinksActiveMock = vi.hoisted(() => vi.fn());
+const bucketLinksResyncMock = vi.hoisted(() => vi.fn());
+const bucketLinksStartMock = vi.hoisted(() => vi.fn());
+const bucketLinksRefreshMock = vi.hoisted(() => vi.fn());
+const bucketLinksStopMock = vi.hoisted(() => vi.fn());
+
 vi.mock('appwrite', () => ({
   Query: {
     equal: (key: string, value: unknown) => ({ op: 'equal', key, value }),
@@ -136,6 +147,20 @@ vi.mock('../../src/db/messageReplicationPilot', () => ({
   stopMessageReplicationPilot: messagePilotStopMock,
 }));
 
+vi.mock('../../src/db/bucketListReplicationPilot', () => ({
+  isBucketListReplicationPilotActive: bucketPilotActiveMock,
+  refreshBucketListReplicationPilot: bucketPilotRefreshMock,
+  resyncBucketListReplicationPilot: bucketPilotResyncMock,
+  startBucketListReplicationPilot: bucketPilotStartMock,
+  stopBucketListReplicationPilot: bucketPilotStopMock,
+}));
+vi.mock('../../src/db/bucketTaskLinksReplicationPilot', () => ({
+  isBucketTaskLinksReplicationPilotActive: bucketLinksActiveMock,
+  refreshBucketTaskLinksReplicationPilot: bucketLinksRefreshMock,
+  resyncBucketTaskLinksReplicationPilot: bucketLinksResyncMock,
+  startBucketTaskLinksReplicationPilot: bucketLinksStartMock,
+  stopBucketTaskLinksReplicationPilot: bucketLinksStopMock,
+}));
 vi.mock('../../src/lib/connectivity', () => ({
   getConnectivitySnapshot: () => ({
     status: 'online',
@@ -154,6 +179,8 @@ const pilotState = {
   settings: false,
   friendships: false,
   messages: false,
+  bucketList: false,
+  bucketTaskLinks: false,
 };
 
 function setAllPilots(value: boolean) {
@@ -235,6 +262,8 @@ function makeDb(overrides: Record<string, unknown> = {}) {
     settings: makeEmptyCollection(),
     friendships: makeEmptyCollection(),
     messages: makeEmptyCollection(),
+    bucketList: makeEmptyCollection(),
+    bucketTaskLinks: makeEmptyCollection(),
     ...overrides,
   };
 }
@@ -325,6 +354,8 @@ function configurePilotMocks() {
   settingsPilotActiveMock.mockImplementation(() => pilotState.settings);
   friendshipPilotActiveMock.mockImplementation(() => pilotState.friendships);
   messagePilotActiveMock.mockImplementation(() => pilotState.messages);
+  bucketPilotActiveMock.mockImplementation(() => pilotState.bucketList);
+  bucketLinksActiveMock.mockImplementation(() => pilotState.bucketTaskLinks);
 
   taskPilotStartMock.mockImplementation(async () => {
     pilotState.tasks = true;
@@ -343,6 +374,12 @@ function configurePilotMocks() {
   });
   messagePilotStartMock.mockImplementation(async () => {
     pilotState.messages = true;
+  });
+  bucketPilotStartMock.mockImplementation(async () => {
+    pilotState.bucketList = true;
+  });
+  bucketLinksStartMock.mockImplementation(async () => {
+    pilotState.bucketTaskLinks = true;
   });
 
   taskPilotStopMock.mockImplementation(async () => {
@@ -363,6 +400,12 @@ function configurePilotMocks() {
   messagePilotStopMock.mockImplementation(async () => {
     pilotState.messages = false;
   });
+  bucketPilotStopMock.mockImplementation(async () => {
+    pilotState.bucketList = false;
+  });
+  bucketLinksStopMock.mockImplementation(async () => {
+    pilotState.bucketTaskLinks = false;
+  });
 
   for (const refresh of [
     taskPilotRefreshMock,
@@ -371,6 +414,8 @@ function configurePilotMocks() {
     settingsPilotRefreshMock,
     friendshipPilotRefreshMock,
     messagePilotRefreshMock,
+    bucketPilotRefreshMock,
+    bucketLinksRefreshMock,
   ]) {
     refresh.mockResolvedValue(true);
   }
@@ -418,6 +463,16 @@ beforeEach(async () => {
     messagePilotStartMock,
     messagePilotRefreshMock,
     messagePilotStopMock,
+    bucketPilotActiveMock,
+    bucketPilotResyncMock,
+    bucketPilotStartMock,
+    bucketPilotRefreshMock,
+    bucketPilotStopMock,
+    bucketLinksActiveMock,
+    bucketLinksResyncMock,
+    bucketLinksStartMock,
+    bucketLinksRefreshMock,
+    bucketLinksStopMock,
   ]) {
     mock.mockReset();
   }
@@ -447,7 +502,7 @@ afterEach(() => {
 });
 
 describe('sync — RxDB-first startup', () => {
-  it('starts all six pilots directly without running compatibility reads or writes', async () => {
+  it('starts all eight pilots directly without running compatibility reads or writes', async () => {
     const db = makeDb();
     getDatabaseMock.mockReturnValue(db);
 
@@ -488,6 +543,8 @@ describe('sync — RxDB-first startup', () => {
       undefined,
       undefined
     );
+    expect(bucketPilotStartMock).toHaveBeenCalledWith('user_A', db.bucketList, undefined);
+    expect(bucketLinksStartMock).toHaveBeenCalledWith('user_A', db.bucketTaskLinks, undefined);
   });
 
   it('does not turn remote-applied local LWT revisions into compatibility pushes after restart', async () => {
@@ -549,7 +606,7 @@ describe('sync — RxDB-first startup', () => {
 });
 
 describe('sync — freshness barriers', () => {
-  it('manual refresh starts missing pilots and awaits all six freshness barriers', async () => {
+  it('manual refresh starts missing pilots and awaits all eight freshness barriers', async () => {
     const result = await syncModule.refreshSync('user_A', 5_000);
 
     expect(taskPilotRefreshMock).toHaveBeenCalled();
@@ -558,6 +615,8 @@ describe('sync — freshness barriers', () => {
     expect(settingsPilotRefreshMock).toHaveBeenCalled();
     expect(friendshipPilotRefreshMock).toHaveBeenCalled();
     expect(messagePilotRefreshMock).toHaveBeenCalled();
+    expect(bucketPilotRefreshMock).toHaveBeenCalled();
+    expect(bucketLinksRefreshMock).toHaveBeenCalled();
     expect(result.status.errors).toEqual([]);
     expect(result.status.lastSync).toBeTruthy();
     expect(localStorageMock.getItem('lastSyncTime_user_A')).toBeTruthy();
@@ -590,13 +649,15 @@ describe('sync — freshness barriers', () => {
       expect(friendshipPilotRefreshMock).toHaveBeenCalled();
       expect(taskPilotRefreshMock).toHaveBeenCalled();
       expect(messagePilotRefreshMock).toHaveBeenCalled();
+      expect(bucketPilotRefreshMock).toHaveBeenCalled();
+      expect(bucketLinksRefreshMock).toHaveBeenCalled();
     });
     await vi.waitFor(() => {
       expect(
         progress.some(
           (value) =>
-            value.completed === 5 &&
-            value.label === 'Waiting for Categories · 5 of 6 synced' &&
+            value.completed === 7 &&
+            value.label === 'Waiting for Categories · 7 of 8 synced' &&
             value.pendingGroups?.join(',') === 'Categories'
         )
       ).toBe(true);
@@ -608,7 +669,7 @@ describe('sync — freshness barriers', () => {
     expect(result.status.lastSync).toBeTruthy();
     expect(progress[0]).toMatchObject({
       percent: 0,
-      label: 'Checking all 6 data groups…',
+      label: 'Checking all 8 data groups…',
     });
     expect(progress.at(-1)).toMatchObject({
       percent: 100,
