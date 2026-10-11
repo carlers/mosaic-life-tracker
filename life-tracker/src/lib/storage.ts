@@ -109,12 +109,7 @@ async function uploadCompressedBlobWithId(
       file: webpFile,
       permissions: buildFilePermissions(userId, readForAllUsers),
     });
-    await cacheImage(fileId, compressedBlob).catch((error) => {
-      console.warn('[Storage] Failed to cache uploaded image:', error);
-    });
-    return fileId;
   } catch (error) {
-    console.error('[Storage] Upload failed:', error);
     throw new Error(
       `Appwrite Storage Upload Error: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -122,6 +117,9 @@ async function uploadCompressedBlobWithId(
       { cause: error }
     );
   }
+  // Upload success must not depend on optional IndexedDB cache availability.
+  await cacheImage(fileId, compressedBlob).catch(console.warn);
+  return fileId;
 }
 
 async function uploadImageWithId(
@@ -188,19 +186,11 @@ export async function uploadPendingImage(
   }
 }
 
+// Profiles and task photos share the same upload, staging, and permissions
+// contract; retain the profile-specific missing-user diagnostic.
 export async function saveProfileImage(file: File, userId: string): Promise<string> {
   if (!userId) throw new Error('Cannot save profile image: no authenticated user');
-  const compressedBlob = await compressImage(file);
-  if (getConnectivitySnapshot().status !== 'online') return createPendingImage(userId, compressedBlob);
-  try {
-    return await uploadCompressedBlobWithId(compressedBlob, generateFileId(), userId, true);
-  } catch (error) {
-    const cause = (error as Error & { cause?: unknown }).cause;
-    const code = (cause as { code?: number } | null)?.code;
-    const transient = !isUnauthorizedError(cause) && (typeof code !== 'number' || code === 429 || code >= 500);
-    if (!transient) throw error;
-    return createPendingImage(userId, compressedBlob);
-  }
+  return saveImage(file, userId);
 }
 
 export async function makeProfileImageReadable(fileId: string, userId: string): Promise<void> {

@@ -18,8 +18,9 @@ Current task: Cross-device task photos may appear cropped or fail to load on ano
 - No Appwrite/schema/Function/Production changes.
 
 ## Next action
-- Stable Preview at `9262635` passed GitHub canonical run `38149909152` (all shards and acceptance), but Vercel failed strict size budgets by +204 B app assets and +169 B precache (third run). Prior two attempts were +471/+436 and +244/+209. No budgets raised.
-- Focused repair from that Preview consolidates image compression error propagation, merges offline-cache/remote-download handling, and adds cached-read-failure fallback and test. Continue task focused CI, squash into same stable Preview, full canonical + Vercel READY. Require phone/desktop live acceptance before dev/main.
+- Stable Preview `c592ca0`: GitHub canonical SUCCESS (run 38150457284); Vercel still exceeded unchanged strict budgets by +87 B raw app assets / +52 B precache. All tests green.
+- Scoped task repair deduplicates the identical task/profile upload+offline staging flow by delegating profile photo saving to the existing task-image path, keeping its distinct invalid-user message. Isolates upload error wrapping to remote upload failures; best-effort cache writes remain nonblocking to availability. Existing upload, profile permission, and offline tests protect behavior.
+- Focused task gate -> squash into stable Preview -> full GitHub canonical and Vercel READY. No budget cap increases, no Appwrite/Production/dev/main changes. Manual phone-to-laptop acceptance required before dev/main.
 
 ## Prior task handoff
 The previous session tracked issue #592 same-version main-release CI recovery. Its issue/PR comments and live GitHub status remain the source of truth; this photo fix does not alter that workstream.
