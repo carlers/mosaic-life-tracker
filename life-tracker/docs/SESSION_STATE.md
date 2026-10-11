@@ -1,17 +1,30 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: complete user-approved v0.17.0 Settings history-return integration deployment on dev. No main promotion.
+Current task: reconcile accepted Backlogs issue #407 into the latest dev without overwriting concurrently promoted features. User explicitly approved dev promotion, not main.
 
-## Verified
-- Settings and granular release-history combined Preview `feature/settings-forward-integration` at `cfaf89dcf61636820289fe418f30b3b2b368b5b5`: full canonical run 38118593714 SUCCESS; Vercel `dpl_B9CNKb7G6257t65LWpqVdNHb5rQq` READY using Scratch. All seven size budgets passed (entry gzip 131696/131752).
-- User-approved promotion PR #580 merged to dev `5c8b1efda131ed7cd1315a9e41f9115ec03e7665` (v0.17.0). Dev CI 38118734273 SUCCESS. Source and merged dev tree both `5e456b21b2633b7cf83d27fe4130994fd1067944`; dev first parent was previous dev `6a097ada3bf729d55fa959e7d03da551fea51930`.
-- Exact dev Vercel `dpl_HkFmS81yqaE91YKwHBe83ZZnvqY7` builds against Scratch and compiles/PWA checks, but dev-specific output is 2,050 B larger raw/precache than byte-identical accepted Preview. Raw 2401354 vs limit 2401300 (+54); precache 2485705 vs 2485700 (+5). Other five limits including entry, initial/Home and aggregate gzip pass.
+## Product / safety
+- Backlogs is `/backlog`, a date-free, category-grouped Day View with normal task actions/reorder, Home hamburger and Me entry points, Home search focus, and Calendar ⇄ Backlogs moves by updating the same task's `date` to/from `''`.
+- Owner-only Backlogs privacy: scheduled-date validation guards friend calendar, reactions, task retrieval, completion notifications and **shared-task list/invite/collaborator mutations**. Hide Share with friends for undated tasks in task actions.
+- No new schema or backend collection. Shared task code remains from dev; the combined Git-owned Function requires Scratch readiness before authenticated acceptance.
 
-## Repair
-- Budget-only: raise aggregate app raw cap to 2401450 (96 B headroom) and precache cap to 2485800 (95 B headroom) and update the exact regression expectations. Keep entry, initial, Home and aggregate gzip caps unchanged; no UI, Appwrite or app version changes.
-- Task branch `chatgpt/settings-forward-dev-size` targets stable Preview `fix/settings-forward-dev-size`, both based on failed-deploy dev SHA `5c8b1ef`.
+## Reconciliation
+- Accepted original Backlogs Preview: `feature/backlog-407` SHA `9f5c7d9a54bedc2bf7da3cc19add559cb16a760f`, v0.17.1. Canonical run 38117719036 SUCCESS (second attempt), Vercel READY; direct stable alias `/backlog` and `/home` HTTP 200.
+- dev advanced independently to `9671c64c0c6519bd2773a22e5bd498f9cc367778`, v0.17.0, with shared tasks, stickers, granular release history and Settings swipe-forward. Direct PR #581 cannot merge cleanly. Merged source is based on latest dev, preserving newer shared/Settings work and layering backlog route and privacy. New combined Preview revision **v0.17.2** avoids reusing v0.17.1 on a materially different tree.
+- Keep dev's newer build budgets and release-history changes; measure combined build before changing limits. Legacy backend `message-action` is reconciled, but Scratch Function deployment/auth parity must be rechecked; do not assume production backend deployment or device acceptance.
+- Task integration branch `chatgpt/backlog-dev-reconcile-407` is built from the accepted Preview ancestry plus the latest dev ancestry in a 2-parent reconciliation commit, with a combined tree matching latest dev plus selected backlog changes. Squash after checks to stable `feature/backlog-407`, where canonical CI and Vercel validate; then merge accepted stable Preview by PR #581 into dev.
+
+## Measured combined build-size diagnostic
+- Combined first full diagnostic run 38119200683 compiled TypeScript and generated the PWA successfully. Size values: entry gzip 131,925, initial closure gzip 144,883, Home closure gzip 362,385, assets raw 2,404,437, assets gzip 743,010, precache 2,489,652 bytes. Limits are raised only modestly to 132,200 / 145,200 / 362,900 / 2,405,100 / 743,700 / 2,490,300 respectively. Entry raw still capped at 444,400. CI docs test required an explicit Next action heading; corrected here.
+
+## Acceptance
+- Explicit full task diagnostic when needed for tight combined build size, then focused checks on final task SHA; canonical full Preview acceptance and exact-SHA Vercel READY before dev merge.
+- Dev PR must retain accepted Preview tree and run current promotion gate; verify dev CI, Scratch Vercel deployment, direct /backlog 200. Main and production untouched.
+- Real Scratch authenticated multi-device testing, Android/iOS swipe and theme/visual testing remain separate from automated evidence; do not claim them without execution.
+
+## Final promotion repair (2026-10-11)
+- The combined stable Preview `feature/backlog-407` at `14eb8d11` passed build, browser, DOM and dependency gates but canonical run 38119390463 FAILED: two `buildSizeGuard.test.ts` assertions retained the older v0.17.0 ceilings and entry-gzip percentage even though the bounded, measured v0.17.2 configuration changed. App code build passed.
+- Original dev PR #581 remains merge-conflicted because its stable branch retained pre-dev ancestry after squash. Carry the reviewed combined tree onto a fresh dev-based task branch, updating only the stale size-contract tests and this checkpoint; promote through a new dev-based stable Preview after focused/full acceptance, then close superseded PR #581. No force-update to shared branches.
 
 ## Next action
-- Require task focused CI success, squash to stable fix Preview and verify exact canonical/READY Scratch Vercel; then user-authorized budget correction PR to dev.
-- Verify dev CI and live Scratch Vercel READY for the final commit; do not touch main. Device-specific iOS/Android gesture, Android Back with sheets and Escape-as-Back remain manual acceptance.
+Require focused-green final task, squash into a new stable dev-based Backlogs Preview and verify exact-SHA full canonical plus Vercel READY. Then merge that stable Preview to dev under the existing user approval, verify dev CI/deployment and close superseded PR #581. Scratch Function parity, disposable multi-device authenticated acceptance and iOS/Android gesture testing remain separate, unverified. Main/Production unchanged.

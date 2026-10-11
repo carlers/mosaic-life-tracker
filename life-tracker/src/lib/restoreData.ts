@@ -454,8 +454,8 @@ function normalizeBackup(
     if (!id) continue;
     const title = asString(raw.title);
     const date = asString(raw.date);
-    if (!title || !date) throw new Error('Backup task is missing required data.');
-    if (!isValidDateKey(date)) {
+    if (!title || typeof raw.date !== 'string') throw new Error('Backup task is missing required data.');
+    if (date !== '' && !isValidDateKey(date)) {
       throw new Error('Backup task has an invalid date.');
     }
     const sourceCategoryId = asString(raw.categoryId);

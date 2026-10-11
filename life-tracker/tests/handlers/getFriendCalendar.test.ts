@@ -7,6 +7,21 @@ const FRIEND = 'user_b';
 const friendshipRow = () => ({ $id: 'fr_test' });
 
 describe('message-action / get_friend_calendar', () => {
+  it('does not leak undated public tasks through a visible category', async () => {
+    const db = makeMockDb();
+    db.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [{ $id: 'cat_public', user_id: FRIEND, visibility: 'public', order: 0, deleted: false }] })
+      .mockResolvedValueOnce({ rows: [
+        { $id: 'undated', user_id: FRIEND, category_id: 'cat_public', visibility: 'public', date: '', deleted: false },
+        { $id: 'scheduled', user_id: FRIEND, category_id: 'cat_public', visibility: '', date: '2026-10-10', deleted: false },
+      ] });
+    const result = await invoke({ userId: CALLER, mockDb: db, body: { action: 'get_friend_calendar', friendUserId: FRIEND } });
+    expect(result.status).toBe(200);
+    expect(result.body.tasks.map((task: { $id: string }) => task.$id)).toEqual(['scheduled']);
+  });
+
   let mockDb: MockDb;
 
   beforeEach(() => {

@@ -8,6 +8,7 @@ const mockPersons = [
 ];
 import { fireEvent, render, screen, act } from '@testing-library/react';
 import { HomePage } from '../../src/pages/HomePage';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const ownerTask = {
   id: 'task_search',
@@ -124,6 +125,8 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
     ) : null,
 }));
 
+const renderHome = () => render(<MemoryRouter><HomePage /></MemoryRouter>);
+
 describe('HomePage task-search wiring', () => {
   beforeEach(() => {
     idleCallback = null;
@@ -136,7 +139,7 @@ describe('HomePage task-search wiring', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('keeps adjacent person panes out of the initial mount until idle', () => {
-    render(<HomePage />);
+    renderHome();
     expect(screen.getAllByText('Pane')).toHaveLength(1);
     act(() => {
       idleCallback?.({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
@@ -146,7 +149,7 @@ describe('HomePage task-search wiring', () => {
 
   // Regression: §2 (Home task-search history and owner Day View integration).
   it('uses a history entry for Home search so Android Back closes search before route navigation', () => {
-    render(<HomePage />);
+    renderHome();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open search' }));
     expect(window.history.state).toEqual(
@@ -159,7 +162,7 @@ describe('HomePage task-search wiring', () => {
   });
 
   it('makes the Home content inert while search is open', () => {
-    render(<HomePage />);
+    renderHome();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open search' }));
 
@@ -169,7 +172,7 @@ describe('HomePage task-search wiring', () => {
   });
 
   it('keeps Home search open when the selected task sheet closes', async () => {
-    render(<HomePage />);
+    renderHome();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open search' }));
     fireEvent.click(screen.getByRole('button', { name: 'Select search task' }));
@@ -183,8 +186,26 @@ describe('HomePage task-search wiring', () => {
     expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument();
   });
 
+  it('opens Backlogs for an unscheduled search match', async () => {
+    ownerTask.date = '';
+    try {
+      render(
+        <MemoryRouter initialEntries={['/home']}>
+          <Routes>
+            <Route path="/home" element={<HomePage />} />
+            <Route path="/backlog" element={<div>Backlogs destination</div>} />
+          </Routes>
+        </MemoryRouter>
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Select search task' }));
+      expect(await screen.findByText('Backlogs destination')).toBeInTheDocument();
+    } finally {
+      ownerTask.date = '2026-09-24';
+    }
+  });
+
   it('opens Day View for the selected result without creating another data source', async () => {
-    render(<HomePage />);
+    renderHome();
 
     fireEvent.click(screen.getByRole('button', { name: 'Select search task' }));
 
