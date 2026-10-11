@@ -14,4 +14,4 @@ Current task: Settings left swipe to restore the previously visited Settings chi
 - Add previously visited detail pages to existing preview/preload mappings, keeping page trees unmounted outside a gesture.
 - Add unit coverage for forward eligibility and DOM swipe surface coverage. Update §2 navigation contract and synchronize package/app versions to v0.17.0.
 - Coherent task commit requests `[verify:focused]`; only focused CI and stable Preview canonical/Vercel acceptance can verify hosted behavior. Mobile browser/Android Back, Escape with setting on, direct-link fallback, and iOS gesture acceptance remain manual.
-- Next: verify exact task CI; squash into stable `feature/settings-history-forward` after focused green; verify full canonical gate and Vercel Preview before user testing or promotion.
+Next action: verify exact task CI; squash into stable `feature/settings-history-forward` after focused green; verify full canonical gate and Vercel Preview before user testing or promotion.
