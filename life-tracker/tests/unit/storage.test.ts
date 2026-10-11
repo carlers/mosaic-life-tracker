@@ -345,6 +345,29 @@ describe('storage.getLocalImageUrl — cross-device downloads', () => {
     }
   });
 
+  it('downloads from Appwrite when desktop IndexedDB reads fail', async () => {
+    markConnectivityOnline('test');
+    imageCacheRef.get.mockRejectedValueOnce(new Error('IndexedDB disabled'));
+    sdkRef.guardedStorageGetFileView.mockReturnValueOnce(
+      new URL('https://storage.example.test/file')
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(new Blob(['valid-image'], { type: 'image/webp' }), { status: 200 })
+    ));
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:restored');
+    try {
+      await expect(getLocalImageUrl('img_cache_read_failure')).resolves.toBe(
+        'blob:restored'
+      );
+      expect(fetch).toHaveBeenCalledOnce();
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      vi.unstubAllGlobals();
+      markConnectivityOffline('test-reset');
+    }
+  });
+
   it('does not cache or display a partial HTTP image response', async () => {
     markConnectivityOnline('test');
     imageCacheRef.get.mockResolvedValueOnce(undefined);
