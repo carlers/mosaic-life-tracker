@@ -134,6 +134,7 @@ async function collectCollections(userId: string): Promise<RawCollections> {
         sort: [{ updatedAt: 'desc' }],
       })
       .exec(),
+    db.bucketList.find({ selector: { userId, isDeleted: false } }).exec(),
   ]);
   return {
     bucketList: bucketList.map((d) => toDoc<BucketListDocument>(d)),
