@@ -280,14 +280,14 @@ export async function ensureRestoredImage(
   }
 }
 
-export async function getLocalImageUrl(fileId: string): Promise<string | null> {
+export async function getLocalImageUrl(fileId: string, refreshFromCloud = false): Promise<string | null> {
   if (!fileId) return null;
   try {
     const pending = isPendingImageId(fileId);
     // IndexedDB failure must not block the authorized online file download.
     const cached = pending
       ? await getPendingImage(fileId)
-      : await getCachedImage(fileId).catch(() => undefined);
+      : refreshFromCloud ? undefined : await getCachedImage(fileId).catch(() => undefined);
     if (cached) return URL.createObjectURL(cached);
     if (pending || getConnectivitySnapshot().status !== 'online') return null;
 

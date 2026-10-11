@@ -368,6 +368,32 @@ describe('storage.getLocalImageUrl — cross-device downloads', () => {
     }
   });
 
+  it('ignores a damaged pre-existing cache entry when the user refreshes the photo', async () => {
+    markConnectivityOnline('test');
+    imageCacheRef.get.mockResolvedValueOnce(new Blob(['bad'], { type: 'image/webp' }));
+    sdkRef.guardedStorageGetFileView.mockReturnValueOnce(
+      new URL('https://storage.example.test/file')
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(new Blob(['recovered'], { type: 'image/webp' }), { status: 200 })
+    ));
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:recovered-old-photo');
+    try {
+      await expect(getLocalImageUrl('img_existing', true)).resolves.toBe(
+        'blob:recovered-old-photo'
+      );
+      expect(imageCacheRef.get).not.toHaveBeenCalled();
+      expect(imageCacheRef.cache).toHaveBeenCalledWith(
+        'img_existing', expect.any(Blob)
+      );
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      vi.unstubAllGlobals();
+      markConnectivityOffline('test-reset');
+    }
+  });
+
   it('does not cache or display a partial HTTP image response', async () => {
     markConnectivityOnline('test');
     imageCacheRef.get.mockResolvedValueOnce(undefined);
