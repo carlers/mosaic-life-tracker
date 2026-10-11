@@ -138,11 +138,12 @@ describe('message-action / scheduled tombstone GC', () => {
       'diary',
       'settings',
       'bucket_list_items',
+      'bucket_task_links',
       'friendships',
       'messages',
     ]);
     // One server-only read checks durable account-deletion jobs before the
-    // seven ordinary tombstone-GC table scans.
+    // eight ordinary tombstone-GC table scans.
     expect(mockDb.listRows).toHaveBeenCalledTimes(10);
     expect(response.logs).toContain(
       'account-deletion: scheduled processed=0 failed=0'
