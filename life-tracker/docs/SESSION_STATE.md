@@ -16,9 +16,15 @@ Current task: Bucket List MVP, issue #405. User explicitly authorized narrowed M
 
 ## Next action
 
-Complete focused CI repairs, stable Preview and pending Scratch acceptance. No dev/main promotion without approval.
+Refactor duplicate owner-only replication pilots to stay under unchanged size limits; verify focused, then full stable Preview. Scratch activation remains separately gated. No dev/main promotion without approval.
 
 ## Verification and next steps
 - First focused CI 38145491726 failed on checkpoint heading, then focused CI 38145839330 succeeded at 86d751dc54801fd57cffff13c3143d0c9532c81b (only checkpoint diff). Subsequent changes added the seventh sync-manifest test. Verify the complete branch with focused CI and full canonical Preview gates; neither full TypeScript nor bundle sizing is yet established.
 - Repair PR into stable `feature/bucket-list-405` after focused green; rerun exact stable SHA full canonical GitHub checks and Vercel Preview. Do not claim cloud authenticated acceptance until coordinated Scratch migration/Function exact-SHA deploy, account-private/offline cross-device tests, old-client compatibility and manual iOS/Android/swipe/theme review.
 - Advance dev/main only by separate user approval. Maintain issue #405 with actual evidence and unresolved gates.
+
+## Current repair (2026-10-11)
+
+- Stable Preview `feature/bucket-list-405@d792f275` canonical CI 38146449849: 941/941 unit, DOM/browser and dependency jobs green; build exceeds four unchanged size ceilings (homeClosure gzip +190B; total assets raw +10,745B, gzip +2,451B, precache +10,966B). Two handler assertions expected six rather than seven GC tables.
+- Task repair `chatgpt/bucket-list-size-repair-405-20261011` consolidates the same owner-only Diary/Category/BucketList replication logic into one shared primitive, retaining per-domain mappings and equality fields; handler regression counts updated. Request focused and then stable Preview full gate. No budget increases.
+- No scratch backend changes or `dev`/`main` promotion; feature is NOT authenticated Preview-accepted. Conditional next stage: coordinate additive `010-bucket-list` migration and reviewed Function deployment only after explicit shared Scratch authorization.
