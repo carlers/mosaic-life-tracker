@@ -20,5 +20,5 @@ Complete focused CI repairs, stable Preview and pending Scratch acceptance. No d
 
 ## Verification and next steps
 - First focused CI 38145491726 failed on checkpoint heading, then focused CI 38145839330 succeeded at 86d751dc54801fd57cffff13c3143d0c9532c81b (only checkpoint diff). Subsequent changes added the seventh sync-manifest test. Verify the complete branch with focused CI and full canonical Preview gates; neither full TypeScript nor bundle sizing is yet established.
-- Prepare the stable `feature/bucket-list-405` only after focused green; run full canonical GitHub checks and Vercel Preview. Do not claim cloud authenticated acceptance until coordinated Scratch migration/Function exact-SHA deploy, account-private/offline cross-device tests, old-client compatibility and manual iOS/Android/swipe/theme review.
+- Repair PR into stable `feature/bucket-list-405` after focused green; rerun exact stable SHA full canonical GitHub checks and Vercel Preview. Do not claim cloud authenticated acceptance until coordinated Scratch migration/Function exact-SHA deploy, account-private/offline cross-device tests, old-client compatibility and manual iOS/Android/swipe/theme review.
 - Advance dev/main only by separate user approval. Maintain issue #405 with actual evidence and unresolved gates.
