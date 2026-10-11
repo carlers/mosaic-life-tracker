@@ -35,7 +35,7 @@ export function classifyScratchDrift(diffs) {
     /^table push_subscriptions: missing$/,
     /^table task_shares: missing$/,
     /^table bucket_list_items: missing$/,
-    /^table bucket_task_links: missing$,
+    /^table bucket_task_links: missing$/,
     /^table task_shares\.allow_(title|date)_edit: missing column$/,
     /^table notifications\.idx_notification_created: missing index$/,
     /^table push_subscriptions\.include_task_details: missing column$/,
