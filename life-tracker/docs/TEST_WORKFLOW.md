@@ -73,6 +73,16 @@ Performance probes are diagnostic and run via `npm run test:performance`; they a
 part of canonical acceptance unless the repository explicitly adopts a reviewed performance
 budget.
 
+### Focused documentation-contract ownership (#592)
+
+Markdown documentation read at runtime by the unit suite is not part of
+Vitest's static dependency graph. Focused verification must explicitly run
+`documentationContracts.test.ts` when `AGENTS.md`, project root Markdown or
+`docs/*.md` changes, even if `--changed` selects no related tests. A full
+focused run already includes the contract and does not repeat it. This avoids
+repeating the #520 failure where a malformed session checkpoint passed focused
+CI but failed canonical stable Preview acceptance.
+
 ## Fast loop
 
 Start with the narrowest relevant command:
