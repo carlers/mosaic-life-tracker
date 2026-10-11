@@ -50,9 +50,9 @@ describe('Bucket List linked task photo preview', () => {
 
   it('loads the canonical task image using the existing hook and opens that task on photo tap', () => {
     const onView = vi.fn();
-    render(<LinkedTaskPhoto task={task} onView={onView} />);
+    const { container } = render(<LinkedTaskPhoto task={task} onView={onView} />);
     expect(screen.getByRole('button', { name: 'View photo for Explore Kyoto' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { hidden: true })).toHaveAttribute('src', 'blob:file_photo_one');
+    expect(container.querySelector('img')).toHaveAttribute('src', 'blob:file_photo_one');
     expect(photoMock.calls).toContainEqual({ fileId: 'file_photo_one', enabled: true });
 
     fireEvent.click(screen.getByRole('button', { name: 'View photo for Explore Kyoto' }));
@@ -62,7 +62,7 @@ describe('Bucket List linked task photo preview', () => {
   it('does not render a photo control for tasks without an attachment', () => {
     render(<LinkedTaskPhoto task={{ ...task, image: '' }} onView={vi.fn()} />);
     expect(screen.queryByRole('button')).toBeNull();
-    expect(screen.queryByRole('img', { hidden: true })).toBeNull();
+    expect(document.querySelector('img')).toBeNull();
   });
 
   it('defers image acquisition until the row nears the viewport', () => {
@@ -88,11 +88,11 @@ describe('Bucket List linked task photo preview', () => {
 
   it('tracks the original task image when a synced attachment is replaced', () => {
     const onView = vi.fn();
-    const { rerender } = render(<LinkedTaskPhoto task={task} onView={onView} />);
+    const { rerender, container } = render(<LinkedTaskPhoto task={task} onView={onView} />);
     const changed = { ...task, image: 'file_photo_two', title: 'Explore Osaka' };
     rerender(<LinkedTaskPhoto task={changed} onView={onView} />);
     expect(screen.getByRole('button', { name: 'View photo for Explore Osaka' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { hidden: true })).toHaveAttribute('src', 'blob:file_photo_two');
+    expect(container.querySelector('img')).toHaveAttribute('src', 'blob:file_photo_two');
     fireEvent.click(screen.getByRole('button', { name: 'View photo for Explore Osaka' }));
     expect(onView).toHaveBeenCalledExactlyOnceWith(changed);
   });

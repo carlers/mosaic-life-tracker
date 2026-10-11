@@ -9,5 +9,5 @@ Current task: #405 Bucket List v0.19.2 — linked-task photo viewing.
 - Task branch `chatgpt/bucket-list-linked-task-photos-405-20261011` targets v0.19.2: show 64px task-image thumbnails only for linked tasks with `task.image`. Reuse `useImageLoadGate` + `useTaskImage` and existing lazy `ImageViewer` PhotoSwipe overlay. Cached/offline/pending semantics belong to existing hooks. Tapping photo opens fullscreen with title and date while task row tap, completion, and unlink behavior are unchanged. Missing images show a fallback and no destructive retries.
 - Current dev/master not touched. Schema/migrations, remote Appwrite rows/buckets, and attachments are unchanged.
 
-## Next steps
+## Next action
 - Accessible DOM tests cover loaded thumbnails, click-to-view, deferred loads, unavailable/missing/loading photos and live attachment identity changes. Run focused CI, repair, squash to stable, exact canonical CI + Vercel READY. Confirm previously deployed Scratch Function unchanged. Then user can test on the stable registered Preview alias; no dev/main promotion until approved.
