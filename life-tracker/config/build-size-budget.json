@@ -18,23 +18,23 @@
     "entryGzipBytes": 132200,
     "initialClosureGzipBytes": 145200,
     "homeClosureGzipBytes": 362900,
-    "appAssetsRawBytes": 2413000,
-    "appAssetsGzipBytes": 746300,
-    "precacheUniqueBytes": 2498300
+    "appAssetsRawBytes": 2416000,
+    "appAssetsGzipBytes": 747400,
+    "precacheUniqueBytes": 2501400
   },
   "review": {
     "issue": "#640",
-    "reason": "User-reported Calendar Day View first-mount lag persists after module preload. Swiper Virtual removes 172 unnecessary DOM slides; matched Chromium browser traces reduce the first-open 50-task long task from 235ms to 82ms while keeping entry, initial, and Home bundle caps unchanged. The lazy-loaded Virtual module adds a measured 3056 raw/1092 gzip bytes above old app-aggregate ceilings.",
-    "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38157264213",
+    "reason": "Vercel Preview with the scratch Appwrite/GIPHY environment emits 2,414,270 app raw bytes, 746,786 app gzip bytes and 2,499,629 precache bytes, exceeding GitHub-only preview size estimates. This is an exact SHA environment build-parity correction after issue #640's 181-to-nine mounted slide CPU improvement; entry/initial/Home ceilings remain unchanged.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/FwoVGXEqZsakh3oRtTNuJeRt4ZWx",
     "metrics": [
       "appAssetsRawBytes",
       "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "appAssetsRawBytes": 2409000,
-      "appAssetsGzipBytes": 744700,
-      "precacheUniqueBytes": 2494000
+      "appAssetsRawBytes": 2413000,
+      "appAssetsGzipBytes": 746300,
+      "precacheUniqueBytes": 2498300
     }
   }
 }

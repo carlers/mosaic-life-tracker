@@ -16,6 +16,12 @@ Current task: Eliminate Calendar Day View first-mount CPU blockage after unchang
 - Issue #640 records the CPU measurements and metric-specific build-size review. Production app assets were 2,412,056 raw / 745,792 gzip, precache 2,497,415 B while entry, initial and Home caps remained green; reviewed aggregate ceilings are 2,413,000 raw / 746,300 gzip / 2,498,300 precache. Full gate's only red job was the old aggregate budget; DOM, lint/unit and browser including far-date jump passed.
 - Frontend-only. No Appwrite, Production, schema or service changes.
 
+## Delivery evidence and repaired Preview parity
+- Task full canonical run #38157480612 was SUCCESS and v0.17.9 merged into the stable Preview via PR #642 at `fdb36eae4d291be5f14c2abc71e6ba36cde3d9a4`.
+- First Vercel Preview deployment `dpl_FwoVGXEqZsakh3oRtTNuJeRt4ZWx` failed production bundling, while GitHub task build passed: Vercel scratch/GIPHY features emitted appAssetsRawBytes 2,414,270 vs cap 2,413,000; appAssetsGzipBytes 746,786 vs cap 746,300; precacheUniqueBytes 2,499,629 vs cap 2,498,300. Initial/entry/Home caps passed with Home closure 362,877/362,900.
+- Review #640 raises **only** those three aggregate caps again, using failing Vercel deployment as evidence and preserving pinned baseline and original entry, initial, Home limits; no production config/Appwrite changes.
+- Repair task branch `chatgpt/day-view-preview-size-parity-20261012`, based on stable Preview. Remains v0.17.9 because internal repair, not a new user-testable implementation.
+
 ## Next action
 - Verify new far-jump/browser regression and focused checks on the complete v0.17.9 task commit; repair if needed.
 - Run production-build/size preflight on task branch if needed for near-limit budgets. Squash into stable Preview only after focused success, then run one full canonical gate and verify exact Vercel READY SHA.
