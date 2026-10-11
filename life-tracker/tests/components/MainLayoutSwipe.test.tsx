@@ -182,6 +182,31 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).toHaveBeenCalledWith('right');
   });
 
+  it('reveals the previously opened Settings page during a permitted forward swipe', () => {
+    vi.useFakeTimers();
+    const onRouteSwipe = vi.fn();
+    render(
+      <MainLayout
+        activeTab="account"
+        onTabChange={() => {}}
+        canSwipeLeft
+        canSwipeRight
+        leftPreview={<div>Previously opened Preferences</div>}
+        onRouteSwipe={onRouteSwipe}
+      >
+        <div data-testid="settings-page">Settings</div>
+      </MainLayout>
+    );
+
+    const target = screen.getByTestId('settings-page');
+    fireEvent.pointerDown(target, { pointerId: 1, pointerType: 'touch', clientX: 320, clientY: 80, button: 0 });
+    fireEvent.pointerMove(target, { pointerId: 1, pointerType: 'touch', clientX: 100, clientY: 84 });
+    expect(screen.getByText('Previously opened Preferences')).toBeInTheDocument();
+    fireEvent.pointerUp(target, { pointerId: 1, pointerType: 'touch', clientX: 100, clientY: 84 });
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledExactlyOnceWith('left');
+  });
+
   it('accepts a leftward full-page swipe on Me', () => {
     vi.useFakeTimers();
     const onRouteSwipe = vi.fn();
