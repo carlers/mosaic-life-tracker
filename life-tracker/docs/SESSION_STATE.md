@@ -9,5 +9,9 @@ Current task: #405 Bucket List v0.19.2 — linked-task photo viewing.
 - Task branch `chatgpt/bucket-list-linked-task-photos-405-20261011` targets v0.19.2: show 64px task-image thumbnails only for linked tasks with `task.image`. Reuse `useImageLoadGate` + `useTaskImage` and existing lazy `ImageViewer` PhotoSwipe overlay. Cached/offline/pending semantics belong to existing hooks. Tapping photo opens fullscreen with title and date while task row tap, completion, and unlink behavior are unchanged. Missing images show a fallback and no destructive retries.
 - Current dev/master not touched. Schema/migrations, remote Appwrite rows/buckets, and attachments are unchanged.
 
+## Verification and budget review
+- Task photo DOM test focused [38157337160](https://github.com/carlers/mosaic-life-tracker/actions/runs/38157337160) succeeded; PR #641 squash to stable `feature/bucket-list-405@5326e6bf`, v0.19.2. Same-SHA GitHub canonical [38157442710](https://github.com/carlers/mosaic-life-tracker/actions/runs/38157442710) under way and exact GIPHY-enabled Vercel [dpl_5xqaBKF6z9NLhnR5hM4vb2j3f3Jx](https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/5xqaBKF6z9NLhnR5hM4vb2j3f3Jx) failed **only** strict size budget: appAssetsRaw 2446139/2445500 (+639), precacheUnique 2532946/2532300 (+646); every other metric PASSED. Patch reviews **only** these two small margins (new 2447700 and 2534500); guard and baseline remain enforced. No GIPHY config or unrelated updates.
+- No Scratch or Production change.
+
 ## Next action
 - Accessible DOM tests cover loaded thumbnails, click-to-view, deferred loads, unavailable/missing/loading photos and live attachment identity changes. Run focused CI, repair, squash to stable, exact canonical CI + Vercel READY. Confirm previously deployed Scratch Function unchanged. Then user can test on the stable registered Preview alias; no dev/main promotion until approved.
