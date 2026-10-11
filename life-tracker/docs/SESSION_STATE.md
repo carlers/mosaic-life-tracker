@@ -1,24 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: reconcile accepted granular release-history Preview with newer dev checkbox fixes, then promote to dev. Candidate v0.16.10; no main promotion authorized.
+Current task: repair aggregate production build-size budgets for accepted granular release history v0.16.10 on dev. No main promotion authorized.
 
-## Baseline and rationale
-- dev `a806d63a98100efc725af65f823d36b1366b6c7d` at v0.16.8 includes cross-task focused-input checkbox regression fix and its coverage.
-- Accepted release-history Preview `feature/granular-release-history` at `290b74f10ce9e236f059e60f549b8f48870df7cb` (v0.16.9), full canonical Quality Gate `38111231237` SUCCESS, exact Vercel Preview READY.
-- The branches diverged. Integrate the release-history implementation onto current dev without overwriting checkbox changes, and assign v0.16.10 to the new combined user-testable Preview tree.
+## Verified state
+- User-approved release-history integration PR #565 merged into dev at `e912c4abab7f234ae35c8c051c897764a38ee07a`, version 0.16.10.
+- Merge tree exactly equals accepted combined stable Preview tree `1093d670f45ba3469d9d42b1df61c0d6af217491`; full canonical Preview run 38113703778 SUCCESS, Vercel Preview dpl_Hd2QdBeQppvvjgXAqCajEXs91yNs READY.
+- Dev promotion CI 38113841779 SUCCESS, but Vercel dev dpl_iQNvX9t17S3Zv3WpFKT7BguVY23s failed BUILD_UTILS_SPAWN_1 due only to three aggregate budgets, despite successful compilation/PWA.
+- Dev measured app raw 2,400,745 B (old limit 2,399,000), gzip 741,191 B (old limit 741,000), precache 2,485,096 B (old limit 2,483,500). Entry, initial and Home budgets passed unchanged.
 
-## Candidate
-- Preserve all dev task/checkbox code and tests. Add the accepted compact Markdown/offline release history and verified shipped/Preview-only version archive plus trusted publication milestones.
-- Reuse the accepted Preview's release-only code/docs/tests/build budget, preserve the dev project reference and ownership behavior.
-- Keep no Appwrite backend changes and no changes to main. Three version files must match v0.16.10.
-
-## Verification
-- First focused task run `38113531416` failed only the checkpoint documentation contract: a combined heading was not recognized; all other tests passed (1,466 passing, 1 failing).
-- Corrected the heading without changing application behavior or product version.
+## Repair
+- Budget-only tooling/test adjustment: app raw limit 2,401,300; gzip 741,800; precache 2,485,700, with 555–609 B measured headroom. Startup/Home caps unchanged.
+- Preserve v0.16.10 app source, historical release data, previous checkbox fix, production publisher, Appwrite isolation and all backend behavior. No version bump for non-user-facing budget maintenance.
 
 ## Next action
-- Check task focused CI, squash into `feature/granular-release-history-dev-integration`, then verify exact-source full canonical CI and Vercel Preview READY.
-- Only then create/promote a merge PR into dev, retaining its existing checkbox fixes.
-- Review production build-size thresholds and failure output; repair before promotion if necessary.
-- Real iOS/Android/browser visual, authenticated and offline acceptance remain manual; do not claim completed.
+- Require focused task CI success; squash into stable fix Preview `fix/release-history-dev-build-budget`.
+- Confirm exact Preview canonical CI and Vercel READY, then merge accepted source into dev by approved correction PR.
+- Verify dev CI, exact deployment READY, and no main change. Manual mobile/theme/offline acceptance remains unclaimed.
