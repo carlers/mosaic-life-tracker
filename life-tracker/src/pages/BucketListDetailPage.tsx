@@ -55,10 +55,10 @@ export function BucketListDetailPage() {
         const selected = categories.find(c => c.id === categoryId && !c.isDeleted);
         if (!selected) throw new Error('Choose an existing task category.');
         if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Choose a valid date.');
-        taskId = await addTask({
+        taskId = (await addTask({
           title: taskTitle.trim(), completed: false, categoryId: selected.id,
           date, visibility: date === '' ? 'private' : '',
-        });
+        })) ?? null;
         if (!taskId) throw new Error('Could not create the task.');
         setPendingCreatedTask(taskId);
       }
