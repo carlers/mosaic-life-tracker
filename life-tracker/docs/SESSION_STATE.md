@@ -14,6 +14,10 @@ Current task: Bucket List MVP, issue #405. User explicitly authorized narrowed M
 - Regression tests for mapping/isolation, backend manifest/erasure, migration.
 - Shared Appwrite Scratch project must be coordinated with #526; **no Appwrite mutations, Functions activation, secrets or Production changes performed**.
 
+## Next action
+
+Complete focused CI repairs, stable Preview and pending Scratch acceptance. No dev/main promotion without approval.
+
 ## Verification and next steps
 - Submit focused CI at this task head; inspect errors and fix. Review backup/restore regressions, schema contracts and size guard.
 - Prepare the stable `feature/bucket-list-405` only after focused green; run full canonical GitHub checks and Vercel Preview. Do not claim cloud authenticated acceptance until coordinated Scratch migration/Function exact-SHA deploy, account-private/offline cross-device tests, old-client compatibility and manual iOS/Android/swipe/theme review.
