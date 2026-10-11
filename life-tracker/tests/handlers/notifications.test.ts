@@ -175,7 +175,7 @@ describe('notifications backend', () => {
         if (tableId === 'tasks') return {
           $id: 'task_1', user_id: 'user_a', category_id: 'cat_1',
           visibility: 'followers', is_completed: true, completed_at: completedAt,
-          deleted: false, source: '', title: 'Private shared task',
+          date: '2026-10-11', deleted: false, source: '', title: 'Private shared task',
         };
         if (tableId === 'categories') return {
           $id: 'cat_1', user_id: 'user_a', deleted: false, visibility: 'followers',
