@@ -11,6 +11,8 @@ Current task: Existing task-photo recovery after confirmed v0.17.5 Preview accep
 - Genuine missing Appwrite Storage files cannot be recovered without bytes on an original device or an external backup. A Retry action cannot reconstruct missing originals.
 
 ## Next action
+- Focused recovery task passed at `31e417e`; PR #623 squash-merged to stable Preview `e77c45f`. Full Vercel build rejected only narrow aggregate bundle budgets. Issue #624 records the exact measured, three-metric review and previous limits; recovery build uses scratch Appwrite and no Production writes.
+- Review-only branch `chatgpt/task-photo-size-review-624` adds measured, metric-specific caps with unchanged historical baseline and other limits. After focused CI, squash into stable Preview and re-run full canonical CI plus Vercel READY before the approved dev promotion.
 - Focused task CI then squash PR into the same stable Preview, full canonical CI and Vercel READY at exact SHA; user already authorizes dev promotion after adequate recovery.
 - Before dev promotion verify exact SHA, version monotonicity, no source divergence, CI and Vercel scratch identity. Use a merge-commit stable Preview → dev PR with exact source tree; no main release approval.
 - After merge, read back dev commit/checks/deployment and report remaining manual/device acceptance separately.
