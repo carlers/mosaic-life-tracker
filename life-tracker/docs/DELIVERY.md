@@ -239,3 +239,44 @@ external service state.
 A local Cloudflare Tunnel remains a fallback when testing an uncommitted local workspace.
 Its temporary hostname must also be registered in Appwrite before authenticated browser
 requests will work.
+
+## Automated branch hygiene
+
+The source-controlled [Branch Hygiene workflow](../../.github/workflows/branch-hygiene.yml)
+runs daily **on main only**, with a manually dispatchable dry run (default) or
+explicit live run. The policy is implemented in
+[branch-hygiene.mjs](../scripts/lib/branch-hygiene.mjs) and
+[cleanup-merged-branches.mjs](../scripts/cleanup-merged-branches.mjs).
+
+- Never delete main, dev, an API-protected branch, or a branch outside the
+  supported task (chatgpt/*, codex/*, task/*) and stable Preview
+  (feature/*, fix/*, perf/*, security/*, refactor/*) categories.
+- Delete a task branch only when its **current head SHA** equals the head of a
+  successfully merged PR into a stable Preview branch, at least **72 hours**
+  after the **most recent matching merge**.
+- Delete a stable Preview branch only when its current head equals a successfully
+  merged promotion PR into dev, at least **72 hours** after the most recent
+  matching promotion. Promotion to main occurs via dev, not by deleting dev.
+- Any open PR targeting **or sourced from** that branch blocks deletion.
+  Unmerged, orphaned, renamed, divergent, or otherwise unproven branches
+  remain for manual review; never infer success from age or branch prefix.
+- Before live deletion, fetch the current branch protection/head and current
+  head-related and base-targeted PRs again. Abort on API failures. A changed
+  branch or newer PR must not be deleted under stale evidence.
+- Each daily run deletes at most 100 qualifying refs, with the rest reconsidered
+  the following day. Run results are recorded in Actions logs and job summary.
+  No Appwrite resources, accounts, tags, or GitHub Releases are modified.
+
+**Operations:** GitHub → Actions → Branch Hygiene → Run workflow, choose
+main and keep **dry_run = true** to review candidates. Set false only for an
+intentional live manual sweep. Scheduled runs are live after the workflow
+exists on main. Keep GitHub's built-in immediate "Automatically delete head
+branches" option **off** if a three-day post-merge grace period is required;
+branch protection for main and dev remains defense in depth. Deleting a
+stable Preview branch also ends that branch's stable Vercel Preview alias,
+so use active open PRs rather than long-lived retired Preview branches
+for ongoing work. GitHub PR history remains after branch deletion.
+
+Test policy safety using npm run test:unit -- tests/unit/branch-hygiene.test.ts;
+the full canonical Preview gate must pass before this scheduled workflow is
+promoted to main.
