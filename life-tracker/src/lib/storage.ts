@@ -25,19 +25,13 @@ const APPWRITE_CONFIG = {
 };
 
 export async function compressImage(file: File): Promise<Blob> {
-  const options = {
+  const { default: imageCompression } = await import('browser-image-compression');
+  return imageCompression(file, {
     maxSizeMB: 0.15,
     maxWidthOrHeight: 1024,
     useWebWorker: true,
     fileType: 'image/webp',
-  };
-  try {
-    const { default: imageCompression } = await import('browser-image-compression');
-    return await imageCompression(file, options);
-  } catch (error) {
-    console.error('[Storage] Image compression failed:', error);
-    throw error;
-  }
+  });
 }
 
 function generateFileId(): string {
@@ -298,41 +292,37 @@ export async function ensureRestoredImage(
 
 export async function getLocalImageUrl(fileId: string): Promise<string | null> {
   if (!fileId) return null;
-  if (isPendingImageId(fileId)) {
-    const pendingBlob = await getPendingImage(fileId);
-    return pendingBlob ? URL.createObjectURL(pendingBlob) : null;
-  }
-  const cachedBlob = await getCachedImage(fileId);
-  if (cachedBlob) {
-    return URL.createObjectURL(cachedBlob);
-  }
-  if (getConnectivitySnapshot().status !== 'online') return null;
   try {
-    const url = guardedStorage.getFileView({
-      bucketId: APPWRITE_CONFIG.bucketId,
-      fileId: fileId,
+    const pending = isPendingImageId(fileId);
+    // IndexedDB failure must not block the authorized online file download.
+    const cached = pending
+      ? await getPendingImage(fileId)
+      : await getCachedImage(fileId).catch(() => undefined);
+    if (cached) return URL.createObjectURL(cached);
+    if (pending || getConnectivitySnapshot().status !== 'online') return null;
+
+    const response = await guardedCall(async () => {
+      const result = await fetch(
+        guardedStorage.getFileView({
+          bucketId: APPWRITE_CONFIG.bucketId,
+          fileId,
+        }).toString(),
+        {
+          credentials: 'include',
+          headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
+        }
+      );
+      if (result.status === 401) throw makeUnauthorizedError();
+      return result;
     });
-    const res = await guardedCall(async () => {
-      const r = await fetch(url.toString(), {
-        credentials: 'include',
-        headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
-      });
-      if (r.status === 401) {
-        throw makeUnauthorizedError();
-      }
-      return r;
-    });
-    // A 206 response represents a byte range, not a complete image.
-    // Never persist a partial response as the canonical offline photo.
-    if (res.status !== 200) return null;
-    const blob = await res.blob();
-    // IndexedDB is optional for online viewing. A quota/private-mode failure
-    // must not hide an image that Appwrite successfully returned.
-    // Cache writes are optional and must not delay image display.
+    // Do not cache partial responses as complete photos.
+    if (response.status !== 200) return null;
+    const blob = await response.blob();
+    // Display the complete download even if the browser rejects caching it.
     void cacheImage(fileId, blob).catch(console.warn);
     return URL.createObjectURL(blob);
-  } catch (err) {
-    console.error('[Storage] Failed to fetch image:', err);
+  } catch (error) {
+    console.error('[Storage] Failed to fetch image:', error);
     return null;
   }
 }
