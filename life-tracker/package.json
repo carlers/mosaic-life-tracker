@@ -52,7 +52,8 @@
     "appwrite:function:configure": "node scripts/appwrite-function.mjs configure",
     "version:check": "node scripts/version.mjs check",
     "version:bump": "node scripts/version.mjs bump",
-    "version:set": "node scripts/version.mjs set"
+    "version:set": "node scripts/version.mjs set",
+    "promotion:preflight": "node scripts/preflight-promotion.mjs"
   },
   "dependencies": {
     "@dnd-kit/abstract": "^0.5.0",
