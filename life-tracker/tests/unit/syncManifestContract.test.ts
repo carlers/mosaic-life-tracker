@@ -49,7 +49,7 @@ describe('synchronized Appwrite serialization contract', () => {
     });
 
     it(collection + ': declared remote columns are accepted without drift warnings', () => {
-      const table = manifest.get(collection);
+      const table = manifest.get(collection === 'bucketList' ? 'bucket_list_items' : collection);
       expect(table).toBeDefined();
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       __resetDriftWarningsForTests();
