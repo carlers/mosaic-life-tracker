@@ -40,3 +40,5 @@ export const BacklogPage: React.FC = () => {
     </div>
   );
 };
+
+export default BacklogPage;
