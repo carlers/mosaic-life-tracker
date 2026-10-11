@@ -18,7 +18,7 @@ Current task: Cross-device task photos may appear cropped or fail to load on ano
 - No Appwrite/schema/Function/Production changes.
 
 ## Next action
-- Repair Vercel build-size overage (+471 B raw assets; +436 B precache); keep budget caps unchanged. Focused task checks and stable Preview full GitHub build succeeded, but Vercel Preview failed. Consolidate retry effects and keep image-cache write off the display-critical path, then rerun focused and stable gates.
+- Vercel stable Preview has failed size budgets twice: initial +471 B app assets / +436 B precache, then optimized +244 B / +209 B at `55f4611`. GitHub canonical builds pass due to environment asset differences. Next narrow repair removes redundant image-hook subscriptions/state and keeps focus/online recovery, without changing caps.
 - Commit coherent task tree with `[verify:focused]`, verify focused GitHub Actions and fix failures, squash to stable Preview branch and verify canonical acceptance plus Vercel READY. Request user manual phone-to-laptop image check before dev/main promotion. Report any integration/tool blockers explicitly.
 
 ## Prior task handoff

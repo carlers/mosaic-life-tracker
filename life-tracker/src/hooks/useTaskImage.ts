@@ -93,16 +93,14 @@ export function resetTaskImageCacheForTests(): void {
 }
 
 export function useTaskImage(fileId: string | undefined, enabled = true) {
-  const [trackedFileId, setTrackedFileId] = useState<string | undefined>(fileId);
-  const [trackedEnabled, setTrackedEnabled] = useState(enabled);
+  const [tracked, setTracked] = useState({ fileId, enabled });
   const [state, setState] = useState<ImageState>(() => {
     const cached = readCachedUrl(fileId);
     return { url: cached, isLoading: enabled && !cached && !!fileId };
   });
 
-  if (fileId !== trackedFileId || enabled !== trackedEnabled) {
-    setTrackedFileId(fileId);
-    setTrackedEnabled(enabled);
+  if (fileId !== tracked.fileId || enabled !== tracked.enabled) {
+    setTracked({ fileId, enabled });
     const cached = readCachedUrl(fileId);
     setState({ url: cached, isLoading: enabled && !cached && !!fileId });
   }
@@ -120,25 +118,20 @@ export function useTaskImage(fileId: string | undefined, enabled = true) {
       acquired.promise.then((url) => {
         if (!active) return;
         failed = !url;
-        setState((prev) =>
-          prev.url === url && !prev.isLoading ? prev : { url, isLoading: false }
-        );
+        setState({ url, isLoading: false });
       });
     };
     const retry = () => {
-      if (failed && document.visibilityState !== 'hidden') load();
+      if (failed && !document.hidden) load();
     };
     load();
-    const events = [
-      [window, 'focus'],
-      [window, 'online'],
-      [document, 'visibilitychange'],
-    ] as const;
-    events.forEach(([target, name]) => target.addEventListener(name, retry));
+    window.addEventListener('online', retry);
+    window.addEventListener('focus', retry);
     return () => {
       active = false;
       release();
-      events.forEach(([target, name]) => target.removeEventListener(name, retry));
+      window.removeEventListener('online', retry);
+      window.removeEventListener('focus', retry);
     };
   }, [fileId, enabled]);
 
