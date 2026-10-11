@@ -23,4 +23,4 @@ Current task: reconcile accepted Backlogs issue #407 into the latest dev without
 - Real Scratch authenticated multi-device testing, Android/iOS swipe and theme/visual testing remain separate from automated evidence; do not claim them without execution.
 
 ## Next action
-Verify the one-batch measured-build/checkpoint repair with focused CI. Once green, squash the combined task into stable Preview, verify canonical full gate and Vercel, and promote through approved PR #581 to dev if the branch is still compatible. Preserve main and Production unchanged.
+Update the two outdated build-size contract assertions following full combined Preview run 38119390463 (app production build and PWA succeeded, but test still asserted prior dev ceilings). Verify the corrected tests with focused CI. Once green, squash the combined task into stable Preview, verify canonical full gate and Vercel, and promote through approved PR #581 to dev if the branch is still compatible. Preserve main and Production unchanged.
