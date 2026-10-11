@@ -283,11 +283,13 @@ function requestSheetClose(sheetId: string, allowTransientDismiss = false): void
 function SheetPresenceSurface({
   sheetRef,
   onAnimationComplete,
+  isBehind,
   children,
   ...outerProps
 }: React.ComponentProps<typeof motion.div> & {
   sheetRef: React.RefObject<HTMLDivElement | null>;
   onAnimationComplete?: () => void;
+  isBehind: boolean;
 }) {
   const [isPresent, safeToRemove] = usePresence();
 
@@ -298,7 +300,7 @@ function SheetPresenceSurface({
       // Shared y MotionValue for entrance, dismissal, and live touch drag.
       // A full transform-string animation would mask Framer's drag offset.
       initial={{ y: '100%' }}
-      animate={{ y: isPresent ? 0 : '100%' }}
+      animate={{ y: isPresent ? 0 : '100%', scale: isPresent && isBehind ? 0.985 : 1 }}
       transition={{
         duration: document.documentElement.dataset.reduceMotion === 'true' ||
           systemRequestsReducedMotion() ? 0 : 0.32,
@@ -374,6 +376,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     () => null
   );
   const isTopLayer = topVisibleSheetId === sheetId;
+  // The visible stack includes closing portals until their exit completes.
+  // Each backdrop must paint above the previous sheet rather than sharing
+  // a fixed z-index with every other backdrop in the stack.
+  const layerIndex = visibleSheetIds.indexOf(sheetId);
+  const layerDepth = Math.max(0, layerIndex);
+  const isBehindLayer = layerIndex >= 0 && !isTopLayer;
   const isBlockedLayer = suspendInteraction || !isTopLayer;
 
   useFocusTrap(
@@ -459,6 +467,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
           // motion children.
           <motion.div
             key="backdrop"
+            style={{ zIndex: 50 + layerDepth * 20 }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -468,7 +477,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 : () => requestSheetClose(sheetId)
             }
             aria-hidden="true"
-            className={`fixed inset-0 z-[50] bg-black/60 ${backdropBlur ? 'backdrop-blur-sm' : ''} ${isBlockedLayer ? 'pointer-events-none' : ''}`}
+            className={`fixed inset-0 ${layerIndex > 0 ? 'bg-black/35' : 'bg-black/60'} ${backdropBlur ? 'backdrop-blur-sm' : ''} ${isBlockedLayer ? 'pointer-events-none' : ''}`}
           />
         )}
       </AnimatePresence>
@@ -482,6 +491,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
           <SheetPresenceSurface
             key="sheet"
             sheetRef={sheetRef}
+            isBehind={isBehindLayer}
             aria-hidden={isBlockedLayer ? true : undefined}
             inert={isBlockedLayer || !isOpen ? true : undefined}
             aria-labelledby={title ? titleId : undefined}
@@ -633,8 +643,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 requestSheetClose(sheetId);
               }
             }}
-            style={SHEET_SURFACE_STYLE}
-            className={`fixed bottom-0 left-0 right-0 z-[60] bg-[#1E1E1E] text-white shadow-2xl flex flex-col overflow-hidden ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
+            style={{ ...SHEET_SURFACE_STYLE, zIndex: 60 + layerDepth * 20, transformOrigin: 'bottom center' }}
+            className={`fixed bottom-0 left-0 right-0 bg-surface text-white shadow-2xl border flex flex-col overflow-hidden ${layerIndex > 0 ? 'border-[var(--mosaic-border-strong)] shadow-[0_-12px_30px_rgba(0,0,0,0.28)]' : 'border-[var(--mosaic-border)]'} ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
           >
             <div
               className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${
