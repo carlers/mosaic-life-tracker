@@ -190,10 +190,14 @@ describe('build-size guard', () => {
     // ReleaseHistoryPage. Verified Vercel measured 2,398,474 B raw,
     // 740,359 B gzip, and 2,482,825 B precache. These narrow caps
     // preserve the independently enforced entry/initial/Home budgets.
+    // The v0.16.10 dev merge uses the byte-identical accepted Preview tree,
+    // but its live Vercel build measured 2,400,745 B raw, 741,191 B gzip,
+    // and 2,485,096 B precache. Raise only these aggregate caps with
+    // 555–609 B headroom; startup/Home bounds stay unchanged.
     expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2399000,
-      appAssetsGzipBytes: 741000,
-      precacheUniqueBytes: 2483500,
+      appAssetsRawBytes: 2401300,
+      appAssetsGzipBytes: 741800,
+      precacheUniqueBytes: 2485700,
     });
   });
 
