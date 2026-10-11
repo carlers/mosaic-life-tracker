@@ -40,6 +40,40 @@ function jsonBackup(overrides: Record<string, unknown> = {}) { return new File([
 function zipBackup(overrides: Record<string, unknown>, images: Record<string, string> = {}) { const encoder = new TextEncoder(); const files: Record<string, Uint8Array> = { 'manifest.json': encoder.encode(JSON.stringify(backupPayload(overrides))) }; for (const [fileId, contents] of Object.entries(images)) files[`images/${fileId}.webp`] = encoder.encode(contents); const zipped = zipSync(files); const buffer = zipped.slice().buffer as ArrayBuffer; return new File([buffer], 'backup.zip', { type: 'application/zip' }); }
 
 describe('backup restore', () => {
+  it('portable v4 restores links to remapped goals and tasks without duplicates', async () => {
+    const source='other_account', now='2026-10-11T00:00:00.000Z';
+    const goal={id:'old_goal',userId:source,title:'Visit Iceland',description:'',achieved:false,achievedAt:'',createdAt:now,updatedAt:now,isDeleted:false};
+    const task={id:'old_task',userId:source,title:'Book trip',categoryId:'old_cat',date:'',completed:false,order:0,visibility:'private',createdAt:now,updatedAt:now,isDeleted:false};
+    const category={id:'old_cat',userId:source,name:'Travel',color:'#123456',order:0,visibility:'private',updatedAt:now,isDeleted:false};
+    const link={id:'source_link',userId:source,bucketListId:'old_goal',taskId:'old_task',createdAt:now,updatedAt:now,isDeleted:false};
+    const file=jsonBackup({version:4,user:{id:source,email:'',name:''},data:{
+      tasks:[task],categories:[category],diary:[],settings:[],friendships:[],bucketList:[goal],bucketTaskLinks:[link],
+    }});
+    await restoreUserData(file,currentUser,{mode:'merge'});
+    await restoreUserData(file,currentUser,{mode:'merge'});
+    expect(state.rows.bucketTaskLinks.size).toBe(1);
+    const restoredLink=[...state.rows.bucketTaskLinks.values()][0];
+    const restoredTask=[...state.rows.tasks.values()][0];
+    const restoredGoal=[...state.rows.bucketList.values()][0];
+    expect(restoredLink).toMatchObject({userId:'user_A',bucketListId:restoredGoal.id,taskId:restoredTask.id,isDeleted:false});
+    expect(restoredLink.id).not.toBe('source_link');
+    expect(restoredTask.categoryId).toBe([...state.rows.categories.values()][0].id);
+  });
+  it('a v3 Replace backup cannot erase unrelated v4 aspiration links', async () => {
+    const now='2026-10-11T00:00:00.000Z';
+    state.rows.bucketTaskLinks.set('link_keep',{id:'link_keep',userId:'user_A',bucketListId:'goal_a',taskId:'task_a',createdAt:now,updatedAt:now,isDeleted:false});
+    const file=jsonBackup({version:3,data:{tasks:[],categories:[],diary:[],settings:[],friendships:[],bucketList:[]}});
+    await restoreUserData(file,currentUser,{mode:'replace'});
+    expect(state.rows.bucketTaskLinks.get('link_keep')?.isDeleted).toBe(false);
+  });
+  it('rejects v4 orphan links before writing anything', async () => {
+    const now='2026-10-11T00:00:00.000Z';
+    const file=jsonBackup({version:4,data:{tasks:[],categories:[],diary:[],settings:[],friendships:[],bucketList:[],bucketTaskLinks:[{
+      id:'old_link',userId:'user_A',bucketListId:'missing_goal',taskId:'missing_task',createdAt:now,updatedAt:now,isDeleted:false,
+    }]}});
+    await expect(inspectBackupFile(file,currentUser.id)).rejects.toThrow(/references a missing task or aspiration/i);
+  });
+
   it('restores v3 achievements as private aspirations with portable cross-account IDs', async () => {
     const item = {
       id: 'goal_original', userId: 'source_owner', title: 'Visit Kyoto', description: 'Someday',

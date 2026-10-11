@@ -10,5 +10,5 @@ Current task: #405 Bucket List v0.19.0 visual refresh + owner-only linked canoni
 - Scratch currently uses combined `message-action@6acba22560abbd99d124` for prior v0.18.0. **Do not activate or alter shared Scratch** until explicit coordinated rollout checkpoint under #526; preserve stable Preview v0.18.0. Backend change is not yet user-testable.
 
 ## Next action
-- Run focused task branch CI and fix all observed failures incl TypeScript, test fixtures, privacy/restore, performance. Check same-tree GIPHY Vercel before any budget revision.
+- Initial focused CI 38152472127 failed only because new BUCKET_LIST_LINKS.md was not indexed. README index now links it; added v4 cross-account remapping, legacy Replace preservation and orphan-link regression tests. Re-run focused task CI and fix all code/type/test failures incl privacy/performance. Check same-tree GIPHY Vercel before any budget revision.
 - After focused green, squash into stable `feature/bucket-list-405`, run full canonical CI + exact Vercel READY. Coordinate separate Scratch migration 011 + combined Function activation under #526 only with explicit authorization, then cloud/user acceptance. Do not merge dev/main or release Production.
