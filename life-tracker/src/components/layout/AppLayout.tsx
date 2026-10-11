@@ -137,8 +137,7 @@ export const AppLayout: React.FC = () => {
     const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
   }, [path, skipCompositorTo]);
-  const settingsForwardChild = currentTransition.forwardSettingsChild;
-  const leftSwipeDestination = settingsForwardChild ??
+  const leftSwipeDestination = currentTransition.forwardSettingsChild ??
     resolvePrimarySwipeDestination(path, 'left', location.state);
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
@@ -243,8 +242,7 @@ export const AppLayout: React.FC = () => {
   useEffect(() => {
     if (!user?.$id) return;
 
-    const destinations = [leftSwipeDestination, rightSwipeDestination]
-      .filter((target): target is string => target !== null);
+    const destinations = [leftSwipeDestination, rightSwipeDestination].filter(Boolean);
     if (destinations.length === 0) return;
 
     if (messagesIsAdjacent) {
@@ -256,7 +254,7 @@ export const AppLayout: React.FC = () => {
 
     const preload = () => {
       for (const destination of destinations) {
-        if (destination !== '/messages' || !messagesIsAdjacent) {
+        if (destination !== '/messages') {
           preloadPrimaryRoute(destination);
         }
       }
