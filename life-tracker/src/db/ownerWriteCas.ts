@@ -42,7 +42,7 @@ export async function readOwnerMaster<T>(
 }
 
 export async function updateOwnerRowWithCas(
-  tableId: 'tasks' | 'categories' | 'diary' | 'settings' | 'bucket_list_items',
+  tableId: 'tasks' | 'categories' | 'diary' | 'settings' | 'bucket_list_items' | 'bucket_task_links',
   rowId: string,
   userId: string,
   expectedUpdatedAt: string,

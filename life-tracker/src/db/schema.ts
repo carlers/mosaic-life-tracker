@@ -52,6 +52,15 @@ export interface BucketListDocument {
   updatedAt: string;
   isDeleted: boolean;
 }
+export interface BucketTaskLinkDocument {
+  id: string;
+  userId: string;
+  bucketListId: string;
+  taskId: string;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
 export interface SettingsDocument {
   id: string;
   userId: string;
@@ -222,6 +231,22 @@ export const bucketListSchema: RxJsonSchema<BucketListDocument> = {
   },
   indexes: [['userId', 'isDeleted'], ['userId', 'achieved', 'isDeleted']],
 };
+export const bucketTaskLinksSchema: RxJsonSchema<BucketTaskLinkDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: ['id','userId','bucketListId','taskId','createdAt','updatedAt','isDeleted'],
+  properties: {
+    id: { type: 'string', maxLength: 36 },
+    userId: { type: 'string', maxLength: 255 },
+    bucketListId: { type: 'string', maxLength: 36 },
+    taskId: { type: 'string', maxLength: 255 },
+    createdAt: { type: 'string', maxLength: 50 },
+    updatedAt: { type: 'string', maxLength: 50 },
+    isDeleted: { type: 'boolean' },
+  },
+  indexes: [['userId','bucketListId','isDeleted'],['userId','taskId','isDeleted']],
+};
 export const settingsSchema: RxJsonSchema<SettingsDocument> = {
   version: 1,
   primaryKey: 'id',
@@ -363,6 +388,7 @@ export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
         'friendships',
         'messages',
         'bucketList',
+        'bucketTaskLinks',
       ],
     },
     replicationIdentifier: { type: 'string', maxLength: 500 },
