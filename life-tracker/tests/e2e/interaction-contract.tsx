@@ -93,19 +93,102 @@ function ChatViewportMotionProbe() {
   );
 }
 
+/** Dedicated state owner: Day View opening must not rerender the oversized
+ * interaction harness, which would contaminate cold-open measurements. */
+function ColdDayViewProbe({ tasks, categories, emptyDayTasks }: {
+  tasks: TaskDocument[];
+  categories: CategoryDocument[];
+  emptyDayTasks: boolean;
+}) {
+  const [dayViewSheetOpen, setDayViewSheetOpen] = useState(false);
+  const [dayViewSheetMounted, setDayViewSheetMounted] = useState(false);
+  const [dayViewSelectedDate, setDayViewSelectedDate] = useState(() => new Date(2026, 8, 15));
+  return (
+        <>
+          <button
+            type="button"
+            data-testid="open-day-view-sheet"
+            onClick={() => { setDayViewSheetMounted(true); setDayViewSheetOpen(true); }}
+            className="px-3 py-2"
+          >
+            Open day view sheet
+          </button>
+          <button
+            type="button"
+            data-testid="open-next-day-view-sheet"
+            onClick={() => {
+              setDayViewSelectedDate(new Date(2026, 8, 16));
+              setDayViewSheetMounted(true);
+              setDayViewSheetOpen(true);
+            }}
+            className="px-3 py-2"
+          >
+            Open next day view sheet
+          </button>
+          <button
+            type="button"
+            data-testid="open-far-day-view-sheet"
+            onClick={() => {
+              setDayViewSelectedDate(new Date(2026, 10, 14));
+              setDayViewSheetMounted(true);
+              setDayViewSheetOpen(true);
+            }}
+          >
+            Open far day view sheet
+          </button>
+          {dayViewSheetMounted && <DayViewProbeBoundary>
+            <Profiler
+              id="DayViewSheet"
+              onRender={(
+                id,
+                phase,
+                actualDuration,
+                baseDuration,
+                startTime,
+                commitTime,
+              ) => {
+                const profile = {
+                  id,
+                  phase,
+                  timestamp: Number(performance.now().toFixed(2)),
+                  actualDuration: Number(actualDuration.toFixed(2)),
+                  baseDuration: Number(baseDuration.toFixed(2)),
+                  startTime: Number(startTime.toFixed(2)),
+                  commitTime: Number(commitTime.toFixed(2)),
+                  renderToCommitMs: Number((commitTime - startTime).toFixed(2)),
+                };
+                const profileWindow = window as typeof window & {
+                  __mosaicReactProfile?: typeof profile[];
+                };
+                profileWindow.__mosaicReactProfile ??= [];
+                profileWindow.__mosaicReactProfile.push(profile);
+                console.log(`MOSAIC_REACT_PROFILE ${JSON.stringify(profile)}`);
+              }}
+            >
+              <DayViewSheet
+                isOpen={dayViewSheetOpen}
+                onClose={() => setDayViewSheetOpen(false)}
+                selectedDate={dayViewSelectedDate}
+                onDateChange={setDayViewSelectedDate}
+                tasks={emptyDayTasks ? [] : tasks}
+                categories={categories}
+              />
+            </Profiler>
+          </DayViewProbeBoundary>}
+        </>
+  );
+}
+
 export function InteractionHarness() {
   const calendar = useCalendarState();
   const searchParams = new URLSearchParams(window.location.search);
   const performanceHeavy = searchParams.get('perf') === 'heavy';
+  const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
   const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
   const [friendIndex, setFriendIndex] = useState(0);
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
   const [fullSheetOpen, setFullSheetOpen] = useState(false);
-  const [dayViewSheetOpen, setDayViewSheetOpen] = useState(false);
-  const [dayViewSelectedDate, setDayViewSelectedDate] = useState(
-    () => new Date(2026, 8, 15)
-  );
   const [homeSearchOpen, setHomeSearchOpen] = useState(false);
   const [searchResultSheetOpen, setSearchResultSheetOpen] = useState(false);
   const [selectedSearchTask, setSelectedSearchTask] = useState<TaskDocument | null>(null);
@@ -444,66 +527,7 @@ export function InteractionHarness() {
       </BottomSheet>
 
       {performanceHeavy && (
-        <>
-          <button
-            type="button"
-            data-testid="open-day-view-sheet"
-            onClick={() => setDayViewSheetOpen(true)}
-            className="px-3 py-2"
-          >
-            Open day view sheet
-          </button>
-          <button
-            type="button"
-            data-testid="open-next-day-view-sheet"
-            onClick={() => {
-              setDayViewSelectedDate(new Date(2026, 8, 16));
-              setDayViewSheetOpen(true);
-            }}
-            className="px-3 py-2"
-          >
-            Open next day view sheet
-          </button>
-          <DayViewProbeBoundary>
-            <Profiler
-              id="DayViewSheet"
-              onRender={(
-                id,
-                phase,
-                actualDuration,
-                baseDuration,
-                startTime,
-                commitTime,
-              ) => {
-                const profile = {
-                  id,
-                  phase,
-                  timestamp: Number(performance.now().toFixed(2)),
-                  actualDuration: Number(actualDuration.toFixed(2)),
-                  baseDuration: Number(baseDuration.toFixed(2)),
-                  startTime: Number(startTime.toFixed(2)),
-                  commitTime: Number(commitTime.toFixed(2)),
-                  renderToCommitMs: Number((commitTime - startTime).toFixed(2)),
-                };
-                const profileWindow = window as typeof window & {
-                  __mosaicReactProfile?: typeof profile[];
-                };
-                profileWindow.__mosaicReactProfile ??= [];
-                profileWindow.__mosaicReactProfile.push(profile);
-                console.log(`MOSAIC_REACT_PROFILE ${JSON.stringify(profile)}`);
-              }}
-            >
-              <DayViewSheet
-                isOpen={dayViewSheetOpen}
-                onClose={() => setDayViewSheetOpen(false)}
-                selectedDate={dayViewSelectedDate}
-                onDateChange={setDayViewSelectedDate}
-                tasks={todoTasks}
-                categories={todoCategories}
-              />
-            </Profiler>
-          </DayViewProbeBoundary>
-        </>
+        <ColdDayViewProbe tasks={todoTasks} categories={todoCategories} emptyDayTasks={emptyDayTasks} />
       )}
       <button
         type="button"

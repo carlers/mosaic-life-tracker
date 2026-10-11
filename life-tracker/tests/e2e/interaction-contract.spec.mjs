@@ -1082,6 +1082,20 @@ test('DayView reopens on another and the same date after teardown', async ({ pag
   });
   await expect(dialog).toBeVisible();
   await expect(page.getByTestId('day-view-probe-error')).toHaveCount(0);
+
+  // Jump 60 days within the 181-date logical range after Swiper has mounted.
+  // A stale virtual DOM window must not hide the selected date or its neighbor.
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.getByTestId('open-far-day-view-sheet').click();
+  dialog = page.getByRole('dialog', { name: 'Saturday, November 14, 2026' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.swiper-slide-active'))
+    .toContainText('Saturday, November 14, 2026');
+  await waitForStableVerticalPosition(dialog);
+  await drag(page, dialog.getByTestId('day-swiper'), -260);
+  await expect(dialog.locator('.swiper-slide-active'))
+    .toContainText('Sunday, November 15, 2026');
 });
 
 // Regression: §2/§7 (Day View date row owns horizontal navigation and vertical close).
@@ -1276,6 +1290,8 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
   await waitForStableVerticalPosition(dialog);
 
   const swiper = page.getByTestId('day-swiper');
+  // 181 logical days must not mean 181 mounted layout nodes.
+  await expect.poll(() => swiper.locator('.swiper-slide').count()).toBeLessThan(20);
   await drag(page, swiper, -260);
   await drag(page, swiper, -260);
   await drag(page, swiper, -260);

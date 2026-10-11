@@ -1,20 +1,23 @@
 # Session checkpoint
 
-Updated: 2026-10-11 UTC
-Current task: Day View first-open latency follow-up after v0.17.7 Preview was reported unchanged.
+Updated: 2026-10-12 UTC
+Current task: Eliminate Calendar Day View first-mount CPU blockage after unchanged v0.17.7/v0.17.8 user experience.
 
 ## Verified basis
-- `dev=80f1dd10b66b0e4965ce88ed4dcbfcaf575db777` (v0.17.6); stable Preview `perf/day-view-idle-warmup-20261011=a94acdf6cdcb1977b6c9f14ce6c075def9591871` (v0.17.7), full canonical CI/READY Vercel verified.
-- User reported a persistent first-mount delay even after refresh. Idle module warmup alone does not address synchronous first-mount work.
-- New task branch `chatgpt/day-view-first-paint-20261011` from the accepted CI/Preview tree, planned candidate v0.17.8 on the same stable Preview branch.
+- Stable Preview `perf/day-view-idle-warmup-20261011=05d61403d303775d00f4917bb329a365a4c6f5e3` (v0.17.8) with full canonical acceptance and READY Vercel; user reported persistent delay even after one minute of waiting.
+- The original performance harness mounted the sheet *closed* before measuring open, hiding cold mount; first diagnostic wrongly rerendered the entire oversized harness on click. Corrected via a separate ColdDayViewProbe state owner and paired matched browser runs.
+- Controlled Playwright Chromium dev-server comparison, heavy 50-task synthetic fixture: first-open longest main-thread task 235 ms (181 DOM slides) versus 82 ms (9 DOM slides); reopened 251 ms vs 136 ms; empty first-open 109 ms vs no recorded 50 ms+ task. Diagnostic, not mobile production timing. Runs: baseline 38156892853, virtual 38156899850. Both browser suites passed.
+- Rapid swipe and existing date navigation browser contracts passed during the virtualization experiment. Task branch `chatgpt/day-view-root-cause-20261012` based on stable Preview, proposed user-testable v0.17.9. `dev` advanced independently; do not promote without approval.
 
 ## Change
-- Fix `BottomSheet.deferChildrenUntilPaint` to paint the lightweight portal before expensive children when first mounted already open (React's initial useDeferredValue cannot defer that mount).
-- Delay child mount by two animation frames, cancel if closed before ready, preserve mounted children through close, and activate focus trap once controls exist.
-- Limit Day View date-label formatting to the existing active ±3 day window; keep 181 Swiper geometry slides and rapid-swipe contract.
-- Bound idle loader wait without entering the startup graph. Frontend only, no backend/cloud changes.
+- Preserve all 181 logical selected-date positions while using Swiper Virtual to render only nearby DOM slides in sheet mode, avoiding layout of 181 initially mounted elements. Keep full seven-day fast-swipe buffer, explicit virtual update on far date jumps, and original inline Todo renderer.
+- Correct cold-mount performance harness and keep an opt-in @performance diagnostic outside canonical browser correctness suite.
+- Add browser regression for bounded slide DOM and far date jump plus swipe; maintain existing accessibility/gesture behavior.
+- Issue #640 records the CPU measurements and metric-specific build-size review. Production app assets were 2,412,056 raw / 745,792 gzip, precache 2,497,415 B while entry, initial and Home caps remained green; reviewed aggregate ceilings are 2,413,000 raw / 746,300 gzip / 2,498,300 precache. Full gate's only red job was the old aggregate budget; DOM, lint/unit and browser including far-date jump passed.
+- Frontend-only. No Appwrite, Production, schema or service changes.
 
 ## Next action
-- Run focused CI on the task commit, repair failures; squash-merge to stable Preview; complete the canonical full gate and exact Vercel READY verification.
-- Compare cold first-open behavior and startup on real devices; no manual/device timing measurements have yet been collected.
-- Do not promote to `dev` or `main` without separate user approval.
+- Verify new far-jump/browser regression and focused checks on the complete v0.17.9 task commit; repair if needed.
+- Run production-build/size preflight on task branch if needed for near-limit budgets. Squash into stable Preview only after focused success, then run one full canonical gate and verify exact Vercel READY SHA.
+- Manually compare cold opening, refresh, instant/one-minute tap, and rapid swipes on mobile; browser diagnostics do not certify device perceived latency.
+- Never merge to dev or main without separate approval.
