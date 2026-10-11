@@ -17,7 +17,7 @@ export type SimpleOwnerPushCheckpoint = { id: string; lwt: number };
 type OwnerDocument = { id: string; userId: string; updatedAt: string; isDeleted: boolean };
 
 export function createSimpleOwnerReplicationPilot<D extends OwnerDocument>(config: {
-  collectionName: Extract<SyncedCollectionName, 'categories' | 'diary' | 'bucketList'>;
+  collectionName: Extract<SyncedCollectionName, 'categories' | 'diary' | 'bucketList' | 'bucketTaskLinks'>;
   tableId: string;
   casTableId: Parameters<typeof updateOwnerRowWithCas>[0];
   label: string;

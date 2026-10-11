@@ -7,6 +7,7 @@ const TABLES = [
   'diary',
   'settings',
   'bucket_list_items',
+  'bucket_task_links',
   'friendships',
   'messages',
 ];

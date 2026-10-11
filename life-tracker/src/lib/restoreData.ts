@@ -4,6 +4,7 @@ import type {
   CategoryDocument,
   DiaryDocument,
   BucketListDocument,
+  BucketTaskLinkDocument,
   SettingsDocument,
 } from '../db/schema';
 import { isRateLimitError, refreshSync } from '../db/sync';
@@ -23,6 +24,7 @@ import {
   makeDiaryRowId,
   makeSettingsRowId,
 } from './settingsRowId';
+import { makeBucketTaskLinkId } from './bucketTaskLinkId';
 import { ensureRestoredImage, getCurrentUserId } from './storage';
 
 export type RestoreMode = 'merge' | 'replace';
@@ -33,6 +35,7 @@ const RESTORABLE_COLLECTIONS = [
   'diary',
   'settings',
   'bucketList',
+  'bucketTaskLinks',
 ] as const;
 
 const POST_RESTORE_SYNC_MIN_TIMEOUT_MS = 90_000;
@@ -48,7 +51,8 @@ type RestorableDocument =
   | CategoryDocument
   | DiaryDocument
   | SettingsDocument
-  | BucketListDocument;
+  | BucketListDocument
+  | BucketTaskLinkDocument;
 
 const ROW_ID_PATTERN = /^[a-zA-Z0-9_]+$/;
 const FILE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
@@ -56,7 +60,7 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const FORBIDDEN_SETTING_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const CROSS_ACCOUNT_PRESERVED_SETTING_KEYS = new Set(['friend_carousel_prefs']);
 const MAX_ROW_ID_LENGTH = 36;
-const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2, 3]);
+const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2, 3, 4]);
 
 interface BackupPayload {
   format?: string;
@@ -70,6 +74,7 @@ interface BackupPayload {
     categories: unknown[];
     diary: unknown[];
     bucketList?: unknown[];
+    bucketTaskLinks?: unknown[];
     settings: unknown[] | JsonRecord;
     friendships?: unknown[];
   };
@@ -92,6 +97,7 @@ interface NormalizedBackup {
   categories: CategoryDocument[];
   diary: DiaryDocument[];
   bucketList: BucketListDocument[];
+  bucketTaskLinks: BucketTaskLinkDocument[];
   settings: SettingsDocument[];
 }
 
@@ -109,6 +115,7 @@ export interface BackupPreview {
     categories: number;
     diary: number;
     bucketList: number;
+    bucketTaskLinks: number;
     settings: number;
     images: number;
   };
@@ -330,6 +337,7 @@ function validatePayload(value: unknown): BackupPayload {
   const settings = value.data.settings;
   const friendships = value.data.friendships;
   const bucketList = value.data.bucketList;
+  const bucketTaskLinks = value.data.bucketTaskLinks;
 
   if (!Array.isArray(tasks) || !Array.isArray(categories) || !Array.isArray(diary)) {
     throw new Error('Backup personal data is invalid.');
@@ -339,6 +347,9 @@ function validatePayload(value: unknown): BackupPayload {
   }
   if ((value.version >= 3 && !Array.isArray(bucketList)) || (bucketList !== undefined && !Array.isArray(bucketList))) {
     throw new Error('Backup Bucket List data is invalid.');
+  }
+  if ((value.version >= 4 && !Array.isArray(bucketTaskLinks)) || (bucketTaskLinks !== undefined && !Array.isArray(bucketTaskLinks))) {
+    throw new Error('Backup aspiration links are invalid.');
   }
   if (friendships !== undefined && !Array.isArray(friendships)) {
     throw new Error('Backup friendship reference data is invalid.');
@@ -363,6 +374,7 @@ function validatePayload(value: unknown): BackupPayload {
       categories,
       diary,
       bucketList: Array.isArray(bucketList) ? bucketList : [],
+      bucketTaskLinks: Array.isArray(bucketTaskLinks) ? bucketTaskLinks : [],
       settings,
       friendships: Array.isArray(friendships) ? friendships : [],
     },
@@ -583,6 +595,7 @@ function normalizeBackup(
 
   const bucketList: BucketListDocument[] = [];
   const bucketSourceIds = new Set<string>();
+  const goalIdMap = new Map<string,string>();
   for (const raw of payload.data.bucketList ?? []) {
     if (!isRecord(raw) || raw.isDeleted === true) continue;
     const sourceId = asString(raw.id);
@@ -594,8 +607,10 @@ function normalizeBackup(
     const achieved = raw.achieved === true;
     const achievedAt = achieved ? asString(raw.achievedAt) : '';
     if (achieved && (!achievedAt || !Number.isFinite(Date.parse(achievedAt)))) throw new Error('Backup aspiration achievement date is invalid.');
+    const restoredId = portableRowId('b', currentUserId, sourceUserId, sourceId);
+    goalIdMap.set(sourceId, restoredId);
     bucketList.push({
-      id: portableRowId('b', currentUserId, sourceUserId, sourceId),
+      id: restoredId,
       userId: currentUserId, title, description, achieved, achievedAt,
       createdAt: validIso(raw.createdAt, exportedAt),
       updatedAt: validIso(raw.updatedAt, exportedAt),
@@ -604,7 +619,23 @@ function normalizeBackup(
   }
   assertUnique(bucketList.map(item => item.id), 'aspiration IDs');
 
-  const normalized = { sourceUserId, tasks, categories, diary, settings, bucketList };
+  const bucketTaskLinks: BucketTaskLinkDocument[] = [];
+  const seenLinks = new Set<string>();
+  for (const raw of payload.data.bucketTaskLinks ?? []) {
+    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    const sourceGoalId = asString(raw.bucketListId), sourceTaskId = asString(raw.taskId);
+    const goalId = goalIdMap.get(sourceGoalId), taskId = taskIdMap.get(sourceTaskId);
+    if (!goalId || !taskId) throw new Error('Backup aspiration link references a missing task or aspiration.');
+    const id = makeBucketTaskLinkId(currentUserId, goalId, taskId);
+    if (seenLinks.has(id)) throw new Error('Backup contains duplicate aspiration links.');
+    seenLinks.add(id);
+    bucketTaskLinks.push({ id, userId: currentUserId,
+      bucketListId: goalId, taskId, isDeleted: false,
+      createdAt: validIso(raw.createdAt, exportedAt),
+      updatedAt: validIso(raw.updatedAt, exportedAt),
+    });
+  }
+  const normalized = { sourceUserId, tasks, categories, diary, settings, bucketList, bucketTaskLinks };
   validateNormalizedBackup(normalized);
   return normalized;
 }
@@ -616,6 +647,11 @@ function assertMaxLength(label: string, value: string | undefined, max: number):
 }
 
 function validateNormalizedBackup(data: NormalizedBackup): void {
+  for (const link of data.bucketTaskLinks) {
+    assertMaxLength('aspiration link ID', link.id, 36);
+    assertMaxLength('aspiration task ID', link.taskId, 255);
+  }
+
   for (const item of data.bucketList) {
     assertMaxLength('aspiration title', item.title, 255);
     assertMaxLength('aspiration description', item.description, 2000);
@@ -829,6 +865,7 @@ async function planRestore(
     diary: [],
     settings: [],
     bucketList: [],
+    bucketTaskLinks: [],
   };
   let skippedNewer = 0;
 
@@ -955,7 +992,8 @@ async function tombstoneMissing(
   userId: string,
   timestamp: string,
   assertOwner?: () => void,
-  includeBucketList = true
+  includeBucketList = true,
+  includeBucketTaskLinks = true
 ): Promise<number> {
   const wanted: Record<RestorableCollection, Set<string>> = {
     tasks: new Set(data.tasks.map((doc) => doc.id)),
@@ -963,11 +1001,13 @@ async function tombstoneMissing(
     diary: new Set(data.diary.map((doc) => doc.id)),
     settings: new Set(data.settings.map((doc) => doc.id)),
     bucketList: new Set(data.bucketList.map((doc) => doc.id)),
+    bucketTaskLinks: new Set(data.bucketTaskLinks.map((doc) => doc.id)),
   };
 
   let tombstoned = 0;
   for (const name of RESTORABLE_COLLECTIONS) {
     if (name === 'bucketList' && !includeBucketList) continue;
+    if (name === 'bucketTaskLinks' && !includeBucketTaskLinks) continue;
     assertOwner?.();
     const collection = collectionFor(name);
     const currentDocs = await collection
@@ -1027,6 +1067,7 @@ export async function inspectBackupFile(
       diary: normalized.diary.length,
       settings: normalized.settings.length,
       bucketList: normalized.bucketList.length,
+      bucketTaskLinks: normalized.bucketTaskLinks.length,
       images: loaded.imageFiles.size,
     },
     imagesIncluded: loaded.payload.images?.included === true,
@@ -1040,7 +1081,8 @@ function postRestoreSyncTimeoutMs(data: NormalizedBackup): number {
     data.categories.length +
     data.diary.length +
     data.settings.length +
-    data.bucketList.length;
+    data.bucketList.length +
+    data.bucketTaskLinks.length;
   return Math.min(
     POST_RESTORE_SYNC_MAX_TIMEOUT_MS,
     Math.max(
@@ -1208,6 +1250,7 @@ export async function restoreUserData(
     diary: 0,
     settings: 0,
     bucketList: 0,
+    bucketTaskLinks: 0,
   };
   let skippedNewer = plan.skippedNewer;
 
@@ -1216,7 +1259,8 @@ export async function restoreUserData(
     plan.data.categories.length +
     plan.data.diary.length +
     plan.data.settings.length +
-    plan.data.bucketList.length;
+    plan.data.bucketList.length +
+    plan.data.bucketTaskLinks.length;
   let processedDocuments = 0;
   reportDetail(
     options.mode === 'replace'
@@ -1265,7 +1309,8 @@ export async function restoreUserData(
       currentUser.id,
       replaceTimestamp,
       assertOwner,
-      loaded.payload.version >= 3
+      loaded.payload.version >= 3,
+      loaded.payload.version >= 4
     );
   }
 

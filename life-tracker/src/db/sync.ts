@@ -1,4 +1,11 @@
 import {
+  isBucketTaskLinksReplicationPilotActive,
+  resyncBucketTaskLinksReplicationPilot,
+  refreshBucketTaskLinksReplicationPilot,
+  startBucketTaskLinksReplicationPilot,
+  stopBucketTaskLinksReplicationPilot,
+} from './bucketTaskLinksReplicationPilot';
+import {
   isBucketListReplicationPilotActive,
   resyncBucketListReplicationPilot,
   refreshBucketListReplicationPilot,
@@ -79,6 +86,7 @@ const APPWRITE_CONFIG = {
   databaseId: APPWRITE_DATABASE_ID,
   tables: {
     bucketList: APPWRITE_TABLES.bucketList,
+    bucketTaskLinks: APPWRITE_TABLES.bucketTaskLinks,
     tasks: APPWRITE_TABLES.tasks,
     categories: APPWRITE_TABLES.categories,
     diary: APPWRITE_TABLES.diary,
@@ -362,7 +370,8 @@ function allReplicationPilotsActive(userId: string): boolean {
     isSettingsReplicationPilotActive(userId) &&
     isFriendshipReplicationPilotActive(userId) &&
     isMessageReplicationPilotActive(userId) &&
-    isBucketListReplicationPilotActive(userId)
+    isBucketListReplicationPilotActive(userId) &&
+    isBucketTaskLinksReplicationPilotActive(userId)
   );
 }
 
@@ -374,6 +383,7 @@ function resyncAllReplicationPilots(userId: string): void {
   resyncFriendshipReplicationPilot(userId);
   resyncMessageReplicationPilot(userId);
   resyncBucketListReplicationPilot(userId);
+  resyncBucketTaskLinksReplicationPilot(userId);
 }
 
 async function stopAllReplicationPilots(userId?: string): Promise<void> {
@@ -385,6 +395,7 @@ async function stopAllReplicationPilots(userId?: string): Promise<void> {
     stopFriendshipReplicationPilot(userId),
     stopMessageReplicationPilot(userId),
     stopBucketListReplicationPilot(userId),
+    stopBucketTaskLinksReplicationPilot(userId),
   ]);
 }
 
@@ -524,6 +535,11 @@ export async function refreshSync(
       [CollectionName, string, (timeout: number) => Promise<boolean>]
     > = [
       [
+        'bucketTaskLinks',
+        'Bucket List links',
+        (timeout) => refreshBucketTaskLinksReplicationPilot(userId, timeout),
+      ],
+      [
         'bucketList',
         'Bucket List',
         (timeout) => refreshBucketListReplicationPilot(userId, timeout),
@@ -585,9 +601,9 @@ export async function refreshSync(
       options.onProgress?.(progress);
     };
 
-    reportProgress('Checking all 7 data groups…');
+    reportProgress('Checking all 8 data groups…');
 
-    // The seven pilots are independent replication states. Awaiting them
+    // The eight pilots are independent replication states. Awaiting them
     // sequentially made later collections inherit only the scraps of one
     // shared deadline; a slow category pass could therefore make a healthy
     // diary pilot report a false timeout. Start every freshness proof against
@@ -871,6 +887,8 @@ function isReplicationPilotActive(
       return isMessageReplicationPilotActive(userId);
     case 'bucketList':
       return isBucketListReplicationPilotActive(userId);
+    case 'bucketTaskLinks':
+      return isBucketTaskLinksReplicationPilotActive(userId);
   }
   return false;
 }
@@ -901,6 +919,9 @@ function resyncReplicationPilot(
     case 'bucketList':
       resyncBucketListReplicationPilot(userId);
       return;
+    case 'bucketTaskLinks':
+      resyncBucketTaskLinksReplicationPilot(userId);
+      return;
   }
 }
 
@@ -912,6 +933,9 @@ async function startReplicationPilot(
   assertSyncOwnerCurrent(userId, generation);
   const db = getDatabase();
   switch (collection) {
+    case 'bucketTaskLinks':
+      await startBucketTaskLinksReplicationPilot(userId, db.bucketTaskLinks, undefined);
+      return;
     case 'bucketList':
       await startBucketListReplicationPilot(userId, db.bucketList, undefined);
       return;

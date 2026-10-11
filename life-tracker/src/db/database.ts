@@ -13,6 +13,7 @@ import {
   diarySchema,
   settingsSchema,
   bucketListSchema,
+  bucketTaskLinksSchema,
   friendshipsSchema,
   messagesSchema,
   syncMetaSchema,
@@ -21,6 +22,7 @@ import {
   type DiaryDocument,
   type SettingsDocument,
   type BucketListDocument,
+  type BucketTaskLinkDocument,
   type FriendshipDocument,
   type MessageDocument,
   type SyncMetaDocument,
@@ -56,6 +58,7 @@ export interface AppDatabaseCollections {
   diary: RxCollection<DiaryDocument>;
   settings: RxCollection<SettingsDocument>;
   bucketList: RxCollection<BucketListDocument>;
+  bucketTaskLinks: RxCollection<BucketTaskLinkDocument>;
   friendships: RxCollection<FriendshipDocument>;
   messages: RxCollection<MessageDocument>;
   syncMeta: RxCollection<SyncMetaDocument>;
@@ -92,6 +95,7 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
       },
       diary: { schema: diarySchema },
       bucketList: { schema: bucketListSchema },
+      bucketTaskLinks: { schema: bucketTaskLinksSchema },
       settings: {
         schema: settingsSchema,
         migrationStrategies: settingsMigrationStrategies,
@@ -193,6 +197,7 @@ export async function purgeAccountFromDatabase(
     database.diary,
     database.settings,
     database.bucketList,
+    database.bucketTaskLinks,
     database.friendships,
     database.messages,
     database.syncMeta,
@@ -217,7 +222,7 @@ export async function destroyDatabase(): Promise<void> {
 }
 export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) {
   const database = db || getDatabase();
-  const [tasks, categories, diary, settings, friendships, messages, bucketList] = await Promise.all([
+  const [tasks, categories, diary, settings, friendships, messages, bucketList, bucketTaskLinks] = await Promise.all([
     database.tasks.count().exec(),
     database.categories.count().exec(),
     database.diary.count().exec(),
@@ -225,6 +230,7 @@ export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) 
     database.friendships.count().exec(),
     database.messages.count().exec(),
     database.bucketList.count().exec(),
+    database.bucketTaskLinks.count().exec(),
   ]);
-  return { tasks, categories, diary, settings, friendships, messages, bucketList };
+  return { tasks, categories, diary, settings, friendships, messages, bucketList, bucketTaskLinks };
 }

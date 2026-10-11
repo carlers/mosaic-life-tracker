@@ -51,6 +51,9 @@ export function useBucketList() {
     const doc = await getDatabase().bucketList.findOne(id).exec();
     if (!doc || doc.userId !== userId || doc.isDeleted) throw new Error('Item unavailable.');
     await doc.incrementalPatch({ isDeleted: true, updatedAt: new Date().toISOString() });
+    // Relationships are separately scoped/tombstoned: the canonical tasks survive.
+    const links = await getDatabase().bucketTaskLinks.find({ selector: { userId, bucketListId: id, isDeleted: false } }).exec();
+    await Promise.all(links.map(link => link.incrementalPatch({ isDeleted: true, updatedAt: new Date().toISOString() })));
   }, [userId]);
   return { items, isLoading, createItem, editItem, setAchieved, deleteItem };
 }
