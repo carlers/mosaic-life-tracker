@@ -16,6 +16,7 @@ const swiperFixture = vi.hoisted(() => ({
 
 const taskMocks = vi.hoisted(() => ({
   moveTasksToCategory: vi.fn().mockResolvedValue(undefined),
+  updateTask: vi.fn().mockResolvedValue(undefined),
 }));
 
 const feedbackMocks = vi.hoisted(() => ({ show: vi.fn() }));
@@ -114,9 +115,15 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
     onToggleTaskSelection?: (taskId: string) => void;
   }) =>
     tasks.length > 0 ? (
-      <button onClick={() => selectionMode ? onToggleTaskSelection?.(tasks[0].id) : onOpenActions(tasks[0])}>
-        {selectionMode ? `${selectedTaskIds?.has(tasks[0].id) ? 'Deselect' : 'Select'} mocked task` : 'Open actions'}
-      </button>
+      <>
+        {tasks.map((task, index) => (
+          <button key={task.id} onClick={() => selectionMode ? onToggleTaskSelection?.(task.id) : onOpenActions(task)}>
+            {selectionMode
+              ? `${selectedTaskIds?.has(task.id) ? 'Deselect' : 'Select'} mocked task${index ? ` ${task.id}` : ''}`
+              : index ? `Open actions ${task.id}` : 'Open actions'}
+          </button>
+        ))}
+      </>
     ) : null,
 }));
 
@@ -150,7 +157,7 @@ vi.mock('../../src/hooks/useTasks', () => ({
     tasks: [fixture.task],
     addTask: vi.fn(),
     toggleTaskCompletion: vi.fn(),
-    updateTask: vi.fn(),
+    updateTask: taskMocks.updateTask,
     deleteTask: vi.fn(),
     reorderTasks: vi.fn(),
     moveTasksToCategory: taskMocks.moveTasksToCategory,
@@ -218,6 +225,7 @@ describe('DayViewSheet nested task actions', () => {
     swiperFixture.touchStartPreventDefault = undefined;
     swiperFixture.touchMoveStopPropagation = undefined;
     taskMocks.moveTasksToCategory.mockClear();
+    taskMocks.updateTask.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -348,6 +356,69 @@ describe('DayViewSheet nested task actions', () => {
         .find((button) => button.getAttribute('tabindex') === '0'))
         .toHaveAttribute('aria-pressed', 'false');
     });
+  });
+
+  it('moves multiple selected calendar tasks to Backlogs without recreating them', async () => {
+    const second = { ...fixture.task, id: 'task_2', title: 'Second task' };
+    render(
+      <DayViewSheet
+        isOpen
+        onClose={vi.fn()}
+        selectedDate={new Date(2026, 8, 20)}
+        renderMode="inline"
+        tasks={[fixture.task, second]}
+        categories={[fixture.category, fixture.secondCategory]}
+      />
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find((button) => button.getAttribute('tabindex') === '0') as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task task_2' }));
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for selected tasks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to Backlog' }));
+
+    await waitFor(() => expect(taskMocks.updateTask).toHaveBeenCalledTimes(2));
+    expect(taskMocks.updateTask).toHaveBeenCalledWith('task_1', { date: '' });
+    expect(taskMocks.updateTask).toHaveBeenCalledWith('task_2', { date: '' });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Select tasks' }))
+      .toHaveAttribute('aria-pressed', 'false'));
+  });
+
+  it('retains only failed tasks selected after a partial Backlogs move', async () => {
+    taskMocks.updateTask.mockImplementation(async (id: string) => {
+      if (id === 'task_2') throw new Error('offline');
+    });
+    const second = { ...fixture.task, id: 'task_2', title: 'Second task' };
+    render(
+      <DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
+        renderMode="inline" tasks={[fixture.task, second]}
+        categories={[fixture.category, fixture.secondCategory]} />
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find((button) => button.getAttribute('tabindex') === '0') as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task task_2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for selected tasks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to Backlog' }));
+
+    await waitFor(() => expect(feedbackMocks.show).toHaveBeenCalledWith('1 task could not be updated'));
+    expect(screen.getByRole('button', { name: 'Select mocked task' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Deselect mocked task task_2' })).toBeInTheDocument();
+    expect(taskMocks.updateTask).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not offer Move to Backlog when selecting already unscheduled tasks', () => {
+    const undated = { ...fixture.task, date: '' };
+    render(
+      <DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
+        renderMode="backlog" tasks={[undated]} categories={[fixture.category]} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Select tasks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for selected tasks' }));
+    expect(screen.queryByRole('button', { name: 'Move to Backlog' })).toBeNull();
   });
 
   it('exits inline selection mode on Escape', () => {
