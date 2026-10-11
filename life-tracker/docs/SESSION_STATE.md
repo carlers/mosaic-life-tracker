@@ -16,7 +16,8 @@ Current task: restore intermediate release-history versions missing from accepte
 
 ## Verification
 - First focused run 38110907019 failed JSX parser: a duplicate closing block remained in ReleaseHistoryPage after extracting the shared row component. The repair removes it and keeps the production version itself as the first expandable row.
-- Focused repair SHA and canonical Preview full gate plus Vercel Preview must pass. iOS/Android/manual browser acceptance remains unclaimed.
+- Focused repair run 38111016904 SUCCESS. Task PR #559 squash-merged to stable Preview SHA 723dee6b257e6aa3153367443630d21389c52d68. Vercel source build failed only aggregate app raw (+3,274 B), app gzip (+1,359 B), and precache (+3,125 B) ceilings; TypeScript/PWA, all startup/Home closure sizes and DOM checks passed.
+- Repair branch `chatgpt/release-history-v0169-budget` retains v0.16.9, narrows aggregate ceilings around measured Vercel output (2,398,474 B raw / 740,359 B gzip / 2,482,825 B precache); original entry, initial and Home ceilings unchanged. Focused repair and stable Preview full canonical CI plus Vercel READY required. iOS/Android/manual browser acceptance remains unclaimed.
 
 ## Next action
 - Commit implementation and checkpoint with `[verify:focused]`, inspect focused CI, repair failures.
