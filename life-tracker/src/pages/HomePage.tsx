@@ -213,13 +213,20 @@ export const HomePage: React.FC = () => {
     if (!state?.bucketLinkedFocusTaskId || !state.bucketLinkedFocusDate) return;
     const date = parseISO(state.bucketLinkedFocusDate);
     if (!isValid(date)) return;
-    setSearchSelectedDate(date);
-    setSearchFocusTaskId(state.bucketLinkedFocusTaskId);
-    setSearchSheetKey(current => current + 1);
-    searchDaySheetOpenRef.current = true;
-    setSearchDaySheetOpen(true);
-    // Consume navigation state so returning home does not reopen the same sheet.
-    navigate('/home', { replace: true, state: null });
+    // Navigation is an external event. Defer this update to its microtask,
+    // not a synchronous state cascade inside the effect.
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setSearchSelectedDate(date);
+      setSearchFocusTaskId(state.bucketLinkedFocusTaskId ?? null);
+      setSearchSheetKey(current => current + 1);
+      searchDaySheetOpenRef.current = true;
+      setSearchDaySheetOpen(true);
+      // Consume the route intent exactly once, including on Android Back.
+      navigate('/home', { replace: true, state: null });
+    });
+    return () => { cancelled = true; };
   }, [location.key, location.state, navigate]);
 
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
