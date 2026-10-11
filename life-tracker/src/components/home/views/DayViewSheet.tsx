@@ -11,6 +11,7 @@ import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
 import { TaskActionSheet } from './TaskActionSheet';
+const LazyLinkTaskToBucketSheet = React.lazy(() => import('./LinkTaskToBucketSheet').then(m => ({ default: m.LinkTaskToBucketSheet })));
 const LazyShareTaskSheet = lazy(() =>
   import('./ShareTaskSheet').then(({ ShareTaskSheet }) => ({ default: ShareTaskSheet }))
 );
@@ -203,6 +204,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [isBucketLinkOpen, setIsBucketLinkOpen] = useState(false);
   const [shareSheetMounted, setShareSheetMounted] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [imagePickerTaskId, setImagePickerTaskId] = useState<string | null>(null);
@@ -1078,6 +1080,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
         onMoveToBacklog={handleMoveToBacklog}
+        onLinkToBucketList={() => setIsBucketLinkOpen(true)}
       />
       <Suspense fallback={null}>
         {shareSheetMounted && (
@@ -1087,6 +1090,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             task={activeTask}
           />
         )}
+      </Suspense>
+      <Suspense fallback={null}>
+        {isBucketLinkOpen && <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>}
       </Suspense>
       <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
