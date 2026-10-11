@@ -46,6 +46,7 @@ export type ProtectedRoute = PrimaryRoute | DetailRoute | RedirectRoute;
 
 export const PROTECTED_ROUTES = [
   { id: 'home', path: '/home', kind: 'primary', tab: 'home', preview: 'supported', swipeMode: 'home-zone' },
+  { id: 'bucketListDetail', path: '/bucket-list/:id', kind: 'detail', tab: 'home', parent: '/bucket-list', preview: 'none' },
   { id: 'bucketList', path: '/bucket-list', kind: 'detail', tab: 'home', parent: '/home', alternateParents: ['/account'], preview: 'none' },
   { id: 'backlog', path: '/backlog', kind: 'detail', tab: 'home', parent: '/home', alternateParents: ['/account'], preview: 'none' },
   { id: 'explore', path: '/explore', kind: 'primary', tab: 'explore', preview: 'supported' },
