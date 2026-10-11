@@ -627,4 +627,13 @@ test('@diagnostic Day View genuine first-mount timeline', async ({ page }) => {
   await page.mouse.click(10, 10);
   await page.waitForTimeout(520);
   await measureOpen('reopen');
+
+  // Same 181-slide shell with empty task rows; isolate Swiper/browser layout
+  // and modal initialization from task rendering.
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&emptyDayTasks=1`);
+  await page.waitForLoadState('domcontentloaded');
+  await measureOpen('empty-first');
+  await page.mouse.click(10, 10);
+  await page.waitForTimeout(520);
+  await measureOpen('empty-reopen');
 });

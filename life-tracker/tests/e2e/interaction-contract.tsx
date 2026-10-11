@@ -97,6 +97,7 @@ export function InteractionHarness() {
   const calendar = useCalendarState();
   const searchParams = new URLSearchParams(window.location.search);
   const performanceHeavy = searchParams.get('perf') === 'heavy';
+  const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
   const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
   const [friendIndex, setFriendIndex] = useState(0);
   const [todoDayIndex, setTodoDayIndex] = useState(0);
@@ -500,7 +501,7 @@ export function InteractionHarness() {
                 onClose={() => setDayViewSheetOpen(false)}
                 selectedDate={dayViewSelectedDate}
                 onDateChange={setDayViewSelectedDate}
-                tasks={todoTasks}
+                tasks={emptyDayTasks ? [] : todoTasks}
                 categories={todoCategories}
               />
             </Profiler>
