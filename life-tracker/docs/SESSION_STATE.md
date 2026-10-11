@@ -1,22 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: nested BottomSheet visual depth and paint-order correction, Preview v0.16.7. No dev/main promotion authorized.
+Current task: fix task completion checkboxes losing pointer clicks while a *different* inline task input is focused. Frontend-only Preview v0.16.8; no dev/main promotion authorized.
 
-## Verified baseline
-- Started from `dev` `61f7b00696d50ee3fbc117ae7ccbcc26fca78c93` (v0.16.6), on task branch `chatgpt/nested-sheet-depth` and stable Preview `feature/nested-sheet-depth`.
-- Scope is frontend-only. No Appwrite schema, Function, sync, or production environment changes.
+## Verified baseline and investigation
+- Started from `dev` `b76ca6295a8409309c232b25d44fa7f63cbc6878` (v0.16.7).
+- Issue #465 delivered same-row editor checkbox and inline new-task completion in v0.11.0. Existing tests never covered cross-task checkbox interaction.
+- A blank add-task input closes on blur, changing rows from non-draggable to draggable and potentially replacing an unrelated checkbox between pointer-down and click. Another task's title edit can also save/unmount on blur.
+- Owned/shared task checkbox pointer-down previously suppressed focus transfer only if *that row's* title was editing.
 
 ## Candidate
-- Shared `BottomSheet` gives every visible portal a depth-ordered sheet/backdrop pair, a lighter nested veil, a theme-aware border and shadow, and subtle parent recession with reduced-motion support.
-- Preserve top-layer-only focus/interaction, browser/Android Back history, parent state retention until exit, drag dismissal and existing caller APIs.
-- Browser regression checks painted backdrop ordering, parent geometry while nested, and restoration after Back.
-- `docs/THEMING.md` records the depth contract. Product version is 0.16.7 consistently across three files.
+- Mark each inline task title input and suppress completion-button pointer focus-transfer blur when any such input is active, across owned and shared task rows.
+- Preserve independent checkbox completion, pending drafts, edit-save semantics on ordinary blur, keyboard input and drag ownership. No layout, backend, or schema changes.
+- Expand DOM regression coverage for a blank pending add row, a different edited owned task, and a received shared task. Extend the durable contract in `PROJECT_REFERENCE.md`.
+- Preview version synchronized to 0.16.8.
 
-## Verification
-- The first focused run passed 1,454 tests and found only the required checkpoint heading missing.
-
-## Next action
-- Re-run focused verification on the checkpoint repair SHA and review the resulting checks.
-- Squash task PR into `feature/nested-sheet-depth`; require stable Preview canonical acceptance and exact-commit Vercel Preview readiness.
-- Do not merge into `dev` or `main` without explicit approval. Real iOS, Android, and desktop visual/touch acceptance remains manual and unclaimed.
+## Verification and handoff
+- Coherent task branch commit requests `[verify:focused]`. Focused CI, full stable Preview canonical gate, Vercel Preview and real mobile/device acceptance are not yet verified.
+- Next action: inspect focused results; fix any failures before squash into `fix/task-checkbox-cross-input-focus`; then confirm exact stable Preview CI and Vercel readiness. No dev/main promotion without explicit approval.

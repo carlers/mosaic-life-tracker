@@ -115,6 +115,30 @@ describe('CategorySection', () => {
     expect(cbs.onAddTask).not.toHaveBeenCalled();
   });
 
+  // Regression: §2 (completion controls remain usable while another task input is focused).
+  it('toggles an existing task without closing an empty focused add-task row', () => {
+    const existing = {
+      id: 'other_task', title: 'Review checklist', completed: false, order: 0,
+      categoryId: 'work', date: '2026-10-11',
+      createdAt: '2026-10-11T00:00:00.000Z',
+      updatedAt: '2026-10-11T00:00:00.000Z',
+      userId: 'user_A', isDeleted: false, visibility: 'private' as const,
+    };
+    const { cbs } = renderSection({ tasks: [existing] });
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    expect(input).toHaveFocus();
+
+    const checkbox = screen.getByRole('button', { name: 'Mark complete' });
+    // Prevent focus-transfer blur: it would close the blank add row and remount
+    // task controls before the browser delivers the checkbox click.
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'mouse' })).toBe(false);
+    fireEvent.click(checkbox);
+    expect(cbs.onToggleTask).toHaveBeenCalledExactlyOnceWith('other_task', false);
+    expect(input).toHaveFocus();
+    expect(input).toBeInTheDocument();
+  });
+
   // Regression: §2 (continuous entry preserves same-category input focus).
   it('keeps the same-category input open and focused after Enter when enabled', () => {
     const { cbs } = renderSection({ continueAddingAfterSubmit: true });

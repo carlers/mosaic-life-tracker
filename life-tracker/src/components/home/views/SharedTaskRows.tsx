@@ -80,7 +80,7 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
         onPointerDown={event => {
           event.stopPropagation();
           // Same checkbox/editor focus ownership as ordinary task rows.
-          if (isEditing) event.preventDefault();
+          if (isEditing || document.activeElement?.matches('input[data-task-inline-input]')) event.preventDefault();
         }}
         onClick={event => { event.stopPropagation(); onToggle(); }}
         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-60"
@@ -93,7 +93,7 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
       </button>
       <div className="min-w-0 flex-1">
         {isEditing ? (
-          <input ref={inputRef} type="text" maxLength={255}
+          <input ref={inputRef} data-task-inline-input type="text" maxLength={255}
             aria-label="Shared task title"
             value={editValue}
             onChange={event => onEditValue(event.target.value)}
