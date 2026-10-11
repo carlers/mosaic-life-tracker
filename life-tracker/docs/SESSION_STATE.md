@@ -11,7 +11,7 @@ Current task: Bucket List MVP, issue #405. User explicitly authorized narrowed M
 ## Implementation
 - Dedicated RxDB bucketList model, isolated local hook/page and lazy detail route, Home and Me links; seventh replication pilot, CAS mapping and server allowlist.
 - Git-owned `bucket_list_items` table and additive migration `010-bucket-list` (not applied). Included in account-erasure worker/policy, server tombstone retention, v3 portable user export/restore with v1/v2 compatibility.
-- Regression tests for mapping/isolation, backend manifest/erasure, migration.
+- Regression tests for mapping/isolation, backend manifest/erasure, migration, v3 cross-account restore, and legacy Replace preserving aspirations. Corrected export backup type and existing test fixtures.
 - Shared Appwrite Scratch project must be coordinated with #526; **no Appwrite mutations, Functions activation, secrets or Production changes performed**.
 
 ## Next action
@@ -19,6 +19,6 @@ Current task: Bucket List MVP, issue #405. User explicitly authorized narrowed M
 Complete focused CI repairs, stable Preview and pending Scratch acceptance. No dev/main promotion without approval.
 
 ## Verification and next steps
-- Submit focused CI at this task head; inspect errors and fix. Review backup/restore regressions, schema contracts and size guard.
+- First focused CI 38145491726 failed only because this checkpoint lacked its required Next action heading; repaired. Re-run focused CI at this task head; inspect subsequent test/TypeScript/lint failures and fix. Review backup/restore regressions, schema contracts and size guard.
 - Prepare the stable `feature/bucket-list-405` only after focused green; run full canonical GitHub checks and Vercel Preview. Do not claim cloud authenticated acceptance until coordinated Scratch migration/Function exact-SHA deploy, account-private/offline cross-device tests, old-client compatibility and manual iOS/Android/swipe/theme review.
 - Advance dev/main only by separate user approval. Maintain issue #405 with actual evidence and unresolved gates.
