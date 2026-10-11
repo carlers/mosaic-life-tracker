@@ -8,16 +8,12 @@ import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
+import { LazyDayViewSheet } from './dayViewSheetModule';
 import {
   DISABLED_HOLIDAY_CONFIG,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
 
-const LazyDayViewSheet = React.lazy(() =>
-  import('./DayViewSheet').then(({ DayViewSheet }) => ({
-    default: DayViewSheet,
-  }))
-);
 const LazyFriendDayViewSheet = React.lazy(() =>
   import('../../friend/FriendDayViewSheet').then(({ FriendDayViewSheet }) => ({
     default: FriendDayViewSheet,
