@@ -15,7 +15,8 @@ Current task: restore intermediate release-history versions missing from accepte
 - Unit and DOM regressions cover v0.12.0/v0.14.x/v0.16.x shipped versions, Preview-only v0.13.x/v0.15.0, deduplication, provenance URLs, offline fallback and semantics.
 
 ## Verification
-- Focused task SHA and canonical Preview full gate plus Vercel Preview must pass. iOS/Android/manual browser acceptance remains unclaimed.
+- First focused run 38110907019 failed JSX parser: a duplicate closing block remained in ReleaseHistoryPage after extracting the shared row component. The repair removes it and keeps the production version itself as the first expandable row.
+- Focused repair SHA and canonical Preview full gate plus Vercel Preview must pass. iOS/Android/manual browser acceptance remains unclaimed.
 
 ## Next action
 - Commit implementation and checkpoint with `[verify:focused]`, inspect focused CI, repair failures.

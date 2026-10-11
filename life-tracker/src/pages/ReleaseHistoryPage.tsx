@@ -91,9 +91,10 @@ export function ReleaseHistoryPage() {
             )}
             <div className="space-y-3">
               {result.releases.map(release => {
-                const entries: VersionMilestone[] = release.milestones.length
-                  ? release.milestones
-                  : [{ tag: release.tag, title: release.summary, notes: release.notes }];
+                const entries: VersionMilestone[] = [
+                  { tag: release.tag, title: release.summary, notes: release.notes },
+                  ...release.milestones.filter(item => item.tag !== release.tag),
+                ];
                 return (
                   <section key={release.tag} aria-label={'Production release ' + release.tag}
                     className="overflow-hidden rounded-lg border border-[#333333] bg-surface">
@@ -108,15 +109,6 @@ export function ReleaseHistoryPage() {
                         <MilestoneRow key={entry.tag} entry={entry} releaseUrl={release.url} />
                       ))}
                     </div>
-                        </details>
-                      ))}
-                    </div>
-                    {release.milestones.length > 0 && (
-                      <details className="border-t border-[#333333] px-3 py-2 text-xs text-gray-400">
-                        <summary className="cursor-pointer">Overall release notes</summary>
-                        <div className="mt-2">{release.notes && <ReleaseNotesMarkdown text={release.notes} />}</div>
-                      </details>
-                    )}
                   </section>
                 );
               })}
