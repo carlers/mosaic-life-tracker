@@ -61,7 +61,6 @@ export interface ExportPayload {
     tasks: TaskDocument[];
     categories: CategoryDocument[];
     diary: DiaryDocument[];
-  bucketList: BucketListDocument[];
     bucketList: BucketListDocument[];
     settings: SettingsDocument[];
     friendships: FriendshipDocument[];
@@ -98,6 +97,7 @@ interface RawCollections {
   tasks: TaskDocument[];
   categories: CategoryDocument[];
   diary: DiaryDocument[];
+  bucketList: BucketListDocument[];
   settings: SettingsDocument[];
   friendships: FriendshipDocument[];
 }
