@@ -198,6 +198,10 @@ export const HomePage: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isSearchOpen]);
 
+  const handleOpenBucketList = useCallback(() => {
+    navigate('/bucket-list', { state: makeRouteParentState('/home') });
+  }, [navigate]);
+
   const handleOpenBacklog = useCallback(() => {
     navigate('/backlog', { state: makeRouteParentState('/home') });
   }, [navigate]);
@@ -241,7 +245,7 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} />}
+          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} />}
         />
 
         <div inert={isSearchOpen ? true : undefined} className="flex-1 min-h-0 flex flex-col relative">

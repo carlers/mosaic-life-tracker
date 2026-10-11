@@ -12,6 +12,7 @@ import {
   categoriesSchema,
   diarySchema,
   settingsSchema,
+  bucketListSchema,
   friendshipsSchema,
   messagesSchema,
   syncMetaSchema,
@@ -19,6 +20,7 @@ import {
   type CategoryDocument,
   type DiaryDocument,
   type SettingsDocument,
+  type BucketListDocument,
   type FriendshipDocument,
   type MessageDocument,
   type SyncMetaDocument,
@@ -53,6 +55,7 @@ export interface AppDatabaseCollections {
   categories: RxCollection<CategoryDocument>;
   diary: RxCollection<DiaryDocument>;
   settings: RxCollection<SettingsDocument>;
+  bucketList: RxCollection<BucketListDocument>;
   friendships: RxCollection<FriendshipDocument>;
   messages: RxCollection<MessageDocument>;
   syncMeta: RxCollection<SyncMetaDocument>;
@@ -88,6 +91,7 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
         migrationStrategies: categoriesMigrationStrategies,
       },
       diary: { schema: diarySchema },
+      bucketList: { schema: bucketListSchema },
       settings: {
         schema: settingsSchema,
         migrationStrategies: settingsMigrationStrategies,
@@ -188,6 +192,7 @@ export async function purgeAccountFromDatabase(
     database.categories,
     database.diary,
     database.settings,
+    database.bucketList,
     database.friendships,
     database.messages,
     database.syncMeta,
@@ -212,13 +217,14 @@ export async function destroyDatabase(): Promise<void> {
 }
 export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) {
   const database = db || getDatabase();
-  const [tasks, categories, diary, settings, friendships, messages] = await Promise.all([
+  const [tasks, categories, diary, settings, friendships, messages, bucketList] = await Promise.all([
     database.tasks.count().exec(),
     database.categories.count().exec(),
     database.diary.count().exec(),
     database.settings.count().exec(),
     database.friendships.count().exec(),
     database.messages.count().exec(),
+    database.bucketList.count().exec(),
   ]);
-  return { tasks, categories, diary, settings, friendships, messages };
+  return { tasks, categories, diary, settings, friendships, messages, bucketList };
 }

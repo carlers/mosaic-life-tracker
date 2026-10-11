@@ -39,6 +39,7 @@ vi.mock('../../src/db/database', () => ({
     },
     categories: { findOne: () => ({ exec: async () => null }), findByIds: () => ({ exec: async () => new Map() }), find: () => ({ exec: async () => [] }) },
     diary: { findOne: () => ({ exec: async () => null }), findByIds: () => ({ exec: async () => new Map() }), find: () => ({ exec: async () => [] }) },
+    bucketList: { findOne: () => ({ exec: async () => null }), findByIds: () => ({ exec: async () => new Map() }), find: () => ({ exec: async () => [] }) },
     settings: { findOne: () => ({ exec: async () => null }), findByIds: () => ({ exec: async () => new Map() }), find: () => ({ exec: async () => [] }) },
   }),
 }));

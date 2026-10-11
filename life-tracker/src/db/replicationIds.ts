@@ -5,6 +5,7 @@ export const SYNCED_COLLECTION_NAMES = [
   'settings',
   'friendships',
   'messages',
+  'bucketList',
 ] as const;
 
 export type SyncedCollectionName =

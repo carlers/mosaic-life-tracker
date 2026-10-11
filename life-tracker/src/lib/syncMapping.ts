@@ -1,6 +1,7 @@
 type AppwriteRow = Record<string, unknown>;
 type AppwritePayload = Record<string, unknown>;
 const KNOWN_FIELDS: Record<string, Set<string>> = {
+  bucketList: new Set(['user_id', 'title', 'description', 'achieved', 'achieved_at', 'created_at', 'updated_at', 'deleted']),
   tasks: new Set([
     'title',
     'is_completed',
@@ -112,7 +113,16 @@ export function toAppwriteFormat(
   delete source._deleted;
   delete source._rev;
   const mapped: AppwritePayload = {};
-  if (collection === 'tasks') {
+  if (collection === 'bucketList') {
+    mapped.user_id = userId;
+    mapped.title = source.title ?? '';
+    mapped.description = source.description ?? '';
+    mapped.achieved = source.achieved ?? false;
+    mapped.achieved_at = source.achievedAt ?? '';
+    mapped.created_at = source.createdAt;
+    mapped.updated_at = source.updatedAt;
+    mapped.deleted = source.isDeleted ?? false;
+  } else if (collection === 'tasks') {
     mapped.title = source.title || '';
     mapped.is_completed = source.completed ?? false;
     mapped.category_id = source.categoryId || '';
@@ -205,7 +215,21 @@ export function fromAppwriteFormat(
   delete mapped.$databaseId;
   delete mapped.$tableId;
   delete mapped.$sequence;
-  if (collection === 'tasks') {
+  if (collection === 'bucketList') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = row.user_id;
+    mapped.description = row.description || '';
+    mapped.achieved = row.achieved === true;
+    mapped.achievedAt = row.achieved_at || '';
+    mapped.createdAt = row.created_at || row.$createdAt;
+    mapped.updatedAt = row.updated_at || row.$updatedAt;
+    mapped.isDeleted = row.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.achieved_at;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+    delete mapped.deleted;
+  } else if (collection === 'tasks') {
     mapped.id = row.$id || mapped.id;
     mapped.completed = mapped.is_completed ?? false;
     mapped.categoryId = mapped.category_id || '';

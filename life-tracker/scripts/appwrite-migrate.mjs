@@ -5,6 +5,7 @@ import {
   flagValue,
   parseBackendTarget,
 } from './lib/appwrite-backend.mjs';
+import { migrateBucketListBackend } from './migrate-bucket-list.mjs';
 import { migrateAccountDeletionBackend } from './migrate-account-deletion.mjs';
 import { migrateDiaryCreatedAtBackend } from './migrate-diary-created-at.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
@@ -16,6 +17,7 @@ import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
 
 export const APPWRITE_MIGRATIONS = [
+  { id: '010-bucket-list', description: 'Owner-scoped private aspirations', run: ({ request, log }) => migrateBucketListBackend({ request, log }) },
   {
     id: '001-account-deletion',
     description: 'Account deletion table and message indexes',

@@ -41,6 +41,17 @@ export interface DiaryDocument {
   updatedAt: string;
   isDeleted: boolean;
 }
+export interface BucketListDocument {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  achieved: boolean;
+  achievedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
 export interface SettingsDocument {
   id: string;
   userId: string;
@@ -71,7 +82,8 @@ export interface SyncMetaDocument {
     | 'diary'
     | 'settings'
     | 'friendships'
-    | 'messages';
+    | 'messages'
+    | 'bucketList';
   replicationIdentifier: string;
   lastFreshAt: string;
 }
@@ -191,6 +203,24 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     ['userId', 'date', 'isDeleted'],
     ['visibility', 'userId', 'isDeleted'],
   ],
+};
+export const bucketListSchema: RxJsonSchema<BucketListDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: ['id', 'userId', 'title', 'description', 'achieved', 'achievedAt', 'createdAt', 'updatedAt', 'isDeleted'],
+  properties: {
+    id: { type: 'string', maxLength: 36 },
+    userId: { type: 'string', maxLength: 255 },
+    title: { type: 'string', maxLength: 255 },
+    description: { type: 'string', maxLength: 2000 },
+    achieved: { type: 'boolean' },
+    achievedAt: { type: 'string', maxLength: 50 },
+    createdAt: { type: 'string', maxLength: 50 },
+    updatedAt: { type: 'string', maxLength: 50 },
+    isDeleted: { type: 'boolean' },
+  },
+  indexes: [['userId', 'isDeleted'], ['userId', 'achieved', 'isDeleted']],
 };
 export const settingsSchema: RxJsonSchema<SettingsDocument> = {
   version: 1,
@@ -332,6 +362,7 @@ export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
         'settings',
         'friendships',
         'messages',
+        'bucketList',
       ],
     },
     replicationIdentifier: { type: 'string', maxLength: 500 },

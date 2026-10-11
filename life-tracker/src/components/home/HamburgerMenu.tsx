@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, List, RefreshCw, Bell, Archive } from 'lucide-react';
+import { Menu, List, RefreshCw, Bell, Archive, Star } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 const LazyBottomSheet = React.lazy(() =>
@@ -13,13 +13,14 @@ const LazyCategoryManagerSheet = React.lazy(() =>
   }))
 );
 
-export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void }> = ({ onOpenBacklog }) => {
+export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketList: () => void }> = ({ onOpenBacklog, onOpenBucketList }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuSheetMounted, setMenuSheetMounted] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
 
   const menuItems = [
+    { label: 'Bucket List', icon: Star, action: () => { setIsMenuOpen(false); onOpenBucketList(); } },
     { label: 'Backlogs', icon: Archive, action: () => { setIsMenuOpen(false); onOpenBacklog(); } },
     {
       label: 'Lists & Categories',
