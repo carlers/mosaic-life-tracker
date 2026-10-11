@@ -14,7 +14,13 @@ Current task: reconcile accepted Backlogs issue #407 into the latest dev without
 - Keep dev's newer build budgets and release-history changes; measure combined build before changing limits. Legacy backend `message-action` is reconciled, but Scratch Function deployment/auth parity must be rechecked; do not assume production backend deployment or device acceptance.
 - Task integration branch `chatgpt/backlog-dev-reconcile-407` is built from the accepted Preview ancestry plus the latest dev ancestry in a 2-parent reconciliation commit, with a combined tree matching latest dev plus selected backlog changes. Squash after checks to stable `feature/backlog-407`, where canonical CI and Vercel validate; then merge accepted stable Preview by PR #581 into dev.
 
+## Measured combined build-size diagnostic
+- Combined first full diagnostic run 38119200683 compiled TypeScript and generated the PWA successfully. Size values: entry gzip 131,925, initial closure gzip 144,883, Home closure gzip 362,385, assets raw 2,404,437, assets gzip 743,010, precache 2,489,652 bytes. Limits are raised only modestly to 132,200 / 145,200 / 362,900 / 2,405,100 / 743,700 / 2,490,300 respectively. Entry raw still capped at 444,400. CI docs test required an explicit Next action heading; corrected here.
+
 ## Acceptance
 - Explicit full task diagnostic when needed for tight combined build size, then focused checks on final task SHA; canonical full Preview acceptance and exact-SHA Vercel READY before dev merge.
 - Dev PR must retain accepted Preview tree and run current promotion gate; verify dev CI, Scratch Vercel deployment, direct /backlog 200. Main and production untouched.
 - Real Scratch authenticated multi-device testing, Android/iOS swipe and theme/visual testing remain separate from automated evidence; do not claim them without execution.
+
+## Next action
+Verify the one-batch measured-build/checkpoint repair with focused CI. Once green, squash the combined task into stable Preview, verify canonical full gate and Vercel, and promote through approved PR #581 to dev if the branch is still compatible. Preserve main and Production unchanged.
