@@ -14,7 +14,6 @@ import {
   loadExplorePage,
   loadFriendCalendarPage,
   loadHomePage,
-  loadBacklogPage,
   loadMessagesPage,
   loadPreferencesPage,
   loadNotificationSettingsPage,
@@ -26,9 +25,8 @@ import {
 const HomePage = lazy(() =>
   loadHomePage().then(({ HomePage }) => ({ default: HomePage })),
 );
-const BacklogPage = lazy(() =>
-  loadBacklogPage().then(({ BacklogPage }) => ({ default: BacklogPage })),
-);
+// No preloading path needs Backlogs; direct import avoids a redundant memoized loader.
+const BacklogPage = lazy(() => import('./pages/BacklogPage'));
 const AccountPage = lazy(() =>
   loadAccountPage().then(({ AccountPage }) => ({ default: AccountPage })),
 );
