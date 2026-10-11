@@ -2,7 +2,6 @@ import { format } from 'date-fns';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
 import { getPendingImage, isPendingImageId } from './pendingImages';
-import { guardedCall, makeUnauthorizedError } from './authEvents';
 import { guardedStorage } from './sdk';
 import { APP_VERSION } from './appVersion';
 import { getConnectivitySnapshot } from './connectivity';
@@ -14,13 +13,11 @@ import type {
   FriendshipDocument,
 } from '../db/schema';
 import {
-  APPWRITE_PROJECT_ID,
   APPWRITE_STORAGE_BUCKET_ID,
 } from './appwriteConfig';
 
 const APPWRITE_CONFIG = {
   bucketId: APPWRITE_STORAGE_BUCKET_ID,
-  projectId: APPWRITE_PROJECT_ID,
 } as const;
 
 const DEBUG = import.meta.env.DEV;
@@ -167,27 +164,12 @@ async function fetchImageBlob(
     return null;
   }
   try {
-    const url = guardedStorage.getFileView({
+    const blob = await guardedStorage.downloadFileBlob({
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId,
     });
-    const res = await guardedCall(async () => {
-      const r = await fetch(url.toString(), {
-        credentials: 'include',
-        headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
-      });
-      if (r.status === 401) {
-        throw makeUnauthorizedError();
-      }
-      return r;
-    });
-    if (!res.ok) {
-      if (DEBUG)
-        console.warn(`[Export] Image fetch returned ${res.status}: ${fileId}`);
-      return null;
-    }
-    const blob = await res.blob();
-    await cacheImage(fileId, blob);
+    // A full cloud download is still exportable if IndexedDB is unavailable.
+    await cacheImage(fileId, blob).catch(console.warn);
     return blob;
   } catch (err) {
     console.warn(`[Export] Failed to fetch image ${fileId}:`, err);

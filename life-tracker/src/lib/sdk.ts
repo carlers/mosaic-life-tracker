@@ -1,6 +1,6 @@
 import { Functions, Storage, TablesDB } from 'appwrite';
 import { client, account } from './appwrite';
-import { dispatchUnauthorized, guardedCall } from './authEvents';
+import { dispatchUnauthorized, guardedCall, makeUnauthorizedError } from './authEvents';
 
 const rawTablesDB = new TablesDB(client);
 const rawStorage = new Storage(client);
@@ -150,6 +150,26 @@ export const guardedStorage = {
     guardedCall(() => rawStorage.updateFile(params as never)),
   getFile: (params: GetFileParams): Promise<GetFileResult> =>
     guardedCall(() => rawStorage.getFile(params as never)),
+  // Use Appwrite's request preparation for both cookies and its localStorage
+  // session fallback (used when mobile browsers block third-party cookies).
+  // A bare fetch of getFileView() has cookies but omits X-Fallback-Cookies.
+  downloadFileBlob: (params: GetFileViewParams): Promise<Blob> =>
+    guardedCall(async () => {
+      const { uri, options } = client.prepareRequest(
+        'GET',
+        new URL(rawStorage.getFileView(params as never)),
+        { 'X-Appwrite-Project': client.config.project, accept: '*/*' }
+      );
+      const response = await fetch(uri, options);
+      if (response.status !== 200) {
+        if (response.status === 401) throw makeUnauthorizedError('Photo session expired');
+        throw Object.assign(
+          new Error(`Photo download failed (HTTP ${response.status})`),
+          { code: response.status }
+        );
+      }
+      return response.blob();
+    }),
   // URL builders are synchronous — no network call, no guardedCall needed.
   getFileView: (params: GetFileViewParams): GetFileViewResult =>
     rawStorage.getFileView(params as never),
