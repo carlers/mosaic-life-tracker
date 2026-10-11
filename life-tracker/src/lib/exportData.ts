@@ -9,6 +9,8 @@ import type {
   TaskDocument,
   CategoryDocument,
   DiaryDocument,
+  BucketListDocument,
+  BucketTaskLinkDocument,
   SettingsDocument,
   FriendshipDocument,
 } from '../db/schema';
@@ -22,7 +24,7 @@ const APPWRITE_CONFIG = {
 
 const DEBUG = import.meta.env.DEV;
 const APP_NAME = 'Mosaic';
-const EXPORT_VERSION = 2;
+const EXPORT_VERSION = 4;
 
 export interface ExportUser {
   id: string;
@@ -39,6 +41,8 @@ export interface ExportCounts {
   tasks: number;
   categories: number;
   diary: number;
+  bucketList: number;
+  bucketTaskLinks: number;
   settings: number;
   friendships: number;
   images: number;
@@ -56,11 +60,13 @@ export interface ExportPayload {
     tasks: TaskDocument[];
     categories: CategoryDocument[];
     diary: DiaryDocument[];
+    bucketList: BucketListDocument[];
+    bucketTaskLinks: BucketTaskLinkDocument[];
     settings: SettingsDocument[];
     friendships: FriendshipDocument[];
   };
   restore: {
-    restorable: ['tasks', 'categories', 'diary', 'settings'];
+    restorable: ['tasks', 'categories', 'diary', 'settings', 'bucketList', 'bucketTaskLinks'];
     referenceOnly: ['friendships'];
     excluded: ['messages'];
   };
@@ -91,13 +97,15 @@ interface RawCollections {
   tasks: TaskDocument[];
   categories: CategoryDocument[];
   diary: DiaryDocument[];
+  bucketList: BucketListDocument[];
+  bucketTaskLinks: BucketTaskLinkDocument[];
   settings: SettingsDocument[];
   friendships: FriendshipDocument[];
 }
 
 async function collectCollections(userId: string): Promise<RawCollections> {
   const db = getDatabase();
-  const [tasks, categories, diary, settings, friendships] = await Promise.all([
+  const [tasks, categories, diary, settings, friendships, bucketList, bucketTaskLinks] = await Promise.all([
     db.tasks
       .find({
         selector: { userId, isDeleted: false },
@@ -127,8 +135,13 @@ async function collectCollections(userId: string): Promise<RawCollections> {
         sort: [{ updatedAt: 'desc' }],
       })
       .exec(),
+    db.bucketList.find({ selector: { userId, isDeleted: false } }).exec(),
+    db.bucketTaskLinks.find({ selector: { userId, isDeleted: false } }).exec(),
   ]);
   return {
+    bucketList: bucketList.map((d) => toDoc<BucketListDocument>(d)),
+    bucketTaskLinks: bucketTaskLinks.filter(link => tasks.some(t=>t.id===link.taskId) && bucketList.some(g=>g.id===link.bucketListId))
+      .map(d => toDoc<BucketTaskLinkDocument>(d)),
     tasks: tasks.map((d) => toDoc<TaskDocument>(d)),
     categories: categories.map((d) => toDoc<CategoryDocument>(d)),
     diary: diary.map((d) => toDoc<DiaryDocument>(d)),
@@ -164,11 +177,13 @@ async function fetchImageBlob(
     return null;
   }
   try {
+    // Use the authenticated Appwrite download helper so cross-device exports
+    // work even when browsers restrict third-party cookies (dev #624).
     const blob = await guardedStorage.downloadFileBlob({
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId,
     });
-    // A full cloud download is still exportable if IndexedDB is unavailable.
+    // A full cloud download remains exportable if IndexedDB cache is unavailable.
     await cacheImage(fileId, blob).catch(console.warn);
     return blob;
   } catch (err) {
@@ -224,6 +239,8 @@ export async function exportUserData(
       tasks: raw.tasks.length,
       categories: raw.categories.length,
       diary: raw.diary.length,
+      bucketList: raw.bucketList.length,
+      bucketTaskLinks: raw.bucketTaskLinks.length,
       settings: raw.settings.length,
       friendships: raw.friendships.length,
       images: 0,
@@ -233,11 +250,13 @@ export async function exportUserData(
       tasks: raw.tasks,
       categories: raw.categories,
       diary: raw.diary,
+      bucketList: raw.bucketList,
+      bucketTaskLinks: raw.bucketTaskLinks,
       settings: raw.settings,
       friendships: raw.friendships,
     },
     restore: {
-      restorable: ['tasks', 'categories', 'diary', 'settings'],
+      restorable: ['tasks', 'categories', 'diary', 'settings', 'bucketList', 'bucketTaskLinks'],
       referenceOnly: ['friendships'],
       excluded: ['messages'],
     },
@@ -286,6 +305,8 @@ export async function exportUserData(
   files['data/diary.json'] = encoder.encode(
     JSON.stringify(raw.diary, null, 2)
   );
+  files['data/bucketList.json'] = encoder.encode(JSON.stringify(raw.bucketList, null, 2));
+  files['data/bucketTaskLinks.json'] = encoder.encode(JSON.stringify(raw.bucketTaskLinks, null, 2));
   files['data/settings.json'] = encoder.encode(
     JSON.stringify(raw.settings, null, 2)
   );

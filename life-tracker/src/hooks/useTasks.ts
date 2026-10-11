@@ -62,6 +62,7 @@ export function useTasks(enabled = true) {
         isDeleted: false,
       };
       await db.tasks.insert(newTask);
+      return newTask.id;
     },
     [user?.$id]
   );

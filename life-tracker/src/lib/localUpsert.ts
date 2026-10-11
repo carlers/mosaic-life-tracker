@@ -18,7 +18,7 @@ import { getDatabase } from '../db/database';
  * through the union of collection names.
  */
 export async function upsertLocalDoc(
-  collectionName: 'tasks' | 'categories' | 'diary' | 'settings' | 'friendships' | 'messages',
+  collectionName: 'tasks' | 'categories' | 'diary' | 'settings' | 'friendships' | 'messages' | 'bucketList' | 'bucketTaskLinks',
   id: string,
   doc: object
 ): Promise<void> {

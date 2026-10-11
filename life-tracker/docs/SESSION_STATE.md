@@ -1,15 +1,13 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Cross-device task-photo authenticated downloads (user-approved Preview bug fix).
+Current task: User-approved cleanup and promotion of Bucket List #405 to dev, including linked-task photo viewing.
 
-## Objective and isolation
-- Fix photo download failures on phone/desktop when third-party cookies are blocked. The prior raw fetch sent credentials but omitted Appwrite's X-Fallback-Cookies session header; task-sync and per-photo Retry cannot repair that HTTP authorization failure.
-- Base dev: `5ec3f3f2250beacf55cd9c23a7f35d53e68275f2` (v0.17.8). Task branch: `chatgpt/task-photo-authenticated-download-20261012`. Stable Preview: `fix/task-photo-authenticated-download-20261012`. Candidate Preview v0.17.9.
-- Add `guardedStorage.downloadFileBlob` using Appwrite SDK `client.prepareRequest` for the fallback session and normal cookie credentials. Demand HTTP 200 before caching; 401 remains distinguishable. Reuse for task thumbnails, full-view cache and photo backup export, without changing bucket permissions or deleting pending offline originals.
-- Read-only Appwrite inspection: Production has 89 active task-photo references, every file exists and is authenticated-user readable; Scratch has 46 references, every file exists, with four legacy different permission grants. No Appwrite mutation authorized. Preview is Scratch-only and cannot access real production photos.
+## Live integration context
+- User manually accepted Bucket List v0.19.2 and authorized cleanup/polish and merge to `dev`. Source is stable `feature/bucket-list-405@4bac2e86d54e2b32e620e90307e33cd4ee23b9b8` with canonical run 38157675597 SUCCESS and Vercel exact-SHA READY. Current integration base `dev@48005f0f9327a0ac5d028f2615034a5e2c1ed80f`, version 0.17.9; main remains 0.17.4. Do not touch Production or promote to main.
+- Branch histories diverged by 13 accepted commits each since merge base `832fc932`. Do not direct-promote a conflicting or different integration tree. Instead re-accept exact integrated tree on a **new stable Preview** `feature/bucket-list-405-integrated` before creating dev PR.
+- Integrated tree starts from all accepted feature code and layers **13 dev-only changed files** by their exact blob SHA, preserving current cross-device photo SDK/session/retry fixes and newer tests. Reconcile 8 overlapped files: use Bucket List v0.19.2 package and appVersion; retain latest dev no-border hamburger/settings icons alongside new Bucket List menu actions; carry Bucket List v4 backup while adopting dev's `guardedStorage.downloadFileBlob` path (required for third-party-cookie blocked browsers); review the build-size budget difference against dev with full canonical/providermetric check; replace stale session handoff with this integration record.
+- Important: integrated export must continue including `bucketList` and `bucketTaskLinks` v4, as well as authenticated blob retrieval for existing image attachments. No unintended UI/design changes. No backend writes; Scratch target already has migration 011 and active combined `message-action@6acbb81e4a02f7368340` verified on prior work, recheck live before promotion.
 
 ## Next action
-- Complete one coherent focused task commit with regression tests (SDK session fallback, non-200 handling, cache-bypass recovery, offline staged originals and backup export).
-- After focused CI passes, squash PR into stable Preview; verify exact stable SHA Quality Gate canonical success, Vercel READY/Scratch identity and build-size guard.
-- User must manually test real Android/iOS and two-device photo fetch, including previously unavailable images. No authorization to merge dev/main or touch Production.
+- Run [verify:focused] on `chatgpt/integrate-bucket-list-405-dev-20261012`, repair failures. Squash PR to `feature/bucket-list-405-integrated` (based from the exact dev SHA above), run complete canonical and exact Vercel READY on stable integrated tree; review build-size guard independently for both GitHub and GIPHY-enabled Vercel. Recheck live `dev`, backend, CI and accepted source. If safe, create PR and merge integrated Preview -> `dev` with descriptive merge commit; verify post-promotion provenance, checks and Vercel. Preserve `main`/Production. Keep #405 open until production release. Report all completed checks and remaining manual checks.

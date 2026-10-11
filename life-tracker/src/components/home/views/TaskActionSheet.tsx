@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   Eye,
   Copy,
+  Link2,
   Users,
 } from 'lucide-react';
 import { isToday } from 'date-fns';
@@ -41,6 +42,7 @@ interface TaskActionSheetProps {
   onDeletePhoto: () => void;
   onDoItTomorrowOrToday: () => void;
   onMoveToBacklog: () => void;
+  onLinkToBucketList?: () => void;
 }
 
 export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
@@ -59,6 +61,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onDeletePhoto,
   onDoItTomorrowOrToday,
   onMoveToBacklog,
+  onLinkToBucketList,
 }) => {
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
@@ -203,6 +206,11 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-base font-medium">Copy Task Text</span>
           </button>
 
+          {onLinkToBucketList && <button type="button" onClick={() => { onClose(); onLinkToBucketList(); }}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-surfaceHighlight text-foreground focus-visible:ring-2 focus-visible:ring-current">
+            <span className="w-8 h-8 rounded-full bg-surfaceHighlight flex items-center justify-center"><Link2 size={16} aria-hidden="true"/></span>
+            <span className="text-base font-medium">Link to Bucket List</span>
+          </button>}
           {!task.memo && (
             <button
               type="button"
