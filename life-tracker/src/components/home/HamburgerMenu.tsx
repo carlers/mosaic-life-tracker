@@ -20,7 +20,7 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void }> = ({ onOpenB
   const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
 
   const menuItems = [
-    { label: 'Backlog', icon: Archive, action: () => { setIsMenuOpen(false); onOpenBacklog(); } },
+    { label: 'Backlogs', icon: Archive, action: () => { setIsMenuOpen(false); onOpenBacklog(); } },
     {
       label: 'Lists & Categories',
       icon: List,

@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -13,12 +15,6 @@ import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
-
-const LazyBacklogSheet = React.lazy(() =>
-  import('../components/home/views/BacklogSheet').then(({ BacklogSheet }) => ({
-    default: BacklogSheet,
-  }))
-);
 
 const LazyDayViewSheet = React.lazy(() =>
   import('../components/home/views/DayViewSheet').then(({ DayViewSheet }) => ({
@@ -37,6 +33,7 @@ const RENDER_WINDOW = 1;
 const INITIAL_RENDER_WINDOW = 0;
 
 export const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const {
     persons,
     reorder,
@@ -47,7 +44,7 @@ export const HomePage: React.FC = () => {
     hidden,
     isLoading: carouselLoading,
   } = useFriendCarousel();
-  const { tasks: ownerTasks = [], isLoading: tasksLoading, addTask, updateTask, toggleTaskCompletion } = useTasks();
+  const { tasks: ownerTasks = [], isLoading: tasksLoading } = useTasks();
   const {
     categories: ownerCategories = [],
     isLoading: categoriesLoading,
@@ -58,9 +55,6 @@ export const HomePage: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isBacklogOpen, setIsBacklogOpen] = useState(false);
-  const [backlogMounted, setBacklogMounted] = useState(false);
-  const [backlogFocusTaskId, setBacklogFocusTaskId] = useState<string | null>(null);
   const [searchDaySheetOpen, setSearchDaySheetOpen] = useState(false);
   const [searchSelectedDate, setSearchSelectedDate] = useState<Date | null>(
     null
@@ -205,16 +199,14 @@ export const HomePage: React.FC = () => {
   }, [isSearchOpen]);
 
   const handleOpenBacklog = useCallback(() => {
-    setBacklogFocusTaskId(null);
-    setBacklogMounted(true);
-    setIsBacklogOpen(true);
-  }, []);
+    navigate('/backlog', { state: makeRouteParentState('/home') });
+  }, [navigate]);
 
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
     if (task.date === '') {
-      setBacklogFocusTaskId(task.id);
-      setBacklogMounted(true);
-      setIsBacklogOpen(true);
+      setIsSearchOpen(false);
+      searchHistoryEntryRef.current = false;
+      navigate('/backlog', { state: { ...makeRouteParentState('/home'), focusTaskId: task.id } });
       return;
     }
     const date = parseISO(task.date);
@@ -224,7 +216,7 @@ export const HomePage: React.FC = () => {
     setSearchSheetKey((current) => current + 1);
     searchDaySheetOpenRef.current = true;
     setSearchDaySheetOpen(true);
-  }, []);
+  }, [navigate]);
 
   const handleCloseSearchDaySheet = useCallback(() => {
     searchDaySheetOpenRef.current = false;
@@ -317,21 +309,6 @@ export const HomePage: React.FC = () => {
             onReorder={reorder}
             onToggleVisibility={toggleVisibility}
             onReset={resetOrder}
-          />
-        </React.Suspense>
-      )}
-
-      {backlogMounted && (
-        <React.Suspense fallback={null}>
-          <LazyBacklogSheet
-            isOpen={isBacklogOpen}
-            onClose={() => setIsBacklogOpen(false)}
-            tasks={ownerTasks}
-            categories={ownerCategories}
-            focusTaskId={backlogFocusTaskId}
-            onAddTask={addTask}
-            onUpdateTask={updateTask}
-            onToggleTask={toggleTaskCompletion}
           />
         </React.Suspense>
       )}

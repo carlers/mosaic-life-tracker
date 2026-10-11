@@ -44,7 +44,7 @@ describe('resolvePrimarySwipeDestination', () => {
   });
   it('derives page layout and swipe defaults from the same protected-route entries', () => {
     expect(PROTECTED_ROUTES.map((route) => route.path)).toEqual([
-      '/home', '/explore', '/friends/:friendId', '/notifications',
+      '/home', '/backlog', '/explore', '/friends/:friendId', '/notifications',
       '/messages', '/messages/:friendId', '/account', '/settings',
       '/settings/releases', '/settings/preferences', '/settings/notifications', '/settings/screen', '/profile',
     ]);
@@ -52,6 +52,9 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(PRIMARY_ROUTE_PATHS).toEqual([
       '/home', '/explore', '/notifications', '/messages', '/account',
     ]);
+    expect(matchProtectedRoute('/backlog')?.id).toBe('backlog');
+    expect(resolvePrimarySwipeDestination('/backlog', 'right', { parentPath: '/account' })).toBe('/account');
+    expect(resolvePrimarySwipeDestination('/backlog', 'right')).toBe('/home');
     expect(matchProtectedRoute('/messages/user_1')?.id).toBe('chat');
     expect(matchProtectedRoute('/friends/friend_1')?.id).toBe('friendCalendar');
     expect(matchProtectedRoute('/friends/')?.id).toBeUndefined();

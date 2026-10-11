@@ -14,6 +14,7 @@ import {
   loadExplorePage,
   loadFriendCalendarPage,
   loadHomePage,
+  loadBacklogPage,
   loadMessagesPage,
   loadPreferencesPage,
   loadNotificationSettingsPage,
@@ -24,6 +25,9 @@ import {
 
 const HomePage = lazy(() =>
   loadHomePage().then(({ HomePage }) => ({ default: HomePage })),
+);
+const BacklogPage = lazy(() =>
+  loadBacklogPage().then(({ BacklogPage }) => ({ default: BacklogPage })),
 );
 const AccountPage = lazy(() =>
   loadAccountPage().then(({ AccountPage }) => ({ default: AccountPage })),
@@ -122,6 +126,7 @@ function HomeRouteFallback() {
 
 const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
   home: <RouteContent label="HomePage" fallback={<HomeRouteFallback />}><HomePage /></RouteContent>,
+  backlog: <RouteContent label="BacklogPage"><BacklogPage /></RouteContent>,
   explore: <RouteContent label="ExplorePage"><ExplorePage /></RouteContent>,
   friendCalendar: <RouteContent label="FriendCalendarPage"><FriendCalendarPage /></RouteContent>,
   notifications: <RouteContent label="NotificationsPage"><NotificationsPage /></RouteContent>,
