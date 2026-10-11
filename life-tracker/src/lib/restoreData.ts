@@ -828,6 +828,7 @@ async function planRestore(
     categories: [],
     diary: [],
     settings: [],
+    bucketList: [],
   };
   let skippedNewer = 0;
 
@@ -960,6 +961,7 @@ async function tombstoneMissing(
     categories: new Set(data.categories.map((doc) => doc.id)),
     diary: new Set(data.diary.map((doc) => doc.id)),
     settings: new Set(data.settings.map((doc) => doc.id)),
+    bucketList: new Set(data.bucketList.map((doc) => doc.id)),
   };
 
   let tombstoned = 0;
@@ -1022,6 +1024,7 @@ export async function inspectBackupFile(
       categories: normalized.categories.length,
       diary: normalized.diary.length,
       settings: normalized.settings.length,
+      bucketList: normalized.bucketList.length,
       images: loaded.imageFiles.size,
     },
     imagesIncluded: loaded.payload.images?.included === true,
@@ -1034,7 +1037,8 @@ function postRestoreSyncTimeoutMs(data: NormalizedBackup): number {
     data.tasks.length +
     data.categories.length +
     data.diary.length +
-    data.settings.length;
+    data.settings.length +
+    data.bucketList.length;
   return Math.min(
     POST_RESTORE_SYNC_MAX_TIMEOUT_MS,
     Math.max(
@@ -1201,6 +1205,7 @@ export async function restoreUserData(
     categories: 0,
     diary: 0,
     settings: 0,
+    bucketList: 0,
   };
   let skippedNewer = plan.skippedNewer;
 
@@ -1208,7 +1213,8 @@ export async function restoreUserData(
     plan.data.tasks.length +
     plan.data.categories.length +
     plan.data.diary.length +
-    plan.data.settings.length;
+    plan.data.settings.length +
+    plan.data.bucketList.length;
   let processedDocuments = 0;
   reportDetail(
     options.mode === 'replace'
