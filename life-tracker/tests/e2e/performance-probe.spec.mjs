@@ -555,7 +555,7 @@ test('@performance cached Home startup probe', async ({ page }) => {
 
 /** Simulate the real Calendar lazy-mount path, not a previously mounted closed sheet.
  * Dev-server timings are diagnostic/relative, never production-device budgets. */
-test('@diagnostic Day View genuine first-mount timeline', async ({ page }) => {
+test('@performance Day View genuine first-mount timeline', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.waitForLoadState('domcontentloaded');
 

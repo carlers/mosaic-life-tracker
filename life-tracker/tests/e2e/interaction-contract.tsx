@@ -125,6 +125,17 @@ function ColdDayViewProbe({ tasks, categories, emptyDayTasks }: {
           >
             Open next day view sheet
           </button>
+          <button
+            type="button"
+            data-testid="open-far-day-view-sheet"
+            onClick={() => {
+              setDayViewSelectedDate(new Date(2026, 10, 14));
+              setDayViewSheetMounted(true);
+              setDayViewSheetOpen(true);
+            }}
+          >
+            Open far day view sheet
+          </button>
           {dayViewSheetMounted && <DayViewProbeBoundary>
             <Profiler
               id="DayViewSheet"
