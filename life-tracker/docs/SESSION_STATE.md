@@ -1,13 +1,13 @@
 # Session checkpoint
 
 Updated: 2026-10-11 UTC
-Current task: #405 v0.19.1 **urgent RxDB DB6 local schema compatibility repair** after user on-device screenshot.
+Current task: #405 Bucket List v0.19.2 — linked-task photo viewing.
 
-## Observed regression and fix
-- User's existing-device Preview showed “Local database unavailable”, RxDB DB6 on `life_tracker_db.syncMeta` at v0.19.0; the persisted **version 2** schema allowed tasks/categories/diary/settings/friendships/messages/bucketList, while the shipped **also version 2** schema added bucketTaskLinks. Same version, changed schema hash: RxDB correctly refused opening. **Do not erase/recreate local IndexedDB or ask user to clear browser storage; unsynced changes must be preserved.**
-- Fix on task branch `chatgpt/fix-syncmeta-db6-v0191-405-20261011` from stable `feature/bucket-list-405@465b66e2`: bump `syncMetaSchema.version` **2→3**, add **identity migration strategy 3** retaining all existing freshness metadata, keep strategies 1/2, regression tests for old v2 and full v0→v3 migration chain; stamp **v0.19.1** in package/package lock/app version. No other database schemas, Appwrite settings or user-data writes.
-- Version 0.19.0 feature stable CI [38154128316](https://github.com/carlers/mosaic-life-tracker/actions/runs/38154128316) SUCCESS but did not test an existing v2 IndexedDB; Vercel exact-sha stable ready; this is a test coverage gap now addressed.
-- Scratch migration 011 completed and 11-file combined Function `message-action@6acbb81e4a02f7368340` active, verified, no backend change needed for local DB fix. Previous Function deployment retained for rollback. Stable Preview registered alias: https://mosaic-life-tracker-git-feature-7a0dd1-carls-projects-72516fde.vercel.app .
+## Status and scope
+- User confirmed v0.19.1 local `syncMeta` DB6 migration works and requested the ability to **see existing photos attached to tasks** while viewing linked tasks in a Bucket List aspiration.
+- Stable base `feature/bucket-list-405@0a5b220311e81bac02b556d911ea6d2b198652bd`, v0.19.1. Approved Scratch migration 011 and combined `message-action@6acbb81e4a02f7368340` already live; **no backend changes required or authorized** for this UI-only follow-up.
+- Task branch `chatgpt/bucket-list-linked-task-photos-405-20261011` targets v0.19.2: show 64px task-image thumbnails only for linked tasks with `task.image`. Reuse `useImageLoadGate` + `useTaskImage` and existing lazy `ImageViewer` PhotoSwipe overlay. Cached/offline/pending semantics belong to existing hooks. Tapping photo opens fullscreen with title and date while task row tap, completion, and unlink behavior are unchanged. Missing images show a fallback and no destructive retries.
+- Current dev/master not touched. Schema/migrations, remote Appwrite rows/buckets, and attachments are unchanged.
 
-## Next action
-Run focused CI on task branch and resolve failures. Squash PR into stable `feature/bucket-list-405` (not dev/main), check exact stable canonical CI + Vercel READY and unchanged Scratch Function. Once green, user should refresh/reopen stable Preview and attempt normal sign-in with original browser storage intact; old v2 local data should migrate without deletion. Distinguish CI, hosted provider checks, and user real-device acceptance. Leave #405 open; do not merge dev/main or mutate Production.
+## Next steps
+- Add focused accessible DOM tests for thumbnail, missing/loading attachment, click, no-photo and image identity updates; focused CI, repair, squash to stable, exact canonical CI + Vercel READY. Confirm previously deployed Scratch Function unchanged. Then user can test on the stable registered Preview alias; no dev/main promotion until approved.
