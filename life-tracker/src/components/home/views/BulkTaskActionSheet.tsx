@@ -8,6 +8,7 @@ interface BulkTaskActionSheetProps {
   count: number;
   onClose: () => void;
   onMoveCategory: () => void;
+  onMoveToBacklog?: () => void;
   onChangeDate: (date: string) => Promise<unknown> | unknown;
   onDoToday: () => void;
   onDoTomorrow: () => void;
@@ -20,6 +21,7 @@ export const BulkTaskActionSheet: React.FC<BulkTaskActionSheetProps> = ({
   count,
   onClose,
   onMoveCategory,
+  onMoveToBacklog,
   onChangeDate,
   onDoToday,
   onDoTomorrow,
@@ -30,6 +32,7 @@ export const BulkTaskActionSheet: React.FC<BulkTaskActionSheetProps> = ({
   const dismiss = () => { setDateMode(false); onClose(); };
   const actions = [
     { label: 'Move to Category', icon: ArrowRight, action: onMoveCategory },
+    ...(onMoveToBacklog ? [{ label: 'Move to Backlog', icon: ArrowRight, action: onMoveToBacklog }] : []),
     { label: 'Change Date', icon: CalendarDays, action: () => setDateMode(true) },
     { label: 'Do It Today', icon: ArrowRight, action: onDoToday },
     { label: 'Do It Tomorrow', icon: ArrowRight, action: onDoTomorrow },

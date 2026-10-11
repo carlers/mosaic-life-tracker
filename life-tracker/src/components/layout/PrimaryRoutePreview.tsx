@@ -6,6 +6,10 @@ import {
   loadHomePage,
   loadMessagesPage,
   loadSettingsPage,
+  loadPreferencesPage,
+  loadNotificationSettingsPage,
+  loadReleaseHistoryPage,
+  loadProfilePage,
 } from './routeModuleLoaders';
 
 import type { PROTECTED_ROUTES } from '../../lib/protectedRoutes';
@@ -38,6 +42,18 @@ const AccountPreview = lazy(() =>
 const SettingsPreview = lazy(() =>
   loadSettingsPage().then(({ SettingsPage }) => ({ default: SettingsPage }))
 );
+const PreferencesPreview = lazy(() =>
+  loadPreferencesPage().then(({ PreferencesPage }) => ({ default: PreferencesPage }))
+);
+const NotificationSettingsPreview = lazy(() =>
+  loadNotificationSettingsPage().then(({ NotificationSettingsPage }) => ({ default: NotificationSettingsPage }))
+);
+const ReleaseHistoryPreview = lazy(() =>
+  loadReleaseHistoryPage().then(({ ReleaseHistoryPage }) => ({ default: ReleaseHistoryPage }))
+);
+const ProfilePreview = lazy(() =>
+  loadProfilePage().then(({ ProfilePage }) => ({ default: ProfilePage }))
+);
 
 const LABELS: Record<PreviewPath, string> = {
   '/home': 'Home',
@@ -46,6 +62,10 @@ const LABELS: Record<PreviewPath, string> = {
   '/messages': 'Chat',
   '/account': 'Me',
   '/settings': 'Settings',
+  '/settings/preferences': 'Preferences',
+  '/settings/notifications': 'Notification settings',
+  '/settings/releases': 'Release history',
+  '/profile': 'Profile',
 };
 
 function isPreviewPath(pathname: string): pathname is PreviewPath {
@@ -65,37 +85,24 @@ const Fallback: React.FC<{ pathname: PreviewPath }> = ({ pathname }) => (
   </div>
 );
 
+// A route added to the supported registry must also have a lazy preview.
+const PAGES: Record<PreviewPath, React.ComponentType> = {
+  '/home': HomePreview,
+  '/explore': ExplorePreview,
+  '/notifications': () => <NotificationsPreview preview />,
+  '/messages': MessagesPreview,
+  '/account': AccountPreview,
+  '/settings': SettingsPreview,
+  '/settings/preferences': PreferencesPreview,
+  '/settings/notifications': NotificationSettingsPreview,
+  '/settings/releases': ReleaseHistoryPreview,
+  '/profile': ProfilePreview,
+};
+
 const PrimaryRoutePreviewComponent: React.FC<{ pathname: string }> = ({ pathname }) => {
   if (!isPreviewPath(pathname)) return null;
-
-  let content: React.ReactNode;
-  switch (pathname) {
-    case '/home':
-      content = <HomePreview />;
-      break;
-    case '/explore':
-      content = <ExplorePreview />;
-      break;
-    case '/notifications':
-      content = <NotificationsPreview preview />;
-      break;
-    case '/messages':
-      content = <MessagesPreview />;
-      break;
-    case '/account':
-      content = <AccountPreview />;
-      break;
-    case '/settings':
-      content = <SettingsPreview />;
-      break;
-    default: {
-      // Compile-time exhaustive check for a newly enabled Preview route.
-      const unreachable: never = pathname;
-      throw new Error('Unsupported route preview: ' + unreachable);
-    }
-  }
-
-  return <Suspense fallback={<Fallback pathname={pathname} />}>{content}</Suspense>;
+  const Page = PAGES[pathname];
+  return <Suspense fallback={<Fallback pathname={pathname} />}><Page /></Suspense>;
 };
 
 export const PrimaryRoutePreview = memo(PrimaryRoutePreviewComponent);

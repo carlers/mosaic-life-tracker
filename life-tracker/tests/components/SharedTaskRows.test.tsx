@@ -52,6 +52,21 @@ describe('received shared task interactions', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('toggles shared completion without blurring a different focused task input', () => {
+    const toggle = vi.fn();
+    render(<>
+      <input data-task-inline-input aria-label="Other task draft" />
+      <SharedTaskRows {...baseProps} onSetCompleted={toggle} />
+    </>);
+    const input = screen.getByRole('textbox', { name: 'Other task draft' });
+    input.focus();
+    const checkbox = screen.getByRole('button', { name: 'Mark complete' });
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'mouse' })).toBe(false);
+    fireEvent.click(checkbox);
+    expect(toggle).toHaveBeenCalledExactlyOnceWith(row, true);
+    expect(input).toHaveFocus();
+  });
+
   it('uses the familiar inline title editor only when the owner granted permission', async () => {
     const edit = vi.fn(async () => {});
     const date = vi.fn(async () => {});

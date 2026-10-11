@@ -297,6 +297,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             </label>
             <input
               id={inputId}
+              data-task-inline-input
               ref={setInputRef}
               type="text"
               value={newTitle}

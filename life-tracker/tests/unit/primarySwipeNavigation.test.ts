@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolvePrimarySwipeDestination,
   resolveRouteParent,
+  resolveSettingsHistoryForward,
 } from '../../src/lib/primarySwipeNavigation';
 import { PROTECTED_ROUTES, PRIMARY_ROUTE_PATHS, matchProtectedRoute, protectedRouteSwipeMode, protectedRouteHidesBottomNav } from '../../src/lib/protectedRoutes';
 
@@ -28,6 +29,26 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(resolvePrimarySwipeDestination('/friends/friend_1', 'left')).toBeNull();
   });
 
+  // Regression: §2 (Settings can swipe forward only after a verified Back).
+  it('reopens only the adjacent Settings child preserved by browser/Android Back', () => {
+    const previous = (path: string, parent: string | null = resolveRouteParent(path)) =>
+      ({ path, parent });
+    const settings = '/settings';
+    const delta = -1;
+
+    for (const child of ['/settings/preferences', '/settings/notifications', '/settings/releases', '/profile']) {
+      expect(resolveSettingsHistoryForward(previous(child), settings, delta, 'POP')).toBe(child);
+    }
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, delta, 'PUSH')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, delta, 'REPLACE')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences', '/notifications'), settings, delta, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/messages'), settings, delta, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, -3, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), '/account', delta, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, null, 'POP')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, 0, 'POP')).toBeNull();
+  });
+
   // Regression: §2 (Settings child pages are right-swipe detail routes).
   it('returns Settings from Profile and Preferences on a right swipe', () => {
     expect(resolvePrimarySwipeDestination('/profile', 'right')).toBe('/settings');
@@ -44,7 +65,7 @@ describe('resolvePrimarySwipeDestination', () => {
   });
   it('derives page layout and swipe defaults from the same protected-route entries', () => {
     expect(PROTECTED_ROUTES.map((route) => route.path)).toEqual([
-      '/home', '/explore', '/friends/:friendId', '/notifications',
+      '/home', '/backlog', '/explore', '/friends/:friendId', '/notifications',
       '/messages', '/messages/:friendId', '/account', '/settings',
       '/settings/releases', '/settings/preferences', '/settings/notifications', '/settings/screen', '/profile',
     ]);
@@ -52,6 +73,12 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(PRIMARY_ROUTE_PATHS).toEqual([
       '/home', '/explore', '/notifications', '/messages', '/account',
     ]);
+    expect(matchProtectedRoute('/backlog')?.id).toBe('backlog');
+    expect(resolveRouteParent('/backlog')).toBe('/home');
+    expect(protectedRouteSwipeMode('/backlog')).toBe('full');
+    expect(protectedRouteSwipeMode('/settings/releases')).toBe('full');
+    // Detail routes inherit swipe-back; nested horizontal gesture owners opt into edge-back.
+    expect(protectedRouteSwipeMode('/profile')).toBe('full');
     expect(matchProtectedRoute('/messages/user_1')?.id).toBe('chat');
     expect(matchProtectedRoute('/friends/friend_1')?.id).toBe('friendCalendar');
     expect(matchProtectedRoute('/friends/')?.id).toBeUndefined();

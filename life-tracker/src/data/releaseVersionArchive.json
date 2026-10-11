@@ -1,0 +1,138 @@
+[
+  {
+    "tag": "v0.16.5",
+    "title": "Sent sticker replies",
+    "notes": "- Keep thumbnails in sent sticker quotes and improve iOS reply focus.",
+    "pr": 540,
+    "commit": "913f3e738e570edafa2f15ae8be4abfd142952cb",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.16.4",
+    "title": "Sticker reply previews",
+    "notes": "- Show sticker artwork in quoted replies and focus the reply composer.",
+    "pr": 535,
+    "commit": "400ca9d1448617e6a88e8f23b5f2cb324351cadf",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.16.3",
+    "title": "Sticker playback fix",
+    "notes": "- Make Play/Pause work without disrupting message swipe gestures.",
+    "pr": 532,
+    "commit": "36ed071d614e95df0e0990d0c538c161600f01e6",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.16.2",
+    "title": "Static-first GIPHY stickers",
+    "notes": "- Show static stickers by default with optional playback and autoplay.",
+    "pr": 525,
+    "commit": "216621b7053904aefa1c7a6c28be39a6264d6adf",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.16.1",
+    "title": "GIPHY sticker search",
+    "notes": "- Search and send GIPHY stickers directly in chat.",
+    "pr": 513,
+    "commit": "f2bf96d459b64190caaa32afb992e9adbf9cf207",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.16.0",
+    "title": "Sticker libraries",
+    "notes": "- Browse and send curated sticker packs on demand.",
+    "pr": 511,
+    "commit": "1c33eefef0d709ac6aebc74d568c6eb105633878",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.15.0",
+    "title": "Backlogs preview",
+    "notes": "- Add an undated task backlog; not yet included in a production release.",
+    "pr": 503,
+    "commit": "040814e3d5627025fdc54f8906191ebfce06516e",
+    "productionTag": null
+  },
+  {
+    "tag": "v0.14.5",
+    "title": "One-tap date selection",
+    "notes": "- Open Change Date immediately for normal, shared, and bulk tasks.",
+    "pr": 544,
+    "commit": "f8584e6e8681bc1ef751eaf3ec7759f5704b4ebf",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.14.4",
+    "title": "Shared task placement fixes",
+    "notes": "- Fix recipient drag/reorder and category moves; open the date calendar directly.",
+    "pr": 538,
+    "commit": "08e0132fdd5d3309de8561f4ca3fe9670858170e",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.14.3",
+    "title": "Consistent shared task controls",
+    "notes": "- Use ordinary task alignment, actions, copy behavior, and long-press dragging.",
+    "pr": 527,
+    "commit": "e744bb0a7852a391c47aa94ac506cb28b5fe666d",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.14.2",
+    "title": "Recipient categories and edit permissions",
+    "notes": "- Organize received shares and grant friend-specific title/date editing.",
+    "pr": 522,
+    "commit": "5ea5cff93b5e9807b3d805bec7a680aa261edb74",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.14.1",
+    "title": "Shared tasks in Alerts and Calendar",
+    "notes": "- Accept invitations in Alerts and see shared tasks across Calendar and Day View.",
+    "pr": 516,
+    "commit": "8afc36946180172d027a6dd24083d9baec4ff17f",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.14.0",
+    "title": "Shared tasks with friends",
+    "notes": "- Invite multiple friends, share completion, and queue offline actions.",
+    "pr": 490,
+    "commit": "088cdb7ad0c9001af42b66c90ca854560637bc68",
+    "productionTag": "v0.16.6"
+  },
+  {
+    "tag": "v0.13.2",
+    "title": "Keyboard sticker prototype",
+    "notes": "- Explore direct Android keyboard sticker sending; later replaced by sticker libraries.",
+    "pr": 500,
+    "commit": "da437a11a85fcf1f5f49fc980be85c0d7c8a23ae",
+    "productionTag": null
+  },
+  {
+    "tag": "v0.13.1",
+    "title": "Custom sticker reliability",
+    "notes": "- Lazy-load custom sticker media and recover from offline failures; prototype not shipped.",
+    "pr": 495,
+    "commit": "1344e5996b2c0d4004f7b55eeb48d810d86cecc6",
+    "productionTag": null
+  },
+  {
+    "tag": "v0.13.0",
+    "title": "Custom sticker prototype",
+    "notes": "- Experiment with private image sticker uploads; later replaced by sticker libraries.",
+    "pr": 486,
+    "commit": "fa9b5b7333a8da5655c04148074c61dd1e591c5d",
+    "productionTag": null
+  },
+  {
+    "tag": "v0.12.0",
+    "title": "In-app release history",
+    "notes": "- Browse production release notes from Settings.",
+    "pr": 480,
+    "commit": "0634d2e73520a68aa678c1d4a3770106f54ad3d1",
+    "productionTag": "v0.12.1"
+  }
+]

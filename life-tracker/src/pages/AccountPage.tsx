@@ -31,7 +31,7 @@ export const AccountPage: React.FC = () => {
     }
   };
 
-  const backlogCount = tasks.filter((t) => !t.completed).length;
+  const backlogCount = tasks.filter((t) => t.date === '' && !t.isDeleted && !t.completed).length;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -77,13 +77,14 @@ export const AccountPage: React.FC = () => {
             <span className="text-xs text-gray-400">Sticker Shop</span>
           </div>
         </div>
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
+        <button type="button" onClick={() => navigate('/backlog', { state: makeRouteParentState('/account') })}
+          className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <div>
-            <h3 className="text-base font-bold text-white">Backlog</h3>
+            <h3 className="text-base font-bold text-white">Backlogs</h3>
             <p className="text-sm text-gray-400">{backlogCount} tasks</p>
           </div>
           <ListTodo size={24} className="text-gray-400" aria-hidden="true" />
-        </div>
+        </button>
         <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-white">Categories</h3>

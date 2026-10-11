@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadReleaseHistory, normalizeReleases, RELEASES_URL } from '../../src/lib/releaseHistory';
+import { loadReleaseHistory, normalizeReleases, readCachedReleaseHistory, splitReleaseMilestones, previewOnlyMilestones, RELEASES_URL } from '../../src/lib/releaseHistory';
 
 const entry = (tag: string, date: string, other: Record<string, unknown> = {}) => ({
   tag_name: tag, name: tag + ' changes', body: '- Feature update',
@@ -42,6 +42,7 @@ describe('public production release history', () => {
     expect(first.releases).toHaveLength(1);
     expect(fetcher).toHaveBeenCalledWith(RELEASES_URL, expect.any(Object));
     expect((await loadReleaseHistory()).source).toBe('cached');
+    expect(readCachedReleaseHistory()?.releases[0].tag).toBe('v0.6.2');
     expect(fetcher).toHaveBeenCalledTimes(1);
     const offline = await loadReleaseHistory(true);
     expect(offline.source).toBe('cached');
@@ -57,6 +58,66 @@ describe('public production release history', () => {
     localStorage.clear();
     const unavailable = await loadReleaseHistory();
     expect(unavailable).toMatchObject({ source: 'unavailable', releases: [] });
+  });
+
+  it('extracts ordered verified version sections without showing Markdown markers as notes', () => {
+    const body = '- **Shipped update**\n\n<!-- mosaic:milestones:v1 -->\n## Version milestones\n' +
+      '### v0.16.5 — Sticker improvements\n- **Static** stickers\n\n' +
+      '### v0.15.0 — Shared tasks\n- Better collaboration\n\n' +
+      '### v0.99.0 — Unshipped\n- Reject this\n' +
+      '<!-- /mosaic:milestones:v1 -->';
+    const item = normalizeReleases([entry('v0.16.7', '2026-10-11T00:00:00Z', { body })])[0];
+    expect(item.milestones.map(x => x.tag)).toEqual(['v0.16.5', 'v0.15.0']);
+    expect(item.milestones[0].notes).toContain('**Static**');
+    expect(item.notes).toBe('- **Shipped update**');
+    expect(splitReleaseMilestones('- Normal release', 'v0.16.6').milestones).toEqual([]);
+  });
+
+  it('restores all intermediate shipped minor and patch milestones from accepted PRs', () => {
+    const record = normalizeReleases([entry('v0.16.6', '2026-10-11T03:10:48Z', {
+      body: '- **Shared tasks:** collaborative completion\n- **Stickers:** chat packs',
+    })])[0];
+    expect(record.milestones.map(x => x.tag)).toEqual([
+      'v0.16.5', 'v0.16.4', 'v0.16.3', 'v0.16.2', 'v0.16.1', 'v0.16.0',
+      'v0.14.5', 'v0.14.4', 'v0.14.3', 'v0.14.2', 'v0.14.1', 'v0.14.0',
+    ]);
+    expect(record.milestones.find(x => x.tag === 'v0.14.2')?.url)
+      .toBe('https://github.com/carlers/mosaic-life-tracker/pull/522');
+    expect(record.milestones.some(x => x.tag === 'v0.15.0')).toBe(false);
+    expect(record.notes).toContain('Shared tasks');
+    const historical = normalizeReleases([entry('v0.12.1', '2026-10-10T18:09:57Z')])[0];
+    expect(historical.milestones.map(x => x.tag)).toEqual(['v0.12.0']);
+  });
+
+  it('separates unshipped and abandoned Preview versions from production', () => {
+    const records = normalizeReleases([entry('v0.16.6', '2026-10-11T03:10:48Z')]);
+    expect(previewOnlyMilestones(records).map(x => x.tag)).toEqual([
+      'v0.15.0', 'v0.13.2', 'v0.13.1', 'v0.13.0',
+    ]);
+    expect(previewOnlyMilestones(records).every(x => x.url?.startsWith(
+      'https://github.com/carlers/mosaic-life-tracker/pull/',
+    ))).toBe(true);
+  });
+
+  it('deduplicates publisher backfill and checked-in archival notes', () => {
+    const release = normalizeReleases([entry('v0.16.6', '2026-10-11T03:10:48Z', {
+      body: '- Overall changes\n\n<!-- mosaic:milestones:v1 -->\n' +
+        '## Version milestones\n### v0.14.2 — From publisher\n- Released changes\n' +
+        '<!-- /mosaic:milestones:v1 -->',
+    })])[0];
+    expect(release.milestones.filter(x => x.tag === 'v0.14.2')).toHaveLength(1);
+    expect(release.milestones.find(x => x.tag === 'v0.14.2')?.notes).toBe('- Released changes');
+  });
+
+  it('keeps stale saved notes offline and only revalidates when expired', async () => {
+    const oldTime = Date.now() - 60 * 60 * 1000;
+    localStorage.setItem('mosaic:public-releases:v1', JSON.stringify({
+      fetchedAt: oldTime, items: [entry('v0.6.2', '2026-10-08T00:00:00Z')],
+    }));
+    expect(readCachedReleaseHistory()?.source).toBe('cached');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    const saved = await loadReleaseHistory();
+    expect(saved).toMatchObject({ source: 'cached', fetchedAt: oldTime });
   });
 
   it('ignores corrupted cache and never trusts arbitrary release URLs', async () => {

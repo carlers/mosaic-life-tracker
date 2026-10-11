@@ -5,6 +5,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import { format, parseISO } from 'date-fns';
+import { isScheduledTaskDate } from '../../lib/taskPlacement';
 import {
   CalendarDays,
   CheckCircle2,
@@ -47,6 +48,8 @@ const DATE_FILTERS: Array<{
 ];
 
 function taskDateLabel(date: string): string {
+  if (date === '') return 'Unscheduled';
+  if (!isScheduledTaskDate(date)) return 'Invalid date';
   return format(parseISO(date), 'EEE, MMM d, yyyy');
 }
 

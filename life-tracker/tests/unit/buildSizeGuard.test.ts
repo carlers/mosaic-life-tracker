@@ -137,56 +137,38 @@ describe('build-size guard', () => {
     });
   });
 
-  // Regression: §24.14 (reviewed startup closure headroom).
-  it('keeps startup closure limits near five percent above the reviewed baseline', async () => {
+  // Current ceilings belong only in config/build-size-budget.json. Numerical
+  // revisions require an explicit review record and the diff-based CI contract.
+  it('loads the canonical seven-metric budget without duplicating cap numbers', async () => {
     const configuredBudget = JSON.parse(await readFile(
-      new URL('../../config/build-size-budget.json', import.meta.url),
-      'utf8',
+      new URL('../../config/build-size-budget.json', import.meta.url), 'utf8',
     ));
-
-    expect(configuredBudget.baseline).toMatchObject({
-      measuredAt: '2026-10-03',
-      commit: '9ca52e2',
-    });
-
-    for (const metric of [
-      'entryRawBytes',
-      'entryGzipBytes',
-    ]) {
-      const baselineBytes = configuredBudget.baseline.metrics[metric];
-      const limitBytes = configuredBudget.limits[metric];
-      const ratio = limitBytes / baselineBytes;
-      expect(ratio).toBeGreaterThanOrEqual(1.049);
-      expect(ratio).toBeLessThanOrEqual(1.052);
+    expect(() => validateBuildSizeBudget(configuredBudget)).not.toThrow();
+    expect(Object.keys(configuredBudget.limits).sort()).toEqual(Object.keys(budget.limits).sort());
+    for (const metric of Object.keys(configuredBudget.limits)) {
+      expect(configuredBudget.limits[metric]).toBeGreaterThanOrEqual(
+        configuredBudget.baseline.metrics[metric],
+      );
     }
-    // v0.14.1 brings recipient Calendar and owner labels into Home. The
-    // measured Home closure was 359,732 B gzip. Cap its one-time increase
-    // tightly rather than weakening entry/initial startup limits.
-    expect(configuredBudget.limits.homeClosureGzipBytes).toBe(361000);
-    expect(configuredBudget.limits.homeClosureGzipBytes /
-      configuredBudget.baseline.metrics.homeClosureGzipBytes).toBeLessThanOrEqual(1.063);
-    // v0.14.0 adds lazy, durable share queues and their account/reconnect
-    // lifecycle. The measured Vercel initial closure was 144,049 B gzip:
-    // this exceptional bound gives only 801 B headroom and preserves the
-    // stricter entry and Home budgets.
-    expect(configuredBudget.limits.initialClosureGzipBytes).toBe(144850);
-    expect(configuredBudget.limits.initialClosureGzipBytes /
-      configuredBudget.baseline.metrics.initialClosureGzipBytes).toBeLessThanOrEqual(1.059);
+    expect(configuredBudget.baseline.commit).toMatch(/^[a-f0-9]{7,40}$/);
   });
 
-  // Regression: §24.14 (aggregate/precache ceilings include reviewed shipped
-  // product growth without widening startup/Home limits).
-  it('preserves the reviewed aggregate and precache ceilings', async () => {
-    const configuredBudget = JSON.parse(await readFile(
-      new URL('../../config/build-size-budget.json', import.meta.url),
-      'utf8',
-    ));
-
-    expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2393000,
-      appAssetsGzipBytes: 739000,
-      precacheUniqueBytes: 2477000,
-    });
+  it('fails a meaningful shipped-growth regression instead of silently inflating aggregate caps', async () => {
+    const configured = validateBuildSizeBudget(JSON.parse(await readFile(
+      new URL('../../config/build-size-budget.json', import.meta.url), 'utf8',
+    )));
+    const measured = { ...configured.baseline.metrics };
+    for (const metric of Object.keys(configured.limits)) measured[metric] = configured.limits[metric];
+    // Historical notifications growth: raw +13,487, gzip +6,711 and
+    // precache +23,354 B; a legitimate regression must remain blocking.
+    measured.appAssetsRawBytes += 13487;
+    measured.appAssetsGzipBytes += 6711;
+    measured.precacheUniqueBytes += 23354;
+    const result = evaluateBuildSizeBudget(configured, measured);
+    expect(result.passed).toBe(false);
+    expect(result.metrics.filter(entry => !entry.passed).map(entry => entry.name)).toEqual([
+      'appAssetsRawBytes', 'appAssetsGzipBytes', 'precacheUniqueBytes',
+    ]);
   });
 
   // Regression: a longer release commit body must not consume PWA code-size

@@ -83,7 +83,7 @@ interface DayViewSheetProps {
   onClose: () => void;
   selectedDate: Date;
   onDateChange?: (date: Date) => void;
-  renderMode?: 'sheet' | 'inline';
+  renderMode?: 'sheet' | 'inline' | 'backlog';
   tasks?: TaskDocument[];
   categories?: CategoryDocument[];
   focusTaskId?: string | null;
@@ -101,6 +101,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   focusTaskId = null,
   holidayConfig: holidayConfigOverride,
 }) => {
+  const isBacklogView = renderMode === 'backlog';
   const appearance = React.useContext(AppearanceContext);
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const { user } = useAuth();
@@ -140,6 +141,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     );
 
   const tasks = tasksOverride ?? taskStore.tasks ?? EMPTY_TASKS;
+  const backlogTasks = useMemo(() => tasks.filter((task) => task.date === '' && !task.isDeleted), [tasks]);
   const categories = categoriesOverride ?? hookCategories;
   const tasksByDate = useTasksByDate(tasks);
   const [ownerPendingRevision, setOwnerPendingRevision] = useState(0);
@@ -302,7 +304,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }, [activeIndex, renderWindow, slideDates]);
   const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
 
-  const activeDateStr = slideDateStrs[activeIndex] ?? format(selectedDate, 'yyyy-MM-dd');
+  const activeDateStr = isBacklogView ? '' : (slideDateStrs[activeIndex] ?? format(selectedDate, 'yyyy-MM-dd'));
   const previousActiveDateStrRef = useRef(activeDateStr);
   const selectedTasks = useMemo(
     () =>
@@ -354,7 +356,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }, [onClose]);
 
   useEffect(() => {
-    if (!isOpen || renderMode !== 'sheet' || !focusTaskId) return;
+    if (!isOpen || (renderMode !== 'sheet' && !isBacklogView) || !focusTaskId) return;
 
     let clearTimer: number | null = null;
     const frame = requestAnimationFrame(() => {
@@ -387,7 +389,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         .querySelector('[data-day-view-focus-scope="true"] [data-search-focused="true"]')
         ?.removeAttribute('data-search-focused');
     };
-  }, [focusTaskId, isOpen, renderMode, selectedDate]);
+  }, [focusTaskId, isBacklogView, isOpen, renderMode, selectedDate]);
 
   const handleSheetHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
@@ -538,7 +540,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           date: dateStr,
           completed,
           ...(completed ? { completedAt: new Date().toISOString() } : {}),
-          visibility: '',
+          visibility: dateStr === '' ? 'private' : '',
         },
         addTasksToTop ? 'top' : 'bottom'
       );
@@ -640,6 +642,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
     const newDate = activeTask.date === today ? tomorrow : today;
     await updateTask(activeTask.id, { date: newDate });
+    setActiveTaskId(null);
+  }, [activeTask, updateTask]);
+
+  const handleMoveToBacklog = useCallback(async () => {
+    if (!activeTask) return;
+    await updateTask(activeTask.id, { date: '' });
     setActiveTaskId(null);
   }, [activeTask, updateTask]);
 
@@ -746,7 +754,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     isBulkWorking ||
     !!imagePickerTaskId;
   useEffect(() => {
-    if (renderMode !== 'inline' || !isSelectMode) return;
+    if (renderMode === 'sheet' || !isSelectMode) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || isBackgroundLocked) return;
       event.preventDefault();
@@ -758,7 +766,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   // A11Y-33: keyboard arrows mirror the existing swipe/chevron day navigation.
   // Nested sheets and text editing retain their own keyboard behavior.
   useHorizontalArrowNavigation({
-    enabled: isOpen && !isBackgroundLocked && !isTaskReorderActive,
+    enabled: isOpen && !isBacklogView && !isBackgroundLocked && !isTaskReorderActive,
     onLeft: handlePrevDayFromUi,
     onRight: handleNextDayFromUi,
   });
@@ -780,6 +788,46 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
 
   const content = (
     <>
+      {isBacklogView ? (
+        <>
+          <div className="flex justify-end px-4 py-2">
+            <button type="button" onClick={handleToggleSelectMode}
+              aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
+              aria-pressed={isSelectMode}
+              className="rounded-lg px-3 py-1.5 text-sm text-gray-300 focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            >{isSelectMode ? 'Done' : 'Select'}</button>
+          </div>
+          <DaySlide
+            date={selectedDate}
+            dateStr=""
+            scrollMode="page"
+            tasks={backlogTasks}
+            categories={categories}
+            currentUserId={currentUserId}
+            editingTaskId={editingTaskId}
+            editValue={editValue}
+            onToggleTask={handleToggleTask}
+            onAddTask={handleAddTask}
+            onOpenActions={handleOpenActions}
+            onOpenMemo={handleOpenMemo}
+            onEditTask={handleEditTask}
+            onViewImage={handleViewImage}
+            onEditChange={handleEditChange}
+            onEditSave={handleEditSave}
+            onEditCancel={handleEditCancel}
+            continueAddingTasks={continueAddingTasks}
+            showCategoryCollapseButton={showCategoryCollapseButton}
+            taskSortMode={taskSortMode}
+            selectionMode={isSelectMode}
+            selectedTaskIds={selectedTaskIds}
+            onToggleTaskSelection={handleToggleTaskSelection}
+            reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
+            reorderRuntimeActive={isOpen}
+            onReorderTasks={reorderTasks}
+            onReorderActiveChange={setIsTaskReorderActive}
+          />
+        </>
+      ) : (
       <Swiper
         nested={renderMode === 'inline'}
         allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen}
@@ -957,6 +1005,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           );
         })}
       </Swiper>
+      )}
       <AnimatePresence initial={false}>
         {isSelectMode && (
           <motion.div
@@ -987,6 +1036,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             isWorking={isBulkWorking}
             onClose={() => setIsBulkActionOpen(false)}
             onMoveCategory={() => { setIsBulkActionOpen(false); setIsBulkCategoryOpen(true); }}
+            onMoveToBacklog={isBacklogView ? undefined : () => runBulkUpdate({ date: '' })}
             onChangeDate={async date => { await runBulkUpdate({ date }); }}
             onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
@@ -1027,6 +1077,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onViewPhoto={handleOpenImageViewer}
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
+        onMoveToBacklog={handleMoveToBacklog}
       />
       <Suspense fallback={null}>
         {shareSheetMounted && (
@@ -1104,12 +1155,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     </>
   );
 
-  if (renderMode === 'inline') {
+  if (renderMode !== 'sheet') {
     return (
       <div
         className={`flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-x-hidden ${isBackgroundLocked ? 'pointer-events-none' : ''}`}
         aria-hidden={isBackgroundLocked || undefined}
-        data-testid="inline-day-view"
+        data-testid={isBacklogView ? 'backlog-day-view' : 'inline-day-view'}
+        data-day-view-focus-scope={isBacklogView && focusTaskId ? 'true' : undefined}
       >
         {content}
       </div>

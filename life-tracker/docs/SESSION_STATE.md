@@ -1,15 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: finish issue #406 approved Preview -> dev integration, deployment repair only (version impact NONE).
+Current task: Backlogs bulk selection + consistent full-page swipe back (issue #407).
 
-## State/evidence
-- Integrated v0.16.6 stable Preview feature/shared-tasks-dev-integration SHA ab1c450f5614ac00e9af833bf2f5c237322adb4d passed canonical gate 38079683632 and Vercel READY.
-- PR #547 merge into dev at 75c8aeaf3a7cafc4bf32cae77c06c81d488178d3 preserved exact accepted Preview tree 11f8d91d83666abe30e54a57769bd1316d2787ed. Main/Production unchanged.
-- Vercel dev deployment dpl_3mGGfud88ZXiyfacZYnHRsqPfZQP failed **only** the aggregate raw-asset budget by 268 B. Its build compiled and passed PWA, entry, initial, Home and other budget checks. Vercel measurements: aggregate raw 2,391,268 B; gzip 737,674 B; precache 2,475,479 B. Preview build had lower aggregate byte totals.
-- Adjust only measured aggregate ceilings to 2,393,000 B raw, 739,000 B gzip, 2,477,000 B precache. Keep entry, initial closure and Home closure ceilings unchanged. No app code, backend, dependency or version changes. Repo size-budget regression values aligned.
-- Scratch Function/row schema already active and secure; account/grants data still Scratch only. Manual iOS/Android device acceptance not claimed.
+## Verified starting point
+- Source `dev@2b609a2c032401b9253cd2b67b51fb44a45ababc`, version 0.17.3; main stays at 0.16.6. Workflow #592 is already merged to dev, canonical acceptance and Vercel READY.
+- Backlogs owns unscheduled tasks through existing `date: ''`; moving an existing selected task must update the same task identity, preserving all other fields and keeping failed IDs selected.
+- Protected detail-page swipe used `edge-back` by default even though Settings already uses `full`. Chat/friend-calendar gesture owners must retain edge-only activation.
+
+## Change / delivery
+- Preview version 0.17.4: add `Move to Backlog` to the shared multi-task action sheet only for dated tasks. Reuse existing `runBulkUpdate({ date: '' })` and all-settled failure handling; no schema/Function changes.
+- Make the protected detail-route swipe default `full`, with explicit `edge-back` exceptions for chat and friend calendar. Backlogs retains its existing Home/Me parent-route resolution, animation, and preview.
+- Regression coverage: multi-task selected updates, partial failure retry/retention, action hidden on Backlogs, route defaults and nested-gesture exceptions.
+- Branch `chatgpt/backlog-bulk-swipe-407-20261011`, target stable Preview `feature/backlog-bulk-swipe-407`. No dev/main promotion approved.
 
 ## Next action
-- Commit this scoped deployment-budget repair (and checkpoint) from accepted stable Preview as a task with [verify:focused].
-- Squash into feature/shared-tasks-dev-integration; run full canonical CI and exact-SHA Preview Vercel readiness, then merge via PR into dev with identical tree and verify dev GitHub CI and Vercel READY/200. No main/Production promotion. Issue #406 stays open pending release.
+- Run focused task CI, repair failures, squash into stable Preview. Require exact-SHA canonical CI and Vercel READY before user acceptance. Explicit device/trackpad gestures and authenticated Scratch Backlogs behavior remain manual checks. No Appwrite or Production writes.

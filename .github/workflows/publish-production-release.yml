@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: ['Quality Gate']
     types: [completed]
+    branches: [main] # Avoid a skipped publication run for every non-main Quality Gate.
   workflow_dispatch:
   schedule:
     - cron: '17 */6 * * *'
@@ -41,6 +42,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0 # Source dev first-parent history is required for verified version milestones.
           persist-credentials: false
           sparse-checkout: |
             life-tracker
