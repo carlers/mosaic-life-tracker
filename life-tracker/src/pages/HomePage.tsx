@@ -108,7 +108,7 @@ export const HomePage: React.FC = () => {
     };
 
     if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(warm);
+      const idleId = window.requestIdleCallback(warm, { timeout: 1200 });
       return () => {
         cancelled = true;
         window.cancelIdleCallback?.(idleId);
@@ -117,7 +117,7 @@ export const HomePage: React.FC = () => {
 
     // Safari lacks requestIdleCallback; allow startup and Home's existing
     // render-window expansion to settle before attempting the import.
-    const timer = window.setTimeout(warm, 1800);
+    const timer = window.setTimeout(warm, 900);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
