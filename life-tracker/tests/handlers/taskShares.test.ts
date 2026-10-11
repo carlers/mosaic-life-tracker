@@ -80,6 +80,33 @@ describe('task sharing Function authorization and completion', () => {
     expect(JSON.stringify(result.body)).not.toContain('SECRET');
   });
 
+  it('keeps unscheduled Backlog tasks private even if a share was previously accepted', async () => {
+    task = baseTask({ date: '' });
+    db.listRows.mockResolvedValue({ rows: [share] });
+    for (const [actor, scope] of [[invitee, 'received'], [owner, 'owned']] as const) {
+      const response = await invoke({ userId: actor, mockDb: db,
+        body: { action: 'task_shares', operation: 'list', scope } });
+      expect(response.status).toBe(200);
+      expect(response.body.items).toEqual([]);
+      expect(JSON.stringify(response.body)).not.toContain('Shared title');
+    }
+    const attempted = await invoke({ userId: invitee, mockDb: db,
+      body: { action: 'task_shares', operation: 'set_completed', ownerId: owner, taskId,
+        grantEpoch: 'grant_abc', completed: true,
+        expectedRevision: task.$updatedAt, operationId: 'cmd_private' } });
+    expect(attempted.status).toBe(404);
+    expect(db.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('rejects invitations to unscheduled Backlog tasks', async () => {
+    task = baseTask({ date: '' });
+    const response = await invoke({ userId: owner, mockDb: db,
+      body: { action: 'task_shares', operation: 'invite', taskId, friendUserId: invitee } });
+    expect(response.status).toBe(404);
+    expect(db.updateRow).not.toHaveBeenCalled();
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
   it('coalesces owner list task reads across multiple collaborators without leaking fields', async () => {
     const recipients = ['user_B', 'user_C', 'user_D'];
     db.listRows.mockResolvedValue({ rows: recipients.map(inviteeId => baseShare({

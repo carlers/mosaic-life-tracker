@@ -37,6 +37,8 @@ executes that guard before lint, tests, and the production build. This checker v
 reference integrity and discoverability; it does not claim to prove that prose is
 semantically complete or that implementation behavior matches every contract.
 
+**Backlogs (#407):** `/backlog` is a date-free owner Day View, not a calendar day or separate task entity. It reuses normal category sections, task gestures/actions and reorder ownership. Both Home hamburger and Me link to it; undated Home search focuses a task on the Backlogs page. Calendar ⇄ Backlogs updates the same task's `date`, with empty string (`date: ''`) meaning unscheduled. Unscheduled tasks are not shown through friend calendars, notifications, or shared-task projections, even when a previously shared scheduled task moves to Backlogs. No new backend/schema collection is introduced. Release to main requires separate authorization.
+
 ## 1. The Vision
 - An offline-first, local-first, self-hostable "Life Tracker" PWA
 - **Phase 1:** A pixel-perfect, highly polished clone of "Todo Mate" (tasks, categories, social calendar, diary) to replace an ad-filled app
