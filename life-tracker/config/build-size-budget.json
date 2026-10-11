@@ -17,9 +17,26 @@
     "entryRawBytes": 444400,
     "entryGzipBytes": 132200,
     "initialClosureGzipBytes": 145200,
-    "homeClosureGzipBytes": 362900,
-    "appAssetsRawBytes": 2407000,
-    "appAssetsGzipBytes": 744350,
-    "precacheUniqueBytes": 2492250
+    "homeClosureGzipBytes": 363400,
+    "appAssetsRawBytes": 2414000,
+    "appAssetsGzipBytes": 746900,
+    "precacheUniqueBytes": 2499500
+  },
+  "review": {
+    "issue": "#405",
+    "reason": "Measured Bucket List MVP adds an isolated aspirations route, owner-only sync, and portable backup/restore; reusing existing owner replication mechanisms reduced the size impact, but the legitimate new product data and UI exceed four prior 2026-10-03 limits. Keep entry and initial startup ceilings unchanged and preserve the pinned baseline.",
+    "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38147075247",
+    "metrics": [
+      "homeClosureGzipBytes",
+      "appAssetsRawBytes",
+      "appAssetsGzipBytes",
+      "precacheUniqueBytes"
+    ],
+    "previousLimits": {
+      "homeClosureGzipBytes": 362900,
+      "appAssetsRawBytes": 2407000,
+      "appAssetsGzipBytes": 744350,
+      "precacheUniqueBytes": 2492250
+    }
   }
 }
