@@ -552,3 +552,79 @@ test('@performance cached Home startup probe', async ({ page }) => {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await captureStartupMarks(page, 'warm-reload');
 });
+
+/** Simulate the real Calendar lazy-mount path, not a previously mounted closed sheet.
+ * Dev-server timings are diagnostic/relative, never production-device budgets. */
+test('@diagnostic Day View genuine first-mount timeline', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.waitForLoadState('domcontentloaded');
+
+  async function measureOpen(name) {
+    await page.evaluate(() => {
+      const start = performance.now();
+      const sample = {
+        start,
+        shellMs: null,
+        swiperMs: null,
+        firstHeaderMs: null,
+        firstTaskMs: null,
+        frames: [],
+        longTasks: [],
+        profileStart: (window.__mosaicReactProfile ?? []).length,
+      };
+      window.__dayViewColdProfile = sample;
+      if ('PerformanceObserver' in window) {
+        try {
+          sample.observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              sample.longTasks.push({ start: entry.startTime - start, duration: entry.duration });
+            }
+          });
+          sample.observer.observe({ type: 'longtask' });
+        } catch { /* Browser may not support the entry type. */ }
+      }
+      let lastFrame = null;
+      const poll = (now) => {
+        if (lastFrame !== null) sample.frames.push(now - lastFrame);
+        lastFrame = now;
+        if (sample.shellMs === null && document.querySelector('[role="dialog"]'))
+          sample.shellMs = now - start;
+        if (sample.swiperMs === null && document.querySelector('[role="dialog"] [data-testid="day-swiper"]'))
+          sample.swiperMs = now - start;
+        if (sample.firstHeaderMs === null && document.querySelector('[role="dialog"] [data-day-view-navigation="true"]'))
+          sample.firstHeaderMs = now - start;
+        if (sample.firstTaskMs === null && document.querySelector('[role="dialog"] [data-testid="day-swiper"] button[aria-label="Add task"]'))
+          sample.firstTaskMs = now - start;
+        if (now - start < 1000) requestAnimationFrame(poll);
+      };
+      requestAnimationFrame(poll);
+    });
+    await page.getByTestId('open-day-view-sheet').click();
+    await page.waitForTimeout(1120);
+    const result = await page.evaluate(() => {
+      const s = window.__dayViewColdProfile;
+      s.observer?.disconnect();
+      const frames = s.frames;
+      const longTasks = s.longTasks;
+      const profiles = (window.__mosaicReactProfile ?? []).slice(s.profileStart)
+        .filter((record) => record.id === 'DayViewSheet');
+      return {
+        shellMs: s.shellMs === null ? null : Math.round(s.shellMs),
+        swiperMs: s.swiperMs === null ? null : Math.round(s.swiperMs),
+        firstHeaderMs: s.firstHeaderMs === null ? null : Math.round(s.firstHeaderMs),
+        firstTaskMs: s.firstTaskMs === null ? null : Math.round(s.firstTaskMs),
+        maxFrameMs: Math.round(Math.max(0, ...frames)),
+        missedFrames: frames.filter(n => n > 25).length,
+        maxLongTaskMs: Math.round(Math.max(0, ...longTasks.map(x=>x.duration))),
+        longTasks: longTasks.map(x=>({start: Math.round(x.start), duration: Math.round(x.duration)})),
+        profiles,
+        slideCount: document.querySelectorAll('[role="dialog"] .swiper-slide').length,
+      };
+    });
+    console.log(`MOSAIC_FIRST_MOUNT ${name} ${JSON.stringify(result)}`);
+  }
+  await measureOpen('first');
+  await page.mouse.click(10, 10);
+  await page.waitForTimeout(520);
+  await measureOpen('reopen');
+});

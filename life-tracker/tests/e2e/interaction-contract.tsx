@@ -103,6 +103,7 @@ export function InteractionHarness() {
   const [todoGesture, setTodoGesture] = useState('idle');
   const [fullSheetOpen, setFullSheetOpen] = useState(false);
   const [dayViewSheetOpen, setDayViewSheetOpen] = useState(false);
+  const [dayViewSheetMounted, setDayViewSheetMounted] = useState(false);
   const [dayViewSelectedDate, setDayViewSelectedDate] = useState(
     () => new Date(2026, 8, 15)
   );
@@ -448,7 +449,7 @@ export function InteractionHarness() {
           <button
             type="button"
             data-testid="open-day-view-sheet"
-            onClick={() => setDayViewSheetOpen(true)}
+            onClick={() => { setDayViewSheetMounted(true); setDayViewSheetOpen(true); }}
             className="px-3 py-2"
           >
             Open day view sheet
@@ -458,13 +459,14 @@ export function InteractionHarness() {
             data-testid="open-next-day-view-sheet"
             onClick={() => {
               setDayViewSelectedDate(new Date(2026, 8, 16));
+              setDayViewSheetMounted(true);
               setDayViewSheetOpen(true);
             }}
             className="px-3 py-2"
           >
             Open next day view sheet
           </button>
-          <DayViewProbeBoundary>
+          {dayViewSheetMounted && <DayViewProbeBoundary>
             <Profiler
               id="DayViewSheet"
               onRender={(
@@ -502,7 +504,7 @@ export function InteractionHarness() {
                 categories={todoCategories}
               />
             </Profiler>
-          </DayViewProbeBoundary>
+          </DayViewProbeBoundary>}
         </>
       )}
       <button
