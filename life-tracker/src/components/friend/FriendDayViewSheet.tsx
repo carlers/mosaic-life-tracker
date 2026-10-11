@@ -107,7 +107,7 @@ const FriendTaskImage: React.FC<FriendTaskImageProps> = ({ task, onViewImage }) 
           alt={task.title}
           loading="lazy"
           decoding="async"
-          className="w-full h-full object-cover rounded-xl"
+          className="w-full h-full object-contain rounded-xl"
         />
       </button>
     );

@@ -404,6 +404,11 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
   200px visibility margin and latches after first enablement. `DeferredAvatar` is the
   standard persisted-avatar renderer. Keep selected headers and opened viewers eager;
   use the visibility gate for scroll rows, calendar blocks, and selected-day items.
+  A failed image acquisition must be retryable when an enabled view regains focus or
+  connectivity; a failed IndexedDB cache write must not hide a successfully downloaded
+  image, and a partial HTTP response must never be persisted as a complete image.
+  Owner and friend task-row photo previews show the full picture within their fixed
+  frame instead of cropping it; compact calendar density blocks may crop.
 - **Service-worker scope.** `vite-plugin-pwa` owns the SW registration at root scope.
   Do not register a second SW or precache user-generated content. Precache the app
   shell including lazy JS/CSS chunks so offline routes remain available. RxDB and
