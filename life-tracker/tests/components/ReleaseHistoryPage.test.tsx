@@ -6,13 +6,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const loadMock = vi.hoisted(() => vi.fn());
 vi.mock('../../src/lib/releaseHistory', () => ({
   loadReleaseHistory: loadMock,
+  readCachedReleaseHistory: () => null,
+  previewOnlyMilestones: () => [{
+    tag: 'v0.15.0', title: 'Backlogs preview', notes: '- Unshipped work',
+    url: 'https://github.com/carlers/mosaic-life-tracker/pull/503',
+  }],
   RELEASES_PAGE_URL: 'https://github.com/carlers/mosaic-life-tracker/releases',
 }));
 import { ReleaseHistoryPage } from '../../src/pages/ReleaseHistoryPage';
 
 const published = {
   tag: 'v0.6.2', date: '2026-10-08T00:00:00Z',
-  summary: 'Mosaic improvements', notes: '- Better task controls',
+  summary: 'Mosaic improvements', notes: '- **Better** task controls', milestones: [],
   url: 'https://github.com/carlers/mosaic-life-tracker/releases/tag/v0.6.2',
 };
 function page() {
@@ -34,8 +39,9 @@ describe('ReleaseHistoryPage', () => {
     expect(await screen.findByText('Mosaic improvements')).toBeInTheDocument();
     expect(screen.getByText('v0.6.2')).toBeInTheDocument();
     fireEvent.click(screen.getByText('v0.6.2').closest('summary')!);
-    expect(screen.getByText('- Better task controls')).toBeVisible();
-    expect(screen.getByRole('link', { name: /View official release/i }))
+    expect(screen.getByText('Better')).toBeInTheDocument();
+    expect(screen.getByText('Better').tagName).toBe('STRONG');
+    expect(screen.getByRole('link', { name: /View production release/i }))
       .toHaveAttribute('href', published.url);
     fireEvent.click(screen.getByRole('button', { name: 'Back to Settings' }));
     expect(screen.getByText('Settings destination')).toBeInTheDocument();
@@ -46,13 +52,42 @@ describe('ReleaseHistoryPage', () => {
       .mockResolvedValueOnce({ releases: [published], source: 'cached', fetchedAt: Date.now() })
       .mockResolvedValueOnce({ releases: [], source: 'unavailable', fetchedAt: null });
     const { unmount } = page();
-    expect(await screen.findByText(/No production release notes have been published/)).toBeInTheDocument();
+    expect(await screen.findByText(/No production releases published/)).toBeInTheDocument();
     unmount();
     const saved = page();
-    expect(await screen.findByText(/Showing saved release history/)).toBeInTheDocument();
+    expect(await screen.findByText(/Saved history/)).toBeInTheDocument();
     saved.unmount();
     page();
-    expect(await screen.findByRole('alert')).toHaveTextContent(/could not be loaded/);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/History unavailable/);
+  });
+
+  it('shows each verified patch/minor version with safe formatted Markdown', async () => {
+    loadMock.mockResolvedValue({ releases: [{
+      ...published, milestones: [
+        { tag: 'v0.16.5', title: 'Sticker improvements',
+          notes: '- **Static** stickers\n- [Details](https://github.com/example/release)\n- [Unsafe](javascript:alert)' },
+        { tag: 'v0.16.4', title: 'Task fixes', notes: '## Fixes\n- More reliable editing' },
+      ],
+    }], source: 'live', fetchedAt: Date.now() });
+    page();
+    expect(await screen.findByText('v0.16.5')).toBeInTheDocument();
+    expect(screen.getByText('v0.16.4')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('v0.16.5').closest('summary')!);
+    expect(screen.getByText('Static').tagName).toBe('STRONG');
+    expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('href', 'https://github.com/example/release');
+    expect(screen.queryByRole('link', { name: 'Unsafe' })).not.toBeInTheDocument();
+  });
+
+  it('keeps Preview-only versions separate from published release entries', async () => {
+    loadMock.mockResolvedValue({ releases: [published], source: 'live', fetchedAt: Date.now() });
+    page();
+    expect(await screen.findByRole('region', { name: 'Preview-only version history' })).toBeInTheDocument();
+    const preview = screen.getByRole('region', { name: 'Preview-only version history' });
+    expect(preview).toHaveTextContent('not released to production');
+    expect(preview).toHaveTextContent('v0.15.0');
+    fireEvent.click(screen.getByText('v0.15.0').closest('summary')!);
+    expect(screen.getByRole('link', { name: 'View version change on GitHub' }))
+      .toHaveAttribute('href', 'https://github.com/carlers/mosaic-life-tracker/pull/503');
   });
 
   it('retries on demand without repeatedly loading on re-render', async () => {

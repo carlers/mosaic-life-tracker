@@ -1,14 +1,39 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronLeft, RefreshCw } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ReleaseNotesMarkdown } from '../components/ui/ReleaseNotesMarkdown';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
-import { loadReleaseHistory, RELEASES_PAGE_URL, type ReleaseHistoryResult } from '../lib/releaseHistory';
+import {
+  loadReleaseHistory, previewOnlyMilestones, readCachedReleaseHistory, RELEASES_PAGE_URL,
+  type ReleaseHistoryResult, type VersionMilestone,
+} from '../lib/releaseHistory';
+
+function MilestoneRow({ entry, releaseUrl }: { entry: VersionMilestone; releaseUrl: string }) {
+  return (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 [&::-webkit-details-marker]:hidden">
+        <span className="shrink-0 text-sm font-semibold">{entry.tag}</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-gray-400">{entry.title}</span>
+        <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-[#333333] px-3 pb-3 pt-2">
+        {entry.notes && <ReleaseNotesMarkdown text={entry.notes} />}
+        <a href={entry.url || releaseUrl} target="_blank" rel="noopener noreferrer"
+          style={{ color: 'var(--mosaic-accent-text)' }}
+          className="mt-2 inline-block rounded-sm text-xs underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+          {entry.url ? 'View version change on GitHub' : 'View production release on GitHub'}
+        </a>
+      </div>
+    </details>
+  );
+}
 
 export function ReleaseHistoryPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [result, setResult] = useState<ReleaseHistoryResult | null>(null);
-  const [loading, setLoading] = useState(true);
+  // A previously visited history is visible on the very first render, even offline.
+  const [result, setResult] = useState<ReleaseHistoryResult | null>(readCachedReleaseHistory);
+  const [loading, setLoading] = useState(() => !readCachedReleaseHistory());
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
@@ -17,11 +42,13 @@ export function ReleaseHistoryPage() {
     void loadReleaseHistory(refresh > 0, controller.signal).then(data => {
       if (active) setResult(data);
     }).catch(() => {
-      if (active) setResult({ releases: [], source: 'unavailable', fetchedAt: null });
+      if (active && !result) setResult({ releases: [], source: 'unavailable', fetchedAt: null });
     }).finally(() => {
       if (active) setLoading(false);
     });
     return () => { active = false; controller.abort(); };
+    // Each refresh starts an independent abortable request. Cached data stays visible.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh]);
 
   const back = () => {
@@ -42,54 +69,64 @@ export function ReleaseHistoryPage() {
           <RefreshCw size={18} aria-hidden="true" />
         </button>
       </header>
-      <main className="mx-auto max-w-2xl px-4 pb-24 pt-5">
-        <p className="mb-4 text-sm text-gray-400">
-          Changes published to Mosaic production. Preview builds and development commits are not included.
-        </p>
-        {loading && !result && <p role="status" className="text-sm text-gray-400">Loading release history…</p>}
+      <main className="mx-auto max-w-2xl px-3 pb-24 pt-3">
+        {loading && !result && <p role="status" className="text-sm text-gray-400">Loading history…</p>}
         {result && (
           <>
             {result.source === 'cached' && (
-              <p role="status" className="mb-4 text-sm text-gray-400">
-                Showing saved release history{result.fetchedAt ? ' from ' + new Date(result.fetchedAt).toLocaleDateString() : ''}. Refresh when connected for the latest notes.
+              <p role="status" className="mb-3 text-xs text-gray-400">
+                Saved history{result.fetchedAt ? ' · ' + new Date(result.fetchedAt).toLocaleDateString() : ''}.
+                {loading ? ' Checking for updates…' : ''}
               </p>
             )}
             {result.source === 'unavailable' && (
-              <p role="alert" className="rounded-xl border border-[#333333] bg-surface px-4 py-3 text-sm">
-                Release history could not be loaded. Check your connection and retry.
+              <p role="alert" className="rounded-lg border border-[#333333] bg-surface px-3 py-2 text-sm">
+                History unavailable. Retry when connected.
               </p>
             )}
             {result.source !== 'unavailable' && result.releases.length === 0 && (
-              <p className="rounded-xl border border-[#333333] bg-surface px-4 py-4 text-sm text-gray-300">
-                No production release notes have been published yet.
+              <p className="rounded-lg border border-[#333333] bg-surface p-3 text-sm text-gray-300">
+                No production releases published yet.
               </p>
             )}
             <div className="space-y-3">
-              {result.releases.map(release => (
-                <details key={release.tag} className="group rounded-xl border border-[#333333] bg-surface px-4 py-4">
-                  <summary className="cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="text-base font-semibold">{release.tag}</span>
-                      <time dateTime={release.date} className="text-xs text-gray-400">
-                        {new Date(release.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+              {result.releases.map(release => {
+                const entries: VersionMilestone[] = [
+                  { tag: release.tag, title: release.summary, notes: release.notes },
+                  ...release.milestones.filter(item => item.tag !== release.tag),
+                ];
+                return (
+                  <section key={release.tag} aria-label={'Production release ' + release.tag}
+                    className="overflow-hidden rounded-lg border border-[#333333] bg-surface">
+                    <div className="flex items-center justify-between gap-2 border-b border-[#333333] px-3 py-2 text-xs text-gray-400">
+                      <span>Production {release.tag}</span>
+                      <time dateTime={release.date}>
+                        {new Date(release.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </time>
-                    </span>
-                    <span className="mt-1 block text-sm text-gray-300">{release.summary}</span>
-                  </summary>
-                  <div className="mt-3 border-t border-[#333333] pt-3">
-                    {release.notes && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-300">{release.notes}</p>}
-                    <a href={release.url} target="_blank" rel="noopener noreferrer"
-                      style={{ color: 'var(--mosaic-accent-text)' }} className="mt-3 inline-block rounded-sm text-sm underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-                      View official release on GitHub
-                    </a>
-                  </div>
-                </details>
-              ))}
+                    </div>
+                    <div className="divide-y divide-[#333333]">
+                      {entries.map(entry => (
+                        <MilestoneRow key={entry.tag} entry={entry} releaseUrl={release.url} />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           </>
         )}
-        <a style={{ color: 'var(--mosaic-accent-text)' }} className="mt-6 inline-block text-sm underline" href={RELEASES_PAGE_URL}
-          target="_blank" rel="noopener noreferrer">All published releases on GitHub</a>
+        <section aria-label="Preview-only version history" className="mt-4 overflow-hidden rounded-lg border border-[#333333] bg-surface">
+          <h2 className="border-b border-[#333333] px-3 py-2 text-xs font-medium text-gray-400">
+            Preview-only versions · not released to production
+          </h2>
+          <div className="divide-y divide-[#333333]">
+            {previewOnlyMilestones(result?.releases || []).map(entry => (
+              <MilestoneRow key={entry.tag} entry={entry} releaseUrl={RELEASES_PAGE_URL} />
+            ))}
+          </div>
+        </section>
+        <a style={{ color: 'var(--mosaic-accent-text)' }} className="mt-4 inline-block text-xs underline"
+          href={RELEASES_PAGE_URL} target="_blank" rel="noopener noreferrer">All production releases on GitHub</a>
       </main>
     </div>
   );
