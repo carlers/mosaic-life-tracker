@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadReleaseHistory, normalizeReleases, readCachedReleaseHistory, splitReleaseMilestones, RELEASES_URL } from '../../src/lib/releaseHistory';
+import { loadReleaseHistory, normalizeReleases, readCachedReleaseHistory, splitReleaseMilestones, previewOnlyMilestones, RELEASES_URL } from '../../src/lib/releaseHistory';
 
 const entry = (tag: string, date: string, other: Record<string, unknown> = {}) => ({
   tag_name: tag, name: tag + ' changes', body: '- Feature update',
@@ -66,11 +66,47 @@ describe('public production release history', () => {
       '### v0.15.0 — Shared tasks\n- Better collaboration\n\n' +
       '### v0.99.0 — Unshipped\n- Reject this\n' +
       '<!-- /mosaic:milestones:v1 -->';
-    const item = normalizeReleases([entry('v0.16.6', '2026-10-11T00:00:00Z', { body })])[0];
+    const item = normalizeReleases([entry('v0.16.7', '2026-10-11T00:00:00Z', { body })])[0];
     expect(item.milestones.map(x => x.tag)).toEqual(['v0.16.5', 'v0.15.0']);
     expect(item.milestones[0].notes).toContain('**Static**');
     expect(item.notes).toBe('- **Shipped update**');
     expect(splitReleaseMilestones('- Normal release', 'v0.16.6').milestones).toEqual([]);
+  });
+
+  it('restores all intermediate shipped minor and patch milestones from accepted PRs', () => {
+    const record = normalizeReleases([entry('v0.16.6', '2026-10-11T03:10:48Z', {
+      body: '- **Shared tasks:** collaborative completion\n- **Stickers:** chat packs',
+    })])[0];
+    expect(record.milestones.map(x => x.tag)).toEqual([
+      'v0.16.5', 'v0.16.4', 'v0.16.3', 'v0.16.2', 'v0.16.1', 'v0.16.0',
+      'v0.14.5', 'v0.14.4', 'v0.14.3', 'v0.14.2', 'v0.14.1', 'v0.14.0',
+    ]);
+    expect(record.milestones.find(x => x.tag === 'v0.14.2')?.url)
+      .toBe('https://github.com/carlers/mosaic-life-tracker/pull/522');
+    expect(record.milestones.some(x => x.tag === 'v0.15.0')).toBe(false);
+    expect(record.notes).toContain('Shared tasks');
+    const historical = normalizeReleases([entry('v0.12.1', '2026-10-10T18:09:57Z')])[0];
+    expect(historical.milestones.map(x => x.tag)).toEqual(['v0.12.0']);
+  });
+
+  it('separates unshipped and abandoned Preview versions from production', () => {
+    const records = normalizeReleases([entry('v0.16.6', '2026-10-11T03:10:48Z')]);
+    expect(previewOnlyMilestones(records).map(x => x.tag)).toEqual([
+      'v0.15.0', 'v0.13.2', 'v0.13.1', 'v0.13.0',
+    ]);
+    expect(previewOnlyMilestones(records).every(x => x.url?.startsWith(
+      'https://github.com/carlers/mosaic-life-tracker/pull/',
+    ))).toBe(true);
+  });
+
+  it('deduplicates publisher backfill and checked-in archival notes', () => {
+    const release = normalizeReleases([entry('v0.16.6', '2026-10-11T03:10:48Z', {
+      body: '- Overall changes\n\n<!-- mosaic:milestones:v1 -->\n' +
+        '## Version milestones\n### v0.14.2 — From publisher\n- Released changes\n' +
+        '<!-- /mosaic:milestones:v1 -->',
+    })])[0];
+    expect(release.milestones.filter(x => x.tag === 'v0.14.2')).toHaveLength(1);
+    expect(release.milestones.find(x => x.tag === 'v0.14.2')?.notes).toBe('- Released changes');
   });
 
   it('keeps stale saved notes offline and only revalidates when expired', async () => {
