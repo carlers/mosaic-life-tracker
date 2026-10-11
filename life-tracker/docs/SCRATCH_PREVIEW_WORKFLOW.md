@@ -168,3 +168,32 @@ Migration 009 adds optional, default-off booleans \`allow_title_edit\` and
 be changed without separate promotion/rollout authorization. Retain the
 revocable grant epoch and compare-and-set \`$updatedAt\` checks, and test denied
 actions, stale-client retries, friend revocation and older mobile clients.
+
+## Main-branch Scratch writer activation gate (#526)
+
+The approved manual workflow `.github/workflows/scratch-backend-activation.yml`
+must first be reviewed and promoted through the standard Preview → dev → main
+workflow. A workflow file on a feature or integration branch alone **cannot**
+be treated as an operational default-branch Scratch writer. This workflow is
+function-only; it does not authorize automatic schema mutations or production
+rollout. Keep the combined backend source on
+`refactor/scratch-backend-integration-526` until its allowlisted branch
+is deliberately migrated through a reviewed workflow update.
+
+Before any main-triggered dispatch, configure the GitHub Environment
+`scratch-backend` with required human reviewers, a `main` branch restriction,
+and a narrowly scoped Scratch-only secret named
+`MOSAIC_SCRATCH_APPWRITE_API_KEY`. Verify those settings directly in GitHub;
+this connection's repository API does not establish their existence. Supply
+the exact *current* integration head and live expected deployment ID to the
+manual workflow. The workflow requires full successful push CI, no credential
+exposure during candidate install/tests, serialized activation and post-readback.
+An out-of-band Console/API Function activation bypasses that serialization.
+
+Web-origin registration must be checked separately. On 2026-10-11, a read-only
+Scratch platform inspection found the broad `*.vercel.app` Web platform entry
+but no exact Backlog/integration Preview alias. Attempts to add those exact
+origins returned HTTP 403 `additional_resource_not_allowed` (Free-plan limit).
+Do not replace another Preview's platform entry or weaken current auth policy
+without an explicit coordinated review. A wildcard entry or Vercel READY status
+must not be described as an authenticated login acceptance test.
