@@ -6,6 +6,10 @@ import {
   loadHomePage,
   loadMessagesPage,
   loadSettingsPage,
+  loadPreferencesPage,
+  loadNotificationSettingsPage,
+  loadReleaseHistoryPage,
+  loadProfilePage,
 } from './routeModuleLoaders';
 
 import type { PROTECTED_ROUTES } from '../../lib/protectedRoutes';
@@ -38,6 +42,18 @@ const AccountPreview = lazy(() =>
 const SettingsPreview = lazy(() =>
   loadSettingsPage().then(({ SettingsPage }) => ({ default: SettingsPage }))
 );
+const PreferencesPreview = lazy(() =>
+  loadPreferencesPage().then(({ PreferencesPage }) => ({ default: PreferencesPage }))
+);
+const NotificationSettingsPreview = lazy(() =>
+  loadNotificationSettingsPage().then(({ NotificationSettingsPage }) => ({ default: NotificationSettingsPage }))
+);
+const ReleaseHistoryPreview = lazy(() =>
+  loadReleaseHistoryPage().then(({ ReleaseHistoryPage }) => ({ default: ReleaseHistoryPage }))
+);
+const ProfilePreview = lazy(() =>
+  loadProfilePage().then(({ ProfilePage }) => ({ default: ProfilePage }))
+);
 
 const LABELS: Record<PreviewPath, string> = {
   '/home': 'Home',
@@ -46,6 +62,10 @@ const LABELS: Record<PreviewPath, string> = {
   '/messages': 'Chat',
   '/account': 'Me',
   '/settings': 'Settings',
+  '/settings/preferences': 'Preferences',
+  '/settings/notifications': 'Notification settings',
+  '/settings/releases': 'Release history',
+  '/profile': 'Profile',
 };
 
 function isPreviewPath(pathname: string): pathname is PreviewPath {
@@ -87,6 +107,18 @@ const PrimaryRoutePreviewComponent: React.FC<{ pathname: string }> = ({ pathname
       break;
     case '/settings':
       content = <SettingsPreview />;
+      break;
+    case '/settings/preferences':
+      content = <PreferencesPreview />;
+      break;
+    case '/settings/notifications':
+      content = <NotificationSettingsPreview />;
+      break;
+    case '/settings/releases':
+      content = <ReleaseHistoryPreview />;
+      break;
+    case '/profile':
+      content = <ProfilePreview />;
       break;
     default: {
       // Compile-time exhaustive check for a newly enabled Preview route.

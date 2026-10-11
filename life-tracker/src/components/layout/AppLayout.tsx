@@ -18,6 +18,7 @@ import {
   makeRouteParentState,
   resolvePrimarySwipeDestination,
   resolveRouteParent,
+  resolveSettingsHistoryForward,
   type PrimarySwipeDirection,
 } from '../../lib/primarySwipeNavigation';
 
@@ -111,24 +112,39 @@ export const AppLayout: React.FC = () => {
     (location.state as { mosaicBackAnimation?: unknown }).mosaicBackAnimation === true);
   const [routeTransition, setRouteTransition] = useState(() => ({
     path, key: location.key, index: readRouterHistoryIndex(window.history.state),
+    parent: resolveRouteParent(path, location.state),
+    forwardSettingsChild: null as string | null,
     direction: 'none' as import('../../lib/routeTransitions').RouteTransitionDirection,
   }));
   // React's guarded render-time adjustment keeps direction in lockstep with
   // location, even when browser Back/Forward changes before an effect runs.
+  let currentTransition = routeTransition;
   if (routeTransition.path !== path || routeTransition.key !== location.key) {
     const index = readRouterHistoryIndex(window.history.state);
     const historyDelta = index !== null && routeTransition.index !== null
       ? index - routeTransition.index : null;
     const direction = skipCompositorTo === path ? 'none' :
       resolveRouteTransition(routeTransition.path, path, navigationType, historyDelta, backFromFallback);
-    setRouteTransition({ path, key: location.key, index, direction });
+    const nextTransition = {
+      path, key: location.key, index, direction,
+      parent: resolveRouteParent(path, location.state),
+      forwardSettingsChild: resolveSettingsHistoryForward(
+        { pathname: routeTransition.path, parent: routeTransition.parent, index: routeTransition.index },
+        { pathname: path, index },
+        navigationType
+      ),
+    };
+    setRouteTransition(nextTransition);
+    currentTransition = nextTransition;
   }
   useEffect(() => {
     if (skipCompositorTo !== path) return;
     const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
   }, [path, skipCompositorTo]);
-  const leftSwipeDestination = resolvePrimarySwipeDestination(path, 'left', location.state);
+  const settingsForwardChild = path === '/settings' ? currentTransition.forwardSettingsChild : null;
+  const leftSwipeDestination = settingsForwardChild ??
+    resolvePrimarySwipeDestination(path, 'left', location.state);
   const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
   const messagesIsAdjacent =
     leftSwipeDestination === '/messages' ||
@@ -233,6 +249,7 @@ export const AppLayout: React.FC = () => {
     if (!user?.$id) return;
 
     const destinations = getPrimaryRoutePreloadTargets(path);
+    if (settingsForwardChild) destinations.push(settingsForwardChild);
     if (destinations.length === 0) return;
 
     if (messagesIsAdjacent) {
@@ -257,7 +274,7 @@ export const AppLayout: React.FC = () => {
 
     const timer = window.setTimeout(preload, 180);
     return () => window.clearTimeout(timer);
-  }, [messagesIsAdjacent, path, user?.$id]);
+  }, [messagesIsAdjacent, path, settingsForwardChild, user?.$id]);
 
   if (!user && isOffline) {
     const headline =
@@ -354,11 +371,21 @@ export const AppLayout: React.FC = () => {
     navigate(`/${tab}`);
   };
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
-    const destination = resolvePrimarySwipeDestination(path, direction, location.state);
+    const destination = direction === 'left' && settingsForwardChild
+      ? settingsForwardChild
+      : resolvePrimarySwipeDestination(path, direction, location.state);
     if (!destination) return;
     // This route was already animated by PrimaryRouteSwipeSurface.
     // Do not repeat the slide when its navigation is a browser-history POP.
     setSkipCompositorTo(destination);
+
+    if (direction === 'left' && path === '/settings' && settingsForwardChild) {
+      // Reopen the recorded child with the normal parent state. A push
+      // replaces the former forward branch, and still works if opening a
+      // BottomSheet consumed that browser forward entry after Back.
+      navigate(destination, { state: makeRouteParentState('/settings') });
+      return;
+    }
 
     const parent = resolveRouteParent(path, location.state);
     if (direction === 'right' && parent) {
