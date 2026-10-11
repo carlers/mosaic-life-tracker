@@ -40,6 +40,7 @@ interface TaskActionSheetProps {
   onViewPhoto: () => void;
   onDeletePhoto: () => void;
   onDoItTomorrowOrToday: () => void;
+  onMoveToBacklog: () => void;
 }
 
 export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
@@ -57,6 +58,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onViewPhoto,
   onDeletePhoto,
   onDoItTomorrowOrToday,
+  onMoveToBacklog,
 }) => {
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
@@ -149,7 +151,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
           <span className="text-xs text-gray-400">{visibilityLabel}</span>
         </button>
 
-        <button
+        {task.date !== '' && <button
           type="button"
           onClick={() => { onShare(); onClose(); }}
           className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white mb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
@@ -158,7 +160,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <Users size={16} className="text-white" />
           </div>
           <span className="text-base font-medium flex-1 text-left">Share with friends</span>
-        </button>
+        </button>}
 
         {/* Memo section */}
         {task.memo && (
@@ -333,7 +335,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             >
               <RotateCcw size={16} className="text-black" />
             </div>
-            <span className="text-base font-medium">Change Date</span>
+            <span className="text-base font-medium">{task.date === '' ? 'Schedule' : 'Change Date'}</span>
           </button>
 
           <button
@@ -350,9 +352,9 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-base font-medium">Make It a Routine</span>
           </button>
 
-          <button
+          {task.date !== '' && <button
             type="button"
-            onClick={() => alert('Move to Backlog coming soon')}
+            onClick={() => { onMoveToBacklog(); onClose(); }}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <div
@@ -362,7 +364,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               <Archive size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Move to Backlog</span>
-          </button>
+          </button>}
         </div>
       </div>}
     </BottomSheet>

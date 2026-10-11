@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -31,6 +33,7 @@ const RENDER_WINDOW = 1;
 const INITIAL_RENDER_WINDOW = 0;
 
 export const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const {
     persons,
     reorder,
@@ -195,7 +198,17 @@ export const HomePage: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isSearchOpen]);
 
+  const handleOpenBacklog = useCallback(() => {
+    navigate('/backlog', { state: makeRouteParentState('/home') });
+  }, [navigate]);
+
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
+    if (task.date === '') {
+      setIsSearchOpen(false);
+      searchHistoryEntryRef.current = false;
+      navigate('/backlog', { state: { ...makeRouteParentState('/home'), focusTaskId: task.id } });
+      return;
+    }
     const date = parseISO(task.date);
     if (!isValid(date)) return;
     setSearchSelectedDate(date);
@@ -203,7 +216,7 @@ export const HomePage: React.FC = () => {
     setSearchSheetKey((current) => current + 1);
     searchDaySheetOpenRef.current = true;
     setSearchDaySheetOpen(true);
-  }, []);
+  }, [navigate]);
 
   const handleCloseSearchDaySheet = useCallback(() => {
     searchDaySheetOpenRef.current = false;
@@ -228,7 +241,7 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu />}
+          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} />}
         />
 
         <div inert={isSearchOpen ? true : undefined} className="flex-1 min-h-0 flex flex-col relative">
