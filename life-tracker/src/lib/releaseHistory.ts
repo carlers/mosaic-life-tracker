@@ -1,3 +1,4 @@
+import archive from '../data/releaseVersionArchive.json';
 // Public, account-independent history. Only published production Releases are authoritative.
 export const RELEASES_URL = 'https://api.github.com/repos/carlers/mosaic-life-tracker/releases?per_page=30';
 export const RELEASES_PAGE_URL = 'https://github.com/carlers/mosaic-life-tracker/releases';
@@ -13,6 +14,7 @@ export interface VersionMilestone {
   tag: string;
   title: string;
   notes: string;
+  url?: string;
 }
 
 export interface PublicRelease {
@@ -74,6 +76,29 @@ export function splitReleaseMilestones(body: string, productionTag: string): {
   return { notes: aggregate, milestones };
 }
 
+// Checked-in, PR-proven historical Preview milestones. Version numbers in an
+// official production Release must not be mistaken for separate production tags.
+function archivedMilestones(productionTag: string, published: VersionMilestone[]): VersionMilestone[] {
+  const existing = new Set(published.map(item => item.tag));
+  return [...published, ...archive.filter(item =>
+    item.productionTag === productionTag && !existing.has(item.tag)
+  ).map(item => ({
+    tag: item.tag, title: item.title, notes: item.notes,
+    url: RELEASES_PAGE_URL.replace(/\/releases$/, '/pull/' + item.pr),
+  }))].sort((a, b) => compareTags(b.tag, a.tag));
+}
+
+// Unshipped experiments remain visible but are explicitly separate from production.
+export function previewOnlyMilestones(published: PublicRelease[] = []): VersionMilestone[] {
+  const publishedTags = new Set(published.map(item => item.tag));
+  return archive.filter(item =>
+    item.productionTag === null && !publishedTags.has(item.tag)
+  ).map(item => ({
+    tag: item.tag, title: item.title, notes: item.notes,
+    url: RELEASES_PAGE_URL.replace(/\/releases$/, '/pull/' + item.pr),
+  })).sort((a, b) => compareTags(b.tag, a.tag));
+}
+
 function asRelease(value: unknown): PublicRelease | null {
   if (!value || typeof value !== 'object') return null;
   const r = value as Record<string, unknown>;
@@ -93,7 +118,7 @@ function asRelease(value: unknown): PublicRelease | null {
     summary: (name && name !== tag && name !== 'Mosaic ' + tag
       ? name.replace(/^Mosaic v\d+\.\d+\.\d+\s*[—–-]\s*/, '')
       : firstLine || 'Release notes').slice(0, 180),
-    notes, milestones,
+    notes, milestones: archivedMilestones(tag, milestones),
     // Never trust arbitrary links provided by GitHub content or browser storage.
     url: RELEASES_PAGE_URL + '/tag/' + encodeURIComponent(tag),
   };

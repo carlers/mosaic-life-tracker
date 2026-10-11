@@ -239,6 +239,40 @@ async function reconcileHistoricalMilestones() {
       devHead: archived.parents[1].sha,
       previousVersion: item.previousVersion, version: item.version,
     });
+    // Dev merges can squash several previously accepted stable Preview patches
+    // into one later production version. Use the reviewed PR-backed archive to
+    // restore those intermediate shipped versions without inventing tags.
+    const archivedVersions = JSON.parse(readFileSync('src/data/releaseVersionArchive.json', 'utf8'))
+      .filter(entry => entry.productionTag === item.tag);
+    const proven = await Promise.all(archivedVersions.map(async entry => {
+      if (!/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(entry.tag) ||
+          compareVersions(entry.tag.slice(1), item.previousVersion) <= 0 ||
+          compareVersions(entry.tag.slice(1), item.version) > 0 ||
+          !Number.isSafeInteger(entry.pr) ||
+          !/^[a-f0-9]{40}$/.test(entry.commit)) {
+        throw new Error('Invalid archived milestone ' + entry.tag);
+      }
+      const pr = await api('/pulls/' + entry.pr);
+      if (pr.merge_commit_sha !== entry.commit || !pr.merged_at ||
+          typeof pr.base?.ref !== 'string' ||
+          !pr.base.ref.startsWith('feature/')) {
+        throw new Error('Archived milestone PR provenance mismatch for ' + entry.tag);
+      }
+      // The original stable Preview merge tree must carry the actual version,
+      // not merely a version-looking title.
+      const source = await api('/contents/life-tracker/package.json?ref=' + entry.commit);
+      const actualVersion = JSON.parse(Buffer.from(source.content, 'base64').toString('utf8')).version;
+      if (actualVersion !== entry.tag.slice(1)) {
+        throw new Error('Archived milestone tree version mismatch for ' + entry.tag);
+      }
+      return { tag: entry.tag, title: entry.title, notes: entry.notes };
+    }));
+    const known = new Set(records.map(entry => entry.tag));
+    for (const entry of proven) if (!known.has(entry.tag)) {
+      records.push(entry);
+      known.add(entry.tag);
+    }
+    records.sort((a, b) => compareVersions(b.tag.slice(1), a.tag.slice(1)));
     const details = formatVersionMilestones(records);
     if (!details) continue;
     if (await mainSha() !== candidate) throw new Error('Main changed before historical notes backfill');

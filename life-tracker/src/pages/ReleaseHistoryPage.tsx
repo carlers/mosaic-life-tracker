@@ -4,9 +4,29 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ReleaseNotesMarkdown } from '../components/ui/ReleaseNotesMarkdown';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 import {
-  loadReleaseHistory, readCachedReleaseHistory, RELEASES_PAGE_URL,
+  loadReleaseHistory, previewOnlyMilestones, readCachedReleaseHistory, RELEASES_PAGE_URL,
   type ReleaseHistoryResult, type VersionMilestone,
 } from '../lib/releaseHistory';
+
+function MilestoneRow({ entry, releaseUrl }: { entry: VersionMilestone; releaseUrl: string }) {
+  return (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 [&::-webkit-details-marker]:hidden">
+        <span className="shrink-0 text-sm font-semibold">{entry.tag}</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-gray-400">{entry.title}</span>
+        <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-[#333333] px-3 pb-3 pt-2">
+        {entry.notes && <ReleaseNotesMarkdown text={entry.notes} />}
+        <a href={entry.url || releaseUrl} target="_blank" rel="noopener noreferrer"
+          style={{ color: 'var(--mosaic-accent-text)' }}
+          className="mt-2 inline-block rounded-sm text-xs underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+          {entry.url ? 'View version change on GitHub' : 'View production release on GitHub'}
+        </a>
+      </div>
+    </details>
+  );
+}
 
 export function ReleaseHistoryPage() {
   const navigate = useNavigate();
@@ -85,20 +105,9 @@ export function ReleaseHistoryPage() {
                     </div>
                     <div className="divide-y divide-[#333333]">
                       {entries.map(entry => (
-                        <details key={entry.tag} className="group">
-                          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 [&::-webkit-details-marker]:hidden">
-                            <span className="shrink-0 text-sm font-semibold">{entry.tag}</span>
-                            <span className="min-w-0 flex-1 truncate text-xs text-gray-400">{entry.title}</span>
-                            <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
-                          </summary>
-                          <div className="border-t border-[#333333] px-3 pb-3 pt-2">
-                            {entry.notes && <ReleaseNotesMarkdown text={entry.notes} />}
-                            <a href={release.url} target="_blank" rel="noopener noreferrer"
-                              style={{ color: 'var(--mosaic-accent-text)' }}
-                              className="mt-2 inline-block rounded-sm text-xs underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-                              View production release on GitHub
-                            </a>
-                          </div>
+                        <MilestoneRow key={entry.tag} entry={entry} releaseUrl={release.url} />
+                      ))}
+                    </div>
                         </details>
                       ))}
                     </div>
@@ -114,6 +123,16 @@ export function ReleaseHistoryPage() {
             </div>
           </>
         )}
+        <section aria-label="Preview-only version history" className="mt-4 overflow-hidden rounded-lg border border-[#333333] bg-surface">
+          <h2 className="border-b border-[#333333] px-3 py-2 text-xs font-medium text-gray-400">
+            Preview-only versions · not released to production
+          </h2>
+          <div className="divide-y divide-[#333333]">
+            {previewOnlyMilestones(result?.releases || []).map(entry => (
+              <MilestoneRow key={entry.tag} entry={entry} releaseUrl={RELEASES_PAGE_URL} />
+            ))}
+          </div>
+        </section>
         <a style={{ color: 'var(--mosaic-accent-text)' }} className="mt-4 inline-block text-xs underline"
           href={RELEASES_PAGE_URL} target="_blank" rel="noopener noreferrer">All production releases on GitHub</a>
       </main>

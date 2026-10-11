@@ -7,6 +7,10 @@ const loadMock = vi.hoisted(() => vi.fn());
 vi.mock('../../src/lib/releaseHistory', () => ({
   loadReleaseHistory: loadMock,
   readCachedReleaseHistory: () => null,
+  previewOnlyMilestones: () => [{
+    tag: 'v0.15.0', title: 'Backlogs preview', notes: '- Unshipped work',
+    url: 'https://github.com/carlers/mosaic-life-tracker/pull/503',
+  }],
   RELEASES_PAGE_URL: 'https://github.com/carlers/mosaic-life-tracker/releases',
 }));
 import { ReleaseHistoryPage } from '../../src/pages/ReleaseHistoryPage';
@@ -72,6 +76,18 @@ describe('ReleaseHistoryPage', () => {
     expect(screen.getByText('Static').tagName).toBe('STRONG');
     expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('href', 'https://github.com/example/release');
     expect(screen.queryByRole('link', { name: 'Unsafe' })).not.toBeInTheDocument();
+  });
+
+  it('keeps Preview-only versions separate from published release entries', async () => {
+    loadMock.mockResolvedValue({ releases: [published], source: 'live', fetchedAt: Date.now() });
+    page();
+    expect(await screen.findByRole('region', { name: 'Preview-only version history' })).toBeInTheDocument();
+    const preview = screen.getByRole('region', { name: 'Preview-only version history' });
+    expect(preview).toHaveTextContent('not released to production');
+    expect(preview).toHaveTextContent('v0.15.0');
+    fireEvent.click(screen.getByText('v0.15.0').closest('summary')!);
+    expect(screen.getByRole('link', { name: 'View version change on GitHub' }))
+      .toHaveAttribute('href', 'https://github.com/carlers/mosaic-life-tracker/pull/503');
   });
 
   it('retries on demand without repeatedly loading on re-render', async () => {
