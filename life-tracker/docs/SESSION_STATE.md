@@ -17,5 +17,5 @@ Current task: #592 same-version release CI recovery after v0.17.4 main promotion
 - Trusted publisher supports one-step recoverable missed release when the immediately prior main merge was a proven versioned production PR with matching source tree, the corrective merge is same version, exact source tree and maintenance-only path allowlist, and the v0.17.4 tag is absent. Full new main canonical CI and live Vercel Production verification still required. Tag attaches to verified corrective current main SHA; original #608 supplies release notes.
 - Pure unit regressions pin fail-closed behavior. Focused task CI → stable Preview full CI/Vercel → accepted dev → approved main. No production Appwrite changes in the repair.
 
-## Next
+## Next action
 - Verify task focused, squash to stable Preview, full canonical plus Vercel READY, promote to dev with real preflight and exact-tree evidence, then to main with authorized production rollout workflow. Verify main canonical gate, trusted release publisher v0.17.4 URL/readback. Only mark #592 closed once genuine fresh-chat/offline, admin GitHub rulesets and five-promotion pilot are fulfilled or separately scoped with explicit approval.
