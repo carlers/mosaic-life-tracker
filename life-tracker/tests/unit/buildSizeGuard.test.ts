@@ -202,12 +202,14 @@ describe('build-size guard', () => {
     // v0.17.0: byte-identical accepted source uses 2,050 additional raw/
     // precache bytes on the dev Vercel target; measured overages were
     // 54 B and 5 B. Keep these dev-specific headroom increases below 150 B.
-    // Combined v0.17.2 measurements were 2,404,437 raw / 743,010 gzip /
-    // 2,489,652 precache; this preserves respective 663/690/648 B cushions.
+    // The accepted Preview measured 2,404,437 raw / 743,010 gzip /
+    // 2,489,652 precache. Its byte-identical dev merge measured
+    // 2,406,651 raw / 744,003 gzip / 2,491,866 precache on Vercel.
+    // Preserve narrow dev-only headroom: 349 / 347 / 384 bytes.
     expect(configuredBudget.limits).toMatchObject({
-      appAssetsRawBytes: 2405100,
-      appAssetsGzipBytes: 743700,
-      precacheUniqueBytes: 2490300,
+      appAssetsRawBytes: 2407000,
+      appAssetsGzipBytes: 744350,
+      precacheUniqueBytes: 2492250,
     });
   });
 
