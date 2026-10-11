@@ -364,8 +364,10 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     ['userId', 'direction', 'readAt'],
   ],
 };
+// Whenever this collection's schema changes, bump the version and migrate persisted rows.
+// v3 expands collectionName to include bucketTaskLinks (v2 installs must not hit DB6).
 export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
-  version: 2,
+  version: 3,
   primaryKey: 'id',
   type: 'object',
   required: [
