@@ -44,6 +44,9 @@ export const settingsMigrationStrategies = {
 };
 
 export const syncMetaMigrationStrategies = {
+  // v2 -> v3: collectionName enum includes bucketTaskLinks. Keep all prior
+  // replication freshness records intact; the new pilot creates its own row.
+  3: (oldDoc: Record<string, unknown>) => oldDoc,
   2: (oldDoc: Record<string, unknown>) => oldDoc,
   1: (oldDoc: Record<string, unknown>) => {
     const { collection, ...rest } = oldDoc;
