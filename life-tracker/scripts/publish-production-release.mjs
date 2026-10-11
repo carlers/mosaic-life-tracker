@@ -1,5 +1,6 @@
 // Runs only on the trusted default-branch workflow after main CI. Never executes PR code.
 import { readFileSync, appendFileSync } from 'node:fs';
+import { collectProductionMilestones, formatVersionMilestones, MILESTONE_START } from './lib/release-milestones.mjs';
 import { execFileSync } from 'node:child_process';
 import { validateVersionFiles, compareVersions } from './lib/versioning.mjs';
 import {
@@ -168,7 +169,11 @@ const pr = prs.find(x => x.merge_commit_sha === candidate &&
   x.base?.ref === 'main' && x.merged_at && x.state === 'closed');
 if (!pr) throw new Error('No merged production promotion PR for exact main SHA');
 const notes = extractReleaseNotes(pr.body);
-const releaseBody = notes + '\n\nProduction promotion: ' + pr.html_url;
+const milestoneNotes = formatVersionMilestones(collectProductionMilestones({
+  devHead: commit.parents[1].sha, previousVersion: oldVersion, version,
+}));
+const releaseBody = notes + '\n\nProduction promotion: ' + pr.html_url +
+  (milestoneNotes ? '\n\n' + milestoneNotes : '');
 
 let statuses;
 async function readyProduction() {
@@ -192,6 +197,60 @@ for (let attempt = 1; attempt <= 12; attempt++) {
   }
 }
 if (!ready) throw new Error('Production not READY');
+
+// Notes-only reconstruction for the three already-published production merges.
+// Verified first-parent version bounds and exact direct tag SHAs prevent invented
+// releases and prevent a backfill from silently rewriting any Git history.
+async function reconcileHistoricalMilestones() {
+  const historical = [
+    { tag: 'v0.12.1', sha: '95c8b25edeba5e2730252f6d265d392949890caa',
+      previousVersion: '0.6.2', version: '0.12.1' },
+    { tag: 'v0.12.2', sha: 'dbc19acd901e545511255553ed5d8b9b4deda4c1',
+      previousVersion: '0.12.1', version: '0.12.2' },
+    { tag: 'v0.16.6', sha: '614cd1dccbd01bf70493874496559720b320151a',
+      previousVersion: '0.12.2', version: '0.16.6' },
+  ];
+  for (const item of historical) {
+    if (compareVersions(version, item.version) < 0) continue;
+    const release = await api('/releases/tags/' + item.tag, { allow404: true });
+    if (!release) continue;
+    if (typeof release.body !== 'string' || release.body.includes(MILESTONE_START)) continue;
+    const [ref, archived, ancestry] = await Promise.all([
+      api('/git/ref/tags/' + item.tag, { allow404: true }),
+      api('/commits/' + item.sha),
+      api('/compare/' + item.sha + '...' + candidate),
+    ]);
+    const prior = archived.parents?.[0]?.sha;
+    let priorVersion;
+    try {
+      priorVersion = JSON.parse(execFileSync('git', [
+        'show', prior + ':life-tracker/package.json',
+      ], { encoding: 'utf8' })).version;
+    } catch { throw new Error('Missing historical parent version for ' + item.tag); }
+    if (ref?.object?.sha !== item.sha || ref.object.type !== 'commit' ||
+        archived.parents?.length !== 2 || priorVersion !== item.previousVersion ||
+        ancestry.merge_base_commit?.sha !== item.sha ||
+        !['identical', 'ahead'].includes(ancestry.status) ||
+        release.tag_name !== item.tag || release.target_commitish !== item.sha ||
+        release.draft || release.prerelease || !release.published_at) {
+      throw new Error('Historical publication proof mismatched for ' + item.tag);
+    }
+    const records = collectProductionMilestones({
+      devHead: archived.parents[1].sha,
+      previousVersion: item.previousVersion, version: item.version,
+    });
+    const details = formatVersionMilestones(records);
+    if (!details) continue;
+    if (await mainSha() !== candidate) throw new Error('Main changed before historical notes backfill');
+    const updated = await api('/releases/' + release.id, {
+      method: 'PATCH', body: { body: release.body.trim() + '\n\n' + details },
+    });
+    if (updated.id !== release.id || !updated.body?.includes(MILESTONE_START)) {
+      throw new Error('Historical release notes backfill failed for ' + item.tag);
+    }
+  }
+}
+await reconcileHistoricalMilestones();
 
 async function tagSha() {
   const ref = await api('/git/ref/tags/' + tag, { allow404: true });
