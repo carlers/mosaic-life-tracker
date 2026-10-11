@@ -108,7 +108,7 @@ describe('useTaskImage', () => {
       ({ enabled }) => useTaskImage('file_gated_test', enabled),
       { initialProps: { enabled: false } }
     );
-    expect(result.current).toEqual({ imageUrl: null, isLoading: false });
+    expect(result.current).toMatchObject({ imageUrl: null, isLoading: false });
     expect(mockGetLocalImageUrl).not.toHaveBeenCalled();
 
     rerender({ enabled: true });

@@ -10,7 +10,7 @@ Current task: Existing task-photo recovery after confirmed v0.17.5 Preview accep
 - Previously cached truncated/corrupt image blobs can survive a normal download fix: decoding failures now trigger one cache-bypassing remote retry, with a task-level Retry control for still-unavailable photos. Preserve original offline blob until successful replacement; do not erase all offline image caches.
 - Genuine missing Appwrite Storage files cannot be recovered without bytes on an original device or an external backup. A Retry action cannot reconstruct missing originals.
 
-## Verification/promotion
+## Next action
 - Focused task CI then squash PR into the same stable Preview, full canonical CI and Vercel READY at exact SHA; user already authorizes dev promotion after adequate recovery.
 - Before dev promotion verify exact SHA, version monotonicity, no source divergence, CI and Vercel scratch identity. Use a merge-commit stable Preview → dev PR with exact source tree; no main release approval.
 - After merge, read back dev commit/checks/deployment and report remaining manual/device acceptance separately.
