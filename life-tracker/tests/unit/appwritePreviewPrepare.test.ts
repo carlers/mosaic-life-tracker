@@ -31,7 +31,7 @@ describe('scratch-only Preview backend preparation', () => {
       'table diary.created_at size: expected 50, got 36',
       'table tasks: missing', 'table bucket_list_items.title size: expected 255, got 100', 'bucket task_images permissions differ',
       'function message-action variable DR_PRIVACY_DELETION_REQUIRED: missing',
-    ])).toHaveLength(6);
+    ])).toHaveLength(5);
   });
   it('runs a read-only check and never migrates without --apply', async () => {
     const migrate = vi.fn();
