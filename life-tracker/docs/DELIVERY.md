@@ -370,3 +370,23 @@ for ongoing work. GitHub PR history remains after branch deletion.
 Test policy safety using npm run test:unit -- tests/unit/branch-hygiene.test.ts;
 the full canonical Preview gate must pass before this scheduled workflow is
 promoted to main.
+
+## PR-time GitHub promotion evidence (#592, C0 candidate)
+
+The proposed `Promotion PR Preflight` workflow runs read-only on **every PR to
+`dev` or `main`**, including documentation-only PRs (no `paths` filter). It checks
+the exact source canonical GitHub Actions result, current head/base SHAs,
+source repository/branch, integration-tree equality, and version regression.
+Its script is loaded from the **target base SHA**, not executed from the PR.
+It uses a read-only GitHub token, no Vercel/Appwrite keys, and changes nothing.
+
+**Not a complete promotion acceptance:** the check does *not* verify Vercel
+READY, Vite build-variable parity, effective Scratch Function/schema, manual
+acceptance, or explicit user permission. Continue running the full
+`promotion:preflight` and performing provider read-back before approved
+merges. Do not make `promotion-pr-preflight` a required dev/main status check
+until an actual PR to **each** target has produced the status on the correct
+SHA, integration/changed-head/rejected-PR cases have been demonstrated, and
+GitHub administration/permissions and strict-check behavior are reviewed.
+`canonical-acceptance` is push-triggered; never require it as a PR check.
+No new protection setting, queue, or auto-merge is authorized.
