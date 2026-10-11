@@ -650,13 +650,14 @@ describe('sync — freshness barriers', () => {
       expect(taskPilotRefreshMock).toHaveBeenCalled();
       expect(messagePilotRefreshMock).toHaveBeenCalled();
       expect(bucketPilotRefreshMock).toHaveBeenCalled();
+      expect(bucketLinksRefreshMock).toHaveBeenCalled();
     });
     await vi.waitFor(() => {
       expect(
         progress.some(
           (value) =>
-            value.completed === 6 &&
-            value.label === 'Waiting for Categories · 6 of 8 synced' &&
+            value.completed === 7 &&
+            value.label === 'Waiting for Categories · 7 of 8 synced' &&
             value.pendingGroups?.join(',') === 'Categories'
         )
       ).toBe(true);
