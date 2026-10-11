@@ -581,7 +581,30 @@ function normalizeBackup(
     'setting keys'
   );
 
-  const normalized = { sourceUserId, tasks, categories, diary, settings };
+  const bucketList: BucketListDocument[] = [];
+  const bucketSourceIds = new Set<string>();
+  for (const raw of payload.data.bucketList ?? []) {
+    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    const sourceId = asString(raw.id);
+    if (!sourceId || bucketSourceIds.has(sourceId)) throw new Error('Backup has an invalid or duplicate aspiration ID.');
+    bucketSourceIds.add(sourceId);
+    const title = asString(raw.title).trim();
+    const description = asString(raw.description);
+    if (!title || title.length > 255 || description.length > 2000) throw new Error('Backup aspiration is invalid.');
+    const achieved = raw.achieved === true;
+    const achievedAt = achieved ? asString(raw.achievedAt) : '';
+    if (achieved && (!achievedAt || !Number.isFinite(Date.parse(achievedAt)))) throw new Error('Backup aspiration achievement date is invalid.');
+    bucketList.push({
+      id: portableRowId('b', currentUserId, sourceUserId, sourceId),
+      userId: currentUserId, title, description, achieved, achievedAt,
+      createdAt: validIso(raw.createdAt, exportedAt),
+      updatedAt: validIso(raw.updatedAt, exportedAt),
+      isDeleted: false,
+    });
+  }
+  assertUnique(bucketList.map(item => item.id), 'aspiration IDs');
+
+  const normalized = { sourceUserId, tasks, categories, diary, settings, bucketList };
   validateNormalizedBackup(normalized);
   return normalized;
 }
@@ -593,6 +616,12 @@ function assertMaxLength(label: string, value: string | undefined, max: number):
 }
 
 function validateNormalizedBackup(data: NormalizedBackup): void {
+  for (const item of data.bucketList) {
+    assertMaxLength('aspiration title', item.title, 255);
+    assertMaxLength('aspiration description', item.description, 2000);
+    assertMaxLength('achievement date', item.achievedAt, 50);
+  }
+
   for (const task of data.tasks) {
     assertMaxLength('task title', task.title, 255);
     assertMaxLength('task category ID', task.categoryId, 255);
