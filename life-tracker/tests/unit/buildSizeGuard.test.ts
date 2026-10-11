@@ -153,6 +153,24 @@ describe('build-size guard', () => {
     expect(configuredBudget.baseline.commit).toMatch(/^[a-f0-9]{7,40}$/);
   });
 
+  it('fails a meaningful shipped-growth regression instead of silently inflating aggregate caps', async () => {
+    const configured = validateBuildSizeBudget(JSON.parse(await readFile(
+      new URL('../../config/build-size-budget.json', import.meta.url), 'utf8',
+    )));
+    const measured = { ...configured.baseline.metrics };
+    for (const metric of Object.keys(configured.limits)) measured[metric] = configured.limits[metric];
+    // Historical notifications growth: raw +13,487, gzip +6,711 and
+    // precache +23,354 B; a legitimate regression must remain blocking.
+    measured.appAssetsRawBytes += 13487;
+    measured.appAssetsGzipBytes += 6711;
+    measured.precacheUniqueBytes += 23354;
+    const result = evaluateBuildSizeBudget(configured, measured);
+    expect(result.passed).toBe(false);
+    expect(result.metrics.filter(entry => !entry.passed).map(entry => entry.name)).toEqual([
+      'appAssetsRawBytes', 'appAssetsGzipBytes', 'precacheUniqueBytes',
+    ]);
+  });
+
   // Regression: a longer release commit body must not consume PWA code-size
   // headroom solely by changing the build-info meta attribute in index.html.
   it('excludes only variable build-info bytes from the precache measurement', () => {
