@@ -1,19 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-11
-Current task: repair aggregate production build-size budgets for accepted granular release history v0.16.10 on dev. No main promotion authorized.
+Current task: integrate accepted Settings history-return swipe v0.17.0 with latest `dev` v0.16.10. User authorized cleanup and promotion to `dev`, not `main`.
 
-## Verified state
-- User-approved release-history integration PR #565 merged into dev at `e912c4abab7f234ae35c8c051c897764a38ee07a`, version 0.16.10.
-- Merge tree exactly equals accepted combined stable Preview tree `1093d670f45ba3469d9d42b1df61c0d6af217491`; full canonical Preview run 38113703778 SUCCESS, Vercel Preview dpl_Hd2QdBeQppvvjgXAqCajEXs91yNs READY.
-- Dev promotion CI 38113841779 SUCCESS, but Vercel dev dpl_iQNvX9t17S3Zv3WpFKT7BguVY23s failed BUILD_UTILS_SPAWN_1 due only to three aggregate budgets, despite successful compilation/PWA.
-- Dev measured app raw 2,400,745 B (old limit 2,399,000), gzip 741,191 B (old limit 741,000), precache 2,485,096 B (old limit 2,483,500). Entry, initial and Home budgets passed unchanged.
+## Provenance and scope
+- Settings feature stable Preview `feature/settings-history-forward` at `50a64692b8866134ddba7a39c38390e8b5df03aa`: full canonical run 38117583132 SUCCESS; Vercel deployment `dpl_6vRkuba7UudATeB1Hpx9douVJzeM` READY with Scratch.
+- Current dev baseline `6a097ada3bf729d55fa959e7d03da551fea51930` includes granular release-history v0.16.10, release publishing work and corrected aggregate build budgets. Preserve it all.
+- Apply only the feature's navigation source, its unit/DOM regressions, project reference and three v0.17.0 version fields over that baseline. Merge build budget by preserving dev aggregate/precache limits and accepting entry gzip 131752 (within existing baseline ratio); avoid resetting other ceilings.
+- Settings left swipe reopens the last Settings child only after one-entry Back, with guarded route ownership and lazy child-page preview. Preserve right swipe, sheets, direct links, Alerts navigation, reduced motion, and Android/browser/Escape Back.
 
-## Repair
-- Budget-only tooling/test adjustment: app raw limit 2,401,300; gzip 741,800; precache 2,485,700, with 555–609 B measured headroom. Startup/Home caps unchanged.
-- Preserve v0.16.10 app source, historical release data, previous checkbox fix, production publisher, Appwrite isolation and all backend behavior. No version bump for non-user-facing budget maintenance.
-
-## Next action
-- Require focused task CI success; squash into stable fix Preview `fix/release-history-dev-build-budget`.
-- Confirm exact Preview canonical CI and Vercel READY, then merge accepted source into dev by approved correction PR.
-- Verify dev CI, exact deployment READY, and no main change. Manual mobile/theme/offline acceptance remains unclaimed.
+## Verification and next action
+- AI task branch `chatgpt/settings-forward-dev-integration` targets stable integration Preview `feature/settings-forward-integration`. Request focused CI, squash to integration Preview, require full canonical Quality Gate and Scratch Vercel READY on exact Preview SHA.
+- Then merge accepted integration Preview to `dev` via PR with source-provenance/tree acceptance, verify dev CI and Scratch Vercel readiness. Do not promote main.
+- Manual iOS/Android swipe and Back with open sheets, and Escape-as-Back remain device-specific acceptance; do not claim them completed.

@@ -54,11 +54,11 @@ export const PROTECTED_ROUTES = [
   // Existing Settings navigation uses full-width swipes. Preserve this
   // behavior rather than silently changing its gesture threshold.
   { id: 'settings', path: '/settings', kind: 'detail', tab: 'account', parent: '/account', swipeMode: 'full', preview: 'supported' },
-  { id: 'releaseHistory', path: '/settings/releases', kind: 'detail', tab: 'account', parent: '/settings', preview: 'none' },
-  { id: 'preferences', path: '/settings/preferences', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'none' },
-  { id: 'notificationSettings', path: '/settings/notifications', kind: 'detail', tab: 'account', parent: '/settings', alternateParents: ['/notifications'], swipeMode: 'full', preview: 'none' },
+  { id: 'releaseHistory', path: '/settings/releases', kind: 'detail', tab: 'account', parent: '/settings', preview: 'supported' },
+  { id: 'preferences', path: '/settings/preferences', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
+  { id: 'notificationSettings', path: '/settings/notifications', kind: 'detail', tab: 'account', parent: '/settings', alternateParents: ['/notifications'], swipeMode: 'full', preview: 'supported' },
   { id: 'screenRedirect', path: '/settings/screen', kind: 'redirect', tab: 'account', parent: '/settings', redirectTo: '/settings/preferences', preview: 'none' },
-  { id: 'profile', path: '/profile', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'none' },
+  { id: 'profile', path: '/profile', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
 ] as const satisfies readonly ProtectedRoute[];
 
 export type ProtectedRouteEntry = (typeof PROTECTED_ROUTES)[number];
