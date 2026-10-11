@@ -16,7 +16,9 @@ Current task: granular production version history and compact offline-first rele
 - Version synchronized to 0.16.8; parser, UI, publisher and cache regressions included.
 
 ## Verification
-- Focused task-branch CI and stable Preview canonical CI/Vercel deployment are required. Do not claim completed until live checks confirm.
+- Initial task focused CI runs 38109041892 and 38109167845: SUCCESS. Preview PR #554 squash-merged as 556aea549bd75e611038dc9e26a8b481d1e59f19.
+- First Preview Vercel build failed only aggregate raw asset (+1,877 B) and precache (+2,228 B) ceilings; initial/Home/gzip budgets and app compilation passed. Repair branch chatgpt/granular-release-size-repair simplifies the lazy Markdown renderer and narrowly adjusts only affected aggregate/precache caps (+2,200 / +2,700 B), preserving entry, initial, Home, and gzip limits.
+- Repair focused CI and stable Preview canonical CI/Vercel delivery are required; do not claim completed until verified.
 - No browser, iOS or Android visual acceptance has been performed.
 
 ## Next action

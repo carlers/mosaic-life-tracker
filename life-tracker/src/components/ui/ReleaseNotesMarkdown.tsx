@@ -1,101 +1,70 @@
 import React from 'react';
 
-// Public release notes use a bounded Markdown subset; no HTML is ever interpreted.
-function inline(source: string, keyPrefix: string): React.ReactNode[] {
-  const tokens = /(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|\*[^*]+\*|\x60[^\x60]+\x60)/g;
-  const nodes: React.ReactNode[] = [];
-  let cursor = 0;
-  for (const match of source.matchAll(tokens)) {
-    const start = match.index ?? cursor;
-    if (start > cursor) nodes.push(source.slice(cursor, start));
-    const token = match[0];
-    const key = keyPrefix + ':' + start;
-    if (token.startsWith('**')) {
-      nodes.push(<strong key={key}>{inline(token.slice(2, -2), key)}</strong>);
-    } else if (token.startsWith('*')) {
-      nodes.push(<em key={key}>{inline(token.slice(1, -1), key)}</em>);
-    } else if (token.startsWith('\x60')) {
-      nodes.push(<code key={key} className="rounded bg-surfaceHighlight px-1 font-mono text-xs">{token.slice(1, -1)}</code>);
-    } else {
-      const parts = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
-      const destination = parts?.[2] ?? '';
-      let safe = false;
+// React escapes raw text; only ordinary HTTP(S) destinations become clickable.
+function inline(value: string): React.ReactNode[] {
+  return value.split(/(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|\*[^*]+\*|\x60[^\x60]+\x60)/g)
+    .filter(Boolean).map((part, i) => {
+      if (part.startsWith('**')) return <strong key={i}>{part.slice(2, -2)}</strong>;
+      if (part.startsWith('*')) return <em key={i}>{part.slice(1, -1)}</em>;
+      if (part.charCodeAt(0) === 96) return <code key={i} className="font-mono">{part.slice(1, -1)}</code>;
+      const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part);
+      if (!link) return part;
       try {
-        const url = new URL(destination);
-        safe = url.protocol === 'https:' || url.protocol === 'http:';
-      } catch { /* Relative, malformed, and non-web links are not opened. */ }
-      nodes.push(safe
-        ? <a key={key} href={destination} target="_blank" rel="noopener noreferrer"
-            style={{ color: 'var(--mosaic-accent-text)' }} className="underline break-all">{parts?.[1]}</a>
-        : <React.Fragment key={key}>{parts?.[1] ?? token}</React.Fragment>);
-    }
-    cursor = start + token.length;
-  }
-  if (cursor < source.length) nodes.push(source.slice(cursor));
-  return nodes;
+        const url = new URL(link[2]);
+        if (url.protocol === 'https:' || url.protocol === 'http:') {
+          return <a key={i} href={link[2]} target="_blank" rel="noopener noreferrer"
+            style={{ color: 'var(--mosaic-accent-text)' }} className="underline break-all">{link[1]}</a>;
+        }
+      } catch { /* Non-web links remain plain text. */ }
+      return link[1];
+    });
 }
 
 export function ReleaseNotesMarkdown({ text }: { text: string }) {
-  const lines = text.slice(0, 16000).replace(/\r\n?/g, '\n').split('\n');
-  const blocks: React.ReactNode[] = [];
-  let index = 0;
-  while (index < lines.length) {
-    const line = lines[index];
-    if (!line.trim()) { index++; continue; }
-    const fence = /^ *\x60{3}/.test(line);
-    if (fence) {
-      const body: string[] = [];
-      index++;
-      while (index < lines.length && !/^ *\x60{3}/.test(lines[index])) body.push(lines[index++]);
-      if (index < lines.length) index++;
-      blocks.push(<pre key={blocks.length} className="overflow-x-auto rounded-md bg-surfaceHighlight p-2 text-xs"><code>{body.join('\n')}</code></pre>);
+  const lines = text.slice(0, 16000).replace(/\r/g, '').split('\n');
+  const nodes: React.ReactNode[] = [];
+  let i = 0;
+  const special = /^(?:#{1,4}\s|[-*+]\s|\d+\.\s|>|\x60{3}|-{3}$)/;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (!line) { i++; continue; }
+    if (/^\x60{3}/.test(line)) {
+      const code: string[] = [];
+      while (++i < lines.length && !/^\x60{3}/.test(lines[i].trim())) code.push(lines[i]);
+      i++;
+      nodes.push(<pre key={i} className="overflow-x-auto rounded bg-surfaceHighlight p-2 text-xs"><code>{code.join('\n')}</code></pre>);
       continue;
     }
-    const heading = /^ *(#{1,4})\s+(.+)$/.exec(line);
+    const heading = /^#{1,4}\s+(.+)/.exec(line);
     if (heading) {
-      blocks.push(<p key={blocks.length} className="font-semibold text-[var(--mosaic-text)]">
-        {inline(heading[2], 'h' + index)}
-      </p>);
-      index++;
+      nodes.push(<p key={i} className="font-semibold text-white">{inline(heading[1])}</p>);
+      i++;
       continue;
     }
-    const bullet = /^ *([-*+]|\d+\.)\s+(.+)$/.exec(line);
-    if (bullet) {
-      const ordered = /^\d/.test(bullet[1]);
+    const item = /^([-*+]|\d+\.)\s+(.+)/.exec(line);
+    if (item) {
+      const ordered = /^\d/.test(item[1]);
       const items: React.ReactNode[] = [];
-      while (index < lines.length) {
-        const item = /^ *([-*+]|\d+\.)\s+(.+)$/.exec(lines[index]);
-        if (!item || /^\d/.test(item[1]) !== ordered) break;
-        items.push(<li key={index}>{inline(item[2], 'l' + index)}</li>);
-        index++;
+      while (i < lines.length) {
+        const next = /^([-*+]|\d+\.)\s+(.+)/.exec(lines[i].trim());
+        if (!next || /^\d/.test(next[1]) !== ordered) break;
+        items.push(<li key={i}>{inline(next[2])}</li>);
+        i++;
       }
-      blocks.push(ordered
-        ? <ol key={blocks.length} className="list-decimal space-y-1 pl-5">{items}</ol>
-        : <ul key={blocks.length} className="list-disc space-y-1 pl-5">{items}</ul>);
+      nodes.push(ordered
+        ? <ol key={i} className="list-decimal space-y-1 pl-5">{items}</ol>
+        : <ul key={i} className="list-disc space-y-1 pl-5">{items}</ul>);
       continue;
     }
-    if (/^ *(-{3,}|\*{3,}) *$/.test(line)) {
-      blocks.push(<hr key={blocks.length} className="border-[var(--mosaic-border)]" />);
-      index++;
+    if (/^>/.test(line)) {
+      nodes.push(<blockquote key={i} className="border-l-2 border-[#444444] pl-2">{inline(line.replace(/^>\s?/, ''))}</blockquote>);
+      i++;
       continue;
     }
-    if (/^ *>\s?/.test(line)) {
-      const quote: string[] = [];
-      while (index < lines.length && /^ *>\s?/.test(lines[index])) {
-        quote.push(lines[index++].replace(/^ *>\s?/, ''));
-      }
-      blocks.push(<blockquote key={blocks.length} className="border-l-2 border-[var(--mosaic-border-strong)] pl-3">
-        {quote.map((part, i) => <p key={i}>{inline(part, 'q' + index + i)}</p>)}
-      </blockquote>);
-      continue;
-    }
-    const paragraph = [line.trim()];
-    index++;
-    while (index < lines.length && lines[index].trim() &&
-      !/^\s*(?:#{1,4}\s|[-*+]\s|\d+\.\s|>|-{3,}\s*$|\x60{3})/.test(lines[index])) {
-      paragraph.push(lines[index++].trim());
-    }
-    blocks.push(<p key={blocks.length}>{inline(paragraph.join(' '), 'p' + index)}</p>);
+    if (/^-{3,}$/.test(line)) { nodes.push(<hr key={i} className="border-[#333333]" />); i++; continue; }
+    const paragraph = [line];
+    while (++i < lines.length && lines[i].trim() && !special.test(lines[i].trim())) paragraph.push(lines[i].trim());
+    nodes.push(<p key={i}>{inline(paragraph.join(' '))}</p>);
   }
-  return <div className="space-y-2 break-words text-sm leading-relaxed text-[var(--mosaic-text-secondary)]">{blocks}</div>;
+  return <div className="space-y-2 break-words text-sm leading-relaxed text-gray-300">{nodes}</div>;
 }
