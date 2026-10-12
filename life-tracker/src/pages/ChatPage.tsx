@@ -32,7 +32,8 @@ import {
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 import { packStickerMessage } from '../lib/stickerPacks';
 import { giphyStickerMessage, sendGiphyAnalytics, type GiphySticker } from '../lib/giphyStickers';
-import { createPreloadedLazy, scheduleModuleWarmup } from '../lib/createPreloadedLazy';
+import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+import { scheduleModuleWarmup } from '../lib/scheduleModuleWarmup';
 
 const { Component: StickerPackSheet, preload: preloadStickerPackSheet } =
   createPreloadedLazy(() =>

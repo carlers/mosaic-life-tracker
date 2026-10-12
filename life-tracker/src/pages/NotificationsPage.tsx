@@ -52,7 +52,8 @@ import {
   stringifyReactions,
 } from '../lib/reactionUtils';
 import { getReadableTextColor } from '../constants/colors';
-import { createPreloadedLazy, scheduleModuleWarmup } from '../lib/createPreloadedLazy';
+import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+import { scheduleModuleWarmup } from '../lib/scheduleModuleWarmup';
 
 const { Component: AlertFriendDaySheet, preload: preloadAlertFriendDaySheet } =
   createPreloadedLazy(() =>

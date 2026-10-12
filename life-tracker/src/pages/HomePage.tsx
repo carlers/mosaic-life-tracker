@@ -16,7 +16,7 @@ import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
-import { createPreloadedLazy, scheduleModuleWarmup } from '../lib/createPreloadedLazy';
+import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() =>
@@ -117,7 +117,10 @@ export const HomePage: React.FC = () => {
   // Lower priority than the accepted Day View warmup; no startup code load.
   useEffect(() => {
     if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
-    return scheduleModuleWarmup(preloadFriendSettings, 1800);
+    const id = window.setTimeout(() => {
+      if (document.visibilityState === 'visible') void preloadFriendSettings().catch(() => {});
+    }, 2400);
+    return () => window.clearTimeout(id);
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
   useEffect(() => {

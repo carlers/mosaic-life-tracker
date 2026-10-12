@@ -13,11 +13,10 @@ import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
 import { TaskActionSheet } from './TaskActionSheet';
-import { createPreloadedLazy, scheduleModuleWarmup } from '../../../lib/createPreloadedLazy';
-const { Component: LazyLinkTaskToBucketSheet, preload: preloadBucketLink } =
-  createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
-const { Component: LazyShareTaskSheet, preload: preloadShareSheet } =
-  createPreloadedLazy(() => import('./ShareTaskSheet').then(m => m.ShareTaskSheet));
+const LazyLinkTaskToBucketSheet = React.lazy(() => import('./LinkTaskToBucketSheet').then(m => ({ default: m.LinkTaskToBucketSheet })));
+const LazyShareTaskSheet = lazy(() =>
+  import('./ShareTaskSheet').then(({ ShareTaskSheet }) => ({ default: ShareTaskSheet }))
+);
 import { useSharedTasks } from '../../../hooks/useSharedTasks';
 import { useOptionalFriendList } from '../../../hooks/useFriends';
 import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
@@ -225,14 +224,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
   const [isBucketLinkOpen, setIsBucketLinkOpen] = useState(false);
-
-  // Warm nested task actions once the parent action sheet is in use.
-  useEffect(() => {
-    if (!isActionSheetOpen || !activeTaskId) return;
-    return scheduleModuleWarmup(
-      () => Promise.all([preloadShareSheet(), preloadBucketLink()]), 120
-    );
-  }, [activeTaskId, isActionSheetOpen]);
   const [shareSheetMounted, setShareSheetMounted] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [imagePickerTaskId, setImagePickerTaskId] = useState<string | null>(null);
@@ -1131,22 +1122,26 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         }}
         onChangeDate={handleDateChange}
         onVisibility={handleOpenVisibility}
-        onShare={() => { void preloadShareSheet().catch(() => {}); setShareSheetMounted(true); setIsShareSheetOpen(true); }}
+        onShare={() => { setShareSheetMounted(true); setIsShareSheetOpen(true); }}
         onAddPhoto={handleOpenImagePicker}
         onViewPhoto={handleOpenImageViewer}
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
         onMoveToBacklog={handleMoveToBacklog}
-        onLinkToBucketList={() => { void preloadBucketLink().catch(() => {}); setIsBucketLinkOpen(true); }}
+        onLinkToBucketList={() => setIsBucketLinkOpen(true)}
       />
-      {shareSheetMounted && (
+      <Suspense fallback={null}>
+        {shareSheetMounted && (
           <LazyShareTaskSheet
             isOpen={isShareSheetOpen && !!activeTask}
             onClose={() => setIsShareSheetOpen(false)}
             task={activeTask}
           />
-      )}
-      {isBucketLinkOpen && <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>}
+        )}
+      </Suspense>
+      <Suspense fallback={null}>
+        {isBucketLinkOpen && <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>}
+      </Suspense>
       <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
