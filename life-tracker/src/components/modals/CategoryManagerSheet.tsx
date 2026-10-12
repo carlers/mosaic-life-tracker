@@ -142,9 +142,9 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
         </button>
       </div>
       <div
-        className={`grid transition-[grid-template-rows] duration-200 ease-in-out motion-reduce:transition-none ${isEditing ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        className={`grid transition-all duration-200 ease-in-out motion-reduce:transition-none ${isEditing ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
         onTransitionEnd={(event) => {
-          if (isEditing && event.target === event.currentTarget && event.propertyName === 'grid-template-rows') {
+          if (isEditing && event.target === event.currentTarget) {
             editPanelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
           }
         }}
@@ -202,6 +202,13 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const pendingOrder = useRef(orderedCategories);
   const orderSignature = orderedCategories.map((cat) => cat.id).join('|');
 
+  const resetForm = () => {
+    setIsAdding(false);
+    setNewName('');
+    setNewColor('#3B82F6');
+    setNewVisibility('private');
+  };
+
   const [syncedIsOpen, setSyncedIsOpen] = useState(isOpen);
   if (isOpen !== syncedIsOpen) {
     setSyncedIsOpen(isOpen);
@@ -210,10 +217,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       reset();
     }
     if (!isOpen) {
-      setIsAdding(false);
-      setNewName('');
-      setNewColor('#3B82F6');
-      setNewVisibility('private');
+      resetForm();
       setEditingId(null);
       setDeleteId(null);
     }
@@ -240,12 +244,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
           order: categories.length,
           icon: '',
         }),
-      () => {
-        setIsAdding(false);
-        setNewName('');
-        setNewColor('#3B82F6');
-        setNewVisibility('private');
-      },
+      resetForm,
       'Could not add category. Try again.'
     );
   };
@@ -273,13 +272,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 
   const handleCancelDelete = () => {
     setDeleteId(null);
-  };
-
-  const resetForm = () => {
-    setIsAdding(false);
-    setNewName('');
-    setNewColor('#3B82F6');
-    setNewVisibility('private');
   };
 
   const handleEditCancel = () => {
