@@ -29,19 +29,14 @@ describe('reconcileChat', () => {
     mock.getDatabase.mockReturnValue({
       messages: { find: () => ({ exec: async () => [] }) },
     });
-    mock.send.mockImplementation(async ({ scope }: { scope: string }) =>
-      scope === 'self'
-        ? { ok: true, checked: 1, repaired: 1, nextScope: 'peer', nextCursor: '' }
-        : { ok: true, checked: 1, repaired: 0, nextScope: 'done', nextCursor: '' }
-    );
+    mock.send.mockResolvedValue({ ok: true, repaired: 1 });
   });
 
-  it('repairs both owners then awaits a full freshness barrier', async () => {
+  it('runs the authorized server repair before the awaited freshness barrier', async () => {
     await expect(reconcileChat('user_a', 'user_b')).resolves.toBe(1);
     expect(mock.deliver).toHaveBeenCalledWith('user_a');
-    expect(mock.send).toHaveBeenCalledTimes(2);
-    expect(mock.send).toHaveBeenNthCalledWith(2,
-      { action: 'repair_thread', partnerId: 'user_b', scope: 'peer', cursor: '' });
+    expect(mock.send).toHaveBeenCalledWith(
+      { action: 'repair_thread_all', partnerId: 'user_b' }, 90_000);
     expect(mock.sync).toHaveBeenCalledWith('user_a');
   });
 
@@ -54,9 +49,7 @@ describe('reconcileChat', () => {
     expect(mock.sync).not.toHaveBeenCalled();
   });
 
-  it('fails closed on stale server cursors and invalid success payloads', async () => {
-    mock.send.mockResolvedValue({ ok: true, nextScope: 'self', nextCursor: '' });
-    await expect(reconcileChat('user_a', 'user_b')).rejects.toThrow(/incomplete/);
+  it('rejects a malformed successful response', async () => {
     mock.send.mockResolvedValue({});
     await expect(reconcileChat('user_a', 'user_b')).rejects.toThrow(/incomplete/);
     expect(mock.sync).not.toHaveBeenCalled();
