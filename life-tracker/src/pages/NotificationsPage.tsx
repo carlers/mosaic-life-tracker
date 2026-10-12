@@ -149,10 +149,10 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   // Cache only the friend-day module after the usable alert feed hydrates.
   useEffect(() => {
     if (preview || !feedIsCurrent || items.length === 0) return;
-    const id = window.setTimeout(() => {
+    const id = setTimeout(() => {
       if (!document.hidden) void preloadAlertFriendDaySheet().catch(() => {});
     }, 1000);
-    return () => window.clearTimeout(id);
+    return () => clearTimeout(id);
   }, [feedIsCurrent, items.length, preview]);
 
   useEffect(() => {

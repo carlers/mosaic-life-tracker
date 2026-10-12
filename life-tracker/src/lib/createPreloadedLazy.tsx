@@ -30,7 +30,7 @@ export function createPreloadedLazy<P extends object>(
       ready ?? React.lazy(() => preload().then((Loaded) => ({ default: Loaded })))
     );
     return (
-      <React.Suspense fallback={null}>
+      <React.Suspense>
         <Selected {...props} />
       </React.Suspense>
     );
