@@ -80,10 +80,10 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
 }) => {
   const dragControls = useDragControls();
   const editPanelRef = useRef<HTMLDivElement>(null);
-  const exitContent = useRef(children);
+  const [exitContent, setExitContent] = useState(children);
 
   useEffect(() => {
-    if (isEditing) exitContent.current = children;
+    if (isEditing) setExitContent(children);
   }, [children, isEditing]);
 
   return (
@@ -154,7 +154,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
       >
         <div className="min-h-0 overflow-hidden" inert={!isEditing} aria-hidden={!isEditing}>
           <div ref={editPanelRef} className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
-            {isEditing ? children : exitContent.current}
+            {isEditing ? children : exitContent}
           </div>
         </div>
       </div>
