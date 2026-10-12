@@ -67,7 +67,7 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(PROTECTED_ROUTES.map((route) => route.path)).toEqual([
       '/home', '/bucket-list/:id', '/bucket-list', '/backlog', '/explore', '/friends/:friendId', '/notifications',
       '/messages', '/messages/:friendId', '/account', '/settings',
-      '/settings/releases', '/settings/preferences', '/settings/notifications', '/settings/screen', '/profile',
+      '/settings/releases', '/settings/preferences', '/settings/notifications', '/settings/screen', '/settings/*', '/profile',
     ]);
     expect(new Set(PROTECTED_ROUTES.map((route) => route.path)).size).toBe(PROTECTED_ROUTES.length);
     expect(PRIMARY_ROUTE_PATHS).toEqual([
@@ -89,6 +89,7 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(matchProtectedRoute('/friends/')?.id).toBeUndefined();
     expect(matchProtectedRoute('/settings/preferences')?.id).toBe('preferences');
     expect(matchProtectedRoute('/settings/notifications')?.id).toBe('notificationSettings');
+    expect(matchProtectedRoute('/settings/notifcations')?.id).toBe('unknownSettingsRedirect');
     expect(matchProtectedRoute('/login')).toBeNull();
     expect(protectedRouteSwipeMode('/messages/user_1')).toBe('edge-back');
     expect(protectedRouteSwipeMode('/friends/friend_1')).toBe('edge-back');
