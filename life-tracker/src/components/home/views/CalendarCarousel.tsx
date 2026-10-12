@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useLayoutEffect, useRef } from 'react';
 import { CalendarSlide } from './CalendarSlide';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
@@ -13,6 +13,8 @@ interface CalendarCarouselProps {
   emblaRef: (node: HTMLElement | null) => void;
   viewMode: CalendarViewMode;
   zoomDays?: CalendarZoomDays;
+  onPrev?: () => void;
+  onNext?: () => void;
   onDayClick: (date: Date) => void;
   tasksByDate: Map<string, TaskDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
@@ -29,6 +31,8 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   emblaRef,
   viewMode,
   zoomDays = 7,
+  onPrev,
+  onNext,
   onDayClick,
   tasksByDate,
   sharedByDay,
@@ -52,18 +56,28 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
     node.scrollLeft = max * offset / (7 - days);
   }, []);
   const handleZoomScroll = useCallback((node: HTMLDivElement, days: number) => {
-    const max = Math.max(0, node.scrollWidth - node.clientWidth);
-    if (max === 0) return;
-    const weekdayOffset = Math.min(7 - days, Math.max(0, node.scrollLeft / max * (7 - days)));
-    weekdayOffsetRef.current = weekdayOffset;
-    viewportRef.current?.querySelectorAll<HTMLDivElement>('[data-calendar-zoom-lane]').forEach((other) => {
-      if (other === node) return;
-      const otherMax = Math.max(0, other.scrollWidth - other.clientWidth);
-      const otherDays = Number(other.dataset.zoomDays || days);
-      const target = otherMax * Math.min(7 - otherDays, weekdayOffset) / (7 - otherDays);
-      if (Math.abs(other.scrollLeft - target) > 1) other.scrollLeft = target;
-    });
+    // Read only the active scroll owner. Synchronous writes to every adjacent
+    // month on each scroll event caused layout/scroll feedback on touch devices.
+    if (!node.clientWidth) return;
+    weekdayOffsetRef.current = Math.min(7 - days,
+      Math.max(0, node.scrollLeft * days / node.clientWidth));
   }, []);
+
+  // Pre-mounted adjacent month/week slides are aligned only when the
+  // carousel's render window changes, never while a finger is panning.
+  useLayoutEffect(() => {
+    if (zoomDays === 7) return;
+    viewportRef.current?.querySelectorAll<HTMLDivElement>('[data-calendar-zoom-lane]').forEach((node) => {
+      const days = Number(node.dataset.zoomDays || zoomDays);
+      const target = Math.min(7 - days, weekdayOffsetRef.current) * node.clientWidth / days;
+      if (Math.abs(node.scrollLeft - target) > 1) node.scrollLeft = target;
+    });
+  }, [renderStart, renderEnd, viewMode, zoomDays]);
+
+  const handleZoomNavigate = useCallback((direction: 'prev' | 'next') => {
+    if (direction === 'next') onNext?.();
+    else onPrev?.();
+  }, [onNext, onPrev]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden py-2">
@@ -96,6 +110,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                     zoomDays={zoomDays}
                     onZoomMount={handleZoomMount}
                     onZoomScroll={handleZoomScroll}
+                    onZoomNavigate={handleZoomNavigate}
                     onDayClick={onDayClick}
                     tasksByDate={tasksByDate}
                     sharedByDay={sharedByDay}

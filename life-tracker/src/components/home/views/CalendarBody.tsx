@@ -158,6 +158,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       emblaRef={emblaRef}
       viewMode={viewMode}
       zoomDays={zoomDays}
+      onPrev={onPrev}
+      onNext={onNext}
       onDayClick={handleDayClick}
       tasksByDate={tasksByDate}
       sharedByDay={variant === 'me' ? sharedByDay : undefined}
