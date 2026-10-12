@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { BookOpenText, Plus, Images } from 'lucide-react';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { useDiary } from '../../../hooks/useDiary';
 import { useSettings } from '../../../hooks/useSettings';
 import type { DiaryDocument } from '../../../db/schema';
 import { DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, resolveDiaryDayViewHeight } from '../../../lib/preferences';
-import { DiaryEntrySheet } from './DiaryEntrySheet';
+const DiaryEntrySheet = lazy(() => import('./DiaryEntrySheet').then(m => ({ default: m.DiaryEntrySheet })));
 import { diaryMarker } from '../../../lib/diaryMarker';
 
 interface DiaryDayCardProps {
@@ -19,12 +19,12 @@ interface DiaryDayCardProps {
 export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, expanded = false, dragHandleRef }) => (
   <button ref={entry ? dragHandleRef : undefined} type="button" onClick={onOpen} data-testid="diary-day-card"
     aria-label={entry ? 'Read diary entry' : 'Add diary entry'}
-    className="flex min-w-0 w-full items-start gap-3 rounded-xl bg-surfaceHighlight px-4 py-3 text-left text-white outline-offset-2 transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2">
+    className="flex min-w-0 w-full items-start gap-3 rounded-lg py-2 pl-0 pr-2 text-left text-white outline-offset-2 transition-colors hover:bg-surfaceHighlight focus-visible:outline focus-visible:outline-2">
     <span className="flex h-6 w-6 shrink-0 items-center justify-center text-gray-400" aria-hidden="true">
       {entry ? <BookOpenText size={19}/> : <Plus size={18}/>}
     </span>
     <span className="min-w-0 flex-1">
-      <span className={expanded ? 'block whitespace-pre-wrap break-words text-sm' : 'block truncate text-sm'}>
+      <span className={expanded ? 'block whitespace-pre-wrap break-words text-base' : 'block overflow-hidden whitespace-nowrap text-base'}>
         {entry?.content?.trim() || (entry ? 'Diary entry' : 'Add diary entry')}
       </span>
       {expanded && entry?.emoji && <span aria-hidden="true" className="mt-1 inline-block text-lg">{diaryMarker(entry)}</span>}
@@ -47,8 +47,8 @@ export const DiaryDayPreview: React.FC<{ date: string; dragHandleRef?: React.Ref
       <div className="mx-4 my-2 min-w-0">
         <DiaryDayCard entry={entry} onOpen={() => setOpen(true)} expanded={expanded} dragHandleRef={dragHandleRef}/>
       </div>
-      {open && <DiaryEntrySheet key={date} date={date} entry={entry} author="Me"
-        onSave={saveEntry} onDelete={deleteEntry} onClose={() => setOpen(false)} />}
+      {open && <Suspense fallback={null}><DiaryEntrySheet key={date} date={date} entry={entry} author="Me"
+        onSave={saveEntry} onDelete={deleteEntry} onClose={() => setOpen(false)} /></Suspense>}
     </>
   );
 };

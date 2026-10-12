@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { useDraggable } from '@dnd-kit/react';
-import { DiaryDayPreview } from './DiaryDayPreview';
+const DiaryDayPreview = lazy(() => import('./DiaryDayPreview').then(m => ({default: m.DiaryDayPreview})));
 import { useDiary } from '../../../hooks/useDiary';
 
 export const DraggableDiaryDayPreview: React.FC<{ date: string }> = ({ date }) => {
@@ -9,7 +9,7 @@ export const DraggableDiaryDayPreview: React.FC<{ date: string }> = ({ date }) =
   return (
     <div className="relative">
       <div ref={ref} aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-0"/>
-      <DiaryDayPreview date={date} dragHandleRef={handleRef}/>
+      <Suspense fallback={null}><DiaryDayPreview date={date} dragHandleRef={handleRef}/></Suspense>
     </div>
   );
 };

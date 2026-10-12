@@ -5,7 +5,7 @@ import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskS
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
 import type { DiaryPlacement } from '../../../lib/diaryPlacement';
-import { DiaryDayPreview } from './DiaryDayPreview';
+const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
 import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
 import {
@@ -127,7 +127,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
 
   const hasPlacementCategory = diaryPlacement.kind === 'slot' && categories.some(cat => cat.id === diaryPlacement.categoryId);
   const fallbackPlacement = hasPlacementCategory ? diaryPlacement : { kind: 'top' as const };
-  const diaryCard = diaryEnabled ? (reorderRuntimeActive ? <DraggableDiaryDayPreview date={dateStr}/> : <DiaryDayPreview date={dateStr}/>) : null;
+  const diaryCard = diaryEnabled ? (reorderRuntimeActive ? <DraggableDiaryDayPreview date={dateStr}/> : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr}/></React.Suspense>) : null;
   const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
   const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
   // Own the action sheet above category rows: moving a share must not unmount
