@@ -61,6 +61,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DayViewSheet | [src/components/home/views/DayViewSheet.tsx](../src/components/home/views/DayViewSheet.tsx) |
 | DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
 | DiaryEntrySheet | [src/components/home/views/DiaryEntrySheet.tsx](../src/components/home/views/DiaryEntrySheet.tsx) |
+| DiaryPhotoGallery | [src/components/home/views/DiaryPhotoGallery.tsx](../src/components/home/views/DiaryPhotoGallery.tsx) |
+| DraggableDiaryDayPreview | [src/components/home/views/DraggableDiaryDayPreview.tsx](../src/components/home/views/DraggableDiaryDayPreview.tsx) |
 | DraggableTaskItem | [src/components/home/views/DraggableTaskItem.tsx](../src/components/home/views/DraggableTaskItem.tsx) |
 | ImagePickerSheet | [src/components/home/views/ImagePickerSheet.tsx](../src/components/home/views/ImagePickerSheet.tsx) |
 | ImageViewer | [src/components/home/views/ImageViewer.tsx](../src/components/home/views/ImageViewer.tsx) |
