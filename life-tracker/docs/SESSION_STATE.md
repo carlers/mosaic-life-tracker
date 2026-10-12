@@ -7,7 +7,8 @@ Current task: opt-in category coloring for unfinished Calendar task blocks; task
 - Base: dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1. Task: chatgpt/taskblock-incomplete-color-20261012. Stable Preview: feature/taskblock-incomplete-color-20261012.
 - New account-synced Preferences choice: Default, Category text, or Category border; only unfinished Calendar TaskBlocks change. Applies while viewing the owner's and friends' calendars. Text blending protects contrast across Light/Dark/Black; completed TaskBlocks and Day View rows remain unchanged.
 - Planned feature version: 0.20.0. Frontend-only; no Appwrite schema/Function or Production changes.
-- Next action: validate focused task CI, squash into stable Preview, confirm full canonical CI and exact-SHA Vercel Scratch READY. Await user/device acceptance before dev/main promotion.
+- First stable Preview c2eb103 had a successful GitHub compile but the GIPHY-enabled Vercel build-size guard exceeded only raw asset bytes by 28 B; the corrective task reuses the existing semantic foreground token to remove a redundant theme variable without relaxing budgets.
+- Next action: validate focused repair CI, squash to stable Preview, confirm full canonical CI and exact-SHA Vercel Scratch READY. Await user/device acceptance before dev/main promotion.
 
 ## Previous handoff — #645 repository source discovery pilot
 Issue #645 Phase 2 D1/D2 repository source discovery pilot; user authorized task branch and stable Preview, not dev/main merge.
