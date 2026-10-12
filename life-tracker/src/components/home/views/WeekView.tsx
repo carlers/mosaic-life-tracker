@@ -19,6 +19,7 @@ interface WeekViewProps {
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;
   onZoomNavigate?: (direction: 'prev' | 'next') => void;
+  navigationLocked?: boolean;
   onDayClick?: (date: Date) => void;
   tasksByDate: Map<string, TaskDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
@@ -34,6 +35,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
   onZoomMount,
   onZoomScroll,
   onZoomNavigate,
+  navigationLocked,
   onDayClick,
   tasksByDate,
   sharedByDay,
@@ -99,7 +101,8 @@ export const WeekView: React.FC<WeekViewProps> = ({
   return zoomDays === 7 ? grid : (
     <CalendarZoomViewport zoomDays={zoomDays}
       onZoomMount={onZoomMount} onZoomScroll={onZoomScroll}
-      onNavigate={onZoomNavigate}>
+      onNavigate={onZoomNavigate}
+      navigationLocked={navigationLocked}>
       {grid}
     </CalendarZoomViewport>
   );

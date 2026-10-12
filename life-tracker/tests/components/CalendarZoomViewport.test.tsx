@@ -72,7 +72,10 @@ describe('CalendarZoomViewport boundary interactions', () => {
     mouse('pointermove', 150);
     expect(lane.scrollLeft).toBe(180);
     mouse('pointerup', 150);
-    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith({ left: 200, behavior: 'smooth' });
+    expect(lane.style.scrollSnapType).toBe('none');
+    fireEvent(lane, new Event('scrollend'));
+    expect(lane.style.scrollSnapType).toBe('');
     fireEvent.click(screen.getByRole('button', { name: 'Day' }));
     expect(onTap).not.toHaveBeenCalled();
     expect(onNavigate).not.toHaveBeenCalled();
@@ -86,6 +89,32 @@ describe('CalendarZoomViewport boundary interactions', () => {
     mouse('pointermove', 90);
     mouse('pointerup', 90);
     expect(onNavigate).toHaveBeenCalledWith('next');
+  });
+
+  it('has a snap marker for each legal individual day start in both zoom modes', () => {
+    const { lane } = setup(3);
+    expect(lane.querySelectorAll('[data-calendar-snap-day]')).toHaveLength(5);
+  });
+
+  it('blocks touch, wheel and mouse edge reentry during a period animation', () => {
+    const onNavigate = vi.fn();
+    const onTap = vi.fn();
+    render(
+      <CalendarZoomViewport zoomDays={4} navigationLocked
+        onNavigate={onNavigate}>
+        <button onClick={onTap}>Day</button>
+      </CalendarZoomViewport>
+    );
+    const lane = screen.getByRole('region', { name: 'Scrollable calendar weekdays' });
+    fireEvent.touchStart(lane, { touches: [touch(100)] });
+    fireEvent.touchEnd(lane, { changedTouches: [touch(10)] });
+    fireEvent.wheel(lane, { deltaX: 130, deltaY: 0, deltaMode: 0 });
+    fireEvent.pointerDown(lane, { pointerType: 'mouse', clientX: 150, pointerId: 1, button: 0 });
+    fireEvent.pointerMove(lane, { pointerType: 'mouse', clientX: 20, pointerId: 1 });
+    fireEvent.pointerUp(lane, { pointerType: 'mouse', clientX: 20, pointerId: 1 });
+    fireEvent.click(screen.getByRole('button', { name: 'Day' }));
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(onTap).not.toHaveBeenCalled();
   });
 
 });

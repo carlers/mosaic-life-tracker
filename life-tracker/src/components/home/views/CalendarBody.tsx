@@ -32,6 +32,9 @@ interface CalendarBodyProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
   zoomPreference?: CalendarZoomDays;
+  activeIndex?: number;
+  isZoomTransitioning?: boolean;
+  onZoomNavigate?: (direction: 'prev' | 'next') => boolean;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
   friendCategories?: CategoryDocument[];
@@ -57,6 +60,9 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   categoriesMap,
   variant,
   zoomPreference = 7,
+  activeIndex,
+  isZoomTransitioning,
+  onZoomNavigate,
   sharedByDay,
   ownedSharedTaskIds,
   friendCategories,
@@ -158,6 +164,9 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       emblaRef={emblaRef}
       viewMode={viewMode}
       zoomDays={zoomDays}
+      activeIndex={activeIndex}
+      isZoomTransitioning={isZoomTransitioning}
+      onZoomNavigate={onZoomNavigate}
       onPrev={onPrev}
       onNext={onNext}
       onDayClick={handleDayClick}

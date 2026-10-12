@@ -31,6 +31,9 @@ export interface CalendarState {
   slides: Date[];
   renderStart: number;
   renderEnd: number;
+  activeIndex: number;
+  isZoomTransitioning: boolean;
+  handleZoomNavigate: (direction: 'prev' | 'next') => boolean;
   emblaRef: (node: HTMLElement | null) => void;
   title: string;
   handlePrev: () => void;
@@ -49,6 +52,8 @@ export function useCalendarState(
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
   const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
   const isInternalSwipeRef = useRef(false);
+  const zoomNavigationLock = useRef(false);
+  const [isZoomTransitioning, setIsZoomTransitioning] = useState(false);
   const [prevViewMode, setPrevViewMode] = useState(viewMode);
 
   if (prevViewMode !== viewMode) {
@@ -73,6 +78,36 @@ export function useCalendarState(
   });
 
   useEmblaTrackpadNavigation(emblaApi);
+
+  // The zoom grid and Embla must never both own a swipe while the
+  // destination month/week is still moving. Embla's 'settle' (not
+  // 'select') is the authoritative end of the animation.
+  useEffect(() => {
+    if (!emblaApi) return;
+    const begin = () => setIsZoomTransitioning(true);
+    const settle = () => {
+      zoomNavigationLock.current = false;
+      setIsZoomTransitioning(false);
+    };
+    emblaApi.on('select', begin);
+    emblaApi.on('settle', settle);
+    emblaApi.on('reInit', settle);
+    return () => {
+      emblaApi.off('select', begin);
+      emblaApi.off('settle', settle);
+      emblaApi.off('reInit', settle);
+    };
+  }, [emblaApi]);
+
+  const handleZoomNavigate = useCallback((direction: 'prev' | 'next'): boolean => {
+    if (!emblaApi || zoomNavigationLock.current ||
+      (direction === 'next' ? !emblaApi.canScrollNext() : !emblaApi.canScrollPrev())) return false;
+    zoomNavigationLock.current = true;
+    setIsZoomTransitioning(true);
+    if (direction === 'next') emblaApi.scrollNext();
+    else emblaApi.scrollPrev();
+    return true;
+  }, [emblaApi]);
 
   // Keep the active render window aligned to settled snaps. The active slide
   // already has both immediate neighbors mounted, so a one-step drag never
@@ -189,6 +224,9 @@ export function useCalendarState(
     slides,
     renderStart,
     renderEnd,
+    activeIndex: emblaActiveIndex,
+    isZoomTransitioning,
+    handleZoomNavigate,
     emblaRef,
     title,
     handlePrev,

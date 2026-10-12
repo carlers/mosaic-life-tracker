@@ -14,6 +14,7 @@ interface CalendarSlideProps {
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;
   onZoomNavigate?: (direction: 'prev' | 'next') => void;
+  navigationLocked?: boolean;
   onDayClick: (date: Date) => void;
   tasksByDate: Map<string, TaskDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
@@ -30,6 +31,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
   onZoomMount,
   onZoomScroll,
   onZoomNavigate,
+  navigationLocked,
   onDayClick,
   tasksByDate,
   sharedByDay,
@@ -46,6 +48,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
         onZoomMount={onZoomMount}
         onZoomScroll={onZoomScroll}
         onZoomNavigate={onZoomNavigate}
+        navigationLocked={navigationLocked}
         onDayClick={onDayClick}
         tasksByDate={tasksByDate}
       sharedByDay={sharedByDay}
@@ -63,6 +66,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
       onZoomMount={onZoomMount}
       onZoomScroll={onZoomScroll}
       onZoomNavigate={onZoomNavigate}
+      navigationLocked={navigationLocked}
       onDayClick={onDayClick}
       tasksByDate={tasksByDate}
       sharedByDay={sharedByDay}

@@ -2,13 +2,13 @@ export type ZoomEdge = 'left' | 'right' | null;
 export type ZoomDirection = 'prev' | 'next';
 const EDGE_SWIPE_THRESHOLD_PX = 56;
 
-// Final chunk overlaps with the previous page; no blank days at the edge.
+// Each individual day is a snap target. The last legal position overlaps
+// earlier columns, so the final visible page contains only real weekdays.
 export function zoomSnapColumns(days: number): number[] {
-  return days === 3 ? [0, 3, 4] : [0, 3];
+  return Array.from({ length: 8 - days }, (_, day) => day);
 }
 export function nearestZoomSnap(column: number, days: number): number {
-  return zoomSnapColumns(days).reduce((best, position) =>
-    Math.abs(position - column) < Math.abs(best - column) ? position : best, 0);
+  return Math.min(7 - days, Math.max(0, Math.round(column)));
 }
 export function edgeSwipeDirection(
   edge: ZoomEdge, dx: number, dy: number,
