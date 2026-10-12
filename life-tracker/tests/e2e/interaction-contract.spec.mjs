@@ -815,6 +815,10 @@ test('category header and first-row boundary share one stable insertion slot', a
 
   const gap = targetCategory.locator('[data-task-drop-gap="true"]');
   await expect(gap).toHaveCount(1);
+  // Layout projections animate; compare settled insertion geometry rather than
+  // sampling in the middle of the previous 200ms layout transition.
+  await waitForStableVerticalPosition(gap);
+  await waitForStableVerticalPosition(firstTarget);
   const gapAtHeader = await gap.boundingBox();
   const firstAtHeader = await firstTarget.boundingBox();
   if (!gapAtHeader || !firstAtHeader) {
@@ -826,7 +830,8 @@ test('category header and first-row boundary share one stable insertion slot', a
     firstAtHeader.x + firstAtHeader.width * 0.5,
     firstAtHeader.y + Math.min(4, firstAtHeader.height * 0.1)
   );
-  await page.waitForTimeout(80);
+  await waitForStableVerticalPosition(gap);
+  await waitForStableVerticalPosition(firstTarget);
 
   const gapAtFirstRow = await gap.boundingBox();
   const firstAtFirstRow = await firstTarget.boundingBox();
@@ -842,7 +847,8 @@ test('category header and first-row boundary share one stable insertion slot', a
     gapAtFirstRow.x + gapAtFirstRow.width * 0.5,
     gapAtFirstRow.y + gapAtFirstRow.height * 0.5
   );
-  await page.waitForTimeout(120);
+  await waitForStableVerticalPosition(gap);
+  await waitForStableVerticalPosition(firstTarget);
 
   const gapUnderFinger = await gap.boundingBox();
   const firstUnderFinger = await firstTarget.boundingBox();
@@ -963,14 +969,19 @@ test('task can drop into an empty category from its category surface', async ({ 
     name: 'Add a task to Category 3',
   });
   await source.scrollIntoViewIfNeeded();
+  const gesture = await startTaskLongPress(page, title);
+  // Starting the drag shifts task/category geometry while the new insertion
+  // space animates. Target the visible header *after* it has settled.
+  await waitForStableVerticalPosition(emptyHeader);
   const headerBox = await emptyHeader.boundingBox();
   if (!headerBox) throw new Error('Missing empty-category bounds');
-
-  const gesture = await startTaskLongPress(page, title);
   await gesture.moveTo(
     headerBox.x + headerBox.width * 0.5,
     headerBox.y + headerBox.height * 0.5
   );
+  // Validate the intended category actually has the projected opening before
+  // release, rather than only asserting an optimistic persistence callback.
+  await expect(emptyCategory.locator('[data-task-drop-gap="true"]')).toHaveCount(1);
   await gesture.finish();
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
