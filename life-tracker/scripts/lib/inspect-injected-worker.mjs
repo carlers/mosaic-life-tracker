@@ -10,6 +10,8 @@ export function inspectInjectedWorker(source) {
   const claims = [];
   let fallback = null;
   let denylist = null;
+  const stringBindings = new Map();
+  const boundUrlArgs = [];
 
   function propName(node) {
     if (!node) return '';
@@ -26,6 +28,9 @@ export function inspectInjectedWorker(source) {
   function walk(node, ancestors = []) {
     if (!node || typeof node !== 'object' || typeof node.type !== 'string') return;
     const path = [...ancestors, node];
+    if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier' && node.init?.type === 'Literal' && typeof node.init.value === 'string') {
+      stringBindings.set(node.id.name, node.init.value);
+    }
     if (node.type === 'ArrayExpression' && node.elements.length > 0 &&
         node.elements.every((entry) => entry?.type === 'ObjectExpression' &&
           objectValue(entry, 'url')?.type === 'Literal' &&
@@ -45,8 +50,10 @@ export function inspectInjectedWorker(source) {
       if (method === 'claim' && propName(node.callee?.object?.property) === 'clients') {
         claims.push(path);
       }
-      if (method === 'createHandlerBoundToURL' &&
-          typeof node.arguments[0]?.value === 'string') fallback = node.arguments[0].value;
+      if (method === 'createHandlerBoundToURL') {
+        boundUrlArgs.push(node.arguments[0]);
+        if (typeof node.arguments[0]?.value === 'string') fallback = node.arguments[0].value;
+      }
     }
     if (node.type === 'Property' && propName(node.key) === 'denylist' &&
         node.value?.type === 'ArrayExpression') {
@@ -63,6 +70,11 @@ export function inspectInjectedWorker(source) {
   if (!source.includes('__MOSAIC_ASSETS__')) {
     throw new Error('Missing injected Mosaic precache progress manifest.');
   }
+  if (!fallback) {
+    fallback = boundUrlArgs.filter((arg) => arg?.type === 'Identifier')
+      .map((arg) => stringBindings.get(arg.name))
+      .find((url) => url === 'index.html') ?? null;
+  }
   const precacheEntries = manifestCandidates.sort((a, b) => b.length - a.length)[0];
   const precacheUrls = precacheEntries?.map((entry) => entry.url);
   const precacheSizes = precacheEntries?.map((entry) => entry.bytes);
@@ -71,6 +83,7 @@ export function inspectInjectedWorker(source) {
       JSON.stringify({ manifestArrayCount: manifestCandidates.length,
         longestManifest: precacheEntries?.length ?? 0,
         fallback, denylist,
+        boundUrlArgs: boundUrlArgs.map((arg) => ({ type: arg?.type, value: arg?.name ?? arg?.value })),
         routeCalls: [...source.matchAll(/createHandlerBoundToURL/g)].length,
         indexHtmlReferences: [...source.matchAll(/index\\.html/g)].length,
         denylistReferences: [...source.matchAll(/denylist/g)].length,

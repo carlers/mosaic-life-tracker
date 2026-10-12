@@ -48,6 +48,8 @@ describe('service worker inspector', () => {
     expect(result.importedScripts).toEqual(['/push-sw.js']);
     expect(result.navigationDenylist?.length).toBe(2);
     expect(result.skipWaitingOnStartup).toBe(false);
+    const variableRoute = source.replace('controller.createHandlerBoundToURL("index.html");', 'const page = "index.html"; controller.createHandlerBoundToURL(page);');
+    expect((await inspectServiceWorker(variableRoute)).navigationFallback).toBe('index.html');
 
     const unsafe = source + 'self.skipWaiting();';
     const unsafeResult = await inspectServiceWorker(unsafe);
