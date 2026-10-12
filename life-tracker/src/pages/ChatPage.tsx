@@ -38,6 +38,9 @@ const { Component: StickerPackSheet, preload: preloadStickerPackSheet } =
   createPreloadedLazy(() =>
     import('../components/messages/StickerPackSheet').then(m => m.StickerPackSheet)
   );
+const { Component: SyncStatusSheet } = createPreloadedLazy(() =>
+  import('../components/modals/SyncStatusSheet').then(m => m.SyncStatusSheet)
+);
 
 
 interface ComposerReplyState {
@@ -84,10 +87,7 @@ export const ChatPage: React.FC = () => {
   const composerRef = useRef<MessageComposerHandle>(null);
   const focusAfterActionReplyRef = useRef(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [syncingOwner, setSyncingOwner] = useState<string | null>(null);
-  const isChatSyncing = syncingOwner === myUserId;
-  const chatSyncOwnerRef = useRef('');
-  useEffect(() => { chatSyncOwnerRef.current = myUserId; }, [myUserId]);
+  const [syncSheetOpen, setSyncSheetOpen] = useState(false);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
   const [hasOpenedStickers, setHasOpenedStickers] = useState(false);
@@ -230,33 +230,6 @@ export const ChatPage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSearching, replyTo, openSearch, closeSearch]);
 
-  const handleSyncChat = async () => {
-    if (!myUserId || isChatSyncing) return;
-    if (connectivity.status !== 'online') {
-      setFeedback('Offline. Chat sync needs a connection.');
-      return;
-    }
-    const owner = myUserId;
-    setSyncingOwner(owner);
-    try {
-      const [{ deliverPendingMessages }, { syncNow }] = await Promise.all([
-        import('../lib/messageDelivery'),
-        import('../db/sync'),
-      ]);
-      await deliverPendingMessages(owner);
-      await syncNow(owner);
-      if (chatSyncOwnerRef.current === owner) {
-        setFeedback('Local chat refreshed from server');
-      }
-    } catch {
-      if (chatSyncOwnerRef.current === owner) {
-        setFeedback('Chat sync could not complete. Try again.');
-      }
-    } finally {
-      if (chatSyncOwnerRef.current === owner) setSyncingOwner(null);
-    }
-  };
-
   const handleBack = () => {
     const parent = '/messages';
     if (hasExpectedRouteParent(location.key, location.state, parent)) {
@@ -365,15 +338,10 @@ export const ChatPage: React.FC = () => {
           {friend?.friendDisplayName || friend?.friendUsername || 'Chat'}
         </span>
         <div className="ml-auto flex items-center gap-1">
-          <button
-            onClick={() => void handleSyncChat()}
-            disabled={isChatSyncing}
-            className="p-2 text-gray-400 disabled:opacity-50"
-            aria-label={isChatSyncing ? 'Syncing chat' : 'Sync chat now'}
-            title="Sync chat"
-            data-route-swipe-ignore="true"
-          >
-            <RefreshCw size={20} className={isChatSyncing ? 'animate-spin' : ''} />
+          <button onClick={() => setSyncSheetOpen(true)}
+            className="p-2 text-gray-400" aria-label="Open sync status"
+            title="Sync status" data-route-swipe-ignore="true">
+            <RefreshCw size={20} />
           </button>
           <button
             onClick={openSearch}
@@ -479,6 +447,9 @@ export const ChatPage: React.FC = () => {
         />
       </div>
 
+      {syncSheetOpen && (
+        <SyncStatusSheet isOpen onClose={() => setSyncSheetOpen(false)} />
+      )}
       {hasOpenedStickers && (
           <StickerPackSheet
             key={myUserId}
