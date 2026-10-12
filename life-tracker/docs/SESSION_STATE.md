@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Issue: #692 — daily snap and safe month-transition handoff.
+Current task: #692 — daily snap and safe month-transition handoff.
 Source stable Preview: feature/calendar-zoom-692-20261012@ac7d17e (v0.23.1).
 Task branch: chatgpt/692-day-snap-transition-20261012.
 Version candidate: v0.23.2, next user-testable patch revision. Current dev is independent; no dev/main merge approved.
