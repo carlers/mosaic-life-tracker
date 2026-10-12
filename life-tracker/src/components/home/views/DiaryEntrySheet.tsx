@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
 import type { DiaryDocument } from '../../../db/schema';
@@ -32,16 +32,6 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const [error, setError] = useState('');
   const changed = body !== (entry?.content || '') || emoji !== (entry?.emoji || '') ||
     visibility !== (entry?.visibility || 'private');
-
-  useEffect(() => {
-    setEditing(!entry && !!onSave);
-    setBody(entry?.content || '');
-    setEmoji(entry?.emoji || '');
-    setVisibility(entry?.visibility || 'private');
-    setPicker(false);
-    setMenu(false);
-    setError('');
-  }, [date, entry?.id, onSave]);
 
   const close = () => {
     if (busy) return;

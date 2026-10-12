@@ -11,13 +11,17 @@ vi.mock('../../src/components/home/views/CalendarBody', () => ({
   CalendarBody: () => <div data-testid="calendar-body">Calendar body</div>,
 }));
 
-vi.mock('../../src/components/layout/ComingSoon', () => ({
-  ComingSoon: () => <div data-testid="diary-body">Diary body</div>,
+vi.mock('../../src/hooks/useDiary', () => ({
+  useDiary: () => ({
+    entries: [], isLoading: false,
+    getEntryByDate: () => undefined,
+    saveEntry: vi.fn(), deleteEntry: vi.fn(),
+  }),
 }));
 
 vi.mock('../../src/components/home/views/TodoListView', () => ({
-  TodoListView: ({ variant = 'me', tasks = [] }: { variant?: string; tasks?: unknown[] }) => (
-    <div data-testid="todo-list-view" data-variant={variant} data-task-count={tasks.length} />
+  TodoListView: ({ variant = 'me', tasks = [], markerMode = 'todo' }: { variant?: string; tasks?: unknown[]; markerMode?: string }) => (
+    <div data-testid="todo-list-view" data-variant={variant} data-task-count={tasks.length} data-marker-mode={markerMode} />
   ),
 }));
 
@@ -166,13 +170,13 @@ describe('PersonPane view switcher', () => {
     expect(screen.getByRole('button', { name: 'Go to today' })).toHaveTextContent(currentMonthTitle);
   });
 
-  it('keeps the toggle visible in Diary and lets the user switch back to Calendar', () => {
+  it('renders the Diary calendar workspace and lets the user switch back to Calendar', async () => {
     render(<PersonPane person={me} isActive />);
 
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Diary'));
-    expect(screen.getByTestId('diary-body')).toBeInTheDocument();
+    expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-marker-mode', 'diary');
     expect(screen.getByLabelText('Calendar')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Calendar'));
