@@ -491,7 +491,10 @@ async function handleRepairThread(tablesDB, callerId, payload) {
         candidate.sender_id === senderId && candidate.recipient_id === recipientId &&
         candidate.direction === peerDirection &&
         candidate.original_message_id === messageId &&
-        candidate.content === row.content;
+        candidate.content === row.content &&
+        ['task_ref_id', 'task_ref_title', 'task_ref_date', 'task_ref_color',
+         'reply_to_id', 'reply_to_content', 'reply_to_sender_id']
+          .every((key) => (candidate[key] || '') === (row[key] || ''));
     }
     if (peer) {
       if (peer.deleted || peer.is_unsent) continue;
