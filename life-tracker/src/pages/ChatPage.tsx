@@ -84,6 +84,10 @@ export const ChatPage: React.FC = () => {
   const composerRef = useRef<MessageComposerHandle>(null);
   const focusAfterActionReplyRef = useRef(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [syncingChat, setSyncingChat] = useState<string | null>(null);
+  const chatKey = myUserId + ':' + friendId;
+  const chatKeyRef = useRef(chatKey);
+  chatKeyRef.current = chatKey;
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
   const [hasOpenedStickers, setHasOpenedStickers] = useState(false);
@@ -235,6 +239,23 @@ export const ChatPage: React.FC = () => {
     }
   };
 
+  const handleSyncChat = async () => {
+    if (!myUserId || !friendId || syncingChat === chatKey) return;
+    const key = chatKey;
+    setSyncingChat(key);
+    try {
+      const { reconcileChat } = await import('../lib/chatReconcile');
+      const count = await reconcileChat(myUserId, friendId);
+      if (chatKeyRef.current === key)
+        setFeedback(count ? `Recovered ${count} messages` : 'Chat synced');
+    } catch {
+      if (chatKeyRef.current === key)
+        setFeedback('Chat sync incomplete. Retry.');
+    } finally {
+      setSyncingChat((current) => current === key ? null : current);
+    }
+  };
+
   const handleSend = async (content: string) => {
     closeSearch();
     const reply = replyTo
@@ -330,10 +351,17 @@ export const ChatPage: React.FC = () => {
           alt={friend?.friendDisplayName}
           size="sm"
         />
-        <span className="font-medium">
+        <span className="font-medium min-w-0 truncate">
           {friend?.friendDisplayName || friend?.friendUsername || 'Chat'}
         </span>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1 shrink-0">
+          <button type="button" onClick={() => void handleSyncChat()}
+            disabled={syncingChat === chatKey || connectivity.status !== 'online'}
+            aria-label={syncingChat === chatKey ? 'Syncing chat' : 'Sync chat now'}
+            data-route-swipe-ignore="true"
+            className="p-2 text-sm text-gray-400 disabled:opacity-50">
+            {syncingChat === chatKey ? 'Syncing' : 'Sync'}
+          </button>
           <button
             onClick={openSearch}
             className="p-2 text-gray-400"
