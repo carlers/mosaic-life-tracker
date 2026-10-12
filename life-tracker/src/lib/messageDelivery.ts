@@ -103,33 +103,18 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           break;
         }
         deliveryRequestedDuringFlight = false;
-        let db;
-        try {
-          db = getDatabase();
-        } catch (err) {
-          console.error(
-            '[messageDelivery] delivery cycle failed (db):',
-            err
-          );
-          break;
-        }
         let pending;
         try {
-          pending = await db.messages
-            .find({
-              selector: {
-                userId,
-                direction: 'outgoing',
-                deliveryStatus: 'pending',
-                isDeleted: false,
-              },
-            })
-            .exec();
+          pending = await getDatabase().messages.find({
+            selector: {
+              userId,
+              direction: 'outgoing',
+              deliveryStatus: 'pending',
+              isDeleted: false,
+            },
+          }).exec();
         } catch (err) {
-          console.error(
-            '[messageDelivery] delivery cycle failed (query):',
-            err
-          );
+          console.error('[messageDelivery] pending message scan failed:', err);
           break;
         }
         if (!isAccountWorkCurrent(userId, generation)) break;
@@ -138,7 +123,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             `[messageDelivery] ${pending.length} pending message(s)`
           );
         }
-        let sawTransientFailure = false;
+        if (pending.length === 0) clearDeliveryRetry();
         for (const doc of pending) {
           if (!isAccountWorkCurrent(userId, generation)) break;
           try {
@@ -146,18 +131,15 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             if (!isAccountWorkCurrent(userId, generation)) break;
             await doc.patch({ deliveryStatus: 'delivered' });
           } catch (err) {
-            if (shouldQueueMessageAction(err)) sawTransientFailure = true;
+            if (shouldQueueMessageAction(err))
+              scheduleDeliveryRetry(userId, generation);
             console.error(
               `[messageDelivery] Failed to deliver ${doc.id}:`,
               err
             );
           }
         }
-        if (sawTransientFailure) {
-          scheduleDeliveryRetry(userId, generation);
-        } else if (pending.length === 0) {
-          clearDeliveryRetry();
-        }
+
         if (
           !isAccountWorkCurrent(userId, generation) ||
           !deliveryRequestedDuringFlight
