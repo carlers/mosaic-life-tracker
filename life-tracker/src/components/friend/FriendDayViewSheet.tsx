@@ -60,7 +60,7 @@ interface FriendDayViewSheetProps {
   currentUserId: string;
   onReplyToTask?: (task: TaskDocument, categoryColor: string) => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
-  renderMode?: 'sheet' | 'inline';
+  renderMode?: 'sheet' | 'inline' | 'panel';
   holidayConfig?: HolidayDisplayConfig;
   focusTaskId?: string;
   emptyMessage?: string;
@@ -445,9 +445,9 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   const content = (
     <Swiper
       // Same 181 logical dates as owner Day View, only nearby DOM slides.
-      modules={renderMode === 'sheet' ? [Virtual] : undefined}
-      virtual={renderMode === 'sheet' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
-      nested={renderMode === 'inline'}
+      modules={renderMode !== 'inline' ? [Virtual] : undefined}
+      virtual={renderMode !== 'inline' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
+      nested={renderMode !== 'sheet'}
       noSwiping={renderMode === 'sheet'}
       touchStartPreventDefault={false}
       touchMoveStopPropagation={false}
@@ -457,15 +457,15 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
       initialSlide={initialIndex}
       onSlideChange={handleSwipeSettled}
       data-bottom-sheet-native-horizontal-swipe={
-        renderMode === 'sheet' ? 'true' : undefined
+        renderMode !== 'inline' ? 'true' : undefined
       }
       className={`min-w-0 w-full max-w-full overflow-hidden ${
-        renderMode === 'sheet' ? 'flex-1' : ''
+        renderMode !== 'inline' ? 'flex-1' : ''
       }`}
       style={{
         width: '100%',
         maxWidth: '100%',
-        height: renderMode === 'sheet' ? '100%' : 'auto',
+        height: renderMode !== 'inline' ? '100%' : 'auto',
         touchAction: 'pan-y',
       }}
     >
@@ -478,7 +478,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
           <SwiperSlide
             key={slideDate.toISOString()}
             virtualIndex={index}
-            style={{ height: renderMode === 'sheet' ? '100%' : 'auto' }}
+            style={{ height: renderMode !== 'inline' ? '100%' : 'auto' }}
           >
             <div
               className={
@@ -537,7 +537,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                   onReactToTask={onReactToTask}
                   onOpenReactions={setReactionTask}
                   onViewImage={handleViewImage}
-                  scrollMode={renderMode === 'sheet' ? 'contained' : 'page'}
+                  scrollMode={renderMode !== 'inline' ? 'contained' : 'page'}
                   focusTaskId={focusTaskId}
                   emptyMessage={emptyMessage}
                 />
@@ -549,26 +549,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
     </Swiper>
   );
 
-  const surface =
-    renderMode === 'inline' ? (
-      <div
-        data-testid="inline-friend-day-view"
-        className="flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-x-hidden"
-      >
-        {content}
-      </div>
-    ) : (
-      <BottomSheet
-        isOpen={isOpen}
-        onClose={onClose}
-        onExitComplete={onExitComplete}
-        ariaLabel={format(date, 'EEEE, MMMM d, yyyy')}
-        height="full"
-        isLocked={!!reactionTask || isImageViewerOpen}
-        suspendInteraction={!!reactionTask || isImageViewerOpen}
-        contentMode="fixed"
-        onHorizontalSwipe={handleSheetHorizontalSwipe}
-      >
+  const containedContent = (
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex shrink-0 items-center gap-2 px-4 py-2">
             <button
@@ -580,7 +561,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
               <ChevronLeft size={20} />
             </button>
             <h3
-              data-bottom-sheet-drag-handle="true"
+              data-bottom-sheet-drag-handle={renderMode === 'sheet' ? 'true' : undefined}
               className="flex min-h-10 flex-1 cursor-grab touch-none select-none items-center justify-center text-center text-base font-semibold text-white active:cursor-grabbing"
               aria-live="polite"
             >
@@ -597,8 +578,29 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
           </div>
           {content}
         </div>
-      </BottomSheet>
-    );
+  );
+
+  const surface = renderMode === 'inline' ? (
+    <div data-testid="inline-friend-day-view" className="flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-x-hidden">
+      {content}
+    </div>
+  ) : renderMode === 'panel' ? (
+    containedContent
+  ) : (
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      onExitComplete={onExitComplete}
+      ariaLabel={format(date, 'EEEE, MMMM d, yyyy')}
+      height="full"
+      isLocked={!!reactionTask || isImageViewerOpen}
+      suspendInteraction={!!reactionTask || isImageViewerOpen}
+      contentMode="fixed"
+      onHorizontalSwipe={handleSheetHorizontalSwipe}
+    >
+      {containedContent}
+    </BottomSheet>
+  );
 
   return (
     <>

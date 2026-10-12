@@ -87,7 +87,7 @@ interface DayViewSheetProps {
   onClose: () => void;
   selectedDate: Date;
   onDateChange?: (date: Date) => void;
-  renderMode?: 'sheet' | 'inline' | 'backlog';
+  renderMode?: 'sheet' | 'inline' | 'backlog' | 'panel';
   tasks?: TaskDocument[];
   categories?: CategoryDocument[];
   focusTaskId?: string | null;
@@ -370,7 +370,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // Inline Todo Day View has no sheet entrance animation, so its initial render
   // window must not wait for BottomSheet's animation-complete callback.
   const effectiveRenderWindow =
-    renderMode === 'inline' ? renderWindow : deferredRenderWindow;
+    (renderMode === 'inline' || renderMode === 'panel') ? renderWindow : deferredRenderWindow;
 
   const handleSheetClose = useCallback(() => {
     setDeferredRenderWindow(0);
@@ -381,7 +381,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [onClose]);
 
   useEffect(() => {
-    if (!isOpen || (renderMode !== 'sheet' && !isBacklogView) || !focusTaskId) return;
+    if (!isOpen || (renderMode !== 'sheet' && renderMode !== 'panel' && !isBacklogView) || !focusTaskId) return;
 
     let clearTimer: number | null = null;
     const frame = requestAnimationFrame(() => {
@@ -884,9 +884,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       <Swiper
         // Preserve all 181 logical dates for direct jumps, but avoid 181 DOM
         // slides (and their synchronous layout) on every sheet open.
-        modules={renderMode === 'sheet' ? [Virtual] : undefined}
-        virtual={renderMode === 'sheet' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
-        nested={renderMode === 'inline'}
+        modules={(renderMode === 'sheet' || renderMode === 'panel') ? [Virtual] : undefined}
+        virtual={(renderMode === 'sheet' || renderMode === 'panel') ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
+        nested={renderMode !== 'sheet'}
         allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen}
         noSwiping={renderMode === 'sheet'}
         focusableElements={DAY_SWIPER_FOCUSABLE_ELEMENTS}
@@ -1038,7 +1038,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       onEditChange={handleEditChange}
                       onEditSave={handleEditSave}
                       onEditCancel={handleEditCancel}
-                      disableTaskLayoutAnimation={renderMode === 'sheet'}
+                      disableTaskLayoutAnimation={(renderMode === 'sheet' || renderMode === 'panel')}
                       continueAddingTasks={continueAddingTasks}
                       showCategoryCollapseButton={showCategoryCollapseButton}
                       taskSortMode={taskSortMode}
@@ -1215,7 +1215,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     </>
   );
 
-  if (renderMode !== 'sheet') {
+  if (renderMode === 'inline' || renderMode === 'backlog') {
     return (
       <div
         className={`flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-x-hidden ${isBackgroundLocked ? 'pointer-events-none' : ''}`}

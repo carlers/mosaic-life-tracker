@@ -16,6 +16,8 @@ import {
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  DAY_DETAIL_PRESENTATION_SETTING_KEY,
+  resolveDayDetailPresentation,
   resolveIncompleteTaskBlockColorMode,
   resolveWeekStartsOn,
 } from '../../lib/preferences';
@@ -69,6 +71,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
+  const dayDetailPresentation = resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -140,6 +143,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
+          dayDetailPresentation={dayDetailPresentation}
           sharedByDay={sharedByDay}
           ownedSharedTaskIds={ownedSharedTaskIds}
           currentUserId={currentUserId}

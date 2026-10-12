@@ -96,4 +96,42 @@ describe('CalendarBody behavior', () => {
     // A resolved import must not suspend for one blank React commit.
     expect(getByRole('dialog', { name: 'Friend day' })).toBeInTheDocument();
   });
+  it('uses a non-modal panel when the usable Home frame is wide enough', async () => {
+    const original = globalThis.ResizeObserver;
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
+      () => ({ width: 1300, height: 700, top: 0, left: 0, right: 1300, bottom: 700, x: 0, y: 0, toJSON: () => ({}) })
+    );
+    class TestObserver { observe() {} disconnect() {} }
+    vi.stubGlobal('ResizeObserver', TestObserver);
+    try {
+      daySheetState.mockClear();
+      const { getByTestId, findByRole, queryByRole } = render(
+        <CalendarBody
+          viewMode="month" slides={[new Date('2026-01-01')]}
+          renderStart={0} renderEnd={0} emblaRef={vi.fn()}
+          tasks={[]} categoriesMap={{}} variant="me"
+          dayDetailPresentation="panel"
+          currentUserId="user_1" isActive
+          onPrev={vi.fn()} onNext={vi.fn()}
+        />
+      );
+      fireEvent.click(getByTestId('calendar-day'));
+      expect(await findByRole('complementary', { name: 'Day details' })).toBeInTheDocument();
+      expect(queryByRole('dialog', { name: 'Day details' })).toBeNull();
+      expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
+        renderMode: 'panel', isOpen: true,
+      });
+      // The calendar remains interactive and the same panel updates in place.
+      const originalPanel = getByTestId('calendar-day-side-panel');
+      fireEvent.click(getByTestId('calendar-day'));
+      expect(getByTestId('calendar-day-side-panel')).toBe(originalPanel);
+      fireEvent.click((await findByRole('button', { name: 'Close day details' })));
+      expect(queryByRole('complementary', { name: 'Day details' })).toBeNull();
+    } finally {
+      rect.mockRestore();
+      if (original === undefined) vi.unstubAllGlobals();
+      else vi.stubGlobal('ResizeObserver', original);
+    }
+  });
+
 });
