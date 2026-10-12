@@ -18,25 +18,23 @@
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
     "homeClosureGzipBytes": 366100,
-    "appAssetsRawBytes": 2461000,
-    "appAssetsGzipBytes": 764000,
-    "precacheUniqueBytes": 2548500
+    "appAssetsRawBytes": 2463600,
+    "appAssetsGzipBytes": 765050,
+    "precacheUniqueBytes": 2550850
   },
   "review": {
-    "issue": "#656",
-    "reason": "Measured first GIPHY-enabled Scratch v0.20.4 Preview 5ca4f6da1b46b693e78e7c6ad63e70d1034ecb1e adds code-only ready-component warmup for Menu/friend Day View plus sheet-only Swiper Virtual, carrying user-accepted Chat/Notification lazy fixes onto dev v0.20.3. PWA, TS and browser/DOM behavior pass. Entry raw/gzip and initial closure budgets remain unchanged and pass. Four aggregate metrics exceeded prior narrowly sized limits by 314/1217/673/1424 B; dev #655 had only tens/hundreds of bytes headroom. Reviewed against hosted measurements in #656 comment 6117480055; preserve historic baseline and three startup-critical ceilings. Corrected SHA must independently pass canonical and GIPHY Scratch.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/FYgDRjqccPkhCk6YH1RAAmzfh9Z5",
+    "issue": "#708",
+    "reason": "Measured v0.24.1 on-demand two-owner chat history reconciliation adds a lazily loaded manual Sync path and a bounded, authenticated server repair action. The previous v0.24.0 READY Preview had only 38 B raw and 48 B gzip app-total headroom. The first v0.24.1 Vercel build exceeded aggregate totals by 1,921 B raw, 805 B gzip and 1,872 B unique precache, while all four entry/initial/Home closure ceilings passed. This reviewed change permits the measured new feature while preserving the historic baseline, existing four startup-critical ceilings, and exact canonical+Vercel acceptance. No unbounded bundle or runtime loop budget exception.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/dpl_3U8AwJz3u7TzKeRs9WKjs2LFjwaf",
     "metrics": [
-      "homeClosureGzipBytes",
       "appAssetsRawBytes",
       "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 365450,
-      "appAssetsRawBytes": 2459250,
-      "appAssetsGzipBytes": 763000,
-      "precacheUniqueBytes": 2546350
+      "appAssetsRawBytes": 2461000,
+      "appAssetsGzipBytes": 764000,
+      "precacheUniqueBytes": 2548500
     }
   }
 }
