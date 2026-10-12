@@ -25,6 +25,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | AlertFriendDaySheet | [src/components/friend/AlertFriendDaySheet.tsx](../src/components/friend/AlertFriendDaySheet.tsx) |
 | FriendCalendarView | [src/components/friend/FriendCalendarView.tsx](../src/components/friend/FriendCalendarView.tsx) |
 | FriendDayViewSheet | [src/components/friend/FriendDayViewSheet.tsx](../src/components/friend/FriendDayViewSheet.tsx) |
+| friendDayViewSheetModule | [src/components/friend/friendDayViewSheetModule.tsx](../src/components/friend/friendDayViewSheetModule.tsx) |
 
 ## components/home
 
