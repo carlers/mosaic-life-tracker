@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-13
-Current task: #592 protected Preview canary proven; harden idempotency readback.
+Current task: #592 canary duplicate-guard assertion repair.
 Issue #592 and live GitHub/Vercel readback are authoritative.
 
 ## Accepted evidence
@@ -19,9 +19,11 @@ a standalone deployment URL but **no stable branch alias**.
 No `dev/main` or Production changes; normal Git auto-deploy
 still owns stable Preview URL.
 
-## Active isolated task
+## Current repair
 
-`chatgpt/592-canary-dedupe-20261013` from accepted stable SHA.
+After PR #760 squash to `fix/workflow-build-parity-592-20261012@8a02f4c845d61fb02cb06be0121337392bc622e1`, full CI checks failed only `previewCanaryContext.test.ts` because two `toThrow()` expectations omitted the required callback wrapper. All other reported tests passed. Repair on `chatgpt/592-canary-assertion-fix-20261013`, then focused CI and stable full canonical/Preview. Existing `findExistingCanary` logic was not implicated; no deployment policy change.
+
+Original idempotency hardening:
 Vercel list API omitted custom `mosaic_canary_*` meta tags for
 the CLI canary, instead exposing exact `githubCommitSha`, official
 owner/repo, and `githubCommitRef=HEAD` (vs normal Git branch).
