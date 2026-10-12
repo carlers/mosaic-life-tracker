@@ -384,7 +384,7 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
       const selected = channelPolicy[row.type];
       if (!selected?.feed) return;
       if (row.type !== 'task_completed') {
-        const activity = await projectActivity(tablesDB, row, callerId);
+        const activity = await projectActivity(tablesDB, row, callerId, friends);
         if (activity) visible.push(activity);
         return;
       }
