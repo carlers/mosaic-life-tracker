@@ -7,8 +7,8 @@ import { useDiary } from '../../../hooks/useDiary';
 export const DraggableDiaryDayPreview: React.FC<{ date: string }> = ({ date }) => {
   const { getEntryByDate } = useDiary();
   const { ref, handleRef } = useDraggable({ id: `diary:${date}`, type: 'diary', disabled: !getEntryByDate(date),
-    // Move the actual, fully measured card; never substitute a small overlay.
-    plugins: [Feedback.configure({ feedback: 'default', dropAnimation: null })],
+    // Move the actual, fully measured card without leaving a second flow placeholder.
+    plugins: [Feedback.configure({ feedback: 'move', dropAnimation: null })],
   });
   return (
     <div ref={ref} className="relative" data-diary-drag-source="true">

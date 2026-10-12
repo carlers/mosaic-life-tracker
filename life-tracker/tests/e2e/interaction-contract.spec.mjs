@@ -722,7 +722,31 @@ test('task long-press stays under the finger while siblings reorder, then persis
     region.locator('[data-task-id^="task_0_"]:not([data-dnd-placeholder])')
   ).toHaveCount(3);
 
+  // Measure the released *real* row on animation frames, not the carried
+  // overlay. Its former absolute source slot must not FLIP back and overshoot.
+  await page.evaluate(() => {
+    window.__mosaicTaskReleaseY = [];
+    const started = performance.now();
+    const sample = () => {
+      if (performance.now() - started > 350) return;
+      const row = document.querySelector('[data-task-id="task_0_0"]');
+      if (row && !row.closest('[data-task-source-slot="true"]')) {
+        window.__mosaicTaskReleaseY.push(row.getBoundingClientRect().y);
+      }
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
   await gesture.finish();
+  await page.waitForTimeout(375);
+  const releaseTrajectory = await page.evaluate(() => ({
+    samples: window.__mosaicTaskReleaseY ?? [],
+    finalY: document.querySelector('[data-task-id="task_0_0"]')?.getBoundingClientRect().y,
+  }));
+  expect(releaseTrajectory.samples.length).toBeGreaterThan(3);
+  expect(releaseTrajectory.samples.every(y =>
+    Math.abs(y - releaseTrajectory.finalY) < 30
+  )).toBe(true);
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
     'reordered:task_0_1,task_0_2,task_0_0'

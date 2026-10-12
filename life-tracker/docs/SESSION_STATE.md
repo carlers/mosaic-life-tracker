@@ -1,23 +1,18 @@
 # Session checkpoint — Mosaic issue #408
 
 Updated: 2026-10-13.
-Current task: v0.25.2 diary/task drag UX Preview hardening, animated collision stability and exact-SHA hosted budget parity.
-Next action: verify a targeted precache cap review on isolated task branch `chatgpt/408-hosted-precache-parity-20261013`, squash only to `feature/diary-408`, confirm canonical GitHub gate and Vercel Scratch READY for the resulting exact SHA, then request manual drag acceptance. Do not merge dev/main or close #408 without approval.
+Current task: v0.25.3 follow-up refinement on isolated branch `chatgpt/408-smooth-drop-parity-20261013`, based on last READY stable Preview `feature/diary-408` at `c7d1af230e6a40b0c1341edf900e8034b8ef8d66`.
+Next action: verify full build-size and browser release trajectories for v0.25.3, repair measured budget/test failures, squash focused-green branch only into `feature/diary-408`, verify exact-SHA canonical CI and registered Vercel Scratch Preview READY, then request device acceptance. Do not merge to dev/main or close #408.
 
-## Implemented
-- Drag UX v0.25.2 squashed to stable Preview at `9bd902e56ddf05d0144e57604e899083535299d1` via PR #754.
-- Direct-source Feedback on actual full-height Diary preview; no generic "Diary entry" decoy or faded duplicate; maintain the proven TaskItem custom overlay/sensor contract.
-- Motion category/task/diary live insertion reflow; eliminate Motion-owned zero-height/opacity drag source; capture scroll geometry; optimistic diary placement until write settles; remount per day/account.
-- Added unit outside-drop regression and Playwright source-visible/reusable after release/cancel, settled-gap and empty-category target assertions. Expanded `docs/MANUAL_TASK_REORDER_ACCEPTANCE.md`.
-- Task focused, full production/PWA + 7/7 source size budgets, DOM and both final Playwright browser shards passed at task `d60056ff92086ed5bb4f022de56125c408b925e3`. The canonical gate for stable `9bd902e` is running.
+## v0.25.3 implementation
 
-## Hosted blocking result and narrow repair
-- Vercel deployment `dpl_BLymkjjXmkVGRB7S5LALZtZS2aEA` of exact stable `9bd902e`: TS/Vite/PWA built; six budget metrics passed. Precache alone failed: 2,591,644 / 2,591,500 B (+144). Source CI was 2,589,393 B.
-- Measured fix: only `config/build-size-budget.json` `limits.precacheUniqueBytes` becomes 2,593,000 (+1,500), giving 1,356 B hosted margin. Pinned baseline and remaining six limits unchanged. The budget review includes exact hosted evidence and the previous review chain.
-- Stable squash `9bd902e` canonical browser shard 2 failed one intermittent empty-category drag (target migrated from Category 3 to Category 4 on release after previewing Category 3). The task's prior browser pass was green. Stabilize accepted task/diary targets when Motion alone moves a drop zone under a stationary pointer (3px tolerance); retain outside/cancel invariants. The Playwright case now waits for the projected gap to settle before release and rejects Category 4 takeover.
-- The failed v0.25.2 Vercel deployment is NOT ready for manual acceptance; v0.25.1 was the last READY fallback before this attempt. Validate stable Vercel alias against final exact SHA, not just project URL.
+- Diary's dnd-kit real-card feedback uses `move` without an old-flow placeholder, while the task/diary common projection renders exactly one height-matched insertion gap beginning on lift. The full actual diary card still follows the finger rather than a substitute overlay.
+- Both diary source slot and task source row turn off their own Framer Motion layout projection at release/cancel and re-enable it after the new React DOM has painted, avoiding a backward/forward FLIP of a previously out-of-flow source. Neighboring row/category reflow remains animated.
+- Preserves task-specific existing overlay and optimistic persistence; preserves diary default/slot placement, stationary-pointer collision stabilization, cancel/outside behavior and accessibility.
+- Browser regression samples the released task row's animation-frame Y positions and fails large up/down excursions. Manual parity checks include long/short diary heights, source/one-gap behavior, populated/empty/collapsed categories, release, cancellation and multiple consecutive drags.
+- Preview candidate version: PATCH v0.25.3. Frontend-only; no schema or Function modification.
 
-## Unverified manual acceptance
-- Long/short tasks and Compact/Expanded Diary content including emoji/multiple photos; real iOS/Android long-press and desktop mouse/trackpad movement.
-- No ghost/decoy, no invisible rows after drop/cancel, uninterrupted smooth hover across populated/empty/collapsed categories, correct persistence and day/account switches.
-- Social quote/reaction/scratch Function paths are unchanged by this patch; active compatible Scratch backend remains `6acd0a6643868c68508c` as recorded on #408.
+## Required verification (pending, not claimed)
+
+- Run dedicated task diagnostic/full production build because existing v0.25.2 hosted total-assets cap had only 18 B of headroom. Use measured review, not unbounded budget exemptions.
+- Focused GitHub tests, stable branch full canonical gate, Vercel exact-SHA Scratch READY, and device/desktop drag acceptance all remain required.
