@@ -105,6 +105,30 @@ describe('MessageComposer', () => {
     expect(document.activeElement).toBe(textarea);
   });
 
+  it('warms sticker code on intent without stealing composer focus, but not when disabled', () => {
+    const onPrepareStickers = vi.fn();
+    const onOpenStickers = vi.fn();
+    const { rerender } = render(<MessageComposer onSend={vi.fn()}
+      onOpenStickers={onOpenStickers} onPrepareStickers={onPrepareStickers} />);
+    const textarea = screen.getByRole('textbox', { name: 'Message' });
+    const stickers = screen.getByRole('button', { name: 'Open stickers' });
+    textarea.focus();
+    fireEvent.mouseEnter(stickers);
+    fireEvent.pointerDown(stickers);
+    expect(document.activeElement).toBe(textarea);
+    expect(onPrepareStickers).toHaveBeenCalledTimes(2);
+    fireEvent.click(stickers);
+    expect(onOpenStickers).toHaveBeenCalledTimes(1);
+
+    rerender(<MessageComposer onSend={vi.fn()} disabled
+      onOpenStickers={onOpenStickers} onPrepareStickers={onPrepareStickers} />);
+    fireEvent.mouseEnter(stickers);
+    fireEvent.pointerDown(stickers);
+    fireEvent.click(stickers);
+    expect(onPrepareStickers).toHaveBeenCalledTimes(2);
+    expect(onOpenStickers).toHaveBeenCalledTimes(1);
+  });
+
   it('Shift+Enter does not fire onSend', () => {
     const onSend = vi.fn();
     render(<MessageComposer onSend={onSend} />);

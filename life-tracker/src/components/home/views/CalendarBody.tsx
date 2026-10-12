@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
@@ -9,16 +9,16 @@ import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
 import { LazyDayViewSheet } from './dayViewSheetModule';
+import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import {
   DISABLED_HOLIDAY_CONFIG,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
 
-const LazyFriendDayViewSheet = React.lazy(() =>
-  import('../../friend/FriendDayViewSheet').then(({ FriendDayViewSheet }) => ({
-    default: FriendDayViewSheet,
-  }))
-);
+const { Component: LazyFriendDayViewSheet, preload: preloadFriendDaySheet } =
+  createPreloadedLazy(() =>
+    import('../../friend/FriendDayViewSheet').then(m => m.FriendDayViewSheet)
+  );
 const LazyReplyComposerSheet = React.lazy(() =>
   import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
     default: ReplyComposerSheet,
@@ -99,6 +99,23 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     closeReply,
   } = useFriendTaskReply(tasks);
 
+  // Friend Day is conditional on tapping a date. Unlike the reply composer
+  // (already mounted closed), its lazy boundary would otherwise be cold.
+  useEffect(() => {
+    if (variant !== 'friend' || !isActive) return;
+    const warm = () => {
+      if (document.visibilityState === 'visible') {
+        void preloadFriendDaySheet().catch(() => {});
+      }
+    };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1400 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(warm, 1200);
+    return () => window.clearTimeout(id);
+  }, [isActive, variant]);
+
   const handleDayClick = useCallback((date: Date) => {
     setSelectedDate(date);
     setDaySheetMounted(true);
@@ -147,7 +164,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       <>
         {calendarContent(carousel)}
         {daySheetMounted && (
-          <React.Suspense fallback={null}>
             <LazyFriendDayViewSheet
               isOpen={daySheetOpen}
               onClose={handleCloseDaySheet}
@@ -161,7 +177,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
               onReactToTask={onReactToTask}
               holidayConfig={holidayConfig}
             />
-          </React.Suspense>
         )}
         <React.Suspense fallback={null}>
           <LazyReplyComposerSheet

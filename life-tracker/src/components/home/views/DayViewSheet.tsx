@@ -13,10 +13,11 @@ import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
 import { TaskActionSheet } from './TaskActionSheet';
-const LazyLinkTaskToBucketSheet = React.lazy(() => import('./LinkTaskToBucketSheet').then(m => ({ default: m.LinkTaskToBucketSheet })));
-const LazyShareTaskSheet = lazy(() =>
-  import('./ShareTaskSheet').then(({ ShareTaskSheet }) => ({ default: ShareTaskSheet }))
-);
+import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
+const { Component: LazyLinkTaskToBucketSheet, preload: preloadBucketLink } =
+  createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
+const { Component: LazyShareTaskSheet, preload: preloadShareSheet } =
+  createPreloadedLazy(() => import('./ShareTaskSheet').then(m => m.ShareTaskSheet));
 import { useSharedTasks } from '../../../hooks/useSharedTasks';
 import { useOptionalFriendList } from '../../../hooks/useFriends';
 import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
@@ -224,6 +225,23 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
   const [isBucketLinkOpen, setIsBucketLinkOpen] = useState(false);
+
+  // A task-action sheet expresses intent to use nested task actions. Warm
+  // their code after that parent opens, without mounting nested subscriptions.
+  useEffect(() => {
+    if (!isActionSheetOpen || !activeTaskId) return;
+    const warm = () => {
+      if (document.visibilityState !== 'visible') return;
+      void preloadShareSheet().catch(() => {});
+      void preloadBucketLink().catch(() => {});
+    };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 800 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(warm, 500);
+    return () => window.clearTimeout(id);
+  }, [activeTaskId, isActionSheetOpen]);
   const [shareSheetMounted, setShareSheetMounted] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [imagePickerTaskId, setImagePickerTaskId] = useState<string | null>(null);
@@ -1122,26 +1140,22 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         }}
         onChangeDate={handleDateChange}
         onVisibility={handleOpenVisibility}
-        onShare={() => { setShareSheetMounted(true); setIsShareSheetOpen(true); }}
+        onShare={() => { void preloadShareSheet().catch(() => {}); setShareSheetMounted(true); setIsShareSheetOpen(true); }}
         onAddPhoto={handleOpenImagePicker}
         onViewPhoto={handleOpenImageViewer}
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
         onMoveToBacklog={handleMoveToBacklog}
-        onLinkToBucketList={() => setIsBucketLinkOpen(true)}
+        onLinkToBucketList={() => { void preloadBucketLink().catch(() => {}); setIsBucketLinkOpen(true); }}
       />
-      <Suspense fallback={null}>
-        {shareSheetMounted && (
+      {shareSheetMounted && (
           <LazyShareTaskSheet
             isOpen={isShareSheetOpen && !!activeTask}
             onClose={() => setIsShareSheetOpen(false)}
             task={activeTask}
           />
-        )}
-      </Suspense>
-      <Suspense fallback={null}>
-        {isBucketLinkOpen && <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>}
-      </Suspense>
+      )}
+      {isBucketLinkOpen && <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>}
       <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
