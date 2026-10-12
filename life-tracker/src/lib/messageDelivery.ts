@@ -17,6 +17,31 @@ import {
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = APPWRITE_MESSAGE_ACTION_FUNCTION_ID;
 const MAX_DELIVERY_LOOPS = 5;
+const RETRY_BASE_MS = 5_000;
+const RETRY_MAX_MS = 60_000;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryOwner: string | null = null;
+let retryGeneration: number | null = null;
+let retryAttempts = 0;
+
+function clearDeliveryRetry(): void {
+  if (retryTimer !== null) clearTimeout(retryTimer);
+  retryTimer = null;
+}
+function scheduleDeliveryRetry(userId: string, generation: number): void {
+  if (!isAccountWorkCurrent(userId, generation)) return;
+  if (getConnectivitySnapshot().status !== 'online') return;
+  if (retryTimer !== null) return;
+  const wait = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.min(retryAttempts, 4));
+  retryAttempts += 1;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    if (!isAccountWorkCurrent(userId, generation)) return;
+    void deliverPendingMessages(userId).catch((error) =>
+      console.error('[messageDelivery] Retry failed:', error)
+    );
+  }, wait);
+}
 let inFlightDeliveryPromise: Promise<void> | null = null;
 let inFlightDeliveryUserId: string | null = null;
 let inFlightDeliveryGeneration: number | null = null;
@@ -40,6 +65,12 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   if (!userId) return;
   const generation = captureAccountWorkGeneration(userId);
   if (generation === null) return;
+  if (retryOwner !== userId || retryGeneration !== generation) {
+    clearDeliveryRetry();
+    retryAttempts = 0;
+    retryOwner = userId;
+    retryGeneration = generation;
+  }
 
   flushMessageActionQueue(userId).catch((err) => {
     if (DEBUG) {
@@ -123,6 +154,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             `[messageDelivery] ${pending.length} pending message(s)`
           );
         }
+        let sawTransientFailure = false;
         for (const doc of pending) {
           if (!isAccountWorkCurrent(userId, generation)) break;
           try {
@@ -130,11 +162,18 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             if (!isAccountWorkCurrent(userId, generation)) break;
             await doc.patch({ deliveryStatus: 'delivered' });
           } catch (err) {
+            if (shouldQueueMessageAction(err)) sawTransientFailure = true;
             console.error(
               `[messageDelivery] Failed to deliver ${doc.id}:`,
               err
             );
           }
+        }
+        if (sawTransientFailure) {
+          scheduleDeliveryRetry(userId, generation);
+        } else if (pending.length === 0) {
+          clearDeliveryRetry();
+          retryAttempts = 0;
         }
         if (
           !isAccountWorkCurrent(userId, generation) ||
@@ -158,7 +197,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   return inFlightDeliveryPromise;
 }
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
-  await sendMessageAction({
+  const result = await sendMessageAction({
     action: 'deliver',
     messageId: doc.id,
     recipientId: doc.recipientId,
@@ -172,6 +211,17 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
     replyToSenderId: doc.replyToSenderId || '',
     createdAt: doc.createdAt,
   });
+  // A 2xx Function execution alone is not proof that the message was committed.
+  // Older deployed Functions already provide recipientRowId and threadId.
+  if (
+    result.ok !== true ||
+    typeof result.recipientRowId !== 'string' ||
+    !result.recipientRowId.startsWith('rmsg_') ||
+    result.threadId !== doc.threadId ||
+    (result.messageId !== undefined && result.messageId !== doc.id)
+  ) {
+    throw new Error('Message delivery was not acknowledged by the server');
+  }
 }
 export async function markReadOnRemote(
   userId: string,
