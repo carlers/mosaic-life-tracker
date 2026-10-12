@@ -87,7 +87,7 @@ export const ChatPage: React.FC = () => {
   const [syncingChat, setSyncingChat] = useState<string | null>(null);
   const chatKey = myUserId + ':' + friendId;
   const chatKeyRef = useRef(chatKey);
-  chatKeyRef.current = chatKey;
+  useEffect(() => { chatKeyRef.current = chatKey; }, [chatKey]);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
   const [hasOpenedStickers, setHasOpenedStickers] = useState(false);

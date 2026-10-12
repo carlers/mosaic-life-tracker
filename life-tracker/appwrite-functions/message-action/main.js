@@ -422,7 +422,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
 
 // Explicit, bounded anti-entropy for a single authorized thread. Reconstruct
 // only a provably missing counterpart of a committed, non-unsent owner row.
-async function handleRepairThread(tablesDB, callerId, payload) {
+async function handleRepairThread(tablesDB, callerId, payload, verified = false) {
   const partnerId = payload?.partnerId;
   const cursor = payload?.cursor || '';
   const scope = payload?.scope || 'self';
@@ -431,7 +431,7 @@ async function handleRepairThread(tablesDB, callerId, payload) {
       (scope !== 'self' && scope !== 'peer')) {
     return { status: 400, body: { error: 'Invalid chat repair request' } };
   }
-  if (!(await verifyFriendship(tablesDB, callerId, partnerId))) {
+  if (!verified && !(await verifyFriendship(tablesDB, callerId, partnerId))) {
     return { status: 403, body: { error: 'Not friends with this user' } };
   }
   const [a, b] = callerId < partnerId
@@ -576,6 +576,26 @@ async function handleRepairThread(tablesDB, callerId, payload) {
     nextCursor: rows.length === 50 ? last.$id : '',
     nextScope: rows.length === 50 ? scope : scope === 'self' ? 'peer' : 'done',
   } };
+}
+
+// Single user-initiated request; strictly bounded and never a background scan.
+async function handleRepairThreadAll(db, callerId, payload) {
+  const partnerId = payload?.partnerId;
+  if (!isValidRowId(partnerId) || partnerId === callerId)
+    return { status: 400, body: { error: 'Invalid repair partner' } };
+  if (!(await verifyFriendship(db, callerId, partnerId)))
+    return { status: 403, body: { error: 'Not friends with this user' } };
+  let scope = 'self', cursor = '', repaired = 0;
+  for (let page = 0; page < 30; page++) {
+    const result = await handleRepairThread(db, callerId, { partnerId, scope, cursor }, true);
+    if (result.status !== 200) return result;
+    repaired += result.body.repaired;
+    if (result.body.nextScope === 'done')
+      return { status: 200, body: { ok: true, repaired } };
+    scope = result.body.nextScope;
+    cursor = result.body.nextCursor;
+  }
+  return { status: 503, body: { error: 'Chat history exceeds repair limit' } };
 }
 
 async function handleMarkRead(tablesDB, callerId, payload, log, error) {
@@ -1450,6 +1470,9 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'repair_thread':
         result = await handleRepairThread(tablesDB, callerId, payload);
+        break;
+      case 'repair_thread_all':
+        result = await handleRepairThreadAll(tablesDB, callerId, payload);
         break;
       case 'mark_read':
         result = await handleMarkRead(tablesDB, callerId, payload, log, error);
