@@ -74,3 +74,35 @@ describe('Preview deploy eligibility (#592)', () => {
     expect(assessPreviewDeployGate({ ...accepted, workflowRuns: [{ ...accepted.workflowRuns[0], path: '.github/workflows/unrelated.yml' }] }).eligible).toBe(false);
   });
 });
+
+describe('same-run automatic Preview gate (#592)', () => {
+  const candidate = {
+    ...accepted, currentRunId: accepted.workflowRuns[0].id,
+    workflowRuns: [{ ...accepted.workflowRuns[0], status: 'in_progress', conclusion: null }],
+  };
+
+  it('accepts only its own running push after exact-SHA canonical-acceptance succeeds', () => {
+    expect(assessPreviewDeployGate(candidate).eligible).toBe(true);
+  });
+
+  it('rejects a different running run, a failed or pending canonical check, or an advanced branch', () => {
+    for (const overrides of [
+      { currentRunId: candidate.currentRunId + 1 },
+      { checkRuns: [] },
+      { checkRuns: [{ ...accepted.checkRuns[0], conclusion: 'failure' }] },
+      { headSha: 'f'.repeat(40) },
+      { workflowRuns: [{ ...candidate.workflowRuns[0], event: 'workflow_dispatch' }] },
+      { workflowRuns: [{ ...candidate.workflowRuns[0], status: 'queued' }] },
+      { workflowRuns: [{ ...candidate.workflowRuns[0], conclusion: 'failure' }] },
+    ]) {
+      expect(assessPreviewDeployGate({ ...candidate, ...overrides }).eligible).toBe(false);
+    }
+  });
+
+  it('rejects unfinished canonical evidence even when a different old run passed', () => {
+    const old = accepted.workflowRuns[0];
+    const newRun = { ...candidate.workflowRuns[0], id: old.id + 1, check_suite_id: suite + 1 };
+    expect(assessPreviewDeployGate({ ...accepted, currentRunId: old.id,
+      workflowRuns: [old, newRun] }).eligible).toBe(false);
+  });
+});

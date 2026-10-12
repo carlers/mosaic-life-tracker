@@ -51,7 +51,15 @@ try {
   if (!existing && !complete) throw new Error('Canary deployment history exceeded bounded candidate-time inspection');
   if (existing) {
     console.log('Existing active or READY exact branch/SHA canary: no additional deployment.');
-    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'skip=true\n');
+    if (process.env.GITHUB_OUTPUT) {
+      appendFileSync(process.env.GITHUB_OUTPUT, 'skip=true\n');
+      // Only official Vercel-hosted URLs can be carried into the separate
+      // automatic alias stage; that stage verifies the deployment via API.
+      if (typeof existing.url === 'string' &&
+          /^[a-z0-9-]+\.vercel\.app$/.test(existing.url)) {
+        appendFileSync(process.env.GITHUB_OUTPUT, 'existing_url=https://' + existing.url + '\n');
+      }
+    }
   } else {
     console.log('No active canary was found in the inspected deployment history.');
   }
