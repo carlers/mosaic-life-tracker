@@ -47,7 +47,7 @@ export function useDiary(enabled = true) {
     if (!content.trim() && !emoji.trim()) throw new Error('Write a diary entry or choose an emoji.');
     const doc = await findStored(date, uid);
     const now = new Date().toISOString();
-    const selectedVisibility = visibility ?? doc?.visibility ?? 'private';
+    const selectedVisibility = visibility ?? (doc && !doc.isDeleted ? doc.visibility : 'private');
     if (doc) {
       await upsertLocalDoc('diary', doc.id, {
         content, emoji, visibility: selectedVisibility, updatedAt: now, isDeleted: false,

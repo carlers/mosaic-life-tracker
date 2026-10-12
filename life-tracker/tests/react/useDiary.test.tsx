@@ -40,6 +40,14 @@ describe('diary local-first save/edit/delete', () => {
     expect(upsertMock).toHaveBeenCalledWith('diary', 'legacy_import',
       expect.objectContaining({ content: 'new', visibility: 'followers', isDeleted: false }));
   });
+  it('resurrected diary defaults to private instead of retaining a deleted public audience', async () => {
+    storedDocs.current = [{ id: 'old_deleted', userId: 'user_A', date: '2026-10-01',
+      content: 'old', visibility: 'public', isDeleted: true }];
+    const { result } = renderHook(() => useDiary());
+    await act(async () => result.current.saveEntry('2026-10-01', 'new day'));
+    expect(upsertMock).toHaveBeenCalledWith('diary', 'old_deleted',
+      expect.objectContaining({ visibility: 'private', isDeleted: false }));
+  });
   it('tombstones the actual stored row with a monotonic edit time', async () => {
     const incrementalPatch = vi.fn().mockResolvedValue(undefined);
     storedDocs.current = [{ id: 'imported', userId: 'user_A', date: '2026-10-01',
