@@ -8,14 +8,22 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
     isOpen ? <div role="dialog" aria-label="Menu">{children}</div> : null,
 }));
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 it('opens the warmed hamburger sheet on its first click without a blank commit', async () => {
+  // The actual first-open path warms from Home's idle window, with no hover.
+  let idleWarm: (() => void) | null = null;
+  vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) => {
+    idleWarm = () => callback({ didTimeout: false, timeRemaining: () => 50 });
+    return 1;
+  });
+  vi.stubGlobal('cancelIdleCallback', vi.fn());
   const onOpenBacklog = vi.fn();
   render(<HamburgerMenu onOpenBacklog={onOpenBacklog} onOpenBucketList={vi.fn()} />);
   const menu = screen.getByRole('button', { name: 'Open menu' });
-  fireEvent.mouseEnter(menu);
   await act(async () => {
+    if (!idleWarm) throw new Error('Menu warmup was not scheduled');
+    idleWarm();
     await import('../../src/components/ui/BottomSheet');
     await Promise.resolve();
     await Promise.resolve();
