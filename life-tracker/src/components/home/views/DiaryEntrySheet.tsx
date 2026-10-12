@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, X, ImagePlus } from 'lucide-react';
+import { useAuth } from '../../../hooks/useAuth';
+import { parseDiaryPhotos, serializeDiaryPhotos } from '../../../lib/diaryPhotos';
+import { saveDiaryImage } from '../../../lib/storage';
+import { DiaryPhotoGallery } from './DiaryPhotoGallery';
 import type { DiaryDocument } from '../../../db/schema';
 import { diaryMarker } from '../../../lib/diaryMarker';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -13,7 +17,7 @@ interface DiaryEntrySheetProps {
   entry?: DiaryDocument;
   author: string;
   onClose: () => void;
-  onSave?: (date: string, content: string, visibility: DiaryDocument['visibility'], emoji: string) => Promise<void>;
+  onSave?: (date: string, content: string, visibility: DiaryDocument['visibility'], emoji: string, photos: string) => Promise<void>;
   onDelete?: (date: string) => Promise<void>;
 }
 
@@ -21,6 +25,10 @@ interface DiaryEntrySheetProps {
 export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   date, entry, author, onClose, onSave, onDelete,
 }) => {
+  const { user } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoIds, setPhotoIds] = useState(() => parseDiaryPhotos(entry?.photos));
+  const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(!entry && !!onSave);
   const [body, setBody] = useState(entry?.content || '');
   const [emoji, setEmoji] = useState(entry?.emoji || '');
@@ -31,17 +39,18 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const changed = body !== (entry?.content || '') || emoji !== (entry?.emoji || '') ||
-    visibility !== (entry?.visibility || 'private');
+    visibility !== (entry?.visibility || 'private') ||
+    serializeDiaryPhotos(photoIds) !== serializeDiaryPhotos(parseDiaryPhotos(entry?.photos));
 
   const close = () => {
-    if (busy) return;
+    if (busy || uploading) return;
     if (editing && changed) setConfirm('discard');
     else onClose();
   };
   const save = async () => {
-    if (!onSave || busy) return;
+    if (!onSave || busy || uploading) return;
     setBusy(true); setError('');
-    try { await onSave(date, body, visibility, emoji); onClose(); }
+    try { await onSave(date, body, visibility, emoji, serializeDiaryPhotos(photoIds)); onClose(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to save diary'); }
     finally { setBusy(false); }
   };
@@ -51,6 +60,20 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     try { await onDelete(date); setConfirm(null); onClose(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to delete diary'); setConfirm(null); }
     finally { setBusy(false); }
+  };
+  const uploadPhotos = async (files: FileList | null) => {
+    if (!files?.length || !user?.$id || uploading) return;
+    const selected = Array.from(files).slice(0, 5 - photoIds.length);
+    if (!selected.length) { setError('Maximum five diary photos.'); return; }
+    setUploading(true); setError('');
+    const added: string[] = [];
+    try {
+      for (const file of selected) added.push(await saveDiaryImage(file, user.$id));
+      setPhotoIds(existing => [...existing, ...added]);
+    } catch (cause) {
+      setPhotoIds(existing => [...existing, ...added]);
+      setError(cause instanceof Error ? cause.message : 'Photo upload failed.');
+    } finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
   const dayLabel = format(parseISO(date), 'EEEE, MMMM d, yyyy');
   return (
@@ -62,7 +85,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
             <button type="button" onClick={close} aria-label="Close diary" className="rounded-lg p-2 focus-visible:outline"> <X size={22}/> </button>
             <span className="text-base font-semibold">{dayLabel}</span>
             {editing ? (
-              <button type="button" disabled={busy || (!body.trim() && !emoji)} onClick={save}
+              <button type="button" disabled={busy || uploading || (!body.trim() && !emoji && photoIds.length === 0)} onClick={save}
                 className="rounded-lg px-3 py-2 font-semibold disabled:opacity-40">Done</button>
             ) : onSave ? (
               <button type="button" aria-label="Diary actions" onClick={() => setMenu(value => !value)}
@@ -98,6 +121,13 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                   <option value="public">Public</option>
                 </select>
               </div>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+                aria-label="Choose diary photos" onChange={e => void uploadPhotos(e.target.files)}/>
+              <button type="button" disabled={busy || uploading || photoIds.length >= 5} onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 rounded-lg p-2 text-sm text-gray-300 disabled:opacity-40">
+                <ImagePlus size={19}/> {uploading ? 'Uploading…' : `Add photos (${photoIds.length}/5)`}
+              </button>
+              <DiaryPhotoGallery date={date} photoIds={photoIds} editable onChange={setPhotoIds}/>
               <textarea aria-label="Diary text" value={body} onChange={e=>setBody(e.target.value)}
                 placeholder="How was your day?" className="min-h-28 flex-1 resize-none rounded-xl bg-transparent p-2 text-base text-white outline-offset-2"
                 autoFocus />
@@ -107,6 +137,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
               <div aria-hidden="true" className="my-5 text-center text-6xl">{entry ? diaryMarker(entry) || '📝' : '📝'}</div>
               <div className="text-sm text-gray-400">{author} · {dayLabel} · {visibility === 'followers' ? 'Friends' : visibility === 'public' ? 'Public' : 'Private'}</div>
               <div className="min-h-16 whitespace-pre-wrap break-words py-5 text-base">{entry?.content}</div>
+              <DiaryPhotoGallery date={date} photoIds={photoIds}/>
             </>
           )}
           {error && <p role="alert" className="text-sm text-red-500">{error}</p>}

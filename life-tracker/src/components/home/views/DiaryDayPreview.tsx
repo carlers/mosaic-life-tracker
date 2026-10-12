@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { BookOpenText, Plus } from 'lucide-react';
+import { BookOpenText, Plus, Images } from 'lucide-react';
+import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { useDiary } from '../../../hooks/useDiary';
 import { useSettings } from '../../../hooks/useSettings';
 import type { DiaryDocument } from '../../../db/schema';
@@ -26,6 +27,9 @@ export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, expan
         {entry?.content?.trim() || (entry ? 'Diary entry' : 'Add diary entry')}
       </span>
       {expanded && entry?.emoji && <span aria-hidden="true" className="mt-1 inline-block text-lg">{diaryMarker(entry)}</span>}
+      {expanded && entry?.photos && parseDiaryPhotos(entry.photos).length > 0 && (
+        <span className="mt-1 flex items-center gap-1 text-xs text-gray-400"><Images size={14}/> {parseDiaryPhotos(entry.photos).length} photos</span>
+      )}
     </span>
   </button>
 );

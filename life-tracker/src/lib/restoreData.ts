@@ -749,6 +749,7 @@ async function restoreImages(
   precompressedImages: boolean
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
+  const publicImageIds = new Set(data.tasks.map(t => t.image).filter(Boolean));
   if (ids.length === 0) return { restored: 0, missing: 0 };
 
   const remapped = new Map<string, string>();
@@ -790,7 +791,8 @@ async function restoreImages(
             file,
             preferredFileId,
             currentUserId,
-            precompressedImages
+            precompressedImages,
+            !publicImageIds.has(oldId)
           );
         } catch (error) {
           if (!isRateLimitError(error)) throw error;
@@ -800,7 +802,8 @@ async function restoreImages(
             file,
             preferredFileId,
             currentUserId,
-            precompressedImages
+            precompressedImages,
+            !publicImageIds.has(oldId)
           );
         }
         remapped.set(oldId, ensured.fileId);

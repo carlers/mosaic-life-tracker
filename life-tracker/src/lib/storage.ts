@@ -230,7 +230,8 @@ export async function ensureRestoredImage(
   file: File,
   preferredFileId: string,
   expectedUserId?: string,
-  alreadyCompressed = false
+  alreadyCompressed = false,
+  ownerOnly = false
 ): Promise<EnsuredImage> {
   if (!isValidFileId(preferredFileId)) {
     throw new Error('Backup image has an invalid file ID.');
@@ -252,7 +253,7 @@ export async function ensureRestoredImage(
     await guardedStorage.updateFile({
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId: preferredFileId,
-      permissions: buildFilePermissions(userId, true),
+      permissions: buildFilePermissions(userId, !ownerOnly),
     });
     return { fileId: preferredFileId, uploaded: false };
   } catch (error) {
@@ -264,7 +265,7 @@ export async function ensureRestoredImage(
       file,
       preferredFileId,
       userId,
-      true
+      !ownerOnly
     );
     return { fileId: preferredFileId, uploaded: true };
   } catch (error) {
