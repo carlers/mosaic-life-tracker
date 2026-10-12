@@ -127,3 +127,33 @@ describe('protected Vercel canary dependency installation contract (#592)', () =
     expect(job).toContain('environment: mosaic-preview-canary');
   });
 });
+
+describe('canary monorepo CLI root contract (#592)', () => {
+  it('executes Vercel operations from Git root, installs deps in app, and verifies both output layouts', () => {
+    const yaml = readFileSync(new URL('../../../.github/workflows/quality-gate.yml', import.meta.url), 'utf8');
+    const job = yaml.split('\n  preview_canary:\n')[1];
+    const step = (name: string) => {
+      const after = job.split('\n      - name: ' + name + '\n')[1];
+      expect(after, 'missing step: ' + name).toBeDefined();
+      return after.split('\n      - name: ')[0];
+    };
+    for (const name of [
+      'Link only the existing official Vercel project',
+      'Pull actual branch-scoped Preview build inputs',
+      'Build and enforce Preview budgets with effective Vercel configuration',
+      'Verify prebuilt output exists at repository-root Vercel layout',
+      'Deploy exact prebuilt Preview artifact',
+    ]) {
+      expect(step(name)).toContain('working-directory: .');
+    }
+    expect(step('Install locked app dependencies for protected Vercel build'))
+      .not.toContain('working-directory: .');
+    expect(step('Verify prebuilt output exists at repository-root Vercel layout'))
+      .toContain('test -f life-tracker/dist/index.html');
+    expect(step('Verify prebuilt output exists at repository-root Vercel layout'))
+      .toContain('test -f .vercel/output/config.json');
+    expect(job.indexOf('test -f .vercel/output/config.json'))
+      .toBeLessThan(job.indexOf('node scripts/check-preview-canary-duplicate.mjs', job.indexOf('test -f .vercel/output/config.json')));
+    expect(job).toContain('needs.canonical_acceptance.result == \'success\'');
+  });
+});

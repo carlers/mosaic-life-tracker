@@ -230,3 +230,35 @@ dependency installs, skip `tsc`, or relax build-size budgets. A workflow
 regression asserts dependency installation ordering and protected job
 gates. The next attempt must still prove exact Preview/Scratch build
 settings and prebuilt Vercel deployment identity.
+
+### Monorepo root mismatch after the successful protected build
+
+Manual [Quality Gate 38288515284](https://github.com/carlers/mosaic-life-tracker/actions/runs/38288515284)
+proved the protected build's app dependencies are now correctly installed.
+Vite compiled successfully against the **Scratch** Appwrite backend with
+GIPHY enabled and Node 24.21.0; all seven size guards passed. Vercel CLI
+62.7.0 subsequently failed `No Output Directory named "dist" found`
+despite Vite producing `dist/index.html`. This was a **Vercel CLI
+working-directory mismatch**, not an application build failure.
+
+Mosaic's Vercel project has the monorepo app root `life-tracker/`.
+Hosted Vercel Git builds resolve that directory from Git root, while
+the initial protected canary called Vercel from inside `life-tracker/`.
+Per the official Vercel Root Directory guidance, call the CLI from the
+**repository root** with `.vercel/project.json` there; Vercel
+will resolve the configured project root `life-tracker/` itself.
+Leave the `npm ci` step in `life-tracker/`. Verify
+`life-tracker/dist/index.html` and `.vercel/output/config.json`
+after the Vercel CLI build and before the second exact-SHA/idempotency
+checks and deploy. Do not change remote project settings, headers,
+rewrites, Scratch backend or output budget ceilings to work around it.
+
+**Separate parity caution:** The local canary build printed the emitted
+JS/CSS fingerprint `e24cedd82c122636d6f9aa06a6b7774c08235ee8769b1eccb5128659532dfbca`,
+while Vercel's previous exact-SHA Git-triggered build printed
+`13df5b4294dbd54b6a15e1a62679f499671f70b27f854b7fc3332be7f4cae4ba`.
+Both were Scratch, GIPHY enabled, Node 24.21.0 and their seven size
+budgets passed, but artifacts remain different. This could reflect
+additional build-context variation or nondeterministic chunk output.
+**Do not claim byte-equivalent builds or deactivate automatic Git
+deployment until this is investigated and accepted.**
