@@ -89,6 +89,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
     <Reorder.Item
       value={cat}
       dragListener={false}
+      layout="position"
       dragControls={dragControls}
       onDragEnd={onReorderEnd}
       aria-label={`${cat.name} category`}
@@ -208,8 +209,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       setNewColor('#3B82F6');
       setNewVisibility('private');
       setEditingId(null);
-      setEditName('');
-      setEditVisibility('private');
       setDeleteId(null);
     }
   }
