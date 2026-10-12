@@ -574,6 +574,12 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   );
 
   const handleOpenActions = useCallback((task: TaskDocument) => {
+    // The user requested task actions: warm only code for its two nested
+    // sheets while the action menu opens; no hidden sheet or data hooks.
+    if (!document.hidden) {
+      void preloadShareTaskSheet().catch(() => {});
+      void preloadLinkTaskToBucketSheet().catch(() => {});
+    }
     setActiveTaskId(task.id);
     setIsActionSheetOpen(true);
   }, []);
@@ -582,17 +588,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     setIsActionSheetOpen(false);
   }, []);
 
-  useEffect(() => {
-    if (!isOpen || !isActionSheetOpen || !activeTask) return;
-    // The task-actions sheet is already usable; warm only its two nested actions.
-    // Never mount their hooks or register hidden sheets before user selection.
-    const id = window.setTimeout(() => {
-      if (document.hidden) return;
-      void preloadShareTaskSheet().catch(() => {});
-      void preloadLinkTaskToBucketSheet().catch(() => {});
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [isOpen, isActionSheetOpen, activeTask?.id]);
   const leaveSharedTask = sharedTasks.updateMembership;
   const updateSharedCompletion = sharedTasks.updateCompletion;
   const handleSharedCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {

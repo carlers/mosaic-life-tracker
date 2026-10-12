@@ -295,7 +295,6 @@ describe('DayViewSheet nested task actions', () => {
     renderSheet();
     fireEvent.click(screen.getByRole('button', { name: 'Open actions' }));
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
       await import('../../src/components/home/views/ShareTaskSheet');
       await import('../../src/components/home/views/LinkTaskToBucketSheet');
       await Promise.resolve();
