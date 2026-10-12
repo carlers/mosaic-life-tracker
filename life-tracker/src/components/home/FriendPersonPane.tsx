@@ -22,6 +22,8 @@ import {
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  DAY_DETAIL_PRESENTATION_SETTING_KEY,
+  resolveDayDetailPresentation,
   resolveIncompleteTaskBlockColorMode,
   resolveWeekStartsOn,
 } from '../../lib/preferences';
@@ -62,6 +64,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
+  const dayDetailPresentation = resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -156,6 +159,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
           tasks={tasks}
           categoriesMap={categoriesMap}
           variant="friend"
+          dayDetailPresentation={dayDetailPresentation}
           friendCategories={categories}
           friendName={person.displayName}
           friendUserId={person.userId}

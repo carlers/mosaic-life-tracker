@@ -12,6 +12,11 @@ export function resolveIncompleteTaskBlockColorMode(value: unknown): IncompleteT
   return value === 'text' || value === 'border' ? value : 'default';
 }
 export const WEEK_STARTS_ON_SUNDAY_SETTING_KEY = 'weekStartsOnSunday';
+export const DAY_DETAIL_PRESENTATION_SETTING_KEY = 'dayDetailPresentation';
+export type DayDetailPresentation = 'sheet' | 'panel';
+export function resolveDayDetailPresentation(value: unknown): DayDetailPresentation {
+  return value === 'panel' ? 'panel' : 'sheet';
+}
 export const SHOW_CATEGORY_COLLAPSE_SETTING_KEY = 'showCategoryCollapseButton';
 export const SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY = 'showDayViewTodayTag';
 export const SHARED_LABEL_MODE_SETTING_KEY = 'sharedTaskLabelMode';

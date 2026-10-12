@@ -99,6 +99,10 @@ describe('PreferencesPage', () => {
     const taskPosition = screen.getByRole('switch', {
       name: 'Add new tasks to top',
     });
+    const detailMode = screen.getByRole('combobox', { name: 'Open day details as' });
+    expect(detailMode).toHaveValue('sheet');
+    fireEvent.change(detailMode, { target: { value: 'panel' } });
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayDetailPresentation', 'panel');
     const sunday = screen.getByRole('switch', {
       name: 'Start week on Sunday',
     });

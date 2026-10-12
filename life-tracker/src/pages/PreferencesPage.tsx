@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Waves } from 'lucide-react';
+import { Waves, Columns2 } from 'lucide-react';
 import {
   ArrowUp,
   CalendarDays,
@@ -29,6 +29,8 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
 import {
+  DAY_DETAIL_PRESENTATION_SETTING_KEY,
+  resolveDayDetailPresentation,
   ADD_TASKS_TO_TOP_SETTING_KEY,
   GIPHY_AUTOPLAY_SETTING_KEY,
   TASK_COMPLETION_SORT_SETTING_KEY,
@@ -232,6 +234,9 @@ export const PreferencesPage: React.FC = () => {
   );
   const shareLabelMode = getSetting(SHARED_LABEL_MODE_SETTING_KEY, 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting(SHOW_PENDING_SHARES_SETTING_KEY, false) === true;
+  const dayDetailPresentation = resolveDayDetailPresentation(
+    getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet')
+  );
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
@@ -402,6 +407,19 @@ export const PreferencesPage: React.FC = () => {
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Calendar
           </h2>
+          <SelectSettingRow
+            id="day-detail-presentation"
+            icon={<Columns2 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Open day details as"
+            value={dayDetailPresentation}
+            options={[
+              { value: 'sheet', label: 'Bottom sheet' },
+              { value: 'panel', label: 'Side panel when space allows' },
+            ]}
+            onChange={(value) => void setSetting(
+              DAY_DETAIL_PRESENTATION_SETTING_KEY, resolveDayDetailPresentation(value)
+            )}
+          />
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Start week on Sunday"
