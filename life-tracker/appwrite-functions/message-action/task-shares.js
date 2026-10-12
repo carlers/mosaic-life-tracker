@@ -139,7 +139,7 @@ async function handleTaskShares(db, caller, payload) {
     let taskPatch = null;
     if (operation === 'invite') {
       if (sameFriendship && ['pending', 'accepted'].includes(status)) {
-        return { status: 200, body: { ok: true, item: projection(task, membership, true) } };
+        return { status: 200, body: { ok: true, duplicate: true, item: projection(task, membership, true) } };
       }
       patch = {
         task_id: taskId, owner_id: ownerId, invitee_id: inviteeId,

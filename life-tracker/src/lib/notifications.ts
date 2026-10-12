@@ -1,5 +1,6 @@
 import type { TaskDocument } from '../db/schema';
 import { sendAppAction } from './appAction';
+import type { SocialNotificationType } from './notificationChannels';
 
 export interface NotificationItem {
   id: string;
@@ -15,8 +16,28 @@ export interface NotificationItem {
   task: TaskDocument;
 }
 
+export interface SocialNotificationItem {
+  id: string;
+  type: SocialNotificationType;
+  actorId: string;
+  actorName: string;
+  actorUsername: string;
+  actorAvatarFileId: string;
+  targetId: string;
+  destination: string;
+  occurredAt: string;
+  createdAt: string;
+  readAt: string;
+}
+
+export type NotificationEntry = NotificationItem | SocialNotificationItem;
+
+export function isTaskNotification(item: NotificationEntry): item is NotificationItem {
+  return item.type === 'task_completed';
+}
+
 export interface NotificationPage {
-  items: NotificationItem[];
+  items: NotificationEntry[];
   nextCursor: string;
   fetchedAt: string;
 }
@@ -33,9 +54,20 @@ function isTask(value: unknown): value is TaskDocument {
   );
 }
 
-function isNotificationItem(value: unknown): value is NotificationItem {
+function isNotificationItem(value: unknown): value is NotificationEntry {
   if (!value || typeof value !== 'object') return false;
-  const item = value as Partial<NotificationItem>;
+  const item = value as Record<string, unknown>;
+  if (typeof item.id !== 'string' || typeof item.actorId !== 'string' ||
+      typeof item.actorName !== 'string' || typeof item.occurredAt !== 'string') return false;
+  if (item.type !== 'task_completed') {
+    const social = item as unknown as Partial<SocialNotificationItem>;
+    return [
+      'friend_request', 'friend_accepted', 'direct_message',
+      'message_reaction', 'task_reaction', 'shared_task_invite',
+    ].includes(social.type || '') &&
+      typeof social.targetId === 'string' &&
+      typeof social.destination === 'string';
+  }
   return (
     typeof item.id === 'string' &&
     item.type === 'task_completed' &&
@@ -82,7 +114,7 @@ export async function markNotificationsRead(ids: string[]): Promise<string> {
 }
 
 /** Single alert lookup for a notification tap, independent of feed pagination. */
-export async function fetchNotificationById(id: string): Promise<NotificationItem | null> {
+export async function fetchNotificationById(id: string): Promise<NotificationEntry | null> {
   if (!/^not_[a-f0-9]{32}$/.test(id)) return null;
   try {
     const result = await sendAppAction({ action: 'get_notification', id });

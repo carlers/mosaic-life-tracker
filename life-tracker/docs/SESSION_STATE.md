@@ -1,6 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-12
+Current task: Issue #682 — account-configurable expanded Alerts, v0.21.0 task branch.
+
+## #682 expanded notifications — implementation / handoff
+- Authorization: user approved implementation on 2026-10-12. Task branch: `chatgpt/notifications-682-20261012` from then-current dev `bb527a480df88ca9891490b29d522e37c0eae05e`. Do not merge dev/main without explicit approval.
+- Required Appwrite `task_id`/`completed_at` slots carry typed event source/time; no schema or Function rollout.
+- Server `activity-notifications.js` provides deterministic idempotent receipts, server-authorized event projection, synced `alertsChannels` policy, and generic privacy-safe push. Trusted `message-action` operations emit incoming friendship requests, accepted requests, messages, reactions and shared invitations. Existing task-completion code uses the same preference gate.
+- Client Alerts reads typed items, retains existing task-completion sheet and reaction behavior, renders social activity with safe destinations, caches items per account, and exposes independent in-app/Push category preferences in Settings. Defaults preserve completions and keep reaction push off.
+- Sandbox verification: contracts; 975 unit, 171 handler, 474 DOM tests; scoped ESLint; production build/PWA; seven reviewed size metrics passed. CI focused and stable Preview canonical gate next; Scratch Function remains unchanged. Production untouched.
+- Remaining: message focus, grouping, per-chat mute/quiet hours, and manual device acceptance.
+
+Updated: 2026-10-12
 Current task: #655 PWA download/progress v0.20.3 combined integration with latest dev. User accepted the feature and authorized cleanup plus dev promotion, not main.
 
 ## #655 dev integration of approved Preview

@@ -31,7 +31,10 @@ import {
   fetchNotificationById,
   markNotificationsRead,
   type NotificationItem,
+  type NotificationEntry,
+  isTaskNotification,
 } from '../lib/notifications';
+import { ALERTS_CHANNELS_KEY, resolveNotificationChannels } from '../lib/notificationChannels';
 import {
   getCachedNotifications,
   patchCachedNotificationTask,
@@ -62,6 +65,30 @@ const AlertFriendDaySheet = lazy(() =>
   }))
 );
 
+function activityLabel(type: Exclude<NotificationEntry, NotificationItem>['type']): string {
+  switch (type) {
+    case 'friend_request': return 'sent you a friend request';
+    case 'friend_accepted': return 'accepted your friend request';
+    case 'direct_message': return 'sent you a message';
+    case 'message_reaction': return 'reacted to your message';
+    case 'task_reaction': return 'reacted to your task';
+    case 'shared_task_invite': return 'invited you to a shared task';
+  }
+}
+
+function activityDestination(item: Exclude<NotificationEntry, NotificationItem>): string {
+  const actorId = item.actorId;
+  if (!/^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/.test(actorId)) return '/notifications';
+  switch (item.type) {
+    case 'friend_request': return '/explore';
+    case 'friend_accepted': return '/friends/' + actorId;
+    case 'direct_message':
+    case 'message_reaction': return '/messages/' + actorId;
+    case 'task_reaction': return '/home';
+    case 'shared_task_invite': return '/notifications';
+  }
+}
+
 interface NotificationsPageProps {
   preview?: boolean;
 }
@@ -79,10 +106,11 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     unreadDays: resolveUnreadRetentionDays(getSetting(ALERTS_UNREAD_RETENTION_SETTING_KEY)),
     readHours: resolveReadRetentionHours(getSetting(ALERTS_READ_RETENTION_SETTING_KEY)),
   };
+  const channels = resolveNotificationChannels(getSetting(ALERTS_CHANNELS_KEY));
   const userId = user?.$id ?? '';
   const connectivity = useConnectivity();
   const { sendTaskReaction } = useTaskActivityActions();
-  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [items, setItems] = useState<NotificationEntry[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState('');
   const [fetchedAt, setFetchedAt] = useState('');
@@ -233,6 +261,11 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     let active = true;
     void fetchNotificationById(alertId).then((item) => {
       if (!active) return;
+      if (item && !isTaskNotification(item)) {
+        const destination = activityDestination(item);
+        navigate(destination, { replace: true });
+        return;
+      }
       if (item) {
         setDayTarget(item);
         setDayOwnerId(userId);
@@ -247,7 +280,12 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     return () => { active = false; };
   }, [alertId, connectivity.status, feedIsCurrent, navigate, preview, userId]);
 
-  const visibleItems = feedIsCurrent ? activeNotifications(items, now, retentionPolicy) : [];
+  const visibleItems = feedIsCurrent
+    ? activeNotifications(items, now, retentionPolicy).filter(item => channels[item.type]?.feed === true)
+    : [];
+  const socialItems = visibleItems.filter(
+    (item): item is Exclude<NotificationEntry, NotificationItem> => !isTaskNotification(item)
+  );
   const visibleNextCursor = feedIsCurrent ? nextCursor : '';
   const visibleFetchedAt = feedIsCurrent ? fetchedAt : '';
 
@@ -380,7 +418,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       if (!feedIsCurrent) return;
       setItems((current) =>
         current.map((item) =>
-          item.task.id === taskId
+          isTaskNotification(item) && item.task.id === taskId
             ? { ...item, task: { ...item.task, reactions } }
             : item
         )
@@ -459,7 +497,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     ]
   );
 
-  const groups = groupNotificationActivity(visibleItems);
+  const groups = groupNotificationActivity(visibleItems.filter(isTaskNotification));
   const canInteract =
     !preview && feedIsCurrent && connectivity.status === 'online';
   const unreadIds = visibleItems.filter((item) => !item.readAt).map((item) => item.id);
@@ -500,7 +538,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           {visibleFetchedAt && (
             <p className="text-[11px] text-gray-400">
               {connectivity.status === 'online'
-                ? 'Recent friend activity'
+                ? 'Recent activity'
                 : 'Showing saved activity'}
             </p>
           )}
@@ -551,7 +589,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           <Spinner size="w-7 h-7" />
           <span className="sr-only">Loading alerts</span>
         </div>
-      ) : groups.length === 0 && !hasPendingInvitations ? (
+      ) : groups.length === 0 && socialItems.length === 0 && !hasPendingInvitations ? (
         <div className="flex min-h-[55vh] flex-col items-center justify-center px-6 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#1E1E1E]">
             <Bell
@@ -571,7 +609,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           )}
           <div className="w-full max-w-sm">{loadMoreButton}</div>
         </div>
-      ) : groups.length === 0 ? null : (
+      ) : groups.length === 0 && socialItems.length === 0 ? null : (
         <div className="px-4 pb-28 pt-3">
           {error && (
             <p
@@ -582,6 +620,32 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
             </p>
           )}
           <div className="space-y-5">
+            {socialItems.length > 0 && (
+              <section aria-label="Social and message activity">
+                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Requests, messages & reactions
+                </h2>
+                <div className="divide-y divide-[#2A2A2A]">
+                  {socialItems.map(item => (
+                    <div key={item.id}
+                      data-alert-id={!item.readAt && canInteract ? item.id : undefined}
+                      className="py-3">
+                      <button type="button" disabled={!canInteract}
+                        onClick={() => navigate(activityDestination(item))}
+                        className="w-full rounded-lg px-2 py-1 text-left text-sm text-gray-100
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60
+                          disabled:opacity-60">
+                        <span className="font-semibold">{item.actorName}</span>
+                        <span className="text-gray-300"> {activityLabel(item.type)}</span>
+                        <span className="mt-1 block text-xs text-gray-500">
+                          {formatDistanceToNow(new Date(item.occurredAt), { addSuffix: true })}
+                        </span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
             {groups.map((group) => (
               <section
                 key={group.key}
