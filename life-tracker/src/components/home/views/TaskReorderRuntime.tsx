@@ -38,6 +38,11 @@ const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
 
 const noop = () => undefined;
 
+// Ignore collision target churn caused by Motion moving drop zones beneath a
+// stationary finger. Genuine pointer movement still changes the target.
+const stationaryPointer = (a: { x: number; y: number } | null, b: { x: number; y: number }) =>
+  a !== null && Math.hypot(a.x - b.x, a.y - b.y) < 3;
+
 interface CommittedPlacement {
   id: number;
   placement: TaskPlacement;
@@ -50,6 +55,7 @@ interface DragSession {
   taskIdentity: Map<string, string>;
   projection: TaskPlacement;
   hasValidTarget: boolean;
+  acceptedPointer: { x: number; y: number } | null;
 }
 
 interface TaskReorderRuntimeProps extends DaySlideProps {
@@ -86,6 +92,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const [diaryDragHeight, setDiaryDragHeight] = React.useState(48);
   const [committedDiaryPlacement, setCommittedDiaryPlacement] = React.useState<DiaryPlacement | null>(null);
   const diaryDragRef = React.useRef(false);
+  const diaryAcceptedPointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const [activeSharedDrag, setActiveSharedDrag] = React.useState<SharedTaskItem | null>(null);
   const commitIdRef = React.useRef(0);
 
@@ -133,6 +140,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       const taskId = String(source.id);
       if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
         diaryTargetRef.current = null;
+        diaryAcceptedPointerRef.current = null;
         setDiaryPreviewPlacement(null);
         setCommittedDiaryPlacement(null);
         setDiaryDragHeight(Math.max(24, source.element?.getBoundingClientRect().height ?? 48));
@@ -175,6 +183,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           `${task.userId}:${task.date}:${task.categoryId}:${task.completed}`])),
         projection: snapshot,
         hasValidTarget: false,
+        acceptedPointer: null,
       };
       setActiveDrag(next);
       onReorderActiveChange?.(true);
@@ -200,6 +209,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         const next = boundary ?? (drop && categoryIds.includes(drop.categoryId)
           ? placementFromTaskDrop(drop, displayPlacement[drop.categoryId] ?? []) : null);
         if (next) {
+          if (stationaryPointer(diaryAcceptedPointerRef.current, event.operation.position.current)) return;
+          diaryAcceptedPointerRef.current = { ...event.operation.position.current };
           diaryTargetRef.current = next;
           setDiaryPreviewPlacement(current =>
             JSON.stringify(current) === JSON.stringify(next) ? current : next);
@@ -213,6 +224,10 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         return;
       }
       if (!session || !source) return;
+
+      // A projected gap can slide another drop zone under an unmoving pointer.
+      // Keep the visible destination until the user actually moves again.
+      if (session.hasValidTarget && stationaryPointer(session.acceptedPointer, event.operation.position.current)) return;
 
       if (!target) {
         session.hasValidTarget = false;
@@ -230,6 +245,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       }
 
       session.hasValidTarget = true;
+      session.acceptedPointer = { ...event.operation.position.current };
       if (
         taskPlacementsEqual(session.projection, next, categoryIds)
       ) {
@@ -259,9 +275,14 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           ? { kind: key.endsWith('top') ? 'top' as const : 'bottom' as const } : null;
         // A canceled/outside release must never commit the last stale hover target.
         const drop = key ? parseDropTarget(key) : null;
-        const location = direct ?? (drop && categoryIds.includes(drop.categoryId)
+        const directLocation = direct ?? (drop && categoryIds.includes(drop.categoryId)
           ? placementFromTaskDrop(drop, displayPlacement[drop.categoryId] ?? [])
           : null);
+        // Only trust the last preview if the finger has not moved since then;
+        // never commit a previous hover on an outside/canceled release.
+        const location = event.operation.target && stationaryPointer(diaryAcceptedPointerRef.current, event.operation.position.current)
+          ? diaryTargetRef.current ?? directLocation : directLocation;
+        diaryAcceptedPointerRef.current = null;
         diaryTargetRef.current = null;
         diaryDragRef.current = false;
         setDiaryDragging(false);
