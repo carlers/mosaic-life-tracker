@@ -21,3 +21,7 @@ Next action: verify focused browser and build checks; fix actual failures; squas
 ## Verification
 
 First browser run #38316558625 showed Feedback `none` hid task/diary overlays and broke projections; repaired by restoring default feedback. Pending: focused browser checks, full canonical stable gate, Vercel Scratch READY exact SHA/all seven hosted budgets, actual phone/desktop visual acceptance. Prior v0.25.3 accepted as baseline at `4b7959e`; `dev` and `main` must remain unchanged.
+
+## Browser repair checkpoint
+
+Run #38316881646 restored working DragOverlay visibility and existing drag/collision checks (focused, browser 1/2 PASS); two new browser cases exposed source-slot visibility not reliably hidden under automatic dnd feedback. Add important CSS invisibility to both live source shells, preserving registered proxy DOM; assert computed browser visibility with diagnostics, never mask the issue by dropping the checks.

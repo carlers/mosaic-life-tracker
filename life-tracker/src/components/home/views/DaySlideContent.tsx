@@ -154,6 +154,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       key={diaryReleaseRevision}
       layout={reorderRuntimeActive && !diaryDragging && !diarySettling ? 'position' : false}
       data-diary-source-slot={diaryDragging ? 'true' : undefined}
+      className={diaryDragging ? '!invisible' : undefined}
       aria-hidden={diaryDragging ? true : undefined}
       style={diaryDragging ? {
         position: 'absolute', width: '100%', visibility: 'hidden', pointerEvents: 'none',

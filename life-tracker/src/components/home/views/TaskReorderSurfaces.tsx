@@ -102,7 +102,7 @@ export const TaskRowDropSurface: React.FC<{
     <motion.div
       layout={animatePosition ? 'position' : false}
       transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
-      className="relative"
+      className={isActiveSource ? 'relative !invisible' : 'relative'}
       data-task-source-slot={isActiveSource ? 'true' : undefined}
       aria-hidden={isActiveSource ? true : undefined}
       style={

@@ -798,12 +798,16 @@ test('bottom-to-top task drag renders one overlay and no painted source ghost', 
   await expect(region.locator('[data-task-drop-gap="true"]')).toHaveCount(1);
   await expect(page.locator('[data-dnd-placeholder]')).toHaveCount(0);
   await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(1);
-  expect(await region.locator('[data-task-source-slot="true"]').evaluateAll(slots =>
-    slots.length === 1 && slots.every(slot =>
-      getComputedStyle(slot).visibility === 'hidden' &&
-      slot.getAttribute('aria-hidden') === 'true'
-    )
-  )).toBe(true);
+  const sourceStatus = await region.locator('[data-task-source-slot="true"]').evaluateAll(slots =>
+    slots.map(slot => ({
+      visibility: getComputedStyle(slot).visibility,
+      inline: slot.style.visibility,
+      aria: slot.getAttribute('aria-hidden'),
+    }))
+  );
+  expect(sourceStatus, JSON.stringify(sourceStatus)).toEqual([
+    expect.objectContaining({visibility: 'hidden', aria: 'true'}),
+  ]);
 
   await gesture.finish();
   await expect(page.getByTestId('todo-gesture')).toHaveText('reordered:task_0_2,task_0_0,task_0_1');
@@ -823,9 +827,16 @@ test('diary long press follows held touch on both axes with a single full-card o
   const start = await overlay.boundingBox();
   if (!start) throw new Error('Missing full diary drag overlay');
   await expect(region.locator('[data-diary-drag-gap="true"]')).toHaveCount(1);
-  expect(await region.locator('[data-diary-source-slot="true"]').evaluateAll(slots =>
-    slots.length === 1 && slots.every(slot => getComputedStyle(slot).visibility === 'hidden')
-  )).toBe(true);
+  const diarySourceStatus = await region.locator('[data-diary-source-slot="true"]').evaluateAll(slots =>
+    slots.map(slot => ({
+      visibility: getComputedStyle(slot).visibility,
+      inline: slot.style.visibility,
+      aria: slot.getAttribute('aria-hidden'),
+    }))
+  );
+  expect(diarySourceStatus, JSON.stringify(diarySourceStatus)).toEqual([
+    expect.objectContaining({visibility: 'hidden', aria: 'true'}),
+  ]);
   await expect(page.locator('[data-dnd-placeholder]')).toHaveCount(0);
 
   await gesture.moveTo(gesture.startX + 14, gesture.startY - 60);
