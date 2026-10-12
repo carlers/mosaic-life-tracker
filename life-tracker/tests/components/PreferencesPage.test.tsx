@@ -99,6 +99,12 @@ describe('PreferencesPage', () => {
     const taskPosition = screen.getByRole('switch', {
       name: 'Add new tasks to top',
     });
+    const zoom = screen.getByRole('combobox', { name: 'Days visible on small screens' });
+    expect(zoom).toHaveValue('7');
+    fireEvent.change(zoom, { target: { value: '3' } });
+    expect(mocks.setSetting).toHaveBeenCalledWith('calendarZoomDays', 3);
+    fireEvent.change(zoom, { target: { value: '4' } });
+    expect(mocks.setSetting).toHaveBeenCalledWith('calendarZoomDays', 4);
     const sunday = screen.getByRole('switch', {
       name: 'Start week on Sunday',
     });

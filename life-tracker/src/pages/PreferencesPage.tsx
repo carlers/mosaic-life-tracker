@@ -44,6 +44,8 @@ import {
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
+  CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  resolveCalendarZoomDays,
 } from '../lib/preferences';
 import {
   inferHolidayRegion,
@@ -232,6 +234,7 @@ export const PreferencesPage: React.FC = () => {
   );
   const shareLabelMode = getSetting(SHARED_LABEL_MODE_SETTING_KEY, 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting(SHOW_PENDING_SHARES_SETTING_KEY, false) === true;
+  const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
@@ -402,6 +405,21 @@ export const PreferencesPage: React.FC = () => {
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Calendar
           </h2>
+          <SelectSettingRow
+            id="calendar-zoom-days"
+            icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Days visible on small screens"
+            value={String(calendarZoomDays)}
+            options={[
+              { value: '7', label: '7 days (default)' },
+              { value: '4', label: '4 days' },
+              { value: '3', label: '3 days' },
+            ]}
+            onChange={(value) => void setSetting(
+              CALENDAR_ZOOM_DAYS_SETTING_KEY,
+              resolveCalendarZoomDays(value)
+            )}
+          />
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Start week on Sunday"

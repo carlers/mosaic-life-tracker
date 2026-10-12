@@ -70,6 +70,51 @@ describe('calendar accessibility semantics', () => {
     ).toBeEnabled();
   });
 
+  it('keeps every weekday in one horizontally scrollable month grid at 3-day zoom', () => {
+    const onDayClick = vi.fn();
+    render(
+      <MonthView
+        focusDate={new Date(2026, 8, 15)}
+        zoomDays={3}
+        onDayClick={onDayClick}
+        tasksByDate={emptyTasks}
+        categoriesMap={{}}
+      />
+    );
+    const lane = screen.getByRole('region', { name: 'Scrollable calendar weekdays' });
+    const grid = within(lane).getByRole('grid', { name: 'September 2026 calendar' });
+    expect(within(grid).getAllByRole('columnheader')).toHaveLength(7);
+    expect(within(grid).getAllByRole('gridcell')).toHaveLength(35);
+    const day15 = within(grid).getByRole('button', {
+      name: 'Tuesday, September 15, 2026, no tasks',
+    });
+    const day16 = within(grid).getByRole('button', {
+      name: 'Wednesday, September 16, 2026, no tasks',
+    });
+    day15.focus();
+    fireEvent.keyDown(day15, { key: 'ArrowRight' });
+    expect(day16).toHaveFocus();
+    fireEvent.click(day16);
+    expect(onDayClick).toHaveBeenCalledWith(new Date(2026, 8, 16));
+  });
+
+  it('retains full weekday semantics in the 4-day week zoom and preserves 7-day default', () => {
+    const week = render(
+      <WeekView focusDate={new Date(2026, 8, 23)} zoomDays={4}
+        onDayClick={() => {}} tasksByDate={emptyTasks} categoriesMap={{}} />
+    );
+    const lane = screen.getByRole('region', { name: 'Scrollable calendar weekdays' });
+    expect(within(lane).getAllByRole('columnheader')).toHaveLength(7);
+    expect(within(lane).getAllByRole('gridcell')).toHaveLength(7);
+    week.unmount();
+    render(
+      <WeekView focusDate={new Date(2026, 8, 23)}
+        onDayClick={() => {}} tasksByDate={emptyTasks} categoriesMap={{}} />
+    );
+    expect(screen.queryByRole('region', { name: 'Scrollable calendar weekdays' })).toBeNull();
+    expect(screen.getAllByRole('columnheader')).toHaveLength(7);
+  });
+
   // Regression: §2 (week-start preference applies to Calendar and Todo grids).
   it('starts month, week, and Todo calendars on Monday when Sunday-start is disabled', () => {
     const month = render(
