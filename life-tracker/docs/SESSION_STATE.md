@@ -14,3 +14,5 @@ Current task: #656 — first-open Categories manager entrypoints; task and Previ
 - v0.20.6 signed-out hosted deep-link handling is on dev, with its detailed evidence in its respective PR history. Preserve it unchanged.
 - #656 v0.20.5 Menu/friend/Chat/Notifications and deferred Share/Link/Carousel fixes already integrated into dev as documented on issue #656. #640 owner Day View first-open behavior remains accepted.
 - #645 repo discovery D1/D2, #655 PWA and parallel feature scopes remain separate. Do not merge to main or touch Production/Appwrite under this task.
+
+Next action: pass focused verification, squash the tested task SHA into the stable v0.20.7 Preview, verify canonical CI and GIPHY Scratch Vercel build budgets, then request device acceptance. No dev/main promotion.
