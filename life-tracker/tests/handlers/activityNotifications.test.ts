@@ -82,6 +82,23 @@ describe('typed activity notifications', () => {
     expect(result).toBeNull();
   });
 
+  it('does not resurrect an older request receipt after a new friendship epoch', async () => {
+    const db = dbFor({
+      ...requestRows,
+      [id('user_b','user_a')]: {
+        ...requestRows[id('user_b','user_a')],
+        updated_at:'2026-10-13T12:00:00.000Z',
+      },
+    });
+    const oldReceipt = {
+      $id:receiptId('user_b','friend_request','user_a',request.sourceId,now),
+      recipient_id:'user_b',actor_id:'user_a',type:'friend_request',
+      task_id:request.sourceId,completed_at:now,
+      occurred_at:now,created_at:now,read_at:'',
+    };
+    expect(await projectActivity(db,oldReceipt,'user_b')).toBeNull();
+  });
+
   it('honors independent synced feed and push switches and rejects malformed policy', async () => {
     const defaults = await channels(dbFor({}),'user_b');
     expect(defaults.message_reaction).toEqual({ feed:true, push:false });
