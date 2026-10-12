@@ -207,33 +207,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const isFriend = variant === 'friend' && Boolean(friendName && friendUserId);
   const panelOpen = daySheetOpen && openPresentation === 'panel' && isActive;
-  const detail = isFriend ? (
-    <LazyFriendDayViewSheet
-      isOpen={daySheetOpen}
-      onClose={handleCloseDaySheet}
-      date={selectedDate}
-      onDateChange={handleDateChange}
-      tasks={tasks}
-      categories={friendCategories ?? []}
-      friendName={friendName ?? ''}
-      currentUserId={currentUserId}
-      onReplyToTask={handleReplyToTask}
-      onReactToTask={onReactToTask}
-      holidayConfig={holidayConfig}
-      renderMode="panel"
-    />
-  ) : (
-    <LazyDayViewSheet
-      isOpen={daySheetOpen}
-      onClose={handleCloseDaySheet}
-      selectedDate={selectedDate}
-      onDateChange={handleDateChange}
-      tasks={tasks}
-      categories={categories ?? []}
-      holidayConfig={holidayConfig}
-      renderMode="panel"
-    />
-  );
 
   const calendarAndPanel = (
     <div ref={hostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -246,10 +219,20 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           <div className={availableWidth >= 1040
             ? 'h-full min-h-0 w-[min(42%,440px)] shrink-0 p-2 pl-0'
             : 'absolute inset-y-0 right-0 z-20 w-[min(100%,440px)] bg-surface p-2'}>
-            <LazyDayDetailPanel onClose={handleCloseDaySheet}
-              onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}>
-              {detail}
-            </LazyDayDetailPanel>
+            <LazyDayDetailPanel
+              onClose={handleCloseDaySheet}
+              onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}
+              isFriend={isFriend}
+              selectedDate={selectedDate}
+              onDateChange={handleDateChange}
+              tasks={tasks}
+              categories={isFriend ? friendCategories ?? [] : categories ?? []}
+              friendName={friendName}
+              currentUserId={currentUserId}
+              onReplyToTask={handleReplyToTask}
+              onReactToTask={onReactToTask}
+              holidayConfig={holidayConfig}
+            />
           </div>
         )}
       </div>

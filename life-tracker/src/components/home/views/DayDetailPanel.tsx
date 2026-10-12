@@ -1,6 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { isSheetVisible } from '../../../lib/sheetVisibility';
+import { LazyDayViewSheet } from './dayViewSheetModule';
+import { LazyFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
+import type { TaskDocument, CategoryDocument } from '../../../db/schema';
+import type { HolidayDisplayConfig } from '../../../lib/holidays';
 
 const PANEL_HISTORY_KEY = '__mosaicDayDetailPanel';
 const issuedPanelIds = new Set<string>();
@@ -28,12 +32,22 @@ function installStalePanelGuard() {
 
 interface DayDetailPanelProps {
   onClose: () => void;
-  children: React.ReactNode;
   onFocusCalendar?: () => void;
+  isFriend: boolean;
+  selectedDate: Date;
+  onDateChange: (date: Date) => void;
+  tasks: TaskDocument[];
+  categories: CategoryDocument[];
+  friendName?: string;
+  currentUserId: string;
+  onReplyToTask?: (task: TaskDocument, categoryColor: string) => void;
+  onReactToTask?: (task: TaskDocument, emoji: string) => void;
+  holidayConfig: HolidayDisplayConfig;
 }
 
 export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
-  onClose, children, onFocusCalendar,
+  onClose, onFocusCalendar, isFriend, selectedDate, onDateChange, tasks,
+  categories, friendName, currentUserId, onReplyToTask, onReactToTask, holidayConfig,
 }) => {
   const panelIdRef = useRef<string | null>(null);
   const onCloseRef = useRef(onClose);
@@ -102,7 +116,33 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         </button>
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        {children}
+        {isFriend ? (
+          <LazyFriendDayViewSheet
+            isOpen
+            onClose={onClose}
+            date={selectedDate}
+            onDateChange={onDateChange}
+            tasks={tasks}
+            categories={categories}
+            friendName={friendName ?? ''}
+            currentUserId={currentUserId}
+            onReplyToTask={onReplyToTask}
+            onReactToTask={onReactToTask}
+            holidayConfig={holidayConfig}
+            renderMode="panel"
+          />
+        ) : (
+          <LazyDayViewSheet
+            isOpen
+            onClose={onClose}
+            selectedDate={selectedDate}
+            onDateChange={onDateChange}
+            tasks={tasks}
+            categories={categories}
+            holidayConfig={holidayConfig}
+            renderMode="panel"
+          />
+        )}
       </div>
     </aside>
   );
