@@ -16,7 +16,7 @@ Current task: Issue #656 — first-open lazy sheets, authorized implementation t
 - Add preloaded first-commit/cold/retry React regressions and MessageComposer intent/focus tests.
 - Version candidate v0.19.5; all build-size budgets remain unchanged.
 
-## Required next steps
+## Next action
 1. Commit coherent task tree with `[verify:browser]` and inspect focused/browser GitHub Actions. Fix any TS, lint, DOM, browser or size failure; do not bypass the guard.
 2. After task checks green, squash into stable Preview branch; run canonical full CI and verify exact-source Vercel Scratch/GIPHY deployment, unchanged seven budgets and version.
 3. User-device first/repeat open tests: Home friend preferences, Chat stickers, Notifications friend-day, friend calendar, Day View Share/Link; cold tap immediately and after idle, Back/Escape, nested focus, offline/PWA and no #640 regression.
