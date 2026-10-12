@@ -96,13 +96,15 @@ vi.mock('../../src/components/home/HomeTaskSearch', () => ({
   ),
 }));
 vi.mock('../../src/components/home/PersonCarousel', () => ({
-  PersonCarousel: () => <div>Carousel</div>,
+  PersonCarousel: ({ onOpenSettings }: { onOpenSettings: () => void }) =>
+    <div>Carousel <button type="button" onClick={onOpenSettings}>Friend preferences</button></div>,
 }));
 vi.mock('../../src/components/home/PersonPane', () => ({
   PersonPane: () => <div>Pane</div>,
 }));
 vi.mock('../../src/components/home/FriendCarouselSettingsSheet', () => ({
-  FriendCarouselSettingsSheet: () => null,
+  FriendCarouselSettingsSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div role="dialog" aria-label="Friends in Carousel" /> : null,
 }));
 vi.mock('../../src/components/home/views/DayViewSheet', () => ({
   DayViewSheet: ({
@@ -184,6 +186,20 @@ describe('HomePage task-search wiring', () => {
       }
     });
     expect(mockWarmDayView).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens friend preferences on the first click after carousel idle warmup', async () => {
+    renderHome();
+    await act(async () => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+      await import('../../src/components/home/FriendCarouselSettingsSheet');
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Friend preferences' }));
+    expect(screen.getByRole('dialog', { name: 'Friends in Carousel' })).toBeInTheDocument();
   });
 
   // Regression: §2 (Home task-search history and owner Day View integration).

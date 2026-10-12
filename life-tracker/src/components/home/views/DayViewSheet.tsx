@@ -12,11 +12,12 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
+import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { TaskActionSheet } from './TaskActionSheet';
-const LazyLinkTaskToBucketSheet = React.lazy(() => import('./LinkTaskToBucketSheet').then(m => ({ default: m.LinkTaskToBucketSheet })));
-const LazyShareTaskSheet = lazy(() =>
-  import('./ShareTaskSheet').then(({ ShareTaskSheet }) => ({ default: ShareTaskSheet }))
-);
+const { Component: LazyLinkTaskToBucketSheet, preload: preloadLinkTaskToBucketSheet } =
+  createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
+const { Component: LazyShareTaskSheet, preload: preloadShareTaskSheet } =
+  createPreloadedLazy(() => import('./ShareTaskSheet').then(m => m.ShareTaskSheet));
 import { useSharedTasks } from '../../../hooks/useSharedTasks';
 import { useOptionalFriendList } from '../../../hooks/useFriends';
 import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
@@ -580,6 +581,18 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const handleCloseActions = useCallback(() => {
     setIsActionSheetOpen(false);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen || !isActionSheetOpen || !activeTask) return;
+    // The task-actions sheet is already usable; warm only its two nested actions.
+    // Never mount their hooks or register hidden sheets before user selection.
+    const id = window.setTimeout(() => {
+      if (document.hidden) return;
+      void preloadShareTaskSheet().catch(() => {});
+      void preloadLinkTaskToBucketSheet().catch(() => {});
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [isOpen, isActionSheetOpen, activeTask?.id]);
   const leaveSharedTask = sharedTasks.updateMembership;
   const updateSharedCompletion = sharedTasks.updateCompletion;
   const handleSharedCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
@@ -1130,18 +1143,16 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onMoveToBacklog={handleMoveToBacklog}
         onLinkToBucketList={() => setIsBucketLinkOpen(true)}
       />
-      <Suspense fallback={null}>
-        {shareSheetMounted && (
-          <LazyShareTaskSheet
-            isOpen={isShareSheetOpen && !!activeTask}
-            onClose={() => setIsShareSheetOpen(false)}
-            task={activeTask}
-          />
-        )}
-      </Suspense>
-      <Suspense fallback={null}>
-        {isBucketLinkOpen && <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>}
-      </Suspense>
+      {shareSheetMounted && (
+        <LazyShareTaskSheet
+          isOpen={isShareSheetOpen && !!activeTask}
+          onClose={() => setIsShareSheetOpen(false)}
+          task={activeTask}
+        />
+      )}
+      {isBucketLinkOpen && (
+        <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
+      )}
       <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
