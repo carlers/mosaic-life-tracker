@@ -102,13 +102,9 @@ export const HomePage: React.FC = () => {
 
     const warm = () => {
       if (document.visibilityState === 'visible') {
-        void loadDayViewSheet()
-          .then(() => {
-            if (document.visibilityState === 'visible') return preloadFriendSettings();
-          })
-          .catch(() => {
-            // Both sheets retain their independent on-demand retry paths.
-          });
+        void loadDayViewSheet().then(preloadFriendSettings).catch(() => {
+          // Early sheet taps retain independent on-demand loading.
+        });
       }
     };
     if (window.requestIdleCallback) {
@@ -300,7 +296,6 @@ export const HomePage: React.FC = () => {
               activePersonId={activePersonId}
               onSelect={handlePillSelect}
               onOpenSettings={handleOpenSettings}
-              onPrepareSettings={() => { void preloadFriendSettings().catch(() => {}); }}
             />
           </div>
 
