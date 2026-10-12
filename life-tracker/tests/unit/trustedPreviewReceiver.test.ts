@@ -110,9 +110,14 @@ describe('trusted default-branch Preview receiver (#592)', () => {
   it('hard-disables legacy source-workflow secret-bearing pilot even if repository toggle is enabled', () => {
     const yaml = readFileSync(new URL('../../../.github/workflows/quality-gate.yml', import.meta.url), 'utf8');
     const legacy = yaml.split('\n  preview_auto_pilot:\n')[1];
-    expect(legacy).toContain('false && always() && !cancelled()');
-    expect(legacy).toContain('environment: mosaic-preview-auto');
-    expect(legacy).toContain("vars.MOSAIC_AUTO_PREVIEW_ENABLED == 'true'");
+    if (legacy !== undefined) {
+      expect(legacy).toContain('false && always() && !cancelled()');
+      expect(legacy).toContain('environment: mosaic-preview-auto');
+      expect(legacy).toContain("vars.MOSAIC_AUTO_PREVIEW_ENABLED == 'true'");
+    } else {
+      // Production's older Quality Gate does not contain this pilot.
+      expect(yaml).not.toContain('preview_auto_pilot:');
+    }
   });
 
   it('fails closed if Vercel project binding or production branch cannot be verified', () => {

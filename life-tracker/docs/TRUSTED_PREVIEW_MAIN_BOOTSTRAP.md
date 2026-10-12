@@ -69,3 +69,15 @@ and reviewers verify the resulting main canonical/Production effects.
 For the broader history and test evidence see GitHub issue #592,
 `docs/BUILD_PARITY_DIAGNOSTICS.md` on dev, and the current
 `quality-gate.yml` on the accepted stable Preview branch.
+
+## Main-based Preview regression checkpoint
+
+The first full run on the nine-file production-based Preview candidate
+([Quality Gate #38320367274](https://github.com/carlers/mosaic-life-tracker/actions/runs/38320367274))
+exposed a test-only assumption: dev has a retired branch-level
+automatic pilot, but production v0.17.4 never contained it.
+The trusted receiver test now accepts the unsafe pilot being absent,
+while still requiring an unconditional false guard if the pilot exists.
+The fix must pass focused CI followed by a fresh full stable
+Preview gate. Do not bypass that verification, and keep the
+new main exception PR draft until all relevant gates pass.
