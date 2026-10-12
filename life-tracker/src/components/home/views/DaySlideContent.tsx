@@ -66,6 +66,8 @@ export interface DaySlideProps {
   diaryPlacement?: DiaryPlacement;
   onMoveDiary?: (target: DiaryPlacement) => Promise<void> | void;
   diaryDragging?: boolean;
+  diaryProjectedPlacement?: DiaryPlacement | null;
+  diaryDragHeight?: number;
 }
 
 interface DaySlideContentProps extends DaySlideProps {
@@ -115,6 +117,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   diaryEnabled = false,
   diaryPlacement = { kind: 'top' },
   diaryDragging = false,
+  diaryProjectedPlacement = null,
+  diaryDragHeight = 48,
 }) => {
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
@@ -128,6 +132,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   const hasPlacementCategory = diaryPlacement.kind === 'slot' && categories.some(cat => cat.id === diaryPlacement.categoryId);
   const fallbackPlacement: DiaryPlacement = diaryPlacement.kind !== 'slot' || hasPlacementCategory
     ? diaryPlacement : { kind: 'top' };
+  const showDiaryGhost = diaryEnabled && diaryDragging && diaryProjectedPlacement &&
+    JSON.stringify(diaryProjectedPlacement) !== JSON.stringify(fallbackPlacement);
+  const diaryGhost = showDiaryGhost ? <div data-diary-drag-gap="true" aria-hidden="true" style={{ height: diaryDragHeight }} /> : null;
   const diaryCard = diaryEnabled ? (reorderRuntimeActive ? <DraggableDiaryDayPreview date={dateStr}/> : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr}/></React.Suspense>) : null;
   const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
   const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
@@ -162,14 +169,18 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       }
     >
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="top" active={diaryDragging}/>}
-      {diaryEnabled && fallbackPlacement.kind === 'top' && diaryCard}
+      {diaryEnabled && fallbackPlacement.kind === 'top' && <div style={{ opacity: diaryDragging ? 0.2 : 1 }}>{diaryCard}</div>}
+      {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
       {categories.map((category) => (
         <CategorySection
           key={category.id}
           categoryId={category.id}
           categoryName={category.name}
           categoryColor={category.color}
-          diarySlot={diaryEnabled && fallbackPlacement.kind === 'slot' && fallbackPlacement.categoryId === category.id ? diaryCard : undefined}
+          diarySlot={diaryEnabled && fallbackPlacement.kind === 'slot' && fallbackPlacement.categoryId === category.id ? <div style={{ opacity: diaryDragging ? 0.2 : 1 }}>{diaryCard}</div> : undefined}
+          diaryGhostSlot={showDiaryGhost && diaryProjectedPlacement?.kind === 'slot' && diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
+          diaryGhostSlotIndex={diaryProjectedPlacement?.kind === 'slot' ? diaryProjectedPlacement.index : 0}
+          animateDragProjection={Boolean(activeDrag || diaryDragging)}
           diarySlotIndex={fallbackPlacement.kind === 'slot' ? fallbackPlacement.index : 0}
           visibility={category.visibility}
           currentUserId={currentUserId}
@@ -209,7 +220,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           dragGapHeight={activeDrag?.rowHeight ?? 0}
         />
       ))}
-      {diaryEnabled && fallbackPlacement.kind === 'bottom' && diaryCard}
+      {showDiaryGhost && diaryProjectedPlacement?.kind === 'bottom' && diaryGhost}
+      {diaryEnabled && fallbackPlacement.kind === 'bottom' && <div style={{ opacity: diaryDragging ? 0.2 : 1 }}>{diaryCard}</div>}
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="bottom" active={diaryDragging}/>}
       {!selectionMode && unassignedShares.length > 0 &&
         onSharedCompletion && sharedPendingFor && (

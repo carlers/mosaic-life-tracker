@@ -25,11 +25,12 @@ interface DiaryEntrySheetProps {
   friendUserId?: string;
   onReact?: (emoji: string, op: 'add' | 'remove') => Promise<void>;
   onReply?: (content: string) => Promise<void>;
+  initialEditing?: boolean;
 }
 
 /** Read-only for friends; local-first editing for the signed-in owner. */
 export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
-  date, entry, author, onClose, onSave, onDelete, friendUserId, onReact, onReply,
+  date, entry, author, onClose, onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
 }) => {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,7 +40,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [reactBusy, setReactBusy] = useState(false);
-  const [editing, setEditing] = useState(!entry && !!onSave);
+  const [editing, setEditing] = useState(!!onSave && (initialEditing || !entry));
   const [body, setBody] = useState(entry?.content || '');
   const [emoji, setEmoji] = useState(entry?.emoji || '');
   const [visibility, setVisibility] = useState<DiaryDocument['visibility']>(entry?.visibility || 'private');

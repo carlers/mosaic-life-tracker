@@ -1,4 +1,5 @@
 import React, { useId, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronDown, Plus } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
 import { TaskItem } from './TaskItem';
@@ -27,6 +28,9 @@ interface CategorySectionProps {
   sharedRows?: React.ReactNode;
   diarySlot?: React.ReactNode;
   diarySlotIndex?: number;
+  diaryGhostSlot?: React.ReactNode;
+  diaryGhostSlotIndex?: number;
+  animateDragProjection?: boolean;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string, completed?: boolean) => void;
   onOpenActions: (task: TaskDocument) => void;
@@ -61,6 +65,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   sharedRows,
   diarySlot,
   diarySlotIndex = 0,
+  diaryGhostSlot,
+  diaryGhostSlotIndex = 0,
+  animateDragProjection = false,
   onToggleTask,
   onAddTask,
   onOpenActions,
@@ -83,6 +90,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   dragGapIndex = null,
   dragGapHeight = 0,
 }) => {
+  const prefersReducedMotion = useReducedMotion();
+  const animatePositions = animateDragProjection && !prefersReducedMotion;
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -189,7 +198,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     };
 
     tasks.forEach((task, index) => {
-      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(<React.Fragment key="diary-slot">{diarySlot}</React.Fragment>);
+      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(<motion.div key="diary-slot" layout={animatePositions ? 'position' : false}>{diarySlot}</motion.div>);
+      if (diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex)) rows.push(<motion.div key="diary-preview-gap" layout={animatePositions ? 'position' : false}>{diaryGhostSlot}</motion.div>);
       const isActiveSource = task.id === activeDragTaskId;
 
       if (!isActiveSource && clampedGapIndex === visibleIndex) {
@@ -202,6 +212,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           categoryId={categoryId}
           taskId={task.id}
           isActiveSource={isActiveSource}
+          animatePosition={animatePositions}
         >
           <DraggableTaskItem {...taskProps(task)} />
         </TaskRowDropSurface>
@@ -215,7 +226,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     if (clampedGapIndex === visibleIndex) {
       pushGap();
     }
-    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(<React.Fragment key="diary-slot">{diarySlot}</React.Fragment>);
+    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(<motion.div key="diary-slot" layout={animatePositions ? 'position' : false}>{diarySlot}</motion.div>);
+    if (diaryGhostSlot && diaryGhostSlotIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={animatePositions ? 'position' : false}>{diaryGhostSlot}</motion.div>);
     return rows;
   };
 
@@ -325,16 +337,18 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           ? renderDraggableRows()
           : <>{tasks.map((task, index) => <React.Fragment key={task.id}>
               {diarySlot && index === Math.min(tasks.length, diarySlotIndex) && diarySlot}
+              {diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex) && diaryGhostSlot}
               <TaskItem {...taskProps(task)} />
-            </React.Fragment>)}{diarySlot && diarySlotIndex >= tasks.length && diarySlot}</>)}
+            </React.Fragment>)}{diarySlot && diarySlotIndex >= tasks.length && diarySlot}{diaryGhostSlot && diaryGhostSlotIndex >= tasks.length && diaryGhostSlot}</>)}
       {categoryCollapsed && diarySlot}
+      {categoryCollapsed && diaryGhostSlot}
       {!categoryCollapsed && sharedRows}
     </>
   );
 
   return (
-    <div className="mb-4" data-task-category-id={categoryId}>
+    <motion.div layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.17 } }} className="mb-4" data-task-category-id={categoryId}>
       {contents}
-    </div>
+    </motion.div>
   );
 };
