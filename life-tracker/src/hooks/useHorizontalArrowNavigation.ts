@@ -36,7 +36,8 @@ export function useHorizontalArrowNavigation({
         event.metaKey ||
         event.shiftKey ||
         event.isComposing ||
-        isEditableTarget(event.target)
+        isEditableTarget(event.target) ||
+        (event.target instanceof Element && !!event.target.closest('[data-calendar-zoom-lane]'))
       ) {
         return;
       }
