@@ -461,6 +461,9 @@ async function handleRepairThread(tablesDB, callerId, payload) {
       return { status: 409, body: { error: 'Chat repair ownership mismatch' } };
     }
     if (row.deleted || row.is_unsent) continue;
+    if (row.direction !== 'incoming' && row.direction !== 'outgoing') {
+      return { status: 409, body: { error: 'Invalid chat direction' } };
+    }
     const outgoing = row.direction === 'outgoing';
     const messageId = outgoing ? row.$id : row.original_message_id;
     const peerRowId = outgoing ? makeRecipientRowId(messageId) : messageId;
@@ -503,8 +506,20 @@ async function handleRepairThread(tablesDB, callerId, payload) {
       }
       continue;
     }
-    // A missing peer is repairable only from the existing canonical owner row.
-    // Every field copied below already belongs to an authenticated participant.
+    // Re-read the source before writing; a concurrent unsend must not be
+    // silently resurrected using a stale snapshot from the page scan.
+    try {
+      const latest = await tablesDB.getRow({
+        databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: row.$id,
+      });
+      if (latest.deleted || latest.is_unsent) continue;
+      if (latest.$updatedAt !== row.$updatedAt ||
+          latest.content !== row.content) {
+        return { status: 409, body: { error: 'Chat changed during repair' } };
+      }
+    } catch {
+      return { status: 503, body: { error: 'Chat source verification failed' } };
+    }
     const now = new Date().toISOString();
     const data = {
       user_id: targetOwner, thread_id: threadId,
