@@ -418,7 +418,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       if (!feedIsCurrent) return;
       setItems((current) =>
         current.map((item) =>
-          item.task.id === taskId
+          isTaskNotification(item) && item.task.id === taskId
             ? { ...item, task: { ...item.task, reactions } }
             : item
         )
