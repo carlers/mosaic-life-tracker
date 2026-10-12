@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { AnimatePresence, motion, Reorder, useDragControls, useIsPresent, useReducedMotion } from 'framer-motion';
+import { Reorder, useDragControls } from 'framer-motion';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
 import { Button } from '../ui/Button';
@@ -55,27 +55,6 @@ const VisibilityPicker: React.FC<VisibilityPickerProps> = ({
   </div>
 );
 
-const CategoryEditPanel: React.FC<{ children: React.ReactNode; onExpanded: () => void }> = ({
-  children, onExpanded,
-}) => {
-  const present = useIsPresent();
-  const reduced = useReducedMotion();
-  return (
-    <motion.div
-      initial={{ height: 0, opacity: 0 }}
-      animate={{ height: 'auto', opacity: 1 }}
-      exit={{ height: 0, opacity: 0 }}
-      transition={reduced ? { duration: 0 } : { duration: 0.23, ease: 'easeInOut' }}
-      className="overflow-hidden"
-      inert={!present}
-      aria-hidden={!present}
-      onAnimationComplete={() => { if (present) onExpanded(); }}
-    >
-      {children}
-    </motion.div>
-  );
-};
-
 interface CategoryRowProps {
   cat: CategoryDocument;
   overriddenCount: number;
@@ -101,6 +80,8 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
 }) => {
   const dragControls = useDragControls();
   const editPanelRef = useRef<HTMLDivElement>(null);
+  const [exitContent, setExitContent] = useState(children);
+  if (isEditing && exitContent !== children) setExitContent(children);
 
   return (
     <Reorder.Item
@@ -160,18 +141,20 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           <Trash2 size={16} />
         </button>
       </div>
-      <AnimatePresence initial={false}>
-        {isEditing && (
-          <CategoryEditPanel
-            key="editor"
-            onExpanded={() => editPanelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })}
-          >
-            <div ref={editPanelRef} className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
-              {children}
-            </div>
-          </CategoryEditPanel>
-        )}
-      </AnimatePresence>
+      <div
+        className={`grid transition-[grid-template-rows] duration-200 ease-in-out motion-reduce:transition-none ${isEditing ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        onTransitionEnd={(event) => {
+          if (isEditing && event.target === event.currentTarget && event.propertyName === 'grid-template-rows') {
+            editPanelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+          }
+        }}
+      >
+        <div className="min-h-0 overflow-hidden" inert={!isEditing} aria-hidden={!isEditing}>
+          <div ref={editPanelRef} className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
+            {isEditing ? children : exitContent}
+          </div>
+        </div>
+      </div>
     </Reorder.Item>
   );
 };
