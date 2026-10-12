@@ -654,6 +654,7 @@ jobs:
       PREVIEW_DEPLOY_BRANCH: ${{ github.ref_name }}
       PREVIEW_DEPLOY_SHA: ${{ github.sha }}
       MOSAIC_AUTO_PREVIEW_ENABLED: ${{ vars.MOSAIC_AUTO_PREVIEW_ENABLED }}
+      MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED: ${{ vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED }}
       PREVIEW_AUTO_ALIAS: mosaic-life-tracker-git-fix-work-73127a-carls-projects-72516fde.vercel.app
       VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
       VERCEL_GIT_COMMIT_REF: ${{ github.ref_name }}
@@ -742,12 +743,17 @@ jobs:
           PREVIEW_ALIAS_MODE: before
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url || steps.duplicates_final.outputs.existing_url || steps.duplicates.outputs.existing_url }}
         run: node scripts/check-preview-auto-alias.mjs
+      - name: Confirm shadow Preview without alias mutation
+        if: vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED != 'true'
+        run: echo 'Shadow Preview READY. Stable alias unchanged.'
       - name: Reconfirm accepted SHA before stable alias switch
+        if: vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PREVIEW_DEPLOY_ALLOW_CURRENT_RUN: 'true'
         run: node scripts/check-preview-deploy-gate.mjs
       - name: Assign accepted READY deployment to the stable Preview alias
+        if: vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED == 'true'
         working-directory: .
         env:
           VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
@@ -757,6 +763,7 @@ jobs:
           url="$DEPLOYMENT_URL"
           vercel alias set "$url" "$PREVIEW_AUTO_ALIAS"
       - name: Read back exact-SHA stable alias assignment
+        if: vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
           PREVIEW_ALIAS_MODE: after

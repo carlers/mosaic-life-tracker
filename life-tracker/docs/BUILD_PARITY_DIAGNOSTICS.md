@@ -379,3 +379,41 @@ approval remains mandatory for dev/main promotions and sensitive
 Production/backend changes. #592 remains open for final activation,
 build budget policy, twice-weekly/monthly size audits and
 five-promotion pilot acceptance.
+
+### Shadow-before-alias correction and unattended credential trust gap
+
+Automatic Preview is now staged into **two independently disabled
+phases**. Repository variable `MOSAIC_AUTO_PREVIEW_ENABLED=true` would
+start an accepted single-branch CI-green automatic **shadow** build and
+prebuilt Preview deployment. Even when enabled, the known stable
+testing alias **cannot change** unless separate
+`MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED=true` is set. The three mutating
+alias steps (fresh GitHub SHA evidence, `vercel alias set`, and
+authenticated alias readback) require that additional flag. Shadow
+mode still verifies the actual READY CLI deployment. The verifier
+rejects alias post-checks when that flag is absent and rejects Vercel
+deployment records with unknown/missing or Production target.
+
+**Do not enable either flag or provision a no-review deployment
+credential yet.** Only restricting a secret-bearing GitHub environment
+to a stable branch is not a sufficient trust boundary if automated
+contributors can alter that branch's workflows, package install
+scripts or build steps. `npm ci` and `vite build` can execute source
+from the accepted branch; remote Vercel Preview credentials and local
+`.vercel` environment files must not become available to arbitrarily
+modifiable code. Before owner setup/activation, harden a genuinely
+trusted workflow/branch ruleset and credential isolation, review
+effective GitHub token permissions and minimize GitHub/Vercel
+secret exposure. A one-time trusted owner/admin review may still
+be required, but routine feature work should not require human
+deployment approvals.
+
+The parity check is still unresolved: both same-source builds show
+150 emitted JS/CSS assets, Scratch, GIPHY enabled, Node 24.21.0 and
+Vite 8.3.0, but numerous hashed chunks differ despite matching
+reported rounded sizes. Asset fingerprints differ
+(`e24cedd82...` CLI and `13df5b42...` hosted).
+This evidence cannot distinguish one differing value propagating
+through import hashes from wider build nondeterminism. Do not
+assert byte parity or prematurely relax budgets. Work must
+determine the actual differing emitted content before replacement.

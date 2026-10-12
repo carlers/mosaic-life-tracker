@@ -38,7 +38,7 @@ export function assertAutomaticPreviewDeployment(deployment, {
   if (!deployment?.id || deployment.url !== hostname ||
       deployment.project?.id !== OFFICIAL_VERCEL_PROJECT_ID ||
       !['READY'].includes(deployment.readyState ?? deployment.state) ||
-      deployment.target === 'production' ||
+      ![null, 'preview'].includes(deployment.target) ||
       deployment.source !== 'cli' ||
       meta.githubCommitSha !== sha || meta.githubCommitRef !== 'HEAD' ||
       meta.githubRepo !== 'mosaic-life-tracker' || meta.githubOrg !== 'carlers') {
