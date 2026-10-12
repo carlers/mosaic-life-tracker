@@ -1,17 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: #692 — daily snap and safe month-transition handoff.
-Source stable Preview: feature/calendar-zoom-692-20261012@ac7d17e (v0.23.1).
-Task branch: chatgpt/692-day-snap-transition-20261012.
-Version candidate: v0.23.2, next user-testable patch revision. Current dev is independent; no dev/main merge approved.
+Current task: #692 — v0.23.2 daily snap and safe month transitions.
+Baseline: stable feature/calendar-zoom-692-20261012@ac7d17e (accepted v0.23.1).
+Current Preview revision: feature/calendar-zoom-692-20261012@4cd765d v0.23.2 (build guard failed only).
+Working repair: chatgpt/692-day-snap-build-budget-20261012.
 
-## Scope
-- User experienced conflicting week/month gestures while Embla animates, wants the next month to start at its leftmost weekday, and daily snap targets (instead of 3/4-day chunks). Mouse drag release must animate smoothly, like touch and trackpad.
-- Root causes in accepted Preview: outgoing slide scroll events can overwrite the shared weekday offset during period transition; mouse handler restored mandatory CSS snap *before* starting smooth scroll.
-- Add Embla select/settle zoom transition state and guard against duplicate edge handoffs. Preposition incoming next month/week at weekday offset 0, previous at maximum, before starting Embla motion. Ignore outgoing scroll/snap and new horizontal gestures until settle. Keep native vertical scroll/pinch zoom usable.
-- One CSS snap anchor per weekday (3-day offsets 0–4; 4-day offsets 0–3); native touch/trackpad inertia retained. On mouse release leave snap enforcement off throughout smooth programmatic scrolling; restore on scrollend or bounded timeout.
-- Include pure snapping regression, touch/wheel/drag lock tests, and month transition test proving desired incoming alignment. Preserve default 7-day calendar and separate #404 split view.
+## Implemented
+- Daily snap positions 0–4 (3 visible days) / 0–3 (4 visible days).
+- On edge swipe, incoming next month/week prepositions left; incoming previous prepositions right. Outgoing scroll cannot modify incoming weekday offset while Embla animates; new horizontal gestures wait for settle.
+- Mouse drag allows smooth scrollTo completion before mandatory CSS snap returns. Touch, trackpad, keyboard, natural vertical scroll and pinch zoom retained.
+- Tests cover snap math, gesture lock, mouse behavior and next/previous period alignment. Task focused CI passed. Separate #404 and other feature branches untouched; no dev/main promotion approved.
 
-## Delivery
-Next action: focused CI on exact task checkpoint, repair failures, then squash into stable #692 Preview and complete canonical Quality Gate, Scratch/GIPHY Vercel READY, all seven size budgets/PWA. Review *measured* size deltas if any; do not relax entry/initial startup limits without proof. Actual iOS, Android, mouse, trackpad and reduced-motion acceptance remains human. No Appwrite/Production changes or dev/main merges.
+## Build/checkpoint
+- Stable v0.23.2 @4cd765d built & PWA passed but exceeded four tight Home/aggregate caps: Home 368577/368200, app raw 2469779/2468000, gzip 766702/766300, precache 2557086/2555200 B. Entry raw/gzip and initial-load bytes are identical to accepted v0.23.1 and pass.
+- Repair narrowly reviews these four measured limits; evidence in budget config and #692. No backend/Appwrite or Production changes.
+
+Next action: complete focused CI for budget-review repair; squash into stable Preview; require canonical Quality Gate (including browser shards), all seven size budgets, PWA and Scratch/GIPHY Vercel READY on exact SHA. Real iOS/Android touch, laptop mouse/trackpad, reduced-motion manual acceptance remains pending. Do not merge dev/main.
