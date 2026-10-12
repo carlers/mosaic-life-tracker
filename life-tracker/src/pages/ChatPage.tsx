@@ -84,9 +84,10 @@ export const ChatPage: React.FC = () => {
   const composerRef = useRef<MessageComposerHandle>(null);
   const focusAfterActionReplyRef = useRef(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [isChatSyncing, setIsChatSyncing] = useState(false);
+  const [syncingOwner, setSyncingOwner] = useState<string | null>(null);
+  const isChatSyncing = syncingOwner === myUserId;
   const chatSyncOwnerRef = useRef('');
-  chatSyncOwnerRef.current = myUserId;
+  useEffect(() => { chatSyncOwnerRef.current = myUserId; }, [myUserId]);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
   const [hasOpenedStickers, setHasOpenedStickers] = useState(false);
@@ -236,7 +237,7 @@ export const ChatPage: React.FC = () => {
       return;
     }
     const owner = myUserId;
-    setIsChatSyncing(true);
+    setSyncingOwner(owner);
     try {
       const [{ deliverPendingMessages }, { syncNow }] = await Promise.all([
         import('../lib/messageDelivery'),
@@ -252,7 +253,7 @@ export const ChatPage: React.FC = () => {
         setFeedback('Chat sync could not complete. Try again.');
       }
     } finally {
-      if (chatSyncOwnerRef.current === owner) setIsChatSyncing(false);
+      if (chatSyncOwnerRef.current === owner) setSyncingOwner(null);
     }
   };
 
