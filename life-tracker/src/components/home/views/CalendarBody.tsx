@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
@@ -6,7 +6,7 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
-import type { WeekStartsOn } from '../../../lib/preferences';
+import type { WeekStartsOn, CalendarZoomDays } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import {
@@ -31,6 +31,10 @@ interface CalendarBodyProps {
   categories?: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
+  zoomPreference?: CalendarZoomDays;
+  activeIndex?: number;
+  isZoomTransitioning?: boolean;
+  onZoomNavigate?: (direction: 'prev' | 'next') => boolean;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
   friendCategories?: CategoryDocument[];
@@ -55,6 +59,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   categories,
   categoriesMap,
   variant,
+  zoomPreference = 7,
+  activeIndex,
+  isZoomTransitioning,
+  onZoomNavigate,
   sharedByDay,
   ownedSharedTaskIds,
   friendCategories,
@@ -71,6 +79,23 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [calendarWidth, setCalendarWidth] = useState(0);
+  const calendarHostRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (zoomPreference === 7 || !isActive) return;
+    const host = calendarHostRef.current;
+    if (!host) return;
+    const measure = () => setCalendarWidth(host.getBoundingClientRect().width);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [zoomPreference, isActive]);
+  const zoomDays: CalendarZoomDays =
+    zoomPreference !== 7 && calendarWidth > 0 && calendarWidth <= 700
+      ? zoomPreference
+      : 7;
 
   // Match owner Day View: warm a resolved component after the friend Calendar
   // becomes usable. No friend hooks or sheets are mounted by this preload.
@@ -138,6 +163,12 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       renderEnd={renderEnd}
       emblaRef={emblaRef}
       viewMode={viewMode}
+      zoomDays={zoomDays}
+      activeIndex={activeIndex}
+      isZoomTransitioning={isZoomTransitioning}
+      onZoomNavigate={onZoomNavigate}
+      onPrev={onPrev}
+      onNext={onNext}
       onDayClick={handleDayClick}
       tasksByDate={tasksByDate}
       sharedByDay={variant === 'me' ? sharedByDay : undefined}
@@ -149,7 +180,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   );
 
   const calendarContent = (content: React.ReactNode) => (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col"
+    <div ref={calendarHostRef} className="flex min-h-0 min-w-0 flex-1 flex-col"
       onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
       {content}
     </div>

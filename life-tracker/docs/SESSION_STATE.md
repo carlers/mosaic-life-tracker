@@ -1,17 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: fix signed-out hosted deep-link navigation, v0.20.6 Preview only. No dev/main promotion.
+Current task: #692 accepted mobile Calendar zoom — integrate with live dev.
+Integration source: dev@b878519bd52da16368b5da2b407f82f326ab2683 (v0.20.6) and accepted #692 Preview feature/calendar-zoom-692-20261012@b70bda97583d1b421512ac8a5b20fa6c1aea694a (v0.23.3).
+Current task branch: chatgpt/692-dev-integration-20261012; intended stable combined Preview: feature/calendar-zoom-692-dev-integration-20261012.
+Planned unique combined Preview version: v0.23.4, required because accepted dev deep-link changes entered after original #692 branch diverged. No main/Production promotion authorized.
 
-## Direct deep links on Vercel
-- Base: dev@dbde9515ecb611082f191d39e5ef71cfcecde3bc (v0.20.5). Task: `chatgpt/signed-out-deep-links-20261012`; intended stable Preview: `fix/signed-out-deep-links-20261012`.
-- Root cause: `vercel.json` had only `/settings` and no nested Settings rewrite, so refreshing `/settings/notifications` failed at hosting before `AppLayout` could redirect signed-out users to `/login`.
-- Scope: add explicit nested Settings and Bucket List rewrites plus public password-reset rewrite; keep static assets outside SPA fallback. Unknown `/settings/*` children resolve through the guarded shell to Settings for signed-in users and login for signed-out users. Preserve confirmed-auth vs offline-cached identity behavior.
-- Patch Preview candidate: 0.20.6. Regression: `tests/unit/hostedProtectedRoutes.test.ts` covers all registered protected routes, public routes and no global catch-all.
-- Preview v0.20.6 first stable commit 53d65421: canonical Quality Gate 38236704514 SUCCESS, Vercel deployment dpl_3EoBTGtRq4xwnrXXV3GXNyaaFMvW ERROR in size guard (initialClosureGzipBytes +4 B, entryRawBytes +70 B with GIPHY enabled). No budget relaxations authorized.
-- Repair: reuse existing typed route helper contract with shorter equivalent accessors to reduce entry and initial closure bytes, without changing page behavior, size caps, or Preview version.
-Next action: repair task focused CI `[verify:focused]` → squash into stable Preview → canonical acceptance + Vercel READY → browser/device signed-out direct-link checks on registered Preview alias. Do not merge to dev/main without approval.
+## Integration contract
+- Preserve dev-only accepted signed-out hosted deep links v0.20.6: protectedRoutes, Vercel SPA rewrites and hosted/route gesture regressions.
+- Apply accepted #692 mobile Calendar zoom 3/4/7 days, day-by-day native touch, mouse and trackpad snapping; edge month handoff and two-frame swipe release; owner/friend layout and keyboard/accessibility coverage.
+- Keep unrelated #404 desktop side panel and concurrent diary features on their own branches. No Appwrite schema, Function or Production mutations.
+- Reconciled source from exact baseline and live dev without copying stale Preview SESSION_STATE or overwriting dev-only routing. Package/lockfile dependencies unchanged; version becomes 0.23.4 in all three version files.
 
-## Prior integration
-- #656 first-open sheet fixes were integrated into dev as v0.20.5 at dbde9515. Follow issue #656 and merged PR history for complete verification and acceptance details.
-- #645 source map/index remains a separate discovery workstream. Preserve accepted #640 cold-open Day View behavior, #655 PWA behavior, and all unrelated features.
+## Required checks and promotion
+Next action: focused task verification [verify:focused] against combined tree; repair; squash into named stable integration Preview; verify exact stable SHA canonical Quality Gate (DOM, browser shards, checks, production build/PWA, seven size budgets) and Vercel Scratch/GIPHY READY. Then create approved stable integration Preview → dev promotion PR, verify first parent and identical accepted tree; merge with descriptive two-parent commit; verify exact dev CI and Scratch Vercel deploy.
+Manual physical-device gestures were accepted by user in #692 discussion but no assistant device testing performed. Do not merge main or close #692 before dev acceptance and documented next release boundary.

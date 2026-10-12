@@ -17,26 +17,22 @@
     "entryRawBytes": 446200,
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
-    "homeClosureGzipBytes": 366100,
-    "appAssetsRawBytes": 2461000,
-    "appAssetsGzipBytes": 764000,
-    "precacheUniqueBytes": 2548500
+    "homeClosureGzipBytes": 368800,
+    "appAssetsRawBytes": 2471000,
+    "appAssetsGzipBytes": 767000,
+    "precacheUniqueBytes": 2558300
   },
   "review": {
-    "issue": "#656",
-    "reason": "Measured first GIPHY-enabled Scratch v0.20.4 Preview 5ca4f6da1b46b693e78e7c6ad63e70d1034ecb1e adds code-only ready-component warmup for Menu/friend Day View plus sheet-only Swiper Virtual, carrying user-accepted Chat/Notification lazy fixes onto dev v0.20.3. PWA, TS and browser/DOM behavior pass. Entry raw/gzip and initial closure budgets remain unchanged and pass. Four aggregate metrics exceeded prior narrowly sized limits by 314/1217/673/1424 B; dev #655 had only tens/hundreds of bytes headroom. Reviewed against hosted measurements in #656 comment 6117480055; preserve historic baseline and three startup-critical ceilings. Corrected SHA must independently pass canonical and GIPHY Scratch.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/FYgDRjqccPkhCk6YH1RAAmzfh9Z5",
+    "issue": "#692",
+    "reason": "Exact 0.23.3 stable Preview 0f8a6f5 (Scratch/GIPHY compiled, PWA passed) versus verified 0.23.2 stable 5f2eb801. This patch fixes native touch/trackpad scrollend day alignment and unlocks rapid zoom period navigation after two painted frames, without libraries or backend work. Observed 0.23.3 app assets raw 2470601B (v0.23.2 2469779; +822), unique precache 2557908B (v0.23.2 2557086; +822), exceeding two close size limits by 301 and 408B. Home closure 368761/368800, app gzip 766886/767000, entry 446120/446200 and 132801/132850, initial gzip 146033/146050 all already PASS and remain unchanged. Review ONLY shipped raw and precache limits with <400B candidate headroom; preserve original baseline and startup limits. Re-verify exact next stable SHA through full CI, PWA/seven metrics and hosted Vercel.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/EC6niZuWvbJRNqGvHgSPckqewHsY",
     "metrics": [
-      "homeClosureGzipBytes",
       "appAssetsRawBytes",
-      "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 365450,
-      "appAssetsRawBytes": 2459250,
-      "appAssetsGzipBytes": 763000,
-      "precacheUniqueBytes": 2546350
+      "appAssetsRawBytes": 2470300,
+      "precacheUniqueBytes": 2557500
     }
   }
 }

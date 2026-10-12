@@ -22,6 +22,8 @@ import {
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  resolveCalendarZoomDays,
   resolveIncompleteTaskBlockColorMode,
   resolveWeekStartsOn,
 } from '../../lib/preferences';
@@ -62,6 +64,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
+  const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -129,6 +132,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
             : calendarState.title
         }
         viewMode={calendarState.viewMode}
+        enableTitleSwipe={calendarZoomDays !== 7}
         onToggleMode={calendarState.handleToggle}
         onPrev={
           activeView === 'todo' ? handleTodoPrev : calendarState.handlePrev
@@ -156,6 +160,10 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
           tasks={tasks}
           categoriesMap={categoriesMap}
           variant="friend"
+          zoomPreference={calendarZoomDays}
+          activeIndex={calendarState.activeIndex}
+          isZoomTransitioning={calendarState.isZoomTransitioning}
+          onZoomNavigate={calendarState.handleZoomNavigate}
           friendCategories={categories}
           friendName={person.displayName}
           friendUserId={person.userId}
