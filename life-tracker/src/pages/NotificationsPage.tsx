@@ -281,7 +281,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   }, [alertId, connectivity.status, feedIsCurrent, navigate, preview, userId]);
 
   const visibleItems = feedIsCurrent
-    ? activeNotifications(items, now, retentionPolicy).filter(item => channels[item.type].feed)
+    ? activeNotifications(items, now, retentionPolicy).filter(item => channels[item.type]?.feed === true)
     : [];
   const socialItems = visibleItems.filter(
     (item): item is Exclude<NotificationEntry, NotificationItem> => !isTaskNotification(item)
