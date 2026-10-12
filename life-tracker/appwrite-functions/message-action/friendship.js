@@ -52,7 +52,7 @@ async function handleFriendship(db, caller, payload) {
       // Safe lost-response retries: return the current state without writing it.
       if ((operation === 'send' && outgoing) || (operation === 'accept' && accepted) ||
           (operation === 'block' && [mine, peer].every(r => live(r) && r.status === 'blocked')) ||
-          (['decline', 'cancel', 'remove'].includes(operation) && removed)) return { status: 200, body: { ok: true, duplicate: true } };
+          (['decline', 'cancel', 'remove'].includes(operation) && removed)) return { status: 200, body: { ok: true, row: mine, duplicate: true } };
       if (version(mine) !== expectedVersion) return answer(409, 'Friendship changed. Refresh and try again.');
       if (blocked) return answer(403, 'This relationship is blocked');
       if ((operation === 'send' && (live(mine) || live(peer))) ||
