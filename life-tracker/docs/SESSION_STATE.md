@@ -8,4 +8,4 @@ Current task: #408 — Diary View implementation, task branch only.
 - Version: provisional 0.22.0, avoiding concurrent v0.21.0 notifications Preview.
 - Mandatory remaining: finish focused test/CI repairs and backend/schema compatibility; update issue #408 checkpoint, then stable Preview full gate and Scratch readiness. Appwrite migration 012 and active message-action Function deployment need coordinated exact-source Scratch approval; no production writes.
 - Preserve accepted first-open sheets (#640/#656), owner isolation, gestures, retention/backup contracts and release workflow. Incomplete manual/real-device acceptance cannot be claimed.
-Next: focused [verify:focused] on coherent task commit; repair failures and do not promote before green.
+Next action: focused [verify:focused] on coherent task commit; repair failures and do not promote before green.
