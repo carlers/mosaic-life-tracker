@@ -2,7 +2,7 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
-import { PwaPrompt } from "./components/ui/PwaPrompt";
+
 import { AppLayout } from "./components/layout/AppLayout";
 import { AuthPage } from "./pages/AuthPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -21,6 +21,11 @@ import {
   loadSettingsPage,
   loadReleaseHistoryPage,
 } from "./components/layout/routeModuleLoaders";
+
+// Noncritical install/update notice cannot block route rendering.
+const PwaPrompt = lazy(() =>
+  import("./components/ui/PwaPrompt").then(({ PwaPrompt }) => ({ default: PwaPrompt })),
+);
 
 const HomePage = lazy(() =>
   loadHomePage().then(({ HomePage }) => ({ default: HomePage })),
@@ -189,7 +194,7 @@ export function AppWithErrorBoundary() {
   return (
     <ErrorBoundary label="root">
       <App />
-      <PwaPrompt />
+      <Suspense fallback={null}><PwaPrompt /></Suspense>
     </ErrorBoundary>
   );
 }
