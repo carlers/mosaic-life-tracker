@@ -33,6 +33,8 @@ describe('message-action / repair_thread', () => {
 
   it('repairs an absent recipient copy, with recipient-only permissions', async () => {
     allow([row()]);
+    db.getRow.mockRejectedValueOnce(Object.assign(new Error('Not found'), { code: 404 }))
+      .mockResolvedValueOnce(row());
     const res = await invokeRepair();
     expect(res.body).toMatchObject({ ok: true, checked: 1, repaired: 1, nextScope: 'peer' });
     const args = db.createRow.mock.calls[0][0];
@@ -45,6 +47,8 @@ describe('message-action / repair_thread', () => {
 
   it('repairs a missing sender copy by scanning the other participant', async () => {
     allow([row('incoming')]);
+    db.getRow.mockRejectedValueOnce(Object.assign(new Error('Not found'), { code: 404 }))
+      .mockResolvedValueOnce(row('incoming'));
     const res = await invokeRepair(A, B, 'peer');
     expect(res.body).toMatchObject({ ok: true, repaired: 1, nextScope: 'done' });
     expect(db.listRows.mock.calls[2][0].queries)
@@ -92,9 +96,20 @@ describe('message-action / repair_thread', () => {
   it('accepts a concurrent create winner only if the completed row matches', async () => {
     allow([row()]);
     db.getRow.mockRejectedValueOnce(Object.assign(new Error('not found'), { code: 404 }))
+      .mockResolvedValueOnce(row())
       .mockResolvedValueOnce(row('incoming'));
     db.createRow.mockRejectedValueOnce(Object.assign(new Error('exists'), { code: 409 }));
     expect((await invokeRepair()).body).toMatchObject({ ok: true, repaired: 0 });
+  });
+
+
+  it('rechecks the source and skips a message unsent during an in-flight repair', async () => {
+    allow([row()]);
+    db.getRow.mockRejectedValueOnce(Object.assign(new Error('not found'), { code: 404 }))
+      .mockResolvedValueOnce({ ...row(), is_unsent: true });
+    const res = await invokeRepair();
+    expect(res.body).toMatchObject({ ok: true, repaired: 0 });
+    expect(db.createRow).not.toHaveBeenCalled();
   });
 
   it('bounds pages and preserves cursor pagination independently per owner', async () => {
