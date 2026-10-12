@@ -5,11 +5,8 @@ import { Button } from '../ui/Button';
 
 const { Component: LazyBottomSheet, preload: preloadMenuBottomSheet } =
   createPreloadedLazy(() => import('../ui/BottomSheet').then(m => m.BottomSheet));
-const LazyCategoryManagerSheet = React.lazy(() =>
-  import('../modals/CategoryManagerSheet').then(({ CategoryManagerSheet }) => ({
-    default: CategoryManagerSheet,
-  }))
-);
+const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
+  createPreloadedLazy(() => import('../modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 
 export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketList: () => void }> = ({ onOpenBacklog, onOpenBucketList }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -53,6 +50,8 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
         onClick={() => {
           setMenuSheetMounted(true);
           setIsMenuOpen(true);
+          // User has opened Menu: warm the nested manager without mounting its hooks.
+          if (!document.hidden) void preloadCategoryManagerSheet().catch(() => {});
         }}
         className="p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label="Open menu"
@@ -85,12 +84,10 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
       )}
 
       {categoryManagerMounted && (
-        <React.Suspense fallback={null}>
-          <LazyCategoryManagerSheet
-            isOpen={isCategoryManagerOpen}
-            onClose={() => setIsCategoryManagerOpen(false)}
-          />
-        </React.Suspense>
+        <LazyCategoryManagerSheet
+          isOpen={isCategoryManagerOpen}
+          onClose={() => setIsCategoryManagerOpen(false)}
+        />
       )}
     </>
   );

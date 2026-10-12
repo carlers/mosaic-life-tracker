@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 import { Settings, LogOut, BarChart3, Sticker, ListTodo, Star } from 'lucide-react';
@@ -9,12 +9,10 @@ import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import { useFriends } from '../hooks/useFriends';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
+import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 
-const LazyCategoryManagerSheet = React.lazy(() =>
-  import('../components/modals/CategoryManagerSheet').then(({ CategoryManagerSheet }) => ({
-    default: CategoryManagerSheet,
-  }))
-);
+const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
+  createPreloadedLazy(() => import('../components/modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 
 export const AccountPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -25,6 +23,17 @@ export const AccountPage: React.FC = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
+
+  // Me is already on screen: warm code only, not an invisible sheet or its data hooks.
+  useEffect(() => {
+    const warm = () => { if (!document.hidden) void preloadCategoryManagerSheet().catch(() => {}); };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1800 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(warm, 700);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
@@ -105,6 +114,8 @@ export const AccountPage: React.FC = () => {
             setCategoryManagerMounted(true);
             setIsCategoryManagerOpen(true);
           }}
+          onPointerDown={() => { void preloadCategoryManagerSheet().catch(() => {}); }}
+          onFocus={() => { void preloadCategoryManagerSheet().catch(() => {}); }}
           className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         >
           <div>
@@ -128,12 +139,10 @@ export const AccountPage: React.FC = () => {
         </div>
       </div>
       {categoryManagerMounted && (
-        <React.Suspense fallback={null}>
-          <LazyCategoryManagerSheet
-            isOpen={isCategoryManagerOpen}
-            onClose={() => setIsCategoryManagerOpen(false)}
-          />
-        </React.Suspense>
+        <LazyCategoryManagerSheet
+          isOpen={isCategoryManagerOpen}
+          onClose={() => setIsCategoryManagerOpen(false)}
+        />
       )}
       {feedback && (
         <div
