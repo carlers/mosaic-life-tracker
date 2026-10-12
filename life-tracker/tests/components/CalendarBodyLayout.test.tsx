@@ -125,7 +125,10 @@ describe('CalendarBody behavior', () => {
       const originalPanel = getByTestId('calendar-day-side-panel');
       fireEvent.click(getByTestId('calendar-day'));
       expect(getByTestId('calendar-day-side-panel')).toBe(originalPanel);
-      fireEvent.click((await findByRole('button', { name: 'Close day details' })));
+      const closeButton = await findByRole('button', { name: 'Close day details' });
+      // The panel's nested Swiper must never advance the outer Home person carousel.
+      expect(closeButton.closest('.swiper-no-swiping')).not.toBeNull();
+      fireEvent.click(closeButton);
       expect(queryByRole('complementary', { name: 'Day details' })).toBeNull();
     } finally {
       rect.mockRestore();
