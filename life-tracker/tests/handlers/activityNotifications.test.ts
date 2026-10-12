@@ -9,7 +9,7 @@ const { receiptId, channels, emitActivity, projectActivity } =
 const id = (left: string, right: string) =>
   'fr_' + createHash('sha256').update(left + '|' + right).digest('hex').slice(0, 32);
 const now = '2026-10-12T12:00:00.000Z';
-const requestRows = {
+const requestRows: Record<string, { $id: string; user_id: string; friend_id: string; status: string; deleted: boolean; friend_display_name?: string }> = {
   [id('user_b','user_a')]: {
     $id:id('user_b','user_a'),user_id:'user_b',friend_id:'user_a',
     status:'pending_incoming',deleted:false,friend_display_name:'A',
@@ -32,7 +32,7 @@ function dbFor(rows: Record<string, unknown>, settings: Record<string, unknown> 
       }
       throw Object.assign(new Error('not found'), { code: 404 });
     }),
-    createRow: vi.fn(async ({ rowId }: { rowId: string }) => {
+    createRow: vi.fn(async ({ rowId }: { rowId: string; data: { type: string }; permissions: string[] }) => {
       if (receipts.has(rowId)) throw Object.assign(new Error('duplicate'), { code: 409 });
       receipts.add(rowId);
     }),
