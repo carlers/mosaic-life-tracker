@@ -86,13 +86,9 @@ export function matchProtectedRoute(pathname: string): ProtectedRouteEntry | nul
 }
 
 export function protectedRouteSwipeMode(pathname: string): 'full' | 'home-zone' | 'edge-back' {
-  const route = matchProtectedRoute(pathname);
-  if (!route) return 'full';
-  if ('swipeMode' in route && route.swipeMode) return route.swipeMode;
-  return 'full';
+  return (matchProtectedRoute(pathname) as ProtectedRoute | null)?.swipeMode ?? 'full';
 }
 
 export function protectedRouteHidesBottomNav(pathname: string): boolean {
-  const route = matchProtectedRoute(pathname);
-  return Boolean(route && 'hideBottomNav' in route && route.hideBottomNav);
+  return Boolean((matchProtectedRoute(pathname) as ProtectedRoute | null)?.hideBottomNav);
 }
