@@ -1,9 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: opt-in category coloring for unfinished Calendar task blocks; task branch and stable Preview only, no dev/main merge.
+Current task: correct category text mode in Calendar TaskBlocks; v0.20.1 task branch and stable Preview only, no dev/main merge.
 
-## Current task — incomplete Calendar TaskBlock color
+## Current task — Category text rendering fix
+- User-tested v0.20.0 stable Preview exposed that Category text does not apply, while Category border works.
+- Root cause: `text-gray-300` on `TaskBlock` is overridden by theme `!important` remaps in Light and Black, so inline category text cannot win the cascade.
+- Task: `chatgpt/fix-taskblock-category-text-20261012`; source Preview `feature/taskblock-incomplete-color-20261012` @ `1b28a4bbb16060634f0a3d1e96cb7c2d8c1a0494`.
+- Fix: omit the generic muted text class only in Category text mode, preserving completed/default/border. Real browser fixture covers computed color across Dark, Light and Black.
+- Version v0.20.1 (next user-testable refinement), frontend-only; no data, schema, Function, or Production changes.
+- Next action: focused CI, squash to stable Preview, verify full canonical and exact-SHA Scratch Vercel READY, then user/device test. Do not promote to dev/main without approval.
+
+## Previous task — incomplete Calendar TaskBlock color
 - Base: dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1. Task: chatgpt/taskblock-incomplete-color-20261012. Stable Preview: feature/taskblock-incomplete-color-20261012.
 - New account-synced Preferences choice: Default, Category text, or Category border; only unfinished Calendar TaskBlocks change. Applies while viewing the owner's and friends' calendars. Text blending protects contrast across Light/Dark/Black; completed TaskBlocks and Day View rows remain unchanged.
 - Planned feature version: 0.20.0. Frontend-only; no Appwrite schema/Function or Production changes.
