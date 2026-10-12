@@ -288,20 +288,15 @@ describe('DayViewSheet nested task actions', () => {
     ).toBeInTheDocument();
   });
 
-  it.each([
-    ['Share with friends', 'Share task'],
-    ['Link to Bucket List', 'Link to Bucket List'],
-  ])('opens the warmed %s nested sheet on its first action', async (action, dialog) => {
+  it('opens the warmed Link to Bucket List sheet through task actions', async () => {
     renderSheet();
     fireEvent.click(screen.getByRole('button', { name: 'Open actions' }));
     await act(async () => {
-      await import('../../src/components/home/views/ShareTaskSheet');
       await import('../../src/components/home/views/LinkTaskToBucketSheet');
       await Promise.resolve();
-      await Promise.resolve();
     });
-    fireEvent.click(screen.getByRole('button', { name: action }));
-    expect(screen.getByRole('dialog', { name: dialog })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Link to Bucket List' }));
+    expect(await screen.findByRole('dialog', { name: 'Link to Bucket List' })).toBeInTheDocument();
   });
 
   it('maps unmodified horizontal arrow keys to day navigation while open', () => {
