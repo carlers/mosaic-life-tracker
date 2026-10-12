@@ -52,7 +52,7 @@ import {
   stringifyReactions,
 } from '../lib/reactionUtils';
 import { getReadableTextColor } from '../constants/colors';
-import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+import { createPreloadedLazy, scheduleModuleWarmup } from '../lib/createPreloadedLazy';
 
 const { Component: AlertFriendDaySheet, preload: preloadAlertFriendDaySheet } =
   createPreloadedLazy(() =>
@@ -146,21 +146,10 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
 
   const feedIsCurrent = Boolean(userId) && loadedUserId === userId;
 
-  // The feed is usable before the remote refresh finishes. Prime code only,
-  // never friend data or a hidden sheet, so a later touch has no lazy gap.
+  // Cache only the friend-day module after the usable alert feed hydrates.
   useEffect(() => {
     if (preview || !feedIsCurrent || items.length === 0) return;
-    const warm = () => {
-      if (document.visibilityState === 'visible') {
-        void preloadAlertFriendDaySheet().catch(() => {});
-      }
-    };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1400 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = window.setTimeout(warm, 1200);
-    return () => window.clearTimeout(id);
+    return scheduleModuleWarmup(preloadAlertFriendDaySheet);
   }, [feedIsCurrent, items.length, preview]);
 
   useEffect(() => {

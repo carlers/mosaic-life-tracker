@@ -13,7 +13,7 @@ import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
 import { TaskActionSheet } from './TaskActionSheet';
-import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
+import { createPreloadedLazy, scheduleModuleWarmup } from '../../../lib/createPreloadedLazy';
 const { Component: LazyLinkTaskToBucketSheet, preload: preloadBucketLink } =
   createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
 const { Component: LazyShareTaskSheet, preload: preloadShareSheet } =
@@ -226,21 +226,12 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
   const [isBucketLinkOpen, setIsBucketLinkOpen] = useState(false);
 
-  // A task-action sheet expresses intent to use nested task actions. Warm
-  // their code after that parent opens, without mounting nested subscriptions.
+  // Warm nested task actions once the parent action sheet is in use.
   useEffect(() => {
     if (!isActionSheetOpen || !activeTaskId) return;
-    const warm = () => {
-      if (document.visibilityState !== 'visible') return;
-      void preloadShareSheet().catch(() => {});
-      void preloadBucketLink().catch(() => {});
-    };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 800 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = window.setTimeout(warm, 500);
-    return () => window.clearTimeout(id);
+    return scheduleModuleWarmup(
+      () => Promise.all([preloadShareSheet(), preloadBucketLink()]), 120
+    );
   }, [activeTaskId, isActionSheetOpen]);
   const [shareSheetMounted, setShareSheetMounted] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);

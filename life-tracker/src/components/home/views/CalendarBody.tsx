@@ -9,7 +9,7 @@ import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
 import { LazyDayViewSheet } from './dayViewSheetModule';
-import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
+import { createPreloadedLazy, scheduleModuleWarmup } from '../../../lib/createPreloadedLazy';
 import {
   DISABLED_HOLIDAY_CONFIG,
   type HolidayDisplayConfig,
@@ -99,21 +99,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     closeReply,
   } = useFriendTaskReply(tasks);
 
-  // Friend Day is conditional on tapping a date. Unlike the reply composer
-  // (already mounted closed), its lazy boundary would otherwise be cold.
+  // Friend Day mounts only on a date tap; closed reply sheet is already mounted.
   useEffect(() => {
     if (variant !== 'friend' || !isActive) return;
-    const warm = () => {
-      if (document.visibilityState === 'visible') {
-        void preloadFriendDaySheet().catch(() => {});
-      }
-    };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1400 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = window.setTimeout(warm, 1200);
-    return () => window.clearTimeout(id);
+    return scheduleModuleWarmup(preloadFriendDaySheet);
   }, [isActive, variant]);
 
   const handleDayClick = useCallback((date: Date) => {
