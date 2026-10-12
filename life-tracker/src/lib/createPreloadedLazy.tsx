@@ -12,7 +12,6 @@ export function createPreloadedLazy<P extends object>(
   let pending: Promise<React.ComponentType<P>> | null = null;
 
   function preload(): Promise<React.ComponentType<P>> {
-    if (ready) return Promise.resolve(ready);
     return (pending ??= importComponent().then(
       (Loaded) => (ready = Loaded),
       (error: unknown) => {

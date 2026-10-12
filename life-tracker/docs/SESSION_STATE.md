@@ -20,8 +20,13 @@ Current task: Issue #656 — first-open React.lazy sheet delay; authorized imple
 - Current repair simplifies shared lazy loader (fewer shipped bytes, same invariants). Require task focused CI, squash stable Preview PR, and **both** full canonical GitHub SUCCESS **and** GIPHY-enabled Scratch Vercel READY for identical final SHA before user testing.
 - No actual iOS/Android device tests or first/idle tap-to-paint measurements completed. Do not claim manual acceptance or dev readiness.
 
+## Final hosted-size repair (small, behavior-equivalent)
+- Latest stable pre-repair SHA `085c8b9217e7bfd6da515277baa712cc2d9ba60b` after PR #675. [Focused CI 38199480848](https://github.com/carlers/mosaic-life-tracker/actions/runs/38199480848) SUCCESS. Scratch/GIPHY Vercel `dpl_5ZV3QPzT1VwCn9PUjoKhhBeadsd7` failed **only** aggregate gzip by 14 B; six other unchanged size ceilings passed, including precache.
+- Task branch `chatgpt/656-final-byte-reduction` removes redundant resolved-import `Promise.resolve` handling (a successful preload already retains its resolved Promise) and uses equivalent `!document.hidden` visibility guards in Chat/Notifications. Cold/warm/retry tests remain unchanged. No new feature, theme, budgets, routes, API requests or Appwrite mutations.
+- Next: focused CI, squash into stable Preview, require exact source SHA full canonical plus GIPHY-enabled Scratch Vercel READY before user-device testing.
+
 ## Next action
-1. Focused CI for `chatgpt/656-reduce-cold-lazy` and fix any failures, then squash task PR into stable Preview.
+1. Run focused CI on `chatgpt/656-final-byte-reduction`; fix any failures then squash task PR into stable Preview.
 2. Verify final exact-SHA full canonical CI, seven unchanged size budgets, Vercel GIPHY/Scratch build READY and stable Preview alias.
 3. Update GitHub issue #656 with complete PR/CI/deployment evidence, testable link and deferred follow-up batch.
 4. User device acceptance: cold click immediately after fresh launch, idle then first click and repeats for Chat stickers and Notifications friend day; verify pointer-focus, close/Back/Escape, offline/PWA and #640 Day View non-regression. No dev/main promotion without approval.
