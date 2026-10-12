@@ -285,7 +285,7 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
   let created = 0;
   await mapLimit([...friends.keys()], 6, async (recipientId) => {
     const selected = (await channels(tablesDB, recipientId)).task_completed;
-    if (!selected.feed) return;
+    if (!selected.feed && !selected.push) return;
     const rowId = notificationId(recipientId, taskId, completedAt);
     try {
       await tablesDB.createRow({
@@ -380,6 +380,8 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
 
     await mapLimit(rows, 6, async (row) => {
       if (notificationExpiresAt(row, retentionPolicy) <= now) return;
+      const selected = (await channels(tablesDB, callerId))[row.type];
+      if (!selected?.feed) return;
       if (row.type !== 'task_completed') {
         const activity = await projectActivity(tablesDB, row, callerId);
         if (activity) visible.push(activity);
