@@ -36,7 +36,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
 }) => {
   const id = useId();
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   const entered = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
