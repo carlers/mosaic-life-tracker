@@ -348,6 +348,7 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
   const items = [];
   const now = Date.now();
   const retentionPolicy = await loadAlertRetention(tablesDB, callerId);
+  const channelPolicy = await channels(tablesDB, callerId);
   let hasMore = false;
 
   // Privacy filtering occurs after scanning server-owned rows; exhaust
@@ -380,7 +381,7 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
 
     await mapLimit(rows, 6, async (row) => {
       if (notificationExpiresAt(row, retentionPolicy) <= now) return;
-      const selected = (await channels(tablesDB, callerId))[row.type];
+      const selected = channelPolicy[row.type];
       if (!selected?.feed) return;
       if (row.type !== 'task_completed') {
         const activity = await projectActivity(tablesDB, row, callerId);
