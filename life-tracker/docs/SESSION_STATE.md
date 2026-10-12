@@ -2,7 +2,7 @@
 
 Updated: 2026-10-13.
 Current task: v0.25.2 diary/task drag UX Preview hardening, animated collision stability and exact-SHA hosted budget parity.
-Next: verify a targeted precache cap review on isolated task branch `chatgpt/408-hosted-precache-parity-20261013`, squash only to `feature/diary-408`, confirm canonical GitHub gate and Vercel Scratch READY for the resulting exact SHA, then request manual drag acceptance. Do not merge dev/main or close #408 without approval.
+Next action: verify a targeted precache cap review on isolated task branch `chatgpt/408-hosted-precache-parity-20261013`, squash only to `feature/diary-408`, confirm canonical GitHub gate and Vercel Scratch READY for the resulting exact SHA, then request manual drag acceptance. Do not merge dev/main or close #408 without approval.
 
 ## Implemented
 - Drag UX v0.25.2 squashed to stable Preview at `9bd902e56ddf05d0144e57604e899083535299d1` via PR #754.
