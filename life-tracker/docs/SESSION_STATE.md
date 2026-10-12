@@ -16,4 +16,7 @@ Current task: #708 chat reliability; stable Preview work. No dev/main or Product
 ## Outstanding acceptance
 No READY Preview or Scratch two-account/browser/mobile verification yet. Function exact-SHA deployment needs safe coordination with concurrent Scratch users. Older partial-pair repair, permanent denial UX, latency measurements and cross-device convergence remain unproven. #682 notifications remain deferred.
 
-Next action: pass focused CI, squash-repair stable Preview, verify full canonical and Vercel READY at exact SHA. Then coordinate Scratch Function and disposable-account acceptance separately. Do not merge to dev/main or touch Production without approval.
+- Repair #5 PR #727 stable @ 46e2413e, canonical Quality Gate 38245358279 SUCCESS. Initial Vercel git_info_fail; exact-source redeploy dpl_GtyTiU5Mdw8sinM4krGscNMrLm17 built but raw assets +83 B (6/7 budgets pass).
+- Current task repair `chatgpt/708-last-size-bytes-20261012`: identical retry scope and shorter diagnostic strings, plus concise failed-local-save notice. No budget increase.
+
+Next action: focused CI, promote repair into stable Preview, verify canonical + Vercel READY against exact SHA; then coordinate Scratch Function build/activation and two-account acceptance separately. No dev/main or Production changes.
