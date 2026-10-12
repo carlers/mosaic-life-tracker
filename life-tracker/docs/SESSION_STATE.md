@@ -9,6 +9,8 @@ Current task: Category Manager edit-form placement, v0.20.6 frontend-only Previe
 - Editing errors render next to the active form, and selecting Add/Delete clears editing state and stale errors. DOM regression covers inline location, switch, reorder and retry.
 - Proposed version 0.20.6; frontend only, no Appwrite changes. Next: [verify:focused] task CI, squash task PR to stable Preview, full canonical CI and exact Vercel Scratch/GIPHY build, manual mobile/desktop acceptance. Do not merge dev/main without authorization.
 
+Next action: Verify the task branch with [verify:focused], squash into the stable Preview, then check full canonical CI and Vercel READY before manual device acceptance. No dev/main promotion.
+
 ## Earlier workstreams (see GitHub issues for detailed historical checkpoints)
 - #656 v0.20.5 deferred first-open sheet improvements are integrated into dev.
 - #640 cold-open Day View responsiveness is accepted and integrated.
