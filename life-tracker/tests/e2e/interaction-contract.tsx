@@ -785,7 +785,7 @@ export function InteractionHarness() {
           Black appearance
         </button>
       </div>
-      <section data-testid="taskblock-color-probe" aria-label="Calendar task color probe">
+      <section data-testid="taskblock-color-probe" data-category-color="#FF6B6B" aria-label="Calendar task color probe">
         {(['default', 'text', 'border'] as const).map(mode => (
           <IncompleteTaskBlockColorContext.Provider key={mode} value={mode}>
             <div data-testid={`incomplete-taskblock-${mode}`}>

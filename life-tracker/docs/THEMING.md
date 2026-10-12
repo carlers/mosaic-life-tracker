@@ -35,10 +35,8 @@ on friend views; the existing owner-task shadow helps separate the white
 glyph from lighter colors. Text in completed Calendar task blocks may still
 use `getReadableTextColor(categoryColor)` for legibility without changing
 the fill. When the user selects Category text for unfinished Calendar task blocks,
-blend 35% category color with the existing `--mosaic-text` semantic foreground
-(white in Dark/Black, dark in Light) against the incomplete-block background;
-this preserves a distinguishable hue
-while protecting normal-text contrast across the predefined category palette.
+use the stored category color unchanged across appearance modes.
+Some colors may have reduced readability against the task block background.
 Category text must omit the generic `text-gray-300` utility on its block:
 Light/Black theme remaps use `!important`, which otherwise overrides the
 category foreground even when supplied inline. Category border uses the
