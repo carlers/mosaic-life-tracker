@@ -34,3 +34,7 @@ Next action: run focused checks for the opt-in panel lazy-shell/budget repair, t
 - Exact dev@dbde9515 Scratch Vercel READY: initial 146026, Home 365783 gzip bytes. Exact stable Preview@3bb97ab Vercel failed: initial 146060 (+34), Home 366359 (+576); entry and previously reviewed aggregate asset ceilings pass.
 - Following lazy-shell refactor and green focused test, a new two-metric review adjusts initial ceiling 146050→146100 and Home 366100→366500 with measured evidence. Entry raw/gzip and aggregate ceilings unchanged. This is not an unlimited waiver; run canonical size, browser and Scratch Vercel again.
 - Next action: merge task after focused check into stable Preview and validate the exact resulting SHA, including accessibility/back/friend behaviors; do not promote without user approval.
+
+## 2026-10-12 final swipe-owner regression
+- Exact Preview 253bc683: canonical CI and Vercel READY after measured two-metric budget review.
+- Last focused task chatgpt/404-sidepanel-swipe-guard-20261012 adds `swiper-no-swiping` to panel aside and a targeted Home person-carousel gesture-owner regression. This is an acceptance safeguard; update stable Preview only after focused green and recheck exact-SHA CI/READY. No dev/main merge.

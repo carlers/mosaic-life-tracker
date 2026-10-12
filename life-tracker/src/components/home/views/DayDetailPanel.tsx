@@ -99,7 +99,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   return (
     <aside
       aria-label="Day details"
-      className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"
+      className="swiper-no-swiping flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"
       data-testid="calendar-day-side-panel"
     >
       <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-[var(--mosaic-border)] px-3">
