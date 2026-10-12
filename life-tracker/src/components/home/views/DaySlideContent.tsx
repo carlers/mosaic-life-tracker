@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
 import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
-import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
 import type { DiaryPlacement } from '../../../lib/diaryPlacement';
 const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
@@ -64,9 +64,11 @@ export interface DaySlideProps {
   ) => Promise<void> | void;
   onReorderActiveChange?: (active: boolean) => void;
   diaryEnabled?: boolean;
+  diaryEntryOverride?: DiaryDocument;
   diaryPlacement?: DiaryPlacement;
   onMoveDiary?: (target: DiaryPlacement) => Promise<void> | void;
   diaryDragging?: boolean;
+  diaryReleaseRevision?: number;
   diarySettling?: boolean;
   settlingTaskId?: string | null;
   lastReleasedTask?: { taskId: string; revision: number } | null;
@@ -119,8 +121,10 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   tasksByCategory,
   activeDrag,
   diaryEnabled = false,
+  diaryEntryOverride,
   diaryPlacement = { kind: 'top' },
   diaryDragging = false,
+  diaryReleaseRevision = 0,
   diarySettling = false,
   settlingTaskId = null,
   lastReleasedTask = null,
@@ -147,13 +151,18 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
     : null;
   const diaryCard = diaryEnabled ? (
     <motion.div
+      key={diaryReleaseRevision}
       layout={reorderRuntimeActive && !diaryDragging && !diarySettling ? 'position' : false}
       data-diary-source-slot={diaryDragging ? 'true' : undefined}
-      style={diaryDragging ? { position: 'absolute', width: '100%' } : undefined}
+      className={diaryDragging ? '!invisible' : undefined}
+      aria-hidden={diaryDragging ? true : undefined}
+      style={diaryDragging ? {
+        position: 'absolute', width: '100%', visibility: 'hidden', pointerEvents: 'none',
+      } : undefined}
     >
       {reorderRuntimeActive
-        ? <DraggableDiaryDayPreview date={dateStr}/>
-        : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr}/></React.Suspense>}
+        ? <DraggableDiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}/>
+        : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}/></React.Suspense>}
     </motion.div>
   ) : null;
   const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));

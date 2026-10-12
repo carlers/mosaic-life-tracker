@@ -102,7 +102,7 @@ export const TaskRowDropSurface: React.FC<{
     <motion.div
       layout={animatePosition ? 'position' : false}
       transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
-      className="relative"
+      className={isActiveSource ? 'relative !invisible' : 'relative'}
       data-task-source-slot={isActiveSource ? 'true' : undefined}
       aria-hidden={isActiveSource ? true : undefined}
       style={
@@ -114,6 +114,9 @@ export const TaskRowDropSurface: React.FC<{
               width: '100%',
               visibility: 'hidden',
               pointerEvents: 'none',
+              // Prevent the out-of-flow source from leaking over the next
+              // category pill while Framer Motion measures moving rows.
+              overflow: 'hidden',
             }
           : undefined
       }

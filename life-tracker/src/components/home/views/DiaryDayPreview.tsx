@@ -53,11 +53,15 @@ export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, onEdi
 };
 
 /** Opt-in owner Day View card, managed by the existing local-first diary hook. */
-export const DiaryDayPreview: React.FC<{ date: string; dragHandleRef?: React.Ref<HTMLButtonElement> }> = ({ date, dragHandleRef }) => {
-  const { getEntryByDate, saveEntry, deleteEntry } = useDiary();
+export const DiaryDayPreview: React.FC<{
+  date: string;
+  dragHandleRef?: React.Ref<HTMLButtonElement>;
+  entryOverride?: DiaryDocument;
+}> = ({ date, dragHandleRef, entryOverride }) => {
+  const { getEntryByDate, saveEntry, deleteEntry } = useDiary(entryOverride === undefined);
   const { getSetting } = useSettings();
   const [mode, setMode] = useState<'read' | 'edit' | null>(null);
-  const entry = getEntryByDate(date);
+  const entry = entryOverride ?? getEntryByDate(date);
   const expanded = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact')) === 'expanded';
   return (
     <>
