@@ -15,25 +15,11 @@ export async function reconcileChat(userId: string, partnerId: string) {
     userId, recipientId: partnerId, direction: 'outgoing',
     deliveryStatus: 'pending', isDeleted: false,
   } }).exec()).length) throw new Error('Messages still waiting to send');
-
-  let scope: 'self' | 'peer' | 'done' = 'self', cursor = '', repaired = 0;
-  for (let page = 0; page < 30; page++) {
-    if (!active()) throw new Error('Account changed');
-    const result = await sendMessageAction({ action: 'repair_thread', partnerId, scope, cursor });
-    if (!active()) throw new Error('Account changed');
-    const next = result.nextScope, nextCursor = result.nextCursor;
-    if (result.ok !== true || typeof nextCursor !== 'string' ||
-        !['self', 'peer', 'done'].includes(next as string) ||
-        (next === scope && nextCursor === cursor))
-      throw new Error('Chat reconciliation incomplete');
-    repaired += typeof result.repaired === 'number' ? result.repaired : 0;
-    if (next === 'done') {
-      await syncNow(userId);
-      if (!active()) throw new Error('Account changed');
-      return repaired;
-    }
-    scope = next as 'self' | 'peer';
-    cursor = nextCursor;
-  }
-  throw new Error('Chat reconciliation page limit reached');
+  const result = await sendMessageAction({ action: 'repair_thread_all', partnerId }, 90_000);
+  if (!active()) throw new Error('Account changed');
+  if (result.ok !== true || typeof result.repaired !== 'number')
+    throw new Error('Chat reconciliation incomplete');
+  await syncNow(userId);
+  if (!active()) throw new Error('Account changed');
+  return result.repaired;
 }
