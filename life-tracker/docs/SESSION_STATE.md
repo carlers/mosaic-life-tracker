@@ -1,25 +1,26 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Issue #645 Phase 2 D1/D2 repository source discovery pilot; user authorized task branch and stable Preview, not dev/main merge.
+Current task: Issue #656 — first-open lazy sheets, authorized implementation through Scratch Preview only.
 
 ## Scope and exact base
-- Base: dev@deb497fa032e7e95842f1e79f3a77b45bf3f369e; source-only documentation/tooling changes, no app version bump.
-- Task: chatgpt/repo-discovery-645; stable Preview: refactor/repo-discovery-645.
-- Existing Phase 1 version-only focused selector remains accepted separately on refactor/focused-version-stamps-645; do not pull it into this branch implicitly.
-- Preserve Scratch/Production separation, Preview canonical gate and explicit promotion approvals. The global checkpoint on dev previously referred to Bucket List #405; its completed dev promotion is live Git truth.
+- Task branch: `chatgpt/first-open-sheets-656-20261012` from `dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1`.
+- Planned stable Preview branch: `perf/first-open-sheets-656-20261012`. Planned user-testable PATCH v0.19.5 (dev is 0.19.4).
+- No dev/main promotion or Appwrite/Production changes authorized. #640 v0.19.4 Day View is accepted in dev; preserve it.
 
-## Work
-- D1: docs/REPO_MAP.md is a concise optional user-intent-to-source starting hint; docs/README.md links it.
-- D2: docs/COMPONENT_INDEX.md indexes all eligible component/page TS modules plus App and protectedRoutes, grouped by source folder. scripts/lib/repo-component-index.mjs and scripts/generate-repo-index.mjs implement offline --write/--check; existing contracts reject stale inventory. Tests cover current completeness, determinism, additions/moves/deletions and Markdown path escaping.
-- No runtime behavior, app styles, Appwrite configuration, dependency additions or CI-gate weakening.
+## Implementation candidate
+- `src/lib/createPreloadedLazy.tsx`: module-only warmup with cached resolved component, stable type per mount, cold Suspense path, retry of rejected preload on a later mount.
+- Home friend-carousel preferences, Chat sticker picker, Notifications alert friend-day sheet, friend Calendar day sheet: targeted preloading after owning view is usable with intent handlers where available. Do not block Day View startup or mount sheets early.
+- Day View Share Task and Link Task to Bucket List: preload module after task actions open; preserve parent/nested sheet Back/history ownership and existing mounted-share lifecycle.
+- Keep existing visible loading states for GIPHY, emoji picker, images and route previews. Friend reply composer already mounts closed; no extra preload.
+- Add preloaded first-commit/cold/retry React regressions and MessageComposer intent/focus tests.
+- Version candidate v0.19.5; all build-size budgets remain unchanged.
 
 ## Next action
-- Confirm this task commit focused CI green, review exact PR diff, squash through task PR into stable refactor/repo-discovery-645, then verify full canonical acceptance and exact-SHA Vercel READY. Post evidence to issue #645; leave dev/main untouched. D3 isolated cold-chat discovery measurement remains separate and pending.
+1. Commit coherent task tree with `[verify:browser]` and inspect focused/browser GitHub Actions. Fix any TS, lint, DOM, browser or size failure; do not bypass the guard.
+2. After task checks green, squash into stable Preview branch; run canonical full CI and verify exact-source Vercel Scratch/GIPHY deployment, unchanged seven budgets and version.
+3. User-device first/repeat open tests: Home friend preferences, Chat stickers, Notifications friend-day, friend calendar, Day View Share/Link; cold tap immediately and after idle, Back/Escape, nested focus, offline/PWA and no #640 regression.
+4. Post issue #656 checkpoint with exact commit/PR/checks/Preview and remaining human acceptance. Do not merge to dev/main without explicit approval.
 
-
-## #640 device-accepted Day View first-open fix — dev promotion integration
-- On 2026-10-12 the user explicitly accepted version 0.19.4 on device and authorized merging into dev.
-- Original stable Preview: perf/day-view-idle-warmup-20261011 @ 50437830c719a2ded06132b86e27dcb609733ed4, full canonical https://github.com/carlers/mosaic-life-tracker/actions/runs/38163183012 SUCCESS, Scratch Vercel exact-SHA READY.
-- Because dev advanced independently, integrate that verified Day View tree with current dev rather than merging the stale Preview directly. Preserve dev's #405 reviewed build-size ceilings, latest unrelated functionality and documentation; preserve exact accepted v0.19.4 behavior. Re-verify integrated Preview and exact-SHA dev promotion. #640 issue carries detailed evidence.
-- Exact GIPHY-enabled integration build crossed only three aggregate asset/precache size caps (raw +6124 B, gzip +1345 B, precache +6275 B); three caps narrowly reviewed under #640, retaining unchanged entry/initial/Home limits and baseline. Run hosted Scratch parity before promotion.
+## Limits
+No local repository checkout or device/browser instrumentation available through this chat connection; measured mobile tap-to-paint is not yet verified. Automated tests and hosted CI must be reported separately from device acceptance.

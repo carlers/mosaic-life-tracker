@@ -1,6 +1,4 @@
 import React, {
-  lazy,
-  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -54,13 +52,12 @@ import {
   stringifyReactions,
 } from '../lib/reactionUtils';
 import { getReadableTextColor } from '../constants/colors';
+import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 
-const loadAlertFriendDaySheet = () => import('../components/friend/AlertFriendDaySheet');
-const AlertFriendDaySheet = lazy(() =>
-  loadAlertFriendDaySheet().then(({ AlertFriendDaySheet }) => ({
-    default: AlertFriendDaySheet,
-  }))
-);
+const { Component: AlertFriendDaySheet, preload: preloadAlertFriendDaySheet } =
+  createPreloadedLazy(() =>
+    import('../components/friend/AlertFriendDaySheet').then(m => m.AlertFriendDaySheet)
+  );
 
 interface NotificationsPageProps {
   preview?: boolean;
@@ -148,6 +145,23 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   }, [userId]);
 
   const feedIsCurrent = Boolean(userId) && loadedUserId === userId;
+
+  // The feed is usable before the remote refresh finishes. Prime code only,
+  // never friend data or a hidden sheet, so a later touch has no lazy gap.
+  useEffect(() => {
+    if (preview || !feedIsCurrent || items.length === 0) return;
+    const warm = () => {
+      if (document.visibilityState === 'visible') {
+        void preloadAlertFriendDaySheet().catch(() => {});
+      }
+    };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1400 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(warm, 1200);
+    return () => window.clearTimeout(id);
+  }, [feedIsCurrent, items.length, preview]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -646,9 +660,9 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                                    setDayOwnerId(userId);
                                    setDayOpen(true);
                                  }}
-                                onPointerDown={() => { void loadAlertFriendDaySheet(); }}
-                                onMouseEnter={() => { void loadAlertFriendDaySheet(); }}
-                                onFocus={() => { void loadAlertFriendDaySheet(); }}
+                                onPointerDown={() => { void preloadAlertFriendDaySheet().catch(() => {}); }}
+                                onMouseEnter={() => { void preloadAlertFriendDaySheet().catch(() => {}); }}
+                                onFocus={() => { void preloadAlertFriendDaySheet().catch(() => {}); }}
                                 className="w-full break-words text-left text-[0.95rem] leading-snug text-gray-100 disabled:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                                 aria-label={`View ${item.task.title} in friend day view`}>
                                 {item.task.title}
@@ -714,7 +728,6 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       )}
 
       {feedIsCurrent && dayTarget && dayOwnerId === userId && (
-        <Suspense fallback={null}>
           <AlertFriendDaySheet key={`${userId}:${dayTarget.id}`}
             notification={dayTarget}
             isOpen={dayOpen}
@@ -723,7 +736,6 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
               setDayTarget(null);
               setDayOpen(false);
             }} />
-        </Suspense>
       )}
 
       <EmojiPickerSheet

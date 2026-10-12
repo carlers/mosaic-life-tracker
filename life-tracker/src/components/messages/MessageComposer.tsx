@@ -20,6 +20,7 @@ interface ReplyToContext {
 interface MessageComposerProps {
   onSend: (content: string) => void;
   onOpenStickers?: () => void;
+  onPrepareStickers?: () => void;
   disabled?: boolean;
   placeholder?: string;
   replyTo?: ReplyToContext | null;
@@ -41,6 +42,7 @@ export const MessageComposer = forwardRef<
     {
       onSend,
       onOpenStickers,
+      onPrepareStickers,
       disabled = false,
       placeholder = 'Message…',
       replyTo = null,
@@ -102,7 +104,12 @@ export const MessageComposer = forwardRef<
           {onOpenStickers && (
             <button type="button" aria-label="Open stickers" disabled={disabled}
               onClick={onOpenStickers}
-              onPointerDown={event => event.preventDefault()}
+              onPointerDown={event => {
+                event.preventDefault();
+                if (!disabled) onPrepareStickers?.();
+              }}
+              onMouseEnter={() => { if (!disabled) onPrepareStickers?.(); }}
+              onFocus={() => { if (!disabled) onPrepareStickers?.(); }}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-300 hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50">
               <Sticker size={21} aria-hidden="true" />
             </button>

@@ -16,14 +16,12 @@ import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
+import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 
-const LazyFriendCarouselSettingsSheet = React.lazy(() =>
-  import('../components/home/FriendCarouselSettingsSheet').then(
-    ({ FriendCarouselSettingsSheet }) => ({
-      default: FriendCarouselSettingsSheet,
-    })
-  )
-);
+const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
+  createPreloadedLazy(() =>
+    import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet)
+  );
 
 const RENDER_WINDOW = 1;
 const INITIAL_RENDER_WINDOW = 0;
@@ -113,6 +111,18 @@ export const HomePage: React.FC = () => {
     }
     // Safari fallback retains the delayed, startup-safe import.
     const id = window.setTimeout(warm, 900);
+    return () => window.clearTimeout(id);
+  }, [activePersonId, categoriesLoading, tasksLoading]);
+
+  // Lower priority than Day View warmup: friend preferences is an occasional
+  // interaction. Start only after Home's local owner view is usable.
+  useEffect(() => {
+    if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
+    const id = window.setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        void preloadFriendSettings().catch(() => {});
+      }
+    }, 2400);
     return () => window.clearTimeout(id);
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
@@ -296,6 +306,7 @@ export const HomePage: React.FC = () => {
               activePersonId={activePersonId}
               onSelect={handlePillSelect}
               onOpenSettings={handleOpenSettings}
+              onPrepareSettings={() => { void preloadFriendSettings().catch(() => {}); }}
             />
           </div>
 
@@ -344,7 +355,6 @@ export const HomePage: React.FC = () => {
       </div>
 
       {settingsSheetMounted && (
-        <React.Suspense fallback={null}>
           <LazyFriendCarouselSettingsSheet
             isOpen={isSettingsOpen}
             onClose={handleCloseSettings}
@@ -355,7 +365,6 @@ export const HomePage: React.FC = () => {
             onToggleVisibility={toggleVisibility}
             onReset={resetOrder}
           />
-        </React.Suspense>
       )}
 
       {searchSelectedDate && (
