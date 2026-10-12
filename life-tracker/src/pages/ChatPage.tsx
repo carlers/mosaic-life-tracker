@@ -33,7 +33,6 @@ import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 import { packStickerMessage } from '../lib/stickerPacks';
 import { giphyStickerMessage, sendGiphyAnalytics, type GiphySticker } from '../lib/giphyStickers';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
-import { scheduleModuleWarmup } from '../lib/scheduleModuleWarmup';
 
 const { Component: StickerPackSheet, preload: preloadStickerPackSheet } =
   createPreloadedLazy(() =>
@@ -95,7 +94,10 @@ export const ChatPage: React.FC = () => {
   // Never mount sticker hooks until requested; warm code on usable Chat.
   useEffect(() => {
     if (!myUserId || !friendId) return;
-    return scheduleModuleWarmup(preloadStickerPackSheet);
+    const id = window.setTimeout(() => {
+      if (document.visibilityState === 'visible') void preloadStickerPackSheet().catch(() => {});
+    }, 1000);
+    return () => window.clearTimeout(id);
   }, [friendId, myUserId]);
 
   const actionMessage = useMemo(

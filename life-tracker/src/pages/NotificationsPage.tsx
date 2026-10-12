@@ -53,7 +53,6 @@ import {
 } from '../lib/reactionUtils';
 import { getReadableTextColor } from '../constants/colors';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
-import { scheduleModuleWarmup } from '../lib/scheduleModuleWarmup';
 
 const { Component: AlertFriendDaySheet, preload: preloadAlertFriendDaySheet } =
   createPreloadedLazy(() =>
@@ -150,7 +149,10 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   // Cache only the friend-day module after the usable alert feed hydrates.
   useEffect(() => {
     if (preview || !feedIsCurrent || items.length === 0) return;
-    return scheduleModuleWarmup(preloadAlertFriendDaySheet);
+    const id = window.setTimeout(() => {
+      if (document.visibilityState === 'visible') void preloadAlertFriendDaySheet().catch(() => {});
+    }, 1000);
+    return () => window.clearTimeout(id);
   }, [feedIsCurrent, items.length, preview]);
 
   useEffect(() => {
