@@ -13,8 +13,10 @@ const {
   handleMarkNotificationsRead,
   handleRegisterPushSubscription,
   handleTaskCompletionEvent,
+  sendPushToUser,
   handleUnregisterPushSubscription,
 } = require('./notifications');
+const { emitActivity } = require('./activity-notifications');
 const {
   Client,
   TablesDB,
@@ -1264,12 +1266,38 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'friendship':
         result = await handleFriendship(tablesDB, callerId, payload);
+        if (result.status === 200 && !result.body?.duplicate &&
+            ['send','accept'].includes(payload.operation)) {
+          const friendId = payload.friendUserId;
+          const peerRowId = 'fr_' + sha256Hex(friendId + '|' + callerId).slice(0,32);
+          await emitActivity(tablesDB, {
+            type: payload.operation === 'send' ? 'friend_request' : 'friend_accepted',
+            actorId: callerId, recipientId: friendId, sourceId: peerRowId,
+            occurredAt: result.body?.row?.updated_at,
+            occurrenceKey: result.body?.row?.updated_at,
+          }, log, sendPushToUser);
+        }
         break;
       case 'task_shares':
         result = await handleTaskShares(tablesDB, callerId, payload);
+        if (result.status === 200 && !result.body?.duplicate &&
+            payload.operation === 'invite' && result.body?.item?.status === 'pending') {
+          await emitActivity(tablesDB, {
+            type: 'shared_task_invite', actorId: callerId,
+            recipientId: payload.friendUserId, sourceId: result.body.item.id,
+            occurrenceKey: result.body.item.grantEpoch,
+          }, log, sendPushToUser);
+        }
         break;
       case 'deliver':
         result = await handleDeliver(tablesDB, callerId, payload, log, error);
+        if (result.status === 200 && !result.body?.duplicate) {
+          await emitActivity(tablesDB, {
+            type: 'direct_message', actorId: callerId,
+            recipientId: payload.recipientId, sourceId: result.body.recipientRowId,
+            occurrenceKey: payload.messageId,
+          }, log, sendPushToUser);
+        }
         break;
       case 'mark_read':
         result = await handleMarkRead(tablesDB, callerId, payload, log, error);
@@ -1279,9 +1307,25 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'react':
         result = await handleReact(tablesDB, callerId, payload, log, error);
+        if (result.status === 200 && result.body?.reactionAdded &&
+            result.body?.originalAuthorId === payload.recipientId &&
+            result.body?.originalMessageId) {
+          await emitActivity(tablesDB, {
+            type: 'message_reaction', actorId: callerId,
+            recipientId: payload.recipientId, sourceId: result.body.originalMessageId,
+            occurrenceKey: payload.emoji,
+          }, log, sendPushToUser);
+        }
         break;
       case 'react_to_task':
         result = await handleReactToTask(tablesDB, callerId, payload, log, error);
+        if (result.status === 200 && result.body?.reactionAdded) {
+          await emitActivity(tablesDB, {
+            type: 'task_reaction', actorId: callerId,
+            recipientId: payload.taskOwnerId, sourceId: payload.taskId,
+            occurrenceKey: payload.emoji,
+          }, log, sendPushToUser);
+        }
         break;
       case 'compare_and_set_owner_row':
         result = await handleOwnerWriteCas(tablesDB, callerId, payload);
