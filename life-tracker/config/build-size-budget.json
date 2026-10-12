@@ -17,15 +17,15 @@
     "entryRawBytes": 446200,
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
-    "homeClosureGzipBytes": 368200,
-    "appAssetsRawBytes": 2468000,
-    "appAssetsGzipBytes": 766300,
-    "precacheUniqueBytes": 2555200
+    "homeClosureGzipBytes": 368800,
+    "appAssetsRawBytes": 2470300,
+    "appAssetsGzipBytes": 767000,
+    "precacheUniqueBytes": 2557500
   },
   "review": {
     "issue": "#692",
-    "reason": "Measured v0.23.1 smooth native Calendar pan, block snap and edge handoff against accepted exact v0.23.0 Scratch Preview fa8110e (all seven guards passed). v0.23.0 measured Home closure 366978B, app assets raw 2464556B, app assets gzip 765064B and precache unique 2551863B. v0.23.1 first Scratch Preview a2fa716 measured Home closure 367993B (+1015B), app assets raw 2467564B (+3008B), gzip 766079B (+1015B), precache unique 2554871B (+3008B). These are intentionally shipped small native gesture/snap behaviors and their unit/DOM tests, without a new dependency. Entry raw 446120B, entry gzip 132801B and initial closure 146033B are IDENTICAL across both builds and remain below their unchanged strict ceilings; PWA policy passed. Four narrowly measured limits raised with 200-450B headroom; historical baseline and startup-critical limits unchanged. Exact next squash commit must independently pass canonical and hosted GIPHY Scratch checks.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/8EFgRT7B55Jyd8HBXNum7BJdLYH2",
+    "reason": "Measured v0.23.2 daily calendar snap/transition lock and mouse smooth-release behavior on exact stable Scratch/GIPHY candidate 4cd765d against READY accepted v0.23.1 Preview ac7d17e. v0.23.1 metrics: entry raw 446120, gzip 132801, initial closure 146033, Home gzip 367993, shipped raw 2467564, shipped gzip 766079, unique precache 2554871 bytes. v0.23.2 compiled/PWA passed and measured entry/initial EXACTLY UNCHANGED; Home 368577 (+584), shipped raw 2469779 (+2215), shipped gzip 766702 (+623), unique precache 2557086 (+2215). Four already-near-cap Home/aggregate limits exceeded by 377/1779/402/1886 respectively. These are necessary small user-requested gesture controls and regression safety, no added library, with 200-520B next-candidate headroom. Only these four reviewed limits increase. Initial/entry limits, historic baseline, current PWA policy and all seven guards stay enforced; next stable exact SHA must pass canonical and hosted Scratch Vercel.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/kn9tcjm5ENKfNm8QPnhanSdQSCZ4",
     "metrics": [
       "homeClosureGzipBytes",
       "appAssetsRawBytes",
@@ -33,10 +33,10 @@
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 367200,
-      "appAssetsRawBytes": 2465200,
-      "appAssetsGzipBytes": 765400,
-      "precacheUniqueBytes": 2552700
+      "homeClosureGzipBytes": 368200,
+      "appAssetsRawBytes": 2468000,
+      "appAssetsGzipBytes": 766300,
+      "precacheUniqueBytes": 2555200
     }
   }
 }
