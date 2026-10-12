@@ -18,11 +18,13 @@ Current task: #708 — chat delivery reliability and recovery, implementation on
 - Full #708 remains open: server peer-pair audit/repair for older partial histories, cross-device convergence/latency measurements, permanent-denial UX, reconnect/performance diagnostics, disposable-account and actual mobile browser acceptance. Do not claim global pair convergence from client-only Sync Now.
 - #682 notification expansion stays deferred.
 
-## First Preview acceptance attempt
+## Preview acceptance and size-budget repairs
 - Task coherent focused Quality Gate 38241476695 **SUCCESS** at 734cad82.
 - Task PR #715 squash-merged into stable Preview `fix/chat-reliability-708-20261012` at 9c296eed. Full canonical Quality Gate 38241874387 **SUCCESS**.
 - Vercel deployment `dpl_6niRf8UU42RCCcmPdDAPpKrrxbtM` **ERROR**: all startup/Home/entry budgets passed, but total app assets raw +1,558 B, gzip +433 B and precache unique +1,365 B exceeded guard. **Do not raise budgets.**
 - Repair task branch `chatgpt/708-build-budget-repair-20261012` based on 9c296eed: reuse existing lazily loaded Sync Status sheet from chat instead of duplicate sync state/feedback; compact per-owner exponential retry state. Existing Sync Now remains the actual confirmed freshness control.
-- Repair remains **unverified**; no backend activation or user-testable Preview has been completed.
+- Repair #1 focused Quality Gate 38242472808 **SUCCESS**, PR #716 merged stable @ 590ab598; Vercel `dpl_8Wf2GYUiVdnCuLLT4TEZhUQpMbxE` still **ERROR**: total app assets raw +1,064 B, gzip +247 B, precache +871 B. Canonical Quality Gate for the first stable commit was green; verify the second separately.
+- Repair #2 task branch `chatgpt/708-build-budget-repair2-20261012`: remove the extra chat-header Sync Status entry; **the existing global Settings Sync Now remains the manual reconciliation UX**. Delivery commit checks, automatic retry, compose protection and missing-local-copy guard stay unchanged.
+- Repair #2 is **unverified**; no backend activation or user-testable Preview has been completed.
 
-Next action: focused verify this repair → squash to the same stable Preview branch → canonical success + Vercel READY. Compare deployed SHA, preserve version v0.24.0, then coordinate any Scratch Function activation and disposable-account verification. Do not merge dev/main absent user approval.
+Next action: focused verify repair #2 → squash to same stable Preview branch → canonical success + Vercel READY. Compare deployed SHA, preserve version v0.24.0, then coordinate any Scratch Function activation and disposable-account verification. Do not merge dev/main absent user approval.
