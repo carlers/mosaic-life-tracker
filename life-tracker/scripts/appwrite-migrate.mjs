@@ -10,6 +10,7 @@ import { migrateBucketListBackend } from './migrate-bucket-list.mjs';
 import { migrateAccountDeletionBackend } from './migrate-account-deletion.mjs';
 import { migrateDiaryCreatedAtBackend } from './migrate-diary-created-at.mjs';
 import { migrateDiaryEmojiBackend } from './migrate-diary-emoji.mjs';
+import { migrateDiaryPhotosBackend } from './migrate-diary-photos.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
 import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
@@ -72,6 +73,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '010-bucket-list', description: 'Owner-scoped private aspirations', run: ({ request, log }) => migrateBucketListBackend({ request, log }) },
   { id: '011-bucket-task-links', description: 'Private owner-only aspiration links', run: ({ request, log }) => migrateBucketTaskLinksBackend({ request, log }) },
   { id: '012-diary-emoji', description: 'Optional diary day emoji', run: ({ request, log, sleep }) => migrateDiaryEmojiBackend({ request, log, sleep }) },
+  { id: '013-diary-photos', description: 'Private diary photo references', run: ({ request, log, sleep }) => migrateDiaryPhotosBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {

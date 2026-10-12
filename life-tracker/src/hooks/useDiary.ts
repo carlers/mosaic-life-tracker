@@ -5,6 +5,7 @@ import { useRxCollection } from './useRxCollection';
 import { makeDiaryRowId } from '../lib/settingsRowId';
 import { upsertLocalDoc } from '../lib/localUpsert';
 import type { DiaryDocument } from '../db/schema';
+import { parseDiaryPhotos, serializeDiaryPhotos } from '../lib/diaryPhotos';
 
 export type DiaryVisibility = DiaryDocument['visibility'];
 
@@ -35,7 +36,7 @@ export function useDiary(enabled = true) {
   }, []);
 
   const saveEntry = useCallback(async (
-    date: string, content: string, visibility?: DiaryVisibility, emoji = ''
+    date: string, content: string, visibility?: DiaryVisibility, emoji = '', photos?: string
   ) => {
     const uid = user?.$id;
     if (!uid) throw new Error('You must be signed in to save a diary entry.');
@@ -44,19 +45,23 @@ export function useDiary(enabled = true) {
       !['', 'public', 'followers', 'private'].includes(visibility ?? '')) {
       throw new Error('Invalid diary entry.');
     }
-    if (!content.trim() && !emoji.trim()) throw new Error('Write a diary entry or choose an emoji.');
     const doc = await findStored(date, uid);
+    const savedPhotos = photos === undefined ? parseDiaryPhotos(doc?.photos) : parseDiaryPhotos(photos);
+    if (photos !== undefined && serializeDiaryPhotos(savedPhotos) !== photos)
+      throw new Error('Invalid diary photo list.');
+    if (!content.trim() && !emoji.trim() && savedPhotos.length === 0)
+      throw new Error('Write a diary entry, choose an emoji, or attach a photo.');
     const now = new Date().toISOString();
     const selectedVisibility = visibility ?? (doc && !doc.isDeleted ? doc.visibility : 'private');
     if (doc) {
       await upsertLocalDoc('diary', doc.id, {
-        content, emoji, visibility: selectedVisibility, updatedAt: now, isDeleted: false,
+        content, emoji, photos: serializeDiaryPhotos(savedPhotos), visibility: selectedVisibility, updatedAt: now, isDeleted: false,
       });
       return;
     }
     const id = makeDiaryRowId(uid, date);
     await upsertLocalDoc('diary', id, {
-      id, date, content, emoji, visibility: selectedVisibility, userId: uid,
+      id, date, content, emoji, photos: serializeDiaryPhotos(savedPhotos), visibility: selectedVisibility, userId: uid,
       createdAt: now, updatedAt: now, isDeleted: false,
     } satisfies DiaryDocument);
   }, [user?.$id, findStored]);

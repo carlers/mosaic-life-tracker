@@ -125,6 +125,14 @@ async function uploadImageWithId(
 }
 
 /** Task attachments are visible through the authorized friend calendar. */
+/** Diary photos retain owner-only storage ACL, unlike friend-readable task photos. */
+export async function saveDiaryImage(file: File, userId: string): Promise<string> {
+  if (!userId) throw new Error('Sign in before adding a diary photo.');
+  if (getConnectivitySnapshot().status !== 'online') throw new Error('Connect to upload diary photos.');
+  const blob = await compressImage(file);
+  return uploadCompressedBlobWithId(blob, generateFileId(), userId, false);
+}
+
 export async function saveImage(
   file: File,
   userId: string
