@@ -1,7 +1,7 @@
 # Session checkpoint — Mosaic issue #408
 
 Updated: 2026-10-13.
-Current task: v0.25.2 diary/task drag UX Preview hardening and exact-SHA hosted budget parity.
+Current task: v0.25.2 diary/task drag UX Preview hardening, animated collision stability and exact-SHA hosted budget parity.
 Next: verify a targeted precache cap review on isolated task branch `chatgpt/408-hosted-precache-parity-20261013`, squash only to `feature/diary-408`, confirm canonical GitHub gate and Vercel Scratch READY for the resulting exact SHA, then request manual drag acceptance. Do not merge dev/main or close #408 without approval.
 
 ## Implemented
@@ -14,6 +14,7 @@ Next: verify a targeted precache cap review on isolated task branch `chatgpt/408
 ## Hosted blocking result and narrow repair
 - Vercel deployment `dpl_BLymkjjXmkVGRB7S5LALZtZS2aEA` of exact stable `9bd902e`: TS/Vite/PWA built; six budget metrics passed. Precache alone failed: 2,591,644 / 2,591,500 B (+144). Source CI was 2,589,393 B.
 - Measured fix: only `config/build-size-budget.json` `limits.precacheUniqueBytes` becomes 2,593,000 (+1,500), giving 1,356 B hosted margin. Pinned baseline and remaining six limits unchanged. The budget review includes exact hosted evidence and the previous review chain.
+- Stable squash `9bd902e` canonical browser shard 2 failed one intermittent empty-category drag (target migrated from Category 3 to Category 4 on release after previewing Category 3). The task's prior browser pass was green. Stabilize accepted task/diary targets when Motion alone moves a drop zone under a stationary pointer (3px tolerance); retain outside/cancel invariants. The Playwright case now waits for the projected gap to settle before release and rejects Category 4 takeover.
 - The failed v0.25.2 Vercel deployment is NOT ready for manual acceptance; v0.25.1 was the last READY fallback before this attempt. Validate stable Vercel alias against final exact SHA, not just project URL.
 
 ## Unverified manual acceptance

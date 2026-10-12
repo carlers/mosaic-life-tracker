@@ -979,9 +979,12 @@ test('task can drop into an empty category from its category surface', async ({ 
     headerBox.x + headerBox.width * 0.5,
     headerBox.y + headerBox.height * 0.5
   );
-  // Validate the intended category actually has the projected opening before
-  // release, rather than only asserting an optimistic persistence callback.
+  // The pointer stays still while Motion animates the projected gap. A nearby
+  // category must not steal the target just because its layout box moved.
   await expect(emptyCategory.locator('[data-task-drop-gap="true"]')).toHaveCount(1);
+  await page.waitForTimeout(300);
+  await expect(emptyCategory.locator('[data-task-drop-gap="true"]')).toHaveCount(1);
+  await expect(region.locator('[data-task-category-id="cat_3"] [data-task-drop-gap="true"]')).toHaveCount(0);
   await gesture.finish();
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
