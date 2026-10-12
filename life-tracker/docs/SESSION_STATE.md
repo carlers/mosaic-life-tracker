@@ -3,13 +3,10 @@
 Updated: 2026-10-12
 Current task: correct category text mode in Calendar TaskBlocks; v0.20.1 task branch and stable Preview only, no dev/main merge.
 
-## Current task — Category text rendering fix
-- User-tested v0.20.0 stable Preview exposed that Category text does not apply, while Category border works.
-- Root cause: `text-gray-300` on `TaskBlock` is overridden by theme `!important` remaps in Light and Black, so inline category text cannot win the cascade.
-- Task: `chatgpt/fix-taskblock-category-text-20261012`; source Preview `feature/taskblock-incomplete-color-20261012` @ `1b28a4bbb16060634f0a3d1e96cb7c2d8c1a0494`.
-- Fix: omit the generic muted text class only in Category text mode, preserving completed/default/border. Real browser fixture covers computed color across Dark, Light and Black.
-- Version v0.20.1 (next user-testable refinement), frontend-only; no data, schema, Function, or Production changes.
-- Next action: focused CI, squash to stable Preview, verify full canonical and exact-SHA Scratch Vercel READY, then user/device test. Do not promote to dev/main without approval.
+## Current task — Calendar category text fix
+- v0.20.0 Preview: category text fails Light/Black because `text-gray-300` theme `!important` defeats inline color; border works.
+- Fix: `chatgpt/fix-taskblock-category-text-20261012` from `feature/taskblock-incomplete-color-20261012@1b28a4b`. Omit conflicting class in text mode; browser regression checks computed colors in Dark/Light/Black.
+- v0.20.1 frontend-only. Next: focused → Preview full CI/Vercel Scratch READY → user test. No dev/main promotion.
 
 ## Previous task — incomplete Calendar TaskBlock color
 - Base: dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1. Task: chatgpt/taskblock-incomplete-color-20261012. Stable Preview: feature/taskblock-incomplete-color-20261012.
