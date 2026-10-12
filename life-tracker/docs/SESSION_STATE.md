@@ -12,7 +12,7 @@ Current task: Issue #708, message delivery and cross-device reconciliation. No d
 - Task branch: `chatgpt/708-thread-repair-20261012` from v0.24.0 stable Preview. Candidate v0.24.1 in the three standard version files.
 - Server `repair_thread` action: mutually accepted friend validation; two staged owner-scoped pages (self then peer) of <=50 rows ordered by created_at; deterministic `msg_ / rmsg_` identity and owner checks; create only missing, non-deleted/non-unsent counterpart rows with recipient-only permissions; reject conflicts/uncertain reads; handle duplicate create race safely; bounded cursors.
 - Client `reconcileChat` invoked through Chat header Sync: attempt pending delivery; fail closed while local pending persists; walk at most 30 repair pages with owner-generation guard; await existing global `syncNow` freshness and reconciliation before claiming success. No always-on extra polling.
-- Added handler and client-unit regressions for both-side repair, permissions, unsend/delete preservation, pagination, conflict, race, freshness, pending, account switch.
+- Added handler and client-unit regressions for both-side repair, permissions, unsend/delete preservation, pagination, conflict, race, freshness, pending and account switch. Backend also re-reads source immediately before creating a missing peer to reject stale unsend snapshots.
 - **New v0.24.1 source has not been deployed** to either Vercel or Scratch; the current active Function is the earlier v0.24.0 code. Avoid an inconsistent new server/client rollout.
 
 ## Remaining gates
