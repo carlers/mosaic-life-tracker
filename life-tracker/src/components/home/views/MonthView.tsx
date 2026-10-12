@@ -21,6 +21,7 @@ interface MonthViewProps {
   zoomDays?: CalendarZoomDays;
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;
+  onZoomNavigate?: (direction: 'prev' | 'next') => void;
   onDayClick?: (date: Date) => void;
   tasksByDate: Map<string, TaskDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
@@ -45,6 +46,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
   zoomDays = 7,
   onZoomMount,
   onZoomScroll,
+  onZoomNavigate,
   onDayClick,
   tasksByDate,
   sharedByDay,
@@ -133,7 +135,8 @@ export const MonthView: React.FC<MonthViewProps> = ({
   );
   return zoomDays === 7 ? grid : (
     <CalendarZoomViewport zoomDays={zoomDays}
-      onZoomMount={onZoomMount} onZoomScroll={onZoomScroll}>
+      onZoomMount={onZoomMount} onZoomScroll={onZoomScroll}
+      onNavigate={onZoomNavigate}>
       {grid}
     </CalendarZoomViewport>
   );
