@@ -165,4 +165,29 @@ describe('MessageComposer', () => {
     fireEvent.change(textarea, { target: { value: 'a'.repeat(4500) } });
     expect(textarea.value.length).toBe(4000);
   });
+
+  it('preserves the draft and reports an error if local message insertion rejects', async () => {
+    const onSend = vi.fn().mockRejectedValue(new Error('Storage full'));
+    const onSendError = vi.fn();
+    render(<MessageComposer onSend={onSend} onSendError={onSendError} />);
+    const textarea = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'Do not lose this message' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
+    await waitFor(() => expect(onSendError).toHaveBeenCalledTimes(1));
+    expect(textarea.value).toBe('Do not lose this message');
+  });
+
+  it('does not duplicate a send while the preceding insert is still pending', async () => {
+    let resolveSend: (() => void) | undefined;
+    const onSend = vi.fn(() => new Promise<void>((resolve) => { resolveSend = resolve; }));
+    render(<MessageComposer onSend={onSend} />);
+    const textarea = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'Only one copy' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
+    fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
+    expect(onSend).toHaveBeenCalledTimes(1);
+    await act(async () => { resolveSend?.(); });
+    expect(textarea.value).toBe('');
+  });
+
 });
