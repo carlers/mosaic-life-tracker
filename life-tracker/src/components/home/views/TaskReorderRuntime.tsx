@@ -84,6 +84,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const [activeDrag, setActiveDrag] =
     React.useState<ActiveTaskDrag | null>(null);
   const [settlingTaskId, setSettlingTaskId] = React.useState<string | null>(null);
+  const [lastReleasedTask, setLastReleasedTask] = React.useState<{taskId: string; revision: number} | null>(null);
+  const releaseRevisionRef = React.useRef(0);
   const [diarySettling, setDiarySettling] = React.useState(false);
   const settleForTwoFrames = (clear: () => void) => {
     window.requestAnimationFrame(() => window.requestAnimationFrame(clear));
@@ -343,6 +345,10 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       // becomes a normal row again; siblings still glide into place.
       if (session) {
         const releasedId = session.taskId;
+        // Motion can retain a stale transform even after layout=false. A new
+        // keyed source wrapper is measured at the final projected slot,
+        // instead of visibly flying from its old hidden position.
+        setLastReleasedTask({ taskId: releasedId, revision: ++releaseRevisionRef.current });
         setSettlingTaskId(releasedId);
         settleForTwoFrames(() => setSettlingTaskId(current =>
           current === releasedId ? null : current));
@@ -446,6 +452,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         diaryDragging={diaryDragging}
         diarySettling={diarySettling}
         settlingTaskId={settlingTaskId}
+        lastReleasedTask={lastReleasedTask}
         diaryProjectedPlacement={diaryPreviewPlacement}
         diaryDragHeight={diaryDragHeight}
       />

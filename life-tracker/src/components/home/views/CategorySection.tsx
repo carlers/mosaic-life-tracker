@@ -34,6 +34,7 @@ interface CategorySectionProps {
   diaryDragInProgress?: boolean;
   diarySettling?: boolean;
   settlingTaskId?: string | null;
+  lastReleasedTask?: { taskId: string; revision: number } | null;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string, completed?: boolean) => void;
   onOpenActions: (task: TaskDocument) => void;
@@ -74,6 +75,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   diaryDragInProgress = false,
   diarySettling = false,
   settlingTaskId = null,
+  lastReleasedTask = null,
   onToggleTask,
   onAddTask,
   onOpenActions,
@@ -214,7 +216,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
 
       rows.push(
         <TaskRowDropSurface
-          key={task.id}
+          key={lastReleasedTask?.taskId === task.id
+            ? `${task.id}:released:${lastReleasedTask.revision}`
+            : task.id}
           categoryId={categoryId}
           taskId={task.id}
           isActiveSource={isActiveSource}

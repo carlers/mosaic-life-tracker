@@ -16,3 +16,7 @@ Next action: verify full build-size and browser release trajectories for v0.25.3
 
 - Run dedicated task diagnostic/full production build because existing v0.25.2 hosted total-assets cap had only 18 B of headroom. Use measured review, not unbounded budget exemptions.
 - Focused GitHub tests, stable branch full canonical gate, Vercel exact-SHA Scratch READY, and device/desktop drag acceptance all remain required.
+
+## Diagnosed release trajectory
+
+A v0.25.3 full task-branch diagnostic passed static checks, DOM, source production build and all seven existing size caps, but the first browser regression intentionally failed: the released row visibly traveled `431.69px -> 533px` over approximately 200ms even though the floating overlay was already at the drop position. That is the old-source Motion transform playing after release, not an acceptable smooth glide. A fresh keyed wrapper for the released row removes the stale Motion state. The strict release-jump regression must remain and go green before Preview delivery.

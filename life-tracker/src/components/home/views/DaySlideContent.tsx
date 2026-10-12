@@ -69,6 +69,7 @@ export interface DaySlideProps {
   diaryDragging?: boolean;
   diarySettling?: boolean;
   settlingTaskId?: string | null;
+  lastReleasedTask?: { taskId: string; revision: number } | null;
   diaryProjectedPlacement?: DiaryPlacement | null;
   diaryDragHeight?: number;
 }
@@ -122,6 +123,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   diaryDragging = false,
   diarySettling = false,
   settlingTaskId = null,
+  lastReleasedTask = null,
   diaryProjectedPlacement = null,
   diaryDragHeight = 48,
 }) => {
@@ -203,6 +205,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
           settlingTaskId={settlingTaskId}
+          lastReleasedTask={lastReleasedTask}
           diarySlotIndex={fallbackPlacement.kind === 'slot' ? fallbackPlacement.index : 0}
           visibility={category.visibility}
           currentUserId={currentUserId}
