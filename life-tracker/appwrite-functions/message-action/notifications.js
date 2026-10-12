@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { isScheduledTask } = require('./task-placement');
 const { Query } = require('node-appwrite');
+const { projectActivity, channels } = require('./activity-notifications');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const NOTIFICATIONS_TABLE = 'notifications';
@@ -283,6 +284,8 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
   const now = new Date().toISOString();
   let created = 0;
   await mapLimit([...friends.keys()], 6, async (recipientId) => {
+    const selected = (await channels(tablesDB, recipientId)).task_completed;
+    if (!selected.feed) return;
     const rowId = notificationId(recipientId, taskId, completedAt);
     try {
       await tablesDB.createRow({
@@ -313,7 +316,7 @@ async function handleTaskCompletionEvent(tablesDB, task, eventName, log, error) 
           actorName: safePushText(friends.get(recipientId)?.recipientFacingName || 'Friend', 60),
           taskTitle: safePushText(latestTask.title, 100),
         } : null;
-    await sendPushToUser(
+    if (selected.push) await sendPushToUser(
       tablesDB,
       recipientId,
       {
@@ -377,8 +380,13 @@ async function handleGetNotifications(tablesDB, callerId, payload, log, error) {
 
     await mapLimit(rows, 6, async (row) => {
       if (notificationExpiresAt(row, retentionPolicy) <= now) return;
+      if (row.type !== 'task_completed') {
+        const activity = await projectActivity(tablesDB, row, callerId);
+        if (activity) visible.push(activity);
+        return;
+      }
       const friendship = friends.get(row.actor_id);
-      if (!friendship || row.type !== 'task_completed') return;
+      if (!friendship) return;
 
       const task = await readRow(tablesDB, TASKS_TABLE, row.task_id);
       if (
@@ -452,12 +460,17 @@ async function handleGetNotification(tablesDB, callerId, payload) {
     return { status: 400, body: { error: 'Invalid alert ID' } };
   }
   const row = await readRow(tablesDB, NOTIFICATIONS_TABLE, id);
-  if (!row || row.recipient_id !== callerId || row.type !== 'task_completed') {
+  if (!row || row.recipient_id !== callerId) {
     return { status: 404, body: { error: 'Alert unavailable' } };
   }
   const retentionPolicy = await loadAlertRetention(tablesDB, callerId);
   if (notificationExpiresAt(row, retentionPolicy) <= Date.now()) {
     return { status: 404, body: { error: 'Alert unavailable' } };
+  }
+  if (row.type !== 'task_completed') {
+    const item = await projectActivity(tablesDB, row, callerId);
+    return item ? { status: 200, body: { item } } :
+      { status: 404, body: { error: 'Alert unavailable' } };
   }
   const friends = await mutualFriendMap(tablesDB, callerId);
   const friendship = friends.get(row.actor_id);
@@ -685,6 +698,7 @@ async function handleUnregisterPushSubscription(
 }
 
 module.exports = {
+  sendPushToUser,
   notificationExpiresAt,
   UNREAD_RETENTION_MS,
   READ_RETENTION_MS,
