@@ -1,38 +1,25 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Issue #656 — first-open lazy sheets, authorized implementation through Scratch Preview only.
+Current task: Issue #656 first-open lazy sheets, implementation authorized through stable Scratch Preview only.
 
-## Scope and exact base
-- Original task: `chatgpt/first-open-sheets-656-20261012` from `dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1`.
-- Stable Preview branch: `perf/first-open-sheets-656-20261012`. Squashed initial candidate at `45532098a9f5e30b9d9167377a8d159b667ff862`; repair task `chatgpt/first-open-656-size-repair-20261012`. Planned user-testable PATCH v0.19.5 (dev is 0.19.4).
-- No dev/main promotion or Appwrite/Production changes authorized. #640 v0.19.4 Day View is accepted in dev; preserve it.
+## References and scope
+- Base: `dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1`, v0.19.4; #640 accepted Day View fix remains unchanged.
+- Stable Preview: `perf/first-open-sheets-656-20261012`, candidate v0.19.5. Current pre-repair SHA: `6ca955ba265123bccb4a46f9afab1124bd66ebe0`.
+- Repair task: `chatgpt/656-budget-fix-4` based on that stable SHA. No dev/main promotion or backend writes approved.
+- First batch: Home friend preferences, Chat stickers, Notifications friend day using resolved-component cache instead of an uninitialized `React.lazy` first render; preserve cold Suspense, stable mount type and rejected-import retry. Warm module code after view readiness and interaction intent; never hidden sheet data hooks.
+- Subsequent audit/implementation in #656: friend Calendar day, nested Day View Share/Link sheets, and existing intentionally visible-loading surfaces if measured. These are explicitly **not** implemented in first Preview batch.
+- Existing GIPHY, emoji, image and route-preview loading feedback remains.
 
-## Implementation candidate
-- `src/lib/createPreloadedLazy.tsx`: module-only warmup with cached resolved component, stable type per mount, cold Suspense path, retry of rejected preload on a later mount.
-- Home friend-carousel preferences, Chat sticker picker, Notifications alert friend-day sheet, friend Calendar day sheet: targeted preloading after owning view is usable with intent handlers where available. Do not block Day View startup or mount sheets early.
-- Day View Share Task and Link Task to Bucket List: preload module after task actions open; preserve parent/nested sheet Back/history ownership and existing mounted-share lifecycle.
-- Keep existing visible loading states for GIPHY, emoji picker, images and route previews. Friend reply composer already mounts closed; no extra preload.
-- Added preloaded first-commit/cold/retry React and composer-focus regressions. Share one cancellable code-only idle scheduler among the six target sheet entry points.
-- Version candidate v0.19.5; all build-size budgets remain unchanged.
-
-## Verification and budget repair
-- Original task browser shards successful: CI 38193200262. After required checkpoint heading repair, focused CI 38193356044 SUCCESS. Source PR #661 squash merged to stable Preview.
-- Initial Vercel GIPHY-enabled stable Preview build `dpl_9WoJScQesnqsAz8Wkd34YS11tFvr` FAILED only build-size: Home gzip +175 B, aggregate raw +1,128 B, aggregate gzip +458 B, precache +1,247 B; entry, initial and entry-gzip caps passed. No budget increases permitted.
-- Repair consolidates five duplicated idle warmup effects into a single cancellable helper, retains delayed Home priority, and tests canceled timers.
-
-
-## Budget-scoped final candidate
-- Repair task `chatgpt/perf-656-scope-trim` from stable Preview `9fe6d626e15cdab822c5f0a272e98dc8c77015b2`. Second GIPHY-enabled Preview build `dpl_8CgQoKCG4rjyzazA1zZDpnwqNV9f` still failed Home gzip (+307 B), aggregate raw (+351 B), gzip (+422 B), precache (+470 B).
-- To protect the strict unchanged budgets, keep the first proven high-value paths: Home friend preferences, Chat stickers, Notifications alert friend-day. Restore friend Calendar and nested Share/Link to unchanged dev behavior, explicitly defer those as #656 batch B pending measurement/size headroom. Existing spinner/photo/GIPHY/route previews stay untouched.
-- Keep resolved-component first-commit regression and composer intent/focus tests; split the reusable idle timer from the shared component factory so it is not pulled into Home's static closure.
-- Repair branch needs focused CI, stable squash PR, exact-SHA canonical+GIPHY Vercel READY. No dev/main promotion.
+## Verification and investigation
+- Source PRs #661, #663, #664 squash-merged into stable Preview. Original source/browser focused checks and DOM regressions passed, including cached component first-commit/cold/retry and composer intent/focus.
+- Three previous stable Preview candidates failed **unchanged seven-metric build-size guard**, including GIPHY-enabled Scratch Vercel builds. Latest `6ca955ba` [canonical CI run 38194124275] had 6/7? No: three entry metrics passed, four failed: Home closure +158 B; aggregate raw +573 B, gzip +485 B, precache +864 B. Exact Vercel deployment `dpl_5RWmYcjaNi4CYfSmNbTTYB1hsgVz` ERROR, Scratch Appwrite and GIPHY enabled.
+- Latest canonical browser shard 2/2 had one empty-category drag-target mismatch in existing `interaction-contract.spec.mjs:899` (27 other tests passed). That harness is unrelated to the changed modules. Re-run before claiming a flake; investigate if repeatable. Canonical pass is mandatory.
+- This repair removes standalone `scheduleModuleWarmup.ts` helper/chunk and its now-unused test; Chat/Notifications perform a simple cancellation-safe delayed module import only on usable owner view. Home chains friend preferences preload after the existing #640 Day View idle code warmup, without another timer; retains touch/hover/focus intent warmup. No guard relaxations.
+- No physical device measurement or full authentication/browser acceptance has been claimed.
 
 ## Next action
-1. Validate scope-trim repair focused CI; squash into stable Preview and require all seven unchanged budgets on both canonical CI and GIPHY-enabled Vercel.
-2. After task checks green, squash into stable Preview branch; run canonical full CI and verify exact-source Vercel Scratch/GIPHY deployment, unchanged seven budgets and version.
-3. User-device first/repeat open tests: Home friend preferences, Chat stickers, Notifications friend-day, friend calendar, Day View Share/Link; cold tap immediately and after idle, Back/Escape, nested focus, offline/PWA and no #640 regression.
-4. Post issue #656 checkpoint with exact commit/PR/checks/Preview and remaining human acceptance. Do not merge to dev/main without explicit approval.
-
-## Limits
-No local repository checkout or device/browser instrumentation available through this chat connection; measured mobile tap-to-paint is not yet verified. Automated tests and hosted CI must be reported separately from device acceptance.
+1. Complete repair branch `chatgpt/656-budget-fix-4` with `[verify:focused]`; fix any focused errors.
+2. Squash task PR into stable Preview; run one new exact-SHA full canonical and GIPHY-enabled Scratch Vercel build. All seven original budgets must pass. If a browser contract fails, review logs and fix or reverify.
+3. Verify Vercel SHA, Scratch backend, version 0.19.5 and stable Preview alias. Update #656 issue checkpoint with exact tested evidence and remaining second-batch tasks.
+4. Device testing pending for first-open after reload/idle and rapid touch, offline and nested Back behavior. Do not merge to dev/main without explicit separate authorization.

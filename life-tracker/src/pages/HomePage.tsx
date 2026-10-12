@@ -101,9 +101,15 @@ export const HomePage: React.FC = () => {
     if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
 
     const warm = () => {
-      if (document.visibilityState === 'visible') void loadDayViewSheet().catch(() => {
-        // A warmup failure must not block the on-demand retry.
-      });
+      if (document.visibilityState === 'visible') {
+        void loadDayViewSheet()
+          .then(() => {
+            if (document.visibilityState === 'visible') return preloadFriendSettings();
+          })
+          .catch(() => {
+            // Both sheets retain their independent on-demand retry paths.
+          });
+      }
     };
     if (window.requestIdleCallback) {
       const id = window.requestIdleCallback(warm, { timeout: 1200 });
@@ -111,15 +117,6 @@ export const HomePage: React.FC = () => {
     }
     // Safari fallback retains the delayed, startup-safe import.
     const id = window.setTimeout(warm, 900);
-    return () => window.clearTimeout(id);
-  }, [activePersonId, categoriesLoading, tasksLoading]);
-
-  // Lower priority than the accepted Day View warmup; no startup code load.
-  useEffect(() => {
-    if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
-    const id = window.setTimeout(() => {
-      if (document.visibilityState === 'visible') void preloadFriendSettings().catch(() => {});
-    }, 2400);
     return () => window.clearTimeout(id);
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
