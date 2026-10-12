@@ -11,9 +11,10 @@ if (verifiedPreviewBackend) {
 
 // Effective non-secret feature presence is logged on every hosted build so
 // identical-tree deployments can be compared without exposing Vite API keys.
-if (process.env.VERCEL_ENV) {
+if (process.env.VERCEL_ENV || process.env.GITHUB_ACTIONS === 'true') {
   console.info('[Mosaic] Build features: GIPHY stickers ' +
     (process.env.VITE_GIPHY_API_KEY?.trim() ? 'enabled' : 'disabled'));
+  console.info('[Mosaic] Build runtime: Node.js ' + process.versions.node);
 }
 
 const isLocalBuild = !process.env.VERCEL_ENV;

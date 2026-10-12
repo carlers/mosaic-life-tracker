@@ -21,3 +21,7 @@ User manually accepted original #692 gestures; no new physical-device check is c
 - Integration Preview 5d049204 (v0.23.4) compiled, PWA policy passed, all static/size metrics except initialClosureGzipBytes 146051/146050 B (+1) and appAssetsGzipBytes 767025/767000 B (+25). Five other limits pass.
 - Separate focused task chatgpt/692-dev-integration-budget-20261012 narrowly reviews these two real combined-tree deltas, preserving previous #692 and #656 measured reviews and all other ceilings. No source behavior changes.
 Next action: focused task CI then repair squash into the same stable integration Preview, verify exact canonical and Scratch Vercel READY before approved dev merge. Do not merge main.
+
+## Parallel workflow implementation — #592
+
+Current work: `chatgpt/592-build-parity-20261012` (workflow-only, no app version change), based on dev `d9d2cc1f`. Preserve the #692 historical checkpoint above; the active source and issue comments own live progress. Implementing a sanitized CI/Vercel log comparator with regression evidence from the October 12 incident, aligning the GitHub build job to hosted Node 24, and reporting feature/runtime presence in GitHub logs. Before promoting any gated-Preview mechanism, exact artifact parity, credentials and SHA/alias/canonical-acceptance checks remain unverified. No Vercel settings, dev/main, Scratch or Production changes approved by this task branch.
