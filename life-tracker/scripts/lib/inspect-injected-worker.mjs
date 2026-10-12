@@ -30,7 +30,10 @@ export function inspectInjectedWorker(source) {
         node.elements.every((entry) => entry?.type === 'ObjectExpression' &&
           objectValue(entry, 'url')?.type === 'Literal' &&
           typeof objectValue(entry, 'url').value === 'string')) {
-      manifestCandidates.push(node.elements.map((entry) => objectValue(entry, 'url').value));
+      manifestCandidates.push(node.elements.map((entry) => ({
+        url: objectValue(entry, 'url').value,
+        bytes: objectValue(entry, 'mosaicBytes')?.value ?? null,
+      })));
     }
     if (node.type === 'CallExpression') {
       const method = propName(node.callee?.property) ||
@@ -60,7 +63,9 @@ export function inspectInjectedWorker(source) {
   if (!source.includes('__MOSAIC_ASSETS__')) {
     throw new Error('Missing injected Mosaic precache progress manifest.');
   }
-  const precacheUrls = manifestCandidates.sort((a, b) => b.length - a.length)[0];
+  const precacheEntries = manifestCandidates.sort((a, b) => b.length - a.length)[0];
+  const precacheUrls = precacheEntries?.map((entry) => entry.url);
+  const precacheSizes = precacheEntries?.map((entry) => entry.bytes);
   if (!precacheUrls?.length || !fallback || !denylist) {
     throw new Error('Missing injected precache, fallback, or navigation denylist.');
   }

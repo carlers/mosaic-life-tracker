@@ -44,6 +44,7 @@ describe('service worker inspector', () => {
     `;
     const result = await inspectServiceWorker(source);
     expect(result.precacheUrls).toEqual(['index.html', 'assets/app.js']);
+    expect(result.precacheSizes).toEqual([100, 240]);
     expect(result.importedScripts).toEqual(['/push-sw.js']);
     expect(result.navigationDenylist?.length).toBe(2);
     expect(result.skipWaitingOnStartup).toBe(false);
