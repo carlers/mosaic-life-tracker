@@ -45,7 +45,7 @@ describe('automatic Preview pilot security (#592)', () => {
     expect(assertAutomaticPreviewDeployment(deployment, target)).toBe('dpl_example');
     for (const diff of [
       { readyState: 'ERROR' }, { readyState: 'BUILDING' },
-      { target: 'production' }, { source: 'git' },
+      { target: 'production' }, { target: undefined }, { source: 'git' },
       { project: { id: 'wrong' } }, { url: 'attacker.vercel.app' },
       { meta: { ...deployment.meta, githubCommitRef: AUTO_PREVIEW_PILOT_BRANCH } },
       { meta: { ...deployment.meta, githubCommitSha: 'a'.repeat(40) } },
@@ -62,6 +62,17 @@ describe('automatic Preview pilot security (#592)', () => {
     const job = yaml.split('\n  preview_auto_pilot:\n')[1];
     expect(job).toContain("github.event_name == 'push'");
     expect(job).toContain("vars.MOSAIC_AUTO_PREVIEW_ENABLED == 'true'");
+    expect(job).toContain("MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED: ${{ vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED }}");
+    const step = name => job.split('      - name: ' + name + '\n')[1]?.split('\n      - name: ')[0];
+    for (const name of [
+      'Reconfirm accepted SHA before stable alias switch',
+      'Assign accepted READY deployment to the stable Preview alias',
+      'Read back exact-SHA stable alias assignment',
+    ]) expect(step(name)).toContain("if: vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED == 'true'");
+    expect(step('Verify the READY CLI deployment before aliasing')).not.toContain("MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED == 'true'");
+    expect(step('Confirm shadow Preview without alias mutation')).toContain("if: vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED != 'true'");
+    const aliasScript = readFileSync(new URL('../../scripts/check-preview-auto-alias.mjs', import.meta.url), 'utf8');
+    expect(aliasScript).toContain("mode === 'after' && process.env.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED !== 'true'");
     expect(job).toContain("needs.canonical_acceptance.result == 'success'");
     expect(job).toContain("github.ref == 'refs/heads/" + AUTO_PREVIEW_PILOT_BRANCH + "'");
     expect(job).toContain('environment: mosaic-preview-auto');

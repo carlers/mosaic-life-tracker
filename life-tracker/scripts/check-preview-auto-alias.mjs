@@ -8,6 +8,9 @@ try {
   const suppliedUrl = process.env.DEPLOYMENT_URL;
   const mode = process.env.PREVIEW_ALIAS_MODE;
   if (!token || !['before', 'after'].includes(mode)) throw new Error('Protected alias check unavailable');
+  if (mode === 'after' && process.env.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED !== 'true') {
+    throw new Error('Stable alias mutation is not enabled');
+  }
   if (!suppliedUrl?.startsWith('https://')) throw new Error('Deployment URL missing or untrusted');
   const url = new URL(suppliedUrl);
   if (url.origin !== suppliedUrl || url.pathname !== '/' || url.search || url.hash ||
