@@ -401,7 +401,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     log(`deliver: sender row ${messageId} already exists`);
   }
   log(`deliver: ${messageId} -> ${recipientId} as ${recipientRowId}`);
-  return { status: 200, body: { ok: true, recipientRowId, threadId } };
+  return { status: 200, body: { ok: true, recipientRowId, threadId, duplicate: Boolean(existingRecipientRow) } };
 }
 async function handleMarkRead(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
@@ -808,6 +808,7 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   }
   const now = new Date().toISOString();
   let updated = 0;
+  let reactionAdded = false;
   let resolvedPeerRowId = '';
   let myRow = null;
   try {
@@ -842,6 +843,10 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
         continue;
       }
       const current = parseReactions(row.reactions || '');
+      if (op === 'add' && row.user_id === callerId &&
+          !current.some(item => item.emoji === emoji && item.userIds.includes(callerId))) {
+        reactionAdded = true;
+      }
       const next = applyReactionDelta(current, emoji, callerId, op);
       const nextStr = stringifyReactions(next);
       if (nextStr.length > REACTIONS_MAX_LEN) {
@@ -875,7 +880,9 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   log(
     `react: caller=${callerId} emoji=${emoji} op=${op} rows=${updated} resolvedPeer=${resolvedPeerRowId || '-'}`
   );
-  return { status: 200, body: { ok: true, updated, resolvedPeerRowId } };
+  return { status: 200, body: { ok: true, updated, resolvedPeerRowId,
+    reactionAdded, originalAuthorId: myRow?.sender_id || '',
+    originalMessageId: myRow?.original_message_id || myRow?.$id || '' } };
 }
 async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
@@ -963,6 +970,8 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
     return { status: 403, body: { error: 'Task is not visible to you' } };
   }
   const current = parseReactions(row.reactions || '');
+  const reactionAdded = op === 'add' &&
+    !current.some(item => item.emoji === emoji && item.userIds.includes(callerId));
   const next = applyReactionDelta(current, emoji, callerId, op);
   const nextStr = stringifyReactions(next);
   if (nextStr.length > REACTIONS_MAX_LEN) {
@@ -986,7 +995,7 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   log(
     `react_to_task: caller=${callerId} task=${taskId} owner=${taskOwnerId} emoji=${emoji} op=${op}`
   );
-  return { status: 200, body: { ok: true, reactions: nextStr } };
+  return { status: 200, body: { ok: true, reactions: nextStr, reactionAdded } };
 }
 // Lightweight, privacy-checked alert tap-through. Unlike get_friend_calendar,
 // this requires at most a task and category row instead of a user's full history.
@@ -1275,7 +1284,7 @@ const handler = async ({ req, res, log, error }) => {
             actorId: callerId, recipientId: friendId, sourceId: peerRowId,
             occurredAt: result.body?.row?.updated_at,
             occurrenceKey: result.body?.row?.updated_at,
-          }, log, sendPushToUser);
+          }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
         }
         break;
       case 'task_shares':
@@ -1286,7 +1295,7 @@ const handler = async ({ req, res, log, error }) => {
             type: 'shared_task_invite', actorId: callerId,
             recipientId: payload.friendUserId, sourceId: result.body.item.id,
             occurrenceKey: result.body.item.grantEpoch,
-          }, log, sendPushToUser);
+          }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
         }
         break;
       case 'deliver':
@@ -1296,7 +1305,7 @@ const handler = async ({ req, res, log, error }) => {
             type: 'direct_message', actorId: callerId,
             recipientId: payload.recipientId, sourceId: result.body.recipientRowId,
             occurrenceKey: payload.messageId,
-          }, log, sendPushToUser);
+          }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
         }
         break;
       case 'mark_read':
@@ -1314,7 +1323,7 @@ const handler = async ({ req, res, log, error }) => {
             type: 'message_reaction', actorId: callerId,
             recipientId: payload.recipientId, sourceId: result.body.originalMessageId,
             occurrenceKey: payload.emoji,
-          }, log, sendPushToUser);
+          }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
         }
         break;
       case 'react_to_task':
@@ -1324,7 +1333,7 @@ const handler = async ({ req, res, log, error }) => {
             type: 'task_reaction', actorId: callerId,
             recipientId: payload.taskOwnerId, sourceId: payload.taskId,
             occurrenceKey: payload.emoji,
-          }, log, sendPushToUser);
+          }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
         }
         break;
       case 'compare_and_set_owner_row':
