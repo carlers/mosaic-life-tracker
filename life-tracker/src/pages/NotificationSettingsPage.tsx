@@ -58,11 +58,14 @@ export const NotificationSettingsPage: React.FC = () => {
   const unreadDays = resolveUnreadRetentionDays(getSetting(ALERTS_UNREAD_RETENTION_SETTING_KEY));
   const readHours = resolveReadRetentionHours(getSetting(ALERTS_READ_RETENTION_SETTING_KEY));
   const syncedChannels = resolveNotificationChannels(getSetting(ALERTS_CHANNELS_KEY));
-  const [draftChannels, setDraftChannels] = useState<NotificationChannels | null>(null);
+  const [channelDraft, setChannelDraft] = useState<{
+    userId: string;
+    channels: NotificationChannels;
+  } | null>(null);
   const [channelsSaving, setChannelsSaving] = useState(false);
   const [channelsError, setChannelsError] = useState('');
-  const channelValues = draftChannels ?? syncedChannels;
-  useEffect(() => { setDraftChannels(null); setChannelsError(''); }, [userId]);
+  const channelValues = channelDraft?.userId === userId
+    ? channelDraft.channels : syncedChannels;
 
   const toggleChannel = async (type: NotificationChannelType, channel: 'feed' | 'push') => {
     if (!userId || channelsSaving) return;
@@ -70,7 +73,7 @@ export const NotificationSettingsPage: React.FC = () => {
       ...channelValues,
       [type]: { ...channelValues[type], [channel]: !channelValues[type][channel] },
     };
-    setDraftChannels(next);
+    setChannelDraft({ userId, channels: next });
     setChannelsSaving(true);
     setChannelsError('');
     try {
@@ -78,7 +81,7 @@ export const NotificationSettingsPage: React.FC = () => {
     } catch {
       setChannelsError('Could not save notification preferences. Retry.');
     } finally {
-      setDraftChannels(null);
+      setChannelDraft(null);
       setChannelsSaving(false);
     }
   };
