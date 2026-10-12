@@ -1,12 +1,22 @@
 # Session checkpoint — Mosaic issue #408
 
 Updated: 2026-10-13.
-Current task: #408 drag UX refinement v0.25.2 implementation on isolated task branch.
-Next action: Verify browser settled-gap and empty-category targeting contracts, then squash into `feature/diary-408` only after green, verify the exact stable SHA's canonical gate and Vercel Scratch Preview READY, then request manual gesture acceptance. Never merge dev/main without approval.
+Current task: v0.25.2 diary/task drag UX Preview hardening and exact-SHA hosted budget parity.
+Next: verify a targeted precache cap review on isolated task branch `chatgpt/408-hosted-precache-parity-20261013`, squash only to `feature/diary-408`, confirm canonical GitHub gate and Vercel Scratch READY for the resulting exact SHA, then request manual drag acceptance. Do not merge dev/main or close #408 without approval.
 
-- Starting source: `feature/diary-408@b5b3507c29d01c2200878d136a92b646d9e6e8ec` (v0.25.1), authorized isolated branch `chatgpt/408-drag-ux-20261013`.
-- Scope: source-bound, full-height diary dragging; eliminate generic diary overlay and faded duplicate; retain the existing task drag overlay/source contract, replace fragile Motion-owned height/opacity-zero active slots, retain layout position measurement through hover/drop, remount the drag runtime on date/account changes, and keep optimistic diary drop geometry until the persisted placement catches up.
-- Reuse existing 500ms pointer sensor, category/task/drop projections and full task overlay. No messaging, schema, Function or Scratch deployment changes.
-- Verification: source-level review and unit plus Playwright regressions for outside-drop and source visibility after release/cancel; initial focused CI failed two React effect-state lint checks; repaired by keyed remount and event-driven cleanup; focused repair passed at bfbd2b4. First full run 9fe0125: TypeScript, static, unit/handler/DOM, PWA and 7/7 source size checks passed; browser shard 2 failed five task drags (hidden custom overlay and no valid projections) after switching task source to native ref + Feedback none. Restored original task source/overlay; second browser run 76a9806 passed task visibility and subsequent drags, but 2/28 tests failed when asserting instantaneous 2px gap coordinates during intentional ~200ms layout animation, and because empty-header touch targeted stale pre-lift coordinates. Browser assertions now wait for settled geometry, remeasure visible destination and assert the target gap before release. Rerun pending; no stable Preview deployment yet. Real device checks not performed at this source checkpoint. Manual acceptance checklist extended in `docs/MANUAL_TASK_REORDER_ACCEPTANCE.md`.
-- Version: v0.25.2 PATCH candidate, changing package, lock and appVersion in one tree. dev v0.23.4 and main v0.17.4 when inspected; do not assume other concurrent Preview versions without checking.
-- Delivery constraints: stable Preview acceptance only; retain compatible active Scratch Function and existing social behavior. Existing stable v0.25.1 hosted Preview remains the fallback until v0.25.2 is verified.
+## Implemented
+- Drag UX v0.25.2 squashed to stable Preview at `9bd902e56ddf05d0144e57604e899083535299d1` via PR #754.
+- Direct-source Feedback on actual full-height Diary preview; no generic "Diary entry" decoy or faded duplicate; maintain the proven TaskItem custom overlay/sensor contract.
+- Motion category/task/diary live insertion reflow; eliminate Motion-owned zero-height/opacity drag source; capture scroll geometry; optimistic diary placement until write settles; remount per day/account.
+- Added unit outside-drop regression and Playwright source-visible/reusable after release/cancel, settled-gap and empty-category target assertions. Expanded `docs/MANUAL_TASK_REORDER_ACCEPTANCE.md`.
+- Task focused, full production/PWA + 7/7 source size budgets, DOM and both final Playwright browser shards passed at task `d60056ff92086ed5bb4f022de56125c408b925e3`. The canonical gate for stable `9bd902e` is running.
+
+## Hosted blocking result and narrow repair
+- Vercel deployment `dpl_BLymkjjXmkVGRB7S5LALZtZS2aEA` of exact stable `9bd902e`: TS/Vite/PWA built; six budget metrics passed. Precache alone failed: 2,591,644 / 2,591,500 B (+144). Source CI was 2,589,393 B.
+- Measured fix: only `config/build-size-budget.json` `limits.precacheUniqueBytes` becomes 2,593,000 (+1,500), giving 1,356 B hosted margin. Pinned baseline and remaining six limits unchanged. The budget review includes exact hosted evidence and the previous review chain.
+- The failed v0.25.2 Vercel deployment is NOT ready for manual acceptance; v0.25.1 was the last READY fallback before this attempt. Validate stable Vercel alias against final exact SHA, not just project URL.
+
+## Unverified manual acceptance
+- Long/short tasks and Compact/Expanded Diary content including emoji/multiple photos; real iOS/Android long-press and desktop mouse/trackpad movement.
+- No ghost/decoy, no invisible rows after drop/cancel, uninterrupted smooth hover across populated/empty/collapsed categories, correct persistence and day/account switches.
+- Social quote/reaction/scratch Function paths are unchanged by this patch; active compatible Scratch backend remains `6acd0a6643868c68508c` as recorded on #408.
