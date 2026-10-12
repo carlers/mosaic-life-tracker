@@ -44,7 +44,7 @@ export function assertTrustedPreviewDeployment(deployment, sha) {
   const meta = deployment?.meta ?? {};
   if (!SHA.test(sha ?? '') || deployment?.projectId !== OFFICIAL_VERCEL_PROJECT_ID ||
       deployment?.readyState !== 'READY' ||
-      deployment?.target === 'production' ||
+      ![null, 'preview'].includes(deployment?.target) ||
       !['git', 'cli'].includes(deployment?.source) ||
       meta.githubCommitSha !== sha ||
       meta.githubOrg !== 'carlers' ||
@@ -55,6 +55,24 @@ export function assertTrustedPreviewDeployment(deployment, sha) {
     throw new Error('READY Vercel deployment identity did not match the trusted exact SHA');
   }
   return deployment.id;
+}
+
+// Shadow mode has read access only: absence of a matching Vercel Git
+// deployment must not silently fall through to a privileged POST.
+export function assertTrustedPreviewCreationEnabled(enabled) {
+  if (enabled !== 'true') {
+    throw new Error('Trusted Preview creation disabled: reuse-only shadow mode');
+  }
+}
+
+// A remote POST is a write even if the provider later rejects the build.
+// Reject an unexpected target *before* polling, aliasing or trusting its ID.
+export function assertTrustedPreviewCreateResponse(created) {
+  const id = created?.id ?? created?.uid;
+  if (created?.target !== null || typeof id !== 'string' || !id.startsWith('dpl_')) {
+    throw new Error('Vercel create response is not a verified Preview target');
+  }
+  return id;
 }
 
 export function trustedGitSource(sha) {

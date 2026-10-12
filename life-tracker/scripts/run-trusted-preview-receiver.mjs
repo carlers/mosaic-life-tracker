@@ -11,7 +11,8 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { assessTrustedPreviewTrigger, assertTrustedPreviewDeployment,
   trustedGitSource, trustedProjectScope, assertTrustedVercelProject, TRUSTED_PREVIEW_BRANCH,
-  TRUSTED_PREVIEW_ALIAS, TRUSTED_VERCEL_PROJECT } from './lib/trusted-preview-receiver.mjs';
+  TRUSTED_PREVIEW_ALIAS, TRUSTED_VERCEL_PROJECT,
+  assertTrustedPreviewCreationEnabled, assertTrustedPreviewCreateResponse } from './lib/trusted-preview-receiver.mjs';
 import { canaryHistoryStart } from './lib/preview-canary-context.mjs';
 
 const repo = 'carlers/mosaic-life-tracker';
@@ -136,6 +137,10 @@ async function main() {
   const since = canaryHistoryStart(seconds, Date.now());
   let id = await findDeployment(sha, since);
   if (!id) {
+    // The normal first-stage shadow pilot reuses Vercel's existing Git
+    // deployment. A missing candidate must never create Production or
+    // consume an extra deployment quota without separate explicit opt-in.
+    assertTrustedPreviewCreationEnabled(process.env.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED);
     // Fail before requesting a remote build if the linked GitHub repo,
     // monorepo root, or production branch configuration is unverified.
     const project = await get('https://api.vercel.com/v9/projects/' +
@@ -155,9 +160,7 @@ async function main() {
           meta: { mosaic_trusted_preview_sha: sha },
         }),
       });
-    id = created.id ?? created.uid;
-    if (typeof id !== 'string' || !id.startsWith('dpl_'))
-      throw new Error('Vercel did not return a deployment ID');
+    id = assertTrustedPreviewCreateResponse(created);
   }
   const deployment = await waitReady(id, sha);
   // Do not print the deployed JavaScript or environment inputs; only the
