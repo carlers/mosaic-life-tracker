@@ -1,19 +1,13 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Category Manager edit-form placement, v0.20.6 frontend-only Preview; no dev/main promotion.
+Current task: Category Manager expansion motion refinement, Preview v0.20.7 only.
 
-## Category Manager inline editor
-- Base: dev@dbde9515ecb611082f191d39e5ef71cfcecde3bc; task `chatgpt/category-editor-inline-20261012`; stable `fix/category-editor-inline-20261012`.
-- The category edit form is owned by the selected reorderable item, directly below its category row rather than after the whole list. Preserve grip-only dragging, existing edit data/save/cancel behavior, and theme tokens. A nearest-block scroll request reveals the form on narrow viewports without focusing the keyboard.
-- Editing errors render next to the active form, and selecting Add/Delete clears editing state and stale errors. DOM regression covers inline location, switch, reorder and retry.
-- v0.20.6 frontend-only; first stable Preview fd5d2d0 had green canonical CI 38237442456 but Vercel failed the GIPHY-enabled aggregate raw asset budget by 55 B (other six budgets pass). Follow-up repairs remove redundant generated DOM ID/aria-controls and now redundant cancel-only edit draft resets, preserving aria-expanded, adjacent editor, saved edits, cancellation and scroll reveal. First follow-up Vercel missed raw budget by just 11 B; the last two setters were not needed because each editor open seeds its own values. No Appwrite changes.
+## Category Manager editor motion
+- Source: stable `fix/category-editor-inline-20261012@ce7f8eba154548119a1b02cf032a992080ec0004` (v0.20.6, accepted functional Preview); task `chatgpt/category-editor-motion-20261012`.
+- Root cause: Framer Motion `Reorder.Item` defaults to scale-based layout projection. Inserting/removing the inline edit fields grows/shrinks the draggable card and scales its header, color dot, buttons and form (visually distorted).
+- Set `layout="position"` for category reorder items. Let siblings animate into new positions without applying size-scale to the card and its editable controls. Preserve grip-only drag, row-local editor, save/cancel, visibility, failure retry and scroll reveal. Existing DOM regressions guard functionality; actual motion needs hosted browser/device acceptance.
+- Remove redundant edit-draft resets on sheet close (each edit action reloads category values) to offset strict aggregate bundle headroom. No CSS/design-system/backend changes. Proposed Preview version 0.20.7.
+- v0.20.6 stable @ce7f8eb passed canonical Actions 38238226388 and GIPHY-enabled Vercel dpl_HUreDB96ZJSiBFNoC4694anDJqCm READY, all seven size budgets.
 
-Next action: Focused CI on second size repair, squash into stable Preview, then verify exact canonical CI and all seven GIPHY-enabled Vercel size budgets/READY. Await user mobile/desktop acceptance; no dev/main promotion.
-
-## Earlier workstreams (see GitHub issues for detailed historical checkpoints)
-- #656 v0.20.5 deferred first-open sheet improvements are integrated into dev.
-- #640 cold-open Day View responsiveness is accepted and integrated.
-- #655 PWA progress and the Me Categories entry point are integrated.
-- #645 generated component discovery index remains a separate Preview.
-- v0.20.2 incomplete Calendar TaskBlock category text/border preferences remain preserved.
+Next action: Run focused CI for task, squash to existing stable Preview, verify full canonical CI and exact Vercel Scratch READY with all seven unchanged GIPHY-enabled size budgets, then request manual mobile/desktop motion acceptance. No dev/main promotion.
