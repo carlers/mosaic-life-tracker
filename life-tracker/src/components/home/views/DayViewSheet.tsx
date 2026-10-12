@@ -58,13 +58,12 @@ import {
   SHOW_HOLIDAYS_SETTING_KEY,
 } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
+import { diaryPlacementKey, normalizeDiaryPlacement } from '../../../lib/diaryPlacement';
 import {
   EMPTY_HOLIDAYS,
   createHolidayDisplayConfig,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
-
-const LazyDiaryDayPreview = lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
 
 const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
@@ -1011,9 +1010,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         Shared completion pending sync
                       </p>
                     )}
-                    {diaryPosition === 'top' && showDiaryInDayView && i === activeIndex && !isSelectMode && (
-                      <Suspense fallback={null}><LazyDiaryDayPreview date={dateStr} /></Suspense>
-                    )}
+                    
                     <DaySlide
                       date={date}
                       dateStr={dateStr}
@@ -1067,10 +1064,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       reorderRuntimeActive={isOpen && i === activeIndex}
                       onReorderTasks={reorderTasks}
                       onReorderActiveChange={setIsTaskReorderActive}
+                      diaryEnabled={showDiaryInDayView && i === activeIndex && !isSelectMode}
+                      diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
+                      onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
                     />
-                    {diaryPosition === 'bottom' && showDiaryInDayView && i === activeIndex && !isSelectMode && (
-                      <Suspense fallback={null}><LazyDiaryDayPreview date={dateStr} /></Suspense>
-                    )}
+                    
                   </>
                 )}
               </div>

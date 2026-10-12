@@ -4,6 +4,9 @@ import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
+import type { DiaryPlacement } from '../../../lib/diaryPlacement';
+import { DiaryDayPreview } from './DiaryDayPreview';
+import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
 import {
   findTaskCategory,
   type ActiveTaskDrag,
@@ -58,6 +61,9 @@ export interface DaySlideProps {
     groups: readonly TaskOrderGroup[]
   ) => Promise<void> | void;
   onReorderActiveChange?: (active: boolean) => void;
+  diaryEnabled?: boolean;
+  diaryPlacement?: DiaryPlacement;
+  onMoveDiary?: (target: DiaryPlacement) => Promise<void> | void;
 }
 
 interface DaySlideContentProps extends DaySlideProps {
@@ -104,6 +110,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   reorderRuntimeActive = false,
   tasksByCategory,
   activeDrag,
+  diaryEnabled = false,
+  diaryPlacement = { kind: 'top' },
 }) => {
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
@@ -114,6 +122,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         null
       : null;
 
+  const hasPlacementCategory = diaryPlacement.kind === 'slot' && categories.some(cat => cat.id === diaryPlacement.categoryId);
+  const fallbackPlacement = hasPlacementCategory ? diaryPlacement : { kind: 'top' as const };
+  const diaryCard = diaryEnabled ? (reorderRuntimeActive ? <DraggableDiaryDayPreview date={dateStr}/> : <DiaryDayPreview date={dateStr}/>) : null;
   const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
   const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
   // Own the action sheet above category rows: moving a share must not unmount
@@ -146,12 +157,15 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         reorderRuntimeActive ? 'true' : undefined
       }
     >
+      {diaryEnabled && fallbackPlacement.kind === 'top' && diaryCard}
       {categories.map((category) => (
         <CategorySection
           key={category.id}
           categoryId={category.id}
           categoryName={category.name}
           categoryColor={category.color}
+          diarySlot={diaryEnabled && fallbackPlacement.kind === 'slot' && fallbackPlacement.categoryId === category.id ? diaryCard : undefined}
+          diarySlotIndex={fallbackPlacement.kind === 'slot' ? fallbackPlacement.index : 0}
           visibility={category.visibility}
           currentUserId={currentUserId}
           tasks={tasksByCategory.get(category.id) ?? []}
@@ -190,6 +204,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           dragGapHeight={activeDrag?.rowHeight ?? 0}
         />
       ))}
+      {diaryEnabled && fallbackPlacement.kind === 'bottom' && diaryCard}
       {!selectionMode && unassignedShares.length > 0 &&
         onSharedCompletion && sharedPendingFor && (
         <SharedTaskRows items={unassignedShares} {...sharedRowProps} />

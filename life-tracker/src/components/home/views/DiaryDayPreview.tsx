@@ -12,11 +12,12 @@ interface DiaryDayCardProps {
   entry?: DiaryDocument;
   onOpen: () => void;
   expanded?: boolean;
+  dragHandleRef?: React.Ref<HTMLButtonElement>;
 }
 
 /** The same compact visual rhythm as a TaskBlock, without pretending to be a task. */
-export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, expanded = false }) => (
-  <button type="button" onClick={onOpen} data-testid="diary-day-card"
+export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, expanded = false, dragHandleRef }) => (
+  <button ref={entry ? dragHandleRef : undefined} type="button" onClick={onOpen} data-testid="diary-day-card"
     aria-label={entry ? 'Read diary entry' : 'Add diary entry'}
     className="flex min-w-0 w-full items-start gap-3 rounded-xl bg-surfaceHighlight px-4 py-3 text-left text-white outline-offset-2 transition-colors hover:bg-surface focus-visible:outline focus-visible:outline-2">
     <span className="flex h-6 w-6 shrink-0 items-center justify-center text-gray-400" aria-hidden="true">
@@ -35,7 +36,7 @@ export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, expan
 );
 
 /** Opt-in owner Day View card, managed by the existing local-first diary hook. */
-export const DiaryDayPreview: React.FC<{ date: string }> = ({ date }) => {
+export const DiaryDayPreview: React.FC<{ date: string; dragHandleRef?: React.Ref<HTMLButtonElement> }> = ({ date, dragHandleRef }) => {
   const { getEntryByDate, saveEntry, deleteEntry } = useDiary();
   const { getSetting } = useSettings();
   const [open, setOpen] = useState(false);
@@ -44,7 +45,7 @@ export const DiaryDayPreview: React.FC<{ date: string }> = ({ date }) => {
   return (
     <>
       <div className="mx-4 my-2 min-w-0">
-        <DiaryDayCard entry={entry} onOpen={() => setOpen(true)} expanded={expanded}/>
+        <DiaryDayCard entry={entry} onOpen={() => setOpen(true)} expanded={expanded} dragHandleRef={dragHandleRef}/>
       </div>
       {open && <DiaryEntrySheet key={date} date={date} entry={entry} author="Me"
         onSave={saveEntry} onDelete={deleteEntry} onClose={() => setOpen(false)} />}
