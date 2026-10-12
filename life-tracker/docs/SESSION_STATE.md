@@ -1,22 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: #708 chat reliability; stable Preview work. No dev/main or Production promotion.
+Current task: Issue #708, message delivery and cross-device reconciliation. No dev/main or Production promotion.
 
-## Verified state
-- Baseline: `dev@b878519` v0.20.6. Stable Preview: `fix/chat-reliability-708-20261012`. Task source: `chatgpt/708-message-reliability-20261012`. Full hardened plan and acceptance gates are in GitHub issue #708.
-- Batch: `message-action/deliver` rejects uncertain lookup, conflicting/unsent peer rows and partial sender commits; client validates ack and retries pending transient sends with owner-scoped backoff. Composer retains drafts on failed local save and blocks duplicate submission. Full Sync Now fails rather than deleting an outgoing message missing from its owner's remote rows. Existing global Sync Status/Sync Now is the available manual sync UI; the attempted extra chat shortcut was removed for size.
-- Regression tests: handler pair failure, uncertain read, unsent conflict, partial retry; client malformed receipt and timed retry; composer draft/double send; full-sync orphan preservation.
-- Candidate version v0.24.0 remains in all three version files (check concurrent feature lines before promotion).
-- Canonical Quality Gate SUCCESS for stable 9c296eed (38241874387) and 22613ee3 (38243099608); intermediate task focused runs 38241476695, 38242472808 and 38242961110 SUCCESS.
-- Stable Preview head `22613ee3`: Vercel `dpl_BkedDMzXLLFEPZitYucdJMJJsBre` ERROR on appAssetsRaw +475 B, gzip +94 B, precache +282 B; the other four size ceilings passed. Earlier candidates 9c296eed/590ab598 likewise failed size budgets. Do not raise ceilings.
-- Repair #3 PR #723 merged stable @ b3e2180d; focused CI 38244421089 SUCCESS, canonical run 38244593303 initiated, but Vercel dpl_ECiz2QcbU4m9DwKmv1rCnCCgDcxT ERROR (raw +382 B, gzip +76 B, precache +189 B). Repair #4 PR #725 merged stable @ 49aaf2d9; focused 38244856284 SUCCESS; Vercel dpl_3GHdmWtKudMb4APuv3wp7Y4xZQCd ERROR (raw +195 B, gzip +18 B, precache +2 B). Current repair task `chatgpt/708-size-guard-log-20261012` trims equivalent logs/owner retry scope without changing behavior.
-- Scratch `message-action` Function 6aa8057f002a4c306fdd was last observed live on deployment 6accb9addc5321121ebb. **New server code is not active**. Shared Scratch and Production were not mutated.
+## Verified baseline
+- Stable Preview `fix/chat-reliability-708-20261012@c2f7b00f2aa277057314477a4a96e990fd297215` v0.24.0; canonical Quality Gate 38245940586 SUCCESS; exact-SHA Vercel deployment `dpl_7p15qDzbzpQegqw9495rCV6KvD22` READY, 7/7 asset budgets PASS; stable alias `mosaic-life-tracker-git-fix-chat-9dae4d-carls-projects-72516fde.vercel.app`. `dev` was `b878519`.
+- Initial improvements: fail-closed two-row delivery, receipt validation, transient retry, compose draft retention/double-send prevention, conservative orphan preservation by global Sync Now. Tests added and passing in stable canonical CI.
+- Authorized Scratch rollout on project `6a96e82d000d1310b3be` and Function `6aa8057f002a4c306fdd`: checked old source at Git SHA `0c0a7a36`, where all helper files matched target and only `main.js` differed. Packaged 11 exact Git blobs from `c2f7b00` into a gzip tar, built **inactive** `6accd2fa220cb704e674` READY, and requested activation. A subsequent read-back confirmed it became the active Scratch deployment. Prior rollback deployment `6accb9addc5321121ebb` retained. One harmless invalid-format deliver execution returned 400. No real two-account messaging smoke or user browser/device test has been performed. No Production writes.
 
-## Outstanding acceptance
-No READY Preview or Scratch two-account/browser/mobile verification yet. Function exact-SHA deployment needs safe coordination with concurrent Scratch users. Older partial-pair repair, permanent denial UX, latency measurements and cross-device convergence remain unproven. #682 notifications remain deferred.
+## Current task branch and design
+- Task branch: `chatgpt/708-thread-repair-20261012` from v0.24.0 stable Preview. Candidate v0.24.1 in the three standard version files.
+- Server `repair_thread` action: mutually accepted friend validation; two staged owner-scoped pages (self then peer) of <=50 rows ordered by created_at; deterministic `msg_ / rmsg_` identity and owner checks; create only missing, non-deleted/non-unsent counterpart rows with recipient-only permissions; reject conflicts/uncertain reads; handle duplicate create race safely; bounded cursors.
+- Client `reconcileChat` invoked through Chat header Sync: attempt pending delivery; fail closed while local pending persists; walk at most 30 repair pages with owner-generation guard; await existing global `syncNow` freshness and reconciliation before claiming success. No always-on extra polling.
+- Added handler and client-unit regressions for both-side repair, permissions, unsend/delete preservation, pagination, conflict, race, freshness, pending, account switch.
+- **New v0.24.1 source has not been deployed** to either Vercel or Scratch; the current active Function is the earlier v0.24.0 code. Avoid an inconsistent new server/client rollout.
 
-- Repair #5 PR #727 stable @ 46e2413e, canonical Quality Gate 38245358279 SUCCESS. Initial Vercel git_info_fail; exact-source redeploy dpl_GtyTiU5Mdw8sinM4krGscNMrLm17 built but raw assets +83 B (6/7 budgets pass).
-- Current task repair `chatgpt/708-last-size-bytes-20261012`: identical retry scope and shorter diagnostic strings, plus concise failed-local-save notice. No budget increase.
+## Remaining gates
+- Run focused CI (repair test failures), review code, squash into stable Preview, verify canonical CI and Vercel READY against exact version/SHA and unchanged size budgets.
+- Once those pass, compare active Scratch helper SHA compatibility, package exact new Function commit, inactive READY build, carefully activate, and read back. Retain prior rollback ID. Check index schema and Scratch auth/origins. Test with disposable two-account, two-browser flows only (never production data).
+- Historic partial-pair reconstruction is possible only where one safe server copy survives; no rollback/resurrection of intentionally unsent/deleted content. Still need latency baselines, mobile/browser manual acceptance, and release decision. Issue #682 stays deferred.
 
-Next action: focused CI, promote repair into stable Preview, verify canonical + Vercel READY against exact SHA; then coordinate Scratch Function build/activation and two-account acceptance separately. No dev/main or Production changes.
+Next action: focused verification for v0.24.1, repair failures, then stable Preview canonical + Vercel acceptance and compatible Scratch Function activation. Do not merge to dev/main before user acceptance.
