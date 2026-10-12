@@ -63,7 +63,7 @@ interface CategoryRowProps {
   onReorderEnd: () => void;
   disabled: boolean;
   isEditing: boolean;
-  orderSignature: string;
+  orderSignature: string[];
   children?: React.ReactNode;
 }
 
@@ -142,9 +142,10 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
         </button>
       </div>
       <div
-        className={`grid transition-all duration-200 ease-in-out motion-reduce:transition-none ${isEditing ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        className="grid transition-all duration-200 ease-in-out motion-reduce:transition-none"
+        style={{ gridTemplateRows: isEditing ? '1fr' : '0fr' }}
         onTransitionEnd={(event) => {
-          if (isEditing && event.target === event.currentTarget) {
+          if (isEditing && event.propertyName === 'grid-template-rows') {
             editPanelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
           }
         }}
@@ -200,7 +201,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     });
   }, [categories, orderedIds]);
   const pendingOrder = useRef(orderedCategories);
-  const orderSignature = orderedCategories.map((cat) => cat.id).join('|');
+  
 
   const resetForm = () => {
     setIsAdding(false);
@@ -270,10 +271,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     );
   };
 
-  const handleCancelDelete = () => {
-    setDeleteId(null);
-  };
-
   const handleEditCancel = () => {
     reset();
     setEditingId(null);
@@ -299,7 +296,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               cat={cat}
               overriddenCount={overriddenCounts.get(cat.id) ?? 0}
               isEditing={editingId === cat.id}
-              orderSignature={orderSignature}
+              orderSignature={orderedIds}
               onEditStart={(c) => {
                 reset();
                 setIsAdding(false);
@@ -390,7 +387,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               Tasks in this category will be moved to the default category.
             </p>
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={handleCancelDelete} className="flex-1" disabled={isSaving}>
+              <Button variant="ghost" onClick={() => setDeleteId(null)} className="flex-1" disabled={isSaving}>
                 Cancel
               </Button>
               <Button variant="danger" onClick={handleConfirmDelete} className="flex-1" disabled={isSaving}>

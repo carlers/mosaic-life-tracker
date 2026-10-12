@@ -1,14 +1,13 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Category Manager expansion/switch correction, Preview v0.20.8 only.
+Current task: Category Manager editor motion, v0.20.8 Preview; no dev/main promotion.
 
-## Scope and evidence
-- Base stable `fix/category-editor-inline-20261012`; original motion height task `chatgpt/category-editor-motion-flow-20261012` passed focused/browser 38242677389, stable squash @41e31f6 failed Vercel GIPHY-enabled +932 B raw.
-- CSS-grid correction `chatgpt/category-editor-css-flow-repair-20261012` @697df03 passed focused/browser 38243874798; stable squash @25951f6 passed full canonical 38244115213, but Vercel dpl_53UqcMqT4RtjMntsS88Qz9s4JcxD failed GIPHY size budget (+745 B raw, +141 B gzip, +552 B precache; initial closure +9 B). All other checks pass; do not relax limits.
-- Layout root cause: `Reorder.Item layout="position"` projects sibling transforms against instantly inserted editor height. Correction retains closing form markup and animates real height with CSS grid track 0fr↔1fr while `layoutDependency` limits projection to actual reorder. Closed controls inert/aria-hidden. Scroll after opening transition. Responsive and grip-only drag semantics preserved.
-- Size-optimization follow-up consolidates duplicate new-category reset functions in CategoryManager and uses existing transition-all utility instead of a dedicated grid transition utility without changing behavior.
-- Browser frame-by-frame geometry regression in `tests/e2e/interaction-contract.spec.mjs` renders real CategoryRow and verifies no overlap during open, switch and rapid interrupted switch; other DOM tests protect Save/Cancel/visibility/error retry.
-- Version remains v0.20.8, frontend only, no Appwrite, dev or main changes.
+## Category Manager motion/size repair
+- Stable Preview: `fix/category-editor-inline-20261012`. The original v0.20.7 category editor used full-height mounting plus Motion position projection, causing mid-transition collisions during opening and switching. v0.20.8 adds a real-height CSS grid 0fr/1fr transition with clipped outgoing editor, inactive controls inert/aria-hidden, deferred scroll, and reorder layoutDependency.
+- Browser geometry regression tests the real CategoryRow in the interaction harness, sampling adjacent row boundaries through open, switch, interrupted switch. Task browser checks and full canonical CI through stable @26ec3b5b2dc856a69b3279dc45f94f53afff98f5 passed (run 38245256079).
+- Vercel Scratch/GIPHY deployment dpl_HjfYSwJY5bjVdur8Ujd6LQMX6oqU failed strict unchanged build-size caps (+463 B raw, +111 B gzip, +270 B precache, +4 B initial closure) despite green canonical CI; no budget changes permitted.
+- Scoped further repair: apply grid-row interpolation via inline gridTemplateRows to remove two generated Tailwind arbitrary utilities, pass stable orderedIds directly for reorder layout dependency, and trim redundant delete helper/scroll event checks. This preserves the editor behavior and avoids unrelated refactors.
+- All work is frontend only; keep v0.20.8, no Appwrite changes or dev/main merges. Manual mobile/desktop motion acceptance must not be claimed from automated tests.
 
-Next action: Focused/browser verification for size correction, squash into stable Preview, verify canonical CI and strict unchanged Vercel budgets. If budgets still fail, keep blocked with exact metrics rather than weakening guards; human mobile/desktop Preview acceptance after ready.
+Next action: Run focused/browser task CI, squash to existing stable Preview, require exact canonical acceptance and Vercel READY with all seven GIPHY-enabled size caps green. If build size still fails, investigate scoped measured reductions without moving caps. Then hand off the updated Preview for user testing.
