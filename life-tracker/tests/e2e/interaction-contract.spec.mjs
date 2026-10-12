@@ -734,6 +734,25 @@ test('task long-press stays under the finger while siblings reorder, then persis
       (rows) => rows.map((row) => row.getAttribute('data-task-id'))
     ))
     .toEqual(['task_0_1', 'task_0_2', 'task_0_0']);
+
+  // Regression: releasing or canceling a drag may not strand a hidden source.
+  const visibleAtRest = async () => region.locator('[data-task-id^="task_0_"]')
+    .evaluateAll((rows) => rows.length === 3 && rows.every((row) => {
+      const rect = row.getBoundingClientRect();
+      const style = getComputedStyle(row);
+      return rect.width > 0 && rect.height > 0 &&
+        style.visibility !== 'hidden' && Number(style.opacity) > 0;
+    }));
+  await expect(region.locator('[data-task-source-slot="true"]')).toHaveCount(0);
+  await expect.poll(visibleAtRest).toBe(true);
+
+  const cancelTarget = region.locator('[data-task-id="task_0_1"]')
+    .getByRole('button', { name: 'Task 1.2', exact: true });
+  const canceled = await startTaskLongPress(page, cancelTarget);
+  await expect(region.locator('[data-task-source-slot="true"]')).toHaveCount(1);
+  await canceled.cancel();
+  await expect(region.locator('[data-task-source-slot="true"]')).toHaveCount(0);
+  await expect.poll(visibleAtRest).toBe(true);
 });
 
 test('task can move into another populated category at the projected position', async ({ page }) => {
