@@ -79,9 +79,11 @@ async function findDeployment(sha, since) {
       return m.githubCommitSha === sha && m.githubOrg === 'carlers' &&
         m.githubRepo === 'mosaic-life-tracker' &&
         [TRUSTED_PREVIEW_BRANCH, 'HEAD'].includes(m.githubCommitRef) &&
-        ['git', 'cli'].includes(dep.source) &&
+        // Vercel LIST omits source and projectId even for genuine Git
+        // deployments. The query is already project-scoped; FULL identity
+        // and project/source are checked by getDeployment() before use.
         ['READY', 'BUILDING', 'QUEUED', 'INITIALIZING'].includes(dep.readyState ?? dep.state) &&
-        dep.target !== 'production' && dep.projectId === projectId;
+        dep.target !== 'production';
     });
     if (accepted?.id) return accepted.id;
     const next = body.pagination.next;
