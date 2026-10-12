@@ -22,8 +22,13 @@ Current task: Mosaic issue #656 first-open lazy sheets, approved task implementa
 - Previously a browser contract intermittently failed in an unrelated category drag test (`interaction-contract.spec.mjs:899`); it passed on other same-feature stable runs. Full green canonical on exact final SHA is mandatory; do not dismiss without proof.
 - No private-device warm/cold latency measurement is available. Keep browser/CI and device acceptance distinct.
 
+## Aggregated budget repair
+- After PR #668, stable `6ef2234f50a2d4ba43c3766659617080de426433` preserved the original Home closure budget, but GIPHY-enabled Scratch Vercel `dpl_5R55Bgj5o6JRqjFgg7V932NYpBF2` still exceeded only three aggregate caps: raw +24 B, gzip +82 B, precache +143 B. The app was not deployed ready.
+- Current task `chatgpt/656-aggregate-trim-7` removes redundant Notifications pointer/hover/focus preloading listeners and Chat sticker hover/focus hints. Delayed module warmup after view readiness remains in both pages; Chat pointerdown still retains intent warming without stealing composer focus. The DOM test now asserts the pointer-only contract. This is an implementation-size change with no visible design or backend change.
+- All seven limits remain unchanged; do not claim a usable Preview until GitHub canonical and exact GIPHY-enabled Vercel builds pass.
+
 ## Next action
-1. On `chatgpt/656-core-batch-a`, restore only `src/pages/HomePage.tsx` to dev, update this checkpoint, run task focused CI.
+1. Verify aggregate-size repair task `chatgpt/656-aggregate-trim-7` focused CI, then squash into stable Preview.
 2. Squash into stable Preview after focused green. Require full canonical GitHub SUCCESS and exact-Git-SHA GIPHY-enabled Scratch Vercel READY, with seven size limits unchanged.
 3. Verify stable alias, backend environment and version v0.19.5. Post durable #656 issue checkpoint with evidence, Preview link and remaining second-batch scope.
 4. Device acceptance pending: immediately after fresh launch and after idle, Chat sticker and Notifications friend-day first vs repeat open, touch/keyboard/focus/Back/Escape, offline/PWA; ensure owner Day View #640 unchanged. Do not merge to dev/main without authorization.

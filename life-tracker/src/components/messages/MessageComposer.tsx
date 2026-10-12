@@ -108,8 +108,6 @@ export const MessageComposer = forwardRef<
                 event.preventDefault();
                 if (!disabled) onPrepareStickers?.();
               }}
-              onMouseEnter={() => { if (!disabled) onPrepareStickers?.(); }}
-              onFocus={() => { if (!disabled) onPrepareStickers?.(); }}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-300 hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50">
               <Sticker size={21} aria-hidden="true" />
             </button>

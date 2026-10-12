@@ -58,9 +58,6 @@ const { Component: AlertFriendDaySheet, preload: preloadAlertFriendDaySheet } =
   createPreloadedLazy(() =>
     import('../components/friend/AlertFriendDaySheet').then(m => m.AlertFriendDaySheet)
   );
-const prepareAlertFriendDay = () => {
-  void preloadAlertFriendDaySheet().catch(() => {});
-};
 
 interface NotificationsPageProps {
   preview?: boolean;
@@ -655,9 +652,6 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                                    setDayOwnerId(userId);
                                    setDayOpen(true);
                                  }}
-                                onPointerDown={prepareAlertFriendDay}
-                                onMouseEnter={prepareAlertFriendDay}
-                                onFocus={prepareAlertFriendDay}
                                 className="w-full break-words text-left text-[0.95rem] leading-snug text-gray-100 disabled:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                                 aria-label={`View ${item.task.title} in friend day view`}>
                                 {item.task.title}
