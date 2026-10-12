@@ -75,4 +75,33 @@ describe('diary reference and reaction security', () => {
         diary_ref_id: diary.$id, diary_ref_owner_id: owner,
       }) }));
   });
+
+  it('does not emit any social activity for removal of an absent reaction', async () => {
+    const db = acceptedDb();
+    const result = await invoke({ userId: caller, mockDb: db, body: {
+      action: 'react_to_diary', friendUserId: owner, diaryId: diary.$id,
+      emoji: '🔥', op: 'remove',
+    } });
+    expect(result.status).toBe(200);
+    expect(result.body.changed).toBe(false);
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
+  it('summarizes owner reactions only for the authorized diary owner', async () => {
+    const db = acceptedDb();
+    db.getRow.mockImplementation(({ tableId }: { tableId: string }) =>
+      tableId === 'diary'
+        ? Promise.resolve({ ...diary, user_id: owner })
+        : Promise.reject(missing));
+    db.listRows.mockImplementation(({ tableId }: { tableId: string }) =>
+      Promise.resolve({ rows: tableId === 'diary_reactions'
+        ? [{ diary_id: diary.$id, owner_id: owner, user_id: caller, emoji: '🔥', deleted: false }]
+        : [friend] }));
+    const result = await invoke({ userId: owner, mockDb: db, body: {
+      action: 'get_owner_diary_reactions', diaryId: diary.$id,
+    } });
+    expect(result.status).toBe(200);
+    expect(JSON.parse(result.body.reactions)).toEqual([{ emoji: '🔥', userIds: [caller] }]);
+  });
+
 });

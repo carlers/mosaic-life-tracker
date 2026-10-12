@@ -255,7 +255,11 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         const key = event.operation.target ? String(event.operation.target.id) : '';
         const direct = key === 'diary-boundary:top' || key === 'diary-boundary:bottom'
           ? { kind: key.endsWith('top') ? 'top' as const : 'bottom' as const } : null;
-        const location = direct ?? diaryTargetRef.current;
+        // A canceled/outside release must never commit the last stale hover target.
+        const drop = key ? parseDropTarget(key) : null;
+        const location = direct ?? (drop && categoryIds.includes(drop.categoryId)
+          ? placementFromTaskDrop(drop, displayPlacement[drop.categoryId] ?? [])
+          : null);
         diaryTargetRef.current = null;
         diaryDragRef.current = false;
         setDiaryDragging(false);

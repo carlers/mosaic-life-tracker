@@ -1121,12 +1121,14 @@ async function handleReactToDiary(tablesDB, callerId, payload, log, error) {
   try { existing = await tablesDB.getRow(table); } catch (cause) {
     if (Number(cause?.code) !== 404) throw cause;
   }
+  let created = false;
   if (!existing && op === 'add') {
     try {
       await tablesDB.createRow({ ...table, data: {
         diary_id: diaryId, owner_id: ownerId, user_id: callerId, date: diary.date,
         emoji: valid.value, deleted: false, created_at: now, updated_at: now,
       }, permissions: [] });
+      created = true;
       existing = { diary_id: diaryId, owner_id: ownerId, user_id: callerId, deleted: false, updated_at: now };
     } catch (cause) {
       if (Number(cause?.code) !== 409) throw cause;
@@ -1137,9 +1139,9 @@ async function handleReactToDiary(tablesDB, callerId, payload, log, error) {
   if (existing.diary_id !== diaryId || existing.user_id !== callerId ||
     existing.owner_id !== ownerId)
     return { status: 403, body: { error: 'Diary reaction unavailable' } };
-  const changed = Boolean(existing.deleted) === (op === 'add');
+  const changed = created || Boolean(existing.deleted) === (op === 'add');
   const eventAt = changed ? now : (existing.updated_at || existing.created_at);
-  if (changed) {
+  if (changed && !created) {
     await tablesDB.updateRow({ ...table, data: { deleted: op === 'remove', updated_at: now } });
   }
   if (op === 'add') {

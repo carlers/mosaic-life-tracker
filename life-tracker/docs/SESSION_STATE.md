@@ -1,10 +1,10 @@
-# Session checkpoint
-Updated: 2026-10-12
-Current task: #408 — seven diary refinement regressions on isolated task branch.
+# Session checkpoint — Mosaic issue #408
 
-- Source baseline: `feature/diary-408@09b905b693159b14c27cdae605288bfb84295691`, v0.25.0, previously canonical CI successful. `dev`, `main` and Production are not authorized for promotion.
-- Working branch: `chatgpt/408-diary-refinements-20261012`, v0.25.1 candidate. Latest issue comment documents seven acceptance requirements and hardened plan.
-- In-progress: owner double-tap-to-edit with tap disambiguation; Calendar Day View diary card and typed live diary-drag gap plus motion interpolations.
-- Not yet accepted: social reply content navigation, owner-side reaction hydration, reaction-message events; automated CI/Preview, cross-account Scratch, mobile/browser/device validation.
-- Shared Scratch Function/schema changes require an explicit coordinated activation approval, even if frontend and backend source are prepared. Do not modify Production or merge to dev/main.
-Next: finish seven refinements, add relevant regressions, run task focused CI, squash into stable Preview for canonical Actions + Vercel READY, report real backend/manual blockers.
+Updated: 2026-10-12; status: refinement candidate, NOT released or approved.
+
+- Exact source baseline: `feature/diary-408@09b905b693159b14c27cdae605288bfb84295691`, v0.25.0; all changes on `chatgpt/408-diary-refinements-20261012`, v0.25.1 candidate. Do not merge to `dev`/`main`.
+- Scope: double-tap Diary card directly into editor (plus owner reader content double-tap), live diary hover/drop gap alongside tasks, reduced-motion-aware FLIP-style displacement, opted-in calendar Day View diary card, typed diary reference messages and click-to-view authorization, owner reaction ledger projection, server-owned idempotent reaction activity, additive message reference migration. See latest #408 plan/comment for exact seven acceptance items.
+- Data: four optional new message columns and `get_owner_diary_reactions`/reaction activity Function code. A source commit or Vercel Preview alone does NOT install these into shared Scratch. SCRATCH/Production changes are **not** authorized by the code-implementation request; follow Scratch single-writer and exact-commit Function/migration readiness separately, requiring explicit approval.
+- Source focused verification before the final batch: TypeScript PASS, lint PASS (five unrelated/pre-existing warnings), focused diary test suites 14/14 PASS. One full Vitest run was terminated (exit 143), not accepted. New DOM/handler tests, bundle size review, final CI and browser verification remain to be rerun on exact final SHA.
+- Measured source build on task SHA fda2b1cc: production bundle/service-worker generation succeeds; before measured budget review four guard limits fail: Home gzip 367,481/367,300 B, aggregate raw 2,499,510/2,493,000 B, aggregate gzip 777,960/777,000 B, precache 2,588,093/2,581,000 B. Entry raw/gzip and initial closure PASS. `config/build-size-budget.json` changes only those four ceilings, preserving pinned historical baseline, documented with numbers and #408 review; must rerun exact-tree source and Vercel build.
+- Next: inspect focused task CI results, fix actual failures, squash approved task PR to stable `feature/diary-408` only after success, then confirm canonical GitHub Actions, Vercel READY, Scratch identity and backend migration gate before calling Preview testable. Phone/browser + two-account social acceptance not yet performed. Issue remains open.
