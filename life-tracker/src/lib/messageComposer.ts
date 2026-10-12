@@ -37,6 +37,10 @@ export interface OutgoingMessageInput {
   taskRefTitle?: string;
   taskRefDate?: string;
   taskRefColor?: string;
+  diaryRefId?: string;
+  diaryRefOwnerId?: string;
+  diaryRefDate?: string;
+  diaryRefExcerpt?: string;
   replyTo?: ReplyContext;
 }
 
@@ -55,6 +59,10 @@ export function buildOutgoingMessage(
     taskRefTitle: input.taskRefTitle || '',
     taskRefDate: input.taskRefDate || '',
     taskRefColor: input.taskRefColor || '',
+    diaryRefId: input.diaryRefId || '',
+    diaryRefOwnerId: input.diaryRefOwnerId || '',
+    diaryRefDate: input.diaryRefDate || '',
+    diaryRefExcerpt: input.diaryRefExcerpt || '',
     replyToId: input.replyTo?.id || '',
     replyToContent: input.replyTo
       ? truncateForSnapshot(input.replyTo.content)
@@ -172,6 +180,24 @@ export async function sendTaskReactionMessage(
       taskRefTitle: task.title,
       taskRefDate: task.date,
       taskRefColor: categoryColor,
+    })
+  );
+}
+
+
+/** Private DM response to a diary entry, with independent typed reference fields. */
+export async function sendDiaryReplyMessage(
+  userId: string, friendId: string,
+  diary: Pick<import('../db/schema').DiaryDocument, 'id' | 'userId' | 'date' | 'content' | 'emoji' | 'photos'>,
+  content: string
+): Promise<void> {
+  const excerpt = diary.content.replace(/\s+/g, ' ').trim().slice(0, 120) ||
+    (diary.emoji ? diary.emoji : diary.photos && diary.photos !== '[]' ? 'Diary photos' : 'Diary entry');
+  await insertAndDeliverOutgoing(userId, friendId, ({ threadId, now, localId }) =>
+    buildOutgoingMessage({
+      userId, friendId, threadId, now, localId, content,
+      diaryRefId: diary.id, diaryRefOwnerId: diary.userId,
+      diaryRefDate: diary.date, diaryRefExcerpt: excerpt,
     })
   );
 }

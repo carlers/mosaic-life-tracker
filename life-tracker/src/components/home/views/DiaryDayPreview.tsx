@@ -21,9 +21,9 @@ export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, onEdi
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapAt = useRef(0);
   const clearPending = () => { if (pending.current) clearTimeout(pending.current); pending.current = null; };
-  useEffect(() => clearPending, []);
-  const handleClick = () => {
-    if (!entry || !onEdit) { onOpen(); return; }
+  useEffect(() => () => { if (pending.current) clearTimeout(pending.current); }, []);
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (event.detail === 0 || !entry || !onEdit) { clearPending(); onOpen(); return; }
     const now = Date.now();
     if (pending.current && now - lastTapAt.current < 280) {
       clearPending(); lastTapAt.current = 0; onEdit(); return;
@@ -33,7 +33,6 @@ export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, onEdi
   };
   return (
   <button ref={entry ? dragHandleRef : undefined} type="button" onClick={handleClick}
-    onDoubleClick={onEdit ? (event) => { event.preventDefault(); clearPending(); onEdit(); } : undefined}
     onPointerCancel={clearPending} onDragStart={clearPending} data-testid="diary-day-card"
     aria-label={entry ? (onEdit ? 'Read diary entry, double tap to edit' : 'Read diary entry') : 'Add diary entry'}
     className="flex min-w-0 w-full items-start gap-3 rounded-lg py-2 pl-0 pr-2 text-left text-white outline-offset-2 transition-colors hover:bg-surfaceHighlight focus-visible:outline focus-visible:outline-2">

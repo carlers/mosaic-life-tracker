@@ -270,6 +270,31 @@ export async function reactToFriendDiary(
     throw new FriendAccessError('Diary reaction could not be saved.', 'server');
 }
 
+
+/** Server-owned reaction ledger. No reactions are stored in owner diary CAS rows. */
+export async function fetchOwnerDiaryReactions(diaryId: string): Promise<string> {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/.test(diaryId)) {
+    throw new FriendAccessError('Invalid diary entry.', 'server');
+  }
+  if (getConnectivitySnapshot().status !== 'online') {
+    throw new FriendAccessError('Reactions require a connection.', 'offline');
+  }
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({ action: 'get_owner_diary_reactions', diaryId }),
+    async: false, xpath: '/', method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed' || execution.responseStatusCode !== 200) {
+    throw new FriendAccessError('Reactions are unavailable.', 'server');
+  }
+  const result: unknown = JSON.parse(execution.responseBody);
+  if (!result || typeof result !== 'object' ||
+    typeof (result as { reactions?: unknown }).reactions !== 'string') {
+    throw new FriendAccessError('Invalid reactions response.', 'server');
+  }
+  return (result as { reactions: string }).reactions;
+}
+
 /** A single private photo, returned only after fresh server-side diary ACL checks. */
 export async function fetchFriendDiaryPhoto(friendUserId: string, diaryId: string, fileId: string): Promise<Blob> {
   const execution = await guardedFunctions.createExecution({
