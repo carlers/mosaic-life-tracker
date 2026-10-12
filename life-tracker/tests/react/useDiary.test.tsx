@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const storedDocs = vi.hoisted(() => ({ current: [] as any[] }));
+const storedDocs = vi.hoisted(() => ({ current: [] as Record<string, unknown>[] }));
 const upsertMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 vi.mock('../../src/db/database', () => ({
   getDatabase: () => ({
