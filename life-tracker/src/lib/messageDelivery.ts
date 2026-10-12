@@ -96,7 +96,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
         if (!isAccountWorkCurrent(userId, generation)) break;
         loopCount++;
         if (loopCount > MAX_DELIVERY_LOOPS) {
-          console.warn('Chat send loop limit');
+          console.warn('Chat send limit');
           break;
         }
         deliveryRequestedDuringFlight = false;
@@ -111,7 +111,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             },
           }).exec();
         } catch (err) {
-          console.error('Chat scan failed:', err);
+          console.error(err);
           break;
         }
         if (!isAccountWorkCurrent(userId, generation)) break;
@@ -130,7 +130,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           } catch (err) {
             if (shouldQueueMessageAction(err))
               scheduleDeliveryRetry(userId, generation);
-            console.error('Chat send failed:', doc.id, err);
+            console.error(doc.id, err);
           }
         }
 
