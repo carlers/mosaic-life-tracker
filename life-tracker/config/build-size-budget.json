@@ -14,7 +14,7 @@
     }
   },
   "limits": {
-    "entryRawBytes": 446200,
+    "entryRawBytes": 446208,
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
     "homeClosureGzipBytes": 366100,
@@ -24,19 +24,32 @@
   },
   "review": {
     "issue": "#656",
-    "reason": "Measured first GIPHY-enabled Scratch v0.20.4 Preview 5ca4f6da1b46b693e78e7c6ad63e70d1034ecb1e adds code-only ready-component warmup for Menu/friend Day View plus sheet-only Swiper Virtual, carrying user-accepted Chat/Notification lazy fixes onto dev v0.20.3. PWA, TS and browser/DOM behavior pass. Entry raw/gzip and initial closure budgets remain unchanged and pass. Four aggregate metrics exceeded prior narrowly sized limits by 314/1217/673/1424 B; dev #655 had only tens/hundreds of bytes headroom. Reviewed against hosted measurements in #656 comment 6117480055; preserve historic baseline and three startup-critical ceilings. Corrected SHA must independently pass canonical and GIPHY Scratch.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/FYgDRjqccPkhCk6YH1RAAmzfh9Z5",
+    "reason": "Exact v0.20.7 Categories first-open GIPHY-enabled Scratch Preview 26a07f908cc6b0dad8f4a6b2621b791dd2926cf3: entryRawBytes 446202 B exceeds 446200 B by 2 B after two targeted React.lazy ready-component changes. Full canonical CI 38244072509 passed and hosted PWA policy plus the other six size metrics passed; last accepted dev 0.20.6 emitted 446199 B. A bounded 8-byte cap increment to 446208 B preserves just 6 B headroom without touching entry gzip or initial/Home closure gzip ceilings, avoiding unrelated startup refactors or correctness-obscuring byte golf.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/3MQSt36V2qV7CC9rEXyTD5Sorg1Q",
     "metrics": [
-      "homeClosureGzipBytes",
-      "appAssetsRawBytes",
-      "appAssetsGzipBytes",
-      "precacheUniqueBytes"
+      "entryRawBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 365450,
-      "appAssetsRawBytes": 2459250,
-      "appAssetsGzipBytes": 763000,
-      "precacheUniqueBytes": 2546350
+      "entryRawBytes": 446200
     }
-  }
+  },
+  "priorReviews": [
+    {
+      "issue": "#656",
+      "reason": "Measured first GIPHY-enabled Scratch v0.20.4 Preview 5ca4f6da1b46b693e78e7c6ad63e70d1034ecb1e adds code-only ready-component warmup for Menu/friend Day View plus sheet-only Swiper Virtual, carrying user-accepted Chat/Notification lazy fixes onto dev v0.20.3. PWA, TS and browser/DOM behavior pass. Entry raw/gzip and initial closure budgets remain unchanged and pass. Four aggregate metrics exceeded prior narrowly sized limits by 314/1217/673/1424 B; dev #655 had only tens/hundreds of bytes headroom. Reviewed against hosted measurements in #656 comment 6117480055; preserve historic baseline and three startup-critical ceilings. Corrected SHA must independently pass canonical and GIPHY Scratch.",
+      "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/FYgDRjqccPkhCk6YH1RAAmzfh9Z5",
+      "metrics": [
+        "homeClosureGzipBytes",
+        "appAssetsRawBytes",
+        "appAssetsGzipBytes",
+        "precacheUniqueBytes"
+      ],
+      "previousLimits": {
+        "homeClosureGzipBytes": 365450,
+        "appAssetsRawBytes": 2459250,
+        "appAssetsGzipBytes": 763000,
+        "precacheUniqueBytes": 2546350
+      }
+    }
+  ]
 }

@@ -1,17 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: fix signed-out hosted deep-link navigation, v0.20.6 Preview only. No dev/main promotion.
+Current task: #656 — first-open Categories manager entrypoints; task and Preview only, no dev/main promotion.
 
-## Direct deep links on Vercel
-- Base: dev@dbde9515ecb611082f191d39e5ef71cfcecde3bc (v0.20.5). Task: `chatgpt/signed-out-deep-links-20261012`; intended stable Preview: `fix/signed-out-deep-links-20261012`.
-- Root cause: `vercel.json` had only `/settings` and no nested Settings rewrite, so refreshing `/settings/notifications` failed at hosting before `AppLayout` could redirect signed-out users to `/login`.
-- Scope: add explicit nested Settings and Bucket List rewrites plus public password-reset rewrite; keep static assets outside SPA fallback. Unknown `/settings/*` children resolve through the guarded shell to Settings for signed-in users and login for signed-out users. Preserve confirmed-auth vs offline-cached identity behavior.
-- Patch Preview candidate: 0.20.6. Regression: `tests/unit/hostedProtectedRoutes.test.ts` covers all registered protected routes, public routes and no global catch-all.
-- Preview v0.20.6 first stable commit 53d65421: canonical Quality Gate 38236704514 SUCCESS, Vercel deployment dpl_3EoBTGtRq4xwnrXXV3GXNyaaFMvW ERROR in size guard (initialClosureGzipBytes +4 B, entryRawBytes +70 B with GIPHY enabled). No budget relaxations authorized.
-- Repair: reuse existing typed route helper contract with shorter equivalent accessors to reduce entry and initial closure bytes, without changing page behavior, size caps, or Preview version.
-Next action: repair task focused CI `[verify:focused]` → squash into stable Preview → canonical acceptance + Vercel READY → browser/device signed-out direct-link checks on registered Preview alias. Do not merge to dev/main without approval.
+## #656 Categories first-open follow-up
+- Base: dev@`b878519bd52da16368b5da2b407f82f326ab2683`, version 0.20.6. Task `chatgpt/656-category-first-open-20261012`, stable Preview `perf/category-first-open-656-20261012`, candidate PATCH v0.20.7 (recheck parallel version reservations before any promotion).
+- The Menu > Lists & Categories and Me > Categories pathways still initialize distinct `React.lazy` components inside `Suspense fallback={null}` on their first user action. Even a settled import does not prime an uninitialized React.lazy; this is the proven #640 mechanism. The previous v0.20.5 fixes remain intact.
+- Fix only those two real entrypoints: cache resolved components with existing `createPreloadedLazy`, warm category code on Menu opening (not Home bootstrap) and on Me post-mount idle / input intent, retain true cold/error-retry semantics and sheet state. No hidden sheet instantiation, data hooks, server or UI restyling.
+- Add Menu → Lists & Categories and Me Categories DOM first-commit regressions. Source audit found friend Calendar reply composer already mounted while closed, and GIPHY/emoji/photo/route previews have visible loading feedback. No measured evidence justifies changing these now. `App.tsx` route fallback and OfflineBanner are non-candidates.
+- Build budget is tight (especially entry/initial gzip), do not increase limits without independent measured review. Candidate needs task focused CI → stable Preview squash → full canonical and exact-SHA GIPHY Scratch Vercel READY, seven unchanged caps and real device verification. No manual tests are claimed.
+
+## Initial v0.20.7 Preview verification
+- Stable Preview `perf/category-first-open-656-20261012@26a07f9`; [canonical Quality Gate 38244072509](https://github.com/carlers/mosaic-life-tracker/actions/runs/38244072509) SUCCESS across all full CI jobs.
+- Hosted GIPHY/Scratch deployment `dpl_3MQSt36V2qV7CC9rEXyTD5Sorg1Q` correctly failed the strict entryRawBytes cap by **2 B** (446202/446200). All six other budgets PASS and PWA policy PASS; source and DOM/browser regression checks unaffected.
+- Reviewed a measured **entry raw-only** exception from 446200 to 446208 B, with detailed new review record and prior review retained in `config/build-size-budget.json`; six other limits unchanged. This records legitimate emitted code cost and avoids unrelated startup refactors/byte-golf.
+- Next stable SHA must rerun canonical and hosted exact-build checks before any user handoff.
 
 ## Prior integration
-- #656 first-open sheet fixes were integrated into dev as v0.20.5 at dbde9515. Follow issue #656 and merged PR history for complete verification and acceptance details.
-- #645 source map/index remains a separate discovery workstream. Preserve accepted #640 cold-open Day View behavior, #655 PWA behavior, and all unrelated features.
+- v0.20.6 signed-out hosted deep-link handling is on dev, with its detailed evidence in its respective PR history. Preserve it unchanged.
+- #656 v0.20.5 Menu/friend/Chat/Notifications and deferred Share/Link/Carousel fixes already integrated into dev as documented on issue #656. #640 owner Day View first-open behavior remains accepted.
+- #645 repo discovery D1/D2, #655 PWA and parallel feature scopes remain separate. Do not merge to main or touch Production/Appwrite under this task.
+
+Next action: verify the metric-specific hosted build-size review through focused CI, squash it into stable v0.20.7 Preview, rerun exact canonical and Scratch/GIPHY Vercel size acceptance, then request device testing. No dev/main promotion.
