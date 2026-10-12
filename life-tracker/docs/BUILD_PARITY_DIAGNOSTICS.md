@@ -262,3 +262,49 @@ budgets passed, but artifacts remain different. This could reflect
 additional build-context variation or nondeterministic chunk output.
 **Do not claim byte-equivalent builds or deactivate automatic Git
 deployment until this is investigated and accepted.**
+
+### Successful protected prebuilt canary and rollout gap (2026-10-12)
+
+The owner retried failed jobs of [manual Quality Gate #38290165183](https://github.com/carlers/mosaic-life-tracker/actions/runs/38290165183) on stable SHA
+`c6b4dd304efcdeb616398ce432d10480ff55f3e0`. **Attempt 2 SUCCESS**:
+full GitHub canonical suite, protected environment, exact SHA and branch,
+Vercel secret, live GitHub check-suite validation, effective Scratch/GIPHY
+Preview `vercel pull`, `npm ci`, `vercel build`, all seven budgets,
+prebuilt packaging, and `vercel deploy --prebuilt --target=preview`.
+Vercel readback confirms CLI deployment
+`dpl_9CgjZjmxMCqSqZxEkSpVspxKbB3d` is **READY** and has the
+same full SHA, in Preview (no production target). It has a standalone URL
+`mosaic-life-tracker-ni5kbsjw7-carls-projects-72516fde.vercel.app`,
+but **no registered stable-branch alias**. The ordinary Git-triggered
+`dpl_7TcELUag2fVQqpnRSVuP41buikJB` remains READY and owns the
+stable alias.
+
+**Idempotency readback correction:** The Vercel deployment-list API
+reported the prebuilt CLI candidate's `meta.githubCommitRef=HEAD`,
+`meta.githubCommitSha` matching the exact accepted commit, and official
+GitHub owner/repo but did not expose the supplied custom `--meta`
+canary tags. Since the old checker only matched custom tags, it could
+mistake the already READY canary for a missing deployment and waste a
+duplicate quota unit. The checker now also recognizes this **exact
+official-repo SHA with CLI `HEAD` identity**, excluding production,
+failed deployments, wrong sources, and normal Git-branch deployments.
+A matching same-SHA CLI deployment without exposed branch metadata
+is conservatively treated as a duplicate rather than risking re-upload.
+
+**Byte-level parity remains unverified.** The protected local build's
+JS/CSS SHA-256 `e24cedd82c122636d6f9aa06a6b7774c08235ee8769b1eccb5128659532dfbca`
+differs from the normal Git-hosted build's
+`13df5b4294dbd54b6a15e1a62679f499671f70b27f854b7fc3332be7f4cae4ba`
+for the *same commit*, even though both use Node 24.21.0, Scratch and
+GIPHY enabled. Both build budgets passed. Many hashed JS chunk names
+differ without changing logged chunk sizes. Avoid attributing a cause
+without a manifest-keyed content comparison.
+
+**Do not disable Vercel Git-triggered Preview delivery yet.** The
+automatic replacement must ensure a stable branch alias, exact
+accepted commit, canonical green, trusted Preview secrets, no trigger
+on failed CI, idempotent reruns, and no human GitHub dispatch/reviewer
+for normal feature work. Keep `mosaic-preview-canary` environment
+reviewer until any new automatic, appropriately restricted environment
+is explicitly configured and safely proven. Release promotion remains
+separate and explicit; no `dev/main` or Production change in #592.

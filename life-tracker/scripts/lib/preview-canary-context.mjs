@@ -37,11 +37,27 @@ export function findExistingCanary(deployments, branch, sha) {
   if (!isStablePreviewBranch(branch) || !SHA.test(sha ?? '')) {
     throw new Error('Valid branch and exact commit required');
   }
-  return deployments.find(deployment =>
-    deployment?.meta?.mosaic_canary_sha === sha &&
-    deployment?.meta?.mosaic_canary_branch === branch &&
-    ['READY', 'BUILDING', 'QUEUED', 'INITIALIZING'].includes(deployment.readyState ?? deployment.state)
-  ) ?? null;
+  // Vercel's deployment LIST API does not expose CLI --meta tags in the
+  // response for the first verified Mosaic prebuilt canary. It does expose
+  // the exact Git commit and repo, with githubCommitRef="HEAD" for CLI
+  // deploys; ordinary Git-triggered deployments report their branch.
+  // Treat either identity as evidence of an already active/READY canary.
+  // The HEAD fallback deliberately errs on the side of *not* redeploying.
+  return deployments.find(deployment => {
+    if (!['READY', 'BUILDING', 'QUEUED', 'INITIALIZING'].includes(
+      deployment?.readyState ?? deployment?.state
+    ) || deployment?.target === 'production') return false;
+    const meta = deployment.meta ?? {};
+    const explicitCanary =
+      meta.mosaic_canary_sha === sha && meta.mosaic_canary_branch === branch;
+    const verifiedCliIdentity =
+      meta.githubCommitSha === sha &&
+      meta.githubCommitRef === 'HEAD' &&
+      meta.githubOrg === 'carlers' &&
+      meta.githubRepo === 'mosaic-life-tracker' &&
+      (deployment.source == null || deployment.source === 'cli');
+    return explicitCanary || verifiedCliIdentity;
+  }) ?? null;
 }
 
 // Compare deployments only from the candidate's birth, not the entire

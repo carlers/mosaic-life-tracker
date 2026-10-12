@@ -157,3 +157,62 @@ describe('canary monorepo CLI root contract (#592)', () => {
     expect(job).toContain('needs.canonical_acceptance.result == \'success\'');
   });
 });
+
+describe('CLI canary deployment-list idempotency (#592)', () => {
+  // These are the actual public fields returned by Vercel list_deployments
+  // for READY dpl_9CgjZjmxMCqSqZxEkSpVspxKbB3d. The custom --meta tags
+  // were not exposed by the list API, while githubCommitRef became HEAD.
+  const acceptedSha = 'c6b4dd304efcdeb616398ce432d10480ff55f3e0';
+  const cli = {
+    id: 'dpl_9CgjZjmxMCqSqZxEkSpVspxKbB3d',
+    state: 'READY',
+    target: null,
+    meta: {
+      githubCommitSha: acceptedSha, githubCommitRef: 'HEAD',
+      githubRepo: 'mosaic-life-tracker', githubOrg: 'carlers',
+    },
+  };
+
+  it('recognizes the verified READY prebuilt CLI deployment even without custom metadata or source', () => {
+    expect(findExistingCanary([cli], branch, acceptedSha)).toBe(cli);
+    expect(findExistingCanary([{ ...cli, source: 'cli' }], branch, acceptedSha)?.id)
+      .toBe(cli.id);
+  });
+
+  it('never confuses the normal Git-triggered same-SHA Preview with a prebuilt canary', () => {
+    const hosted = {
+      ...cli,
+      id: 'dpl_normal_git',
+      source: 'git',
+      meta: { ...cli.meta, githubCommitRef: branch },
+    };
+    expect(findExistingCanary([hosted, cli], branch, acceptedSha)?.id).toBe(cli.id);
+    expect(findExistingCanary([hosted], branch, acceptedSha)).toBeNull();
+  });
+
+  it('rejects wrong repo, SHA, unknown source, production, and failed or cancelled uploads', () => {
+    const variants = [
+      { meta: { ...cli.meta, githubCommitSha: 'a'.repeat(40) } },
+      { meta: { ...cli.meta, githubRepo: 'other' } },
+      { meta: { ...cli.meta, githubOrg: 'another-owner' } },
+      { meta: { ...cli.meta, githubCommitRef: branch } },
+      { source: 'git' },
+      { source: 'unknown' },
+      { target: 'production' },
+      { state: 'ERROR' },
+      { state: 'CANCELED' },
+    ];
+    for (const variant of variants) {
+      expect(findExistingCanary([{ ...cli, ...variant }], branch, acceptedSha)).toBeNull();
+    }
+  });
+
+  it('retains explicit custom tag support and does not change branch/SHA input validation', () => {
+    const tagged = { state: 'BUILDING', meta: {
+      mosaic_canary_sha: acceptedSha, mosaic_canary_branch: branch,
+    } };
+    expect(findExistingCanary([tagged], branch, acceptedSha)).toBe(tagged);
+    expect(findExistingCanary([cli], 'main', acceptedSha)).toThrow();
+    expect(findExistingCanary([cli], branch, 'invalid')).toThrow();
+  });
+});
