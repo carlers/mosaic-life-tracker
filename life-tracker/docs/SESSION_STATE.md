@@ -1,7 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: #656 — audit/fix deferred first-open sheets, v0.20.5 task and stable Preview only. No dev/main promotion.
+Current task: Category Manager edit-form placement, v0.20.6 frontend-only Preview; no dev/main promotion.
+
+## Category Manager inline editor
+- Base: dev@dbde9515ecb611082f191d39e5ef71cfcecde3bc; task `chatgpt/category-editor-inline-20261012`; stable `fix/category-editor-inline-20261012`.
+- The category edit form is owned by the selected reorderable item, directly below its category row rather than after the whole list. Preserve grip-only dragging, existing edit data/save/cancel behavior, and theme tokens. A nearest-block scroll request reveals the form on narrow viewports without focusing the keyboard.
+- Editing errors render next to the active form, and selecting Add/Delete clears editing state and stale errors. DOM regression covers inline location, switch, reorder and retry.
+- Proposed version 0.20.6; frontend only, no Appwrite changes. Next: [verify:focused] task CI, squash task PR to stable Preview, full canonical CI and exact Vercel Scratch/GIPHY build, manual mobile/desktop acceptance. Do not merge dev/main without authorization.
+
+## Prior #656 handoff (integrated to dev at v0.20.5)
 
 ## #656 remaining lazy sheet follow-up
 - Base: dev@a34fa945 (v0.20.4); task chatgpt/656-deferred-sheets-20261012; stable perf/deferred-first-open-656-20261012.

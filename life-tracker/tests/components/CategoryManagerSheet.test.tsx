@@ -69,17 +69,18 @@ vi.mock('framer-motion', async (importOriginal) => {
       Group: ({ children, onReorder }: React.PropsWithChildren<{
         onReorder: (items: CategoryDocument[]) => void;
       }>) => (
-        <div data-testid="category-order">
+        <div role="list" data-testid="category-order">
           {children}
           <button onClick={() => onReorder([...categories].reverse())}>
             Simulate reorder
           </button>
         </div>
       ),
-      Item: ({ children, onDragEnd }: React.PropsWithChildren<{
+      Item: ({ children, onDragEnd, 'aria-label': label }: React.PropsWithChildren<{
         onDragEnd: () => void;
+        'aria-label'?: string;
       }>) => (
-        <div>
+        <div role="listitem" aria-label={label}>
           {children}
           <button onClick={onDragEnd}>Simulate drag end</button>
         </div>
@@ -149,6 +150,32 @@ describe('CategoryManagerSheet', () => {
         })
       )
     );
+  });
+
+  it('shows the editor inside only the selected category, including after switching and reordering', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    const second = screen.getByRole('listitem', { name: 'Second category' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Edit category' }));
+
+    expect(within(first).getByRole('textbox', { name: 'Name' })).toHaveValue('First');
+    expect(within(first).getByRole('button', { name: 'Edit category' }))
+      .toHaveAttribute('aria-expanded', 'true');
+    expect(within(second).queryByRole('textbox', { name: 'Name' })).toBeNull();
+
+    fireEvent.click(within(second).getByRole('button', { name: 'Edit category' }));
+    expect(within(first).queryByRole('textbox', { name: 'Name' })).toBeNull();
+    expect(within(second).getByRole('textbox', { name: 'Name' })).toHaveValue('Second');
+    expect(screen.getAllByRole('textbox', { name: 'Name' })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate reorder' }));
+    expect(within(second).getByRole('textbox', { name: 'Name' })).toHaveValue('Second');
+    expect(mocks.updateCategory).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    expect(screen.queryByRole('button', { name: 'Save Changes' })).toBeNull();
+    expect(within(second).queryByRole('textbox', { name: 'Name' })).toBeNull();
   });
 
   it('loads the existing visibility when editing a category', () => {
@@ -288,8 +315,9 @@ describe('CategoryManagerSheet', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
-    await screen.findByRole('alert');
-    expect(screen.getByRole('alert')).toHaveTextContent(/could not update category/i);
+    const selectedRow = screen.getByRole('listitem', { name: 'First category' });
+    await within(selectedRow).findByRole('alert');
+    expect(within(selectedRow).getByRole('alert')).toHaveTextContent(/could not update category/i);
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Renamed');
     expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled();
 
