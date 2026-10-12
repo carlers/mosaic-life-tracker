@@ -9,14 +9,14 @@ const { receiptId, channels, emitActivity, projectActivity } =
 const id = (left: string, right: string) =>
   'fr_' + createHash('sha256').update(left + '|' + right).digest('hex').slice(0, 32);
 const now = '2026-10-12T12:00:00.000Z';
-const requestRows: Record<string, { $id: string; user_id: string; friend_id: string; status: string; deleted: boolean; friend_display_name?: string }> = {
+const requestRows: Record<string, { $id: string; user_id: string; friend_id: string; status: string; deleted: boolean; updated_at: string; friend_display_name?: string }> = {
   [id('user_b','user_a')]: {
     $id:id('user_b','user_a'),user_id:'user_b',friend_id:'user_a',
-    status:'pending_incoming',deleted:false,friend_display_name:'A',
+    status:'pending_incoming',deleted:false,friend_display_name:'A',updated_at:now,
   },
   [id('user_a','user_b')]: {
     $id:id('user_a','user_b'),user_id:'user_a',friend_id:'user_b',
-    status:'pending_outgoing',deleted:false,
+    status:'pending_outgoing',deleted:false,updated_at:now,
   },
 };
 
