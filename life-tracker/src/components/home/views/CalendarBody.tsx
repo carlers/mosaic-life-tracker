@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
-import { DayDetailPanel } from './DayDetailPanel';
+import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
@@ -21,6 +21,11 @@ const LazyReplyComposerSheet = React.lazy(() =>
     default: ReplyComposerSheet,
   }))
 );
+
+// Warm code only after the opt-in Calendar is usable. The panel and its hooks
+// are never mounted while closed, preserving Home's static startup closure.
+const { Component: LazyDayDetailPanel, preload: preloadDayDetailPanel } =
+  createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
 
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
@@ -93,8 +98,23 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   }, [dayDetailPresentation, isActive]);
 
   useEffect(() => {
-    if (!isActive) setDaySheetOpen(false);
+    if (isActive) return;
+    const timer = window.setTimeout(() => setDaySheetOpen(false), 0);
+    return () => window.clearTimeout(timer);
   }, [isActive]);
+
+  useEffect(() => {
+    if (dayDetailPresentation !== 'panel' || !isActive) return;
+    const warm = () => {
+      if (!document.hidden) void preloadDayDetailPanel().catch(() => {});
+    };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1800 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const timer = window.setTimeout(warm, 900);
+    return () => window.clearTimeout(timer);
+  }, [dayDetailPresentation, isActive]);
 
 
   // Match owner Day View: warm a resolved component after the friend Calendar
@@ -226,10 +246,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           <div className={availableWidth >= 1040
             ? 'h-full min-h-0 w-[min(42%,440px)] shrink-0 p-2 pl-0'
             : 'absolute inset-y-0 right-0 z-20 w-[min(100%,440px)] bg-surface p-2'}>
-            <DayDetailPanel onClose={handleCloseDaySheet}
+            <LazyDayDetailPanel onClose={handleCloseDaySheet}
               onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}>
               {detail}
-            </DayDetailPanel>
+            </LazyDayDetailPanel>
           </div>
         )}
       </div>

@@ -13,9 +13,14 @@ Provisional Preview version: v0.21.0 (new user-visible feature; verify against o
 - Browser Back closes nested modal first, then panel. Narrow view uses existing bottom sheet on new open. Resizing an *already-open* panel keeps that instance over the calendar to avoid discarding edits.
 
 ## Implementation checklist / handoff
-Next action: run focused verification on the repaired task SHA, investigate errors, then prepare stable Preview.
+Next action: run focused checks for the opt-in panel lazy-shell/budget repair, then squash into stable Preview and verify canonical CI + exact Scratch/GIPHY Vercel READY. Do not merge dev/main.
 - Add/adjust geometry and focus/history browser coverage before release.
 - After focused green: squash task into stable feature/split-day-panel-404-20261012, run exact-SHA canonical acceptance and Scratch Vercel READY, validate modal/panel transitions on real desktop/tablet and physical Android/iOS.
 - Home search-focused Day View remains modal pending explicit panel integration validation; no backend/Appwrite changes planned.
 - Never merge to dev or main without the user's separate approval.
 - Previous #656 sheet-optimization details remain on its own issue/PR checkpoints; preserve those fixes and startup-size budgets.
+
+## Stable Preview repair evidence
+- #404 task focused: 2b0f76d (green); Preview PR #693 squash: 108eb548 (full CI + hosted GIPHY Vercel failed).
+- CI lint issue: synchronous inactive-pane state update inside an effect; repair uses scheduled lifecycle cleanup.
+- Hosted Preview size excess: initial/entry caps pass; Home closure +744B, aggregate raw +4230B, gzip +1022B, precache +4037B. Defer optional panel module from Home closure and review three aggregate asset ceilings only, with metric-specific evidence in config. No weakening of startup or Home ceilings.
