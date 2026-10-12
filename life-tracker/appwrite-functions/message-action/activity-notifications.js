@@ -129,7 +129,7 @@ async function emitActivity(db, { type, recipientId, actorId, sourceId, occurred
   };
   if (!await projectActivity(db,candidate,recipientId)) return;
   const selected = (await channels(db,recipientId))[type];
-  if (!selected?.feed) return;
+  if (!selected?.feed && !selected?.push) return;
   try {
     await db.createRow({
       databaseId:DB,tableId:'notifications',rowId:id,permissions:[],
