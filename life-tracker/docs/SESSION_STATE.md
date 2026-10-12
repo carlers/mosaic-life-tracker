@@ -1,14 +1,14 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Category Manager smooth editor transitions, Preview v0.20.8; no dev/main promotion.
+Current task: Category Manager editor motion/size, v0.20.8 stable Preview only.
 
-## Status, root cause and verification
-- Stable Preview branch: `fix/category-editor-inline-20261012`, previous SHA `10e8e0e9be5b36811269b80e55029c1373df88d6`. Full canonical CI 38250639343 SUCCESS including both DOM and browser shards.
-- v0.20.7 mounted full-height edit content immediately while Motion projected sibling rows, producing mid-animation overlaps and rough editor switching.
-- v0.20.8 fixes this with a clipped, CSS-grid 0fr/1fr natural-height transition and preserved outgoing editor content; outgoing controls are inert and aria-hidden. `Reorder.Item` retains grip-only dragging, but only projects layout for actual order updates. Deferred scroll after expansion completes.
-- New Playwright regression in `tests/e2e/interaction-contract.spec.mjs` uses real production CategoryRow and checks adjacent card bounds over animation frames during expansion, direct switch and rapid interrupted switch. Browser, focused and canonical checks have passed on previous attempts.
-- Hosted Vercel GIPHY-enabled build at exact `10e8e0e9` (redeploy dpl_DKxAZudNPXE7wB96LVBHHgc9B4w9) failed unchanged size caps: +287 B app raw, +49 B app gzip, +94 B precache. Initial, entry and home closure size budgets PASS. Earlier auto deployment hit transient `git_info_fail`; redeploy confirmed actual size failure.
-- Current task branch `chatgpt/category-editor-final-size-trim-20261012` removes only generated redundant category manager JS and a duplicated reduced-motion class already covered by project-wide prefers-reduced-motion and account Reduce animations CSS in `src/index.css`. Preserve editor behavior, existing appearance, and all hard caps. No backend, new dependencies, or unrelated features.
+## Root cause and status
+- Stable branch `fix/category-editor-inline-20261012`, latest SHA `e418b9fc6e1ead5b8b9d3864a1506ea920c09164`. Canonical checks pending/verify from run 38253738347; preceding stable @10e8e0e run 38250639343 passed. Task CI 38253496105 passed focused + both browser shards.
+- The old edit form was inserted at full height while Framer Motion projected neighbor positions, causing overlap and rough editor switching. v0.20.8 uses a real-height CSS grid 0fr-to-1fr transition, clips retained closing content, marks exiting controls inert/aria-hidden, and gates `Reorder.Item` layout projection by reordered IDs.
+- Browser contract `tests/e2e/interaction-contract.spec.mjs` mounts production CategoryRow in an isolated fixture and samples neighbor bounds during open, switch, rapid interrupted switch. Existing DOM tests cover Save/Cancel/name/visibility/reorder/error behavior.
+- Vercel GIPHY-enabled exact previous stable @e418b9fc dpl_T5hZfVAMooPGTKMjKAVP92xg51JW failed unchanged budgets: +195 B app raw, +12 B gzip, +2 B precache (other four caps pass). Never alter budget limits.
+- Final scoped correction: remove the secondary forced smooth scroll after accordion expansion (it competed with user scrolling during switches; editor still opens immediately below its category in the scrollable BottomSheet). Also simplify the same component's redundant visibility override accumulator and update callback. No UI design changes, no dependency, no backend.
+- Task branch `chatgpt/category-editor-anchored-size-20261012`; candidate remains v0.20.8. Do not promote to dev or main.
 
-Next action: Focused+browser task CI, squash to stable Preview only if green; verify full exact canonical CI, Vercel Scratch READY and all seven GIPHY-enabled build-size checks PASS; then user desktop/mobile motion acceptance. Do not merge to dev/main until authorized.
+Next action: Run task focused+browser CI, squash to stable Preview if green, check exact full canonical CI and GIPHY-enabled Vercel READY with all seven unchanged budgets. Hand off for real mobile/desktop animation acceptance; no manual/device verification claimed.
