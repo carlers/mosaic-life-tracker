@@ -272,30 +272,47 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     senderId < recipientId ? [senderId, recipientId] : [recipientId, senderId];
   const threadId = `th_${sha256Hex(`${x}|${y}`).slice(0, 30)}`;
   const now = new Date().toISOString();
-  let existingSenderRow = null;
-  try {
-    existingSenderRow = await tablesDB.getRow({
-      databaseId: DATABASE_ID,
-      tableId: MESSAGES_TABLE,
-      rowId: messageId,
-    });
-  } catch (err) {
-    const code = err && err.code;
-    if (code !== 404) {
-      log(`deliver: getRow(${messageId}) failed (${err.message})`);
+  // An unknown getRow failure must not be mistaken for an absent message.
+  async function readDeliveryRow(rowId) {
+    try {
+      return await tablesDB.getRow({
+        databaseId: DATABASE_ID,
+        tableId: MESSAGES_TABLE,
+        rowId,
+      });
+    } catch (cause) {
+      if (Number(cause?.code) === 404) return null;
+      throw cause;
     }
   }
-  let existingRecipientRow = null;
+  let existingSenderRow;
+  let existingRecipientRow;
   try {
-    existingRecipientRow = await tablesDB.getRow({
-      databaseId: DATABASE_ID,
-      tableId: MESSAGES_TABLE,
-      rowId: recipientRowId,
-    });
-  } catch (err) {
-    const code = err && err.code;
-    if (code !== 404) {
-      log(`deliver: getRow(${recipientRowId}) failed (${err.message})`);
+    [existingSenderRow, existingRecipientRow] = await Promise.all([
+      readDeliveryRow(messageId),
+      readDeliveryRow(recipientRowId),
+    ]);
+  } catch (cause) {
+    error(`deliver: could not verify current pair (${cause.message})`);
+    return { status: 503, body: { error: 'Message state unavailable; retry' } };
+  }
+  // Never re-create missing content after an unsend/delete or ID collision.
+  for (const [row, owner, direction] of [
+    [existingSenderRow, senderId, 'outgoing'],
+    [existingRecipientRow, recipientId, 'incoming'],
+  ]) {
+    if (!row) continue;
+    if (
+      row.user_id !== owner ||
+      row.sender_id !== senderId ||
+      row.recipient_id !== recipientId ||
+      row.thread_id !== threadId ||
+      row.direction !== direction ||
+      row.is_unsent === true ||
+      row.deleted === true ||
+      row.content !== content
+    ) {
+      return { status: 409, body: { error: 'Existing message conflicts with delivery' } };
     }
   }
   if (existingSenderRow) {
@@ -323,7 +340,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       `deliver: recipient row ${recipientRowId} already exists; skipping upsert (idempotent)`
     );
   } else {
-    await tablesDB.upsertRow({
+    await tablesDB.createRow({
       databaseId: DATABASE_ID,
       tableId: MESSAGES_TABLE,
       rowId: recipientRowId,
@@ -359,7 +376,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   }
   if (!existingSenderRow) {
     try {
-      await tablesDB.upsertRow({
+      await tablesDB.createRow({
         databaseId: DATABASE_ID,
         tableId: MESSAGES_TABLE,
         rowId: messageId,
@@ -394,15 +411,16 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       });
       log(`deliver: created sender row ${messageId}`);
     } catch (createErr) {
-      log(
+      error(
         `deliver: failed to create sender row ${messageId} (${createErr.message})`
       );
+      return { status: 503, body: { error: 'Message delivery incomplete; retry' } };
     }
   } else {
     log(`deliver: sender row ${messageId} already exists`);
   }
   log(`deliver: ${messageId} -> ${recipientId} as ${recipientRowId}`);
-  return { status: 200, body: { ok: true, recipientRowId, threadId } };
+  return { status: 200, body: { ok: true, messageId, recipientRowId, threadId } };
 }
 async function handleMarkRead(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
