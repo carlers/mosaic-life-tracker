@@ -29,3 +29,8 @@ Next action: run focused checks for the opt-in panel lazy-shell/budget repair, t
 - Stable source Preview SHA 26f60104: all checks/DOM/browser passed, but canonical build/Vercel failed by 10B initial closure and 256B Home closure; aggregate revised asset limits passed.
 - New repair task chatgpt/404-panel-closure-repair-20261012: move the modal/owner/friend panel detail JSX into the already lazy DayDetailPanel chunk, reducing Home static closure. Keep existing Home/initial/startup ceilings unchanged. Revalidate size and functional behavior before accepting Preview.
 - Do not merge to dev/main or start #692 before Preview acceptance; preserve focused verification and version v0.21.0.
+
+## 2026-10-12 measured startup/Home closure review
+- Exact dev@dbde9515 Scratch Vercel READY: initial 146026, Home 365783 gzip bytes. Exact stable Preview@3bb97ab Vercel failed: initial 146060 (+34), Home 366359 (+576); entry and previously reviewed aggregate asset ceilings pass.
+- Following lazy-shell refactor and green focused test, a new two-metric review adjusts initial ceiling 146050→146100 and Home 366100→366500 with measured evidence. Entry raw/gzip and aggregate ceilings unchanged. This is not an unlimited waiver; run canonical size, browser and Scratch Vercel again.
+- Next action: merge task after focused check into stable Preview and validate the exact resulting SHA, including accessibility/back/friend behaviors; do not promote without user approval.

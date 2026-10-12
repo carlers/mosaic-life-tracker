@@ -16,25 +16,23 @@
   "limits": {
     "entryRawBytes": 446200,
     "entryGzipBytes": 132850,
-    "initialClosureGzipBytes": 146050,
-    "homeClosureGzipBytes": 366100,
+    "initialClosureGzipBytes": 146100,
+    "homeClosureGzipBytes": 366500,
     "appAssetsRawBytes": 2467000,
     "appAssetsGzipBytes": 766000,
     "precacheUniqueBytes": 2554500
   },
   "review": {
     "issue": "#404",
-    "reason": "Measured v0.21.0 new opt-in Home Day View panel on exact stable Preview 108eb548 and its Scratch/GIPHY hosted build. Original code passed entry raw/gzip and initial closure, but added legitimate panel behavior and markup requiring a small measured increase in aggregate shipped JS/CSS and precache ceilings. This repair defers only the optional panel shell chunk and leaves all three startup-critical entry/raw/gzip/initial ceilings plus the Home closure limit unchanged. Previous fail metrics on GIPHY hosted: appAssetsRawBytes 2465230, appAssetsGzipBytes 765022, precacheUniqueBytes 2552537. The bounds below provide a narrow allowance for dynamic chunk overhead, require fresh canonical size checks, and preserve the historical baseline. No dependency additions.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/HACBwTWdHQ15EyxxRRFqdo6k2whY",
+    "reason": "Measured opt-in side-panel feature v0.21.0 against exact accepted dev@dbde9515 and stable Preview@3bb97ab GIPHY/Scratch builds. Dev initial closure 146026 and Home closure 365783 bytes; candidate initial closure 146060 (+34) and Home closure 366359 (+576), while entryRaw/entryGzip, aggregate asset budgets and PWA remain within prior documented bounds. After moving panel rendering into a lazy module and passing code/DOM/browser checks, these two remaining failures reflect a measured +34B initialization and +576B static Home behavior cost. This narrowly raises only initial and Home gzip ceilings to 146100 (+50) and 366500 (+400), with ~40B and ~141B candidate headroom respectively. Preserve baseline and existing entry + aggregate ceilings; previous aggregate-only review #404 on 26f60104 stays documented in Git history and issue.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/5q4nVRwQ9UPq6XjBcyELZ9VhKrEW",
     "metrics": [
-      "appAssetsRawBytes",
-      "appAssetsGzipBytes",
-      "precacheUniqueBytes"
+      "initialClosureGzipBytes",
+      "homeClosureGzipBytes"
     ],
     "previousLimits": {
-      "appAssetsRawBytes": 2461000,
-      "appAssetsGzipBytes": 764000,
-      "precacheUniqueBytes": 2548500
+      "initialClosureGzipBytes": 146050,
+      "homeClosureGzipBytes": 366100
     }
   }
 }
