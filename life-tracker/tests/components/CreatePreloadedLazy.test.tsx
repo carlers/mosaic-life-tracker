@@ -2,7 +2,8 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { afterEach, expect, it, vi } from 'vitest';
-import { createPreloadedLazy, scheduleModuleWarmup } from '../../src/lib/createPreloadedLazy';
+import { createPreloadedLazy } from '../../src/lib/createPreloadedLazy';
+import { scheduleModuleWarmup } from '../../src/lib/scheduleModuleWarmup';
 
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 

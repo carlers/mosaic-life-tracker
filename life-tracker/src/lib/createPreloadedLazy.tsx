@@ -50,26 +50,3 @@ export function createPreloadedLazy<P extends object>(
 
   return { Component, preload };
 }
-
-/** Schedule code-only warmup after the owning view is usable, never in startup. */
-export function scheduleModuleWarmup(preload: () => Promise<unknown>, delayMs = 600) {
-  let canceled = false;
-  let idleId: number | undefined;
-  const warm = () => {
-    if (!canceled && document.visibilityState === 'visible') {
-      void preload().catch(() => {});
-    }
-  };
-  const timer = window.setTimeout(() => {
-    if (window.requestIdleCallback) {
-      idleId = window.requestIdleCallback(warm, { timeout: 1000 });
-    } else {
-      warm();
-    }
-  }, delayMs);
-  return () => {
-    canceled = true;
-    window.clearTimeout(timer);
-    if (idleId !== undefined) window.cancelIdleCallback?.(idleId);
-  };
-}
