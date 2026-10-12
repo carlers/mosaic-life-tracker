@@ -17,30 +17,22 @@ import {
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = APPWRITE_MESSAGE_ACTION_FUNCTION_ID;
 const MAX_DELIVERY_LOOPS = 5;
-const RETRY_BASE_MS = 5_000;
-const RETRY_MAX_MS = 60_000;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
-let retryOwner: string | null = null;
-let retryGeneration: number | null = null;
-let retryAttempts = 0;
-
+let retryScope = '';
+let retryDelay = 5_000;
 function clearDeliveryRetry(): void {
   if (retryTimer !== null) clearTimeout(retryTimer);
   retryTimer = null;
 }
 function scheduleDeliveryRetry(userId: string, generation: number): void {
-  if (!isAccountWorkCurrent(userId, generation)) return;
-  if (getConnectivitySnapshot().status !== 'online') return;
-  if (retryTimer !== null) return;
-  const wait = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.min(retryAttempts, 4));
-  retryAttempts += 1;
+  if (retryTimer !== null || !isAccountWorkCurrent(userId, generation) ||
+      getConnectivitySnapshot().status !== 'online') return;
   retryTimer = setTimeout(() => {
     retryTimer = null;
-    if (!isAccountWorkCurrent(userId, generation)) return;
-    void deliverPendingMessages(userId).catch((error) =>
-      console.error('[messageDelivery] Retry failed:', error)
-    );
-  }, wait);
+    if (isAccountWorkCurrent(userId, generation))
+      void deliverPendingMessages(userId);
+  }, retryDelay);
+  retryDelay = Math.min(retryDelay * 2, 60_000);
 }
 let inFlightDeliveryPromise: Promise<void> | null = null;
 let inFlightDeliveryUserId: string | null = null;
@@ -65,11 +57,11 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   if (!userId) return;
   const generation = captureAccountWorkGeneration(userId);
   if (generation === null) return;
-  if (retryOwner !== userId || retryGeneration !== generation) {
+  const scope = userId + ':' + generation;
+  if (retryScope !== scope) {
     clearDeliveryRetry();
-    retryAttempts = 0;
-    retryOwner = userId;
-    retryGeneration = generation;
+    retryDelay = 5_000;
+    retryScope = scope;
   }
 
   flushMessageActionQueue(userId).catch((err) => {
@@ -173,7 +165,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           scheduleDeliveryRetry(userId, generation);
         } else if (pending.length === 0) {
           clearDeliveryRetry();
-          retryAttempts = 0;
+          retryDelay = 5_000;
         }
         if (
           !isAccountWorkCurrent(userId, generation) ||
