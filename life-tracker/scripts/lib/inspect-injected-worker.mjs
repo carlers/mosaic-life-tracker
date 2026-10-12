@@ -79,8 +79,9 @@ export function inspectInjectedWorker(source) {
       propName(parent.callee?.property) === 'addEventListener'
     ).map((parent) => parent.arguments[0]?.value).at(-1);
     const guarded = path.some((parent) =>
-      parent.type === 'IfStatement' && source.slice(
-        parent.test.start, parent.test.end
+      (parent.type === 'IfStatement' || parent.type === 'ConditionalExpression' ||
+       parent.type === 'LogicalExpression') && source.slice(
+        (parent.test ?? parent.left).start, (parent.test ?? parent.left).end
       ).includes('SKIP_WAITING')
     );
     if (event === 'install' || event === 'activate') skipWaitingOnLifecycle = true;
@@ -98,6 +99,7 @@ export function inspectInjectedWorker(source) {
     skipWaitingOnRequest,
     clientsClaim: claims.length > 0,
     precacheUrls,
+    precacheSizes,
     navigationFallback: fallback,
     navigationDenylist: denylist,
     importedScripts,
