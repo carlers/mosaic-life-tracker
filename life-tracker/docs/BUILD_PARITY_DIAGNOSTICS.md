@@ -111,3 +111,56 @@ GitHub artifact, issue, comment, or untrusted PR job. Use a reviewed,
 protected GitHub deployment environment and only deploy an already-accepted
 exact source SHA. Keep normal Git-triggered Preview deployments enabled until
 a proven canary fully replaces them.
+
+## Protected, deliberately disabled Preview canary (#592)
+
+The normal `Quality Gate` workflow now includes a protected `preview_canary`
+job. It is **not enabled by default**. Ordinary pushes, PRs, and regular
+workflow dispatches cannot enter the job. It requires **all** of:
+
+- Manual `workflow_dispatch` on the **stable Preview branch**, specifying
+  `preview_canary_sha` equal to its exact accepted Git HEAD.
+- The complete `canonical-acceptance` job in that manual run passing.
+  An independent build-only success is insufficient.
+- Owner-configured repository variable
+  `MOSAIC_PREBUILT_CANARY_ENABLED=true`, and the
+  `mosaic-preview-canary` GitHub environment configured with an
+  **actual required reviewer** and an environment-scoped
+  `MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN` secret. The environment MUST
+  restrict the deployment branch to approved stable Preview refs. Do not
+  enable the variable before those protections exist.
+- An exact branch/ref/SHA/repo/project check followed by a live GitHub
+  canonical check-suite and branch-head verification.
+
+The job checks for an existing active/READY canary before attempting work,
+then installs pinned Vercel CLI 62.7.0, pulls **effective branch-scoped
+Preview variables** using `vercel pull --environment=preview --git-branch`,
+builds under Node 24 with `VERCEL_ENV=preview` and exact commit identity,
+revalidates GitHub evidence and Vercel canary idempotency, and only then
+invokes `vercel deploy --prebuilt --target=preview`.
+
+The build runs the unchanged seven budget gates and JS/CSS fingerprinting
+using the intended hosted feature configuration. Pulled settings live only
+in the disposable runner, not a GitHub artifact. Secrets, `.vercel/`
+contents and generated code must never be uploaded to CI logs or public
+issues. A successful canary deployment must have **its own exact
+SHA/Preview/Scratch/feature/alias and deployed fingerprint readback** verified
+before this job is eligible to replace Git pushes. The script's GitHub
+gate does not prove Vercel deployment metadata or branch-alias behavior.
+
+**Operational limitation:** This canary still requires the repository owner
+to configure a protected environment and grant access to the Vercel token.
+Neither token presence nor protected reviewer rules can be inferred from
+GitHub workflow YAML. No workflow or protected secret is configured by the
+canary's code alone. Keep Vercel Git-triggered Preview delivery enabled
+until a successfully verified replacement demonstrates correct stable
+aliases, zero deployments for rejected candidates, and idempotent retries.
+`dev`, `main`, Production and Scratch backend remain untouched.
+
+### Recovery if the canary cannot run
+
+Unset or leave `MOSAIC_PREBUILT_CANARY_ENABLED` disabled. The job will be
+skipped; existing canonical CI and Git-triggered Vercel deployment retain
+their prior behavior. Never turn off Vercel auto delivery or relax the
+build-size budgets merely to make the canary pass. An explicitly approved
+canary is a test, not a general rollout authorization.

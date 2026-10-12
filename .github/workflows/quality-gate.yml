@@ -18,6 +18,11 @@ on:
       - 'life-tracker/**'
       - '.github/workflows/quality-gate.yml'
   workflow_dispatch:
+    inputs:
+      preview_canary_sha:
+        description: 'Exact accepted Preview commit SHA for optional protected canary (blank means CI only)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -479,3 +484,116 @@ jobs:
             exit 1
           fi
           echo "Canonical acceptance passed for exact SHA ${{ github.sha }}."
+
+  preview_canary:
+    name: protected-preview-canary
+    needs: canonical_acceptance
+    # Disabled by default. An explicit dispatch on the accepted stable Preview SHA,
+    # canonical green and an owner-controlled opt-in must all agree.
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' &&
+      github.repository == 'carlers/mosaic-life-tracker' &&
+      github.ref_type == 'branch' &&
+      inputs.preview_canary_sha != '' &&
+      inputs.preview_canary_sha == github.sha &&
+      vars.MOSAIC_PREBUILT_CANARY_ENABLED == 'true' &&
+      needs.canonical_acceptance.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    environment: mosaic-preview-canary
+    concurrency:
+      group: mosaic-preview-canary-${{ github.ref }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+        working-directory: life-tracker
+    env:
+      VERCEL_ORG_ID: team_UbpudOr8jXyrDA5SdVUxVGOr
+      VERCEL_PROJECT_ID: prj_jysOLDbuO9c5rP8x6Q145DVIw0fc
+      PREVIEW_DEPLOY_BRANCH: ${{ github.ref_name }}
+      PREVIEW_DEPLOY_SHA: ${{ github.sha }}
+      PREVIEW_CANARY_REQUESTED_SHA: ${{ inputs.preview_canary_sha }}
+      MOSAIC_PREBUILT_CANARY_ENABLED: ${{ vars.MOSAIC_PREBUILT_CANARY_ENABLED }}
+      VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+      VERCEL_GIT_COMMIT_REF: ${{ github.ref_name }}
+      VERCEL_ENV: preview
+    steps:
+      - name: Check out accepted commit without persisted checkout credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.sha }}
+      - name: Set up matching Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify manual opt-in, branch, SHA, repository and Vercel scope
+        run: node scripts/check-preview-canary-context.mjs
+      - name: Verify latest exact-SHA canonical GitHub acceptance
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-preview-deploy-gate.mjs
+      - name: Check protected Vercel credential availability
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: |
+          if [[ -z "${VERCEL_TOKEN:-}" ]]; then
+            echo "Protected canary token is missing; no Vercel deployment attempted." >&2
+            exit 1
+          fi
+      - name: Refuse repeat canary for the same branch and SHA
+        id: duplicates
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: node scripts/check-preview-canary-duplicate.mjs
+      - name: Install reviewed Vercel CLI
+        if: steps.duplicates.outputs.skip != 'true'
+        run: npm install --global vercel@62.7.0
+      - name: Link only the existing official Vercel project
+        if: steps.duplicates.outputs.skip != 'true'
+        run: |
+          mkdir -p .vercel
+          printf '%s\n' '{"orgId":"team_UbpudOr8jXyrDA5SdVUxVGOr","projectId":"prj_jysOLDbuO9c5rP8x6Q145DVIw0fc"}' > .vercel/project.json
+      - name: Pull actual branch-scoped Preview build inputs
+        if: steps.duplicates.outputs.skip != 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=preview --git-branch="$PREVIEW_DEPLOY_BRANCH"
+      - name: Build and enforce Preview budgets with effective Vercel configuration
+        if: steps.duplicates.outputs.skip != 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: vercel build
+      - name: Re-check accepted SHA and branch before deployment
+        if: steps.duplicates.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-preview-deploy-gate.mjs
+      - name: Re-check canary idempotency before deployment
+        if: steps.duplicates.outputs.skip != 'true'
+        id: duplicates_final
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: node scripts/check-preview-canary-duplicate.mjs
+      - name: Deploy exact prebuilt Preview artifact
+        if: steps.duplicates.outputs.skip != 'true' && steps.duplicates_final.outputs.skip != 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          url="$(vercel deploy --yes --prebuilt --target=preview --archive=tgz \
+            --meta "mosaic_canary_sha=$PREVIEW_DEPLOY_SHA" \
+            --meta "mosaic_canary_branch=$PREVIEW_DEPLOY_BRANCH")"
+          DEPLOYMENT_URL="$url" node --input-type=module -e '
+            const url = new URL(process.env.DEPLOYMENT_URL);
+            if (url.protocol !== "https:" || url.origin !== process.env.DEPLOYMENT_URL ||
+                !url.hostname.endsWith(".vercel.app")) process.exit(1);
+          '
+          echo "Canary deployment created for accepted SHA $PREVIEW_DEPLOY_SHA."
+          echo "Confirm target metadata and registered alias before considering any Git-trigger change."

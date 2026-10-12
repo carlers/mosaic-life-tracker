@@ -40,3 +40,18 @@ do not interpret the read-only gate as authorization or mechanism to deploy.
 Next: focused CI, squash into stable Preview only after focused green, full
 canonical+Vercel verification; then prepare secret-scoped canary. No product
 version change.
+
+## #592 continuation — disabled-by-default protected CI prebuilt canary
+
+Working branch `chatgpt/592-protected-preview-canary-20261012` from
+accepted stable `fix/workflow-build-parity-592-20261012@01f3e61d0143a4d44170004dbe0be557238fd263`
+(GitHub canonical run `38275283189`, Vercel READY
+`dpl_AHQ35ioGaScsRysmLac9SsQzGD6y`). New scope:
+`quality-gate.yml` opt-in `workflow_dispatch` canary only after
+canonical success, an environment reviewer, owner enable variable,
+exact-SHA/ref/repo/project checks, effective branch-specific Vercel
+`pull/build`, two GitHub checks and a bounded duplicate deployment
+preflight. Default is disabled, no live Vercel setting or budget change.
+Next: focused check on task, stable Preview squash/canonical+Vercel;
+true CI-equivalent canary cannot run without protected repo environment
+and token. No `dev` or `main` merge.
