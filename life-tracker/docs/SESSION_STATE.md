@@ -8,4 +8,5 @@ Current task: #408 — Diary View implementation, task branch only.
 - Version: provisional 0.22.0, avoiding concurrent v0.21.0 notifications Preview.
 - Mandatory remaining: finish focused test/CI repairs and backend/schema compatibility; update issue #408 checkpoint, then stable Preview full gate and Scratch readiness. Appwrite migration 012 and active message-action Function deployment need coordinated exact-source Scratch approval; no production writes.
 - Preserve accepted first-open sheets (#640/#656), owner isolation, gestures, retention/backup contracts and release workflow. Incomplete manual/real-device acceptance cannot be claimed.
-Next action: focused [verify:focused] on coherent task commit; repair failures and do not promote before green.
+Stable Preview feature/diary-408@91564039 failed canonical checks: Diary editor effect lint, outdated placeholder DOM assertion, and four aggregate build-size caps exceeded despite startup-sensitive caps passing. Repair on chatgpt/408-diary-preview-repair-20261012, with metric-specific #408 size-budget review and no backend mutation.
+Next action: focused [verify:focused] on repair task, squash into stable Preview, re-run full canonical and exact Preview deployment checks. Shared Scratch schema and Function remain unmodified, pending coordinated exact-source rollout.

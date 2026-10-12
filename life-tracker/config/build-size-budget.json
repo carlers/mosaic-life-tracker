@@ -17,15 +17,15 @@
     "entryRawBytes": 446200,
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
-    "homeClosureGzipBytes": 366100,
-    "appAssetsRawBytes": 2461000,
-    "appAssetsGzipBytes": 764000,
-    "precacheUniqueBytes": 2548500
+    "homeClosureGzipBytes": 367300,
+    "appAssetsRawBytes": 2476000,
+    "appAssetsGzipBytes": 770000,
+    "precacheUniqueBytes": 2564000
   },
   "review": {
-    "issue": "#656",
-    "reason": "Measured first GIPHY-enabled Scratch v0.20.4 Preview 5ca4f6da1b46b693e78e7c6ad63e70d1034ecb1e adds code-only ready-component warmup for Menu/friend Day View plus sheet-only Swiper Virtual, carrying user-accepted Chat/Notification lazy fixes onto dev v0.20.3. PWA, TS and browser/DOM behavior pass. Entry raw/gzip and initial closure budgets remain unchanged and pass. Four aggregate metrics exceeded prior narrowly sized limits by 314/1217/673/1424 B; dev #655 had only tens/hundreds of bytes headroom. Reviewed against hosted measurements in #656 comment 6117480055; preserve historic baseline and three startup-critical ceilings. Corrected SHA must independently pass canonical and GIPHY Scratch.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/FYgDRjqccPkhCk6YH1RAAmzfh9Z5",
+    "issue": "#408",
+    "reason": "Measured stable v0.22.0 Diary View adds an optional emoji editor, shared calendar marker rendering, owner/local-first and friend privacy paths, with separate backend compatibility. Static entry/initial budgets remain unchanged and pass. Full canonical build at Preview 91564039 measured four aggregate overages of 401 / 11937 / 4400 / 12420 bytes; these modest new ceilings cover the feature and leave less than 4KiB margin per metric. No historic baseline change; route, PWA, unit, DOM and browser verification required after repair.",
+    "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38229917216",
     "metrics": [
       "homeClosureGzipBytes",
       "appAssetsRawBytes",
@@ -33,10 +33,10 @@
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 365450,
-      "appAssetsRawBytes": 2459250,
-      "appAssetsGzipBytes": 763000,
-      "precacheUniqueBytes": 2546350
+      "homeClosureGzipBytes": 366100,
+      "appAssetsRawBytes": 2461000,
+      "appAssetsGzipBytes": 764000,
+      "precacheUniqueBytes": 2548500
     }
   }
 }
