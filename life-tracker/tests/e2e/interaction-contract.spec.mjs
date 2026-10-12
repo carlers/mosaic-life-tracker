@@ -746,7 +746,7 @@ test('task long-press stays under the finger while siblings reorder, then persis
   expect(releaseTrajectory.samples.length).toBeGreaterThan(3);
   expect(releaseTrajectory.samples.every(y =>
     Math.abs(y - releaseTrajectory.finalY) < 30
-  )).toBe(true);
+  ), JSON.stringify(releaseTrajectory)).toBe(true);
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
     'reordered:task_0_1,task_0_2,task_0_0'
