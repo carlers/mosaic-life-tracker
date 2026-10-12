@@ -91,7 +91,7 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(yaml).toContain('vars.MOSAIC_TRUSTED_PREVIEW_ENABLED == \'true\'');
     expect(yaml).toContain('github.event.workflow_run.head_branch == \'fix/workflow-build-parity-592-20261012\'');
     expect(yaml).toContain('environment: mosaic-preview-auto');
-    expect(yaml).toContain('ref: \${{ github.sha }}');
+    expect(yaml).toContain('ref: ${{ github.sha }}');
     expect(yaml).toContain('run: node life-tracker/scripts/run-trusted-preview-receiver.mjs');
     expect(yaml).not.toContain('github.event.workflow_run.head_sha }}');
     expect(yaml).not.toContain('npm ci');
