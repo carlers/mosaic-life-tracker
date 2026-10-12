@@ -16,7 +16,6 @@
   --mosaic-text-muted: #9ca3af;
   --mosaic-text-faint: #6b7280;
   --mosaic-task-incomplete-bg: #374151;
-  --mosaic-task-incomplete-category-contrast: #ffffff;
   --mosaic-floating-surface: rgba(23, 23, 23, 0.95);
   --mosaic-hover-wash: rgba(255, 255, 255, 0.05);
   --mosaic-chat-incoming: #000000;
@@ -71,7 +70,6 @@ html[data-theme='light'] {
   --mosaic-text-muted: #4b5563;
   --mosaic-text-faint: #596273;
   --mosaic-task-incomplete-bg: #e5e7eb;
-  --mosaic-task-incomplete-category-contrast: #000000;
   --mosaic-floating-surface: rgba(255, 255, 255, 0.96);
   --mosaic-hover-wash: rgba(17, 24, 39, 0.05);
   --mosaic-chat-incoming: #ffffff;

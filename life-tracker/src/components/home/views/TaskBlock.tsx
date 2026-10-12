@@ -33,7 +33,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isSha
         color: task.completed
           ? getReadableTextColor(categoryColor)
           : showCategoryText
-            ? `color-mix(in srgb, ${categoryColor} 40%, var(--mosaic-task-incomplete-category-contrast))`
+            ? `color-mix(in srgb, ${categoryColor} 35%, var(--mosaic-text))`
             : undefined,
         boxShadow: showCategoryBorder ? `inset 0 0 0 1px ${categoryColor}` : undefined,
       }}
