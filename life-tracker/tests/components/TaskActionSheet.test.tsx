@@ -155,6 +155,25 @@ describe('TaskActionSheet', () => {
     await vi.waitFor(() => expect(cbs.onClose).toHaveBeenCalled());
   });
 
+  it('preserves the existing Share and Link nested-action callback sequence', () => {
+    const sequence: string[] = [];
+    const cbs = makeCallbacks();
+    cbs.onClose.mockImplementation(() => sequence.push('close'));
+    cbs.onShare.mockImplementation(() => sequence.push('share'));
+    const onLinkToBucketList = vi.fn(() => sequence.push('link'));
+    render(
+      <TaskActionSheet isOpen task={makeTask()} category={makeCategory()}
+        {...cbs} onLinkToBucketList={onLinkToBucketList} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Share with friends' }));
+    expect(sequence).toEqual(['share', 'close']);
+
+    sequence.length = 0;
+    fireEvent.click(screen.getByRole('button', { name: 'Link to Bucket List' }));
+    expect(sequence).toEqual(['close', 'link']);
+  });
+
   it('copies the task title and closes the sheet', async () => {
     const cbs = makeCallbacks();
     const writeText = navigator.clipboard.writeText as ReturnType<typeof vi.fn>;

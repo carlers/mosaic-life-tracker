@@ -147,6 +147,15 @@ vi.mock('../../src/components/home/views/ImagePickerSheet', () => ({
     isOpen ? <div data-testid="image-picker-sheet">Image picker child</div> : null,
 }));
 
+vi.mock('../../src/components/home/views/ShareTaskSheet', () => ({
+  ShareTaskSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div role="dialog" aria-label="Share task" /> : null,
+}));
+vi.mock('../../src/components/home/views/LinkTaskToBucketSheet', () => ({
+  LinkTaskToBucketSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div role="dialog" aria-label="Link to Bucket List" /> : null,
+}));
+
 vi.mock('../../src/components/home/views/ImageViewer', () => ({
   ImageViewer: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div data-testid="image-viewer">Image viewer</div> : null,
@@ -277,6 +286,17 @@ describe('DayViewSheet nested task actions', () => {
     expect(
       screen.getByText('Sunday, September 20, 2026')
     ).toBeInTheDocument();
+  });
+
+  it('opens the warmed Link to Bucket List sheet through task actions', async () => {
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', { name: 'Open actions' }));
+    await act(async () => {
+      await import('../../src/components/home/views/LinkTaskToBucketSheet');
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Link to Bucket List' }));
+    expect(await screen.findByRole('dialog', { name: 'Link to Bucket List' })).toBeInTheDocument();
   });
 
   it('maps unmodified horizontal arrow keys to day navigation while open', () => {
