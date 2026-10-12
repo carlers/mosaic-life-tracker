@@ -1353,12 +1353,19 @@ async function syncCollection(
       const docId = (json.id as string) || doc.id;
       if (!docId || remoteIndex.has(docId) || json.isDeleted === true) continue;
 
-      if (
-        colName === 'messages' &&
-        json.direction === 'outgoing' &&
-        json.deliveryStatus === 'pending'
-      ) {
-        continue;
+      if (colName === 'messages' && json.direction === 'outgoing') {
+        if (json.deliveryStatus === 'pending') continue;
+        // A committed local outgoing row absent on its owner's server may
+        // be a partial pair. Do not erase the only surviving sender copy.
+        // Flag it for explicit investigation/repair instead of reporting
+        // a successful full reconciliation.
+        if (!json.isUnsent) {
+          collectionErrors.push(
+            new Error('Outgoing message missing from server; pair not verified')
+          );
+          pullRowFailed = true;
+          continue;
+        }
       }
 
       const localUpdatedAt = toMs(json.updatedAt);
