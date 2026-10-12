@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Reorder, useDragControls } from 'framer-motion';
+import React, { useState, useMemo, useRef } from 'react';
+import { AnimatePresence, motion, Reorder, useDragControls, useIsPresent, useReducedMotion } from 'framer-motion';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
 import { Button } from '../ui/Button';
@@ -55,6 +55,27 @@ const VisibilityPicker: React.FC<VisibilityPickerProps> = ({
   </div>
 );
 
+const CategoryEditPanel: React.FC<{ children: React.ReactNode; onExpanded: () => void }> = ({
+  children, onExpanded,
+}) => {
+  const present = useIsPresent();
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={reduced ? { duration: 0 } : { duration: 0.23, ease: 'easeInOut' }}
+      className="overflow-hidden"
+      inert={!present}
+      aria-hidden={!present}
+      onAnimationComplete={() => { if (present) onExpanded(); }}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
 interface CategoryRowProps {
   cat: CategoryDocument;
   overriddenCount: number;
@@ -63,10 +84,11 @@ interface CategoryRowProps {
   onReorderEnd: () => void;
   disabled: boolean;
   isEditing: boolean;
+  orderSignature: string;
   children?: React.ReactNode;
 }
 
-const CategoryRow: React.FC<CategoryRowProps> = ({
+export const CategoryRow: React.FC<CategoryRowProps> = ({
   cat,
   overriddenCount,
   onEditStart,
@@ -74,26 +96,22 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   onReorderEnd,
   disabled,
   isEditing,
+  orderSignature,
   children,
 }) => {
   const dragControls = useDragControls();
   const editPanelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isEditing) {
-      editPanelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-    }
-  }, [isEditing]);
 
   return (
     <Reorder.Item
       value={cat}
       dragListener={false}
       layout="position"
+      layoutDependency={orderSignature}
       dragControls={dragControls}
       onDragEnd={onReorderEnd}
       aria-label={`${cat.name} category`}
-      className="bg-[#1A1A1A] rounded-lg"
+      className="relative bg-[#1A1A1A] rounded-lg"
     >
       <div className="flex items-center gap-3 py-3 px-2">
         <button
@@ -142,14 +160,18 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
           <Trash2 size={16} />
         </button>
       </div>
-      {isEditing && (
-        <div
-          ref={editPanelRef}
-          className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3"
-        >
-          {children}
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {isEditing && (
+          <CategoryEditPanel
+            key="editor"
+            onExpanded={() => editPanelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })}
+          >
+            <div ref={editPanelRef} className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
+              {children}
+            </div>
+          </CategoryEditPanel>
+        )}
+      </AnimatePresence>
     </Reorder.Item>
   );
 };
@@ -195,6 +217,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     });
   }, [categories, orderedIds]);
   const pendingOrder = useRef(orderedCategories);
+  const orderSignature = orderedCategories.map((cat) => cat.id).join('|');
 
   const [syncedIsOpen, setSyncedIsOpen] = useState(isOpen);
   if (isOpen !== syncedIsOpen) {
@@ -301,6 +324,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               cat={cat}
               overriddenCount={overriddenCounts.get(cat.id) ?? 0}
               isEditing={editingId === cat.id}
+              orderSignature={orderSignature}
               onEditStart={(c) => {
                 reset();
                 setIsAdding(false);
