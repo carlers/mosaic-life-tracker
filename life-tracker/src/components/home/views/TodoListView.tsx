@@ -2,12 +2,13 @@ import React, { lazy, Suspense, useCallback, useState } from 'react';
 import {
   format,
   isSameMonth,
+  isSameDay,
 } from 'date-fns';
 import { DayViewSheet } from './DayViewSheet';
 import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { TodoCalendarGrid } from './TodoCalendarGrid';
-import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import {
@@ -36,6 +37,9 @@ interface TodoListViewProps {
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
   weekStartsOn?: WeekStartsOn;
   holidayConfig?: HolidayDisplayConfig;
+  markerMode?: 'todo' | 'diary';
+  diaryEntries?: readonly DiaryDocument[];
+  onOpenDiary?: (date: Date) => void;
 }
 
 export const TodoListView: React.FC<TodoListViewProps> = ({
@@ -53,6 +57,9 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   onReactToTask,
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
+  markerMode = 'todo',
+  diaryEntries = [],
+  onOpenDiary,
 }) => {
   const [selectedDate, setSelectedDate] = useState(() => new Date(focusDate));
   const {
@@ -82,6 +89,14 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
     [focusDate, onFocusDateChange]
   );
 
+  const handleCalendarDateSelect = useCallback((date: Date) => {
+    if (markerMode === 'diary' && isSameDay(selectedDate, date)) {
+      onOpenDiary?.(date);
+      return;
+    }
+    handleDateChange(date);
+  }, [markerMode, selectedDate, handleDateChange, onOpenDiary]);
+
   return (
     <section
       className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300"
@@ -99,8 +114,10 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
           ownedSharedTaskIds={variant === 'me' ? ownedSharedTaskIds : undefined}
           categories={categories}
           categoriesMap={categoriesMap}
-          onDateSelect={handleDateChange}
+          onDateSelect={handleCalendarDateSelect}
           onMonthChange={onFocusDateChange}
+          markerMode={markerMode}
+          diaryEntries={diaryEntries}
           weekStartsOn={weekStartsOn}
           holidayConfig={holidayConfig}
         />

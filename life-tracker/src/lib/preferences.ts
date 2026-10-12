@@ -14,6 +14,8 @@ export function resolveIncompleteTaskBlockColorMode(value: unknown): IncompleteT
 export const WEEK_STARTS_ON_SUNDAY_SETTING_KEY = 'weekStartsOnSunday';
 export const SHOW_CATEGORY_COLLAPSE_SETTING_KEY = 'showCategoryCollapseButton';
 export const SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY = 'showDayViewTodayTag';
+export const SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY = 'showDiaryInDayView';
+export const SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY = 'showDiaryTodayShortcut';
 export const SHARED_LABEL_MODE_SETTING_KEY = 'sharedTaskLabelMode';
 export const SHOW_PENDING_SHARES_SETTING_KEY = 'showPendingSharedTaskInvites';
 export const SHOW_HOLIDAYS_SETTING_KEY = 'showHolidays';

@@ -32,7 +32,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         className="min-w-0 flex-1 text-base font-bold text-white transition-all duration-200"
         aria-live="polite"
       >
-        {(activeView === 'calendar' || activeView === 'todo') && onTitleClick ? (
+        {onTitleClick ? (
           <button
             type="button"
             onClick={onTitleClick}
@@ -44,11 +44,11 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           </button>
         ) : (
           <span className="block truncate">
-            {activeView === 'diary' ? 'Diary' : title}
+            {title}
           </span>
         )}
       </h2>
-      {activeView !== 'diary' && (
+      {(
         <div className="flex items-center gap-2 flex-shrink-0">
           {activeView === 'calendar' && (
             <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />

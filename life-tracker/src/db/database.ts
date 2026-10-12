@@ -11,7 +11,7 @@ import {
   tasksSchema,
   categoriesSchema,
   diarySchema,
-  settingsSchema,
+    settingsSchema,
   bucketListSchema,
   bucketTaskLinksSchema,
   friendshipsSchema,
@@ -33,6 +33,7 @@ import {
   friendshipsMigrationStrategies,
   messagesMigrationStrategies,
   categoriesMigrationStrategies,
+  diaryMigrationStrategies,
   settingsMigrationStrategies,
   syncMetaMigrationStrategies,
 } from './migrations';
@@ -93,7 +94,7 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
         schema: categoriesSchema,
         migrationStrategies: categoriesMigrationStrategies,
       },
-      diary: { schema: diarySchema },
+      diary: { schema: diarySchema, migrationStrategies: diaryMigrationStrategies },
       bucketList: { schema: bucketListSchema },
       bucketTaskLinks: { schema: bucketTaskLinksSchema },
       settings: {

@@ -1,73 +1,68 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const findOneMock = vi.hoisted(() => vi.fn());
-const upsertLocalDocMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
-
+const storedDocs = vi.hoisted(() => ({ current: [] as Record<string, unknown>[] }));
+const upsertMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 vi.mock('../../src/db/database', () => ({
   getDatabase: () => ({
-    diary: {
-      findOne: (id: string) => ({
-        exec: () => findOneMock(id),
-      }),
-    },
+    diary: { find: () => ({ exec: async () => storedDocs.current }) },
   }),
 }));
-
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'user_A' } }),
 }));
-
 vi.mock('../../src/hooks/useRxCollection', () => ({
-  useRxCollection: () => ({
-    data: [],
-    isLoading: false,
-  }),
+  useRxCollection: () => ({ data: storedDocs.current.filter(doc => !doc.isDeleted), isLoading: false }),
 }));
-
-vi.mock('../../src/lib/localUpsert', () => ({
-  upsertLocalDoc: upsertLocalDocMock,
-}));
-
+vi.mock('../../src/lib/localUpsert', () => ({ upsertLocalDoc: upsertMock }));
 import { useDiary } from '../../src/hooks/useDiary';
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-02T08:00:00.000Z'));
-  findOneMock.mockReset();
-  upsertLocalDocMock.mockReset();
-  upsertLocalDocMock.mockResolvedValue(undefined);
+  storedDocs.current = [];
+  upsertMock.mockReset().mockResolvedValue(undefined);
 });
+afterEach(() => vi.useRealTimers());
 
-afterEach(() => {
-  vi.useRealTimers();
-});
-
-describe('useDiary RxDB mutations', () => {
-  it('stamps diary tombstones with the deletion time', async () => {
-    const incrementalPatch = vi.fn().mockResolvedValue(undefined);
-    findOneMock.mockResolvedValue({ incrementalPatch });
-
+describe('diary local-first save/edit/delete', () => {
+  it('creates an owner-private entry with normalized date key and optional emoji', async () => {
     const { result } = renderHook(() => useDiary());
-
-    await act(async () => {
-      await result.current.deleteEntry('2026-10-01');
-    });
-
+    await act(async () => result.current.saveEntry('2026-10-01', 'hello', undefined, '🌱'));
+    expect(upsertMock).toHaveBeenCalledWith('diary', expect.any(String),
+      expect.objectContaining({ date: '2026-10-01', content: 'hello', emoji: '🌱', visibility: 'private' }));
+  });
+  it('preserves existing visibility and original row id on edits', async () => {
+    storedDocs.current = [{ id: 'legacy_import', date: '2026-10-01', userId: 'user_A',
+      content: 'old', emoji: '', visibility: 'followers', isDeleted: false }];
+    const { result } = renderHook(() => useDiary());
+    await act(async () => result.current.saveEntry('2026-10-01', 'new'));
+    expect(upsertMock).toHaveBeenCalledWith('diary', 'legacy_import',
+      expect.objectContaining({ content: 'new', visibility: 'followers', isDeleted: false }));
+  });
+  it('resurrected diary defaults to private instead of retaining a deleted public audience', async () => {
+    storedDocs.current = [{ id: 'old_deleted', userId: 'user_A', date: '2026-10-01',
+      content: 'old', visibility: 'public', isDeleted: true }];
+    const { result } = renderHook(() => useDiary());
+    await act(async () => result.current.saveEntry('2026-10-01', 'new day'));
+    expect(upsertMock).toHaveBeenCalledWith('diary', 'old_deleted',
+      expect.objectContaining({ visibility: 'private', isDeleted: false }));
+  });
+  it('tombstones the actual stored row with a monotonic edit time', async () => {
+    const incrementalPatch = vi.fn().mockResolvedValue(undefined);
+    storedDocs.current = [{ id: 'imported', userId: 'user_A', date: '2026-10-01',
+      isDeleted: false, incrementalPatch }];
+    const { result } = renderHook(() => useDiary());
+    await act(async () => result.current.deleteEntry('2026-10-01'));
     expect(incrementalPatch).toHaveBeenCalledWith({
-      isDeleted: true,
-      updatedAt: '2026-10-02T08:00:00.000Z',
+      isDeleted: true, updatedAt: '2026-10-02T08:00:00.000Z',
     });
   });
-
-  it('saves a diary entry through the local RxDB document path', async () => {
-    findOneMock.mockResolvedValue(null);
+  it('refuses duplicate legacy entries and invalid dates without writes', async () => {
+    storedDocs.current = [{ id: 'a' }, { id: 'b' }];
     const { result } = renderHook(() => useDiary());
-
-    await act(async () => {
-      await result.current.saveEntry('2026-10-01', 'hello', 'private');
-    });
-
-    expect(upsertLocalDocMock).toHaveBeenCalledTimes(1);
+    await expect(result.current.saveEntry('2026-02-31', 'bad')).rejects.toThrow('Invalid');
+    await expect(result.current.saveEntry('2026-10-01', 'good')).rejects.toThrow('Multiple');
+    expect(upsertMock).not.toHaveBeenCalled();
   });
 });
