@@ -8,7 +8,7 @@ Current task: issue #655 — measurable PWA update asset preparation progress, t
 - **Base:** accepted `feature/pwa-progress-655` at `ff9f42193f64e01ed884124bbc5263804b7fe6ee` (v0.20.0); canonical GitHub CI success and exact-SHA Vercel Scratch Preview READY. Leave dev/main untouched.
 - **Approved change:** Me `/account` Categories tile opens the same lazily mounted `CategoryManagerSheet` as Home > Lists & Categories, preserving the existing sheet and tile styling.
 - **Test revision:** v0.20.1 (PATCH, first real user-testable update of #655); package, lockfile, and APP_VERSION agree. Regression verifies accessible Categories tile opens/closes the manager.
-- **Preview flow:** task branch `chatgpt/pwa-655-category-update-test` → focused CI → squash PR into `feature/pwa-progress-655` → canonical CI plus exact-SHA GIPHY-enabled Vercel READY. No Appwrite changes.
+- **Delivery:** PR #674 squash-merged as `a41025b56ea6470775774a911352dddf7abe345d`; task CI green. Exact GIPHY-enabled Vercel failed only three aggregate size limits; parity task `chatgpt/pwa-655-update-giphy-parity` reviews those measured thresholds. Reverify focused CI, squash to stable Preview, then require full canonical and exact-SHA Vercel READY. No Appwrite/dev/main changes.
 - **Manual acceptance pending:** with the *old v0.20.0* app already open/installed at the stable Preview alias, deploy v0.20.1, use Settings > Check for updates, inspect per-file asset sizes/percent and explicit Update now, verify Me > Categories opens the existing manager. First install, browser-managed install and activation do not expose true downloaded bytes; do not claim otherwise.
 
 ## Previous workstream checkpoints

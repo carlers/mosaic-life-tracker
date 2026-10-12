@@ -18,25 +18,23 @@
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
     "homeClosureGzipBytes": 365250,
-    "appAssetsRawBytes": 2457200,
-    "appAssetsGzipBytes": 762500,
-    "precacheUniqueBytes": 2544500
+    "appAssetsRawBytes": 2458200,
+    "appAssetsGzipBytes": 763000,
+    "precacheUniqueBytes": 2545500
   },
   "review": {
     "issue": "#655",
-    "reason": "Exact stable v0.20.0 Vercel Scratch Preview build 020cce8884e508e3d99319e968a3100a85313884 has GIPHY stickers enabled, unlike the CI size baseline. It passed PWA activation/precache policy and all three entry/initial ceilings, but exceeded only Home closure gzip by 26 B, aggregate raw by 1538 B, aggregate gzip by 677 B, and unique precache by 1661 B. Narrowly review just these four increments with remaining headroom <=839 B; retain pinned historical baseline, all entry/initial caps, and the prior task's v0.20.0 startup optimization (see Git history/PR #670). No Appwrite or runtime changes.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/8EtBgRgc1yHtfkaRrPJDZG8bNfEr",
+    "reason": "First real PWA update candidate v0.20.1 (Me Categories manager) passes full GitHub task build and PWA policy. The exact stable Preview Vercel Scratch build a41025b56ea6470775774a911352dddf7abe345d with GIPHY enabled also passed all entry, initial and Home budgets but exceeded only aggregate app raw by 734 B, app gzip by 150 B and unique precache by 557 B. Review these three limits narrowly, retaining previous values in previousLimits, preserving the pinned historical baseline, all four unchanged entry/closure caps, and all SW safeguards. Evidence is from the failed exact-commit hosted build, not inferred network bytes.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/8gt6ugzCTDbRASbyNA37p3cUwZHj",
     "metrics": [
-      "homeClosureGzipBytes",
       "appAssetsRawBytes",
       "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 365100,
-      "appAssetsRawBytes": 2455000,
-      "appAssetsGzipBytes": 761400,
-      "precacheUniqueBytes": 2542000
+      "appAssetsRawBytes": 2457200,
+      "appAssetsGzipBytes": 762500,
+      "precacheUniqueBytes": 2544500
     }
   }
 }
