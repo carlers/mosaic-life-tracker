@@ -39,8 +39,10 @@ blend 35% category color with the existing `--mosaic-text` semantic foreground
 (white in Dark/Black, dark in Light) against the incomplete-block background;
 this preserves a distinguishable hue
 while protecting normal-text contrast across the predefined category palette.
-Category border instead uses the original stored hue as an inset outline,
-without resizing the task block. The Default option preserves prior rendering.
+Category text must omit the generic `text-gray-300` utility on its block:
+Light/Black theme remaps use `!important`, which otherwise overrides the
+category foreground even when supplied inline. Category border uses the
+original stored hue as an inset outline, without resizing the task block. The Default option preserves prior rendering.
 Selection tint may derive from the category hue, but its text
 must use the normal theme foreground rather than assuming an opaque category
 fill.

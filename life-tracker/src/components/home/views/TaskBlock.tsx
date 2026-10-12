@@ -19,10 +19,12 @@ interface TaskBlockProps {
 export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isShared = false }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
-  const textColor = task.completed ? 'mosaic-done' : 'text-gray-300';
   const incompleteColorMode = React.useContext(IncompleteTaskBlockColorContext);
   const showCategoryText = !task.completed && incompleteColorMode === 'text';
   const showCategoryBorder = !task.completed && incompleteColorMode === 'border';
+  // Theme remaps of text-gray-300 use !important in Light/Black;
+  // omit that class when the category text override is active.
+  const textColor = task.completed ? 'mosaic-done' : showCategoryText ? '' : 'text-gray-300';
 
   return (
     <div

@@ -1,9 +1,14 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: opt-in category coloring for unfinished Calendar task blocks; task branch and stable Preview only, no dev/main merge.
+Current task: correct category text mode in Calendar TaskBlocks; v0.20.1 task branch and stable Preview only, no dev/main merge.
 
-## Current task — incomplete Calendar TaskBlock color
+## Current task — Calendar category text fix
+- v0.20.0 Preview: category text fails Light/Black because `text-gray-300` theme `!important` defeats inline color; border works.
+- Fix: `chatgpt/fix-taskblock-category-text-20261012` from `feature/taskblock-incomplete-color-20261012@1b28a4b`. Omit conflicting class in text mode; browser regression checks computed colors in Dark/Light/Black.
+- v0.20.1 frontend-only. Next: focused → Preview full CI/Vercel Scratch READY → user test. No dev/main promotion.
+
+## Previous task — incomplete Calendar TaskBlock color
 - Base: dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1. Task: chatgpt/taskblock-incomplete-color-20261012. Stable Preview: feature/taskblock-incomplete-color-20261012.
 - New account-synced Preferences choice: Default, Category text, or Category border; only unfinished Calendar TaskBlocks change. Applies while viewing the owner's and friends' calendars. Text blending protects contrast across Light/Dark/Black; completed TaskBlocks and Day View rows remain unchanged.
 - Planned feature version: 0.20.0. Frontend-only; no Appwrite schema/Function or Production changes.
