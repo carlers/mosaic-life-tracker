@@ -114,7 +114,7 @@ describe('PWA lifecycle', () => {
 
   });
 
-  it('accepts only measured progress from the currently installing worker', () => {
+  it('retains measured progress across rechecks and rejects stale workers', async () => {
     const setup = fixture();
     const worker = Object.assign(new EventTarget(), { state: 'installing' });
     Object.assign(setup.registration, { installing: worker });
@@ -131,6 +131,7 @@ describe('PWA lifecycle', () => {
       }));
 
     push(worker, 2, 2500);
+    await expect(checkForPwaUpdate()).resolves.toBe('update-in-progress');
     expect(getPwaLifecycleSnapshot().assetProgress).toEqual({
       completed: 2, total: 4, completedBytes: 2500, totalBytes: 5000,
     });
@@ -352,6 +353,7 @@ describe('PWA lifecycle', () => {
     expect(getPwaLifecycleSnapshot()).toEqual({
       installAvailable: false,
       updateAvailable: false,
+      assetProgress: null,
     });
     expect(setup.update).not.toHaveBeenCalled();
   });

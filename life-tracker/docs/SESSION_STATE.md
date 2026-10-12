@@ -4,13 +4,13 @@ Updated: 2026-10-12
 Current task: issue #655 — measurable PWA update asset preparation progress, task branch and stable Preview only (no dev/main promotion).
 
 ## #655 approved implementation
-- Base: dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1; task: chatgpt/pwa-progress-655; stable Preview: feature/pwa-progress-655.
-- Version proposal: 0.20.0 (new user-visible capability); check active branches again before stable Preview delivery.
-- Replace generated Workbox service worker with a single injectManifest worker so Workbox's *existing* precache operation can report verified per-file completion and build asset sizes without additional network fetches or pretending to know compressed wire bytes.
-- Show percentage, bytes of uncompressed build files handled, or file-count percentage when size is unknown. Browser/OS installation remains indeterminate; keep explicit update activation, push import and offline SPA fallback.
-- Files: src/sw.js, src/lib/pwaLifecycle.ts, src/components/ui/PwaAssetProgressView.tsx, Settings/PwaPrompt, Vite config, SW inspector, tests and version metadata; frontend-only, no Appwrite mutation.
-- Verification status at authoring: source changes prepared; GitHub focused task CI and stable Preview canonical/Vercel checks pending. No manual browser/device acceptance claimed.
-- Next: publish one focused task commit, investigate any checks, squash focused-green task PR into feature/pwa-progress-655, verify full canonical and Vercel READY, then request user acceptance before dev/main.
+- Base: dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1. Stable Preview: `feature/pwa-progress-655`; repair task branch: `chatgpt/pwa-progress-655-repair`. No dev/main promotion authorized.
+- Preview v0.20.0: compiled custom Workbox `injectManifest` SW measures cache-preparation progress by actual uncompressed emitted file sizes or file count; browser-managed install/activation has indeterminate status. No duplicate downloads or forced activation. Existing push and offline-cache contracts remain required.
+- Original [PR #659](https://github.com/carlers/mosaic-life-tracker/pull/659) was squash-merged into stable Preview at 52943d014d63fb594985dccf20b31e327c714c33; full CI and Vercel failed. Issue #655 has delivery plan.
+- Repair: adapt the compiled-service-worker inspector to Vite's static template literals (a build-policy test issue); update one lifecycle snapshot test; and fill bytes for plugin-supplied additional precache assets via a post-generation script using emitted `dist` sizes. New regression tests cover these contracts.
+- Size review: on-demand progress chunk, three narrowly reviewed startup caps (#655); all Home and aggregate caps unchanged.
+- Automated verification: original task focused green. Repair full CI and final stable Preview canonical/Vercel checks pending; no device acceptance claimed.
+- Next: complete repair CI, address any budget/build errors without weakening safeguards, squash repair to `feature/pwa-progress-655`, confirm exact-SHA canonical+Vercel READY, and hand off for device testing. `dev` and `main` remain untouched.
 
 ## Previous workstream checkpoints
 

@@ -10,6 +10,16 @@ export function inspectInjectedWorker(source) {
   const claims = [];
   let fallback = null;
   let denylist = null;
+  const stringBindings = new Map();
+  const boundUrlArgs = [];
+
+  function staticString(node) {
+    if (node?.type === 'Literal' && typeof node.value === 'string') return node.value;
+    if (node?.type === 'TemplateLiteral' && node.expressions.length === 0) {
+      return node.quasis.map((part) => part.value.cooked).join('');
+    }
+    return null;
+  }
 
   function propName(node) {
     if (!node) return '';
@@ -26,6 +36,9 @@ export function inspectInjectedWorker(source) {
   function walk(node, ancestors = []) {
     if (!node || typeof node !== 'object' || typeof node.type !== 'string') return;
     const path = [...ancestors, node];
+    if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier' && staticString(node.init) !== null) {
+      stringBindings.set(node.id.name, staticString(node.init));
+    }
     if (node.type === 'ArrayExpression' && node.elements.length > 0 &&
         node.elements.every((entry) => entry?.type === 'ObjectExpression' &&
           objectValue(entry, 'url')?.type === 'Literal' &&
@@ -39,14 +52,18 @@ export function inspectInjectedWorker(source) {
       const method = propName(node.callee?.property) ||
         (node.callee?.type === 'Identifier' ? node.callee.name : '');
       if (method === 'importScripts') {
-        importedScripts.push(...node.arguments.map((arg) => arg.value));
+        importedScripts.push(...node.arguments.map((arg) => staticString(arg)));
+        if (node.arguments.some((arg) => staticString(arg) === null)) throw new Error('Dynamic importScripts URL is not permitted.');
       }
       if (method === 'skipWaiting') waits.push(path);
       if (method === 'claim' && propName(node.callee?.object?.property) === 'clients') {
         claims.push(path);
       }
-      if (method === 'createHandlerBoundToURL' &&
-          typeof node.arguments[0]?.value === 'string') fallback = node.arguments[0].value;
+      if (method === 'createHandlerBoundToURL') {
+        boundUrlArgs.push(node.arguments[0]);
+        const arg = node.arguments[0];
+        fallback = staticString(arg) ?? fallback;
+      }
     }
     if (node.type === 'Property' && propName(node.key) === 'denylist' &&
         node.value?.type === 'ArrayExpression') {
@@ -63,11 +80,24 @@ export function inspectInjectedWorker(source) {
   if (!source.includes('__MOSAIC_ASSETS__')) {
     throw new Error('Missing injected Mosaic precache progress manifest.');
   }
+  if (!fallback) {
+    fallback = boundUrlArgs.filter((arg) => arg?.type === 'Identifier')
+      .map((arg) => stringBindings.get(arg.name))
+      .find((url) => url === 'index.html') ?? null;
+  }
   const precacheEntries = manifestCandidates.sort((a, b) => b.length - a.length)[0];
   const precacheUrls = precacheEntries?.map((entry) => entry.url);
   const precacheSizes = precacheEntries?.map((entry) => entry.bytes);
   if (!precacheUrls?.length || !fallback || !denylist) {
-    throw new Error('Missing injected precache, fallback, or navigation denylist.');
+    throw new Error('Missing injected precache, fallback, or navigation denylist. ' +
+      JSON.stringify({ manifestArrayCount: manifestCandidates.length,
+        longestManifest: precacheEntries?.length ?? 0,
+        fallback, denylist,
+        boundUrlArgs: boundUrlArgs.map((arg) => ({ type: arg?.type, value: arg?.name ?? arg?.value })),
+        routeCalls: [...source.matchAll(/createHandlerBoundToURL/g)].length,
+        indexHtmlReferences: [...source.matchAll(/index\\.html/g)].length,
+        denylistReferences: [...source.matchAll(/denylist/g)].length,
+      }));
   }
   let skipWaitingOnStartup = false;
   let skipWaitingOnLifecycle = false;
@@ -77,7 +107,7 @@ export function inspectInjectedWorker(source) {
     const event = path.filter((parent) =>
       parent.type === 'CallExpression' &&
       propName(parent.callee?.property) === 'addEventListener'
-    ).map((parent) => parent.arguments[0]?.value).at(-1);
+    ).map((parent) => staticString(parent.arguments[0])).at(-1);
     const guarded = path.some((parent) =>
       (parent.type === 'IfStatement' || parent.type === 'ConditionalExpression' ||
        parent.type === 'LogicalExpression') && source.slice(
@@ -90,7 +120,7 @@ export function inspectInjectedWorker(source) {
     else skipWaitingOnStartup = true;
   }
   if (!skipWaitingOnRequest) {
-    throw new Error('Update confirmation message handler is missing.');
+    throw new Error('Update confirmation message handler is missing or not guarded.');
   }
   return {
     skipWaitingOnStartup,
