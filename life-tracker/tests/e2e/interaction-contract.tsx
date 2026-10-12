@@ -8,6 +8,8 @@ import '../../src/index.css';
 import { format } from 'date-fns';
 import { CalendarCarousel } from '../../src/components/home/views/CalendarCarousel';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
+import { TaskBlock } from '../../src/components/home/views/TaskBlock';
+import { IncompleteTaskBlockColorContext } from '../../src/hooks/incompleteTaskBlockColorContext';
 import { loadDayViewSheet } from '../../src/components/home/views/dayViewSheetModule';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
@@ -783,6 +785,19 @@ export function InteractionHarness() {
           Black appearance
         </button>
       </div>
+      <section data-testid="taskblock-color-probe" data-category-color="#FF6B6B" aria-label="Calendar task color probe">
+        {(['default', 'text', 'border'] as const).map(mode => (
+          <IncompleteTaskBlockColorContext.Provider key={mode} value={mode}>
+            <div data-testid={`incomplete-taskblock-${mode}`}>
+              <TaskBlock task={todoTasks[0]} categoryColor="#FF6B6B" />
+            </div>
+            <div data-testid={`completed-taskblock-${mode}`}>
+              <TaskBlock task={{ ...todoTasks[0], completed: true }} categoryColor="#FF6B6B" />
+            </div>
+          </IncompleteTaskBlockColorContext.Provider>
+        ))}
+      </section>
+
       <div data-testid="settings-switch-geometry" className="mt-3 max-w-sm">
         <SettingsRow
           icon={<span />}

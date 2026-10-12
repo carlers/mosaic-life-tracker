@@ -3,6 +3,7 @@ import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
+import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { ComingSoon } from '../layout/ComingSoon';
 import { useCalendarState } from './views/useCalendarState';
 import { useAuth } from '../../hooks/useAuth';
@@ -14,6 +15,8 @@ import {
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
+  INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  resolveIncompleteTaskBlockColorMode,
   resolveWeekStartsOn,
 } from '../../lib/preferences';
 import { createHolidayDisplayConfig } from '../../lib/holidays';
@@ -63,6 +66,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     () => new Set(ownedShares.map(share => share.taskId)), [ownedShares]
   );
   const { getSetting } = useSettings();
+  const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
+    getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
+  );
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -96,6 +102,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, []);
 
   return (
+    <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex flex-col h-full">
       <PersonProfileHeader person={person} isActive={isActive} />
       <CalendarHeader
@@ -160,6 +167,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         <ComingSoon />
       )}
     </div>
+    </IncompleteTaskBlockColorContext.Provider>
   );
 };
 

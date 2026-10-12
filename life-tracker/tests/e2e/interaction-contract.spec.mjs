@@ -502,6 +502,43 @@ test('message send keeps composer focus without an intermediate blur', async ({ 
 });
 
 
+// Regression: §2 category text must beat legacy !important theme foreground mappings.
+test('incomplete Calendar TaskBlock category text uses unchanged category hue in every theme', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await expect(page.getByTestId('taskblock-color-probe')).toBeVisible();
+
+  for (const theme of ['dark', 'light', 'black']) {
+    await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+    const colors = await page.evaluate(() => {
+      const probe = document.querySelector('[data-testid="taskblock-color-probe"]');
+      const unchangedColorSample = document.createElement('span');
+      unchangedColorSample.style.color = probe?.getAttribute('data-category-color') ?? '';
+      document.body.appendChild(unchangedColorSample);
+      const sourceCategoryColor = getComputedStyle(unchangedColorSample).color;
+      unchangedColorSample.remove();
+
+      const color = (state, mode) => {
+        const target = document.querySelector(`[data-testid="${state}-taskblock-${mode}"] [title]`);
+        if (!target) throw new Error('Missing real TaskBlock color probe');
+        return getComputedStyle(target).color;
+      };
+      return {
+        sourceCategoryColor,
+        defaultIncomplete: color('incomplete', 'default'),
+        categoryText: color('incomplete', 'text'),
+        categoryBorder: color('incomplete', 'border'),
+        defaultCompleted: color('completed', 'default'),
+        categoryTextCompleted: color('completed', 'text'),
+      };
+    });
+
+    expect(colors.categoryText, theme).toBe(colors.sourceCategoryColor);
+    expect(colors.categoryText, theme).not.toBe(colors.defaultIncomplete);
+    expect(colors.categoryBorder, theme).toBe(colors.defaultIncomplete);
+    expect(colors.categoryTextCompleted, theme).toBe(colors.defaultCompleted);
+  }
+});
+
 test('Light appearance keeps selected tasks, selection toolbar, and Search readable', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('set-appearance-light').click();

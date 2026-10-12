@@ -1,7 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Issue #645 Phase 2 D1/D2 repository source discovery pilot; user authorized task branch and stable Preview, not dev/main merge.
+Current task: use unmodified category color for incomplete Calendar task text; v0.20.2 Preview only, no dev/main merge.
+
+## Current task — Unmodified category text hue
+- User requests Category text use the exact stored category hue, no blending. Low-contrast combinations are left unchanged.
+- Task `chatgpt/taskblock-text-raw-color-20261012` starts from `feature/taskblock-incomplete-color-20261012@b884b95`. Replace blend with `categoryColor` while keeping the important-theme fix; browser regression compares actual computed hue to source in Dark/Light/Black.
+- v0.20.2, frontend-only. Next: focused CI → stable Preview full gate/Vercel Scratch READY → user acceptance. No dev/main promotion.
+
+## Previous task — incomplete Calendar TaskBlock color
+- Base: dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1. Task: chatgpt/taskblock-incomplete-color-20261012. Stable Preview: feature/taskblock-incomplete-color-20261012.
+- New account-synced Preferences choice: Default, Category text, or Category border; only unfinished Calendar TaskBlocks change. Applies while viewing the owner's and friends' calendars. Original blended hue is superseded by the user-approved raw color; completed TaskBlocks and Day View rows remain unchanged.
+- Planned feature version: 0.20.0. Frontend-only; no Appwrite schema/Function or Production changes.
+- First stable Preview c2eb103 had a successful GitHub compile but the GIPHY-enabled Vercel build-size guard exceeded only raw asset bytes by 28 B; the corrective task reuses the existing semantic foreground token to remove a redundant theme variable without relaxing budgets.
+- Next action: validate focused repair CI, squash to stable Preview, confirm full canonical CI and exact-SHA Vercel Scratch READY. Await user/device acceptance before dev/main promotion.
+
+## Previous handoff — #645 repository source discovery pilot
+Issue #645 Phase 2 D1/D2 repository source discovery pilot; user authorized task branch and stable Preview, not dev/main merge.
 
 ## Scope and exact base
 - Base: dev@deb497fa032e7e95842f1e79f3a77b45bf3f369e; source-only documentation/tooling changes, no app version bump.
