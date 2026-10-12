@@ -178,6 +178,9 @@ const MockQuery = {
     key,
     value,
   }),
+  greaterThanEqual: (key: string, value: unknown) => ({
+    op: 'greaterThanEqual', key, value,
+  }),
 };
 
 const MockPermission = {

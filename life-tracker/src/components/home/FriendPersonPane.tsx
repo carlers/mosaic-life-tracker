@@ -91,6 +91,11 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     return () => { mounted = false; };
   }, [isActive, activeView, diaryKey, diaryMonth, currentUserId, person.userId]);
   const diaryEntries = diaryState.key === diaryKey ? diaryState.entries : [];
+  const handleViewChange = useCallback((next: ViewType) => {
+    setDiaryDate(null);
+    setDiaryState({ key: '', entries: [] });
+    setActiveView(next);
+  }, []);
   const openDiary = (date: Date) => {
     const key = format(date, 'yyyy-MM-dd');
     if (diaryEntries.some(entry => entry.date === key)) setDiaryDate(key);
@@ -157,7 +162,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
           activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
         }
         activeView={activeView}
-        onViewChange={setActiveView}
+        onViewChange={handleViewChange}
         onTitleClick={
           activeView !== 'calendar'
             ? handleTodoToday
@@ -215,8 +220,8 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
             holidayConfig={holidayConfig} />
         </React.Suspense>
       )}
-      {diaryDate && <React.Suspense fallback={null}>
-        <LazyDiaryEntrySheet key={diaryDate} date={diaryDate}
+      {isActive && activeView === 'diary' && diaryDate && diaryEntries.some(entry => entry.date === diaryDate) && <React.Suspense fallback={null}>
+        <LazyDiaryEntrySheet key={`${currentUserId}:${person.userId}:${diaryDate}`} date={diaryDate}
           entry={diaryEntries.find(entry => entry.date === diaryDate)}
           author={person.displayName} onClose={() => setDiaryDate(null)} />
       </React.Suspense>}

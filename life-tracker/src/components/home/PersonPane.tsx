@@ -84,7 +84,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const { entries: diaryEntries, getEntryByDate, saveEntry, deleteEntry } = useDiary(isActive && activeView === 'diary');
-  const handleViewChange = useCallback((next: ViewType) => { if (next === 'diary') preloadDiaryEntrySheet(); setActiveView(next); }, []);
+  const handleViewChange = useCallback((next: ViewType) => {
+    setDiaryDate(null);
+    if (next === 'diary') preloadDiaryEntrySheet();
+    setActiveView(next);
+  }, []);
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
@@ -180,8 +184,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
             weekStartsOn={weekStartsOn} holidayConfig={holidayConfig} />
         </React.Suspense>
       )}
-      {diaryDate && <React.Suspense fallback={null}>
-        <LazyDiaryEntrySheet key={diaryDate} date={diaryDate} entry={getEntryByDate(diaryDate)}
+      {isActive && activeView === 'diary' && currentUserId && diaryDate && <React.Suspense fallback={null}>
+        <LazyDiaryEntrySheet key={`${currentUserId}:${diaryDate}`} date={diaryDate} entry={getEntryByDate(diaryDate)}
           author={person.displayName} onSave={saveEntry} onDelete={deleteEntry}
           onClose={() => setDiaryDate(null)} />
       </React.Suspense>}
