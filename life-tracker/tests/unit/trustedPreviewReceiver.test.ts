@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { assessTrustedPreviewTrigger, assertTrustedPreviewDeployment,
-  trustedGitSource, assertTrustedVercelProject, TRUSTED_PREVIEW_BRANCH, TRUSTED_PREVIEW_ALIAS,
+  trustedGitSource, assertTrustedVercelProject,
+  assertTrustedPreviewCreationEnabled, assertTrustedPreviewCreateResponse,
+  TRUSTED_PREVIEW_BRANCH, TRUSTED_PREVIEW_ALIAS,
   TRUSTED_GITHUB_REPO_ID } from '../../scripts/lib/trusted-preview-receiver.mjs';
 
 const sha = '26dfa9c7d978ff7bbc7ac861625e4d69c0fca861';
@@ -76,12 +78,30 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     for (const patch of [
       { source: 'unknown' }, { source: 'local' }, { readyState: 'BUILDING' },
       { readyState: 'ERROR' }, { target: 'production' },
+      { target: 'staging' }, { target: 'custom-environment' }, { target: undefined },
       { projectId: 'another' }, { url: 'malicious.example.com' },
       { meta: { ...deployment.meta, githubCommitSha: 'f'.repeat(40) } },
       { meta: { ...deployment.meta, githubOrg: 'attacker' } },
       { meta: { ...deployment.meta, githubRepo: 'wrong' } },
       { meta: { ...deployment.meta, githubCommitRef: 'dev' } },
     ]) expect(() => assertTrustedPreviewDeployment({ ...deployment, ...patch }, sha)).toThrow();
+  });
+
+  it('keeps shadow reuse-only unless an independent creation opt-in is present', () => {
+    expect(() => assertTrustedPreviewCreationEnabled(undefined)).toThrow(/reuse-only/);
+    expect(() => assertTrustedPreviewCreationEnabled('false')).toThrow(/reuse-only/);
+    expect(() => assertTrustedPreviewCreationEnabled('TRUE')).toThrow(/reuse-only/);
+    expect(assertTrustedPreviewCreationEnabled('true')).toBeUndefined();
+
+    expect(assertTrustedPreviewCreateResponse({ id: 'dpl_accepted', target: null }))
+      .toBe('dpl_accepted');
+    for (const response of [
+      { id: 'dpl_accepted', target: 'production' },
+      { id: 'dpl_accepted', target: 'staging' },
+      { id: 'dpl_accepted' },
+      { id: 'untrusted', target: null },
+      null,
+    ]) expect(() => assertTrustedPreviewCreateResponse(response)).toThrow();
   });
 
   it('stages a default-branch workflow_run listener that never executes candidate code', () => {
@@ -99,6 +119,10 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(yaml).not.toContain('workflow_dispatch');
     const impl = readFileSync(new URL('../../scripts/run-trusted-preview-receiver.mjs', import.meta.url), 'utf8');
     expect(impl).toContain('gitSource: trustedGitSource(sha)');
+    expect(yaml).toContain('vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED');
+    expect(impl).toContain('assertTrustedPreviewCreationEnabled(process.env.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED)');
+    expect(impl.indexOf('assertTrustedPreviewCreationEnabled('))
+      .toBeLessThan(impl.indexOf("get('https://api.vercel.com/v13/deployments?'"));
     expect(impl).toContain("process.env.MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED !== 'true'");
     expect(impl).toContain('await authorized(event);');
     expect(impl).not.toContain("execFileSync('npm'");

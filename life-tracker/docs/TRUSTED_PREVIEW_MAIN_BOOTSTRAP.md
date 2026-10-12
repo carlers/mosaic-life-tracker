@@ -1,6 +1,6 @@
 # Trusted Preview receiver: main bootstrap review (#592)
 
-Status: **DRAFT REVIEW ONLY — not deployed, not enabled, and not authorized to bypass release gates.**
+Status: **Infrastructure-only bootstrap merged to main via #772 on 2026-10-13; receiver remains OFF.**
 Source reviewed on the #592 stable Preview branch and promoted to `dev`
 by [PR #769](https://github.com/carlers/mosaic-life-tracker/pull/769).
 
@@ -13,14 +13,15 @@ version 0.17.4 while `dev` has 0.23.4 and extensive unreleased app
 work, so merging all of `dev` into `main` solely to bootstrap this
 workflow would cause an unrelated Production release.
 
-This review candidate is built on the current `main` tree and
+The reviewed bootstrap candidate was built on the previous `main` tree and
 copies **only** the trusted receiver workflow, pure support scripts
 and focused tests; it does not change the application, Appwrite,
 app version, size budgets, Vercel project configuration or any
-credentials. Preparing a draft main PR is not a production release.
-**Do not merge as a direct-main exception unless the owner separately
-approves an exception to Mosaic's normal dev→main promotion contract**
-and reviewers verify the resulting main canonical/Production effects.
+credentials. The owner approved a narrow Option B direct-main exception for PR #772 only. The
+merge did not ship dev application features, change version 0.17.4, or enable
+receiver credentials. Main Quality Gate #38321997796 and Vercel Production
+were READY/SUCCESS for merge `033e85ce8e78ef109dc15866a971ee0a0dba4b7c`;
+GitHub ruleset #24880070 was restored with no bypass actors.
 
 ## Trust contract
 
@@ -40,6 +41,9 @@ and reviewers verify the resulting main canonical/Production effects.
 - Two separate default-OFF repository variables control
   `MOSAIC_TRUSTED_PREVIEW_ENABLED` (shadow delivery) and
   `MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED` (stable alias switch).
+  A third independent `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED` switch is
+  required to permit **any** hosted GitSource POST. Keep it OFF for reuse-only
+  shadow acceptance and until the provider's target/quota behavior is proven.
   Shadow mode must not redirect the existing Git-triggered URL.
 - The `mosaic-preview-auto` secret environment must be provisioned
   only after code trust review. Keep existing reviewer-protected
@@ -81,3 +85,24 @@ while still requiring an unconditional false guard if the pilot exists.
 The fix must pass focused CI followed by a fresh full stable
 Preview gate. Do not bypass that verification, and keep the
 new main exception PR draft until all relevant gates pass.
+
+## Reuse-only shadow safety refinement (2026-10-13)
+
+The initial main bootstrap receiver could create a hosted GitSource deployment
+whenever Vercel's normal Git deployment was temporarily absent. Vercel's REST
+`target` default is not a sufficient Production safety boundary across project
+settings, so enabling an unrestricted write token before a controlled target
+pilot was unsafe. The proposed follow-up adds a separate default-OFF creation
+switch and fails closed if no exact existing candidate is found. Hosted POST
+responses must carry `target: null`; only those exact known Preview targets
+may proceed, and full READY/SHA/project/source readback still applies. This
+**does not prove** that a future POST cannot be incorrectly classified before
+it returns; do not enable creation until a separately reviewed target-safe
+pilot and deployment budget contract have passed. The Git-triggered Preview
+remains active throughout.
+
+The first shadow acceptance should grant API read/reuse only, keep the alias
+switch OFF, and verify the existing official Git-hosted READY deployment;
+it must perform zero Vercel POST requests. The bootstrap on main is not
+modified by a task/stable Preview-only safety candidate until separately
+promoted through an authorized main boundary.
