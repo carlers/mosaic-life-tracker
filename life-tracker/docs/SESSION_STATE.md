@@ -18,8 +18,12 @@ Current task: Issue #656 first-open lazy sheets, implementation authorized throu
 - This repair removes standalone `scheduleModuleWarmup.ts` helper/chunk and its now-unused test; Chat/Notifications perform a simple cancellation-safe delayed module import only on usable owner view. Home chains friend preferences preload after the existing #640 Day View idle code warmup, without another timer; retains touch/hover/focus intent warmup. No guard relaxations.
 - No physical device measurement or full authentication/browser acceptance has been claimed.
 
+## Budget repair follow-up
+- Fourth stable candidate `362d17d39a867fed02feb3987db1cbc213b45325` after PR #665: focused CI green, GitHub canonical build PASS all 7 size ceilings but Home had just 11 bytes gzip headroom. Exact GIPHY-enabled Scratch Vercel `dpl_DEzKjwPHMfqHbWFKxQxZSzKvSJkN` failed Home (+130 B), aggregate raw (+228 B), aggregate gzip (+209 B), precache (+347 B). Other checks remain subject to full canonical run.
+- This fifth targeted repair `chatgpt/656-budget-trim-5` removes the redundant Home person-carousel preload-intent prop/handlers, keeps the #640 post-usable idle chain, simplifies resolved-component wrapper bookkeeping, and reuses a single Notifications preload intent callback. No size-limit changes, data hooks, API or backend mutations. Behavior before idle remains lazy-on-demand as in the accepted Day View pattern.
+
 ## Next action
-1. Complete repair branch `chatgpt/656-budget-fix-4` with `[verify:focused]`; fix any focused errors.
+1. Complete fifth repair branch `chatgpt/656-budget-trim-5` with `[verify:focused]`; fix any focused errors.
 2. Squash task PR into stable Preview; run one new exact-SHA full canonical and GIPHY-enabled Scratch Vercel build. All seven original budgets must pass. If a browser contract fails, review logs and fix or reverify.
 3. Verify Vercel SHA, Scratch backend, version 0.19.5 and stable Preview alias. Update #656 issue checkpoint with exact tested evidence and remaining second-batch tasks.
 4. Device testing pending for first-open after reload/idle and rapid touch, offline and nested Back behavior. Do not merge to dev/main without explicit separate authorization.

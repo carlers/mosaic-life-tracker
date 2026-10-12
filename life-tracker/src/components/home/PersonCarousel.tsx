@@ -59,7 +59,6 @@ interface PersonCarouselProps {
   activePersonId: string;
   onSelect: (personId: string) => void;
   onOpenSettings: () => void;
-  onPrepareSettings?: () => void;
 }
 
 const PersonCarouselComponent: React.FC<PersonCarouselProps> = ({
@@ -67,7 +66,6 @@ const PersonCarouselComponent: React.FC<PersonCarouselProps> = ({
   activePersonId,
   onSelect,
   onOpenSettings,
-  onPrepareSettings,
 }) => {
   return (
     <div className="bg-[#111111] px-3 py-1.5">
@@ -86,9 +84,7 @@ const PersonCarouselComponent: React.FC<PersonCarouselProps> = ({
         <button
           type="button"
           onClick={onOpenSettings}
-          onPointerDown={(e) => { e.stopPropagation(); onPrepareSettings?.(); }}
-          onMouseEnter={onPrepareSettings}
-          onFocus={onPrepareSettings}
+          onPointerDown={(e) => e.stopPropagation()}
           className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#252525] transition-[color,background-color,transform] active:scale-95"
           aria-label="Friend preferences"
         >

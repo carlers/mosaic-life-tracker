@@ -37,16 +37,13 @@ export function createPreloadedLazy<P extends object>(
   const Component: React.FC<P> = (props) => {
     // Pin identity for this mount: completion of an in-flight import must not
     // swap types and destroy an already mounting sheet or its local state.
-    const [Selected] = React.useState<React.ComponentType<P>>(
-      () => ready ?? Cold
-    );
+    const [Selected] = React.useState(() => ready ?? Cold);
     return (
       <React.Suspense fallback={null}>
         <Selected {...props} />
       </React.Suspense>
     );
   };
-  Component.displayName = 'PreloadedLazy';
 
   return { Component, preload };
 }
