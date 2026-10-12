@@ -18,25 +18,21 @@
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
     "homeClosureGzipBytes": 368800,
-    "appAssetsRawBytes": 2470300,
+    "appAssetsRawBytes": 2471000,
     "appAssetsGzipBytes": 767000,
-    "precacheUniqueBytes": 2557500
+    "precacheUniqueBytes": 2558300
   },
   "review": {
     "issue": "#692",
-    "reason": "Measured v0.23.2 daily calendar snap/transition lock and mouse smooth-release behavior on exact stable Scratch/GIPHY candidate 4cd765d against READY accepted v0.23.1 Preview ac7d17e. v0.23.1 metrics: entry raw 446120, gzip 132801, initial closure 146033, Home gzip 367993, shipped raw 2467564, shipped gzip 766079, unique precache 2554871 bytes. v0.23.2 compiled/PWA passed and measured entry/initial EXACTLY UNCHANGED; Home 368577 (+584), shipped raw 2469779 (+2215), shipped gzip 766702 (+623), unique precache 2557086 (+2215). Four already-near-cap Home/aggregate limits exceeded by 377/1779/402/1886 respectively. These are necessary small user-requested gesture controls and regression safety, no added library, with 200-520B next-candidate headroom. Only these four reviewed limits increase. Initial/entry limits, historic baseline, current PWA policy and all seven guards stay enforced; next stable exact SHA must pass canonical and hosted Scratch Vercel.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/kn9tcjm5ENKfNm8QPnhanSdQSCZ4",
+    "reason": "Exact 0.23.3 stable Preview 0f8a6f5 (Scratch/GIPHY compiled, PWA passed) versus verified 0.23.2 stable 5f2eb801. This patch fixes native touch/trackpad scrollend day alignment and unlocks rapid zoom period navigation after two painted frames, without libraries or backend work. Observed 0.23.3 app assets raw 2470601B (v0.23.2 2469779; +822), unique precache 2557908B (v0.23.2 2557086; +822), exceeding two close size limits by 301 and 408B. Home closure 368761/368800, app gzip 766886/767000, entry 446120/446200 and 132801/132850, initial gzip 146033/146050 all already PASS and remain unchanged. Review ONLY shipped raw and precache limits with <400B candidate headroom; preserve original baseline and startup limits. Re-verify exact next stable SHA through full CI, PWA/seven metrics and hosted Vercel.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/EC6niZuWvbJRNqGvHgSPckqewHsY",
     "metrics": [
-      "homeClosureGzipBytes",
       "appAssetsRawBytes",
-      "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 368200,
-      "appAssetsRawBytes": 2468000,
-      "appAssetsGzipBytes": 766300,
-      "precacheUniqueBytes": 2555200
+      "appAssetsRawBytes": 2470300,
+      "precacheUniqueBytes": 2557500
     }
   }
 }
