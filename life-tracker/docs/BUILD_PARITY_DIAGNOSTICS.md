@@ -164,3 +164,26 @@ skipped; existing canonical CI and Git-triggered Vercel deployment retain
 their prior behavior. Never turn off Vercel auto delivery or relax the
 build-size budgets merely to make the canary pass. An explicitly approved
 canary is a test, not a general rollout authorization.
+
+### Repair for silently skipped manual canary jobs
+
+GitHub Actions may propagate a skipped ancestor's implicit `success()` status
+through a successful intermediate job. Normal Mosaic `canonical_acceptance`
+depends on several optional Quality Gate jobs, including skipped
+`promotion_check`. Thus a downstream canary's composite job-level `if`
+can be **SKIPPED** even though canonical acceptance succeeded and the owner
+provided the valid SHA, repository variable, and environment secret.
+
+The canary now explicitly begins its job-level condition with
+`always() && !cancelled()` and **still requires** a successful
+`canonical_acceptance`, official repository, manual dispatch, branch
+reference, exact SHA input, and repository opt-in. This avoids skipped-ancestor
+inheritance without bypassing any security gate or running during cancellation.
+Regression tests assert this critical YAML contract. A successful canonical
+run plus a skipped canary from before this fix does **not** establish token,
+environment, or Vercel readiness. After a reviewed stable-branch release,
+only one fresh manual dispatch on the **new stable SHA** can exercise it.
+
+Evidence: manual Quality Gates `38280478916` and `38282072296` passed
+canonical but skipped the canary, even with owner screenshots confirming
+the variable, SHA input, environment secret and protection settings.

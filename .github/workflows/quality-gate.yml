@@ -491,7 +491,8 @@ jobs:
     # Disabled by default. An explicit dispatch on the accepted stable Preview SHA,
     # canonical green and an owner-controlled opt-in must all agree.
     if: >-
-      ${{ github.event_name == 'workflow_dispatch' &&
+      ${{ always() && !cancelled() &&
+      github.event_name == 'workflow_dispatch' &&
       github.repository == 'carlers/mosaic-life-tracker' &&
       github.ref_type == 'branch' &&
       inputs.preview_canary_sha != '' &&
