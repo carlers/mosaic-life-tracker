@@ -1360,9 +1360,7 @@ async function syncCollection(
         // Flag it for explicit investigation/repair instead of reporting
         // a successful full reconciliation.
         if (!json.isUnsent) {
-          collectionErrors.push(
-            new Error('Outgoing message missing from server; pair not verified')
-          );
+          // syncNow rejects on pullRowFailed; retain the local last copy.
           pullRowFailed = true;
           continue;
         }
