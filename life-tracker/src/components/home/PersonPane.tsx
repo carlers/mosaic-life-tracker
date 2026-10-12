@@ -16,6 +16,8 @@ import {
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  resolveCalendarZoomDays,
   resolveIncompleteTaskBlockColorMode,
   resolveWeekStartsOn,
 } from '../../lib/preferences';
@@ -69,6 +71,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
+  const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -112,6 +115,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
             : calendarState.title
         }
         viewMode={calendarState.viewMode}
+        enableTitleSwipe={calendarZoomDays !== 7}
         onToggleMode={calendarState.handleToggle}
         onPrev={
           activeView === 'todo' ? handleTodoPrev : calendarState.handlePrev
@@ -140,6 +144,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
+          zoomPreference={calendarZoomDays}
+          activeIndex={calendarState.activeIndex}
+          isZoomTransitioning={calendarState.isZoomTransitioning}
+          onZoomNavigate={calendarState.handleZoomNavigate}
           sharedByDay={sharedByDay}
           ownedSharedTaskIds={ownedSharedTaskIds}
           currentUserId={currentUserId}
