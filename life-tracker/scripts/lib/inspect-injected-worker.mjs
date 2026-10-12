@@ -52,7 +52,11 @@ export function inspectInjectedWorker(source) {
       }
       if (method === 'createHandlerBoundToURL') {
         boundUrlArgs.push(node.arguments[0]);
-        if (typeof node.arguments[0]?.value === 'string') fallback = node.arguments[0].value;
+        const arg = node.arguments[0];
+        if (typeof arg?.value === 'string') fallback = arg.value;
+        if (arg?.type === 'TemplateLiteral' && arg.expressions.length === 0) {
+          fallback = arg.quasis.map((part) => part.value.cooked).join('');
+        }
       }
     }
     if (node.type === 'Property' && propName(node.key) === 'denylist' &&

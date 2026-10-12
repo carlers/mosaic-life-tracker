@@ -51,6 +51,9 @@ describe('service worker inspector', () => {
     const variableRoute = source.replace('controller.createHandlerBoundToURL("index.html");', 'const page = "index.html"; controller.createHandlerBoundToURL(page);');
     expect((await inspectServiceWorker(variableRoute)).navigationFallback).toBe('index.html');
 
+    const templateRoute = source.replace('controller.createHandlerBoundToURL("index.html");', 'controller.createHandlerBoundToURL(`index.html`);');
+    expect((await inspectServiceWorker(templateRoute)).navigationFallback).toBe('index.html');
+
     const unsafe = source + 'self.skipWaiting();';
     const unsafeResult = await inspectServiceWorker(unsafe);
     expect(unsafeResult.skipWaitingOnStartup).toBe(true);
