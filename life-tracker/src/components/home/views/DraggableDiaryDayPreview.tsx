@@ -23,10 +23,10 @@ export const DraggableDiaryDayPreview: React.FC<{
     type: 'diary',
     disabled: !entry,
     data: { entry, expanded },
-    // Exactly like tasks: an invisible geometry source and one full-height
-    // React DragOverlay. dnd-kit's automatic feedback must never move the
-    // original card while React animates its list position.
-    plugins: [Feedback.configure({ feedback: 'none', dropAnimation: null })],
+    // The overlay is the single visual feedback. Keep the default Feedback
+    // plugin enabled so dnd-kit positions and promotes that overlay; only
+    // disable its independent drop animation.
+    plugins: [Feedback.configure({ feedback: 'default', dropAnimation: null })],
   });
   return (
     <div className="relative" data-diary-drag-source="true">
