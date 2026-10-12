@@ -1,23 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Issue #708, message delivery and cross-device reconciliation. No dev/main or Production promotion.
+Current task: #708 chat delivery and two-account divergence. No dev/main or Production promotion.
 
-## Verified baseline
-- Stable Preview `fix/chat-reliability-708-20261012@c2f7b00f2aa277057314477a4a96e990fd297215` v0.24.0; canonical Quality Gate 38245940586 SUCCESS; exact-SHA Vercel deployment `dpl_7p15qDzbzpQegqw9495rCV6KvD22` READY, 7/7 asset budgets PASS; stable alias `mosaic-life-tracker-git-fix-chat-9dae4d-carls-projects-72516fde.vercel.app`. `dev` was `b878519`.
-- Initial improvements: fail-closed two-row delivery, receipt validation, transient retry, compose draft retention/double-send prevention, conservative orphan preservation by global Sync Now. Tests added and passing in stable canonical CI.
-- Authorized Scratch rollout on project `6a96e82d000d1310b3be` and Function `6aa8057f002a4c306fdd`: checked old source at Git SHA `0c0a7a36`, where all helper files matched target and only `main.js` differed. Packaged 11 exact Git blobs from `c2f7b00` into a gzip tar, built **inactive** `6accd2fa220cb704e674` READY, and requested activation. A subsequent read-back confirmed it became the active Scratch deployment. Prior rollback deployment `6accb9addc5321121ebb` retained. One harmless invalid-format deliver execution returned 400. No real two-account messaging smoke or user browser/device test has been performed. No Production writes.
+## Verified foundation
+- Stable Preview `fix/chat-reliability-708-20261012`, v0.24.0 `c2f7b00`: canonical Quality Gate 38245940586 SUCCESS, Vercel exact-SHA READY (7/7 size budgets), Scratch backend pinned to project `6a96e82d000d1310b3be`.
+- On authorized Scratch, exact 11-file `message-action` archive from `c2f7b00` built inactive as deployment `6accd2fa220cb704e674`, subsequently confirmed **active/ready**. Earlier `6accb9addc5321121ebb` retained for rollback. Invalid format handler probe returned 400. No Production backend writes.
+- Delivery: sender+recipient row completion required for Function success, client validates ack and retries transient pending sends; draft persistence/duplicate taps guarded; Sync Now preserves orphaned outgoing messages rather than deleting the last copy.
 
-## Current task branch and design
-- Task branch: `chatgpt/708-thread-repair-20261012` from v0.24.0 stable Preview. Candidate v0.24.1 in the three standard version files.
-- Server `repair_thread` action: mutually accepted friend validation; two staged owner-scoped pages (self then peer) of <=50 rows ordered by created_at; deterministic `msg_ / rmsg_` identity and owner checks; create only missing, non-deleted/non-unsent counterpart rows with recipient-only permissions; reject conflicts/uncertain reads; handle duplicate create race safely; bounded cursors.
-- Client `reconcileChat` invoked through Chat header Sync: attempt pending delivery; fail closed while local pending persists; walk at most 30 repair pages with owner-generation guard; await existing global `syncNow` freshness and reconciliation before claiming success. No always-on extra polling.
-- Added handler and client-unit regressions for both-side repair, permissions, unsend/delete preservation, pagination, conflict, race, freshness, pending and account switch. Backend also re-reads source immediately before creating a missing peer to reject stale unsend snapshots.
-- **New v0.24.1 source has not been deployed** to either Vercel or Scratch; the current active Function is the earlier v0.24.0 code. Avoid an inconsistent new server/client rollout.
+## v0.24.1 repair Preview
+- Current task branch `chatgpt/708-compact-repair-20261012`. First candidate `fix/chat-reliability-708-20261012@21f6d67` (PR #735) had focused green but full canonical lint failure (React ref assigned during render) and Vercel total-assets size failure: +1,921 B raw, +805 B gzip, +1,872 B precache. All four startup/entry/Home closure limits PASS.
+- Current repair fixes the ref lint violation; consolidates the new manual chat reconciliation to a **single bounded backend action** `repair_thread_all` that verifies mutual friendship and scans two owner snapshots in up to 30 pages of 50 rows. It creates only missing consistent non-unsent/non-deleted counterparts, re-verifies the source, and rejects conflicts; no background history rescan.
+- Chat Sync refuses success while local pending deliveries remain; awaits authenticated backend repair + global `syncNow` freshness; reports failure instead of false success. Unit/handler coverage includes recipient/sender recovery, cross-owner data, revoked friendship, pagination, unsend/delete, race, timeouts, pending and account change.
+- **Budget review**: `config/build-size-budget.json` carries an explicit #708 review with measured failing Vercel evidence and unchanged four startup/entry/Home ceilings. Three aggregate limits are conservatively adjusted for genuine on-demand feature growth; historic baseline preserved. This follows `docs/AI_WORKFLOW.md` and build-budget review tests instead of byte-golfing safeguards.
+- Stable v0.24.1 Preview has NOT passed canonical/Vercel. Scratch active Function is still v0.24.0; do not run v0.24.1 client against old Function and claim reconciliation. Version stamps already at 0.24.1.
 
-## Remaining gates
-- Run focused CI (repair test failures), review code, squash into stable Preview, verify canonical CI and Vercel READY against exact version/SHA and unchanged size budgets.
-- Once those pass, compare active Scratch helper SHA compatibility, package exact new Function commit, inactive READY build, carefully activate, and read back. Retain prior rollback ID. Check index schema and Scratch auth/origins. Test with disposable two-account, two-browser flows only (never production data).
-- Historic partial-pair reconstruction is possible only where one safe server copy survives; no rollback/resurrection of intentionally unsent/deleted content. Still need latency baselines, mobile/browser manual acceptance, and release decision. Issue #682 stays deferred.
+## Remaining acceptance
+Run task focused CI -> squash PR into stable Preview -> canonical full gate + Vercel READY exact SHA with reviewed budgets. Compare active Scratch Function helper blob SHAs, build inactive exact new Function package, verify READY and activate only after frontend CI/Preview succeeds. Recheck active deployment/origins, run live synthetic two-user/browser/phone delivery and divergence scenarios where tooling permits. Manual mobile/device acceptance remains user-required, with limits clearly stated. Keep #682 dependent notification work deferred.
 
-Next action: focused verification for v0.24.1, repair failures, then stable Preview canonical + Vercel acceptance and compatible Scratch Function activation. Do not merge to dev/main before user acceptance.
+Next action: focused verification of current compact review batch; repair failures; then stable Preview CI/deployment and coordinated Scratch Function rollout. Do not merge dev/main without user approval.
