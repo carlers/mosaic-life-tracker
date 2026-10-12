@@ -20,7 +20,7 @@ Record device/OS/browser and any failed step with a short screen recording.
 
 ## Diary and mixed-height drag acceptance (#408)
 
-In the v0.25.2 Scratch Preview, enable **Show diary in Day View** and use both
+In the v0.25.3 Scratch Preview, enable **Show diary in Day View** and use both
 Compact and Expanded diary block-height settings, including a multiline entry
 with emoji and photos.
 
@@ -45,3 +45,10 @@ with emoji and photos.
 
 Manual/device acceptance is separate from automated test success. Record the
 device/browser and a short capture for any remaining reflow or visibility defect.
+
+## v0.25.3 release-settling and diary parity checks (#408)
+
+- With both Compact and multiline Expanded diary entries, hold for 500ms. The *real entire card* should lift with the pointer. The original list position must immediately become the **single** insertion gap, with no second placeholder left behind.
+- Move diary first/middle/last across populated, empty, and collapsed categories. Watch neighboring tasks while holding still over each destination: they should yield exactly one card-height gap like a task drag, never jump back as the finger stays still.
+- Release diary and a similarly tall task, both within and across categories. Watch the first 250ms after release: neither the carried item nor nearby siblings should fly up to the original slot, bounce downward, or disappear before settling.
+- Repeat outside/canceled drops, rapid alternating task/diary moves, and saved placement after reload on touch and desktop. Record a slow-motion capture if release still jumps.

@@ -67,6 +67,9 @@ export interface DaySlideProps {
   diaryPlacement?: DiaryPlacement;
   onMoveDiary?: (target: DiaryPlacement) => Promise<void> | void;
   diaryDragging?: boolean;
+  diarySettling?: boolean;
+  settlingTaskId?: string | null;
+  lastReleasedTask?: { taskId: string; revision: number } | null;
   diaryProjectedPlacement?: DiaryPlacement | null;
   diaryDragHeight?: number;
 }
@@ -118,6 +121,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   diaryEnabled = false,
   diaryPlacement = { kind: 'top' },
   diaryDragging = false,
+  diarySettling = false,
+  settlingTaskId = null,
+  lastReleasedTask = null,
   diaryProjectedPlacement = null,
   diaryDragHeight = 48,
 }) => {
@@ -133,10 +139,23 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   const hasPlacementCategory = diaryPlacement.kind === 'slot' && categories.some(cat => cat.id === diaryPlacement.categoryId);
   const fallbackPlacement: DiaryPlacement = diaryPlacement.kind !== 'slot' || hasPlacementCategory
     ? diaryPlacement : { kind: 'top' };
-  const showDiaryGhost = diaryEnabled && diaryDragging && diaryProjectedPlacement &&
-    JSON.stringify(diaryProjectedPlacement) !== JSON.stringify(fallbackPlacement);
-  const diaryGhost = showDiaryGhost ? <motion.div layout="position" transition={{ layout: { duration: 0.2, ease: 'easeOut' } }} data-diary-drag-gap="true" aria-hidden="true" style={{ height: diaryDragHeight }} /> : null;
-  const diaryCard = diaryEnabled ? (reorderRuntimeActive ? <DraggableDiaryDayPreview date={dateStr}/> : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr}/></React.Suspense>) : null;
+  // Like tasks, reserve exactly one projected slot while the actual card
+  // travels with the pointer. Neither the source nor the gap animates twice.
+  const showDiaryGhost = Boolean(diaryEnabled && diaryDragging && diaryProjectedPlacement);
+  const diaryGhost = showDiaryGhost
+    ? <div data-diary-drag-gap="true" aria-hidden="true" style={{ height: diaryDragHeight }} />
+    : null;
+  const diaryCard = diaryEnabled ? (
+    <motion.div
+      layout={reorderRuntimeActive && !diaryDragging && !diarySettling ? 'position' : false}
+      data-diary-source-slot={diaryDragging ? 'true' : undefined}
+      style={diaryDragging ? { position: 'absolute', width: '100%' } : undefined}
+    >
+      {reorderRuntimeActive
+        ? <DraggableDiaryDayPreview date={dateStr}/>
+        : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr}/></React.Suspense>}
+    </motion.div>
+  ) : null;
   const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
   const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
   // Own the action sheet above category rows: moving a share must not unmount
@@ -171,7 +190,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       }
     >
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="top" active={diaryDragging}/>}
-      {diaryEnabled && fallbackPlacement.kind === 'top' && <motion.div layout="position">{diaryCard}</motion.div>}
+      {diaryEnabled && fallbackPlacement.kind === 'top' && <motion.div layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
       {categories.map((category) => (
         <CategorySection
@@ -183,6 +202,10 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           diaryGhostSlot={showDiaryGhost && diaryProjectedPlacement?.kind === 'slot' && diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
           diaryGhostSlotIndex={diaryProjectedPlacement?.kind === 'slot' ? diaryProjectedPlacement.index : 0}
           animateDragProjection={reorderRuntimeActive}
+          diaryDragInProgress={diaryDragging}
+          diarySettling={diarySettling}
+          settlingTaskId={settlingTaskId}
+          lastReleasedTask={lastReleasedTask}
           diarySlotIndex={fallbackPlacement.kind === 'slot' ? fallbackPlacement.index : 0}
           visibility={category.visibility}
           currentUserId={currentUserId}
@@ -223,7 +246,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         />
       ))}
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'bottom' && diaryGhost}
-      {diaryEnabled && fallbackPlacement.kind === 'bottom' && <motion.div layout="position">{diaryCard}</motion.div>}
+      {diaryEnabled && fallbackPlacement.kind === 'bottom' && <motion.div layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="bottom" active={diaryDragging}/>}
       {!selectionMode && unassignedShares.length > 0 &&
         onSharedCompletion && sharedPendingFor && (

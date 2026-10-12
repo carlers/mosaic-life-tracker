@@ -31,6 +31,10 @@ interface CategorySectionProps {
   diaryGhostSlot?: React.ReactNode;
   diaryGhostSlotIndex?: number;
   animateDragProjection?: boolean;
+  diaryDragInProgress?: boolean;
+  diarySettling?: boolean;
+  settlingTaskId?: string | null;
+  lastReleasedTask?: { taskId: string; revision: number } | null;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string, completed?: boolean) => void;
   onOpenActions: (task: TaskDocument) => void;
@@ -68,6 +72,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   diaryGhostSlot,
   diaryGhostSlotIndex = 0,
   animateDragProjection = false,
+  diaryDragInProgress = false,
+  diarySettling = false,
+  settlingTaskId = null,
+  lastReleasedTask = null,
   onToggleTask,
   onAddTask,
   onOpenActions,
@@ -160,7 +168,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     onEditChange,
     onEditSave,
     onEditCancel,
-    disableLayoutAnimation: disableTaskLayoutAnimation,
+    disableLayoutAnimation: disableTaskLayoutAnimation || task.id === settlingTaskId,
     selectionMode,
     isSelected: selectedTaskIds.has(task.id),
     onToggleSelection: () => onToggleTaskSelection?.(task.id),
@@ -198,8 +206,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     };
 
     tasks.forEach((task, index) => {
-      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(<motion.div key="diary-slot" layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>{diarySlot}</motion.div>);
-      if (diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex)) rows.push(<motion.div key="diary-preview-gap" layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>{diaryGhostSlot}</motion.div>);
+      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(<motion.div key="diary-slot" layout={animatePositions && !diaryDragInProgress && !diarySettling ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>{diarySlot}</motion.div>);
+      if (diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex)) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
       const isActiveSource = task.id === activeDragTaskId;
 
       if (!isActiveSource && clampedGapIndex === visibleIndex) {
@@ -208,11 +216,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
 
       rows.push(
         <TaskRowDropSurface
-          key={task.id}
+          key={lastReleasedTask?.taskId === task.id
+            ? `${task.id}:released:${lastReleasedTask.revision}`
+            : task.id}
           categoryId={categoryId}
           taskId={task.id}
           isActiveSource={isActiveSource}
-          animatePosition={animatePositions}
+          animatePosition={animatePositions && task.id !== settlingTaskId}
         >
           <DraggableTaskItem {...taskProps(task)} />
         </TaskRowDropSurface>
@@ -226,8 +236,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     if (clampedGapIndex === visibleIndex) {
       pushGap();
     }
-    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(<motion.div key="diary-slot" layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>{diarySlot}</motion.div>);
-    if (diaryGhostSlot && diaryGhostSlotIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>{diaryGhostSlot}</motion.div>);
+    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(<motion.div key="diary-slot" layout={animatePositions && !diaryDragInProgress && !diarySettling ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>{diarySlot}</motion.div>);
+    if (diaryGhostSlot && diaryGhostSlotIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
     return rows;
   };
 

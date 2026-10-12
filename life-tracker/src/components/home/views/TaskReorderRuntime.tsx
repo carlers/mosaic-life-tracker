@@ -49,6 +49,7 @@ interface CommittedPlacement {
 }
 
 interface DragSession {
+  taskId: string;
   snapshot: TaskPlacement;
   canonicalSnapshot: TaskPlacement;
   mode: TaskCompletionSortMode;
@@ -82,6 +83,13 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     React.useState<CommittedPlacement | null>(null);
   const [activeDrag, setActiveDrag] =
     React.useState<ActiveTaskDrag | null>(null);
+  const [settlingTaskId, setSettlingTaskId] = React.useState<string | null>(null);
+  const [lastReleasedTask, setLastReleasedTask] = React.useState<{taskId: string; revision: number} | null>(null);
+  const releaseRevisionRef = React.useRef(0);
+  const [diarySettling, setDiarySettling] = React.useState(false);
+  const settleForTwoFrames = (clear: () => void) => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(clear));
+  };
 
   const dragSessionRef = React.useRef<DragSession | null>(null);
   const sharedDragRef = React.useRef<SharedTaskItem | null>(null);
@@ -141,8 +149,11 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
         diaryTargetRef.current = null;
         diaryAcceptedPointerRef.current = null;
-        setDiaryPreviewPlacement(null);
+        const initial = props.diaryPlacement ?? { kind: 'top' as const };
+        setDiaryPreviewPlacement(initial.kind === 'slot' && !categoryIds.includes(initial.categoryId)
+          ? { kind: 'top' } : initial);
         setCommittedDiaryPlacement(null);
+        setDiarySettling(false);
         setDiaryDragHeight(Math.max(24, source.element?.getBoundingClientRect().height ?? 48));
         diaryDragRef.current = true;
         setDiaryDragging(true);
@@ -176,6 +187,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       };
 
       dragSessionRef.current = {
+        taskId,
         snapshot,
         canonicalSnapshot: basePlacement,
         mode: taskSortMode,
@@ -185,10 +197,11 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         hasValidTarget: false,
         acceptedPointer: null,
       };
+      setSettlingTaskId(null);
       setActiveDrag(next);
       onReorderActiveChange?.(true);
     },
-    [basePlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled]
+    [basePlacement, categoryIds, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement]
   );
 
   const handleDragOver = React.useCallback(
@@ -286,6 +299,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         diaryTargetRef.current = null;
         diaryDragRef.current = false;
         setDiaryDragging(false);
+        setDiarySettling(true);
+        settleForTwoFrames(() => setDiarySettling(false));
         setDiaryPreviewPlacement(null);
         if (!event.canceled && location && props.onMoveDiary) {
           // Keep the committed geometry while the local-first write propagates.
@@ -326,6 +341,18 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
 
       const session = dragSessionRef.current;
       dragSessionRef.current = null;
+      // Suppress FLIP on the dragged source while its out-of-flow slot
+      // becomes a normal row again; siblings still glide into place.
+      if (session) {
+        const releasedId = session.taskId;
+        // Motion can retain a stale transform even after layout=false. A new
+        // keyed source wrapper is measured at the final projected slot,
+        // instead of visibly flying from its old hidden position.
+        setLastReleasedTask({ taskId: releasedId, revision: ++releaseRevisionRef.current });
+        setSettlingTaskId(releasedId);
+        settleForTwoFrames(() => setSettlingTaskId(current =>
+          current === releasedId ? null : current));
+      }
       setActiveDrag(null);
 
       const source = event.operation.source;
@@ -423,6 +450,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         activeSharedDragId={activeSharedDrag?.id ?? null}
         activeDrag={activeDrag}
         diaryDragging={diaryDragging}
+        diarySettling={diarySettling}
+        settlingTaskId={settlingTaskId}
+        lastReleasedTask={lastReleasedTask}
         diaryProjectedPlacement={diaryPreviewPlacement}
         diaryDragHeight={diaryDragHeight}
       />

@@ -7,7 +7,8 @@ import { useDiary } from '../../../hooks/useDiary';
 export const DraggableDiaryDayPreview: React.FC<{ date: string }> = ({ date }) => {
   const { getEntryByDate } = useDiary();
   const { ref, handleRef } = useDraggable({ id: `diary:${date}`, type: 'diary', disabled: !getEntryByDate(date),
-    // Move the actual, fully measured card; never substitute a small overlay.
+    // Keep the real measured card promoted above transformed sheets. Its wrapper is
+    // out of flow during drag, so only the React projected gap occupies space.
     plugins: [Feedback.configure({ feedback: 'default', dropAnimation: null })],
   });
   return (
