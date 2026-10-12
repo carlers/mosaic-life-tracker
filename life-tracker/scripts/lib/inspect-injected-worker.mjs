@@ -67,7 +67,14 @@ export function inspectInjectedWorker(source) {
   const precacheUrls = precacheEntries?.map((entry) => entry.url);
   const precacheSizes = precacheEntries?.map((entry) => entry.bytes);
   if (!precacheUrls?.length || !fallback || !denylist) {
-    throw new Error('Missing injected precache, fallback, or navigation denylist.');
+    throw new Error('Missing injected precache, fallback, or navigation denylist. ' +
+      JSON.stringify({ manifestArrayCount: manifestCandidates.length,
+        longestManifest: precacheEntries?.length ?? 0,
+        fallback, denylist,
+        routeCalls: [...source.matchAll(/createHandlerBoundToURL/g)].length,
+        indexHtmlReferences: [...source.matchAll(/index\\.html/g)].length,
+        denylistReferences: [...source.matchAll(/denylist/g)].length,
+      }));
   }
   let skipWaitingOnStartup = false;
   let skipWaitingOnLifecycle = false;
