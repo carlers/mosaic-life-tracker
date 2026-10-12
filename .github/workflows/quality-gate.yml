@@ -624,11 +624,13 @@ jobs:
   # secret-scoped environment. No human review on routine pushes once the
   # owner explicitly provisions this separate environment and enables it.
   # Never activate alongside Vercel Git-triggered delivery without a rollout.
+  # Retired: never expose unattended deployment credentials to mutable
+  # branch workflows. Use main-pinned Trusted Preview Delivery instead.
   preview_auto_pilot:
     name: automatic-preview-pilot
     needs: canonical_acceptance
     if: >-
-      ${{ always() && !cancelled() &&
+      ${{ false && always() && !cancelled() &&
       github.event_name == 'push' &&
       github.repository == 'carlers/mosaic-life-tracker' &&
       github.ref == 'refs/heads/fix/workflow-build-parity-592-20261012' &&

@@ -1,42 +1,52 @@
 # Session checkpoint
 
 Updated: 2026-10-13
-Current task: #592 automatic Preview shadow/alias separation and trust review.
-Issue #592 and live GitHub/Vercel results are authoritative.
+Current task: #592 trusted default-branch Preview receiver (disabled/staged).
 
 ## Verified baseline
 
-Stable `fix/workflow-build-parity-592-20261012@a012652bdcf7cce9df5f7088b9e10bc79761cf7b`;
-[Quality Gate #38315341113](https://github.com/carlers/mosaic-life-tracker/actions/runs/38315341113)
-SUCCESS, Git Preview `dpl_3b1MztN512TErhG5tsoC4vP1jab4` READY
-with stable alias, auto pilot SKIPPED by default.
-Protected manual prebuilt canary `38290165183` attempt 2 SUCCESS,
-CLI Vercel deployment `dpl_9CgjZjmxMCqSqZxEkSpVspxKbB3d` READY.
-No dev/main or Production change.
+Stable `fix/workflow-build-parity-592-20261012@26dfa9c7d978ff7bbc7ac861625e4d69c0fca861`.
+Full canonical [Quality Gate #38316959947](https://github.com/carlers/mosaic-life-tracker/actions/runs/38316959947)
+SUCCESS (checks/build/audit/both DOM and browser shards); ordinary
+Git-triggered Vercel `dpl_974AP6Vu9TUqUMQB3wVEgTCJbxkJ` READY
+with unchanged stable branch alias. Protected prebuilt manual
+canary `38290165183` attempt 2 SUCCESS; CLI deployment
+`dpl_9CgjZjmxMCqSqZxEkSpVspxKbB3d` READY.
+No dev/main merge, Production/Appwrite or seven-budget changes.
 
-## Active task
+## Active implementation
 
-`chatgpt/592-preview-shadow-gate-20261013`: create a second,
-independently OFF variable `MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED`
-for a **two-phase** rollout. The existing OFF-by-default
-`MOSAIC_AUTO_PREVIEW_ENABLED` controls whether an accepted exact-SHA
-stable-branch push can build/deploy a standalone Preview. The
-alias mutation, revalidation and readback steps all require the
-separate alias switch; shadow READY verification still runs.
-Strengthen alias script guard and reject unknown Vercel targets.
-Unit regressions and parity diagnostics added.
+`chatgpt/592-trusted-workflow-stage-20261013`:
+- Add `.github/workflows/trusted-preview-delivery.yml`
+  listening to `workflow_run` for Quality Gate COMPLETED;
+  GitHub executes it only when the file exists on default
+  branch `main`. Staged on #592 stable Preview ONLY, not active.
+- Hard-disable the earlier `preview_auto_pilot` in the editable
+  Quality Gate with explicit `false &&`, independent of toggles.
+  Source code/build scripts in that job can otherwise access
+  unattended Vercel tokens.
+- Trusted default-branch Node script checks latest exact-SHA
+  canonical success, source branch HEAD, official repository,
+  GitHub suite, linked Vercel project root/repo/production branch.
+  Uses server-side Git-source API with exact SHA, not a local
+  NPM/Vite build or checkout of untrusted candidate code.
+  Bounded provider duplicate scan, READY/Preview identity
+  proof, shadow first. Alias requires a separate switch and
+  verified readback. All flags OFF.
+- Pure security/negative regressions and runbook docs included.
+  Remote hosted API path is **unproven**, do not claim delivery
+  parity/alias acceptance yet.
 
 ## Next action
 
-Focused task CI; squash to stable Preview; full canonical CI and
-Vercel Git Preview READY; update #592 with real evidence.
-**Do not enable either auto toggle** or disable Git-triggered
-Previews. Critical trust concern: a no-review secret-bearing
-environment restricted only by branch cannot safely run mutable
-workflow/build scripts from that branch without stronger source
-and credential isolation. Harden trusted workflow and environment
-rules before any owner one-time setup. JS/CSS fingerprints of
-same-SHA hosted vs CLI still mismatch despite both showing
-Scratch/GIPHY enabled, Node 24, 150 assets; investigate causality.
-Keep dev/main and all seven budgets untouched. #592 remains OPEN
-for rollout, scheduled audits, budget policy and 5-promotion pilot.
+Run task focused CI and correct failures. Squash task to existing
+#592 stable Preview only, full canonical and Git-triggered
+Vercel READY. Do NOT merge to dev/main or enable new/reviewer-free
+secrets or flags. Before activation, owner-approved default-branch
+promotion, security review, privileged environment permission,
+a controlled shadow hosted-Git API pilot, CI-red/stale-SHA checks,
+and alias readback are required. The new approach uses Vercel's
+normal hosted build, avoiding independent GitHub-local Vite
+fingerprint mismatch. Vercel API target/project-binding behavior
+is deliberately fail closed until tested. Keep #592 OPEN for
+activation, size audits/policy and five-promotion pilot.

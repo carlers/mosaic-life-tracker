@@ -417,3 +417,65 @@ This evidence cannot distinguish one differing value propagating
 through import hashes from wider build nondeterminism. Do not
 assert byte parity or prematurely relax budgets. Work must
 determine the actual differing emitted content before replacement.
+
+### Trusted default-branch receiver prototype — not yet active
+
+**Security correction:** The earlier `preview_auto_pilot` runs in the
+same Quality Gate workflow as the AI-editable stable branch, and has
+a Vercel token available in its job. Branch restriction and green CI
+do not eliminate the risk that edited checkout/build scripts obtain
+that token. The old job is now **hard-disabled** with an explicit
+`false &&` in its job-level condition, independent of repository
+toggle values. Do not provision or expose its credential.
+
+A replacement `.github/workflows/trusted-preview-delivery.yml`
+listens for **completed** `Quality Gate` through `workflow_run`,
+an event whose workflow definition executes only from the repository
+**default branch** (`main`). This file is currently staged **only
+on the stable #592 Preview branch**; it will not be active until
+a separately authorized promotion to `main` and the explicit
+`MOSAIC_TRUSTED_PREVIEW_ENABLED=true` repository variable.
+The trusted main checkout (not triggering source) runs
+`scripts/run-trusted-preview-receiver.mjs` using built-in Node APIs.
+It does NOT check out candidate source, run candidate NPM scripts,
+download untrusted CI artifacts or locally build a Vite bundle.
+The Vercel credential is available only in this privileged step.
+
+The receiver rejects non-push/failed/stale/noncanonical runs,
+wrong owner, workflow name/path, SHA/branch or check suite. It
+independently refetches the latest accepted same-SHA Quality Gate,
+successful canonical check and current branch HEAD. It checks
+a five-page bounded Vercel history window for existing active/READY
+same-commit builds (including ordinary Git builds). On cache miss,
+it first validates the linked Vercel project ID, GitHub repo ID,
+monorepo root and **production branch = main** before issuing one
+Vercel-hosted Git-source deploy request with the exact accepted SHA
+and official project/ref. It never runs source code in the
+credential-bearing GitHub runner. The hosted Vercel builder uses
+the existing Preview/Scratch branch settings, avoiding the extra
+GitHub-local rebuild that caused the same-SHA fingerprint discrepancy.
+The response is polled to READY, then checked for exact official
+metadata and a non-production target; an unexpected target fails
+closed. The standalone READY Preview can be accepted in shadow mode.
+A **separate** `MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED=true` switch,
+plus a fresh GitHub HEAD/CI recheck, is required before an API alias
+assignment and verified readback on the known #592 stable Preview URL.
+
+The remote Git-source API itself is **not yet exercised**; its
+exact Vercel project binding and preview target behavior require
+a controlled non-production pilot after security review. The
+`workflow_run` file on stable #592 is only a staged proposal, not
+an active main workflow. **Do not merge to main or activate it
+without owner authorization.** Existing Git-triggered delivery
+must stay enabled until safe shadow, alias, stale/CI-red and
+quota tests pass. Vercel free-tier API deployments have a daily
+limit, so the first pilot should reuse an existing exact-SHA
+hosted Git deployment where possible.
+
+Once trusted source promotion and one-time environment setup
+are approved, normal feature delivery should require **zero
+manual GitHub dispatch/review per change**. The current manual
+canary remains completed/protected and needs no repetition.
+Dev/main release approvals and Production/Appwrite safety remain
+separate. Issue #592 is still open for activation, branch
+generalization, periodic size audits and promotion sampling.
