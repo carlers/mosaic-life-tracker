@@ -34,7 +34,13 @@ task checkmarks remain white on the original category-color fills, including
 on friend views; the existing owner-task shadow helps separate the white
 glyph from lighter colors. Text in completed Calendar task blocks may still
 use `getReadableTextColor(categoryColor)` for legibility without changing
-the fill. Selection tint may derive from the category hue, but its text
+the fill. When the user selects Category text for unfinished Calendar task blocks,
+blend 40% category color with white in Dark/Black or black in Light against the
+existing incomplete-block background; this preserves a distinguishable hue
+while protecting normal-text contrast across the predefined category palette.
+Category border instead uses the original stored hue as an inset outline,
+without resizing the task block. The Default option preserves prior rendering.
+Selection tint may derive from the category hue, but its text
 must use the normal theme foreground rather than assuming an opaque category
 fill.
 

@@ -146,5 +146,30 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
   });
 
+  it('persists the selected incomplete calendar task accent and defaults to unchanged appearance', () => {
+    const { unmount } = render(
+      <MemoryRouter><PreferencesPage /></MemoryRouter>
+    );
+    const select = screen.getByRole('combobox', { name: 'Incomplete calendar task color' });
+    expect(select).toHaveValue('default');
+    fireEvent.change(select, { target: { value: 'text' } });
+    expect(mocks.setSetting).toHaveBeenCalledWith('incompleteTaskBlockColor', 'text');
+    fireEvent.change(select, { target: { value: 'border' } });
+    expect(mocks.setSetting).toHaveBeenCalledWith('incompleteTaskBlockColor', 'border');
+    unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'incompleteTaskBlockColor' ? 'border' : defaultValue
+    );
+    const saved = render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    expect(screen.getByRole('combobox', { name: 'Incomplete calendar task color' })).toHaveValue('border');
+    saved.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'incompleteTaskBlockColor' ? 'invalid' : defaultValue
+    );
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    expect(screen.getByRole('combobox', { name: 'Incomplete calendar task color' })).toHaveValue('default');
+  });
 
 });

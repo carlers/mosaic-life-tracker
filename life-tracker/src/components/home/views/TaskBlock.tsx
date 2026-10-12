@@ -4,6 +4,9 @@ import { getReadableTextColor } from '../../../constants/colors';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import type { TaskDocument } from '../../../db/schema';
+import type { IncompleteTaskBlockColorMode } from '../../../lib/preferences';
+
+export const IncompleteTaskBlockColorContext = React.createContext<IncompleteTaskBlockColorMode>('default');
 
 interface TaskBlockProps {
   task: TaskDocument;
@@ -19,12 +22,23 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isSha
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
   const textColor = task.completed ? 'mosaic-done' : 'text-gray-300';
+  const incompleteColorMode = React.useContext(IncompleteTaskBlockColorContext);
+  const showCategoryText = !task.completed && incompleteColorMode === 'text';
+  const showCategoryBorder = !task.completed && incompleteColorMode === 'border';
 
   return (
     <div
       ref={targetRef}
       className={`text-[10.5px] pt-0.5 w-full font-semibold rounded-[4.5px] overflow-hidden ${textColor}`}
-      style={{ backgroundColor: task.completed ? categoryColor : 'var(--mosaic-task-incomplete-bg)', color: task.completed ? getReadableTextColor(categoryColor) : undefined }}
+      style={{
+        backgroundColor: task.completed ? categoryColor : 'var(--mosaic-task-incomplete-bg)',
+        color: task.completed
+          ? getReadableTextColor(categoryColor)
+          : showCategoryText
+            ? `color-mix(in srgb, ${categoryColor} 40%, var(--mosaic-task-incomplete-category-contrast))`
+            : undefined,
+        boxShadow: showCategoryBorder ? `inset 0 0 0 1px ${categoryColor}` : undefined,
+      }}
       title={task.title}
     >
       <div className="flex flex-col gap-0.5">
