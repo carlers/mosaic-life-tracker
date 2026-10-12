@@ -3,14 +3,13 @@
 Updated: 2026-10-12
 Current task: issue #655 — measurable PWA update asset preparation progress, task branch and stable Preview only (no dev/main promotion).
 
-## #655 approved implementation
-- Base: dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1. Stable Preview: `feature/pwa-progress-655`; repair task branch: `chatgpt/pwa-progress-655-repair`. No dev/main promotion authorized.
-- Preview v0.20.0: compiled custom Workbox `injectManifest` SW measures cache-preparation progress by actual uncompressed emitted file sizes or file count; browser-managed install/activation has indeterminate status. No duplicate downloads or forced activation. Existing push and offline-cache contracts remain required.
-- Original [PR #659](https://github.com/carlers/mosaic-life-tracker/pull/659) was squash-merged into stable Preview at 52943d014d63fb594985dccf20b31e327c714c33; full CI and Vercel failed. Issue #655 has delivery plan.
-- Repair: adapt the compiled-service-worker inspector to Vite's static template literals (a build-policy test issue); update one lifecycle snapshot test; and fill bytes for plugin-supplied additional precache assets via a post-generation script using emitted `dist` sizes. New regression tests cover these contracts.
-- Size review: task-startup and GIPHY-enabled Vercel aggregate thresholds narrowly reviewed under #655; PWA policy unchanged. Verify exact Preview CI and deployment before testing.
-- Automated verification: original task focused green. Repair full CI and final stable Preview canonical/Vercel checks pending; no device acceptance claimed.
-- Next: complete repair CI, address any budget/build errors without weakening safeguards, squash repair to `feature/pwa-progress-655`, confirm exact-SHA canonical+Vercel READY, and hand off for device testing. `dev` and `main` remain untouched.
+## #655 Preview update test — v0.20.1
+
+- **Base:** accepted `feature/pwa-progress-655` at `ff9f42193f64e01ed884124bbc5263804b7fe6ee` (v0.20.0); canonical GitHub CI success and exact-SHA Vercel Scratch Preview READY. Leave dev/main untouched.
+- **Approved change:** Me `/account` Categories tile opens the same lazily mounted `CategoryManagerSheet` as Home > Lists & Categories, preserving the existing sheet and tile styling.
+- **Test revision:** v0.20.1 (PATCH, first real user-testable update of #655); package, lockfile, and APP_VERSION agree. Regression verifies accessible Categories tile opens/closes the manager.
+- **Preview flow:** task branch `chatgpt/pwa-655-category-update-test` → focused CI → squash PR into `feature/pwa-progress-655` → canonical CI plus exact-SHA GIPHY-enabled Vercel READY. No Appwrite changes.
+- **Manual acceptance pending:** with the *old v0.20.0* app already open/installed at the stable Preview alias, deploy v0.20.1, use Settings > Check for updates, inspect per-file asset sizes/percent and explicit Update now, verify Me > Categories opens the existing manager. First install, browser-managed install and activation do not expose true downloaded bytes; do not claim otherwise.
 
 ## Previous workstream checkpoints
 
