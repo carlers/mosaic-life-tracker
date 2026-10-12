@@ -18,4 +18,11 @@ Current task: #708 — chat delivery reliability and recovery, implementation on
 - Full #708 remains open: server peer-pair audit/repair for older partial histories, cross-device convergence/latency measurements, permanent-denial UX, reconnect/performance diagnostics, disposable-account and actual mobile browser acceptance. Do not claim global pair convergence from client-only Sync Now.
 - #682 notification expansion stays deferred.
 
-Next action: finish focused verification of this batch. If green, inspect and repair confirmed remaining gaps before stable Preview handoff. Do not merge to dev/main absent user approval.
+## First Preview acceptance attempt
+- Task coherent focused Quality Gate 38241476695 **SUCCESS** at 734cad82.
+- Task PR #715 squash-merged into stable Preview `fix/chat-reliability-708-20261012` at 9c296eed. Full canonical Quality Gate 38241874387 **SUCCESS**.
+- Vercel deployment `dpl_6niRf8UU42RCCcmPdDAPpKrrxbtM` **ERROR**: all startup/Home/entry budgets passed, but total app assets raw +1,558 B, gzip +433 B and precache unique +1,365 B exceeded guard. **Do not raise budgets.**
+- Repair task branch `chatgpt/708-build-budget-repair-20261012` based on 9c296eed: reuse existing lazily loaded Sync Status sheet from chat instead of duplicate sync state/feedback; compact per-owner exponential retry state. Existing Sync Now remains the actual confirmed freshness control.
+- Repair remains **unverified**; no backend activation or user-testable Preview has been completed.
+
+Next action: focused verify this repair → squash to the same stable Preview branch → canonical success + Vercel READY. Compare deployed SHA, preserve version v0.24.0, then coordinate any Scratch Function activation and disposable-account verification. Do not merge dev/main absent user approval.
