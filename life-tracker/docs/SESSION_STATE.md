@@ -1,13 +1,11 @@
 # Session checkpoint
 Updated: 2026-10-12
-Current task: #408 — Diary View implementation, task branch only.
+Current task: #408 — Diary View Preview stabilization (v0.22.0).
 
-- Baseline: dev@dbde9515ecb611082f191d39e5ef71cfcecde3bc (0.20.5).
-- Task branch: chatgpt/408-diary-view-20261012; no stable Preview merge or dev/main promotion.
-- Scope: optional Unicode emoji diary field/migration and legacy-safe restore/import; owner Diary mode reusing Todo compact month+inline tasks, reader/editor, reciprocal-friend month-scoped authorized read, optional owner Calendar Day View diary toggle and Today shortcut preference.
-- Version: provisional 0.22.0, avoiding concurrent v0.21.0 notifications Preview.
-- Mandatory remaining: finish focused test/CI repairs and backend/schema compatibility; update issue #408 checkpoint, then stable Preview full gate and Scratch readiness. Appwrite migration 012 and active message-action Function deployment need coordinated exact-source Scratch approval; no production writes.
-- Preserve accepted first-open sheets (#640/#656), owner isolation, gestures, retention/backup contracts and release workflow. Incomplete manual/real-device acceptance cannot be claimed.
-Stable Preview feature/diary-408@91564039 failed canonical checks: Diary editor effect lint, outdated placeholder DOM assertion, and four aggregate build-size caps exceeded despite startup-sensitive caps passing. Repair on chatgpt/408-diary-preview-repair-20261012, with metric-specific #408 size-budget review and no backend mutation.
-Stable Preview repair feature/diary-408@ba5ed492: GitHub build + DOM/browser shards green, full checks failed on two old schema-contract unit assertions. GIPHY-enabled Vercel separately exceeded initial-closure gzip cap by 76 bytes while all six other budgets passed; measured review on #408 makes narrowly scoped 250-byte cap increase without changing entry-size caps. New task branch chatgpt/408-diary-verified-fixes-20261012 updates the two unit assertions and review.
-Next action: focused [verify:focused] repair verification, squash to feature/diary-408, repeat canonical + exact GIPHY Preview READY; then coordinate Scratch schema/Function activation, real Diary sync and manual mobile acceptance. Do not promote dev/main.
+- Source baseline: `dev@dbde9515`; stable Preview: `feature/diary-408`, now `7a637293`, deployment Vercel `dpl_HP7wSy9kX5m6GVHLfGQGQtsaYYHX` READY. Stable branch alias: `mosaic-life-tracker-git-feature-788f0b-carls-projects-72516fde.vercel.app`.
+- Implemented: shared compact month + inline Day View, emoji marker and owner editor/visibility, opt-in Calendar Day View diary and Today shortcut; optional RxDB v1 emoji migration / schema mappings / backup import, read-only authorized friend-month handler. No dev/main merges.
+- Focused CI for task `4dd73293` green. Stable Preview canonical `38235171614` found a handler-test harness mismatch: MockQuery lacked `greaterThanEqual`; production uses Appwrite Query date range.
+- Current repair branch `chatgpt/408-diary-access-guard-repair-20261012` adds missing mock query method, and guards/remounts Diary editor/reader on person, account and view transitions. Requires focused green then squash-merge to Preview and canonical CI/Vercel READY at the exact new SHA.
+- Scratch Appwrite project `6a96e82d000d1310b3be` is shared; read-only inspection confirmed Diary `emoji` column absent and active `message-action` deployment predates this feature. Migration 012 and Function exact-SHA activation remain unapproved/not performed. Production/Appwrite must not be modified without separately reviewed authorization and exclusive Scratch coordination.
+- Remaining delivery: canonical CI, exact Vercel READY, verified stable alias's Scratch origin registration, approved Scratch migration and Function deployment, disposable account sync and privacy tests, Android/iOS/desktop manual acceptance. Issue #408 stays open. Do not promote dev/main.
+Next action: Verify focused repair, squash to stable Preview, check canonical + Vercel. Only then coordinate Scratch backend changes.
