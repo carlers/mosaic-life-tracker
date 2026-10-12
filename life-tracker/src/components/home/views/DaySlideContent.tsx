@@ -126,7 +126,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       : null;
 
   const hasPlacementCategory = diaryPlacement.kind === 'slot' && categories.some(cat => cat.id === diaryPlacement.categoryId);
-  const fallbackPlacement = hasPlacementCategory ? diaryPlacement : { kind: 'top' as const };
+  const fallbackPlacement: DiaryPlacement = diaryPlacement.kind !== 'slot' || hasPlacementCategory
+    ? diaryPlacement : { kind: 'top' };
   const diaryCard = diaryEnabled ? (reorderRuntimeActive ? <DraggableDiaryDayPreview date={dateStr}/> : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr}/></React.Suspense>) : null;
   const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
   const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));

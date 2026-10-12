@@ -1,3 +1,8 @@
+/* Day View owns stable, manually memoized callbacks for the shared sheet/swiper
+ * state machine. The compiler's dependency inference incorrectly treats
+ * stable React state setters as changing dependencies here.
+ */
+/* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { runBulkTaskActions } from './bulkTaskActions';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
@@ -128,6 +133,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   shellControlsRef,
   onLockChange,
 }) => {
+  // Preserve the mature, manually memoized Day View gesture and sheet lifecycles.
+  // The React Compiler cannot safely infer dependencies across these state machines.
+  'use no memo';
   const isBacklogView = renderMode === 'backlog';
   const appearance = React.useContext(AppearanceContext);
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());

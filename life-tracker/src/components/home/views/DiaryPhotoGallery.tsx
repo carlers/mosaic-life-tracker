@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, X, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { fetchFriendDiaryPhoto } from '../../../lib/friendData';
@@ -23,23 +23,22 @@ const DiaryPhoto: React.FC<{
   const [open, setOpen] = useState(false);
   const ownerImage = useTaskImage(id, !friendUserId);
   const [friendImage, setFriendImage] = useState<string | null>(null);
-  const [friendLoading, setFriendLoading] = useState(false);
+  const [friendLoading, setFriendLoading] = useState(Boolean(friendUserId));
   const [friendFailed, setFriendFailed] = useState(false);
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     if (!friendUserId || !diaryId) return;
     let active = true; let localUrl: string | null = null;
-    setFriendLoading(true); setFriendFailed(false);
     void fetchFriendDiaryPhoto(friendUserId, diaryId, id).then(blob => {
       if (!active) return;
       localUrl = URL.createObjectURL(blob);
       setFriendImage(localUrl);
     }).catch(() => { if (active) setFriendFailed(true); }).finally(() => { if (active) setFriendLoading(false); });
-    return () => { active = false; if (localUrl) URL.revokeObjectURL(localUrl); setFriendImage(null); };
+    return () => { active = false; if (localUrl) URL.revokeObjectURL(localUrl); };
   }, [friendUserId, diaryId, id, retry]);
   const imageUrl = friendUserId ? friendImage : ownerImage.imageUrl;
   const isLoading = friendUserId ? friendLoading : ownerImage.isLoading;
-  const retryImage = () => { if (friendUserId) { setFriendFailed(false); setRetry(r => r + 1); } else ownerImage.retryImage(); };
+  const retryImage = () => { if (friendUserId) { setFriendFailed(false); setFriendLoading(true); setRetry(r => r + 1); } else ownerImage.retryImage(); };
   return (
     <div className="relative min-w-0 overflow-hidden rounded-xl bg-surfaceHighlight">
       <button type="button" aria-label="View diary photo" disabled={!imageUrl}
@@ -70,7 +69,7 @@ export const DiaryPhotoGallery: React.FC<GalleryProps> = ({ photoIds, editable, 
     const next = [...ids]; const [id] = next.splice(from, 1); next.splice(to, 0, id); onChange?.(next);
   };
   return <div aria-label="Diary photos" className="grid grid-cols-3 gap-2 py-3">
-    {ids.map((id, index) => <DiaryPhoto key={id} id={id} date={date} editable={editable} friendUserId={friendUserId} diaryId={diaryId}
+    {ids.map((id, index) => <DiaryPhoto key={`${friendUserId || ''}:${diaryId || ''}:${id}`} id={id} date={date} editable={editable} friendUserId={friendUserId} diaryId={diaryId}
       onRemove={() => onChange?.(ids.filter(photoId => photoId !== id))}
       onMoveBefore={index > 0 ? () => move(index, index - 1) : undefined}
       onMoveAfter={index < ids.length - 1 ? () => move(index, index + 1) : undefined}/>)}
