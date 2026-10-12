@@ -179,8 +179,6 @@ function App() {
                 : protectedPageElements[route.id]}
             />
           ))}
-          {/* Unknown Settings URLs still enter the protected shell, including when signed out. */}
-          <Route path="/settings/*" element={<Navigate to="/settings" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>
