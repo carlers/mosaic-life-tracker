@@ -43,3 +43,16 @@ export function findExistingCanary(deployments, branch, sha) {
     ['READY', 'BUILDING', 'QUEUED', 'INITIALIZING'].includes(deployment.readyState ?? deployment.state)
   ) ?? null;
 }
+
+// Compare deployments only from the candidate's birth, not the entire
+// project's potentially unbounded history. An hour covers host clock skew
+// without excluding a normal deployment of this exact SHA.
+export function canaryHistoryStart(commitUnixSeconds, nowMs) {
+  const time = Number(commitUnixSeconds) * 1000;
+  if (!Number.isSafeInteger(time) || time <= 0 ||
+      !Number.isSafeInteger(nowMs) || nowMs <= 0 ||
+      time > nowMs + 5 * 60_000) {
+    throw new Error('Missing, malformed or future-dated commit timestamp');
+  }
+  return Math.max(0, time - 60 * 60_000);
+}

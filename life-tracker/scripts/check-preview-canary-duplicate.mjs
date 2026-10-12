@@ -1,12 +1,22 @@
 #!/usr/bin/env node
 import { appendFileSync } from 'node:fs';
-import { findExistingCanary, OFFICIAL_VERCEL_ORG_ID, OFFICIAL_VERCEL_PROJECT_ID } from './lib/preview-canary-context.mjs';
+import { execFileSync } from 'node:child_process';
+import { canaryHistoryStart, findExistingCanary, OFFICIAL_VERCEL_ORG_ID, OFFICIAL_VERCEL_PROJECT_ID } from './lib/preview-canary-context.mjs';
 
 try {
   const token = process.env.VERCEL_TOKEN;
   const branch = process.env.PREVIEW_DEPLOY_BRANCH;
   const sha = process.env.PREVIEW_DEPLOY_SHA;
   if (!token) throw new Error('Vercel token is unavailable');
+  const git = (...args) => execFileSync('git', args, {
+    encoding: 'utf8', timeout: 10000,
+  }).trim();
+  if (git('rev-parse', 'HEAD') !== sha) {
+    throw new Error('Canary candidate is not the checked-out exact SHA');
+  }
+  // Verify branch/SHA input even if Vercel returns an empty history.
+  findExistingCanary([], branch, sha);
+  const since = canaryHistoryStart(git('show', '-s', '--format=%ct', 'HEAD'), Date.now());
   let until;
   let existing = null;
   let complete = false;
@@ -16,6 +26,7 @@ try {
     url.searchParams.set('teamId', OFFICIAL_VERCEL_ORG_ID);
     url.searchParams.set('projectId', OFFICIAL_VERCEL_PROJECT_ID);
     url.searchParams.set('limit', '100');
+    url.searchParams.set('since', String(since));
     if (until != null) url.searchParams.set('until', String(until));
     const response = await fetch(url, {
       headers: { Authorization: 'Bearer ' + token },
@@ -23,14 +34,21 @@ try {
     });
     if (!response.ok) throw new Error('Cannot inspect canary deployments: HTTP ' + response.status);
     const data = await response.json();
-    if (!Array.isArray(data.deployments)) throw new Error('Missing Vercel deployment evidence');
+    if (!Array.isArray(data.deployments) || !data.pagination ||
+        typeof data.pagination !== 'object') {
+      throw new Error('Missing Vercel deployment or pagination evidence');
+    }
     existing = findExistingCanary(data.deployments, branch, sha);
     if (existing) break;
-    if (!data.pagination?.next) { complete = true; break; }
-    if (data.pagination.next === until) throw new Error('Vercel deployment cursor did not advance');
-    until = data.pagination.next;
+    const next = data.pagination.next;
+    if (next == null) { complete = true; break; }
+    if (!Number.isSafeInteger(Number(next)) || Number(next) <= 0 ||
+        (until != null && Number(next) >= until)) {
+      throw new Error('Vercel deployment cursor is invalid or did not advance');
+    }
+    until = Number(next);
   }
-  if (!existing && !complete) throw new Error('Canary deployment history exceeded bounded inspection');
+  if (!existing && !complete) throw new Error('Canary deployment history exceeded bounded candidate-time inspection');
   if (existing) {
     console.log('Existing active or READY exact branch/SHA canary: no additional deployment.');
     if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'skip=true\n');
