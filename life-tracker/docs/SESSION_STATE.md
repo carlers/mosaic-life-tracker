@@ -1,34 +1,27 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Mosaic issue #656 first-open lazy sheets, approved task implementation through Scratch stable Preview; dev/main promotion remains prohibited without separate user authorization.
+Current task: Issue #656 — first-open React.lazy sheet delay; authorized implementation through stable Scratch Preview only.
 
-## Exact refs
-- Source `dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1`, v0.19.4. #640 idle-prefetched Day View is accepted and preserved.
-- Stable Preview branch `perf/first-open-sheets-656-20261012`, current pre-repair `ff5fb8cd595104661824fabcf08709196c8b0783`, version candidate v0.19.5. Current task branch `chatgpt/656-core-batch-a` derived from stable.
-- Related squash PRs: #661, #663, #664, #665, #667, each with CI/deployment provenance.
+## Exact source and branches
+- Source baseline: `dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1`, version 0.19.4. Accepted #640 first-open Day View implementation stays byte-for-byte identical in Home.
+- Stable Preview: `perf/first-open-sheets-656-20261012`, latest pre-repair `710337fd2ea843825083c4d49e5cfaa0e3356972`, user-testable candidate v0.19.5.
+- Current repair task: `chatgpt/656-reduce-cold-lazy` from that stable SHA. Never merge to dev/main without separate explicit approval. Do not touch Scratch Appwrite shared functions or Production.
 
-## Implemented scope for first verified Preview
-- `src/lib/createPreloadedLazy.tsx`: cache the module's resolved React component; mounting after warmup avoids uninitialized `React.lazy` first-render suspension. Pin chosen component per mount, preserve cold-demand path and rejected import retries.
-- `ChatPage.tsx`, `MessageComposer.tsx`: code-only delayed warmup after Chat is usable; pointer/keyboard/mouse intent hints; first sticker opening uses cached resolved component. No hidden sticker hooks mounted.
-- `NotificationsPage.tsx`: code-only warmup after a user-scoped feed hydrates, pointer/mouse/focus hints and resolved friend-day sheet without a blank first commit. No remote data requests during preload.
-- Unit/DOM regressions for warm-component synchronous first commit, cold-load path, rejected-import retry and composer pointer/focus.
-- **Intentionally deferred**: Home friend-carousel preferences, friend Calendar day, nested Task Share/Link sheet, and all intentional visible-loading paths pending measured second batch. This final scope correction restores `HomePage.tsx` byte-for-byte to dev to protect existing Day View first-open performance and extremely narrow Home/GIPHY closure budget. `PersonCarousel` already matches dev. Do not claim deferred work shipped.
-- All seven existing size limits remain unchanged, GIPHY and Appwrite backend config unchanged.
+## First measurable batch delivered in code
+- `src/lib/createPreloadedLazy.tsx`: cache resolved component for synchronous first React commit after code warmup; preserve cold fallback, stable mount type, retry after rejected imports. Latest repair eliminates the module-wide cold React.lazy instance: create a cold lazy type only on mounting an unready sheet, so failure recovery needs no factory/reset logic.
+- `src/pages/ChatPage.tsx` and `src/components/messages/MessageComposer.tsx`: delayed module-only warmup after usable Chat plus pointerdown sticker intent (preserves composer focus). Do not mount hidden sticker data hooks.
+- `src/pages/NotificationsPage.tsx`: delayed code-only friend-day warmup after user-scoped feed becomes usable. Friend-day remote data loads only when sheet actually mounts.
+- Regression tests cover preloaded first synchronous commit, cold path, no remount after pending import, rejected import recovery, and composer focus/pointer interaction. Added direct cold-on-demand retry after failed preload to validate the simpler factory.
+- Home friend preferences, friend Calendar day, nested Share/Link task sheets and intentional visible-loading paths remain deferred for a subsequent *measured* #656 batch. Do not claim them fixed. The accepted #640 Day View and Home were restored to dev.
 
-## Verification and previous failures
-- Task focused CI for prior fixes successful; previous stable SHA `362d17d3` canonical SUCCESS while Vercel GIPHY-enabled Scratch build failed caps by Home +130, aggregate raw +228, gzip +209, precache +347 bytes.
-- Last stable candidate `ff5fb8cd` Vercel GIPHY failed Home closure +52 B, aggregate raw +7 B, gzip +135 B, precache +126 B. This is a hosted size failure even if its GitHub canonical build passes; do not say Preview ready.
-- Previously a browser contract intermittently failed in an unrelated category drag test (`interaction-contract.spec.mjs:899`); it passed on other same-feature stable runs. Full green canonical on exact final SHA is mandatory; do not dismiss without proof.
-- No private-device warm/cold latency measurement is available. Keep browser/CI and device acceptance distinct.
-
-## Aggregated budget repair
-- After PR #668, stable `6ef2234f50a2d4ba43c3766659617080de426433` preserved the original Home closure budget, but GIPHY-enabled Scratch Vercel `dpl_5R55Bgj5o6JRqjFgg7V932NYpBF2` still exceeded only three aggregate caps: raw +24 B, gzip +82 B, precache +143 B. The app was not deployed ready.
-- Current task `chatgpt/656-aggregate-trim-7` removes redundant Notifications pointer/hover/focus preloading listeners and Chat sticker hover/focus hints. Delayed module warmup after view readiness remains in both pages; Chat pointerdown still retains intent warming without stealing composer focus. The DOM test now asserts the pointer-only contract. This is an implementation-size change with no visible design or backend change.
-- All seven limits remain unchanged; do not claim a usable Preview until GitHub canonical and exact GIPHY-enabled Vercel builds pass.
+## Verified and outstanding gates
+- Previous stable `710337fd...` GitHub full canonical SUCCESS [run 38195455370]; exact GIPHY-enabled Scratch Vercel `dpl_7UnwwNDjviapK9xKFHHeXPmpAjEV` ERROR **only** size budgets: aggregate gzip +30 B and precache +18 B; other five size metrics passed. Existing size ceilings unchanged; Vercel was not READY.
+- Current repair simplifies shared lazy loader (fewer shipped bytes, same invariants). Require task focused CI, squash stable Preview PR, and **both** full canonical GitHub SUCCESS **and** GIPHY-enabled Scratch Vercel READY for identical final SHA before user testing.
+- No actual iOS/Android device tests or first/idle tap-to-paint measurements completed. Do not claim manual acceptance or dev readiness.
 
 ## Next action
-1. Verify aggregate-size repair task `chatgpt/656-aggregate-trim-7` focused CI, then squash into stable Preview.
-2. Squash into stable Preview after focused green. Require full canonical GitHub SUCCESS and exact-Git-SHA GIPHY-enabled Scratch Vercel READY, with seven size limits unchanged.
-3. Verify stable alias, backend environment and version v0.19.5. Post durable #656 issue checkpoint with evidence, Preview link and remaining second-batch scope.
-4. Device acceptance pending: immediately after fresh launch and after idle, Chat sticker and Notifications friend-day first vs repeat open, touch/keyboard/focus/Back/Escape, offline/PWA; ensure owner Day View #640 unchanged. Do not merge to dev/main without authorization.
+1. Focused CI for `chatgpt/656-reduce-cold-lazy` and fix any failures, then squash task PR into stable Preview.
+2. Verify final exact-SHA full canonical CI, seven unchanged size budgets, Vercel GIPHY/Scratch build READY and stable Preview alias.
+3. Update GitHub issue #656 with complete PR/CI/deployment evidence, testable link and deferred follow-up batch.
+4. User device acceptance: cold click immediately after fresh launch, idle then first click and repeats for Chat stickers and Notifications friend day; verify pointer-focus, close/Back/Escape, offline/PWA and #640 Day View non-regression. No dev/main promotion without approval.
