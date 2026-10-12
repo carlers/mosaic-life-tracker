@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
@@ -81,10 +81,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   const dragControls = useDragControls();
   const editPanelRef = useRef<HTMLDivElement>(null);
   const [exitContent, setExitContent] = useState(children);
-
-  useEffect(() => {
-    if (isEditing) setExitContent(children);
-  }, [children, isEditing]);
+  if (isEditing && exitContent !== children) setExitContent(children);
 
   return (
     <Reorder.Item
