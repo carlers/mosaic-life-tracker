@@ -608,15 +608,17 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         onClose={() => setReactionTask(null)}
         onPick={handlePickEmoji}
       />
-      <Suspense fallback={<ImageViewerLoadingFallback />}>
-        <ImageViewer
-          isOpen={isImageViewerOpen && !!viewingImageUrl && !isViewingImageLoading}
-          imageUrl={viewingImageUrl}
-          taskTitle={viewingTask?.title}
-          taskDate={viewingTask?.date}
-          onClose={handleCloseImageViewer}
-        />
-      </Suspense>
+      {isImageViewerOpen && (
+        <Suspense fallback={<ImageViewerLoadingFallback />}>
+          <ImageViewer
+            isOpen={!!viewingImageUrl && !isViewingImageLoading}
+            imageUrl={viewingImageUrl}
+            taskTitle={viewingTask?.title}
+            taskDate={viewingTask?.date}
+            onClose={handleCloseImageViewer}
+          />
+        </Suspense>
+      )}
     </>
   );
 };
