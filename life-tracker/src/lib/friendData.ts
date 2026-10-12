@@ -213,9 +213,11 @@ export async function fetchFriendAlertTask(
 }
 
 /** Only authenticated, mutually accepted friends can request a bounded month. */
+export type FriendDiaryDocument = DiaryDocument & { reactions?: string };
+
 export async function fetchFriendDiaryMonth(
   currentUserId: string, friendUserId: string, month: string
-): Promise<DiaryDocument[]> {
+): Promise<FriendDiaryDocument[]> {
   if (!currentUserId || !friendUserId || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
     throw new FriendAccessError('Invalid friend diary request.', 'server');
   }
@@ -239,7 +241,7 @@ export async function fetchFriendDiaryMonth(
   if (execution.responseStatusCode >= 400 || !Array.isArray(parsed.entries)) {
     throw new FriendAccessError('Could not load friend diary.', 'server');
   }
-  return parsed.entries.flatMap((row): DiaryDocument[] => {
+  return parsed.entries.flatMap((row): FriendDiaryDocument[] => {
     if (row.user_id !== friendUserId || typeof row.date !== 'string' ||
       !row.date.startsWith(month + '-') || row.deleted === true ||
       !['public', 'followers'].includes(String(row.visibility))) return [];

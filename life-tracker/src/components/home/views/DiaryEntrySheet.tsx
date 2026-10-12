@@ -17,7 +17,7 @@ const CHOICES = ['😀','🥰','😌','😢','😴','😎','🥳','😤','❤️
 
 interface DiaryEntrySheetProps {
   date: string;
-  entry?: DiaryDocument;
+  entry?: DiaryDocument & { reactions?: string };
   author: string;
   onClose: () => void;
   onSave?: (date: string, content: string, visibility: DiaryDocument['visibility'], emoji: string, photos: string) => Promise<void>;

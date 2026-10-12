@@ -10,8 +10,7 @@ import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
-import { fetchFriendDiaryMonth, reactToFriendDiary } from '../../lib/friendData';
-import type { DiaryDocument } from '../../db/schema';
+import { fetchFriendDiaryMonth, reactToFriendDiary, type FriendDiaryDocument } from '../../lib/friendData';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
 import { useMessageActions } from '../../hooks/useMessageActions';
@@ -77,7 +76,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
 
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
-  const [diaryState, setDiaryState] = useState<{ key: string; entries: DiaryDocument[] }>({ key: '', entries: [] });
+  const [diaryState, setDiaryState] = useState<{ key: string; entries: FriendDiaryDocument[] }>({ key: '', entries: [] });
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
   const diaryMonth = format(todoFocusDate, 'yyyy-MM');

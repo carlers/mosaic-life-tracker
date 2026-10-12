@@ -128,6 +128,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   shellControlsRef,
   onLockChange,
 }) => {
+  // Preserve the mature, manually memoized Day View gesture and sheet lifecycles.
+  // The React Compiler cannot safely infer dependencies across these state machines.
+  'use no memo';
   const isBacklogView = renderMode === 'backlog';
   const appearance = React.useContext(AppearanceContext);
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
