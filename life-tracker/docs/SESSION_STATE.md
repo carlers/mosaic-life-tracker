@@ -1,6 +1,8 @@
 # Session checkpoint — Mosaic issue #408
 
 Updated: 2026-10-12; status: refinement candidate, NOT released or approved.
+Current task: Issue #408 — verify and stage the diary v0.25.1 refinement for Preview.
+Next action: Finish focused/full checks, review Scratch activation gate, and prepare stable feature Preview without merging dev/main.
 
 - Exact source baseline: `feature/diary-408@09b905b693159b14c27cdae605288bfb84295691`, v0.25.0; all changes on `chatgpt/408-diary-refinements-20261012`, v0.25.1 candidate. Do not merge to `dev`/`main`.
 - Scope: double-tap Diary card directly into editor (plus owner reader content double-tap), live diary hover/drop gap alongside tasks, reduced-motion-aware FLIP-style displacement, opted-in calendar Day View diary card, typed diary reference messages and click-to-view authorization, owner reaction ledger projection, server-owned idempotent reaction activity, additive message reference migration. See latest #408 plan/comment for exact seven acceptance items.

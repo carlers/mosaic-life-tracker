@@ -366,10 +366,14 @@ export function fromAppwriteFormat(
     mapped.taskRefTitle = mapped.task_ref_title || '';
     mapped.taskRefDate = mapped.task_ref_date || '';
     mapped.taskRefColor = mapped.task_ref_color || '';
-    mapped.diaryRefId = mapped.diary_ref_id || '';
-    mapped.diaryRefOwnerId = mapped.diary_ref_owner_id || '';
-    mapped.diaryRefDate = mapped.diary_ref_date || '';
-    mapped.diaryRefExcerpt = mapped.diary_ref_excerpt || '';
+    // Older messages have no diary context. Preserve their original shape
+    // rather than synthesizing four empty fields on every legacy round trip.
+    if (mapped.diary_ref_id) {
+      mapped.diaryRefId = mapped.diary_ref_id;
+      mapped.diaryRefOwnerId = mapped.diary_ref_owner_id || '';
+      mapped.diaryRefDate = mapped.diary_ref_date || '';
+      mapped.diaryRefExcerpt = mapped.diary_ref_excerpt || '';
+    }
     mapped.replyToId = mapped.reply_to_id || '';
     mapped.replyToContent = mapped.reply_to_content || '';
     mapped.replyToSenderId = mapped.reply_to_sender_id || '';
