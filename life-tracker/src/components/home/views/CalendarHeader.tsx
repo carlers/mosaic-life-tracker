@@ -31,6 +31,8 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   const suppressClick = useRef(false);
   const handleTitleTouchStart = (event: React.TouchEvent) => {
     if (!enableTitleSwipe) return;
+    // A completed pan may not emit a click; do not suppress the next tap.
+    suppressClick.current = false;
     const touch = event.touches[0];
     if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
   };

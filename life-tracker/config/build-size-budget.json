@@ -17,15 +17,15 @@
     "entryRawBytes": 446200,
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
-    "homeClosureGzipBytes": 366100,
-    "appAssetsRawBytes": 2461000,
-    "appAssetsGzipBytes": 764000,
-    "precacheUniqueBytes": 2548500
+    "homeClosureGzipBytes": 367200,
+    "appAssetsRawBytes": 2465200,
+    "appAssetsGzipBytes": 765400,
+    "precacheUniqueBytes": 2552700
   },
   "review": {
-    "issue": "#656",
-    "reason": "Measured first GIPHY-enabled Scratch v0.20.4 Preview 5ca4f6da1b46b693e78e7c6ad63e70d1034ecb1e adds code-only ready-component warmup for Menu/friend Day View plus sheet-only Swiper Virtual, carrying user-accepted Chat/Notification lazy fixes onto dev v0.20.3. PWA, TS and browser/DOM behavior pass. Entry raw/gzip and initial closure budgets remain unchanged and pass. Four aggregate metrics exceeded prior narrowly sized limits by 314/1217/673/1424 B; dev #655 had only tens/hundreds of bytes headroom. Reviewed against hosted measurements in #656 comment 6117480055; preserve historic baseline and three startup-critical ceilings. Corrected SHA must independently pass canonical and GIPHY Scratch.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/FYgDRjqccPkhCk6YH1RAAmzfh9Z5",
+    "issue": "#692",
+    "reason": "Measured optional native 3/4-day mobile Calendar zoom v0.23.0 against exact accepted dev@dbde9515 and stable Scratch/GIPHY Preview@bd943e6. Accepted dev entryRaw 446120, entryGzip 132801, initial closure 146026, Home closure 365783, app assets raw 2460582, app assets gzip 763726 and precache 2547889 bytes. Candidate entry and initial ceilings still pass (entry 446120/132801, initial 146033). Optional week/month aligned scroll lane, account settings, keyboard and gesture guards add Home closure 366975 (+1192 over dev), app assets raw 2464543 (+3961), gzip 765061 (+1335) and precache 2551850 (+3961). Four previously tight aggregate/Home ceilings are reviewed narrowly against this exact hosted build. Historic baseline, entry limits and initial closure ceiling remain unchanged. Require corrected stable exact-SHA canonical and hosted build to pass independently; no dependency additions or unrelated behavior.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/ENfiJ68sh1BnmM7cYLSP59d8Kz9r",
     "metrics": [
       "homeClosureGzipBytes",
       "appAssetsRawBytes",
@@ -33,10 +33,10 @@
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 365450,
-      "appAssetsRawBytes": 2459250,
-      "appAssetsGzipBytes": 763000,
-      "precacheUniqueBytes": 2546350
+      "homeClosureGzipBytes": 366100,
+      "appAssetsRawBytes": 2461000,
+      "appAssetsGzipBytes": 764000,
+      "precacheUniqueBytes": 2548500
     }
   }
 }
