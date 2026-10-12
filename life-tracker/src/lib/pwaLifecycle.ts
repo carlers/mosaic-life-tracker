@@ -4,9 +4,17 @@ export interface InstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
+export interface PwaAssetProgress {
+  completed: number;
+  total: number;
+  completedBytes: number | null;
+  totalBytes: number | null;
+}
+
 export interface PwaLifecycleSnapshot {
   installAvailable: boolean;
   updateAvailable: boolean;
+  assetProgress: PwaAssetProgress | null;
 }
 
 export type PwaUpdateCheckResult =
@@ -43,12 +51,51 @@ type RegisterServiceWorker = (
 let snapshot: PwaLifecycleSnapshot = {
   installAvailable: false,
   updateAvailable: false,
+  assetProgress: null,
 };
 let installPrompt: InstallPromptEvent | null = null;
 let updateServiceWorker: (() => Promise<void>) | null = null;
 let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 let serviceWorkerContainer: ServiceWorkerContainer | null = null;
 let initialized = false;
+let activeProgressWorker: ServiceWorker | null = null;
+
+function receiveAssetProgress(event: MessageEvent): void {
+  const data = event.data;
+  if (!data || data.type !== 'MOSAIC_PWA_ASSET_PROGRESS') return;
+  const worker = event.source;
+  const registration = serviceWorkerRegistration;
+  // A stale controller, unrelated tab, or older worker must not overwrite the
+  // active update's progress. Browser-native installation has no such telemetry.
+  if (!worker || !registration ||
+      (registration.installing
+        ? worker !== registration.installing
+        : worker !== registration.waiting)) return;
+  if (activeProgressWorker !== worker) {
+    activeProgressWorker = worker as ServiceWorker;
+    publish({ assetProgress: null });
+  }
+
+  const { completed, total, completedBytes, totalBytes } = data;
+  if (!Number.isSafeInteger(completed) || !Number.isSafeInteger(total) ||
+      total <= 0 || completed < 0 || completed > total) return;
+  const bytesKnown = Number.isSafeInteger(completedBytes) &&
+    Number.isSafeInteger(totalBytes) && totalBytes >= 0 &&
+    completedBytes >= 0 && completedBytes <= totalBytes;
+  if ((completedBytes !== null || totalBytes !== null) && !bytesKnown) return;
+  const current = snapshot.assetProgress;
+  if (current && (completed < current.completed ||
+      (bytesKnown && current.completedBytes !== null &&
+       completedBytes < current.completedBytes))) return;
+  publish({
+    assetProgress: {
+      completed,
+      total,
+      completedBytes: bytesKnown ? completedBytes : null,
+      totalBytes: bytesKnown ? totalBytes : null,
+    },
+  });
+}
 const listeners = new Set<() => void>();
 
 function observeOfflineShellReady(
@@ -99,6 +146,7 @@ export function initializePwaLifecycle(
   if (initialized) return;
   initialized = true;
   serviceWorkerContainer = target.navigator?.serviceWorker ?? null;
+  serviceWorkerContainer?.addEventListener?.('message', receiveAssetProgress);
   if (serviceWorkerContainer?.controller) {
     markOfflineShellReady();
   }
@@ -267,8 +315,15 @@ export async function checkForPwaUpdate(
 
   const registration = await resolveServiceWorkerRegistration();
   if (!registration) {
+    publish({ assetProgress: null });
     report('unavailable');
     return 'unavailable';
+  }
+
+  // A manual recheck joins any installation already underway. Retain its
+  // measured progress instead of visually restarting from 0%.
+  if (!registration.installing && !registration.waiting) {
+    publish({ assetProgress: null });
   }
 
   if (registration.waiting) {
@@ -353,10 +408,12 @@ export function dismissPwaUpdate(): void {
 }
 
 export function resetPwaLifecycleForTests(): void {
-  snapshot = { installAvailable: false, updateAvailable: false };
+  snapshot = { installAvailable: false, updateAvailable: false, assetProgress: null };
+  activeProgressWorker = null;
   installPrompt = null;
   updateServiceWorker = null;
   serviceWorkerRegistration = null;
+  serviceWorkerContainer?.removeEventListener?.('message', receiveAssetProgress);
   serviceWorkerContainer = null;
   initialized = false;
   listeners.clear();

@@ -7,7 +7,12 @@ import { inspectServiceWorker } from './lib/inspect-service-worker.mjs';
 // Run after vite build. An optional output directory supports isolated builds.
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const directory = process.argv[2] ? resolve(process.argv[2]) : join(root, 'dist');
-const result = await inspectServiceWorker(await readFile(join(directory, 'sw.js'), 'utf8'));
+const source = await readFile(join(directory, 'sw.js'), 'utf8');
+const result = await inspectServiceWorker(source);
+if (source.includes('__MOSAIC_ASSETS__')) {
+  assert.equal(result.precacheSizes?.length, result.precacheUrls.length,
+    'Injected precache must declare every asset size');
+}
 assert.equal(result.skipWaitingOnStartup, false, 'SW must not skip waiting at startup');
 assert.equal(result.skipWaitingOnLifecycle, false, 'SW must not skip waiting during install/activate');
 assert.equal(result.skipWaitingOnUnrelatedMessage, false, 'Unrelated messages must not activate an update');
@@ -27,7 +32,13 @@ for (const url of result.precacheUrls) {
   const path = resolve(directory, pathname);
   const emittedPath = relative(directory, path);
   assert.ok(emittedPath && !emittedPath.startsWith('..') && !isAbsolute(emittedPath), `Precache URL escapes build output: ${url}`);
-  assert.ok((await stat(path)).isFile(), `Precache URL is not an emitted static file: ${url}`);
+  const info = await stat(path);
+  assert.ok(info.isFile(), `Precache URL is not an emitted static file: ${url}`);
+  if (result.precacheSizes) {
+    const i = result.precacheUrls.indexOf(url);
+    assert.equal(result.precacheSizes[i], info.size,
+      `Progress byte weight differs from emitted asset size: ${url}`);
+  }
 }
 
 const importMap = JSON.parse(await readFile(join(directory, 'importmap.json'), 'utf8'));
