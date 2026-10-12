@@ -9,14 +9,18 @@ import {
   isSameMonth,
 } from 'date-fns';
 import { DayCell } from './DayCell';
+import { CalendarZoomViewport } from './CalendarZoomViewport';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
-import type { WeekStartsOn } from '../../../lib/preferences';
+import type { WeekStartsOn, CalendarZoomDays } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
 
 interface MonthViewProps {
   focusDate: Date;
+  zoomDays?: CalendarZoomDays;
+  onZoomMount?: (element: HTMLDivElement, days: number) => void;
+  onZoomScroll?: (element: HTMLDivElement, days: number) => void;
   onDayClick?: (date: Date) => void;
   tasksByDate: Map<string, TaskDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
@@ -38,6 +42,9 @@ const WEEKDAY_LABELS = [
 
 export const MonthView: React.FC<MonthViewProps> = ({
   focusDate,
+  zoomDays = 7,
+  onZoomMount,
+  onZoomScroll,
   onDayClick,
   tasksByDate,
   sharedByDay,
@@ -70,7 +77,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
     return weeks;
   }, [calendarDays]);
 
-  return (
+  const grid = (
     <div
       className="flex flex-col min-h-full"
       role="grid"
@@ -123,5 +130,11 @@ export const MonthView: React.FC<MonthViewProps> = ({
         ))}
       </div>
     </div>
+  );
+  return zoomDays === 7 ? grid : (
+    <CalendarZoomViewport zoomDays={zoomDays}
+      onZoomMount={onZoomMount} onZoomScroll={onZoomScroll}>
+      {grid}
+    </CalendarZoomViewport>
   );
 };

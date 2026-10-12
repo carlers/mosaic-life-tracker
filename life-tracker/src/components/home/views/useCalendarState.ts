@@ -69,6 +69,7 @@ export function useCalendarState(
     skipSnaps: false,
     startIndex: CENTER_INDEX,
     duration: reduceMotion ? 0 : 22,
+    watchDrag: (_api, event) => !(event.target instanceof Element && event.target.closest('[data-calendar-zoom-lane]')),
   });
 
   useEmblaTrackpadNavigation(emblaApi);

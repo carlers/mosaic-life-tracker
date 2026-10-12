@@ -11,6 +11,11 @@ export type IncompleteTaskBlockColorMode = 'default' | 'text' | 'border';
 export function resolveIncompleteTaskBlockColorMode(value: unknown): IncompleteTaskBlockColorMode {
   return value === 'text' || value === 'border' ? value : 'default';
 }
+export const CALENDAR_ZOOM_DAYS_SETTING_KEY = 'calendarZoomDays';
+export type CalendarZoomDays = 3 | 4 | 7;
+export function resolveCalendarZoomDays(value: unknown): CalendarZoomDays {
+  return value === 3 || value === '3' ? 3 : value === 4 || value === '4' ? 4 : 7;
+}
 export const WEEK_STARTS_ON_SUNDAY_SETTING_KEY = 'weekStartsOnSunday';
 export const SHOW_CATEGORY_COLLAPSE_SETTING_KEY = 'showCategoryCollapseButton';
 export const SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY = 'showDayViewTodayTag';
