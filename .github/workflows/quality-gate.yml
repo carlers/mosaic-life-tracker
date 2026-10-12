@@ -556,13 +556,18 @@ jobs:
       - name: Install reviewed Vercel CLI
         if: steps.duplicates.outputs.skip != 'true'
         run: npm install --global vercel@62.7.0
+      # Mosaic is a monorepo: Vercel's configured project Root Directory is
+      # life-tracker/ relative to Git root. The Vercel CLI must be launched
+      # from Git root, not life-tracker/, or it looks for the output twice.
       - name: Link only the existing official Vercel project
         if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
         run: |
           mkdir -p .vercel
           printf '%s\n' '{"orgId":"team_UbpudOr8jXyrDA5SdVUxVGOr","projectId":"prj_jysOLDbuO9c5rP8x6Q145DVIw0fc"}' > .vercel/project.json
       - name: Pull actual branch-scoped Preview build inputs
         if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
         env:
           VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
         run: vercel pull --yes --environment=preview --git-branch="$PREVIEW_DEPLOY_BRANCH"
@@ -575,9 +580,17 @@ jobs:
         run: npm ci --prefer-offline --no-audit --no-fund
       - name: Build and enforce Preview budgets with effective Vercel configuration
         if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
         env:
           VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
         run: vercel build
+      - name: Verify prebuilt output exists at repository-root Vercel layout
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        run: |
+          test -f life-tracker/dist/index.html
+          test -f .vercel/output/config.json
+          echo "Vercel packaged the built app at the intended monorepo root."
       - name: Re-check accepted SHA and branch before deployment
         if: steps.duplicates.outputs.skip != 'true'
         env:
@@ -591,6 +604,7 @@ jobs:
         run: node scripts/check-preview-canary-duplicate.mjs
       - name: Deploy exact prebuilt Preview artifact
         if: steps.duplicates.outputs.skip != 'true' && steps.duplicates_final.outputs.skip != 'true'
+        working-directory: .
         env:
           VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
         run: |

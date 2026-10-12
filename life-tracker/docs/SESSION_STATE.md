@@ -1,39 +1,48 @@
 # Session checkpoint
 
 Updated: 2026-10-13
-Current task: issue #592 protected Preview canary dependency fix.
-Authoritative status: GitHub issue #592, stable branch, canonical and Vercel.
+Current task: #592 protected prebuilt Preview canary output-root repair.
+See issue #592 for complete history, CI and Vercel deployment evidence.
 
-## Accepted evidence
+## Verified baseline
 
-Stable `fix/workflow-build-parity-592-20261012@6e21f0048faf60f0aaebc8ab4654492dac41a13c`.
-Full canonical `38286138996` SUCCESS; Vercel Git deployment
-`dpl_BJpqufcmw6EeKfiyoC9CVdKzJGXm` READY. No dev/main merge;
-auto Vercel Git Preview trigger unchanged.
-Manual run `38287002114`: all canonical CI gates SUCCESS;
-protected canary authorized and exact SHA/branch/variable/token checks
-PASSED; Vercel duplicate history check PASSED; Vercel CLI installed;
-`vercel pull` obtained branch-scoped Preview settings. `vercel build`
-FAILED because the runner lacked app `node_modules` (`TS2688`
-missing `vite/client`, `vite-plugin-pwa/client`, `node`).
-No prebuilt deployment created. Token and owner environment settings
-are working; stop asking owner to reconfigure them.
+Stable `fix/workflow-build-parity-592-20261012@28ab3eb2af0dd2e84e37ddbae1f90cfbc152ba61`.
+[Quality Gate 38287752127](https://github.com/carlers/mosaic-life-tracker/actions/runs/38287752127) SUCCESS;
+Git-triggered Vercel `dpl_74EbQsPuikXnW15J5FyGvee17dP9` READY.
+
+Owner manual dispatch `38288515284`: all canonical checks,
+exact-SHA/branch, environment approval, Vercel read-only duplicate
+check, pin-installed CLI, branch-scoped Preview `vercel pull`,
+locked `npm ci`, and actual Vite/TypeScript build SUCCESS.
+Build log: Scratch Appwrite, GIPHY enabled, Node 24.21.0,
+all seven size budgets PASS. Local `vercel build` then failed
+`No Output Directory named "dist" found`, before prebuilt upload.
+No new canary Vercel deployment. User's configuration is valid;
+do not ask to reset variables or token.
 
 ## Active task
 
-`chatgpt/592-canary-install-deps-20261013` from stable SHA.
-Add deterministic `npm ci` from lockfile after duplicate preflight,
-before local Vercel build. Add regression verifying steps/gate ordering,
-update diagnostics. Preserve seven size budgets and Scratch policy.
+Task branch `chatgpt/592-canary-cli-root-20261013`, based
+on accepted stable SHA. Vercel project root is `life-tracker/`
+relative to Git root; executing Vercel CLI from `life-tracker/`
+misaligns the expected output location. Run Vercel
+link/pull/build/prebuilt-deploy from **Git root** instead, while
+retaining `npm ci` and all security checks in `life-tracker/`.
+Require `life-tracker/dist/index.html` and
+`.vercel/output/config.json` before deployment. Add workflow
+regression test and diagnostics; no Vercel setting change.
 
 ## Next action
 
-Run focused CI on task; squash to stable Preview; verify GitHub
-canonical and Vercel READY. GitHub connection cannot dispatch
-`workflow_dispatch` or approve protected reviewers; future automated
-Preview trigger after successful canary must **not** require owner
-manual runs. The current manual protected canary requires new stable
-exact SHA and review, only until a safe replacement is proven.
-Inspect Vercel canary logs/metadata/alias and test idempotency before
-turning off Git auto builds or relaxing any checks. #592 remains open
-for automated rollout, size policy, scheduled audits, and acceptance.
+Focused task CI -> squash to stable Preview -> full canonical +
+Vercel READY. Protected local prebuilt canary must then pass live
+on an exact new SHA before disabling any automatic Git delivery.
+Current connected GitHub tool cannot dispatch manual runs or approve
+required reviewer, so keep minimizing new manual steps. Never
+turn off Git delivery prematurely. The future stable Preview gate
+must run automatically without per-commit manual approvals.
+Do not modify dev/main, Production, Scratch or the seven budgets;
+#592 remains open. Local prebuilt fingerprint from manual run
+`e24cedd...` did **not** match previous hosted
+`13df5b4...` for the same SHA; investigate chunk parity before
+switching the deployment system.
