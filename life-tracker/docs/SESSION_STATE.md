@@ -18,3 +18,8 @@ Next action: run focused CI on a complete task [verify:focused] commit; repair f
 - Manual acceptance remains required on iOS Safari/PWA, Android Chrome, landscape and desktop trackpad; do not imply they were performed by automated CI.
 - No dev/main promotion without explicit user authorization.
 - After #404 and #692 acceptance, reconcile overlapping calendar files on a dedicated integration task branch and rerun complete gates before any joint promotion.
+
+## Stable Preview first canonical evidence
+- Stable feature/calendar-zoom-692-20261012@bd943e6050c8ba259b29a9526d50c64ba3ffc196: focused task passed; canonical checks/DOM/browser/dependency passed but build guard failed on four measures. Exact GIPHY Vercel Scratch build dpl_ENfiJ68sh1BnmM7cYLSP59d8Kz9r compiled and passed PWA, but Vercel status ERROR due to guarded asset sizes.
+- Measured candidate: initial 146033/146050 pass; Home 366975/366100 fail, app raw 2464543/2461000 fail, gzip 765061/764000 fail, precache 2551850/2548500 fail. The latest repair task chatgpt/692-zoom-preview-size-and-gesture-20261012 documents metric-specific proposed allowances, preserving entry/initial limits.
+- Also cover title-swipe suppression clearing after a touch pan that emitted no click. Run focused tests and exact stable Preview full/hosted gate after approved squash; no dev/main merge.
