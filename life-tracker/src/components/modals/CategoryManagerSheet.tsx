@@ -141,7 +141,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
         </button>
       </div>
       <div
-        className="grid transition-all duration-200 ease-in-out motion-reduce:transition-none"
+        className="grid transition-all duration-200 ease-in-out"
         style={{ gridTemplateRows: isEditing ? '1fr' : '0fr' }}
         onTransitionEnd={(event) => {
           if (isEditing && event.target === event.currentTarget) {
@@ -191,14 +191,12 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [orderedIds, setOrderedIds] = useState(() =>
     categories.map((cat) => cat.id)
   );
-  const orderedCategories = useMemo(() => {
-    const indices = new Map(orderedIds.map((id, index) => [id, index]));
-    return [...categories].sort((a, b) =>
-      (indices.get(a.id) ?? Infinity) - (indices.get(b.id) ?? Infinity) || a.order - b.order
-    );
-  }, [categories, orderedIds]);
+  const orderedCategories = useMemo(() =>
+    [...categories].sort((a, b) =>
+      (orderedIds.indexOf(a.id) + 1 || Infinity) -
+      (orderedIds.indexOf(b.id) + 1 || Infinity) || a.order - b.order
+    ), [categories, orderedIds]);
   const pendingOrder = useRef(orderedCategories);
-  
 
   const resetForm = () => {
     setIsAdding(false);
@@ -222,41 +220,27 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   }
 
   const overriddenCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const t of tasks) {
-      if (t.visibility) {
-        map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + 1);
-      }
-    }
-    return map;
+    const counts = new Map<string, number>();
+    tasks.forEach(t => {
+      if (t.visibility) counts.set(t.categoryId, (counts.get(t.categoryId) || 0) + 1);
+    });
+    return counts;
   }, [tasks]);
 
-  const handleSaveNew = async () => {
-    if (!newName.trim()) return;
-    await save(
-      () =>
-        addCategory({
-          name: newName.trim(),
-          color: newColor,
-          visibility: newVisibility,
-          order: categories.length,
-          icon: '',
-        }),
+  const handleSaveNew = () => {
+    if (newName.trim()) void save(
+      () => addCategory({ name: newName.trim(), color: newColor, visibility: newVisibility, order: categories.length, icon: '' }),
       resetForm,
       'Could not add category. Try again.'
     );
   };
 
-  const handleUpdate = (id: string, name: string, visibility: Visibility) =>
-    save(
-      () => updateCategory(id, { name, visibility }),
-      () => setEditingId(null),
-      'Could not update category. Try again.'
-    );
+  const handleUpdate = (id: string) =>
+    save(() => updateCategory(id, { name: editName, visibility: editVisibility }),
+      () => setEditingId(null), 'Could not update category. Try again.');
 
-  const handleConfirmDelete = async () => {
-    if (!deleteId) return;
-    await save(
+  const handleConfirmDelete = () => {
+    if (deleteId) void save(
       () => deleteCategory(deleteId),
       () => setDeleteId(null),
       'Could not delete category. Try again.'
@@ -315,7 +299,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                     onChange={setEditVisibility}
                   />
                   <Button
-                    onClick={() => handleUpdate(cat.id, editName, editVisibility)}
+                    onClick={() => handleUpdate(cat.id)}
                     disabled={!editName.trim() || isSaving}
                   >
                     Save Changes

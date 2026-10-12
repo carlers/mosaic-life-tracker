@@ -1,12 +1,14 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Category Manager editor motion, v0.20.8 Preview only.
+Current task: Category Manager smooth editor transitions, Preview v0.20.8; no dev/main promotion.
 
-## State and acceptance
-- Stable Preview `fix/category-editor-inline-20261012`, latest accepted browser/canonical CI at `9c677ed6eb5debb0eea8bba1e45e44a41c011a18` (run 38249748038 pending/full); GIPHY-enabled Vercel dpl_7tQba4wfsbPtzsP5bxqozvNsoUpT FAILED fixed size caps: +351 B raw, +86 B gzip, +158 B precache (remaining four pass). Prior canonical @26ec3b5 CI 38245256079 passed. Never relax budgets.
-- Root bug: expanding form mounted at full height while Framer Motion Reorder.Item animated sibling positions, causing overlap. v0.20.8 real-height CSS grid 0fr↔1fr with outgoing content preserved/inert and reorder layoutDependency keyed by orderedIds resolves collision. Browser Playwright contract samples category geometry per animation frame during open, switch and interruption; task CI 38249515833 passed focused/browser.
-- Further scoped size reduction eliminates an unnecessary editor ref, sends scroll event to its current target only at transition completion, simplifies ordered category comparator and update/cancel functions. No new dependency or design-system changes.
-- No Appwrite, dev or main changes. Manual phone/desktop motion acceptance remains for user after Preview READY.
+## Status, root cause and verification
+- Stable Preview branch: `fix/category-editor-inline-20261012`, previous SHA `10e8e0e9be5b36811269b80e55029c1373df88d6`. Full canonical CI 38250639343 SUCCESS including both DOM and browser shards.
+- v0.20.7 mounted full-height edit content immediately while Motion projected sibling rows, producing mid-animation overlaps and rough editor switching.
+- v0.20.8 fixes this with a clipped, CSS-grid 0fr/1fr natural-height transition and preserved outgoing editor content; outgoing controls are inert and aria-hidden. `Reorder.Item` retains grip-only dragging, but only projects layout for actual order updates. Deferred scroll after expansion completes.
+- New Playwright regression in `tests/e2e/interaction-contract.spec.mjs` uses real production CategoryRow and checks adjacent card bounds over animation frames during expansion, direct switch and rapid interrupted switch. Browser, focused and canonical checks have passed on previous attempts.
+- Hosted Vercel GIPHY-enabled build at exact `10e8e0e9` (redeploy dpl_DKxAZudNPXE7wB96LVBHHgc9B4w9) failed unchanged size caps: +287 B app raw, +49 B app gzip, +94 B precache. Initial, entry and home closure size budgets PASS. Earlier auto deployment hit transient `git_info_fail`; redeploy confirmed actual size failure.
+- Current task branch `chatgpt/category-editor-final-size-trim-20261012` removes only generated redundant category manager JS and a duplicated reduced-motion class already covered by project-wide prefers-reduced-motion and account Reduce animations CSS in `src/index.css`. Preserve editor behavior, existing appearance, and all hard caps. No backend, new dependencies, or unrelated features.
 
-Next action: Focused/browser CI on task, squash into stable Preview, require exact canonical acceptance and all seven GIPHY-enabled Vercel size limits to pass. If still over, report remaining size failure and preserve last READY Preview; do not weaken any guard.
+Next action: Focused+browser task CI, squash to stable Preview only if green; verify full exact canonical CI, Vercel Scratch READY and all seven GIPHY-enabled build-size checks PASS; then user desktop/mobile motion acceptance. Do not merge to dev/main until authorized.
