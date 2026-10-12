@@ -13,6 +13,14 @@ export function inspectInjectedWorker(source) {
   const stringBindings = new Map();
   const boundUrlArgs = [];
 
+  function staticString(node) {
+    if (node?.type === 'Literal' && typeof node.value === 'string') return node.value;
+    if (node?.type === 'TemplateLiteral' && node.expressions.length === 0) {
+      return node.quasis.map((part) => part.value.cooked).join('');
+    }
+    return null;
+  }
+
   function propName(node) {
     if (!node) return '';
     if (node.type === 'Identifier') return node.name;
@@ -28,8 +36,8 @@ export function inspectInjectedWorker(source) {
   function walk(node, ancestors = []) {
     if (!node || typeof node !== 'object' || typeof node.type !== 'string') return;
     const path = [...ancestors, node];
-    if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier' && node.init?.type === 'Literal' && typeof node.init.value === 'string') {
-      stringBindings.set(node.id.name, node.init.value);
+    if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier' && staticString(node.init) !== null) {
+      stringBindings.set(node.id.name, staticString(node.init));
     }
     if (node.type === 'ArrayExpression' && node.elements.length > 0 &&
         node.elements.every((entry) => entry?.type === 'ObjectExpression' &&
@@ -44,7 +52,8 @@ export function inspectInjectedWorker(source) {
       const method = propName(node.callee?.property) ||
         (node.callee?.type === 'Identifier' ? node.callee.name : '');
       if (method === 'importScripts') {
-        importedScripts.push(...node.arguments.map((arg) => arg.value));
+        importedScripts.push(...node.arguments.map((arg) => staticString(arg)));
+        if (node.arguments.some((arg) => staticString(arg) === null)) throw new Error('Dynamic importScripts URL is not permitted.');
       }
       if (method === 'skipWaiting') waits.push(path);
       if (method === 'claim' && propName(node.callee?.object?.property) === 'clients') {
@@ -53,10 +62,7 @@ export function inspectInjectedWorker(source) {
       if (method === 'createHandlerBoundToURL') {
         boundUrlArgs.push(node.arguments[0]);
         const arg = node.arguments[0];
-        if (typeof arg?.value === 'string') fallback = arg.value;
-        if (arg?.type === 'TemplateLiteral' && arg.expressions.length === 0) {
-          fallback = arg.quasis.map((part) => part.value.cooked).join('');
-        }
+        fallback = staticString(arg) ?? fallback;
       }
     }
     if (node.type === 'Property' && propName(node.key) === 'denylist' &&
@@ -101,7 +107,7 @@ export function inspectInjectedWorker(source) {
     const event = path.filter((parent) =>
       parent.type === 'CallExpression' &&
       propName(parent.callee?.property) === 'addEventListener'
-    ).map((parent) => parent.arguments[0]?.value).at(-1);
+    ).map((parent) => staticString(parent.arguments[0])).at(-1);
     const guarded = path.some((parent) =>
       (parent.type === 'IfStatement' || parent.type === 'ConditionalExpression' ||
        parent.type === 'LogicalExpression') && source.slice(
@@ -114,17 +120,7 @@ export function inspectInjectedWorker(source) {
     else skipWaitingOnStartup = true;
   }
   if (!skipWaitingOnRequest) {
-    const calls = waits.map((path) => ({
-      event: path.filter((node) => node.type === 'CallExpression' && propName(node.callee?.property) === 'addEventListener')
-        .map((node) => node.arguments[0]?.value),
-      parents: path.filter((node) => ['IfStatement', 'ConditionalExpression', 'LogicalExpression'].includes(node.type))
-        .map((node) => ({
-          type: node.type,
-          expression: source.slice((node.test ?? node.left).start, (node.test ?? node.left).end).slice(0, 240),
-        })),
-      skipSource: source.slice(Math.max(0, path.at(-1).start - 120), path.at(-1).end + 120),
-    }));
-    throw new Error('Update confirmation message handler is missing. ' + JSON.stringify(calls).slice(0, 4000));
+    throw new Error('Update confirmation message handler is missing or not guarded.');
   }
   return {
     skipWaitingOnStartup,
