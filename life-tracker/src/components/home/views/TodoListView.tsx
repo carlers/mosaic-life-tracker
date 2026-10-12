@@ -164,6 +164,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
             selectedDate={selectedDate}
             onDateChange={handleDateChange}
             renderMode="inline"
+            showDiaryAlways={markerMode === 'diary'}
             tasks={tasks}
             categories={categories}
             holidayConfig={holidayConfig}
