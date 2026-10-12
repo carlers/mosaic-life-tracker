@@ -1,23 +1,52 @@
 # Session checkpoint
 
-Updated: 2026-10-12
-Current task: #692 mobile Calendar zoom — accepted Preview integration into dev.
-Latest integration base: dev@e714c3325a238ea9da0efaf8ed6ea97665b619cb (v0.20.7).
-Accepted feature: feature/calendar-zoom-692-20261012@b70bda97583d1b421512ac8a5b20fa6c1aea694a (v0.23.3).
-Working task: chatgpt/692-dev-integration-current-20261012.
-Proposed unique combined Preview: feature/calendar-zoom-692-dev-integration-20261012 (v0.23.4).
+Updated: 2026-10-13
+Current task: #592 trusted default-branch Preview receiver (disabled/staged).
 
-## Integration scope
-- Preserve all dev-only v0.20.6 hosted deep-link routing, Vercel rewrites and tests and v0.20.7 first-open Categories warmup on Menu/Me with their tests. Preserve the dev #656 entry-raw reviewed ceiling of 446208 and prior budget provenance.
-- Carry exactly the accepted #692 zoom functionality into owner/friend Home calendars: user-synced 7/4/3 days, native finger/trackpad/mouse scroll with day snapping, next/previous month handoff at opposite edges, rapid repeat swipes, accessible keyboard behavior and default 7-day layout.
-- Build-size record merges accepted dev #656 and zoom #692 reviews; only Home/aggregate size ceilings inherit documented #692 measured Preview limits. Fresh combined SHA must pass every guard; do not relax absent new measurements.
-- Small cleanup of React Hook exhaustive-deps warning for CalendarZoomViewport scrollend handler. No #404 split panel, diary or unrelated feature work. No Appwrite schema/Function or Production changes.
+## Verified baseline
 
-## Delivery gate
-Next action: focused CI [verify:focused] on integrated v0.23.4 task, repair failures, squash into stable integration Preview and verify exact-SHA canonical Quality Gate (unit/DOM/browser/dependencies/build/PWA/seven budgets) and Scratch/GIPHY Vercel READY. Then create explicitly approved stable integration Preview → dev PR and merge with previous dev SHA as first parent, an identical accepted source tree and successful canonical-acceptance check. Verify exact dev CI and Vercel staging deployment; never touch main.
-User manually accepted original #692 gestures; no new physical-device check is claimed by agent. Keep #692 open until integration verification and documented release boundary.
+Stable `fix/workflow-build-parity-592-20261012@26dfa9c7d978ff7bbc7ac861625e4d69c0fca861`.
+Full canonical [Quality Gate #38316959947](https://github.com/carlers/mosaic-life-tracker/actions/runs/38316959947)
+SUCCESS (checks/build/audit/both DOM and browser shards); ordinary
+Git-triggered Vercel `dpl_974AP6Vu9TUqUMQB3wVEgTCJbxkJ` READY
+with unchanged stable branch alias. Protected prebuilt manual
+canary `38290165183` attempt 2 SUCCESS; CLI deployment
+`dpl_9CgjZjmxMCqSqZxEkSpVspxKbB3d` READY.
+No dev/main merge, Production/Appwrite or seven-budget changes.
 
-## Exact combined Preview budget review
-- Integration Preview 5d049204 (v0.23.4) compiled, PWA policy passed, all static/size metrics except initialClosureGzipBytes 146051/146050 B (+1) and appAssetsGzipBytes 767025/767000 B (+25). Five other limits pass.
-- Separate focused task chatgpt/692-dev-integration-budget-20261012 narrowly reviews these two real combined-tree deltas, preserving previous #692 and #656 measured reviews and all other ceilings. No source behavior changes.
-Next action: focused task CI then repair squash into the same stable integration Preview, verify exact canonical and Scratch Vercel READY before approved dev merge. Do not merge main.
+## Active implementation
+
+`chatgpt/592-trusted-workflow-stage-20261013`:
+- Add `.github/workflows/trusted-preview-delivery.yml`
+  listening to `workflow_run` for Quality Gate COMPLETED;
+  GitHub executes it only when the file exists on default
+  branch `main`. Staged on #592 stable Preview ONLY, not active.
+- Hard-disable the earlier `preview_auto_pilot` in the editable
+  Quality Gate with explicit `false &&`, independent of toggles.
+  Source code/build scripts in that job can otherwise access
+  unattended Vercel tokens.
+- Trusted default-branch Node script checks latest exact-SHA
+  canonical success, source branch HEAD, official repository,
+  GitHub suite, linked Vercel project root/repo/production branch.
+  Uses server-side Git-source API with exact SHA, not a local
+  NPM/Vite build or checkout of untrusted candidate code.
+  Bounded provider duplicate scan, READY/Preview identity
+  proof, shadow first. Alias requires a separate switch and
+  verified readback. All flags OFF.
+- Pure security/negative regressions and runbook docs included.
+  Remote hosted API path is **unproven**, do not claim delivery
+  parity/alias acceptance yet.
+
+## Next action
+
+Run task focused CI and correct failures. Squash task to existing
+#592 stable Preview only, full canonical and Git-triggered
+Vercel READY. Do NOT merge to dev/main or enable new/reviewer-free
+secrets or flags. Before activation, owner-approved default-branch
+promotion, security review, privileged environment permission,
+a controlled shadow hosted-Git API pilot, CI-red/stale-SHA checks,
+and alias readback are required. The new approach uses Vercel's
+normal hosted build, avoiding independent GitHub-local Vite
+fingerprint mismatch. Vercel API target/project-binding behavior
+is deliberately fail closed until tested. Keep #592 OPEN for
+activation, size audits/policy and five-promotion pilot.
