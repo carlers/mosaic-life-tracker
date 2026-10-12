@@ -13,7 +13,8 @@ Provisional Preview version: v0.21.0 (new user-visible feature; verify against o
 - Browser Back closes nested modal first, then panel. Narrow view uses existing bottom sheet on new open. Resizing an *already-open* panel keeps that instance over the calendar to avoid discarding edits.
 
 ## Implementation checklist / handoff
-- Review task source and add/adjust tests for geometry and focus/history; run focused verification (task commit [verify:focused]).
+Next action: run focused verification on the repaired task SHA, investigate errors, then prepare stable Preview.
+- Add/adjust geometry and focus/history browser coverage before release.
 - After focused green: squash task into stable feature/split-day-panel-404-20261012, run exact-SHA canonical acceptance and Scratch Vercel READY, validate modal/panel transitions on real desktop/tablet and physical Android/iOS.
 - Home search-focused Day View remains modal pending explicit panel integration validation; no backend/Appwrite changes planned.
 - Never merge to dev or main without the user's separate approval.

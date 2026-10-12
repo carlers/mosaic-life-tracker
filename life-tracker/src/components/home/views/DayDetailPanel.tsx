@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { isSheetVisible } from '../../../lib/sheetVisibility';
 
@@ -6,6 +6,7 @@ const PANEL_HISTORY_KEY = '__mosaicDayDetailPanel';
 const issuedPanelIds = new Set<string>();
 const activePanelIds = new Set<string>();
 let guardInstalled = false;
+let panelHistorySequence = 0;
 
 function readPanelId(state: unknown): string | null {
   if (!state || typeof state !== 'object') return null;
@@ -34,13 +35,15 @@ interface DayDetailPanelProps {
 export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   onClose, children, onFocusCalendar,
 }) => {
-  const id = useId();
+  const panelIdRef = useRef<string | null>(null);
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   const entered = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
+    if (!panelIdRef.current) panelIdRef.current = `mosaic-day-panel-${++panelHistorySequence}`;
+    const id = panelIdRef.current;
     installStalePanelGuard();
     activePanelIds.add(id);
     if (!entered.current) {
@@ -73,11 +76,11 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         if (readPanelId(window.history.state) === id) window.history.back();
       });
     };
-  }, [id]);
+  }, []);
 
-  useEffect(() => {
-    return () => { activePanelIds.delete(id); };
-  }, [id]);
+  useEffect(() => () => {
+    if (panelIdRef.current) activePanelIds.delete(panelIdRef.current);
+  }, []);
 
   return (
     <aside
