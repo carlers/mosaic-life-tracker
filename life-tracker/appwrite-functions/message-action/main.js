@@ -422,6 +422,184 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   log(`deliver: ${messageId} -> ${recipientId} as ${recipientRowId}`);
   return { status: 200, body: { ok: true, messageId, recipientRowId, threadId } };
 }
+// Explicit, bounded anti-entropy for a single authorized thread. Reconstruct
+// only a provably missing counterpart of a committed, non-unsent owner row.
+async function handleRepairThread(tablesDB, callerId, payload, verified = false) {
+  const partnerId = payload?.partnerId;
+  const cursor = payload?.cursor || '';
+  const scope = payload?.scope || 'self';
+  if (!isValidRowId(partnerId) || partnerId === callerId ||
+      (cursor && !isValidRowId(cursor)) ||
+      (scope !== 'self' && scope !== 'peer')) {
+    return { status: 400, body: { error: 'Invalid chat repair request' } };
+  }
+  if (!verified && !(await verifyFriendship(tablesDB, callerId, partnerId))) {
+    return { status: 403, body: { error: 'Not friends with this user' } };
+  }
+  const [a, b] = callerId < partnerId
+    ? [callerId, partnerId] : [partnerId, callerId];
+  const threadId = `th_${sha256Hex(`${a}|${b}`).slice(0, 30)}`;
+  const sourceOwner = scope === 'self' ? callerId : partnerId;
+  const targetOwner = scope === 'self' ? partnerId : callerId;
+  const queries = [
+    Query.equal('user_id', sourceOwner),
+    Query.equal('thread_id', threadId),
+    Query.orderAsc('created_at'),
+    Query.limit(50),
+  ];
+  if (cursor) queries.push(Query.cursorAfter(cursor));
+  let rows;
+  try {
+    rows = (await tablesDB.listRows({
+      databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, queries,
+    })).rows;
+    if (!Array.isArray(rows) || rows.length > 50) throw Error('Invalid page');
+  } catch {
+    return { status: 503, body: { error: 'Chat repair scan unavailable' } };
+  }
+  let repaired = 0;
+  for (const row of rows) {
+    if (row.user_id !== sourceOwner || row.thread_id !== threadId) {
+      return { status: 409, body: { error: 'Chat repair ownership mismatch' } };
+    }
+    if (row.deleted || row.is_unsent) continue;
+    if (row.direction !== 'incoming' && row.direction !== 'outgoing') {
+      return { status: 409, body: { error: 'Invalid chat direction' } };
+    }
+    const outgoing = row.direction === 'outgoing';
+    const messageId = outgoing ? row.$id : row.original_message_id;
+    const peerRowId = outgoing ? makeRecipientRowId(messageId) : messageId;
+    const expectedOwnId = outgoing ? messageId : makeRecipientRowId(messageId);
+    const senderId = outgoing ? sourceOwner : targetOwner;
+    const recipientId = outgoing ? targetOwner : sourceOwner;
+    if (!isValidRowId(messageId) || !messageId.startsWith('msg_') ||
+        row.$id !== expectedOwnId ||
+        row.sender_id !== senderId || row.recipient_id !== recipientId ||
+        (outgoing && row.original_message_id !== messageId)) {
+      return { status: 409, body: { error: 'Invalid chat message identity' } };
+    }
+    let peer;
+    try {
+      peer = await tablesDB.getRow({
+        databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: peerRowId,
+      });
+    } catch (cause) {
+      if (Number(cause?.code) !== 404) {
+        return { status: 503, body: { error: 'Chat peer lookup unavailable' } };
+      }
+      peer = null;
+    }
+    const peerDirection = outgoing ? 'incoming' : 'outgoing';
+    function matchesPeer(candidate) {
+      return candidate &&
+        candidate.user_id === targetOwner && candidate.thread_id === threadId &&
+        candidate.sender_id === senderId && candidate.recipient_id === recipientId &&
+        candidate.direction === peerDirection &&
+        candidate.original_message_id === messageId &&
+        candidate.content === row.content &&
+        ['task_ref_id', 'task_ref_title', 'task_ref_date', 'task_ref_color',
+         'reply_to_id', 'reply_to_content', 'reply_to_sender_id']
+          .every((key) => (candidate[key] || '') === (row[key] || ''));
+    }
+    if (peer) {
+      if (peer.deleted || peer.is_unsent) continue;
+      if (!matchesPeer(peer)) {
+        return { status: 409, body: { error: 'Conflicting chat peer copy' } };
+      }
+      continue;
+    }
+    // Re-read the source before writing; a concurrent unsend must not be
+    // silently resurrected using a stale snapshot from the page scan.
+    try {
+      const latest = await tablesDB.getRow({
+        databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: row.$id,
+      });
+      if (latest.deleted || latest.is_unsent) continue;
+      if (latest.$updatedAt !== row.$updatedAt ||
+          latest.content !== row.content) {
+        return { status: 409, body: { error: 'Chat changed during repair' } };
+      }
+    } catch {
+      return { status: 503, body: { error: 'Chat source verification failed' } };
+    }
+    const now = new Date().toISOString();
+    const data = {
+      user_id: targetOwner, thread_id: threadId,
+      sender_id: senderId, recipient_id: recipientId,
+      direction: peerDirection, content: row.content,
+      task_ref_id: row.task_ref_id || '',
+      task_ref_title: row.task_ref_title || '',
+      task_ref_date: row.task_ref_date || '',
+      task_ref_color: row.task_ref_color || '',
+      reply_to_id: row.reply_to_id || '',
+      reply_to_content: row.reply_to_content || '',
+      reply_to_sender_id: row.reply_to_sender_id || '',
+      is_unsent: false, original_message_id: messageId,
+      reactions: row.reactions || '',
+      read_at: row.read_at || '',
+      delivery_status: 'delivered',
+      created_at: row.created_at || now, updated_at: now, deleted: false,
+    };
+    try {
+      await tablesDB.createRow({
+        databaseId: DATABASE_ID, tableId: MESSAGES_TABLE,
+        rowId: peerRowId, data,
+        permissions: [
+          Permission.read(Role.user(targetOwner)),
+          Permission.update(Role.user(targetOwner)),
+          Permission.delete(Role.user(targetOwner)),
+        ],
+      });
+      repaired++;
+    } catch (cause) {
+      // Another tab/device may have repaired the same pair first; validate
+      // the winner rather than overwriting it or resurrecting an unsent row.
+      if (Number(cause?.code) !== 409) {
+        return { status: 503, body: { error: 'Chat repair write failed' } };
+      }
+      try {
+        const raced = await tablesDB.getRow({
+          databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: peerRowId,
+        });
+        if (raced.deleted || raced.is_unsent) continue;
+        if (matchesPeer(raced)) continue;
+      } catch {
+        return { status: 503, body: { error: 'Chat repair verification failed' } };
+      }
+      return { status: 409, body: { error: 'Chat repair conflict' } };
+    }
+  }
+  const last = rows[rows.length - 1];
+  if (rows.length === 50 && !last?.$id) {
+    return { status: 503, body: { error: 'Invalid chat repair cursor' } };
+  }
+  return { status: 200, body: {
+    ok: true, checked: rows.length, repaired,
+    nextCursor: rows.length === 50 ? last.$id : '',
+    nextScope: rows.length === 50 ? scope : scope === 'self' ? 'peer' : 'done',
+  } };
+}
+
+// Single user-initiated request; strictly bounded and never a background scan.
+async function handleRepairThreadAll(db, callerId, payload) {
+  const partnerId = payload?.partnerId;
+  if (!isValidRowId(partnerId) || partnerId === callerId)
+    return { status: 400, body: { error: 'Invalid repair partner' } };
+  if (!(await verifyFriendship(db, callerId, partnerId)))
+    return { status: 403, body: { error: 'Not friends with this user' } };
+  let scope = 'self', cursor = '', repaired = 0;
+  for (let page = 0; page < 30; page++) {
+    const result = await handleRepairThread(db, callerId, { partnerId, scope, cursor }, true);
+    if (result.status !== 200) return result;
+    repaired += result.body.repaired;
+    if (result.body.nextScope === 'done')
+      return { status: 200, body: { ok: true, repaired } };
+    scope = result.body.nextScope;
+    cursor = result.body.nextCursor;
+  }
+  return { status: 503, body: { error: 'Chat history exceeds repair limit' } };
+}
+
 async function handleMarkRead(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.partnerId)) {
@@ -1405,6 +1583,12 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'deliver':
         result = await handleDeliver(tablesDB, callerId, payload, log, error);
+        break;
+      case 'repair_thread':
+        result = await handleRepairThread(tablesDB, callerId, payload);
+        break;
+      case 'repair_thread_all':
+        result = await handleRepairThreadAll(tablesDB, callerId, payload);
         break;
       case 'mark_read':
         result = await handleMarkRead(tablesDB, callerId, payload, log, error);
