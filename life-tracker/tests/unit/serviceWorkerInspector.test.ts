@@ -30,4 +30,27 @@ describe('service worker inspector', () => {
     expect(result.skipWaitingOnRequest).toBe(true);
     expect(result.skipWaitingOnUnrelatedMessage).toBe(false);
   });
+  it('inspects injected precache workers and rejects implicit activation', async () => {
+    const source = String.raw`
+      const assets = [{ url: "index.html", mosaicBytes: 100 },
+                      { url: "assets/app.js", mosaicBytes: 240 }];
+      self.__MOSAIC_ASSETS__ = assets;
+      importScripts("/push-sw.js");
+      const route = { denylist: [/^\/v1\//, /^\/api\//] };
+      controller.createHandlerBoundToURL("index.html");
+      self.addEventListener("message", (event) => {
+        if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+      });
+    `;
+    const result = await inspectServiceWorker(source);
+    expect(result.precacheUrls).toEqual(['index.html', 'assets/app.js']);
+    expect(result.importedScripts).toEqual(['/push-sw.js']);
+    expect(result.navigationDenylist?.length).toBe(2);
+    expect(result.skipWaitingOnStartup).toBe(false);
+
+    const unsafe = source + 'self.skipWaiting();';
+    const unsafeResult = await inspectServiceWorker(unsafe);
+    expect(unsafeResult.skipWaitingOnStartup).toBe(true);
+  });
+
 });
