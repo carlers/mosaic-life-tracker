@@ -120,6 +120,23 @@ describe('message-action / repair_thread', () => {
     expect(db.listRows.mock.calls[2][0].queries).toContainEqual({ op: 'limit', n: 50 });
   });
 
+
+  it('runs both owner snapshots in one bounded user-requested execution', async () => {
+    db.listRows.mockResolvedValueOnce({ rows: [accepted] })
+      .mockResolvedValueOnce({ rows: [accepted] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [row('incoming')] });
+    db.getRow.mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 404 }))
+      .mockResolvedValueOnce(row('incoming'));
+    const res = await invoke({
+      userId: A, mockDb: db,
+      body: { action: 'repair_thread_all', partnerId: B },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, repaired: 1 });
+    expect(db.createRow.mock.calls[0][0].rowId).toBe(MSG);
+  });
+
   it('rejects invalid partner, scope and cursor without attempting repair', async () => {
     expect((await invokeRepair(A, A)).status).toBe(400);
     expect((await invokeRepair(A, B, 'invalid')).status).toBe(400);
