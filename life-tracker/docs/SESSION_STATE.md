@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: #655 PWA download/progress v0.20.3 combined integration with latest dev. User accepted the feature and authorized cleanup plus dev promotion, not main.
+Current task: #656 — fix first-open hamburger Menu and friend Calendar Day View; v0.20.4 Preview only, no dev/main promotion.
 
 ## #655 dev integration of approved Preview
 - Integration base dev@`3b4033767c02917390a16764ab260d949548b9f3` (v0.20.2 category-color preference) and accepted PWA Preview `feature/pwa-progress-655@c132b1841792b2d0315b375d6dc5da5ad2a1325e` (v0.20.1). History diverged; a direct merge would regress version/overwrite unrelated dev fixes.

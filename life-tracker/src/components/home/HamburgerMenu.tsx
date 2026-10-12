@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { Menu, List, RefreshCw, Bell, Archive, Star } from 'lucide-react';
 import { Button } from '../ui/Button';
 
-const LazyBottomSheet = React.lazy(() =>
-  import('../ui/BottomSheet').then(({ BottomSheet }) => ({
-    default: BottomSheet,
-  }))
-);
+const { Component: LazyBottomSheet, preload: preloadMenuBottomSheet } =
+  createPreloadedLazy(() => import('../ui/BottomSheet').then(m => m.BottomSheet));
 const LazyCategoryManagerSheet = React.lazy(() =>
   import('../modals/CategoryManagerSheet').then(({ CategoryManagerSheet }) => ({
     default: CategoryManagerSheet,
@@ -18,6 +16,19 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
   const [menuSheetMounted, setMenuSheetMounted] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
+
+  // Warm only module code after Home mounts, not a hidden sheet or its effects.
+  useEffect(() => {
+    const warm = () => {
+      if (!document.hidden) void preloadMenuBottomSheet().catch(() => {});
+    };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1800 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(warm, 700);
+    return () => clearTimeout(id);
+  }, []);
 
   const menuItems = [
     { label: 'Bucket List', icon: Star, action: () => { setIsMenuOpen(false); onOpenBucketList(); } },
@@ -45,12 +56,14 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
         }}
         className="p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label="Open menu"
+        onPointerDown={() => { void preloadMenuBottomSheet().catch(() => {}); }}
+        onMouseEnter={() => { void preloadMenuBottomSheet().catch(() => {}); }}
+        onFocus={() => { void preloadMenuBottomSheet().catch(() => {}); }}
       >
         <Menu size={20} aria-hidden="true" />
       </button>
 
       {menuSheetMounted && (
-        <React.Suspense fallback={null}>
           <LazyBottomSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} title="Menu">
             <div className="space-y-2 pt-2">
               {menuItems.map((item) => {
@@ -69,7 +82,6 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
               })}
             </div>
           </LazyBottomSheet>
-        </React.Suspense>
       )}
 
       {categoryManagerMounted && (
