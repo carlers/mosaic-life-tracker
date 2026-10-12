@@ -39,8 +39,25 @@ export function completePrecacheSizes(source, measureByUrl) {
     throw new Error('Ambiguous injected precache manifest');
   }
   const urls = manifest.elements.map((entry) => staticString(property(entry, 'url')));
-  if (!urls.includes('index.html') || new Set(urls).size !== urls.length) {
-    throw new Error('Injected precache must contain a unique app shell');
+  if (!urls.includes('index.html')) {
+    throw new Error('Injected precache is missing index.html: ' + JSON.stringify(urls.slice(0, 8)));
+  }
+  // Vite's static-asset entries may duplicate a glob result. Workbox accepts
+  // identical revisions; refuse a conflicting asset mapping instead.
+  const revisions = new Map();
+  for (const [i, entry] of manifest.elements.entries()) {
+    const revisionNode = property(entry, 'revision');
+    const revision = revisionNode === undefined ? undefined :
+      revisionNode.type === 'Literal' && revisionNode.value === null
+        ? null : staticString(revisionNode);
+    if (revisionNode !== undefined && revision === null &&
+        !(revisionNode.type === 'Literal' && revisionNode.value === null)) {
+      throw new Error('Unexpected precache revision for ' + urls[i]);
+    }
+    if (revisions.has(urls[i]) && revisions.get(urls[i]) !== revision) {
+      throw new Error('Conflicting precache revisions for ' + urls[i]);
+    }
+    revisions.set(urls[i], revision);
   }
   const edits = [];
   const patchedUrls = [];

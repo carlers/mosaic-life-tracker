@@ -31,6 +31,20 @@ describe('injected PWA precache asset sizes', () => {
     expect(completePrecacheSizes(result.source, measure).patchedUrls).toEqual([]);
   });
 
+  it('permits identical duplicate asset revisions but refuses conflicts', () => {
+    const duplicate = sw.replace(
+      "{ url: 'assets/app.js', revision: null, mosaicBytes: 40 }",
+      "{ url: 'assets/app.js', revision: null, mosaicBytes: 40 }, { url: 'assets/app.js', revision: null }"
+    );
+    expect(completePrecacheSizes(duplicate, measure).patchedUrls)
+      .toEqual(['manifest.webmanifest', 'assets/app.js']);
+    const conflict = duplicate.replace(
+      "{ url: 'assets/app.js', revision: null }",
+      "{ url: 'assets/app.js', revision: 'different' }"
+    );
+    expect(() => completePrecacheSizes(conflict, measure)).toThrow(/Conflicting precache revisions/);
+  });
+
   it('fails closed when an existing size is stale or a source file is absent', () => {
     expect(() => completePrecacheSizes(sw, (url) => url === 'index.html' ? 99 : measure(url)))
       .toThrow(/Manifest size does not match/);
