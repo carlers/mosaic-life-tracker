@@ -156,7 +156,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
 
         {task.date !== '' && <button
           type="button"
-          onClick={() => { onShare(); onClose(); }}
+          onClick={() => { onClose(); onShare(); }}
           className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white mb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         >
           <div className="w-8 h-8 rounded-full bg-surfaceHighlight flex items-center justify-center" aria-hidden="true">

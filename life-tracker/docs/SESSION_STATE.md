@@ -8,7 +8,7 @@ Current task: #656 — audit/fix deferred first-open sheets, v0.20.5 task and st
 - Scope: Home friend preferences + nested Day View Share/Link, using settled-component cache with post-usable code-only warmup and first-commit DOM regressions. Preserve all previously accepted #640/#656 fixes; no hidden sheet mounts or backend changes.
 - Reply composer currently mounts its lazy boundary while closed, so it is not a confirmed warm-first-action gap. Existing visible fallbacks (GIPHY, emoji, route preview and image viewer) remain intentionally untouched; collect timing data before other changes.
 - Proposed version 0.20.5, three startup-sensitive size limits unchanged.
-- First stable Preview e75e173c passed GIPHY Scratch/PWA and all seven unchanged size caps; full DOM shard caught overstrict immediate nested-dialog assertions. Shared createPreloadedLazy has independent synchronous first-commit tests; actual nested action UI may settle asynchronously. Repair only those integration assertions.
+- First stable Preview e75e173c passed GIPHY Scratch/PWA and all seven unchanged size caps. Full DOM acceptance exposed a Share transition bug: Share opened before closing parent TaskActionSheet (unlike working Link), so parent dismissal could consume the new nested sheet. Close parent first, preserve async transition assertions and add ordering regression; helper retains separate synchronous first-commit coverage.
 Next action: focused [verify:focused] → stable Preview squash → canonical + exact GIPHY Scratch Vercel seven-budget verification → device acceptance; no dev/main merge.
 
 ## #656 first-open Menu/friend-day Preview repair
