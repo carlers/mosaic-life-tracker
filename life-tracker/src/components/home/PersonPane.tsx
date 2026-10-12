@@ -15,6 +15,7 @@ import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_HOLIDAYS_SETTING_KEY,
+  SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
   resolveIncompleteTaskBlockColorMode,
@@ -74,6 +75,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
+  const showDiaryTodayShortcut = getSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, true) === true;
   const holidayConfig = createHolidayDisplayConfig(
     getSetting(SHOW_HOLIDAYS_SETTING_KEY, false),
     getSetting(HOLIDAY_REGION_SETTING_KEY, ''),
@@ -110,7 +112,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex flex-col h-full">
-      <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' ? () => openDiary(new Date()) : undefined} />
+      <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
           activeView !== 'calendar'

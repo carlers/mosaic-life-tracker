@@ -52,6 +52,7 @@ import {
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+  SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
   SHOW_HOLIDAYS_SETTING_KEY,
 } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
@@ -60,6 +61,8 @@ import {
   createHolidayDisplayConfig,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
+
+const LazyDiaryDayPreview = lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
 
 const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
@@ -153,6 +156,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
+  const showDiaryInDayView = renderMode === 'sheet' && getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const holidayConfig =
     holidayConfigOverride ??
     createHolidayDisplayConfig(
@@ -1001,6 +1005,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       <p role="status" className="px-4 pb-1 text-xs text-amber-400">
                         Shared completion pending sync
                       </p>
+                    )}
+                    {showDiaryInDayView && i === activeIndex && (
+                      <Suspense fallback={null}><LazyDiaryDayPreview date={dateStr} /></Suspense>
                     )}
                     <DaySlide
                       date={date}
