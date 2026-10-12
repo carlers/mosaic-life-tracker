@@ -246,10 +246,24 @@ export async function fetchFriendDiaryMonth(
     return [{
       id: String(row.$id || ''), userId: friendUserId, date: row.date,
       content: String(row.content || ''), emoji: String(row.emoji || ''),
+      photos: String(row.photos || '[]'), reactions: String(row.reactions || ''),
       visibility: row.visibility as DiaryDocument['visibility'],
       createdAt: String(row.created_at || row.$createdAt || ''),
       updatedAt: String(row.updated_at || row.$updatedAt || ''),
       isDeleted: false,
     }];
   });
+}
+
+/** Server-gated reaction, never write a friend's diary row from the browser. */
+export async function reactToFriendDiary(
+  friendUserId: string, diaryId: string, emoji: string, op: 'add' | 'remove'
+): Promise<void> {
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({ action: 'react_to_diary', friendUserId, diaryId, emoji, op }),
+    async: false, xpath: '/', method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed' || execution.responseStatusCode !== 200)
+    throw new FriendAccessError('Diary reaction could not be saved.', 'server');
 }

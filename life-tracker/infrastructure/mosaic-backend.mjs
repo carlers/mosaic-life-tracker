@@ -23,6 +23,21 @@ export const MOSAIC_LEGACY_TABLE_IDS = [
 ];
 
 export const MOSAIC_TABLES = [
+  { id: 'diary_reactions', name: 'Diary Reactions', permissions: [], rowSecurity: true, enabled: true,
+    columns: [
+      { key: 'diary_id', type: 'varchar', size: 36, required: true },
+      { key: 'owner_id', type: 'varchar', size: 255, required: true },
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'date', type: 'varchar', size: 10, required: true },
+      { key: 'emoji', type: 'varchar', size: 32, required: true },
+      { key: 'deleted', type: 'boolean', required: false, default: false },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    ], indexes: [
+      { key: 'idx_diary_reactions_owner_date', type: 'key', attributes: ['owner_id','date'] },
+      { key: 'idx_diary_reactions_diary', type: 'key', attributes: ['diary_id'] },
+    ],
+  },
   ownerTable('bucket_task_links', 'Bucket Task Links', [
     { key: 'user_id', type: 'varchar', size: 255, required: true },
     { key: 'bucket_list_id', type: 'varchar', size: 36, required: true },

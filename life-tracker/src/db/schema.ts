@@ -39,6 +39,8 @@ export interface DiaryDocument {
   emoji?: string;
   /** JSON-encoded ordered IDs; bounded to five owner-private photos. */
   photos?: string;
+  /** Read-only friend reaction snapshot; owned diary reaction ledger stays server-owned. */
+  reactions?: string;
   visibility: 'public' | 'followers' | 'private';
   userId: string;
   createdAt: string;
