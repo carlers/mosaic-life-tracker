@@ -17,32 +17,24 @@
     "entryRawBytes": 446200,
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
-    "homeClosureGzipBytes": 365250,
-    "appAssetsRawBytes": 2458200,
+    "homeClosureGzipBytes": 365450,
+    "appAssetsRawBytes": 2459250,
     "appAssetsGzipBytes": 763000,
-    "precacheUniqueBytes": 2545500
+    "precacheUniqueBytes": 2546350
   },
   "review": {
     "issue": "#655",
-    "reason": "Initial preflight for combining separately accepted v0.20.1 PWA progress with independently delivered v0.20.2 category TaskBlock color. Adopt the exact v0.20.1 PWA Preview's previously reviewed seven build-size ceilings as provisional upper limits, retaining pinned historical baseline and recording the dev originals; no speculative widening. Run exact combined build+GIPHY-enabled Vercel and revise only measured excess before promotion. Original dev head 3b4033767c02917390a16764ab260d949548b9f3; approved PWA head c132b1841792b2d0315b375d6dc5da5ad2a1325e.",
-    "evidence": "https://github.com/carlers/mosaic-life-tracker/issues/655#issuecomment-6117194967",
+    "reason": "Measured exact v0.20.3 combined integration Preview Vercel build 631e2f1672fe6f07b5f46c87d4d29900056c2f29 with GIPHY enabled (not the CI baseline). It passed all PWA policy, entry raw/gzip, initial gzip and aggregate app gzip safeguards but exceeded Home closure gzip by 49 B (365299/365250), emitted app raw by 608 B (2458808/2458200), and precache unique raw by 431 B (2545931/2545500). Narrowly review only these three to leave 151/442/419 B headroom; preserve other four limits, historical measured baseline, and exact dev category styling/PWA progress logic. Review is for emitted asset weights only, not HTTP transfer bytes.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/9KH26McT3D1g73Tua8ApVPZJUGo3",
     "metrics": [
-      "entryRawBytes",
-      "entryGzipBytes",
-      "initialClosureGzipBytes",
       "homeClosureGzipBytes",
       "appAssetsRawBytes",
-      "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "entryRawBytes": 445250,
-      "entryGzipBytes": 132650,
-      "initialClosureGzipBytes": 145800,
-      "homeClosureGzipBytes": 365100,
-      "appAssetsRawBytes": 2455000,
-      "appAssetsGzipBytes": 761400,
-      "precacheUniqueBytes": 2542000
+      "homeClosureGzipBytes": 365250,
+      "appAssetsRawBytes": 2458200,
+      "precacheUniqueBytes": 2545500
     }
   }
 }
