@@ -21,24 +21,85 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
       ]
     }
   ],
   "rewrites": [
-    { "source": "/login", "destination": "/index.html" },
-    { "source": "/home", "destination": "/index.html" },
-    { "source": "/backlog", "destination": "/index.html" },
-    { "source": "/explore", "destination": "/index.html" },
-    { "source": "/friends/:path*", "destination": "/index.html" },
-    { "source": "/notifications", "destination": "/index.html" },
-    { "source": "/messages", "destination": "/index.html" },
-    { "source": "/messages/:path*", "destination": "/index.html" },
-    { "source": "/account", "destination": "/index.html" },
-    { "source": "/settings", "destination": "/index.html" },
-    { "source": "/profile", "destination": "/index.html" }
+    {
+      "source": "/reset-password",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/home",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/backlog",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/bucket-list",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/bucket-list/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/explore",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/friends/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/notifications",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/messages",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/messages/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/account",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/profile",
+      "destination": "/index.html"
+    }
   ]
 }
