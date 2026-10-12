@@ -212,7 +212,7 @@ describe('CLI canary deployment-list idempotency (#592)', () => {
       mosaic_canary_sha: acceptedSha, mosaic_canary_branch: branch,
     } };
     expect(findExistingCanary([tagged], branch, acceptedSha)).toBe(tagged);
-    expect(findExistingCanary([cli], 'main', acceptedSha)).toThrow();
-    expect(findExistingCanary([cli], branch, 'invalid')).toThrow();
+    expect(() => findExistingCanary([cli], 'main', acceptedSha)).toThrow();
+    expect(() => findExistingCanary([cli], branch, 'invalid')).toThrow();
   });
 });
