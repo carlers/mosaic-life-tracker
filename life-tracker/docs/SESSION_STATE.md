@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-13 UTC
-Task: #592 trusted default-branch Preview receiver safety hardening.
+Current task: #592 trusted default-branch Preview receiver safety hardening.
 
 ## Verified baseline
 - Owner's one-time Option B main bootstrap PR #772 merged `033e85ce8e78ef109dc15866a971ee0a0dba4b7c`; app version remains 0.17.4, main Quality Gate #38321997796 SUCCESS, Production Vercel `dpl_Enm5D8PdkgsTzVMvyfiaWRWkkv9K` READY, ruleset #24880070 restored and active with zero bypass actors.
@@ -14,5 +14,5 @@ Task: #592 trusted default-branch Preview receiver safety hardening.
 - Exclude historic CLI `HEAD` canaries from shadow reuse. Validate only official Git-hosted exact-branch, exact-SHA READY Preview.
 - Add regressions; keep separate default-OFF Vercel GitSource creation and alias flags. Do not deploy from this code while not present on main.
 
-## Next
+## Next action
 - Focused task CI, squash to existing #592 safety stable Preview, full canonical and Git Preview READY. Update #775 evidence. No additional main exception, credentials, Production or Appwrite mutation without separate required approvals. #592 still open for shadow credential provisioning and live negative trials, Preview-only provider contract/quotas, alias cutover and branch generalization.
