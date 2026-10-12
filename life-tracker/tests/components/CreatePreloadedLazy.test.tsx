@@ -2,9 +2,9 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { afterEach, expect, it, vi } from 'vitest';
-import { createPreloadedLazy } from '../../src/lib/createPreloadedLazy';
+import { createPreloadedLazy, scheduleModuleWarmup } from '../../src/lib/createPreloadedLazy';
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 function mount() {
   const container = document.createElement('div');
@@ -77,4 +77,19 @@ it('does not permanently poison a later warmup after a failed import', async () 
   } finally {
     view.cleanup();
   }
+});
+
+it('cancels stale owner-view idle warmups and reuses the same scheduled import', async () => {
+  vi.useFakeTimers();
+  const preload = vi.fn(async () => undefined);
+  const cancel = scheduleModuleWarmup(preload, 300);
+  vi.advanceTimersByTime(300);
+  await Promise.resolve();
+  expect(preload).toHaveBeenCalledTimes(1);
+  cancel();
+
+  const second = scheduleModuleWarmup(preload, 300);
+  second();
+  vi.advanceTimersByTime(300);
+  expect(preload).toHaveBeenCalledTimes(1);
 });

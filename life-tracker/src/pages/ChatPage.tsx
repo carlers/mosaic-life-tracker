@@ -32,7 +32,7 @@ import {
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 import { packStickerMessage } from '../lib/stickerPacks';
 import { giphyStickerMessage, sendGiphyAnalytics, type GiphySticker } from '../lib/giphyStickers';
-import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+import { createPreloadedLazy, scheduleModuleWarmup } from '../lib/createPreloadedLazy';
 
 const { Component: StickerPackSheet, preload: preloadStickerPackSheet } =
   createPreloadedLazy(() =>
@@ -91,21 +91,10 @@ export const ChatPage: React.FC = () => {
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
 
-  // After this conversation becomes usable, warm only the sticker module.
-  // The sheet itself and its account-scoped state are never mounted early.
+  // Never mount sticker hooks until requested; warm code on usable Chat.
   useEffect(() => {
     if (!myUserId || !friendId) return;
-    const warm = () => {
-      if (document.visibilityState === 'visible') {
-        void preloadStickerPackSheet().catch(() => {});
-      }
-    };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1500 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = window.setTimeout(warm, 1200);
-    return () => window.clearTimeout(id);
+    return scheduleModuleWarmup(preloadStickerPackSheet);
   }, [friendId, myUserId]);
 
   const actionMessage = useMemo(
