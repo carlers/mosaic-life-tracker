@@ -308,3 +308,74 @@ for normal feature work. Keep `mosaic-preview-canary` environment
 reviewer until any new automatic, appropriately restricted environment
 is explicitly configured and safely proven. Release promotion remains
 separate and explicit; no `dev/main` or Production change in #592.
+
+### Automatic CI-gated Preview pilot (staged; no automatic rollout yet)
+
+The first protected local canary **did deploy successfully**:
+[Quality Gate 38290165183 attempt 2](https://github.com/carlers/mosaic-life-tracker/actions/runs/38290165183),
+Vercel `dpl_9CgjZjmxMCqSqZxEkSpVspxKbB3d` READY, exact SHA
+`c6b4dd304efcdeb616398ce432d10480ff55f3e0`, Scratch Appwrite,
+GIPHY enabled, Node 24.21.0 and seven unchanged size budgets PASS.
+The canary has no branch alias, whereas normal Git Preview did.
+
+An **automatic, default-disabled pilot** now exists as a distinct
+`automatic-preview-pilot` job in `Quality Gate`. It is deliberately
+restricted to branch `fix/workflow-build-parity-592-20261012` and
+the single known existing stable Vercel Preview hostname
+`mosaic-life-tracker-git-fix-work-73127a-carls-projects-72516fde.vercel.app`.
+Its prerequisites and failure policy:
+
+1. `push` only, official repo and exact accepted branch/SHA, opt-in
+   **Actions repository variable** `MOSAIC_AUTO_PREVIEW_ENABLED=true`,
+   and successful full `canonical_acceptance`. Only the current
+   exact push's `in_progress` Quality Gate is admissible, and only
+   if GitHub's **same check suite** already has a completed, successful
+   canonical-acceptance. A failed, canceled, stale or untrusted run
+   cannot deploy. Avoid cyclically requiring the whole parent run
+   to complete while this downstream job is still running.
+2. A new **separate GitHub environment** `mosaic-preview-auto`
+   must have a **branch restriction to only** this stable branch
+   and scoped environment secret
+   `MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN`. For unattended delivery
+   this environment must not require a per-run reviewer. Do **not**
+   move or remove the existing reviewed `mosaic-preview-canary`
+   credential/protection. This is a one-time owner/admin security
+   decision; a GitHub connector without environment-admin rights
+   cannot configure it. Never paste a token in chat.
+3. Detect existing active/READY exact-SHA CLI deployments from provider
+   metadata. Reuse rather than create a duplicate. Else
+   `vercel pull` effective branch Preview settings,
+   `npm ci` exact lockfile, `vercel build` Scratch/GIPHY and all
+   seven size gates, check output layout, re-check exact SHA and
+   dedupe, and upload `--prebuilt`. No token is placed in
+   job-global env. Token-bearing steps use environment secrets.
+4. Before altering the stable alias, fetch the newly READY
+   deployment through the authenticated Vercel API. Require
+   exact SHA, official owner/project, CLI source,
+   `githubCommitRef=HEAD`, Preview target and the **one**
+   expected stable alias. Check the GitHub canonical+HEAD gate
+   again. Use documented `vercel alias set`, then read back
+   the exact alias on the accepted deployment. **Do not alias
+   Production, dev, other branches or a non-READY deployment.**
+
+**Do not set the opt-in variable yet.** Initial disabled-pilot tests
+only prove contract logic and ordinary-Preview noninterference.
+Required controlled acceptance before flipping and replacing Git
+auto-delivery: owner provisions the narrow unattended environment;
+one staged, supervised exact-SHA rollout verifies GitHub job,
+CLI canary idempotency (including reuse), Vercel alias reassignment
+and readback, Scratch/browser behavior, quota utilization, and
+a CI-red run producing no deployment. Resolve the outstanding
+same-SHA asset fingerprint mismatch first or explicitly accept a
+well-tested semantic-equivalence bound; never assert byte parity
+without measured identical hashes. Only after proof disable the
+**specific pilot branch's** Vercel Git-trigger, not all fix/feature
+branches and not `dev/main`. Fully generalizing stable Preview
+aliases across branches requires separate reviewed discovery rules.
+
+This process is intended to remove GitHub manual workflow dispatch
+and reviewer approvals from **routine** development. Explicit user
+approval remains mandatory for dev/main promotions and sensitive
+Production/backend changes. #592 remains open for final activation,
+build budget policy, twice-weekly/monthly size audits and
+five-promotion pilot acceptance.

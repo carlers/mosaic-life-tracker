@@ -11,7 +11,7 @@ export function isStablePreviewBranch(branch) {
 // All inputs are data collected from GitHub's read-only API; no YAML-controlled
 // boolean, caller-supplied "passed" flag, or standalone build job can substitute
 // for the accepted exact-SHA canonical check suite.
-export function assessPreviewDeployGate({ repository, branch, sha, headSha, workflowRuns, checkRuns }) {
+export function assessPreviewDeployGate({ repository, branch, sha, headSha, workflowRuns, checkRuns, currentRunId }) {
   const reasons = [];
   if (repository !== OFFICIAL_REPOSITORY) reasons.push('untrusted repository');
   if (!isStablePreviewBranch(branch)) reasons.push('not a stable Preview branch');
@@ -29,7 +29,15 @@ export function assessPreviewDeployGate({ repository, branch, sha, headSha, work
   const latest = matching[0];
   if (!latest) reasons.push('no exact-SHA canonical Quality Gate run');
   else {
-    if (latest.status !== 'completed' || latest.conclusion !== 'success') {
+    // A trusted same-workflow auto Preview job runs *after* canonical-acceptance
+    // has completed but *before* its own parent Quality Gate run can become
+    // completed. This exceptional in-flight mode still requires the exact
+    // same check suite's successful canonical-acceptance and branch HEAD.
+    const inFlightAccepted = Number.isSafeInteger(currentRunId) &&
+      latest.id === currentRunId && latest.status === 'in_progress' &&
+      latest.conclusion == null;
+    if (!inFlightAccepted &&
+        (latest.status !== 'completed' || latest.conclusion !== 'success')) {
       reasons.push('latest exact-SHA canonical Quality Gate is not successful');
     }
     if (!checkRuns.some(check => check && check.name === 'canonical-acceptance' &&

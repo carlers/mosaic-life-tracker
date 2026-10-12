@@ -43,6 +43,8 @@ try {
     headSha: refData.object?.sha,
     workflowRuns: runData.workflow_runs,
     checkRuns: checkData.check_runs,
+    currentRunId: process.env.PREVIEW_DEPLOY_ALLOW_CURRENT_RUN === 'true' ?
+      Number(process.env.GITHUB_RUN_ID) : undefined,
   });
   console.log('Preview deployment eligibility passed for ' + branch + '@' + sha +
     ' (canonical run ' + result.acceptedRunId + ').');

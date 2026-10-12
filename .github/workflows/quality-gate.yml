@@ -619,3 +619,146 @@ jobs:
           '
           echo "Canary deployment created for accepted SHA $PREVIEW_DEPLOY_SHA."
           echo "Confirm target metadata and registered alias before considering any Git-trigger change."
+
+  # Shadow-safe pilot: opt-in only, specific stable branch only, separate
+  # secret-scoped environment. No human review on routine pushes once the
+  # owner explicitly provisions this separate environment and enables it.
+  # Never activate alongside Vercel Git-triggered delivery without a rollout.
+  preview_auto_pilot:
+    name: automatic-preview-pilot
+    needs: canonical_acceptance
+    if: >-
+      ${{ always() && !cancelled() &&
+      github.event_name == 'push' &&
+      github.repository == 'carlers/mosaic-life-tracker' &&
+      github.ref == 'refs/heads/fix/workflow-build-parity-592-20261012' &&
+      vars.MOSAIC_AUTO_PREVIEW_ENABLED == 'true' &&
+      needs.canonical_acceptance.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    environment: mosaic-preview-auto
+    concurrency:
+      group: mosaic-preview-auto-${{ github.ref }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+        working-directory: life-tracker
+    env:
+      VERCEL_ORG_ID: team_UbpudOr8jXyrDA5SdVUxVGOr
+      VERCEL_PROJECT_ID: prj_jysOLDbuO9c5rP8x6Q145DVIw0fc
+      PREVIEW_DEPLOY_BRANCH: ${{ github.ref_name }}
+      PREVIEW_DEPLOY_SHA: ${{ github.sha }}
+      MOSAIC_AUTO_PREVIEW_ENABLED: ${{ vars.MOSAIC_AUTO_PREVIEW_ENABLED }}
+      PREVIEW_AUTO_ALIAS: mosaic-life-tracker-git-fix-work-73127a-carls-projects-72516fde.vercel.app
+      VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+      VERCEL_GIT_COMMIT_REF: ${{ github.ref_name }}
+      VERCEL_ENV: preview
+    steps:
+      - name: Check out accepted push SHA without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.sha }}
+      - name: Set up matching Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify strict automatic Preview pilot context
+        run: node scripts/check-preview-auto-context.mjs
+      - name: Verify exact-SHA canonical-acceptance for this running push
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PREVIEW_DEPLOY_ALLOW_CURRENT_RUN: 'true'
+        run: node scripts/check-preview-deploy-gate.mjs
+      - name: Check automatic Preview credential availability
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo 'Automatic Preview environment credential unavailable' >&2; exit 1; }
+      - name: Prevent duplicate prebuilt Preview deployment
+        id: duplicates
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: node scripts/check-preview-canary-duplicate.mjs
+      - name: Install pinned Vercel CLI for build or alias
+        run: npm install --global vercel@62.7.0
+      - name: Link the official Vercel project at Git root
+        working-directory: .
+        run: |
+          mkdir -p .vercel
+          printf '%s\n' '{"orgId":"team_UbpudOr8jXyrDA5SdVUxVGOr","projectId":"prj_jysOLDbuO9c5rP8x6Q145DVIw0fc"}' > .vercel/project.json
+      - name: Pull the accepted branch Preview environment
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=preview --git-branch="$PREVIEW_DEPLOY_BRANCH"
+      - name: Install pinned Mosaic application dependencies
+        if: steps.duplicates.outputs.skip != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Build effective Preview and enforce seven size budgets
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: vercel build
+      - name: Require valid monorepo prebuilt artifact
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        run: |
+          test -f life-tracker/dist/index.html
+          test -f .vercel/output/config.json
+      - name: Reconfirm accepted SHA before prebuilt upload
+        if: steps.duplicates.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PREVIEW_DEPLOY_ALLOW_CURRENT_RUN: 'true'
+        run: node scripts/check-preview-deploy-gate.mjs
+      - name: Recheck duplicate history before prebuilt upload
+        if: steps.duplicates.outputs.skip != 'true'
+        id: duplicates_final
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: node scripts/check-preview-canary-duplicate.mjs
+      - name: Deploy only the accepted prebuilt artifact
+        if: steps.duplicates.outputs.skip != 'true' && steps.duplicates_final.outputs.skip != 'true'
+        id: deploy
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          url="$(vercel deploy --yes --prebuilt --target=preview --archive=tgz)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - name: Verify the READY CLI deployment before aliasing
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+          PREVIEW_ALIAS_MODE: before
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url || steps.duplicates_final.outputs.existing_url || steps.duplicates.outputs.existing_url }}
+        run: node scripts/check-preview-auto-alias.mjs
+      - name: Reconfirm accepted SHA before stable alias switch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PREVIEW_DEPLOY_ALLOW_CURRENT_RUN: 'true'
+        run: node scripts/check-preview-deploy-gate.mjs
+      - name: Assign accepted READY deployment to the stable Preview alias
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url || steps.duplicates_final.outputs.existing_url || steps.duplicates.outputs.existing_url }}
+        run: |
+          set -euo pipefail
+          url="$DEPLOYMENT_URL"
+          vercel alias set "$url" "$PREVIEW_AUTO_ALIAS"
+      - name: Read back exact-SHA stable alias assignment
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+          PREVIEW_ALIAS_MODE: after
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url || steps.duplicates_final.outputs.existing_url || steps.duplicates.outputs.existing_url }}
+        run: node scripts/check-preview-auto-alias.mjs
