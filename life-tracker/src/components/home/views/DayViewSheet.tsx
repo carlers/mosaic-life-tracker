@@ -1072,7 +1072,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       reorderRuntimeActive={isOpen && i === activeIndex}
                       onReorderTasks={reorderTasks}
                       onReorderActiveChange={setIsTaskReorderActive}
-                      diaryEnabled={showDiaryInDayView && i === activeIndex && !isSelectMode}
+                      diaryEnabled={showDiaryInDayView && !isSelectMode}
                       diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
                       onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
                     />

@@ -114,6 +114,10 @@ export interface MessageDocument {
   taskRefTitle: string;
   taskRefDate: string;
   taskRefColor: string;
+  diaryRefId?: string;
+  diaryRefOwnerId?: string;
+  diaryRefDate?: string;
+  diaryRefExcerpt?: string;
   replyToId: string;
   replyToContent: string;
   replyToSenderId: string;
@@ -308,7 +312,7 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
   ],
 };
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 3,
+  version: 4,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -347,6 +351,10 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     taskRefTitle: { type: 'string', maxLength: 500, default: '' },
     taskRefDate: { type: 'string', maxLength: 50, default: '' },
     taskRefColor: { type: 'string', maxLength: 20, default: '' },
+    diaryRefId: { type: 'string', maxLength: 36, default: '' },
+    diaryRefOwnerId: { type: 'string', maxLength: 36, default: '' },
+    diaryRefDate: { type: 'string', maxLength: 10, default: '' },
+    diaryRefExcerpt: { type: 'string', maxLength: 160, default: '' },
     replyToId: { type: 'string', maxLength: 255, default: '' },
     replyToContent: { type: 'string', maxLength: 300, default: '' },
     replyToSenderId: { type: 'string', maxLength: 255, default: '' },

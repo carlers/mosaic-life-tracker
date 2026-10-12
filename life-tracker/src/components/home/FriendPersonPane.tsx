@@ -72,7 +72,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     getSetting(HOLIDAY_REGION_SETTING_KEY, ''),
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
-  const { sendTaskReaction, sendMessage } = useMessageActions(person.userId);
+  const { sendTaskReaction, sendDiaryReply } = useMessageActions(person.userId);
 
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
@@ -98,8 +98,9 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     setDiaryState({ key: diaryKey, entries: updated });
   };
   const onDiaryReply = async (content: string) => {
-    if (!diaryDate || !diaryEntries.some(item => item.date === diaryDate)) throw new Error('Diary unavailable.');
-    await sendMessage(`↪ Diary · ${diaryDate}\n\n${content}`);
+    const entry = diaryEntries.find(item => item.date === diaryDate);
+    if (!entry) throw new Error('Diary unavailable.');
+    await sendDiaryReply(entry, content);
   };
   const handleViewChange = useCallback((next: ViewType) => {
     setDiaryDate(null);

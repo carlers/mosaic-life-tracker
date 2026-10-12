@@ -1,4 +1,5 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { fetchOwnerDiaryReactions } from '../../../lib/friendData';
 import { format, parseISO } from 'date-fns';
 import { MoreHorizontal, Pencil, Trash2, X, ImagePlus, MessageSquare, SmilePlus } from 'lucide-react';
 import { ReactionRow } from '../../messages/ReactionRow';
@@ -25,11 +26,12 @@ interface DiaryEntrySheetProps {
   friendUserId?: string;
   onReact?: (emoji: string, op: 'add' | 'remove') => Promise<void>;
   onReply?: (content: string) => Promise<void>;
+  initialEditing?: boolean;
 }
 
 /** Read-only for friends; local-first editing for the signed-in owner. */
 export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
-  date, entry, author, onClose, onSave, onDelete, friendUserId, onReact, onReply,
+  date, entry, author, onClose, onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
 }) => {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,7 +41,17 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [reactBusy, setReactBusy] = useState(false);
-  const [editing, setEditing] = useState(!entry && !!onSave);
+  const [ownerReactions, setOwnerReactions] = useState<string | null>(null);
+  useEffect(() => {
+    if (!onSave || !entry?.id) return;
+    let current = true;
+    void fetchOwnerDiaryReactions(entry.id)
+      .then(reactions => { if (current) setOwnerReactions(reactions); })
+      .catch(() => { if (current) setOwnerReactions(null); });
+    return () => { current = false; };
+  }, [onSave, entry?.id]);
+  const [editing, setEditing] = useState(!!onSave && (initialEditing || !entry));
+  const lastContentTap = useRef(0);
   const [body, setBody] = useState(entry?.content || '');
   const [emoji, setEmoji] = useState(entry?.emoji || '');
   const [visibility, setVisibility] = useState<DiaryDocument['visibility']>(entry?.visibility || 'private');
@@ -161,8 +173,23 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
             <>
               <div aria-hidden="true" className="my-5 text-center text-6xl">{entry ? diaryMarker(entry) || '📝' : '📝'}</div>
               <div className="text-sm text-gray-400">{author} · {dayLabel} · {visibility === 'followers' ? 'Friends' : visibility === 'public' ? 'Public' : 'Private'}</div>
-              <div className="min-h-16 whitespace-pre-wrap break-words py-5 text-base">{entry?.content}</div>
+              <div className="min-h-16 whitespace-pre-wrap break-words py-5 text-base"
+                onClick={() => {
+                  if (!onSave) return;
+                  const now = Date.now();
+                  if (now - lastContentTap.current < 280) setEditing(true);
+                  lastContentTap.current = now;
+                }}
+                onDoubleClick={onSave ? () => setEditing(true) : undefined}>{entry?.content}</div>
               <DiaryPhotoGallery date={date} photoIds={photoIds} friendUserId={friendUserId} diaryId={entry?.id}/>
+              {onSave && ownerReactions && <div className="mt-3 flex flex-col gap-2" aria-label="Diary reactions">
+                <div className="flex flex-wrap gap-2">
+                  {parseReactions(ownerReactions).map(item => (
+                    <span key={item.emoji} className="rounded-full bg-surfaceHighlight px-2 py-1 text-xs"
+                      title={item.userIds.join(', ')}>{item.emoji} {item.userIds.length}</span>
+                  ))}
+                </div>
+              </div>}
               {onReact && <div className="mt-3 flex flex-col gap-3">
                 <ReactionRow reactions={parseReactions(entry?.reactions)} currentUserId={user?.$id ?? ''} isOutgoing={false}
                   onToggle={emoji => void toggleReaction(emoji)} />

@@ -56,7 +56,8 @@ describe('diary reactions and owner-private friend attachments', () => {
   };
   const approvedFriendship = () => {
     const db = makeMockDb();
-    db.listRows.mockResolvedValueOnce({rows:[friendship]}).mockResolvedValueOnce({rows:[friendship]});
+    // A diary reaction now performs a second ACL check while delivering activity.
+    db.listRows.mockResolvedValue({rows:[friendship]});
     return db;
   };
   it('never reads diary or photos for a stranger', async () => {
@@ -97,7 +98,10 @@ describe('diary reactions and owner-private friend attachments', () => {
     expect(denied.status).toBe(403);
     expect(db.createRow).not.toHaveBeenCalled();
 
-    const permittedDb=approvedFriendship();permittedDb.getRow.mockResolvedValueOnce(visibleDiary);
+    const permittedDb=approvedFriendship();permittedDb.getRow
+      .mockResolvedValueOnce(visibleDiary)
+      .mockRejectedValueOnce(Object.assign(new Error('missing'), {code:404}))
+      .mockResolvedValueOnce(visibleDiary);
     const result=await invoke({userId:caller,mockDb:permittedDb,
       body:{action:'react_to_diary',friendUserId:friend,diaryId:'diary_visible',emoji:'🌱',op:'add'}});
     expect(result.status).toBe(200);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { CollisionPriority } from '@dnd-kit/abstract';
 import { useDroppable } from '@dnd-kit/react';
 import {
@@ -71,11 +72,13 @@ export const TaskRowDropSurface: React.FC<{
   categoryId: string;
   taskId: string;
   isActiveSource?: boolean;
+  animatePosition?: boolean;
   children: React.ReactNode;
 }> = ({
   categoryId,
   taskId,
   isActiveSource = false,
+  animatePosition = false,
   children,
 }) => {
   const { ref: beforeRef } = useDroppable({
@@ -94,7 +97,9 @@ export const TaskRowDropSurface: React.FC<{
   });
 
   return (
-    <div
+    <motion.div
+      layout={animatePosition ? 'position' : false}
+      transition={{ layout: { duration: 0.17 } }}
       className="relative"
       data-task-source-slot={isActiveSource ? 'true' : undefined}
       aria-hidden={isActiveSource ? true : undefined}
@@ -132,7 +137,7 @@ export const TaskRowDropSurface: React.FC<{
         }}
       />
       {children}
-    </div>
+    </motion.div>
   );
 };
 

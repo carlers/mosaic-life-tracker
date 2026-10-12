@@ -113,6 +113,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 |---|---|
 | ChatSearchBar | [src/components/messages/ChatSearchBar.tsx](../src/components/messages/ChatSearchBar.tsx) |
 | ConversationRow | [src/components/messages/ConversationRow.tsx](../src/components/messages/ConversationRow.tsx) |
+| DiaryReferenceSheet | [src/components/messages/DiaryReferenceSheet.tsx](../src/components/messages/DiaryReferenceSheet.tsx) |
 | EmojiPickerSheet | [src/components/messages/EmojiPickerSheet.tsx](../src/components/messages/EmojiPickerSheet.tsx) |
 | GiphyStickerImage | [src/components/messages/GiphyStickerImage.tsx](../src/components/messages/GiphyStickerImage.tsx) |
 | GiphyStickerSearch | [src/components/messages/GiphyStickerSearch.tsx](../src/components/messages/GiphyStickerSearch.tsx) |
