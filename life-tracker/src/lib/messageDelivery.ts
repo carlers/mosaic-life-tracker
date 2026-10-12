@@ -17,18 +17,18 @@ import {
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = APPWRITE_MESSAGE_ACTION_FUNCTION_ID;
 const MAX_DELIVERY_LOOPS = 5;
-let retryTimer: ReturnType<typeof setTimeout> | null = null;
-let retryScope = '';
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let retryDelay = 5_000;
-function clearDeliveryRetry(): void {
-  if (retryTimer !== null) clearTimeout(retryTimer);
-  retryTimer = null;
+let retryScope = '';
+function clearDeliveryRetry() {
+  clearTimeout(retryTimer);
+  retryTimer = undefined;
+  retryDelay = 5_000;
 }
-function scheduleDeliveryRetry(userId: string, generation: number): void {
-  if (retryTimer !== null || !isAccountWorkCurrent(userId, generation) ||
-      getConnectivitySnapshot().status !== 'online') return;
+function scheduleDeliveryRetry(userId: string, generation: number) {
+  if (retryTimer || !isAccountWorkCurrent(userId, generation)) return;
   retryTimer = setTimeout(() => {
-    retryTimer = null;
+    retryTimer = undefined;
     if (isAccountWorkCurrent(userId, generation))
       void deliverPendingMessages(userId);
   }, retryDelay);
@@ -60,7 +60,6 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   const scope = userId + ':' + generation;
   if (retryScope !== scope) {
     clearDeliveryRetry();
-    retryDelay = 5_000;
     retryScope = scope;
   }
 
@@ -165,7 +164,6 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           scheduleDeliveryRetry(userId, generation);
         } else if (pending.length === 0) {
           clearDeliveryRetry();
-          retryDelay = 5_000;
         }
         if (
           !isAccountWorkCurrent(userId, generation) ||
