@@ -1,24 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: #656 — first-open Categories manager entrypoints; task and Preview only, no dev/main promotion.
+Current task: #692 mobile Calendar zoom — accepted Preview integration into dev.
+Latest integration base: dev@e714c3325a238ea9da0efaf8ed6ea97665b619cb (v0.20.7).
+Accepted feature: feature/calendar-zoom-692-20261012@b70bda97583d1b421512ac8a5b20fa6c1aea694a (v0.23.3).
+Working task: chatgpt/692-dev-integration-current-20261012.
+Proposed unique combined Preview: feature/calendar-zoom-692-dev-integration-20261012 (v0.23.4).
 
-## #656 Categories first-open follow-up
-- Base: dev@`b878519bd52da16368b5da2b407f82f326ab2683`, version 0.20.6. Task `chatgpt/656-category-first-open-20261012`, stable Preview `perf/category-first-open-656-20261012`, candidate PATCH v0.20.7 (recheck parallel version reservations before any promotion).
-- The Menu > Lists & Categories and Me > Categories pathways still initialize distinct `React.lazy` components inside `Suspense fallback={null}` on their first user action. Even a settled import does not prime an uninitialized React.lazy; this is the proven #640 mechanism. The previous v0.20.5 fixes remain intact.
-- Fix only those two real entrypoints: cache resolved components with existing `createPreloadedLazy`, warm category code on Menu opening (not Home bootstrap) and on Me post-mount idle / input intent, retain true cold/error-retry semantics and sheet state. No hidden sheet instantiation, data hooks, server or UI restyling.
-- Add Menu → Lists & Categories and Me Categories DOM first-commit regressions. Source audit found friend Calendar reply composer already mounted while closed, and GIPHY/emoji/photo/route previews have visible loading feedback. No measured evidence justifies changing these now. `App.tsx` route fallback and OfflineBanner are non-candidates.
-- Build budget is tight (especially entry/initial gzip), do not increase limits without independent measured review. Candidate needs task focused CI → stable Preview squash → full canonical and exact-SHA GIPHY Scratch Vercel READY, seven unchanged caps and real device verification. No manual tests are claimed.
+## Integration scope
+- Preserve all dev-only v0.20.6 hosted deep-link routing, Vercel rewrites and tests and v0.20.7 first-open Categories warmup on Menu/Me with their tests. Preserve the dev #656 entry-raw reviewed ceiling of 446208 and prior budget provenance.
+- Carry exactly the accepted #692 zoom functionality into owner/friend Home calendars: user-synced 7/4/3 days, native finger/trackpad/mouse scroll with day snapping, next/previous month handoff at opposite edges, rapid repeat swipes, accessible keyboard behavior and default 7-day layout.
+- Build-size record merges accepted dev #656 and zoom #692 reviews; only Home/aggregate size ceilings inherit documented #692 measured Preview limits. Fresh combined SHA must pass every guard; do not relax absent new measurements.
+- Small cleanup of React Hook exhaustive-deps warning for CalendarZoomViewport scrollend handler. No #404 split panel, diary or unrelated feature work. No Appwrite schema/Function or Production changes.
 
-## Initial v0.20.7 Preview verification
-- Stable Preview `perf/category-first-open-656-20261012@26a07f9`; [canonical Quality Gate 38244072509](https://github.com/carlers/mosaic-life-tracker/actions/runs/38244072509) SUCCESS across all full CI jobs.
-- Hosted GIPHY/Scratch deployment `dpl_3MQSt36V2qV7CC9rEXyTD5Sorg1Q` correctly failed the strict entryRawBytes cap by **2 B** (446202/446200). All six other budgets PASS and PWA policy PASS; source and DOM/browser regression checks unaffected.
-- Reviewed a measured **entry raw-only** exception from 446200 to 446208 B, with detailed new review record and prior review retained in `config/build-size-budget.json`; six other limits unchanged. This records legitimate emitted code cost and avoids unrelated startup refactors/byte-golf.
-- Next stable SHA must rerun canonical and hosted exact-build checks before any user handoff.
-
-## Prior integration
-- v0.20.6 signed-out hosted deep-link handling is on dev, with its detailed evidence in its respective PR history. Preserve it unchanged.
-- #656 v0.20.5 Menu/friend/Chat/Notifications and deferred Share/Link/Carousel fixes already integrated into dev as documented on issue #656. #640 owner Day View first-open behavior remains accepted.
-- #645 repo discovery D1/D2, #655 PWA and parallel feature scopes remain separate. Do not merge to main or touch Production/Appwrite under this task.
-
-Next action: verify the metric-specific hosted build-size review through focused CI, squash it into stable v0.20.7 Preview, rerun exact canonical and Scratch/GIPHY Vercel size acceptance, then request device testing. No dev/main promotion.
+## Delivery gate
+Next action: focused CI [verify:focused] on integrated v0.23.4 task, repair failures, squash into stable integration Preview and verify exact-SHA canonical Quality Gate (unit/DOM/browser/dependencies/build/PWA/seven budgets) and Scratch/GIPHY Vercel READY. Then create explicitly approved stable integration Preview → dev PR and merge with previous dev SHA as first parent, an identical accepted source tree and successful canonical-acceptance check. Verify exact dev CI and Vercel staging deployment; never touch main.
+User manually accepted original #692 gestures; no new physical-device check is claimed by agent. Keep #692 open until integration verification and documented release boundary.
