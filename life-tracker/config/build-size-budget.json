@@ -17,15 +17,15 @@
     "entryRawBytes": 446200,
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
-    "homeClosureGzipBytes": 367200,
-    "appAssetsRawBytes": 2465200,
-    "appAssetsGzipBytes": 765400,
-    "precacheUniqueBytes": 2552700
+    "homeClosureGzipBytes": 368200,
+    "appAssetsRawBytes": 2468000,
+    "appAssetsGzipBytes": 766300,
+    "precacheUniqueBytes": 2555200
   },
   "review": {
     "issue": "#692",
-    "reason": "Measured optional native 3/4-day mobile Calendar zoom v0.23.0 against exact accepted dev@dbde9515 and stable Scratch/GIPHY Preview@bd943e6. Accepted dev entryRaw 446120, entryGzip 132801, initial closure 146026, Home closure 365783, app assets raw 2460582, app assets gzip 763726 and precache 2547889 bytes. Candidate entry and initial ceilings still pass (entry 446120/132801, initial 146033). Optional week/month aligned scroll lane, account settings, keyboard and gesture guards add Home closure 366975 (+1192 over dev), app assets raw 2464543 (+3961), gzip 765061 (+1335) and precache 2551850 (+3961). Four previously tight aggregate/Home ceilings are reviewed narrowly against this exact hosted build. Historic baseline, entry limits and initial closure ceiling remain unchanged. Require corrected stable exact-SHA canonical and hosted build to pass independently; no dependency additions or unrelated behavior.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/ENfiJ68sh1BnmM7cYLSP59d8Kz9r",
+    "reason": "Measured v0.23.1 smooth native Calendar pan, block snap and edge handoff against accepted exact v0.23.0 Scratch Preview fa8110e (all seven guards passed). v0.23.0 measured Home closure 366978B, app assets raw 2464556B, app assets gzip 765064B and precache unique 2551863B. v0.23.1 first Scratch Preview a2fa716 measured Home closure 367993B (+1015B), app assets raw 2467564B (+3008B), gzip 766079B (+1015B), precache unique 2554871B (+3008B). These are intentionally shipped small native gesture/snap behaviors and their unit/DOM tests, without a new dependency. Entry raw 446120B, entry gzip 132801B and initial closure 146033B are IDENTICAL across both builds and remain below their unchanged strict ceilings; PWA policy passed. Four narrowly measured limits raised with 200-450B headroom; historical baseline and startup-critical limits unchanged. Exact next squash commit must independently pass canonical and hosted GIPHY Scratch checks.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/8EFgRT7B55Jyd8HBXNum7BJdLYH2",
     "metrics": [
       "homeClosureGzipBytes",
       "appAssetsRawBytes",
@@ -33,10 +33,10 @@
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 366100,
-      "appAssetsRawBytes": 2461000,
-      "appAssetsGzipBytes": 764000,
-      "precacheUniqueBytes": 2548500
+      "homeClosureGzipBytes": 367200,
+      "appAssetsRawBytes": 2465200,
+      "appAssetsGzipBytes": 765400,
+      "precacheUniqueBytes": 2552700
     }
   }
 }

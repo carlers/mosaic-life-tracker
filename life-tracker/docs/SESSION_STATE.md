@@ -30,3 +30,8 @@ Next action: run focused CI on a complete task [verify:focused] commit; repair f
 - Replace per-scroll writes to all mounted adjacent zoom lanes with O(1) offset tracking; align other slides only after render-window month navigation. Native browser x touch scroll retains 1:1 finger movement, CSS native block snap uses page offsets 0/3/4 for 3 visible days and 0/3 for 4 visible days (clamped edge). Separate intentional outward edge gestures for touch/mouse/wheel invoke existing calendar prev/next. Mouse cursor drag threshold suppresses post-drag date click only, and permits normal tap/click.
 - Focused task CI, then stable Preview squash and exact-SHA full canonical plus Scratch/GIPHY Vercel and all size budgets. Record any measured budget review rather than bypass. Device gesture acceptance still human-pending.
 Next action: run focused CI on complete task checkpoint [verify:focused], investigate failures before stable Preview; no dev/main merge.
+
+## v0.23.1 exact stable Preview build-size repair
+- Stable fa8110e v0.23.0 GIPHY READY metrics: entry raw 446120, gzip 132801, initial closure 146033, Home closure 366978, app raw 2464556, app gzip 765064, precache 2551863 bytes.
+- Stable a2fa716c v0.23.1 compiled and PWA passed, DOM tests passed; hosted Scratch/GIPHY failed four remaining near-limit size caps, measured Home 367993 (+1015), app raw 2467564 (+3008), gzip 766079 (+1015), precache 2554871 (+3008). Three startup-critical sizes unchanged.
+- New task chatgpt/692-snap-budget-review-20261012 narrowly reviews only those four caps against exact hosted evidence. Next action: focused CI, stable Preview squash, exact canonical + GIPHY Vercel READY; no dev/main merge. Manual mobile/mouse acceptance remains outstanding.
