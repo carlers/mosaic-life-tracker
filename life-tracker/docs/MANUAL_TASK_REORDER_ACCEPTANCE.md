@@ -52,3 +52,10 @@ device/browser and a short capture for any remaining reflow or visibility defect
 - Move diary first/middle/last across populated, empty, and collapsed categories. Watch neighboring tasks while holding still over each destination: they should yield exactly one card-height gap like a task drag, never jump back as the finger stays still.
 - Release diary and a similarly tall task, both within and across categories. Watch the first 250ms after release: neither the carried item nor nearby siblings should fly up to the original slot, bounce downward, or disappear before settling.
 - Repeat outside/canceled drops, rapid alternating task/diary moves, and saved placement after reload on touch and desktop. Record a slow-motion capture if release still jumps.
+
+## v0.25.4 live drag-feedback polish — acceptance on real devices
+
+- **Bottom-to-top task drag:** long-press the bottom task in a populated category and move slowly upward past multiple tasks. Exactly one full task should follow the finger, with no faded/overlapping duplicate under the following category pill; there should be one insertion gap, while siblings animate.
+- **Diary tracks the finger:** use both Compact and Expanded entries with long multiline text, emoji, and attached photos. Long press; the visible full-height card should stay under the finger throughout horizontal **and** vertical motion, including while targets move or scroll underneath it. It must not pop somewhere else or remain stationary while dragging.
+- **Release parity:** task and diary should land without flying back and forth. Try top/bottom/same category/across categories, empty and collapsed categories, cancellation/outside drops, and 5 consecutive drags. Check no disappearing content, duplicate gaps, or saved-placement drift after reload.
+- Verify independently on a touchscreen phone and desktop pointer/trackpad. Automated browser tests do not substitute for human inspection of rendering.

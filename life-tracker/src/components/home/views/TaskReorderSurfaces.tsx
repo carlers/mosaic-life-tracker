@@ -114,6 +114,9 @@ export const TaskRowDropSurface: React.FC<{
               width: '100%',
               visibility: 'hidden',
               pointerEvents: 'none',
+              // Prevent the out-of-flow source from leaking over the next
+              // category pill while Framer Motion measures moving rows.
+              overflow: 'hidden',
             }
           : undefined
       }

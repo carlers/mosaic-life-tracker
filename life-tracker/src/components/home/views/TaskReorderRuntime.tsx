@@ -9,6 +9,7 @@ import { TaskItem } from './TaskItem';
 import { placementFromTaskDrop, type DiaryPlacement } from '../../../lib/diaryPlacement';
 import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
+import type { DiaryDocument } from '../../../db/schema';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import {
   isTaskPlacementCompatible,
@@ -36,7 +37,18 @@ const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
   ],
 });
 
+// This is the SAME presentation used by the owner Diary Day View; the lazy
+// module is already loaded when a diary drag can begin.
+const DiaryDayCardOverlay = React.lazy(() => import('./DiaryDayPreview').then(
+  module => ({ default: module.DiaryDayCard })
+));
+
 const noop = () => undefined;
+
+interface ActiveDiaryOverlay {
+  entry: DiaryDocument;
+  expanded: boolean;
+}
 
 // Ignore collision target churn caused by Motion moving drop zones beneath a
 // stationary finger. Genuine pointer movement still changes the target.
@@ -96,6 +108,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const sharedTargetRef = React.useRef<string | null>(null);
   const diaryTargetRef = React.useRef<DiaryPlacement | null>(null);
   const [diaryDragging, setDiaryDragging] = React.useState(false);
+  const [activeDiaryOverlay, setActiveDiaryOverlay] = React.useState<ActiveDiaryOverlay | null>(null);
+  const [diaryReleaseRevision, setDiaryReleaseRevision] = React.useState(0);
   const [diaryPreviewPlacement, setDiaryPreviewPlacement] = React.useState<DiaryPlacement | null>(null);
   const [diaryDragHeight, setDiaryDragHeight] = React.useState(48);
   const [committedDiaryPlacement, setCommittedDiaryPlacement] = React.useState<DiaryPlacement | null>(null);
@@ -147,6 +161,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
 
       const taskId = String(source.id);
       if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
+        const snapshot = source.data as Partial<ActiveDiaryOverlay> | undefined;
+        if (!snapshot?.entry) return;
+        setActiveDiaryOverlay({entry: snapshot.entry, expanded: snapshot.expanded === true});
         diaryTargetRef.current = null;
         diaryAcceptedPointerRef.current = null;
         const initial = props.diaryPlacement ?? { kind: 'top' as const };
@@ -298,6 +315,10 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         diaryAcceptedPointerRef.current = null;
         diaryTargetRef.current = null;
         diaryDragRef.current = false;
+        setActiveDiaryOverlay(null);
+        // Fresh card at its settled location: never animate from a former
+        // absolutely positioned source, just like the released task row.
+        setDiaryReleaseRevision(current => current + 1);
         setDiaryDragging(false);
         setDiarySettling(true);
         settleForTwoFrames(() => setDiarySettling(false));
@@ -450,6 +471,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         activeSharedDragId={activeSharedDrag?.id ?? null}
         activeDrag={activeDrag}
         diaryDragging={diaryDragging}
+        diaryReleaseRevision={diaryReleaseRevision}
         diarySettling={diarySettling}
         settlingTaskId={settlingTaskId}
         lastReleasedTask={lastReleasedTask}
@@ -461,6 +483,20 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         {activeSharedDrag && (
           <SharedTaskDragOverlay item={activeSharedDrag}
             color={categoryById.get(props.sharedCategoryFor?.(activeSharedDrag) || '')?.color || '#6B7280'} />
+        )}
+        {activeDiaryOverlay && (
+          <div aria-hidden="true" data-diary-drag-overlay="true"
+            style={{pointerEvents: 'none'}}>
+            <React.Suspense fallback={null}>
+              <div className="mx-4 my-2 min-w-0">
+                <DiaryDayCardOverlay
+                  entry={activeDiaryOverlay.entry}
+                  expanded={activeDiaryOverlay.expanded}
+                  onOpen={noop}
+                />
+              </div>
+            </React.Suspense>
+          </div>
         )}
         {overlayTask && (
           <div
