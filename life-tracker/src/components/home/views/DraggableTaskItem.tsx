@@ -1,6 +1,5 @@
 import React from 'react';
 import { useDraggable } from '@dnd-kit/react';
-import { Feedback } from '@dnd-kit/dom';
 import { TaskItem, type TaskItemProps } from './TaskItem';
 
 export const DraggableTaskItem: React.FC<TaskItemProps> = (
@@ -9,17 +8,25 @@ export const DraggableTaskItem: React.FC<TaskItemProps> = (
   const { ref: dragRef, handleRef } = useDraggable({
     id: taskItemProps.task.id,
     type: 'task',
-    // The existing full TaskItem overlay is the only visible drag feedback.
-    plugins: [Feedback.configure({ feedback: 'none' })],
   });
 
   return (
-    <div ref={dragRef} data-task-drag-source="true">
+    <>
+      <div
+        ref={dragRef}
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0,
+          pointerEvents: 'none',
+        }}
+      />
       <TaskItem
         {...taskItemProps}
         titleRef={handleRef}
         disableLayoutAnimation
       />
-    </div>
+    </>
   );
 };
