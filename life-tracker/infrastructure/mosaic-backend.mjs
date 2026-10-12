@@ -78,6 +78,7 @@ export const MOSAIC_TABLES = [
   ownerTable('diary', 'diary', [
     { key: 'date', type: 'varchar', size: 50, required: true },
     { key: 'content', type: 'longtext', required: false },
+    { key: 'emoji', type: 'varchar', size: 32, required: false, default: '' },
     { key: 'visibility', type: 'varchar', size: 50, required: true },
     { key: 'user_id', type: 'varchar', size: 255, required: true },
     {

@@ -17,7 +17,7 @@ const TABLE_FIELDS = {
     'updated_at',
   ]),
   diary: new Set([
-    'date', 'content', 'visibility', 'user_id', 'updated_at', 'deleted',
+    'date', 'content', 'emoji', 'visibility', 'user_id', 'updated_at', 'deleted',
     'created_at',
   ]),
   settings: new Set([

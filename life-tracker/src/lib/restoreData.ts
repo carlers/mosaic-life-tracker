@@ -522,6 +522,7 @@ function normalizeBackup(
       id: makeDiaryRowId(currentUserId, date),
       date,
       content: asString(raw.content),
+      emoji: asString(raw.emoji).slice(0, 32),
       visibility: asVisibility(raw.visibility, 'private') as
         | 'public'
         | 'followers'

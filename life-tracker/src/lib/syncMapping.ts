@@ -36,6 +36,7 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
   diary: new Set([
     'date',
     'content',
+    'emoji',
     'visibility',
     'user_id',
     'deleted',
@@ -161,6 +162,7 @@ export function toAppwriteFormat(
   } else if (collection === 'diary') {
     mapped.date = source.date || '';
     mapped.content = source.content || '';
+    mapped.emoji = source.emoji || '';
     mapped.visibility = source.visibility || 'private';
     mapped.user_id = userId;
     mapped.deleted = source.isDeleted ?? false;
@@ -304,6 +306,7 @@ export function fromAppwriteFormat(
       row.$createdAt ||
       new Date().toISOString();
     mapped.content = row.content || '';
+    mapped.emoji = row.emoji || '';
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.created_at;

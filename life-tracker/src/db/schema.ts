@@ -35,6 +35,8 @@ export interface DiaryDocument {
   id: string;
   date: string;
   content?: string;
+  /** Optional owner-selected day marker; legacy entries retain their original content. */
+  emoji?: string;
   visibility: 'public' | 'followers' | 'private';
   userId: string;
   createdAt: string;
@@ -195,7 +197,7 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
   ],
 };
 export const diarySchema: RxJsonSchema<DiaryDocument> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   required: ['id', 'date', 'visibility', 'userId', 'createdAt', 'updatedAt', 'isDeleted'],
@@ -203,6 +205,7 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     id: { type: 'string', maxLength: 255 },
     date: { type: 'string', maxLength: 50 },
     content: { type: 'string' },
+    emoji: { type: 'string', maxLength: 32, default: '' },
     visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
     userId: { type: 'string', maxLength: 255 },
     createdAt: { type: 'string', maxLength: 50 },

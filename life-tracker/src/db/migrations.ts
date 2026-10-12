@@ -36,6 +36,10 @@ export const categoriesMigrationStrategies = {
     updatedAt: '',
   }),
 };
+export const diaryMigrationStrategies = {
+  1: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, emoji: '' }),
+};
+
 export const settingsMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({
     ...oldDoc,
