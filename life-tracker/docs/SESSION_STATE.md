@@ -1,15 +1,13 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: Issue #682 — account-configurable expanded Alerts, v0.21.0 task branch.
+Current task: Issue #682 — v0.21.0 stable Preview hosted-size repair.
 
-## #682 expanded notifications — implementation / handoff
-- Authorization: user approved implementation on 2026-10-12. Task branch: `chatgpt/notifications-682-20261012` from then-current dev `bb527a480df88ca9891490b29d522e37c0eae05e`. Do not merge dev/main without explicit approval.
-- Required Appwrite `task_id`/`completed_at` slots carry typed event source/time; no schema or Function rollout.
-- Server `activity-notifications.js` provides deterministic idempotent receipts, server-authorized event projection, synced `alertsChannels` policy, and generic privacy-safe push. Trusted `message-action` operations emit incoming friendship requests, accepted requests, messages, reactions and shared invitations. Existing task-completion code uses the same preference gate.
-- Client Alerts reads typed items, retains existing task-completion sheet and reaction behavior, renders social activity with safe destinations, caches items per account, and exposes independent in-app/Push category preferences in Settings. Defaults preserve completions and keep reaction push off.
-- Sandbox verification: contracts; 975 unit, 171 handler, 474 DOM tests; scoped ESLint; production build/PWA; seven reviewed size metrics passed. CI focused and stable Preview canonical gate next; Scratch Function remains unchanged. Production untouched.
-- Remaining: message focus, grouping, per-chat mute/quiet hours, and manual device acceptance.
+## #682 expanded notifications — current checkpoint
+- User authorized implementation, not dev/main promotion. Task feature branch was focused-green at `9fd5f2837a1bba8b745d25f383d7c6176ced4773` (Actions 38204074156); PR #686 was squash-merged to stable `feature/notifications-682@0873d338f882b0587ffd1148b0c7e8869266e862`.
+- Typed social activity, independent synced feed/push preferences, legacy task completion, privacy checks, generic pushes, and tests included. Sandbox passed 975 unit, 171 handler, 474 DOM, lint, contracts, PWA and local build-size checks.
+- Hosted Preview build `dpl_HkSZQSkZk5anUbWSGriDUtsNkFSZ` failed ONLY measured GIPHY aggregate asset limits (+1133 raw, +588 gzip, +1356 precache). Repair task `chatgpt/notifications-682-hosted-size` narrowly reviews those three limits; task focused CI then squash into stable Preview required.
+- No schema migration; Scratch Function is still old and has not been deployed. After canonical stable CI + Vercel READY, stage exact feature Function on Scratch with reviewed archive and explicit target, verify two disposable accounts, and record device checks separately. Production/dev untouched.
 
 Updated: 2026-10-12
 Current task: #655 PWA download/progress v0.20.3 combined integration with latest dev. User accepted the feature and authorized cleanup plus dev promotion, not main.
