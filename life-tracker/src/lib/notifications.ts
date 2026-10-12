@@ -56,11 +56,11 @@ function isTask(value: unknown): value is TaskDocument {
 
 function isNotificationItem(value: unknown): value is NotificationEntry {
   if (!value || typeof value !== 'object') return false;
-  const item = value as Partial<NotificationItem>;
+  const item = value as Record<string, unknown>;
   if (typeof item.id !== 'string' || typeof item.actorId !== 'string' ||
       typeof item.actorName !== 'string' || typeof item.occurredAt !== 'string') return false;
   if (item.type !== 'task_completed') {
-    const social = item as Partial<SocialNotificationItem>;
+    const social = item as unknown as Partial<SocialNotificationItem>;
     return [
       'friend_request', 'friend_accepted', 'direct_message',
       'message_reaction', 'task_reaction', 'shared_task_invite',
