@@ -235,7 +235,7 @@ export const NotificationSettingsPage: React.FC = () => {
                     checked={channelValues[type][channel]}
                     disabled={channelsSaving}
                     onChange={() => { void toggleChannel(type, channel); }}
-                    className="h-4 w-4 accent-emerald-500" />
+                    className="h-4 w-4" style={{ accentColor: 'var(--mosaic-accent)' }} />
                   {channel === 'feed' ? 'In-app Alerts' : 'Push'}
                 </label>
               ))}
