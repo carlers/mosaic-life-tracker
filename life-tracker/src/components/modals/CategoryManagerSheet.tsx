@@ -79,7 +79,6 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   children,
 }) => {
   const dragControls = useDragControls();
-  const editPanelRef = useRef<HTMLDivElement>(null);
   const [exitContent, setExitContent] = useState(children);
   if (isEditing && exitContent !== children) setExitContent(children);
 
@@ -145,13 +144,13 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
         className="grid transition-all duration-200 ease-in-out motion-reduce:transition-none"
         style={{ gridTemplateRows: isEditing ? '1fr' : '0fr' }}
         onTransitionEnd={(event) => {
-          if (isEditing && event.propertyName === 'grid-template-rows') {
-            editPanelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+          if (isEditing && event.target === event.currentTarget) {
+            event.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
           }
         }}
       >
         <div className="min-h-0 overflow-hidden" inert={!isEditing} aria-hidden={!isEditing}>
-          <div ref={editPanelRef} className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
+          <div className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
             {isEditing ? children : exitContent}
           </div>
         </div>
@@ -193,12 +192,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     categories.map((cat) => cat.id)
   );
   const orderedCategories = useMemo(() => {
-    const orderIndex = new Map(orderedIds.map((id, index) => [id, index]));
-    return [...categories].sort((a, b) => {
-      const aIndex = orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER;
-      const bIndex = orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER;
-      return aIndex - bIndex || a.order - b.order;
-    });
+    const indices = new Map(orderedIds.map((id, index) => [id, index]));
+    return [...categories].sort((a, b) =>
+      (indices.get(a.id) ?? Infinity) - (indices.get(b.id) ?? Infinity) || a.order - b.order
+    );
   }, [categories, orderedIds]);
   const pendingOrder = useRef(orderedCategories);
   
@@ -250,17 +247,12 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     );
   };
 
-  const handleUpdate = async (
-    id: string,
-    name: string,
-    visibility: Visibility
-  ) => {
-    await save(
+  const handleUpdate = (id: string, name: string, visibility: Visibility) =>
+    save(
       () => updateCategory(id, { name, visibility }),
       () => setEditingId(null),
       'Could not update category. Try again.'
     );
-  };
 
   const handleConfirmDelete = async () => {
     if (!deleteId) return;
@@ -269,11 +261,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       () => setDeleteId(null),
       'Could not delete category. Try again.'
     );
-  };
-
-  const handleEditCancel = () => {
-    reset();
-    setEditingId(null);
   };
 
   return (
@@ -333,7 +320,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   >
                     Save Changes
                   </Button>
-                  <Button variant="ghost" onClick={handleEditCancel} disabled={isSaving}>
+                  <Button variant="ghost" onClick={() => {
+                    reset();
+                    setEditingId(null);
+                  }} disabled={isSaving}>
                     Cancel
                   </Button>
                 </>
