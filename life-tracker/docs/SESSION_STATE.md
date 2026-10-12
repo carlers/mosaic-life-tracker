@@ -16,3 +16,8 @@ Proposed unique combined Preview: feature/calendar-zoom-692-dev-integration-2026
 ## Delivery gate
 Next action: focused CI [verify:focused] on integrated v0.23.4 task, repair failures, squash into stable integration Preview and verify exact-SHA canonical Quality Gate (unit/DOM/browser/dependencies/build/PWA/seven budgets) and Scratch/GIPHY Vercel READY. Then create explicitly approved stable integration Preview → dev PR and merge with previous dev SHA as first parent, an identical accepted source tree and successful canonical-acceptance check. Verify exact dev CI and Vercel staging deployment; never touch main.
 User manually accepted original #692 gestures; no new physical-device check is claimed by agent. Keep #692 open until integration verification and documented release boundary.
+
+## Exact combined Preview budget review
+- Integration Preview 5d049204 (v0.23.4) compiled, PWA policy passed, all static/size metrics except initialClosureGzipBytes 146051/146050 B (+1) and appAssetsGzipBytes 767025/767000 B (+25). Five other limits pass.
+- Separate focused task chatgpt/692-dev-integration-budget-20261012 narrowly reviews these two real combined-tree deltas, preserving previous #692 and #656 measured reviews and all other ceilings. No source behavior changes.
+Next action: focused task CI then repair squash into the same stable integration Preview, verify exact canonical and Scratch Vercel READY before approved dev merge. Do not merge main.
