@@ -17,18 +17,18 @@ import {
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = APPWRITE_MESSAGE_ACTION_FUNCTION_ID;
 const MAX_DELIVERY_LOOPS = 5;
-let retryTimer: ReturnType<typeof setTimeout> | null = null;
-let retryScope = '';
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let retryDelay = 5_000;
-function clearDeliveryRetry(): void {
-  if (retryTimer !== null) clearTimeout(retryTimer);
-  retryTimer = null;
+let retryScope = '';
+function clearDeliveryRetry() {
+  clearTimeout(retryTimer);
+  retryTimer = undefined;
+  retryDelay = 5_000;
 }
-function scheduleDeliveryRetry(userId: string, generation: number): void {
-  if (retryTimer !== null || !isAccountWorkCurrent(userId, generation) ||
-      getConnectivitySnapshot().status !== 'online') return;
+function scheduleDeliveryRetry(userId: string, generation: number) {
+  if (retryTimer || !isAccountWorkCurrent(userId, generation)) return;
   retryTimer = setTimeout(() => {
-    retryTimer = null;
+    retryTimer = undefined;
     if (isAccountWorkCurrent(userId, generation))
       void deliverPendingMessages(userId);
   }, retryDelay);
@@ -44,14 +44,7 @@ export { flushMessageActionQueue };
 function shouldQueueMessageAction(err: unknown): boolean {
   if (isUnauthorizedError(err)) return false;
   const code = (err as { code?: number } | null)?.code;
-  // No numeric code = network error, timeout, or offline: transient.
-  if (typeof code !== 'number') return true;
-  // 429: transient.
-  if (code === 429) return true;
-  // 5xx: transient.
-  if (code >= 500) return true;
-  // Any other 4xx: permanent. Retrying will not help.
-  return false;
+  return typeof code !== 'number' || code === 429 || code >= 500;
 }
 export async function deliverPendingMessages(userId: string): Promise<void> {
   if (!userId) return;
@@ -60,7 +53,6 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   const scope = userId + ':' + generation;
   if (retryScope !== scope) {
     clearDeliveryRetry();
-    retryDelay = 5_000;
     retryScope = scope;
   }
 
@@ -165,7 +157,6 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           scheduleDeliveryRetry(userId, generation);
         } else if (pending.length === 0) {
           clearDeliveryRetry();
-          retryDelay = 5_000;
         }
         if (
           !isAccountWorkCurrent(userId, generation) ||
@@ -203,17 +194,13 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
     replyToSenderId: doc.replyToSenderId || '',
     createdAt: doc.createdAt,
   });
-  // A 2xx Function execution alone is not proof that the message was committed.
-  // Older deployed Functions already provide recipientRowId and threadId.
+  // A completed Function invocation is not proof both rows were committed.
   if (
     result.ok !== true ||
-    typeof result.recipientRowId !== 'string' ||
-    !result.recipientRowId.startsWith('rmsg_') ||
+    !String(result.recipientRowId).startsWith('rmsg_') ||
     result.threadId !== doc.threadId ||
     (result.messageId !== undefined && result.messageId !== doc.id)
-  ) {
-    throw new Error('Message delivery was not acknowledged by the server');
-  }
+  ) throw new Error('Message delivery not acknowledged');
 }
 export async function markReadOnRemote(
   userId: string,
