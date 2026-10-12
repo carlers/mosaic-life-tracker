@@ -18,35 +18,50 @@
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146300,
     "homeClosureGzipBytes": 367300,
-    "appAssetsRawBytes": 2476000,
-    "appAssetsGzipBytes": 770000,
-    "precacheUniqueBytes": 2564000
+    "appAssetsRawBytes": 2493000,
+    "appAssetsGzipBytes": 777000,
+    "precacheUniqueBytes": 2581000
   },
   "review": {
     "issue": "#408",
-    "reason": "GIPHY-enabled hosted Scratch Preview v0.22.0 at ba5ed492 emits 146126 B initial static gzip closure, exceeding the unchanged 146050 B ceiling by 76 B. Source CI with GIPHY disabled passed that ceiling at 146030 B. Increase only the initial closure allowance by 250 B to 146300; keep the entry raw/gzip ceilings unchanged (hosted 446154 / 446200 B raw; 132812 / 132850 B gzip). Four aggregate cap increases were separately reviewed on issue #408 in previous commit ba5ed492; pinned historical baseline remains unchanged.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/HGGsF6SS9kfZ1acstpYiBgT8T1Lc",
+    "reason": "Measured v0.25.0 Diary expansion adds private multi-photo editor/gallery, authenticated friend reactions, secure photo reader and unified Day View drag ordering with no new vendor dependencies. Source canonical 38251530306 passes entry raw/gzip and initial/Home closure limits but exceeds only three aggregate/precache totals by 14,555, 4,698, and 14,570 bytes. Review increases only those three caps to grant 2.3–2.5 KiB headroom; pinned historical baseline and all four startup-sensitive limits are unchanged. This is not an automatic budget waiver.",
+    "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38251530306",
     "metrics": [
-      "initialClosureGzipBytes"
+      "appAssetsRawBytes",
+      "appAssetsGzipBytes",
+      "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "initialClosureGzipBytes": 146050
+      "appAssetsRawBytes": 2476000,
+      "appAssetsGzipBytes": 770000,
+      "precacheUniqueBytes": 2564000
     },
     "priorReview": {
       "issue": "#408",
-      "reason": "Measured stable v0.22.0 Diary View adds an optional emoji editor, shared calendar marker rendering, owner/local-first and friend privacy paths, with separate backend compatibility. Static entry/initial budgets remain unchanged and pass. Full canonical build at Preview 91564039 measured four aggregate overages of 401 / 11937 / 4400 / 12420 bytes; these modest new ceilings cover the feature and leave less than 4KiB margin per metric. No historic baseline change; route, PWA, unit, DOM and browser verification required after repair.",
-      "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38229917216",
+      "reason": "GIPHY-enabled hosted Scratch Preview v0.22.0 at ba5ed492 emits 146126 B initial static gzip closure, exceeding the unchanged 146050 B ceiling by 76 B. Source CI with GIPHY disabled passed that ceiling at 146030 B. Increase only the initial closure allowance by 250 B to 146300; keep the entry raw/gzip ceilings unchanged (hosted 446154 / 446200 B raw; 132812 / 132850 B gzip). Four aggregate cap increases were separately reviewed on issue #408 in previous commit ba5ed492; pinned historical baseline remains unchanged.",
+      "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/HGGsF6SS9kfZ1acstpYiBgT8T1Lc",
       "metrics": [
-        "homeClosureGzipBytes",
-        "appAssetsRawBytes",
-        "appAssetsGzipBytes",
-        "precacheUniqueBytes"
+        "initialClosureGzipBytes"
       ],
       "previousLimits": {
-        "homeClosureGzipBytes": 366100,
-        "appAssetsRawBytes": 2461000,
-        "appAssetsGzipBytes": 764000,
-        "precacheUniqueBytes": 2548500
+        "initialClosureGzipBytes": 146050
+      },
+      "priorReview": {
+        "issue": "#408",
+        "reason": "Measured stable v0.22.0 Diary View adds an optional emoji editor, shared calendar marker rendering, owner/local-first and friend privacy paths, with separate backend compatibility. Static entry/initial budgets remain unchanged and pass. Full canonical build at Preview 91564039 measured four aggregate overages of 401 / 11937 / 4400 / 12420 bytes; these modest new ceilings cover the feature and leave less than 4KiB margin per metric. No historic baseline change; route, PWA, unit, DOM and browser verification required after repair.",
+        "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38229917216",
+        "metrics": [
+          "homeClosureGzipBytes",
+          "appAssetsRawBytes",
+          "appAssetsGzipBytes",
+          "precacheUniqueBytes"
+        ],
+        "previousLimits": {
+          "homeClosureGzipBytes": 366100,
+          "appAssetsRawBytes": 2461000,
+          "appAssetsGzipBytes": 764000,
+          "precacheUniqueBytes": 2548500
+        }
       }
     }
   }
