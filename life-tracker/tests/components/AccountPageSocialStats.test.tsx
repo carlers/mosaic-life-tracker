@@ -1,7 +1,7 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({
@@ -27,6 +27,8 @@ vi.mock('../../src/components/modals/CategoryManagerSheet', () => ({
 }));
 
 import { AccountPage } from '../../src/pages/AccountPage';
+
+afterEach(() => vi.unstubAllGlobals());
 
 // Regression: §2 (Me shows the accepted Friends count).
 describe('AccountPage content and scroll ownership', () => {
@@ -65,6 +67,25 @@ describe('AccountPage content and scroll ownership', () => {
       screen.queryByText(/Tact is the ability to describe others/i)
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Eleanor Chaffee')).not.toBeInTheDocument();
+  });
+
+  it('renders Categories on the first committed selection after Me idle warmup', async () => {
+    let idleWarm: (() => void) | null = null;
+    vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) => {
+      idleWarm = () => callback({ didTimeout: false, timeRemaining: () => 50 });
+      return 1;
+    });
+    vi.stubGlobal('cancelIdleCallback', vi.fn());
+    render(<MemoryRouter><AccountPage /></MemoryRouter>);
+    await act(async () => {
+      if (!idleWarm) throw new Error('Me category manager warmup was not scheduled');
+      idleWarm();
+      await import('../../src/components/modals/CategoryManagerSheet');
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Categories/ }));
+    expect(screen.getByRole('dialog', { name: 'Categories manager' })).toBeInTheDocument();
   });
 
   it('opens the existing category manager from the Me Categories tile and closes it', async () => {
