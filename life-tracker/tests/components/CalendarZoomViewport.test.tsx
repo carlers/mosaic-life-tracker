@@ -96,6 +96,61 @@ describe('CalendarZoomViewport boundary interactions', () => {
     expect(lane.querySelectorAll('[data-calendar-snap-day]')).toHaveLength(5);
   });
 
+  it('aligns native touch momentum to the nearest day on scrollend', () => {
+    const { lane } = setup(3);
+    const scrollTo = vi.fn();
+    Object.defineProperty(lane, 'scrollTo', { configurable: true, value: scrollTo });
+    lane.scrollLeft = 144;
+    fireEvent.touchStart(lane, { touches: [touch(200)] });
+    fireEvent.touchEnd(lane, { changedTouches: [touch(140)] });
+    fireEvent(lane, new Event('scrollend'));
+    expect(scrollTo).toHaveBeenCalledWith({ left: 100, behavior: 'smooth' });
+    expect(lane.style.scrollSnapType).toBe('none');
+    fireEvent(lane, new Event('scrollend'));
+    expect(lane.style.scrollSnapType).toBe('');
+  });
+
+  it('aligns trackpad wheel scrolling after native scroll events go quiet', () => {
+    vi.useFakeTimers();
+    try {
+      const { lane } = setup(4);
+      const scrollTo = vi.fn();
+      Object.defineProperty(lane, 'scrollTo', { configurable: true, value: scrollTo });
+      lane.scrollLeft = 163;
+      fireEvent.wheel(lane, { deltaX: 37, deltaY: 0, deltaMode: 0 });
+      fireEvent.scroll(lane);
+      vi.advanceTimersByTime(100);
+      expect(scrollTo).not.toHaveBeenCalled();
+      lane.scrollLeft = 180;
+      fireEvent.scroll(lane);
+      vi.advanceTimersByTime(159);
+      expect(scrollTo).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(scrollTo).toHaveBeenCalledWith({ left: 150, behavior: 'smooth' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not trigger native snapping while a finger is still touching', () => {
+    vi.useFakeTimers();
+    try {
+      const { lane } = setup(3);
+      const scrollTo = vi.fn();
+      Object.defineProperty(lane, 'scrollTo', { configurable: true, value: scrollTo });
+      lane.scrollLeft = 144;
+      fireEvent.touchStart(lane, { touches: [touch(200)] });
+      fireEvent.scroll(lane);
+      vi.advanceTimersByTime(500);
+      expect(scrollTo).not.toHaveBeenCalled();
+      fireEvent.touchEnd(lane, { changedTouches: [touch(160)] });
+      vi.advanceTimersByTime(180);
+      expect(scrollTo).toHaveBeenCalledWith({ left: 100, behavior: 'smooth' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('blocks touch, wheel and mouse edge reentry during a period animation', () => {
     const onNavigate = vi.fn();
     const onTap = vi.fn();
