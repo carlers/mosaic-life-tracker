@@ -311,13 +311,19 @@ export async function checkForPwaUpdate(
   onProgress?: PwaUpdateProgressListener
 ): Promise<PwaUpdateCheckResult> {
   const report = (stage: PwaUpdateCheckStage) => onProgress?.(stage);
-  publish({ assetProgress: null });
   report('preparing');
 
   const registration = await resolveServiceWorkerRegistration();
   if (!registration) {
+    publish({ assetProgress: null });
     report('unavailable');
     return 'unavailable';
+  }
+
+  // A manual recheck joins any installation already underway. Retain its
+  // measured progress instead of visually restarting from 0%.
+  if (!registration.installing && !registration.waiting) {
+    publish({ assetProgress: null });
   }
 
   if (registration.waiting) {
