@@ -79,23 +79,38 @@ export function useCalendarState(
 
   useEmblaTrackpadNavigation(emblaApi);
 
-  // The zoom grid and Embla must never both own a swipe while the
-  // destination month/week is still moving. Embla's 'settle' (not
-  // 'select') is the authoritative end of the animation.
+  // Selection makes the destination slide ready; waiting for Embla's
+  // physics-based 'settle' can keep zoomed month navigation locked for
+  // hundreds of milliseconds after the next month has mounted. Yield input
+  // ownership after two painted frames instead, so quick sequential swipes
+  // retarget Embla without interacting with the outgoing weekday grid.
   useEffect(() => {
     if (!emblaApi) return;
-    const begin = () => setIsZoomTransitioning(true);
-    const settle = () => {
+    let frame: number | null = null;
+    const cancelFrame = () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      frame = null;
+    };
+    const release = () => {
+      cancelFrame();
       zoomNavigationLock.current = false;
       setIsZoomTransitioning(false);
     };
+    const begin = () => {
+      setIsZoomTransitioning(true);
+      cancelFrame();
+      frame = window.requestAnimationFrame(() => {
+        frame = window.requestAnimationFrame(release);
+      });
+    };
     emblaApi.on('select', begin);
-    emblaApi.on('settle', settle);
-    emblaApi.on('reInit', settle);
+    emblaApi.on('settle', release);
+    emblaApi.on('reInit', release);
     return () => {
+      cancelFrame();
       emblaApi.off('select', begin);
-      emblaApi.off('settle', settle);
-      emblaApi.off('reInit', settle);
+      emblaApi.off('settle', release);
+      emblaApi.off('reInit', release);
     };
   }, [emblaApi]);
 
