@@ -344,6 +344,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     [
       categoryIds,
       dateStr,
+      displayPlacement,
       livePlacement,
       onReorderActiveChange,
       onReorderTasks,
