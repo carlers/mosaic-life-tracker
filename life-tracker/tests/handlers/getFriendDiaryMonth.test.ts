@@ -56,8 +56,8 @@ describe('diary reactions and owner-private friend attachments', () => {
   };
   const approvedFriendship = () => {
     const db = makeMockDb();
-    db.listRows.mockResolvedValueOnce({rows:[friendship]}).mockResolvedValueOnce({rows:[friendship]})
-      .mockResolvedValueOnce({rows:[friendship]}).mockResolvedValueOnce({rows:[friendship]});
+    // A diary reaction now performs a second ACL check while delivering activity.
+    db.listRows.mockResolvedValue({rows:[friendship]});
     return db;
   };
   it('never reads diary or photos for a stranger', async () => {
