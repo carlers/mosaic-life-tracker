@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
@@ -62,6 +62,8 @@ interface CategoryRowProps {
   onDeleteRequest: (id: string) => void;
   onReorderEnd: () => void;
   disabled: boolean;
+  isEditing: boolean;
+  children?: React.ReactNode;
 }
 
 const CategoryRow: React.FC<CategoryRowProps> = ({
@@ -71,8 +73,18 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   onDeleteRequest,
   onReorderEnd,
   disabled,
+  isEditing,
+  children,
 }) => {
   const dragControls = useDragControls();
+  const editPanelId = React.useId();
+  const editPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      editPanelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [isEditing]);
 
   return (
     <Reorder.Item
@@ -80,52 +92,66 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
       dragListener={false}
       dragControls={dragControls}
       onDragEnd={onReorderEnd}
-      className="flex items-center gap-3 py-3 px-2 bg-[#1A1A1A] rounded-lg"
+      aria-label={`${cat.name} category`}
+      className="bg-[#1A1A1A] rounded-lg"
     >
-      <button
-        type="button"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          if (!disabled) dragControls.start(e);
-        }}
-        className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
-        aria-label="Drag to reorder"
-        disabled={disabled}
-      >
-        <GripVertical size={18} />
-      </button>
-      <div
-        className="w-4 h-4 rounded-full shrink-0"
-        style={{ backgroundColor: cat.color }}
-      />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-white truncate">{cat.name}</span>
-          {visibilityIcon(cat.visibility)}
+      <div className="flex items-center gap-3 py-3 px-2">
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (!disabled) dragControls.start(e);
+          }}
+          className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
+          aria-label="Drag to reorder"
+          disabled={disabled}
+        >
+          <GripVertical size={18} />
+        </button>
+        <div
+          className="w-4 h-4 rounded-full shrink-0"
+          style={{ backgroundColor: cat.color }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-white truncate">{cat.name}</span>
+            {visibilityIcon(cat.visibility)}
+          </div>
+          {overriddenCount > 0 && (
+            <span className="text-xs text-gray-400">
+              {overriddenCount} task{overriddenCount === 1 ? '' : 's'} override
+              visibility
+            </span>
+          )}
         </div>
-        {overriddenCount > 0 && (
-          <span className="text-xs text-gray-400">
-            {overriddenCount} task{overriddenCount === 1 ? '' : 's'} override
-            visibility
-          </span>
-        )}
+        <button
+          onClick={() => onEditStart(cat)}
+          disabled={disabled}
+          className="p-2 text-gray-400"
+          aria-label="Edit category"
+          aria-expanded={isEditing}
+          aria-controls={isEditing ? editPanelId : undefined}
+        >
+          <Pencil size={16} />
+        </button>
+        <button
+          onClick={() => onDeleteRequest(cat.id)}
+          disabled={disabled}
+          className="p-2 text-gray-400"
+          aria-label="Delete category"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
-      <button
-        onClick={() => onEditStart(cat)}
-        disabled={disabled}
-        className="p-2 text-gray-400"
-        aria-label="Edit category"
-      >
-        <Pencil size={16} />
-      </button>
-      <button
-        onClick={() => onDeleteRequest(cat.id)}
-        disabled={disabled}
-        className="p-2 text-gray-400"
-        aria-label="Delete category"
-      >
-        <Trash2 size={16} />
-      </button>
+      {isEditing && (
+        <div
+          id={editPanelId}
+          ref={editPanelRef}
+          className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3"
+        >
+          {children}
+        </div>
+      )}
     </Reorder.Item>
   );
 };
@@ -255,6 +281,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   };
 
   const handleEditCancel = () => {
+    reset();
     setEditingId(null);
     setEditName('');
     setEditVisibility('private');
@@ -263,7 +290,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full" preventDismiss={isSaving}>
       <div className="pt-2 pb-8 px-4">
-        <SheetErrorBanner message={error} />
+        {!editingId && <SheetErrorBanner message={error} />}
         <Reorder.Group
           axis="y"
           values={orderedCategories}
@@ -279,42 +306,51 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               key={cat.id}
               cat={cat}
               overriddenCount={overriddenCounts.get(cat.id) ?? 0}
+              isEditing={editingId === cat.id}
               onEditStart={(c) => {
+                reset();
+                setIsAdding(false);
                 setEditingId(c.id);
                 setEditName(c.name);
                 setEditVisibility(c.visibility);
               }}
-              onDeleteRequest={(id) => setDeleteId(id)}
+              onDeleteRequest={(id) => {
+                reset();
+                setEditingId(null);
+                setIsAdding(false);
+                setDeleteId(id);
+              }}
               onReorderEnd={() => {
                 if (!isSaving) void reorderCategories(pendingOrder.current);
               }}
               disabled={isSaving}
-            />
+            >
+              {editingId === cat.id && (
+                <>
+                  <SheetErrorBanner message={error} />
+                  <Input
+                    label="Name"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                  />
+                  <VisibilityPicker
+                    value={editVisibility}
+                    onChange={setEditVisibility}
+                  />
+                  <Button
+                    onClick={() => handleUpdate(cat.id, editName, editVisibility)}
+                    disabled={!editName.trim() || isSaving}
+                  >
+                    Save Changes
+                  </Button>
+                  <Button variant="ghost" onClick={handleEditCancel} disabled={isSaving}>
+                    Cancel
+                  </Button>
+                </>
+              )}
+            </CategoryRow>
           ))}
         </Reorder.Group>
-
-        {editingId && (
-          <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
-            <Input
-              label="Name"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-            />
-            <VisibilityPicker
-              value={editVisibility}
-              onChange={setEditVisibility}
-            />
-            <Button
-              onClick={() => handleUpdate(editingId, editName, editVisibility)}
-              disabled={!editName.trim() || isSaving}
-            >
-              Save Changes
-            </Button>
-            <Button variant="ghost" onClick={handleEditCancel} disabled={isSaving}>
-              Cancel
-            </Button>
-          </div>
-        )}
 
         {isAdding ? (
           <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
@@ -341,7 +377,11 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
         ) : (
           <Button
             variant="ghost"
-            onClick={() => setIsAdding(true)}
+            onClick={() => {
+              reset();
+              setEditingId(null);
+              setIsAdding(true);
+            }}
             disabled={isSaving}
             className="mt-4 w-full"
           >
