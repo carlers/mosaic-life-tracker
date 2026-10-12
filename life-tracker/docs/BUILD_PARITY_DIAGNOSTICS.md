@@ -212,3 +212,21 @@ this is preferable to blindly redeploying.
 To test the protected path again, publish this repair through focused
 task → stable Preview canonical/READY and manually dispatch **the new
 stable SHA**. Do not rerun the old SHA and expect a source change.
+
+### Missing local app dependencies in the first effective Preview build
+
+Owner-approved manual Quality Gate [`38287002114`](https://github.com/carlers/mosaic-life-tracker/actions/runs/38287002114) proved the corrected time-window Vercel duplicate scan and authenticated
+`vercel pull --environment=preview --git-branch` work. However,
+`vercel build` on the GitHub runner returned `TS2688` for
+`vite-plugin-pwa/client`, `vite/client`, and `node`: unlike hosted
+Vercel builds, local `vercel build` did **not** install application
+`node_modules`. No prebuilt deploy was attempted and no project
+configuration or Vercel token change is required.
+
+Install `npm ci --prefer-offline --no-audit --no-fund` in
+`life-tracker/` from the reviewed lockfile after canary authorization
+and duplicate check, before the Vercel build. Do not use floating
+dependency installs, skip `tsc`, or relax build-size budgets. A workflow
+regression asserts dependency installation ordering and protected job
+gates. The next attempt must still prove exact Preview/Scratch build
+settings and prebuilt Vercel deployment identity.

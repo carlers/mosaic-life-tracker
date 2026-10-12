@@ -566,6 +566,13 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
         run: vercel pull --yes --environment=preview --git-branch="$PREVIEW_DEPLOY_BRANCH"
+      # Unlike Vercel's hosted builders, local `vercel build` uses an existing
+      # checkout. It does not install Mosaic's dependency tree automatically.
+      # Install from the committed lockfile *after* CI acceptance and the
+      # read-only duplicate preflight, before Vercel consumes local sources.
+      - name: Install locked app dependencies for protected Vercel build
+        if: steps.duplicates.outputs.skip != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
       - name: Build and enforce Preview budgets with effective Vercel configuration
         if: steps.duplicates.outputs.skip != 'true'
         env:

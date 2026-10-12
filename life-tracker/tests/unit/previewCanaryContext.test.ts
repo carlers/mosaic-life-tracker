@@ -106,3 +106,24 @@ describe('canary duplicate history window (#592)', () => {
     expect(script).toContain("git('rev-parse', 'HEAD') !== sha");
   });
 });
+
+describe('protected Vercel canary dependency installation contract (#592)', () => {
+  it('installs project lockfile dependencies before local vercel build and after authorization', () => {
+    const workflow = readFileSync(new URL('../../../.github/workflows/quality-gate.yml', import.meta.url), 'utf8');
+    const job = workflow.split('\n  preview_canary:\n')[1];
+    expect(job).toBeTruthy();
+    const duplicate = job.indexOf('run: node scripts/check-preview-canary-duplicate.mjs');
+    const install = job.indexOf('run: npm ci --prefer-offline --no-audit --no-fund');
+    const pull = job.indexOf('run: vercel pull --yes --environment=preview');
+    const build = job.indexOf('run: vercel build');
+    expect(duplicate).toBeGreaterThan(0);
+    expect(install).toBeGreaterThan(duplicate);
+    expect(pull).toBeGreaterThan(duplicate);
+    expect(build).toBeGreaterThan(install);
+    expect(job).toContain('if: steps.duplicates.outputs.skip != \'true\'');
+    // No uncontrolled npm install: only the committed lockfile is authoritative.
+    expect(job).not.toContain('run: npm install\n');
+    expect(job).toContain('needs.canonical_acceptance.result == \'success\'');
+    expect(job).toContain('environment: mosaic-preview-canary');
+  });
+});
