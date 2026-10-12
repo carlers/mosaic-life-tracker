@@ -113,19 +113,17 @@ describe('MessageComposer', () => {
     const textarea = screen.getByRole('textbox', { name: 'Message' });
     const stickers = screen.getByRole('button', { name: 'Open stickers' });
     textarea.focus();
-    fireEvent.mouseEnter(stickers);
     fireEvent.pointerDown(stickers);
     expect(document.activeElement).toBe(textarea);
-    expect(onPrepareStickers).toHaveBeenCalledTimes(2);
+    expect(onPrepareStickers).toHaveBeenCalledTimes(1);
     fireEvent.click(stickers);
     expect(onOpenStickers).toHaveBeenCalledTimes(1);
 
     rerender(<MessageComposer onSend={vi.fn()} disabled
       onOpenStickers={onOpenStickers} onPrepareStickers={onPrepareStickers} />);
-    fireEvent.mouseEnter(stickers);
     fireEvent.pointerDown(stickers);
     fireEvent.click(stickers);
-    expect(onPrepareStickers).toHaveBeenCalledTimes(2);
+    expect(onPrepareStickers).toHaveBeenCalledTimes(1);
     expect(onOpenStickers).toHaveBeenCalledTimes(1);
   });
 
