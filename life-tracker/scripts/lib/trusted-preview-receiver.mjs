@@ -9,13 +9,15 @@ export const TRUSTED_VERCEL_PROJECT = 'mosaic-life-tracker';
 export const SHA = /^[a-f0-9]{40}$/i;
 
 export function assessTrustedPreviewTrigger({ event, repository, eventName, ref,
-  checkoutSha, enabled, workflowRuns, checkRuns, branchHead }) {
+  checkoutSha, mainHead, enabled, workflowRuns, checkRuns, branchHead }) {
   const reasons = [];
   const source = event?.workflow_run;
   if (eventName !== 'workflow_run' || repository !== 'carlers/mosaic-life-tracker')
     reasons.push('untrusted GitHub event or repository');
   if (ref !== 'refs/heads/main' || !SHA.test(checkoutSha ?? ''))
     reasons.push('trusted main workflow checkout required');
+  if (mainHead !== checkoutSha || !SHA.test(mainHead ?? ''))
+    reasons.push('trusted main checkout is stale');
   if (enabled !== 'true') reasons.push('trusted Preview delivery disabled');
   if (event?.repository?.full_name !== 'carlers/mosaic-life-tracker' ||
       source?.head_repository?.full_name !== 'carlers/mosaic-life-tracker' ||
@@ -45,11 +47,11 @@ export function assertTrustedPreviewDeployment(deployment, sha) {
   if (!SHA.test(sha ?? '') || deployment?.projectId !== OFFICIAL_VERCEL_PROJECT_ID ||
       deployment?.readyState !== 'READY' ||
       ![null, 'preview'].includes(deployment?.target) ||
-      !['git', 'cli'].includes(deployment?.source) ||
+      deployment?.source !== 'git' ||
       meta.githubCommitSha !== sha ||
       meta.githubOrg !== 'carlers' ||
       meta.githubRepo !== 'mosaic-life-tracker' ||
-      ![TRUSTED_PREVIEW_BRANCH, 'HEAD'].includes(meta.githubCommitRef) ||
+      meta.githubCommitRef !== TRUSTED_PREVIEW_BRANCH ||
       !/^[a-z0-9-]+\.vercel\.app$/.test(deployment?.url ?? '') ||
       typeof deployment?.id !== 'string') {
     throw new Error('READY Vercel deployment identity did not match the trusted exact SHA');

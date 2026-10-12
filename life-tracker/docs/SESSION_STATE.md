@@ -1,18 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-13 UTC
-Current task: #592 trusted Preview receiver, infrastructure-only main bootstrap complete; next safety refinement is a task/Preview candidate.
+Current task: #592 trusted default-branch Preview receiver safety hardening.
 
-## Verified live state
-- Owner-authorized Option B PR #772 merged as `main@033e85ce8e78ef109dc15866a971ee0a0dba4b7c`, with exactly nine infrastructure/tests/docs paths, app version 0.17.4 unchanged. `dev@d7656e2513e5ee9d339814890cd7f707f18461d6` remains 0.23.4.
-- Main Quality Gate #38321997796 SUCCESS including canonical and both browser shards; matching Vercel Production `dpl_Enm5D8PdkgsTzVMvyfiaWRWkkv9K` READY. Ruleset #24880070 active, no bypass actors; PR/status/deletion/non-fast-forward protections restored.
-- Main-owned `workflow_run` receiver exists but `MOSAIC_TRUSTED_PREVIEW_ENABLED` and alias switch are OFF/unprovisioned. Legacy untrusted branch pilot remains disabled on dev; no Vercel token granted to new unattended receiver.
+## Verified baseline
+- Owner's one-time Option B main bootstrap PR #772 merged `033e85ce8e78ef109dc15866a971ee0a0dba4b7c`; app version remains 0.17.4, main Quality Gate #38321997796 SUCCESS, Production Vercel `dpl_Enm5D8PdkgsTzVMvyfiaWRWkkv9K` READY, ruleset #24880070 restored and active with zero bypass actors.
+- Existing main receiver remains OFF/unprovisioned. Legacy unsafe pilot is hard-disabled on dev. No unattended deployment secret or alias switch enabled.
+- First safety Preview `fix/trusted-preview-shadow-safety-592-20261013@eee4966463e25a9fffb7001da0f3169e551bf1cf`: full Quality Gate #38322580282 SUCCESS and Git-hosted Scratch Vercel `dpl_7yPaxkxEbgkNgWKouBPucZ9Wpda3` READY. Draft main PR #775 unmerged; prior Option B approval applied only to #772.
 
-## Scope of current safety task
-- Keep repo's trusted source boundary, app, version, provider environments and branch promotion rules unchanged.
-- Add a third independent default-OFF hosted-creation switch. First authorized shadow must reuse an exact existing READY Preview or fail closed; never POST a new Vercel deployment accidentally.
-- Reject uncertain deployment target values in provider readback and unexpected POST responses. Add pure negative regression tests and update the trusted receiver runbook.
-- Do not permit new shadow credentials or alias changes on main before promotion of this verified guard and controlled environment review.
+## Current security refinement (no app/version change)
+- Pin setup-node to immutable official v4.4.0 commit verified via GitHub.
+- Require trusted main checkout still equals live main HEAD as well as workflow github.sha; fail stale main source.
+- Exclude historic CLI `HEAD` canaries from shadow reuse. Validate only official Git-hosted exact-branch, exact-SHA READY Preview.
+- Add regressions; keep separate default-OFF Vercel GitSource creation and alias flags. Do not deploy from this code while not present on main.
 
 ## Next action
-- Focused task CI, then squash into a main-based stable Preview for full canonical and normal Vercel READY. Do not merge another direct-main exception or enable any secret/flag on implied approval. #592 remains OPEN for provider Git link shape, exact-SHA/Scratch/idempotency/quota/CI-red shadow acceptance, alias handoff, branch generalization, regular audits and five-promotion sample.
+- Focused task CI, squash to existing #592 safety stable Preview, full canonical and Git Preview READY. Update #775 evidence. No additional main exception, credentials, Production or Appwrite mutation without separate required approvals. #592 still open for shadow credential provisioning and live negative trials, Preview-only provider contract/quotas, alias cutover and branch generalization.

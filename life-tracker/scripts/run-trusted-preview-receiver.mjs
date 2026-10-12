@@ -38,10 +38,11 @@ async function authorized(event) {
   const ref = TRUSTED_PREVIEW_BRANCH.split('/').map(encodeURIComponent).join('/');
   const gh = path => get('https://api.github.com/repos/' + repo + path,
     gitToken, 'GitHub acceptance');
-  const [runs, checks, branch] = await Promise.all([
+  const [runs, checks, branch, main] = await Promise.all([
     gh('/actions/runs?head_sha=' + sha + '&per_page=100'),
     gh('/commits/' + sha + '/check-runs?per_page=100'),
     gh('/git/ref/heads/' + ref),
+    gh('/git/ref/heads/main'),
   ]);
   if (!Array.isArray(runs.workflow_runs) || !Array.isArray(checks.check_runs) ||
       runs.total_count > 100 || checks.total_count > 100) {
@@ -56,7 +57,8 @@ async function authorized(event) {
   const verdict = assessTrustedPreviewTrigger({
     event, repository: process.env.GITHUB_REPOSITORY,
     eventName: process.env.GITHUB_EVENT_NAME, ref: process.env.GITHUB_REF,
-    checkoutSha, enabled: process.env.MOSAIC_TRUSTED_PREVIEW_ENABLED,
+    checkoutSha, mainHead: main.object?.sha,
+    enabled: process.env.MOSAIC_TRUSTED_PREVIEW_ENABLED,
     workflowRuns: runs.workflow_runs, checkRuns: checks.check_runs,
     branchHead: branch.object?.sha,
   });
@@ -79,7 +81,8 @@ async function findDeployment(sha, since) {
       const m = dep?.meta ?? {};
       return m.githubCommitSha === sha && m.githubOrg === 'carlers' &&
         m.githubRepo === 'mosaic-life-tracker' &&
-        [TRUSTED_PREVIEW_BRANCH, 'HEAD'].includes(m.githubCommitRef) &&
+        m.githubCommitRef === TRUSTED_PREVIEW_BRANCH &&
+        // Exclude older CLI canaries with ref HEAD, even at the same SHA.
         // Vercel LIST omits source and projectId even for genuine Git
         // deployments. The query is already project-scoped; FULL identity
         // and project/source are checked by getDeployment() before use.
