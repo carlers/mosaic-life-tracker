@@ -16,12 +16,14 @@ import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
-import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 
-const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
-  createPreloadedLazy(() =>
-    import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet)
-  );
+const LazyFriendCarouselSettingsSheet = React.lazy(() =>
+  import('../components/home/FriendCarouselSettingsSheet').then(
+    ({ FriendCarouselSettingsSheet }) => ({
+      default: FriendCarouselSettingsSheet,
+    })
+  )
+);
 
 const RENDER_WINDOW = 1;
 const INITIAL_RENDER_WINDOW = 0;
@@ -101,11 +103,9 @@ export const HomePage: React.FC = () => {
     if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
 
     const warm = () => {
-      if (document.visibilityState === 'visible') {
-        void loadDayViewSheet().then(preloadFriendSettings).catch(() => {
-          // Early sheet taps retain independent on-demand loading.
-        });
-      }
+      if (document.visibilityState === 'visible') void loadDayViewSheet().catch(() => {
+        // A warmup failure must not block the on-demand retry.
+      });
     };
     if (window.requestIdleCallback) {
       const id = window.requestIdleCallback(warm, { timeout: 1200 });
@@ -344,6 +344,7 @@ export const HomePage: React.FC = () => {
       </div>
 
       {settingsSheetMounted && (
+        <React.Suspense fallback={null}>
           <LazyFriendCarouselSettingsSheet
             isOpen={isSettingsOpen}
             onClose={handleCloseSettings}
@@ -354,6 +355,7 @@ export const HomePage: React.FC = () => {
             onToggleVisibility={toggleVisibility}
             onReset={resetOrder}
           />
+        </React.Suspense>
       )}
 
       {searchSelectedDate && (
