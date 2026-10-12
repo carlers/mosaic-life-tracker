@@ -4,9 +4,7 @@ import { getReadableTextColor } from '../../../constants/colors';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import type { TaskDocument } from '../../../db/schema';
-import type { IncompleteTaskBlockColorMode } from '../../../lib/preferences';
-
-export const IncompleteTaskBlockColorContext = React.createContext<IncompleteTaskBlockColorMode>('default');
+import { IncompleteTaskBlockColorContext } from '../../../hooks/incompleteTaskBlockColorContext';
 
 interface TaskBlockProps {
   task: TaskDocument;
