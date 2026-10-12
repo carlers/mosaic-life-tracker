@@ -77,7 +77,6 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   children,
 }) => {
   const dragControls = useDragControls();
-  const editPanelId = React.useId();
   const editPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -130,7 +129,6 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
           className="p-2 text-gray-400"
           aria-label="Edit category"
           aria-expanded={isEditing}
-          aria-controls={isEditing ? editPanelId : undefined}
         >
           <Pencil size={16} />
         </button>
@@ -145,7 +143,6 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
       </div>
       {isEditing && (
         <div
-          id={editPanelId}
           ref={editPanelRef}
           className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3"
         >
