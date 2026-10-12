@@ -37,7 +37,7 @@ function successExecution() {
   return {
     status: 'completed',
     responseStatusCode: 200,
-    responseBody: JSON.stringify({ ok: true }),
+    responseBody: JSON.stringify({ ok: true, threadId: 'th_test', recipientRowId: 'rmsg_test' }),
   };
 }
 
@@ -46,6 +46,8 @@ function messageDoc(userId: string, id: string) {
     id,
     userId,
     recipientId: userId === 'user_A' ? 'user_B' : 'user_A',
+    threadId: 'th_test',
+    deliveryStatus: 'pending',
     content: 'hello',
     taskRefId: '',
     taskRefTitle: '',
@@ -113,4 +115,56 @@ describe('message delivery account ownership', () => {
     });
     expect(createExecutionMock).toHaveBeenCalledTimes(2);
   });
+
+  it('refuses a misleading 200 without an authenticated delivery receipt', async () => {
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.__resetAccountWorkScopeForTests();
+    accountWork.scopeAccountWork('user_A');
+    const doc = messageDoc('user_A', 'msg_ghost');
+    getDatabaseMock.mockReturnValue({
+      messages: { find: () => ({ exec: async () => [doc] }) },
+    });
+    createExecutionMock.mockResolvedValue({
+      status: 'completed',
+      responseStatusCode: 200,
+      responseBody: '{}',
+    });
+    const { deliverPendingMessages } = await import('../../src/lib/messageDelivery');
+    await deliverPendingMessages('user_A');
+    expect(doc.patch).not.toHaveBeenCalled();
+  });
+
+  it('automatically retries a transient failed send with the same message ID', async () => {
+    vi.useFakeTimers();
+    try {
+      const accountWork = await import('../../src/lib/accountWorkScope');
+      accountWork.__resetAccountWorkScopeForTests();
+      accountWork.scopeAccountWork('user_A');
+      const doc = messageDoc('user_A', 'msg_retry');
+      let isPending = true;
+      doc.patch.mockImplementation(async () => { isPending = false; });
+      getDatabaseMock.mockReturnValue({
+        messages: {
+          find: () => ({
+            exec: async () => isPending ? [doc] : [],
+          }),
+        },
+      });
+      createExecutionMock
+        .mockRejectedValueOnce(Object.assign(new Error('Service unavailable'), { code: 503 }))
+        .mockResolvedValue(successExecution());
+      const { deliverPendingMessages } = await import('../../src/lib/messageDelivery');
+      await deliverPendingMessages('user_A');
+      expect(doc.patch).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(createExecutionMock).toHaveBeenCalledTimes(2);
+      expect(doc.patch).toHaveBeenCalledWith({ deliveryStatus: 'delivered' });
+      expect(createExecutionMock.mock.calls[0][0].body).toEqual(
+        createExecutionMock.mock.calls[1][0].body
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
 });
