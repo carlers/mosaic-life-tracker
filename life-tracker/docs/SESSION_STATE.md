@@ -7,7 +7,8 @@ Current task: #656 — audit/fix deferred first-open sheets, v0.20.5 task and st
 - Base: dev@a34fa945 (v0.20.4); task chatgpt/656-deferred-sheets-20261012; stable perf/deferred-first-open-656-20261012.
 - Scope: Home friend preferences + nested Day View Share/Link, using settled-component cache with post-usable code-only warmup and first-commit DOM regressions. Preserve all previously accepted #640/#656 fixes; no hidden sheet mounts or backend changes.
 - Reply composer currently mounts its lazy boundary while closed, so it is not a confirmed warm-first-action gap. Existing visible fallbacks (GIPHY, emoji, route preview and image viewer) remain intentionally untouched; collect timing data before other changes.
-- Proposed version 0.20.5, three startup-sensitive size limits unchanged. Pending: focused [verify:focused] → stable Preview squash → canonical + exact GIPHY Scratch Vercel seven-budget verification → device acceptance; no dev/main merge.
+- Proposed version 0.20.5, three startup-sensitive size limits unchanged.
+Next action: focused [verify:focused] → stable Preview squash → canonical + exact GIPHY Scratch Vercel seven-budget verification → device acceptance; no dev/main merge.
 
 ## #656 first-open Menu/friend-day Preview repair
 - Additional real-path root cause in FriendDayViewSheet: the lazy photo viewer was always rendered (isOpen=false) and suspended to a full-screen spinner on first friend sheet mount, even when no photo was tapped. Guard its lazy instantiation by isImageViewerOpen; retain the original requested-photo fallback and ensure image view still opens. Add regression asserting no image-viewer module load/overlay on ordinary first-open, plus async photo open coverage. Follow up with task focused and exact-source full Preview gate at same v0.20.4. No changed acceptance scope.
