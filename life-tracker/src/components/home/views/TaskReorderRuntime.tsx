@@ -1,11 +1,11 @@
 import React from 'react';
 import { DragDropProvider, DragOverlay } from '@dnd-kit/react';
+import { LayoutGroup } from 'framer-motion';
 import {
   PointerActivationConstraints,
   PointerSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
-import { BookOpenText } from 'lucide-react';
 import { placementFromTaskDrop, type DiaryPlacement } from '../../../lib/diaryPlacement';
 import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
@@ -84,6 +84,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const [diaryDragging, setDiaryDragging] = React.useState(false);
   const [diaryPreviewPlacement, setDiaryPreviewPlacement] = React.useState<DiaryPlacement | null>(null);
   const [diaryDragHeight, setDiaryDragHeight] = React.useState(48);
+  const [committedDiaryPlacement, setCommittedDiaryPlacement] = React.useState<DiaryPlacement | null>(null);
   const diaryDragRef = React.useRef(false);
   const [activeSharedDrag, setActiveSharedDrag] = React.useState<SharedTaskItem | null>(null);
   const commitIdRef = React.useRef(0);
@@ -133,6 +134,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
         diaryTargetRef.current = null;
         setDiaryPreviewPlacement(null);
+        setCommittedDiaryPlacement(null);
         setDiaryDragHeight(Math.max(24, source.element?.getBoundingClientRect().height ?? 48));
         diaryDragRef.current = true;
         setDiaryDragging(true);
@@ -265,7 +267,23 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         setDiaryDragging(false);
         setDiaryPreviewPlacement(null);
         if (!event.canceled && location && props.onMoveDiary) {
-          void Promise.resolve(props.onMoveDiary(location)).catch(error => props.onSharedMoveError?.(error));
+          // Keep the committed geometry while the local-first write propagates.
+          // A rejected write restores the previous placement.
+          setCommittedDiaryPlacement(location);
+          void Promise.resolve()
+            .then(() => props.onMoveDiary?.(location))
+            .then(() => {
+              window.requestAnimationFrame(() => {
+                setCommittedDiaryPlacement(current =>
+                  current && JSON.stringify(current) === JSON.stringify(location)
+                    ? null : current
+                );
+              });
+            })
+            .catch(error => {
+              setCommittedDiaryPlacement(null);
+              props.onSharedMoveError?.(error);
+            });
         }
         return;
       }
@@ -376,8 +394,10 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
+      <LayoutGroup>
       <DaySlideContent
         {...props}
+        diaryPlacement={committedDiaryPlacement ?? props.diaryPlacement}
         tasksByCategory={tasksByCategory}
         activeSharedDragId={activeSharedDrag?.id ?? null}
         activeDrag={activeDrag}
@@ -385,8 +405,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         diaryProjectedPlacement={diaryPreviewPlacement}
         diaryDragHeight={diaryDragHeight}
       />
+      </LayoutGroup>
       <DragOverlay dropAnimation={null}>
-        {diaryDragging && <div aria-hidden="true" className="flex items-center gap-3 rounded-xl bg-surfaceHighlight px-4 py-3 text-sm text-white"><BookOpenText size={19}/> Diary entry</div>}
         {activeSharedDrag && (
           <SharedTaskDragOverlay item={activeSharedDrag}
             color={categoryById.get(props.sharedCategoryFor?.(activeSharedDrag) || '')?.color || '#6B7280'} />

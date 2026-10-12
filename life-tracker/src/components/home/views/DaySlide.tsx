@@ -77,6 +77,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 
   return (
     <TaskReorderRuntime
+      key={`${props.currentUserId}:${props.dateStr}`}
       {...sharedProps}
       reorderRuntimeActive
       categoryIds={categoryIds}

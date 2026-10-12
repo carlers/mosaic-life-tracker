@@ -17,3 +17,31 @@ Run this on the stable Preview using a real touch device, with at least two popu
 13. Repeat in inline Todo Day View and with reduced motion enabled.
 
 Record device/OS/browser and any failed step with a short screen recording.
+
+## Diary and mixed-height drag acceptance (#408)
+
+In the v0.25.2 Scratch Preview, enable **Show diary in Day View** and use both
+Compact and Expanded diary block-height settings, including a multiline entry
+with emoji and photos.
+
+1. Long-press each diary block for 500ms. The **actual full diary card** follows
+   the pointer/finger with its rendered height, content, emoji and photos. There
+   must be no generic "Diary entry" chip and no faded visible original.
+2. Drag over the first/last boundary and before/after tasks in short, tall, empty,
+   and collapsed categories. Neighboring blocks glide to accommodate the
+   insertion space *during* hover, not just on pointer release. The carried card
+   must follow the finger without easing/lag.
+3. Release in a valid location, outside the list, and cancel with Escape/pointer
+   cancellation. Every diary/task block is fully visible and tappable afterward.
+   Reorder the same items several times without a refresh.
+4. Repeat with a normal short/long task, and with cross-category task drops.
+   Verify task titles, category assignment, ordering and diary placement
+   persist after close/reopen and reload.
+5. Repeat in Calendar Day View and Todo inline Day View, on mouse, real touch
+   device and trackpad. Verify scrolling before long-press, auto-scroll while
+   dragging, category collapse, reduced-motion and rapid day/account switches.
+6. Recheck diary single-tap read and double-tap edit; reply/reaction/social
+   workflows are out of scope for this frontend-only change.
+
+Manual/device acceptance is separate from automated test success. Record the
+device/browser and a short capture for any remaining reflow or visibility defect.

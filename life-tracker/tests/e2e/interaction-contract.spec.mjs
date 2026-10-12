@@ -734,6 +734,25 @@ test('task long-press stays under the finger while siblings reorder, then persis
       (rows) => rows.map((row) => row.getAttribute('data-task-id'))
     ))
     .toEqual(['task_0_1', 'task_0_2', 'task_0_0']);
+
+  // Regression: releasing or canceling a drag may not strand a hidden source.
+  const visibleAtRest = async () => region.locator('[data-task-id^="task_0_"]')
+    .evaluateAll((rows) => rows.length === 3 && rows.every((row) => {
+      const rect = row.getBoundingClientRect();
+      const style = getComputedStyle(row);
+      return rect.width > 0 && rect.height > 0 &&
+        style.visibility !== 'hidden' && Number(style.opacity) > 0;
+    }));
+  await expect(region.locator('[data-task-source-slot="true"]')).toHaveCount(0);
+  await expect.poll(visibleAtRest).toBe(true);
+
+  const cancelTarget = region.locator('[data-task-id="task_0_1"]')
+    .getByRole('button', { name: 'Task 1.2', exact: true });
+  const canceled = await startTaskLongPress(page, cancelTarget);
+  await expect(region.locator('[data-task-source-slot="true"]')).toHaveCount(1);
+  await canceled.cancel();
+  await expect(region.locator('[data-task-source-slot="true"]')).toHaveCount(0);
+  await expect.poll(visibleAtRest).toBe(true);
 });
 
 test('task can move into another populated category at the projected position', async ({ page }) => {
@@ -796,6 +815,10 @@ test('category header and first-row boundary share one stable insertion slot', a
 
   const gap = targetCategory.locator('[data-task-drop-gap="true"]');
   await expect(gap).toHaveCount(1);
+  // Layout projections animate; compare settled insertion geometry rather than
+  // sampling in the middle of the previous 200ms layout transition.
+  await waitForStableVerticalPosition(gap);
+  await waitForStableVerticalPosition(firstTarget);
   const gapAtHeader = await gap.boundingBox();
   const firstAtHeader = await firstTarget.boundingBox();
   if (!gapAtHeader || !firstAtHeader) {
@@ -807,7 +830,8 @@ test('category header and first-row boundary share one stable insertion slot', a
     firstAtHeader.x + firstAtHeader.width * 0.5,
     firstAtHeader.y + Math.min(4, firstAtHeader.height * 0.1)
   );
-  await page.waitForTimeout(80);
+  await waitForStableVerticalPosition(gap);
+  await waitForStableVerticalPosition(firstTarget);
 
   const gapAtFirstRow = await gap.boundingBox();
   const firstAtFirstRow = await firstTarget.boundingBox();
@@ -823,7 +847,8 @@ test('category header and first-row boundary share one stable insertion slot', a
     gapAtFirstRow.x + gapAtFirstRow.width * 0.5,
     gapAtFirstRow.y + gapAtFirstRow.height * 0.5
   );
-  await page.waitForTimeout(120);
+  await waitForStableVerticalPosition(gap);
+  await waitForStableVerticalPosition(firstTarget);
 
   const gapUnderFinger = await gap.boundingBox();
   const firstUnderFinger = await firstTarget.boundingBox();
@@ -944,14 +969,19 @@ test('task can drop into an empty category from its category surface', async ({ 
     name: 'Add a task to Category 3',
   });
   await source.scrollIntoViewIfNeeded();
+  const gesture = await startTaskLongPress(page, title);
+  // Starting the drag shifts task/category geometry while the new insertion
+  // space animates. Target the visible header *after* it has settled.
+  await waitForStableVerticalPosition(emptyHeader);
   const headerBox = await emptyHeader.boundingBox();
   if (!headerBox) throw new Error('Missing empty-category bounds');
-
-  const gesture = await startTaskLongPress(page, title);
   await gesture.moveTo(
     headerBox.x + headerBox.width * 0.5,
     headerBox.y + headerBox.height * 0.5
   );
+  // Validate the intended category actually has the projected opening before
+  // release, rather than only asserting an optimistic persistence callback.
+  await expect(emptyCategory.locator('[data-task-drop-gap="true"]')).toHaveCount(1);
   await gesture.finish();
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(

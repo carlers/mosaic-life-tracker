@@ -198,8 +198,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     };
 
     tasks.forEach((task, index) => {
-      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(<motion.div key="diary-slot" layout={animatePositions ? 'position' : false}>{diarySlot}</motion.div>);
-      if (diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex)) rows.push(<motion.div key="diary-preview-gap" layout={animatePositions ? 'position' : false}>{diaryGhostSlot}</motion.div>);
+      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(<motion.div key="diary-slot" layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>{diarySlot}</motion.div>);
+      if (diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex)) rows.push(<motion.div key="diary-preview-gap" layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>{diaryGhostSlot}</motion.div>);
       const isActiveSource = task.id === activeDragTaskId;
 
       if (!isActiveSource && clampedGapIndex === visibleIndex) {
@@ -226,8 +226,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     if (clampedGapIndex === visibleIndex) {
       pushGap();
     }
-    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(<motion.div key="diary-slot" layout={animatePositions ? 'position' : false}>{diarySlot}</motion.div>);
-    if (diaryGhostSlot && diaryGhostSlotIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={animatePositions ? 'position' : false}>{diaryGhostSlot}</motion.div>);
+    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(<motion.div key="diary-slot" layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>{diarySlot}</motion.div>);
+    if (diaryGhostSlot && diaryGhostSlotIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>{diaryGhostSlot}</motion.div>);
     return rows;
   };
 
@@ -347,7 +347,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   );
 
   return (
-    <motion.div layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.17 } }} className="mb-4" data-task-category-id={categoryId}>
+    <motion.div layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }} className="mb-4" data-task-category-id={categoryId}>
       {contents}
     </motion.div>
   );

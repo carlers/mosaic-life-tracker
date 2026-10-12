@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
 import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
@@ -134,7 +135,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
     ? diaryPlacement : { kind: 'top' };
   const showDiaryGhost = diaryEnabled && diaryDragging && diaryProjectedPlacement &&
     JSON.stringify(diaryProjectedPlacement) !== JSON.stringify(fallbackPlacement);
-  const diaryGhost = showDiaryGhost ? <div data-diary-drag-gap="true" aria-hidden="true" style={{ height: diaryDragHeight }} /> : null;
+  const diaryGhost = showDiaryGhost ? <motion.div layout="position" transition={{ layout: { duration: 0.2, ease: 'easeOut' } }} data-diary-drag-gap="true" aria-hidden="true" style={{ height: diaryDragHeight }} /> : null;
   const diaryCard = diaryEnabled ? (reorderRuntimeActive ? <DraggableDiaryDayPreview date={dateStr}/> : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr}/></React.Suspense>) : null;
   const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
   const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
@@ -157,7 +158,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   };
 
   return (
-    <div
+    <motion.div
+      layoutScroll={scrollMode === 'contained' && reorderRuntimeActive}
       className={
         scrollMode === 'contained'
           ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-2 pb-8'
@@ -169,7 +171,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       }
     >
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="top" active={diaryDragging}/>}
-      {diaryEnabled && fallbackPlacement.kind === 'top' && <div style={{ opacity: diaryDragging ? 0.2 : 1 }}>{diaryCard}</div>}
+      {diaryEnabled && fallbackPlacement.kind === 'top' && <motion.div layout="position">{diaryCard}</motion.div>}
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
       {categories.map((category) => (
         <CategorySection
@@ -177,10 +179,10 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           categoryId={category.id}
           categoryName={category.name}
           categoryColor={category.color}
-          diarySlot={diaryEnabled && fallbackPlacement.kind === 'slot' && fallbackPlacement.categoryId === category.id ? <div style={{ opacity: diaryDragging ? 0.2 : 1 }}>{diaryCard}</div> : undefined}
+          diarySlot={diaryEnabled && fallbackPlacement.kind === 'slot' && fallbackPlacement.categoryId === category.id ? diaryCard : undefined}
           diaryGhostSlot={showDiaryGhost && diaryProjectedPlacement?.kind === 'slot' && diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
           diaryGhostSlotIndex={diaryProjectedPlacement?.kind === 'slot' ? diaryProjectedPlacement.index : 0}
-          animateDragProjection={Boolean(activeDrag || diaryDragging)}
+          animateDragProjection={reorderRuntimeActive}
           diarySlotIndex={fallbackPlacement.kind === 'slot' ? fallbackPlacement.index : 0}
           visibility={category.visibility}
           currentUserId={currentUserId}
@@ -221,7 +223,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         />
       ))}
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'bottom' && diaryGhost}
-      {diaryEnabled && fallbackPlacement.kind === 'bottom' && <div style={{ opacity: diaryDragging ? 0.2 : 1 }}>{diaryCard}</div>}
+      {diaryEnabled && fallbackPlacement.kind === 'bottom' && <motion.div layout="position">{diaryCard}</motion.div>}
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="bottom" active={diaryDragging}/>}
       {!selectionMode && unassignedShares.length > 0 &&
         onSharedCompletion && sharedPendingFor && (
@@ -232,6 +234,6 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           selectedItem={selectedSharedTask} actionsOnly
           onSheetOpenChange={onSharedSheetOpenChange} />
       )}
-    </div>
+    </motion.div>
   );
 };
