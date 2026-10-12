@@ -34,7 +34,7 @@ export const CategoryHeaderDropSurface: React.FC<{
   const { ref } = useDroppable({
     id: categoryStartDropId(categoryId),
     type: 'task-category',
-    accept: 'task',
+    accept: ['task', 'diary'],
     collisionPriority: CollisionPriority.Low,
   });
 
@@ -53,7 +53,7 @@ export const TaskGapDropSurface: React.FC<{
   const { ref } = useDroppable({
     id: taskGapDropId(categoryId, index),
     type: 'task-insert',
-    accept: 'task',
+    accept: ['task', 'diary'],
     collisionPriority: CollisionPriority.Normal,
   });
 
@@ -81,14 +81,14 @@ export const TaskRowDropSurface: React.FC<{
   const { ref: beforeRef } = useDroppable({
     id: taskInsertDropId(categoryId, taskId, 'before'),
     type: 'task-insert',
-    accept: 'task',
+    accept: ['task', 'diary'],
     collisionPriority: CollisionPriority.High,
     disabled: isActiveSource,
   });
   const { ref: afterRef } = useDroppable({
     id: taskInsertDropId(categoryId, taskId, 'after'),
     type: 'task-insert',
-    accept: 'task',
+    accept: ['task', 'diary'],
     collisionPriority: CollisionPriority.High,
     disabled: isActiveSource,
   });
@@ -134,4 +134,17 @@ export const TaskRowDropSurface: React.FC<{
       {children}
     </div>
   );
+};
+
+/** Dedicated diary-only day boundaries, never intercept a normal task drag. */
+export const DiaryBoundaryDropSurface: React.FC<{ position: 'top' | 'bottom'; active: boolean }> = ({ position, active }) => {
+  const { ref } = useDroppable({
+    id: `diary-boundary:${position}`,
+    type: 'diary-boundary',
+    accept: 'diary',
+    disabled: !active,
+    collisionPriority: CollisionPriority.High,
+  });
+  return <div ref={ref} aria-hidden="true" data-diary-drop-boundary={position}
+    style={{ height: active ? 16 : 0, pointerEvents: 'none' }}/>;
 };

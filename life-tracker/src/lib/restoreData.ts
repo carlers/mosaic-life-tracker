@@ -750,6 +750,9 @@ async function restoreImages(
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
   const publicImageIds = new Set(data.tasks.map(t => t.image).filter(Boolean));
+  for (const setting of data.settings) {
+    if (setting.key === 'profileImageId' && setting.value) publicImageIds.add(setting.value);
+  }
   if (ids.length === 0) return { restored: 0, missing: 0 };
 
   const remapped = new Map<string, string>();

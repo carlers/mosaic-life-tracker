@@ -7,6 +7,7 @@ import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOr
 import type { DiaryPlacement } from '../../../lib/diaryPlacement';
 import { DiaryDayPreview } from './DiaryDayPreview';
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
+import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
 import {
   findTaskCategory,
   type ActiveTaskDrag,
@@ -64,6 +65,7 @@ export interface DaySlideProps {
   diaryEnabled?: boolean;
   diaryPlacement?: DiaryPlacement;
   onMoveDiary?: (target: DiaryPlacement) => Promise<void> | void;
+  diaryDragging?: boolean;
 }
 
 interface DaySlideContentProps extends DaySlideProps {
@@ -112,6 +114,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   activeDrag,
   diaryEnabled = false,
   diaryPlacement = { kind: 'top' },
+  diaryDragging = false,
 }) => {
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
@@ -157,6 +160,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         reorderRuntimeActive ? 'true' : undefined
       }
     >
+      {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="top" active={diaryDragging}/>}
       {diaryEnabled && fallbackPlacement.kind === 'top' && diaryCard}
       {categories.map((category) => (
         <CategorySection
@@ -205,6 +209,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         />
       ))}
       {diaryEnabled && fallbackPlacement.kind === 'bottom' && diaryCard}
+      {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="bottom" active={diaryDragging}/>}
       {!selectionMode && unassignedShares.length > 0 &&
         onSharedCompletion && sharedPendingFor && (
         <SharedTaskRows items={unassignedShares} {...sharedRowProps} />
