@@ -14,6 +14,7 @@ export const ACCOUNT_ERASURE_POLICY = {
     },
     categories: { kind: 'owned', ownerField: 'user_id' },
     diary: { kind: 'owned', ownerField: 'user_id' },
+    diary_reactions: { kind: 'cross_reference', fields: ['owner_id', 'user_id'] },
     settings: {
       kind: 'owned',
       ownerField: 'user_id',
