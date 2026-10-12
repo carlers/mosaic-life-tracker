@@ -73,7 +73,7 @@ async function projectActivity(db, receipt, callerId) {
     const [mine, peer] = await Promise.all([row(db,'friendships',id),row(db,'friendships',peerId)]);
     if (!mine || !peer || mine.deleted || peer.deleted ||
         mine.status !== 'pending_incoming' || peer.status !== 'pending_outgoing' ||
-        mine.$id !== targetId) return null;
+        mine.$id !== targetId || mine.updated_at !== receipt.completed_at) return null;
     actorName = mine.friend_display_name || mine.friend_username || 'Friend';
     destination = '/explore';
   } else {
@@ -81,6 +81,8 @@ async function projectActivity(db, receipt, callerId) {
     const friendship = await row(db,'friendships','fr_' + sha(callerId + '|' + actorId).slice(0,32));
     actorName = friendship?.friend_display_name || friendship?.friend_username || 'Friend';
     if (type === 'friend_accepted') {
+      const friendshipOfRecipient = await row(db,'friendships','fr_' + sha(callerId + '|' + actorId).slice(0,32));
+      if (!friendshipOfRecipient || friendshipOfRecipient.updated_at !== receipt.completed_at) return null;
       destination = '/friends/' + actorId;
     } else if (type === 'direct_message' || type === 'message_reaction') {
       const message = await row(db, 'messages', targetId);
