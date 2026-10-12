@@ -349,13 +349,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
       - name: Restore app dependencies from focused cache
         id: build-app-modules-cache
         uses: actions/cache@v4
         with:
           path: life-tracker/node_modules
-          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
+          key: ${{ runner.os }}-node24-build-modules-${{ hashFiles('life-tracker/package-lock.json') }}
       - name: Install app dependencies on cache miss
         if: steps.build-app-modules-cache.outputs.cache-hit != 'true'
         run: npm ci --prefer-offline --no-audit

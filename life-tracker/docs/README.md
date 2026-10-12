@@ -71,6 +71,7 @@ authorization, Scratch checks, or release gates.
 | [Build-vs-reuse audit](BUILD_VS_REUSE_AUDIT.md) | Completed architectural tradeoff evidence; reassess against current code |
 | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) | Human mobile gesture checklist; not an automated test result |
 | [Workflow telemetry](WORKFLOW_TELEMETRY.md) | Optional local-only measurement protocol, not a required gate |
+| [Build parity diagnostics](BUILD_PARITY_DIAGNOSTICS.md) | Sanitized GitHub/Vercel exact-SHA size comparison and acceptance steps for #592 |
 
 **Ownership rule:** Specialist runbooks contain unique safety and operational contracts;
 the [project reference](PROJECT_REFERENCE.md) owns stable product/architecture invariants;
