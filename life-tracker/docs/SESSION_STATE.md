@@ -1,17 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: fix signed-out hosted deep-link navigation, v0.20.6 Preview only. No dev/main promotion.
+Current task: #708 — chat delivery reliability and recovery, implementation on isolated task branch. No dev/main or Production promotion.
 
-## Direct deep links on Vercel
-- Base: dev@dbde9515ecb611082f191d39e5ef71cfcecde3bc (v0.20.5). Task: `chatgpt/signed-out-deep-links-20261012`; intended stable Preview: `fix/signed-out-deep-links-20261012`.
-- Root cause: `vercel.json` had only `/settings` and no nested Settings rewrite, so refreshing `/settings/notifications` failed at hosting before `AppLayout` could redirect signed-out users to `/login`.
-- Scope: add explicit nested Settings and Bucket List rewrites plus public password-reset rewrite; keep static assets outside SPA fallback. Unknown `/settings/*` children resolve through the guarded shell to Settings for signed-in users and login for signed-out users. Preserve confirmed-auth vs offline-cached identity behavior.
-- Patch Preview candidate: 0.20.6. Regression: `tests/unit/hostedProtectedRoutes.test.ts` covers all registered protected routes, public routes and no global catch-all.
-- Preview v0.20.6 first stable commit 53d65421: canonical Quality Gate 38236704514 SUCCESS, Vercel deployment dpl_3EoBTGtRq4xwnrXXV3GXNyaaFMvW ERROR in size guard (initialClosureGzipBytes +4 B, entryRawBytes +70 B with GIPHY enabled). No budget relaxations authorized.
-- Repair: reuse existing typed route helper contract with shorter equivalent accessors to reduce entry and initial closure bytes, without changing page behavior, size caps, or Preview version.
-Next action: repair task focused CI `[verify:focused]` → squash into stable Preview → canonical acceptance + Vercel READY → browser/device signed-out direct-link checks on registered Preview alias. Do not merge to dev/main without approval.
+## Issue #708 first implementation batch
+- Baseline: `dev@b878519bd52da16368b5da2b407f82f326ab2683` (v0.20.6). Task branch `chatgpt/708-message-reliability-20261012`; intended stable Preview `fix/chat-reliability-708-20261012`. GitHub issue #708 contains the hardened investigation and full acceptance plan.
+- Initial code: trusted `message-action/deliver` refuses unverified getRow, conflicting/deleted/unsent pair state, and now returns retryable failure instead of falsely acknowledging failed sender creation. Uses createRow on new rows, preserves deterministic pair IDs, emits explicit messageId on success.
+- Client now validates the `deliver` Function acknowledgment, retries transient pending sends with bounded exponential timers, preserves compose drafts if local insert fails, and blocks duplicate submit while persistence is pending.
+- Chat header has an explicit Sync chat now control. It attempts pending delivery, awaits existing global `syncNow` freshness/reconciliation, and reports success/error without claiming peer-pair proof. Full reconciliation preserves an orphaned delivered outgoing message instead of silently tombstoning the sender's only local copy; it reports incomplete verification.
+- Automated regression additions: partial sender create failure, non-404 backend read failure, unsent peer non-resurrection, partial retry, invalid delivery receipt, transient retry, compose insert error/double-send, and local orphan protection.
+- User-facing Preview candidate: v0.24.0 (active concurrent feature lines include 0.21.0, 0.22.0, 0.23.1; recheck at promotion). Three standard version files updated.
+- Scratch Appwrite observed read-only: `message-action` Function `6aa8057f002a4c306fdd` deployment `6accb9addc5321121ebb` active 2026-10-12; this code is **not deployed** there. Shared Scratch has concurrent Preview owners. No Scratch schema, Function, Vercel, or Production mutations performed.
 
-## Prior integration
-- #656 first-open sheet fixes were integrated into dev as v0.20.5 at dbde9515. Follow issue #656 and merged PR history for complete verification and acceptance details.
-- #645 source map/index remains a separate discovery workstream. Preserve accepted #640 cold-open Day View behavior, #655 PWA behavior, and all unrelated features.
+## Remaining / gates
+- Run focused CI at task SHA and repair failures; review behavior and performance costs, then squash into stable Preview for canonical CI/Vercel checks if safe.
+- Backend-dependent Scratch deployment requires exact-SHA build and coordinated exclusive Function activation after existing Preview requirements are reviewed; do not activate an out-of-date Function or modify Production.
+- Full #708 remains open: server peer-pair audit/repair for older partial histories, cross-device convergence/latency measurements, permanent-denial UX, reconnect/performance diagnostics, disposable-account and actual mobile browser acceptance. Do not claim global pair convergence from client-only Sync Now.
+- #682 notification expansion stays deferred.
+
+Next action: finish focused verification of this batch. If green, inspect and repair confirmed remaining gaps before stable Preview handoff. Do not merge to dev/main absent user approval.
