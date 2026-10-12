@@ -1,23 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: #692 mobile Calendar zoom — accepted Preview integration into dev.
-Latest integration base: dev@e714c3325a238ea9da0efaf8ed6ea97665b619cb (v0.20.7).
-Accepted feature: feature/calendar-zoom-692-20261012@b70bda97583d1b421512ac8a5b20fa6c1aea694a (v0.23.3).
-Working task: chatgpt/692-dev-integration-current-20261012.
-Proposed unique combined Preview: feature/calendar-zoom-692-dev-integration-20261012 (v0.23.4).
+Current task: #708 chat reliability v0.24.1; user accepted tested Preview, authorized dev merge. Main and Production are not approved.
 
-## Integration scope
-- Preserve all dev-only v0.20.6 hosted deep-link routing, Vercel rewrites and tests and v0.20.7 first-open Categories warmup on Menu/Me with their tests. Preserve the dev #656 entry-raw reviewed ceiling of 446208 and prior budget provenance.
-- Carry exactly the accepted #692 zoom functionality into owner/friend Home calendars: user-synced 7/4/3 days, native finger/trackpad/mouse scroll with day snapping, next/previous month handoff at opposite edges, rapid repeat swipes, accessible keyboard behavior and default 7-day layout.
-- Build-size record merges accepted dev #656 and zoom #692 reviews; only Home/aggregate size ceilings inherit documented #692 measured Preview limits. Fresh combined SHA must pass every guard; do not relax absent new measurements.
-- Small cleanup of React Hook exhaustive-deps warning for CalendarZoomViewport scrollend handler. No #404 split panel, diary or unrelated feature work. No Appwrite schema/Function or Production changes.
+## Accepted chat fix
+- Stable chat Preview `fix/chat-reliability-708-20261012@473fdd50485db63db4d89806b1ae81b5e7f59e6f` (v0.24.1), PRs #735/#742. Canonical Quality Gate `38254189770` SUCCESS, Vercel `dpl_DbWahM5WCRgM3YTJGt2Mop5G9dYi` READY, stable alias `mosaic-life-tracker-git-fix-chat-9dae4d-carls-projects-72516fde.vercel.app`.
+- Delivery commit/ack is fail-closed if sender/recipient server rows are not committed; pending transient sends retry; composer draft preserved on local failure; duplicate tap guarded; global Sync Now preserves local outgoing message if server copy missing.
+- Manual chat Sync uses one bounded, authorized Scratch `repair_thread_all` Function request to scan two owner snapshots; validates identity, friendship, conflict/unsend/deletion, source state and 409 idempotence. Then awaits the global sync freshness barrier, reporting incomplete on failure. Handler, unit, DOM and browser contracts green.
+- Live Scratch project `6a96e82d000d1310b3be`, `message-action` Function `6aa8057f002a4c306fdd`, compatible Diary-preserving commit `8c5afc787dca7a4c8d214f0b24a0e82991fd5f71`, deployment `6accddcbede4ccb26900` active/ready in last verified read, with earlier `6accda8b417b8d3be755` retained for rollback. Focused Scratch integration CI `38254354983` SUCCESS; nonfriend smoke rejected 403. Never replace concurrent Diary Function with older chat-only Git code.
+- User confirmed the Preview works on 2026-10-12. This is user acceptance, not independent device-performance instrumentation or comprehensive matrix certification. Issue #708 records the release history and known limits.
 
-## Delivery gate
-Next action: focused CI [verify:focused] on integrated v0.23.4 task, repair failures, squash into stable integration Preview and verify exact-SHA canonical Quality Gate (unit/DOM/browser/dependencies/build/PWA/seven budgets) and Scratch/GIPHY Vercel READY. Then create explicitly approved stable integration Preview → dev PR and merge with previous dev SHA as first parent, an identical accepted source tree and successful canonical-acceptance check. Verify exact dev CI and Vercel staging deployment; never touch main.
-User manually accepted original #692 gestures; no new physical-device check is claimed by agent. Keep #692 open until integration verification and documented release boundary.
+## Dev integration
+- Approved `dev@d9d2cc1f3650889c30c43478d90e6519524c851e` (v0.23.4) has newer #692 calendar interactions and #656 warmups. Direct #708 stable→dev PR #744 is **conflicting**, so build a new integrated Preview from exact dev tree, carry forward all 17 #708-specific paths, preserve every dev-only path and its reviewed #692/#656 size ceilings. Candidate v0.24.1 is greater than dev v0.23.4.
+- Combined budget keeps current dev limits and adds #708's measured earlier Preview review to `priorReviews` for audit history. The #692 dev limits already exceed all three of #708's reviewed aggregate limits; no new increase is assumed. Canonical and hosted build must independently pass the resulting combined tree.
+- Preserve chat and calendar UI behavior, no unrelated refactors. Use focused task branch→integrated `fix/*` Preview→canonical CI+Vercel READY→accepted Preview PR into dev. Verify actual PR tree and new dev CI and deployed dev Vercel; never merge `main` or touch Production.
+- Further hardening (fine-grained permanent-denial UI, historical one-copy absence without a safe source, latency measurements) remains tracked as limitations/follow-up; do not claim measured before/after latency.
 
-## Exact combined Preview budget review
-- Integration Preview 5d049204 (v0.23.4) compiled, PWA policy passed, all static/size metrics except initialClosureGzipBytes 146051/146050 B (+1) and appAssetsGzipBytes 767025/767000 B (+25). Five other limits pass.
-- Separate focused task chatgpt/692-dev-integration-budget-20261012 narrowly reviews these two real combined-tree deltas, preserving previous #692 and #656 measured reviews and all other ceilings. No source behavior changes.
-Next action: focused task CI then repair squash into the same stable integration Preview, verify exact canonical and Scratch Vercel READY before approved dev merge. Do not merge main.
+Next action: verify exact integrated Preview tree, canonical GitHub CI and hosted Vercel budgets; repair measured failures, then merge the integration branch into dev on user approval already granted and record #708 status.

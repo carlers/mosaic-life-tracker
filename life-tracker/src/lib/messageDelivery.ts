@@ -17,6 +17,23 @@ import {
 const DEBUG = import.meta.env.DEV;
 export const MESSAGE_ACTION_FUNCTION_ID = APPWRITE_MESSAGE_ACTION_FUNCTION_ID;
 const MAX_DELIVERY_LOOPS = 5;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
+let retryDelay = 5_000;
+let retryGeneration = -1;
+function clearDeliveryRetry() {
+  clearTimeout(retryTimer);
+  retryTimer = undefined;
+  retryDelay = 5_000;
+}
+function scheduleDeliveryRetry(userId: string, generation: number) {
+  if (retryTimer) return;
+  retryTimer = setTimeout(() => {
+    retryTimer = undefined;
+    if (isAccountWorkCurrent(userId, generation))
+      void deliverPendingMessages(userId);
+  }, retryDelay);
+  retryDelay = Math.min(retryDelay * 2, 60_000);
+}
 let inFlightDeliveryPromise: Promise<void> | null = null;
 let inFlightDeliveryUserId: string | null = null;
 let inFlightDeliveryGeneration: number | null = null;
@@ -27,19 +44,16 @@ export { flushMessageActionQueue };
 function shouldQueueMessageAction(err: unknown): boolean {
   if (isUnauthorizedError(err)) return false;
   const code = (err as { code?: number } | null)?.code;
-  // No numeric code = network error, timeout, or offline: transient.
-  if (typeof code !== 'number') return true;
-  // 429: transient.
-  if (code === 429) return true;
-  // 5xx: transient.
-  if (code >= 500) return true;
-  // Any other 4xx: permanent. Retrying will not help.
-  return false;
+  return typeof code !== 'number' || code === 429 || code >= 500;
 }
 export async function deliverPendingMessages(userId: string): Promise<void> {
   if (!userId) return;
   const generation = captureAccountWorkGeneration(userId);
   if (generation === null) return;
+  if (retryGeneration !== generation) {
+    clearDeliveryRetry();
+    retryGeneration = generation;
+  }
 
   flushMessageActionQueue(userId).catch((err) => {
     if (DEBUG) {
@@ -82,39 +96,22 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
         if (!isAccountWorkCurrent(userId, generation)) break;
         loopCount++;
         if (loopCount > MAX_DELIVERY_LOOPS) {
-          console.warn(
-            `[messageDelivery] delivery loop hit cap (${MAX_DELIVERY_LOOPS}); breaking`
-          );
+          console.warn('Chat send limit');
           break;
         }
         deliveryRequestedDuringFlight = false;
-        let db;
-        try {
-          db = getDatabase();
-        } catch (err) {
-          console.error(
-            '[messageDelivery] delivery cycle failed (db):',
-            err
-          );
-          break;
-        }
         let pending;
         try {
-          pending = await db.messages
-            .find({
-              selector: {
-                userId,
-                direction: 'outgoing',
-                deliveryStatus: 'pending',
-                isDeleted: false,
-              },
-            })
-            .exec();
+          pending = await getDatabase().messages.find({
+            selector: {
+              userId,
+              direction: 'outgoing',
+              deliveryStatus: 'pending',
+              isDeleted: false,
+            },
+          }).exec();
         } catch (err) {
-          console.error(
-            '[messageDelivery] delivery cycle failed (query):',
-            err
-          );
+          console.error(err);
           break;
         }
         if (!isAccountWorkCurrent(userId, generation)) break;
@@ -123,6 +120,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             `[messageDelivery] ${pending.length} pending message(s)`
           );
         }
+        if (pending.length === 0) clearDeliveryRetry();
         for (const doc of pending) {
           if (!isAccountWorkCurrent(userId, generation)) break;
           try {
@@ -130,12 +128,12 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             if (!isAccountWorkCurrent(userId, generation)) break;
             await doc.patch({ deliveryStatus: 'delivered' });
           } catch (err) {
-            console.error(
-              `[messageDelivery] Failed to deliver ${doc.id}:`,
-              err
-            );
+            if (shouldQueueMessageAction(err))
+              scheduleDeliveryRetry(userId, generation);
+            console.error(doc.id, err);
           }
         }
+
         if (
           !isAccountWorkCurrent(userId, generation) ||
           !deliveryRequestedDuringFlight
@@ -158,7 +156,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   return inFlightDeliveryPromise;
 }
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
-  await sendMessageAction({
+  const result = await sendMessageAction({
     action: 'deliver',
     messageId: doc.id,
     recipientId: doc.recipientId,
@@ -172,6 +170,13 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
     replyToSenderId: doc.replyToSenderId || '',
     createdAt: doc.createdAt,
   });
+  // A completed Function invocation is not proof both rows were committed.
+  if (
+    result.ok !== true ||
+    !String(result.recipientRowId).startsWith('rmsg_') ||
+    result.threadId !== doc.threadId ||
+    (result.messageId != null && result.messageId !== doc.id)
+  ) throw new Error('Delivery not confirmed');
 }
 export async function markReadOnRemote(
   userId: string,
@@ -197,7 +202,7 @@ export async function markReadOnRemote(
         dedupKey: `mark_read:${threadId}`,
       });
     }
-    console.error('[messageDelivery] markReadOnRemote failed:', err);
+    console.error('Chat read failed:', err);
   }
 }
 export async function unsendOnRemote(
@@ -224,7 +229,7 @@ export async function unsendOnRemote(
         dedupKey: `unsend:${messageId}`,
       });
     }
-    console.error('[messageDelivery] unsendOnRemote failed:', err);
+    console.error('Chat unsend failed:', err);
   }
 }
 export async function reactOnRemote(
