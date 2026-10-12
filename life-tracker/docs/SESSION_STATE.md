@@ -25,3 +25,10 @@ First browser run #38316558625 showed Feedback `none` hid task/diary overlays an
 ## Browser repair checkpoint
 
 Run #38316881646 restored working DragOverlay visibility and existing drag/collision checks (focused, browser 1/2 PASS); two new browser cases exposed source-slot visibility not reliably hidden under automatic dnd feedback. Add important CSS invisibility to both live source shells, preserving registered proxy DOM; assert computed browser visibility with diagnostics, never mask the issue by dropping the checks.
+
+## Stable v0.25.4 first hosted-size audit (2026-10-13)
+
+- Reorder polish implementation PR [#766](https://github.com/carlers/mosaic-life-tracker/pull/766) squash merged **only** into `feature/diary-408` at `b15e6b302ea6cdab5ed527942c902d9ab0ba0e35`. Focused and both Playwright shards passed [task #38317198406](https://github.com/carlers/mosaic-life-tracker/actions/runs/38317198406), including bottom-up ghost and diary finger-position/cancel tests.
+- First Scratch/GIPHY hosted build `dpl_9zXWw2JsYBa1sLug92CwkvHNNaDV` failed exactly two aggregate caps: appAssetsRaw 2,505,384/2,505,000 (+384 B), precacheUnique 2,593,967/2,593,000 (+967 B). Other five pass. Branch implementation is unchanged.
+- Reviewed isolated size-only follow-up `chatgpt/408-v0254-hosted-size-review-20261013` sets raw limit 2,506,500 and precache 2,595,000, measured margin 1,116/1,033 B. Prior review chain and all other limits unchanged.
+Next action: focused verify size-only repair, squash into the stable Preview branch, verify exact full canonical CI and Vercel Scratch READY with all seven hosted budgets; report device acceptance still pending. No dev/main promotion or issue closure.
