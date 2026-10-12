@@ -2,7 +2,7 @@ import { getConnectivitySnapshot } from './connectivity';
 import { ExecutionMethod } from 'appwrite';
 import { MESSAGE_ACTION_FUNCTION_ID } from './messageDelivery';
 import { guardedFunctions } from './sdk';
-import type { TaskDocument, CategoryDocument } from '../db/schema';
+import type { TaskDocument, CategoryDocument, DiaryDocument } from '../db/schema';
 import {
   getCachedCalendar,
   setCachedCalendar,
@@ -210,4 +210,46 @@ export async function fetchFriendAlertTask(
     task: mapTaskRow(parsed.task),
     category: parsed.category ? mapCategoryRow(parsed.category) : null,
   };
+}
+
+/** Only authenticated, mutually accepted friends can request a bounded month. */
+export async function fetchFriendDiaryMonth(
+  currentUserId: string, friendUserId: string, month: string
+): Promise<DiaryDocument[]> {
+  if (!currentUserId || !friendUserId || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    throw new FriendAccessError('Invalid friend diary request.', 'server');
+  }
+  if (getConnectivitySnapshot().status !== 'online') {
+    throw new FriendAccessError('Friend diaries require a connection.', 'offline');
+  }
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({ action: 'get_friend_diary_month', friendUserId, month }),
+    async: false, xpath: '/', method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed') {
+    throw new FriendAccessError('Could not load friend diary.', 'server');
+  }
+  let parsed: { entries?: Record<string, unknown>[]; error?: string };
+  try { parsed = JSON.parse(execution.responseBody); }
+  catch { throw new FriendAccessError('Invalid friend diary response.', 'server'); }
+  if (execution.responseStatusCode === 403 || execution.responseStatusCode === 404) {
+    throw new FriendAccessError('Friend diary is unavailable.', 'forbidden');
+  }
+  if (execution.responseStatusCode >= 400 || !Array.isArray(parsed.entries)) {
+    throw new FriendAccessError('Could not load friend diary.', 'server');
+  }
+  return parsed.entries.flatMap((row): DiaryDocument[] => {
+    if (row.user_id !== friendUserId || typeof row.date !== 'string' ||
+      !row.date.startsWith(month + '-') || row.deleted === true ||
+      !['public', 'followers'].includes(String(row.visibility))) return [];
+    return [{
+      id: String(row.$id || ''), userId: friendUserId, date: row.date,
+      content: String(row.content || ''), emoji: String(row.emoji || ''),
+      visibility: row.visibility as DiaryDocument['visibility'],
+      createdAt: String(row.created_at || row.$createdAt || ''),
+      updatedAt: String(row.updated_at || row.$updatedAt || ''),
+      isDeleted: false,
+    }];
+  });
 }

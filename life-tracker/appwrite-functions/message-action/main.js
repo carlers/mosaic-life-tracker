@@ -1040,6 +1040,41 @@ async function handleGetFriendTask(tablesDB, callerId, payload, log, error) {
   };
 }
 
+async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error) {
+  const friendUserId = payload?.friendUserId;
+  const month = payload?.month;
+  if (!isValidRowId(friendUserId) || friendUserId === callerId ||
+      typeof month !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return { status: 400, body: { error: 'Invalid friend diary request' } };
+  }
+  const isFriend = await verifyFriendship(tablesDB, callerId, friendUserId);
+  if (!isFriend) return { status: 403, body: { error: 'Not friends with this user' } };
+  const [year, monthNumber] = month.split('-').map(Number);
+  const nextMonth = monthNumber === 12
+    ? `${year + 1}-01-01`
+    : `${year}-${String(monthNumber + 1).padStart(2, '0')}-01`;
+  const rows = await listAllRows(tablesDB, 'diary', [
+    Query.equal('user_id', friendUserId), Query.equal('deleted', false),
+    Query.greaterThanEqual('date', month + '-01'),
+    Query.lessThan('date', nextMonth),
+  ], log, 2);
+  if (rows.length > 60) {
+    error('get_friend_diary_month: unexpected row count');
+    return { status: 500, body: { error: 'Friend diary unavailable' } };
+  }
+  const entries = rows.filter(row =>
+    row.user_id === friendUserId && row.deleted !== true &&
+    row.date >= month + '-01' && row.date < nextMonth &&
+    (row.visibility === 'public' || row.visibility === 'followers')
+  ).map(row => ({
+    $id: row.$id, user_id: row.user_id, date: row.date,
+    content: row.content || '', emoji: row.emoji || '', visibility: row.visibility,
+    created_at: row.created_at || row.$createdAt || '',
+    updated_at: row.updated_at || row.$updatedAt || '',
+    deleted: false,
+  }));
+  return { status: 200, body: { entries } };
+}
 async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.friendUserId)) {
@@ -1291,6 +1326,9 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'get_friend_task':
         result = await handleGetFriendTask(tablesDB, callerId, payload, log, error);
+        break;
+      case 'get_friend_diary_month':
+        result = await handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error);
         break;
       case 'get_friend_calendar':
         result = await handleGetFriendCalendar(

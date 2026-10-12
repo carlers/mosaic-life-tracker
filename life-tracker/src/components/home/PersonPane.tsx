@@ -4,7 +4,8 @@ import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
-import { ComingSoon } from '../layout/ComingSoon';
+import { useDiary } from '../../hooks/useDiary';
+import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
 import { useAuth } from '../../hooks/useAuth';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
@@ -29,6 +30,7 @@ const LazyTodoListView = React.lazy(() =>
     default: TodoListView,
   }))
 );
+const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
     default: FriendPersonPane,
@@ -78,6 +80,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
+  const [diaryDate, setDiaryDate] = useState<string | null>(null);
+  const { entries: diaryEntries, getEntryByDate, saveEntry, deleteEntry } = useDiary(isActive && activeView === 'diary');
+  const handleViewChange = useCallback((next: ViewType) => { if (next === 'diary') preloadDiaryEntrySheet(); setActiveView(next); }, []);
+  const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
 
@@ -104,25 +110,25 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex flex-col h-full">
-      <PersonProfileHeader person={person} isActive={isActive} />
+      <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
-          activeView === 'todo'
+          activeView !== 'calendar'
             ? format(todoFocusDate, 'MMMM yyyy')
             : calendarState.title
         }
         viewMode={calendarState.viewMode}
         onToggleMode={calendarState.handleToggle}
         onPrev={
-          activeView === 'todo' ? handleTodoPrev : calendarState.handlePrev
+          activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
         }
         onNext={
-          activeView === 'todo' ? handleTodoNext : calendarState.handleNext
+          activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
         }
         activeView={activeView}
-        onViewChange={setActiveView}
+        onViewChange={handleViewChange}
         onTitleClick={
-          activeView === 'todo'
+          activeView !== 'calendar'
             ? handleTodoToday
             : activeView === 'calendar'
               ? calendarState.resetToToday
@@ -164,8 +170,19 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           />
         </React.Suspense>
       ) : (
-        <ComingSoon />
+        <React.Suspense fallback={null}>
+          <LazyTodoListView markerMode="diary" diaryEntries={diaryEntries} onOpenDiary={openDiary}
+            focusDate={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
+            sharedByDay={sharedByDay} ownedSharedTaskIds={ownedSharedTaskIds}
+            categoriesMap={categoriesMap} onFocusDateChange={setTodoFocusDate}
+            weekStartsOn={weekStartsOn} holidayConfig={holidayConfig} />
+        </React.Suspense>
       )}
+      {diaryDate && <React.Suspense fallback={null}>
+        <LazyDiaryEntrySheet key={diaryDate} date={diaryDate} entry={getEntryByDate(diaryDate)}
+          author={person.displayName} onSave={saveEntry} onDelete={deleteEntry}
+          onClose={() => setDiaryDate(null)} />
+      </React.Suspense>}
     </div>
     </IncompleteTaskBlockColorContext.Provider>
   );
