@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-13
-Active: #592 protected Preview canary proven; harden idempotency readback.
+Current task: #592 protected Preview canary proven; harden idempotency readback.
 Issue #592 and live GitHub/Vercel readback are authoritative.
 
 ## Accepted evidence
