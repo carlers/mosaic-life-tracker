@@ -106,3 +106,21 @@ switch OFF, and verify the existing official Git-hosted READY deployment;
 it must perform zero Vercel POST requests. The bootstrap on main is not
 modified by a task/stable Preview-only safety candidate until separately
 promoted through an authorized main boundary.
+
+## Further trust-boundary requirements before a token is enabled
+
+The credential-bearing default-branch workflow must use reviewed immutable
+GitHub Action versions (including `setup-node`), not a mutable major tag.
+In addition to validating the workflow-run SHA and branch HEAD, the receiver
+must query `main` and refuse a stale trusted checkout if main advanced while
+the workflow was queued. Same-SHA older local CLI canaries are not equivalent
+to Git-hosted branch Preview and must not be reused; only `source=git` and
+the exact target branch ref are acceptable in shadow readback. These are
+pure acceptance checks and do not cause a deployment or alias reassignment.
+
+**Vercel safety evidence:** Vercel's API describes omitted `target` as Preview,
+but a 2026 Vercel CLI/API bug report documents projects producing Production
+from an omitted target. Therefore the separately gated GitSource POST path
+must remain **disabled** until independently proven against this project and
+its exact Preview/Scratch configuration. Enabling reuse-only shadow does not
+constitute permission to enable creation or disable ordinary Git Previews.

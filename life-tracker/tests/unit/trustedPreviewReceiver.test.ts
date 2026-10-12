@@ -25,7 +25,7 @@ const event = { repository: { full_name: 'carlers/mosaic-life-tracker' },
 const trigger = {
   event, repository: 'carlers/mosaic-life-tracker',
   eventName: 'workflow_run', ref: 'refs/heads/main',
-  checkoutSha: 'a'.repeat(40), enabled: 'true',
+  checkoutSha: 'a'.repeat(40), mainHead: 'a'.repeat(40), enabled: 'true',
   workflowRuns: [run], checkRuns: [check], branchHead: sha,
 };
 
@@ -43,7 +43,8 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     for (const patch of [
       { enabled: undefined }, { enabled: 'false' },
       { eventName: 'push' }, { ref: 'refs/heads/fix/workflow-build-parity-592-20261012' },
-      { checkoutSha: 'not-a-sha' }, { repository: 'attacker/mosaic-life-tracker' },
+      { checkoutSha: 'not-a-sha' }, { mainHead: 'b'.repeat(40) },
+      { mainHead: undefined }, { repository: 'attacker/mosaic-life-tracker' },
       { branchHead: 'f'.repeat(40) }, { checkRuns: [] },
       { checkRuns: [{ ...check, conclusion: 'failure' }] },
       { workflowRuns: [{ ...run, status: 'in_progress', conclusion: null }] },
@@ -73,10 +74,13 @@ describe('trusted default-branch Preview receiver (#592)', () => {
 
   it('requires READY hosted official Preview rather than arbitrary deployment', () => {
     expect(assertTrustedPreviewDeployment(deployment, sha)).toBe('dpl_accepted');
-    expect(assertTrustedPreviewDeployment({ ...deployment, source: 'cli',
-      meta: { ...deployment.meta, githubCommitRef: 'HEAD' } }, sha)).toBe('dpl_accepted');
+    // Historical CLI canaries are not the branch-hosted Preview build, even
+    // if metadata reports an identical SHA. Shadow accepts only Git source.
     for (const patch of [
-      { source: 'unknown' }, { source: 'local' }, { readyState: 'BUILDING' },
+      { source: 'unknown' }, { source: 'local' }, { source: 'cli' },
+      { meta: { ...deployment.meta, githubCommitRef: 'HEAD' } },
+      { source: 'cli', meta: { ...deployment.meta, githubCommitRef: 'HEAD' } },
+      { readyState: 'BUILDING' },
       { readyState: 'ERROR' }, { target: 'production' },
       { target: 'staging' }, { target: 'custom-environment' }, { target: undefined },
       { projectId: 'another' }, { url: 'malicious.example.com' },
@@ -112,6 +116,8 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(yaml).toContain('github.event.workflow_run.head_branch == \'fix/workflow-build-parity-592-20261012\'');
     expect(yaml).toContain('environment: mosaic-preview-auto');
     expect(yaml).toContain('ref: ${{ github.sha }}');
+    expect(yaml).toContain('uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020');
+    expect(yaml).not.toContain('uses: actions/setup-node@v4');
     expect(yaml).toContain('run: node life-tracker/scripts/run-trusted-preview-receiver.mjs');
     expect(yaml).not.toContain('github.event.workflow_run.head_sha }}');
     expect(yaml).not.toContain('npm ci');
@@ -125,6 +131,9 @@ describe('trusted default-branch Preview receiver (#592)', () => {
       .toBeLessThan(impl.indexOf("get('https://api.vercel.com/v13/deployments?'"));
     expect(impl).toContain("process.env.MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED !== 'true'");
     expect(impl).toContain('await authorized(event);');
+    expect(impl).toContain("gh('/git/ref/heads/main')");
+    expect(impl).toContain('mainHead: main.object?.sha');
+    expect(impl).toContain('m.githubCommitRef === TRUSTED_PREVIEW_BRANCH');
     expect(impl).not.toContain("execFileSync('npm'");
     expect(impl).not.toContain('actions/download-artifact');
     expect(impl).not.toContain('actions/checkout');
