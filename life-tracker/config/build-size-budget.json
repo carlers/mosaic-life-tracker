@@ -17,24 +17,26 @@
     "entryRawBytes": 446200,
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
-    "homeClosureGzipBytes": 365450,
-    "appAssetsRawBytes": 2459250,
-    "appAssetsGzipBytes": 763000,
-    "precacheUniqueBytes": 2546350
+    "homeClosureGzipBytes": 366100,
+    "appAssetsRawBytes": 2461000,
+    "appAssetsGzipBytes": 764000,
+    "precacheUniqueBytes": 2548500
   },
   "review": {
-    "issue": "#655",
-    "reason": "Measured exact v0.20.3 combined integration Preview Vercel build 631e2f1672fe6f07b5f46c87d4d29900056c2f29 with GIPHY enabled (not the CI baseline). It passed all PWA policy, entry raw/gzip, initial gzip and aggregate app gzip safeguards but exceeded Home closure gzip by 49 B (365299/365250), emitted app raw by 608 B (2458808/2458200), and precache unique raw by 431 B (2545931/2545500). Narrowly review only these three to leave 151/442/419 B headroom; preserve other four limits, historical measured baseline, and exact dev category styling/PWA progress logic. Review is for emitted asset weights only, not HTTP transfer bytes.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/9KH26McT3D1g73Tua8ApVPZJUGo3",
+    "issue": "#656",
+    "reason": "Measured first GIPHY-enabled Scratch v0.20.4 Preview 5ca4f6da1b46b693e78e7c6ad63e70d1034ecb1e adds code-only ready-component warmup for Menu/friend Day View plus sheet-only Swiper Virtual, carrying user-accepted Chat/Notification lazy fixes onto dev v0.20.3. PWA, TS and browser/DOM behavior pass. Entry raw/gzip and initial closure budgets remain unchanged and pass. Four aggregate metrics exceeded prior narrowly sized limits by 314/1217/673/1424 B; dev #655 had only tens/hundreds of bytes headroom. Reviewed against hosted measurements in #656 comment 6117480055; preserve historic baseline and three startup-critical ceilings. Corrected SHA must independently pass canonical and GIPHY Scratch.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/FYgDRjqccPkhCk6YH1RAAmzfh9Z5",
     "metrics": [
       "homeClosureGzipBytes",
       "appAssetsRawBytes",
+      "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 365250,
-      "appAssetsRawBytes": 2458200,
-      "precacheUniqueBytes": 2545500
+      "homeClosureGzipBytes": 365450,
+      "appAssetsRawBytes": 2459250,
+      "appAssetsGzipBytes": 763000,
+      "precacheUniqueBytes": 2546350
     }
   }
 }

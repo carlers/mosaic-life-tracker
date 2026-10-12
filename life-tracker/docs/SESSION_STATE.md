@@ -1,7 +1,13 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: #655 PWA download/progress v0.20.3 combined integration with latest dev. User accepted the feature and authorized cleanup plus dev promotion, not main.
+Current task: #656 — fix first-open hamburger Menu and friend Calendar Day View; v0.20.4 Preview only, no dev/main promotion.
+
+## #656 first-open Menu/friend-day Preview repair
+- Additional real-path root cause in FriendDayViewSheet: the lazy photo viewer was always rendered (isOpen=false) and suspended to a full-screen spinner on first friend sheet mount, even when no photo was tapped. Guard its lazy instantiation by isImageViewerOpen; retain the original requested-photo fallback and ensure image view still opens. Add regression asserting no image-viewer module load/overlay on ordinary first-open, plus async photo open coverage. Follow up with task focused and exact-source full Preview gate at same v0.20.4. No changed acceptance scope.
+- First stable Preview `perf/friend-menu-cold-open-656-20261012@5ca4f6da` on dev bb527a passed DOM and browser CI shards but full checks caught Fast Refresh lint on a .tsx non-JSX mixed export and exact GIPHY Vercel budget exceeded four tiny aggregate caps; startup entry/initial metrics all pass.
+- Repair helper module filename to plain .ts (no JSX) and generator index. Four narrowly reviewed guard ceilings recorded in #656 issue comment 6117480055 after exact hosted metrics; preserve historic baseline and entry/initial ceilings. Retain v0.20.4, no version bump for internal fix.
+- Next: task focused CI → repair PR squash to stable Preview → exact-source full canonical CI / Scratch GIPHY Vercel READY / all seven budgets. Await first-open mobile/desktop manual acceptance. Do not merge dev/main or change Appwrite/Production.
 
 ## #655 dev integration of approved Preview
 - Integration base dev@`3b4033767c02917390a16764ab260d949548b9f3` (v0.20.2 category-color preference) and accepted PWA Preview `feature/pwa-progress-655@c132b1841792b2d0315b375d6dc5da5ad2a1325e` (v0.20.1). History diverged; a direct merge would regress version/overwrite unrelated dev fixes.

@@ -2,7 +2,9 @@ import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'r
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
+import { Virtual } from 'swiper/modules';
 import 'swiper/css';
+import 'swiper/css/virtual';
 import {
   Check,
   ChevronLeft,
@@ -442,6 +444,9 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
 
   const content = (
     <Swiper
+      // Same 181 logical dates as owner Day View, only nearby DOM slides.
+      modules={renderMode === 'sheet' ? [Virtual] : undefined}
+      virtual={renderMode === 'sheet' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
       nested={renderMode === 'inline'}
       noSwiping={renderMode === 'sheet'}
       touchStartPreventDefault={false}
@@ -472,6 +477,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         return (
           <SwiperSlide
             key={slideDate.toISOString()}
+            virtualIndex={index}
             style={{ height: renderMode === 'sheet' ? '100%' : 'auto' }}
           >
             <div
@@ -602,15 +608,17 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         onClose={() => setReactionTask(null)}
         onPick={handlePickEmoji}
       />
-      <Suspense fallback={<ImageViewerLoadingFallback />}>
-        <ImageViewer
-          isOpen={isImageViewerOpen && !!viewingImageUrl && !isViewingImageLoading}
-          imageUrl={viewingImageUrl}
-          taskTitle={viewingTask?.title}
-          taskDate={viewingTask?.date}
-          onClose={handleCloseImageViewer}
-        />
-      </Suspense>
+      {isImageViewerOpen && (
+        <Suspense fallback={<ImageViewerLoadingFallback />}>
+          <ImageViewer
+            isOpen={!!viewingImageUrl && !isViewingImageLoading}
+            imageUrl={viewingImageUrl}
+            taskTitle={viewingTask?.title}
+            taskDate={viewingTask?.date}
+            onClose={handleCloseImageViewer}
+          />
+        </Suspense>
+      )}
     </>
   );
 };
