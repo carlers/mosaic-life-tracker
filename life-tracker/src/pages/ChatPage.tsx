@@ -428,7 +428,7 @@ export const ChatPage: React.FC = () => {
         <MessageComposer
           ref={composerRef}
           onSend={handleSend}
-          onSendError={() => setFeedback('Message could not be saved. Try again.')}
+          onSendError={() => setFeedback('Message not saved. Retry.')}
           onOpenStickers={() => { setHasOpenedStickers(true); setStickerPacksOpen(true); }}
           onPrepareStickers={() => { void preloadStickerPackSheet().catch(() => {}); }}
           disabled={!friendId}
