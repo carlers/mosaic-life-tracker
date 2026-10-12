@@ -5,7 +5,6 @@ import {
   type ZoomEdge,
 } from '../../../lib/calendarZoomPhysics';
 
-type Direction = 'prev' | 'next';
 type Edge = ZoomEdge;
 const DRAG_THRESHOLD_PX = 7;
 const WHEEL_EDGE_THRESHOLD_PX = 72;
@@ -23,13 +22,6 @@ function edgeOf(node: HTMLDivElement): Edge {
   if (node.scrollLeft <= EDGE_TOLERANCE_PX) return 'left';
   const max = node.scrollWidth - node.clientWidth;
   return max > 0 && node.scrollLeft >= max - EDGE_TOLERANCE_PX ? 'right' : null;
-}
-export function edgeSwipeDirection(edge: Edge, dx: number, dy: number): Direction | null {
-  if (Math.abs(dx) < EDGE_SWIPE_THRESHOLD_PX ||
-      Math.abs(dx) <= Math.abs(dy) * 1.25) return null;
-  if (edge === 'left' && dx > 0) return 'prev';
-  if (edge === 'right' && dx < 0) return 'next';
-  return null;
 }
 function columnAt(node: HTMLDivElement, days: number): number {
   return node.clientWidth > 0 ? node.scrollLeft * days / node.clientWidth : 0;

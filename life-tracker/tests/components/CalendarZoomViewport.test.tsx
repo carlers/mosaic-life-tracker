@@ -54,4 +54,38 @@ describe('CalendarZoomViewport boundary interactions', () => {
     fireEvent.wheel(lane, { deltaX: 95, deltaY: 0, deltaMode: 0 });
     expect(onNavigate).not.toHaveBeenCalled();
   });
+  it('drags with the mouse at finger speed and does not open a date on release', () => {
+    const { lane, onNavigate, onTap } = setup(3);
+    lane.scrollLeft = 130;
+    Object.defineProperty(lane, 'setPointerCapture', { configurable: true, value: vi.fn() });
+    const scrollTo = vi.fn();
+    Object.defineProperty(lane, 'scrollTo', { configurable: true, value: scrollTo });
+    const mouse = (type: string, clientX: number, clientY = 20) => {
+      const event = new MouseEvent(type, { bubbles: true, cancelable: true,
+        clientX, clientY, button: 0 });
+      Object.defineProperties(event, {
+        pointerType: { value: 'mouse' }, pointerId: { value: 1 },
+      });
+      fireEvent(lane, event);
+    };
+    mouse('pointerdown', 200);
+    mouse('pointermove', 150);
+    expect(lane.scrollLeft).toBe(180);
+    mouse('pointerup', 150);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Day' }));
+    expect(onTap).not.toHaveBeenCalled();
+    expect(onNavigate).not.toHaveBeenCalled();
+    mouse('pointerdown', 200);
+    mouse('pointerup', 200);
+    fireEvent.click(screen.getByRole('button', { name: 'Day' }));
+    expect(onTap).toHaveBeenCalledTimes(1);
+
+    lane.scrollLeft = 400;
+    mouse('pointerdown', 200);
+    mouse('pointermove', 90);
+    mouse('pointerup', 90);
+    expect(onNavigate).toHaveBeenCalledWith('next');
+  });
+
 });
