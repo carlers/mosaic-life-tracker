@@ -18,25 +18,23 @@
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 146050,
     "homeClosureGzipBytes": 366100,
-    "appAssetsRawBytes": 2461000,
-    "appAssetsGzipBytes": 764000,
-    "precacheUniqueBytes": 2548500
+    "appAssetsRawBytes": 2467000,
+    "appAssetsGzipBytes": 766000,
+    "precacheUniqueBytes": 2554500
   },
   "review": {
-    "issue": "#656",
-    "reason": "Measured first GIPHY-enabled Scratch v0.20.4 Preview 5ca4f6da1b46b693e78e7c6ad63e70d1034ecb1e adds code-only ready-component warmup for Menu/friend Day View plus sheet-only Swiper Virtual, carrying user-accepted Chat/Notification lazy fixes onto dev v0.20.3. PWA, TS and browser/DOM behavior pass. Entry raw/gzip and initial closure budgets remain unchanged and pass. Four aggregate metrics exceeded prior narrowly sized limits by 314/1217/673/1424 B; dev #655 had only tens/hundreds of bytes headroom. Reviewed against hosted measurements in #656 comment 6117480055; preserve historic baseline and three startup-critical ceilings. Corrected SHA must independently pass canonical and GIPHY Scratch.",
-    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/FYgDRjqccPkhCk6YH1RAAmzfh9Z5",
+    "issue": "#404",
+    "reason": "Measured v0.21.0 new opt-in Home Day View panel on exact stable Preview 108eb548 and its Scratch/GIPHY hosted build. Original code passed entry raw/gzip and initial closure, but added legitimate panel behavior and markup requiring a small measured increase in aggregate shipped JS/CSS and precache ceilings. This repair defers only the optional panel shell chunk and leaves all three startup-critical entry/raw/gzip/initial ceilings plus the Home closure limit unchanged. Previous fail metrics on GIPHY hosted: appAssetsRawBytes 2465230, appAssetsGzipBytes 765022, precacheUniqueBytes 2552537. The bounds below provide a narrow allowance for dynamic chunk overhead, require fresh canonical size checks, and preserve the historical baseline. No dependency additions.",
+    "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/HACBwTWdHQ15EyxxRRFqdo6k2whY",
     "metrics": [
-      "homeClosureGzipBytes",
       "appAssetsRawBytes",
       "appAssetsGzipBytes",
       "precacheUniqueBytes"
     ],
     "previousLimits": {
-      "homeClosureGzipBytes": 365450,
-      "appAssetsRawBytes": 2459250,
-      "appAssetsGzipBytes": 763000,
-      "precacheUniqueBytes": 2546350
+      "appAssetsRawBytes": 2461000,
+      "appAssetsGzipBytes": 764000,
+      "precacheUniqueBytes": 2548500
     }
   }
 }
