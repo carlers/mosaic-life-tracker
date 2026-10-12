@@ -34,7 +34,7 @@ Issue #592 and exact branch/Actions/Vercel status are authoritative.
   using the **new stable commit SHA** and approve reviewer request.
   Inspect token-dependent steps before claiming canary accepted.
 
-## Safety / remaining
+## Next action and safety
 No `dev/main` merge, Production/Appwrite or Vercel Git trigger
 changes. Preserve size budgets. A successfully running canary still
 needs exact SHA/Scratch/GIPHY/artifact/alias/idempotency acceptance
