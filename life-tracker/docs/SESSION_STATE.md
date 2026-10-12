@@ -10,7 +10,7 @@ Current task: #708 chat reliability; stable Preview work. No dev/main or Product
 - Candidate version v0.24.0 remains in all three version files (check concurrent feature lines before promotion).
 - Canonical Quality Gate SUCCESS for stable 9c296eed (38241874387) and 22613ee3 (38243099608); intermediate task focused runs 38241476695, 38242472808 and 38242961110 SUCCESS.
 - Stable Preview head `22613ee3`: Vercel `dpl_BkedDMzXLLFEPZitYucdJMJJsBre` ERROR on appAssetsRaw +475 B, gzip +94 B, precache +282 B; the other four size ceilings passed. Earlier candidates 9c296eed/590ab598 likewise failed size budgets. Do not raise ceilings.
-- Current repair `chatgpt/708-size-guard-final-20261012`: shrink retry/receipt code, preserve same behavior. Focused CI must pass before another stable Preview promotion.
+- Repair #3 PR #723 merged stable @ b3e2180d; focused CI 38244421089 SUCCESS, canonical run 38244593303 initiated, but Vercel dpl_ECiz2QcbU4m9DwKmv1rCnCCgDcxT ERROR (raw +382 B, gzip +76 B, precache +189 B). Repair #4 PR #725 merged stable @ 49aaf2d9; focused 38244856284 SUCCESS; Vercel dpl_3GHdmWtKudMb4APuv3wp7Y4xZQCd ERROR (raw +195 B, gzip +18 B, precache +2 B). Current repair task `chatgpt/708-size-guard-log-20261012` trims equivalent logs/owner retry scope without changing behavior.
 - Scratch `message-action` Function 6aa8057f002a4c306fdd was last observed live on deployment 6accb9addc5321121ebb. **New server code is not active**. Shared Scratch and Production were not mutated.
 
 ## Outstanding acceptance
