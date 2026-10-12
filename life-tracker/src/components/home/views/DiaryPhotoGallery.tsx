@@ -1,7 +1,8 @@
-import React, { lazy, Suspense, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, X, Image as ImageIcon } from 'lucide-react';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
+import { fetchFriendDiaryPhoto } from '../../../lib/friendData';
 
 const ImageViewer = lazy(() => import('./ImageViewer').then(m => ({ default: m.ImageViewer })));
 
@@ -10,14 +11,35 @@ interface GalleryProps {
   editable?: boolean;
   onChange?: (ids: string[]) => void;
   date: string;
+  friendUserId?: string;
+  diaryId?: string;
 }
 
 const DiaryPhoto: React.FC<{
-  id: string; date: string; editable?: boolean; onRemove?: () => void;
+  id: string; date: string; friendUserId?: string; diaryId?: string;
+  editable?: boolean; onRemove?: () => void;
   onMoveBefore?: () => void; onMoveAfter?: () => void;
-}> = ({ id, date, editable, onRemove, onMoveBefore, onMoveAfter }) => {
+}> = ({ id, date, friendUserId, diaryId, editable, onRemove, onMoveBefore, onMoveAfter }) => {
   const [open, setOpen] = useState(false);
-  const { imageUrl, isLoading, retryImage } = useTaskImage(id);
+  const ownerImage = useTaskImage(id, !friendUserId);
+  const [friendImage, setFriendImage] = useState<string | null>(null);
+  const [friendLoading, setFriendLoading] = useState(false);
+  const [friendFailed, setFriendFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (!friendUserId || !diaryId) return;
+    let active = true; let localUrl: string | null = null;
+    setFriendLoading(true); setFriendFailed(false);
+    void fetchFriendDiaryPhoto(friendUserId, diaryId, id).then(blob => {
+      if (!active) return;
+      localUrl = URL.createObjectURL(blob);
+      setFriendImage(localUrl);
+    }).catch(() => { if (active) setFriendFailed(true); }).finally(() => { if (active) setFriendLoading(false); });
+    return () => { active = false; if (localUrl) URL.revokeObjectURL(localUrl); setFriendImage(null); };
+  }, [friendUserId, diaryId, id, retry]);
+  const imageUrl = friendUserId ? friendImage : ownerImage.imageUrl;
+  const isLoading = friendUserId ? friendLoading : ownerImage.isLoading;
+  const retryImage = () => { if (friendUserId) { setFriendFailed(false); setRetry(r => r + 1); } else ownerImage.retryImage(); };
   return (
     <div className="relative min-w-0 overflow-hidden rounded-xl bg-surfaceHighlight">
       <button type="button" aria-label="View diary photo" disabled={!imageUrl}
@@ -25,7 +47,7 @@ const DiaryPhoto: React.FC<{
         {imageUrl ? <img src={imageUrl} alt="Diary attachment" loading="lazy" className="h-full w-full object-cover"/>
           : <span className="text-xs text-gray-400">{isLoading ? 'Loading…' : 'Photo unavailable'}</span>}
       </button>
-      {!imageUrl && !isLoading && <button type="button" onClick={retryImage} className="text-xs">Retry</button>}
+      {!imageUrl && !isLoading && (friendFailed || !friendUserId) && <button type="button" onClick={retryImage} className="text-xs">Retry</button>}
       {editable && (
         <div className="flex items-center justify-around gap-1 p-1">
           <button type="button" aria-label="Move diary photo left" disabled={!onMoveBefore}
@@ -41,14 +63,14 @@ const DiaryPhoto: React.FC<{
   );
 };
 
-export const DiaryPhotoGallery: React.FC<GalleryProps> = ({ photoIds, editable, onChange, date }) => {
+export const DiaryPhotoGallery: React.FC<GalleryProps> = ({ photoIds, editable, onChange, date, friendUserId, diaryId }) => {
   const ids = parseDiaryPhotos(JSON.stringify(photoIds));
   if (!ids.length) return null;
   const move = (from: number, to: number) => {
     const next = [...ids]; const [id] = next.splice(from, 1); next.splice(to, 0, id); onChange?.(next);
   };
   return <div aria-label="Diary photos" className="grid grid-cols-3 gap-2 py-3">
-    {ids.map((id, index) => <DiaryPhoto key={id} id={id} date={date} editable={editable}
+    {ids.map((id, index) => <DiaryPhoto key={id} id={id} date={date} editable={editable} friendUserId={friendUserId} diaryId={diaryId}
       onRemove={() => onChange?.(ids.filter(photoId => photoId !== id))}
       onMoveBefore={index > 0 ? () => move(index, index - 1) : undefined}
       onMoveAfter={index < ids.length - 1 ? () => move(index, index + 1) : undefined}/>)}

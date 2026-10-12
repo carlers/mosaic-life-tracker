@@ -267,3 +267,19 @@ export async function reactToFriendDiary(
   if (execution.status !== 'completed' || execution.responseStatusCode !== 200)
     throw new FriendAccessError('Diary reaction could not be saved.', 'server');
 }
+
+/** A single private photo, returned only after fresh server-side diary ACL checks. */
+export async function fetchFriendDiaryPhoto(friendUserId: string, diaryId: string, fileId: string): Promise<Blob> {
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({ action: 'get_friend_diary_photo', friendUserId, diaryId, fileId }),
+    async: false, xpath: '/', method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed' || execution.responseStatusCode !== 200)
+    throw new FriendAccessError('Diary photo unavailable.', 'forbidden');
+  const result = JSON.parse(execution.responseBody) as { mimeType?: string; data?: string };
+  if (result.mimeType !== 'image/webp' || typeof result.data !== 'string' || result.data.length > 400000)
+    throw new FriendAccessError('Diary photo unavailable.', 'server');
+  const bytes = Uint8Array.from(atob(result.data), char => char.charCodeAt(0));
+  return new Blob([bytes], { type: 'image/webp' });
+}

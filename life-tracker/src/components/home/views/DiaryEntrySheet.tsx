@@ -1,6 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { MoreHorizontal, Pencil, Trash2, X, ImagePlus } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, X, ImagePlus, MessageSquare, SmilePlus } from 'lucide-react';
+import { ReactionRow } from '../../messages/ReactionRow';
+import { EmojiPickerSheet } from '../../messages/EmojiPickerSheet';
+import { parseReactions, hasUserReacted } from '../../../lib/reactionUtils';
 import { useAuth } from '../../../hooks/useAuth';
 import { parseDiaryPhotos, serializeDiaryPhotos } from '../../../lib/diaryPhotos';
 import { saveDiaryImage } from '../../../lib/storage';
@@ -19,16 +22,23 @@ interface DiaryEntrySheetProps {
   onClose: () => void;
   onSave?: (date: string, content: string, visibility: DiaryDocument['visibility'], emoji: string, photos: string) => Promise<void>;
   onDelete?: (date: string) => Promise<void>;
+  friendUserId?: string;
+  onReact?: (emoji: string, op: 'add' | 'remove') => Promise<void>;
+  onReply?: (content: string) => Promise<void>;
 }
 
 /** Read-only for friends; local-first editing for the signed-in owner. */
 export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
-  date, entry, author, onClose, onSave, onDelete,
+  date, entry, author, onClose, onSave, onDelete, friendUserId, onReact, onReply,
 }) => {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoIds, setPhotoIds] = useState(() => parseDiaryPhotos(entry?.photos));
   const [uploading, setUploading] = useState(false);
+  const [reactionsOpen, setReactionsOpen] = useState(false);
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [reactBusy, setReactBusy] = useState(false);
   const [editing, setEditing] = useState(!entry && !!onSave);
   const [body, setBody] = useState(entry?.content || '');
   const [emoji, setEmoji] = useState(entry?.emoji || '');
@@ -74,6 +84,21 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
       setPhotoIds(existing => [...existing, ...added]);
       setError(cause instanceof Error ? cause.message : 'Photo upload failed.');
     } finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
+  };
+  const toggleReaction = async (emoji: string) => {
+    if (!onReact || !entry || reactBusy) return;
+    const op = hasUserReacted(parseReactions(entry.reactions), emoji, user?.$id || '') ? 'remove' : 'add';
+    setReactBusy(true); setError('');
+    try { await onReact(emoji, op); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not react.'); }
+    finally { setReactBusy(false); }
+  };
+  const sendReply = async () => {
+    if (!onReply || !replyText.trim() || busy) return;
+    setBusy(true); setError('');
+    try { await onReply(replyText.trim()); setReplyOpen(false); setReplyText(''); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not send reply.'); }
+    finally { setBusy(false); }
   };
   const dayLabel = format(parseISO(date), 'EEEE, MMMM d, yyyy');
   return (
@@ -137,12 +162,33 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
               <div aria-hidden="true" className="my-5 text-center text-6xl">{entry ? diaryMarker(entry) || '📝' : '📝'}</div>
               <div className="text-sm text-gray-400">{author} · {dayLabel} · {visibility === 'followers' ? 'Friends' : visibility === 'public' ? 'Public' : 'Private'}</div>
               <div className="min-h-16 whitespace-pre-wrap break-words py-5 text-base">{entry?.content}</div>
-              <DiaryPhotoGallery date={date} photoIds={photoIds}/>
+              <DiaryPhotoGallery date={date} photoIds={photoIds} friendUserId={friendUserId} diaryId={entry?.id}/>
+              {onReact && <div className="mt-3 flex flex-col gap-3">
+                <ReactionRow reactions={parseReactions(entry?.reactions)} currentUserId={user?.$id ?? ''} isOutgoing={false}
+                  onToggle={emoji => void toggleReaction(emoji)} />
+                <div className="flex gap-3">
+                  <button type="button" disabled={reactBusy} onClick={() => setReactionsOpen(true)}
+                    className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2 text-sm"><SmilePlus size={16}/> React</button>
+                  {onReply && <button type="button" onClick={() => setReplyOpen(true)}
+                    className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2 text-sm"><MessageSquare size={16}/> Reply</button>}
+                </div>
+              </div>}
             </>
           )}
           {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         </div>
       </BottomSheet>
+      <EmojiPickerSheet isOpen={reactionsOpen} onClose={() => setReactionsOpen(false)}
+        onPick={emoji => void toggleReaction(emoji)} />
+      {replyOpen && <BottomSheet isOpen onClose={() => setReplyOpen(false)} title={`Reply to ${author}`} height="auto">
+        <div className="px-4 pb-8 pt-3">
+          <p className="mb-3 text-sm text-gray-400">Reply privately about the diary from {date}.</p>
+          <textarea aria-label="Diary reply" value={replyText} onChange={e => setReplyText(e.target.value)}
+            placeholder="Write a private reply…" className="min-h-28 w-full resize-none rounded-xl bg-surfaceHighlight p-3 text-white" />
+          <button type="button" disabled={busy || !replyText.trim()} onClick={() => void sendReply()}
+            className="mt-3 w-full rounded-lg bg-surfaceHighlight py-3 font-semibold disabled:opacity-40">Send reply</button>
+        </div>
+      </BottomSheet>}
       <ConfirmSheet isOpen={confirm !== null} onClose={() => setConfirm(null)}
         title={confirm === 'delete' ? 'Delete diary?' : 'Discard changes?'}
         message={confirm === 'delete' ? 'This diary entry will be deleted.' : 'Your unsaved diary changes will be lost.'}

@@ -10,7 +10,7 @@ import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
-import { fetchFriendDiaryMonth } from '../../lib/friendData';
+import { fetchFriendDiaryMonth, reactToFriendDiary } from '../../lib/friendData';
 import type { DiaryDocument } from '../../db/schema';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
@@ -73,7 +73,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     getSetting(HOLIDAY_REGION_SETTING_KEY, ''),
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
-  const { sendTaskReaction } = useMessageActions(person.userId);
+  const { sendTaskReaction, sendMessage } = useMessageActions(person.userId);
 
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
@@ -91,6 +91,17 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     return () => { mounted = false; };
   }, [isActive, activeView, diaryKey, diaryMonth, currentUserId, person.userId]);
   const diaryEntries = diaryState.key === diaryKey ? diaryState.entries : [];
+  const onDiaryReact = async (emoji: string, op: 'add' | 'remove') => {
+    const entry = diaryEntries.find(item => item.date === diaryDate);
+    if (!entry) return;
+    await reactToFriendDiary(person.userId, entry.id, emoji, op);
+    const updated = await fetchFriendDiaryMonth(currentUserId, person.userId, diaryMonth);
+    setDiaryState({ key: diaryKey, entries: updated });
+  };
+  const onDiaryReply = async (content: string) => {
+    if (!diaryDate || !diaryEntries.some(item => item.date === diaryDate)) throw new Error('Diary unavailable.');
+    await sendMessage(`↪ Diary · ${diaryDate}\n\n${content}`);
+  };
   const handleViewChange = useCallback((next: ViewType) => {
     setDiaryDate(null);
     setDiaryState({ key: '', entries: [] });
@@ -223,7 +234,8 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
       {isActive && activeView === 'diary' && diaryDate && diaryEntries.some(entry => entry.date === diaryDate) && <React.Suspense fallback={null}>
         <LazyDiaryEntrySheet key={`${currentUserId}:${person.userId}:${diaryDate}`} date={diaryDate}
           entry={diaryEntries.find(entry => entry.date === diaryDate)}
-          author={person.displayName} onClose={() => setDiaryDate(null)} />
+          author={person.displayName} friendUserId={person.userId}
+          onReact={onDiaryReact} onReply={onDiaryReply} onClose={() => setDiaryDate(null)} />
       </React.Suspense>}
     </div>
     </IncompleteTaskBlockColorContext.Provider>
