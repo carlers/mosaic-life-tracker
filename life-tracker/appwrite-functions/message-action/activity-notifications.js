@@ -58,13 +58,13 @@ async function isFriend(db, left, right) {
 
 // This is used for BOTH feed listing and exact push-tap lookup. Never cache
 // unsent, revoked, private or no-longer-authorized event contents.
-async function projectActivity(db, receipt, callerId) {
+async function projectActivity(db, receipt, callerId, knownFriends = null) {
   const type = receipt?.type;
   if (!TYPES.includes(type) || receipt.recipient_id !== callerId) return null;
   const actorId = receipt.actor_id;
   const targetId = receipt.task_id;
   if (!validId(actorId) || !validId(targetId) || actorId === callerId) return null;
-  const accepted = await isFriend(db, actorId, callerId);
+  const accepted = knownFriends ? knownFriends.has(actorId) : await isFriend(db, actorId, callerId);
   let actorName = 'Friend';
   let destination = '';
   if (type === 'friend_request') {
@@ -78,7 +78,7 @@ async function projectActivity(db, receipt, callerId) {
     destination = '/explore';
   } else {
     if (!accepted) return null;
-    const friendship = await row(db,'friendships','fr_' + sha(callerId + '|' + actorId).slice(0,32));
+    const friendship = knownFriends?.get(actorId) || await row(db,'friendships','fr_' + sha(callerId + '|' + actorId).slice(0,32));
     actorName = friendship?.friend_display_name || friendship?.friend_username || 'Friend';
     if (type === 'friend_accepted') {
       const friendshipOfRecipient = await row(db,'friendships','fr_' + sha(callerId + '|' + actorId).slice(0,32));
