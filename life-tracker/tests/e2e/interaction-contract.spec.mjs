@@ -1504,3 +1504,47 @@ test('Calendar first sheet open commits a shell before Day View slides', async (
   await day.click();
   await expect(page.getByRole('dialog')).toBeVisible();
 });
+
+// Browser geometry regression: animate real height, not reordered sibling transforms.
+test('category editors expand and switch without overlapping adjacent categories', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?categoryMotion`);
+  const selector = '[data-testid="category-editor-motion-probe"] li[aria-label$=" category"]';
+  const rows = page.locator(selector);
+  await expect(rows).toHaveCount(3);
+
+  async function sampleTransition(editIndex, interruptIndex = null) {
+    return page.evaluate(async ({ editIndex, interruptIndex, selector }) => {
+      const items = Array.from(document.querySelectorAll(selector));
+      const heightsBefore = items.map(el => el.getBoundingClientRect().height);
+      items[editIndex].querySelector('button[aria-label="Edit category"]').click();
+      let maximumOverlap = 0;
+      let finalHeights = [];
+      for (let frame = 0; frame < 28; frame++) {
+        await new Promise(requestAnimationFrame);
+        if (frame === 5 && interruptIndex !== null) {
+          items[interruptIndex].querySelector('button[aria-label="Edit category"]').click();
+        }
+        const boxes = items.map(el => el.getBoundingClientRect());
+        finalHeights = boxes.map(box => box.height);
+        for (let index = 0; index + 1 < boxes.length; index++) {
+          maximumOverlap = Math.max(maximumOverlap, boxes[index].bottom - boxes[index + 1].top);
+        }
+      }
+      return { heightsBefore, finalHeights, maximumOverlap };
+    }, { editIndex, interruptIndex, selector });
+  }
+
+  const opening = await sampleTransition(0);
+  expect(opening.maximumOverlap).toBeLessThan(1);
+  expect(opening.finalHeights[0]).toBeGreaterThan(opening.heightsBefore[0] + 100);
+
+  const switching = await sampleTransition(1);
+  expect(switching.maximumOverlap).toBeLessThan(1);
+  expect(switching.finalHeights[1]).toBeGreaterThan(switching.heightsBefore[1] + 100);
+  expect(switching.finalHeights[0]).toBeLessThan(switching.heightsBefore[0] - 100);
+
+  const interrupted = await sampleTransition(0, 2);
+  expect(interrupted.maximumOverlap).toBeLessThan(1);
+  await expect(rows.nth(2).getByRole('button', { name: 'Edit category' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(rows.nth(0).getByRole('textbox', { name: 'Name' })).toHaveCount(0);
+});
