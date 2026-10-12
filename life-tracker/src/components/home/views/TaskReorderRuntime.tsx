@@ -239,7 +239,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         current ? { ...current, projection: next } : current
       );
     },
-    [categoryIds, diaryDragging, displayPlacement]
+    [categoryIds, displayPlacement]
   );
 
   const handleDragEnd = React.useCallback(
@@ -340,7 +340,6 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     [
       categoryIds,
       dateStr,
-      diaryDragging,
       livePlacement,
       onReorderActiveChange,
       onReorderTasks,

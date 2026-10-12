@@ -191,7 +191,7 @@ export async function sendDiaryReplyMessage(
   diary: Pick<import('../db/schema').DiaryDocument, 'id' | 'userId' | 'date' | 'content' | 'emoji' | 'photos'>,
   content: string
 ): Promise<void> {
-  const excerpt = diary.content.replace(/\s+/g, ' ').trim().slice(0, 120) ||
+  const excerpt = (diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
     (diary.emoji ? diary.emoji : diary.photos && diary.photos !== '[]' ? 'Diary photos' : 'Diary entry');
   await insertAndDeliverOutgoing(userId, friendId, ({ threadId, now, localId }) =>
     buildOutgoingMessage({

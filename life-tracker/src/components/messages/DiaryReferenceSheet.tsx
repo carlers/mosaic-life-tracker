@@ -25,7 +25,6 @@ export const DiaryReferenceSheet: React.FC<{ reference: DiaryReference; onClose:
   useEffect(() => {
     if (!userId || isOwner) return;
     let current = true;
-    setRemote({ status: 'loading' });
     fetchFriendDiaryMonth(userId, reference.ownerId, reference.date.slice(0, 7))
       .then(entries => {
         if (!current) return;
