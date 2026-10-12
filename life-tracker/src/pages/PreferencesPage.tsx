@@ -32,6 +32,8 @@ import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
   GIPHY_AUTOPLAY_SETTING_KEY,
   TASK_COMPLETION_SORT_SETTING_KEY,
+  INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  resolveIncompleteTaskBlockColorMode,
   SHARED_LABEL_MODE_SETTING_KEY,
   SHOW_PENDING_SHARES_SETTING_KEY,
   ESCAPE_AS_BACK_SETTING_KEY,
@@ -225,6 +227,9 @@ export const PreferencesPage: React.FC = () => {
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
+  const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
+    getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
+  );
   const shareLabelMode = getSetting(SHARED_LABEL_MODE_SETTING_KEY, 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting(SHOW_PENDING_SHARES_SETTING_KEY, false) === true;
   const weekStartsOnSunday =
@@ -341,6 +346,21 @@ export const PreferencesPage: React.FC = () => {
             onChange={(value) => void setSetting(
               TASK_COMPLETION_SORT_SETTING_KEY,
               resolveTaskCompletionSortMode(value) as TaskCompletionSortMode
+            )}
+          />
+          <SelectSettingRow
+            id="incomplete-task-block-color"
+            icon={<Palette size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Incomplete calendar task color"
+            value={incompleteTaskBlockColor}
+            options={[
+              { value: 'default', label: 'Default' },
+              { value: 'text', label: 'Category text' },
+              { value: 'border', label: 'Category border' },
+            ]}
+            onChange={(value) => void setSetting(
+              INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+              resolveIncompleteTaskBlockColorMode(value)
             )}
           />
           <SelectSettingRow
