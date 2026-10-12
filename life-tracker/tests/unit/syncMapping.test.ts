@@ -544,6 +544,7 @@ describe('round-trip', () => {
       id: 'd_1',
       date: '2026-01-15',
       content: 'Today was good.',
+      emoji: '',
       visibility: 'private',
       userId: USER_ID,
       createdAt: '2026-01-15T20:00:00.000Z',
