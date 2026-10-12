@@ -27,4 +27,7 @@ Current task: #708 — chat delivery reliability and recovery, implementation on
 - Repair #2 task branch `chatgpt/708-build-budget-repair2-20261012`: remove the extra chat-header Sync Status entry; **the existing global Settings Sync Now remains the manual reconciliation UX**. Delivery commit checks, automatic retry, compose protection and missing-local-copy guard stay unchanged.
 - Repair #2 is **unverified**; no backend activation or user-testable Preview has been completed.
 
-Next action: focused verify repair #2 → squash to same stable Preview branch → canonical success + Vercel READY. Compare deployed SHA, preserve version v0.24.0, then coordinate any Scratch Function activation and disposable-account verification. Do not merge dev/main absent user approval.
+- Repair #2 PR #718 merged stable @ 22613ee3; full Quality Gate 38243099608 **SUCCESS**, Vercel `dpl_BkedDMzXLLFEPZitYucdJMJJsBre` **ERROR** (raw +475 B, gzip +94 B, precache +282 B), all other ceilings pass. No backend mutation.
+- Repair #3 branch `chatgpt/708-size-guard-final-20261012` from 22613ee3: compact retry and receipt logic while retaining owner/generation, bounded exponential backoff and strict client ack checks. Pending focused verification. No product version bump or budget increases.
+
+Next: focused verification → stable Preview PR → full canonical and Vercel guard. Only a READY Preview is browser-testable; Scratch Function must be separately and safely coordinated before claiming two-person delivery acceptance. Preserve dev/main and Production.
