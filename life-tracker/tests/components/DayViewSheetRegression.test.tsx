@@ -301,7 +301,9 @@ describe('DayViewSheet nested task actions', () => {
       await Promise.resolve();
     });
     fireEvent.click(screen.getByRole('button', { name: action }));
-    expect(screen.getByRole('dialog', { name: dialog })).toBeInTheDocument();
+    // The helper's first-commit test owns synchronous warm React selection;
+    // this real action-sheet test also accounts for nested-sheet transitions.
+    expect(await screen.findByRole('dialog', { name: dialog })).toBeInTheDocument();
   });
 
   it('maps unmodified horizontal arrow keys to day navigation while open', () => {
