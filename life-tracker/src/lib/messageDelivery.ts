@@ -19,7 +19,7 @@ export const MESSAGE_ACTION_FUNCTION_ID = APPWRITE_MESSAGE_ACTION_FUNCTION_ID;
 const MAX_DELIVERY_LOOPS = 5;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let retryDelay = 5_000;
-let retryScope = '';
+let retryGeneration = -1;
 function clearDeliveryRetry() {
   clearTimeout(retryTimer);
   retryTimer = undefined;
@@ -50,9 +50,9 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   if (!userId) return;
   const generation = captureAccountWorkGeneration(userId);
   if (generation === null) return;
-  if (retryScope !== String(generation)) {
+  if (retryGeneration !== generation) {
     clearDeliveryRetry();
-    retryScope = String(generation);
+    retryGeneration = generation;
   }
 
   flushMessageActionQueue(userId).catch((err) => {
@@ -96,7 +96,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
         if (!isAccountWorkCurrent(userId, generation)) break;
         loopCount++;
         if (loopCount > MAX_DELIVERY_LOOPS) {
-          console.warn('Chat delivery cycle limit reached');
+          console.warn('Chat send loop limit');
           break;
         }
         deliveryRequestedDuringFlight = false;
@@ -111,7 +111,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             },
           }).exec();
         } catch (err) {
-          console.error('Chat pending scan failed:', err);
+          console.error('Chat scan failed:', err);
           break;
         }
         if (!isAccountWorkCurrent(userId, generation)) break;
@@ -130,7 +130,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           } catch (err) {
             if (shouldQueueMessageAction(err))
               scheduleDeliveryRetry(userId, generation);
-            console.error('Chat delivery failed:', doc.id, err);
+            console.error('Chat send failed:', doc.id, err);
           }
         }
 
@@ -175,8 +175,8 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
     result.ok !== true ||
     !String(result.recipientRowId).startsWith('rmsg_') ||
     result.threadId !== doc.threadId ||
-    (result.messageId !== undefined && result.messageId !== doc.id)
-  ) throw new Error('Message delivery not acknowledged');
+    (result.messageId != null && result.messageId !== doc.id)
+  ) throw new Error('Delivery not confirmed');
 }
 export async function markReadOnRemote(
   userId: string,
@@ -202,7 +202,7 @@ export async function markReadOnRemote(
         dedupKey: `mark_read:${threadId}`,
       });
     }
-    console.error('Chat read receipt failed:', err);
+    console.error('Chat read failed:', err);
   }
 }
 export async function unsendOnRemote(
