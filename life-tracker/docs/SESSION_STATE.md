@@ -1,6 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-12
+Current task: issue #655 — measurable PWA update asset preparation progress, task branch and stable Preview only (no dev/main promotion).
+
+## #655 approved implementation
+- Base: dev@f918b7353d05fb1d4abfdd5452f60a0e0d1db2a1; task: chatgpt/pwa-progress-655; stable Preview: feature/pwa-progress-655.
+- Version proposal: 0.20.0 (new user-visible capability); check active branches again before stable Preview delivery.
+- Replace generated Workbox service worker with a single injectManifest worker so Workbox's *existing* precache operation can report verified per-file completion and build asset sizes without additional network fetches or pretending to know compressed wire bytes.
+- Show percentage, bytes of uncompressed build files handled, or file-count percentage when size is unknown. Browser/OS installation remains indeterminate; keep explicit update activation, push import and offline SPA fallback.
+- Files: src/sw.js, src/lib/pwaLifecycle.ts, src/components/ui/PwaAssetProgressView.tsx, Settings/PwaPrompt, Vite config, SW inspector, tests and version metadata; frontend-only, no Appwrite mutation.
+- Verification status at authoring: source changes prepared; GitHub focused task CI and stable Preview canonical/Vercel checks pending. No manual browser/device acceptance claimed.
+- Next: publish one focused task commit, investigate any checks, squash focused-green task PR into feature/pwa-progress-655, verify full canonical and Vercel READY, then request user acceptance before dev/main.
+
+## Previous workstream checkpoints
+
+Updated: 2026-10-12
 Current task: Issue #645 Phase 2 D1/D2 repository source discovery pilot; user authorized task branch and stable Preview, not dev/main merge.
 
 ## Scope and exact base

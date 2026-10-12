@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore } from 'react';
 import { Download, RefreshCw, X } from 'lucide-react';
+import { PwaAssetProgressView } from './PwaAssetProgressView';
 import { usePwaLifecycle } from '../../hooks/usePwaLifecycle';
 import { isSheetVisible, subscribeToSheetVisibility } from '../../lib/sheetVisibility';
 
@@ -7,6 +8,7 @@ export function PwaPrompt() {
   const {
     installAvailable,
     updateAvailable,
+    assetProgress,
     applyUpdate,
     dismissInstall,
     dismissUpdate,
@@ -56,6 +58,7 @@ export function PwaPrompt() {
               ? 'Update now to use the latest version. Mosaic will reload after you confirm.'
               : 'Add Mosaic to this device for quick access and a standalone app experience.'}
           </p>
+          {isUpdate && assetProgress && <PwaAssetProgressView progress={assetProgress} />}
           {error && <p role="alert" className="mt-2 text-sm text-red-400">{error}</p>}
           <button
             type="button"

@@ -56,14 +56,13 @@ function fixture({
     .mockResolvedValue(
       readyFallback ? undefined : browserRegistration ? registration : undefined
     );
-  target.navigator = {
-    serviceWorker: {
-      getRegistration,
-      controller:
-        readyFallback && browserRegistration ? ({} as ServiceWorker) : null,
-      ready: Promise.resolve(registration),
-    },
-  };
+  const container = Object.assign(new EventTarget(), {
+    getRegistration,
+    controller:
+      readyFallback && browserRegistration ? ({} as ServiceWorker) : null,
+    ready: Promise.resolve(registration),
+  });
+  target.navigator = { serviceWorker: container };
   const register = vi.fn((next: FakeRegisterOptions = {}) => {
     options = next;
     next.onRegisteredSW?.(
@@ -75,6 +74,7 @@ function fixture({
   initializePwaLifecycle(target as unknown as Window, register);
   return {
     target,
+    container,
     register,
     update,
     registration,
@@ -112,6 +112,37 @@ describe('PWA lifecycle', () => {
       /^\d{4}-\d{2}-\d{2}T/
     );
 
+  });
+
+  it('accepts only measured progress from the currently installing worker', () => {
+    const setup = fixture();
+    const worker = Object.assign(new EventTarget(), { state: 'installing' });
+    Object.assign(setup.registration, { installing: worker });
+    const push = (source: EventTarget, completed: number, completedBytes: number | null) =>
+      setup.container.dispatchEvent(Object.assign(new Event('message'), {
+        source,
+        data: {
+          type: 'MOSAIC_PWA_ASSET_PROGRESS',
+          completed,
+          total: 4,
+          completedBytes,
+          totalBytes: completedBytes === null ? null : 5000,
+        },
+      }));
+
+    push(worker, 2, 2500);
+    expect(getPwaLifecycleSnapshot().assetProgress).toEqual({
+      completed: 2, total: 4, completedBytes: 2500, totalBytes: 5000,
+    });
+
+    push(new EventTarget(), 3, 3500);
+    push(worker, 1, 1000);
+    expect(getPwaLifecycleSnapshot().assetProgress?.completed).toBe(2);
+
+    push(worker, 3, 6000);
+    expect(getPwaLifecycleSnapshot().assetProgress?.completed).toBe(2);
+    push(worker, 4, 5000);
+    expect(getPwaLifecycleSnapshot().assetProgress?.completed).toBe(4);
   });
 
   it('captures and resolves the browser install prompt', async () => {
