@@ -216,7 +216,7 @@ describe('NotificationSettingsPage', () => {
     });
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
     expect(await screen.findByText(/open Mosaic in Safari/)).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Push friend completions' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Enable push notifications' })).toBeDisabled();
   });
 
   it('explains how to restore blocked notification permissions', async () => {
@@ -225,7 +225,7 @@ describe('NotificationSettingsPage', () => {
     });
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
     expect(await screen.findByText(/Notifications are blocked/)).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Push friend completions' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Enable push notifications' })).toBeDisabled();
   });
 
 });
