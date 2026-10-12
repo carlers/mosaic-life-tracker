@@ -24,3 +24,8 @@ Next action: run focused checks for the opt-in panel lazy-shell/budget repair, t
 - #404 task focused: 2b0f76d (green); Preview PR #693 squash: 108eb548 (full CI + hosted GIPHY Vercel failed).
 - CI lint issue: synchronous inactive-pane state update inside an effect; repair uses scheduled lifecycle cleanup.
 - Hosted Preview size excess: initial/entry caps pass; Home closure +744B, aggregate raw +4230B, gzip +1022B, precache +4037B. Defer optional panel module from Home closure and review three aggregate asset ceilings only, with metric-specific evidence in config. No weakening of startup or Home ceilings.
+
+## 2026-10-12 stable Preview follow-up
+- Stable source Preview SHA 26f60104: all checks/DOM/browser passed, but canonical build/Vercel failed by 10B initial closure and 256B Home closure; aggregate revised asset limits passed.
+- New repair task chatgpt/404-panel-closure-repair-20261012: move the modal/owner/friend panel detail JSX into the already lazy DayDetailPanel chunk, reducing Home static closure. Keep existing Home/initial/startup ceilings unchanged. Revalidate size and functional behavior before accepting Preview.
+- Do not merge to dev/main or start #692 before Preview acceptance; preserve focused verification and version v0.21.0.
