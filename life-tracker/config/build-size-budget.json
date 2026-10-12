@@ -80,21 +80,6 @@
         "appAssetsGzipBytes": 763000,
         "precacheUniqueBytes": 2546350
       }
-    },
-    {
-      "issue": "#708",
-      "reason": "Measured v0.24.1 on-demand two-owner chat history reconciliation adds a lazily loaded manual Sync path and a bounded, authenticated server repair action. The previous v0.24.0 READY Preview had only 38 B raw and 48 B gzip app-total headroom. The first v0.24.1 Vercel build exceeded aggregate totals by 1,921 B raw, 805 B gzip and 1,872 B unique precache, while all four entry/initial/Home closure ceilings passed. This reviewed change permits the measured new feature while preserving the historic baseline, existing four startup-critical ceilings, and exact canonical+Vercel acceptance. No unbounded bundle or runtime loop budget exception. This #708 review is carried forward for provenance on top of #692 integrated dev limits, which already exceed all three #708 aggregate limits; no increase relative to current dev was requested.",
-      "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/dpl_3U8AwJz3u7TzKeRs9WKjs2LFjwaf",
-      "metrics": [
-        "appAssetsRawBytes",
-        "appAssetsGzipBytes",
-        "precacheUniqueBytes"
-      ],
-      "previousLimits": {
-        "appAssetsRawBytes": 2461000,
-        "appAssetsGzipBytes": 764000,
-        "precacheUniqueBytes": 2548500
-      }
     }
   ]
 }

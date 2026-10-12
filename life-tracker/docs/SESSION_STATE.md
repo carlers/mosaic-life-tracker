@@ -12,7 +12,7 @@ Current task: #708 chat reliability v0.24.1; user accepted tested Preview, autho
 
 ## Dev integration
 - Approved `dev@d9d2cc1f3650889c30c43478d90e6519524c851e` (v0.23.4) has newer #692 calendar interactions and #656 warmups. Direct #708 stable→dev PR #744 is **conflicting**, so build a new integrated Preview from exact dev tree, carry forward all 17 #708-specific paths, preserve every dev-only path and its reviewed #692/#656 size ceilings. Candidate v0.24.1 is greater than dev v0.23.4.
-- Combined budget keeps current dev limits and adds #708's measured earlier Preview review to `priorReviews` for audit history. The #692 dev limits already exceed all three of #708's reviewed aggregate limits; no new increase is assumed. Canonical and hosted build must independently pass the resulting combined tree.
+- Combined budget is **byte-identical to current dev**: #692/#656 reviewed limits already exceed all three #708 Preview aggregate ceilings. Per the mandatory budget-review policy, do not edit metadata without a limit change; the #708 historical hosted measurements remain in the issue and this checkpoint. Independently verify the combined build against dev's seven unchanged limits.
 - Preserve chat and calendar UI behavior, no unrelated refactors. Use focused task branch→integrated `fix/*` Preview→canonical CI+Vercel READY→accepted Preview PR into dev. Verify actual PR tree and new dev CI and deployed dev Vercel; never merge `main` or touch Production.
 - Further hardening (fine-grained permanent-denial UI, historical one-copy absence without a safe source, latency measurements) remains tracked as limitations/follow-up; do not claim measured before/after latency.
 
