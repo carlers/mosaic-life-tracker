@@ -94,10 +94,10 @@ export const ChatPage: React.FC = () => {
   // Never mount sticker hooks until requested; warm code on usable Chat.
   useEffect(() => {
     if (!myUserId || !friendId) return;
-    const id = window.setTimeout(() => {
+    const id = setTimeout(() => {
       if (!document.hidden) void preloadStickerPackSheet().catch(() => {});
     }, 1000);
-    return () => window.clearTimeout(id);
+    return () => clearTimeout(id);
   }, [friendId, myUserId]);
 
   const actionMessage = useMemo(
