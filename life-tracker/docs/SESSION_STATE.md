@@ -25,3 +25,18 @@ Next action: focused task CI then repair squash into the same stable integration
 ## Parallel workflow implementation — #592
 
 Current work: `chatgpt/592-build-parity-20261012` (workflow-only, no app version change), based on dev `d9d2cc1f`. Preserve the #692 historical checkpoint above; the active source and issue comments own live progress. Implementing a sanitized CI/Vercel log comparator with regression evidence from the October 12 incident, aligning the GitHub build job to hosted Node 24, and reporting feature/runtime presence in GitHub logs. Before promoting any gated-Preview mechanism, exact artifact parity, credentials and SHA/alias/canonical-acceptance checks remain unverified. No Vercel settings, dev/main, Scratch or Production changes approved by this task branch.
+
+## #592 continuation — exact canonical Preview gate and asset fingerprint
+
+Working task `chatgpt/592-preview-gate-20261012` from accepted stable
+`fix/workflow-build-parity-592-20261012@b70de6daf1c824edb9297fc5af4d13117dc38dde`.
+The stable SHA passed GitHub canonical run `38272929905` on attempt 2 and
+Vercel deployment `dpl_3KfA4KQ8MboCy54KY29nfyQxWimy` is READY. This
+stage adds a **read-only** exact-SHA canonical branch-head check, regression
+coverage and stable logical-asset JS/CSS fingerprints to narrow CI/Vercel
+differences. No Vercel trigger changes or dev/main promotion. GIPHY Preview
+input parity and the protected secret-bearing prebuilt canary remain unresolved;
+do not interpret the read-only gate as authorization or mechanism to deploy.
+Next: focused CI, squash into stable Preview only after focused green, full
+canonical+Vercel verification; then prepare secret-scoped canary. No product
+version change.

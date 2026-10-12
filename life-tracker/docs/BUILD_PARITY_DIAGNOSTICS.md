@@ -65,3 +65,49 @@ keys and hashes under controlled builds, *never by hashed filename alone*.
 
 References: [Delivery](DELIVERY.md), [AI workflow](AI_WORKFLOW.md),
 [issue #592](https://github.com/carlers/mosaic-life-tracker/issues/592).
+
+## Automated safety checks implemented on the #592 Preview branch
+
+`node scripts/check-build-asset-fingerprint.mjs` runs in `npm run build` on both
+GitHub and Vercel, after PWA verification and before the size guard. It reports
+one SHA-256 digest for **all emitted JS/CSS**, grouped by Vite's stable manifest
+keys (including unmapped emitted assets). The digest excludes the transient
+hashed filename, does not display bundled API keys or source code, and is safe
+to compare in separate provider build logs. It is **not** a fingerprint of
+`index.html`, the service worker, or every non-JS/CSS resource.
+
+If the full build outputs are available securely in separate working directories:
+
+```bash
+node scripts/check-build-asset-fingerprint.mjs /tmp/ci-dist /tmp/hosted-dist
+```
+
+This compares SHA-256 per logical JS/CSS asset and prints only changed logical
+keys and byte deltas. The provider logs alone only prove **aggregate JS/CSS
+digest equality/difference**, not which chunk changed.
+
+The following read-only eligibility gate is also implemented but **is not wired
+to any live deployment trigger**:
+
+```bash
+GITHUB_REPOSITORY=carlers/mosaic-life-tracker \
+PREVIEW_DEPLOY_BRANCH=fix/workflow-build-parity-592-20261012 \
+PREVIEW_DEPLOY_SHA=<exact-40-character-sha> \
+GITHUB_TOKEN=<trusted-read-only-token> \
+node scripts/check-preview-deploy-gate.mjs
+```
+
+The gate checks the live branch head, full SHA, official GitHub Quality Gate
+workflow run and its matching successful `canonical-acceptance` check suite.
+It rejects mismatched SHAs, newer failed runs, source branch changes, fake
+standalone `build` success, non-Preview branches and non-official repositories.
+Run it immediately before any future Preview deployment, as well as before a
+prebuilt candidate is created. This check **does not** prove Vercel feature
+parity, same-hash deployment, branch alias correctness, or deployment
+idempotency. A future trusted build/deploy workflow must handle those gates.
+
+**Security:** Never put the Vercel token or GIPHY key in a public workflow log,
+GitHub artifact, issue, comment, or untrusted PR job. Use a reviewed,
+protected GitHub deployment environment and only deploy an already-accepted
+exact source SHA. Keep normal Git-triggered Preview deployments enabled until
+a proven canary fully replaces them.
