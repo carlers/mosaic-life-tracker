@@ -38,6 +38,7 @@ export const categoriesMigrationStrategies = {
 };
 export const diaryMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, emoji: '' }),
+  2: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, photos: '[]' }),
 };
 
 export const settingsMigrationStrategies = {

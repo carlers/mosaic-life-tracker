@@ -125,6 +125,14 @@ async function uploadImageWithId(
 }
 
 /** Task attachments are visible through the authorized friend calendar. */
+/** Diary photos retain owner-only storage ACL, unlike friend-readable task photos. */
+export async function saveDiaryImage(file: File, userId: string): Promise<string> {
+  if (!userId) throw new Error('Sign in before adding a diary photo.');
+  if (getConnectivitySnapshot().status !== 'online') throw new Error('Connect to upload diary photos.');
+  const blob = await compressImage(file);
+  return uploadCompressedBlobWithId(blob, generateFileId(), userId, false);
+}
+
 export async function saveImage(
   file: File,
   userId: string
@@ -222,7 +230,8 @@ export async function ensureRestoredImage(
   file: File,
   preferredFileId: string,
   expectedUserId?: string,
-  alreadyCompressed = false
+  alreadyCompressed = false,
+  ownerOnly = false
 ): Promise<EnsuredImage> {
   if (!isValidFileId(preferredFileId)) {
     throw new Error('Backup image has an invalid file ID.');
@@ -244,7 +253,7 @@ export async function ensureRestoredImage(
     await guardedStorage.updateFile({
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId: preferredFileId,
-      permissions: buildFilePermissions(userId, true),
+      permissions: buildFilePermissions(userId, !ownerOnly),
     });
     return { fileId: preferredFileId, uploaded: false };
   } catch (error) {
@@ -256,7 +265,7 @@ export async function ensureRestoredImage(
       file,
       preferredFileId,
       userId,
-      true
+      !ownerOnly
     );
     return { fileId: preferredFileId, uploaded: true };
   } catch (error) {

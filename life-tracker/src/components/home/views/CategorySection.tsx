@@ -25,6 +25,8 @@ interface CategorySectionProps {
   tasks: TaskDocument[];
   ownerLabels?: ReadonlyMap<string, string>;
   sharedRows?: React.ReactNode;
+  diarySlot?: React.ReactNode;
+  diarySlotIndex?: number;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string, completed?: boolean) => void;
   onOpenActions: (task: TaskDocument) => void;
@@ -57,6 +59,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   tasks,
   ownerLabels,
   sharedRows,
+  diarySlot,
+  diarySlotIndex = 0,
   onToggleTask,
   onAddTask,
   onOpenActions,
@@ -184,7 +188,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       );
     };
 
-    tasks.forEach((task) => {
+    tasks.forEach((task, index) => {
+      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(<React.Fragment key="diary-slot">{diarySlot}</React.Fragment>);
       const isActiveSource = task.id === activeDragTaskId;
 
       if (!isActiveSource && clampedGapIndex === visibleIndex) {
@@ -210,7 +215,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     if (clampedGapIndex === visibleIndex) {
       pushGap();
     }
-
+    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(<React.Fragment key="diary-slot">{diarySlot}</React.Fragment>);
     return rows;
   };
 
@@ -318,9 +323,11 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       {!categoryCollapsed &&
         (canReorder
           ? renderDraggableRows()
-          : tasks.map((task) => (
-              <TaskItem key={task.id} {...taskProps(task)} />
-            )))}
+          : <>{tasks.map((task, index) => <React.Fragment key={task.id}>
+              {diarySlot && index === Math.min(tasks.length, diarySlotIndex) && diarySlot}
+              <TaskItem {...taskProps(task)} />
+            </React.Fragment>)}{diarySlot && diarySlotIndex >= tasks.length && diarySlot}</>)}
+      {categoryCollapsed && diarySlot}
       {!categoryCollapsed && sharedRows}
     </>
   );

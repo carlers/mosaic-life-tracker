@@ -36,6 +36,9 @@ const MESSAGES_TABLE = 'messages';
 const FRIENDSHIPS_TABLE = 'friendships';
 const TASKS_TABLE = 'tasks';
 const CATEGORIES_TABLE = 'categories';
+const DIARY_REACTIONS_TABLE = 'diary_reactions';
+const DIARY_TABLE = 'diary';
+const DIARY_PHOTOS_BUCKET = process.env.APPWRITE_STORAGE_BUCKET_ID || 'task_images';
 const MAX_ROW_ID_LENGTH = 36;
 const ROW_ID_REGEX = /^[a-zA-Z0-9_]+$/;
 const REACTIONS_MAX_LEN = 5000;
@@ -1040,6 +1043,62 @@ async function handleGetFriendTask(tablesDB, callerId, payload, log, error) {
   };
 }
 
+
+async function findVisibleFriendDiary(tablesDB, callerId, diaryId, ownerId) {
+  if (!isValidRowId(ownerId) || !isValidRowId(diaryId) || callerId === ownerId) return null;
+  if (!await verifyFriendship(tablesDB, callerId, ownerId)) return null;
+  let row;
+  try { row = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId }); }
+  catch { return null; }
+  if (row.user_id !== ownerId || row.deleted === true ||
+    !['public','followers'].includes(row.visibility)) return null;
+  return row;
+}
+async function handleReactToDiary(tablesDB, callerId, payload) {
+  const { friendUserId: ownerId, diaryId, emoji, op } = payload || {};
+  const valid = validateEmoji(emoji);
+  if (!valid.ok || (op !== 'add' && op !== 'remove')) return { status: 400, body: { error: 'Invalid diary reaction' } };
+  const diary = await findVisibleFriendDiary(tablesDB, callerId, diaryId, ownerId);
+  if (!diary) return { status: 403, body: { error: 'Diary unavailable' } };
+  const rowId = 'dr_' + sha256Hex(diaryId + '|' + callerId + '|' + valid.value).slice(0, 30);
+  const now = new Date().toISOString();
+  const table = { databaseId: DATABASE_ID, tableId: DIARY_REACTIONS_TABLE, rowId };
+  let existing = null;
+  try { existing = await tablesDB.getRow(table); } catch (error) {
+    if (error?.code !== 404) throw error;
+  }
+  if (!existing && op === 'add') {
+    try {
+      await tablesDB.createRow({ ...table, data: {
+        diary_id: diaryId, owner_id: ownerId, user_id: callerId, date: diary.date,
+        emoji: valid.value, deleted: false, created_at: now, updated_at: now,
+      }, permissions: [] });
+    } catch (error) {
+      if (error?.code !== 409) throw error;
+      existing = await tablesDB.getRow(table);
+    }
+  }
+  if (existing) {
+    if (existing.diary_id !== diaryId || existing.user_id !== callerId ||
+      existing.owner_id !== ownerId) return { status: 403, body: { error: 'Diary reaction unavailable' } };
+    await tablesDB.updateRow({ ...table, data: { deleted: op === 'remove', updated_at: now } });
+  }
+  return { status: 200, body: { ok: true } };
+}
+async function handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload) {
+  const { friendUserId, diaryId, fileId } = payload || {};
+  if (!isValidRowId(fileId)) return { status: 400, body: { error: 'Invalid diary photo' } };
+  const diary = await findVisibleFriendDiary(tablesDB, callerId, diaryId, friendUserId);
+  if (!diary) return { status: 403, body: { error: 'Diary unavailable' } };
+  let photos = [];
+  try { photos = JSON.parse(diary.photos || '[]'); } catch { return { status: 404, body: { error: 'Photo unavailable' } }; }
+  if (!Array.isArray(photos) || !photos.includes(fileId)) return { status: 404, body: { error: 'Photo unavailable' } };
+  const file = await storage.getFile({ bucketId: DIARY_PHOTOS_BUCKET, fileId });
+  if (file.mimeType !== 'image/webp' || file.sizeOriginal > 262144)
+    return { status: 415, body: { error: 'Diary photo unavailable' } };
+  const buffer = await storage.getFileDownload({ bucketId: DIARY_PHOTOS_BUCKET, fileId });
+  return { status: 200, body: { mimeType: 'image/webp', data: Buffer.from(buffer).toString('base64') } };
+}
 async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error) {
   const friendUserId = payload?.friendUserId;
   const month = payload?.month;
@@ -1068,11 +1127,34 @@ async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error
     (row.visibility === 'public' || row.visibility === 'followers')
   ).map(row => ({
     $id: row.$id, user_id: row.user_id, date: row.date,
-    content: row.content || '', emoji: row.emoji || '', visibility: row.visibility,
+    content: row.content || '', emoji: row.emoji || '', photos: row.photos || '[]', visibility: row.visibility,
     created_at: row.created_at || row.$createdAt || '',
     updated_at: row.updated_at || row.$updatedAt || '',
     deleted: false,
   }));
+  const diaryIds = new Set(entries.map(entry => entry.$id));
+  if (diaryIds.size > 0) {
+    const rawReactions = await listAllRows(tablesDB, DIARY_REACTIONS_TABLE, [
+      Query.equal('owner_id', friendUserId), Query.equal('deleted', false),
+      Query.greaterThanEqual('date', month + '-01'), Query.lessThan('date', nextMonth),
+    ], log, 10);
+    const grouped = new Map();
+    for (const reaction of rawReactions) {
+      if (!diaryIds.has(reaction.diary_id)) continue;
+      const id = reaction.diary_id;
+      if (!grouped.has(id)) grouped.set(id, []);
+      grouped.get(id).push(reaction);
+    }
+    for (const entry of entries) {
+      const all = grouped.get(entry.$id) || [];
+      const byEmoji = new Map();
+      for (const item of all) {
+        if (!byEmoji.has(item.emoji)) byEmoji.set(item.emoji, []);
+        byEmoji.get(item.emoji).push(item.user_id);
+      }
+      entry.reactions = JSON.stringify([...byEmoji].map(([emoji,userIds]) => ({ emoji, userIds })));
+    }
+  }
   return { status: 200, body: { entries } };
 }
 async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
@@ -1326,6 +1408,12 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'get_friend_task':
         result = await handleGetFriendTask(tablesDB, callerId, payload, log, error);
+        break;
+      case 'react_to_diary':
+        result = await handleReactToDiary(tablesDB, callerId, payload);
+        break;
+      case 'get_friend_diary_photo':
+        result = await handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload);
         break;
       case 'get_friend_diary_month':
         result = await handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error);

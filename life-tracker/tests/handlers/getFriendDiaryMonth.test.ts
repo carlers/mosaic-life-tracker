@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { invoke, makeMockDb } from '../helpers/invoke-handler';
+import { invoke, makeMockDb, makeMockStorage } from '../helpers/invoke-handler';
 
 const caller = 'person_a';
 const friend = 'person_b';
@@ -46,5 +46,65 @@ describe('get_friend_diary_month privacy', () => {
     db.listRows.mockResolvedValueOnce({ rows: [friendship] }).mockResolvedValueOnce({ rows: [] });
     expect((await invoke({ userId: caller, mockDb: db, body: payload })).status).toBe(403);
     expect((await invoke({ userId: caller, mockDb: db, body: { ...payload, friendUserId: caller } })).status).toBe(400);
+  });
+});
+
+describe('diary reactions and owner-private friend attachments', () => {
+  const visibleDiary = {
+    $id: 'diary_visible', user_id: friend, date: '2026-10-12',
+    visibility: 'followers', photos: '["img_photo"]', deleted: false,
+  };
+  const approvedFriendship = () => {
+    const db = makeMockDb();
+    db.listRows.mockResolvedValueOnce({rows:[friendship]}).mockResolvedValueOnce({rows:[friendship]});
+    return db;
+  };
+  it('never reads diary or photos for a stranger', async () => {
+    const db = makeMockDb(); const storage = makeMockStorage();
+    const result = await invoke({ userId: caller, mockDb: db, mockStorage: storage,
+      body: {action:'get_friend_diary_photo', friendUserId:friend, diaryId:'diary_visible', fileId:'img_photo'} });
+    expect(result.status).toBe(403);
+    expect(db.getRow).not.toHaveBeenCalledWith(expect.objectContaining({tableId:'diary'}));
+    expect(storage.getFile).not.toHaveBeenCalled();
+  });
+  it('cannot download private or unreferenced diary photos', async () => {
+    const db = approvedFriendship();const storage = makeMockStorage();
+    db.getRow.mockResolvedValueOnce({...visibleDiary, visibility:'private'});
+    const denied = await invoke({userId:caller,mockDb:db,mockStorage:storage,
+      body:{action:'get_friend_diary_photo',friendUserId:friend,diaryId:'diary_visible',fileId:'img_photo'}});
+    expect(denied.status).toBe(403);
+    expect(storage.getFile).not.toHaveBeenCalled();
+    const permittedDb=approvedFriendship();permittedDb.getRow.mockResolvedValueOnce(visibleDiary);
+    const absent = await invoke({userId:caller,mockDb:permittedDb,mockStorage:storage,
+      body:{action:'get_friend_diary_photo',friendUserId:friend,diaryId:'diary_visible',fileId:'img_other'}});
+    expect(absent.status).toBe(404);
+    expect(storage.getFile).not.toHaveBeenCalled();
+  });
+  it('returns one authorized WebP without granting direct storage permissions', async () => {
+    const db=approvedFriendship();const storage=makeMockStorage();
+    db.getRow.mockResolvedValueOnce(visibleDiary);
+    const result=await invoke({userId:caller,mockDb:db,mockStorage:storage,
+      body:{action:'get_friend_diary_photo',friendUserId:friend,diaryId:'diary_visible',fileId:'img_photo'}});
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({mimeType:'image/webp',data:Buffer.from('fake-image').toString('base64')});
+    expect(storage.getFile).toHaveBeenCalledWith(expect.objectContaining({fileId:'img_photo'}));
+    expect(db.updateRow).not.toHaveBeenCalled();
+  });
+  it('only permits visible diary reactions for accepted friends', async () => {
+    const db=makeMockDb();
+    const denied=await invoke({userId:caller,mockDb:db,
+      body:{action:'react_to_diary',friendUserId:friend,diaryId:'diary_visible',emoji:'🌱',op:'add'}});
+    expect(denied.status).toBe(403);
+    expect(db.createRow).not.toHaveBeenCalled();
+
+    const permittedDb=approvedFriendship();permittedDb.getRow.mockResolvedValueOnce(visibleDiary);
+    const result=await invoke({userId:caller,mockDb:permittedDb,
+      body:{action:'react_to_diary',friendUserId:friend,diaryId:'diary_visible',emoji:'🌱',op:'add'}});
+    expect(result.status).toBe(200);
+    expect(permittedDb.createRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId:'diary_reactions',permissions:[],data:expect.objectContaining({
+        owner_id:friend,user_id:caller,emoji:'🌱',deleted:false
+      })
+    }));
   });
 });

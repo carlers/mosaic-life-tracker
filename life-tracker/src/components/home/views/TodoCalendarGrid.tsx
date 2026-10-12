@@ -214,8 +214,8 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                     aria-hidden="true"
                   >
                     {markerMode === 'diary' ? (
-                      <span data-testid={`diary-marker-${dateKey}`} className={`absolute inset-0 flex items-center justify-center text-xl ${diary ? '' : 'text-gray-600'}`}>
-                        {diary ? diaryMarker(diary) || '●' : '·'}
+                      <span data-testid={`diary-marker-${dateKey}`} className="absolute inset-0 flex items-center justify-center text-xl">
+                        {diary ? (diaryMarker(diary) || <span style={{ color: 'var(--mosaic-accent)' }}>●</span>) : <span className="text-gray-600">·</span>}
                       </span>
                     ) : <>{markerColors.map((color, index) => (
                       <span

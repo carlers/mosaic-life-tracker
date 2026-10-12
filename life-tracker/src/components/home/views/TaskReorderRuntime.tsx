@@ -5,6 +5,8 @@ import {
   PointerSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
+import { BookOpenText } from 'lucide-react';
+import { placementFromTaskDrop, type DiaryPlacement } from '../../../lib/diaryPlacement';
 import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
@@ -78,6 +80,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const dragSessionRef = React.useRef<DragSession | null>(null);
   const sharedDragRef = React.useRef<SharedTaskItem | null>(null);
   const sharedTargetRef = React.useRef<string | null>(null);
+  const diaryTargetRef = React.useRef<DiaryPlacement | null>(null);
+  const [diaryDragging, setDiaryDragging] = React.useState(false);
+  const diaryDragRef = React.useRef(false);
   const [activeSharedDrag, setActiveSharedDrag] = React.useState<SharedTaskItem | null>(null);
   const commitIdRef = React.useRef(0);
 
@@ -123,6 +128,13 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       if (!source) return;
 
       const taskId = String(source.id);
+      if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
+        diaryTargetRef.current = null;
+        diaryDragRef.current = true;
+        setDiaryDragging(true);
+        onReorderActiveChange?.(true);
+        return;
+      }
       if (!taskById.has(taskId)) {
         const shared = props.sharedItems?.find(item => item.id === taskId && item.status === 'accepted');
         if (shared) {
@@ -161,7 +173,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       setActiveDrag(next);
       onReorderActiveChange?.(true);
     },
-    [basePlacement, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems]
+    [basePlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled]
   );
 
   const handleDragOver = React.useCallback(
@@ -174,6 +186,17 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     ) => {
       const session = dragSessionRef.current;
       const { source, target } = event.operation;
+      if (diaryDragRef.current) {
+        const key = target ? String(target.id) : '';
+        if (key === 'diary-boundary:top' || key === 'diary-boundary:bottom') {
+          diaryTargetRef.current = { kind: key.endsWith('top') ? 'top' : 'bottom' };
+          return;
+        }
+        const drop = key ? parseDropTarget(key) : null;
+        diaryTargetRef.current = drop && categoryIds.includes(drop.categoryId)
+          ? placementFromTaskDrop(drop, displayPlacement[drop.categoryId] ?? []) : null;
+        return;
+      }
       if (sharedDragRef.current) {
         const key = target ? String(target.id) : null;
         const drop = key ? parseDropTarget(key) : null;
@@ -209,7 +232,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         current ? { ...current, projection: next } : current
       );
     },
-    [categoryIds]
+    [categoryIds, diaryDragging, displayPlacement]
   );
 
   const handleDragEnd = React.useCallback(
@@ -221,6 +244,19 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       >[0]
     ) => {
       onReorderActiveChange?.(false);
+      if (diaryDragRef.current) {
+        const key = event.operation.target ? String(event.operation.target.id) : '';
+        const direct = key === 'diary-boundary:top' || key === 'diary-boundary:bottom'
+          ? { kind: key.endsWith('top') ? 'top' as const : 'bottom' as const } : null;
+        const location = direct ?? diaryTargetRef.current;
+        diaryTargetRef.current = null;
+        diaryDragRef.current = false;
+        setDiaryDragging(false);
+        if (!event.canceled && location && props.onMoveDiary) {
+          void Promise.resolve(props.onMoveDiary(location)).catch(error => props.onSharedMoveError?.(error));
+        }
+        return;
+      }
       const draggedShared = sharedDragRef.current;
       sharedDragRef.current = null;
       setActiveSharedDrag(null);
@@ -296,6 +332,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     [
       categoryIds,
       dateStr,
+      diaryDragging,
       livePlacement,
       onReorderActiveChange,
       onReorderTasks,
@@ -332,8 +369,10 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         tasksByCategory={tasksByCategory}
         activeSharedDragId={activeSharedDrag?.id ?? null}
         activeDrag={activeDrag}
+        diaryDragging={diaryDragging}
       />
       <DragOverlay dropAnimation={null}>
+        {diaryDragging && <div aria-hidden="true" className="flex items-center gap-3 rounded-xl bg-surfaceHighlight px-4 py-3 text-sm text-white"><BookOpenText size={19}/> Diary entry</div>}
         {activeSharedDrag && (
           <SharedTaskDragOverlay item={activeSharedDrag}
             color={categoryById.get(props.sharedCategoryFor?.(activeSharedDrag) || '')?.color || '#6B7280'} />

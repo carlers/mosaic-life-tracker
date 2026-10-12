@@ -246,10 +246,40 @@ export async function fetchFriendDiaryMonth(
     return [{
       id: String(row.$id || ''), userId: friendUserId, date: row.date,
       content: String(row.content || ''), emoji: String(row.emoji || ''),
+      photos: String(row.photos || '[]'), reactions: String(row.reactions || ''),
       visibility: row.visibility as DiaryDocument['visibility'],
       createdAt: String(row.created_at || row.$createdAt || ''),
       updatedAt: String(row.updated_at || row.$updatedAt || ''),
       isDeleted: false,
     }];
   });
+}
+
+/** Server-gated reaction, never write a friend's diary row from the browser. */
+export async function reactToFriendDiary(
+  friendUserId: string, diaryId: string, emoji: string, op: 'add' | 'remove'
+): Promise<void> {
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({ action: 'react_to_diary', friendUserId, diaryId, emoji, op }),
+    async: false, xpath: '/', method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed' || execution.responseStatusCode !== 200)
+    throw new FriendAccessError('Diary reaction could not be saved.', 'server');
+}
+
+/** A single private photo, returned only after fresh server-side diary ACL checks. */
+export async function fetchFriendDiaryPhoto(friendUserId: string, diaryId: string, fileId: string): Promise<Blob> {
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({ action: 'get_friend_diary_photo', friendUserId, diaryId, fileId }),
+    async: false, xpath: '/', method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed' || execution.responseStatusCode !== 200)
+    throw new FriendAccessError('Diary photo unavailable.', 'forbidden');
+  const result = JSON.parse(execution.responseBody) as { mimeType?: string; data?: string };
+  if (result.mimeType !== 'image/webp' || typeof result.data !== 'string' || result.data.length > 400000)
+    throw new FriendAccessError('Diary photo unavailable.', 'server');
+  const bytes = Uint8Array.from(atob(result.data), char => char.charCodeAt(0));
+  return new Blob([bytes], { type: 'image/webp' });
 }

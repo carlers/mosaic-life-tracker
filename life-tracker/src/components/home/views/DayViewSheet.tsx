@@ -53,16 +53,17 @@ import {
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
   SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
+  DIARY_DAY_VIEW_POSITION_SETTING_KEY,
+  resolveDiaryDayViewPosition,
   SHOW_HOLIDAYS_SETTING_KEY,
 } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
+import { diaryPlacementKey, normalizeDiaryPlacement } from '../../../lib/diaryPlacement';
 import {
   EMPTY_HOLIDAYS,
   createHolidayDisplayConfig,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
-
-const LazyDiaryDayPreview = lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
 
 const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
@@ -95,6 +96,7 @@ interface DayViewSheetProps {
   categories?: CategoryDocument[];
   focusTaskId?: string | null;
   holidayConfig?: HolidayDisplayConfig;
+  showDiaryAlways?: boolean;
 }
 
 interface SheetContentControls {
@@ -122,6 +124,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   categories: categoriesOverride,
   focusTaskId = null,
   holidayConfig: holidayConfigOverride,
+  showDiaryAlways = false,
   shellControlsRef,
   onLockChange,
 }) => {
@@ -156,7 +159,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
-  const showDiaryInDayView = renderMode === 'sheet' && getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
+  const showDiaryInDayView = !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
+  const diaryPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
   const holidayConfig =
     holidayConfigOverride ??
     createHolidayDisplayConfig(
@@ -1006,9 +1010,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         Shared completion pending sync
                       </p>
                     )}
-                    {showDiaryInDayView && i === activeIndex && (
-                      <Suspense fallback={null}><LazyDiaryDayPreview date={dateStr} /></Suspense>
-                    )}
+                    
                     <DaySlide
                       date={date}
                       dateStr={dateStr}
@@ -1062,7 +1064,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       reorderRuntimeActive={isOpen && i === activeIndex}
                       onReorderTasks={reorderTasks}
                       onReorderActiveChange={setIsTaskReorderActive}
+                      diaryEnabled={showDiaryInDayView && i === activeIndex && !isSelectMode}
+                      diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
+                      onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
                     />
+                    
                   </>
                 )}
               </div>

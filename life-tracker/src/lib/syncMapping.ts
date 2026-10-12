@@ -37,6 +37,7 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'date',
     'content',
     'emoji',
+    'photos',
     'visibility',
     'user_id',
     'deleted',
@@ -163,6 +164,7 @@ export function toAppwriteFormat(
     mapped.date = source.date || '';
     mapped.content = source.content || '';
     mapped.emoji = source.emoji || '';
+    mapped.photos = source.photos || '[]';
     mapped.visibility = source.visibility || 'private';
     mapped.user_id = userId;
     mapped.deleted = source.isDeleted ?? false;
@@ -307,6 +309,7 @@ export function fromAppwriteFormat(
       new Date().toISOString();
     mapped.content = row.content || '';
     mapped.emoji = row.emoji || '';
+    mapped.photos = row.photos || '[]';
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.created_at;
