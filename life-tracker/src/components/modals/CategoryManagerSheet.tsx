@@ -280,8 +280,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const handleEditCancel = () => {
     reset();
     setEditingId(null);
-    setEditName('');
-    setEditVisibility('private');
   };
 
   return (
