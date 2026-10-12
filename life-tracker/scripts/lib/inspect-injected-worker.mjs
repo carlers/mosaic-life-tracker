@@ -114,7 +114,17 @@ export function inspectInjectedWorker(source) {
     else skipWaitingOnStartup = true;
   }
   if (!skipWaitingOnRequest) {
-    throw new Error('Update confirmation message handler is missing.');
+    const calls = waits.map((path) => ({
+      event: path.filter((node) => node.type === 'CallExpression' && propName(node.callee?.property) === 'addEventListener')
+        .map((node) => node.arguments[0]?.value),
+      parents: path.filter((node) => ['IfStatement', 'ConditionalExpression', 'LogicalExpression'].includes(node.type))
+        .map((node) => ({
+          type: node.type,
+          expression: source.slice((node.test ?? node.left).start, (node.test ?? node.left).end).slice(0, 240),
+        })),
+      skipSource: source.slice(Math.max(0, path.at(-1).start - 120), path.at(-1).end + 120),
+    }));
+    throw new Error('Update confirmation message handler is missing. ' + JSON.stringify(calls).slice(0, 4000));
   }
   return {
     skipWaitingOnStartup,
