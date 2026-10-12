@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import type { CalendarZoomDays } from '../../../lib/preferences';
 import {
   edgeSwipeDirection, nearestZoomSnap, zoomSnapColumns,
@@ -17,6 +17,7 @@ interface CalendarZoomViewportProps {
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;
   onNavigate?: (direction: 'prev' | 'next') => void;
+  navigationLocked?: boolean;
 }
 function edgeOf(node: HTMLDivElement): Edge {
   if (node.scrollLeft <= EDGE_TOLERANCE_PX) return 'left';
@@ -25,14 +26,6 @@ function edgeOf(node: HTMLDivElement): Edge {
 }
 function columnAt(node: HTMLDivElement, days: number): number {
   return node.clientWidth > 0 ? node.scrollLeft * days / node.clientWidth : 0;
-}
-function scrollToSnap(node: HTMLDivElement, days: number) {
-  const column = nearestZoomSnap(columnAt(node, days), days);
-  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  node.scrollTo?.({
-    left: column * node.clientWidth / days,
-    behavior: reduceMotion ? 'instant' : 'smooth',
-  });
 }
 interface Start {
   x: number;
@@ -49,11 +42,34 @@ interface Start {
  * synthesized only for pointerType=mouse; CSS owns release snapping on touch.
  */
 export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
-  zoomDays, children, onZoomMount, onZoomScroll, onNavigate,
+  zoomDays, children, onZoomMount, onZoomScroll, onNavigate, navigationLocked = false,
 }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<Start | null>(null);
   const mouseStartRef = useRef<Start | null>(null);
+  const pendingMouseSnapRef = useRef<(() => void) | null>(null);
+  const cancelMouseSnap = () => {
+    pendingMouseSnapRef.current?.();
+    pendingMouseSnapRef.current = null;
+  };
+  useEffect(() => () => {
+    pendingMouseSnapRef.current?.();
+  }, []);
+
+  // Prevent another horizontal wheel gesture from moving the incoming
+  // month while Embla is settling. Vertical scrolling and pinch zoom remain.
+  useEffect(() => {
+    const node = viewportRef.current;
+    if (!node || !navigationLocked) return;
+    const stopHorizontalWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey &&
+        Math.abs(event.deltaX) > Math.abs(event.deltaY) * 1.35) {
+        event.preventDefault();
+      }
+    };
+    node.addEventListener('wheel', stopHorizontalWheel, { passive: false });
+    return () => node.removeEventListener('wheel', stopHorizontalWheel);
+  }, [navigationLocked]);
   const suppressClickRef = useRef(false);
   const wheelRef = useRef({ last: -Infinity, direction: 0, distance: 0,
     edge: null as Edge, committed: false });
@@ -64,15 +80,16 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
 
   const navigateOnRelease = (start: Start, x: number, y: number): boolean => {
     const direction = edgeSwipeDirection(start.edge, x - start.x, y - start.y);
-    if (!direction || !onNavigate) return false;
+    if (!direction || !onNavigate || navigationLocked) return false;
     suppressClickRef.current = true;
     onNavigate(direction);
     return true;
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== 'mouse' || event.button !== 0) return;
+    if (event.pointerType !== 'mouse' || event.button !== 0 || navigationLocked) return;
     const node = event.currentTarget;
+    cancelMouseSnap();
     suppressClickRef.current = false;
     mouseStartRef.current = {
       x: event.clientX, y: event.clientY, scroll: node.scrollLeft,
@@ -81,7 +98,7 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
   };
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const start = mouseStartRef.current;
-    if (!start || start.pointerId !== event.pointerId) return;
+    if (!start || start.pointerId !== event.pointerId || navigationLocked) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (!start.dragged) {
@@ -98,9 +115,30 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
     const start = mouseStartRef.current;
     mouseStartRef.current = null;
     if (!start) return;
-    node.style.scrollSnapType = 'x mandatory';
-    if (!start.dragged) return;
-    if (!navigateOnRelease(start, x, y)) scrollToSnap(node, zoomDays);
+    if (!start.dragged || navigateOnRelease(start, x, y)) {
+      node.style.scrollSnapType = '';
+      return;
+    }
+    const destination = nearestZoomSnap(columnAt(node, zoomDays), zoomDays)
+      * node.clientWidth / zoomDays;
+    if (!node.scrollTo || Math.abs(node.scrollLeft - destination) <= 1 ||
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      node.scrollLeft = destination;
+      node.style.scrollSnapType = '';
+      return;
+    }
+    // Re-enabling mandatory CSS snap first forces an immediate layout jump,
+    // overriding scrollTo(smooth). Restore CSS only once smooth scrolling ends.
+    const restore = () => {
+      node.removeEventListener('scrollend', restore);
+      window.clearTimeout(fallback);
+      node.style.scrollSnapType = '';
+      if (pendingMouseSnapRef.current === restore) pendingMouseSnapRef.current = null;
+    };
+    const fallback = window.setTimeout(restore, 650);
+    pendingMouseSnapRef.current = restore;
+    node.addEventListener('scrollend', restore);
+    node.scrollTo({ left: destination, behavior: 'smooth' });
   };
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.defaultPrevented || event.ctrlKey || event.altKey ||
@@ -131,7 +169,11 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
       data-calendar-zoom-lane="true"
       data-zoom-days={zoomDays}
       className="max-w-full overflow-x-auto overscroll-x-contain"
-      style={{ touchAction: 'auto', scrollSnapType: 'x mandatory', cursor: 'grab' }}
+      style={{
+        touchAction: navigationLocked ? 'pan-y pinch-zoom' : 'auto',
+        scrollSnapType: 'x mandatory',
+        cursor: navigationLocked ? 'default' : 'grab',
+      }}
       onKeyDown={handleKeyDown}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -141,10 +183,11 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
       }}
       onPointerCancel={() => {
         mouseStartRef.current = null;
-        if (viewportRef.current) viewportRef.current.style.scrollSnapType = 'x mandatory';
+        cancelMouseSnap();
+        if (viewportRef.current) viewportRef.current.style.scrollSnapType = '';
       }}
       onClickCapture={(event) => {
-        if (!suppressClickRef.current) return;
+        if (!navigationLocked && !suppressClickRef.current) return;
         suppressClickRef.current = false;
         event.preventDefault();
         event.stopPropagation();
@@ -152,7 +195,7 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
       onTouchStart={(event) => {
         const node = event.currentTarget;
         const touch = event.touches[0];
-        if (event.touches.length !== 1 || !touch) {
+        if (navigationLocked || event.touches.length !== 1 || !touch) {
           touchStartRef.current = null;
           return;
         }
@@ -165,11 +208,11 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
         const start = touchStartRef.current;
         touchStartRef.current = null;
         const touch = event.changedTouches[0];
-        if (start && touch) navigateOnRelease(start, touch.clientX, touch.clientY);
+        if (start && touch && !navigationLocked) navigateOnRelease(start, touch.clientX, touch.clientY);
       }}
       onTouchCancel={() => { touchStartRef.current = null; }}
       onWheel={(event) => {
-        if (!onNavigate || event.ctrlKey || event.metaKey || event.shiftKey ||
+        if (navigationLocked || !onNavigate || event.ctrlKey || event.metaKey || event.shiftKey ||
           event.deltaMode !== 0 ||
           Math.abs(event.deltaX) <= Math.abs(event.deltaY) * 1.35) return;
         const dir = Math.sign(event.deltaX);
@@ -191,7 +234,7 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
         }
       }}
       onFocusCapture={(event) => {
-        if (event.target !== event.currentTarget &&
+        if (!navigationLocked && event.target !== event.currentTarget &&
           event.target instanceof HTMLElement &&
           event.target.closest('[role="gridcell"]')) {
           event.target.scrollIntoView?.({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
@@ -201,7 +244,7 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
     >
       <div className="relative" style={{ width: `${(7 / zoomDays) * 100}%` }}>
         {zoomSnapColumns(zoomDays).map((column) => (
-          <span aria-hidden="true" key={column} style={{
+          <span aria-hidden="true" data-calendar-snap-day={column} key={column} style={{
             position: 'absolute',
             top: 0,
             left: `${(column / 7) * 100}%`,
