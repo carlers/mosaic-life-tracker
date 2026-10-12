@@ -1,44 +1,43 @@
 # Session checkpoint
 
 Updated: 2026-10-13
-Current task: #592 protected Preview canary skip-propagation repair.
-Issue #592 and exact branch/Actions/Vercel status are authoritative.
+Current task: #592 protected Vercel Preview canary: bounded history fix.
 
-## Accepted baseline
-- Stable `fix/workflow-build-parity-592-20261012@b31b7c357ce44f0d249194f790c248caf1ef3274`.
-- GitHub canonical `38278831802` SUCCESS; hosted Vercel
-  `dpl_9ttUkTrPYs7WM4qaNb74ozgRLXrh` READY, Scratch backend,
-  GIPHY enabled, Node 24.21.0, unchanged seven budgets PASS.
-- GitHub and Vercel JS/CSS fingerprints mismatch at same SHA because
-  CI GIPHY disabled, hosted GIPHY enabled. Do not claim full parity.
-- `dev@d9d2cc1f`, `main@3af10493` at previous readback; recheck.
-- Canary is manual-only, opt-in, protected by environment and token,
-  exact SHA, Vercel branch/project, canonical CI and duplicate checks.
-  Vercel Git-triggered delivery has **not** been disabled.
+## Verified baseline
 
-## Active repair
-- Owner screenshots confirm repository variable
-  `MOSAIC_PREBUILT_CANARY_ENABLED=true`, protected
-  `mosaic-preview-canary` environment token/reviewer/branch, and exact
-  manual SHA input. Manual runs `38280478916` and `38282072296`
-  fully passed Quality Gate but `protected-preview-canary` SKIPPED.
-- Probable cause: inherited implicit GitHub Actions `success()`
-  propagates skipped `promotion_check` ancestor despite successful
-  `canonical_acceptance`. Reference: GitHub Actions runner #2205.
-- Task `chatgpt/592-canary-skipped-needs-20261013` from stable SHA
-  changes canary job-level condition to `always() && !cancelled()`
-  **in addition to** all original fail-closed manual/SHA/opt-in/
-  canonical checks. Adds workflow YAML regression and docs.
-- Next: focused task CI; squash to stable Preview; full canonical
-  and Vercel readiness. Then owner can dispatch one new manual run
-  using the **new stable commit SHA** and approve reviewer request.
-  Inspect token-dependent steps before claiming canary accepted.
+Stable `fix/workflow-build-parity-592-20261012@335da4c58a4b7c1855386b9807a304590e25e9d6`;
+full GitHub Quality Gate `38283876942` SUCCESS, Vercel
+`dpl_CXz7tAKNXZ4JDo1RbMgPjB2SqKHP` READY. Ordinary Git-triggered
+Preview preserved; no `dev/main`, Scratch or Production changes.
 
-## Next action and safety
-No `dev/main` merge, Production/Appwrite or Vercel Git trigger
-changes. Preserve size budgets. A successfully running canary still
-needs exact SHA/Scratch/GIPHY/artifact/alias/idempotency acceptance
-before disabling any auto Preview deployment. #592 remains OPEN
-with scheduled audit, budget parity/policy and promotion pilot tasks.
-Historical unrelated #692 Calendar zoom checkpoint lives in issue
-and integration branch; do not infer its promotion here.
+Owner dispatched manual Quality Gate `38284531918`. First attempt
+browser-contract shard 2 intermittently sent a task to populated `cat_1`
+instead of empty `cat_2`, same regression seen in past #592 run.
+Agent retried failed jobs only, attempt 2 browser shard SUCCESS;
+canonical-acceptance SUCCESS. After owner approved protected
+`mosaic-preview-canary`, manual SHA/ref/variable/repository checks,
+GitHub canonical evidence and Vercel token presence PASSED.
+Duplicate-check step failed on `Canary deployment history exceeded
+bounded inspection`: legacy search paged >500 historic deployments.
+**No prebuilt deployment was attempted.**
+
+## Active task
+
+`chatgpt/592-bounded-canary-history-20261013` from stable SHA.
+Limit duplicate search to deployments created since candidate Git commit
+timestamp minus 1 hour; keep five-page cap and fail-closed invalid
+history/pagination, branch/SHA validation and READY/active detection.
+Live Vercel read-only `since` filter for the current commit's one-hour
+safety margin returned **3 deployments**, no canary metadata.
+Add focused regression and update parity diagnostics.
+
+## Next action
+
+Focused task CI; squash to stable #592 Preview and verify exact-SHA
+canonical+Vercel READY. Existing GitHub connector cannot dispatch a
+fresh workflow or approve protected environments, so a later owner
+manual canary on **new stable SHA** is still required. Inspect its
+protected build and deployment logs and SHA/Scratch/alias evidence.
+Do not disable automatic Git Preview deployments before successful
+proof. No build-size budget or Appwrite change. Issue #592 remains OPEN;
+budget policy, scheduled audits and five-promotion pilot pending.

@@ -187,3 +187,28 @@ only one fresh manual dispatch on the **new stable SHA** can exercise it.
 Evidence: manual Quality Gates `38280478916` and `38282072296` passed
 canonical but skipped the canary, even with owner screenshots confirming
 the variable, SHA input, environment secret and protection settings.
+
+### Bounded Vercel history after the first protected canary execution
+
+The approved manual canary run `38284531918` entered its protected
+environment and verified correct manual SHA, branch, official project,
+GitHub canonical acceptance and presence of the Vercel token. It then
+failed safely **before any deployment** because the five-page history
+inspection covered the project's full history (>500 deployments).
+This was not an authentication error, and no canary build began.
+
+The corrected duplicate check uses the checked-out **Git commit timestamp
+minus one hour** as Vercel's server-side `since` bound. A deployment
+of the exact source SHA should not predate its own commit; the margin
+allows modest timestamp disagreement. The API supports millisecond
+`since`, confirmed against the Mosaic project: the current SHA's
+one-hour-safety window returned three deployments without truncation.
+The five-page cap, advancing-cursor validation, active/READY metadata
+matching, SHA/branch checks and fail-closed incomplete-history handling
+remain intact. Older candidate commits with genuinely enormous recent
+histories can still fail safely and require a new reviewed candidate;
+this is preferable to blindly redeploying.
+
+To test the protected path again, publish this repair through focused
+task → stable Preview canonical/READY and manually dispatch **the new
+stable SHA**. Do not rerun the old SHA and expect a source change.
