@@ -26,7 +26,7 @@ function clearDeliveryRetry() {
   retryDelay = 5_000;
 }
 function scheduleDeliveryRetry(userId: string, generation: number) {
-  if (retryTimer || !isAccountWorkCurrent(userId, generation)) return;
+  if (retryTimer) return;
   retryTimer = setTimeout(() => {
     retryTimer = undefined;
     if (isAccountWorkCurrent(userId, generation))
@@ -50,10 +50,9 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   if (!userId) return;
   const generation = captureAccountWorkGeneration(userId);
   if (generation === null) return;
-  const scope = userId + ':' + generation;
-  if (retryScope !== scope) {
+  if (retryScope !== String(generation)) {
     clearDeliveryRetry();
-    retryScope = scope;
+    retryScope = String(generation);
   }
 
   flushMessageActionQueue(userId).catch((err) => {
@@ -97,9 +96,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
         if (!isAccountWorkCurrent(userId, generation)) break;
         loopCount++;
         if (loopCount > MAX_DELIVERY_LOOPS) {
-          console.warn(
-            `[messageDelivery] delivery loop hit cap (${MAX_DELIVERY_LOOPS}); breaking`
-          );
+          console.warn('Chat delivery cycle limit reached');
           break;
         }
         deliveryRequestedDuringFlight = false;
@@ -114,7 +111,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
             },
           }).exec();
         } catch (err) {
-          console.error('[messageDelivery] pending message scan failed:', err);
+          console.error('Chat pending scan failed:', err);
           break;
         }
         if (!isAccountWorkCurrent(userId, generation)) break;
@@ -133,10 +130,7 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           } catch (err) {
             if (shouldQueueMessageAction(err))
               scheduleDeliveryRetry(userId, generation);
-            console.error(
-              `[messageDelivery] Failed to deliver ${doc.id}:`,
-              err
-            );
+            console.error('Chat delivery failed:', doc.id, err);
           }
         }
 
@@ -208,7 +202,7 @@ export async function markReadOnRemote(
         dedupKey: `mark_read:${threadId}`,
       });
     }
-    console.error('[messageDelivery] markReadOnRemote failed:', err);
+    console.error('Chat read receipt failed:', err);
   }
 }
 export async function unsendOnRemote(
@@ -235,7 +229,7 @@ export async function unsendOnRemote(
         dedupKey: `unsend:${messageId}`,
       });
     }
-    console.error('[messageDelivery] unsendOnRemote failed:', err);
+    console.error('Chat unsend failed:', err);
   }
 }
 export async function reactOnRemote(
