@@ -150,7 +150,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   useEffect(() => {
     if (preview || !feedIsCurrent || items.length === 0) return;
     const id = window.setTimeout(() => {
-      if (document.visibilityState === 'visible') void preloadAlertFriendDaySheet().catch(() => {});
+      if (!document.hidden) void preloadAlertFriendDaySheet().catch(() => {});
     }, 1000);
     return () => window.clearTimeout(id);
   }, [feedIsCurrent, items.length, preview]);

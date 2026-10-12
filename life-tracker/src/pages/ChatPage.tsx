@@ -95,7 +95,7 @@ export const ChatPage: React.FC = () => {
   useEffect(() => {
     if (!myUserId || !friendId) return;
     const id = window.setTimeout(() => {
-      if (document.visibilityState === 'visible') void preloadStickerPackSheet().catch(() => {});
+      if (!document.hidden) void preloadStickerPackSheet().catch(() => {});
     }, 1000);
     return () => window.clearTimeout(id);
   }, [friendId, myUserId]);
