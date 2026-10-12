@@ -425,8 +425,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
 async function handleRepairThread(tablesDB, callerId, payload) {
   const partnerId = payload?.partnerId;
   const cursor = payload?.cursor || '';
+  const scope = payload?.scope || 'self';
   if (!isValidRowId(partnerId) || partnerId === callerId ||
-      (cursor && !isValidRowId(cursor))) {
+      (cursor && !isValidRowId(cursor)) ||
+      (scope !== 'self' && scope !== 'peer')) {
     return { status: 400, body: { error: 'Invalid chat repair request' } };
   }
   if (!(await verifyFriendship(tablesDB, callerId, partnerId))) {
@@ -435,8 +437,10 @@ async function handleRepairThread(tablesDB, callerId, payload) {
   const [a, b] = callerId < partnerId
     ? [callerId, partnerId] : [partnerId, callerId];
   const threadId = `th_${sha256Hex(`${a}|${b}`).slice(0, 30)}`;
+  const sourceOwner = scope === 'self' ? callerId : partnerId;
+  const targetOwner = scope === 'self' ? partnerId : callerId;
   const queries = [
-    Query.equal('user_id', callerId),
+    Query.equal('user_id', sourceOwner),
     Query.equal('thread_id', threadId),
     Query.orderAsc('created_at'),
     Query.limit(50),
@@ -453,7 +457,7 @@ async function handleRepairThread(tablesDB, callerId, payload) {
   }
   let repaired = 0;
   for (const row of rows) {
-    if (row.user_id !== callerId || row.thread_id !== threadId) {
+    if (row.user_id !== sourceOwner || row.thread_id !== threadId) {
       return { status: 409, body: { error: 'Chat repair ownership mismatch' } };
     }
     if (row.deleted || row.is_unsent) continue;
@@ -461,8 +465,8 @@ async function handleRepairThread(tablesDB, callerId, payload) {
     const messageId = outgoing ? row.$id : row.original_message_id;
     const peerRowId = outgoing ? makeRecipientRowId(messageId) : messageId;
     const expectedOwnId = outgoing ? messageId : makeRecipientRowId(messageId);
-    const senderId = outgoing ? callerId : partnerId;
-    const recipientId = outgoing ? partnerId : callerId;
+    const senderId = outgoing ? sourceOwner : targetOwner;
+    const recipientId = outgoing ? targetOwner : sourceOwner;
     if (!isValidRowId(messageId) || !messageId.startsWith('msg_') ||
         row.$id !== expectedOwnId ||
         row.sender_id !== senderId || row.recipient_id !== recipientId ||
@@ -483,7 +487,7 @@ async function handleRepairThread(tablesDB, callerId, payload) {
     const peerDirection = outgoing ? 'incoming' : 'outgoing';
     function matchesPeer(candidate) {
       return candidate &&
-        candidate.user_id === partnerId && candidate.thread_id === threadId &&
+        candidate.user_id === targetOwner && candidate.thread_id === threadId &&
         candidate.sender_id === senderId && candidate.recipient_id === recipientId &&
         candidate.direction === peerDirection &&
         candidate.original_message_id === messageId &&
@@ -500,7 +504,7 @@ async function handleRepairThread(tablesDB, callerId, payload) {
     // Every field copied below already belongs to an authenticated participant.
     const now = new Date().toISOString();
     const data = {
-      user_id: partnerId, thread_id: threadId,
+      user_id: targetOwner, thread_id: threadId,
       sender_id: senderId, recipient_id: recipientId,
       direction: peerDirection, content: row.content,
       task_ref_id: row.task_ref_id || '',
@@ -521,9 +525,9 @@ async function handleRepairThread(tablesDB, callerId, payload) {
         databaseId: DATABASE_ID, tableId: MESSAGES_TABLE,
         rowId: peerRowId, data,
         permissions: [
-          Permission.read(Role.user(partnerId)),
-          Permission.update(Role.user(partnerId)),
-          Permission.delete(Role.user(partnerId)),
+          Permission.read(Role.user(targetOwner)),
+          Permission.update(Role.user(targetOwner)),
+          Permission.delete(Role.user(targetOwner)),
         ],
       });
       repaired++;
@@ -552,6 +556,7 @@ async function handleRepairThread(tablesDB, callerId, payload) {
   return { status: 200, body: {
     ok: true, checked: rows.length, repaired,
     nextCursor: rows.length === 50 ? last.$id : '',
+    nextScope: rows.length === 50 ? scope : scope === 'self' ? 'peer' : 'done',
   } };
 }
 
