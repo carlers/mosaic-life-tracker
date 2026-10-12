@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, MessageSquare, RefreshCw, Search } from 'lucide-react';
+import { ChevronLeft, MessageSquare, Search } from 'lucide-react';
 import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import {
@@ -38,9 +38,6 @@ const { Component: StickerPackSheet, preload: preloadStickerPackSheet } =
   createPreloadedLazy(() =>
     import('../components/messages/StickerPackSheet').then(m => m.StickerPackSheet)
   );
-const { Component: SyncStatusSheet } = createPreloadedLazy(() =>
-  import('../components/modals/SyncStatusSheet').then(m => m.SyncStatusSheet)
-);
 
 
 interface ComposerReplyState {
@@ -87,7 +84,6 @@ export const ChatPage: React.FC = () => {
   const composerRef = useRef<MessageComposerHandle>(null);
   const focusAfterActionReplyRef = useRef(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [syncSheetOpen, setSyncSheetOpen] = useState(false);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
   const [hasOpenedStickers, setHasOpenedStickers] = useState(false);
@@ -337,12 +333,7 @@ export const ChatPage: React.FC = () => {
         <span className="font-medium">
           {friend?.friendDisplayName || friend?.friendUsername || 'Chat'}
         </span>
-        <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => setSyncSheetOpen(true)}
-            className="p-2 text-gray-400" aria-label="Open sync status"
-            title="Sync status" data-route-swipe-ignore="true">
-            <RefreshCw size={20} />
-          </button>
+        <div className="ml-auto">
           <button
             onClick={openSearch}
             className="p-2 text-gray-400"
@@ -447,9 +438,6 @@ export const ChatPage: React.FC = () => {
         />
       </div>
 
-      {syncSheetOpen && (
-        <SyncStatusSheet isOpen onClose={() => setSyncSheetOpen(false)} />
-      )}
       {hasOpenedStickers && (
           <StickerPackSheet
             key={myUserId}
