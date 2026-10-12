@@ -143,11 +143,6 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
       <div
         className="grid transition-all duration-200 ease-in-out"
         style={{ gridTemplateRows: isEditing ? '1fr' : '0fr' }}
-        onTransitionEnd={(event) => {
-          if (isEditing && event.target === event.currentTarget) {
-            event.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-          }
-        }}
       >
         <div className="min-h-0 overflow-hidden" inert={!isEditing} aria-hidden={!isEditing}>
           <div className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
@@ -220,9 +215,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   }
 
   const overriddenCounts = useMemo(() => {
-    const counts = new Map<string, number>();
+    const counts: Record<string, number> = {};
     tasks.forEach(t => {
-      if (t.visibility) counts.set(t.categoryId, (counts.get(t.categoryId) || 0) + 1);
+      if (t.visibility) counts[t.categoryId] = (counts[t.categoryId] || 0) + 1;
     });
     return counts;
   }, [tasks]);
@@ -234,10 +229,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       'Could not add category. Try again.'
     );
   };
-
-  const handleUpdate = (id: string) =>
-    save(() => updateCategory(id, { name: editName, visibility: editVisibility }),
-      () => setEditingId(null), 'Could not update category. Try again.');
 
   const handleConfirmDelete = () => {
     if (deleteId) void save(
@@ -265,7 +256,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             <CategoryRow
               key={cat.id}
               cat={cat}
-              overriddenCount={overriddenCounts.get(cat.id) ?? 0}
+              overriddenCount={overriddenCounts[cat.id] || 0}
               isEditing={editingId === cat.id}
               orderSignature={orderedIds}
               onEditStart={(c) => {
@@ -299,7 +290,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                     onChange={setEditVisibility}
                   />
                   <Button
-                    onClick={() => handleUpdate(cat.id)}
+                    onClick={() => void save(
+                      () => updateCategory(cat.id, { name: editName, visibility: editVisibility }),
+                      () => setEditingId(null), 'Could not update category. Try again.'
+                    )}
                     disabled={!editName.trim() || isSaving}
                   >
                     Save Changes
