@@ -1,8 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-12
-Current task: use unmodified category color for incomplete Calendar task text; v0.20.2 Preview only, no dev/main merge.
+Current task: #655 PWA download/progress v0.20.3 combined integration with latest dev. User accepted the feature and authorized cleanup plus dev promotion, not main.
 
+## #655 dev integration of approved Preview
+- Integration base dev@`3b4033767c02917390a16764ab260d949548b9f3` (v0.20.2 category-color preference) and accepted PWA Preview `feature/pwa-progress-655@c132b1841792b2d0315b375d6dc5da5ad2a1325e` (v0.20.1). History diverged; a direct merge would regress version/overwrite unrelated dev fixes.
+- New task `chatgpt/pwa-progress-655-dev-combine`, stable integration Preview `feature/pwa-progress-655-dev-integration`. v0.20.3 preserves BOTH feature sets: existing exact category hues and Me > Categories manager, PWA precache progress/push/offline/explicit Update now.
+- Frontend/build/docs only. Preserve Scratch Preview vs Production isolation. Verify production/PWA worker policy, tests, all size guards (including hosted GIPHY), preview exact SHA and app version. Original PWA CI `38199613209` SUCCESS and Vercel `dpl_5FYeLtHEDtXhmnEJQnj8sfixgw46` READY. Integration limits initially carry that measured PWA candidate; revise only if exact new combined build requires it.
+- Next: [verify:full] combined task diagnostic for tight bundle ceilings; focused/full CI as required, squash into integration Preview, verify exact-SHA canonical acceptance and Scratch Vercel READY, then merge integration Preview into `dev` via PR using merge commit without version regression. Re-read dev for parallel head movement before promotion. Do not merge to main.
+
+## Previous task — Unmodified category text hue (already on dev)
 ## Current task — Unmodified category text hue
 - User requests Category text use the exact stored category hue, no blending. Low-contrast combinations are left unchanged.
 - Task `chatgpt/taskblock-text-raw-color-20261012` starts from `feature/taskblock-incomplete-color-20261012@b884b95`. Replace blend with `categoryColor` while keeping the important-theme fix; browser regression compares actual computed hue to source in Dark/Light/Black.

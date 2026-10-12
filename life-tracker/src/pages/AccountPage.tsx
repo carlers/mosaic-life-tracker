@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import { Settings, LogOut, BarChart3, Sticker, ListTodo, Star } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
@@ -9,6 +10,12 @@ import { useCategories } from '../hooks/useCategories';
 import { useFriends } from '../hooks/useFriends';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 
+const LazyCategoryManagerSheet = React.lazy(() =>
+  import('../components/modals/CategoryManagerSheet').then(({ CategoryManagerSheet }) => ({
+    default: CategoryManagerSheet,
+  }))
+);
+
 export const AccountPage: React.FC = () => {
   const { user, logout } = useAuth();
   const { tasks } = useTasks();
@@ -16,6 +23,8 @@ export const AccountPage: React.FC = () => {
   const { friends } = useFriends();
   const navigate = useNavigate();
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
@@ -90,7 +99,14 @@ export const AccountPage: React.FC = () => {
           </div>
           <ListTodo size={24} className="text-gray-400" aria-hidden="true" />
         </button>
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            setCategoryManagerMounted(true);
+            setIsCategoryManagerOpen(true);
+          }}
+          className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        >
           <div>
             <h3 className="text-base font-bold text-white">Categories</h3>
             <p className="text-sm text-gray-400">{categories.length} active</p>
@@ -99,7 +115,7 @@ export const AccountPage: React.FC = () => {
             className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500"
             aria-hidden="true"
           />
-        </div>
+        </button>
         <div className="pb-4">
           <Button
           variant="danger"
@@ -111,6 +127,14 @@ export const AccountPage: React.FC = () => {
           </Button>
         </div>
       </div>
+      {categoryManagerMounted && (
+        <React.Suspense fallback={null}>
+          <LazyCategoryManagerSheet
+            isOpen={isCategoryManagerOpen}
+            onClose={() => setIsCategoryManagerOpen(false)}
+          />
+        </React.Suspense>
+      )}
       {feedback && (
         <div
           role="status"

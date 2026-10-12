@@ -1,9 +1,11 @@
+import { inspectInjectedWorker } from './inspect-injected-worker.mjs';
 import { runInNewContext } from 'node:vm';
 
 // Execute our trusted generateSW output with observable Workbox stubs. This
 // checks generated wiring, not browser lifecycle, cache storage, or networking.
 // Unknown output APIs fail rather than silently reporting a safe policy.
 export async function inspectServiceWorker(source) {
+  if (source.includes('__MOSAIC_ASSETS__')) return inspectInjectedWorker(source);
   const listeners = new Map();
   let definitions = 0;
   let skipCalls = 0;

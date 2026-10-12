@@ -421,6 +421,22 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
   worker active and preserves unsaved state. On first install, the worker does not claim
   the already-open page; a subsequent navigation can be controlled. Never add an
   automatic reload or activation request as routine error handling.
+- **Why `autoUpdate` was removed.** That mode forced both activation flags to true.
+  The custom Workbox `injectManifest` worker (`src/sw.js`) retains only an
+  explicit, guarded `SKIP_WAITING` message handler and no automatic claim.
+  The bundled-worker policy inspector verifies the compiled behavior; do not
+  infer automatic activation from an unqualified search for `skipWaiting()`.
+- **Update asset progress (#655).** The Workbox precache completion hook tracks
+  files prepared for offline use, including cache hits; byte totals refer to
+  the corresponding **uncompressed emitted static asset sizes**, not HTTP
+  bytes transferred, bandwidth, or browser-managed installation progress.
+  `vite-plugin-pwa` appends certain extra precache entries without file sizes;
+  after the worker is generated, `scripts/complete-precache-sizes.mjs` fills
+  only missing sizes from actual `dist/` files (no second network fetch).
+  The service-worker build check rejects missing or mismatched asset weights.
+  Browser-native install and update activation show indeterminate stages.
+  Preserve existing push script, single registrar, and application data cache
+  isolation whenever changing the custom worker.
 - **Why `autoUpdate` was removed.** The plugin forced both activation flags to true
   despite the config's false values. The the bundle-size budget and Git history records the
   original finding. Workbox still emits a conditional `SKIP_WAITING` message handler
