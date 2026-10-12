@@ -89,29 +89,6 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const [activeSharedDrag, setActiveSharedDrag] = React.useState<SharedTaskItem | null>(null);
   const commitIdRef = React.useRef(0);
 
-  // A date/account switch must not retain a hidden source or stale drop session.
-  React.useEffect(() => {
-    dragSessionRef.current = null;
-    sharedDragRef.current = null;
-    sharedTargetRef.current = null;
-    diaryDragRef.current = false;
-    diaryTargetRef.current = null;
-    commitIdRef.current += 1;
-    setActiveDrag(null);
-    setActiveSharedDrag(null);
-    setDiaryDragging(false);
-    setDiaryPreviewPlacement(null);
-    setCommittedDiaryPlacement(null);
-    setCommittedPlacement(null);
-  }, [dateStr, currentUserId]);
-
-  React.useEffect(() => {
-    if (committedDiaryPlacement &&
-      JSON.stringify(committedDiaryPlacement) === JSON.stringify(props.diaryPlacement)) {
-      setCommittedDiaryPlacement(null);
-    }
-  }, [committedDiaryPlacement, props.diaryPlacement]);
-
   const activeCommittedPlacement =
     committedPlacement &&
     isTaskPlacementCompatible(
@@ -157,6 +134,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
         diaryTargetRef.current = null;
         setDiaryPreviewPlacement(null);
+        setCommittedDiaryPlacement(null);
         setDiaryDragHeight(Math.max(24, source.element?.getBoundingClientRect().height ?? 48));
         diaryDragRef.current = true;
         setDiaryDragging(true);
@@ -294,6 +272,14 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           setCommittedDiaryPlacement(location);
           void Promise.resolve()
             .then(() => props.onMoveDiary?.(location))
+            .then(() => {
+              window.requestAnimationFrame(() => {
+                setCommittedDiaryPlacement(current =>
+                  current && JSON.stringify(current) === JSON.stringify(location)
+                    ? null : current
+                );
+              });
+            })
             .catch(error => {
               setCommittedDiaryPlacement(null);
               props.onSharedMoveError?.(error);
