@@ -24,7 +24,7 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
     };
     if (window.requestIdleCallback) {
       const id = window.requestIdleCallback(warm, { timeout: 1800 });
-      return () => window.cancelIdleCallback(id);
+      return () => window.cancelIdleCallback?.(id);
     }
     const id = setTimeout(warm, 700);
     return () => clearTimeout(id);
