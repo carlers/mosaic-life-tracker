@@ -79,3 +79,23 @@ it('does not permanently poison a later warmup after a failed import', async () 
   }
 });
 
+
+it('retries as a new cold lazy mount after a failed preload', async () => {
+  const Sheet = () => <div role="dialog" aria-label="Recovered sheet" />;
+  const load = vi.fn()
+    .mockRejectedValueOnce(new Error('offline chunk'))
+    .mockResolvedValue(Sheet);
+  const { Component, preload } = createPreloadedLazy(load);
+  await expect(preload()).rejects.toThrow('offline chunk');
+  const view = mount();
+  try {
+    await act(async () => {
+      view.render(<Component />);
+      await Promise.resolve();
+    });
+    expect(view.container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(load).toHaveBeenCalledTimes(2);
+  } finally {
+    view.cleanup();
+  }
+});

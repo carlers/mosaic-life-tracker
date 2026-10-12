@@ -13,31 +13,23 @@ export function createPreloadedLazy<P extends object>(
 
   function preload(): Promise<React.ComponentType<P>> {
     if (ready) return Promise.resolve(ready);
-    if (pending) return pending;
-    pending = importComponent().then(
-      (Component) => {
-        ready = Component;
-        return Component;
-      },
+    return (pending ??= importComponent().then(
+      (Loaded) => (ready = Loaded),
       (error: unknown) => {
-        // React.lazy caches rejected loads. A later *new mount* needs a new
-        // lazy type so a user can retry after a transient chunk failure.
+        // Clear a rejected import; a subsequent mount creates a fresh lazy
+        // type and can retry instead of reusing React.lazy's cached failure.
         pending = null;
-        Cold = createCold();
         throw error;
       }
-    );
-    return pending;
+    ));
   }
 
-  const createCold = () =>
-    React.lazy(() => preload().then((Component) => ({ default: Component })));
-  let Cold = createCold();
-
   const Component: React.FC<P> = (props) => {
-    // Pin identity for this mount: completion of an in-flight import must not
-    // swap types and destroy an already mounting sheet or its local state.
-    const [Selected] = React.useState(() => ready ?? Cold);
+    // One cold lazy type per mount: never swap the rendered component when an
+    // import resolves, and let a later mount retry a previously failed load.
+    const [Selected] = React.useState(() =>
+      ready ?? React.lazy(() => preload().then((Loaded) => ({ default: Loaded })))
+    );
     return (
       <React.Suspense fallback={null}>
         <Selected {...props} />
