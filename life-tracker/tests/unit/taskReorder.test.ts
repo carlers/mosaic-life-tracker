@@ -99,6 +99,18 @@ describe('task reorder projection', () => {
     expect(projectTaskPlacement(snapshot, 'a1', 'unknown-target')).toBeNull();
   });
 
+  it('does not commit an old hover projection after an outside release and can drag again', () => {
+    const snapshot = { cat_a: ['a1', 'a2'], cat_b: ['b1'] };
+    const hovered = projectTaskPlacement(snapshot, 'a1', taskInsertDropId('cat_b', 'b1', 'after'));
+    expect(hovered).toEqual({ cat_a: ['a2'], cat_b: ['b1', 'a1'] });
+
+    // A canceled/outside drop has no target; the stored snapshot is unchanged.
+    expect(projectTaskPlacement(snapshot, 'a1', 'outside')).toBeNull();
+    expect(snapshot).toEqual({ cat_a: ['a1', 'a2'], cat_b: ['b1'] });
+    expect(projectTaskPlacement(snapshot, 'a2', taskGapDropId('cat_b', 0)))
+      .toEqual({ cat_a: ['a1'], cat_b: ['a2', 'b1'] });
+  });
+
   it('compares placements and builds only the affected persistence groups', () => {
     const snapshot = {
       cat_a: ['a1', 'a2'],

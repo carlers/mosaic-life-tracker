@@ -59,7 +59,9 @@ export const TaskGapDropSurface: React.FC<{
   });
 
   return (
-    <div
+    <motion.div
+      layout="position"
+      transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
       ref={ref}
       data-task-drop-gap="true"
       aria-hidden="true"
@@ -99,16 +101,18 @@ export const TaskRowDropSurface: React.FC<{
   return (
     <motion.div
       layout={animatePosition ? 'position' : false}
-      transition={{ layout: { duration: 0.17 } }}
+      transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
       className="relative"
       data-task-source-slot={isActiveSource ? 'true' : undefined}
       aria-hidden={isActiveSource ? true : undefined}
       style={
         isActiveSource
           ? {
-              height: 0,
-              opacity: 0,
-              overflow: 'hidden',
+              // Out of flow only for the active session; never leave a zero-height
+              // Motion-owned row behind after drop/cancel.
+              position: 'absolute',
+              width: '100%',
+              visibility: 'hidden',
               pointerEvents: 'none',
             }
           : undefined
