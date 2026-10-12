@@ -5,11 +5,13 @@ import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 interface PersonProfileHeaderProps {
   person: CarouselPerson;
   isActive: boolean;
+  onDiaryToday?: () => void;
 }
 
 export const PersonProfileHeader: React.FC<PersonProfileHeaderProps> = ({
   person,
   isActive,
+  onDiaryToday,
 }) => {
   return (
     <div className="px-4 py-1.5 flex items-center gap-3">
@@ -34,6 +36,10 @@ export const PersonProfileHeader: React.FC<PersonProfileHeaderProps> = ({
           </p>
         )}
       </div>
+      {onDiaryToday && (
+        <button type="button" onClick={onDiaryToday} aria-label="Open today's diary"
+          className="rounded-full p-2 text-xl hover:bg-surfaceHighlight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">📝</button>
+      )}
     </div>
   );
 };
