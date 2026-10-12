@@ -20,3 +20,10 @@ Next action: verify full build-size and browser release trajectories for v0.25.3
 ## Diagnosed release trajectory
 
 A v0.25.3 full task-branch diagnostic passed static checks, DOM, source production build and all seven existing size caps, but the first browser regression intentionally failed: the released row visibly traveled `431.69px -> 533px` over approximately 200ms even though the floating overlay was already at the drop position. That is the old-source Motion transform playing after release, not an acceptable smooth glide. A fresh keyed wrapper for the released row removes the stale Motion state. The strict release-jump regression must remain and go green before Preview delivery.
+
+## Stable v0.25.3 Preview build parity (2026-10-13)
+
+- PR #762 squash merged only to `feature/diary-408` at `f1de3ee7882495e5b81a2ce411f731676f26e54c`. Its strict browser release-jump regression and focused tests passed on task SHA `21b3080ae8919a90786299a84a43afd596e63e3b`.
+- The first Vercel Scratch-hosted v0.25.3 build failed the raw all-assets guard by 721 bytes: 2,504,221 / 2,503,500 B. The other six budgets passed, including 2,592,804 / 2,593,000 B precache and 367,627 / 368,000 B Home closure.
+- A measured repair on isolated task branch `chatgpt/408-hosted-size-parity-20261013` changes **only** raw all-assets ceiling to 2,505,000 B (+1,500 B; 779 B hosted margin), keeping the complete historical review chain. No app bundle, feature, or version change.
+Next action: complete focused verification for this isolated budget-only repair, squash into the stable Preview, verify the exact new SHA's canonical acceptance and Vercel Scratch READY/all seven hosted metrics, then hand off v0.25.3 for actual phone/desktop testing. Do not merge to dev/main or close issue #408.
