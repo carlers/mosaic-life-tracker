@@ -1,52 +1,33 @@
 # Session checkpoint
 
 Updated: 2026-10-13
-Current task: #592 trusted default-branch Preview receiver (disabled/staged).
+Current task: #784 offline/synthetic mobile startup diagnostic experiment.
 
 ## Verified baseline
 
-Stable `fix/workflow-build-parity-592-20261012@26dfa9c7d978ff7bbc7ac861625e4d69c0fca861`.
-Full canonical [Quality Gate #38316959947](https://github.com/carlers/mosaic-life-tracker/actions/runs/38316959947)
-SUCCESS (checks/build/audit/both DOM and browser shards); ordinary
-Git-triggered Vercel `dpl_974AP6Vu9TUqUMQB3wVEgTCJbxkJ` READY
-with unchanged stable branch alias. Protected prebuilt manual
-canary `38290165183` attempt 2 SUCCESS; CLI deployment
-`dpl_9CgjZjmxMCqSqZxEkSpVspxKbB3d` READY.
-No dev/main merge, Production/Appwrite or seven-budget changes.
+Based on protected `dev@d7656e2513e5ee9d339814890cd7f707f18461d6`,
+with the seven existing budgets, PWA invariants and #592 delivery unchanged.
+Historical 76-build analysis and seven-metric correlations are recorded at
+https://github.com/carlers/mosaic-life-tracker/issues/784#issuecomment-6148756649.
+No runtime-performance baseline has been accepted yet.
 
 ## Active implementation
 
-`chatgpt/592-trusted-workflow-stage-20261013`:
-- Add `.github/workflows/trusted-preview-delivery.yml`
-  listening to `workflow_run` for Quality Gate COMPLETED;
-  GitHub executes it only when the file exists on default
-  branch `main`. Staged on #592 stable Preview ONLY, not active.
-- Hard-disable the earlier `preview_auto_pilot` in the editable
-  Quality Gate with explicit `false &&`, independent of toggles.
-  Source code/build scripts in that job can otherwise access
-  unattended Vercel tokens.
-- Trusted default-branch Node script checks latest exact-SHA
-  canonical success, source branch HEAD, official repository,
-  GitHub suite, linked Vercel project root/repo/production branch.
-  Uses server-side Git-source API with exact SHA, not a local
-  NPM/Vite build or checkout of untrusted candidate code.
-  Bounded provider duplicate scan, READY/Preview identity
-  proof, shadow first. Alias requires a separate switch and
-  verified readback. All flags OFF.
-- Pure security/negative regressions and runbook docs included.
-  Remote hosted API path is **unproven**, do not claim delivery
-  parity/alias acceptance yet.
+Isolated `chatgpt/784-mobile-startup-audit-20261013` task branch introduces
+one advisory no-deploy GitHub performance-audit pilot, separate Playwright
+production-build throttled-Chromium cold-start test, and size:report from the
+same built dist. Synthetic cached offline account only; Appwrite requests
+blocked; no real phone or authenticated Home claims. Read-only token and
+no provider POST/Preview pipeline; all seven legacy hard limits remain
+in canonical acceptance. Weekly main-owned schedule is inactive until the
+workflow is separately promoted to default branch. No UI version impact.
 
 ## Next action
 
-Run task focused CI and correct failures. Squash task to existing
-#592 stable Preview only, full canonical and Git-triggered
-Vercel READY. Do NOT merge to dev/main or enable new/reviewer-free
-secrets or flags. Before activation, owner-approved default-branch
-promotion, security review, privileged environment permission,
-a controlled shadow hosted-Git API pilot, CI-red/stale-SHA checks,
-and alias readback are required. The new approach uses Vercel's
-normal hosted build, avoiding independent GitHub-local Vite
-fingerprint mismatch. Vercel API target/project-binding behavior
-is deliberately fail closed until tested. Keep #592 OPEN for
-activation, size audits/policy and five-promotion pilot.
+Verify initial pilot CI branch push, inspect generated size + mobile startup
+artifacts, repair any missing readiness fixture/runner behavior and gather
+repeatability samples. Compare one or more real size-regression fixtures
+against the simulated runtime. Review exact measured signal, then obtain
+an evidence-led policy cutover decision: hard/warn/report split and a
+rollback plan. Do not change current seven acceptance guards, dev/main,
+main-owned deployments, Appwrite or #592 settings before verification.

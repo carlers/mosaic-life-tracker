@@ -1,0 +1,79 @@
+name: Mobile Startup Audit (nonblocking)
+
+on:
+  # A narrowly scoped first CI pilot that never requests Vercel deployment.
+  # Remove this special trigger after the accepted #784 task-branch pilot.
+  push:
+    branches:
+      - chatgpt/784-mobile-startup-audit-20261013
+  workflow_dispatch:
+  # Only active when the workflow exists on main. Scheduled runs inspect dev.
+  schedule:
+    - cron: '17 2 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-startup-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      # Local diagnostic emulates Preview identity and never contacts Appwrite.
+      VERCEL_ENV: preview
+      VITE_APPWRITE_PROJECT_ID: 6a96e82d000d1310b3be
+      VITE_APPWRITE_ENDPOINT: https://fra.cloud.appwrite.io/v1
+      VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: audit-no-backend
+      POSTHOG_SOURCE_MAPS_ENABLED: 'false'
+      MOSAIC_AUDIT_OUTPUT_DIR: .mosaic/mobile-startup
+      CI: 'true'
+    steps:
+      - name: Checkout exact candidate (scheduled and manual audits inspect dev)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'push' && github.sha || 'dev' }}
+      - name: Record actual checkout identity
+        run: echo "MOSAIC_AUDIT_SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+        working-directory: .
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - name: Install locked app dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install isolated browser test dependencies
+        run: npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund
+      - name: Install Chromium for diagnostic
+        run: ./tests/e2e/node_modules/.bin/playwright install --with-deps chromium
+
+      # Assemble ONE output, preserving production's functional PWA invariants.
+      # Numeric ceilings are advisory only for this independent NO-DEPLOY audit.
+      - name: Build local candidate and validate offline correctness
+        run: |
+          ./node_modules/.bin/tsc -b
+          ./node_modules/.bin/vite build
+          node scripts/complete-precache-sizes.mjs
+          node scripts/check-service-worker.mjs
+          node scripts/check-build-asset-fingerprint.mjs
+      - name: Capture seven size measurements from the same output
+        run: npm run size:report
+      - name: Run synthetic mobile cold-start scenarios
+        run: npm run audit:mobile-startup
+      - name: Upload nonsecret measurement artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-startup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: life-tracker/.mosaic/mobile-startup/*.json
+          if-no-files-found: warn
+          retention-days: 14
