@@ -73,7 +73,9 @@ export function selectTrustedPreviewCandidate(deployments, sha) {
       meta.githubCommitSha === sha && meta.githubOrg === 'carlers' &&
       meta.githubRepo === 'mosaic-life-tracker' &&
       meta.githubCommitRef === TRUSTED_PREVIEW_BRANCH &&
-      [null, 'preview'].includes(dep.target) &&
+      // LIST may omit the target. This only nominates an ID: the full
+      // authenticated GET still requires an explicit non-production target.
+      (dep.target == null || dep.target === 'preview') &&
       ['READY', 'BUILDING', 'QUEUED', 'INITIALIZING'].includes(
         dep.readyState ?? dep.state);
   });

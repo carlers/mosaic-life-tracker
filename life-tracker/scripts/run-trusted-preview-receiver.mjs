@@ -69,6 +69,8 @@ async function authorized(event) {
 
 async function findDeployment(sha, since) {
   let until;
+  const stats = { pages: 0, listed: 0, sameSha: 0, exactRef: 0,
+    absentTarget: 0 };
   for (let page = 0; page < 5; page += 1) {
     const q = new URLSearchParams({
       teamId: orgId, projectId, since: String(since), limit: '100',
@@ -78,10 +80,24 @@ async function findDeployment(sha, since) {
       vercelToken, 'Vercel Preview history');
     if (!Array.isArray(body.deployments) || !body.pagination)
       throw new Error('Incomplete deployment history');
+    stats.pages += 1;
+    stats.listed += body.deployments.length;
+    for (const item of body.deployments) {
+      if (item?.meta?.githubCommitSha !== sha) continue;
+      stats.sameSha += 1;
+      if (item.meta.githubCommitRef !== TRUSTED_PREVIEW_BRANCH) continue;
+      stats.exactRef += 1;
+      if (item.target == null) stats.absentTarget += 1;
+    }
     const acceptedId = selectTrustedPreviewCandidate(body.deployments, sha);
     if (acceptedId) return acceptedId;
     const next = body.pagination.next;
-    if (next == null) return null;
+    if (next == null) {
+      // Counts only: no token, payload metadata or raw provider response.
+      console.log('Trusted Preview read-only history scan: ' +
+        Object.entries(stats).map(([name, count]) => name + '=' + count).join(' '));
+      return null;
+    }
     if (!Number.isSafeInteger(next) || next <= 0 ||
       (until != null && next >= until)) {
       throw new Error('Vercel history cursor is incomplete');
