@@ -1,21 +1,20 @@
 # Session checkpoint
 
-Updated: 2026-10-11 12:34 UTC
-Current task: #592 same-version release CI recovery after v0.17.4 main promotion.
+Updated: 2026-10-13 UTC
+Current task: #592 trusted default-branch Preview receiver safety hardening.
 
-## Live verified state
-- User approved production Appwrite Function rollout and main release. `dev=7ee614610e39f6d580a399562038bac2b87b0ada` (v0.17.4), `main=e60f6138982efadce07e217c8addb027feed959d` (v0.17.4) as of this checkpoint.
-- Original main production promotion PR #608 merged, source tree identical to accepted stable Preview/approved dev tree `dd555bcc67701d6bcdb7fac6b569eee18fe143a9`.
-- Production Appwrite `message-action` new inactive build from dev exact SHA `6acb8162dc02a1deaa23` READY, explicitly activated with production authorization and verified live; previous rollback ID `6acafcff6aef69e8292a`. No schema migrations or user-data modifications.
-- Vercel Production `dpl_481A6Qvd7Md22AiMKpMyoDb8Hsbb` READY exact main SHA.
-- Main Quality Gate run #38139683649 **FAILED**: build job's new size-budget-review guard compares v0.17.4 to old v0.16.6 first parent and incorrectly classifies *already accepted dev* caps as unreviewed increases. Vercel built product correctly, but **GitHub Release v0.17.4 not published** because canonical gate was red.
-- Existing main PR preflight bootstrap failed only because old main had no trusted checker; future PR to newly updated main must succeed before making this a required check.
+## Verified baseline
+- Owner's one-time Option B main bootstrap PR #772 merged `033e85ce8e78ef109dc15866a971ee0a0dba4b7c`; app version remains 0.17.4, main Quality Gate #38321997796 SUCCESS, Production Vercel `dpl_Enm5D8PdkgsTzVMvyfiaWRWkkv9K` READY, ruleset #24880070 restored and active with zero bypass actors.
+- Existing main receiver remains OFF/unprovisioned. Legacy unsafe pilot is hard-disabled on dev. No unattended deployment secret or alias switch enabled.
+- First safety Preview `fix/trusted-preview-shadow-safety-592-20261013@eee4966463e25a9fffb7001da0f3169e551bf1cf`: full Quality Gate #38322580282 SUCCESS and Git-hosted Scratch Vercel `dpl_7yPaxkxEbgkNgWKouBPucZ9Wpda3` READY. Draft main PR #775 unmerged; prior Option B approval applied only to #772.
 
-## This task and intended safe repair
-- Branch `chatgpt/workflow-budget-release-recovery-592-20261011` from dev, stable Preview `fix/workflow-budget-release-recovery-592`, **version unchanged** per internal-workflow version rule.
-- Build review first enforces normal previous-first-parent budget metadata rules. Only after that fails on a main exact-tree merge, a verified canonical-successful second-parent source may supply inherited budgets; no limits are raised or disabled. Scoped read-only GitHub token in CI build job.
-- Trusted publisher supports one-step recoverable missed release when the immediately prior main merge was a proven versioned production PR with matching source tree, the corrective merge is same version, exact source tree and maintenance-only path allowlist, and the v0.17.4 tag is absent. Full new main canonical CI and live Vercel Production verification still required. Tag attaches to verified corrective current main SHA; original #608 supplies release notes.
-- Pure unit regressions pin fail-closed behavior. Focused task CI → stable Preview full CI/Vercel → accepted dev → approved main. No production Appwrite changes in the repair.
+## Current security refinement (no app/version change)
+- Verified actual pilot branch head `62ae49cc4773cfd57a766b587fa877c4e8717c57`, official push Quality Gate #38318701965 and canonical-acceptance SUCCESS, same-SHA Vercel Git Preview `dpl_CjsoQ5CoU4At7iRWDqPfC3DmxAYX` READY; no credential or receiver execution required.
+- Improve project-scoped deployment history selection: exact owner/repo/ref/SHA, strict non-production state and ID, prefer READY when duplicate builds share a SHA; always perform full authenticated GET after selection. Test hostile/failed/CLI/staging entries and incomplete history.
+- Pin setup-node to immutable official v4.4.0 commit verified via GitHub.
+- Require trusted main checkout still equals live main HEAD as well as workflow github.sha; fail stale main source.
+- Exclude historic CLI `HEAD` canaries from shadow reuse. Validate only official Git-hosted exact-branch, exact-SHA READY Preview.
+- Add regressions; keep separate default-OFF Vercel GitSource creation and alias flags. Do not deploy from this code while not present on main.
 
 ## Next action
-- Verify task focused, squash to stable Preview, full canonical plus Vercel READY, promote to dev with real preflight and exact-tree evidence, then to main with authorized production rollout workflow. Verify main canonical gate, trusted release publisher v0.17.4 URL/readback. Only mark #592 closed once genuine fresh-chat/offline, admin GitHub rulesets and five-promotion pilot are fulfilled or separately scoped with explicit approval.
+- Focused task CI, squash to existing #592 safety stable Preview, full canonical and Git Preview READY. Update #775 evidence. No additional main exception, credentials, Production or Appwrite mutation without separate required approvals. #592 still open for shadow credential provisioning and live negative trials, Preview-only provider contract/quotas, alias cutover and branch generalization.

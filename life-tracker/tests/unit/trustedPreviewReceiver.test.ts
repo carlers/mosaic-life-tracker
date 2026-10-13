@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { assessTrustedPreviewTrigger, assertTrustedPreviewDeployment,
-  trustedGitSource, assertTrustedVercelProject, TRUSTED_PREVIEW_BRANCH, TRUSTED_PREVIEW_ALIAS,
+  trustedGitSource, assertTrustedVercelProject,
+  assertTrustedPreviewCreationEnabled, assertTrustedPreviewCreateResponse,
+  selectTrustedPreviewCandidate,
+  TRUSTED_PREVIEW_BRANCH, TRUSTED_PREVIEW_ALIAS,
   TRUSTED_GITHUB_REPO_ID } from '../../scripts/lib/trusted-preview-receiver.mjs';
 
 const sha = '26dfa9c7d978ff7bbc7ac861625e4d69c0fca861';
@@ -23,7 +26,7 @@ const event = { repository: { full_name: 'carlers/mosaic-life-tracker' },
 const trigger = {
   event, repository: 'carlers/mosaic-life-tracker',
   eventName: 'workflow_run', ref: 'refs/heads/main',
-  checkoutSha: 'a'.repeat(40), enabled: 'true',
+  checkoutSha: 'a'.repeat(40), mainHead: 'a'.repeat(40), enabled: 'true',
   workflowRuns: [run], checkRuns: [check], branchHead: sha,
 };
 
@@ -41,7 +44,8 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     for (const patch of [
       { enabled: undefined }, { enabled: 'false' },
       { eventName: 'push' }, { ref: 'refs/heads/fix/workflow-build-parity-592-20261012' },
-      { checkoutSha: 'not-a-sha' }, { repository: 'attacker/mosaic-life-tracker' },
+      { checkoutSha: 'not-a-sha' }, { mainHead: 'b'.repeat(40) },
+      { mainHead: undefined }, { repository: 'attacker/mosaic-life-tracker' },
       { branchHead: 'f'.repeat(40) }, { checkRuns: [] },
       { checkRuns: [{ ...check, conclusion: 'failure' }] },
       { workflowRuns: [{ ...run, status: 'in_progress', conclusion: null }] },
@@ -71,17 +75,68 @@ describe('trusted default-branch Preview receiver (#592)', () => {
 
   it('requires READY hosted official Preview rather than arbitrary deployment', () => {
     expect(assertTrustedPreviewDeployment(deployment, sha)).toBe('dpl_accepted');
-    expect(assertTrustedPreviewDeployment({ ...deployment, source: 'cli',
-      meta: { ...deployment.meta, githubCommitRef: 'HEAD' } }, sha)).toBe('dpl_accepted');
+    // Historical CLI canaries are not the branch-hosted Preview build, even
+    // if metadata reports an identical SHA. Shadow accepts only Git source.
     for (const patch of [
-      { source: 'unknown' }, { source: 'local' }, { readyState: 'BUILDING' },
+      { source: 'unknown' }, { source: 'local' }, { source: 'cli' },
+      { meta: { ...deployment.meta, githubCommitRef: 'HEAD' } },
+      { source: 'cli', meta: { ...deployment.meta, githubCommitRef: 'HEAD' } },
+      { readyState: 'BUILDING' },
       { readyState: 'ERROR' }, { target: 'production' },
+      { target: 'staging' }, { target: 'custom-environment' }, { target: undefined },
       { projectId: 'another' }, { url: 'malicious.example.com' },
       { meta: { ...deployment.meta, githubCommitSha: 'f'.repeat(40) } },
       { meta: { ...deployment.meta, githubOrg: 'attacker' } },
       { meta: { ...deployment.meta, githubRepo: 'wrong' } },
       { meta: { ...deployment.meta, githubCommitRef: 'dev' } },
     ]) expect(() => assertTrustedPreviewDeployment({ ...deployment, ...patch }, sha)).toThrow();
+  });
+
+  it('keeps shadow reuse-only unless an independent creation opt-in is present', () => {
+    expect(() => assertTrustedPreviewCreationEnabled(undefined)).toThrow(/reuse-only/);
+    expect(() => assertTrustedPreviewCreationEnabled('false')).toThrow(/reuse-only/);
+    expect(() => assertTrustedPreviewCreationEnabled('TRUE')).toThrow(/reuse-only/);
+    expect(assertTrustedPreviewCreationEnabled('true')).toBeUndefined();
+
+    expect(assertTrustedPreviewCreateResponse({ id: 'dpl_accepted', target: null }))
+      .toBe('dpl_accepted');
+    for (const response of [
+      { id: 'dpl_accepted', target: 'production' },
+      { id: 'dpl_accepted', target: 'staging' },
+      { id: 'dpl_accepted' },
+      { id: 'untrusted', target: null },
+      null,
+    ]) expect(() => assertTrustedPreviewCreateResponse(response)).toThrow();
+  });
+
+  it('reuses only project-scoped official Git Preview history and prefers READY duplicates', () => {
+    const meta = { ...deployment.meta };
+    const queued = { id: 'dpl_queued', state: 'BUILDING', target: null, meta };
+    const ready = { id: 'dpl_ready', state: 'READY', target: null, meta };
+    expect(selectTrustedPreviewCandidate([queued, ready], sha)).toBe('dpl_ready');
+    expect(selectTrustedPreviewCandidate([queued], sha)).toBe('dpl_queued');
+    expect(selectTrustedPreviewCandidate([], sha)).toBeNull();
+
+    const disallowed = [
+      { ...ready, target: 'production' },
+      { ...ready, target: 'staging' },
+      { ...ready, target: undefined },
+      { ...ready, state: 'ERROR' },
+      { ...ready, state: 'CANCELED' },
+      { ...ready, meta: { ...meta, githubCommitRef: 'HEAD' } },
+      { ...ready, meta: { ...meta, githubCommitRef: 'main' } },
+      { ...ready, meta: { ...meta, githubCommitSha: 'f'.repeat(40) } },
+      { ...ready, meta: { ...meta, githubOrg: 'attacker' } },
+      { ...ready, meta: { ...meta, githubRepo: 'other' } },
+      { ...ready, id: undefined },
+      { ...ready, id: 'not-a-deployment' },
+    ];
+    for (const candidate of disallowed) {
+      expect(selectTrustedPreviewCandidate([candidate], sha)).toBeNull();
+    }
+    expect(selectTrustedPreviewCandidate([disallowed[0], ready], sha)).toBe('dpl_ready');
+    expect(() => selectTrustedPreviewCandidate(null, sha)).toThrow();
+    expect(() => selectTrustedPreviewCandidate([], 'invalid')).toThrow();
   });
 
   it('stages a default-branch workflow_run listener that never executes candidate code', () => {
@@ -92,6 +147,8 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(yaml).toContain('github.event.workflow_run.head_branch == \'fix/workflow-build-parity-592-20261012\'');
     expect(yaml).toContain('environment: mosaic-preview-auto');
     expect(yaml).toContain('ref: ${{ github.sha }}');
+    expect(yaml).toContain('uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020');
+    expect(yaml).not.toContain('uses: actions/setup-node@v4');
     expect(yaml).toContain('run: node life-tracker/scripts/run-trusted-preview-receiver.mjs');
     expect(yaml).not.toContain('github.event.workflow_run.head_sha }}');
     expect(yaml).not.toContain('npm ci');
@@ -99,8 +156,15 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(yaml).not.toContain('workflow_dispatch');
     const impl = readFileSync(new URL('../../scripts/run-trusted-preview-receiver.mjs', import.meta.url), 'utf8');
     expect(impl).toContain('gitSource: trustedGitSource(sha)');
+    expect(yaml).toContain('vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED');
+    expect(impl).toContain('assertTrustedPreviewCreationEnabled(process.env.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED)');
+    expect(impl.indexOf('assertTrustedPreviewCreationEnabled('))
+      .toBeLessThan(impl.indexOf("get('https://api.vercel.com/v13/deployments?'"));
     expect(impl).toContain("process.env.MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED !== 'true'");
     expect(impl).toContain('await authorized(event);');
+    expect(impl).toContain("gh('/git/ref/heads/main')");
+    expect(impl).toContain('mainHead: main.object?.sha');
+    expect(impl).toContain('selectTrustedPreviewCandidate(body.deployments, sha)');
     expect(impl).not.toContain("execFileSync('npm'");
     expect(impl).not.toContain('actions/download-artifact');
     expect(impl).not.toContain('actions/checkout');

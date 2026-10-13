@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
       - name: Use built-in Node runtime from the trusted runner
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
       - name: Verify completed same-SHA CI and deploy using trusted Git-source API
@@ -45,4 +45,5 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
           MOSAIC_TRUSTED_PREVIEW_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_ENABLED }}
           MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED }}
+          MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED }}
         run: node life-tracker/scripts/run-trusted-preview-receiver.mjs
