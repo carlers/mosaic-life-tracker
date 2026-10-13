@@ -116,11 +116,17 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(selectTrustedPreviewCandidate([queued, ready], sha)).toBe('dpl_ready');
     expect(selectTrustedPreviewCandidate([queued], sha)).toBe('dpl_queued');
     expect(selectTrustedPreviewCandidate([], sha)).toBeNull();
+    // The list API is incomplete: an omitted target is only a candidate,
+    // never sufficient to bypass the full GET strict non-production check.
+    const omittedTarget = { ...ready, target: undefined };
+    expect(selectTrustedPreviewCandidate([omittedTarget], sha)).toBe('dpl_ready');
+    expect(() => assertTrustedPreviewDeployment({
+      ...deployment, target: undefined,
+    }, sha)).toThrow();
 
     const disallowed = [
       { ...ready, target: 'production' },
       { ...ready, target: 'staging' },
-      { ...ready, target: undefined },
       { ...ready, state: 'ERROR' },
       { ...ready, state: 'CANCELED' },
       { ...ready, meta: { ...meta, githubCommitRef: 'HEAD' } },
@@ -165,6 +171,7 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(impl).toContain("gh('/git/ref/heads/main')");
     expect(impl).toContain('mainHead: main.object?.sha');
     expect(impl).toContain('selectTrustedPreviewCandidate(body.deployments, sha)');
+    expect(impl).toContain('Trusted Preview read-only history scan:');
     expect(impl).not.toContain("execFileSync('npm'");
     expect(impl).not.toContain('actions/download-artifact');
     expect(impl).not.toContain('actions/checkout');

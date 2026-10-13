@@ -143,3 +143,39 @@ attempts, missing IDs and failed builds. A matched list result is only a
 candidate: the full authenticated deployment GET must still prove project,
 source, target, exact commit and READY before proceeding. These regressions
 require no deployment API writes and cannot replace the live shadow gate.
+
+## First credentialed shadow result and candidate-list discrepancy (2026-10-13)
+
+The owner enabled an environment-scoped Vercel token on the trusted
+`main` receiver, and separately configured repository variables:
+`MOSAIC_TRUSTED_PREVIEW_ENABLED=true`,
+`MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED=false` and
+`MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED=false`. Existing pilot Quality
+Gate #38318701965 was rerun (attempt 2), SUCCESS, and triggered the
+default-branch receiver #38328093235. GitHub Actions logs prove
+trusted `main@1796f6636cd3d22f1b0de1ab9e08b8bacb89cf8d`
+checkout and confirmed the intended flags, but failed closed at
+`Trusted Preview creation disabled: reuse-only shadow mode`.
+No new Vercel deployment or alias mutation was observed.
+
+The authenticated Vercel connector still lists an exact-SHA READY
+official Git Preview `dpl_CjsoQ5CoU4At7iRWDqPfC3DmxAYX` for the
+approved source branch, and the Vercel project-scoped history scan via
+connector includes that candidate after the original commit time.
+Thus there is a disagreement between the provider list observed by
+the connector and the receiver's runtime candidate selector. The
+list endpoint may omit `target` when the connector supplies `null`;
+that possibility is **not yet proven**. Tightening LIST selection to
+only explicit `null` accidentally risks losing safe candidates.
+Allow the absence of `target` only for list-stage candidates, never
+for the full authenticated GET which still rejects missing or
+Production targets. On a no-match, log small counts (pages, listed
+items, matching SHA/ref, absent target) without dumping secrets or
+provider payloads so the next live run can diagnose this cleanly.
+Do not work around a missing candidate by enabling hosted creation.
+
+The latest main Quality Gate #38326773317 was SUCCESS, but Vercel's
+exact-main Git status reported `Deployment rate limited — retry in 24 hours`;
+prior Production remains READY on the earlier main commit. Wait for
+the quota window and retry via normal Git integration rather than
+forcing builds or claiming newer Production READY.
