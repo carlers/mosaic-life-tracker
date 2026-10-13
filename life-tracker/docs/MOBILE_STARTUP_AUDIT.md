@@ -72,9 +72,8 @@ and blocks all Appwrite HTTP requests inside the browser. It emits JSON
 artifacts on success *and* sample/readiness failures. GitHub cron schedules
 are best-effort, not strict SLAs.
 
-The special task-branch push trigger exists solely to allow the initial
-no-Vercel CI pilot. Remove it as part of the accepted production audit
-workflow cleanup. This workflow is diagnostic and should not be inserted
+The special task-branch push trigger was removed immediately after the
+successful no-Vercel CI pilot so normal task edits cannot repeatedly build. This workflow is diagnostic and should not be inserted
 as another mandatory browser shard in the Quality Gate.
 
 The build uses Scratch client identity with **an intentionally inert Function
@@ -105,3 +104,14 @@ profiles when joining these results to CI or Vercel size data.
 Baseline numbers from this diagnostic should be treated as *relative trend
 signals*, not an absolute real-phone experience claim. A one-off real-device
 calibration is optional and must be labeled separately.
+
+## Initial pilot results (not performance pass/fail thresholds)
+
+Action run [#38424472937](https://github.com/carlers/mosaic-life-tracker/actions/runs/38424472937) passed: one Vite build, PWA completeness, seven-metric report, Chromium mobile test (6/6 samples), artifact upload. No deployment requests, backend calls, or secrets. Scratch client profile and GIPHY disabled.
+
+| Scenario | Three readiness times | p50 readiness | p50 first contentful paint |
+| --- | --- | ---: | ---: |
+| Signed-out Login | 1231.6, 1220.5, 1226.8 ms | 1226.8 ms | 1360 ms |
+| Synthetic cached-offline Home | 4102.9, 4072.6, 4107.4 ms | 4102.9 ms | 1400 ms |
+
+Home's median largest-contentful paint was 4036 ms, close to the Home local-data mark. The ~4.1 second timing is not evidence of *real* Mosaic device slowness; controlled throttling, empty synthetic data, network path, host and service-worker state all differ. This run alone **cannot** justify a new hard startup threshold. For this exact snapshot: entry raw/gzip 446094/132754 B; initial/Home gzip 145990/368678 B; all JS/CSS raw/gzip 2468745/766063 B; PWA precache 2556052 B.

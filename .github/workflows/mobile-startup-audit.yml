@@ -1,11 +1,8 @@
 name: Mobile Startup Audit (nonblocking)
 
 on:
-  # A narrowly scoped first CI pilot that never requests Vercel deployment.
-  # Remove this special trigger after the accepted #784 task-branch pilot.
-  push:
-    branches:
-      - chatgpt/784-mobile-startup-audit-20261013
+  # Pilot completed without a provider deployment: Actions #38424472937.
+  # No push trigger; audit remains nonblocking and default-branch-owned.
   workflow_dispatch:
   # Only active when the workflow exists on main. Scheduled runs inspect dev.
   schedule:
