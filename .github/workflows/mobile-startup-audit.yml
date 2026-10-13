@@ -1,6 +1,10 @@
 name: Mobile Startup Audit (nonblocking)
 
 on:
+  # TEMPORARY one-off controlled regression experiment; remove after evidence.
+  push:
+    branches:
+      - chatgpt/784-mobile-startup-audit-20261013
   # Pilot completed without a provider deployment: Actions #38424472937.
   # No push trigger; audit remains nonblocking and default-branch-owned.
   workflow_dispatch:
@@ -62,15 +66,63 @@ jobs:
           node scripts/complete-precache-sizes.mjs
           node scripts/check-service-worker.mjs
           node scripts/check-build-asset-fingerprint.mjs
-      - name: Capture seven size measurements from the same output
+      - name: Baseline seven-size measurements
+        env:
+          MOSAIC_AUDIT_OUTPUT_DIR: .mosaic/mobile-startup/baseline
         run: npm run size:report
-      - name: Run synthetic mobile cold-start scenarios
+      - name: Baseline synthetic mobile cold startup
+        env:
+          MOSAIC_AUDIT_OUTPUT_DIR: .mosaic/mobile-startup/baseline
         run: npm run audit:mobile-startup
+
+      # LOCAL CI-ONLY perturbation, NEVER committed, deployed, or copied to
+      # a real Preview: force a normally lazy Notifications route into main's
+      # eager import graph. It tests whether initial/Home sizes carry a signal
+      # that total JS/CSS measurements may miss for the exact same feature code.
+      - name: Introduce disposable eager-import anti-pattern in runner checkout
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/main.tsx')
+          original = path.read_text()
+          extra = "import { NotificationsPage as __auditEager } from './pages/NotificationsPage';\n"
+          extra += "console.info('[size-audit] intentionally eager module', __auditEager.name);\n"
+          path.write_text(extra + original)
+          PY
+      - name: Rebuild only the controlled regression (never deploy)
+        run: |
+          ./node_modules/.bin/tsc -b
+          ./node_modules/.bin/vite build
+          node scripts/complete-precache-sizes.mjs
+          node scripts/check-service-worker.mjs
+          node scripts/check-build-asset-fingerprint.mjs
+      - name: Eager regression seven-size measurements
+        env:
+          MOSAIC_AUDIT_OUTPUT_DIR: .mosaic/mobile-startup/eager
+        run: npm run size:report
+      - name: Eager regression synthetic cold startup
+        env:
+          MOSAIC_AUDIT_OUTPUT_DIR: .mosaic/mobile-startup/eager
+        run: npm run audit:mobile-startup
+      - name: Summarize paired-run differences without enforcement
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs';
+          const read = (variant, name) => JSON.parse(readFileSync('.mosaic/mobile-startup/' + variant + '/' + name + '.json', 'utf8'));
+          const sizeA = read('baseline', 'size-snapshot').metrics;
+          const sizeB = read('eager', 'size-snapshot').metrics;
+          const perfA = read('baseline', 'mobile-startup').summaries;
+          const perfB = read('eager', 'mobile-startup').summaries;
+          const sizeChange = Object.fromEntries(Object.keys(sizeA).map(k => [k, sizeB[k] - sizeA[k]]));
+          const readyChange = Object.fromEntries(Object.keys(perfA).map(k => [k, (perfB[k].readyMedianMs ?? 0) - (perfA[k].readyMedianMs ?? 0)]));
+          console.log('MOSAIC_EAGER_SIZE_DELTA ' + JSON.stringify(sizeChange));
+          console.log('MOSAIC_EAGER_READY_DELTA_MS ' + JSON.stringify(readyChange));
+          JS
       - name: Upload nonsecret measurement artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mobile-startup-${{ github.run_id }}-${{ github.run_attempt }}
-          path: life-tracker/.mosaic/mobile-startup/*.json
+          path: life-tracker/.mosaic/mobile-startup/**/*.json
           if-no-files-found: warn
           retention-days: 14
