@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { assessTrustedPreviewTrigger, assertTrustedPreviewDeployment,
   trustedGitSource, assertTrustedVercelProject,
   assertTrustedPreviewCreationEnabled, assertTrustedPreviewCreateResponse,
-  selectTrustedPreviewCandidate,
+  selectTrustedPreviewCandidate, selectVerifiedGitTreeChild,
+  TRUSTED_PILOT_QUALITY_GATE_BLOB_SHA,
   TRUSTED_PREVIEW_BRANCH, TRUSTED_PREVIEW_ALIAS,
   TRUSTED_GITHUB_REPO_ID } from '../../scripts/lib/trusted-preview-receiver.mjs';
 
@@ -28,6 +29,7 @@ const trigger = {
   eventName: 'workflow_run', ref: 'refs/heads/main',
   checkoutSha: 'a'.repeat(40), mainHead: 'a'.repeat(40), enabled: 'true',
   workflowRuns: [run], checkRuns: [check], branchHead: sha,
+  sourceWorkflowBlobSha: TRUSTED_PILOT_QUALITY_GATE_BLOB_SHA,
 };
 
 const deployment = { id: 'dpl_accepted', projectId: 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc',
@@ -43,6 +45,8 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     });
     for (const patch of [
       { enabled: undefined }, { enabled: 'false' },
+      { sourceWorkflowBlobSha: undefined },
+      { sourceWorkflowBlobSha: 'b'.repeat(40) },
       { eventName: 'push' }, { ref: 'refs/heads/fix/workflow-build-parity-592-20261012' },
       { checkoutSha: 'not-a-sha' }, { mainHead: 'b'.repeat(40) },
       { mainHead: undefined }, { repository: 'attacker/mosaic-life-tracker' },
@@ -65,6 +69,28 @@ describe('trusted default-branch Preview receiver (#592)', () => {
       const poisoned = { ...event, workflow_run: { ...event.workflow_run, ...patch } };
       expect(assessTrustedPreviewTrigger({ ...trigger, event: poisoned }).eligible).toBe(false);
     }
+  });
+
+  it('accepts only verified metadata from a reviewed source Quality Gate workflow', () => {
+    const entry = { path: 'quality-gate.yml', type: 'blob',
+      sha: TRUSTED_PILOT_QUALITY_GATE_BLOB_SHA };
+    const tree = { truncated: false, tree: [entry] };
+    expect(selectVerifiedGitTreeChild(tree, 'quality-gate.yml', 'blob'))
+      .toBe(TRUSTED_PILOT_QUALITY_GATE_BLOB_SHA);
+    for (const bad of [
+      { ...tree, truncated: true }, { ...tree, truncated: undefined },
+      { ...tree, tree: null }, { ...tree, tree: [entry, entry] },
+      { ...tree, tree: [{ ...entry, type: 'tree' }] },
+      { ...tree, tree: [{ ...entry, sha: 'invalid' }] },
+      { ...tree, tree: [{ ...entry, path: 'other.yml' }] },
+    ]) expect(() => selectVerifiedGitTreeChild(bad, 'quality-gate.yml', 'blob'))
+      .toThrow();
+    const runner = readFileSync(
+      new URL('../../scripts/run-trusted-preview-receiver.mjs', import.meta.url),
+      'utf8');
+    expect(runner).toContain('sourceQualityGateBlobSha(sha, gh)');
+    expect(runner).toContain("gh('/git/trees/' + treeSha)");
+    expect(runner).not.toContain("gh('/contents/.github/workflows/quality-gate.yml");
   });
 
   it('pins exact SHA and linked Git repo identity for remote Vercel build', () => {

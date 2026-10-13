@@ -13,5 +13,10 @@ Current task: #592 trusted Preview reuse-only shadow runtime adapter.
 - Add raw-provider-shaped regression test with missing target, READY preference and mismatched IDs; do not loosen CI/source checks, authenticated GET, default-OFF creation or alias flags.
 - No app runtime, version, Vercel provider settings, Appwrite, main/dev or production alterations in this task.
 
+## Source-workflow trust hardening (isolated)
+- Official approved pilot `62ae49cc...` has candidate Quality Gate Git blob `f8a6588644db34ffa20a7c311c00a030ed88a12b` (verified using three nonrecursive Git Trees metadata reads). Named SUCCESS checks alone would permit a future feature branch to fabricate CI by rewriting its own workflow.
+- Add strict reviewed workflow-blob matching to the existing single-branch trusted receiver; reject missing or unreviewed versions, incomplete Git tree metadata, invalid SHA/type and duplicate entries. No candidate YAML/code is fetched or executed in the Vercel-secret-bearing receiver. Keep create/alias switches disabled.
+- Task branch from stable `5cdd591...` uses focused CI only; Vercel quota still rejects that stable exact-SHA Preview and PR #781 remains draft. Do not waste quota or promote main without owner review.
+
 ## Next action
 - Focused task CI, squash to isolated stable Preview, full canonical + Vercel Preview READY. Obtain separately authorized main-only infra merge for this correction (normal `dev→main` would ship unrelated app work). Then rerun already-approved pilot and verify live readback READY, zero POST/alias, same-SHA idempotency. #592 stays OPEN for provider shadow negatives, hosted creation/alias strategy, branch generalization and five-promotion evaluation.

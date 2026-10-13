@@ -205,3 +205,25 @@ As before, this candidate-stage fix is not live until reviewed and
 merged to trusted default `main`. The create and alias toggles must
 remain OFF. Use the successful existing pilot's original SHA for
 future shadow reruns, not an app or provider deployment POST.
+
+## Reviewed source workflow hash before generalizing automatic Previews
+
+The approved historical pilot `fix/workflow-build-parity-592-20261012@62ae49cc4773cfd57a766b587fa877c4e8717c57`
+has immutable Git blob `f8a6588644db34ffa20a7c311c00a030ed88a12b`
+at `.github/workflows/quality-gate.yml`. Current trusted main has a
+different workflow blob; equality with current main is **not** valid
+evidence for the legitimate historical pilot.
+
+A later unreviewed feature branch could change its own Quality Gate
+workflow, yet produce checks with the expected name/path and green
+canonical-acceptance. Preserve the single reviewed pilot source blob
+as an independent requirement in the trusted receiver. Retrieve only
+Git Trees metadata from the candidate commit: `.github` tree,
+`workflows` tree and final `quality-gate.yml` blob. Reject truncated
+or missing entries and unreviewed blob SHAs. Never download candidate
+YAML/code or execute candidate artifacts on a token-bearing runner.
+Future reviewed source workflow versions need an explicit trusted
+allowlist/migration policy before general branch expansion.
+
+This adds no Vercel build or API write. Do not enable creation or alias
+flags, disable existing Git automatic Previews or change main/Production.
