@@ -1136,9 +1136,48 @@ The guarded metrics are:
 - aggregate app-asset gzip bytes
 - unique raw PWA precache bytes
 
-These are regression ceilings, not performance goals. Hashed output names are intentionally
-ignored. A budget failure requires graph inspection and either a measured size fix or a
-documented decision to accept the growth before changing the baseline/limit. Never raise a
+**#784 reviewed two-tier policy (2026-10-14)**
+
+All seven emitted-size values still appear in every production `npm run build`
+diagnostic. Only `initialClosureGzipBytes` and `homeClosureGzipBytes`
+are blocking startup/Home import-graph tripwires. The other five have
+historical reference ceilings, but an overage prints **WARN** rather
+than rejecting an otherwise correct build: a new deferred feature may add
+real installation/update bytes without slowing startup. PWA precache
+correctness, unique-size metadata completion, safety, and build artifact
+fingerprinting remain mandatory and blocking. Warnings must be surfaced
+in size reports and reviewed in the twice-weekly non-deploy audit;
+they are **not** proof the update/storage cost is harmless.
+
+The two reviewed hard ceilings are **154,500 B initial closure** and
+**381,000 B Home closure** (gzip). They deliberately allow far more
+room than the old 1–25-byte cliffs and still reject the controlled
+`NotificationsPage` eager-import regression (+203,914 B initial,
++52,682 B Home). Measured preview CI without GIPHY was
+145,990 B initial / 368,678 B Home; hosted GIPHY can change
+output slightly. These numbers are an **initial reversible guard
+policy**, not guaranteed real-phone performance targets.
+[The CI experiment](https://github.com/carlers/mosaic-life-tracker/actions/runs/38426273139)
+measured Login first paint worsening ~1.15 s with eager loading
+even though total compressed assets shrank. Same-source runner
+repeats also varied ~84–181 ms with identical emitted bytes.
+Treat paint, Home functional readiness, network and PWA install
+cost separately. See [mobile lab and caveats](MOBILE_STARTUP_AUDIT.md).
+
+The full historical 2026-10-03 baseline and earlier limit review
+records remain intact. `blockingMetrics` and numeric ceiling edits
+need an explicit audited issue/evidence/previous-policy review via
+`scripts/check-build-budget-review.mjs`. Never silently disable
+a blocker or use a passing CI build to auto-reset a threshold.
+Keep the two hard metrics fixed unless new measured evidence warrants
+an explicit, reversible review. The timing probe is **not** a
+mandatory browser release shard. Workbench runs never create Vercel
+deployments solely to collect performance evidence.
+
+These are diagnostic regression reference ceilings, not performance goals.
+Hashed output names are intentionally ignored. A *blocking* budget
+failure requires graph inspection and either a size fix or a reviewed
+decision to accept the changed startup/Home graph. Never raise a
 threshold solely to make verification pass.
 
 The reviewed 2026-10-03 baseline is commit `9ca52e2`, after the production graph audit and
