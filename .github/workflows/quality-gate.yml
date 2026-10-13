@@ -370,6 +370,25 @@ jobs:
         run: node scripts/check-build-budget-review.mjs HEAD^
       - name: Build production app
         run: npm run build
+      # #592: nondeployable diagnostic only; this is one build, not a
+      # second build and not acceptance until every canonical check succeeds.
+      # The old hosted Preview Git deployment remains separate/unchanged.
+      - name: Record exact CI build bytes without using provider credentials
+        run: |
+          node scripts/preview-build-evidence.mjs create
+          tar -czf .mosaic/preview-build/dist.tar.gz -C dist .
+          sha256sum .mosaic/preview-build/dist.tar.gz > .mosaic/preview-build/dist.tar.gz.sha256
+      - name: Preserve read-only build artifact for future gated reuse
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosaic-ci-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            life-tracker/.mosaic/preview-build/evidence.json
+            life-tracker/.mosaic/preview-build/inventory.json
+            life-tracker/.mosaic/preview-build/dist.tar.gz
+            life-tracker/.mosaic/preview-build/dist.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 3
 
   browser_contract:
     name: browser-contract (${{ matrix.shard }})
