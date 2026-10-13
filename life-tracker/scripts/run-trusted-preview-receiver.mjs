@@ -13,7 +13,7 @@ import { assessTrustedPreviewTrigger, assertTrustedPreviewDeployment,
   trustedGitSource, trustedProjectScope, assertTrustedVercelProject, TRUSTED_PREVIEW_BRANCH,
   TRUSTED_PREVIEW_ALIAS, TRUSTED_VERCEL_PROJECT,
   assertTrustedPreviewCreationEnabled, assertTrustedPreviewCreateResponse,
-  selectTrustedPreviewCandidate } from './lib/trusted-preview-receiver.mjs';
+  selectTrustedPreviewCandidate, selectVerifiedGitTreeChild } from './lib/trusted-preview-receiver.mjs';
 import { canaryHistoryStart } from './lib/preview-canary-context.mjs';
 
 const repo = 'carlers/mosaic-life-tracker';
@@ -31,6 +31,18 @@ async function get(url, token, label, extra = {}) {
   return res.json();
 }
 
+// Only retrieve commit tree metadata: no source-branch code, YAML or artifacts.
+async function sourceQualityGateBlobSha(sha, gh) {
+  let treeSha = sha;
+  for (const [path, type] of [
+    ['.github', 'tree'], ['workflows', 'tree'], ['quality-gate.yml', 'blob'],
+  ]) {
+    const tree = await gh('/git/trees/' + treeSha);
+    treeSha = selectVerifiedGitTreeChild(tree, path, type);
+  }
+  return treeSha;
+}
+
 async function authorized(event) {
   const run = event.workflow_run;
   const sha = run?.head_sha;
@@ -39,11 +51,12 @@ async function authorized(event) {
   const ref = TRUSTED_PREVIEW_BRANCH.split('/').map(encodeURIComponent).join('/');
   const gh = path => get('https://api.github.com/repos/' + repo + path,
     gitToken, 'GitHub acceptance');
-  const [runs, checks, branch, main] = await Promise.all([
+  const [runs, checks, branch, main, sourceWorkflowBlobSha] = await Promise.all([
     gh('/actions/runs?head_sha=' + sha + '&per_page=100'),
     gh('/commits/' + sha + '/check-runs?per_page=100'),
     gh('/git/ref/heads/' + ref),
     gh('/git/ref/heads/main'),
+    sourceQualityGateBlobSha(sha, gh),
   ]);
   if (!Array.isArray(runs.workflow_runs) || !Array.isArray(checks.check_runs) ||
       runs.total_count > 100 || checks.total_count > 100) {
@@ -61,7 +74,7 @@ async function authorized(event) {
     checkoutSha, mainHead: main.object?.sha,
     enabled: process.env.MOSAIC_TRUSTED_PREVIEW_ENABLED,
     workflowRuns: runs.workflow_runs, checkRuns: checks.check_runs,
-    branchHead: branch.object?.sha,
+    branchHead: branch.object?.sha, sourceWorkflowBlobSha,
   });
   if (!verdict.eligible) throw new Error('Trusted Preview blocked: ' + verdict.reasons.join('; '));
   return verdict;
