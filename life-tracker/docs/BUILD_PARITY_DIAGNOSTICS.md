@@ -479,3 +479,39 @@ canary remains completed/protected and needs no repetition.
 Dev/main release approvals and Production/Appwrite safety remain
 separate. Issue #592 is still open for activation, branch
 generalization, periodic size audits and promotion sampling.
+
+## First credentialless artifact handoff slice (#592; 2026-10-14)
+
+The existing canonical **build job** now does one `npm run build` as before,
+then inventories **all** emitted Vite/PWA files and uploads a short-lived
+(non-executable) evidence envelope plus `dist.tar.gz` to GitHub Actions.
+`scripts/preview-build-evidence.mjs` records the exact source SHA/ref,
+all seven size measurements, JS/CSS logical fingerprint, a SHA-256 per
+emitted file and deterministic inventory digest. Local/regression verification
+rejects malformed source, tampered files, symlinks and missing manifest/SW.
+Evidence and archives stay outside `dist/`, never enter PWA precache, never
+call Vercel or use a Vercel token. The tarball is just a **candidate build
+output**; it is NOT executable or authorized to deploy merely because
+the build subjob passed. All canonical shards must still succeed.
+
+The envelope deliberately includes
+`kind=non-deployable-ci-build-evidence` and
+`deploymentAuthorized=false`. This is NOT yet the exact deployable
+Scratch/GIPHY artifact: the current public CI build profile differs from
+the hosted Vercel Preview profile, and raw `dist/` is not automatically
+equivalent to the provider's Build Output v3 with its rewrite/headers
+configuration. **Never upload this artifact to Vercel**. The separate,
+trusted default-main receiver must later pin the source CI workflow
+version, verify fresh branch HEAD and entire canonical acceptance, fetch
+the official artifact by GitHub run ID, validate archive/inventory
+integrity, prove effective public Scratch/GIPHY build context and
+Vercel output/headers equivalence, and only then allow one
+`--prebuilt` Preview deployment under separate credentials.
+
+The first slice demonstrates source/build reuse **without initiating a
+Vercel POST**, keeping the user-visible app, budgets, aliases, and
+Production untouched. Failure of a build step produces no upload;
+failure of another canonical job leaves an artifact that is strictly
+**ineligible** for deployment. Do not turn off Git automatic branch
+Previews until a trusted negative red-CI canary demonstrates zero
+new Vercel deployment creations after the proposed cutover.
