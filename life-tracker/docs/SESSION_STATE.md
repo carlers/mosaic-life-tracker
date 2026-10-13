@@ -1,20 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-13 UTC
-Current task: #592 trusted default-branch Preview receiver safety hardening.
+Current task: #592 live trusted Preview shadow readback failure.
 
-## Verified baseline
-- Owner's one-time Option B main bootstrap PR #772 merged `033e85ce8e78ef109dc15866a971ee0a0dba4b7c`; app version remains 0.17.4, main Quality Gate #38321997796 SUCCESS, Production Vercel `dpl_Enm5D8PdkgsTzVMvyfiaWRWkkv9K` READY, ruleset #24880070 restored and active with zero bypass actors.
-- Existing main receiver remains OFF/unprovisioned. Legacy unsafe pilot is hard-disabled on dev. No unattended deployment secret or alias switch enabled.
-- First safety Preview `fix/trusted-preview-shadow-safety-592-20261013@eee4966463e25a9fffb7001da0f3169e551bf1cf`: full Quality Gate #38322580282 SUCCESS and Git-hosted Scratch Vercel `dpl_7yPaxkxEbgkNgWKouBPucZ9Wpda3` READY. Draft main PR #775 unmerged; prior Option B approval applied only to #772.
+## Verified
+- Main PR #775 merged with merge commit `1796f6636cd3d22f1b0de1ab9e08b8bacb89cf8d` on October 13, preserving exactly six infrastructure/docs/test files, main v0.17.4, current dev `d7656e2513e5ee9d339814890cd7f707f18461d6`. GitHub main full Quality Gate #38326773317 SUCCESS; ruleset #24880070 active/no bypass.
+- Vercel rejected exact new main Production SHA with `Deployment rate limited — retry in 24 hours`. Previous Production `dpl_Enm5D8PdkgsTzVMvyfiaWRWkkv9K` READY at earlier main `033e85ce...`; do not claim current main is deployed. Do not create or force deploy while rate limited.
+- Owner configured `mosaic-preview-auto` shadow secret and repo flag. Rerunning accepted pilot Quality Gate #38318701965 (attempt 2) succeeded and triggered `Trusted Preview Delivery #38328093235`. Logs prove enabled=true, create=false, alias=false; authenticated receiver authorized exact main/green source but failed closed `Trusted Preview creation disabled: reuse-only shadow mode` after finding no list candidate. No Vercel POST or alias write occurred.
+- Pilot branch `fix/workflow-build-parity-592-20261012@62ae49cc4773cfd57a766b587fa877c4e8717c57`, Vercel official Git Preview `dpl_CjsoQ5CoU4At7iRWDqPfC3DmxAYX` READY, strict full identity confirmed by separate provider connector. Scoped Vercel list through connector includes candidate; unknown why receiver selected none. Suspicion: raw LIST target omitted vs normalized null.
 
-## Current security refinement (no app/version change)
-- Verified actual pilot branch head `62ae49cc4773cfd57a766b587fa877c4e8717c57`, official push Quality Gate #38318701965 and canonical-acceptance SUCCESS, same-SHA Vercel Git Preview `dpl_CjsoQ5CoU4At7iRWDqPfC3DmxAYX` READY; no credential or receiver execution required.
-- Improve project-scoped deployment history selection: exact owner/repo/ref/SHA, strict non-production state and ID, prefer READY when duplicate builds share a SHA; always perform full authenticated GET after selection. Test hostile/failed/CLI/staging entries and incomplete history.
-- Pin setup-node to immutable official v4.4.0 commit verified via GitHub.
-- Require trusted main checkout still equals live main HEAD as well as workflow github.sha; fail stale main source.
-- Exclude historic CLI `HEAD` canaries from shadow reuse. Validate only official Git-hosted exact-branch, exact-SHA READY Preview.
-- Add regressions; keep separate default-OFF Vercel GitSource creation and alias flags. Do not deploy from this code while not present on main.
+## Scoped code refinement
+- Accept a *missing* target only while nominating a project-scoped list candidate; full authenticated deployment GET still **requires explicit Preview/non-Production target**, correct source, project, repo, branch, SHA and READY.
+- Print only aggregate bounded list-scan counts on no candidate so another rejection can be diagnosed without logging credentials or provider metadata. Add regressions.
+- Do not enable `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED` or `MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED`. Existing Git Preview remains intact.
 
 ## Next action
-- Focused task CI, squash to existing #592 safety stable Preview, full canonical and Git Preview READY. Update #775 evidence. No additional main exception, credentials, Production or Appwrite mutation without separate required approvals. #592 still open for shadow credential provisioning and live negative trials, Preview-only provider contract/quotas, alias cutover and branch generalization.
+- Focused task CI, squash into main-based safety stable Preview and full canonical/Preview provider check where quota allows. An additional main-only security fix cannot be merged without separate owner-approved boundary; avoid speculative repeated exemptions. Investigate actual list shape via next trusted receiver log, finish reuse-only shadow and quota/Production readiness, then remaining #592 branch generalization, hosted creation, alias, five-promotion verification.
