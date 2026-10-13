@@ -1,17 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-13 UTC
-Current task: #592 trusted Preview reuse-only shadow runtime adapter.
+Current task: #592 trusted CI workflow provenance for future stable Preview expansion.
 
-## Verified live
-- Owner merged narrow infrastructure-only PR #779: current `main@0e39e7315e18e6750843780432dd42d22f940367`, unchanged app v0.17.4, `dev@d7656e2513e5ee9d339814890cd7f707f18461d6`. Full main Quality Gate #38329110108 SUCCESS; exact main Vercel Git Production `dpl_6id9FN1ATTmgxANnjD5oHTRwC7JR` READY and original production aliases unchanged; ruleset #24880070 ACTIVE, zero bypass actors. Earlier quota error was transient and is no longer an open deployment blocker.
-- Owner's GitHub environment/repo flags are live. Existing approved pilot Quality Gate #38318701965 re-run attempt 3 SUCCESS. Its trusted default-branch receiver #38329261073 ran with shadow=true/create=false/alias=false but failed closed; bounded diagnostics: `pages=1 listed=18 sameSha=1 exactRef=1 absentTarget=1`. The Vercel project already has exact-SHA official Git READY Preview `dpl_CjsoQ5CoU4At7iRWDqPfC3DmxAYX`, target null. No new deployments or aliases were written.
-- Verified published Vercel SDK response contract for GET /v6/deployments has **required uid** and optional target; connected provider client normalizes `uid` to `id`. Selector incorrectly required `dep.id` at list stage, explaining the live mismatch. The detailed authenticated GET continues enforcing official project/branch/SHA/source/Preview target/READY.
+## Current evidence
+- Trusted main `0e39e7315e18e6750843780432dd42d22f940367`, v0.17.4, full Quality Gate #38329110108 SUCCESS, Vercel Production `dpl_6id9FN1ATTmgxANnjD5oHTRwC7JR` READY. `dev` unchanged `d7656e2513e5ee9d339814890cd7f707f18461d6`. Main ruleset #24880070 ACTIVE, no bypass.
+- The pending `uid` correction for Vercel's raw v6 LIST lives on `fix/trusted-preview-uid-592-20261013@5cdd5915d0099e04c6b0d7c554a81f96d4210f74`, full Quality Gate #38329581196 SUCCESS on attempt 2; [draft PR #781](https://github.com/carlers/mosaic-life-tracker/pull/781) not merged. Vercel refuses the exact SHA: `Deployment rate limited — retry in 24 hours` (reported 00:54:57 UTC). No accepted new Preview. Existing older pilot Git Preview `dpl_CjsoQ5CoU4At7iRWDqPfC3DmxAYX` READY.
+- Default-branch read-only receiver #38329261073 failed closed but identified the old pilot branch's exact SHA/ref. Vercel v6 list uses `uid`, not normalized `id`; the isolated #781 patch handles it without relaxing full authenticated GET. Shadow=true, create=false, alias=false remain unchanged.
 
-## Scoped resolution
-- Accept either Vercel raw LIST `uid` or normalized `id` only if a valid `dpl_` identity, rejecting contradictory dual fields; retain full authenticated deployment GET as final safety gate.
-- Add raw-provider-shaped regression test with missing target, READY preference and mismatched IDs; do not loosen CI/source checks, authenticated GET, default-OFF creation or alias flags.
-- No app runtime, version, Vercel provider settings, Appwrite, main/dev or production alterations in this task.
+## Scoped security follow-on (this task, no provider writes)
+- Pinned older pilot `fix/workflow-build-parity-592-20261012@62ae49cc4773cfd57a766b587fa877c4e8717c57` has reviewed `.github/workflows/quality-gate.yml` Git blob `f8a6588644db34ffa20a7c311c00a030ed88a12b`. Trusted main currently has a different legitimate workflow blob, `1694a134282a44234f1b1500d07bd7077bcd9c44`. Do not naively require exact equality with today's main for historical runs.
+- Before trusting candidate canonical CI, query GitHub's **exact source SHA** contents metadata for its Quality Gate workflow blob. Fail closed if missing/unreviewed; the specifically allowed historical pilot blob is pinned in immutable trusted receiver code. Never take this hash from the triggering event or candidate branch config.
+- Add hostile/missing/changed-blob unit regressions and source-contract assertion. This guards the integrity of the workflow definition, **not** the execution of arbitrary branch scripts or tests; broader branch rollout requires further trust-model review.
+- No Vercel API POST, alias switching, Appwrite, application code/version, production, main/dev or ruleset mutation.
 
 ## Next action
-- Focused task CI, squash to isolated stable Preview, full canonical + Vercel Preview READY. Obtain separately authorized main-only infra merge for this correction (normal `dev→main` would ship unrelated app work). Then rerun already-approved pilot and verify live readback READY, zero POST/alias, same-SHA idempotency. #592 stays OPEN for provider shadow negatives, hosted creation/alias strategy, branch generalization and five-promotion evaluation.
+- Commit focused task and run focused gate without triggering Vercel (on `chatgpt/**`). Do not squash into #781's currently frozen stable SHA or promote main while rate-limited. Separately authorized owner-only protection exception required for eventual infra main merge. After quota clears verify exact existing Preview/Git-source readback and initial shadow, then prepare reviewed promotion of this additional hardening. Issue #592 remains OPEN (provider quota, initial live shadow, generalization, 5-promotion evaluation).

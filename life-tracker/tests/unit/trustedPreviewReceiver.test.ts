@@ -5,7 +5,7 @@ import { assessTrustedPreviewTrigger, assertTrustedPreviewDeployment,
   assertTrustedPreviewCreationEnabled, assertTrustedPreviewCreateResponse,
   selectTrustedPreviewCandidate,
   TRUSTED_PREVIEW_BRANCH, TRUSTED_PREVIEW_ALIAS,
-  TRUSTED_GITHUB_REPO_ID } from '../../scripts/lib/trusted-preview-receiver.mjs';
+  TRUSTED_GITHUB_REPO_ID, TRUSTED_PREVIEW_CI_WORKFLOW_BLOB } from '../../scripts/lib/trusted-preview-receiver.mjs';
 
 const sha = '26dfa9c7d978ff7bbc7ac861625e4d69c0fca861';
 const suite = 483729122;
@@ -28,6 +28,7 @@ const trigger = {
   eventName: 'workflow_run', ref: 'refs/heads/main',
   checkoutSha: 'a'.repeat(40), mainHead: 'a'.repeat(40), enabled: 'true',
   workflowRuns: [run], checkRuns: [check], branchHead: sha,
+  workflowBlobSha: TRUSTED_PREVIEW_CI_WORKFLOW_BLOB,
 };
 
 const deployment = { id: 'dpl_accepted', projectId: 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc',
@@ -43,6 +44,9 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     });
     for (const patch of [
       { enabled: undefined }, { enabled: 'false' },
+      { workflowBlobSha: undefined }, { workflowBlobSha: null },
+      { workflowBlobSha: '0'.repeat(40) },
+      { workflowBlobSha: 'f8a6588644db34ffa20a7c311c00a030ed88a12c' },
       { eventName: 'push' }, { ref: 'refs/heads/fix/workflow-build-parity-592-20261012' },
       { checkoutSha: 'not-a-sha' }, { mainHead: 'b'.repeat(40) },
       { mainHead: undefined }, { repository: 'attacker/mosaic-life-tracker' },
@@ -180,6 +184,8 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(impl).toContain("process.env.MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED !== 'true'");
     expect(impl).toContain('await authorized(event);');
     expect(impl).toContain("gh('/git/ref/heads/main')");
+    expect(impl).toContain("gh('/contents/.github/workflows/quality-gate.yml?ref=' + sha)");
+    expect(impl).toContain("workflowBlobSha: workflow.type === 'file' ? workflow.sha : null");
     expect(impl).toContain('mainHead: main.object?.sha');
     expect(impl).toContain('selectTrustedPreviewCandidate(body.deployments, sha)');
     expect(impl).toContain('Trusted Preview read-only history scan:');

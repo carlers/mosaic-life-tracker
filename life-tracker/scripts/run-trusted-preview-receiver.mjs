@@ -39,11 +39,14 @@ async function authorized(event) {
   const ref = TRUSTED_PREVIEW_BRANCH.split('/').map(encodeURIComponent).join('/');
   const gh = path => get('https://api.github.com/repos/' + repo + path,
     gitToken, 'GitHub acceptance');
-  const [runs, checks, branch, main] = await Promise.all([
+  const [runs, checks, branch, main, workflow] = await Promise.all([
     gh('/actions/runs?head_sha=' + sha + '&per_page=100'),
     gh('/commits/' + sha + '/check-runs?per_page=100'),
     gh('/git/ref/heads/' + ref),
     gh('/git/ref/heads/main'),
+    // Read only the exact candidate commit's workflow blob identity; never
+    // execute branch code or trust a caller-supplied workflow digest.
+    gh('/contents/.github/workflows/quality-gate.yml?ref=' + sha),
   ]);
   if (!Array.isArray(runs.workflow_runs) || !Array.isArray(checks.check_runs) ||
       runs.total_count > 100 || checks.total_count > 100) {
@@ -62,6 +65,7 @@ async function authorized(event) {
     enabled: process.env.MOSAIC_TRUSTED_PREVIEW_ENABLED,
     workflowRuns: runs.workflow_runs, checkRuns: checks.check_runs,
     branchHead: branch.object?.sha,
+    workflowBlobSha: workflow.type === 'file' ? workflow.sha : null,
   });
   if (!verdict.eligible) throw new Error('Trusted Preview blocked: ' + verdict.reasons.join('; '));
   return verdict;
