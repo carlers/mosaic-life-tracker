@@ -69,7 +69,12 @@ export function selectTrustedPreviewCandidate(deployments, sha) {
   }
   const matches = deployments.filter(dep => {
     const meta = dep?.meta ?? {};
-    return typeof dep?.id === 'string' && dep.id.startsWith('dpl_') &&
+    // Vercel's raw GET /v6/deployments contract uses "uid" (required);
+    // normalized provider clients sometimes expose "id" instead.
+    // Reject contradictory identities, before full authenticated GET.
+    const id = dep?.id ?? dep?.uid;
+    return typeof id === 'string' && id.startsWith('dpl_') &&
+      (dep?.id == null || dep?.uid == null || dep.id === dep.uid) &&
       meta.githubCommitSha === sha && meta.githubOrg === 'carlers' &&
       meta.githubRepo === 'mosaic-life-tracker' &&
       meta.githubCommitRef === TRUSTED_PREVIEW_BRANCH &&
@@ -79,8 +84,9 @@ export function selectTrustedPreviewCandidate(deployments, sha) {
       ['READY', 'BUILDING', 'QUEUED', 'INITIALIZING'].includes(
         dep.readyState ?? dep.state);
   });
-  return (matches.find(dep => (dep.readyState ?? dep.state) === 'READY') ??
-    matches[0])?.id ?? null;
+  const selected = matches.find(dep => (dep.readyState ?? dep.state) === 'READY') ??
+    matches[0];
+  return selected?.id ?? selected?.uid ?? null;
 }
 
 // Shadow mode has read access only: absence of a matching Vercel Git
