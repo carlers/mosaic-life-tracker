@@ -115,6 +115,17 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     const ready = { id: 'dpl_ready', state: 'READY', target: null, meta };
     expect(selectTrustedPreviewCandidate([queued, ready], sha)).toBe('dpl_ready');
     expect(selectTrustedPreviewCandidate([queued], sha)).toBe('dpl_queued');
+    // Actual Vercel v6 LIST API requires uid; the connected Vercel app
+    // normalizes it to id. The credentialed shadow failure used raw v6.
+    const rawReady = { uid: 'dpl_raw', state: 'READY', meta, target: undefined };
+    expect(selectTrustedPreviewCandidate([rawReady], sha)).toBe('dpl_raw');
+    expect(selectTrustedPreviewCandidate([queued, rawReady], sha)).toBe('dpl_raw');
+    expect(selectTrustedPreviewCandidate([{ ...rawReady, id: 'dpl_raw' }], sha))
+      .toBe('dpl_raw');
+    expect(selectTrustedPreviewCandidate([{ ...rawReady, id: 'dpl_wrong' }], sha))
+      .toBeNull();
+    expect(selectTrustedPreviewCandidate([{ ...rawReady, uid: 'bad' }], sha))
+      .toBeNull();
     expect(selectTrustedPreviewCandidate([], sha)).toBeNull();
     // The list API is incomplete: an omitted target is only a candidate,
     // never sufficient to bypass the full GET strict non-production check.

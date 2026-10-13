@@ -179,3 +179,29 @@ exact-main Git status reported `Deployment rate limited — retry in 24 hours`;
 prior Production remains READY on the earlier main commit. Wait for
 the quota window and retry via normal Git integration rather than
 forcing builds or claiming newer Production READY.
+
+## Second credentialed shadow run — concrete provider shape root cause (2026-10-13)
+
+The accepted pilot Quality Gate #38318701965 was rerun a third time
+(success), triggering main-owned Trusted Preview Delivery #38329261073.
+The authorized read-only job reported:
+`pages=1 listed=18 sameSha=1 exactRef=1 absentTarget=1`, then
+failed safely with creation disabled. The main Quality Gate #38329110108
+passed and Vercel Production `dpl_6id9FN1ATTmgxANnjD5oHTRwC7JR` is now
+READY for exact `main@0e39e7315e18e6750843780432dd42d22f940367`;
+the earlier rate-limiting status was temporary.
+
+Vercel's published SDK contract for `GET /v6/deployments` defines
+`uid` as the *required* deployment identifier. The connected Vercel
+app normalizes it to `id`, and the receiver incorrectly required
+`dep.id`, discarding the otherwise matching raw response. The
+list-stage selector now permits either `uid` or `id` if they agree
+when both exist, preserving the `dpl_` namespace. Only the returned
+candidate ID crosses into the strict authenticated full
+`GET /v13/deployments/:id` check, which must still prove Git source,
+non-production target, exact project, branch, SHA, repo and READY state.
+
+As before, this candidate-stage fix is not live until reviewed and
+merged to trusted default `main`. The create and alias toggles must
+remain OFF. Use the successful existing pilot's original SHA for
+future shadow reruns, not an app or provider deployment POST.
