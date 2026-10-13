@@ -6,10 +6,14 @@ export const TRUSTED_PREVIEW_ALIAS =
   'mosaic-life-tracker-git-fix-work-73127a-carls-projects-72516fde.vercel.app';
 export const TRUSTED_GITHUB_REPO_ID = 1361399135;
 export const TRUSTED_VERCEL_PROJECT = 'mosaic-life-tracker';
+// The specifically reviewed historical pilot's Quality Gate workflow blob.
+// Never derive accepted versions from the untrusted triggering branch.
+export const TRUSTED_PREVIEW_CI_WORKFLOW_BLOB = 'f8a6588644db34ffa20a7c311c00a030ed88a12b';
 export const SHA = /^[a-f0-9]{40}$/i;
 
 export function assessTrustedPreviewTrigger({ event, repository, eventName, ref,
-  checkoutSha, mainHead, enabled, workflowRuns, checkRuns, branchHead }) {
+  checkoutSha, mainHead, enabled, workflowRuns, checkRuns, branchHead,
+  workflowBlobSha }) {
   const reasons = [];
   const source = event?.workflow_run;
   if (eventName !== 'workflow_run' || repository !== 'carlers/mosaic-life-tracker')
@@ -19,6 +23,8 @@ export function assessTrustedPreviewTrigger({ event, repository, eventName, ref,
   if (mainHead !== checkoutSha || !SHA.test(mainHead ?? ''))
     reasons.push('trusted main checkout is stale');
   if (enabled !== 'true') reasons.push('trusted Preview delivery disabled');
+  if (workflowBlobSha !== TRUSTED_PREVIEW_CI_WORKFLOW_BLOB)
+    reasons.push('unreviewed source Quality Gate workflow definition');
   if (event?.repository?.full_name !== 'carlers/mosaic-life-tracker' ||
       source?.head_repository?.full_name !== 'carlers/mosaic-life-tracker' ||
       source?.repository?.full_name !== 'carlers/mosaic-life-tracker' ||
