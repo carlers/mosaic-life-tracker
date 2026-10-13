@@ -14,5 +14,5 @@ Current task: #592 trusted CI workflow provenance for future stable Preview expa
 - Add hostile/missing/changed-blob unit regressions and source-contract assertion. This guards the integrity of the workflow definition, **not** the execution of arbitrary branch scripts or tests; broader branch rollout requires further trust-model review.
 - No Vercel API POST, alias switching, Appwrite, application code/version, production, main/dev or ruleset mutation.
 
-## Next
+## Next action
 - Commit focused task and run focused gate without triggering Vercel (on `chatgpt/**`). Do not squash into #781's currently frozen stable SHA or promote main while rate-limited. Separately authorized owner-only protection exception required for eventual infra main merge. After quota clears verify exact existing Preview/Git-source readback and initial shadow, then prepare reviewed promotion of this additional hardening. Issue #592 remains OPEN (provider quota, initial live shadow, generalization, 5-promotion evaluation).
