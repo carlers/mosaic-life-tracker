@@ -9,6 +9,8 @@ Current task: #592 trusted default-branch Preview receiver safety hardening.
 - First safety Preview `fix/trusted-preview-shadow-safety-592-20261013@eee4966463e25a9fffb7001da0f3169e551bf1cf`: full Quality Gate #38322580282 SUCCESS and Git-hosted Scratch Vercel `dpl_7yPaxkxEbgkNgWKouBPucZ9Wpda3` READY. Draft main PR #775 unmerged; prior Option B approval applied only to #772.
 
 ## Current security refinement (no app/version change)
+- Verified actual pilot branch head `62ae49cc4773cfd57a766b587fa877c4e8717c57`, official push Quality Gate #38318701965 and canonical-acceptance SUCCESS, same-SHA Vercel Git Preview `dpl_CjsoQ5CoU4At7iRWDqPfC3DmxAYX` READY; no credential or receiver execution required.
+- Improve project-scoped deployment history selection: exact owner/repo/ref/SHA, strict non-production state and ID, prefer READY when duplicate builds share a SHA; always perform full authenticated GET after selection. Test hostile/failed/CLI/staging entries and incomplete history.
 - Pin setup-node to immutable official v4.4.0 commit verified via GitHub.
 - Require trusted main checkout still equals live main HEAD as well as workflow github.sha; fail stale main source.
 - Exclude historic CLI `HEAD` canaries from shadow reuse. Validate only official Git-hosted exact-branch, exact-SHA READY Preview.

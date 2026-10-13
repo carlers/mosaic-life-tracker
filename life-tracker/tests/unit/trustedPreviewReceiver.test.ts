@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { assessTrustedPreviewTrigger, assertTrustedPreviewDeployment,
   trustedGitSource, assertTrustedVercelProject,
   assertTrustedPreviewCreationEnabled, assertTrustedPreviewCreateResponse,
+  selectTrustedPreviewCandidate,
   TRUSTED_PREVIEW_BRANCH, TRUSTED_PREVIEW_ALIAS,
   TRUSTED_GITHUB_REPO_ID } from '../../scripts/lib/trusted-preview-receiver.mjs';
 
@@ -108,6 +109,36 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     ]) expect(() => assertTrustedPreviewCreateResponse(response)).toThrow();
   });
 
+  it('reuses only project-scoped official Git Preview history and prefers READY duplicates', () => {
+    const meta = { ...deployment.meta };
+    const queued = { id: 'dpl_queued', state: 'BUILDING', target: null, meta };
+    const ready = { id: 'dpl_ready', state: 'READY', target: null, meta };
+    expect(selectTrustedPreviewCandidate([queued, ready], sha)).toBe('dpl_ready');
+    expect(selectTrustedPreviewCandidate([queued], sha)).toBe('dpl_queued');
+    expect(selectTrustedPreviewCandidate([], sha)).toBeNull();
+
+    const disallowed = [
+      { ...ready, target: 'production' },
+      { ...ready, target: 'staging' },
+      { ...ready, target: undefined },
+      { ...ready, state: 'ERROR' },
+      { ...ready, state: 'CANCELED' },
+      { ...ready, meta: { ...meta, githubCommitRef: 'HEAD' } },
+      { ...ready, meta: { ...meta, githubCommitRef: 'main' } },
+      { ...ready, meta: { ...meta, githubCommitSha: 'f'.repeat(40) } },
+      { ...ready, meta: { ...meta, githubOrg: 'attacker' } },
+      { ...ready, meta: { ...meta, githubRepo: 'other' } },
+      { ...ready, id: undefined },
+      { ...ready, id: 'not-a-deployment' },
+    ];
+    for (const candidate of disallowed) {
+      expect(selectTrustedPreviewCandidate([candidate], sha)).toBeNull();
+    }
+    expect(selectTrustedPreviewCandidate([disallowed[0], ready], sha)).toBe('dpl_ready');
+    expect(() => selectTrustedPreviewCandidate(null, sha)).toThrow();
+    expect(() => selectTrustedPreviewCandidate([], 'invalid')).toThrow();
+  });
+
   it('stages a default-branch workflow_run listener that never executes candidate code', () => {
     const yaml = readFileSync(new URL('../../../.github/workflows/trusted-preview-delivery.yml', import.meta.url), 'utf8');
     expect(yaml).toContain('workflow_run:');
@@ -133,7 +164,7 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(impl).toContain('await authorized(event);');
     expect(impl).toContain("gh('/git/ref/heads/main')");
     expect(impl).toContain('mainHead: main.object?.sha');
-    expect(impl).toContain('m.githubCommitRef === TRUSTED_PREVIEW_BRANCH');
+    expect(impl).toContain('selectTrustedPreviewCandidate(body.deployments, sha)');
     expect(impl).not.toContain("execFileSync('npm'");
     expect(impl).not.toContain('actions/download-artifact');
     expect(impl).not.toContain('actions/checkout');

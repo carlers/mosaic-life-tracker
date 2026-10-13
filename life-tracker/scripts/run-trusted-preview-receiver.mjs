@@ -12,7 +12,8 @@ import { execFileSync } from 'node:child_process';
 import { assessTrustedPreviewTrigger, assertTrustedPreviewDeployment,
   trustedGitSource, trustedProjectScope, assertTrustedVercelProject, TRUSTED_PREVIEW_BRANCH,
   TRUSTED_PREVIEW_ALIAS, TRUSTED_VERCEL_PROJECT,
-  assertTrustedPreviewCreationEnabled, assertTrustedPreviewCreateResponse } from './lib/trusted-preview-receiver.mjs';
+  assertTrustedPreviewCreationEnabled, assertTrustedPreviewCreateResponse,
+  selectTrustedPreviewCandidate } from './lib/trusted-preview-receiver.mjs';
 import { canaryHistoryStart } from './lib/preview-canary-context.mjs';
 
 const repo = 'carlers/mosaic-life-tracker';
@@ -77,19 +78,8 @@ async function findDeployment(sha, since) {
       vercelToken, 'Vercel Preview history');
     if (!Array.isArray(body.deployments) || !body.pagination)
       throw new Error('Incomplete deployment history');
-    const accepted = body.deployments.find(dep => {
-      const m = dep?.meta ?? {};
-      return m.githubCommitSha === sha && m.githubOrg === 'carlers' &&
-        m.githubRepo === 'mosaic-life-tracker' &&
-        m.githubCommitRef === TRUSTED_PREVIEW_BRANCH &&
-        // Exclude older CLI canaries with ref HEAD, even at the same SHA.
-        // Vercel LIST omits source and projectId even for genuine Git
-        // deployments. The query is already project-scoped; FULL identity
-        // and project/source are checked by getDeployment() before use.
-        ['READY', 'BUILDING', 'QUEUED', 'INITIALIZING'].includes(dep.readyState ?? dep.state) &&
-        dep.target !== 'production';
-    });
-    if (accepted?.id) return accepted.id;
+    const acceptedId = selectTrustedPreviewCandidate(body.deployments, sha);
+    if (acceptedId) return acceptedId;
     const next = body.pagination.next;
     if (next == null) return null;
     if (!Number.isSafeInteger(next) || next <= 0 ||

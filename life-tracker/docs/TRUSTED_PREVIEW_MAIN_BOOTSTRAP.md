@@ -124,3 +124,22 @@ from an omitted target. Therefore the separately gated GitSource POST path
 must remain **disabled** until independently proven against this project and
 its exact Preview/Scratch configuration. Enabling reuse-only shadow does not
 constitute permission to enable creation or disable ordinary Git Previews.
+
+## Shadow readiness: official read-only pilot evidence
+
+As of 2026-10-13, the allowed pilot branch HEAD remains
+`62ae49cc4773cfd57a766b587fa877c4e8717c57`. The completed
+GitHub push Quality Gate #38318701965 and same-suite canonical acceptance
+are SUCCESS. The official Vercel Git deployment
+`dpl_CjsoQ5CoU4At7iRWDqPfC3DmxAYX` for that exact branch/SHA is
+READY, with Preview target `null`. These independent readbacks prove the
+source and candidate exist but **do not** prove that the still-disabled
+receiver executed with its eventual restricted Vercel token.
+
+The receiver's bounded project-scoped history scan must prefer a READY
+candidate if duplicate in-flight deployments are present for the same
+accepted SHA. It must ignore wrong repository/ref/SHA, custom/Production
+attempts, missing IDs and failed builds. A matched list result is only a
+candidate: the full authenticated deployment GET must still prove project,
+source, target, exact commit and READY before proceeding. These regressions
+require no deployment API writes and cannot replace the live shadow gate.
