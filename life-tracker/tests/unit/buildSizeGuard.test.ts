@@ -153,22 +153,56 @@ describe('build-size guard', () => {
     expect(configuredBudget.baseline.commit).toMatch(/^[a-f0-9]{7,40}$/);
   });
 
-  it('fails a meaningful shipped-growth regression instead of silently inflating aggregate caps', async () => {
+  it('reports aggregate growth as warning when only startup and Home are blocking', async () => {
     const configured = validateBuildSizeBudget(JSON.parse(await readFile(
       new URL('../../config/build-size-budget.json', import.meta.url), 'utf8',
     )));
     const measured = { ...configured.baseline.metrics };
     for (const metric of Object.keys(configured.limits)) measured[metric] = configured.limits[metric];
-    // Historical notifications growth: raw +13,487, gzip +6,711 and
-    // precache +23,354 B; a legitimate regression must remain blocking.
+    // Historical notifications growth is reported, not automatically rejected:
+    // overall shipping cost is tracked without treating deferred code as startup.
     measured.appAssetsRawBytes += 13487;
     measured.appAssetsGzipBytes += 6711;
     measured.precacheUniqueBytes += 23354;
     const result = evaluateBuildSizeBudget(configured, measured);
-    expect(result.passed).toBe(false);
+    expect(result.passed).toBe(true);
     expect(result.metrics.filter(entry => !entry.passed).map(entry => entry.name)).toEqual([
       'appAssetsRawBytes', 'appAssetsGzipBytes', 'precacheUniqueBytes',
     ]);
+    expect(result.metrics.filter(entry => !entry.passed).every(entry => !entry.blocking)).toBe(true);
+    expect(formatBuildSizeResult(result)).toContain('WARN (+');
+    expect(formatBuildSizeResult(result)).not.toContain('FAIL (+');
+  });
+
+  // Regression: §24.14 (#784 controlled Chrome mobile experiment):
+  // eager route dependencies must still be rejected even when aggregate
+  // compressed shipping bytes shrink.
+  it('rejects a large eager import that increases initial and Home closures', async () => {
+    const configured = validateBuildSizeBudget(JSON.parse(await readFile(
+      new URL('../../config/build-size-budget.json', import.meta.url), 'utf8',
+    )));
+    expect(configured.blockingMetrics).toEqual(['initialClosureGzipBytes', 'homeClosureGzipBytes']);
+    const measured = { ...configured.limits };
+    measured.initialClosureGzipBytes += 203914;
+    measured.homeClosureGzipBytes += 52682;
+    measured.appAssetsGzipBytes -= 8104;
+    measured.precacheUniqueBytes -= 9308;
+    const result = evaluateBuildSizeBudget(configured, measured);
+    expect(result.passed).toBe(false);
+    expect(result.metrics.filter(entry => !entry.passed && entry.blocking)
+      .map(entry => entry.name)).toEqual(['initialClosureGzipBytes', 'homeClosureGzipBytes']);
+    expect(formatBuildSizeResult(result)).toContain('[blocking]');
+  });
+
+  it('keeps old seven-blocker baselines backward-compatible, and rejects malformed selection', () => {
+    expect(evaluateBuildSizeBudget(budget, {
+      ...budget.limits,
+      precacheUniqueBytes: budget.limits.precacheUniqueBytes + 1,
+    }).passed).toBe(false);
+    for (const values of [[], ['invalid'], ['entryRawBytes', 'entryRawBytes'], 'entryRawBytes']) {
+      expect(() => validateBuildSizeBudget({ ...budget, blockingMetrics: values }))
+        .toThrow(/blockingMetrics/);
+    }
   });
 
   // Regression: a longer release commit body must not consume PWA code-size

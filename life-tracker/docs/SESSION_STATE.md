@@ -1,52 +1,40 @@
 # Session checkpoint
 
-Updated: 2026-10-13
-Current task: #592 trusted default-branch Preview receiver (disabled/staged).
+Updated: 2026-10-14
+Current task: #784 evidence-backed startup/Home size-policy transition.
 
 ## Verified baseline
 
-Stable `fix/workflow-build-parity-592-20261012@26dfa9c7d978ff7bbc7ac861625e4d69c0fca861`.
-Full canonical [Quality Gate #38316959947](https://github.com/carlers/mosaic-life-tracker/actions/runs/38316959947)
-SUCCESS (checks/build/audit/both DOM and browser shards); ordinary
-Git-triggered Vercel `dpl_974AP6Vu9TUqUMQB3wVEgTCJbxkJ` READY
-with unchanged stable branch alias. Protected prebuilt manual
-canary `38290165183` attempt 2 SUCCESS; CLI deployment
-`dpl_9CgjZjmxMCqSqZxEkSpVspxKbB3d` READY.
-No dev/main merge, Production/Appwrite or seven-budget changes.
+Protected dev d7656e2513e5ee9d339814890cd7f707f18461d6.
+Prior task branch chatgpt/784-mobile-startup-audit-20261013 demonstrated
+no-Vercel Chromium cold startup audit: Actions #38424472937 attempts 1/2 PASS,
+focused Quality Gate #38425230670 SUCCESS, and controlled eager import
+#38426273139 SUCCESS. Eager Notifications increased initial closure by
+203914 B gzip, Home closure 52682 B but *reduced* total app gzip by
+8104 B; Login FCP worsened about 1.15 seconds. Measurements are
+synthetic, not real-phone or signed-in production timings.
 
 ## Active implementation
 
-`chatgpt/592-trusted-workflow-stage-20261013`:
-- Add `.github/workflows/trusted-preview-delivery.yml`
-  listening to `workflow_run` for Quality Gate COMPLETED;
-  GitHub executes it only when the file exists on default
-  branch `main`. Staged on #592 stable Preview ONLY, not active.
-- Hard-disable the earlier `preview_auto_pilot` in the editable
-  Quality Gate with explicit `false &&`, independent of toggles.
-  Source code/build scripts in that job can otherwise access
-  unattended Vercel tokens.
-- Trusted default-branch Node script checks latest exact-SHA
-  canonical success, source branch HEAD, official repository,
-  GitHub suite, linked Vercel project root/repo/production branch.
-  Uses server-side Git-source API with exact SHA, not a local
-  NPM/Vite build or checkout of untrusted candidate code.
-  Bounded provider duplicate scan, READY/Preview identity
-  proof, shadow first. Alias requires a separate switch and
-  verified readback. All flags OFF.
-- Pure security/negative regressions and runbook docs included.
-  Remote hosted API path is **unproven**, do not claim delivery
-  parity/alias acceptance yet.
+Same task branch now transitions from historical seven hard size ceilings
+to two reviewed startup/Home closure blockers with broad headroom
+(154500 B initial, 381000 B Home), retaining all seven measurements
+and warning-only thresholds for other five. Existing PWA correctness,
+fingerprinting, backend isolation, canonical source acceptance and
+the #592 Vercel-quota workflows remain unchanged. Validated policy-change
+audit record protects against silent future disabling of blockers.
+Added tests for warning-only growth, eager regression, malformed policy
+and unauthorized weakening. Advisory mobile audit now has no task-push
+or experiment mutation and is scheduled Mon/Thu only if explicitly
+placed on default main; until then it is inactive.
 
 ## Next action
 
-Run task focused CI and correct failures. Squash task to existing
-#592 stable Preview only, full canonical and Git-triggered
-Vercel READY. Do NOT merge to dev/main or enable new/reviewer-free
-secrets or flags. Before activation, owner-approved default-branch
-promotion, security review, privileged environment permission,
-a controlled shadow hosted-Git API pilot, CI-red/stale-SHA checks,
-and alias readback are required. The new approach uses Vercel's
-normal hosted build, avoiding independent GitHub-local Vite
-fingerprint mismatch. Vercel API target/project-binding behavior
-is deliberately fail closed until tested. Keep #592 OPEN for
-activation, size audits/policy and five-promotion pilot.
+Run focused task SHA verifying changed scripts, unit tests, docs and
+budget-policy review before any stable Preview. Investigate failures;
+then verify full canonical contract on a deliberate stable Preview
+without routine Vercel waste, and coordinate #592 deployment acceptance.
+Protected dev/main promotions and rollout require their established
+approval gates. No production/runtime Appwrite change or device test
+has been performed. Keep #784 open until verified rollout and
+#592 independent quota-safe delivery evidence.
