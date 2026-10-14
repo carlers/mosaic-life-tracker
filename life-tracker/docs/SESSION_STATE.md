@@ -13,6 +13,6 @@ Current task: #592 — controlled second-branch CI-first Preview pilot.
 - Derive pilot Git deployment suppression byte-for-byte from main-owned fixture, replacing only `feature/*:true` by non-overlapping `feature/!(592-prebuilt-pilot-20261014):true` and exact `feature/592-prebuilt-pilot-20261014:false`; preserve main/dev and every other feature/fix/etc Git build. Independently verify same source config from exact Git SHA before provider write and from CI ZIP routing fingerprint. Add negative tests for CI red/stale, unauthorized branch, overlapping true, changed routing/headers, duplicate/wrong-target, alias on.
 - No application/version, backend, Vercel project settings/token, size guard, main/dev branch protection, aliases or Production changes.
 
-## Next
+## Next action
 - Task focused → main-based stable full canonical + test Preview READY → special protected-main PR requiring fresh owner-specific temporary Pull-requests-only exception. Do not change protected main without that explicit approval.
 - After merged main full CI+Production READY, create ONE dev-derived pilot feature branch with reviewed exact Git suppression, first prove ZERO Vercel Git deployment while full canonical pending, then demand ONE protected CI-first READY, hosted profile/deep links, and safe same-SHA reuse; on failure stop before POST/disable opt-in and restore branch Git policy via normal PR. Stage wider categories only after a safe pilot, then verify an explicitly user-approved real feature Preview→dev promotion. #592 OPEN; manual Scratch login/device still unverified.
