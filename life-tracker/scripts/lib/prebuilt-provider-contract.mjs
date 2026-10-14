@@ -88,6 +88,39 @@ export function prebuiltCliArguments(plan) {
   return argv;
 }
 
+// The paginated /v6 deployment list is summary evidence, not the canonical
+// identity response. On a matching ID/SHA, enrich it with an authenticated
+// /v13 deployment detail before deciding to reuse, wait or block. Never
+// accept a claimed summary as sufficient or infer Preview from a missing field.
+export function isKnownPrebuiltHistoryCandidate(dep, plan) {
+  return dep?.meta?.mosaicPrebuiltId === plan?.deploymentId ||
+    (dep?.meta?.mosaicPrebuiltSha === plan?.sha &&
+      dep?.meta?.mosaicPrebuiltBranch === plan?.branch);
+}
+
+export function verifyPrebuiltHistoryDetail(summary, detail, plan) {
+  if (!isKnownPrebuiltHistoryCandidate(summary, plan) ||
+      !/^dpl_[a-zA-Z0-9]+$/.test(summary?.id ?? '') ||
+      detail?.id !== summary.id ||
+      detail?.url !== summary.url ||
+      detail?.projectId !== plan.projectId ||
+      ![null, 'preview'].includes(detail?.target) ||
+      detail?.meta?.mosaicPrebuiltId !== plan.deploymentId ||
+      detail?.meta?.mosaicPrebuiltSha !== plan.sha ||
+      detail?.meta?.mosaicPrebuiltBranch !== plan.branch ||
+      detail?.meta?.mosaicPrebuiltRoute !== PREBUILT_ROUTING_SHA256 ||
+      (summary.target != null && summary.target !== detail.target) ||
+      (summary.meta?.mosaicPrebuiltId != null &&
+        summary.meta.mosaicPrebuiltId !== detail.meta.mosaicPrebuiltId) ||
+      (summary.meta?.mosaicPrebuiltRoute != null &&
+        summary.meta.mosaicPrebuiltRoute !== detail.meta.mosaicPrebuiltRoute) ||
+      (summary.readyState ?? summary.state) !== (detail.readyState ?? detail.state)) {
+    throw new Error('Prebuilt summary/detail identity mismatch');
+  }
+  return { ...summary, projectId: detail.projectId, target: detail.target,
+    meta: detail.meta, readyState: detail.readyState ?? detail.state };
+}
+
 export function assessKnownPrebuiltDeployments(deployments, plan, { exhaustive = false } = {}) {
   if (!exhaustive || !Array.isArray(deployments) || !plan?.deploymentId) {
     throw new Error('Incomplete Vercel history cannot prove safe first creation');
@@ -98,10 +131,7 @@ export function assessKnownPrebuiltDeployments(deployments, plan, { exhaustive =
     (dep?.source == null || dep.source === 'git'))) {
     throw new Error('Git integration already created this SHA; do not double deploy');
   }
-  const matches = deployments.filter(dep =>
-    dep?.meta?.mosaicPrebuiltId === plan.deploymentId ||
-    (dep?.meta?.mosaicPrebuiltSha === plan.sha &&
-      dep?.meta?.mosaicPrebuiltBranch === plan.branch));
+  const matches = deployments.filter(dep => isKnownPrebuiltHistoryCandidate(dep, plan));
   if (matches.length > 1) throw new Error('Duplicate prebuilt provider deployments');
   if (!matches.length) return Object.freeze({ action: 'create' });
   const dep = matches[0];
