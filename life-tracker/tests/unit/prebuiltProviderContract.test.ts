@@ -73,7 +73,7 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
       'dev', 'main', 'chatgpt/task']) {
       expect(() => planAcceptedPreview({
         ...accepted, branch: badBranch,
-      })).toThrow(/Untrusted/);
+      })).toThrow(/Untrusted|Generic Preview rollout disabled/);
     }
   });
 
