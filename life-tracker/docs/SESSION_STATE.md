@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-14
-Task: #592 CI-first Preview delivery — failed Git suppression rollback.
+Current task: #592 CI-first Preview delivery — failed Git suppression rollback.
 
 ## Verified
 - Protected `main@0c0152807c450071f5adfabca67d9344ccf0aa77` has [Quality Gate #38513209910](https://github.com/carlers/mosaic-life-tracker/actions/runs/38513209910) SUCCESS, Production `dpl_Ekti2CTDKwANp4Cm1JKETq3rP47W` READY at unchanged app v0.17.4. Ruleset #24880070 active, zero bypass actors. Owner merged infrastructure-only PR #812.
@@ -14,7 +14,7 @@ Task: #592 CI-first Preview delivery — failed Git suppression rollback.
 - On second, docs-only [PR #813](https://github.com/carlers/mosaic-life-tracker/pull/813), Vercel **again** created Git Preview `dpl_2N1MModAB1MuePvw4VXmJriezxMi` READY, even though [Quality Gate #38513638626](https://github.com/carlers/mosaic-life-tracker/actions/runs/38513638626) FAILED its pinned `vercel.json` routing fingerprint tests. This directly reproduces provider waste on CI-red.
 - This rollback restores the original `fix/*: true` Git rule and original pinned config. A second, independent suppression mechanism MUST be proven before enabling the writer. Exact Vercel matcher or Git webhook config scope is not yet explained. Do not guess or silently disable global Preview/dev auto deployments.
 
-## Next
+## Next action
 - Verify rollback focused + full Quality Gate, inspect Vercel READY and record issue evidence.
 - Investigate provider-side Git trigger settings and config scope without repeated speculative builds. A project-wide Preview deployment-source restriction may also affect `dev` and ordinary Previews; no provider config mutation without explicit reviewed rollout/rollback.
 - Then demonstrate CI-red=0 provider creates, CI-green=one trusted prebuilt, replay/stale=zero, correct app/route/auth; finish issue #592. Do not merge to dev/main or turn on aliases.
