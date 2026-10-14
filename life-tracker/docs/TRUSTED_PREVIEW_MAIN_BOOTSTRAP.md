@@ -179,3 +179,30 @@ exact-main Git status reported `Deployment rate limited — retry in 24 hours`;
 prior Production remains READY on the earlier main commit. Wait for
 the quota window and retry via normal Git integration rather than
 forcing builds or claiming newer Production READY.
+
+## Proposed read-only prebuilt shadow activation (#592, October 14, 2026)
+
+This main-based infrastructure candidate replaces the old Git-source receiver
+workflow with a **read-only** `workflow_run` handler restricted to the single
+accepted stable canary branch. It copies only audited Node builtin-based
+artifact verification support, no frontend app changes. A successful completed
+canonical Quality Gate and correct source SHA/run attempt must precede any
+ZIP download. All six artifact members, GitHub SHA256 digest, bounded tar, 161
+file inventory, Scratch/GIPHY/PostHog feature profile, two blocking closure
+budgets and exact reviewed Vercel v3 rewrites/headers are verified. The source
+head and canonical check suite are re-read after the download.
+
+There is **no Vercel deployment token, secret environment, CLI build, POST,
+alias update, hosted deployment or credential** in this candidate. Even if old
+repository creation/alias variables remain enabled, the receiver forces them
+both OFF and refuses actual provider writes. Normal Vercel Git Preview creation
+continues independently; the new handler cannot fix quota until a separately
+reviewed cutover adds the protected provider writer, idempotent policy and a
+red/green/stale/rollback canary.
+
+The main branch still contains application v0.17.4, while dev contains v0.23.4.
+Staging this targeted workflow must not promote feature code to Production.
+The protected-main preflight intentionally rejects source branches other than
+`dev`; any infrastructure-only exception requires **new explicit owner approval**
+for this exact PR, narrow temporary PR-only bypass, immediate restoration and
+main canonical/Production verification. Prior exceptions do not transfer.
