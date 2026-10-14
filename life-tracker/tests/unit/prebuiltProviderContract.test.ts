@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import {
   addUniquePrebuiltDeploymentId, assessKnownPrebuiltDeployments,
   planAcceptedPreview, prebuiltCliArguments,
@@ -49,13 +51,22 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
     expect(() => prebuiltCliArguments({ ...plan, meta: { bad: 'unsafe\nvalue' } })).toThrow();
   });
 
-  it('adds deterministic provider ID without touching verified routing structures', () => {
-    // The real CI-produced config digest is pinned in the trusted receiver.
-    // The unit fixture cannot fabricate that SHA256 preimage, which is the
-    // point: any altered candidate output must fail before the deploy step.
-    const fakeConfig = Buffer.from(JSON.stringify({ version: 3, routes: [{ src: '/x' }] }));
-    expect(() => addUniquePrebuiltDeploymentId(fakeConfig, plan)).toThrow(/Unverified/);
-    expect(() => addUniquePrebuiltDeploymentId(fakeConfig,
+  it('adds deterministic provider ID to real pinned v3 routing without altering routes', async () => {
+    // Verified static output recorded by accepted #592 CI. No private inputs.
+    const config = await readFile(resolve(process.cwd(),
+      'tests/fixtures/trusted-preview-routes-v3.json'));
+    expect(createHash('sha256').update(config).digest('hex')).toBe(
+      PREBUILT_ROUTING_SHA256,
+    );
+    const result = JSON.parse(addUniquePrebuiltDeploymentId(config, plan).toString());
+    const original = JSON.parse(config.toString());
+    expect(result.deploymentId).toBe(plan.deploymentId);
+    delete result.deploymentId;
+    expect(result).toEqual(original);
+    const tampered = Buffer.from(config);
+    tampered[35] ^= 1;
+    expect(() => addUniquePrebuiltDeploymentId(tampered, plan)).toThrow(/Unverified/);
+    expect(() => addUniquePrebuiltDeploymentId(config,
       { ...plan, deploymentId: 'invalid' })).toThrow();
   });
 
