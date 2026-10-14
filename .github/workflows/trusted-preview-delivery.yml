@@ -47,3 +47,49 @@ jobs:
           MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED: 'false'
           MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED: 'false'
         run: node life-tracker/scripts/run-trusted-prebuilt-receiver.mjs
+
+  trusted_prebuilt_deploy:
+    name: trusted-prebuilt-deploy
+    needs: trusted_preview
+    # OFF unless explicitly enabled after a reviewed green/red/stale canary.
+    if: >-
+      ${{ needs.trusted_preview.result == 'success' &&
+      github.repository == 'carlers/mosaic-life-tracker' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'fix/592-trusted-archive-20261014' &&
+      vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: mosaic-preview-auto
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    concurrency:
+      group: trusted-prebuilt-deploy-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out main-owned scripts only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Use exact verified Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - name: Install pinned trusted Vercel CLI without deployment credentials
+        run: npm install --global vercel@62.7.0
+      - name: Verify accepted artifact again, then deploy only static prebuilt Preview
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: prj_jysOLDbuO9c5rP8x6Q145DVIw0fc
+          VERCEL_ORG_ID: team_UbpudOr8jXyrDA5SdVUxVGOr
+          VERCEL_ENV: preview
+          MOSAIC_TRUSTED_PREVIEW_ENABLED: 'true'
+          MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED }}
+          MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED: 'false'
+        run: node life-tracker/scripts/run-trusted-prebuilt-writer.mjs
