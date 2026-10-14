@@ -1,18 +1,18 @@
 # Session checkpoint
 
-Updated: 2026-10-14
-Current task: #592 — correct prebuilt Vercel CLI team flag after live failed-first-upload.
+Updated: 2026-10-14 UTC
+Current task: #592 trusted prebuilt writer — eliminate CLI scope-triggered account lookup.
 
-## Verified project safety
-- Protected `main@67b444ae421bd51c5a0b5869f123bf7124a8d1c3` app v0.17.4; full Quality Gate #38519174176 SUCCESS and Vercel Production READY; ruleset #24880070 active, bypass actors ZERO. `dev@f3d9558f` v0.23.4 unchanged.
-- Explicit canary `fix/592-trusted-archive-20261014:false` and disjoint other-fix allowlist work: two independent green pushes created ZERO Vercel Git Previews. Subsequent red full canonical [#38522051059](https://github.com/carlers/mosaic-life-tracker/actions/runs/38522051059) also created ZERO deployments and protected writer did not run.
-- Test-only auth/PostHog flaky async wait repair [#820](https://github.com/carlers/mosaic-life-tracker/pull/820) led to green full canonical [#38522610668](https://github.com/carlers/mosaic-life-tracker/actions/runs/38522610668) on stable `bf56a5f84bf985370c34368f1ce0d2161d2925ec`. [Trusted Preview Delivery #38522774415](https://github.com/carlers/mosaic-life-tracker/actions/runs/38522774415) trusted verifier SUCCESS; provider writer STARTED, proving owner set create variable true and alias remains false.
-- Provider CLI v62.7.0 FAILED before any deployment with `User not found (404)` because its argv used `--scope team_U...`; Vercel docs specify slug for --scope, ID for --team. Authenticated project+history readbacks already succeeded; provider history for accepted SHA remains ZERO. Do NOT rerun old code or cause a second provider attempt.
+## Verified
+- Protected main infra-only [PR #822](https://github.com/carlers/mosaic-life-tracker/pull/822) merged at `70104058ba71cd5f8e3df3f3db24204609e6be0e`; exact [main Quality Gate #38529094461](https://github.com/carlers/mosaic-life-tracker/actions/runs/38529094461) SUCCESS, Vercel Production `dpl_2rvyzRjQk7N2e9zK68PqhxhLJ6P5` READY, app v0.17.4 unchanged. Ruleset #24880070 active/zero bypass; `dev@f3d9558f` unchanged.
+- [Task-focused #38529675844](https://github.com/carlers/mosaic-life-tracker/actions/runs/38529675844) PASS and [PR #823](https://github.com/carlers/mosaic-life-tracker/pull/823) squash placed artifact-integrity regression on canary stable `fix/592-trusted-archive-20261014@64625a0ef6dc4850ce259c8a0d3586ea4d858025`. Exact [Quality Gate #38529824578](https://github.com/carlers/mosaic-life-tracker/actions/runs/38529824578) full canonical SUCCESS. Provider Git deployment list for that SHA remains EMPTY: corrected canary=false suppression continues working.
+- [Trusted Preview Delivery #38530036833](https://github.com/carlers/mosaic-life-tracker/actions/runs/38530036833): read-only receiver SUCCESS; protected writer FAILURE before creating any deployment. CLI v62.7.0 reported `--team is deprecated` and `Not able to load user because of unexpected error: User not found (404)`. Previous `--scope team_ID` trial failed identically. Live authenticated Vercel project/history GETs succeeded before both CLI attempts. Do not retry these runs. No aliases, app/runtime, Production or backend changes.
+- Vercel CLI upstream dispatcher routes BOTH `--team` and `--scope` through a synchronous user-identity lookup before running deploy; that is the observed error layer. Exact account-visibility limitation of the protected token is not independently identified.
 
-## Active infrastructure-only change
-- Main-based task replaces CLI `--scope` with `--team` when passing the pinned team ID. Regression rejects --scope for ID and requires exact --team once. Existing Preview-only target, deterministic deployment ID, full SHA/ZIP/source/route attestation and alias OFF are preserved.
-- No application, env, secret, provider config, branch match, size guard, dev/main/Production release changes in task stage.
+## Active main-based narrow fix
+- Omit both CLI account-scope flags; retain exact Preview-only `--prebuilt --target=preview`, immutable SHA metadata, reviewed team/project plan, `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`, explicit `.vercel/project.json`, authenticated project GET, retries/duplicate checks and alias OFF. Per Vercel docs the env vars and local link select project in noninteractive CI.
+- Add argv regression forbidding both flags/shorthands and passing team ID to the CLI. Code/test/docs only, no token change or provider write. The next live CLI stage is still unproven.
 
 ## Next action
-- Focused CI then stable main-based full canonical + Vercel Preview; prepare infrastructure-only PR to protected main requiring owner-specific temporary Pull-requests-only bypass. Restore zero bypass immediately; verify main full CI/Production v0.17.4.
-- Then only ONE fresh eligible canary accepted SHA, no Git-created Preview, protected writer one prebuilt READY, exact Scratch/GIPHY/PostHog/SPA/headers; inspect provider history before retry if it fails. Alias OFF. Complete idempotency/stale checks and gradual stable-branch rollout, one ordinary feature→dev; #592 OPEN.
+- Focused task CI, squash into new main-based stable Preview, require full canonical + Git Preview READY; prepare ONE protected-main infrastructure-only PR requiring NEW owner-approved temporary PR-only ruleset exception, merge commit, immediate zero-bypass restoration and main canonical/Production v0.17.4 checks. **Do not merge before explicit owner approval.**
+- After main code is verified, one new eligible canary task→stable SHA and full canonical; exact project-scoped Vercel zero Git creations, protected prebuilt READY with Scratch/GIPHY/PostHog, routes/headers, idempotency, stale+rollback checks. No routine feature cutover, aliases or #592 closure before proof.

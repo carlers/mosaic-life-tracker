@@ -276,3 +276,32 @@ promoted through a **NEW owner-approved, temporary main PR-only bypass**.
 Do not rerun the failed provider job with the old main code or push another
 canary while this patch is unmerged; a new accepted canary SHA can prove the
 corrected CLI path after main CI/Production v0.17.4 and rule restoration.
+
+## User-lookup CLI failure after corrected --team (2026-10-14)
+
+Protected main [PR #822](https://github.com/carlers/mosaic-life-tracker/pull/822)
+merged as `70104058`, with exact main Quality Gate #38529094461 SUCCESS,
+Production `dpl_2rvyzRjQk7N2e9zK68PqhxhLJ6P5` READY, v0.17.4
+unchanged, and ruleset #24880070 active with no bypass actors.
+Accepted canary `64625a0e` passed full Quality Gate #38529824578 and still
+created zero Git deployments. In [Trusted Preview Delivery #38530036833](https://github.com/carlers/mosaic-life-tracker/actions/runs/38530036833),
+the read-only receiver passed, and the protected CLI writer again failed
+before any Vercel deployment. CLI v62.7.0 warned that `--team` is
+**deprecated**, then reported `Not able to load user because of unexpected
+error: User not found (404)`. The previous `--scope` attempt produced
+the same result. Both runs passed independent authenticated project and
+provider history GETs; the token is present, but its ability to read user
+identity has not been proven.
+
+Vercel CLI's published dispatcher routes BOTH explicit `--scope` and
+`--team` through a precommand `getUser` lookup. Remove both flags to
+avoid that unnecessary account query; retain the already validated
+`VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, and main-owned written
+`.vercel/project.json` for exact project selection, as recommended by
+Vercel's CI linking documentation. Leave the pinned version, explicit
+Preview target, source/archive/route/size verification, branch suppressor,
+provider project readback, idempotency and alias OFF unchanged. This is a
+source-supported fix of the **observed failure layer**, not proof that a
+later provider upload will succeed. Add argv regression; no live provider
+retry or protected-main mutation before a new owner-approved one-time
+infrastructure PR and exact full acceptance. Do not weaken the token scope.
