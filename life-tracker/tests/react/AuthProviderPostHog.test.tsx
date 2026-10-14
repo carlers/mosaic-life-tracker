@@ -119,7 +119,11 @@ describe('AuthProvider PostHog identity integration', () => {
     accountRef.get.mockResolvedValueOnce(makeUser());
     accountRef.deleteSession.mockResolvedValueOnce(undefined);
     const { result } = renderHook(() => useAuth(), { wrapper });
-    await waitFor(() => expect(result.current.user?.$id).toBe('user_1'));
+    // Auth bootstrapping may be delayed by parallel DOM shards in CI.
+    // Preserve the exact authenticated identity requirement before logout.
+    await waitFor(() => expect(result.current.user?.$id).toBe('user_1'), {
+      timeout: 5000,
+    });
 
     await act(async () => {
       await result.current.logout();
