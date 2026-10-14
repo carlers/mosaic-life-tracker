@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
+import { matchesGlob } from 'node:path';
 
-describe('failed #592 Git cutover rollback safety', () => {
+describe('#592 exact canary Git deployment exclusion', () => {
   it('uses a non-overlapping allowlist, retaining main/dev and other Preview categories', async () => {
     const config = JSON.parse(await readFile('vercel.json', 'utf8'));
     const rules = config.git?.deploymentEnabled;
@@ -18,6 +19,32 @@ describe('failed #592 Git cutover rollback safety', () => {
     expect(rules['chatgpt/*']).toBe(false);
     expect(rules['codex/*']).toBe(false);
     expect(Object.keys(rules)).toHaveLength(11);
+  });
+  it('resolves branch-matching rules without an unmatched default or overlapping true', async () => {
+    const config = JSON.parse(await readFile('vercel.json', 'utf8'));
+    const rules = config.git.deploymentEnabled as Record<string, boolean>;
+    const decisions = (branch: string) => {
+      const matches = Object.entries(rules).filter(([pattern]) =>
+        matchesGlob(branch, pattern));
+      // Vercel defaults an unmatched branch to enabled and ANY true match wins.
+      return matches.length === 0 || matches.some(([, enabled]) => enabled);
+    };
+    const canary = 'fix/592-trusted-archive-20261014';
+    expect(matchesGlob(canary, '*')).toBe(false);
+    expect(matchesGlob(canary, 'fix/!(592-trusted-archive-20261014)')).toBe(false);
+    expect(matchesGlob(canary, canary)).toBe(true);
+    expect(decisions(canary)).toBe(false);
+    for (const branch of ['dev', 'main', 'fix/other-bug', 'feature/diary',
+      'perf/speed', 'security/hardening', 'refactor/cleanup']) {
+      expect(decisions(branch), branch).toBe(true);
+    }
+    for (const branch of ['chatgpt/test', 'codex/test']) {
+      expect(decisions(branch), branch).toBe(false);
+    }
+    const badRules = { ...rules, 'fix/*': true };
+    const badMatches = Object.entries(badRules).filter(([pattern]) =>
+      matchesGlob(canary, pattern));
+    expect(badMatches.some(([, enabled]) => enabled)).toBe(true);
   });
   it('preserves exact SPA routing, headers, static config and public app behavior', async () => {
     const cfg = JSON.parse(await readFile('vercel.json', 'utf8'));
