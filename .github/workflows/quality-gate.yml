@@ -378,6 +378,8 @@ jobs:
           node scripts/preview-build-evidence.mjs create
           tar -czf .mosaic/preview-build/dist.tar.gz -C dist .
           sha256sum .mosaic/preview-build/dist.tar.gz > .mosaic/preview-build/dist.tar.gz.sha256
+      - name: Verify archived CI bytes, manifest and source before upload
+        run: node scripts/check-preview-artifact.mjs
       - name: Preserve read-only build artifact for future gated reuse
         uses: actions/upload-artifact@v4
         with:
