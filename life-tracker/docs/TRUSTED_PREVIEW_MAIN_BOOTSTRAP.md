@@ -354,3 +354,31 @@ bounded history, provider-enforced unique ID and alias OFF. Test the compact
 summary and contradictory detail cases. The first new attempt after
 protected-main correction should be an **exact same-SHA retry** proving reuse
 with zero writes; no need to consume another canary SHA or provider build.
+
+## Protected #831 live retry: provider list UID normalization (2026-10-14)
+
+Owner merged #831 into `main@84964ace`: full Quality Gate #38541675652
+SUCCESS, exact Production `dpl_3Nphv8tds4L3JEVazX3WvvfAc3qW` READY,
+main protection ACTIVE/zero bypass. We avoided re-running the OLD privileged
+writer, since GitHub explicitly reuses the *original main SHA* on job rerun.
+Instead only the accepted source canary Quality Gate's unprivileged **build**
+job was rerun at unchanged `61e67289`, creating exact-attempt-2 static
+artifact while preserving original full canonical acceptance. Source Quality
+Gate #38539164866 attempt 2 SUCCESS. Fresh default-main Trusted Delivery
+#38542360005 uses NEW main `84964ace`; read-only receiver SUCCESS, writer
+failed before Vercel upload with `Invalid matching provider deployment ID`.
+Vercel project history STILL shows the one original READY CLI static
+`dpl_DtqNxRakFrBXCnrYy5xYSZ7QocnR`; no duplicates/aliases.
+
+Official Vercel /v6 `getDeployments` schema declares deployment identifier
+as **`uid`**, not `id`. Our new history-enrichment path mistakenly checked
+`summary.id`, preventing its authenticated /v13 detail GET; tests had used
+only synthetic `id` summaries. Fix by canonicalizing validated `uid/id`,
+refusing conflicting or missing values; /v13 detail readback must still prove
+full same ID, URL, project, SHA/branch, route fingerprint, Preview target and
+READY status before reuse/wait. Include a real v6 `uid` regression and
+contradiction coverage; preserve exhaustive history and alias OFF. Stage
+through focused+full Preview and new owner-approved protected-main PR.
+After verified main merge, repeat only unprivileged source-build job for an
+updated-main `workflow_run` event to exercise NO-POST reuse on the same
+accepted immutable SHA. No UI/device acceptance claimed.
