@@ -3,15 +3,36 @@ import { validateBuildEvidence } from './preview-evidence-schema.mjs';
 
 export const PREBUILT_CANARY_BRANCH = 'fix/592-trusted-archive-20261014';
 export const PREBUILT_PILOT_BRANCH = 'feature/592-prebuilt-pilot-20261014';
-// Second-branch rollout is intentionally fixed; do not activate generic
-// feature/fix branches until a separate provider and rollback acceptance.
-export function isApprovedPrebuiltBranch(branch) {
+// Generic opt-in remains OFF at the default-main workflow boundary unless
+// the owner enables the independent rollout variable. Never trust a prefix
+// alone: the candidate must also prove byte-identical reviewed Git opt-out.
+export function isLegacyPrebuiltPilot(branch) {
   return branch === PREBUILT_CANARY_BRANCH || branch === PREBUILT_PILOT_BRANCH;
+}
+export function isGenericPrebuiltBranch(branch) {
+  return typeof branch === 'string' &&
+    /^(feature|fix|perf|security|refactor)\/[a-z0-9][a-z0-9-]{0,72}$/.test(branch) &&
+    !isLegacyPrebuiltPilot(branch);
+}
+export function isApprovedPrebuiltBranch(branch) {
+  return isLegacyPrebuiltPilot(branch) || isGenericPrebuiltBranch(branch);
 }
 export const PREBUILT_ROUTING_SHA256 = 'c1ee8560a43e316a7eb8c0ec163affa4c9941050065fc735c93e678b84b9d848';
 const SHA = /^[a-f0-9]{40}$/i;
 const REPO = 'carlers/mosaic-life-tracker';
 const WORKFLOW = '.github/workflows/quality-gate.yml';
+// Only the actually validated six-member CI producer is eligible for the
+// first generic rollout. A candidate-controlled workflow can preserve check
+// labels while changing their meaning; changing this pin needs main review.
+export const REVIEWED_GENERIC_QUALITY_GATE_BLOB =
+  '5f64f715551f0c311a60d823367d849dfb369bba';
+export function assertReviewedGenericQualityGate(branch, sourceBlob) {
+  if (isLegacyPrebuiltPilot(branch)) return true; // No legacy rollout change.
+  if (!isGenericPrebuiltBranch(branch) ||
+      sourceBlob !== REVIEWED_GENERIC_QUALITY_GATE_BLOB)
+    throw new Error('Unreviewed generic Quality Gate definition');
+  return true;
+}
 const MAX_ARTIFACT_BYTES = 16 * 1024 * 1024;
 
 // Pure/read-only: eligibility does NOT create a provider deployment.
@@ -32,7 +53,7 @@ export function assessPrebuiltReceiverEvent({
     SHA.test(run?.head_sha ?? '') && Number.isSafeInteger(run?.id) && run.id > 0 &&
     Number.isSafeInteger(run?.check_suite_id) && run.check_suite_id > 0 &&
     Number.isSafeInteger(run?.run_attempt) && run.run_attempt >= 1;
-  if (!validEvent) reasons.push('untrusted completed canary Quality Gate event');
+  if (!validEvent) reasons.push('untrusted completed stable Quality Gate event');
   if (ref !== 'refs/heads/main' || !SHA.test(checkoutSha ?? '') ||
       mainHead !== checkoutSha) reasons.push('trusted default-main checkout missing or stale');
   if (enabled !== 'true') reasons.push('default-main receiver is disabled');

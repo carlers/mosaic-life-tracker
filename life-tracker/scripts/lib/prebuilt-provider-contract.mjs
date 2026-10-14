@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256,
-  isApprovedPrebuiltBranch } from './prebuilt-receiver-gate.mjs';
+  isApprovedPrebuiltBranch, isGenericPrebuiltBranch } from './prebuilt-receiver-gate.mjs';
 import { expectedIsolatedGitConfig } from './prebuilt-candidate-payload.mjs';
 
 // Policy and private staging helpers. Never run the CLI or contact Vercel here.
@@ -16,11 +16,13 @@ const digest = data => createHash('sha256').update(data).digest('hex');
 
 export function planAcceptedPreview({
   sha, branch, runId, attempt, zipDigest, routeSha256, target,
-  createEnabled, aliasEnabled, projectId = VERIFIED_PREVIEW_PROJECT,
+  createEnabled, aliasEnabled, genericEnabled, projectId = VERIFIED_PREVIEW_PROJECT,
 }) {
   if (createEnabled !== 'true' || aliasEnabled === 'true') {
     throw new Error('Prebuilt creation disabled or alias control not independently approved');
   }
+  if (isGenericPrebuiltBranch(branch) && genericEnabled !== 'true')
+    throw new Error('Generic Preview rollout disabled');
   if (!SHA.test(sha ?? '') || !isApprovedPrebuiltBranch(branch) ||
       !Number.isSafeInteger(runId) || runId < 1 ||
       !Number.isSafeInteger(attempt) || attempt < 1 ||

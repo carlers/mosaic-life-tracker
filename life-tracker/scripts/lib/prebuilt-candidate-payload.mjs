@@ -22,14 +22,16 @@ function reviewedVercelBase() {
   return original;
 }
 
-// Nonoverlapping Git rule for exactly ONE reviewed stable-branch pilot.
+// An exact, source-committed opt-in for one stable branch at a time.
+// The writer only uses this for generic branches after the separate main
+// rollout switch, canonical acceptance and provider-suppression proof.
 // Vercel treats any matching true as enabled; keeping `prefix/*: true`
 // would silently create a Git build even with exact `prefix/name: false`.
 export function expectedIsolatedGitConfig(branch) {
   if (!isApprovedPrebuiltBranch(branch))
     throw new Error('Unapproved trusted Preview branch');
   const [category, leaf] = branch.split('/');
-  if (!/^(feature|fix)$/.test(category) ||
+  if (!/^(feature|fix|perf|security|refactor)$/.test(category) ||
       !/^[a-z0-9][a-z0-9-]{0,72}$/.test(leaf))
     throw new Error('Unsafe trusted Preview Git branch pattern');
   const source = reviewedVercelBase().toString('utf8');
@@ -132,4 +134,12 @@ export async function assembleVerifiedCandidateStatic(candidate, outputRoot) {
   await writeFile(join(root, '.vercel', 'output', 'config.json'), candidate.configBytes,
     { flag: 'wx' });
   return { outputRoot: root, files: files.length, deploymentAuthorized: false };
+}
+// Never trust a candidate-supplied marker or a permissive subset. Only the
+// exact reviewed one-branch suppression bytes are an opt-in; ordinary Git
+// Preview configurations must be ignored without a privileged job.
+export function isExactPrebuiltSourceOptIn(raw, branch) {
+  if (!Buffer.isBuffer(raw) || !isApprovedPrebuiltBranch(branch)) return false;
+  const expected = expectedIsolatedGitConfig(branch);
+  return raw.length === expected.length && raw.equals(expected);
 }

@@ -7,12 +7,59 @@ import { readFile } from 'node:fs/promises';
 import { resolve, matchesGlob } from 'node:path';
 import {
   approvedHighLevelConfigHashes, expectedIsolatedGitConfig,
-  TRUSTED_HIGH_LEVEL_CONFIG_SHA256,
+  isExactPrebuiltSourceOptIn, TRUSTED_HIGH_LEVEL_CONFIG_SHA256,
 } from '../../scripts/lib/prebuilt-candidate-payload.mjs';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 
 describe('one-branch Git-auto cutover safety (#592)', () => {
+  it('requires an exact opt-in and preserves non-opted-in category branches', async () => {
+    const base = await readFile(resolve(process.cwd(),
+      'scripts/lib/trusted-prebuilt-vercel.json'));
+    for (const category of ['feature', 'fix', 'perf', 'security', 'refactor']) {
+      const branch = category + '/verified-work';
+      const raw = expectedIsolatedGitConfig(branch);
+      const policy = JSON.parse(raw.toString('utf8')).git.deploymentEnabled as
+        Record<string, boolean>;
+      expect(isExactPrebuiltSourceOptIn(raw, branch)).toBe(true);
+      expect(isExactPrebuiltSourceOptIn(base, branch)).toBe(false);
+      expect(isExactPrebuiltSourceOptIn(raw, category + '/other')).toBe(false);
+      expect(policy[branch]).toBe(false);
+      expect(policy[category + '/*']).toBeUndefined();
+      expect(policy[category + '/!(verified-work)']).toBe(true);
+      const hosted = (name: string) => {
+        const matches = Object.entries(policy).filter(([pattern]) =>
+          matchesGlob(name, pattern));
+        return matches.length === 0 || matches.some(([, enabled]) => enabled);
+      };
+      expect(hosted(branch)).toBe(false);
+      expect(hosted(category + '/another')).toBe(true);
+      for (const unchanged of ['dev','main','chatgpt/task','codex/task',
+        'feature/other','fix/other','perf/other','security/other','refactor/other']) {
+        if (unchanged === branch) continue;
+        expect(hosted(unchanged)).toBe(!unchanged.startsWith('chatgpt/') &&
+          !unchanged.startsWith('codex/'));
+      }
+      for (const forged of [
+        Buffer.from(raw.toString('utf8').replace('"main": true', '"main": false')),
+        Buffer.from(raw.toString('utf8').replace('"'+branch+'": false',
+          '"'+branch+'": true')),
+        Buffer.from(raw.toString('utf8').replace(
+          '"'+category+'/!(verified-work)": true',
+          '"'+category+'/*": true')),
+      ]) {
+        expect(isExactPrebuiltSourceOptIn(forged, branch)).toBe(false);
+        expect(() => assertIsolatedCanaryGitDisable(forged, branch)).toThrow();
+      }
+      expect(assertIsolatedCanaryGitDisable(raw, branch)).toBe(true);
+    }
+    for (const unsafe of ['dev', 'main', 'chatgpt/no', 'feature/nested/path',
+      'feature/name)', 'security/Name']) {
+      expect(isExactPrebuiltSourceOptIn(base, unsafe)).toBe(false);
+      expect(() => expectedIsolatedGitConfig(unsafe)).toThrow();
+    }
+  });
+
   it('allows only exact reviewed source config or fix-category-disabled variant', async () => {
     const raw = await readFile(resolve(process.cwd(),
       'scripts/lib/trusted-prebuilt-vercel.json'));
@@ -51,7 +98,7 @@ describe('one-branch Git-auto cutover safety (#592)', () => {
       digest(isolated))).toBe(true);
     expect(expectedIsolatedGitConfig(PREBUILT_CANARY_BRANCH))
       .not.toEqual(isolated);
-    expect(() => expectedIsolatedGitConfig('feature/unreviewed')).toThrow();
+    expect(() => expectedIsolatedGitConfig('feature/unreviewed/extra')).toThrow();
     expect(() => assertIsolatedCanaryGitDisable(
       expectedIsolatedGitConfig(PREBUILT_CANARY_BRANCH),
       PREBUILT_PILOT_BRANCH)).toThrow();
