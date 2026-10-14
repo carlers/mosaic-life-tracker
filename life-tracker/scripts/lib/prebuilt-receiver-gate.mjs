@@ -1,5 +1,5 @@
 import { assessPreviewDeployGate } from './preview-deploy-gate.mjs';
-import { validateBuildEvidence } from './preview-build-evidence.mjs';
+import { validateBuildEvidence } from './preview-evidence-schema.mjs';
 
 export const PREBUILT_CANARY_BRANCH = 'fix/592-trusted-archive-20261014';
 export const PREBUILT_ROUTING_SHA256 = 'c1ee8560a43e316a7eb8c0ec163affa4c9941050065fc735c93e678b84b9d848';

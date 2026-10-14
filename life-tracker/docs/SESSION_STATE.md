@@ -20,6 +20,10 @@ Current task: #592 CI-first stable Preview delivery.
 ## Accepted payload verification
 - Combine the strict six-entry ZIP reader, GitHub-reported ZIP SHA256, vetted profile/budget/branch evidence, SHA-verified compressed static archive and pinned routing/header configuration before reconstructing exact prebuilt files. Require GitHub artifact digest metadata; no caller-supplied approval bit. No provider writes.
 
+## Read-only default-main receiver draft
+- Pure Node manifest schema extracted from CI build tooling, preventing protected receiver from importing Vite/size measurement or npm dependencies.
+- Staged main-only runner checks exact completed same-suite canonical success + main checkout, selects current GitHub run-attempt ZIP by digest, reads only six allowed data files, independently verifies byte hashes, public Scratch profile and pinned v3 routing, then rechecks live branch SHA/CI. It explicitly refuses all provider-write or alias flags; this is shadow verification, not cutover.
+
 ## Next action
 - Focused task verification; squash to stable; confirm canonical+READY.
 - Build verified trusted ZIP download/byte assembly + protected main receiver; controlled red=0, green=1, retry/stale=0 deployment tests and rollback. Main-only bootstrap requires separate approval. #592 stays OPEN.
