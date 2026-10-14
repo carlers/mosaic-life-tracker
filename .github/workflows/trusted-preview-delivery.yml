@@ -1,11 +1,14 @@
-# TRUST BOUNDARY: only effective from default branch main. Never
-# checkout, execute or import triggering-branch code in this privileged job.
+# TRUST BOUNDARY: this file runs only from default main after a completed
+# official push Quality Gate. It never imports or executes candidate branch code.
+# #592: read-only PREBUILT shadow; no environment, provider token, POST or alias.
 name: Trusted Preview Delivery
 
 on:
   workflow_run:
     workflows: [Quality Gate]
     types: [completed]
+    branches:
+      - fix/592-trusted-archive-20261014
 
 permissions:
   contents: read
@@ -20,30 +23,27 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == 'carlers/mosaic-life-tracker' &&
-      github.event.workflow_run.head_branch == 'fix/workflow-build-parity-592-20261012' &&
-      vars.MOSAIC_TRUSTED_PREVIEW_ENABLED == 'true' }}
+      github.event.workflow_run.head_branch == 'fix/592-trusted-archive-20261014' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     concurrency:
-      group: trusted-preview-${{ github.event.workflow_run.head_branch }}
+      group: trusted-prebuilt-${{ github.event.workflow_run.head_branch }}
       cancel-in-progress: false
-    environment: mosaic-preview-auto
     steps:
-      - name: Checkout trusted main workflow and scripts only
+      - name: Check out trusted main only (no candidate scripts)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
           fetch-depth: 1
-      - name: Use built-in Node runtime from the trusted runner
+      - name: Use built-in Node runtime
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
-      - name: Verify completed same-SHA CI and deploy using trusted Git-source API
+      - name: Validate exact completed canonical CI and SHA256 artifact (no provider writes)
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
-          MOSAIC_TRUSTED_PREVIEW_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_ENABLED }}
-          MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED }}
-          MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED }}
-        run: node life-tracker/scripts/run-trusted-preview-receiver.mjs
+          MOSAIC_TRUSTED_PREVIEW_ENABLED: 'true'
+          MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED: 'false'
+          MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED: 'false'
+        run: node life-tracker/scripts/run-trusted-prebuilt-receiver.mjs
