@@ -12,6 +12,6 @@ Current task: #592 trusted CI-first prebuilt writer — Vercel monorepo root-dir
 - Create only empty `<trusted-temp-workspace>/life-tracker` after the verified CI artifact and local project.json are assembled; keep the sole static `.vercel/output` and app artifact bytes at temp root. Fail closed if the directory already exists or the trusted project/team/Preview target differs. Add filesystem regression asserting empty stub, no copy, original output unchanged, duplicate refusal.
 - No app/version, build cap, routing, Vercel project settings, tokens, branch policies, aliases, Production/dev or source-execution change.
 
-## Next
+## Next action
 - Task focused → isolated main-based stable full canonical and Vercel READY → protected-main infrastructure PR. Requires **new** owner-approved temporary `Pull requests only` bypass for that PR, merge commit, immediate zero-bypass restore, exact main Quality Gate and Production READY. No new canary until main updates.
 - Then ONE fresh CI-green canary and verify ZERO Git auto-deploy, exactly ONE verified `--prebuilt --target=preview` READY, Scratch/GIPHY/PostHog/static route+headers, dedupe and stale checks, safe rollback and generalization. #592 OPEN; manual/device checks unclaimed.
