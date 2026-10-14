@@ -89,7 +89,7 @@ describe('bounded trusted GitHub Actions artifact ZIP parser #592', () => {
       .toThrow();
     const forged = Buffer.from(original);
     const cd = forged.readUInt32LE(forged.length - 6);
-    forged.writeUInt32LE(0, cd + 42);
+    forged.writeUInt32LE(10, cd + 42);
     expect(() => readVerifiedActionsZip(forged)).toThrow();
   });
   it('rejects missing and oversized input immediately', () => {
