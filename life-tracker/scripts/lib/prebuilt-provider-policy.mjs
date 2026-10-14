@@ -93,3 +93,16 @@ export function assertAliasTarget(aliases, id) {
     throw new Error('Reviewed stable Preview alias does not point to accepted deployment');
   return true;
 }
+
+export function assertCanaryGitDisabled(highLevelConfig) {
+  const enabled = highLevelConfig?.git?.deploymentEnabled;
+  if (!enabled || typeof enabled !== 'object' || Array.isArray(enabled) ||
+      enabled[CANARY_BRANCH] !== false ||
+      enabled.main !== true || enabled.dev !== true ||
+      enabled['feature/*'] !== true || enabled['fix/*'] !== true ||
+      highLevelConfig?.framework !== 'vite' ||
+      highLevelConfig?.outputDirectory !== 'dist') {
+    throw new Error('Canary Git auto-deploy is not safely disabled while main/dev remain enabled');
+  }
+  return true;
+}
