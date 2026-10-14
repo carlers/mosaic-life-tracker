@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-14
-Current task: #592 fail-closed archive integrity verification, no deploy.
+Current task: #592 exact CI build artifact integrity and nondeployable static output.
 
 ## Verified start
 - dev f3d9558feca499e53c310c5a37be2794717bccf6 (v0.23.4) has accepted #784 2-hard/5-advisory policy and #592 existing non-deployable exact CI artifact producer. Full stable #38433314252 and dev provenance #38433690677 succeeded.
@@ -18,6 +18,10 @@ Current task: #592 fail-closed archive integrity verification, no deploy.
 ## Static output assembly milestone (in review)
 - On accepted CI evidence only, copy exact verified dist file bytes into an exclusive, disposable `.vercel/output/static` directory and install the digest-verified v3 `config.json`. The assembly is data-only, no app build, no Vercel credential/request, and explicitly remains `deploymentAuthorized=false`.
 - Security regressions test file/hash parity, altered route evidence and source mismatch. Real Preview delivery still requires matching public Scratch/GIPHY effective config, trusted post-canonical main receiver and a protected red/green canary.
+
+## Real canonical build smoke check
+- CI now builds output one time and validates exact archive + official v3 routing by actually assembling the 161-file static output in a temporary directory, verifying bytes, then deleting it. No Vercel invocation, API call, alias, secret or second app compilation.
+- This is not approval to deploy until accepted Scratch/GIPHY public profile and trusted post-canonical main receiver are proven.
 
 ## Next action
 - Align effective Scratch/GIPHY public profile; package static build output with Vercel Build Output API v3 and official routing adapter with full deep-link/header tests; use these verified bytes only in trusted main receiver AFTER complete canonical success and source/attempt trust checks.
