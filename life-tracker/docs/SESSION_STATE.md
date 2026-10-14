@@ -1,18 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-14
-Current task: #592 CI-first Preview delivery — first live main-owned shadow acceptance.
+Current task: #592 isolated Git auto-deployment cutover prepared — **DO NOT MERGE YET**.
 
-## Exact verified state
-- Protected `main@8df24c13de16c28a5a1c6154199da5e19506f089`, app 0.17.4 unchanged, [Quality Gate #38505671065](https://github.com/carlers/mosaic-life-tracker/actions/runs/38505671065) SUCCESS, Vercel Production `dpl_Gd2R2kYEU51syibVbSufpNgtJFv9` READY, GitHub ruleset #24880070 active with zero bypass actors. Owner merged infra-only [PR #807](https://github.com/carlers/mosaic-life-tracker/pull/807) using merge commit; no app release.
-- Protected `dev@f3d9558f`, app 0.23.4, #784 2 blocking/5 advisory size metrics unchanged. #784 twice-weekly mobile audit separate from #592.
-- Stable canary `fix/592-trusted-archive-20261014@5f2d11c64037703709e1a99a4ce109c4e731893e`, full Quality Gate #38504457746 SUCCESS, exact Git Preview `dpl_AQoiYJPDsmFV6ydJBH9YTsCxKV1X` READY. Owner verified public Preview GIPHY/PostHog inputs mirrored to masked GitHub Actions Secrets. No private provider credentials in untrusted builds.
+## Verified foundation
+- `main@8df24c13` v0.17.4, exact canonical #38505671065 SUCCESS, Production READY; ruleset protected with zero bypass actors. Trusted read-only CI artifact receiver live SUCCESS #38506275297 on accepted canary SHA 56ceb5af, verifies 161 files/routing, creates zero extra deployments.
+- `dev@f3d9558f` v0.23.4 and automatic Git deploy remain unchanged.
+- Separate main-based writer stable `fix/592-main-prebuilt-writer-20261014` contains default-OFF prebuilt CLI writer with independent canonical/current-SHA, provider identity, deduplication and explicit Preview targeting. Do not enable writer until reviewed, merged to protected main and its Production/main checks pass.
 
-## Trusted artifact admission
-- The new default-main `Trusted Preview Delivery` workflow listens only for a fresh completed successful push Quality Gate on the single approved stable canary branch. Runner uses main-owned Node-only code, GitHub read token, no Vercel token, environment, POST or alias.
-- It rechecks exact source SHA/branch/latest HEAD, same-suite canonical success, run attempt, one matching 16 MiB bounded GitHub artifact ZIP with GitHub SHA256, six file members, tar/inventory, Scratch/Node24/GIPHY/PostHog and #784 hard sizes, pinned 15 SPA rewrites + 4 security headers; then rechecks source/CI. It never executes candidate code or rebuilds in a secret-bearing job. Invalid evidence fails closed.
-- No Vercel quota savings yet: original Vercel Git integration still builds before canonical CI. The prebuilt writer/controlled rollout is outstanding. Issue #592 remains OPEN, despite an accidental close during main PR merge.
+## Current isolated canary draft
+- Vercel's git.deploymentEnabled rule matcher is additive. A canary-specific false cannot override broad `fix/*: true`. This task replaces that one broad allow-rule with `fix/!(592-trusted-archive-20261014): true`; existing `*: false` and the explicit main/dev/feature/perf/security/refactor rules remain unchanged.
+- This draft intentionally disables provider Git auto-creation only for this single canary **after merge**. Do not merge while main is missing the accepted protected writer, and do not turn on provider creation flags yet.
+- A new doc/unit regression checks exact config and preserves 15 SPA rewrites and security headers. Vercel provider behavior is NOT proven until a controlled red/green canary. Rollback is to restore `fix/*: true` and disable provider writer flags.
 
 ## Next action
-- This documentation-only task checkpoint triggers one *fresh* canonical green stable push via the normal focused task→stable squash. Observe actual default-main read-only receiver completion and exact artifact evidence without a second provider POST/alias; diagnose failure and repair.
-- Implement separately reviewed provider Preview-only prebuilt upload, trusted idempotency/dedupe/alias and rollback, red=zero, green=one, stale/retry=zero, then one real feature Preview→dev acceptance. No direct changes to protected dev/main or provider configuration without further approval.
+- Focused task CI only; open draft task→stable PR but leave unmerged.
+- Main writer full canonical+READY, owner-approved new narrowly scoped main ruleset exception, and main Production readback FIRST.
+- Then review/minimatch config and merge this isolated canary change; verify a red candidate creates ZERO Git deployments, a canonical green candidate creates exactly one trusted prebuilt Preview, stale/retry creates zero new deployments, browser Scratch/deep links/headers and alias rollback. #592 OPEN.
