@@ -12,6 +12,9 @@ Current task: #592 fail-closed archive integrity verification, no deploy.
 - Add strict, bounded, extraction-free GNU/USTAR archive verifier for every retained CI artifact. Check the compressed digest, tar header checksums, safe normalized names, duplicate entries, non-file types, file hashes, complete inventory and exact source ref/SHA. Run it after the existing CI archive creation and before uploading, with unit regression fixtures for traversal, symlinks, duplicates, tampering and unbounded decompression.
 - Keep evidence `deploymentAuthorized=false` and no new build, Vercel POST, aliases, credentials, Scratch/Production/backend or app version change. This is a necessary security component, not a finished prebuilt deployment.
 
+## Current follow-up
+- Routing packaging adds a pinned official Vercel high-level converter and v3 static routing config to the same CI artifact without another app build or provider request. Configuration remains `deploymentAuthorized=false`; public Scratch/GIPHY build input and trusted recipient are not yet enabled.
+
 ## Next action
 - Align effective Scratch/GIPHY public profile; package static build output with Vercel Build Output API v3 and official routing adapter with full deep-link/header tests; use these verified bytes only in trusted main receiver AFTER complete canonical success and source/attempt trust checks.
 - Owner separately authorizes accepted dev promotion and later narrowly scoped main infrastructure/configuration change. Test CI-red zero-provider POST, green upload-once, stale/retry/idempotency, stable alias/rollback, one real feature promotion. Keep automatic Git Preview until proven safe.
