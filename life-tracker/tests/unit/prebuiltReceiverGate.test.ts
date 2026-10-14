@@ -64,6 +64,28 @@ describe('main-trusted prebuilt receiver read-only acceptance (#592)', () => {
       checkRuns: [newCheck],
     })).toMatchObject({ eligible: true, runId: next.id });
   });
+  it('rejects forged workflow source, incomplete completion and invalid attempt despite green checks', () => {
+    const alteredEvents = [
+      { ...event, repository: { full_name: 'attacker/mosaic-life-tracker' } },
+      { ...event, workflow_run: { ...run,
+        repository: { full_name: 'attacker/mosaic-life-tracker' } } },
+      ...[
+        { name: 'Forged Quality Gate' },
+        { path: '.github/workflows/untrusted.yml' },
+        { event: 'pull_request' },
+        { status: 'in_progress' },
+        { id: 0 },
+        { check_suite_id: 0 },
+        { run_attempt: 0 },
+      ].map(changes => ({ ...event, workflow_run: { ...run, ...changes } })),
+    ];
+    for (const untrustedEvent of alteredEvents) {
+      expect(assessPrebuiltReceiverEvent({
+        ...inputs, event: untrustedEvent,
+      }).eligible).toBe(false);
+    }
+    expect(assessPrebuiltReceiverEvent(inputs).eligible).toBe(true);
+  });
   it('requires exact artifact run attempt and rejects expired, duplicate and oversized', () => {
     const request = { sha, runId: run.id, attempt: 2 };
     expect(selectPrebuiltArtifact([artifact], request)).toMatchObject({ id: 33 });
