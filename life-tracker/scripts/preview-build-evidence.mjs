@@ -14,7 +14,12 @@ try {
       directory,
       sha: process.env.GITHUB_SHA,
       ref: process.env.GITHUB_REF,
-      profile: { giphy: Boolean(process.env.VITE_GIPHY_API_KEY?.trim()) },
+      profile: {
+        giphy: Boolean(process.env.VITE_GIPHY_API_KEY?.trim()),
+        posthog: Boolean(process.env.VITE_POSTHOG_TOKEN?.trim() && process.env.VITE_POSTHOG_HOST?.trim()),
+        vercelEnvironment: process.env.VERCEL_ENV,
+        appwriteBackend: process.env.VERCEL_ENV === 'preview' ? 'scratch' : 'production',
+      },
     });
     await mkdir(output, { recursive: true });
     await writeFile(join(output, 'evidence.json'), JSON.stringify(evidence, null, 2) + '\n');

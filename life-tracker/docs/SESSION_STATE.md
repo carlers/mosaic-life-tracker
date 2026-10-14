@@ -20,6 +20,11 @@ Current task: #592 second CI-first feature Preview pilot, isolated branch opt-ou
 - Pilot full Quality Gate #38559593433 passed build, dependency, both DOM and both browser shards, but unit `tests/unit/workflowDocs.test.ts:121` incorrectly hardcodes `feature/* === true` even for an explicitly isolated pilot. Fails closed: canonical acceptance FAILED, zero authenticated provider POST and zero Git-auto deployment.
 - Repair its policy invariant to accept only canonical general feature mode OR exact explicitly reviewed one-pilot nonoverlapping exclusion, preserve `main`, `dev`, other categories and quiet task rules, then focused and fresh stable canonical. No app/runtime or provider policy change.
 
+## Complete CI but archive rejected safely
+- Full stable Quality Gate #38560172085 SUCCESS for `feature/592-prebuilt-pilot-20261014@50c9192f70857372f71f23f7435f41aede70db99`; all source canonical jobs green, Vercel Git creations ZERO across red/green pilot commits.
+- Default-main Trusted Preview Delivery #38560365684 receiver rejected with `Unsupported ZIP layout or wrong artifact entry count`; protected writer SKIPPED; provider deployments ZERO. Dev-derived CI uploaded FOUR files; main's hardened receiver requires SIX, including `config.json` and `routing-evidence.json`.
+- Port only canary-proven six-member static artifact producer, browser-public Preview profile, bounded archive verification, Vercel routing/round-trip checks, and pinned routing-utils dependency from `fix/592-trusted-archive-20261014@61e6728935ef734eab448da291a12a485aabe7b3`. Preserve other CI jobs, app behavior, budget/version policy and Git opt-out. New canonical required.
+
 ## Next action
 - Focused task verification, then create one initial stable `feature/592-prebuilt-pilot-20261014` commit with the same reviewed policy atop exact dev and run full canonical CI. Confirm no provider Git Preview for any pilot SHA; default-main trusted receiver/writer must deploy exactly one static CLI Preview only on accepted canonical success, with no aliases. Verify same-SHA reuse with zero POST, hosted routes/headers and rollout/rollback. Do not promote this infrastructure pilot to dev/main without separate approval.
 - Keep #592 OPEN. Manual registered Scratch login/device acceptance remains unverified.
