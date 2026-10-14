@@ -382,3 +382,36 @@ through focused+full Preview and new owner-approved protected-main PR.
 After verified main merge, repeat only unprivileged source-build job for an
 updated-main `workflow_run` event to exercise NO-POST reuse on the same
 accepted immutable SHA. No UI/device acceptance claimed.
+
+## Controlled second stable-branch pilot (2026-10-14)
+
+The CI-first static uploader's **first create** is proved by Trusted Delivery
+#38539354517 attempt 1 and exact Vercel `dpl_DtqNxRakFrBXCnrYy5xYSZ7QocnR` READY.
+After fixes for Vercel's compact-summary `uid`/full-detail `id`, owner-merged
+#833, and full main Quality Gate #38543710215 SUCCESS, same-SHA source Quality
+Gate #38539164866 attempt 3 caused NEW trusted workflow #38544069361 on the
+updated main; read-only verifier and protected writer BOTH SUCCESS. The writer
+logged **`Verified prebuilt already present: reuse; no additional provider POST
+or alias change.`** Vercel retained only the original CLI deployment for the
+canary, with zero aliases. This closes first-write and idempotent-retry proofs.
+
+**Smallest next rollout:** add only a second, explicitly named stable
+`feature/592-prebuilt-pilot-20261014` to the trusted main workflow and pure
+main-owned eligibility checker. Dynamic general feature or fix wildcard delivery
+is NOT yet approved. The trusted fixture derives an exact branch-specific
+non-overlapping Vercel Git policy: replace only `feature/*:true` with
+`feature/!(592-prebuilt-pilot-20261014):true` and
+`feature/592-prebuilt-pilot-20261014:false`; all other categories keep their
+existing Git-auto policy. The exact bytes must agree with the accepted CI ZIP
+config hash AND with immutable GitHub source `vercel.json`, independently
+re-verified by main-owned code before any Vercel POST. Reject overlapping
+`feature/*:true`, unmatched Git-auto-default-true, altered routing/headers,
+stale/CI-red SHA, project/target deviations, duplicates and unapproved branch.
+Rollback: repository variable `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED=false`
+stops trusted provider writes; alias stays OFF. To restore ordinary Git Previews
+for the pilot, revert the pilot branch's isolated `vercel.json` via a normal
+reviewed task/PR and validate Git deployment readback. Do not edit global
+provider project settings, globally disable Git builds, force push, merge into
+Production, or change credentials. Before wider rollout, prove one real
+second-branch CI-first creation and same-SHA reuse, and stage separately the
+normal stable Preview→dev promotion with explicit owner authorization.

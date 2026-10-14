@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
+import { assertIsolatedCanaryGitDisable } from '../../scripts/lib/prebuilt-provider-contract.mjs';
+import { PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH } from
+  '../../scripts/lib/prebuilt-receiver-gate.mjs';
 import { readFile } from 'node:fs/promises';
 import { resolve, matchesGlob } from 'node:path';
 import {
-  approvedHighLevelConfigHashes, TRUSTED_HIGH_LEVEL_CONFIG_SHA256,
+  approvedHighLevelConfigHashes, expectedIsolatedGitConfig,
+  TRUSTED_HIGH_LEVEL_CONFIG_SHA256,
 } from '../../scripts/lib/prebuilt-candidate-payload.mjs';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
@@ -37,6 +41,53 @@ describe('one-branch Git-auto cutover safety (#592)', () => {
     expect(disabled.framework).toBe(initial.framework);
     expect(disabled.buildCommand).toBe(initial.buildCommand);
     expect(disabled.outputDirectory).toBe(initial.outputDirectory);
+  });
+
+  it('isolates only one feature pilot and preserves every other Git Preview', async () => {
+    const isolated = expectedIsolatedGitConfig(PREBUILT_PILOT_BRANCH);
+    expect(assertIsolatedCanaryGitDisable(isolated, PREBUILT_PILOT_BRANCH))
+      .toBe(true);
+    expect(approvedHighLevelConfigHashes(PREBUILT_PILOT_BRANCH).has(
+      digest(isolated))).toBe(true);
+    expect(expectedIsolatedGitConfig(PREBUILT_CANARY_BRANCH))
+      .not.toEqual(isolated);
+    expect(() => expectedIsolatedGitConfig('feature/unreviewed')).toThrow();
+    expect(() => assertIsolatedCanaryGitDisable(
+      expectedIsolatedGitConfig(PREBUILT_CANARY_BRANCH),
+      PREBUILT_PILOT_BRANCH)).toThrow();
+    const original = JSON.parse(await readFile(resolve(process.cwd(),
+      'scripts/lib/trusted-prebuilt-vercel.json'), 'utf8'));
+    const next = JSON.parse(isolated.toString('utf8'));
+    const rules = next.git.deploymentEnabled as Record<string, boolean>;
+    expect(rules['feature/*']).toBeUndefined();
+    expect(rules['feature/!(592-prebuilt-pilot-20261014)']).toBe(true);
+    expect(rules[PREBUILT_PILOT_BRANCH]).toBe(false);
+    for (const keep of ['main','dev','fix/*','perf/*','security/*','refactor/*'])
+      expect(rules[keep]).toBe(true);
+    for (const quiet of ['chatgpt/*','codex/*','*'])
+      expect(rules[quiet]).toBe(false);
+    const deploys = (branch: string, policy: Record<string, boolean>) => {
+      const matches = Object.entries(policy).filter(([pattern]) =>
+        matchesGlob(branch, pattern));
+      return matches.length === 0 || matches.some(([, value]) => value);
+    };
+    expect(deploys(PREBUILT_PILOT_BRANCH, rules)).toBe(false);
+    for (const other of ['feature/diary', 'feature/other', 'fix/task',
+      'perf/speed', 'security/guard', 'refactor/cleanup', 'dev', 'main'])
+      expect(deploys(other, rules), other).toBe(true);
+    for (const quiet of ['chatgpt/task', 'codex/task'])
+      expect(deploys(quiet, rules)).toBe(false);
+    expect(deploys(PREBUILT_PILOT_BRANCH,
+      { ...rules, 'feature/*': true })).toBe(true); // provider true wins
+    for (const mutated of [
+      { ...next, git: { deploymentEnabled: { ...rules, main: false } } },
+      { ...next, git: { deploymentEnabled: { ...rules, dev: false } } },
+      { ...next, git: { deploymentEnabled: { ...rules, 'feature/*': true } } },
+      { ...next, headers: [] },
+    ]) expect(() => assertIsolatedCanaryGitDisable(
+      Buffer.from(JSON.stringify(mutated)), PREBUILT_PILOT_BRANCH)).toThrow();
+    expect(next.rewrites).toEqual(original.rewrites);
+    expect(next.headers).toEqual(original.headers);
   });
 
   it('reproduces the failed unmatched-branch rule and enforces exact suppression', async () => {
