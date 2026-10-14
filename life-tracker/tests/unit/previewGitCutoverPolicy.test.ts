@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 
-describe('one-branch #592 Vercel Git cutover (staged, NOT enabled)', () => {
+describe('failed #592 Git cutover rollback safety', () => {
   it('uses a non-overlapping allowlist, retaining main/dev and other Preview categories', async () => {
     const config = JSON.parse(await readFile('vercel.json', 'utf8'));
     const rules = config.git?.deploymentEnabled;
     expect(rules['*']).toBe(false);
     expect(rules.main).toBe(true);
     expect(rules.dev).toBe(true);
-    expect(rules['fix/*']).toBeUndefined();
-    expect(rules['fix/!(592-trusted-archive-20261014)']).toBe(true);
+    expect(rules['fix/*']).toBe(true);
+    expect(rules['fix/!(592-trusted-archive-20261014)']).toBeUndefined();
     expect(rules['feature/*']).toBe(true);
     expect(rules['perf/*']).toBe(true);
     expect(rules['security/*']).toBe(true);

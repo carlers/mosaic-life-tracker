@@ -6,7 +6,7 @@
       "main": true,
       "dev": true,
       "feature/*": true,
-      "fix/!(592-trusted-archive-20261014)": true,
+      "fix/*": true,
       "perf/*": true,
       "security/*": true,
       "refactor/*": true,
