@@ -1,30 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-14
-Current task: #592 isolated Git auto-deployment cutover prepared — **DO NOT MERGE YET**.
+Task: #592 CI-first Preview delivery — failed Git suppression rollback.
 
-## Verified foundation
-- `main@8df24c13` v0.17.4, exact canonical #38505671065 SUCCESS, Production READY; ruleset protected with zero bypass actors. Trusted read-only CI artifact receiver live SUCCESS #38506275297 on accepted canary SHA 56ceb5af, verifies 161 files/routing, creates zero extra deployments.
-- `dev@f3d9558f` v0.23.4 and automatic Git deploy remain unchanged.
-- Separate main-based writer stable `fix/592-main-prebuilt-writer-20261014` contains default-OFF prebuilt CLI writer with independent canonical/current-SHA, provider identity, deduplication and explicit Preview targeting. Do not enable writer until reviewed, merged to protected main and its Production/main checks pass.
+## Verified
+- Protected `main@0c0152807c450071f5adfabca67d9344ccf0aa77` has [Quality Gate #38513209910](https://github.com/carlers/mosaic-life-tracker/actions/runs/38513209910) SUCCESS, Production `dpl_Ekti2CTDKwANp4Cm1JKETq3rP47W` READY at unchanged app v0.17.4. Ruleset #24880070 active, zero bypass actors. Owner merged infrastructure-only PR #812.
+- `dev@f3d9558f` app v0.23.4 unchanged. #784 separate.
+- Read-only default-main [Trusted Preview Delivery #38506275297](https://github.com/carlers/mosaic-life-tracker/actions/runs/38506275297) SUCCESS: accepted canonical SHA and all 161 archived files, Scratch profile, v3 routes, no provider write.
+- Protected default-OFF prebuilt writer exists on main. `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED` and alias switch must remain OFF.
 
-## Current isolated canary draft
-- Vercel's git.deploymentEnabled rule matcher is additive. A canary-specific false cannot override broad `fix/*: true`. This task replaces that one broad allow-rule with `fix/!(592-trusted-archive-20261014): true`; existing `*: false` and the explicit main/dev/feature/perf/security/refactor rules remain unchanged.
-- This draft intentionally disables provider Git auto-creation only for this single canary **after merge**. Do not merge while main is missing the accepted protected writer, and do not turn on provider creation flags yet.
-- A new doc/unit regression checks exact config and preserves 15 SPA rewrites and security headers. Vercel provider behavior is NOT proven until a controlled red/green canary. Rollback is to restore `fix/*: true` and disable provider writer flags.
+## Two live Git-cutover failures
+- [PR #811](https://github.com/carlers/mosaic-life-tracker/pull/811) replaced `fix/*: true` with `fix/!(592-trusted-archive-20261014): true` to suppress only the canary while retaining main/dev and other branches. **Vercel still created a Git Preview** `dpl_A6VWreeEbqygVG8mbcXVjHEbXYhF` for the first push SHA `ead67286`.
+- On second, docs-only [PR #813](https://github.com/carlers/mosaic-life-tracker/pull/813), Vercel **again** created Git Preview `dpl_2N1MModAB1MuePvw4VXmJriezxMi` READY, even though [Quality Gate #38513638626](https://github.com/carlers/mosaic-life-tracker/actions/runs/38513638626) FAILED its pinned `vercel.json` routing fingerprint tests. This directly reproduces provider waste on CI-red.
+- This rollback restores the original `fix/*: true` Git rule and original pinned config. A second, independent suppression mechanism MUST be proven before enabling the writer. Exact Vercel matcher or Git webhook config scope is not yet explained. Do not guess or silently disable global Preview/dev auto deployments.
 
-## Provider cutover first-push observation (2026-10-14)
-- [#811](https://github.com/carlers/mosaic-life-tracker/pull/811) applied the isolated canary `git.deploymentEnabled` minimatch rule at commit `ead67286160ee99ebbdb6f7d2b60724a83b22cc2`. The first push **did create an ordinary Git Preview** `dpl_A6VWreeEbqygVG8mbcXVjHEbXYhF` while new rules were being introduced. This disproves any claim that the initial switch immediately avoids one deployment.
-- The writer is installed on `main@0c0152807c450071f5adfabca67d9344ccf0aa77` with full CI SUCCESS and matching Production READY at app v0.17.4; GitHub main ruleset zero bypass actors. Creation/alias remain OFF.
-- This documentation-only second accepted push isolates whether a branch *already carrying* the updated rules suppresses an ordinary Git deployment. Do not turn on writer before provider history confirms **no** Git-created same-SHA deployment; if Vercel continues creating one, revisit the matcher and do not assume quota savings.
-
-## Failed live Git suppression and rollback (2026-10-14)
-- [Canary cutover PR #811](https://github.com/carlers/mosaic-life-tracker/pull/811) installed non-overlapping `fix/!(592-trusted-archive-20261014): true`. Vercel still automatically created a Git Preview for its first commit `ead67286160ee99ebbdb6f7d2b60724a83b22cc2` (deployment `dpl_A6VWreeEbqygVG8mbcXVjHEbXYhF`). A SECOND, docs-only push [PR #813](https://github.com/carlers/mosaic-life-tracker/pull/813) at `b0befb7b942490e11e2edfcb8a7713287c51b2e7` also got Git deployment `dpl_2N1MModAB1MuePvw4VXmJriezxMi` READY, even though the branch was already carrying the rule.
-- The second [Quality Gate #38513638626](https://github.com/carlers/mosaic-life-tracker/actions/runs/38513638626) was RED: two prebuilt artifact tests failed because the reviewed high-level configuration SHA changed unexpectedly (`3a8de091...` instead of `23a7d4a9...`). Vercel nevertheless created and completed a Git Preview. This is direct proof of the #592 quota waste: provider builds before failing canonical CI. We correctly did NOT enable protected prebuilt creator or alias; zero concurrent CLI deployments.
-- Roll back only the unsuccessful `git.deploymentEnabled` variant to original `fix/*: true`; preserve main/dev and all app behavior. The Vercel matcher effect remains unproven in this monorepo—may read different config scope or have provider limitations, so do not repeat guessed minimatch pushes. Provider-origin control must be independently validated before any CI-first writer can turn on; consider provider-level deployment-source policy but its Preview-wide effect could disable `dev` and all Git Previews, so never apply without separate review and rollback.
-- Protected `main@0c0152807c450071f5adfabca67d9344ccf0aa77` full CI #38513209910 SUCCESS, Vercel Production `dpl_Ekti2CTDKwANp4Cm1JKETq3rP47W` READY, app v0.17.4. Ruleset zero bypass actors. Default-OFF Vercel prebuilt writer installed; no write authorized. #592 OPEN.
-
-## Next action
-- Focused task CI only; open draft task→stable PR but leave unmerged.
-- Main writer full canonical+READY, owner-approved new narrowly scoped main ruleset exception, and main Production readback FIRST.
-- Then review/minimatch config and merge this isolated canary change; verify a red candidate creates ZERO Git deployments, a canonical green candidate creates exactly one trusted prebuilt Preview, stale/retry creates zero new deployments, browser Scratch/deep links/headers and alias rollback. #592 OPEN.
+## Next
+- Verify rollback focused + full Quality Gate, inspect Vercel READY and record issue evidence.
+- Investigate provider-side Git trigger settings and config scope without repeated speculative builds. A project-wide Preview deployment-source restriction may also affect `dev` and ordinary Previews; no provider config mutation without explicit reviewed rollout/rollback.
+- Then demonstrate CI-red=0 provider creates, CI-green=one trusted prebuilt, replay/stale=zero, correct app/route/auth; finish issue #592. Do not merge to dev/main or turn on aliases.
