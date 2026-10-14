@@ -138,4 +138,24 @@ describe('trusted main byte-level prebuilt admission #592', () => {
         sha: 'b'.repeat(40), digest: f.digest })).toThrow(/source SHA/);
     } finally { await rm(f.root, { recursive: true, force: true }); }
   });
+  it('rejects repacked ZIPs with forged inner archive hash or file inventory', async () => {
+    const f = await fixture();
+    try {
+      // An attacker can repackage candidate bytes and recalculate a matching
+      // outer ZIP digest. The inner content still must match CI's own proof.
+      const checksum = Buffer.from('0'.repeat(64) + '  .mosaic/preview-build/dist.tar.gz\n');
+      const alteredChecksum = pack({ ...f.files, 'dist.tar.gz.sha256': checksum });
+      expect(() => verifyPrebuiltCandidateBytes(alteredChecksum, { ...f.expected,
+        digest: 'sha256:' + hash(alteredChecksum) }))
+        .toThrow(/compressed archive digest mismatch/);
+
+      const inventory = JSON.parse(f.files['inventory.json'].toString('utf8'));
+      inventory.files[0].sha256 = '0'.repeat(64);
+      const alteredInventory = pack({ ...f.files,
+        'inventory.json': Buffer.from(JSON.stringify(inventory)) });
+      expect(() => verifyPrebuiltCandidateBytes(alteredInventory, { ...f.expected,
+        digest: 'sha256:' + hash(alteredInventory) }))
+        .toThrow(/archive differs from signed-by-CI inventory/);
+    } finally { await rm(f.root, { recursive: true, force: true }); }
+  });
 });
