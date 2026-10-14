@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { readVerifiedActionsZip } from './prebuilt-zip-artifact.mjs';
@@ -12,6 +13,25 @@ export const TRUSTED_HIGH_LEVEL_CONFIG_SHA256 =
 const EXPECTED_HEADER_NAMES = ['X-Content-Type-Options', 'X-Frame-Options',
   'Referrer-Policy', 'Permissions-Policy'];
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+
+export function approvedHighLevelConfigHashes() {
+  // Keep a review-pinned copy of the exact stable canary's original Vercel
+  // configuration in trusted main. The only future candidate change allowed
+  // by this exception is disabling Git auto creation for fix/* on THAT branch.
+  const original = readFileSync(new URL('./trusted-prebuilt-vercel.json', import.meta.url));
+  if (sha256(original) !== TRUSTED_HIGH_LEVEL_CONFIG_SHA256)
+    throw new Error('Reviewed source configuration fixture was modified');
+  const current = original.toString('utf8');
+  const enabled = '"fix/*": true,';
+  if (current.split(enabled).length !== 2)
+    throw new Error('Ambiguous Vercel canary rollout policy');
+  const disabled = current.replace(enabled, '"fix/*": false,');
+  const policy = JSON.parse(disabled).git?.deploymentEnabled;
+  if (policy?.['fix/*'] !== false || policy?.main !== true || policy?.dev !== true)
+    throw new Error('Rollout disabled a protected branch or kept fix auto enabled');
+  return new Set([sha256(original), sha256(Buffer.from(disabled))]);
+}
+
 
 function parseJson(bytes, name) {
   try { return JSON.parse(bytes.toString('utf8')); }
@@ -44,7 +64,7 @@ export function verifyPrebuiltCandidateBytes(zipBytes, { sha, branch, digest }) 
   if (routing?.schemaVersion !== 1 ||
       routing.kind !== 'non-deployable-preview-routing-evidence' ||
       routing.deploymentAuthorized !== false ||
-      routing.vercelConfigSha256 !== TRUSTED_HIGH_LEVEL_CONFIG_SHA256 ||
+      !approvedHighLevelConfigHashes().has(routing.vercelConfigSha256) ||
       routing.generatedConfigSha256 !== PREBUILT_ROUTING_SHA256 ||
       sha256(data['config.json']) !== PREBUILT_ROUTING_SHA256 ||
       routing.rewrites !== 15 ||
