@@ -98,10 +98,25 @@ export function isKnownPrebuiltHistoryCandidate(dep, plan) {
       dep?.meta?.mosaicPrebuiltBranch === plan?.branch);
 }
 
+// Vercel /v6/deployments uses 'uid'; /v13 detail often uses 'id'.
+// Reject missing, malformed, or contradictory IDs rather than assuming that
+// the two response schemas use the same field name.
+export function providerDeploymentId(deployment) {
+  const id = deployment?.id;
+  const uid = deployment?.uid;
+  if (id != null && uid != null && id !== uid)
+    throw new Error('Contradictory Vercel deployment id/uid');
+  const result = id ?? uid;
+  if (typeof result !== 'string' || !/^dpl_[a-zA-Z0-9]+$/.test(result))
+    throw new Error('Invalid matching provider deployment ID');
+  return result;
+}
+
 export function verifyPrebuiltHistoryDetail(summary, detail, plan) {
+  const summaryId = providerDeploymentId(summary);
+  const detailId = providerDeploymentId(detail);
   if (!isKnownPrebuiltHistoryCandidate(summary, plan) ||
-      !/^dpl_[a-zA-Z0-9]+$/.test(summary?.id ?? '') ||
-      detail?.id !== summary.id ||
+      summaryId !== detailId ||
       detail?.url !== summary.url ||
       detail?.projectId !== plan.projectId ||
       ![null, 'preview'].includes(detail?.target) ||
@@ -117,8 +132,9 @@ export function verifyPrebuiltHistoryDetail(summary, detail, plan) {
       (summary.readyState ?? summary.state) !== (detail.readyState ?? detail.state)) {
     throw new Error('Prebuilt summary/detail identity mismatch');
   }
-  return { ...summary, projectId: detail.projectId, target: detail.target,
-    meta: detail.meta, readyState: detail.readyState ?? detail.state };
+  return { ...summary, id: summaryId, projectId: detail.projectId,
+    target: detail.target, meta: detail.meta,
+    readyState: detail.readyState ?? detail.state };
 }
 
 export function assessKnownPrebuiltDeployments(deployments, plan, { exhaustive = false } = {}) {
