@@ -25,11 +25,17 @@ export function approvedHighLevelConfigHashes() {
   const enabled = '"fix/*": true,';
   if (current.split(enabled).length !== 2)
     throw new Error('Ambiguous Vercel canary rollout policy');
-  const pattern = '"fix/!(592-trusted-archive-20261014)": true,';
+  // Standard minimatch '*' does NOT match branch names containing a slash.
+  // Without an explicit canary=false this branch matches NO rule, and
+  // Vercel defaults unmatched branch deployments to TRUE. This caused two
+  // actual Git deployments, including one despite red canonical CI.
+  // No overlapping true pattern may match the exact excluded branch.
+  const pattern = '"fix/!(592-trusted-archive-20261014)": true,\n      "fix/592-trusted-archive-20261014": false,';
   const disabled = current.replace(enabled, pattern);
   const policy = JSON.parse(disabled).git?.deploymentEnabled;
   if (policy?.['fix/*'] !== undefined ||
       policy?.['fix/!(592-trusted-archive-20261014)'] !== true ||
+      policy?.['fix/592-trusted-archive-20261014'] !== false ||
       policy?.main !== true || policy?.dev !== true ||
       policy?.['feature/*'] !== true || policy?.['*'] !== false)
     throw new Error('Rollout cannot isolate the canary from allowed fix branches');

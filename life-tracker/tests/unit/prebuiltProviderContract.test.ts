@@ -34,7 +34,10 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
       'scripts/lib/trusted-prebuilt-vercel.json'));
     const old=source.toString('utf8');
     const safe=Buffer.from(old.replace('"fix/*": true,',
+      '"fix/!(592-trusted-archive-20261014)": true,\n      "fix/592-trusted-archive-20261014": false,'));
+    const unsafeUnmatched=Buffer.from(old.replace('"fix/*": true,',
       '"fix/!(592-trusted-archive-20261014)": true,'));
+    expect(()=>assertIsolatedCanaryGitDisable(unsafeUnmatched)).toThrow();
     expect(assertIsolatedCanaryGitDisable(safe)).toBe(true);
     expect(()=>assertIsolatedCanaryGitDisable(source)).toThrow();
     expect(()=>assertIsolatedCanaryGitDisable(Buffer.from(old.replace(
