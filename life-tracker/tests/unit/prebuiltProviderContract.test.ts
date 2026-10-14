@@ -10,7 +10,7 @@ import {
   verifyPrebuiltHistoryDetail,
   VERIFIED_PREVIEW_PROJECT, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
 } from '../../scripts/lib/prebuilt-provider-contract.mjs';
-import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256 } from
+import { PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH, PREBUILT_ROUTING_SHA256 } from
   '../../scripts/lib/prebuilt-receiver-gate.mjs';
 
 const sha = 'a'.repeat(40);
@@ -47,6 +47,21 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
       '"main": true,','"main": false,')))).toThrow();
     expect(()=>assertIsolatedCanaryGitDisable(Buffer.from(old.replace(
       '"fix/*": true,','"fix/*": false,')))).toThrow();
+  });
+
+  it('accepts a separately vetted feature pilot but never auto-enables other branches', () => {
+    const featurePlan = planAcceptedPreview({
+      ...accepted, branch: PREBUILT_PILOT_BRANCH,
+    });
+    expect(featurePlan.meta.mosaicPrebuiltBranch).toBe(PREBUILT_PILOT_BRANCH);
+    expect(featurePlan.deploymentId).not.toBe(plan.deploymentId);
+    expect(prebuiltCliArguments(featurePlan)).toContain('--target=preview');
+    for (const badBranch of ['feature/any-normal-feature', 'fix/other',
+      'dev', 'main', 'chatgpt/task']) {
+      expect(() => planAcceptedPreview({
+        ...accepted, branch: badBranch,
+      })).toThrow(/Untrusted/);
+    }
   });
 
   it('uses stable unique provider deploymentId across run retries and attempts', () => {

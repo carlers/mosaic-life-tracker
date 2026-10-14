@@ -9,6 +9,7 @@ on:
     types: [completed]
     branches:
       - fix/592-trusted-archive-20261014
+      - feature/592-prebuilt-pilot-20261014
 
 permissions:
   contents: read
@@ -23,7 +24,8 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == 'carlers/mosaic-life-tracker' &&
-      github.event.workflow_run.head_branch == 'fix/592-trusted-archive-20261014' }}
+      (github.event.workflow_run.head_branch == 'fix/592-trusted-archive-20261014' ||
+      github.event.workflow_run.head_branch == 'feature/592-prebuilt-pilot-20261014') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
@@ -57,7 +59,8 @@ jobs:
       github.repository == 'carlers/mosaic-life-tracker' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'fix/592-trusted-archive-20261014' &&
+      (github.event.workflow_run.head_branch == 'fix/592-trusted-archive-20261014' ||
+      github.event.workflow_run.head_branch == 'feature/592-prebuilt-pilot-20261014') &&
       vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20

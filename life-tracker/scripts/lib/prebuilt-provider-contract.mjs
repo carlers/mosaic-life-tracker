@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256 } from './prebuilt-receiver-gate.mjs';
-import { approvedHighLevelConfigHashes, TRUSTED_HIGH_LEVEL_CONFIG_SHA256 } from './prebuilt-candidate-payload.mjs';
+import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256,
+  isApprovedPrebuiltBranch } from './prebuilt-receiver-gate.mjs';
+import { expectedIsolatedGitConfig } from './prebuilt-candidate-payload.mjs';
 
 // Policy and private staging helpers. Never run the CLI or contact Vercel here.
 // The provider writer consumes a plan only after fresh independent canonical
@@ -20,7 +21,7 @@ export function planAcceptedPreview({
   if (createEnabled !== 'true' || aliasEnabled === 'true') {
     throw new Error('Prebuilt creation disabled or alias control not independently approved');
   }
-  if (!SHA.test(sha ?? '') || branch !== PREBUILT_CANARY_BRANCH ||
+  if (!SHA.test(sha ?? '') || !isApprovedPrebuiltBranch(branch) ||
       !Number.isSafeInteger(runId) || runId < 1 ||
       !Number.isSafeInteger(attempt) || attempt < 1 ||
       !ZIP.test(zipDigest ?? '') ||
@@ -198,22 +199,13 @@ export function assertTrustedProviderProject(project) {
   return true;
 }
 
-export function assertIsolatedCanaryGitDisable(raw) {
-  if (!Buffer.isBuffer(raw) || raw.length === 0 || raw.length > 65536 ||
-      digest(raw) === TRUSTED_HIGH_LEVEL_CONFIG_SHA256 ||
-      !approvedHighLevelConfigHashes().has(digest(raw))) {
-    throw new Error('The canary Git auto-deploy is not disabled by reviewed configuration');
-  }
-  let config;
-  try { config = JSON.parse(raw.toString('utf8')); }
-  catch { throw new Error('Invalid canary Git deployment configuration'); }
-  const rules = config?.git?.deploymentEnabled ?? {};
-  if (rules['fix/*'] !== undefined ||
-      rules['fix/!(592-trusted-archive-20261014)'] !== true ||
-      rules[PREBUILT_CANARY_BRANCH] !== false ||
-      rules.main !== true || rules.dev !== true ||
-      rules['*'] !== false || rules['feature/*'] !== true) {
-    throw new Error('Unsafe overlapping Git deployment rules or disabled main/dev');
-  }
+// Source-side Vercel Git suppression MUST match trusted main's one-branch
+// template byte for byte. An unknown branch or overlapping true rule blocks
+// provider creation, while main/dev and every other Preview class stay on Git.
+export function assertIsolatedCanaryGitDisable(raw, branch = PREBUILT_CANARY_BRANCH) {
+  const expected = expectedIsolatedGitConfig(branch);
+  if (!Buffer.isBuffer(raw) || raw.length !== expected.length ||
+      digest(raw) !== digest(expected) || !raw.equals(expected))
+    throw new Error('Source Git deployment disable policy was not reviewed');
   return true;
 }

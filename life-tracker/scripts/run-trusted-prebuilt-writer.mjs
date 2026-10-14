@@ -135,7 +135,7 @@ async function main() {
   const json = await ghConfig.json();
   if (json?.encoding !== 'base64' || typeof json.content !== 'string')
     throw new Error('Incomplete GitHub configuration readback');
-  assertIsolatedCanaryGitDisable(Buffer.from(json.content, 'base64'));
+  assertIsolatedCanaryGitDisable(Buffer.from(json.content, 'base64'), plan.branch);
   const project = await vercelGet('/v9/projects/' +
     encodeURIComponent(plan.projectId) + '?teamId=' +
     encodeURIComponent(plan.teamId));
