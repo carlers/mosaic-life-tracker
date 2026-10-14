@@ -218,3 +218,31 @@ Use pinned `vercel@62.7.0`, installed *without Vercel credentials* before the tr
 Vercel `git.deploymentEnabled` currently contains `fix/*: true`. Per Vercel Git configuration, **any matching true wins**, so adding an explicit exact-canary false will not avoid pre-CI Git creation. Do not turn off `fix/*` before a working automatic replacement + rollback. Measure red provider creations only after the branch class has actually cut over. Keep `dev` and `main` Git auto targeting intact for the initial rollout.
 
 No protected main, provider setting, credential or Vercel deployment has been changed by this planning spike. The next infrastructure-only provider writer requires fresh owner-reviewed protection exception; PR #807 permission does not carry forward.
+
+## Root cause of failed #592 canary Git suppression — 2026-10-14
+
+Two real Git deployments were created for `fix/592-trusted-archive-20261014`
+after changing broad `fix/*: true` to an excluding extglob, including one
+with a failed canonical CI run. The **likely mechanism is now reproduced**
+using standard minimatch behavior: `*: false` matches only one path segment,
+so it does not match any `fix/...` branch; the excluding extglob also does not
+match this canary. With no matching rule, Vercel defaults Git deployment to
+`true`. A local Node 24 glob regression demonstrates the exact old behavior
+and the corrected explicit rule. This also explains why `chatgpt/*: false`
+successfully suppresses all quiet task pushes.
+
+A newly reviewed candidate variant retains the non-overlapping
+`fix/!(592-trusted-archive-20261014): true`, **adds exact literal**
+`fix/592-trusted-archive-20261014: false`, and preserves all existing
+`main`/`dev`/other category rules. Any overlapping `fix/*: true` remains
+forbidden because Vercel says a matching true overrides false. The protected
+writer's allowed SHA-256 config digest and preflight checks now require that
+literal negative rule; the previous unsuccessful variant is rejected.
+
+**This is a contract-level explanation, not yet live provider acceptance.**
+The protected writer is still OFF and the canary currently uses the rolled-back
+known-good `fix/*: true`. Stage this main-based validator separately, verify
+focused/full CI, and obtain normal owner review for protected-main infrastructure
+promotion before considering another single bounded live canary. Do not turn on
+provider POST or alias until there is actual evidence of zero Git creations on
+a red push, then one accepted prebuilt upload on green and safe rollback.
