@@ -34,6 +34,15 @@ describe('#592 exact canary Git deployment exclusion', () => {
     expect(matchesGlob(canary, 'fix/!(592-trusted-archive-20261014)')).toBe(false);
     expect(matchesGlob(canary, canary)).toBe(true);
     expect(decisions(canary)).toBe(false);
+    const canaryMatches = Object.entries(rules).filter(([pattern]) =>
+      matchesGlob(canary, pattern));
+    expect(canaryMatches).toEqual([['fix/592-trusted-archive-20261014', false]]);
+    // Unmatched branches default to deployed by Vercel, so quiet branches
+    // must match a deliberately disabling rule rather than merely no rules.
+    for (const quiet of ['chatgpt/focused', 'codex/focused']) {
+      expect(Object.entries(rules).filter(([pattern]) =>
+        matchesGlob(quiet, pattern))).toEqual([[quiet.split('/')[0] + '/*', false]]);
+    }
     for (const branch of ['dev', 'main', 'fix/other-bug', 'feature/diary',
       'perf/speed', 'security/hardening', 'refactor/cleanup']) {
       expect(decisions(branch), branch).toBe(true);

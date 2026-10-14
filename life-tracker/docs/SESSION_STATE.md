@@ -1,18 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-14
-Current task: #592 live CI-first Preview suppression and writer canary.
+Current task: #592 — first real protected prebuilt Preview upload.
 
-## Verified
-- Owner merged [main infrastructure PR #816](https://github.com/carlers/mosaic-life-tracker/pull/816) at `67b444ae421bd51c5a0b5869f123bf7124a8d1c3`. Main full [Quality Gate #38519174176](https://github.com/carlers/mosaic-life-tracker/actions/runs/38519174176) SUCCESS; matching Vercel Production `dpl_BSU66VoGZZxx1JW4rPrWGzJudwvY` READY. App v0.17.4 unchanged. Ruleset #24880070 active, zero bypass actors.
-- `dev@f3d9558f` v0.23.4 and its regular Git deployments are unchanged.
-- [Canary PR #817](https://github.com/carlers/mosaic-life-tracker/pull/817) is merged at `fix/592-trusted-archive-20261014@ec2adab28d80a94d26e7367c17ce9cc6ffff3faa`. Its high-level Vercel rules include exact `fix/592-trusted-archive-20261014:false` and non-overlapping other-fix allowlist. [Full Quality Gate #38520128515](https://github.com/carlers/mosaic-life-tracker/actions/runs/38520128515) SUCCESS. Verified Vercel project deployments for this exact SHA: **ZERO Git or CLI deployments**. [Trusted Preview Delivery #38520299678](https://github.com/carlers/mosaic-life-tracker/actions/runs/38520299678) SUCCESS, writer job SKIPPED. This is first live suppression evidence.
-- Previous broken attempt only excluded canary from a `fix/!` true rule; fallback `*:false` did not match its slash, so the branch defaulted to Git deployment ON. One CI-red push still received Git Preview. Root cause is reproduced with Node24 glob tests.
+## Verified prerequisites
+- Protected main `67b444ae421bd51c5a0b5869f123bf7124a8d1c3`, [Quality Gate #38519174176](https://github.com/carlers/mosaic-life-tracker/actions/runs/38519174176) SUCCESS, matching Production deployment READY, v0.17.4 unchanged. GitHub ruleset #24880070 ACTIVE with ZERO bypass actors. Dev `f3d9558f` v0.23.4 unchanged.
+- Corrected canary `fix/592-trusted-archive-20261014@bb07752c1c04dde17ffa1f4acafafc52f3e8039c` uses exact literal canary=false and disjoint positive fix allowlist, preserving main/dev/other stable branches.
+- TWO independent canonical-green pushes [#38520128515](https://github.com/carlers/mosaic-life-tracker/actions/runs/38520128515) and [#38520715903](https://github.com/carlers/mosaic-life-tracker/actions/runs/38520715903) yielded EXACT ZERO Git and CLI Vercel deployments by SHA; both default-main shadow receivers [#38520299678](https://github.com/carlers/mosaic-life-tracker/actions/runs/38520299678) and [#38520891099](https://github.com/carlers/mosaic-life-tracker/actions/runs/38520891099) SUCCESS; prebuilt deploy jobs skipped because creation flag was OFF.
+- Root cause of earlier waste: unmatched slash-containing canary defaulted Vercel Git deployments to ON despite '*': false. Existing Node24 regression matches the provider behavior.
+- The latest owner message confirms completing the requested repository variable setup; it has NOT yet been observed in a new trusted workflow run. Never expose provider secrets or enable aliases.
 
 ## Current task
-- Add a durable end-to-end minimatch ruleset regression in the canary's own unit tests. This generates an ordinary follow-up stable push with the explicit disable already present. Require full canonical and exact provider history showing ZERO Git deployments again.
-- Protected main-only provider prebuilt writer is present and credential-gated. Do not enable `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED` or alias yet. No direct changes to main/dev/Production here.
+- Strengthen branch-matching regression to require exact single disabled match on canary and explicitly disabled quiet task branches. No app, route, size budget or provider project change.
+- Follow ordinary quiet task focused CI → stable squash → canonical full Quality Gate. Inspect new default-main `Trusted Preview Delivery` and project-scoped Vercel history on that exact stable SHA: before green, zero Git-created Preview; after green, expect exactly ONE protected `--prebuilt --target=preview` CLI deployment READY with SHA/Scratch/GIPHY/PostHog/v3 routing and no other creations. Stable alias must remain OFF.
+- If writer is skipped, report the repo variable blocker without assuming it was enabled. If writer fails, inspect failure and provider state before ANY rerun; never create repeated anonymous Vercel deployments.
 
 ## Next action
-- Focused task CI → squash to canary stable → canonical green and second exact-SHA zero-provider readback.
-- Only after robust suppression: controlled one-shot authorized prebuilt writer using the accepted artifact, verify exactly one Preview READY, Scratch/GIPHY/PostHog, SPA routes/headers, no duplicate after replay/stale. Preserve rollback to `fix/*:true` if provider behavior changes. Then generalize stable branches and one feature→dev acceptance. #592 stays OPEN until CI-first Preview works normally.
+- Verify complete real end-to-end provider proof and no Vercel remote app build; test safe dedupe/stale and rollback. Generalize to ordinary fix/feature categories without disrupting main/dev Git, then one real feature Preview→dev promotion. Keep #592 OPEN until normal workflow satisfies CI-before-provider acceptance.
