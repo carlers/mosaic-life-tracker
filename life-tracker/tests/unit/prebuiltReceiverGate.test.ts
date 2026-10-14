@@ -82,7 +82,10 @@ describe('main-trusted prebuilt receiver read-only acceptance (#592)', () => {
     } };
     expect(assessPrebuiltManifest(unreviewedEvidence,
       { ...expected, branch: 'feature/unreviewed' }).eligible).toBe(true);
-    expect(assessPrebuiltManifest(unreviewedEvidence,
+    const invalidEvidence = { ...unreviewedEvidence, source: {
+      ...unreviewedEvidence.source, ref: 'refs/heads/feature/nested/path',
+    } };
+    expect(assessPrebuiltManifest(invalidEvidence,
       { ...expected, branch: 'feature/nested/path' }).eligible).toBe(false);
   });
 
