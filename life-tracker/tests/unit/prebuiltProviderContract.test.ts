@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import {
   addUniquePrebuiltDeploymentId, assessKnownPrebuiltDeployments,
-  planAcceptedPreview, prebuiltCliArguments,
+  planAcceptedPreview, prebuiltCliArguments, createTrustedCliProjectRoot,
   VERIFIED_PREVIEW_PROJECT, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
 } from '../../scripts/lib/prebuilt-provider-contract.mjs';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256 } from
@@ -86,6 +87,26 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
     expect(() => prebuiltCliArguments({ ...plan, target: 'production' })).toThrow();
     expect(() => prebuiltCliArguments({ ...plan, projectId: 'wrong' })).toThrow();
     expect(() => prebuiltCliArguments({ ...plan, meta: { bad: 'unsafe\nvalue' } })).toThrow();
+  });
+
+  it('creates only an empty required monorepo root, preserving the one verified prebuilt output', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'mosaic-prebuilt-cli-root-'));
+    try {
+      await mkdir(join(root, '.vercel', 'output'), { recursive: true });
+      const original = Buffer.from('verified build output sentinel');
+      const file = join(root, '.vercel', 'output', 'config.json');
+      await writeFile(file, original);
+      expect(await createTrustedCliProjectRoot(root, plan))
+        .toBe(join(root, 'life-tracker'));
+      expect((await stat(join(root, 'life-tracker'))).isDirectory()).toBe(true);
+      expect(await readdir(join(root, 'life-tracker'))).toEqual([]);
+      expect(await readFile(file)).toEqual(original);
+      await expect(createTrustedCliProjectRoot(root, plan)).rejects.toThrow(/EEXIST/);
+      await expect(createTrustedCliProjectRoot(root, { ...plan, projectId: 'wrong' }))
+        .rejects.toThrow(/Untrusted/);
+      await expect(createTrustedCliProjectRoot(root, { ...plan, target: 'production' }))
+        .rejects.toThrow(/Untrusted/);
+    } finally { await rm(root, { recursive: true, force: true }); }
   });
 
   it('adds deterministic provider ID to real pinned v3 routing without altering routes', async () => {

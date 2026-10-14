@@ -12,6 +12,7 @@ import { assembleVerifiedCandidateStatic } from './lib/prebuilt-candidate-payloa
 import {
   planAcceptedPreview, addUniquePrebuiltDeploymentId, prebuiltCliArguments,
   assessKnownPrebuiltDeployments, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
+  createTrustedCliProjectRoot,
 } from './lib/prebuilt-provider-contract.mjs';
 
 const token = process.env.VERCEL_TOKEN ?? '';
@@ -146,6 +147,7 @@ async function main() {
     await writeFile(join(root, '.vercel', 'project.json'),
       JSON.stringify({ orgId: plan.teamId, projectId: plan.projectId }) + '\n',
       { flag: 'wx' });
+    await createTrustedCliProjectRoot(root, plan);
 
     await accepted(event); // Latest exact branch/source/canonical before writing.
     const last = assessKnownPrebuiltDeployments(
