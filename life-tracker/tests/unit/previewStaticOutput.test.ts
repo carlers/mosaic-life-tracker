@@ -66,6 +66,16 @@ describe('verified Vercel static output (never a deploy authorization) #592', ()
       expect(() => verifyPreviewRoutingEvidence({ ...f,
         trustedVercelConfigBytes: Buffer.from('{}'),
       })).toThrow(/digest mismatch/);
+      const forged = JSON.parse(f.configBytes.toString('utf8'));
+      const header = forged.routes.find((route: { headers?: Record<string, string> }) =>
+        route.headers?.['X-Frame-Options'] === 'DENY');
+      header.headers['Referrer-Policy'] = 'unsafe-url';
+      const forgedBytes = Buffer.from(JSON.stringify(forged));
+      expect(() => verifyPreviewRoutingEvidence({ ...f,
+        configBytes: forgedBytes,
+        routingEvidence: { ...f.routingEvidence,
+          generatedConfigSha256: hash(forgedBytes) },
+      })).toThrow(/do not match trusted/);
       const changed = Buffer.from('{"version":3,"routes":[]}');
       expect(() => verifyPreviewRoutingEvidence({ ...f, configBytes: changed,
         routingEvidence: { ...f.routingEvidence, generatedConfigSha256: hash(changed) },
