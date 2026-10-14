@@ -69,7 +69,10 @@ describe('main-trusted prebuilt receiver read-only acceptance (#592)', () => {
       source: { ...evidence.source, ref: 'refs/heads/' + PREBUILT_PILOT_BRANCH } };
     expect(assessPrebuiltManifest(pilotEvidence,
       { ...expected, branch: PREBUILT_PILOT_BRANCH }).eligible).toBe(true);
-    expect(assessPrebuiltManifest(pilotEvidence,
+    const unreviewedEvidence = { ...pilotEvidence, source: {
+      ...pilotEvidence.source, ref: 'refs/heads/feature/unreviewed',
+    } };
+    expect(assessPrebuiltManifest(unreviewedEvidence,
       { ...expected, branch: 'feature/unreviewed' }).eligible).toBe(false);
   });
 
