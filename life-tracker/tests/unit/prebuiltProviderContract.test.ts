@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import {
   addUniquePrebuiltDeploymentId, assessKnownPrebuiltDeployments,
   planAcceptedPreview, prebuiltCliArguments, createTrustedCliProjectRoot,
+  isKnownPrebuiltHistoryCandidate, verifyPrebuiltHistoryDetail,
   VERIFIED_PREVIEW_PROJECT, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
 } from '../../scripts/lib/prebuilt-provider-contract.mjs';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256 } from
@@ -126,6 +127,39 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
     expect(() => addUniquePrebuiltDeploymentId(tampered, plan)).toThrow(/Unverified/);
     expect(() => addUniquePrebuiltDeploymentId(config,
       { ...plan, deploymentId: 'invalid' })).toThrow();
+  });
+
+  it('completes compact CLI history from authenticated detail before a safe retry', () => {
+    const summary = { id: 'dpl_AbC123', url: 'mosaic-prebuilt-foo.vercel.app',
+      state: 'READY', meta: { mosaicPrebuiltId: plan.deploymentId,
+        mosaicPrebuiltSha: sha, mosaicPrebuiltBranch: plan.branch } };
+    const detail = { ...summary, projectId: VERIFIED_PREVIEW_PROJECT,
+      target: null, meta: plan.meta, readyState: 'READY' };
+    expect(isKnownPrebuiltHistoryCandidate(summary, plan)).toBe(true);
+    expect(() => assessKnownPrebuiltDeployments([summary], plan,
+      { exhaustive: true })).toThrow(/identity/);
+    const complete = verifyPrebuiltHistoryDetail(summary, detail, plan);
+    expect(assessKnownPrebuiltDeployments([complete], plan,
+      { exhaustive: true })).toEqual({ action: 'reuse', id: summary.id });
+    const pending = { ...summary, state: 'BUILDING' };
+    expect(assessKnownPrebuiltDeployments([
+      verifyPrebuiltHistoryDetail(pending,
+        { ...detail, state: 'BUILDING', readyState: 'BUILDING' }, plan),
+    ], plan, { exhaustive: true })).toEqual({ action: 'wait', id: summary.id });
+    for (const bad of [
+      { ...detail, projectId: 'other' },
+      { ...detail, target: 'production' },
+      { ...detail, id: 'dpl_Other' },
+      { ...detail, url: 'changed.vercel.app' },
+      { ...detail, meta: { ...plan.meta, mosaicPrebuiltRoute: 'f'.repeat(64) } },
+      { ...detail, meta: { ...plan.meta, mosaicPrebuiltSha: 'f'.repeat(40) } },
+      { ...detail, readyState: 'ERROR' },
+    ]) expect(() => verifyPrebuiltHistoryDetail(summary, bad, plan)).toThrow();
+    expect(() => verifyPrebuiltHistoryDetail({ ...summary,
+      target: 'production' }, detail, plan)).toThrow();
+    expect(() => verifyPrebuiltHistoryDetail({ ...summary,
+      meta: { ...summary.meta, mosaicPrebuiltRoute: 'bad' } }, detail, plan)).toThrow();
+    expect(isKnownPrebuiltHistoryCandidate({ meta: {} }, plan)).toBe(false);
   });
 
   it('returns create only after a complete provider history and reuses a matched READY deployment', () => {

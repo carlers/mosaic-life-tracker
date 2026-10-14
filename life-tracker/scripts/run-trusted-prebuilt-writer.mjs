@@ -12,7 +12,8 @@ import { assembleVerifiedCandidateStatic } from './lib/prebuilt-candidate-payloa
 import {
   planAcceptedPreview, addUniquePrebuiltDeploymentId, prebuiltCliArguments,
   assessKnownPrebuiltDeployments, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
-  createTrustedCliProjectRoot,
+  createTrustedCliProjectRoot, isKnownPrebuiltHistoryCandidate,
+  verifyPrebuiltHistoryDetail,
 } from './lib/prebuilt-provider-contract.mjs';
 
 const token = process.env.VERCEL_TOKEN ?? '';
@@ -44,13 +45,28 @@ async function deploymentHistory(plan, start) {
     if (!Array.isArray(x?.deployments) || !x.pagination)
       throw new Error('Incomplete Vercel deployment evidence');
     collected.push(...x.deployments);
-    if (x.pagination.next == null) return collected;
+    if (x.pagination.next == null) break;
     if (!Number.isSafeInteger(x.pagination.next) || x.pagination.next <= 0 ||
         (until != null && x.pagination.next >= until))
       throw new Error('Invalid Vercel deployment page');
     until = x.pagination.next;
+    if (i === 4) throw new Error('Vercel deployment history beyond bounded review');
   }
-  throw new Error('Vercel deployment history beyond bounded review');
+  // The list endpoint can omit canonical project/target/route fields on CLI
+  // deployments. An exact ID/SHA match MUST be verified via complete detail,
+  // rather than rejecting safe reuse or attempting a second provider POST.
+  for (let i = 0; i < collected.length; i++) {
+    const summary = collected[i];
+    if (!isKnownPrebuiltHistoryCandidate(summary, plan)) continue;
+    if (!/^dpl_[a-zA-Z0-9]+$/.test(summary.id ?? '')) {
+      throw new Error('Invalid matching provider deployment ID');
+    }
+    const detail = await vercelGet('/v13/deployments/' +
+      encodeURIComponent(summary.id) + '?teamId=' +
+      encodeURIComponent(plan.teamId));
+    collected[i] = verifyPrebuiltHistoryDetail(summary, detail, plan);
+  }
+  return collected;
 }
 
 function inspectCliURL(output) {
