@@ -14,6 +14,9 @@ Current task: #592 CI-first stable Preview delivery.
 - Non-secret artifact manifest tracks Scratch/Preview, Node24, GIPHY/PostHog presence and the two #784 hard limits. It cannot authorize a deploy by itself.
 - Keep all main/provider configuration and write operations OFF.
 
+## ZIP reader milestone
+- Parse the six standard CI artifact ZIP members in memory with strict paths, checksums, structure, and bounded expansion. Never run candidate scripts or create provider deployments.
+
 ## Next action
 - Focused task verification; squash to stable; confirm canonical+READY.
 - Build verified trusted ZIP download/byte assembly + protected main receiver; controlled red=0, green=1, retry/stale=0 deployment tests and rollback. Main-only bootstrap requires separate approval. #592 stays OPEN.
