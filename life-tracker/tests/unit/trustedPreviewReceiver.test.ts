@@ -145,33 +145,35 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(() => selectTrustedPreviewCandidate([], 'invalid')).toThrow();
   });
 
-  it('stages a default-branch workflow_run listener that never executes candidate code', () => {
+  it('uses a default-main credential-free prebuilt shadow for one accepted canary', () => {
     const yaml = readFileSync(new URL('../../../.github/workflows/trusted-preview-delivery.yml', import.meta.url), 'utf8');
     expect(yaml).toContain('workflow_run:');
     expect(yaml).toContain('types: [completed]');
-    expect(yaml).toContain('vars.MOSAIC_TRUSTED_PREVIEW_ENABLED == \'true\'');
-    expect(yaml).toContain('github.event.workflow_run.head_branch == \'fix/workflow-build-parity-592-20261012\'');
-    expect(yaml).toContain('environment: mosaic-preview-auto');
+    expect(yaml).toContain('branches:');
+    expect(yaml).toContain('fix/592-trusted-archive-20261014');
+    expect(yaml).toContain("github.event.workflow_run.conclusion == 'success'");
+    expect(yaml).toContain("github.event.workflow_run.head_branch == 'fix/592-trusted-archive-20261014'");
     expect(yaml).toContain('ref: ${{ github.sha }}');
     expect(yaml).toContain('uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020');
-    expect(yaml).not.toContain('uses: actions/setup-node@v4');
-    expect(yaml).toContain('run: node life-tracker/scripts/run-trusted-preview-receiver.mjs');
-    expect(yaml).not.toContain('github.event.workflow_run.head_sha }}');
+    expect(yaml).toContain('run: node life-tracker/scripts/run-trusted-prebuilt-receiver.mjs');
+    expect(yaml).toContain("MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED: 'false'");
+    expect(yaml).toContain("MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED: 'false'");
+    expect(yaml).not.toContain('environment:');
+    expect(yaml).not.toContain('VERCEL_TOKEN');
+    expect(yaml).not.toContain('secrets.');
+    expect(yaml).not.toContain('workflow_dispatch');
     expect(yaml).not.toContain('npm ci');
     expect(yaml).not.toContain('vercel build');
-    expect(yaml).not.toContain('workflow_dispatch');
-    const impl = readFileSync(new URL('../../scripts/run-trusted-preview-receiver.mjs', import.meta.url), 'utf8');
-    expect(impl).toContain('gitSource: trustedGitSource(sha)');
-    expect(yaml).toContain('vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED');
-    expect(impl).toContain('assertTrustedPreviewCreationEnabled(process.env.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED)');
-    expect(impl.indexOf('assertTrustedPreviewCreationEnabled('))
-      .toBeLessThan(impl.indexOf("get('https://api.vercel.com/v13/deployments?'"));
-    expect(impl).toContain("process.env.MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED !== 'true'");
-    expect(impl).toContain('await authorized(event);');
-    expect(impl).toContain("gh('/git/ref/heads/main')");
-    expect(impl).toContain('mainHead: main.object?.sha');
-    expect(impl).toContain('selectTrustedPreviewCandidate(body.deployments, sha)');
-    expect(impl).toContain('Trusted Preview read-only history scan:');
+    expect(yaml).not.toContain('github.event.workflow_run.head_sha }}');
+    const impl = readFileSync(new URL('../../scripts/run-trusted-prebuilt-receiver.mjs', import.meta.url), 'utf8');
+    expect(impl).toContain('assessPrebuiltReceiverEvent');
+    expect(impl).toContain('selectPrebuiltArtifact');
+    expect(impl).toContain('verifyPrebuiltCandidateBytes');
+    expect(impl).toContain('await accepted(event);');
+    expect(impl).toContain("'/git/ref/heads/main'");
+    expect(impl).not.toContain("method: 'POST'");
+    expect(impl).not.toContain('VERCEL_TOKEN');
+    expect(impl).not.toContain('gitSource: trustedGitSource');
     expect(impl).not.toContain("execFileSync('npm'");
     expect(impl).not.toContain('actions/download-artifact');
     expect(impl).not.toContain('actions/checkout');
