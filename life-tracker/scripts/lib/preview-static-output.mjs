@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { inspectGzipTar, verifyArchivedBuild } from './preview-artifact-trust.mjs';
+import { preparePreviewRoutes } from './preview-build-routes.mjs';
 
 // This reconstructs the candidate's public static bytes, never executes them.
 // Its return value is explicitly NOT permission to create a Vercel deployment.
@@ -39,6 +40,19 @@ export function verifyPreviewRoutingEvidence({ configBytes, routingEvidence,
         route?.headers?.['X-Frame-Options'] === 'DENY' &&
         route?.headers?.['X-Content-Type-Options'] === 'nosniff')) {
     throw new Error('Incomplete or unexpected Build Output API v3 routing');
+  }
+  // Candidate source can forge BOTH the config and its unsigned hash evidence.
+  // Recompute from trusted, fixed high-level config rather than treating that
+  // hash as proof of routing behavior. No untrusted routing code is executed.
+  let canonical;
+  try {
+    const highLevel = JSON.parse(trustedVercelConfigBytes.toString('utf8'));
+    canonical = preparePreviewRoutes(highLevel, trustedVercelConfigBytes).serialized;
+  } catch {
+    throw new Error('Trusted Preview routing configuration is unsupported');
+  }
+  if (!Buffer.from(canonical, 'utf8').equals(configBytes)) {
+    throw new Error('Prebuilt routes do not match trusted Vercel configuration');
   }
   return config;
 }
