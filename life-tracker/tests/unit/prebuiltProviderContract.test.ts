@@ -56,7 +56,20 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
     expect(featurePlan.meta.mosaicPrebuiltBranch).toBe(PREBUILT_PILOT_BRANCH);
     expect(featurePlan.deploymentId).not.toBe(plan.deploymentId);
     expect(prebuiltCliArguments(featurePlan)).toContain('--target=preview');
+    for (const category of ['feature', 'fix', 'perf', 'security', 'refactor']) {
+      const branch = category + '/normal-work';
+      expect(() => planAcceptedPreview({
+        ...accepted, branch, genericEnabled: 'false',
+      })).toThrow(/Generic/);
+      const staged = planAcceptedPreview({
+        ...accepted, branch, genericEnabled: 'true',
+      });
+      expect(staged.branch).toBe(branch);
+      expect(prebuiltCliArguments(staged)).toContain('--target=preview');
+      expect(staged.deploymentId).not.toBe(plan.deploymentId);
+    }
     for (const badBranch of ['feature/any-normal-feature', 'fix/other',
+      'perf/size', 'security/hardening', 'refactor/cleanup',
       'dev', 'main', 'chatgpt/task']) {
       expect(() => planAcceptedPreview({
         ...accepted, branch: badBranch,

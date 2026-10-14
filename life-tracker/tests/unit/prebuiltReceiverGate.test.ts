@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { assessPrebuiltReceiverEvent, selectPrebuiltArtifact,
   assessPrebuiltManifest, PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH,
-  isApprovedPrebuiltBranch, PREBUILT_ROUTING_SHA256
+  isApprovedPrebuiltBranch, isGenericPrebuiltBranch, isLegacyPrebuiltPilot,
+  PREBUILT_ROUTING_SHA256
 } from '../../scripts/lib/prebuilt-receiver-gate.mjs';
 const sha = 'a'.repeat(40), main = 'b'.repeat(40), suite = 1234;
 const run = { id: 4567, run_attempt: 2, check_suite_id: suite, name: 'Quality Gate',
@@ -48,11 +49,18 @@ describe('main-trusted prebuilt receiver read-only acceptance (#592)', () => {
         head_repository: { full_name: 'attacker/repo' } } } },
     ]) expect(assessPrebuiltReceiverEvent({ ...inputs, ...altered }).eligible).toBe(false);
   });
-  it('accepts only the separately pinned feature rollout pilot with same-suite CI', () => {
+  it('retains two live legacy pilots and validates generic branch shapes', () => {
     expect(isApprovedPrebuiltBranch(PREBUILT_CANARY_BRANCH)).toBe(true);
     expect(isApprovedPrebuiltBranch(PREBUILT_PILOT_BRANCH)).toBe(true);
-    for (const branch of ['feature/unreviewed', 'fix/other',
-      'dev', 'main', 'feature/592-prebuilt-pilot-20261014/extra']) {
+    for (const branch of ['feature/unreviewed', 'fix/other', 'perf/size',
+      'security/hardening', 'refactor/cleanup']) {
+      expect(isApprovedPrebuiltBranch(branch)).toBe(true);
+      expect(isGenericPrebuiltBranch(branch)).toBe(true);
+      expect(isLegacyPrebuiltPilot(branch)).toBe(false);
+    }
+    for (const branch of ['dev', 'main', 'chatgpt/work', 'codex/work',
+      'feature/nested/path', 'fix/a|b', 'feature/a)', 'feature/A',
+      'feature/', 'fix/' + 'a'.repeat(74)]) {
       expect(isApprovedPrebuiltBranch(branch)).toBe(false);
     }
     const pilot = { ...run, head_branch: PREBUILT_PILOT_BRANCH };
@@ -73,7 +81,9 @@ describe('main-trusted prebuilt receiver read-only acceptance (#592)', () => {
       ...pilotEvidence.source, ref: 'refs/heads/feature/unreviewed',
     } };
     expect(assessPrebuiltManifest(unreviewedEvidence,
-      { ...expected, branch: 'feature/unreviewed' }).eligible).toBe(false);
+      { ...expected, branch: 'feature/unreviewed' }).eligible).toBe(true);
+    expect(assessPrebuiltManifest(unreviewedEvidence,
+      { ...expected, branch: 'feature/nested/path' }).eligible).toBe(false);
   });
 
   it('requires exact artifact run attempt and rejects expired, duplicate and oversized', () => {

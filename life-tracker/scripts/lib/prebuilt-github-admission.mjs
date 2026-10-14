@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
+import { isLegacyPrebuiltPilot, isApprovedPrebuiltBranch } from './prebuilt-receiver-gate.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { assessPrebuiltReceiverEvent, selectPrebuiltArtifact } from './prebuilt-receiver-gate.mjs';
-import { verifyPrebuiltCandidateBytes } from './prebuilt-candidate-payload.mjs';
+import { verifyPrebuiltCandidateBytes, isExactPrebuiltSourceOptIn } from './prebuilt-candidate-payload.mjs';
 
 // The privileged writer and the read-only shadow share identical GitHub
 // acceptance logic; neither can skip this module or execute candidate code.
@@ -22,11 +23,34 @@ async function githubJson(path) {
   return response.json();
 }
 
+export async function sourceOptInStatus(event) {
+  const run = event?.workflow_run;
+  const branch = run?.head_branch;
+  if (event?.repository?.full_name !== REPO ||
+      run?.repository?.full_name !== REPO ||
+      run?.head_repository?.full_name !== REPO ||
+      run?.name !== 'Quality Gate' || run?.event !== 'push' ||
+      run?.status !== 'completed' || run?.conclusion !== 'success' ||
+      !SHA.test(run?.head_sha ?? '') || !isApprovedPrebuiltBranch(branch) ||
+      (!isLegacyPrebuiltPilot(branch) &&
+        process.env.MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED !== 'true')) {
+    return false;
+  }
+  const config = await githubJson('/contents/life-tracker/vercel.json?ref=' +
+    encodeURIComponent(run.head_sha));
+  if (config?.encoding !== 'base64' || typeof config.content !== 'string')
+    throw new Error('Missing exact source branch deployment policy');
+  return isExactPrebuiltSourceOptIn(Buffer.from(config.content, 'base64'), branch);
+}
+
 export async function accepted(event) {
   const workflow = event?.workflow_run;
   if (!SHA.test(workflow?.head_sha ?? '') || !Number.isSafeInteger(workflow?.id))
     throw new Error('Missing trusted triggering workflow identity');
   const branch = workflow.head_branch;
+  if (!isLegacyPrebuiltPilot(branch) &&
+      process.env.MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED !== 'true')
+    throw new Error('Generic trusted Preview rollout remains disabled');
   const source = workflow.head_sha;
   const encoded = branch.split('/').map(encodeURIComponent).join('/');
   const [runs, checks, branchRef, mainRef] = await Promise.all([
@@ -84,6 +108,8 @@ async function boundedArtifact(id) {
 export async function loadAcceptedArtifact() {
   if (!token) throw new Error('Read-only GitHub workflow token unavailable');
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+  if (!await sourceOptInStatus(event))
+    throw new Error('Branch did not explicitly opt in to CI-first Preview');
   const acceptedRun = await accepted(event);
   const artifacts = await githubJson('/actions/runs/' + acceptedRun.runId +
     '/artifacts?per_page=100');

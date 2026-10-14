@@ -106,6 +106,7 @@ async function main() {
     target: 'preview',
     createEnabled: process.env.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED,
     aliasEnabled: process.env.MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED,
+    genericEnabled: process.env.MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED,
     projectId: id,
   });
   if (!shaRegex.test(plan.sha) || verified.deploymentAuthorized !== false)
