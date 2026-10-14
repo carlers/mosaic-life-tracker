@@ -146,6 +146,7 @@ export function assertIsolatedCanaryGitDisable(raw) {
   const rules = config?.git?.deploymentEnabled ?? {};
   if (rules['fix/*'] !== undefined ||
       rules['fix/!(592-trusted-archive-20261014)'] !== true ||
+      rules[PREBUILT_CANARY_BRANCH] !== false ||
       rules.main !== true || rules.dev !== true ||
       rules['*'] !== false || rules['feature/*'] !== true) {
     throw new Error('Unsafe overlapping Git deployment rules or disabled main/dev');
