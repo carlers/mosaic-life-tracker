@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
-import { validateBuildEvidence } from './preview-build-evidence.mjs';
+import { validateBuildEvidence } from './preview-evidence-schema.mjs';
 
 const HEX = /^[a-f0-9]{64}$/;
 const SAFE_NAME = /^[a-zA-Z0-9.][a-zA-Z0-9._/-]*$/;
