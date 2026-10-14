@@ -206,3 +206,29 @@ The protected-main preflight intentionally rejects source branches other than
 `dev`; any infrastructure-only exception requires **new explicit owner approval**
 for this exact PR, narrow temporary PR-only bypass, immediate restoration and
 main canonical/Production verification. Prior exceptions do not transfer.
+
+## Proposed fail-closed prebuilt writer (NOT activated; #592)
+
+- Main-owned separate `prebuilt_writer` job depends on successful default-main
+  read-only admission, and only starts if BOTH repository switches
+  `MOSAIC_PREBUILT_WRITER_ENABLED=true` and
+  `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED=true` are deliberately set.
+  Both are **OFF** pending controlled rollout. No change to existing canary
+  branch or Vercel deployment configuration in this candidate.
+- Before any provider POST, the writer performs independent canonical/artifact
+  verification, insists Git auto-creation is explicitly disabled **only** for
+  `fix/592-trusted-archive-20261014` while `dev` and `main` remain
+  enabled, and confirms the Vercel team's official project ID, monorepo root,
+  linked Git repo and production branch. It scans provider history to avoid
+  duplicate Preview posts, and refuses if a Git deployment for that SHA exists.
+- It installs a pinned official CLI `vercel@63.1.2` in a separate step
+  without provider token or lifecycle install scripts. Only trusted main code
+  can execute it to upload already verified Build Output API v3 static bytes,
+  with `--prebuilt --target=preview`. Never run source-branch scripts.
+- READY readback requires exact CLI Preview project, SHA and run/attempt metadata;
+  stable alias is separately OFF by default and requires fresh CI re-check.
+  No access to Production Appwrite credentials and no Production release.
+- **Do not enable these flags yet.** Separately roll out branch-specific
+  `git.deploymentEnabled` only after full green writer tests, protected main
+  merge and provider rollback plan, then run red-zero/green-one/retry-zero
+  canary. Merely merging the disabled writer does not reduce deployments.
