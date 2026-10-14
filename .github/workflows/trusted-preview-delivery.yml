@@ -8,8 +8,11 @@ on:
     workflows: [Quality Gate]
     types: [completed]
     branches:
-      - fix/592-trusted-archive-20261014
-      - feature/592-prebuilt-pilot-20261014
+      - 'fix/**'
+      - 'feature/**'
+      - 'perf/**'
+      - 'security/**'
+      - 'refactor/**'
 
 permissions:
   contents: read
@@ -25,9 +28,17 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == 'carlers/mosaic-life-tracker' &&
       (github.event.workflow_run.head_branch == 'fix/592-trusted-archive-20261014' ||
-      github.event.workflow_run.head_branch == 'feature/592-prebuilt-pilot-20261014') }}
+      github.event.workflow_run.head_branch == 'feature/592-prebuilt-pilot-20261014' ||
+      (vars.MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED == 'true' &&
+        (startsWith(github.event.workflow_run.head_branch, 'fix/') ||
+        startsWith(github.event.workflow_run.head_branch, 'feature/') ||
+        startsWith(github.event.workflow_run.head_branch, 'perf/') ||
+        startsWith(github.event.workflow_run.head_branch, 'security/') ||
+        startsWith(github.event.workflow_run.head_branch, 'refactor/')))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      admitted: ${{ steps.read_only_admission.outputs.admitted }}
     concurrency:
       group: trusted-prebuilt-${{ github.event.workflow_run.head_branch }}
       cancel-in-progress: false
@@ -43,9 +54,11 @@ jobs:
         with:
           node-version: 24
       - name: Validate exact completed canonical CI and SHA256 artifact (no provider writes)
+        id: read_only_admission
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MOSAIC_TRUSTED_PREVIEW_ENABLED: 'true'
+          MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED }}
           MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED: 'false'
           MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED: 'false'
         run: node life-tracker/scripts/run-trusted-prebuilt-receiver.mjs
@@ -56,11 +69,18 @@ jobs:
     # OFF unless explicitly enabled after a reviewed green/red/stale canary.
     if: >-
       ${{ needs.trusted_preview.result == 'success' &&
+      needs.trusted_preview.outputs.admitted == 'true' &&
       github.repository == 'carlers/mosaic-life-tracker' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.conclusion == 'success' &&
       (github.event.workflow_run.head_branch == 'fix/592-trusted-archive-20261014' ||
-      github.event.workflow_run.head_branch == 'feature/592-prebuilt-pilot-20261014') &&
+      github.event.workflow_run.head_branch == 'feature/592-prebuilt-pilot-20261014' ||
+      (vars.MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED == 'true' &&
+        (startsWith(github.event.workflow_run.head_branch, 'fix/') ||
+        startsWith(github.event.workflow_run.head_branch, 'feature/') ||
+        startsWith(github.event.workflow_run.head_branch, 'perf/') ||
+        startsWith(github.event.workflow_run.head_branch, 'security/') ||
+        startsWith(github.event.workflow_run.head_branch, 'refactor/')))) &&
       vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -93,6 +113,7 @@ jobs:
           VERCEL_ORG_ID: team_UbpudOr8jXyrDA5SdVUxVGOr
           VERCEL_ENV: preview
           MOSAIC_TRUSTED_PREVIEW_ENABLED: 'true'
+          MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED }}
           MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED }}
           MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED: 'false'
         run: node life-tracker/scripts/run-trusted-prebuilt-writer.mjs
