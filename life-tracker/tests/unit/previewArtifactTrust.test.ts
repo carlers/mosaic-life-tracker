@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { gzipSync, gunzipSync } from 'node:zlib';
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { inventoryBuild } from '../../scripts/lib/preview-build-evidence.mjs';
@@ -74,7 +74,8 @@ describe('trust boundary: unprivileged CI archive (#592)', () => {
       await symlink('index.html', join(f.dist, 'unsafe-link'));
       expect(() => inspectGzipTar(f.pack('.'))).toThrow(/link, extension/);
       await rm(join(f.dist, 'unsafe-link'));
-      expect(() => inspectGzipTar(f.pack('index.html', 'index.html'))).toThrow(/Duplicate/);
+      const duplicated = execFileSync('tar', ['-czf', '-', '--transform=s|sw.js|index.html|', 'index.html', 'sw.js'], { cwd: f.dist });
+      expect(() => inspectGzipTar(duplicated)).toThrow(/Duplicate/);
       // Mutate the filename in a legitimate tar header and repair its checksum.
       const tar = gunzipSync(f.pack('index.html'));
       const dangerous = Buffer.from('../escape.html');
