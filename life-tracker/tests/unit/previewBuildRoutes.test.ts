@@ -36,7 +36,7 @@ describe('Vercel static prebuilt routing contract (#592)', () => {
       '/bucket-list/123', '/explore', '/friends/alice', '/notifications',
       '/messages', '/messages/123', '/account', '/settings',
       '/settings/notifications', '/profile',
-    ]) expect(served(url), url).toBe(true);
+    ]) expect(served(url), url + ' routes=' + JSON.stringify(rewrites.map((r: { src?: string, dest?: string }) => [r.src, r.dest]))).toBe(true);
     for (const url of ['/assets/missing.js', '/does-not-exist', '/push-sw.js', '/favicon.svg']) {
       expect(served(url), url).toBe(false);
     }
