@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import {
   addUniquePrebuiltDeploymentId, assessKnownPrebuiltDeployments,
   planAcceptedPreview, prebuiltCliArguments,
-  VERIFIED_PREVIEW_PROJECT,
+  VERIFIED_PREVIEW_PROJECT, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
 } from '../../scripts/lib/prebuilt-provider-contract.mjs';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256 } from
   '../../scripts/lib/prebuilt-receiver-gate.mjs';
@@ -19,6 +19,30 @@ const accepted = {
 const plan = planAcceptedPreview(accepted);
 
 describe('CI-first prebuilt Vercel provider contract (#592)', () => {
+  it('refuses an unexpected Vercel project, unsafe Git overlap or unknown rollout bytes', async () => {
+    const project={id:VERIFIED_PREVIEW_PROJECT,name:'mosaic-life-tracker',
+      rootDirectory:'life-tracker',
+      link:{type:'github',repoId:1361399135,productionBranch:'main'}};
+    expect(assertTrustedProviderProject(project)).toBe(true);
+    for(const bad of [
+      {...project,rootDirectory:'/'},
+      {...project,link:{...project.link,repoId:0}},
+      {...project,link:{...project.link,productionBranch:'dev'}},
+      {...project,id:'untrusted'},
+    ]) expect(()=>assertTrustedProviderProject(bad)).toThrow();
+    const source=await readFile(resolve(process.cwd(),
+      'scripts/lib/trusted-prebuilt-vercel.json'));
+    const old=source.toString('utf8');
+    const safe=Buffer.from(old.replace('"fix/*": true,',
+      '"fix/!(592-trusted-archive-20261014)": true,'));
+    expect(assertIsolatedCanaryGitDisable(safe)).toBe(true);
+    expect(()=>assertIsolatedCanaryGitDisable(source)).toThrow();
+    expect(()=>assertIsolatedCanaryGitDisable(Buffer.from(old.replace(
+      '"main": true,','"main": false,')))).toThrow();
+    expect(()=>assertIsolatedCanaryGitDisable(Buffer.from(old.replace(
+      '"fix/*": true,','"fix/*": false,')))).toThrow();
+  });
+
   it('uses stable unique provider deploymentId across run retries and attempts', () => {
     expect(plan.deploymentId).toMatch(/^mos[0-9a-f]{29}$/);
     expect(plan.deploymentId).toHaveLength(32);
@@ -85,6 +109,7 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
     expect(assessKnownPrebuiltDeployments([{ ...existing, state: 'BUILDING' }],
       plan, { exhaustive: true })).toEqual({ action: 'wait', id: existing.id });
     for (const entries of [
+      [{...existing,source:'git',meta:{githubCommitSha:sha,githubCommitRef:PREBUILT_CANARY_BRANCH}}],
       [existing, existing],
       [{ ...existing, target: 'production' }],
       [{ ...existing, projectId: 'prj_unknown' }],

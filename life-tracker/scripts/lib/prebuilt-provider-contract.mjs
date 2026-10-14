@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256 } from './prebuilt-receiver-gate.mjs';
+import { approvedHighLevelConfigHashes, TRUSTED_HIGH_LEVEL_CONFIG_SHA256 } from './prebuilt-candidate-payload.mjs';
 
 // Read-only planning. Never run the CLI or contact Vercel from this module.
 // The provider writer will only consume a plan after fresh, independent
@@ -89,6 +90,12 @@ export function assessKnownPrebuiltDeployments(deployments, plan, { exhaustive =
   if (!exhaustive || !Array.isArray(deployments) || !plan?.deploymentId) {
     throw new Error('Incomplete Vercel history cannot prove safe first creation');
   }
+  if (deployments.some(dep =>
+    dep?.meta?.githubCommitSha === plan.sha &&
+    dep?.meta?.githubCommitRef === plan.branch &&
+    (dep?.source == null || dep.source === 'git'))) {
+    throw new Error('Git integration already created this SHA; do not double deploy');
+  }
   const matches = deployments.filter(dep =>
     dep?.meta?.mosaicPrebuiltId === plan.deploymentId ||
     (dep?.meta?.mosaicPrebuiltSha === plan.sha &&
@@ -112,4 +119,36 @@ export function assessKnownPrebuiltDeployments(deployments, plan, { exhaustive =
   // Provider error, timeout or incomplete response requires review; do not
   // auto-repeat creation and consume more quota.
   throw new Error('Existing prebuilt deployment needs human investigation');
+}
+
+export function assertTrustedProviderProject(project) {
+  const link = project?.link ?? {};
+  if (project?.id !== VERIFIED_PREVIEW_PROJECT ||
+      project?.name !== 'mosaic-life-tracker' ||
+      project?.rootDirectory !== 'life-tracker' ||
+      link.type !== 'github' ||
+      String(link.repoId) !== '1361399135' ||
+      link.productionBranch !== 'main') {
+    throw new Error('Untrusted Vercel linked Git project, root or production branch');
+  }
+  return true;
+}
+
+export function assertIsolatedCanaryGitDisable(raw) {
+  if (!Buffer.isBuffer(raw) || raw.length === 0 || raw.length > 65536 ||
+      digest(raw) === TRUSTED_HIGH_LEVEL_CONFIG_SHA256 ||
+      !approvedHighLevelConfigHashes().has(digest(raw))) {
+    throw new Error('The canary Git auto-deploy is not disabled by reviewed configuration');
+  }
+  let config;
+  try { config = JSON.parse(raw.toString('utf8')); }
+  catch { throw new Error('Invalid canary Git deployment configuration'); }
+  const rules = config?.git?.deploymentEnabled ?? {};
+  if (rules['fix/*'] !== undefined ||
+      rules['fix/!(592-trusted-archive-20261014)'] !== true ||
+      rules.main !== true || rules.dev !== true ||
+      rules['*'] !== false || rules['feature/*'] !== true) {
+    throw new Error('Unsafe overlapping Git deployment rules or disabled main/dev');
+  }
+  return true;
 }

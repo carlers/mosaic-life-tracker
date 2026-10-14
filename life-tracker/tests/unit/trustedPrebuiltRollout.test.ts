@@ -15,7 +15,7 @@ describe('one-branch Git-auto cutover safety (#592)', () => {
     expect(digest(raw)).toBe(TRUSTED_HIGH_LEVEL_CONFIG_SHA256);
     const text = raw.toString('utf8');
     expect(text.split('"fix/*": true,')).toHaveLength(2);
-    const off = Buffer.from(text.replace('"fix/*": true,', '"fix/*": false,'));
+    const off = Buffer.from(text.replace('"fix/*": true,', '"fix/!(592-trusted-archive-20261014)": true,'));
     const allowlist = approvedHighLevelConfigHashes();
     expect(allowlist.size).toBe(2);
     expect(allowlist.has(digest(raw))).toBe(true);
@@ -24,7 +24,9 @@ describe('one-branch Git-auto cutover safety (#592)', () => {
       .toBe(false);
     const initial = JSON.parse(text);
     const disabled = JSON.parse(off.toString('utf8'));
-    expect(disabled.git.deploymentEnabled['fix/*']).toBe(false);
+    expect(disabled.git.deploymentEnabled['fix/*']).toBeUndefined();
+    expect(disabled.git.deploymentEnabled['fix/!(592-trusted-archive-20261014)'])
+      .toBe(true);
     expect(disabled.git.deploymentEnabled.main).toBe(true);
     expect(disabled.git.deploymentEnabled.dev).toBe(true);
     expect(disabled.git.deploymentEnabled['feature/*']).toBe(true);

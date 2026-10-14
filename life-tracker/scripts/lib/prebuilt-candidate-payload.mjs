@@ -15,9 +15,9 @@ const EXPECTED_HEADER_NAMES = ['X-Content-Type-Options', 'X-Frame-Options',
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
 export function approvedHighLevelConfigHashes() {
-  // Keep a review-pinned copy of the exact stable canary's original Vercel
-  // configuration in trusted main. The only future candidate change allowed
-  // by this exception is disabling Git auto creation for fix/* on THAT branch.
+  // Vercel's matching rules are additive: if "fix/*" is true,
+  // a more specific canary=false still deploys. Replace the broad rule
+  // with a non-overlapping minimatch extglob that admits OTHER fix branches.
   const original = readFileSync(new URL('./trusted-prebuilt-vercel.json', import.meta.url));
   if (sha256(original) !== TRUSTED_HIGH_LEVEL_CONFIG_SHA256)
     throw new Error('Reviewed source configuration fixture was modified');
@@ -25,10 +25,14 @@ export function approvedHighLevelConfigHashes() {
   const enabled = '"fix/*": true,';
   if (current.split(enabled).length !== 2)
     throw new Error('Ambiguous Vercel canary rollout policy');
-  const disabled = current.replace(enabled, '"fix/*": false,');
+  const pattern = '"fix/!(592-trusted-archive-20261014)": true,';
+  const disabled = current.replace(enabled, pattern);
   const policy = JSON.parse(disabled).git?.deploymentEnabled;
-  if (policy?.['fix/*'] !== false || policy?.main !== true || policy?.dev !== true)
-    throw new Error('Rollout disabled a protected branch or kept fix auto enabled');
+  if (policy?.['fix/*'] !== undefined ||
+      policy?.['fix/!(592-trusted-archive-20261014)'] !== true ||
+      policy?.main !== true || policy?.dev !== true ||
+      policy?.['feature/*'] !== true || policy?.['*'] !== false)
+    throw new Error('Rollout cannot isolate the canary from allowed fix branches');
   return new Set([sha256(original), sha256(Buffer.from(disabled))]);
 }
 

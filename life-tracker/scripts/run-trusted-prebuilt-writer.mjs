@@ -11,7 +11,7 @@ import { accepted, loadAcceptedArtifact } from './lib/prebuilt-github-admission.
 import { assembleVerifiedCandidateStatic } from './lib/prebuilt-candidate-payload.mjs';
 import {
   planAcceptedPreview, addUniquePrebuiltDeploymentId, prebuiltCliArguments,
-  assessKnownPrebuiltDeployments,
+  assessKnownPrebuiltDeployments, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
 } from './lib/prebuilt-provider-contract.mjs';
 
 const token = process.env.VERCEL_TOKEN ?? '';
@@ -107,6 +107,24 @@ async function main() {
   const timestamp = Date.parse(commit.commit?.committer?.date ?? '');
   if (!Number.isFinite(timestamp)) throw new Error('Missing trusted Git commit date');
   const since = timestamp - 24 * 60 * 60 * 1000;
+
+  // Never POST while the original Git integration could create the same
+  // canary SHA. Vercel's broad fix/* rule would override a specific false.
+  const ghConfig = await fetch('https://api.github.com/repos/' + repo +
+    '/contents/life-tracker/vercel.json?ref=' + encodeURIComponent(plan.sha), {
+      headers: {Authorization:'Bearer ' + process.env.GITHUB_TOKEN,
+        Accept:'application/vnd.github+json'},
+      signal:AbortSignal.timeout(15000),
+    });
+  if (!ghConfig.ok) throw new Error('No trusted candidate Git configuration');
+  const json = await ghConfig.json();
+  if (json?.encoding !== 'base64' || typeof json.content !== 'string')
+    throw new Error('Incomplete GitHub configuration readback');
+  assertIsolatedCanaryGitDisable(Buffer.from(json.content, 'base64'));
+  const project = await vercelGet('/v9/projects/' +
+    encodeURIComponent(plan.projectId) + '?teamId=' +
+    encodeURIComponent(plan.teamId));
+  assertTrustedProviderProject(project);
 
   const first = assessKnownPrebuiltDeployments(
     await deploymentHistory(plan, since), plan, { exhaustive: true });
