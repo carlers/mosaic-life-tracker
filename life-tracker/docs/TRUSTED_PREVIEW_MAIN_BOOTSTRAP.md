@@ -206,3 +206,15 @@ The protected-main preflight intentionally rejects source branches other than
 `dev`; any infrastructure-only exception requires **new explicit owner approval**
 for this exact PR, narrow temporary PR-only bypass, immediate restoration and
 main canonical/Production verification. Prior exceptions do not transfer.
+
+## Provider-side one-commit idempotency spike (2026-10-14)
+
+The first live main-owned read-only shadow, [#38506275297](https://github.com/carlers/mosaic-life-tracker/actions/runs/38506275297), succeeded for a genuine canonical-green canary source SHA `56ceb5af2beef4e1c248a52d5395517306294cb2`. It read 161 verified build files and made zero Vercel POSTs. One existing Git-created Preview remains: automatic Git creation has **not** been replaced.
+
+The proposed trusted provider writer may use **Vercel Build Output API `config.json.deploymentId`**. The ID is deterministically computed from official project, canary branch and accepted source SHA, independent of workflow-run retries. Vercel documents a unique-per-project, <=32-character custom deployment ID and failure on duplicate IDs. This is an additional backstop, not permission to skip complete GitHub/provider history and freshest source acceptance. The reviewed main receiver must prove original route bytes/hash before inserting just this immutable field; no candidate may select its own deployment ID. First test on a bounded Preview-only canary; do not assume it works for Vite without actual provider evidence.
+
+Use pinned `vercel@62.7.0`, installed *without Vercel credentials* before the trusted deploy step, and CLI `deploy --prebuilt --target=preview --archive=tgz` against the verified artifact. Do not invoke `vercel build`, `npm ci`, candidate source scripts or package install with privileged tokens. Associate sha/branch/run/attempt and deterministic ID using CLI `--meta` for future bounded, fail-closed duplicate scans. Require protected token only in main-controlled writer job with creation and alias default OFF and fresh canonical readbacks.
+
+Vercel `git.deploymentEnabled` currently contains `fix/*: true`. Per Vercel Git configuration, **any matching true wins**, so adding an explicit exact-canary false will not avoid pre-CI Git creation. Do not turn off `fix/*` before a working automatic replacement + rollback. Measure red provider creations only after the branch class has actually cut over. Keep `dev` and `main` Git auto targeting intact for the initial rollout.
+
+No protected main, provider setting, credential or Vercel deployment has been changed by this planning spike. The next infrastructure-only provider writer requires fresh owner-reviewed protection exception; PR #807 permission does not carry forward.
