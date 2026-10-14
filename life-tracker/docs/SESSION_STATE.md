@@ -15,6 +15,10 @@ Current task: #592 fail-closed archive integrity verification, no deploy.
 ## Current follow-up
 - Routing packaging adds a pinned official Vercel high-level converter and v3 static routing config to the same CI artifact without another app build or provider request. Configuration remains `deploymentAuthorized=false`; public Scratch/GIPHY build input and trusted recipient are not yet enabled.
 
+## Static output assembly milestone (in review)
+- On accepted CI evidence only, copy exact verified dist file bytes into an exclusive, disposable `.vercel/output/static` directory and install the digest-verified v3 `config.json`. The assembly is data-only, no app build, no Vercel credential/request, and explicitly remains `deploymentAuthorized=false`.
+- Security regressions test file/hash parity, altered route evidence and source mismatch. Real Preview delivery still requires matching public Scratch/GIPHY effective config, trusted post-canonical main receiver and a protected red/green canary.
+
 ## Next action
 - Align effective Scratch/GIPHY public profile; package static build output with Vercel Build Output API v3 and official routing adapter with full deep-link/header tests; use these verified bytes only in trusted main receiver AFTER complete canonical success and source/attempt trust checks.
 - Owner separately authorizes accepted dev promotion and later narrowly scoped main infrastructure/configuration change. Test CI-red zero-provider POST, green upload-once, stale/retry/idempotency, stable alias/rollback, one real feature promotion. Keep automatic Git Preview until proven safe.

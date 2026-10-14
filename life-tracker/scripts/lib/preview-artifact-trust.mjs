@@ -46,13 +46,14 @@ function assertTarChecksum(block) {
 }
 
 /** Decode only regular GNU/USTAR file entries; never run tar or unpack unverified bytes. */
-export function inspectGzipTar(archive, maxLength = MAX_TAR_BYTES) {
+export function inspectGzipTar(archive, maxLength = MAX_TAR_BYTES, includeData = false) {
   if (!Buffer.isBuffer(archive) || archive.length === 0 || archive.length > MAX_TAR_BYTES)
     throw new Error('Invalid or oversized compressed artifact');
   let tar;
   try { tar = gunzipSync(archive, { maxOutputLength: maxLength }); }
   catch { throw new Error('Cannot safely decompress bounded CI artifact'); }
   const found = new Map();
+  const data = includeData ? new Map() : null;
   const seenDirs = new Set();
   let offset = 0;
   let ended = false;
@@ -87,11 +88,13 @@ export function inspectGzipTar(archive, maxLength = MAX_TAR_BYTES) {
       const start = offset + BLOCK;
       if (start + size > tar.length) throw new Error('Truncated tar entry');
       found.set(name, { name, bytes: size, sha256: sha256(tar.subarray(start, start + size)) });
+      if (data) data.set(name, Buffer.from(tar.subarray(start, start + size)));
     }
     offset += BLOCK + Math.ceil(size / BLOCK) * BLOCK;
   }
   if (!ended || !found.size) throw new Error('Missing tar end markers or files');
-  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name, 'en'));
+  const files = [...found.values()].sort((a, b) => a.name.localeCompare(b.name, 'en'));
+  return data ? { files, data } : files;
 }
 
 /** Return *evidence*, not deploy authorization. Caller must check full canonical CI separately. */
