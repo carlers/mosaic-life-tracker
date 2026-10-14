@@ -17,6 +17,9 @@ Current task: #592 CI-first stable Preview delivery.
 ## ZIP reader milestone
 - Parse the six standard CI artifact ZIP members in memory with strict paths, checksums, structure, and bounded expansion. Never run candidate scripts or create provider deployments.
 
+## Accepted payload verification
+- Combine the strict six-entry ZIP reader, GitHub-reported ZIP SHA256, vetted profile/budget/branch evidence, SHA-verified compressed static archive and pinned routing/header configuration before reconstructing exact prebuilt files. Require GitHub artifact digest metadata; no caller-supplied approval bit. No provider writes.
+
 ## Next action
 - Focused task verification; squash to stable; confirm canonical+READY.
 - Build verified trusted ZIP download/byte assembly + protected main receiver; controlled red=0, green=1, retry/stale=0 deployment tests and rollback. Main-only bootstrap requires separate approval. #592 stays OPEN.
