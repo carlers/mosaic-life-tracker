@@ -1,48 +1,18 @@
 # Session checkpoint
 
-Updated: 2026-10-14
-Current task: #592 CI-before-provider-deploy acceptance artifact pipeline.
+Updated: 2026-10-14 UTC
+Current task: #592 — third generic CI-first Preview rollout pilot, initially gated OFF.
 
-## Verified
+## Verified starting point
+- Owner merged protected main [PR #844](https://github.com/carlers/mosaic-life-tracker/pull/844) as `a7d4c431eef6902f1d2d35271b6b8e41f8e9228e`; full Quality Gate #38569807748 SUCCESS, Vercel Production `dpl_CNVEygWZfQzHc45vzTopdNrx3CPL` READY, app v0.17.4. Ruleset #24880070 active with zero bypass actors, dev `f3d9558feca499e53c310c5a37be2794717bccf6` unchanged.
+- Original two exact-name pilots proved full CI-first static deployment and same-SHA zero-POST reuse. Generic receiver now requires the separate `MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED` switch, exact source policy and verified six-file Quality Gate blob `5f64f715551f0c311a60d823367d849dfb369bba`.
+- Generic rollout is NOT authorized merely by merging #844. Do not enable repository variables or provider creation until owner explicitly approves.
 
-- #784 guarded-size policy is accepted on protected dev
-  eaab6d9e175f3dac4cc5cf581ea6e5ec70706925:
-  full stable Quality Gate #38429241292 SUCCESS; dev promotion
-  #38429928093 canonical SUCCESS; exact dev Vercel READY.
-  Two initial/Home hard ceilings (154500/381000 B), all seven
-  measured, PWA correctness remains mandatory.
-- #592 default-main receiver is still reuse-only shadow.
-  Security PR #783 was squash merged into stable
-  fix/trusted-preview-uid-592-20261013@dfd9b9a3b6bf0aa2a7b702ad75763782032a6508,
-  full canonical #38431094731 SUCCESS, Vercel
-  dpl_AwvwiV34UR4NNCYv2aMwdaY7CAMB READY.
-  Dependent main PR #781 remains DRAFT: protected main preflight
-  correctly blocks direct non-dev source absent an explicit new
-  owner-reviewed infrastructure exception.
-- Main remains 0e39e7315e18e6750843780432dd42d22f940367
-  and app v0.17.4; do not ship dev features as infrastructure.
-
-## Current task-branch implementation
-
-From dev, chatgpt/592-prebuilt-evidence-20261014 adds
-non-deployable byte-level evidence from the existing successful
-CI build job: exact SHA/ref, seven metrics, per-file SHA-256,
-JS/CSS fingerprint and tarball, short Actions retention.
-No second build, provider POST, credential use or aliases.
-Separate immutable-test verification rejects source/path/profile
-tampering. This slice is NOT deployable until exact Scratch/GIPHY
-effective profile and Vercel Build Output/rewrites parity are proven.
-The default-main trusted receiver must verify full canonical
-acceptance separately; a green build subjob is not authorization.
+## Current isolated source
+- Candidate stable ref: `feature/592-generic-optin-trial-20261014`, dev-derived.
+- FIRST stable commit must contain exact `feature/!(592-generic-optin-trial-20261014): true` plus `feature/592-generic-optin-trial-20261014: false` in `life-tracker/vercel.json` BEFORE branch creation. Keep other Git policies, app runtime/version, Scratch/GIPHY/PostHog, routes and headers untouched.
+- Start from the previously accepted second dev-derived pilot's static six-file producer + pinned Quality Gate, identical source artifact scripts and test-clock correction; only new exact branch policy, matching workflowDocs test and this documentation change. Parent of stable commit is dev.
+- Quiet task focused CI first; then atomically create stable ref at prepared commit already containing the suppression, run full canonical CI and confirm ZERO early Git-source provider deployments. Until generic flag is explicitly enabled, do not expect trusted main's receiver/writer to deploy this ordinary branch.
 
 ## Next action
-
-Finish focused tests and quality-gate verification of artifact
-capture, then deliver stable Preview under standard workflow
-and inspect attached artifact manifest/readback. Do not blindly
-deploy the artifact or alter Vercel Git automatic deployments.
-Progress separate default-main artifact receiver and quota-safe
-negative CI canary after protected owner authorization. #592
-remains OPEN; #784 remains open pending default-main scheduled
-audit activation, perhaps bundled with a separately approved
-main-only infrastructure commit.
+- Verify policy and source SHA/CI. Once authorized, enable generic switch separately and trigger an exact-SHA source Quality Gate event without changing the branch tree; confirm default-main receiver + writer one CLI static READY, aliases OFF, no Git auto, same-SHA retry reuses without another POST, and hosted routes/headers. Validate rollback by switching generic OFF before any provider setting change. Registered Scratch-origin login/device and a genuine Preview→dev promotion require separate explicit acceptance. Keep #592 OPEN.
