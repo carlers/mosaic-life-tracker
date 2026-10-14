@@ -8,15 +8,16 @@ describe('failed #592 Git cutover rollback safety', () => {
     expect(rules['*']).toBe(false);
     expect(rules.main).toBe(true);
     expect(rules.dev).toBe(true);
-    expect(rules['fix/*']).toBe(true);
-    expect(rules['fix/!(592-trusted-archive-20261014)']).toBeUndefined();
+    expect(rules['fix/*']).toBeUndefined();
+    expect(rules['fix/!(592-trusted-archive-20261014)']).toBe(true);
+    expect(rules['fix/592-trusted-archive-20261014']).toBe(false);
     expect(rules['feature/*']).toBe(true);
     expect(rules['perf/*']).toBe(true);
     expect(rules['security/*']).toBe(true);
     expect(rules['refactor/*']).toBe(true);
     expect(rules['chatgpt/*']).toBe(false);
     expect(rules['codex/*']).toBe(false);
-    expect(Object.keys(rules)).toHaveLength(10);
+    expect(Object.keys(rules)).toHaveLength(11);
   });
   it('preserves exact SPA routing, headers, static config and public app behavior', async () => {
     const cfg = JSON.parse(await readFile('vercel.json', 'utf8'));

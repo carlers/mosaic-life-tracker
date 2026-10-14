@@ -8,7 +8,8 @@ import { join } from 'node:path';
 import { inventoryBuild } from '../../scripts/lib/preview-build-evidence.mjs';
 import { preparePreviewRoutes } from '../../scripts/lib/preview-build-routes.mjs';
 import { verifyPrebuiltCandidateBytes, assembleVerifiedCandidateStatic,
-  TRUSTED_HIGH_LEVEL_CONFIG_SHA256 } from '../../scripts/lib/prebuilt-candidate-payload.mjs';
+  TRUSTED_HIGH_LEVEL_CONFIG_SHA256,
+  approvedHighLevelConfigHashes } from '../../scripts/lib/prebuilt-candidate-payload.mjs';
 
 const sha = 'a'.repeat(40);
 const branch = 'fix/592-trusted-archive-20261014';
@@ -77,7 +78,8 @@ async function fixture() {
   const inventory = await inventoryBuild(dist);
   const archive = execFileSync('tar', ['-czf', '-', '-C', dist, '.']);
   const input = await readFile('vercel.json');
-  expect(hash(input)).toBe(TRUSTED_HIGH_LEVEL_CONFIG_SHA256);
+  expect(approvedHighLevelConfigHashes().has(hash(input))).toBe(true);
+  expect(hash(input)).not.toBe(TRUSTED_HIGH_LEVEL_CONFIG_SHA256);
   const routing = preparePreviewRoutes(JSON.parse(input.toString()), input);
   const evidence = {
     schemaVersion: 1, kind: 'non-deployable-ci-build-evidence',
