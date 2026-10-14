@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assessPrebuiltReceiverEvent, selectPrebuiltArtifact,
-  assessPrebuiltManifest, PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256
+  assessPrebuiltManifest, PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH,
+  isApprovedPrebuiltBranch, PREBUILT_ROUTING_SHA256
 } from '../../scripts/lib/prebuilt-receiver-gate.mjs';
 const sha = 'a'.repeat(40), main = 'b'.repeat(40), suite = 1234;
 const run = { id: 4567, run_attempt: 2, check_suite_id: suite, name: 'Quality Gate',
@@ -47,6 +48,34 @@ describe('main-trusted prebuilt receiver read-only acceptance (#592)', () => {
         head_repository: { full_name: 'attacker/repo' } } } },
     ]) expect(assessPrebuiltReceiverEvent({ ...inputs, ...altered }).eligible).toBe(false);
   });
+  it('accepts only the separately pinned feature rollout pilot with same-suite CI', () => {
+    expect(isApprovedPrebuiltBranch(PREBUILT_CANARY_BRANCH)).toBe(true);
+    expect(isApprovedPrebuiltBranch(PREBUILT_PILOT_BRANCH)).toBe(true);
+    for (const branch of ['feature/unreviewed', 'fix/other',
+      'dev', 'main', 'feature/592-prebuilt-pilot-20261014/extra']) {
+      expect(isApprovedPrebuiltBranch(branch)).toBe(false);
+    }
+    const pilot = { ...run, head_branch: PREBUILT_PILOT_BRANCH };
+    const admitted = { ...inputs, event: { ...event, workflow_run: pilot },
+      workflowRuns: [pilot] };
+    expect(assessPrebuiltReceiverEvent(admitted).eligible).toBe(true);
+    expect(assessPrebuiltReceiverEvent({ ...admitted,
+      branchHead: 'c'.repeat(40) }).eligible).toBe(false);
+    expect(assessPrebuiltReceiverEvent({ ...admitted,
+      checkRuns: [{ ...check, conclusion: 'failure' }] }).eligible).toBe(false);
+    expect(assessPrebuiltReceiverEvent({ ...admitted,
+      workflowRuns: [{ ...pilot, id: pilot.id + 1 }, pilot] }).eligible).toBe(false);
+    const pilotEvidence = { ...evidence,
+      source: { ...evidence.source, ref: 'refs/heads/' + PREBUILT_PILOT_BRANCH } };
+    expect(assessPrebuiltManifest(pilotEvidence,
+      { ...expected, branch: PREBUILT_PILOT_BRANCH }).eligible).toBe(true);
+    const unreviewedEvidence = { ...pilotEvidence, source: {
+      ...pilotEvidence.source, ref: 'refs/heads/feature/unreviewed',
+    } };
+    expect(assessPrebuiltManifest(unreviewedEvidence,
+      { ...expected, branch: 'feature/unreviewed' }).eligible).toBe(false);
+  });
+
   it('requires exact artifact run attempt and rejects expired, duplicate and oversized', () => {
     const request = { sha, runId: run.id, attempt: 2 };
     expect(selectPrebuiltArtifact([artifact], request)).toMatchObject({ id: 33 });

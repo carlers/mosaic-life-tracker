@@ -2,6 +2,12 @@ import { assessPreviewDeployGate } from './preview-deploy-gate.mjs';
 import { validateBuildEvidence } from './preview-evidence-schema.mjs';
 
 export const PREBUILT_CANARY_BRANCH = 'fix/592-trusted-archive-20261014';
+export const PREBUILT_PILOT_BRANCH = 'feature/592-prebuilt-pilot-20261014';
+// Second-branch rollout is intentionally fixed; do not activate generic
+// feature/fix branches until a separate provider and rollback acceptance.
+export function isApprovedPrebuiltBranch(branch) {
+  return branch === PREBUILT_CANARY_BRANCH || branch === PREBUILT_PILOT_BRANCH;
+}
 export const PREBUILT_ROUTING_SHA256 = 'c1ee8560a43e316a7eb8c0ec163affa4c9941050065fc735c93e678b84b9d848';
 const SHA = /^[a-f0-9]{40}$/i;
 const REPO = 'carlers/mosaic-life-tracker';
@@ -22,7 +28,7 @@ export function assessPrebuiltReceiverEvent({
     run?.repository?.full_name === REPO &&
     run?.name === 'Quality Gate' && run?.path === WORKFLOW &&
     run?.event === 'push' && run?.status === 'completed' &&
-    run?.conclusion === 'success' && run?.head_branch === PREBUILT_CANARY_BRANCH &&
+    run?.conclusion === 'success' && isApprovedPrebuiltBranch(run?.head_branch) &&
     SHA.test(run?.head_sha ?? '') && Number.isSafeInteger(run?.id) && run.id > 0 &&
     Number.isSafeInteger(run?.check_suite_id) && run.check_suite_id > 0 &&
     Number.isSafeInteger(run?.run_attempt) && run.run_attempt >= 1;
@@ -70,7 +76,7 @@ export function assessPrebuiltManifest(evidence, expected) {
   });
   const p = evidence.buildProfile, m = evidence.metrics;
   const reasons = [];
-  if (expected.branch !== PREBUILT_CANARY_BRANCH) reasons.push('unapproved canary branch');
+  if (!isApprovedPrebuiltBranch(expected.branch)) reasons.push('unapproved prebuilt branch');
   if (p?.nodeMajor !== 24 || p?.giphy !== 'enabled' ||
       p?.posthog !== 'enabled' || p?.vercelEnvironment !== 'preview' ||
       p?.appwriteBackend !== 'scratch')

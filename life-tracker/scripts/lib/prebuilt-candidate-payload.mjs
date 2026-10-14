@@ -4,7 +4,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { readVerifiedActionsZip } from './prebuilt-zip-artifact.mjs';
 import { inspectGzipTar, verifyArchivedBuild } from './preview-artifact-trust.mjs';
-import { assessPrebuiltManifest, PREBUILT_ROUTING_SHA256 } from './prebuilt-receiver-gate.mjs';
+import { assessPrebuiltManifest, PREBUILT_ROUTING_SHA256, PREBUILT_CANARY_BRANCH,
+  isApprovedPrebuiltBranch } from './prebuilt-receiver-gate.mjs';
 
 // Reviewed fingerprint of Mosaic's existing Vercel high-level routing policy.
 // Any routing/header change must be independently reviewed in trusted main.
@@ -14,32 +15,43 @@ const EXPECTED_HEADER_NAMES = ['X-Content-Type-Options', 'X-Frame-Options',
   'Referrer-Policy', 'Permissions-Policy'];
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
-export function approvedHighLevelConfigHashes() {
-  // Vercel's matching rules are additive: if "fix/*" is true,
-  // a more specific canary=false still deploys. Replace the broad rule
-  // with a non-overlapping minimatch extglob that admits OTHER fix branches.
+function reviewedVercelBase() {
   const original = readFileSync(new URL('./trusted-prebuilt-vercel.json', import.meta.url));
   if (sha256(original) !== TRUSTED_HIGH_LEVEL_CONFIG_SHA256)
     throw new Error('Reviewed source configuration fixture was modified');
-  const current = original.toString('utf8');
-  const enabled = '"fix/*": true,';
-  if (current.split(enabled).length !== 2)
-    throw new Error('Ambiguous Vercel canary rollout policy');
-  // Standard minimatch '*' does NOT match branch names containing a slash.
-  // Without an explicit canary=false this branch matches NO rule, and
-  // Vercel defaults unmatched branch deployments to TRUE. This caused two
-  // actual Git deployments, including one despite red canonical CI.
-  // No overlapping true pattern may match the exact excluded branch.
-  const pattern = '"fix/!(592-trusted-archive-20261014)": true,\n      "fix/592-trusted-archive-20261014": false,';
-  const disabled = current.replace(enabled, pattern);
-  const policy = JSON.parse(disabled).git?.deploymentEnabled;
-  if (policy?.['fix/*'] !== undefined ||
-      policy?.['fix/!(592-trusted-archive-20261014)'] !== true ||
-      policy?.['fix/592-trusted-archive-20261014'] !== false ||
-      policy?.main !== true || policy?.dev !== true ||
-      policy?.['feature/*'] !== true || policy?.['*'] !== false)
-    throw new Error('Rollout cannot isolate the canary from allowed fix branches');
-  return new Set([sha256(original), sha256(Buffer.from(disabled))]);
+  return original;
+}
+
+// Nonoverlapping Git rule for exactly ONE reviewed stable-branch pilot.
+// Vercel treats any matching true as enabled; keeping `prefix/*: true`
+// would silently create a Git build even with exact `prefix/name: false`.
+export function expectedIsolatedGitConfig(branch) {
+  if (!isApprovedPrebuiltBranch(branch))
+    throw new Error('Unapproved trusted Preview branch');
+  const [category, leaf] = branch.split('/');
+  if (!/^(feature|fix)$/.test(category) ||
+      !/^[a-z0-9][a-z0-9-]{0,72}$/.test(leaf))
+    throw new Error('Unsafe trusted Preview Git branch pattern');
+  const source = reviewedVercelBase().toString('utf8');
+  const old = '"' + category + '/*": true,';
+  if (source.split(old).length !== 2)
+    throw new Error('Ambiguous Vercel Git deployment rule');
+  const replacement = '"' + category + '/!(' + leaf + ')": true,\n      "' +
+    branch + '": false,';
+  const disabled = Buffer.from(source.replace(old, replacement));
+  const rules = JSON.parse(disabled.toString('utf8'))?.git?.deploymentEnabled;
+  if (rules?.[category + '/*'] !== undefined ||
+      rules?.[category + '/!(' + leaf + ')'] !== true ||
+      rules?.[branch] !== false || rules?.main !== true || rules?.dev !== true ||
+      rules?.['*'] !== false || rules?.['chatgpt/*'] !== false ||
+      rules?.['codex/*'] !== false)
+    throw new Error('Rollout must disable only the approved stable branch');
+  return disabled;
+}
+
+export function approvedHighLevelConfigHashes(branch = PREBUILT_CANARY_BRANCH) {
+  return new Set([TRUSTED_HIGH_LEVEL_CONFIG_SHA256,
+    sha256(expectedIsolatedGitConfig(branch))]);
 }
 
 
@@ -74,7 +86,8 @@ export function verifyPrebuiltCandidateBytes(zipBytes, { sha, branch, digest }) 
   if (routing?.schemaVersion !== 1 ||
       routing.kind !== 'non-deployable-preview-routing-evidence' ||
       routing.deploymentAuthorized !== false ||
-      !approvedHighLevelConfigHashes().has(routing.vercelConfigSha256) ||
+      !/^([a-f0-9]{64})$/.test(routing.vercelConfigSha256 ?? '') ||
+      routing.vercelConfigSha256 !== sha256(expectedIsolatedGitConfig(branch)) ||
       routing.generatedConfigSha256 !== PREBUILT_ROUTING_SHA256 ||
       sha256(data['config.json']) !== PREBUILT_ROUTING_SHA256 ||
       routing.rewrites !== 15 ||

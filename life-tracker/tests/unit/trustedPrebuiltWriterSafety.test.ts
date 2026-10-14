@@ -16,6 +16,10 @@ describe('protected main prebuilt writer remains optional and restricted (#592)'
     expect(writer).toContain('cancel-in-progress: false');
     expect(writer).toContain("github.event.workflow_run.conclusion == 'success'");
     expect(writer).toContain("github.event.workflow_run.head_branch == 'fix/592-trusted-archive-20261014'");
+    expect(writer).toContain("github.event.workflow_run.head_branch == 'feature/592-prebuilt-pilot-20261014'");
+    expect(workflow).toContain('      - feature/592-prebuilt-pilot-20261014');
+    expect(workflow).not.toContain("      - 'feature/**'");
+    expect(workflow).not.toContain("      - 'fix/**'");
     expect(writer).toContain('npm install --global vercel@62.7.0');
     expect(writer.indexOf('npm install --global vercel@62.7.0')).toBeLessThan(
       writer.indexOf('VERCEL_TOKEN:'));
