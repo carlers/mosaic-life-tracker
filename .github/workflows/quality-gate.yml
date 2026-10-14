@@ -382,6 +382,8 @@ jobs:
         run: node scripts/check-preview-artifact.mjs
       - name: Translate existing Vercel routes/headers into static Build Output API v3
         run: node scripts/prepare-preview-routes.mjs
+      - name: Assemble and verify the real static output without provider credentials
+        run: node scripts/verify-preview-static-output.mjs
       - name: Preserve read-only build artifact for future gated reuse
         uses: actions/upload-artifact@v4
         with:
