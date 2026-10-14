@@ -118,7 +118,22 @@ describe('verification workflow contracts', () => {
     expect(vercel.git.deploymentEnabled['*']).toBe(false);
     expect(vercel.git.deploymentEnabled.main).toBe(true);
     expect(vercel.git.deploymentEnabled.dev).toBe(true);
-    expect(vercel.git.deploymentEnabled['feature/*']).toBe(true);
+    // A single reviewed CI-first feature pilot may be excluded while the
+    // remainder of the feature category must keep Git-auto delivery.
+    const rules = vercel.git.deploymentEnabled as Record<string, boolean>;
+    const pilot = 'feature/592-generic-optin-trial-20261014';
+    const others = 'feature/!(592-generic-optin-trial-20261014)';
+    if (rules[pilot] === false) {
+      expect(rules['feature/*']).toBeUndefined(); // no overlapping true wins
+      expect(rules[others]).toBe(true);
+      expect(rules['fix/*']).toBe(true);
+      expect(rules['perf/*']).toBe(true);
+      expect(rules['security/*']).toBe(true);
+    } else {
+      expect(rules['feature/*']).toBe(true);
+      expect(rules[pilot]).toBeUndefined();
+      expect(rules[others]).toBeUndefined();
+    }
     expect(vercel.git.deploymentEnabled['refactor/*']).toBe(true);
     expect(vercel.git.deploymentEnabled['chatgpt/*']).toBe(false);
     expect(vercel.git.deploymentEnabled['codex/*']).toBe(false);
