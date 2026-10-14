@@ -82,8 +82,10 @@ describe('main-trusted prebuilt receiver read-only acceptance (#592)', () => {
     } };
     expect(assessPrebuiltManifest(unreviewedEvidence,
       { ...expected, branch: 'feature/unreviewed' }).eligible).toBe(true);
-    expect(assessPrebuiltManifest(unreviewedEvidence,
-      { ...expected, branch: 'feature/nested/path' }).eligible).toBe(false);
+    // Source binding is checked before branch eligibility; a mismatched
+    // candidate ref must throw rather than yielding a permitted manifest.
+    expect(() => assessPrebuiltManifest(unreviewedEvidence,
+      { ...expected, branch: 'feature/nested/path' })).toThrow(/source ref mismatch/);
   });
 
   it('requires exact artifact run attempt and rejects expired, duplicate and oversized', () => {

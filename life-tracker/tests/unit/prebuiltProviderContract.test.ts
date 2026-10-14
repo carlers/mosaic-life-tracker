@@ -68,11 +68,12 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
       expect(prebuiltCliArguments(staged)).toContain('--target=preview');
       expect(staged.deploymentId).not.toBe(plan.deploymentId);
     }
-    for (const badBranch of ['feature/any-normal-feature', 'fix/other',
-      'perf/size', 'security/hardening', 'refactor/cleanup',
-      'dev', 'main', 'chatgpt/task']) {
+    // Generic categories above must fail closed while disabled. Invalid
+    // branches remain rejected even when generic creation is enabled.
+    for (const badBranch of ['dev', 'main', 'chatgpt/task',
+      'feature/nested/path', 'feature/unsafe)', 'security/BAD']) {
       expect(() => planAcceptedPreview({
-        ...accepted, branch: badBranch,
+        ...accepted, branch: badBranch, genericEnabled: 'true',
       })).toThrow(/Untrusted/);
     }
   });
