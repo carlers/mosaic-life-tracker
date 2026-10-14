@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256 } from './prebuilt-receiver-gate.mjs';
 import { approvedHighLevelConfigHashes, TRUSTED_HIGH_LEVEL_CONFIG_SHA256 } from './prebuilt-candidate-payload.mjs';
 
-// Read-only planning. Never run the CLI or contact Vercel from this module.
-// The provider writer will only consume a plan after fresh, independent
-// canonical GitHub acceptance and full artifact byte verification.
+// Policy and private staging helpers. Never run the CLI or contact Vercel here.
+// The provider writer consumes a plan only after fresh independent canonical
+// GitHub acceptance and full artifact byte verification.
 export const VERIFIED_PREVIEW_PROJECT = 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc';
 export const VERIFIED_PREVIEW_TEAM = 'team_UbpudOr8jXyrDA5SdVUxVGOr';
 const SHA = /^[0-9a-f]{40}$/;
@@ -119,6 +121,22 @@ export function assessKnownPrebuiltDeployments(deployments, plan, { exhaustive =
   // Provider error, timeout or incomplete response requires review; do not
   // auto-repeat creation and consume more quota.
   throw new Error('Existing prebuilt deployment needs human investigation');
+}
+
+// CLI v62.7.0 validates the linked project's configured rootDirectory BEFORE
+// reading the already verified .vercel/output. Our local project.json is at
+// the temporary workspace root (not a repository-level repo.json), so CLI
+// reads the single trusted output at root/.vercel/output. Create ONLY the
+// required empty project directory; never copy candidate source/build bytes.
+export async function createTrustedCliProjectRoot(root, plan) {
+  if (plan?.projectId !== VERIFIED_PREVIEW_PROJECT ||
+      plan?.teamId !== VERIFIED_PREVIEW_TEAM || plan?.target !== 'preview' ||
+      typeof root !== 'string' || root.length === 0) {
+    throw new Error('Untrusted Vercel rootDirectory staging request');
+  }
+  const directory = join(root, 'life-tracker');
+  await mkdir(directory); // Exclusive: refuse existing file, link or directory.
+  return directory;
 }
 
 export function assertTrustedProviderProject(project) {

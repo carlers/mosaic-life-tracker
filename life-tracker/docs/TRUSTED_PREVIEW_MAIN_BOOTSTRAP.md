@@ -305,3 +305,24 @@ source-supported fix of the **observed failure layer**, not proof that a
 later provider upload will succeed. Add argv regression; no live provider
 retry or protected-main mutation before a new owner-approved one-time
 infrastructure PR and exact full acceptance. Do not weaken the token scope.
+
+## CLI project rootDirectory staging failure (2026-10-14)
+
+The owner-merged #825 unscoped CLI fix was verified on protected
+`main@ed9787b9` (full Quality Gate #38535006485 SUCCESS, Production
+`dpl_J6s5TRKKT3kbQAnM2EgTDuPMB1Sd` READY, no bypass actors).
+Canary `003beb3a` passed full Quality Gate #38535580930; its
+Trusted Preview Delivery #38535815478 read-only receiver succeeded and
+protected writer reached Vercel CLI without the previous user GET 404,
+but CLI refused to deploy because `<temp-root>/life-tracker` was absent.
+Project-scoped provider history for that SHA remains EMPTY. CLI upstream
+validates the linked project's `rootDirectory=life-tracker` before reading
+prebuilt output, even with a local `.vercel/project.json` link. Local links
+without a repository link keep `repoRoot` unset and read the single
+`<temp-root>/.vercel/output` payload. Create an **empty**
+`<temp-root>/life-tracker` stub, leaving the exact verified static payload
+and project link untouched; use an exclusive filesystem operation and
+unit-test no source duplication or alternate upload root. No source rebuild,
+provider setting changes, token privilege changes or aliases. This patch
+still requires task focused/full Preview and a fresh explicitly owner-approved
+protected-main infrastructure merge before another single controlled canary.
