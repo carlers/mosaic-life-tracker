@@ -21,9 +21,10 @@ describe('official CI build profile safety (#592)', () => {
     const text = await readFile('../.github/workflows/quality-gate.yml', 'utf8');
     const build = text.slice(text.indexOf('  build_check:'), text.indexOf('\n  browser_contract:'));
     for (const feature of ['GIPHY_KEY', 'POSTHOG_TOKEN', 'POSTHOG_HOST']) {
-      expect(build).toContain("vars.MOSAIC_PUBLIC_PREVIEW_" + feature + " || ''");
+      expect(build).toContain("secrets.MOSAIC_PUBLIC_PREVIEW_" + feature + " || ''");
     }
-    expect(build).not.toMatch(/secrets\.|MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN|POSTHOG_PERSONAL_API_KEY/);
+    expect(build).not.toMatch(/MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN|POSTHOG_PERSONAL_API_KEY/);
+    expect(build).not.toMatch(/secrets\.(?!MOSAIC_PUBLIC_PREVIEW_)/);
     expect(build).toContain("POSTHOG_SOURCE_MAPS_ENABLED: 'false'");
   });
 });

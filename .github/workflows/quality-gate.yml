@@ -354,9 +354,9 @@ jobs:
       VITE_APPWRITE_PROJECT_ID: ${{ github.ref == 'refs/heads/main' && '6a9703c50016b37110ff' || '6a96e82d000d1310b3be' }}
       VITE_APPWRITE_ENDPOINT: ${{ github.ref == 'refs/heads/main' && 'https://sgp.cloud.appwrite.io/v1' || 'https://fra.cloud.appwrite.io/v1' }}
       VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: '6aa8057f002a4c306fdd'
-      VITE_GIPHY_API_KEY: ${{ github.ref != 'refs/heads/main' && vars.MOSAIC_PUBLIC_PREVIEW_GIPHY_KEY || '' }}
-      VITE_POSTHOG_TOKEN: ${{ github.ref != 'refs/heads/main' && vars.MOSAIC_PUBLIC_PREVIEW_POSTHOG_TOKEN || '' }}
-      VITE_POSTHOG_HOST: ${{ github.ref != 'refs/heads/main' && vars.MOSAIC_PUBLIC_PREVIEW_POSTHOG_HOST || '' }}
+      VITE_GIPHY_API_KEY: ${{ github.ref != 'refs/heads/main' && secrets.MOSAIC_PUBLIC_PREVIEW_GIPHY_KEY || '' }}
+      VITE_POSTHOG_TOKEN: ${{ github.ref != 'refs/heads/main' && secrets.MOSAIC_PUBLIC_PREVIEW_POSTHOG_TOKEN || '' }}
+      VITE_POSTHOG_HOST: ${{ github.ref != 'refs/heads/main' && secrets.MOSAIC_PUBLIC_PREVIEW_POSTHOG_HOST || '' }}
     timeout-minutes: 15
     defaults:
       run:

@@ -13,6 +13,11 @@ Current task: #592 secure CI-before-Vercel Preview cutover.
 - Enforce exact SHA/ref, Scratch Preview backend, and presence of GIPHY/PostHog browser-public variables for #592 stable canary before CI compilation; print only feature presence. Do not weaken normal feature branches. Never copy Vercel write tokens, Appwrite administrator keys or PostHog personal API keys into CI.
 - Scoped tests cover missing/invalid public feature inputs, wrong Scratch/Production project and source mismatch. Leave existing Git-triggered Vercel Previews unchanged until replacement passes canary.
 
+## Public-feature masking correction
+- The accepted CI run proved the GitHub variable values match Vercel's shared Preview exactly, but GitHub's job logs exposed those browser-public values. Move the same three names to GitHub Actions **Secrets** (not Variables) to activate automatic redaction; delete the variables after provisioning.
+- This task changes CI to `secrets.MOSAIC_PUBLIC_PREVIEW_GIPHY_KEY`, `secrets.MOSAIC_PUBLIC_PREVIEW_POSTHOG_TOKEN`, `secrets.MOSAIC_PUBLIC_PREVIEW_POSTHOG_HOST`. It also removes a duplicated production Appwrite ID literal from an executable script; Vite's existing production isolation continues exact enforcement.
+- Do not merge this task into stable until those repository secrets are created; otherwise the strict #592 canary check intentionally fails. Git-triggered Vercel Preview still runs unchanged.
+
 ## Next action
 - Focused task CI, squash into stable Preview branch, verify canonical SUCCESS, public feature-presence logs and exact Vercel READY. Presence does not prove copied values equal hosted values.
 - Next: trusted default-main receiver update via separately approved infrastructure-only main PR, full canonical/SHA/attempt checks and artifact verification before any provider creation. Canary red=zero new Vercel deployments, green=one, stale/retry=none; verify routing/alias/Scratch and rollback. No routine GitHub approvals after rollout.
