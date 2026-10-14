@@ -29,6 +29,7 @@ describe('Vercel static prebuilt routing contract (#592)', () => {
   it('preserves every declared SPA deep link but not unmatched static/resource paths', async () => {
     const { config } = await prepared();
     const rewrites = config.routes.filter((route: { dest?: string }) => route.dest === '/index.html');
+    console.log('MOSAIC_ROUTING_DIAGNOSTIC ' + JSON.stringify(config.routes));
     const served = (url: string) => rewrites.some((rule: { src?: string }) =>
       typeof rule.src === 'string' && new RegExp(rule.src).test(url));
     for (const url of [
