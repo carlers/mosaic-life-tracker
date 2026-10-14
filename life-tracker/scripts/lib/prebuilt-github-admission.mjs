@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { isLegacyPrebuiltPilot, isApprovedPrebuiltBranch } from './prebuilt-receiver-gate.mjs';
+import { isLegacyPrebuiltPilot, isApprovedPrebuiltBranch, assertReviewedGenericQualityGate } from './prebuilt-receiver-gate.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { assessPrebuiltReceiverEvent, selectPrebuiltArtifact } from './prebuilt-receiver-gate.mjs';
@@ -53,12 +53,21 @@ export async function accepted(event) {
     throw new Error('Generic trusted Preview rollout remains disabled');
   const source = workflow.head_sha;
   const encoded = branch.split('/').map(encodeURIComponent).join('/');
-  const [runs, checks, branchRef, mainRef] = await Promise.all([
+  const [runs, checks, branchRef, mainRef, sourceWorkflow] = await Promise.all([
     githubJson('/actions/runs?head_sha=' + source + '&per_page=100'),
     githubJson('/commits/' + source + '/check-runs?per_page=100'),
     githubJson('/git/ref/heads/' + encoded),
     githubJson('/git/ref/heads/main'),
+    // Candidate workflows are untrusted even when check names match. The
+    // generic rollout uses only the protected-main-reviewed six-file CI job.
+    isLegacyPrebuiltPilot(branch) ? Promise.resolve(null) :
+      githubJson('/contents/.github/workflows/quality-gate.yml?ref=' +
+        encodeURIComponent(source)),
   ]);
+  assertReviewedGenericQualityGate(branch,
+    sourceWorkflow?.type === 'file' &&
+    sourceWorkflow?.path === '.github/workflows/quality-gate.yml'
+      ? sourceWorkflow.sha : null);
   if (!Array.isArray(runs.workflow_runs) || runs.total_count > 100 ||
       !Array.isArray(checks.check_runs) || checks.total_count > 100)
     throw new Error('Incomplete or paginated canonical Quality Gate evidence');

@@ -3,7 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { isExactPrebuiltSourceOptIn, expectedIsolatedGitConfig } from
   '../../scripts/lib/prebuilt-candidate-payload.mjs';
 import { sourceOptInStatus } from '../../scripts/lib/prebuilt-github-admission.mjs';
-import { PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH } from
+import { PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH,
+  REVIEWED_GENERIC_QUALITY_GATE_BLOB, assertReviewedGenericQualityGate } from
   '../../scripts/lib/prebuilt-receiver-gate.mjs';
 
 const sha = 'a'.repeat(40);
@@ -26,6 +27,20 @@ afterEach(() => {
 });
 
 describe('default-off generic CI-first Preview admission #592', () => {
+  it('rejects a changed candidate Quality Gate definition before provider admission', () => {
+    expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB).toMatch(/^[a-f0-9]{40}$/);
+    const generic = 'feature/normal-work';
+    expect(assertReviewedGenericQualityGate(generic,
+      REVIEWED_GENERIC_QUALITY_GATE_BLOB)).toBe(true);
+    for (const changed of [null, undefined, '', 'f'.repeat(40)])
+      expect(() => assertReviewedGenericQualityGate(generic, changed))
+        .toThrow(/Unreviewed/);
+    expect(() => assertReviewedGenericQualityGate('feature/nested/path',
+      REVIEWED_GENERIC_QUALITY_GATE_BLOB)).toThrow(/Unreviewed/);
+    expect(assertReviewedGenericQualityGate(PREBUILT_CANARY_BRANCH, null)).toBe(true);
+    expect(assertReviewedGenericQualityGate(PREBUILT_PILOT_BRANCH, null)).toBe(true);
+  });
+
   it('never performs even a source policy lookup for ordinary stable CI while disabled', async () => {
     const fetcher = vi.fn();
     vi.stubGlobal('fetch', fetcher);
