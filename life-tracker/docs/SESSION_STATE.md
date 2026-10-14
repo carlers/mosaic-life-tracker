@@ -1,48 +1,15 @@
 # Session checkpoint
 
-Updated: 2026-10-14
-Current task: #592 CI-before-provider-deploy acceptance artifact pipeline.
+Updated: 2026-10-14 UTC
+Current task: #592 — prepare a dev-based, quiet second-branch CI-first Preview pilot.
 
 ## Verified
-
-- #784 guarded-size policy is accepted on protected dev
-  eaab6d9e175f3dac4cc5cf581ea6e5ec70706925:
-  full stable Quality Gate #38429241292 SUCCESS; dev promotion
-  #38429928093 canonical SUCCESS; exact dev Vercel READY.
-  Two initial/Home hard ceilings (154500/381000 B), all seven
-  measured, PWA correctness remains mandatory.
-- #592 default-main receiver is still reuse-only shadow.
-  Security PR #783 was squash merged into stable
-  fix/trusted-preview-uid-592-20261013@dfd9b9a3b6bf0aa2a7b702ad75763782032a6508,
-  full canonical #38431094731 SUCCESS, Vercel
-  dpl_AwvwiV34UR4NNCYv2aMwdaY7CAMB READY.
-  Dependent main PR #781 remains DRAFT: protected main preflight
-  correctly blocks direct non-dev source absent an explicit new
-  owner-reviewed infrastructure exception.
-- Main remains 0e39e7315e18e6750843780432dd42d22f940367
-  and app v0.17.4; do not ship dev features as infrastructure.
-
-## Current task-branch implementation
-
-From dev, chatgpt/592-prebuilt-evidence-20261014 adds
-non-deployable byte-level evidence from the existing successful
-CI build job: exact SHA/ref, seven metrics, per-file SHA-256,
-JS/CSS fingerprint and tarball, short Actions retention.
-No second build, provider POST, credential use or aliases.
-Separate immutable-test verification rejects source/path/profile
-tampering. This slice is NOT deployable until exact Scratch/GIPHY
-effective profile and Vercel Build Output/rewrites parity are proven.
-The default-main trusted receiver must verify full canonical
-acceptance separately; a green build subjob is not authorization.
+- Current protected `main@31d412a93f1c93ba05f8e54b0de950c1344e671c`: Quality Gate #38543710215 SUCCESS; Vercel Production `dpl_5cND3FRZgv9exDZNu9xXaY6qdJ73` READY. Ruleset #24880070 ACTIVE, ZERO bypass; dev unchanged `f3d9558feca499e53c310c5a37be2794717bccf6`. Other #784 guard/audit policy is separately tracked.
+- First isolated canary `fix/592-trusted-archive-20261014@61e6728935ef734eab448da291a12a485aabe7b3`: protected Trusted Delivery #38539354517 attempt 1 created exactly ONE static CI-first Preview `dpl_DtqNxRakFrBXCnrYy5xYSZ7QocnR` READY, no Git build/aliases. Trusted Delivery #38544069361 later reused it successfully without provider POST.
+- Main-based [PR #837](https://github.com/carlers/mosaic-life-tracker/pull/837) is OPEN, awaiting owner's new temporary PR-only ruleset exception; it limits trust to existing canary and exactly one named feature pilot `feature/592-prebuilt-pilot-20261014`. Last stable `fix/592-main-two-branch-gate-20261014@64e020f7bb644818857e0a532d04b0d937737b4a` full canonical #38547254157 SUCCESS; predecessor app-identical preview at `e50177fa` READY, final test/doc-only SHA has NO provider Preview (do not falsely claim exact-SHA READY).
+- This quiet source task, based on dev v0.23.4, modifies ONLY `vercel.json` deploymentEnabled feature class: replace `feature/*:true` with `feature/!(592-prebuilt-pilot-20261014):true` and exact `feature/592-prebuilt-pilot-20261014:false`. It retains main/dev Git-auto, all other feature/fix/perf/security/refactor builds, task quiet, routing and headers byte-for-byte. No app/version/backend/provider secret changes.
 
 ## Next action
-
-Finish focused tests and quality-gate verification of artifact
-capture, then deliver stable Preview under standard workflow
-and inspect attached artifact manifest/readback. Do not blindly
-deploy the artifact or alter Vercel Git automatic deployments.
-Progress separate default-main artifact receiver and quota-safe
-negative CI canary after protected owner authorization. #592
-remains OPEN; #784 remains open pending default-main scheduled
-audit activation, perhaps bundled with a separately approved
-main-only infrastructure commit.
+- Run focused CI for this `chatgpt/**` task, then HOLD the named feature pilot until #837 is owner-merged and current main canonical/Production READY with zero bypasses.
+- To avoid an unsolicited Vercel Git build, NEVER create `feature/592-prebuilt-pilot-20261014` at the original dev HEAD (whose config still enables `feature/*`). After owner main acceptance, create the named branch at an already-verified SHA containing opt-out `vercel.json` before the first push, then verify no Git Preview on red/green, full canonical, protected writer exactly one CLI READY and same-SHA reuse.
+- Stop rollout on any provider Git overlap/error. `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED=false` disables the writer; restoring ordinary Git builds requires reverting the pilot config via reviewed branch change. Alias stays OFF. Do not promote dev/main without separately approved user action. Issue #592 OPEN; device Scratch login remains untested.
