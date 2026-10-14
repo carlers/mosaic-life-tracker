@@ -1,18 +1,18 @@
 # Session checkpoint
 
-Updated: 2026-10-13 UTC
-Current task: #592 live trusted Preview shadow readback failure.
+Updated: 2026-10-14
+Current task: #592 — correct prebuilt Vercel CLI team flag after live failed-first-upload.
 
-## Verified
-- Main PR #775 merged with merge commit `1796f6636cd3d22f1b0de1ab9e08b8bacb89cf8d` on October 13, preserving exactly six infrastructure/docs/test files, main v0.17.4, current dev `d7656e2513e5ee9d339814890cd7f707f18461d6`. GitHub main full Quality Gate #38326773317 SUCCESS; ruleset #24880070 active/no bypass.
-- Vercel rejected exact new main Production SHA with `Deployment rate limited — retry in 24 hours`. Previous Production `dpl_Enm5D8PdkgsTzVMvyfiaWRWkkv9K` READY at earlier main `033e85ce...`; do not claim current main is deployed. Do not create or force deploy while rate limited.
-- Owner configured `mosaic-preview-auto` shadow secret and repo flag. Rerunning accepted pilot Quality Gate #38318701965 (attempt 2) succeeded and triggered `Trusted Preview Delivery #38328093235`. Logs prove enabled=true, create=false, alias=false; authenticated receiver authorized exact main/green source but failed closed `Trusted Preview creation disabled: reuse-only shadow mode` after finding no list candidate. No Vercel POST or alias write occurred.
-- Pilot branch `fix/workflow-build-parity-592-20261012@62ae49cc4773cfd57a766b587fa877c4e8717c57`, Vercel official Git Preview `dpl_CjsoQ5CoU4At7iRWDqPfC3DmxAYX` READY, strict full identity confirmed by separate provider connector. Scoped Vercel list through connector includes candidate; unknown why receiver selected none. Suspicion: raw LIST target omitted vs normalized null.
+## Verified project safety
+- Protected `main@67b444ae421bd51c5a0b5869f123bf7124a8d1c3` app v0.17.4; full Quality Gate #38519174176 SUCCESS and Vercel Production READY; ruleset #24880070 active, bypass actors ZERO. `dev@f3d9558f` v0.23.4 unchanged.
+- Explicit canary `fix/592-trusted-archive-20261014:false` and disjoint other-fix allowlist work: two independent green pushes created ZERO Vercel Git Previews. Subsequent red full canonical [#38522051059](https://github.com/carlers/mosaic-life-tracker/actions/runs/38522051059) also created ZERO deployments and protected writer did not run.
+- Test-only auth/PostHog flaky async wait repair [#820](https://github.com/carlers/mosaic-life-tracker/pull/820) led to green full canonical [#38522610668](https://github.com/carlers/mosaic-life-tracker/actions/runs/38522610668) on stable `bf56a5f84bf985370c34368f1ce0d2161d2925ec`. [Trusted Preview Delivery #38522774415](https://github.com/carlers/mosaic-life-tracker/actions/runs/38522774415) trusted verifier SUCCESS; provider writer STARTED, proving owner set create variable true and alias remains false.
+- Provider CLI v62.7.0 FAILED before any deployment with `User not found (404)` because its argv used `--scope team_U...`; Vercel docs specify slug for --scope, ID for --team. Authenticated project+history readbacks already succeeded; provider history for accepted SHA remains ZERO. Do NOT rerun old code or cause a second provider attempt.
 
-## Scoped code refinement
-- Accept a *missing* target only while nominating a project-scoped list candidate; full authenticated deployment GET still **requires explicit Preview/non-Production target**, correct source, project, repo, branch, SHA and READY.
-- Print only aggregate bounded list-scan counts on no candidate so another rejection can be diagnosed without logging credentials or provider metadata. Add regressions.
-- Do not enable `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED` or `MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED`. Existing Git Preview remains intact.
+## Active infrastructure-only change
+- Main-based task replaces CLI `--scope` with `--team` when passing the pinned team ID. Regression rejects --scope for ID and requires exact --team once. Existing Preview-only target, deterministic deployment ID, full SHA/ZIP/source/route attestation and alias OFF are preserved.
+- No application, env, secret, provider config, branch match, size guard, dev/main/Production release changes in task stage.
 
 ## Next action
-- Focused task CI, squash into main-based safety stable Preview and full canonical/Preview provider check where quota allows. An additional main-only security fix cannot be merged without separate owner-approved boundary; avoid speculative repeated exemptions. Investigate actual list shape via next trusted receiver log, finish reuse-only shadow and quota/Production readiness, then remaining #592 branch generalization, hosted creation, alias, five-promotion verification.
+- Focused CI then stable main-based full canonical + Vercel Preview; prepare infrastructure-only PR to protected main requiring owner-specific temporary Pull-requests-only bypass. Restore zero bypass immediately; verify main full CI/Production v0.17.4.
+- Then only ONE fresh eligible canary accepted SHA, no Git-created Preview, protected writer one prebuilt READY, exact Scratch/GIPHY/PostHog/SPA/headers; inspect provider history before retry if it fails. Alias OFF. Complete idempotency/stale checks and gradual stable-branch rollout, one ordinary feature→dev; #592 OPEN.
