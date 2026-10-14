@@ -13,6 +13,11 @@ Current task: #592 secure CI-before-Vercel Preview cutover.
 - Enforce exact SHA/ref, Scratch Preview backend, and presence of GIPHY/PostHog browser-public variables for #592 stable canary before CI compilation; print only feature presence. Do not weaken normal feature branches. Never copy Vercel write tokens, Appwrite administrator keys or PostHog personal API keys into CI.
 - Scoped tests cover missing/invalid public feature inputs, wrong Scratch/Production project and source mismatch. Leave existing Git-triggered Vercel Previews unchanged until replacement passes canary.
 
+## Trusted receiver read-only gate (P2)
+- Pure default-main receiver validator now checks the exact trusted main checkout, latest successful official same-suite push Quality Gate at the branch HEAD, correct run attempt, and one nonexpired, bounded CI artifact for the same SHA/run/attempt.
+- Nondeployable CI manifest includes Scratch/Preview, Node 24 and nonempty GIPHY/PostHog feature presence; receiver rejects any mismatch, unknown v3 route hash or #784 blocking budget overrun. This is only a preflight; actual artifact bytes must still be independently validated before a provider request.
+- No GitHub/Vercel write token or provider deployment is touched by this slice.
+
 ## Next action
 - Focused task CI, squash into stable Preview branch, verify canonical SUCCESS, public feature-presence logs and exact Vercel READY. Presence does not prove copied values equal hosted values.
 - Next: trusted default-main receiver update via separately approved infrastructure-only main PR, full canonical/SHA/attempt checks and artifact verification before any provider creation. Canary red=zero new Vercel deployments, green=one, stale/retry=none; verify routing/alias/Scratch and rollback. No routine GitHub approvals after rollout.
