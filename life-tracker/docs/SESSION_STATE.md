@@ -15,5 +15,9 @@ Current task: #592 — stage the live-proven six-member CI-first static artifact
 - Quiet task `chatgpt/592-dev-ci-producer-20261014`: full check with `[verify:full]` permitted to exercise canonical CI without any Vercel Git Preview or Trusted main delivery; **do not merge this task directly into dev**. Stage a separate reviewed stable Preview source and require explicit user approval before ANY dev promotion.
 - Rollout flag remains OFF. Do not change Vercel, GitHub repository variables, provider secrets, main/dev, device registration, production release or aliases.
 
+## Quiet full gate diagnostic and repair
+- Initial unprivileged full task gate #38576545287: checks, dependency audit, both DOM/browser shards succeeded, but six-member build-artifact evidence rejected `chatgpt/**` as an untrusted source after Vite/PWA/size budgets already passed. Canonical failed, provider deployments zero.
+- Add narrow candidate-side read-only diagnostic branch source handling only for `deploymentAuthorized:false` evidence. Main's separately protected receiver still rejects quiet task branches before provider use; source-branch opt-in and six-file Quality Gate workflow SHA remain pinned. Add negative spoofing and invalid-branch tests. No modification to workflow, provider, app or main trust policy.
+
 ## Next action
 - Verify task source's exact tree and full canonical Quality Gate, investigate failures. Evaluate a stable Preview staging strategy that avoids needless Git-auto provider builds while generic switch OFF. Prepare reviewed promotion plan/preflight and only request user authorization when the actual feature Preview → dev candidate is accepted and ready. Issue #592 OPEN; manual Scratch login/registered-origin/phone acceptance remains unverified.
