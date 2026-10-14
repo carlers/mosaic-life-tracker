@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { messagesSchema } from '../../src/db/schema';
 import {
   toAppwriteFormat,
   fromAppwriteFormat,
@@ -416,6 +417,44 @@ describe('fromAppwriteFormat', () => {
     expect(out.is_unsent).toBeUndefined();
     expect(out.original_message_id).toBeUndefined();
   });
+  it('messages: ignores newer Diary backend columns while preserving all local schema fields (#708/#408)', () => {
+    // The live Scratch messages table has these four additive fields even
+    // when a v0.24 chat client does not yet understand Diary references.
+    // A new-origin Preview must still read old messages and recent replies.
+    for (const direction of ['outgoing', 'incoming']) {
+      const row = {
+        $id: direction === 'outgoing' ? 'msg_compat' : 'rmsg_compat',
+        user_id: USER_ID,
+        thread_id: 'th_test',
+        sender_id: 'user_sender',
+        recipient_id: 'user_recipient',
+        direction,
+        content: 'persisted message',
+        delivery_status: 'delivered',
+        created_at: '2026-10-14T15:28:13.391Z',
+        updated_at: '2026-10-14T15:28:13.780Z',
+        deleted: false,
+        diary_ref_id: 'diary_1',
+        diary_ref_owner_id: 'user_owner',
+        diary_ref_date: '2026-10-14',
+        diary_ref_excerpt: 'private Diary excerpt',
+        newer_unknown_server_column: 'forward-compatible',
+      };
+      const mapped = fromAppwriteFormat(row, 'messages');
+      expect(Object.keys(mapped).sort()).toEqual(
+        Object.keys(messagesSchema.properties).sort()
+      );
+      expect(mapped.content).toBe('persisted message');
+      expect(mapped.deliveryStatus).toBe('delivered');
+      expect(mapped.isDeleted).toBe(false);
+      expect(mapped.direction).toBe(direction);
+      for (const extra of ['diary_ref_id', 'diary_ref_owner_id',
+        'diary_ref_date', 'diary_ref_excerpt', 'newer_unknown_server_column']) {
+        expect(mapped).not.toHaveProperty(extra);
+      }
+    }
+  });
+
   it('messages: read_at maps to readAt regardless of direction', () => {
     const base = {
       $id: 'rmsg_1',
