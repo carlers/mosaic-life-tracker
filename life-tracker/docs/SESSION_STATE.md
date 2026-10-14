@@ -1,48 +1,17 @@
 # Session checkpoint
 
-Updated: 2026-10-14
-Current task: #592 CI-before-provider-deploy acceptance artifact pipeline.
+Updated: 2026-10-14 UTC
+Current task: #592 — normal-development six-member CI Preview artifact producer, isolated stable rollout.
 
-## Verified
+## Verified before staging
+- Protected main `a7d4c431eef6902f1d2d35271b6b8e41f8e9228e`: full Quality Gate #38569807748 SUCCESS, Production Vercel READY v0.17.4; ruleset has zero bypass actors. Dev `f3d9558feca499e53c310c5a37be2794717bccf6` unchanged.
+- Third ordinary generic feature `25d6d0a5a7686886043cd1a995701b5f4ff42c32`: canonical #38570924020 SUCCESS, one static CLI Preview READY, same-SHA retry reused without POST. Generic rollout now OFF: subsequent trusted delivery #38575847861 skipped both jobs, preserved READY Preview. Issue checkpoint: https://github.com/carlers/mosaic-life-tracker/issues/592#issuecomment-6170060463.
+- Quiet task `chatgpt/592-dev-ci-producer-20261014@4d9c3c80bacb833f10b21686202ceaca6b5e51f8` full Quality Gate #38577395653 SUCCESS, zero provider deployment.
 
-- #784 guarded-size policy is accepted on protected dev
-  eaab6d9e175f3dac4cc5cf581ea6e5ec70706925:
-  full stable Quality Gate #38429241292 SUCCESS; dev promotion
-  #38429928093 canonical SUCCESS; exact dev Vercel READY.
-  Two initial/Home hard ceilings (154500/381000 B), all seven
-  measured, PWA correctness remains mandatory.
-- #592 default-main receiver is still reuse-only shadow.
-  Security PR #783 was squash merged into stable
-  fix/trusted-preview-uid-592-20261013@dfd9b9a3b6bf0aa2a7b702ad75763782032a6508,
-  full canonical #38431094731 SUCCESS, Vercel
-  dpl_AwvwiV34UR4NNCYv2aMwdaY7CAMB READY.
-  Dependent main PR #781 remains DRAFT: protected main preflight
-  correctly blocks direct non-dev source absent an explicit new
-  owner-reviewed infrastructure exception.
-- Main remains 0e39e7315e18e6750843780432dd42d22f940367
-  and app v0.17.4; do not ship dev features as infrastructure.
-
-## Current task-branch implementation
-
-From dev, chatgpt/592-prebuilt-evidence-20261014 adds
-non-deployable byte-level evidence from the existing successful
-CI build job: exact SHA/ref, seven metrics, per-file SHA-256,
-JS/CSS fingerprint and tarball, short Actions retention.
-No second build, provider POST, credential use or aliases.
-Separate immutable-test verification rejects source/path/profile
-tampering. This slice is NOT deployable until exact Scratch/GIPHY
-effective profile and Vercel Build Output/rewrites parity are proven.
-The default-main trusted receiver must verify full canonical
-acceptance separately; a green build subjob is not authorization.
+## Scope and checks
+- Dev-derived stable `fix/592-dev-ci-producer-rollout-20261014` stages the reviewed six-member static CI producer, Scratch/public profile and routing/header verification, pinned routing library, tests and notification fixture clock repair.
+- Preserve original dev `vercel.json` Git-auto rules, app runtime/v0.17.4/backend/budgets and exact reviewed Quality Gate blob `5f64f715551f0c311a60d823367d849dfb369bba`. Quiet `chatgpt|codex` branches may create only `deploymentAuthorized:false` diagnostic evidence; protected main still rejects them from provider delivery.
+- First stable `ed2d3ebdea3b992cf6912eccfe4c63702a6aeefe` Vercel Git Preview `dpl_EuMBpVuGp6skpoGjYUfT3VMRtKag` READY. CI #38578016946 failed only because this checkpoint inflated the 3000-token fixed handoff budget (3046). App build, dependencies, DOM/browser and hosted route/header checks passed. Fix by shortening this checkpoint, never relaxing the budget.
 
 ## Next action
-
-Finish focused tests and quality-gate verification of artifact
-capture, then deliver stable Preview under standard workflow
-and inspect attached artifact manifest/readback. Do not blindly
-deploy the artifact or alter Vercel Git automatic deployments.
-Progress separate default-main artifact receiver and quota-safe
-negative CI canary after protected owner authorization. #592
-remains OPEN; #784 remains open pending default-main scheduled
-audit activation, perhaps bundled with a separately approved
-main-only infrastructure commit.
+- Obtain focused doc-contract success, squash to stable, then require new exact stable full canonical CI and matching Vercel READY. Inspect promotion preflight and get explicit user authorization before PR/merge to `dev`. No app/Production/provider setting or alias mutation; generic switch remains OFF. Manual Scratch login and phone acceptance separately pending. Issue #592 OPEN.
