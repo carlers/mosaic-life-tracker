@@ -779,6 +779,22 @@ describe('sync — freshness barriers', () => {
     );
   });
 
+  it('Sync Now does not erase a delivered outgoing message absent remotely', async () => {
+    setAllPilots(true);
+    const missing = makeDoc({
+      id: 'msg_orphaned',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      lwt: 1,
+      extra: { direction: 'outgoing', deliveryStatus: 'delivered', content: 'important' },
+    });
+    getDatabaseMock.mockReturnValue(makeDb({ messages: makeCollection([missing]) }));
+    listRowsMock.mockResolvedValue({ rows: [] });
+    await expect(syncModule.syncNow('user_A', 5_000)).rejects.toThrow(/Reconciliation failed: messages/);
+    expect(missing.incrementalPatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ isDeleted: true })
+    );
+  });
+
   it('Sync Now preserves an owner row edited after reconciliation starts', async () => {
     setAllPilots(true);
     const concurrent = makeDoc({

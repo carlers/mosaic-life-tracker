@@ -1,17 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-14 UTC
-Current task: #592 — normal-development six-member CI Preview artifact producer, isolated stable rollout.
+Current task: #708 — reintegrate accepted chat reliability into current dev, prepare Preview only.
 
-## Verified before staging
-- Protected main `a7d4c431eef6902f1d2d35271b6b8e41f8e9228e`: full Quality Gate #38569807748 SUCCESS, Production Vercel READY v0.17.4; ruleset has zero bypass actors. Dev `f3d9558feca499e53c310c5a37be2794717bccf6` unchanged.
-- Third ordinary generic feature `25d6d0a5a7686886043cd1a995701b5f4ff42c32`: canonical #38570924020 SUCCESS, one static CLI Preview READY, same-SHA retry reused without POST. Generic rollout now OFF: subsequent trusted delivery #38575847861 skipped both jobs, preserved READY Preview. Issue checkpoint: https://github.com/carlers/mosaic-life-tracker/issues/592#issuecomment-6170060463.
-- Quiet task `chatgpt/592-dev-ci-producer-20261014@4d9c3c80bacb833f10b21686202ceaca6b5e51f8` full Quality Gate #38577395653 SUCCESS, zero provider deployment.
+## Live baseline
+- `dev@881ae72e9768b33d8134457d79f977814e72e51c` version 0.23.4 includes #592 six-member CI producer and #784 2-hard/5-advisory build policy. `main@a7d4c431eef6902f1d2d35271b6b8e41f8e9228e` Production 0.17.4 unchanged. Generic CI-first rollout OFF after verified rollback; keep OFF.
+- User-accepted #708 integrated candidate `fix/chat-reliability-708-dev-integration-20261012@7aef04493a954490ae21a372868098c81929b75c` version 0.24.1, canonical #38257493293 SUCCESS, but Vercel lacked READY due to old daily 402 limit. Old PR #747 is stale/conflicting and must not merge.
+- Live Scratch Function `message-action` v0.24.1 compatibility deployment `6accddcbede4ccb26900` was activated and read back ready after preserving concurrent Diary handlers. This task makes NO Scratch/Production changes.
 
-## Scope and checks
-- Dev-derived stable `fix/592-dev-ci-producer-rollout-20261014` stages the reviewed six-member static CI producer, Scratch/public profile and routing/header verification, pinned routing library, tests and notification fixture clock repair.
-- Preserve original dev `vercel.json` Git-auto rules, app runtime/v0.17.4/backend/budgets and exact reviewed Quality Gate blob `5f64f715551f0c311a60d823367d849dfb369bba`. Quiet `chatgpt|codex` branches may create only `deploymentAuthorized:false` diagnostic evidence; protected main still rejects them from provider delivery.
-- First stable `ed2d3ebdea3b992cf6912eccfe4c63702a6aeefe` Vercel Git Preview `dpl_EuMBpVuGp6skpoGjYUfT3VMRtKag` READY. CI #38578016946 failed only because this checkpoint inflated the 3000-token fixed handoff budget (3046). App build, dependencies, DOM/browser and hosted route/header checks passed. Fix by shortening this checkpoint, never relaxing the budget.
+## This task
+- Reapply only the originally accepted #708 chat runtime/handler/tests exactly from 7aef0449 onto the latest dev tree, preserving every current dev workflow, size-budget, routing and config file; update 3 app/package version declarations to 0.24.1. No backend/cloud deployment in this task. Verify source files have no conflict with intervening dev-only changes.
+- Quiet `chatgpt/708-reintegrate-20261014` runs focused only. After success stage a NEW dev-derived stable `fix/chat-reliability-708-integration-20261014` for full canonical + Vercel Scratch READY. Never merge stale #747 or task directly to dev.
+- Before any promotion, reverify latest dev ancestry, exact stable source tree, READY Preview, Scratch Function identity, strict Appwrite account isolation, and required preflight. Separate explicit user approval is needed if scope changes. User-confirmed earlier two-user Chat Preview basic workflow; no new phone/device test claimed.
 
 ## Next action
-- Obtain focused doc-contract success, squash to stable, then require new exact stable full canonical CI and matching Vercel READY. Inspect promotion preflight and get explicit user authorization before PR/merge to `dev`. No app/Production/provider setting or alias mutation; generic switch remains OFF. Manual Scratch login and phone acceptance separately pending. Issue #592 OPEN.
+- Review quiet CI. Then create reviewed task→stable squash PR, verify full canonical and Vercel READY without unnecessary deployment retries. Record speed/provider outcomes for #592 assessment and report remaining manual tests before any dev promotion. #708 stays OPEN; #745 long-tail performance/stress, #682 notification refinements deferred until chat acceptance.
