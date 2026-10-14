@@ -23,6 +23,10 @@ Current task: #592 exact CI build artifact integrity and nondeployable static ou
 - CI now builds output one time and validates exact archive + official v3 routing by actually assembling the 161-file static output in a temporary directory, verifying bytes, then deleting it. No Vercel invocation, API call, alias, secret or second app compilation.
 - This is not approval to deploy until accepted Scratch/GIPHY public profile and trusted post-canonical main receiver are proven.
 
+## Exact browser-public CI profile proposal
+- The single CI build job now selects approved Scratch public Appwrite project/endpoint/Function when ref is NOT main, and Production only on exact main; runtime checks enforce this. It can optionally consume the owner-mirrored browser-PUBLIC GIPHY and PostHog values from three GitHub repository variables. No Vercel token, private PostHog key, second build or extra provider request.
+- The GIPHY and PostHog variables are not verified provisioned. Artifact stays `deploymentAuthorized=false` and should never be used to replace Vercel's Git Preview until exact public profile and trust receiver pass.
+
 ## Next action
 - Align effective Scratch/GIPHY public profile; package static build output with Vercel Build Output API v3 and official routing adapter with full deep-link/header tests; use these verified bytes only in trusted main receiver AFTER complete canonical success and source/attempt trust checks.
 - Owner separately authorizes accepted dev promotion and later narrowly scoped main infrastructure/configuration change. Test CI-red zero-provider POST, green upload-once, stale/retry/idempotency, stable alias/rollback, one real feature promotion. Keep automatic Git Preview until proven safe.
