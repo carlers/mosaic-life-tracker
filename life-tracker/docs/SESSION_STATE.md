@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-14 UTC
-Current scope: #708 — reintegrate accepted chat reliability into current dev, prepare Preview only.
+Current task: #708 — reintegrate accepted chat reliability into current dev, prepare Preview only.
 
 ## Live baseline
 - `dev@881ae72e9768b33d8134457d79f977814e72e51c` version 0.23.4 includes #592 six-member CI producer and #784 2-hard/5-advisory build policy. `main@a7d4c431eef6902f1d2d35271b6b8e41f8e9228e` Production 0.17.4 unchanged. Generic CI-first rollout OFF after verified rollback; keep OFF.
