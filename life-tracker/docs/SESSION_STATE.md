@@ -1,17 +1,16 @@
 # Session checkpoint
 
 Updated: 2026-10-14 UTC
-Current task: #708 — reintegrate accepted chat reliability into current dev, prepare Preview only.
+Current task: #708 emergency Preview regression: Scratch additive Diary message columns block older chat RxDB replication.
 
-## Live baseline
-- `dev@881ae72e9768b33d8134457d79f977814e72e51c` version 0.23.4 includes #592 six-member CI producer and #784 2-hard/5-advisory build policy. `main@a7d4c431eef6902f1d2d35271b6b8e41f8e9228e` Production 0.17.4 unchanged. Generic CI-first rollout OFF after verified rollback; keep OFF.
-- User-accepted #708 integrated candidate `fix/chat-reliability-708-dev-integration-20261012@7aef04493a954490ae21a372868098c81929b75c` version 0.24.1, canonical #38257493293 SUCCESS, but Vercel lacked READY due to old daily 402 limit. Old PR #747 is stale/conflicting and must not merge.
-- Live Scratch Function `message-action` v0.24.1 compatibility deployment `6accddcbede4ccb26900` was activated and read back ready after preserving concurrent Diary handlers. This task makes NO Scratch/Production changes.
+## Root-cause evidence
+- User reports no chat histories or cross-account visibility on `fix/chat-reliability-708-integration-20261014@bf9f1e1786fc7b39c7bb3f29e9aa65223c1ecedc` even though tasks appear. PR #848 OPEN **UNMERGED**; `dev@881ae72...` unchanged. Pause promotion and do not run destructive message Sync/repair or backend rollback.
+- Live Scratch `life_tracker.messages` read-only: 574 server rows; recent Oct 14 outgoing/incoming pairs are delivered, undeleted and have owner read permissions. User-scoped server query returns rows. No evidence of wholesale deletion. Active shared Scratch Function `6acd0a6643868c68508c` replaced previous #708 deployment `6accddcb...` but preserves #708 delivery/repair handlers in vetted Diary integration PR #752.
+- Live backend migration 015 added 4 optional `diary_ref_*` columns to every messages row. Current `src/lib/syncMapping.ts` spreads EVERY remote column into RxDB, converts known fields but leaves the 4 new columns. Current `messagesSchema` lacks them, and RxDB forbids extra top-level document fields. A fresh Preview/origin receives rejected pulls, showing no history despite preserved server rows. Prior old Preview may have existing cached rows.
+- Also exact new stable Vercel alias is not separately registered in Scratch Web platforms (only broad wildcard), so authenticated CORS/login remains a separate unresolved manual check; do not mistake hosted HTTP 200 for account acceptance.
 
-## This task
-- Reapply only the originally accepted #708 chat runtime/handler/tests exactly from 7aef0449 onto the latest dev tree, preserving every current dev workflow, size-budget, routing and config file; update 3 app/package version declarations to 0.24.1. No backend/cloud deployment in this task. Verify source files have no conflict with intervening dev-only changes.
-- Quiet `chatgpt/708-reintegrate-20261014` runs focused only. After success stage a NEW dev-derived stable `fix/chat-reliability-708-integration-20261014` for full canonical + Vercel Scratch READY. Never merge stale #747 or task directly to dev.
-- Before any promotion, reverify latest dev ancestry, exact stable source tree, READY Preview, Scratch Function identity, strict Appwrite account isolation, and required preflight. Separate explicit user approval is needed if scope changes. User-confirmed earlier two-user Chat Preview basic workflow; no new phone/device test claimed.
-
-## Next action
-- Review quiet CI. Then create reviewed task→stable squash PR, verify full canonical and Vercel READY without unnecessary deployment retries. Record speed/provider outcomes for #592 assessment and report remaining manual tests before any dev promotion. #708 stays OPEN; #745 long-tail performance/stress, #682 notification refinements deferred until chat acceptance.
+## Narrow fix
+- In `fromAppwriteFormat(..., 'messages')`, discard unknown server-only columns before mapping. Preserve known fields, ownership, direction, content and tombstones. Never mutate/delete remote fields or loosen RxDB schema. Newer Diary UI can explicitly map approved added fields when its own compatible schema ships. Add both incoming/outgoing regression fixtures including all live Diary fields and a future unknown field, assert resulting local shape exactly matches `messagesSchema.properties`.
+- Candidate Preview version `0.24.2` patch (successful user-testable #708 refinement) in package/lock/appVersion. Keep all CI guard settings, #592, #784 and Scratch deployment unchanged.
+- Quiet `chatgpt/708-diary-columns-compat-20261014` focused gate, squash into stable `fix/chat-reliability-708-integration-20261014` ONLY after focused success; then full canonical and Vercel READY, hosted routes, live user acceptance before PR #848 promotion. Previously accepted v0.24.1 stable full #38587857741 SUCCESS, Vercel `dpl_zCMK4eU6Dn1vT3N8uirYv5RdfDdS` READY; that earlier automated acceptance did NOT exercise live migration 015.
+- No production/main/dev/Appwrite/data writes. #708 remains OPEN; report any browser/account checks not performed.

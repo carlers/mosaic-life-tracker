@@ -338,6 +338,15 @@ export function fromAppwriteFormat(
     delete mapped.updated_at;
     delete mapped.deleted;
   } else if (collection === 'messages') {
+    // Scratch can deploy additive message columns ahead of older Preview UIs
+    // (e.g. Diary quote refs). Never copy unknown server fields into RxDB:
+    // RxDB forbids additional top-level properties and would reject the
+    // entire incoming/outgoing row, leaving fresh conversations empty.
+    // Keep unrecognized fields intact on the SERVER; message writes are
+    // Function-owned, not pushed back by this replication.
+    for (const key of Object.keys(mapped)) {
+      if (!KNOWN_FIELDS.messages.has(key)) delete mapped[key];
+    }
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
     mapped.threadId = mapped.thread_id || '';
