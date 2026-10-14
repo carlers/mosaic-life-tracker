@@ -56,6 +56,7 @@ describe('main-trusted prebuilt receiver read-only acceptance (#592)', () => {
       [{ ...artifact, workflow_run: { id: 999 } }],
       [{ ...artifact, size_in_bytes: 100000000 }],
       [{ ...artifact, digest: 'sha256:INVALID' }],
+      [{ ...artifact, digest: undefined }],
     ]) expect(() => selectPrebuiltArtifact(entries, request)).toThrow();
   });
   it('rejects wrong Scratch/GIPHY/PostHog profile, oversize and source forgery', () => {

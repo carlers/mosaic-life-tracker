@@ -56,7 +56,7 @@ export function selectPrebuiltArtifact(artifacts, { sha, runId, attempt }) {
       !Number.isSafeInteger(artifact.size_in_bytes) ||
       artifact.size_in_bytes < 100 || artifact.size_in_bytes > MAX_ARTIFACT_BYTES ||
       artifact.workflow_run?.id !== runId ||
-      (artifact.digest != null && !/^sha256:[a-f0-9]{64}$/.test(artifact.digest)))
+      !/^sha256:[a-f0-9]{64}$/.test(artifact.digest ?? ''))
     throw new Error('Untrusted or oversized artifact metadata');
   return { id: artifact.id, name, size: artifact.size_in_bytes,
     digest: artifact.digest ?? null };
