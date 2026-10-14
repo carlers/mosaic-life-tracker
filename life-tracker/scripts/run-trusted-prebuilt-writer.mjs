@@ -24,10 +24,12 @@ const github = path => json(GH + path, GITHUB_TOKEN, 'Trusted source');
 
 async function json(url, bearer, name, extra = {}) {
   if (!bearer) throw new Error(name + ' credentials unavailable');
+  const { headers: moreHeaders, ...rest } = extra;
   const res = await fetch(url, {
+    ...rest,
     headers: { Authorization: 'Bearer ' + bearer,
-      Accept: 'application/json', ...(extra.headers ?? {}) },
-    signal: AbortSignal.timeout(20000), ...extra,
+      Accept: 'application/json', ...(moreHeaders ?? {}) },
+    signal: AbortSignal.timeout(20000),
   });
   if (!res.ok) throw new Error(name + ' HTTP ' + res.status);
   return res.json();
@@ -100,7 +102,8 @@ async function aliasesFor(id) {
 async function main() {
   // The writer never runs as a development shortcut: it must be explicitly
   // enabled only on main, after the exact CI artifact and project review.
-  if (!createEnabled || process.env.GITHUB_REF !== 'refs/heads/main')
+  if (!createEnabled || process.env.MOSAIC_PREBUILT_WRITER_ENABLED !== 'true' ||
+      process.env.GITHUB_REF !== 'refs/heads/main')
     throw new Error('Prebuilt provider writer is not explicitly enabled on trusted main');
   if (!TOKEN || !GITHUB_TOKEN || !binary.startsWith(process.env.RUNNER_TEMP + '/'))
     throw new Error('Untrusted/missing protected provider credentials or pinned CLI path');
