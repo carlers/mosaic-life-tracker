@@ -16,6 +16,10 @@ Current task: #592 second CI-first feature Preview pilot, isolated branch opt-ou
 - Initial pilot stable `585617863900ddaf99cad7754a12b517d9168af3` had zero Git-hosted deployments while full CI #38559022874 failed its NotificationsPage DOM shard: October 7 alerts aged beyond default seven-day retention. This is pre-existing on dev; the same root cause was corrected on main in PR #836 and fully validated in main CI #38558325570.
 - Port EXACT tested `NotificationsPage.test.tsx` suite-local `Date.now` spy and `afterEach` restoration from verified main; no runtime feature code, version or Git delivery policy changes. CI-failing source must NOT trigger trusted Preview writer.
 
+## Full policy-regression root cause
+- Pilot full Quality Gate #38559593433 passed build, dependency, both DOM and both browser shards, but unit `tests/unit/workflowDocs.test.ts:121` incorrectly hardcodes `feature/* === true` even for an explicitly isolated pilot. Fails closed: canonical acceptance FAILED, zero authenticated provider POST and zero Git-auto deployment.
+- Repair its policy invariant to accept only canonical general feature mode OR exact explicitly reviewed one-pilot nonoverlapping exclusion, preserve `main`, `dev`, other categories and quiet task rules, then focused and fresh stable canonical. No app/runtime or provider policy change.
+
 ## Next action
 - Focused task verification, then create one initial stable `feature/592-prebuilt-pilot-20261014` commit with the same reviewed policy atop exact dev and run full canonical CI. Confirm no provider Git Preview for any pilot SHA; default-main trusted receiver/writer must deploy exactly one static CLI Preview only on accepted canonical success, with no aliases. Verify same-SHA reuse with zero POST, hosted routes/headers and rollout/rollback. Do not promote this infrastructure pilot to dev/main without separate approval.
 - Keep #592 OPEN. Manual registered Scratch login/device acceptance remains unverified.
