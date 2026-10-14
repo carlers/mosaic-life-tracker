@@ -101,3 +101,13 @@ export async function admitVerifiedArtifact() {
   await accepted(event); // Fresh latest HEAD, main checkout and canonical status.
   return { event, acceptedRun, verified };
 }
+
+export async function recheckTrustedAdmission(event, prior) {
+  const latest = await accepted(event);
+  if (latest.sha !== prior?.sha ||
+      latest.branch !== prior?.branch ||
+      latest.runId !== prior?.runId ||
+      latest.attempt !== prior?.attempt)
+    throw new Error('Trusted CI evidence changed between admission and provider operation');
+  return latest;
+}
