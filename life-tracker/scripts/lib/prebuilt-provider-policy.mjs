@@ -96,13 +96,20 @@ export function assertAliasTarget(aliases, id) {
 
 export function assertCanaryGitDisabled(highLevelConfig) {
   const enabled = highLevelConfig?.git?.deploymentEnabled;
+  // Vercel minimatch is ADDITIVE: a matching true (e.g. "fix/*") wins
+  // over any more-specific false. Use a non-overlapping extglob allow rule.
+  const nonCanaryFix = 'fix/!(592-trusted-archive-20261014)';
+  const allowed = {
+    '*': false, main: true, dev: true, 'feature/*': true,
+    [nonCanaryFix]: true, 'perf/*': true, 'security/*': true,
+    'refactor/*': true, 'chatgpt/*': false, 'codex/*': false,
+  };
   if (!enabled || typeof enabled !== 'object' || Array.isArray(enabled) ||
-      enabled[CANARY_BRANCH] !== false ||
-      enabled.main !== true || enabled.dev !== true ||
-      enabled['feature/*'] !== true || enabled['fix/*'] !== true ||
+      Object.keys(enabled).length !== Object.keys(allowed).length ||
+      Object.entries(allowed).some(([key, value]) => enabled[key] !== value) ||
       highLevelConfig?.framework !== 'vite' ||
       highLevelConfig?.outputDirectory !== 'dist') {
-    throw new Error('Canary Git auto-deploy is not safely disabled while main/dev remain enabled');
+    throw new Error('Canary Git auto-deploy is not exclusively disabled with main/dev intact');
   }
   return true;
 }
