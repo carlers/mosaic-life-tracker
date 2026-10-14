@@ -47,6 +47,23 @@ describe('main-trusted prebuilt receiver read-only acceptance (#592)', () => {
         head_repository: { full_name: 'attacker/repo' } } } },
     ]) expect(assessPrebuiltReceiverEvent({ ...inputs, ...altered }).eligible).toBe(false);
   });
+  it('rejects a newer green workflow borrowing an older canonical suite or third-party check', () => {
+    const next = { ...run, id: run.id + 1, check_suite_id: suite + 1 };
+    const latest = { ...inputs,
+      event: { ...event, workflow_run: next },
+      workflowRuns: [run, next],
+      checkRuns: [check],
+    };
+    // Even an exact-SHA newer green push cannot reuse the prior suite.
+    expect(assessPrebuiltReceiverEvent(latest).eligible).toBe(false);
+    const newCheck = { ...check, check_suite: { id: next.check_suite_id } };
+    expect(assessPrebuiltReceiverEvent({ ...latest,
+      checkRuns: [{ ...newCheck, app: { slug: 'untrusted-app' } }],
+    }).eligible).toBe(false);
+    expect(assessPrebuiltReceiverEvent({ ...latest,
+      checkRuns: [newCheck],
+    })).toMatchObject({ eligible: true, runId: next.id });
+  });
   it('requires exact artifact run attempt and rejects expired, duplicate and oversized', () => {
     const request = { sha, runId: run.id, attempt: 2 };
     expect(selectPrebuiltArtifact([artifact], request)).toMatchObject({ id: 33 });
