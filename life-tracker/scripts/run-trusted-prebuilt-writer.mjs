@@ -13,7 +13,7 @@ import {
   planAcceptedPreview, addUniquePrebuiltDeploymentId, prebuiltCliArguments,
   assessKnownPrebuiltDeployments, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
   createTrustedCliProjectRoot, isKnownPrebuiltHistoryCandidate,
-  verifyPrebuiltHistoryDetail,
+  providerDeploymentId, verifyPrebuiltHistoryDetail,
 } from './lib/prebuilt-provider-contract.mjs';
 
 const token = process.env.VERCEL_TOKEN ?? '';
@@ -58,11 +58,9 @@ async function deploymentHistory(plan, start) {
   for (let i = 0; i < collected.length; i++) {
     const summary = collected[i];
     if (!isKnownPrebuiltHistoryCandidate(summary, plan)) continue;
-    if (!/^dpl_[a-zA-Z0-9]+$/.test(summary.id ?? '')) {
-      throw new Error('Invalid matching provider deployment ID');
-    }
+    const historyId = providerDeploymentId(summary);
     const detail = await vercelGet('/v13/deployments/' +
-      encodeURIComponent(summary.id) + '?teamId=' +
+      encodeURIComponent(historyId) + '?teamId=' +
       encodeURIComponent(plan.teamId));
     collected[i] = verifyPrebuiltHistoryDetail(summary, detail, plan);
   }

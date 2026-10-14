@@ -6,7 +6,8 @@ import { join, resolve } from 'node:path';
 import {
   addUniquePrebuiltDeploymentId, assessKnownPrebuiltDeployments,
   planAcceptedPreview, prebuiltCliArguments, createTrustedCliProjectRoot,
-  isKnownPrebuiltHistoryCandidate, verifyPrebuiltHistoryDetail,
+  isKnownPrebuiltHistoryCandidate, providerDeploymentId,
+  verifyPrebuiltHistoryDetail,
   VERIFIED_PREVIEW_PROJECT, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
 } from '../../scripts/lib/prebuilt-provider-contract.mjs';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256 } from
@@ -138,6 +139,24 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
     expect(isKnownPrebuiltHistoryCandidate(summary, plan)).toBe(true);
     expect(() => assessKnownPrebuiltDeployments([summary], plan,
       { exhaustive: true })).toThrow(/identity/);
+    // Vercel's actual v6 list uses uid, while v13 detail uses id.
+    const liveList = { ...summary, uid: summary.id };
+    delete (liveList as { id?: string }).id;
+    expect(providerDeploymentId(liveList)).toBe(summary.id);
+    expect(providerDeploymentId(detail)).toBe(summary.id);
+    const liveComplete = verifyPrebuiltHistoryDetail(liveList, detail, plan);
+    expect(liveComplete.id).toBe(summary.id);
+    expect(assessKnownPrebuiltDeployments([liveComplete], plan,
+      { exhaustive: true })).toEqual({ action: 'reuse', id: summary.id });
+    expect(() => providerDeploymentId({ ...liveList, id: 'dpl_Different' }))
+      .toThrow(/Contradictory/);
+    expect(() => providerDeploymentId({ ...liveList, uid: 'bad' }))
+      .toThrow(/Invalid/);
+    expect(() => providerDeploymentId({ meta: summary.meta })).toThrow(/Invalid/);
+    expect(() => verifyPrebuiltHistoryDetail(liveList,
+      { ...detail, uid: 'dpl_Different' }, plan)).toThrow(/Contradictory/);
+    expect(() => verifyPrebuiltHistoryDetail(liveList,
+      { ...detail, id: 'dpl_Different' }, plan)).toThrow();
     const complete = verifyPrebuiltHistoryDetail(summary, detail, plan);
     expect(assessKnownPrebuiltDeployments([complete], plan,
       { exhaustive: true })).toEqual({ action: 'reuse', id: summary.id });
