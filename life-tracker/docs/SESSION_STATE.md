@@ -14,3 +14,6 @@ Current task: #708 emergency Preview regression: Scratch additive Diary message 
 - Candidate Preview version `0.24.2` patch (successful user-testable #708 refinement) in package/lock/appVersion. Keep all CI guard settings, #592, #784 and Scratch deployment unchanged.
 - Quiet `chatgpt/708-diary-columns-compat-20261014` focused gate, squash into stable `fix/chat-reliability-708-integration-20261014` ONLY after focused success; then full canonical and Vercel READY, hosted routes, live user acceptance before PR #848 promotion. Previously accepted v0.24.1 stable full #38587857741 SUCCESS, Vercel `dpl_zCMK4eU6Dn1vT3N8uirYv5RdfDdS` READY; that earlier automated acceptance did NOT exercise live migration 015.
 - No production/main/dev/Appwrite/data writes. #708 remains OPEN; report any browser/account checks not performed.
+
+## Next action
+- Re-run focused CI for the unchanged compatibility fix, then squash accepted task into stable Preview and complete exact-SHA canonical and hosted verification. Recheck authenticated two-account history and new sends before ever merging #848. Keep Scratch rows, Function, dev and Production unchanged.
