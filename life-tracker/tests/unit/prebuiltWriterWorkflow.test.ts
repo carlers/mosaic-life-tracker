@@ -30,17 +30,18 @@ describe('main-only prebuilt writer stays independently disabled (#592)',()=>{
     expect(src).not.toContain('npm run build');
     expect(src).not.toContain('--prod');
   });
-  it('requires exact canary branch off while main and dev remain on',()=>{
+  it('uses NON-OVERLAPPING Vercel minimatch deployment rules',()=>{
     const config={framework:'vite',outputDirectory:'dist',git:{
       deploymentEnabled:{'*':false,main:true,dev:true,'feature/*':true,
-        'fix/*':true,[CANARY_BRANCH]:false}}};
+        'fix/!(592-trusted-archive-20261014)':true,'perf/*':true,
+        'security/*':true,'refactor/*':true,'chatgpt/*':false,'codex/*':false}}};
     expect(assertCanaryGitDisabled(config)).toBe(true);
-    for(const altered of [
-      {'fix/*':false},[CANARY_BRANCH,true],['main',false],['dev',false],
-    ]) {
+    for(const change of [
+      {'fix/*':true}, {'fix/592-trusted-archive-20261014':true},
+      {'main':false}, {'dev':false}, {'*':true},
+    ]){
       const next=structuredClone(config);
-      if(Array.isArray(altered)) next.git.deploymentEnabled[altered[0]]=altered[1];
-      else Object.assign(next.git.deploymentEnabled,altered);
+      Object.assign(next.git.deploymentEnabled,change);
       expect(()=>assertCanaryGitDisabled(next)).toThrow();
     }
   });
