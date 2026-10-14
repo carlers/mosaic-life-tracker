@@ -326,3 +326,31 @@ unit-test no source duplication or alternate upload root. No source rebuild,
 provider setting changes, token privilege changes or aliases. This patch
 still requires task focused/full Preview and a fresh explicitly owner-approved
 protected-main infrastructure merge before another single controlled canary.
+
+## First actual CI-first READY; retry identity mismatch (2026-10-14)
+
+After owner-merged #828, protected `main@40bb1cce` passed full
+Quality Gate #38538577172 and exact Production remained READY. A fresh
+`fix/592-trusted-archive-20261014@61e67289` push passed full canonical
+#38539164866 with **zero** Vercel Git deployments. Trusted Preview Delivery
+#38539354517 attempt 1 receiver and writer **BOTH SUCCESS**: pinned CLI
+uploaded verified static `--prebuilt --target=preview`; Vercel deployment
+`dpl_DtqNxRakFrBXCnrYy5xYSZ7QocnR` is **READY** with source `cli`,
+correct project, Preview target `null`, **zero aliases**, and hosted root,
+notifications deep link, service worker and manifest all HTTP 200 with
+expected security headers. One creation, no app build or candidate code run.
+
+One controlled re-run of that SAME successful workflow (`run_attempt=2`)
+proved zero duplicate deployments, but writer failed BEFORE any POST with
+`Vercel deployment identity or target mismatch` when inspecting existing
+history. The /v6 paginated deployment summary can omit project/target/route
+information required by the reuse validator, even though a complete /v13
+deployment-by-ID readback has already proved those values on first create.
+A narrow correction should enrich a matching v6 summary via authenticated
+v13 detail, requiring matching ID/hostname/identity/project, correct route,
+non-production target and compatible READY/BUILDING state BEFORE reusing or
+waiting. Do not treat a missing field as permission to create, and preserve
+bounded history, provider-enforced unique ID and alias OFF. Test the compact
+summary and contradictory detail cases. The first new attempt after
+protected-main correction should be an **exact same-SHA retry** proving reuse
+with zero writes; no need to consume another canary SHA or provider build.
