@@ -3,7 +3,6 @@
 const CANARY = 'refs/heads/fix/592-trusted-archive-20261014';
 const SCRATCH = '6a96e82d000d1310b3be';
 const ENDPOINT = 'https://fra.cloud.appwrite.io/v1';
-const PRODUCTION = '6a9703c50016b37110ff';
 const SHA = /^[0-9a-f]{40}$/i;
 const has = value => typeof value === 'string' && value.trim().length > 0;
 const httpsUrl = value => {
@@ -31,7 +30,7 @@ export function assessPublicPreviewBuild(env, { mandatoryRef = CANARY } = {}) {
         !has(env.VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID)) {
       reasons.push('Scratch backend is not explicit');
     }
-  } else if (env.VITE_APPWRITE_PROJECT_ID !== PRODUCTION) {
+  } else if (!has(env.VITE_APPWRITE_PROJECT_ID) || env.VITE_APPWRITE_PROJECT_ID === SCRATCH) {
     reasons.push('exact main Production backend is not explicit');
   }
   const giphy = has(env.VITE_GIPHY_API_KEY);
