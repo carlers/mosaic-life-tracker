@@ -414,7 +414,13 @@ would otherwise consume a build and could race the protected writer.
 
 A default-main read-only receiver compares **exact source bytes** at the
 completed push SHA to the main-owned template; ordinary Git-auto branches have
-no opt-in and are skipped, without privileged writer invocation. The receiver
+no opt-in and are skipped, without privileged writer invocation. For newly opted-in generic branches it also verifies that the candidate's
+Quality Gate workflow definition matches the exact **protected-main-reviewed**
+six-file producer blob `5f64f715551f0c311a60d823367d849dfb369bba`;
+merely naming a workflow or check is insufficient. A changed workflow must
+be independently reviewed and re-pinned by a later protected-main change.
+This pins workflow semantics, not arbitrary candidate scripts or app behavior.
+The receiver
 also independently checks the current protected-main checkout, exact source
 HEAD, latest complete canonical CI and same-suite acceptance, artifact name/run
 attempt/digest, bounded six-member archive, Scratch/public-build parity, build

@@ -21,6 +21,18 @@ export const PREBUILT_ROUTING_SHA256 = 'c1ee8560a43e316a7eb8c0ec163affa4c9941050
 const SHA = /^[a-f0-9]{40}$/i;
 const REPO = 'carlers/mosaic-life-tracker';
 const WORKFLOW = '.github/workflows/quality-gate.yml';
+// Only the actually validated six-member CI producer is eligible for the
+// first generic rollout. A candidate-controlled workflow can preserve check
+// labels while changing their meaning; changing this pin needs main review.
+export const REVIEWED_GENERIC_QUALITY_GATE_BLOB =
+  '5f64f715551f0c311a60d823367d849dfb369bba';
+export function assertReviewedGenericQualityGate(branch, sourceBlob) {
+  if (isLegacyPrebuiltPilot(branch)) return true; // No legacy rollout change.
+  if (!isGenericPrebuiltBranch(branch) ||
+      sourceBlob !== REVIEWED_GENERIC_QUALITY_GATE_BLOB)
+    throw new Error('Unreviewed generic Quality Gate definition');
+  return true;
+}
 const MAX_ARTIFACT_BYTES = 16 * 1024 * 1024;
 
 // Pure/read-only: eligibility does NOT create a provider deployment.
