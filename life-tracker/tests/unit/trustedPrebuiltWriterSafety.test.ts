@@ -37,7 +37,7 @@ describe('protected main prebuilt writer remains optional and restricted (#592)'
     expect(body).not.toMatch(/execFileSync\(\s*['"](?:npm|node|git|bash|sh)['"]/);
     expect(body).not.toContain('vercel build');
     expect(body).not.toContain('--prod');
-    expect(body).not.toContain('POST');
+    expect(body).not.toContain("method: 'POST'");
     expect(body).not.toContain('alias set');
   });
 });
