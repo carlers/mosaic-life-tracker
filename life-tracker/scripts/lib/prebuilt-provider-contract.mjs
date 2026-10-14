@@ -75,7 +75,7 @@ export function prebuiltCliArguments(plan) {
     throw new Error('Forbidden Vercel prebuilt scope');
   }
   const argv = ['deploy', '--yes', '--prebuilt', '--target=preview',
-    '--archive=tgz', '--scope', plan.teamId];
+    '--archive=tgz', '--team', plan.teamId];
   for (const [key, value] of Object.entries(plan.meta)) {
     if (!/^[a-zA-Z0-9]+$/.test(key) ||
         !/^[a-zA-Z0-9._/-]+$/.test(value)) {

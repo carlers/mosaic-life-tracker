@@ -70,6 +70,12 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
     expect(argv).toContain('--prebuilt');
     expect(argv).toContain('--target=preview');
     expect(argv).toContain('--archive=tgz');
+    // Vercel CLI --scope expects the human-readable team slug; --team
+    // explicitly accepts a team ID. The old ID-as-scope produced HTTP 404
+    // before any deployment on accepted live canary #38522774415.
+    expect(argv[argv.indexOf('--team') + 1]).toBe(plan.teamId);
+    expect(argv).not.toContain('--scope');
+    expect(argv.filter(arg => arg === '--team')).toHaveLength(1);
     expect(argv).toContain('mosaicPrebuiltSha=' + sha);
     expect(argv).toContain('mosaicPrebuiltId=' + plan.deploymentId);
     expect(argv.join(' ')).not.toMatch(/--prod|--force|vercel build|--build-env|--env\b|--public/);

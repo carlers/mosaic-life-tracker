@@ -246,3 +246,33 @@ focused/full CI, and obtain normal owner review for protected-main infrastructur
 promotion before considering another single bounded live canary. Do not turn on
 provider POST or alias until there is actual evidence of zero Git creations on
 a red push, then one accepted prebuilt upload on green and safe rollback.
+
+## Live prebuilt writer first failure — 2026-10-14
+
+The corrected exact canary=false Git matcher is independently proven: two full
+canonical-green pushes created ZERO Git deployments, and accepted
+`fix/592-trusted-archive-20261014@7df6dd4` had **red** canonical gate
+[#38522051059](https://github.com/carlers/mosaic-life-tracker/actions/runs/38522051059)
+with ZERO deployments. The existing logout/auth PostHog DOM test timed out
+under a parallel shard; a test-only 5s wait repair was squash-merged in
+[PR #820](https://github.com/carlers/mosaic-life-tracker/pull/820).
+Its new stable commit `bf56a5f84bf985370c34368f1ce0d2161d2925ec`
+passed full [Quality Gate #38522610668](https://github.com/carlers/mosaic-life-tracker/actions/runs/38522610668).
+The main-owned read-only verifier succeeded, and the protected writer actually
+started in [Trusted Preview Delivery #38522774415](https://github.com/carlers/mosaic-life-tracker/actions/runs/38522774415), proving the owner's
+`MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED` variable is enabled, alias remains OFF.
+**The provider writer FAILED before any POST/hosted deployment:** official
+Vercel CLI v62.7.0 responded `User not found (404)` when passed the numeric
+`team_UbpudOr8jXyrDA5SdVUxVGOr` to `--scope`. Vercel's current official
+CLI global-options contract uses `--scope <team-slug>` and instead permits
+`--team <team-id>`. In-code authenticated Vercel project and history GETs
+succeeded before the CLI invocation, so credentials/project preflight is good;
+project-scoped deployment history for `bf56a5f` remains EMPTY.
+
+This infrastructure-only patch changes `--scope team_ID` to `--team team_ID`
+and adds an explicit regression. No app/provider/branch config, alias, token or
+CI policy change. This code cannot affect the protected writer until separately
+promoted through a **NEW owner-approved, temporary main PR-only bypass**.
+Do not rerun the failed provider job with the old main code or push another
+canary while this patch is unmerged; a new accepted canary SHA can prove the
+corrected CLI path after main CI/Production v0.17.4 and rule restoration.
