@@ -166,11 +166,12 @@ describe('trusted default-branch Preview receiver (#592)', () => {
     expect(yaml).not.toContain('vercel build');
     expect(yaml).not.toContain('github.event.workflow_run.head_sha }}');
     const impl = readFileSync(new URL('../../scripts/run-trusted-prebuilt-receiver.mjs', import.meta.url), 'utf8');
-    expect(impl).toContain('assessPrebuiltReceiverEvent');
-    expect(impl).toContain('selectPrebuiltArtifact');
-    expect(impl).toContain('verifyPrebuiltCandidateBytes');
-    expect(impl).toContain('await accepted(event);');
-    expect(impl).toContain("'/git/ref/heads/main'");
+    const adm = readFileSync(new URL('../../scripts/lib/prebuilt-admission-runner.mjs', import.meta.url), 'utf8');
+    expect(adm).toContain('assessPrebuiltReceiverEvent');
+    expect(adm).toContain('selectPrebuiltArtifact');
+    expect(adm).toContain('verifyPrebuiltCandidateBytes');
+    expect(adm).toContain('await accepted(event);');
+    expect(adm).toContain("'/git/ref/heads/main'");
     expect(impl).not.toContain("method: 'POST'");
     expect(impl).not.toContain('VERCEL_TOKEN');
     expect(impl).not.toContain('gitSource: trustedGitSource');

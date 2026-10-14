@@ -4,6 +4,7 @@ import { resolve, dirname } from 'node:path';
 
 const allowed = new Set([
   'run-trusted-prebuilt-receiver.mjs',
+  'lib/prebuilt-admission-runner.mjs',
   'lib/prebuilt-receiver-gate.mjs',
   'lib/prebuilt-zip-artifact.mjs',
   'lib/prebuilt-candidate-payload.mjs',
@@ -30,8 +31,9 @@ describe('trusted prebuilt receiver dependency boundary (#592)', () => {
   it('main receiver remains intentionally read-only until protected canary approval', async () => {
     const path = resolve(process.cwd(), 'scripts', 'run-trusted-prebuilt-receiver.mjs');
     const text = await readFile(path, 'utf8');
-    expect(text).toContain('assessPrebuiltReceiverEvent');
-    expect(text).toContain('verifyPrebuiltCandidateBytes');
+    const adm = await readFile(resolve(process.cwd(), 'scripts/lib/prebuilt-admission-runner.mjs'), 'utf8');
+    expect(adm).toContain('assessPrebuiltReceiverEvent');
+    expect(adm).toContain('verifyPrebuiltCandidateBytes');
     expect(text).toContain("MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED === 'true'");
     expect(text).not.toContain("method: 'POST'");
     expect(text).not.toContain('VERCEL_TOKEN');
