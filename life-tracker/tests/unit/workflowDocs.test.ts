@@ -134,6 +134,16 @@ describe('verification workflow contracts', () => {
       expect(matching).toHaveLength(1);
       expect(matching[0][1]).toBe(false);
     }
+    // Only single-leaf stable branch categories participate in automatic
+    // source suppression; dev/main and unsupported names must not be
+    // inadvertently disabled by a broad overlapping pattern.
+    for (const name of ['main', 'dev', 'feature/x/y', 'release/preview']) {
+      const matching = Object.entries(vercel.git.deploymentEnabled)
+        .filter(([pattern]) => matchesGlob(name, pattern));
+      const enabled = matching.length === 0 ||
+        matching.some(([, value]) => value === true);
+      expect(enabled, name).toBe(true);
+    }
     expect(vercel.git.deploymentEnabled['chatgpt/*']).toBe(false);
     expect(vercel.git.deploymentEnabled['codex/*']).toBe(false);
   });
