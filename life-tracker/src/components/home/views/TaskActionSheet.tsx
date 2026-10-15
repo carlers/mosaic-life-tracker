@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { TaskDateEditor } from './TaskDateEditor';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -65,6 +65,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
 }) => {
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
+  const pendingEditRef = useRef(false);
   const dismiss = () => { setDateMode(false); onClose(); };
 
   if (!task) return null;
@@ -88,17 +89,25 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   };
 
   const handleEdit = () => {
-    // BottomSheet restores focus to the control that opened it when the sheet
-    // closes. Starting inline editing in the same event would focus the input
-    // and then immediately blur it during that focus restoration, causing the
-    // input's blur-save handler to exit edit mode. Close first, then enter edit
-    // mode after the sheet's focus-trap cleanup has run.
+    // Wait for the exit animation and focus-trap teardown before mounting
+    // the inline task editor. A zero-delay timer can race with focus return.
+    pendingEditRef.current = true;
     onClose();
-    window.setTimeout(onEdit, 0);
+  };
+
+  const handleExitComplete = () => {
+    onExitComplete();
+    if (!pendingEditRef.current) return;
+    pendingEditRef.current = false;
+    // BottomSheet releases the inert app tree and restores the prior focused
+    // trigger on the next animation frame. Enter edit mode after that return.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(onEdit);
+    });
   };
 
   return (
-    <BottomSheet onExitComplete={onExitComplete}
+    <BottomSheet onExitComplete={handleExitComplete}
       isOpen={isOpen}
       onClose={dismiss}
       onTransientDismiss={() => {

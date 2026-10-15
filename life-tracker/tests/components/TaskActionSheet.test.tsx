@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, screen, act } from '@testing-library/react';
+import { render, fireEvent, screen } from '@testing-library/react';
 import { TaskActionSheet } from '../../src/components/home/views/TaskActionSheet';
 import type {
   TaskDocument,
@@ -86,28 +86,23 @@ describe('TaskActionSheet', () => {
     vi.useRealTimers();
   });
 
-  it('closes before entering edit mode so focus restoration cannot immediately blur the editor', () => {
-    vi.useFakeTimers();
+  it('waits for sheet exit/focus restoration before entering task edit mode', async () => {
     const cbs = makeCallbacks();
-    render(
-      <TaskActionSheet
-        isOpen
-        task={makeTask({ date: TOMORROW_STR })}
-        category={makeCategory()}
-        {...cbs}
-      />
-    );
+    const props = {
+      task: makeTask({ date: TOMORROW_STR }),
+      category: makeCategory(),
+      ...cbs,
+    };
+    const { rerender } = render(<TaskActionSheet isOpen {...props} />);
 
     fireEvent.click(screen.getByText('Edit'));
 
     expect(cbs.onClose).toHaveBeenCalledTimes(1);
     expect(cbs.onEdit).not.toHaveBeenCalled();
 
-    act(() => {
-      vi.runAllTimers();
-    });
-
-    expect(cbs.onEdit).toHaveBeenCalledTimes(1);
+    // Parent closes the sheet: edit must not begin while its focus trap is active.
+    rerender(<TaskActionSheet isOpen={false} {...props} />);
+    await vi.waitFor(() => expect(cbs.onEdit).toHaveBeenCalledTimes(1));
   });
 
   it('fires the top-grid and menu callbacks on tap', () => {

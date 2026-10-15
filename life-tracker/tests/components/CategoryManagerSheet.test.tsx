@@ -314,4 +314,19 @@ describe('CategoryManagerSheet', () => {
     await waitFor(() => expect(screen.queryByText('Delete this category?')).toBeNull());
   });
 
+  it('focuses the edited category input, including when switching edited categories', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const edits = screen.getAllByRole('button', { name: 'Edit category' });
+
+    fireEvent.click(edits[0]);
+    const firstName = screen.getByRole('textbox', { name: 'Name' });
+    expect(firstName).toHaveFocus();
+    expect(firstName).toHaveValue('First');
+
+    fireEvent.click(edits[1]);
+    const secondName = screen.getByRole('textbox', { name: 'Name' });
+    expect(secondName).toHaveFocus();
+    expect(secondName).toHaveValue('Second');
+  });
+
 });
