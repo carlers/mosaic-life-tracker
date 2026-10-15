@@ -5,11 +5,11 @@
       "*": false,
       "main": true,
       "dev": true,
-      "feature/*": true,
-      "fix/*": true,
-      "perf/*": true,
-      "security/*": true,
-      "refactor/*": true,
+      "feature/*": false,
+      "fix/*": false,
+      "perf/*": false,
+      "security/*": false,
+      "refactor/*": false,
       "chatgpt/*": false,
       "codex/*": false
     }
