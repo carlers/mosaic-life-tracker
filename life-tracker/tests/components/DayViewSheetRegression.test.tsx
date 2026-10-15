@@ -107,15 +107,24 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
     selectionMode,
     selectedTaskIds,
     onToggleTaskSelection,
+    onToggleCategorySelection,
   }: {
     tasks: TaskDocument[];
     onOpenActions: (task: TaskDocument) => void;
     selectionMode?: boolean;
     selectedTaskIds?: ReadonlySet<string>;
     onToggleTaskSelection?: (taskId: string) => void;
+    onToggleCategorySelection?: (categoryId: string) => void;
   }) =>
     tasks.length > 0 ? (
       <>
+        {onToggleCategorySelection && (
+          <button type="button" onClick={() => onToggleCategorySelection(tasks[0].categoryId)}>
+            {selectionMode && tasks.every(task => selectedTaskIds?.has(task.id))
+              ? 'Deselect category tasks'
+              : 'Select category tasks'}
+          </button>
+        )}
         {tasks.map((task, index) => (
           <button key={task.id} onClick={() => selectionMode ? onToggleTaskSelection?.(task.id) : onOpenActions(task)}>
             {selectionMode
@@ -307,6 +316,23 @@ describe('DayViewSheet nested task actions', () => {
 
     expect(swiperFixture.slidePrev).toHaveBeenCalledTimes(1);
     expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('a direct category-pill tap enters selection mode and selects the active day, then toggles off', () => {
+    renderSheet();
+
+    // Do not press the global Select action first: the category pill is an
+    // independent entrance to the existing bulk selection model.
+    fireEvent.click(screen.getByRole('button', { name: 'Select category tasks' }));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Exit selection mode' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Open actions' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deselect category tasks' }));
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeDisabled();
   });
 
   it('selects tasks and exposes bulk controls without opening task actions', () => {

@@ -5,6 +5,7 @@
 /* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { runBulkTaskActions } from './bulkTaskActions';
+import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -478,6 +479,26 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       return next;
     });
   }, []);
+
+  const handleToggleCategorySelection = useCallback((categoryId: string) => {
+    if (isBacklogView || !currentUserId) return;
+    if (!isSelectMode) {
+      // Direct category-pill tap enters selection mode with this day's
+      // category selected; the existing Select action remains available.
+      const chosen = toggleCategoryDaySelection(
+        new Set<string>(), tasks, categoryId, activeDateStr, currentUserId
+      );
+      if (chosen.size === 0) return;
+      setEditingTaskId(null);
+      setEditValue('');
+      setSelectedTaskIds(chosen);
+      setIsSelectMode(true);
+      return;
+    }
+    setSelectedTaskIds(current => toggleCategoryDaySelection(
+      current, tasks, categoryId, activeDateStr, currentUserId
+    ));
+  }, [activeDateStr, currentUserId, isBacklogView, isSelectMode, tasks]);
 
   const handleToggleSelectMode = useCallback(() => {
     if (isSelectMode) {
@@ -1062,6 +1083,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       selectionMode={isSelectMode && i === activeIndex}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
+                      onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
                       reorderEnabled={
                         isOpen &&
                         i === activeIndex &&
