@@ -17,6 +17,14 @@ describe('one-branch Git-auto cutover safety (#592)', () => {
   it('explicitly suppresses all supported ordinary stable branches without disabling main/dev', () => {
     const bytes = expectedDefaultCiFirstGitConfig();
     const rules = JSON.parse(bytes.toString()).git.deploymentEnabled as Record<string, boolean>;
+    const baseline = JSON.parse((await readFile(resolve(process.cwd(),
+      'scripts/lib/trusted-prebuilt-vercel.json'))).toString());
+    const inherited = JSON.parse(bytes.toString());
+    expect(inherited.rewrites).toEqual(baseline.rewrites);
+    expect(inherited.headers).toEqual(baseline.headers);
+    expect(inherited.framework).toBe(baseline.framework);
+    expect(inherited.buildCommand).toBe(baseline.buildCommand);
+    expect(inherited.outputDirectory).toBe(baseline.outputDirectory);
     const deploys = (branch: string) => {
       const matched = Object.entries(rules).filter(([pattern]) => matchesGlob(branch, pattern));
       return matched.length === 0 || matched.some(([, yes]) => yes);
