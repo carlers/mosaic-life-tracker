@@ -394,7 +394,7 @@ GitHub administration/permissions and strict-check behavior are reviewed.
 `canonical-acceptance` is push-triggered; never require it as a PR check.
 No new protection setting, queue, or auto-merge is authorized.
 
-## #592 CI-first inherited stable-branch source policy — staged, not activated
+## #592 CI-first inherited stable-branch source policy — awaiting dev promotion
 
 The reviewed rollout candidate disables Git-triggered Vercel deployment on
 single-leaf `feature/*`, `fix/*`, `perf/*`, `security/*`, and
@@ -403,12 +403,30 @@ Git deployed; quiet task branches stay disabled. A plain unmatched `"*":false`
 is not a safe fallback for names containing `/`, so each intended category
 has an explicit `false` rule with no overlapping `true` rule.
 
-**Dependency:** This source-policy task must not be promoted to `dev` or a
-normal stable branch until the separately reviewed *protected-main trusted*
-receiver/writer admits byte-exact inherited default suppression, and normal
-CLI Preview URL/Scratch-origin handling is accepted. Otherwise the stable
-Preview would be stranded. Follow [#592 revised plan](https://github.com/carlers/mosaic-life-tracker/issues/592#issuecomment-6186555585).
-Keep the normal focused → stable full canonical → accepted Preview → separately
-approved dev promotion workflow. A full green canonical gate alone does not
-activate or authorize the trusted provider writer. Never infer Production
-backend or `main` feature promotion from this infrastructure batch.
+**Current gate (2026-10-15):** The protected-main trusted receiver/writer was
+owner-approved in PR #894 and has accepted two genuine feature Previews under
+this exact inherited source policy: #852 v0.28.0 (canonical #38703473737,
+trusted #38703741227), and #851 v0.29.1 (canonical #38710984351,
+trusted #38711265392). Both published one CI-first immutable CLI Preview
+after canonical SUCCESS; no Git-first build was created at the reviewed
+stable SHA. #851 is owner-accepted; #852's human acceptance is separate.
+
+The remaining generalization step is to promote this source policy to
+`dev` as an **independently fully verified stable infrastructure candidate**.
+It must not be silently merged into `dev`: require full exact stable canonical
+acceptance, provider readback, owner approval of the promotion, and dev
+exact-tree gate. This applies to *new* stable branches inheriting `dev`
+after the promotion; previously created branches retain their own source
+config, which must still be inspected before any rollout. Keep `main` and
+`dev` on Git deployment. The generic trusted receiver must remain enabled
+and accepting the exact new config before disabling Git-first on future
+stable branches. If the privileged writer is turned OFF for rollback, restore
+Git-deployment rules through a reviewed source change **before** continuing
+new stable branch delivery; switching a flag off alone strands Git-disabled
+Previews. Preserve existing accepted Preview URLs. Follow
+[#592 revised plan](https://github.com/carlers/mosaic-life-tracker/issues/592#issuecomment-6186555585)
+and continue to require user acceptance for product features and separate
+explicit stable→dev authorization for every promotion.
+
+A full green canonical gate by itself does not authorize provider configuration
+changes, Production backend writes, `main` product promotion, or a 1.0 tag.
