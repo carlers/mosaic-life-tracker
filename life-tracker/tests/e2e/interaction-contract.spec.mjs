@@ -907,10 +907,16 @@ test('task can drop into an empty category from its category surface', async ({ 
     name: 'Add a task to Category 3',
   });
   await source.scrollIntoViewIfNeeded();
+  const gesture = await startTaskLongPress(page, title);
+  await expect(
+    page.locator('[data-task-overlay-id="task_0_0"]')
+  ).toHaveAttribute('data-task-dragging', 'true');
+
+  // Lifting the source can reflow category boundaries. Resolve the actual
+  // destination after the drag settles, not from a stale pre-lift rectangle.
+  await waitForStableVerticalPosition(emptyHeader);
   const headerBox = await emptyHeader.boundingBox();
   if (!headerBox) throw new Error('Missing empty-category bounds');
-
-  const gesture = await startTaskLongPress(page, title);
   await gesture.moveTo(
     headerBox.x + headerBox.width * 0.5,
     headerBox.y + headerBox.height * 0.5
