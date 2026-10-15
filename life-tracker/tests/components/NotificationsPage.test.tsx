@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NotificationItem } from '../../src/lib/notifications';
 
 const mocks = vi.hoisted(() => ({
@@ -162,6 +162,8 @@ function notification(
 
 describe('NotificationsPage', () => {
   beforeEach(() => {
+    // Freeze expiry-sensitive seeded receipts so they remain valid as real time advances.
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-10T12:00:00.000Z'));
     mocks.userId = 'user_b';
     mocks.retentionSettings = {};
     mocks.connectivityStatus = 'online';
@@ -176,6 +178,10 @@ describe('NotificationsPage', () => {
     mocks.sendTaskReaction.mockReset();
     mocks.navigate.mockReset();
     mocks.markCachedNotificationsRead.mockClear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('keeps swipe-route previews cache-only and does not mark activity read', async () => {
