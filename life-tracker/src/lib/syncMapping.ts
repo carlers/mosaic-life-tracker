@@ -197,7 +197,13 @@ export function fromAppwriteFormat(
   collection: string
 ): Record<string, unknown> {
   warnUnknownFields(row, collection);
-  const mapped: Record<string, unknown> = { ...row };
+  // Older installed clients must not feed newly added optional server fields
+  // into strict local RxDB schemas during a staged additive migration.
+  // Preserve the original row for fallback timestamps and metadata below.
+  const known = KNOWN_FIELDS[collection];
+  const mapped: Record<string, unknown> = known
+    ? Object.fromEntries(Object.entries(row).filter(([key]) => known.has(key)))
+    : { ...row };
   delete mapped.$id;
   delete mapped.$createdAt;
   delete mapped.$updatedAt;
