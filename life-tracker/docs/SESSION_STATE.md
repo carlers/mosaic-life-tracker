@@ -1,5 +1,7 @@
 # Session checkpoint — #408 Diary relative ordering and top insertion
 
+Current task: #408 Diary Day View relative ordering v0.25.5 full gate repair.
+
 Updated: October 15, 2026. Base stable Diary Preview v0.25.4 `feature/diary-408@d29340395c82cff91a5a1f9fecc582d727fb320d`. User manually accepts other Diary behavior; reported two outstanding Day View drag/order defects.
 
 ## Approved behavior
@@ -16,3 +18,6 @@ Updated: October 15, 2026. Base stable Diary Preview v0.25.4 `feature/diary-408@
 
 ## Verification/promotion
 - Task branch `chatgpt/408-diary-relative-order-20261015`; focused CI, then stable `feature/diary-408` full canonical + Vercel READY. User device acceptance of drag before/after diary, cross/within category moves, task insertion, Diary drag, re-open, sync, cancellation and fallback still required. Do not merge into dev before approval.
+
+## Next action
+Resolve stable gate #38672944767 type narrowing and time-dependent historic Alerts fixture failures, verify focused task and repaired stable canonical CI plus Vercel READY. Real phone drag remains human acceptance; do not merge dev/main.
