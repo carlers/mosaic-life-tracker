@@ -1118,7 +1118,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onMoveToBacklog={isBacklogView ? undefined : () => runBulkUpdate({ date: '' })}
             onChangeDate={async date => { await runBulkUpdate({ date }); }}
             onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
+            onDoYesterday={() => runBulkUpdate({ date: format(addDays(new Date(), -1), 'yyyy-MM-dd') })}
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
+            showDoToday={selectedTasks.some(task => task.date !== format(new Date(), 'yyyy-MM-dd'))}
+            showDoYesterday={selectedTasks.some(task => task.date !== format(addDays(new Date(), -1), 'yyyy-MM-dd'))}
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
           />
 

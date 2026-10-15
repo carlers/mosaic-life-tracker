@@ -23,6 +23,7 @@ function isoDateLocal(d: Date): string {
 
 const TODAY_STR = isoDateLocal(new Date());
 const TOMORROW_STR = isoDateLocal(new Date(Date.now() + 86_400_000));
+const YESTERDAY_STR = isoDateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - 1));
 
 function makeTask(overrides: Partial<TaskDocument> = {}): TaskDocument {
   return {
@@ -140,6 +141,23 @@ describe('TaskActionSheet', () => {
 
     fireEvent.click(screen.getByText('Do It Today'));
     expect(cbs.onDoItTomorrowOrToday).toHaveBeenCalledTimes(1);
+  });
+
+  it('schedules yesterday via existing date update and hides redundant local-day actions', async () => {
+    const today = makeCallbacks();
+    const { rerender } = render(<TaskActionSheet isOpen task={makeTask()}
+      category={makeCategory()} {...today} />);
+    expect(screen.queryByRole('button', { name: 'Do It Today' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Do It Tomorrow' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Do It Yesterday' }));
+    await vi.waitFor(() => expect(today.onChangeDate).toHaveBeenCalledWith(YESTERDAY_STR));
+    await vi.waitFor(() => expect(today.onClose).toHaveBeenCalled());
+
+    const yesterday = makeCallbacks();
+    rerender(<TaskActionSheet isOpen task={makeTask({ id: 'other', date: YESTERDAY_STR })}
+      category={makeCategory()} {...yesterday} />);
+    expect(screen.queryByRole('button', { name: 'Do It Yesterday' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Do It Today' })).toBeTruthy();
   });
 
   it('saves a calendar day through the existing owner task update callback', async () => {
