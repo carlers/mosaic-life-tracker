@@ -165,6 +165,18 @@ function pushConfig() {
   };
 }
 
+function pushPayloadForSubscription(subscription, payload, details) {
+  if (subscription?.include_task_details !== true || !details) return payload;
+  if (typeof details.socialBody === 'string' && details.socialBody.trim()) {
+    return { ...payload, title: 'Mosaic', body: safePushText(details.socialBody, 180) };
+  }
+  if (typeof details.actorName === 'string' && typeof details.taskTitle === 'string') {
+    return { ...payload, title: 'Mosaic',
+      body: `${details.actorName} completed “${details.taskTitle}”` };
+  }
+  return payload;
+}
+
 async function sendPushToUser(tablesDB, userId, payload, log, details = null) {
   const config = pushConfig();
   if (!config.enabled) return { sent: 0, disabled: true };
@@ -185,12 +197,7 @@ async function sendPushToUser(tablesDB, userId, payload, log, details = null) {
           endpoint: row.endpoint,
           keys: { p256dh: row.p256dh, auth: row.auth },
         },
-        JSON.stringify(
-          row.include_task_details === true && details
-            ? { ...payload, title: 'Mosaic',
-                body: `${details.actorName} completed “${details.taskTitle}”` }
-            : payload
-        ),
+        JSON.stringify(pushPayloadForSubscription(row, payload, details)),
         { TTL: 60 * 60 }
       );
       sent += 1;
@@ -702,6 +709,7 @@ async function handleUnregisterPushSubscription(
 
 module.exports = {
   sendPushToUser,
+  pushPayloadForSubscription,
   notificationExpiresAt,
   UNREAD_RETENTION_MS,
   READ_RETENTION_MS,

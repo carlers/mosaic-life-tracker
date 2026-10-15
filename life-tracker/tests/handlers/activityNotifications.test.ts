@@ -190,4 +190,34 @@ describe('volatile authorized notification details', () => {
     const result = await projectActivity(invited, receipt('shared_task_invite', share.$id), 'user_b');
     expect(result?.detail).toBe('Plan our trip');
   });
+  it('keeps social push generic without a separate, explicit account opt-in', async () => {
+    const db = dbFor(requestRows);
+    const push = vi.fn();
+    await emitActivity(db, request, vi.fn(), push);
+    expect(push).toHaveBeenCalledOnce();
+    expect(push.mock.calls[0][2].body).toBe('Open Mosaic to see an update.');
+    expect(push.mock.calls[0][4]).toBeNull();
+  });
+
+  it('produces a scoped social push preview only after explicit account consent', async () => {
+    const key = 'user_b_alertsSocialPushDetails';
+    const db = dbFor(requestRows, { [key]: {
+      $id: key, key: 'alertsSocialPushDetails', user_id: 'user_b',
+      value: 'true', deleted: false,
+    } });
+    const push = vi.fn();
+    await emitActivity(db, request, vi.fn(), push);
+    expect(push).toHaveBeenCalledOnce();
+    expect(push.mock.calls[0][4]).toEqual({
+      socialBody: 'A sent you a friend request',
+    });
+    const rejected = dbFor(requestRows, { [key]: {
+      $id: key, key: 'alertsSocialPushDetails', user_id: 'user_a',
+      value: 'true', deleted: false,
+    } });
+    const generic = vi.fn();
+    await emitActivity(rejected, request, vi.fn(), generic);
+    expect(generic.mock.calls[0][4]).toBeNull();
+  });
+
 });
