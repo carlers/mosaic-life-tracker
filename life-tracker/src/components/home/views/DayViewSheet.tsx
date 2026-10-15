@@ -481,7 +481,20 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, []);
 
   const handleToggleCategorySelection = useCallback((categoryId: string) => {
-    if (!isSelectMode || isBacklogView || !currentUserId) return;
+    if (isBacklogView || !currentUserId) return;
+    if (!isSelectMode) {
+      // Direct category-pill tap enters selection mode with this day's
+      // category selected; the existing Select action remains available.
+      const chosen = toggleCategoryDaySelection(
+        new Set<string>(), tasks, categoryId, activeDateStr, currentUserId
+      );
+      if (chosen.size === 0) return;
+      setEditingTaskId(null);
+      setEditValue('');
+      setSelectedTaskIds(chosen);
+      setIsSelectMode(true);
+      return;
+    }
     setSelectedTaskIds(current => toggleCategoryDaySelection(
       current, tasks, categoryId, activeDateStr, currentUserId
     ));
@@ -898,7 +911,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             selectionMode={isSelectMode}
             selectedTaskIds={selectedTaskIds}
             onToggleTaskSelection={handleToggleTaskSelection}
-            onToggleCategorySelection={handleToggleCategorySelection}
             reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
             reorderRuntimeActive={isOpen}
             onReorderTasks={reorderTasks}
@@ -1071,7 +1083,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       selectionMode={isSelectMode && i === activeIndex}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
-            onToggleCategorySelection={handleToggleCategorySelection}
+                      onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
                       reorderEnabled={
                         isOpen &&
                         i === activeIndex &&

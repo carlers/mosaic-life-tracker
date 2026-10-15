@@ -65,6 +65,38 @@ describe('CategorySection', () => {
     ).toBeInTheDocument();
   });
 
+  it('tapping the category label starts selection directly and the separate + still adds tasks', () => {
+    const task = {
+      id: 'task_today', title: 'Today task', completed: false,
+      categoryId: 'work', date: '2026-10-15',
+      createdAt: '2026-10-15T00:00:00.000Z',
+      updatedAt: '2026-10-15T00:00:00.000Z',
+      userId: 'user_A', isDeleted: false, visibility: 'private' as const,
+    };
+    const onToggleCategorySelection = vi.fn();
+    const cbs = makeCallbacks();
+    const props = {
+      categoryId: 'work', categoryName: 'Work', categoryColor: '#3B82F6',
+      currentUserId: 'user_A', tasks: [task], editingTaskId: null,
+      editValue: '', selectionMode: false, onToggleCategorySelection, ...cbs,
+    };
+    const { rerender } = render(<CategorySection {...props} />);
+    expect(screen.getByRole('button', { name: 'Select all tasks in Work' }))
+      .toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Select all tasks in Work' }));
+    expect(onToggleCategorySelection).toHaveBeenCalledExactlyOnceWith('work');
+    expect(cbs.onAddTask).not.toHaveBeenCalled();
+    expect(screen.queryByPlaceholderText('Add a task to Work...')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    expect(screen.getByPlaceholderText('Add a task to Work...')).toBeInTheDocument();
+    expect(onToggleCategorySelection).toHaveBeenCalledTimes(1);
+
+    rerender(<CategorySection {...props} tasks={[]} />);
+    expect(screen.getByRole('button', { name: 'Select all tasks in Work' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add a task to Work' })).toBeEnabled();
+  });
+
   it('category pill selects and deselects all displayed tasks in selection mode', () => {
     const task = {
       id: 'task_today', title: 'Today task', completed: false,
