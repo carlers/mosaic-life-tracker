@@ -1,18 +1,17 @@
-# Session checkpoint
+# #682 notifications detailed push follow-up
 
-Updated: 2026-10-15 UTC
-Current task: #682 — re-integrate expanded social notifications onto current v0.24.4 dev without regressing #708 chat convergence.
+Current task: #682 opted-in social push content.
 
-## Verified baseline
-- User accepted chat and sync fixes through dev dc24b1db7c7f10eb50922a8b263a9217a5c6aa7a. Older #682 notifications v0.21.0 Preview 0549118001d448864deb5585c7679e155c011005 diverged from dev (42 commits behind).
-- #526 read-only historical checker exposed missing future-field filtering in old Diary/Notifications Previews, current dev passes; historic proof #38666394991 SUCCESS; tooling stable 951baedd READY. PR #872 prepared but not dev-merged; no Appwrite cloud changes.
-- A diagnostic PR #873 exposed conflicting changed chat delivery and lazy Alerts imports. No direct merge of old notification feature branch into dev is safe.
+Updated: 2026-10-15. Current Notifications Preview v0.26.0 stable feature/notifications-682-integrated-20261015@3388c03a93bc064c8c04d5dc52eca379fa49abe8, canonical green and Vercel READY.
 
-## Scope
-- Port #682 social notification receipt generation, typed feed, per-type preferences, destinations and regression tests by patching feature changes onto the current dev baseline, retaining newer chat repair handlers, account isolation and lazy-preload behavior.
-- Refine read-time authorized in-app social details for messages/reactions/shared task titles; bound excerpts, verify current reaction attribution, block private/undated tasks, and redact social content from every persistent cached receipt. Keep OS Push payload generic without per-device sensitive-content opt-in.
-- Planned integrated MINOR v0.26.0; independently verified on task branch before any stable Preview. Old active Scratch Function 6acd0a6643868c68508c must remain unchanged until exact combined-source backend/privacy check and approved activation.
-- No production or dev changes, no Scratch mutation and no old source snapshot overwrite. Keep #682 open for explicit per-device detailed Push opt-in policy, live two-account/device acceptance and explicit later promotion.
+## User report / correction
+Task completions can show optional detailed OS push, while messages, replies, reactions and shares remain generic. This is because emitActivity has no matching opt-in detail payload; in-app Alert feed details are separately fetched only online, and transient swipe Previews intentionally render redacted cache data.
+
+## Approved implementation scope
+- New synced account-level explicit setting alertsSocialPushDetails, default false, available in Settings > Notifications. To expose private social text in OS push, the account-level opt-in and the **existing per-device** include_task_details opt-in must both be enabled.
+- Keep generic social push otherwise and no surprise disclosure for users who already opted into task titles. Social content is still authorized by the live Function, bounded and never persisted in push receipts/cache.
+- New PATCH version 0.26.1 on task chatgpt/682-social-push-frontend-20261015. Backend implementation on chatgpt/682-social-push-backend-20261015 based on active Diary+Chat+Notifications union; do not overwrite active Scratch with stale frontend Function.
+- No schema changes, Production access, dev/main changes; source changes need focused/full CI, stable Preview READY, explicit coordinated Scratch Function activation, two-account/device acceptance with notification permission enabled and latencies, and user approval for dev later. Keep #682 open.
 
 ## Next action
-- Run focused unit/handler/DOM, code quality and build verification for coherent branch chatgpt/682-notifications-integration-20261015; diagnose and fix failures, then stage new Scratch Preview only after regression safety checks. Preserve user-approved policy: detailed sensitive notification content opt-in with generic push default.
+Run focused CI on task, then canonical stable Preview CI. Do not deploy/activate Scratch changes before compatible backend verification; test two real accounts and opted-in devices. No dev/main/Production promotion.

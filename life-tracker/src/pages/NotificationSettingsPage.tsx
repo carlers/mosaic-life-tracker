@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BellRing, ChevronLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SettingsRow } from '../components/ui/SettingsRow';
-import { ALERTS_CHANNELS_KEY, NOTIFICATION_CHANNELS, resolveNotificationChannels, type NotificationChannels, type NotificationChannelType } from '../lib/notificationChannels';
+import { ALERTS_CHANNELS_KEY, ALERTS_SOCIAL_PUSH_DETAILS_SETTING_KEY, NOTIFICATION_CHANNELS, resolveNotificationChannels, type NotificationChannels, type NotificationChannelType } from '../lib/notificationChannels';
 import { useSettings } from '../hooks/useSettings';
 import {
   ALERTS_READ_RETENTION_SETTING_KEY, ALERTS_UNREAD_RETENTION_SETTING_KEY,
@@ -58,6 +58,22 @@ export const NotificationSettingsPage: React.FC = () => {
   const unreadDays = resolveUnreadRetentionDays(getSetting(ALERTS_UNREAD_RETENTION_SETTING_KEY));
   const readHours = resolveReadRetentionHours(getSetting(ALERTS_READ_RETENTION_SETTING_KEY));
   const syncedChannels = resolveNotificationChannels(getSetting(ALERTS_CHANNELS_KEY));
+  const socialPushDetailsEnabled =
+    getSetting(ALERTS_SOCIAL_PUSH_DETAILS_SETTING_KEY, false) === true;
+  const [socialPushPending, setSocialPushPending] = useState(false);
+  const [socialPushError, setSocialPushError] = useState('');
+  const toggleSocialPushDetails = async () => {
+    if (!userId || socialPushPending || pushState.detailsEnabled !== true) return;
+    setSocialPushPending(true);
+    setSocialPushError('');
+    try {
+      await setSetting(ALERTS_SOCIAL_PUSH_DETAILS_SETTING_KEY, !socialPushDetailsEnabled);
+    } catch {
+      setSocialPushError('Could not save social push detail preference.');
+    } finally {
+      setSocialPushPending(false);
+    }
+  };
   const [channelDraft, setChannelDraft] = useState<{
     userId: string;
     channels: NotificationChannels;
@@ -249,7 +265,7 @@ export const NotificationSettingsPage: React.FC = () => {
           <p role="alert" className="px-4 pt-2 text-xs text-red-400">{channelsError}</p>
         )}
         <p className="px-4 pt-2 text-xs text-gray-500">
-          No message text is shown on the lock screen. Reactions default to in-app only.
+          Message content stays off lock screens unless you explicitly enable social previews below. Reactions default to in-app only.
         </p>
       </section>
       <section className="py-3">
@@ -289,6 +305,25 @@ export const NotificationSettingsPage: React.FC = () => {
               may appear on your lock screen. Disabling cannot erase notifications
               already delivered.
             </p>
+            <SettingsRow
+              icon={<BellRing size={18} className="text-gray-400" aria-hidden="true" />}
+              label="Show message and reaction previews in push"
+              value={socialPushPending ? 'Saving…' :
+                pushState.detailsEnabled !== true ? 'Enable task details on this device first' :
+                socialPushDetailsEnabled ? 'Private previews may appear on lock screens' : 'Generic social push text'}
+              showChevron={false}
+              isToggle
+              checked={socialPushDetailsEnabled}
+              disabled={socialPushPending || pushState.detailsEnabled !== true}
+              onClick={() => void toggleSocialPushDetails()}
+            />
+            <p className="px-5 pb-3 pt-2 text-xs text-gray-500">
+              Separate opt-in for your account, off by default. Private message excerpts,
+              reaction context, and shared-task titles can appear on devices where push
+              details are also enabled. Your choice syncs across devices; delivered
+              notifications cannot be recalled.
+            </p>
+            {socialPushError && <p className="px-5 pb-3 text-xs text-red-400" role="alert">{socialPushError}</p>}
           </>
         )}
         <SettingsRow
