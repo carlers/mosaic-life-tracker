@@ -109,6 +109,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | Module | Source |
 |---|---|
 | ChatSearchBar | [src/components/messages/ChatSearchBar.tsx](../src/components/messages/ChatSearchBar.tsx) |
+| ChatSyncSheet | [src/components/messages/ChatSyncSheet.tsx](../src/components/messages/ChatSyncSheet.tsx) |
 | ConversationRow | [src/components/messages/ConversationRow.tsx](../src/components/messages/ConversationRow.tsx) |
 | EmojiPickerSheet | [src/components/messages/EmojiPickerSheet.tsx](../src/components/messages/EmojiPickerSheet.tsx) |
 | GiphyStickerImage | [src/components/messages/GiphyStickerImage.tsx](../src/components/messages/GiphyStickerImage.tsx) |

@@ -7,7 +7,7 @@ const mock = vi.hoisted(() => ({
 vi.mock('../../src/lib/messageDelivery', () => ({
   deliverPendingMessages: mock.deliver, sendMessageAction: mock.send,
 }));
-vi.mock('../../src/db/sync', () => ({ syncNow: mock.sync }));
+vi.mock('../../src/db/messageReplicationPilot', () => ({ refreshMessageReplicationPilot: mock.sync }));
 vi.mock('../../src/lib/accountWorkScope', () => ({
   captureAccountWorkGeneration: mock.capture,
   isAccountWorkCurrent: mock.current,
@@ -25,22 +25,37 @@ describe('reconcileChat', () => {
     mock.capture.mockReturnValue(1);
     mock.current.mockReturnValue(true);
     mock.deliver.mockResolvedValue(undefined);
-    mock.sync.mockResolvedValue({});
+    mock.sync.mockResolvedValue(true);
     mock.getDatabase.mockReturnValue({
       messages: { find: () => ({ exec: async () => [] }) },
     });
     mock.send.mockResolvedValue({ ok: true, repaired: 1 });
   });
 
-  it('runs the authorized server repair before the awaited freshness barrier', async () => {
+  it('runs the authorized server repair before the awaited message-only freshness barrier', async () => {
     await expect(reconcileChat('user_a', 'user_b')).resolves.toBe(1);
     expect(mock.deliver).toHaveBeenCalledWith('user_a');
     expect(mock.send).toHaveBeenCalledWith(
       { action: 'repair_thread_all', partnerId: 'user_b' }, 90_000);
-    expect(mock.sync).toHaveBeenCalledWith('user_a');
+    expect(mock.sync).toHaveBeenCalledWith('user_a', 60_000);
   });
 
-  it('refuses to claim success with undelivered local outgoing messages', async () => {
+  it('reports real stages including verified local receipt', async () => {
+    const stages: string[] = [];
+    await reconcileChat('user_a', 'user_b', ({ stage }) => stages.push(stage));
+    expect(stages).toEqual(['sending', 'repairing', 'receiving', 'complete']);
+    expect(mock.sync).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not report chat success if message replication is inactive', async () => {
+    mock.sync.mockResolvedValue(false);
+    const stages: string[] = [];
+    await expect(reconcileChat('user_a', 'user_b', ({ stage }) => stages.push(stage)))
+      .rejects.toThrow(/not ready/);
+    expect(stages).toEqual(['sending', 'repairing', 'receiving']);
+  });
+
+    it('refuses to claim success with undelivered local outgoing messages', async () => {
     mock.getDatabase.mockReturnValue({
       messages: { find: () => ({ exec: async () => [{ id: 'msg_pending' }] }) },
     });
