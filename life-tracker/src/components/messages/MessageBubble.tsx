@@ -29,6 +29,7 @@ interface MessageBubbleProps {
   resolveSenderName?: (senderId: string) => string;
   onLongPress?: (message: MessageDocument) => void;
   onQuoteTap?: (targetMessageId: string) => void;
+  onDiaryRefTap?: (message: MessageDocument) => void;
   onReact?: (messageId: string, emoji: string) => void;
   onSwipeReply?: (message: MessageDocument) => void;
   gesturesDisabled?: boolean;
@@ -124,6 +125,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   resolveSenderName,
   onLongPress,
   onQuoteTap,
+  onDiaryRefTap,
   onReact,
   onSwipeReply,
   gesturesDisabled,
@@ -243,6 +245,18 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               />
             </button>
           )}
+          {message.diaryRefId && (
+            <button type="button" data-diary-reference={message.diaryRefId}
+              onClick={event => { event.stopPropagation(); onDiaryRefTap?.(message); }}
+              onPointerDown={event => event.stopPropagation()}
+              aria-label={`Open diary entry from ${message.diaryRefDate}`}
+              className="mb-2 flex w-full min-w-0 flex-col rounded-lg border border-surfaceHighlight bg-surface px-3 py-2 text-left focus-visible:outline focus-visible:outline-2">
+              <span className="max-w-full truncate text-xs font-medium text-white">
+                {message.diaryRefExcerpt || 'Diary entry'}
+              </span>
+              <span className="mt-1 text-[10px] text-gray-400">Diary · {message.diaryRefDate}</span>
+            </button>
+          )}
           {message.taskRefId && (
             <div className="mb-1.5">
               <TaskRefCard
@@ -295,6 +309,10 @@ export const MessageBubble = React.memo(
       prev.message.content === next.message.content &&
       // Remote delivery can repair the quoted snapshot independently of the
       // message body; the thumbnail must update after that sync.
+      prev.message.diaryRefId === next.message.diaryRefId &&
+      prev.message.diaryRefOwnerId === next.message.diaryRefOwnerId &&
+      prev.message.diaryRefDate === next.message.diaryRefDate &&
+      prev.message.diaryRefExcerpt === next.message.diaryRefExcerpt &&
       prev.message.replyToId === next.message.replyToId &&
       prev.message.replyToContent === next.message.replyToContent &&
       prev.message.replyToSenderId === next.message.replyToSenderId &&

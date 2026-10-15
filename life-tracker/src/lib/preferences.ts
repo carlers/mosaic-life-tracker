@@ -19,6 +19,14 @@ export function resolveCalendarZoomDays(value: unknown): CalendarZoomDays {
 export const WEEK_STARTS_ON_SUNDAY_SETTING_KEY = 'weekStartsOnSunday';
 export const SHOW_CATEGORY_COLLAPSE_SETTING_KEY = 'showCategoryCollapseButton';
 export const SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY = 'showDayViewTodayTag';
+export const SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY = 'showDiaryInDayView';
+export const SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY = 'showDiaryTodayShortcut';
+export const DIARY_DAY_VIEW_HEIGHT_SETTING_KEY = 'diaryDayViewHeight';
+export const DIARY_DAY_VIEW_POSITION_SETTING_KEY = 'diaryDayViewDefaultPosition';
+export type DiaryDayViewHeight = 'compact' | 'expanded';
+export type DiaryDayViewPosition = 'top' | 'bottom';
+export function resolveDiaryDayViewHeight(value: unknown): DiaryDayViewHeight { return value === 'expanded' ? 'expanded' : 'compact'; }
+export function resolveDiaryDayViewPosition(value: unknown): DiaryDayViewPosition { return value === 'bottom' ? 'bottom' : 'top'; }
 export const SHARED_LABEL_MODE_SETTING_KEY = 'sharedTaskLabelMode';
 export const SHOW_PENDING_SHARES_SETTING_KEY = 'showPendingSharedTaskInvites';
 export const SHOW_HOLIDAYS_SETTING_KEY = 'showHolidays';

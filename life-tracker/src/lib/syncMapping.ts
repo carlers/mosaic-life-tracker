@@ -36,6 +36,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
   diary: new Set([
     'date',
     'content',
+    'emoji',
+    'photos',
     'visibility',
     'user_id',
     'deleted',
@@ -66,6 +68,10 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'task_ref_title',
     'task_ref_date',
     'task_ref_color',
+    'diary_ref_id',
+    'diary_ref_owner_id',
+    'diary_ref_date',
+    'diary_ref_excerpt',
     'reply_to_id',
     'reply_to_content',
     'reply_to_sender_id',
@@ -161,6 +167,8 @@ export function toAppwriteFormat(
   } else if (collection === 'diary') {
     mapped.date = source.date || '';
     mapped.content = source.content || '';
+    mapped.emoji = source.emoji || '';
+    mapped.photos = source.photos || '[]';
     mapped.visibility = source.visibility || 'private';
     mapped.user_id = userId;
     mapped.deleted = source.isDeleted ?? false;
@@ -194,6 +202,13 @@ export function toAppwriteFormat(
     mapped.task_ref_title = source.taskRefTitle || '';
     mapped.task_ref_date = source.taskRefDate || '';
     mapped.task_ref_color = source.taskRefColor || '';
+    // Old Scratch deployments remain compatible for messages without references.
+    if (source.diaryRefId) {
+      mapped.diary_ref_id = source.diaryRefId;
+      mapped.diary_ref_owner_id = source.diaryRefOwnerId || '';
+      mapped.diary_ref_date = source.diaryRefDate || '';
+      mapped.diary_ref_excerpt = source.diaryRefExcerpt || '';
+    }
     mapped.reply_to_id = source.replyToId || '';
     mapped.reply_to_content = source.replyToContent || '';
     mapped.reply_to_sender_id = source.replyToSenderId || '';
@@ -313,6 +328,8 @@ export function fromAppwriteFormat(
       row.$createdAt ||
       new Date().toISOString();
     mapped.content = row.content || '';
+    mapped.emoji = row.emoji || '';
+    mapped.photos = row.photos || '[]';
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.created_at;
@@ -358,6 +375,14 @@ export function fromAppwriteFormat(
     mapped.taskRefTitle = mapped.task_ref_title || '';
     mapped.taskRefDate = mapped.task_ref_date || '';
     mapped.taskRefColor = mapped.task_ref_color || '';
+    // Older messages have no diary context. Preserve their original shape
+    // rather than synthesizing four empty fields on every legacy round trip.
+    if (mapped.diary_ref_id) {
+      mapped.diaryRefId = mapped.diary_ref_id;
+      mapped.diaryRefOwnerId = mapped.diary_ref_owner_id || '';
+      mapped.diaryRefDate = mapped.diary_ref_date || '';
+      mapped.diaryRefExcerpt = mapped.diary_ref_excerpt || '';
+    }
     mapped.replyToId = mapped.reply_to_id || '';
     mapped.replyToContent = mapped.reply_to_content || '';
     mapped.replyToSenderId = mapped.reply_to_sender_id || '';
@@ -377,6 +402,10 @@ export function fromAppwriteFormat(
     delete mapped.task_ref_title;
     delete mapped.task_ref_date;
     delete mapped.task_ref_color;
+    delete mapped.diary_ref_id;
+    delete mapped.diary_ref_owner_id;
+    delete mapped.diary_ref_date;
+    delete mapped.diary_ref_excerpt;
     delete mapped.reply_to_id;
     delete mapped.reply_to_content;
     delete mapped.reply_to_sender_id;

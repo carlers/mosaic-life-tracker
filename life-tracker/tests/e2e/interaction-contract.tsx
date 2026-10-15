@@ -19,7 +19,8 @@ import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
 import { MessageComposer } from '../../src/components/messages/MessageComposer';
-import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
+import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../src/db/schema';
+import type { DiaryPlacement } from '../../src/lib/diaryPlacement';
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrowNavigation';
 import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRouteSwipeSurface';
@@ -229,6 +230,15 @@ export function InteractionHarness() {
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
   const performanceCalendarPath = searchParams.get('calendarPath') === '1';
   const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
+  const diaryDragProbe = searchParams.get('diaryDrag') === '1';
+  const [diaryTestPlacement, setDiaryTestPlacement] = useState<DiaryPlacement>({kind: 'slot', categoryId: 'cat_0', index: 3});
+  const diaryTestEntry = React.useMemo<DiaryDocument>(() => ({
+    id: 'fixture_diary', userId: 'user_1', date: '2026-09-15',
+    content: 'Diary drag parity fixture. Long content should follow the finger just like the full task block.',
+    emoji: '✨', photos: '[]', visibility: 'private',
+    createdAt: '2026-09-15T00:00:00Z', updatedAt: '2026-09-15T00:00:00Z',
+    isDeleted: false,
+  }), []);
   const [friendIndex, setFriendIndex] = useState(0);
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
@@ -491,6 +501,13 @@ export function InteractionHarness() {
           onEditSave={() => {}}
           onEditCancel={() => {}}
           reorderEnabled
+          diaryEnabled={diaryDragProbe}
+          diaryEntryOverride={diaryDragProbe ? diaryTestEntry : undefined}
+          diaryPlacement={diaryTestPlacement}
+          onMoveDiary={async placement => {
+            setDiaryTestPlacement(placement);
+            setTodoGesture(`diary-moved:${placement.kind === 'slot' ? `${placement.categoryId}:${placement.index}` : placement.kind}`);
+          }}
           onReorderTasks={(_, groups) => {
             const assignments = new Map<
               string,

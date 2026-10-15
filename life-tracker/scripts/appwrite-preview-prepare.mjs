@@ -30,6 +30,7 @@ export function classifyScratchDrift(diffs) {
   const allowed = [
     /^table account_deletions: missing$/,
     /^table diary\.created_at: missing column$/,
+    /^table diary\.emoji: missing column$/,
     /^table messages\.idx_(sender|recipient)_id: missing index$/,
     /^table notifications: missing$/,
     /^table push_subscriptions: missing$/,

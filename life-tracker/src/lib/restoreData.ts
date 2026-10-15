@@ -19,6 +19,7 @@ import {
   type ExportUser,
 } from './exportData';
 import { upsertLocalDoc } from './localUpsert';
+import { parseDiaryPhotos, serializeDiaryPhotos } from './diaryPhotos';
 import {
   hashString,
   makeDiaryRowId,
@@ -522,6 +523,8 @@ function normalizeBackup(
       id: makeDiaryRowId(currentUserId, date),
       date,
       content: asString(raw.content),
+      emoji: asString(raw.emoji).slice(0, 32),
+      photos: serializeDiaryPhotos(parseDiaryPhotos(raw.photos)),
       visibility: asVisibility(raw.visibility, 'private') as
         | 'public'
         | 'followers'
@@ -688,6 +691,7 @@ function validateNormalizedBackup(data: NormalizedBackup): void {
   }
 
   for (const entry of data.diary) {
+    assertMaxLength('diary photos', entry.photos, 512);
     assertMaxLength('diary date', entry.date, 50);
     assertMaxLength('diary created time', entry.createdAt, 50);
     assertMaxLength('diary updated time', entry.updatedAt, 50);
@@ -727,6 +731,7 @@ function referencedImageIds(data: NormalizedBackup): Set<string> {
   for (const task of data.tasks) {
     if (task.image) ids.add(task.image);
   }
+  for (const entry of data.diary) for (const imageId of parseDiaryPhotos(entry.photos)) ids.add(imageId);
   for (const setting of data.settings) {
     if (setting.key === 'profileImageId' && setting.value) {
       ids.add(setting.value);
@@ -744,6 +749,10 @@ async function restoreImages(
   precompressedImages: boolean
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
+  const publicImageIds = new Set(data.tasks.map(t => t.image).filter(Boolean));
+  for (const setting of data.settings) {
+    if (setting.key === 'profileImageId' && setting.value) publicImageIds.add(setting.value);
+  }
   if (ids.length === 0) return { restored: 0, missing: 0 };
 
   const remapped = new Map<string, string>();
@@ -785,7 +794,8 @@ async function restoreImages(
             file,
             preferredFileId,
             currentUserId,
-            precompressedImages
+            precompressedImages,
+            !publicImageIds.has(oldId)
           );
         } catch (error) {
           if (!isRateLimitError(error)) throw error;
@@ -795,7 +805,8 @@ async function restoreImages(
             file,
             preferredFileId,
             currentUserId,
-            precompressedImages
+            precompressedImages,
+            !publicImageIds.has(oldId)
           );
         }
         remapped.set(oldId, ensured.fileId);

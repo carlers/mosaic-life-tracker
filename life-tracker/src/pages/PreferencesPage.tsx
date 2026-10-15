@@ -42,6 +42,12 @@ import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+  SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
+  SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY,
+  DIARY_DAY_VIEW_HEIGHT_SETTING_KEY,
+  DIARY_DAY_VIEW_POSITION_SETTING_KEY,
+  resolveDiaryDayViewHeight,
+  resolveDiaryDayViewPosition,
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
@@ -241,6 +247,10 @@ export const PreferencesPage: React.FC = () => {
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
+  const showDiaryInDayView = getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
+  const showDiaryTodayShortcut = getSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, true) === true;
+  const diaryDayViewHeight = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact'));
+  const diaryDayViewPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
   const showHolidays =
     getSetting(SHOW_HOLIDAYS_SETTING_KEY, false) === true;
   const storedHolidayRegion = normalizeHolidayRegion(
@@ -446,6 +456,20 @@ export const PreferencesPage: React.FC = () => {
               )
             }
           />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show diary in Day View" showChevron={false} isToggle checked={showDiaryInDayView}
+            onClick={() => void setSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, !showDiaryInDayView)} />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label={`Diary text: ${diaryDayViewHeight === 'compact' ? 'One line' : 'Expanded'}`}
+            showChevron={false} isToggle checked={diaryDayViewHeight === 'expanded'}
+            onClick={() => void setSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, diaryDayViewHeight === 'compact' ? 'expanded' : 'compact')} />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label={`Default diary position: ${diaryDayViewPosition === 'top' ? 'Top' : 'Bottom'}`}
+            showChevron={false} isToggle checked={diaryDayViewPosition === 'bottom'}
+            onClick={() => void setSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, diaryDayViewPosition === 'top' ? 'bottom' : 'top')} />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show Diary Today shortcut" showChevron={false} isToggle checked={showDiaryTodayShortcut}
+            onClick={() => void setSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, !showDiaryTodayShortcut)} />
           <SettingsRow
             icon={<CalendarDays size={18} className="text-red-400" aria-hidden="true" />}
             label="Show holidays"

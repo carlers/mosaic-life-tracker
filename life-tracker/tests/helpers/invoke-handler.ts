@@ -17,6 +17,8 @@ export interface MockDb {
 export interface MockStorage {
   listFiles: any;
   deleteFile: any;
+  getFile?: any;
+  getFileDownload?: any;
 }
 
 export interface MockUsers {
@@ -82,11 +84,15 @@ class MockClient {
 class MockStorageService {
   listFiles: any;
   deleteFile: any;
+  getFile: any;
+  getFileDownload: any;
 
   constructor(_client: unknown) {
     if (!state.storage) throw new Error('invoke-handler: storage state missing');
     this.listFiles = state.storage.listFiles;
     this.deleteFile = state.storage.deleteFile;
+    this.getFile = state.storage.getFile ?? vi.fn();
+    this.getFileDownload = state.storage.getFileDownload ?? vi.fn();
   }
 }
 
@@ -178,6 +184,9 @@ const MockQuery = {
     key,
     value,
   }),
+  greaterThanEqual: (key: string, value: unknown) => ({
+    op: 'greaterThanEqual', key, value,
+  }),
 };
 
 const MockPermission = {
@@ -233,6 +242,8 @@ export function makeMockStorage(): MockStorage {
   return {
     listFiles: vi.fn().mockResolvedValue({ files: [] }),
     deleteFile: vi.fn().mockResolvedValue({}),
+    getFile: vi.fn().mockResolvedValue({ mimeType: 'image/webp', sizeOriginal: 9 }),
+    getFileDownload: vi.fn().mockResolvedValue(Buffer.from('fake-image')),
   };
 }
 

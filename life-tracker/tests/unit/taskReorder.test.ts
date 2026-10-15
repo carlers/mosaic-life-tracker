@@ -4,6 +4,8 @@ import {
   buildAffectedTaskOrderGroups,
   buildRenderedTasksByCategory,
   categoryStartDropId,
+  diaryTaskDropId,
+  parseDropTarget,
   projectTaskPlacement,
   taskGapDropId,
   taskInsertDropId,
@@ -99,6 +101,18 @@ describe('task reorder projection', () => {
     expect(projectTaskPlacement(snapshot, 'a1', 'unknown-target')).toBeNull();
   });
 
+  it('does not commit an old hover projection after an outside release and can drag again', () => {
+    const snapshot = { cat_a: ['a1', 'a2'], cat_b: ['b1'] };
+    const hovered = projectTaskPlacement(snapshot, 'a1', taskInsertDropId('cat_b', 'b1', 'after'));
+    expect(hovered).toEqual({ cat_a: ['a2'], cat_b: ['b1', 'a1'] });
+
+    // A canceled/outside drop has no target; the stored snapshot is unchanged.
+    expect(projectTaskPlacement(snapshot, 'a1', 'outside')).toBeNull();
+    expect(snapshot).toEqual({ cat_a: ['a1', 'a2'], cat_b: ['b1'] });
+    expect(projectTaskPlacement(snapshot, 'a2', taskGapDropId('cat_b', 0)))
+      .toEqual({ cat_a: ['a1'], cat_b: ['a2', 'b1'] });
+  });
+
   it('compares placements and builds only the affected persistence groups', () => {
     const snapshot = {
       cat_a: ['a1', 'a2'],
@@ -157,4 +171,23 @@ describe('task reorder projection', () => {
       expect.objectContaining({ id: 'a1', categoryId: 'cat_b', order: 1 }),
     ]);
   });
+  it('targets either half of a diary card even when no free gap exists above it', () => {
+    const before=diaryTaskDropId('cat_a',0,'before');
+    const after=diaryTaskDropId('cat_a',0,'after');
+    expect(parseDropTarget(before)).toEqual({
+      categoryId:'cat_a',position:'index',index:0,diarySide:'before'
+    });
+    expect(parseDropTarget(after)).toEqual({
+      categoryId:'cat_a',position:'index',index:0,diarySide:'after'
+    });
+    expect(projectTaskPlacement({cat_a:['a1','a2']},'a2',before))
+      .toEqual({cat_a:['a2','a1']});
+    expect(projectTaskPlacement({cat_a:['a1','a2']},'a1',diaryTaskDropId('cat_a',1,'after')))
+      .toEqual({cat_a:['a1','a2']});
+    expect(projectTaskPlacement({cat_a:['a1','a2']},'a1',diaryTaskDropId('cat_a',1,'before')))
+      .toEqual({cat_a:['a1','a2']});
+    expect(parseDropTarget('task-diary-insert:cat_a:oops:before')).toBeNull();
+    expect(parseDropTarget('task-diary-insert:cat_a:0:neither')).toBeNull();
+  });
+
 });
