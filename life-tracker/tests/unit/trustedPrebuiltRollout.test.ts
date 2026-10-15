@@ -14,7 +14,7 @@ import {
 const digest = value => createHash('sha256').update(value).digest('hex');
 
 describe('one-branch Git-auto cutover safety (#592)', () => {
-  it('explicitly suppresses all supported ordinary stable branches without disabling main/dev', () => {
+  it('explicitly suppresses all supported ordinary stable branches without disabling main/dev', async () => {
     const bytes = expectedDefaultCiFirstGitConfig();
     const rules = JSON.parse(bytes.toString()).git.deploymentEnabled as Record<string, boolean>;
     const baseline = JSON.parse((await readFile(resolve(process.cwd(),
