@@ -45,6 +45,7 @@
     "friendships:repair": "node scripts/repair-friendships.mjs",
     "mosaic:migrate-account-deletion": "node scripts/appwrite-migrate.mjs --only 001-account-deletion",
     "mosaic:migrate-diary-created-at": "node scripts/appwrite-migrate.mjs --only 002-diary-created-at",
+    "appwrite:preview:compat": "node scripts/check-scratch-client-compat.mjs",
     "appwrite:status": "node scripts/appwrite-status.mjs",
     "appwrite:preview:prepare": "node scripts/appwrite-preview-prepare.mjs",
     "appwrite:preview:seed": "node scripts/appwrite-preview-seed.mjs",
