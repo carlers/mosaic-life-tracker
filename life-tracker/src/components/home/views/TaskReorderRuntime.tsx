@@ -501,7 +501,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           <div aria-hidden="true" data-diary-drag-overlay="true"
             style={{pointerEvents: 'none'}}>
             <React.Suspense fallback={null}>
-              <div className="mx-4 my-2 min-w-0">
+              <div className="my-2 min-w-0">
                 <DiaryDayCardOverlay
                   entry={activeDiaryOverlay.entry}
                   expanded={activeDiaryOverlay.expanded}
