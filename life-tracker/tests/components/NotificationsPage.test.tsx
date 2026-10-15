@@ -53,6 +53,7 @@ vi.mock('../../src/lib/notifications', () => ({
   fetchNotifications: mocks.fetchNotifications,
   fetchNotificationById: mocks.fetchNotificationById,
   markNotificationsRead: mocks.markNotificationsRead,
+  isTaskNotification: (item: { type: string }) => item.type === 'task_completed',
 }));
 
 vi.mock('../../src/lib/notificationCache', () => ({

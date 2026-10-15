@@ -1,4 +1,4 @@
-import type { NotificationItem } from './notifications';
+import type { NotificationEntry } from './notifications';
 import type { TaskDocument } from '../db/schema';
 import { retainRecoverableNotifications } from './notificationRetention';
 
@@ -8,7 +8,7 @@ const DB_VERSION = 1;
 const MAX_CACHED_ITEMS = 100;
 
 export interface CachedNotificationFeed {
-  items: NotificationItem[];
+  items: NotificationEntry[];
   nextCursor: string;
   fetchedAt: string;
 }
@@ -92,7 +92,7 @@ export async function patchCachedNotificationTask(
   await setCachedNotifications(userId, {
     ...cached,
     items: cached.items.map((item) =>
-      item.task.id === taskId
+      item.type === 'task_completed' && item.task.id === taskId
         ? { ...item, task: { ...item.task, ...updates } }
         : item
     ),
