@@ -22,6 +22,14 @@ export interface SyncProgress {
   percent: number;
   label: string;
   pendingGroups?: string[];
+  phase?: 'refresh' | 'verify' | 'finalize';
+  activeGroup?: string | null;
+  verifiedGroups?: number;
+  groupTotal?: number;
+  scannedPages?: number;
+  scannedRows?: number;
+  localChecked?: number;
+  localTotal?: number;
 }
 
 export interface SyncStatus {
