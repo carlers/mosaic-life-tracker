@@ -481,20 +481,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, []);
 
   const handleToggleCategorySelection = useCallback((categoryId: string) => {
-    if (isBacklogView || !currentUserId) return;
-    if (!isSelectMode) {
-      // Direct category-pill tap enters selection mode with this day's
-      // category selected; the existing Select action remains available.
-      const chosen = toggleCategoryDaySelection(
-        new Set<string>(), tasks, categoryId, activeDateStr, currentUserId
-      );
-      if (chosen.size === 0) return;
-      setEditingTaskId(null);
-      setEditValue('');
-      setSelectedTaskIds(chosen);
-      setIsSelectMode(true);
-      return;
-    }
+    if (!isSelectMode || isBacklogView || !currentUserId) return;
     setSelectedTaskIds(current => toggleCategoryDaySelection(
       current, tasks, categoryId, activeDateStr, currentUserId
     ));

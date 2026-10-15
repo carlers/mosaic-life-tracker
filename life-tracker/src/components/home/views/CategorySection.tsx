@@ -255,50 +255,32 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
 
   const categoryHeaderControls = (
     <>
-      {onToggleCategorySelection ? (
-        // The label is the select-all control; keep the + as a distinct
-        // add-task button so the existing quick-add workflow still works.
-        <div className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1">
-          <button
-            type="button"
-            onClick={() => onToggleCategorySelection(categoryId)}
-            disabled={tasks.length === 0}
-            aria-label={`${selectionMode && allCategoryTasksSelected ? 'Deselect all' : 'Select all'} tasks in ${categoryName}`}
-            aria-pressed={selectionMode ? allCategoryTasksSelected : false}
-            className="inline-flex min-h-8 items-center gap-2 text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:cursor-default"
-          >
-            {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
-            <span className="text-[0.9375rem] font-bold"
-              style={{ color: getCategoryLabelColor(categoryColor) }}>
-              {categoryName}
-            </span>
-          </button>
-          {selectionMode ? (
-            <span className="mosaic-category-add-icon inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400" aria-hidden="true">
-              {allCategoryTasksSelected ? <CheckSquare size={18} /> : <Square size={18} />}
-            </span>
-          ) : (
-            <button type="button" onClick={handleOpen}
-              aria-label={`Add a task to ${categoryName}`}
-              className="mosaic-category-add-icon inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-              <Plus data-testid="category-add-icon" size={18} aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      ) : (
-        // Other read-only/embedded category views keep their original
-        // single-button add action when selection is unavailable.
-        <button type="button" onClick={handleOpen} disabled={selectionMode}
-          aria-label={`Add a task to ${categoryName}`}
-          className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-          {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
-          <span className="text-[0.9375rem] font-bold"
-            style={{ color: getCategoryLabelColor(categoryColor) }}>{categoryName}</span>
-          <span className="mosaic-category-add-icon inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400" aria-hidden="true">
-            <Plus data-testid="category-add-icon" size={18} />
-          </span>
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={selectionMode ? () => onToggleCategorySelection?.(categoryId) : handleOpen}
+        disabled={selectionMode && (!onToggleCategorySelection || tasks.length === 0)}
+        className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        aria-label={selectionMode
+          ? `${allCategoryTasksSelected ? 'Deselect all' : 'Select all'} tasks in ${categoryName}`
+          : `Add a task to ${categoryName}`}
+        aria-pressed={selectionMode ? allCategoryTasksSelected : undefined}
+      >
+        {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
+        <span
+          className="text-[0.9375rem] font-bold"
+          style={{ color: getCategoryLabelColor(categoryColor) }}
+        >
+          {categoryName}
+        </span>
+        <span
+          className="mosaic-category-add-icon inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400"
+          aria-hidden="true"
+        >
+          {selectionMode
+            ? allCategoryTasksSelected ? <CheckSquare size={18} /> : <Square size={18} />
+            : <Plus data-testid="category-add-icon" size={18} />}
+        </span>
+      </button>
       {showCollapseButton && (
         <button
           type="button"
