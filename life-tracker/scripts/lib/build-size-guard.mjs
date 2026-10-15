@@ -32,6 +32,16 @@ export function validateBuildSizeBudget(budget) {
   }
   assertByteMap(budget.baseline.metrics, 'baseline.metrics');
   assertByteMap(budget.limits, 'limits', { positive: true });
+  // Backward compatibility for old verified baselines: absent means all seven block.
+  // Explicitly selecting a subset requires a reviewed policy change in CI.
+  if (budget.blockingMetrics !== undefined) {
+    const selected = budget.blockingMetrics;
+    if (!Array.isArray(selected) || selected.length === 0 ||
+        selected.some(name => !BUILD_SIZE_METRICS.includes(name)) ||
+        new Set(selected).size !== selected.length) {
+      throw new Error('blockingMetrics must be a nonempty, unique list of known metrics');
+    }
+  }
   for (const metric of BUILD_SIZE_METRICS) {
     if (budget.baseline.metrics[metric] > budget.limits[metric]) {
       throw new Error(`baseline.metrics.${metric} exceeds its configured limit`);
@@ -43,6 +53,7 @@ export function validateBuildSizeBudget(budget) {
 export function evaluateBuildSizeBudget(budget, actual) {
   validateBuildSizeBudget(budget);
   assertByteMap(actual, 'actual');
+  const blocking = new Set(budget.blockingMetrics ?? BUILD_SIZE_METRICS);
   const metrics = BUILD_SIZE_METRICS.map((name) => {
     const bytes = actual[name];
     const limitBytes = budget.limits[name];
@@ -53,9 +64,10 @@ export function evaluateBuildSizeBudget(budget, actual) {
       limitBytes,
       overByBytes: Math.max(0, bytes - limitBytes),
       passed: bytes <= limitBytes,
+      blocking: blocking.has(name),
     };
   });
-  return { passed: metrics.every((metric) => metric.passed), metrics };
+  return { passed: metrics.every((metric) => metric.passed || !metric.blocking), metrics };
 }
 
 function formatBytes(bytes) {
@@ -65,8 +77,8 @@ function formatBytes(bytes) {
 export function formatBuildSizeResult(result) {
   const heading = `Build-size budget ${result.passed ? 'passed' : 'failed'}.`;
   const rows = result.metrics.map((metric) => {
-    const status = metric.passed ? 'PASS' : `FAIL (+${formatBytes(metric.overByBytes)})`;
-    return `${status.padEnd(18)} ${metric.name.padEnd(28)} ${formatBytes(metric.bytes).padStart(12)} / ${formatBytes(metric.limitBytes)}`;
+    const status = metric.passed ? 'PASS' : `${metric.blocking ? 'FAIL' : 'WARN'} (+${formatBytes(metric.overByBytes)})`;
+    return `${status.padEnd(18)} ${metric.name.padEnd(28)} ${formatBytes(metric.bytes).padStart(12)} / ${formatBytes(metric.limitBytes)}${metric.blocking ? ' [blocking]' : ' [advisory]'}`;
   });
   return [heading, ...rows].join('\n');
 }
