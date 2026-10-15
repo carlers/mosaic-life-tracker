@@ -13,8 +13,10 @@ const {
   handleMarkNotificationsRead,
   handleRegisterPushSubscription,
   handleTaskCompletionEvent,
+  sendPushToUser,
   handleUnregisterPushSubscription,
 } = require('./notifications');
+const { emitActivity } = require('./activity-notifications');
 const {
   Client,
   TablesDB,
@@ -36,6 +38,9 @@ const MESSAGES_TABLE = 'messages';
 const FRIENDSHIPS_TABLE = 'friendships';
 const TASKS_TABLE = 'tasks';
 const CATEGORIES_TABLE = 'categories';
+const DIARY_REACTIONS_TABLE = 'diary_reactions';
+const DIARY_TABLE = 'diary';
+const DIARY_PHOTOS_BUCKET = process.env.APPWRITE_STORAGE_BUCKET_ID || 'task_images';
 const MAX_ROW_ID_LENGTH = 36;
 const ROW_ID_REGEX = /^[a-zA-Z0-9_]+$/;
 const REACTIONS_MAX_LEN = 5000;
@@ -222,6 +227,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const vTaskRefTitle = validateOptionalString(p.taskRefTitle, 500);
   const vTaskRefDate = validateOptionalString(p.taskRefDate, 50);
   const vTaskRefColor = validateOptionalString(p.taskRefColor, 20);
+  const vDiaryRefId = validateOptionalString(p.diaryRefId, 36);
+  const vDiaryRefOwnerId = validateOptionalString(p.diaryRefOwnerId, 36);
+  const vDiaryRefDate = validateOptionalString(p.diaryRefDate, 10);
+  const vDiaryRefExcerpt = validateOptionalString(p.diaryRefExcerpt, 160);
   const vReplyToId = validateOptionalString(p.replyToId, 255);
   const vReplyToContent = validateOptionalString(p.replyToContent, 300);
   const vReplyToSenderId = validateOptionalString(p.replyToSenderId, 255);
@@ -232,6 +241,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     ['taskRefTitle', vTaskRefTitle],
     ['taskRefDate', vTaskRefDate],
     ['taskRefColor', vTaskRefColor],
+    ['diaryRefId', vDiaryRefId],
+    ['diaryRefOwnerId', vDiaryRefOwnerId],
+    ['diaryRefDate', vDiaryRefDate],
+    ['diaryRefExcerpt', vDiaryRefExcerpt],
     ['replyToId', vReplyToId],
     ['replyToContent', vReplyToContent],
     ['replyToSenderId', vReplyToSenderId],
@@ -248,14 +261,19 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const taskRefTitle = vTaskRefTitle.value;
   const taskRefDate = vTaskRefDate.value;
   const taskRefColor = vTaskRefColor.value;
+  const diaryRefId = vDiaryRefId.value;
+  const diaryRefOwnerId = vDiaryRefOwnerId.value;
+  const diaryRefDate = vDiaryRefDate.value;
+  let diaryRefExcerpt = '';
   const replyToId = vReplyToId.value;
   const replyToContent = vReplyToContent.value;
   const replyToSenderId = vReplyToSenderId.value;
   const createdAt = vCreatedAt.value;
   const hasContent = content.trim().length > 0;
   const hasTaskRef = taskRefId !== '' || taskRefTitle !== '';
+  const hasDiaryRef = diaryRefId !== '';
   const hasReply = replyToId !== '';
-  if (!hasContent && !hasTaskRef && !hasReply) {
+  if (!hasContent && !hasTaskRef && !hasReply && !hasDiaryRef) {
     error('deliver: message has no content');
     return { status: 400, body: { error: 'Message has no content' } };
   }
@@ -263,6 +281,19 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   if (!isFriend) {
     error(`deliver: Forbidden, no accepted friendship ${senderId} -> ${recipientId}`);
     return { status: 403, body: { error: 'Not friends with this user' } };
+  }
+  if (hasDiaryRef) {
+    if (!isValidRowId(diaryRefId) || !isValidRowId(diaryRefOwnerId) ||
+      diaryRefOwnerId !== recipientId ||
+      !/^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(diaryRefDate) ||
+      hasTaskRef) return { status: 400, body: { error: 'Invalid diary reference' } };
+    const diary = await findVisibleFriendDiary(tablesDB, senderId, diaryRefId, diaryRefOwnerId);
+    if (!diary || diary.date !== diaryRefDate)
+      return { status: 403, body: { error: 'Diary no longer available' } };
+    diaryRefExcerpt = String(diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
+      String(diary.emoji || '').slice(0, 32) || 'Diary photos';
+  } else if (diaryRefOwnerId || diaryRefDate || vDiaryRefExcerpt.value) {
+    return { status: 400, body: { error: 'Incomplete diary reference' } };
   }
   const recipientRowId = makeRecipientRowId(messageId);
   const [x, y] =
@@ -352,6 +383,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
         task_ref_title: taskRefTitle,
         task_ref_date: taskRefDate,
         task_ref_color: taskRefColor,
+          diary_ref_id: diaryRefId,
+          diary_ref_owner_id: diaryRefOwnerId,
+          diary_ref_date: diaryRefDate,
+          diary_ref_excerpt: diaryRefExcerpt,
         reply_to_id: replyToId,
         reply_to_content: replyToContent,
         reply_to_sender_id: replyToSenderId,
@@ -388,6 +423,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           task_ref_title: taskRefTitle,
           task_ref_date: taskRefDate,
           task_ref_color: taskRefColor,
+          diary_ref_id: diaryRefId,
+          diary_ref_owner_id: diaryRefOwnerId,
+          diary_ref_date: diaryRefDate,
+          diary_ref_excerpt: diaryRefExcerpt,
           reply_to_id: replyToId,
           reply_to_content: replyToContent,
           reply_to_sender_id: replyToSenderId,
@@ -417,9 +456,8 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     log(`deliver: sender row ${messageId} already exists`);
   }
   log(`deliver: ${messageId} -> ${recipientId} as ${recipientRowId}`);
-  return { status: 200, body: { ok: true, messageId, recipientRowId, threadId } };
+  return { status: 200, body: { ok: true, messageId, recipientRowId, threadId, duplicate: Boolean(existingRecipientRow) } };
 }
-
 // Explicit, bounded anti-entropy for a single authorized thread. Reconstruct
 // only a provably missing counterpart of a committed, non-unsent owner row.
 async function handleRepairThread(tablesDB, callerId, payload, verified = false) {
@@ -1003,6 +1041,7 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   }
   const now = new Date().toISOString();
   let updated = 0;
+  let reactionAdded = false;
   let resolvedPeerRowId = '';
   let myRow = null;
   try {
@@ -1037,6 +1076,10 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
         continue;
       }
       const current = parseReactions(row.reactions || '');
+      if (op === 'add' && row.user_id === callerId &&
+          !current.some(item => item.emoji === emoji && item.userIds.includes(callerId))) {
+        reactionAdded = true;
+      }
       const next = applyReactionDelta(current, emoji, callerId, op);
       const nextStr = stringifyReactions(next);
       if (nextStr.length > REACTIONS_MAX_LEN) {
@@ -1070,7 +1113,9 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   log(
     `react: caller=${callerId} emoji=${emoji} op=${op} rows=${updated} resolvedPeer=${resolvedPeerRowId || '-'}`
   );
-  return { status: 200, body: { ok: true, updated, resolvedPeerRowId } };
+  return { status: 200, body: { ok: true, updated, resolvedPeerRowId,
+    reactionAdded, originalAuthorId: myRow?.sender_id || '',
+    originalMessageId: myRow?.original_message_id || myRow?.$id || '' } };
 }
 async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
@@ -1158,6 +1203,8 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
     return { status: 403, body: { error: 'Task is not visible to you' } };
   }
   const current = parseReactions(row.reactions || '');
+  const reactionAdded = op === 'add' &&
+    !current.some(item => item.emoji === emoji && item.userIds.includes(callerId));
   const next = applyReactionDelta(current, emoji, callerId, op);
   const nextStr = stringifyReactions(next);
   if (nextStr.length > REACTIONS_MAX_LEN) {
@@ -1181,7 +1228,7 @@ async function handleReactToTask(tablesDB, callerId, payload, log, error) {
   log(
     `react_to_task: caller=${callerId} task=${taskId} owner=${taskOwnerId} emoji=${emoji} op=${op}`
   );
-  return { status: 200, body: { ok: true, reactions: nextStr } };
+  return { status: 200, body: { ok: true, reactions: nextStr, reactionAdded } };
 }
 // Lightweight, privacy-checked alert tap-through. Unlike get_friend_calendar,
 // this requires at most a task and category row instead of a user's full history.
@@ -1237,6 +1284,182 @@ async function handleGetFriendTask(tablesDB, callerId, payload, log, error) {
   };
 }
 
+
+async function findVisibleFriendDiary(tablesDB, callerId, diaryId, ownerId) {
+  if (!isValidRowId(ownerId) || !isValidRowId(diaryId) || callerId === ownerId) return null;
+  if (!await verifyFriendship(tablesDB, callerId, ownerId)) return null;
+  let row;
+  try { row = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId }); }
+  catch { return null; }
+  if (row.user_id !== ownerId || row.deleted === true ||
+    !['public','followers'].includes(row.visibility)) return null;
+  return row;
+}
+
+async function handleReactToDiary(tablesDB, callerId, payload, log, error) {
+  const { friendUserId: ownerId, diaryId, emoji, op } = payload || {};
+  const valid = validateEmoji(emoji);
+  if (!valid.ok || (op !== 'add' && op !== 'remove'))
+    return { status: 400, body: { error: 'Invalid diary reaction' } };
+  const diary = await findVisibleFriendDiary(tablesDB, callerId, diaryId, ownerId);
+  if (!diary) return { status: 403, body: { error: 'Diary unavailable' } };
+  const rowId = 'dr_' + sha256Hex(diaryId + '|' + callerId + '|' + valid.value).slice(0, 30);
+  const now = new Date().toISOString();
+  const table = { databaseId: DATABASE_ID, tableId: DIARY_REACTIONS_TABLE, rowId };
+  let existing = null;
+  try { existing = await tablesDB.getRow(table); } catch (cause) {
+    if (Number(cause?.code) !== 404) throw cause;
+  }
+  let created = false;
+  if (!existing && op === 'add') {
+    try {
+      await tablesDB.createRow({ ...table, data: {
+        diary_id: diaryId, owner_id: ownerId, user_id: callerId, date: diary.date,
+        emoji: valid.value, deleted: false, created_at: now, updated_at: now,
+      }, permissions: [] });
+      created = true;
+      existing = { diary_id: diaryId, owner_id: ownerId, user_id: callerId, deleted: false, updated_at: now };
+    } catch (cause) {
+      if (Number(cause?.code) !== 409) throw cause;
+      existing = await tablesDB.getRow(table);
+    }
+  }
+  if (!existing) return { status: 200, body: { ok: true, changed: false } };
+  if (existing.diary_id !== diaryId || existing.user_id !== callerId ||
+    existing.owner_id !== ownerId)
+    return { status: 403, body: { error: 'Diary reaction unavailable' } };
+  const changed = created || Boolean(existing.deleted) === (op === 'add');
+  const eventAt = changed ? now : (existing.updated_at || existing.created_at);
+  if (changed && !created) {
+    await tablesDB.updateRow({ ...table, data: { deleted: op === 'remove', updated_at: now } });
+  }
+  if (op === 'add') {
+    // One durable activity message per add transition. Retries reuse its ID.
+    const messageId = 'msg_dr_' + sha256Hex(rowId + '|' + eventAt).slice(0, 27);
+    const delivery = await handleDeliver(tablesDB, callerId, {
+      messageId, recipientId: ownerId,
+      content: `Reacted ${valid.value} to your diary`,
+      diaryRefId: diaryId, diaryRefOwnerId: ownerId, diaryRefDate: diary.date,
+      createdAt: eventAt,
+    }, log, error);
+    if (delivery.status !== 200) return delivery;
+  }
+  return { status: 200, body: { ok: true, changed } };
+}
+async function handleGetOwnerDiaryReactions(tablesDB, callerId, payload, log) {
+  const diaryId = payload?.diaryId;
+  if (!isValidRowId(diaryId)) return { status: 400, body: { error: 'Invalid diary' } };
+  let diary;
+  try {
+    diary = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId });
+  } catch (cause) {
+    if (Number(cause?.code) === 404) return { status: 404, body: { error: 'Diary unavailable' } };
+    throw cause;
+  }
+  if (diary.user_id !== callerId || diary.deleted === true) {
+    return { status: 403, body: { error: 'Diary unavailable' } };
+  }
+  if (!/^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(diary.date || '')) {
+    return { status: 400, body: { error: 'Invalid diary date' } };
+  }
+  // Use the same bounded owner/month access pattern as friend month reads.
+  const month = diary.date.slice(0, 7);
+  const [year, number] = month.split('-').map(Number);
+  const nextMonth = number === 12
+    ? `${year + 1}-01-01`
+    : `${year}-${String(number + 1).padStart(2, '0')}-01`;
+  const rows = await listAllRows(tablesDB, DIARY_REACTIONS_TABLE, [
+    Query.equal('owner_id', callerId), Query.equal('deleted', false),
+    Query.greaterThanEqual('date', month + '-01'), Query.lessThan('date', nextMonth),
+  ], log, 10);
+  if (rows.length > 500) return { status: 503, body: { error: 'Reaction summary too large' } };
+  const byEmoji = new Map();
+  for (const item of rows) {
+    if (item.diary_id !== diaryId || item.owner_id !== callerId ||
+      item.deleted === true || typeof item.emoji !== 'string' ||
+      !isValidRowId(item.user_id)) continue;
+    // Former friends cannot continue to appear as active diary reactions.
+    if (!await verifyFriendship(tablesDB, callerId, item.user_id)) continue;
+    if (!byEmoji.has(item.emoji)) byEmoji.set(item.emoji, new Set());
+    byEmoji.get(item.emoji).add(item.user_id);
+  }
+  return { status: 200, body: {
+    reactions: JSON.stringify([...byEmoji].map(([emoji, ids]) => ({ emoji, userIds: [...ids] }))),
+  } };
+}
+
+async function handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload) {
+  const { friendUserId, diaryId, fileId } = payload || {};
+  if (!isValidRowId(fileId)) return { status: 400, body: { error: 'Invalid diary photo' } };
+  const diary = await findVisibleFriendDiary(tablesDB, callerId, diaryId, friendUserId);
+  if (!diary) return { status: 403, body: { error: 'Diary unavailable' } };
+  let photos = [];
+  try { photos = JSON.parse(diary.photos || '[]'); } catch { return { status: 404, body: { error: 'Photo unavailable' } }; }
+  if (!Array.isArray(photos) || !photos.includes(fileId)) return { status: 404, body: { error: 'Photo unavailable' } };
+  const file = await storage.getFile({ bucketId: DIARY_PHOTOS_BUCKET, fileId });
+  if (file.mimeType !== 'image/webp' || file.sizeOriginal > 262144)
+    return { status: 415, body: { error: 'Diary photo unavailable' } };
+  const buffer = await storage.getFileDownload({ bucketId: DIARY_PHOTOS_BUCKET, fileId });
+  return { status: 200, body: { mimeType: 'image/webp', data: Buffer.from(buffer).toString('base64') } };
+}
+async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error) {
+  const friendUserId = payload?.friendUserId;
+  const month = payload?.month;
+  if (!isValidRowId(friendUserId) || friendUserId === callerId ||
+      typeof month !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return { status: 400, body: { error: 'Invalid friend diary request' } };
+  }
+  const isFriend = await verifyFriendship(tablesDB, callerId, friendUserId);
+  if (!isFriend) return { status: 403, body: { error: 'Not friends with this user' } };
+  const [year, monthNumber] = month.split('-').map(Number);
+  const nextMonth = monthNumber === 12
+    ? `${year + 1}-01-01`
+    : `${year}-${String(monthNumber + 1).padStart(2, '0')}-01`;
+  const rows = await listAllRows(tablesDB, 'diary', [
+    Query.equal('user_id', friendUserId), Query.equal('deleted', false),
+    Query.greaterThanEqual('date', month + '-01'),
+    Query.lessThan('date', nextMonth),
+  ], log, 2);
+  if (rows.length > 60) {
+    error('get_friend_diary_month: unexpected row count');
+    return { status: 500, body: { error: 'Friend diary unavailable' } };
+  }
+  const entries = rows.filter(row =>
+    row.user_id === friendUserId && row.deleted !== true &&
+    row.date >= month + '-01' && row.date < nextMonth &&
+    (row.visibility === 'public' || row.visibility === 'followers')
+  ).map(row => ({
+    $id: row.$id, user_id: row.user_id, date: row.date,
+    content: row.content || '', emoji: row.emoji || '', photos: row.photos || '[]', visibility: row.visibility,
+    created_at: row.created_at || row.$createdAt || '',
+    updated_at: row.updated_at || row.$updatedAt || '',
+    deleted: false,
+  }));
+  const diaryIds = new Set(entries.map(entry => entry.$id));
+  if (diaryIds.size > 0) {
+    const rawReactions = await listAllRows(tablesDB, DIARY_REACTIONS_TABLE, [
+      Query.equal('owner_id', friendUserId), Query.equal('deleted', false),
+      Query.greaterThanEqual('date', month + '-01'), Query.lessThan('date', nextMonth),
+    ], log, 10);
+    const grouped = new Map();
+    for (const reaction of rawReactions) {
+      if (!diaryIds.has(reaction.diary_id)) continue;
+      const id = reaction.diary_id;
+      if (!grouped.has(id)) grouped.set(id, []);
+      grouped.get(id).push(reaction);
+    }
+    for (const entry of entries) {
+      const all = grouped.get(entry.$id) || [];
+      const byEmoji = new Map();
+      for (const item of all) {
+        if (!byEmoji.has(item.emoji)) byEmoji.set(item.emoji, []);
+        byEmoji.get(item.emoji).push(item.user_id);
+      }
+      entry.reactions = JSON.stringify([...byEmoji].map(([emoji,userIds]) => ({ emoji, userIds })));
+    }
+  }
+  return { status: 200, body: { entries } };
+}
 async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.friendUserId)) {
@@ -1461,12 +1684,38 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'friendship':
         result = await handleFriendship(tablesDB, callerId, payload);
+        if (result.status === 200 && !result.body?.duplicate &&
+            ['send','accept'].includes(payload.operation)) {
+          const friendId = payload.friendUserId;
+          const peerRowId = 'fr_' + sha256Hex(friendId + '|' + callerId).slice(0,32);
+          await emitActivity(tablesDB, {
+            type: payload.operation === 'send' ? 'friend_request' : 'friend_accepted',
+            actorId: callerId, recipientId: friendId, sourceId: peerRowId,
+            occurredAt: result.body?.row?.updated_at,
+            occurrenceKey: result.body?.row?.updated_at,
+          }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
+        }
         break;
       case 'task_shares':
         result = await handleTaskShares(tablesDB, callerId, payload);
+        if (result.status === 200 && !result.body?.duplicate &&
+            payload.operation === 'invite' && result.body?.item?.status === 'pending') {
+          await emitActivity(tablesDB, {
+            type: 'shared_task_invite', actorId: callerId,
+            recipientId: payload.friendUserId, sourceId: result.body.item.id,
+            occurrenceKey: result.body.item.grantEpoch,
+          }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
+        }
         break;
       case 'deliver':
         result = await handleDeliver(tablesDB, callerId, payload, log, error);
+        if (result.status === 200 && !result.body?.duplicate) {
+          await emitActivity(tablesDB, {
+            type: 'direct_message', actorId: callerId,
+            recipientId: payload.recipientId, sourceId: result.body.recipientRowId,
+            occurrenceKey: payload.messageId,
+          }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
+        }
         break;
       case 'repair_thread':
         result = await handleRepairThread(tablesDB, callerId, payload);
@@ -1482,9 +1731,25 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'react':
         result = await handleReact(tablesDB, callerId, payload, log, error);
+        if (result.status === 200 && result.body?.reactionAdded &&
+            result.body?.originalAuthorId === payload.recipientId &&
+            result.body?.originalMessageId) {
+          await emitActivity(tablesDB, {
+            type: 'message_reaction', actorId: callerId,
+            recipientId: payload.recipientId, sourceId: result.body.originalMessageId,
+            occurrenceKey: payload.emoji,
+          }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
+        }
         break;
       case 'react_to_task':
         result = await handleReactToTask(tablesDB, callerId, payload, log, error);
+        if (result.status === 200 && result.body?.reactionAdded) {
+          await emitActivity(tablesDB, {
+            type: 'task_reaction', actorId: callerId,
+            recipientId: payload.taskOwnerId, sourceId: payload.taskId,
+            occurrenceKey: payload.emoji,
+          }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
+        }
         break;
       case 'compare_and_set_owner_row':
         result = await handleOwnerWriteCas(tablesDB, callerId, payload);
@@ -1494,6 +1759,18 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'get_friend_task':
         result = await handleGetFriendTask(tablesDB, callerId, payload, log, error);
+        break;
+      case 'react_to_diary':
+        result = await handleReactToDiary(tablesDB, callerId, payload, log, error);
+        break;
+      case 'get_owner_diary_reactions':
+        result = await handleGetOwnerDiaryReactions(tablesDB, callerId, payload, log);
+        break;
+      case 'get_friend_diary_photo':
+        result = await handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload);
+        break;
+      case 'get_friend_diary_month':
+        result = await handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error);
         break;
       case 'get_friend_calendar':
         result = await handleGetFriendCalendar(

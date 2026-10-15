@@ -243,7 +243,8 @@ describe('TodoMate import adapter', () => {
       expect.objectContaining({
         id: 'diary_1',
         date: '2026-09-25',
-        content: '🌱 A good day',
+        content: 'A good day',
+        emoji: '🌱',
         visibility: 'private',
       }),
     ]);

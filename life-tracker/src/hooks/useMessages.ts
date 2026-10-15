@@ -1,6 +1,6 @@
 import { useThreadMessages } from './useThreadMessages';
 import { useMessageActions } from './useMessageActions';
-import type { MessageDocument, TaskDocument } from '../db/schema';
+import type { MessageDocument, TaskDocument, DiaryDocument } from '../db/schema';
 
 export type { ReplyContext } from './useMessageActions';
 
@@ -8,6 +8,7 @@ export interface UseMessagesReturn {
   messages: MessageDocument[];
   isLoading: boolean;
   sendMessage: (content: string, replyTo?: import('./useMessageActions').ReplyContext) => Promise<void>;
+  sendDiaryReply: (diary: DiaryDocument, content: string) => Promise<void>;
   sendTaskReply: (
     task: TaskDocument,
     content: string,
@@ -40,6 +41,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     messages,
     isLoading,
     sendMessage: actions.sendMessage,
+    sendDiaryReply: actions.sendDiaryReply,
     sendTaskReply: actions.sendTaskReply,
     sendTaskReaction: actions.sendTaskReaction,
     markAllRead: actions.markAllRead,

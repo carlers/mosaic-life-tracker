@@ -10,18 +10,20 @@ import {
   sendTextMessage,
   sendTaskReplyMessage,
   sendTaskReactionMessage,
+  sendDiaryReplyMessage,
   type ReplyContext,
 } from '../lib/messageComposer';
 import {
   toggleReactionOnMessage,
   type ToggleReactionResult,
 } from '../lib/messageReactions';
-import type { TaskDocument } from '../db/schema';
+import type { TaskDocument, DiaryDocument } from '../db/schema';
 
 export type { ReplyContext };
 
 export interface UseMessageActionsReturn {
   sendMessage: (content: string, replyTo?: ReplyContext) => Promise<void>;
+  sendDiaryReply: (diary: DiaryDocument, content: string) => Promise<void>;
   sendTaskReply: (
     task: TaskDocument,
     content: string,
@@ -88,6 +90,14 @@ export function useMessageActions(
     },
     [user?.$id, friendId]
   );
+
+  const sendDiaryReply = useCallback(async (diary: DiaryDocument, content: string) => {
+    const uid = user?.$id;
+    if (!uid || !friendId || !content.trim() || diary.userId !== friendId) {
+      throw new Error('Diary reply unavailable.');
+    }
+    await sendDiaryReplyMessage(uid, friendId, diary, content.trim());
+  }, [user?.$id, friendId]);
 
   const sendTaskReaction = useCallback(
     async (task: TaskDocument, emoji: string, categoryColor: string) => {
@@ -233,6 +243,7 @@ export function useMessageActions(
 
   return {
     sendMessage,
+    sendDiaryReply,
     sendTaskReply,
     sendTaskReaction,
     markAllRead,

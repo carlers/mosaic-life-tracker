@@ -36,6 +36,8 @@ import { packStickerMessage } from '../lib/stickerPacks';
 import { giphyStickerMessage, sendGiphyAnalytics, type GiphySticker } from '../lib/giphyStickers';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 
+const DiaryReferenceSheet = React.lazy(() => import('../components/messages/DiaryReferenceSheet').then(m => ({ default: m.DiaryReferenceSheet })));
+
 const { Component: StickerPackSheet, preload: preloadStickerPackSheet } =
   createPreloadedLazy(() =>
     import('../components/messages/StickerPackSheet').then(m => m.StickerPackSheet)
@@ -103,6 +105,7 @@ export const ChatPage: React.FC = () => {
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
+  const [selectedDiaryReference, setSelectedDiaryReference] = useState<{ id: string; ownerId: string; date: string } | null>(null);
 
   // Never mount sticker hooks until requested; warm code on usable Chat.
   useEffect(() => {
@@ -444,6 +447,11 @@ export const ChatPage: React.FC = () => {
                     resolveSenderName={resolveSenderName}
                     onLongPress={(m) => setActionMessageId(m.id)}
                     onQuoteTap={handleQuoteTap}
+                    onDiaryRefTap={m => {
+                      if (!m.diaryRefId || !m.diaryRefOwnerId || !m.diaryRefDate ||
+                        (m.diaryRefOwnerId !== myUserId && m.diaryRefOwnerId !== friendId)) return;
+                      setSelectedDiaryReference({ id: m.diaryRefId, ownerId: m.diaryRefOwnerId, date: m.diaryRefDate });
+                    }}
                     onReact={handleBubbleReact}
                     onSwipeReply={(m) => {
                       // iOS WebKit only reliably summons the software keyboard
@@ -500,6 +508,10 @@ export const ChatPage: React.FC = () => {
             onPickGiphy={handlePickGiphySticker}
           />
       )}
+      {selectedDiaryReference && <React.Suspense fallback={null}>
+        <DiaryReferenceSheet key={`${myUserId}:${selectedDiaryReference.id}`} reference={selectedDiaryReference}
+          onClose={() => setSelectedDiaryReference(null)} />
+      </React.Suspense>}
       <MessageActionSheet
         isOpen={!!actionMessage}
         onClose={() => setActionMessageId(null)}

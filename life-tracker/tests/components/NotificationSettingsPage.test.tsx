@@ -55,11 +55,25 @@ describe('NotificationSettingsPage', () => {
     expect(screen.getByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Unread alerts' })).toHaveValue('7');
     expect(screen.getByRole('combobox', { name: 'Read alerts' })).toHaveValue('24');
-    const switchControl = screen.getByRole('switch', { name: 'Push friend completions' });
+    const switchControl = screen.getByRole('switch', { name: 'Enable push notifications' });
     await waitFor(() => expect(switchControl).toBeDisabled());
     fireEvent.click(switchControl);
     expect(mocks.enablePushNotifications).not.toHaveBeenCalled();
   });
+  it('saves account-scoped independent in-app and push choices per event category', async () => {
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    const messageFeed = screen.getByRole('checkbox', { name: 'Messages in-app Alerts' });
+    const reactionPush = screen.getByRole('checkbox', { name: 'Message reactions push' });
+    expect(messageFeed).toBeChecked();
+    expect(reactionPush).not.toBeChecked();
+    fireEvent.click(messageFeed);
+    await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledWith(
+      'alertsChannels', expect.objectContaining({
+        direct_message: { feed: false, push: true },
+      })
+    ));
+  });
+
   it('offers separate account-synced retention choices and keeps push independent', async () => {
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
     const unread = screen.getByRole('combobox', { name: 'Unread alerts' });
@@ -202,7 +216,7 @@ describe('NotificationSettingsPage', () => {
     });
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
     expect(await screen.findByText(/open Mosaic in Safari/)).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Push friend completions' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Enable push notifications' })).toBeDisabled();
   });
 
   it('explains how to restore blocked notification permissions', async () => {
@@ -211,7 +225,42 @@ describe('NotificationSettingsPage', () => {
     });
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
     expect(await screen.findByText(/Notifications are blocked/)).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Push friend completions' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Enable push notifications' })).toBeDisabled();
+  });
+
+  it('requires separate account consent and device detail consent for social push text', async () => {
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'enabled', enabled: true, detailsEnabled: false, label: 'Enabled',
+    });
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    const social = await screen.findByRole('switch', {
+      name: 'Show message and reaction previews in push',
+    });
+    expect(social).toBeDisabled();
+    expect(social).not.toBeChecked();
+    fireEvent.click(social);
+    expect(mocks.setSetting).not.toHaveBeenCalledWith('alertsSocialPushDetails', true);
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'enabled', enabled: true, detailsEnabled: true, label: 'Enabled',
+    });
+    // A fresh mount reads the verified per-device state.
+  });
+
+  it('saves a separate opt-in without altering the existing task-title device preference', async () => {
+    mocks.getPushNotificationState.mockResolvedValue({
+      status: 'enabled', enabled: true, detailsEnabled: true, label: 'Enabled',
+    });
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    const social = await screen.findByRole('switch', {
+      name: 'Show message and reaction previews in push',
+    });
+    await waitFor(() => expect(social).toBeEnabled());
+    expect(social).not.toBeChecked();
+    fireEvent.click(social);
+    await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledWith(
+      'alertsSocialPushDetails', true
+    ));
+    expect(mocks.setPushDetails).not.toHaveBeenCalled();
   });
 
 });

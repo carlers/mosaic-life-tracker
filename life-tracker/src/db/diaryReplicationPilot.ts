@@ -11,7 +11,7 @@ const pilot = createSimpleOwnerReplicationPilot<DiaryDocument>({
   casTableId: 'diary',
   label: 'Diary',
   freshnessLabel: 'diary',
-  equalityFields: ["id","userId","date","content","visibility","createdAt","updatedAt","isDeleted"],
+  equalityFields: ["id","userId","date","content","emoji","photos","visibility","createdAt","updatedAt","isDeleted"],
 });
 
 export const captureDiaryReplicationPushCheckpoint = pilot.capture;

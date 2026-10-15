@@ -1,3 +1,8 @@
+/* Day View owns stable, manually memoized callbacks for the shared sheet/swiper
+ * state machine. The compiler's dependency inference incorrectly treats
+ * stable React state setters as changing dependencies here.
+ */
+/* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { runBulkTaskActions } from './bulkTaskActions';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
@@ -52,9 +57,13 @@ import {
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+  SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
+  DIARY_DAY_VIEW_POSITION_SETTING_KEY,
+  resolveDiaryDayViewPosition,
   SHOW_HOLIDAYS_SETTING_KEY,
 } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
+import { diaryPlacementKey, normalizeDiaryPlacement } from '../../../lib/diaryPlacement';
 import {
   EMPTY_HOLIDAYS,
   createHolidayDisplayConfig,
@@ -92,6 +101,7 @@ interface DayViewSheetProps {
   categories?: CategoryDocument[];
   focusTaskId?: string | null;
   holidayConfig?: HolidayDisplayConfig;
+  showDiaryAlways?: boolean;
 }
 
 interface SheetContentControls {
@@ -119,9 +129,13 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   categories: categoriesOverride,
   focusTaskId = null,
   holidayConfig: holidayConfigOverride,
+  showDiaryAlways = false,
   shellControlsRef,
   onLockChange,
 }) => {
+  // Preserve the mature, manually memoized Day View gesture and sheet lifecycles.
+  // The React Compiler cannot safely infer dependencies across these state machines.
+  'use no memo';
   const isBacklogView = renderMode === 'backlog';
   const appearance = React.useContext(AppearanceContext);
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
@@ -153,6 +167,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
+  const showDiaryInDayView = !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
+  const diaryPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
   const holidayConfig =
     holidayConfigOverride ??
     createHolidayDisplayConfig(
@@ -1002,6 +1018,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         Shared completion pending sync
                       </p>
                     )}
+
                     <DaySlide
                       date={date}
                       dateStr={dateStr}
@@ -1055,7 +1072,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       reorderRuntimeActive={isOpen && i === activeIndex}
                       onReorderTasks={reorderTasks}
                       onReorderActiveChange={setIsTaskReorderActive}
+                      diaryEnabled={showDiaryInDayView && !isSelectMode}
+                      diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
+                      onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
                     />
+
                   </>
                 )}
               </div>

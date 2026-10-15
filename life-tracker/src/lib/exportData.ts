@@ -5,6 +5,7 @@ import { getPendingImage, isPendingImageId } from './pendingImages';
 import { guardedStorage } from './sdk';
 import { APP_VERSION } from './appVersion';
 import { getConnectivitySnapshot } from './connectivity';
+import { parseDiaryPhotos } from './diaryPhotos';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -222,6 +223,9 @@ export async function exportUserData(
   const referencedImages = new Set<string>();
   for (const task of raw.tasks) {
     if (task.image && task.image.trim()) referencedImages.add(task.image);
+  }
+  for (const entry of raw.diary) {
+    for (const id of parseDiaryPhotos(entry.photos)) referencedImages.add(id);
   }
   const profileImageId = parsedSettings['profileImageId'];
   if (typeof profileImageId === 'string' && profileImageId.trim()) {

@@ -1,9 +1,14 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
 import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
-import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
+import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
+const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
+import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
+import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
 import {
   findTaskCategory,
   type ActiveTaskDrag,
@@ -58,6 +63,17 @@ export interface DaySlideProps {
     groups: readonly TaskOrderGroup[]
   ) => Promise<void> | void;
   onReorderActiveChange?: (active: boolean) => void;
+  diaryEnabled?: boolean;
+  diaryEntryOverride?: DiaryDocument;
+  diaryPlacement?: DiaryPlacement;
+  onMoveDiary?: (target: DiaryPlacement) => Promise<void> | void;
+  diaryDragging?: boolean;
+  diaryReleaseRevision?: number;
+  diarySettling?: boolean;
+  settlingTaskId?: string | null;
+  lastReleasedTask?: { taskId: string; revision: number } | null;
+  diaryProjectedPlacement?: DiaryPlacement | null;
+  diaryDragHeight?: number;
 }
 
 interface DaySlideContentProps extends DaySlideProps {
@@ -104,6 +120,17 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   reorderRuntimeActive = false,
   tasksByCategory,
   activeDrag,
+  diaryEnabled = false,
+  diaryEntryOverride,
+  diaryPlacement = { kind: 'top' },
+  onMoveDiary,
+  diaryDragging = false,
+  diaryReleaseRevision = 0,
+  diarySettling = false,
+  settlingTaskId = null,
+  lastReleasedTask = null,
+  diaryProjectedPlacement = null,
+  diaryDragHeight = 48,
 }) => {
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
@@ -114,6 +141,53 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         null
       : null;
 
+
+  const diaryPlacementCategory = 'categoryId' in diaryPlacement ? diaryPlacement.categoryId : '';
+  const isDiaryInCategory = Boolean(diaryPlacementCategory);
+  const hasPlacementCategory = isDiaryInCategory &&
+    categories.some(cat => cat.id === diaryPlacementCategory);
+  const fallbackPlacement: DiaryPlacement =
+    isDiaryInCategory && !hasPlacementCategory ? { kind: 'top' } : diaryPlacement;
+  const diaryCategoryId = 'categoryId' in fallbackPlacement ? fallbackPlacement.categoryId : '';
+  const diaryTaskIds = (tasksByCategory.get(diaryCategoryId) ?? []).map(task => task.id);
+  const displayedDiarySlotIndex = diarySlotIndex(fallbackPlacement, diaryTaskIds);
+  const migratedLegacySlot = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!diaryEnabled || !onMoveDiary || diaryPlacement.kind !== 'slot' ||
+        !hasPlacementCategory || !diaryTaskIds.length ||
+        diaryTaskIds.length < diaryPlacement.index) return;
+    const key = `${dateStr}:${diaryPlacement.categoryId}:${diaryPlacement.index}`;
+    if (migratedLegacySlot.current === key) return;
+    migratedLegacySlot.current = key;
+    const anchored = anchoredDiaryPlacement(
+      diaryPlacement.categoryId, diaryPlacement.index, diaryTaskIds
+    );
+    void Promise.resolve().then(() => onMoveDiary(anchored)).catch(() => {
+      if (migratedLegacySlot.current === key) migratedLegacySlot.current = null;
+    });
+  }, [dateStr, diaryEnabled, diaryPlacement, hasPlacementCategory, diaryTaskIds, onMoveDiary]);
+  // Like tasks, reserve exactly one projected slot while the actual card
+  // travels with the pointer. Neither the source nor the gap animates twice.
+  const showDiaryGhost = Boolean(diaryEnabled && diaryDragging && diaryProjectedPlacement);
+  const diaryGhost = showDiaryGhost
+    ? <div data-diary-drag-gap="true" aria-hidden="true" style={{ height: diaryDragHeight }} />
+    : null;
+  const diaryCard = diaryEnabled ? (
+    <motion.div
+      key={diaryReleaseRevision}
+      layout={reorderRuntimeActive && !diaryDragging && !diarySettling ? 'position' : false}
+      data-diary-source-slot={diaryDragging ? 'true' : undefined}
+      className={diaryDragging ? '!invisible' : undefined}
+      aria-hidden={diaryDragging ? true : undefined}
+      style={diaryDragging ? {
+        position: 'absolute', width: '100%', visibility: 'hidden', pointerEvents: 'none',
+      } : undefined}
+    >
+      {reorderRuntimeActive
+        ? <DraggableDiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}/>
+        : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}/></React.Suspense>}
+    </motion.div>
+  ) : null;
   const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
   const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
   // Own the action sheet above category rows: moving a share must not unmount
@@ -135,7 +209,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   };
 
   return (
-    <div
+    <motion.div
+      layoutScroll={scrollMode === 'contained' && reorderRuntimeActive}
       className={
         scrollMode === 'contained'
           ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-2 pb-8'
@@ -146,12 +221,27 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         reorderRuntimeActive ? 'true' : undefined
       }
     >
+      {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="top" active={diaryDragging}/>}
+      {diaryEnabled && fallbackPlacement.kind === 'top' && <motion.div layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
+      {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
       {categories.map((category) => (
         <CategorySection
           key={category.id}
           categoryId={category.id}
           categoryName={category.name}
           categoryColor={category.color}
+          diarySlot={diaryEnabled && diaryCategoryId === category.id ? diaryCard : undefined}
+          diaryGhostSlot={showDiaryGhost &&
+             diaryProjectedPlacement && 'categoryId' in diaryProjectedPlacement &&
+             diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
+          diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
+             ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
+          animateDragProjection={reorderRuntimeActive}
+          diaryDragInProgress={diaryDragging}
+          diarySettling={diarySettling}
+          settlingTaskId={settlingTaskId}
+          lastReleasedTask={lastReleasedTask}
+          diarySlotIndex={displayedDiarySlotIndex}
           visibility={category.visibility}
           currentUserId={currentUserId}
           tasks={tasksByCategory.get(category.id) ?? []}
@@ -190,6 +280,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           dragGapHeight={activeDrag?.rowHeight ?? 0}
         />
       ))}
+      {showDiaryGhost && diaryProjectedPlacement?.kind === 'bottom' && diaryGhost}
+      {diaryEnabled && fallbackPlacement.kind === 'bottom' && <motion.div layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
+      {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="bottom" active={diaryDragging}/>}
       {!selectionMode && unassignedShares.length > 0 &&
         onSharedCompletion && sharedPendingFor && (
         <SharedTaskRows items={unassignedShares} {...sharedRowProps} />
@@ -199,6 +292,6 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           selectedItem={selectedSharedTask} actionsOnly
           onSheetOpenChange={onSharedSheetOpenChange} />
       )}
-    </div>
+    </motion.div>
   );
 };

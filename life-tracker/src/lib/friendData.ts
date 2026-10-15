@@ -2,7 +2,7 @@ import { getConnectivitySnapshot } from './connectivity';
 import { ExecutionMethod } from 'appwrite';
 import { MESSAGE_ACTION_FUNCTION_ID } from './messageDelivery';
 import { guardedFunctions } from './sdk';
-import type { TaskDocument, CategoryDocument } from '../db/schema';
+import type { TaskDocument, CategoryDocument, DiaryDocument } from '../db/schema';
 import {
   getCachedCalendar,
   setCachedCalendar,
@@ -210,4 +210,103 @@ export async function fetchFriendAlertTask(
     task: mapTaskRow(parsed.task),
     category: parsed.category ? mapCategoryRow(parsed.category) : null,
   };
+}
+
+/** Only authenticated, mutually accepted friends can request a bounded month. */
+export type FriendDiaryDocument = DiaryDocument & { reactions?: string };
+
+export async function fetchFriendDiaryMonth(
+  currentUserId: string, friendUserId: string, month: string
+): Promise<FriendDiaryDocument[]> {
+  if (!currentUserId || !friendUserId || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    throw new FriendAccessError('Invalid friend diary request.', 'server');
+  }
+  if (getConnectivitySnapshot().status !== 'online') {
+    throw new FriendAccessError('Friend diaries require a connection.', 'offline');
+  }
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({ action: 'get_friend_diary_month', friendUserId, month }),
+    async: false, xpath: '/', method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed') {
+    throw new FriendAccessError('Could not load friend diary.', 'server');
+  }
+  let parsed: { entries?: Record<string, unknown>[]; error?: string };
+  try { parsed = JSON.parse(execution.responseBody); }
+  catch { throw new FriendAccessError('Invalid friend diary response.', 'server'); }
+  if (execution.responseStatusCode === 403 || execution.responseStatusCode === 404) {
+    throw new FriendAccessError('Friend diary is unavailable.', 'forbidden');
+  }
+  if (execution.responseStatusCode >= 400 || !Array.isArray(parsed.entries)) {
+    throw new FriendAccessError('Could not load friend diary.', 'server');
+  }
+  return parsed.entries.flatMap((row): FriendDiaryDocument[] => {
+    if (row.user_id !== friendUserId || typeof row.date !== 'string' ||
+      !row.date.startsWith(month + '-') || row.deleted === true ||
+      !['public', 'followers'].includes(String(row.visibility))) return [];
+    return [{
+      id: String(row.$id || ''), userId: friendUserId, date: row.date,
+      content: String(row.content || ''), emoji: String(row.emoji || ''),
+      photos: String(row.photos || '[]'), reactions: String(row.reactions || ''),
+      visibility: row.visibility as DiaryDocument['visibility'],
+      createdAt: String(row.created_at || row.$createdAt || ''),
+      updatedAt: String(row.updated_at || row.$updatedAt || ''),
+      isDeleted: false,
+    }];
+  });
+}
+
+/** Server-gated reaction, never write a friend's diary row from the browser. */
+export async function reactToFriendDiary(
+  friendUserId: string, diaryId: string, emoji: string, op: 'add' | 'remove'
+): Promise<void> {
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({ action: 'react_to_diary', friendUserId, diaryId, emoji, op }),
+    async: false, xpath: '/', method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed' || execution.responseStatusCode !== 200)
+    throw new FriendAccessError('Diary reaction could not be saved.', 'server');
+}
+
+
+/** Server-owned reaction ledger. No reactions are stored in owner diary CAS rows. */
+export async function fetchOwnerDiaryReactions(diaryId: string): Promise<string> {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/.test(diaryId)) {
+    throw new FriendAccessError('Invalid diary entry.', 'server');
+  }
+  if (getConnectivitySnapshot().status !== 'online') {
+    throw new FriendAccessError('Reactions require a connection.', 'offline');
+  }
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({ action: 'get_owner_diary_reactions', diaryId }),
+    async: false, xpath: '/', method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed' || execution.responseStatusCode !== 200) {
+    throw new FriendAccessError('Reactions are unavailable.', 'server');
+  }
+  const result: unknown = JSON.parse(execution.responseBody);
+  if (!result || typeof result !== 'object' ||
+    typeof (result as { reactions?: unknown }).reactions !== 'string') {
+    throw new FriendAccessError('Invalid reactions response.', 'server');
+  }
+  return (result as { reactions: string }).reactions;
+}
+
+/** A single private photo, returned only after fresh server-side diary ACL checks. */
+export async function fetchFriendDiaryPhoto(friendUserId: string, diaryId: string, fileId: string): Promise<Blob> {
+  const execution = await guardedFunctions.createExecution({
+    functionId: MESSAGE_ACTION_FUNCTION_ID,
+    body: JSON.stringify({ action: 'get_friend_diary_photo', friendUserId, diaryId, fileId }),
+    async: false, xpath: '/', method: ExecutionMethod.POST,
+  });
+  if (execution.status !== 'completed' || execution.responseStatusCode !== 200)
+    throw new FriendAccessError('Diary photo unavailable.', 'forbidden');
+  const result = JSON.parse(execution.responseBody) as { mimeType?: string; data?: string };
+  if (result.mimeType !== 'image/webp' || typeof result.data !== 'string' || result.data.length > 400000)
+    throw new FriendAccessError('Diary photo unavailable.', 'server');
+  const bytes = Uint8Array.from(atob(result.data), char => char.charCodeAt(0));
+  return new Blob([bytes], { type: 'image/webp' });
 }
