@@ -11,7 +11,23 @@ export function assertReviewedBudgetChange(previous, candidate) {
     throw new Error('Build-size baseline changed; preserve the pinned measured baseline and review separately');
   }
   const changed = BUILD_SIZE_METRICS.filter(metric => previous.limits[metric] !== candidate.limits[metric]);
-  if (!changed.length) throw new Error('Budget changed without a limit change; review unexpected metadata edits');
+  const oldBlocking = previous.blockingMetrics ?? BUILD_SIZE_METRICS;
+  const newBlocking = candidate.blockingMetrics ?? BUILD_SIZE_METRICS;
+  const policyChanged = !unchanged(oldBlocking, newBlocking);
+  if (policyChanged) {
+    const record = candidate.policyReview;
+    if (!record || unchanged(previous.policyReview, record) ||
+        !/^#[1-9]\d*$/.test(record.issue ?? '') ||
+        typeof record.reason !== 'string' || record.reason.trim().length < 30 ||
+        typeof record.evidence !== 'string' || !/^https:\/\//.test(record.evidence) ||
+        !unchanged(record.previousBlockingMetrics, oldBlocking) ||
+        !unchanged(record.nextBlockingMetrics, newBlocking)) {
+      throw new Error('Changing blocking size metrics requires a new policyReview with issue, reason, evidence and exact previous/next metric sets');
+    }
+  } else if (!unchanged(previous.policyReview, candidate.policyReview)) {
+    throw new Error('Policy review metadata changed without a blocking policy change');
+  }
+  if (!changed.length && !policyChanged) throw new Error('Budget changed without a limit or reviewed policy change; review unexpected metadata edits');
   const increased = changed.filter(metric => candidate.limits[metric] > previous.limits[metric]);
   if (increased.length) {
     const review = candidate.review;
@@ -27,7 +43,7 @@ export function assertReviewedBudgetChange(previous, candidate) {
       throw new Error(error);
     }
   }
-  return { changed, increased };
+  return { changed, increased, policyChanged };
 }
 
 
