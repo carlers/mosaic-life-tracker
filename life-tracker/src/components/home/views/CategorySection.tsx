@@ -1,6 +1,6 @@
 import React, { useId, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ChevronDown, Plus } from 'lucide-react';
+import { CheckSquare, ChevronDown, Plus, Square } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
 import { TaskItem } from './TaskItem';
 import {
@@ -52,6 +52,7 @@ interface CategorySectionProps {
   selectionMode?: boolean;
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
+  onToggleCategorySelection?: (categoryId: string) => void;
   reorderEnabled?: boolean;
   activeDragTaskId?: string | null;
   dragGapIndex?: number | null;
@@ -93,6 +94,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   selectionMode = false,
   selectedTaskIds = EMPTY_SELECTED_TASK_IDS,
   onToggleTaskSelection,
+  onToggleCategorySelection,
   reorderEnabled = false,
   activeDragTaskId = null,
   dragGapIndex = null,
@@ -147,6 +149,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const categoryCollapsed = showCollapseButton && isCollapsed;
+  const allCategoryTasksSelected = tasks.length > 0 &&
+    tasks.every(task => selectedTaskIds.has(task.id));
   const canReorder =
     reorderEnabled &&
     !selectionMode &&
@@ -253,10 +257,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     <>
       <button
         type="button"
-        onClick={handleOpen}
-        disabled={selectionMode}
+        onClick={selectionMode ? () => onToggleCategorySelection?.(categoryId) : handleOpen}
+        disabled={selectionMode && (!onToggleCategorySelection || tasks.length === 0)}
         className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-        aria-label={`Add a task to ${categoryName}`}
+        aria-label={selectionMode
+          ? `${allCategoryTasksSelected ? 'Deselect all' : 'Select all'} tasks in ${categoryName}`
+          : `Add a task to ${categoryName}`}
+        aria-pressed={selectionMode ? allCategoryTasksSelected : undefined}
       >
         {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
         <span
@@ -269,7 +276,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           className="mosaic-category-add-icon inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400"
           aria-hidden="true"
         >
-          <Plus data-testid="category-add-icon" size={18} />
+          {selectionMode
+            ? allCategoryTasksSelected ? <CheckSquare size={18} /> : <Square size={18} />
+            : <Plus data-testid="category-add-icon" size={18} />}
         </span>
       </button>
       {showCollapseButton && (

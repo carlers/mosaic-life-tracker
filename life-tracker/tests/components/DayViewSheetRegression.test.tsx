@@ -107,15 +107,24 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
     selectionMode,
     selectedTaskIds,
     onToggleTaskSelection,
+    onToggleCategorySelection,
   }: {
     tasks: TaskDocument[];
     onOpenActions: (task: TaskDocument) => void;
     selectionMode?: boolean;
     selectedTaskIds?: ReadonlySet<string>;
     onToggleTaskSelection?: (taskId: string) => void;
+    onToggleCategorySelection?: (categoryId: string) => void;
   }) =>
     tasks.length > 0 ? (
       <>
+        {selectionMode && onToggleCategorySelection && (
+          <button type="button" onClick={() => onToggleCategorySelection(tasks[0].categoryId)}>
+            {selectionMode && tasks.every(task => selectedTaskIds?.has(task.id))
+              ? 'Deselect category tasks'
+              : 'Select category tasks'}
+          </button>
+        )}
         {tasks.map((task, index) => (
           <button key={task.id} onClick={() => selectionMode ? onToggleTaskSelection?.(task.id) : onOpenActions(task)}>
             {selectionMode
@@ -307,6 +316,24 @@ describe('DayViewSheet nested task actions', () => {
 
     expect(swiperFixture.slidePrev).toHaveBeenCalledTimes(1);
     expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('category pill toggles day tasks only after entering Select mode', () => {
+    renderSheet();
+    expect(screen.queryByRole('button', { name: 'Select category tasks' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More actions for selected tasks' })).toBeNull();
+    const select = screen.getAllByRole('button', { name: 'Select tasks' })
+      .find(button => button.getAttribute('tabindex') === '0');
+    expect(select).toBeDefined();
+    fireEvent.click(select as HTMLElement);
+    expect(screen.getByRole('button', { name: 'Select category tasks' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Select category tasks' }));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Deselect category tasks' }));
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeDisabled();
   });
 
   it('selects tasks and exposes bulk controls without opening task actions', () => {

@@ -296,6 +296,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
         {editingId && (
           <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
             <Input
+              key={editingId}
+              autoFocus
               label="Name"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}

@@ -5,6 +5,7 @@
 /* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { runBulkTaskActions } from './bulkTaskActions';
+import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -478,6 +479,13 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       return next;
     });
   }, []);
+
+  const handleToggleCategorySelection = useCallback((categoryId: string) => {
+    if (!isSelectMode || isBacklogView || !currentUserId) return;
+    setSelectedTaskIds(current => toggleCategoryDaySelection(
+      current, tasks, categoryId, activeDateStr, currentUserId
+    ));
+  }, [activeDateStr, currentUserId, isBacklogView, isSelectMode, tasks]);
 
   const handleToggleSelectMode = useCallback(() => {
     if (isSelectMode) {
@@ -1062,6 +1070,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       selectionMode={isSelectMode && i === activeIndex}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
+                      onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
                       reorderEnabled={
                         isOpen &&
                         i === activeIndex &&
@@ -1118,7 +1127,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onMoveToBacklog={isBacklogView ? undefined : () => runBulkUpdate({ date: '' })}
             onChangeDate={async date => { await runBulkUpdate({ date }); }}
             onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
+            onDoYesterday={() => runBulkUpdate({ date: format(addDays(new Date(), -1), 'yyyy-MM-dd') })}
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
+            showDoToday={selectedTasks.some(task => task.date !== format(new Date(), 'yyyy-MM-dd'))}
+            showDoYesterday={selectedTasks.some(task => task.date !== format(addDays(new Date(), -1), 'yyyy-MM-dd'))}
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
           />
 
