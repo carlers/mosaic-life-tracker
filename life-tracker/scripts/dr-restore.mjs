@@ -549,6 +549,48 @@ async function withTempFile(name, bytes, callback) {
   }
 }
 
+
+/** Defer a supported column default when a backed-up row explicitly stores null. */
+export function planDeferredRowDefaults(schema, rows) {
+  const columns = schema.columns || [];
+  const deferred = columns.filter((column) =>
+    !column.required && column.default != null &&
+    rows.some((row) => Object.hasOwn(row.data || {}, column.key) && row.data[column.key] === null)
+  );
+  for (const column of deferred) {
+    if (column.type !== 'integer') {
+      throw new Error(
+        `Cannot faithfully restore null with default for ${schema.id}/${column.key} (${column.type}); update contract not validated`
+      );
+    }
+  }
+  const keys = new Set(deferred.map((column) => column.key));
+  return {
+    deferred,
+    columns: columns.map((column) =>
+      keys.has(column.key) ? { ...column, default: null } : column
+    ),
+  };
+}
+
+async function reinstateRowDefaults(tablesDB, databaseId, tableId, deferred) {
+  for (const column of deferred) {
+    const updated = await tablesDB.updateIntegerColumn({
+      databaseId, tableId, key: column.key, required: false,
+      default: column.default,
+      ...(column.min !== undefined ? { min: column.min } : {}),
+      ...(column.max !== undefined ? { max: column.max } : {}),
+    });
+    if (updated?.key !== column.key ||
+        updated?.default !== column.default ||
+        updated?.status !== 'available') {
+      throw new Error(
+        `Failed to reinstate default for ${databaseId}/${tableId}/${column.key}`
+      );
+    }
+  }
+}
+
 export async function restoreSnapshot({
   snapshot,
   clients,
@@ -569,20 +611,26 @@ export async function restoreSnapshot({
       const schema = parseBackupJson(
         (await readObject(table.schemaKey)).toString('utf8')
       );
-      await clients.tablesDB.createTable(
-        tableCreateInput(database.id, schema)
-      );
       const rows = parseJsonLines(await readObject(table.rowsKey))
         .map((row) => scrubDeletedUserRow(schema.id, row, deletedUserIds))
         .filter(Boolean);
-      for (const row of rows) {
-        await clients.tablesDB.createRow({
-          databaseId: database.id,
-          tableId: schema.id,
-          rowId: row.id,
-          data: row.data,
-          permissions: row.permissions || [],
-        });
+      const { columns, deferred } = planDeferredRowDefaults(schema, rows);
+      await clients.tablesDB.createTable(
+        tableCreateInput(database.id, { ...schema, columns })
+      );
+      try {
+        for (const row of rows) {
+          await clients.tablesDB.createRow({
+            databaseId: database.id,
+            tableId: schema.id,
+            rowId: row.id,
+            data: row.data,
+            permissions: row.permissions || [],
+          });
+        }
+      } finally {
+        // Appwrite materializes defaults on explicit null; preserve source rows first.
+        await reinstateRowDefaults(clients.tablesDB, database.id, schema.id, deferred);
       }
     }
   }
