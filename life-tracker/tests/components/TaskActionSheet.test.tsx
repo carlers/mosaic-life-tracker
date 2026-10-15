@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, screen, act } from '@testing-library/react';
+import { render, fireEvent, screen } from '@testing-library/react';
 import { TaskActionSheet } from '../../src/components/home/views/TaskActionSheet';
 import type {
   TaskDocument,
@@ -23,6 +23,7 @@ function isoDateLocal(d: Date): string {
 
 const TODAY_STR = isoDateLocal(new Date());
 const TOMORROW_STR = isoDateLocal(new Date(Date.now() + 86_400_000));
+const YESTERDAY_STR = isoDateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - 1));
 
 function makeTask(overrides: Partial<TaskDocument> = {}): TaskDocument {
   return {
@@ -86,28 +87,23 @@ describe('TaskActionSheet', () => {
     vi.useRealTimers();
   });
 
-  it('closes before entering edit mode so focus restoration cannot immediately blur the editor', () => {
-    vi.useFakeTimers();
+  it('waits for sheet exit/focus restoration before entering task edit mode', async () => {
     const cbs = makeCallbacks();
-    render(
-      <TaskActionSheet
-        isOpen
-        task={makeTask({ date: TOMORROW_STR })}
-        category={makeCategory()}
-        {...cbs}
-      />
-    );
+    const props = {
+      task: makeTask({ date: TOMORROW_STR }),
+      category: makeCategory(),
+      ...cbs,
+    };
+    const { rerender } = render(<TaskActionSheet isOpen {...props} />);
 
     fireEvent.click(screen.getByText('Edit'));
 
     expect(cbs.onClose).toHaveBeenCalledTimes(1);
     expect(cbs.onEdit).not.toHaveBeenCalled();
 
-    act(() => {
-      vi.runAllTimers();
-    });
-
-    expect(cbs.onEdit).toHaveBeenCalledTimes(1);
+    // Parent closes the sheet: edit must not begin while its focus trap is active.
+    rerender(<TaskActionSheet isOpen={false} {...props} />);
+    await vi.waitFor(() => expect(cbs.onEdit).toHaveBeenCalledTimes(1));
   });
 
   it('fires the top-grid and menu callbacks on tap', () => {
@@ -140,6 +136,23 @@ describe('TaskActionSheet', () => {
 
     fireEvent.click(screen.getByText('Do It Today'));
     expect(cbs.onDoItTomorrowOrToday).toHaveBeenCalledTimes(1);
+  });
+
+  it('schedules yesterday via existing date update and hides redundant local-day actions', async () => {
+    const today = makeCallbacks();
+    const { rerender } = render(<TaskActionSheet isOpen task={makeTask()}
+      category={makeCategory()} {...today} />);
+    expect(screen.queryByRole('button', { name: 'Do It Today' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Do It Tomorrow' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Do It Yesterday' }));
+    await vi.waitFor(() => expect(today.onChangeDate).toHaveBeenCalledWith(YESTERDAY_STR));
+    await vi.waitFor(() => expect(today.onClose).toHaveBeenCalled());
+
+    const yesterday = makeCallbacks();
+    rerender(<TaskActionSheet isOpen task={makeTask({ id: 'other', date: YESTERDAY_STR })}
+      category={makeCategory()} {...yesterday} />);
+    expect(screen.queryByRole('button', { name: 'Do It Yesterday' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Do It Today' })).toBeTruthy();
   });
 
   it('saves a calendar day through the existing owner task update callback', async () => {

@@ -55,6 +55,7 @@ export interface DaySlideProps {
   selectionMode?: boolean;
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
+  onToggleCategorySelection?: (categoryId: string) => void;
   reorderEnabled?: boolean;
   reorderRuntimeActive?: boolean;
   taskSortMode?: TaskCompletionSortMode;
@@ -116,6 +117,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   selectionMode = false,
   selectedTaskIds = EMPTY_SELECTED_TASK_IDS,
   onToggleTaskSelection,
+  onToggleCategorySelection,
   reorderEnabled = false,
   reorderRuntimeActive = false,
   tasksByCategory,
@@ -268,6 +270,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           selectionMode={selectionMode}
           selectedTaskIds={selectedTaskIds}
           onToggleTaskSelection={onToggleTaskSelection}
+          onToggleCategorySelection={onToggleCategorySelection}
           reorderEnabled={reorderEnabled}
           activeDragTaskId={
             activeDrag?.initialCategoryId === category.id
