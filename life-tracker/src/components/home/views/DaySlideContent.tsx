@@ -5,7 +5,7 @@ import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
-import type { DiaryPlacement } from '../../../lib/diaryPlacement';
+import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
 const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
 import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
@@ -123,6 +123,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   diaryEnabled = false,
   diaryEntryOverride,
   diaryPlacement = { kind: 'top' },
+  onMoveDiary,
   diaryDragging = false,
   diaryReleaseRevision = 0,
   diarySettling = false,
@@ -140,9 +141,32 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         null
       : null;
 
-  const hasPlacementCategory = diaryPlacement.kind === 'slot' && categories.some(cat => cat.id === diaryPlacement.categoryId);
-  const fallbackPlacement: DiaryPlacement = diaryPlacement.kind !== 'slot' || hasPlacementCategory
-    ? diaryPlacement : { kind: 'top' };
+
+  const isDiaryInCategory = diaryPlacement.kind === 'slot' ||
+    diaryPlacement.kind === 'before' || diaryPlacement.kind === 'after';
+  const hasPlacementCategory = isDiaryInCategory &&
+    categories.some(cat => cat.id === diaryPlacement.categoryId);
+  const fallbackPlacement: DiaryPlacement =
+    isDiaryInCategory && !hasPlacementCategory ? { kind: 'top' } : diaryPlacement;
+  const diaryCategoryId = fallbackPlacement.kind === 'top' || fallbackPlacement.kind === 'bottom'
+    ? '' : fallbackPlacement.categoryId;
+  const diaryTaskIds = (tasksByCategory.get(diaryCategoryId) ?? []).map(task => task.id);
+  const displayedDiarySlotIndex = diarySlotIndex(fallbackPlacement, diaryTaskIds);
+  const migratedLegacySlot = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!diaryEnabled || !onMoveDiary || diaryPlacement.kind !== 'slot' ||
+        !hasPlacementCategory || !diaryTaskIds.length ||
+        diaryTaskIds.length < diaryPlacement.index) return;
+    const key = `${dateStr}:${diaryPlacement.categoryId}:${diaryPlacement.index}`;
+    if (migratedLegacySlot.current === key) return;
+    migratedLegacySlot.current = key;
+    const anchored = anchoredDiaryPlacement(
+      diaryPlacement.categoryId, diaryPlacement.index, diaryTaskIds
+    );
+    void Promise.resolve().then(() => onMoveDiary(anchored)).catch(() => {
+      if (migratedLegacySlot.current === key) migratedLegacySlot.current = null;
+    });
+  }, [dateStr, diaryEnabled, diaryPlacement, hasPlacementCategory, diaryTaskIds, onMoveDiary]);
   // Like tasks, reserve exactly one projected slot while the actual card
   // travels with the pointer. Neither the source nor the gap animates twice.
   const showDiaryGhost = Boolean(diaryEnabled && diaryDragging && diaryProjectedPlacement);
@@ -207,15 +231,19 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           categoryId={category.id}
           categoryName={category.name}
           categoryColor={category.color}
-          diarySlot={diaryEnabled && fallbackPlacement.kind === 'slot' && fallbackPlacement.categoryId === category.id ? diaryCard : undefined}
-          diaryGhostSlot={showDiaryGhost && diaryProjectedPlacement?.kind === 'slot' && diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
-          diaryGhostSlotIndex={diaryProjectedPlacement?.kind === 'slot' ? diaryProjectedPlacement.index : 0}
+          diarySlot={diaryEnabled && diaryCategoryId === category.id ? diaryCard : undefined}
+          diaryGhostSlot={showDiaryGhost &&
+             diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom' &&
+             diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
+          diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
+             ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
           animateDragProjection={reorderRuntimeActive}
+          taskDragInProgress={Boolean(activeDrag)}
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
           settlingTaskId={settlingTaskId}
           lastReleasedTask={lastReleasedTask}
-          diarySlotIndex={fallbackPlacement.kind === 'slot' ? fallbackPlacement.index : 0}
+          diarySlotIndex={displayedDiarySlotIndex}
           visibility={category.visibility}
           currentUserId={currentUserId}
           tasks={tasksByCategory.get(category.id) ?? []}
