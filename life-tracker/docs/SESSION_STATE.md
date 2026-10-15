@@ -11,7 +11,7 @@ Current task: #592 default CI-first stable Preview rollout verified with #852 or
 - Ordinary frontend #852 task `49f34c0a` v0.28.0 adds Yesterday/date-context actions and component regressions; focused CI #38699831899 SUCCESS.
 - This combined task source derives from exact `dev@6d488d3c` with both reviewed change sets (no Appwrite schema/Function changes); `chatgpt/592-852-ci-first-integrated-20261015` exists solely to run focused verification before a *first-commit* stable CI-suppressed feature Preview.
 
-## Acceptance and next action
+## Next action
 1. Focused gate on combined task SHA, fix any actual regressions; do not create an ordinary Git-first stable Preview.
 2. Start a genuinely source-first single-leaf `feature/...` stable branch at the combined policy-carrying SHA; prove the **first push** creates ZERO Git-provider deployments. The main trusted writer may create only after exact full canonical success. If flags/alias/origin block delivery, investigate fail-closed and request the narrow owner action, not a Git-first fallback.
 3. Inspect canonical gate/CLI READY/Scratch browser identity, stable URL, routing/PWA security and idempotent same-SHA retry. Device authentication/acceptance is distinct and user-owned. Keep owner-accepted #853 promotion and any future #852 stable→dev promotion under separate explicit approvals.
