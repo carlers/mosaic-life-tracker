@@ -411,7 +411,7 @@ describe('NotificationsPage', () => {
     };
     const social: NotificationEntry[] = [
       { ...base, id: 'not_' + 'c'.repeat(32), type: 'direct_message',
-        detail: 'Just got back home' },
+        detail: 'Just got back home', replyExcerpt: 'Are you coming home?' },
       { ...base, id: 'not_' + 'd'.repeat(32), type: 'message_reaction',
         detail: 'The race was amazing', emoji: '🔥' },
       { ...base, id: 'not_' + 'e'.repeat(32), type: 'shared_task_invite',
@@ -422,7 +422,7 @@ describe('NotificationsPage', () => {
       items: social, nextCursor: '', fetchedAt: '2026-10-08T10:00:00.000Z',
     });
     render(<NotificationsPage />);
-    expect(await screen.findByText(/sent you a message: “Just got back home”/)).toBeInTheDocument();
+    expect(await screen.findByText(/replied to “Are you coming home\?”: “Just got back home”/)).toBeInTheDocument();
     expect(screen.getByText(/reacted to your message “The race was amazing” 🔥/)).toBeInTheDocument();
     expect(screen.getByText(/invited you to the shared task “Visit Tokyo”/)).toBeInTheDocument();
   });

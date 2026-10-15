@@ -72,7 +72,11 @@ function activityLabel(
   switch (item.type) {
     case 'friend_request': return 'sent you a friend request';
     case 'friend_accepted': return 'accepted your friend request';
-    case 'direct_message': return quoted ? `sent you a message: ${quoted}` : 'sent you a message';
+    case 'direct_message': {
+      const reply = showDetails && typeof item.replyExcerpt === 'string' ? item.replyExcerpt : '';
+      return quoted && reply ? `replied to “${reply}”: ${quoted}`
+        : quoted ? `sent you a message: ${quoted}` : 'sent you a message';
+    }
     case 'message_reaction': return quoted
       ? `reacted to your message ${quoted}${emoji ? ' ' + emoji : ''}`
       : 'reacted to your message';
