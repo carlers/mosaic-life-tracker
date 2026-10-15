@@ -1,19 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-15 UTC
-Current task: #889 isolated preparation of an integrated pre-1.0 dev/main candidate preserving protected-main trusted delivery and dev v0.29.1 product/CI.
+Current task: #889 prepare safe pre-1.0 Production release after owner-authorized dev/main history reconciliation.
 
-## Source and authorization
-- Task base exact `dev@9b6319d956d59eafcef0357f97ccb02fd4075814` after user-approved #903; current Vercel dev exact READY and Quality Gate #38739248481 SUCCESS.
-- Protected `main@bb58300052dc4c85974d97779e2b257ec4f28c7d` Production v0.17.4 remains divergent. No Production backend, Vercel environment, `main`, version, tag or release action authorized.
-- Release audit #889 / #526 and isolated legacy v0.17.5 reader bridge `chatgpt/889-legacy-client-bridge-20261015@81bde2da` remain separate; focused run #38725371146 SUCCESS, no hotfix stable Preview or Production promotion.
-- Preserve all user-accepted v0.29.1 Diary, notifications, chat, #851/#852/#853 and CI-first policies; no UI, product behavior, RxDB mapping/schema, Appwrite migrations/Function, package version or Vercel project-settings changes in this integration task.
+## Verified state
+- Protected dev at `9c3152cdc6f92950cb0b54677b68b86c022508a3`, v0.29.1. Owner-approved PR #906 merged current protected main ancestry into dev without source-tree differences; main is dev's ancestor. Stable source `2820f7f8f5f2e73250fa929376ba3b55b505ad62` full canonical #38758786372 SUCCESS (first attempt), protected trusted Preview #38759081119 SUCCESS, CLI Vercel `dpl_G9THiGgHRsDYc8ktjs4oz5Xj3VQm` READY.
+- Protected main `bb58300052dc4c85974d97779e2b257ec4f28c7d` Production v0.17.4 unchanged. No Production backend schema/Function, R2, main product/version/tag write from #889.
+- The no-file-change PR #906 did not trigger dev path-filtered postmerge Quality Gate. This documentation task records enforceable release-readiness evidence and will be promoted through exact stable Preview so dev receives a new checked, attributable push.
+- Immutable v0.17.4 six-collection synthetic row/write checker BLOCKS Diary/message extra fields; isolated unshipped v0.17.5 bridge PASS, [#38756019542](https://github.com/carlers/mosaic-life-tracker/actions/runs/38756019542). Old installed PWA update/offline retirement remains unverified.
+- Production dr-backup scheduled execution 2026-10-15 11:01 UTC HTTP 200 reports a completed backup, NOT independently authenticated R2 marker/key/isolated restore.
+- Mixed-attempt artifacts after partial failed-jobs CI rerun are rejected by trusted main receiver; #592 checkpoint contains root cause. Fresh first-attempt canonical and PREBUILT passed for accepted reconciliation.
 
-## Integration choices
-- Bring from actual protected main only the missing trusted PREBUILT sender/receiver/provider verification scripts and their tests/fixtures, archived trust bootstrap runbook, and newer guarded protected-main `trusted-preview-delivery.yml`, `trusted-preview-receiver.mjs`, `run-trusted-preview-receiver.mjs`.
-- Keep dev's current pinned `.github/workflows/quality-gate.yml` blob `5f64f715551f0c311a60d823367d849dfb369bba`, its full artifact producer, current `preview-evidence-schema.mjs` diagnostic/ref contract and its `vercel.json` default stable Git suppression; do not downgrade it to main's older CI/Git-first policy.
-- Keep dev's newer NotificationsPage test, main README/DELIVERY/SESSION conflicts unresolved by blind copy; link historical trust guide in docs index. Existing trusted main scripts must pass dev-focused tests and source contracts before a stable Preview or any protected promotion.
+## Scope and boundaries
+- This task changes only Production release-readiness/runbook and session checkpoint, not runtime code, version, Appwrite, CI, provider settings, Production data or release tags. Version impact NONE (remains v0.29.1).
+- Production 010–015, Function activation and main cutover still need explicit verified old-client, independently restorable DR, backend target and human signed-in/mobile/offline acceptance. Do not downgrade dev, silently reuse old Production browser origins, or restore real Production accounts to shared Scratch.
 
 ## Next action
-- Run task [verify:focused], repair actual test/lint failures with regression coverage if needed, inspect exact diff and freeze one clean isolated candidate. Only then task→stable CI-first Preview full canonical and Vercel READY; approval required before dev/main promotion.
-- #889 hard gates still pending: immutable old-client read/write/device/offline compatibility and upgrade/retirement, independent encrypted R2 completed/hash + isolated restore, Production schema 010–015 and Function rollout, authenticated two-account mobile acceptance and explicit main/release/1.0 approval. Do not copy Production data to Scratch.
+- Task [verify:focused] on exact commit with this checkpoint; source-first stable refactor Preview full canonical and protected PREBUILT READY; separately preflight then user-authorized merge to dev; prove postmerge Quality Gate/READY.
+- Prepare the protected dev-to-main release PR with aggregate user-facing release notes only after refreshed dev proof. Keep it unmerged until all Production gates in `PRODUCTION_RELEASE_READINESS.md` and #889 are independently verified; 1.0.0 requires distinct milestone approval.
