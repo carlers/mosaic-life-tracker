@@ -118,7 +118,9 @@ describe('verification workflow contracts', () => {
     expect(vercel.git.deploymentEnabled['*']).toBe(false);
     expect(vercel.git.deploymentEnabled.main).toBe(true);
     expect(vercel.git.deploymentEnabled.dev).toBe(true);
-    expect(vercel.git.deploymentEnabled['feature/*']).toBe(true);
+    expect(vercel.git.deploymentEnabled['feature/*']).toBeUndefined();
+    expect(vercel.git.deploymentEnabled['feature/!(592-ci-first-live-20261015)']).toBe(true);
+    expect(vercel.git.deploymentEnabled['feature/592-ci-first-live-20261015']).toBe(false);
     expect(vercel.git.deploymentEnabled['refactor/*']).toBe(true);
     expect(vercel.git.deploymentEnabled['chatgpt/*']).toBe(false);
     expect(vercel.git.deploymentEnabled['codex/*']).toBe(false);
