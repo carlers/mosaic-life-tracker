@@ -1,34 +1,18 @@
-# Session checkpoint — issue #408 drag polish
+# Session checkpoint — #408 Diary relative ordering and top insertion
 
-Updated: 2026-10-13.
-Current task: correct bottom-up task ghost and diary finger tracking without regressing accepted release settling. Base stable Preview `feature/diary-408` at `4b7959e974af0a86df5d1cd3ab42811565cbd30b`; isolated task branch `chatgpt/408-drag-feedback-polish-20261013`.
-Next action: verify focused browser and build checks; fix actual failures; squash focused-green branch into Preview only; verify canonical acceptance, Scratch build, all seven size budgets and stable alias. Do not merge dev/main or close #408 before manual acceptance.
+Updated: October 15, 2026. Base stable Diary Preview v0.25.4 `feature/diary-408@d29340395c82cff91a5a1f9fecc582d727fb320d`. User manually accepts other Diary behavior; reported two outstanding Day View drag/order defects.
 
-## User-reported v0.25.3 defects
+## Approved behavior
+- Diary placed just below a category pill must offer a real before-card insertion target for ordinary task drag; support after-card too, with no permanent visible spacer and no new ghost/animation regressions.
+- Diary must participate in the mixed task order, not occupy a perpetual numeric slot: new tasks/reorders above it move its index naturally; crossing a task past Diary moves the relative position; category moves and deleted anchors have bounded fallback.
+- Preserve default top/bottom modes, task-only order persistence, category labels, diary drag overlay/settle, account-synced per-day settings, old saved slots, touch input, and shared Scratch Function.
+- Isolated PATCH Preview v0.25.5; no Appwrite schemas, Function, Scratch writes, Production or dev/main promotions.
 
-1. Long-pressing a task at the bottom and moving it upward leaves an apparently duplicated / ghost task over the next category pill during drag.
-2. Diary takes an initial jump and then stays still while insertion targets react beneath moving finger instead of the **card** visibly tracking finger.
-3. The prior source release settling/snap animation now works well; preserve it.
+## Implementation
+- `src/lib/diaryPlacement.ts`: before/after existing-task anchors with safe fallback, automatic legacy slot upgrade and crossing-aware task reorder calculation.
+- `TaskReorderSurfaces.tsx`, `taskReorder.ts`, `CategorySection.tsx`: unique before/after drop zones covering the real diary card, even when no gap exists at the top.
+- `TaskReorderRuntime.tsx`, `DaySlideContent.tsx`: optimistic mixed ordering while task drag projects and after commit; account/day-scoped settings upgrade only with a real task anchor available.
+- Unit regressions in `tests/unit/diaryPlacement.test.ts` and `tests/unit/taskReorder.test.ts`.
 
-## v0.25.4 approach (2026-10-13)
-
-- Use one dnd-kit-owned `DragOverlay` for task and diary, with default Feedback/DragOverlay registration and disabled independent drop animation. Explicit `feedback:'none'` was tested and rejected because in @dnd-kit/react 0.5.0 it hides the mounted overlay and breaks collision/projection. The registered source geometry remains invisible while the DragOverlay is the only painted card.
-- Diary source is an inert, invisible geometry proxy under the actual Day View card; the overlay renders the exact existing `DiaryDayCard` with the current entry/compact-expanded snapshot. Only the overlay tracks the touch, fully above scroll containers. Keep the original card mounted but visually hidden and out of flow, with one exact-size insertion gap. Refreshed release key avoids old-location Motion FLIP.
-- Clip the hidden task source shell, keep task overlay and accepted release-remount mechanism untouched; maintain sibling transitions, optimistic persistence, target stabilization, touch hold threshold, scroll/swipe ownership and cancel semantics.
-- Add browser regression for bottom-to-top task drag to assert one feedback instance/no painted source, and a real DaySlide diary fixture that verifies finger tracking on both axes, one projected gap, and restored visibility after cancellation. Browser fixture opts into an explicit preloaded diary document rather than touching backend/local user data.
-- Candidate version PATCH v0.25.4; no schema/Function or dependency changes. Keep hosted size guard strict; any measured Vercel variance requires documented review, no blanket budget widening.
-
-## Verification
-
-First browser run #38316558625 showed Feedback `none` hid task/diary overlays and broke projections; repaired by restoring default feedback. Pending: focused browser checks, full canonical stable gate, Vercel Scratch READY exact SHA/all seven hosted budgets, actual phone/desktop visual acceptance. Prior v0.25.3 accepted as baseline at `4b7959e`; `dev` and `main` must remain unchanged.
-
-## Browser repair checkpoint
-
-Run #38316881646 restored working DragOverlay visibility and existing drag/collision checks (focused, browser 1/2 PASS); two new browser cases exposed source-slot visibility not reliably hidden under automatic dnd feedback. Add important CSS invisibility to both live source shells, preserving registered proxy DOM; assert computed browser visibility with diagnostics, never mask the issue by dropping the checks.
-
-## Stable v0.25.4 first hosted-size audit (2026-10-13)
-
-- Reorder polish implementation PR [#766](https://github.com/carlers/mosaic-life-tracker/pull/766) squash merged **only** into `feature/diary-408` at `b15e6b302ea6cdab5ed527942c902d9ab0ba0e35`. Focused and both Playwright shards passed [task #38317198406](https://github.com/carlers/mosaic-life-tracker/actions/runs/38317198406), including bottom-up ghost and diary finger-position/cancel tests.
-- First Scratch/GIPHY hosted build `dpl_9zXWw2JsYBa1sLug92CwkvHNNaDV` failed exactly two aggregate caps: appAssetsRaw 2,505,384/2,505,000 (+384 B), precacheUnique 2,593,967/2,593,000 (+967 B). Other five pass. Branch implementation is unchanged.
-- Reviewed isolated size-only follow-up `chatgpt/408-v0254-hosted-size-review-20261013` sets raw limit 2,506,500 and precache 2,595,000, measured margin 1,116/1,033 B. Prior review chain and all other limits unchanged.
-Next action: focused verify size-only repair, squash into the stable Preview branch, verify exact full canonical CI and Vercel Scratch READY with all seven hosted budgets; report device acceptance still pending. No dev/main promotion or issue closure.
+## Verification/promotion
+- Task branch `chatgpt/408-diary-relative-order-20261015`; focused CI, then stable `feature/diary-408` full canonical + Vercel READY. User device acceptance of drag before/after diary, cross/within category moves, task insertion, Diary drag, re-open, sync, cancellation and fallback still required. Do not merge into dev before approval.

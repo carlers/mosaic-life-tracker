@@ -4,6 +4,8 @@ import {
   buildAffectedTaskOrderGroups,
   buildRenderedTasksByCategory,
   categoryStartDropId,
+  diaryTaskDropId,
+  parseDropTarget,
   projectTaskPlacement,
   taskGapDropId,
   taskInsertDropId,
@@ -169,4 +171,23 @@ describe('task reorder projection', () => {
       expect.objectContaining({ id: 'a1', categoryId: 'cat_b', order: 1 }),
     ]);
   });
+  it('targets either half of a diary card even when no free gap exists above it', () => {
+    const before=diaryTaskDropId('cat_a',0,'before');
+    const after=diaryTaskDropId('cat_a',0,'after');
+    expect(parseDropTarget(before)).toEqual({
+      categoryId:'cat_a',position:'index',index:0,diarySide:'before'
+    });
+    expect(parseDropTarget(after)).toEqual({
+      categoryId:'cat_a',position:'index',index:0,diarySide:'after'
+    });
+    expect(projectTaskPlacement({cat_a:['a1','a2']},'a2',before))
+      .toEqual({cat_a:['a2','a1']});
+    expect(projectTaskPlacement({cat_a:['a1','a2']},'a1',diaryTaskDropId('cat_a',1,'after')))
+      .toEqual({cat_a:['a1','a2']});
+    expect(projectTaskPlacement({cat_a:['a1','a2']},'a1',diaryTaskDropId('cat_a',1,'before')))
+      .toEqual({cat_a:['a1','a2']});
+    expect(parseDropTarget('task-diary-insert:cat_a:oops:before')).toBeNull();
+    expect(parseDropTarget('task-diary-insert:cat_a:0:neither')).toBeNull();
+  });
+
 });

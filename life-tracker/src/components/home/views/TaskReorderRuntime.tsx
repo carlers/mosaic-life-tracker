@@ -6,7 +6,7 @@ import {
   PointerSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
-import { placementFromTaskDrop, type DiaryPlacement } from '../../../lib/diaryPlacement';
+import { diaryAfterTaskMove, placementFromTaskDrop, type DiaryPlacement } from '../../../lib/diaryPlacement';
 import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
@@ -69,6 +69,7 @@ interface DragSession {
   projection: TaskPlacement;
   hasValidTarget: boolean;
   acceptedPointer: { x: number; y: number } | null;
+  diarySide: 'before' | 'after';
 }
 
 interface TaskReorderRuntimeProps extends DaySlideProps {
@@ -133,6 +134,11 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     [basePlacement, tasks, taskSortMode]
   );
   const renderPlacement = activeDrag?.snapshot ?? displayPlacement;
+  const projectedDiaryPlacement = activeDrag && props.diaryEnabled && props.diaryPlacement
+    ? diaryAfterTaskMove(
+        props.diaryPlacement, activeDrag.snapshot, activeDrag.projection,
+        activeDrag.taskId, activeDrag.diarySide
+      ) : null;
 
   const tasksByCategory = React.useMemo(
     () =>
@@ -213,6 +219,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         projection: snapshot,
         hasValidTarget: false,
         acceptedPointer: null,
+        diarySide: 'before',
       };
       setSettlingTaskId(null);
       setActiveDrag(next);
@@ -276,15 +283,13 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
 
       session.hasValidTarget = true;
       session.acceptedPointer = { ...event.operation.position.current };
-      if (
-        taskPlacementsEqual(session.projection, next, categoryIds)
-      ) {
-        return;
-      }
-
+      const diarySide = parseDropTarget(String(target.id))?.diarySide ?? 'before';
+      if (taskPlacementsEqual(session.projection, next, categoryIds) &&
+          session.diarySide === diarySide) return;
+      session.diarySide = diarySide;
       session.projection = next;
-      setActiveDrag((current) =>
-        current ? { ...current, projection: next } : current
+      setActiveDrag(current =>
+        current ? { ...current, projection: next, diarySide } : current
       );
     },
     [categoryIds, displayPlacement]
@@ -397,35 +402,41 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         ? projection
         : canonicalPlacementAfterSortedDrop(canonicalSnapshot, projection, String(source.id), tasks);
       if (!finalPlacement ||
-        !isTaskPlacementCompatible(finalPlacement, livePlacement, categoryIds) ||
-        taskPlacementsEqual(canonicalSnapshot, finalPlacement, categoryIds)) return;
+        !isTaskPlacementCompatible(finalPlacement, livePlacement, categoryIds)) return;
 
-      const groups = buildAffectedTaskOrderGroups(
-        canonicalSnapshot,
-        finalPlacement,
-        String(source.id)
+      const tasksChanged = !taskPlacementsEqual(
+        canonicalSnapshot, finalPlacement, categoryIds
       );
-      if (groups.length === 0) return;
+      const groups = tasksChanged ? buildAffectedTaskOrderGroups(
+        canonicalSnapshot, finalPlacement, String(source.id)
+      ) : [];
+      const nextDiary = props.diaryEnabled && props.diaryPlacement
+        ? diaryAfterTaskMove(props.diaryPlacement, session.snapshot,
+            projection, session.taskId, session.diarySide)
+        : null;
+      const diaryChanged = Boolean(nextDiary && props.onMoveDiary &&
+        JSON.stringify(nextDiary) !== JSON.stringify(props.diaryPlacement));
+      if (!groups.length && !diaryChanged) return;
 
       const commitId = ++commitIdRef.current;
-      setCommittedPlacement({
-        id: commitId,
-        placement: finalPlacement,
-      });
-
+      if (groups.length) setCommittedPlacement({ id: commitId, placement: finalPlacement });
+      if (diaryChanged && nextDiary) setCommittedDiaryPlacement(nextDiary);
       void Promise.resolve()
-        .then(() => onReorderTasks(dateStr, groups))
+        .then(() => groups.length ? onReorderTasks(dateStr, groups) : undefined)
+        .then(() => diaryChanged && nextDiary ? props.onMoveDiary?.(nextDiary) : undefined)
         .then(() => {
           window.requestAnimationFrame(() => {
-            setCommittedPlacement((current) =>
-              current?.id === commitId ? null : current
+            setCommittedPlacement(current => current?.id === commitId ? null : current);
+            if (diaryChanged) setCommittedDiaryPlacement(current =>
+              current && JSON.stringify(current) === JSON.stringify(nextDiary) ? null : current
             );
           });
         })
         .catch(() => {
-          setCommittedPlacement((current) =>
+          setCommittedPlacement(current =>
             current && current.id >= commitId ? null : current
           );
+          if (diaryChanged) setCommittedDiaryPlacement(null);
         });
     },
     [
@@ -466,7 +477,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       <LayoutGroup>
       <DaySlideContent
         {...props}
-        diaryPlacement={committedDiaryPlacement ?? props.diaryPlacement}
+        diaryPlacement={committedDiaryPlacement ?? projectedDiaryPlacement ?? props.diaryPlacement}
         tasksByCategory={tasksByCategory}
         activeSharedDragId={activeSharedDrag?.id ?? null}
         activeDrag={activeDrag}

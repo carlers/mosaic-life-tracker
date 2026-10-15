@@ -7,11 +7,12 @@ export interface ActiveTaskDrag {
   snapshot: TaskPlacement;
   projection: TaskPlacement;
   rowHeight: number;
+  diarySide?: 'before' | 'after';
 }
 
 type ParsedDropTarget =
   | { categoryId: string; position: 'start' }
-  | { categoryId: string; position: 'index'; index: number }
+  | { categoryId: string; position: 'index'; index: number; diarySide?: 'before' | 'after' }
   | {
       categoryId: string;
       position: 'before' | 'after';
@@ -21,6 +22,7 @@ type ParsedDropTarget =
 const CATEGORY_START_PREFIX = 'task-category-start:';
 const GAP_PREFIX = 'task-gap:';
 const INSERT_PREFIX = 'task-insert:';
+const DIARY_INSERT_PREFIX = 'task-diary-insert:';
 
 export function categoryStartDropId(categoryId: string): string {
   return `${CATEGORY_START_PREFIX}${categoryId}`;
@@ -38,6 +40,11 @@ export function taskInsertDropId(
   return `${INSERT_PREFIX}${categoryId}:${taskId}:${position}`;
 }
 
+export function diaryTaskDropId(categoryId: string, index: number,
+  side: 'before' | 'after'): string {
+  return `${DIARY_INSERT_PREFIX}${categoryId}:${index}:${side}`;
+}
+
 export function findTaskCategory(
   placement: TaskPlacement,
   taskId: string
@@ -49,6 +56,15 @@ export function findTaskCategory(
 }
 
 export function parseDropTarget(targetId: string): ParsedDropTarget | null {
+  if (targetId.startsWith(DIARY_INSERT_PREFIX)) {
+    const [categoryId, rawIndex, diarySide, ...rest] =
+      targetId.slice(DIARY_INSERT_PREFIX.length).split(':');
+    const index = Number(rawIndex);
+    return categoryId && rest.length === 0 && Number.isInteger(index) &&
+      index >= 0 && (diarySide === 'before' || diarySide === 'after')
+      ? { categoryId, position: 'index', index, diarySide } : null;
+  }
+
   if (targetId.startsWith(CATEGORY_START_PREFIX)) {
     const categoryId = targetId.slice(CATEGORY_START_PREFIX.length);
     return categoryId ? { categoryId, position: 'start' } : null;
@@ -116,7 +132,11 @@ export function projectTaskPlacement(
 
   let targetIndex = 0;
   if (target.position === 'index') {
-    targetIndex = target.index;
+    // Diary overlay exposes a gap in the original task sequence. Removing
+    // the source task before that gap shifts its insertion index left by one.
+    targetIndex = target.index -
+      (target.diarySide && sourceCategoryId === target.categoryId &&
+       sourceIndex < target.index ? 1 : 0);
   } else if (target.position !== 'start') {
     const targetTaskIndex = targetTaskIds.indexOf(target.taskId);
     if (targetTaskIndex < 0) return null;
