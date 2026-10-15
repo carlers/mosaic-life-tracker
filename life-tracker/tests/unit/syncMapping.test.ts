@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { diarySchema, messagesSchema, categoriesSchema } from '../../src/db/schema';
 import {
   toAppwriteFormat,
   fromAppwriteFormat,
@@ -416,6 +417,44 @@ describe('fromAppwriteFormat', () => {
     expect(out.is_unsent).toBeUndefined();
     expect(out.original_message_id).toBeUndefined();
   });
+  it('messages: ignores newer Diary backend columns while preserving all local schema fields (#708/#408)', () => {
+    // The live Scratch messages table has these four additive fields even
+    // when a v0.24 chat client does not yet understand Diary references.
+    // A new-origin Preview must still read old messages and recent replies.
+    for (const direction of ['outgoing', 'incoming']) {
+      const row = {
+        $id: direction === 'outgoing' ? 'msg_compat' : 'rmsg_compat',
+        user_id: USER_ID,
+        thread_id: 'th_test',
+        sender_id: 'user_sender',
+        recipient_id: 'user_recipient',
+        direction,
+        content: 'persisted message',
+        delivery_status: 'delivered',
+        created_at: '2026-10-14T15:28:13.391Z',
+        updated_at: '2026-10-14T15:28:13.780Z',
+        deleted: false,
+        diary_ref_id: 'diary_1',
+        diary_ref_owner_id: 'user_owner',
+        diary_ref_date: '2026-10-14',
+        diary_ref_excerpt: 'private Diary excerpt',
+        newer_unknown_server_column: 'forward-compatible',
+      };
+      const mapped = fromAppwriteFormat(row, 'messages');
+      expect(Object.keys(mapped).sort()).toEqual(
+        Object.keys(messagesSchema.properties).sort()
+      );
+      expect(mapped.content).toBe('persisted message');
+      expect(mapped.deliveryStatus).toBe('delivered');
+      expect(mapped.isDeleted).toBe(false);
+      expect(mapped.direction).toBe(direction);
+      for (const extra of ['diary_ref_id', 'diary_ref_owner_id',
+        'diary_ref_date', 'diary_ref_excerpt', 'newer_unknown_server_column']) {
+        expect(mapped).not.toHaveProperty(extra);
+      }
+    }
+  });
+
   it('messages: read_at maps to readAt regardless of direction', () => {
     const base = {
       $id: 'rmsg_1',
@@ -702,5 +741,45 @@ describe('fromAppwriteFormat — schema drift detection', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     fromAppwriteFormat({ $id: 'x', some_field: 'y' }, 'not_a_real_collection');
     expect(warnSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('fromAppwriteFormat — shared Scratch forward compatibility', () => {
+  const diaryRow = {
+    $id: 'diary_1',
+    date: '2026-10-15',
+    content: 'Kept on the server',
+    visibility: 'private',
+    user_id: USER_ID,
+    created_at: '2026-10-15T00:00:00.000Z',
+    updated_at: '2026-10-15T00:01:00.000Z',
+    deleted: false,
+    emoji: '📓',
+    photos: '["photo1"]',
+    future_diary_field: 'new value',
+  };
+  it('drops the two actual new Scratch Diary fields and future unknowns only from local RxDB', () => {
+    const remote = { ...diaryRow };
+    const doc = fromAppwriteFormat(remote, 'diary');
+    expect(Object.keys(doc).sort()).toEqual(Object.keys(diarySchema.properties).sort());
+    expect(doc).toMatchObject({
+      id: 'diary_1', userId: USER_ID, date: '2026-10-15',
+      content: 'Kept on the server', visibility: 'private',
+      isDeleted: false, updatedAt: '2026-10-15T00:01:00.000Z',
+    });
+    expect(remote).toEqual(diaryRow);
+    const outgoingPatch = toAppwriteFormat(doc, 'diary', USER_ID);
+    expect(outgoingPatch).not.toHaveProperty('emoji');
+    expect(outgoingPatch).not.toHaveProperty('photos');
+  });
+  it('applies the same strict local-field boundary to categories', () => {
+    const doc = fromAppwriteFormat({
+      $id: 'cat_1', user_id: USER_ID, name: 'Home', color: '#555555',
+      order: 0, visibility: 'private', icon: '',
+      updated_at: '2026-10-15T00:00:00.000Z', deleted: false,
+      future_color_format: 'remote-only',
+    }, 'categories');
+    expect(Object.keys(doc).sort()).toEqual(Object.keys(categoriesSchema.properties).sort());
+    expect(doc.name).toBe('Home');
   });
 });
