@@ -1,13 +1,17 @@
-# Session checkpoint — issue #408 Scratch compatibility
+# Session checkpoint
 
-Updated: 2026-10-12.
-Current task: activate Scratch-only compatible diary v0.25.1 Function while preserving #708 live chat reconciliation.
-Next action: run exact Scratch migration 015, deploy reviewed combined Function inactive, verify READY, activate with retained rollback, then perform synthetic two-user acceptance.
+Updated: 2026-10-15 UTC
+Current task: #526 + #682 — on-demand Scratch Function compatibility union, code only.
 
-- UI Preview stable `feature/diary-408@b5b3507c29d01c2200878d136a92b646d9e6e8ec` (v0.25.1) at https://mosaic-life-tracker-git-feature-788f0b-carls-projects-72516fde.vercel.app is Vercel READY; all seven hosted size budgets pass.
-- Scratch project ONLY: `6a96e82d000d1310b3be`, FRA endpoint. Existing active `message-action` Function `6aa8057f002a4c306fdd` deployment `6accddcbede4ccb26900` includes #708 delivery repair. Preserve this deployment for rollback. New diary source alone must NOT replace it.
-- This compatibility task branch starts at diary stable SHA and replaces only `appwrite-functions/message-action/main.js` with a **clean, conflict-free Git three-way merge** of base `09b905b693159b14c27cdae605288bfb84295691`, active source `8c5afc787dca7a4c8d214f0b24a0e82991fd5f71`, diary stable `b5b3507c29d01c2200878d136a92b646d9e6e8ec`; exact merged Git blob `28168fb29d980b5b05c717687c8e5e55aceb1eae`. Retains `repair_thread_all`, safe delivery, new `get_owner_diary_reactions`, typed quote, diary reaction activity.
-- Added existing #708 repairThread handler regression tests to diary branch; combined focused #708/#408 suite 31/31 PASS. Full handler suite before adding #708 tests 183/183 PASS. No Production or dev/main changes.
-- Required additive change: optional default-empty `messages.diary_ref_id` (36), `diary_ref_owner_id` (36), `diary_ref_date` (10), `diary_ref_excerpt` (160) in Scratch `life_tracker.messages`, matching Git migration 015. Never reset data.
-- Remote gate status at authoring: Scratch columns missing; Function not yet deployed. Retain old deployment and inspect exact revision before activation. Backend edits are explicitly authorized by the user; do not mutate Production.
-- Two-account cross-device acceptance, master sync convergence, and GitHub canonical branch check cannot be presumed from offline handler tests. Keep issue #408 open until acceptance.
+## Verified starting point
+- Scratch active Function `message-action` deployment `6acd0a6643868c68508c`, built from audited #408/#708 source `chatgpt/408-708-scratch-compat-20261012@49b2a33006e8d728ba7b505526404209f9d53d36`. This preserves Diary, replies/reactions and #708 chat repair; its predecessor is retained for rollback. Do not overwrite it with the dev-based Notifications Feature Function.
+- New Notifications integrated v0.26.0 stable Preview `feature/notifications-682-integrated-20261015@3388c03a93bc064c8c04d5dc52eca379fa49abe8`; focused and full canonical CI SUCCESS, Vercel READY. Frontend-based SHA lacks already-active Diary Function source and is not an activation candidate.
+- #526 historical client probe source `refactor/scratch-compatibility-526@951baedd77cbb5176f462d74ff45c3e420fbbab4`, read-only proof #38666394991 SUCCESS: current dev passes, old Diary/Notifications Previews correctly block future unknown fields. Dev integration PR #872 prepared, not merged.
+
+## Implementation under verification
+- Started from exact previously activated #408/#708 union SHA `49b2a33006e8d728ba7b505526404209f9d53d36`, not the stale #682 Function.
+- Backport only #682 server-owned receipt module, friendship/task-share idempotent result markers, notification projection/channels and new side-effect hooks into the verified active union. Preserve current chat idempotency, `repair_thread_all`, Diary reader/reaction handlers and exact handler authorization. Add #682 live contextual excerpts, with generic push text by default.
+- No Appwrite Function/schema/config, Scratch or Production mutation. No frontend, release version or dev/main change in this backend-only task.
+
+## Next action
+- Run focused handler/unit verification on `chatgpt/526-682-scratch-function-union-20261015`, repair failures and prepare an isolated backend union Preview after green. Before any Scratch activation: confirm exact source & manifest drift against live Scratch, compare every active Preview consumer (not just schema read mapping), coordinate one writer with previous active deployment ID, obtain explicit activation approval, then test Diary/chat/notification multi-account ACL/idempotency/latency live. Keep #526 and #682 open for device acceptance and explicit promotions.
