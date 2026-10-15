@@ -149,6 +149,21 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
                     ? `Last synced ${formatRelative(status.lastSync, ' ago')}`
                     : 'This device has not completed a sync yet.'}
             </p>
+            {status.isSyncing && status.progress?.phase === 'verify' && (
+              <div role="status" aria-label="Local verification details"
+                className="mt-3 text-xs text-gray-400 space-y-1">
+                <p>{status.progress.verifiedGroups ?? 0} of {status.progress.groupTotal ?? 8} data groups verified</p>
+                {status.progress.activeGroup && (
+                  <p>Current group: {status.progress.activeGroup}</p>
+                )}
+                {status.progress.scannedPages !== undefined && (
+                  <p>{status.progress.scannedRows ?? 0} server rows checked across {status.progress.scannedPages} pages</p>
+                )}
+                {status.progress.localChecked !== undefined && (
+                  <p>{status.progress.localChecked} of {status.progress.localTotal ?? 0} local rows checked</p>
+                )}
+              </div>
+            )}
             {status.isSyncing && status.progress && (
               <div
                 className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#2A2A2A]"

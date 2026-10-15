@@ -678,6 +678,41 @@ describe('sync — freshness barriers', () => {
     });
   });
 
+  it('reports real verification scan steps without reaching 100% early', async () => {
+    setAllPilots(true);
+    const tasks = makeCollection([makeDoc({ id: 'task_remote', lwt: 1 })]);
+    getDatabaseMock.mockReturnValue(makeDb({ tasks }));
+    listRowsMock.mockImplementation(async ({ tableId }: { tableId: string }) =>
+      tableId === 'tasks' ? { rows: [makeTaskRow('task_remote')] } : { rows: [] }
+    );
+
+    const progress: Array<{
+      phase?: string; completed: number; total: number; percent: number;
+      activeGroup?: string | null; verifiedGroups?: number;
+      scannedPages?: number; scannedRows?: number;
+      localChecked?: number; localTotal?: number;
+    }> = [];
+    await syncModule.refreshSync('user_A', 5_000, {
+      reconcile: true, onProgress: (p) => progress.push(p),
+    });
+
+    expect(progress[0]).toMatchObject({ phase: 'refresh', total: 24, percent: 0 });
+    const verification = progress.filter(p => p.phase === 'verify');
+    expect(verification.length).toBeGreaterThan(8);
+    expect(verification[0].completed).toBe(8);
+    expect(verification[0].percent).toBe(33);
+    expect(verification.some(p =>
+      p.activeGroup === 'Tasks' && p.scannedPages === 1 && p.scannedRows === 1
+    )).toBe(true);
+    expect(verification.some(p =>
+      p.activeGroup === 'Tasks' && p.localChecked === 1 && p.localTotal === 1
+    )).toBe(true);
+    expect(verification.at(-1)?.verifiedGroups).toBe(8);
+    expect(progress.at(-1)).toMatchObject({ phase: 'finalize', completed: 24, total: 24, percent: 100 });
+    expect(progress.slice(0, -1).every(p => p.percent < 100)).toBe(true);
+    expect(progress.every((p, i) => i === 0 || p.percent >= progress[i - 1].percent)).toBe(true);
+  });
+
   it('treats a freshness timeout as pending background sync instead of a persistent red error', async () => {
     setAllPilots(true);
     diaryPilotRefreshMock.mockRejectedValueOnce(

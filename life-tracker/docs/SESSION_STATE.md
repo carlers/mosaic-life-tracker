@@ -1,17 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-15 UTC
-Current task: #708 manual Chat Sync and global Diary Sync failure on user-accepted v0.24.2 Preview; v0.24.3 isolated follow-up.
+Current task: #861 — detailed Sync Now local reconciliation progress (v0.24.4).
 
-## Evidence / boundaries
-- User confirmed two-account v0.24.2 chat histories/new sending work on Scratch Preview `fix/chat-reliability-708-integration-20261014@291fab379cba067af27c11628c7e8516d324f748`, but both chat Sync attempts failed after ~20s and global Sync Now said `Reconciliation failed: diary`.
-- Shared Scratch `life_tracker.diary` exposes additive `emoji` and `photos` fields; v0.24.2 local strict `diarySchema` lacks both and importer spreads them into local documents. Full `syncNow` calls `reconcileLocalReplica` for all eight collections and rejects on Diary. Chat `reconcileChat` awaits `syncNow` after server repair, so its generic failure can be unrelated to messages.
-- Shared Scratch active `message-action` remains `6acd0a6643868c68508c`, read-only inspected. No Scratch schema, Function, row, Production, `dev` or `main` changes authorized by this repair. PR #848 must remain unmerged pending new user reacceptance.
+## Verified baseline
+- User accepted both Chat Sync and normal Sync Now on v0.24.3 Scratch Preview. PR #848 merged to `dev@1fe08f987b4c6e78d0f2bb6716d7472dd87bb4c3` (source tree matches stable `edf05017`); postmerge Quality Gate #38661881984 SUCCESS and Vercel `dpl_AzM3upSfTo7LQ5a3faQvYaRV7Rvt` READY. Main/Production untouched. #708 and #526 own remaining reliability/workflow concerns.
+- In Settings → Sync Status, `refreshSync({reconcile:true})` awaits eight parallel pilot freshness checks then eight sequential `syncCollection` authoritative scans before a final eight-pilot freshness barrier. Old indicator reaches 100% after the first barrier, then shows generic “Verifying local data…” throughout the long scan. No evidence yet that the scan is logically stuck; user requested granular progress.
 
-## Scope
-- Server→local importer allowlists known fields for each collection, preserving existing drift warnings and server-only values. New regression tests cover real Diary columns and a future unknown field; all normal schema properties remain intact.
-- Chat Sync changes only its final local freshness gate to awaited message-pilot catch-up, independent of unrelated Diary errors; server-authorized bounded `repair_thread_all` and pending outgoing checks unchanged. Add progress callbacks and a small shared BottomSheet opened from Chat Sync (also during an ongoing sync) with real phases/errors, never a fabricated percentage.
-- Patch app/package/lock version 0.24.3. Quiet task `chatgpt/708-sync-diary-20261015` branches from accepted stable Preview SHA. No unrelated UI changes or backend modification.
+## Approved scope
+- #861 isolated UI/instrumentation only: show active verification group, completed groups, real pages/server rows and local-row counts. Count actual completed initial-refresh + verify + final-refresh barriers in a monotonic 24-step overall percentage for Sync Now, leaving plain refresh at eight steps. No fabricated per-row percentage when the remote total is unknown.
+- Retain all existing reconciliation, safety, account-scoped status, timeouts/backoff and failure behavior; no Appwrite Function, schema, data or Production changes. PATCH candidate 0.24.4. Task branch `chatgpt/861-sync-verification-progress-20261015` based on the accepted dev source.
 
 ## Next action
-- Require focused CI success on final task commit; squash task into existing stable Preview, require exact stable full canonical CI and Vercel READY; re-test global Sync, Chat Sync and two-account message/Diary continuity. Only then consider updated PR #848 merge into `dev` with new approval/accepted Preview. #526 owns broader single-writer shared-Scratch compatibility safeguards.
+- Finish unit/DOM regression verification and focused CI, squash to a new stable fix Preview after focused green, then require full canonical + Vercel READY and user manual acceptance before any dev promotion. Keep #861 open pending acceptance.
