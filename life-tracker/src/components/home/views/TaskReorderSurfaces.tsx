@@ -6,7 +6,6 @@ import {
   categoryStartDropId,
   taskGapDropId,
   taskInsertDropId,
-  diaryTaskDropId,
 } from './taskReorder';
 
 interface CategoryHeaderFrameProps {
@@ -76,25 +75,27 @@ export const TaskRowDropSurface: React.FC<{
   taskId: string;
   isActiveSource?: boolean;
   animatePosition?: boolean;
+  acceptTasksOnly?: boolean;
   children: React.ReactNode;
 }> = ({
   categoryId,
   taskId,
   isActiveSource = false,
   animatePosition = false,
+  acceptTasksOnly = false,
   children,
 }) => {
   const { ref: beforeRef } = useDroppable({
     id: taskInsertDropId(categoryId, taskId, 'before'),
     type: 'task-insert',
-    accept: ['task', 'diary'],
+    accept: acceptTasksOnly ? 'task' : ['task', 'diary'],
     collisionPriority: CollisionPriority.High,
     disabled: isActiveSource,
   });
   const { ref: afterRef } = useDroppable({
     id: taskInsertDropId(categoryId, taskId, 'after'),
     type: 'task-insert',
-    accept: ['task', 'diary'],
+    accept: acceptTasksOnly ? 'task' : ['task', 'diary'],
     collisionPriority: CollisionPriority.High,
     disabled: isActiveSource,
   });
@@ -146,43 +147,6 @@ export const TaskRowDropSurface: React.FC<{
       />
       {children}
     </motion.div>
-  );
-};
-
-/** Overlay two task insertion targets on the diary itself. This works
- * even when it touches the category pill and no separate gap can be hit.
- * Both halves are inert to click/touch: dnd-kit measures the geometry only.
- */
-export const DiaryTaskInsertDropSurface: React.FC<{
-  categoryId: string;
-  index: number;
-  active: boolean;
-  children: React.ReactNode;
-}> = ({ categoryId, index, active, children }) => {
-  const { ref: beforeRef } = useDroppable({
-    id: diaryTaskDropId(categoryId, index, 'before'),
-    type: 'task-insert',
-    accept: 'task',
-    collisionPriority: CollisionPriority.High,
-    disabled: !active,
-  });
-  const { ref: afterRef } = useDroppable({
-    id: diaryTaskDropId(categoryId, index, 'after'),
-    type: 'task-insert',
-    accept: 'task',
-    collisionPriority: CollisionPriority.High,
-    disabled: !active,
-  });
-  return (
-    <div className="relative" data-diary-task-insertion="true">
-      <div ref={beforeRef} aria-hidden="true" style={{
-        position: 'absolute', insetInline: 0, top: 0, height: '50%', pointerEvents: 'none',
-      }}/>
-      <div ref={afterRef} aria-hidden="true" style={{
-        position: 'absolute', insetInline: 0, bottom: 0, height: '50%', pointerEvents: 'none',
-      }}/>
-      {children}
-    </div>
   );
 };
 

@@ -7,7 +7,6 @@ import {
   CategoryHeaderDropSurface,
   CategoryHeaderFrame,
   TaskGapDropSurface,
-  DiaryTaskInsertDropSurface,
   TaskRowDropSurface,
 } from './TaskReorderSurfaces';
 import { visibilityIcon } from '../../../lib/visibility';
@@ -34,7 +33,6 @@ interface CategorySectionProps {
   animateDragProjection?: boolean;
   diaryDragInProgress?: boolean;
   diarySettling?: boolean;
-  taskDragInProgress?: boolean;
   settlingTaskId?: string | null;
   lastReleasedTask?: { taskId: string; revision: number } | null;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
@@ -76,7 +74,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   animateDragProjection = false,
   diaryDragInProgress = false,
   diarySettling = false,
-  taskDragInProgress = false,
   settlingTaskId = null,
   lastReleasedTask = null,
   onToggleTask,
@@ -208,8 +205,16 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       );
     };
 
+    const renderDiary = (index: number) => (
+      <TaskRowDropSurface key="diary-slot" categoryId={categoryId}
+        taskId={`diary_slot_${index}`} acceptTasksOnly
+        animatePosition={animatePositions && !diaryDragInProgress && !diarySettling}>
+        {diarySlot}
+      </TaskRowDropSurface>
+    );
+
     tasks.forEach((task, index) => {
-      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(<motion.div key="diary-slot" layout={animatePositions && !diaryDragInProgress && !diarySettling ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}><DiaryTaskInsertDropSurface categoryId={categoryId} index={index} active={taskDragInProgress}>{diarySlot}</DiaryTaskInsertDropSurface></motion.div>);
+      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(renderDiary(index));
       if (diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex)) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
       const isActiveSource = task.id === activeDragTaskId;
 
@@ -239,7 +244,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     if (clampedGapIndex === visibleIndex) {
       pushGap();
     }
-    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(<motion.div key="diary-slot" layout={animatePositions && !diaryDragInProgress && !diarySettling ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}><DiaryTaskInsertDropSurface categoryId={categoryId} index={Math.min(tasks.length, diarySlotIndex)} active={taskDragInProgress}>{diarySlot}</DiaryTaskInsertDropSurface></motion.div>);
+    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(renderDiary(Math.min(tasks.length, diarySlotIndex)));
     if (diaryGhostSlot && diaryGhostSlotIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
     return rows;
   };

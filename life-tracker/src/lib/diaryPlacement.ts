@@ -49,17 +49,6 @@ export function anchoredDiaryPlacement(categoryId: string, index: number,
   return { kind: 'after', categoryId, taskId: taskIds[slot - 1], index: slot };
 }
 
-/** Store a neighbor rather than a numeric rank, so inserts do not pin Diary. */
-export function anchoredDiaryFromTaskDrop(
-  target: { categoryId: string; position: string; taskId?: string; index?: number },
-  taskIds: readonly string[]
-): DiaryPlacement {
-  const slot = target.position === 'start' ? 0 :
-    target.position === 'index' ? Number(target.index ?? 0) :
-    taskIds.indexOf(target.taskId ?? '') + (target.position === 'after' ? 1 : 0);
-  return anchoredDiaryPlacement(target.categoryId, slot, taskIds);
-}
-
 /** Treat a normal task drag as removing and reinserting that task in a mixed
  * sequence. Crossing Diary changes its relative rank, never pins it.
  */

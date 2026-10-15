@@ -22,7 +22,6 @@ type ParsedDropTarget =
 const CATEGORY_START_PREFIX = 'task-category-start:';
 const GAP_PREFIX = 'task-gap:';
 const INSERT_PREFIX = 'task-insert:';
-const DIARY_INSERT_PREFIX = 'task-diary-insert:';
 
 export function categoryStartDropId(categoryId: string): string {
   return `${CATEGORY_START_PREFIX}${categoryId}`;
@@ -42,7 +41,7 @@ export function taskInsertDropId(
 
 export function diaryTaskDropId(categoryId: string, index: number,
   side: 'before' | 'after'): string {
-  return `${DIARY_INSERT_PREFIX}${categoryId}:${index}:${side}`;
+  return taskInsertDropId(categoryId, `diary_slot_${index}`, side);
 }
 
 export function findTaskCategory(
@@ -56,15 +55,6 @@ export function findTaskCategory(
 }
 
 export function parseDropTarget(targetId: string): ParsedDropTarget | null {
-  if (targetId.startsWith(DIARY_INSERT_PREFIX)) {
-    const [categoryId, rawIndex, diarySide, ...rest] =
-      targetId.slice(DIARY_INSERT_PREFIX.length).split(':');
-    const index = Number(rawIndex);
-    return categoryId && rest.length === 0 && Number.isInteger(index) &&
-      index >= 0 && (diarySide === 'before' || diarySide === 'after')
-      ? { categoryId, position: 'index', index, diarySide } : null;
-  }
-
   if (targetId.startsWith(CATEGORY_START_PREFIX)) {
     const categoryId = targetId.slice(CATEGORY_START_PREFIX.length);
     return categoryId ? { categoryId, position: 'start' } : null;
@@ -100,6 +90,11 @@ export function parseDropTarget(targetId: string): ParsedDropTarget | null {
     return null;
   }
 
+  if (taskId.startsWith('diary_slot_')) {
+    const index = Number(taskId.slice(11));
+    return Number.isInteger(index) && index >= 0
+      ? { categoryId, position: 'index', index, diarySide: position } : null;
+  }
   return { categoryId, taskId, position };
 }
 

@@ -237,7 +237,6 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
              ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
           animateDragProjection={reorderRuntimeActive}
-          taskDragInProgress={Boolean(activeDrag)}
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
           settlingTaskId={settlingTaskId}
