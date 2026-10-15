@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { matchesGlob } from 'node:path';
 
 function read(path: string) {
   return readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -118,8 +119,21 @@ describe('verification workflow contracts', () => {
     expect(vercel.git.deploymentEnabled['*']).toBe(false);
     expect(vercel.git.deploymentEnabled.main).toBe(true);
     expect(vercel.git.deploymentEnabled.dev).toBe(true);
-    expect(vercel.git.deploymentEnabled['feature/*']).toBe(true);
-    expect(vercel.git.deploymentEnabled['refactor/*']).toBe(true);
+    // Vercel defaults unmatched paths to Git deployments and true wins on
+    // overlapping globs. Every normal single-leaf stable branch must match
+    // one explicit FALSE rule from its very first commit.
+    for (const category of ['feature','fix','perf','security','refactor']) {
+      expect(vercel.git.deploymentEnabled[category + '/*']).toBe(false);
+    }
+    for (const category of ['feature','fix','perf','security','refactor']) {
+      const branch = category + '/issue-852';
+      const matching = Object.entries(vercel.git.deploymentEnabled)
+        .filter(([pattern]) => {
+          return matchesGlob(branch, pattern);
+        });
+      expect(matching).toHaveLength(1);
+      expect(matching[0][1]).toBe(false);
+    }
     expect(vercel.git.deploymentEnabled['chatgpt/*']).toBe(false);
     expect(vercel.git.deploymentEnabled['codex/*']).toBe(false);
   });

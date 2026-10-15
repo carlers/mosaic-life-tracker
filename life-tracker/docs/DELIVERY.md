@@ -393,3 +393,22 @@ SHA, integration/changed-head/rejected-PR cases have been demonstrated, and
 GitHub administration/permissions and strict-check behavior are reviewed.
 `canonical-acceptance` is push-triggered; never require it as a PR check.
 No new protection setting, queue, or auto-merge is authorized.
+
+## #592 CI-first inherited stable-branch source policy — staged, not activated
+
+The reviewed rollout candidate disables Git-triggered Vercel deployment on
+single-leaf `feature/*`, `fix/*`, `perf/*`, `security/*`, and
+`refactor/*` branches **from their first commit**. `dev` and `main` remain
+Git deployed; quiet task branches stay disabled. A plain unmatched `"*":false`
+is not a safe fallback for names containing `/`, so each intended category
+has an explicit `false` rule with no overlapping `true` rule.
+
+**Dependency:** This source-policy task must not be promoted to `dev` or a
+normal stable branch until the separately reviewed *protected-main trusted*
+receiver/writer admits byte-exact inherited default suppression, and normal
+CLI Preview URL/Scratch-origin handling is accepted. Otherwise the stable
+Preview would be stranded. Follow [#592 revised plan](https://github.com/carlers/mosaic-life-tracker/issues/592#issuecomment-6186555585).
+Keep the normal focused → stable full canonical → accepted Preview → separately
+approved dev promotion workflow. A full green canonical gate alone does not
+activate or authorize the trusted provider writer. Never infer Production
+backend or `main` feature promotion from this infrastructure batch.
