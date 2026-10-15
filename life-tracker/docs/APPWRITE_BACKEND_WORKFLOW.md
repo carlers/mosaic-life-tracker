@@ -265,6 +265,50 @@ deployment ID afterward. Re-activating a retained older deployment is the Functi
 mechanism. `message-action` currently keeps non-active deployments indefinitely; DR retention
 is governed by its Function config.
 
+## Read-only historical-client compatibility preflight (#526)
+
+Before an additive schema change on shared Scratch **or Production**, record
+the current deployed client commit and each affected active stable Preview
+commit. Run the candidate manifest against immutable historical row mappers,
+strict local RxDB schemas and outgoing write payload shapes:
+
+```bash
+# From life-tracker/ after fetching full, reviewed Git commit objects.
+npm run appwrite:preview:compat -- \
+  --consumer-sha <40-character-current-production-source-sha> \
+  --consumer-sha <40-character-affected-preview-source-sha>
+```
+
+The command reads only Git objects and the candidate manifest. It uses actual
+historical TypeScript mappers with no module imports or network access. Every
+declared synchronized table plus a hypothetical extra remote column must be
+accepted by strict historical local schemas; outgoing payloads must use only
+candidate-declared column names/types and enforce the supplied owner ID. A
+failed or missing consumer is **BLOCKED**; resolve the compatibility problem
+or explicitly upgrade and reaccept that client before activating the schema.
+For old Production PWAs, preserve explicit legacy-client accounting even if
+their original schema lacks new tables. Do not infer that an old PWA is safe
+merely because it no longer appears in the current Preview inventory.
+
+**Limits:** this checker deliberately fails closed for older client versions
+that predate synchronized collections in the candidate manifest. It does not
+prove old-client write authorization, server actions, row-update merge
+semantics, local IndexedDB migrations, login, or hosted/device behavior.
+Those require separate compatibility/Function tests and real-client checks.
+A schema addition is not a license to invalidate a still-running old PWA.
+
+For a Production release with accepted dev features, compare live Production
+against the exact candidate `MOSAIC_TABLES`: Diary `emoji`/`photos`,
+`diary_reactions`, message Diary-reference columns, and both Bucket List
+tables must be reviewed against numbered migrations 010–015. Migration 008
+tightens friendship permissions and is separately opt-in. The unqualified
+`appwrite:migrate` runner reconciles every selected numbered migration:
+review each effective step and the exact target **before** any confirmed run.
+Never write Production merely because a read-only status check identified
+drift. Verify recoverable encrypted backups, a prior READY Function
+deployment, cross-version server authorization and the ordered rollout
+before obtaining separate exact-target Production approval.
+
 ## Normal agent flow
 
 For ordinary UI/client/refactor work, do nothing Appwrite-specific. For backend changes:
