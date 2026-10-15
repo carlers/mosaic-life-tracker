@@ -2,7 +2,7 @@
 
 Current task: #682 opted-in social push content.
 
-Updated 2026-10-15. Current Notifications Preview v0.26.0 stable feature/notifications-682-integrated-20261015@3388c03a93bc064c8c04d5dc52eca379fa49abe8, canonical green and Vercel READY.
+Updated: 2026-10-15. Current Notifications Preview v0.26.0 stable feature/notifications-682-integrated-20261015@3388c03a93bc064c8c04d5dc52eca379fa49abe8, canonical green and Vercel READY.
 
 ## User report / correction
 Task completions can show optional detailed OS push, while messages, replies, reactions and shares remain generic. This is because emitActivity has no matching opt-in detail payload; in-app Alert feed details are separately fetched only online, and transient swipe Previews intentionally render redacted cache data.
