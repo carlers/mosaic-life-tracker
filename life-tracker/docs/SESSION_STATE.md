@@ -10,8 +10,9 @@ Current task: #682 — re-integrate expanded social notifications onto current v
 
 ## Scope
 - Port #682 social notification receipt generation, typed feed, per-type preferences, destinations and regression tests by patching feature changes onto the current dev baseline, retaining newer chat repair handlers, account isolation and lazy-preload behavior.
+- Refine read-time authorized in-app social details for messages/reactions/shared task titles; bound excerpts, verify current reaction attribution, block private/undated tasks, and redact social content from every persistent cached receipt. Keep OS Push payload generic without per-device sensitive-content opt-in.
 - Planned integrated MINOR v0.26.0; independently verified on task branch before any stable Preview. Old active Scratch Function 6acd0a6643868c68508c must remain unchanged until exact combined-source backend/privacy check and approved activation.
-- No production or dev changes, no Scratch mutation and no old source snapshot overwrite. Keep #682 open for detailed notification content, live two-account/device acceptance and explicit later promotion.
+- No production or dev changes, no Scratch mutation and no old source snapshot overwrite. Keep #682 open for explicit per-device detailed Push opt-in policy, live two-account/device acceptance and explicit later promotion.
 
 ## Next action
 - Run focused unit/handler/DOM, code quality and build verification for coherent branch chatgpt/682-notifications-integration-20261015; diagnose and fix failures, then stage new Scratch Preview only after regression safety checks. Preserve user-approved policy: detailed sensitive notification content opt-in with generic push default.

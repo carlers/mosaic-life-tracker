@@ -25,6 +25,10 @@ export interface SocialNotificationItem {
   actorAvatarFileId: string;
   targetId: string;
   destination: string;
+  /** Authorized, volatile previews; never persist or display offline. */
+  detail?: string;
+  replyExcerpt?: string;
+  emoji?: string;
   occurredAt: string;
   createdAt: string;
   readAt: string;

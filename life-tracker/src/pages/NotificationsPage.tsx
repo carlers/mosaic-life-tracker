@@ -62,14 +62,25 @@ const { Component: AlertFriendDaySheet, preload: preloadAlertFriendDaySheet } =
     import('../components/friend/AlertFriendDaySheet').then(m => m.AlertFriendDaySheet)
   );
 
-function activityLabel(type: Exclude<NotificationEntry, NotificationItem>['type']): string {
-  switch (type) {
+function activityLabel(
+  item: Exclude<NotificationEntry, NotificationItem>,
+  showDetails: boolean
+): string {
+  const detail = showDetails && typeof item.detail === 'string' ? item.detail : '';
+  const quoted = detail ? `“${detail}”` : '';
+  const emoji = showDetails && typeof item.emoji === 'string' ? item.emoji : '';
+  switch (item.type) {
     case 'friend_request': return 'sent you a friend request';
     case 'friend_accepted': return 'accepted your friend request';
-    case 'direct_message': return 'sent you a message';
-    case 'message_reaction': return 'reacted to your message';
-    case 'task_reaction': return 'reacted to your task';
-    case 'shared_task_invite': return 'invited you to a shared task';
+    case 'direct_message': return quoted ? `sent you a message: ${quoted}` : 'sent you a message';
+    case 'message_reaction': return quoted
+      ? `reacted to your message ${quoted}${emoji ? ' ' + emoji : ''}`
+      : 'reacted to your message';
+    case 'task_reaction': return quoted
+      ? `reacted to your task ${quoted}${emoji ? ' ' + emoji : ''}`
+      : 'reacted to your task';
+    case 'shared_task_invite': return quoted
+      ? `invited you to the shared task ${quoted}` : 'invited you to a shared task';
   }
 }
 
@@ -642,7 +653,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                           focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60
                           disabled:opacity-60">
                         <span className="font-semibold">{item.actorName}</span>
-                        <span className="text-gray-300"> {activityLabel(item.type)}</span>
+                        <span className="text-gray-300"> {activityLabel(item, connectivity.status === 'online' && !preview)}</span>
                         <span className="mt-1 block text-xs text-gray-500">
                           {formatDistanceToNow(new Date(item.occurredAt), { addSuffix: true })}
                         </span>

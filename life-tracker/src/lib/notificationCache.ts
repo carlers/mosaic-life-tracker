@@ -13,6 +13,17 @@ export interface CachedNotificationFeed {
   fetchedAt: string;
 }
 
+/** Persist generic social receipt metadata, never message/task excerpts. */
+export function redactCachedNotificationDetails(items: NotificationEntry[]): NotificationEntry[] {
+  return items.map(item => item.type === 'task_completed' ? item : ({
+    id: item.id, type: item.type, actorId: item.actorId,
+    actorName: item.actorName, actorUsername: item.actorUsername,
+    actorAvatarFileId: item.actorAvatarFileId, targetId: item.targetId,
+    destination: item.destination, occurredAt: item.occurredAt,
+    createdAt: item.createdAt, readAt: item.readAt,
+  }));
+}
+
 interface CacheEntry {
   feed: CachedNotificationFeed;
   cachedAt: number;
@@ -44,7 +55,7 @@ export async function getCachedNotifications(
       request.onsuccess = () => {
         const entry = request.result as CacheEntry | undefined;
         resolve(entry?.feed
-          ? { ...entry.feed, items: retainRecoverableNotifications(entry.feed.items) }
+          ? { ...entry.feed, items: redactCachedNotificationDetails(retainRecoverableNotifications(entry.feed.items)) }
           : null);
       };
       request.onerror = () => reject(request.error);
@@ -68,7 +79,7 @@ export async function setCachedNotifications(
         {
           feed: {
             ...feed,
-            items: retainRecoverableNotifications(feed.items).slice(0, MAX_CACHED_ITEMS),
+            items: redactCachedNotificationDetails(retainRecoverableNotifications(feed.items)).slice(0, MAX_CACHED_ITEMS),
           },
           cachedAt: Date.now(),
         } satisfies CacheEntry,

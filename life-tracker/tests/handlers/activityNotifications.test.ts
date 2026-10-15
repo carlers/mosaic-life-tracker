@@ -58,6 +58,7 @@ describe('typed activity notifications', () => {
     await emitActivity(db,request,vi.fn(),push);
     expect(db.createRow).toHaveBeenCalledTimes(2);
     expect(push).toHaveBeenCalledTimes(1);
+    expect(push.mock.calls[0][2]).toMatchObject({ body: 'Open Mosaic to see an update.' });
     expect(db.createRow.mock.calls[0][0].data.type).toBe('friend_request');
     expect(db.createRow.mock.calls[0][0].permissions).toEqual([]);
   });
@@ -115,5 +116,78 @@ describe('typed activity notifications', () => {
     const parsed = await channels(db,'user_b');
     expect(parsed.friend_request).toEqual({ feed:false,push:true });
     expect(parsed.message_reaction).toEqual({ feed:true,push:false });
+  });
+});
+
+describe('volatile authorized notification details', () => {
+  const friendship = {
+    [id('user_a','user_b')]: { ...requestRows[id('user_a','user_b')], status: 'accepted' },
+    [id('user_b','user_a')]: { ...requestRows[id('user_b','user_a')], status: 'accepted' },
+  };
+  const receipt = (type: string, sourceId: string) => ({
+    $id: 'not_' + 'c'.repeat(32), recipient_id: 'user_b', actor_id: 'user_a',
+    type, task_id: sourceId, completed_at: now, occurred_at: now,
+    created_at: now, read_at: '',
+  });
+
+  it('projects a bounded message and reply excerpt only after reciprocal friendship and recipient ownership', async () => {
+    const message = {
+      $id: 'rmsg_sample', user_id: 'user_b', sender_id: 'user_a',
+      recipient_id: 'user_b', direction: 'incoming', deleted: false, is_unsent: false,
+      content: ' Hello\nworld ' + 'x'.repeat(150),
+      reply_to_content: ' Previous private content ',
+    };
+    const db = dbFor({ ...friendship, [message.$id]: message });
+    const result = await projectActivity(db, receipt('direct_message', message.$id), 'user_b');
+    expect(result?.detail).toMatch(/^Hello world/);
+    expect(Array.from(result?.detail || '')).toHaveLength(100);
+    expect(result?.replyExcerpt).toBe('Previous private content');
+    expect(result?.emoji).toBe('');
+
+    const denied = dbFor({ [message.$id]: message });
+    expect(await projectActivity(denied, receipt('direct_message', message.$id), 'user_b')).toBeNull();
+    const unsent = dbFor({ ...friendship, [message.$id]: { ...message, is_unsent: true } });
+    expect(await projectActivity(unsent, receipt('direct_message', message.$id), 'user_b')).toBeNull();
+  });
+
+  it('attributes message reaction emoji only when the current reaction row identifies one actor emoji', async () => {
+    const original = {
+      $id: 'msg_original', user_id: 'user_b', sender_id: 'user_b',
+      recipient_id: 'user_a', deleted: false, is_unsent: false,
+      content: 'A private original message',
+      reactions: JSON.stringify([{ emoji: '🔥', userIds: ['user_a'] }]),
+    };
+    const db = dbFor({ ...friendship, [original.$id]: original });
+    const result = await projectActivity(db, receipt('message_reaction', original.$id), 'user_b');
+    expect(result?.detail).toBe('A private original message');
+    expect(result?.emoji).toBe('🔥');
+    const ambiguous = dbFor({ ...friendship, [original.$id]: {
+      ...original, reactions: JSON.stringify([
+        { emoji: '🔥', userIds: ['user_a'] }, { emoji: '👍', userIds: ['user_a'] },
+      ]),
+    } });
+    expect((await projectActivity(ambiguous, receipt('message_reaction', original.$id), 'user_b'))?.emoji).toBe('');
+  });
+
+  it('never projects private or undated task details and bounds shared invitation titles', async () => {
+    const task = {
+      $id: 'task_1', user_id: 'user_b', deleted: false, date: '2026-10-15',
+      category_id: 'cat_1', visibility: 'followers', title: 'Run a marathon',
+      reactions: JSON.stringify([{ emoji: '💪', userIds: ['user_a'] }]),
+    };
+    const read = () => projectActivity(dbFor({ ...friendship, [task.$id]: task }),
+      receipt('task_reaction', task.$id), 'user_b');
+    expect((await read())?.detail).toBe('Run a marathon');
+    const hidden = dbFor({ ...friendship, [task.$id]: { ...task, visibility: 'private' } });
+    expect(await projectActivity(hidden, receipt('task_reaction', task.$id), 'user_b')).toBeNull();
+    const undated = dbFor({ ...friendship, [task.$id]: { ...task, date: '' } });
+    expect(await projectActivity(undated, receipt('task_reaction', task.$id), 'user_b')).toBeNull();
+
+    const share = { $id: 'share_1', owner_id: 'user_a', invitee_id: 'user_b',
+      task_id: 'task_share_1', status: 'pending' };
+    const sharedTask = { $id: 'task_share_1', user_id: 'user_a', title: 'Plan our trip', deleted: false };
+    const invited = dbFor({ ...friendship, [share.$id]: share, [sharedTask.$id]: sharedTask });
+    const result = await projectActivity(invited, receipt('shared_task_invite', share.$id), 'user_b');
+    expect(result?.detail).toBe('Plan our trip');
   });
 });

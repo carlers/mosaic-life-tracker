@@ -23,6 +23,24 @@ const DEFAULTS = Object.freeze({
 const KEY = 'alertsChannels';
 const validId = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/.test(value);
 const sha = value => createHash('sha256').update(value).digest('hex');
+// Excerpts are generated only after live authorization; never stored in receipts or Push.
+function excerpt(value, max = 100) {
+  if (typeof value !== 'string') return '';
+  return Array.from(value.replace(/[\x00-\x1f\x7f]+/g, ' ').replace(/\s+/g, ' ').trim())
+    .slice(0, max).join('');
+}
+function reactionEmoji(serialized, actorId) {
+  try {
+    const reactions = JSON.parse(serialized || '[]');
+    if (!Array.isArray(reactions)) return '';
+    const matches = reactions.filter(item =>
+      typeof item?.emoji === 'string' && item.emoji.length <= 20 &&
+      Array.isArray(item.userIds) && item.userIds.includes(actorId));
+    // Multiple simultaneous emoji reactions do not identify which receipt this
+    // was. Never attribute a guessed emoji to a notification.
+    return matches.length === 1 ? matches[0].emoji : '';
+  } catch { return ''; }
+}
 const receiptId = (recipient, type, actor, source, occurrence) =>
   'not_' + sha([recipient, type, actor, source, occurrence].join('|')).slice(0, 32);
 
@@ -67,6 +85,9 @@ async function projectActivity(db, receipt, callerId, knownFriends = null) {
   const accepted = knownFriends ? knownFriends.has(actorId) : await isFriend(db, actorId, callerId);
   let actorName = 'Friend';
   let destination = '';
+  let detail = '';
+  let replyExcerpt = '';
+  let emoji = '';
   if (type === 'friend_request') {
     const id = 'fr_' + sha(callerId + '|' + actorId).slice(0,32);
     const peerId = 'fr_' + sha(actorId + '|' + callerId).slice(0,32);
@@ -92,10 +113,13 @@ async function projectActivity(db, receipt, callerId, knownFriends = null) {
           message.recipient_id !== callerId || message.direction !== 'incoming') ||
           type === 'message_reaction' && (message.user_id !== callerId ||
           message.sender_id !== callerId || message.recipient_id !== actorId)) return null;
+      detail = excerpt(message.content);
+      if (type === 'direct_message') replyExcerpt = excerpt(message.reply_to_content, 60);
+      else emoji = reactionEmoji(message.reactions, actorId);
       destination = '/messages/' + actorId;
     } else if (type === 'task_reaction') {
       const task = await row(db, 'tasks', targetId);
-      if (!task || task.deleted || task.user_id !== callerId) return null;
+      if (!task || task.deleted || task.user_id !== callerId || !task.date) return null;
       let visibility = task.visibility || '';
       if (!visibility) {
         const category = await row(db,'categories',task.category_id);
@@ -103,18 +127,24 @@ async function projectActivity(db, receipt, callerId, knownFriends = null) {
           ? category.visibility : 'private';
       }
       if (visibility === 'private') return null;
+      detail = excerpt(task.title);
+      emoji = reactionEmoji(task.reactions, actorId);
       destination = '/home';
     } else if (type === 'shared_task_invite') {
       const share = await row(db,'task_shares',targetId);
       if (!share || share.owner_id !== actorId || share.invitee_id !== callerId ||
           share.status !== 'pending') return null;
+      const sharedTask = await row(db, 'tasks', share.task_id);
+      if (!sharedTask || sharedTask.deleted || sharedTask.user_id !== actorId) return null;
+      detail = excerpt(sharedTask.title);
       destination = '/notifications';
     }
   }
   return {
     id: receipt.$id, type, actorId, actorName,
     actorUsername: '', actorAvatarFileId: '',
-    targetId, destination, occurredAt: receipt.occurred_at,
+    targetId, destination, detail, replyExcerpt, emoji,
+    occurredAt: receipt.occurred_at,
     createdAt: receipt.created_at || receipt.occurred_at, readAt: receipt.read_at || '',
   };
 }
