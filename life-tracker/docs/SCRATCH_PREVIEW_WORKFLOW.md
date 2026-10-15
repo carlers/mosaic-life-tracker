@@ -134,6 +134,50 @@ automatic reset, and restoration from production is NOT an alternative.
 
 One scratch project services all Preview branches and the `dev` Preview, so Appwrite schema and the active `message-action` Function are shared runtime state even when Git branches are isolated. Before changing them, inspect active Preview backend requirements and record the active scratch Function deployment/source SHA. Use additive/compatible rollout and fail closed on unexpected drift; batch compatible changes into the accepted branch before main. Revalidate existing critical Preview flows after an activation. No agent may silently replace another Preview's active Function, enable Scratch's cron, or reset scratch for a DR drill. Frontend-only work with unchanged backend code should simply reuse the verified scratch deployment after a read-only parity check where relevant.
 
+### Old-client compatibility preflight before a shared schema change (#526)
+
+Keep feature development parallel; coordinate only writes to the shared Scratch
+schema, Function, permissions, variables or schedule. The currently approved
+operator retains exclusive ownership of the actual write window. GitHub Actions
+concurrency cannot lock out another agent, Console session or CLI; re-read live
+Scratch state immediately before any mutation, retain the previous deployment
+ID, and refuse unexpected changes. Do not merge unfinished feature frontends
+merely to assemble compatible backend handlers.
+
+**Before an additive migration**, record the affected active dev and
+user-tested Preview clients (stable branch alias, exact full commit SHA and
+required backend contract) alongside the current Scratch deployment ID and
+migration set in the feature/coordination issue. Avoid a permanent registry.
+Fetch the chosen immutable commits locally, then on the reviewed backend
+candidate run (from life-tracker/):
+
+~~~bash
+git -C .. fetch origin dev feature/your-active-preview
+npm run appwrite:preview:compat -- \
+  --consumer-sha <full-dev-commit-sha> \
+  --consumer-sha <full-active-preview-commit-sha>
+~~~
+
+Supply every affected active Preview commit, not only a recently fixed dev;
+the command refuses an empty list, abbreviated SHAs, missing Git objects and
+unreadable/incompatible client modules. It simulates rows containing **every
+column in the candidate Git-owned table manifest plus a future extra column**,
+then runs each selected historical fromAppwriteFormat mapper against the
+historical strict RxDB schema for all eight synchronized collections. A failure
+blocks the schema write until the affected Preview/client is upgraded,
+reaccepted or the migration revised. The command neither contacts Appwrite nor
+applies a migration. Keep its exact SHAs and PASS output in the rollout record.
+
+This is **read-mapping coverage only**. It cannot prove server authorization,
+old-client writes, Function behavior, data conversion of existing rows, browser
+login, or live schema state. Review changed write/API contracts and run focused
+old-client authenticated smoke tests on disposable accounts when affected.
+Perform existing exact-source, schema/Function readiness and reacceptance gates
+after each activation. A backend activation with no schema change still needs
+Function/consumer compatibility review, but no unrelated frontend-only PR
+needs to execute this backend preflight.
+
+
 ## Shared project / disaster-recovery conflict
 
 The same Free-plan scratch project is the DR restore slot. A DR exercise
