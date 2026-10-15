@@ -7,6 +7,7 @@ import {
   loadPrivacyDeletedUserIds,
   parseArgs,
   parseJsonLines,
+  planDeferredRowDefaults,
   preflightSnapshot,
   readEncryptionKeyring,
   stableJson,
@@ -479,6 +480,92 @@ describe('DR restore CLI', () => {
   });
 });
 
+
+
+describe('DR nullable-default restoration', () => {
+  const schema = {
+    id: 'tasks',
+    name: 'Tasks',
+    rowSecurity: true,
+    columns: [
+      { key: 'order', type: 'integer', required: false, default: 0, min: 0, max: 999999 },
+      { key: 'title', type: 'varchar', required: false, default: '', size: 255 },
+    ],
+    indexes: [],
+  };
+  const objects = {
+    users: '',
+    schema: JSON.stringify(schema),
+    rows: JSON.stringify({ id: 'task_a', data: { order: null, title: 'fixture' }, permissions: [] }),
+  };
+  const snapshot = {
+    manifest: {
+      auth: { usersKey: 'users' },
+      databases: [{ id: 'life_tracker', tables: [{ schemaKey: 'schema', rowsKey: 'rows' }] }],
+      storage: [],
+    },
+    readObject: async (key: keyof typeof objects) => Buffer.from(objects[key]),
+  };
+
+  it('preserves historical null before reinstating the original integer default', async () => {
+    const calls: string[] = [];
+    const tablesDB = {
+      create: vi.fn().mockResolvedValue({}),
+      createTable: vi.fn(async (input: any) => {
+        calls.push('schema');
+        expect(input.columns.find((c: any) => c.key === 'order').default).toBeNull();
+        expect(input.columns.find((c: any) => c.key === 'title').default).toBe('');
+      }),
+      createRow: vi.fn(async (input: any) => {
+        calls.push('row');
+        expect(input.data.order).toBeNull();
+      }),
+      updateIntegerColumn: vi.fn(async (input: any) => {
+        calls.push('default');
+        return { key: input.key, default: input.default, status: 'available' };
+      }),
+    };
+    await restoreSnapshot({
+      snapshot: snapshot as any,
+      clients: { users: {}, tablesDB, storage: {} } as any,
+    });
+    expect(calls).toEqual(['schema', 'row', 'default']);
+    expect(tablesDB.updateIntegerColumn).toHaveBeenCalledWith({
+      databaseId: 'life_tracker',
+      tableId: 'tasks',
+      key: 'order',
+      required: false,
+      default: 0,
+      min: 0,
+      max: 999999,
+    });
+    expect(schema.columns[0].default).toBe(0);
+  });
+
+  it('fails closed for unsupported default types, and leaves unused defaults unchanged', () => {
+    expect(planDeferredRowDefaults(schema, [{ data: { order: 0, title: '' } }])).toEqual({
+      deferred: [], columns: schema.columns,
+    });
+    expect(() => planDeferredRowDefaults(schema, [{ data: { title: null } }]))
+      .toThrow(/update contract not validated/);
+  });
+
+  it('reinstates defaults even if importing the row throws', async () => {
+    const tablesDB = {
+      create: vi.fn().mockResolvedValue({}),
+      createTable: vi.fn().mockResolvedValue({}),
+      createRow: vi.fn().mockRejectedValue(new Error('row failed')),
+      updateIntegerColumn: vi.fn().mockResolvedValue({
+        key: 'order', default: 0, status: 'available',
+      }),
+    };
+    await expect(restoreSnapshot({
+      snapshot: snapshot as any,
+      clients: { users: {}, tablesDB, storage: {} } as any,
+    })).rejects.toThrow('row failed');
+    expect(tablesDB.updateIntegerColumn).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('friendship disaster recovery', () => {
   it('restores server-controlled table and owner-only row permissions exactly, including tombstones', async () => {
