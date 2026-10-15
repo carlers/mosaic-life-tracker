@@ -65,6 +65,53 @@ describe('CategorySection', () => {
     ).toBeInTheDocument();
   });
 
+  it('outside Select mode the whole category pill still opens Add Task', () => {
+    const onToggleCategorySelection = vi.fn();
+    const task = {
+      id: 'task_today', title: 'Task', completed: false, categoryId: 'work',
+      date: '2026-10-15', createdAt: '2026-10-15T00:00:00.000Z',
+      updatedAt: '2026-10-15T00:00:00.000Z', userId: 'user_A',
+      isDeleted: false, visibility: 'private' as const,
+    };
+    render(<CategorySection categoryId="work" categoryName="Work"
+      categoryColor="#3B82F6" currentUserId="user_A" tasks={[task]}
+      editingTaskId={null} editValue="" selectionMode={false}
+      onToggleCategorySelection={onToggleCategorySelection} {...makeCallbacks()} />);
+    expect(screen.queryByRole('button', { name: 'Select all tasks in Work' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    expect(screen.getByPlaceholderText('Add a task to Work...')).toBeInTheDocument();
+    expect(onToggleCategorySelection).not.toHaveBeenCalled();
+  });
+
+  it('category pill selects and deselects all displayed tasks in selection mode', () => {
+    const task = {
+      id: 'task_today', title: 'Today task', completed: false,
+      categoryId: 'work', date: '2026-10-15',
+      createdAt: '2026-10-15T00:00:00.000Z',
+      updatedAt: '2026-10-15T00:00:00.000Z',
+      userId: 'user_A', isDeleted: false, visibility: 'private' as const,
+    };
+    const onToggleCategorySelection = vi.fn();
+    const props = {
+      categoryId: 'work', categoryName: 'Work', categoryColor: '#3B82F6',
+      currentUserId: 'user_A', tasks: [task], editingTaskId: null,
+      editValue: '', selectionMode: true, onToggleCategorySelection,
+      ...makeCallbacks(),
+    };
+    const { rerender } = render(<CategorySection {...props} selectedTaskIds={new Set()} />);
+    const select = screen.getByRole('button', { name: 'Select all tasks in Work' });
+    expect(select).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(select);
+    expect(onToggleCategorySelection).toHaveBeenCalledExactlyOnceWith('work');
+    expect(props.onAddTask).not.toHaveBeenCalled();
+    rerender(<CategorySection {...props} selectedTaskIds={new Set(['task_today'])} />);
+    const deselect = screen.getByRole('button', { name: 'Deselect all tasks in Work' });
+    expect(deselect).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(deselect);
+    expect(onToggleCategorySelection).toHaveBeenCalledTimes(2);
+    expect(onToggleCategorySelection).toHaveBeenLastCalledWith('work');
+  });
+
   it('chip tap opens the inline input with the category-scoped placeholder', () => {
     renderSection({ categoryName: 'Work' });
     expect(
