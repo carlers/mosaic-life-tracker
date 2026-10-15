@@ -1,0 +1,59 @@
+name: Legacy v0.17.4 read-only compatibility evidence
+
+on:
+  push:
+    branches:
+      - chatgpt/889-legacy-v0174-evidence-20261015
+    paths:
+      - .github/workflows/legacy-v0174-readonly-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  historical-read-write-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout candidate toolchain
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Retrieve immutable v0.17.4 Git object
+        env:
+          HISTORICAL_SHA: a7d4c431eef6902f1d2d35271b6b8e41f8e9228e
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$HISTORICAL_SHA" || git fetch --no-tags --unshallow origin main
+          git cat-file -e "$HISTORICAL_SHA^{commit}"
+          test "$(git rev-parse "$HISTORICAL_SHA")" = "$HISTORICAL_SHA"
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned candidate dependencies
+        working-directory: life-tracker
+        run: npm ci --no-audit --no-fund
+      - name: Verify historical six-subscription compatibility is blocked
+        working-directory: life-tracker
+        env:
+          HISTORICAL_SHA: a7d4c431eef6902f1d2d35271b6b8e41f8e9228e
+        shell: bash
+        run: |
+          set -uo pipefail
+          npm run appwrite:preview:compat -- --consumer-sha "$HISTORICAL_SHA" \
+            --table tasks --table categories --table diary \
+            --table settings --table friendships --table messages > "$RUNNER_TEMP/compat.log" 2>&1
+          rc=$?
+          cat "$RUNNER_TEMP/compat.log"
+          if [[ "$rc" -eq 0 ]]; then
+            echo "::error::Unexpected historical client PASS; re-investigate candidate manifest and checker"
+            exit 1
+          fi
+          grep -Fq "BLOCKED: consumer $HISTORICAL_SHA" "$RUNNER_TEMP/compat.log" || exit 1
+          grep -Eq '^[[:space:]]+diary:' "$RUNNER_TEMP/compat.log" || exit 1
+          grep -Eq '^[[:space:]]+messages:' "$RUNNER_TEMP/compat.log" || exit 1
+          grep -Fq 'UNASSESSED collections' "$RUNNER_TEMP/compat.log" || exit 1
+          echo 'Verified: actual immutable v0.17.4 client BLOCKED for future Diary and Messages schema additions.'
