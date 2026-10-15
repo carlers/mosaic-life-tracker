@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NotificationItem } from '../../src/lib/notifications';
+import type { NotificationItem, NotificationEntry } from '../../src/lib/notifications';
 
 const mocks = vi.hoisted(() => ({
   userId: 'user_b',
@@ -53,6 +53,7 @@ vi.mock('../../src/lib/notifications', () => ({
   fetchNotifications: mocks.fetchNotifications,
   fetchNotificationById: mocks.fetchNotificationById,
   markNotificationsRead: mocks.markNotificationsRead,
+  isTaskNotification: (item: { type: string }) => item.type === 'task_completed',
 }));
 
 vi.mock('../../src/lib/notificationCache', () => ({
@@ -398,6 +399,51 @@ describe('NotificationsPage', () => {
     expect(await screen.findByRole('dialog', {name: 'Friend day view'})).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Close friend day view' }));
     await waitFor(() => expect(screen.queryByRole('dialog', {name: 'Friend day view'})).not.toBeInTheDocument());
+  });
+
+
+  it('shows server-authorized social excerpts in live in-app Alerts', async () => {
+    const base = {
+      actorId: 'user_a', actorName: 'Alice', actorUsername: '',
+      actorAvatarFileId: '', targetId: 'rmsg_1', destination: '/messages/user_a',
+      occurredAt: '2026-10-07T10:00:00.000Z',
+      createdAt: '2026-10-07T10:00:00.000Z', readAt: '',
+    };
+    const social: NotificationEntry[] = [
+      { ...base, id: 'not_' + 'c'.repeat(32), type: 'direct_message',
+        detail: 'Just got back home', replyExcerpt: 'Are you coming home?' },
+      { ...base, id: 'not_' + 'd'.repeat(32), type: 'message_reaction',
+        detail: 'The race was amazing', emoji: '🔥' },
+      { ...base, id: 'not_' + 'e'.repeat(32), type: 'shared_task_invite',
+        detail: 'Visit Tokyo' },
+    ];
+    mocks.getCachedNotifications.mockResolvedValue({ items: [], nextCursor: '', fetchedAt: '' });
+    mocks.fetchNotifications.mockResolvedValue({
+      items: social, nextCursor: '', fetchedAt: '2026-10-08T10:00:00.000Z',
+    });
+    render(<NotificationsPage />);
+    expect(await screen.findByText(/replied to “Are you coming home\?”: “Just got back home”/)).toBeInTheDocument();
+    expect(screen.getByText(/reacted to your message “The race was amazing” 🔥/)).toBeInTheDocument();
+    expect(screen.getByText(/invited you to the shared task “Visit Tokyo”/)).toBeInTheDocument();
+  });
+
+  it('never displays sensitive social excerpts from a stale offline cache', async () => {
+    mocks.connectivityStatus = 'offline';
+    mocks.getCachedNotifications.mockResolvedValue({
+      items: [{
+        id: 'not_' + 'f'.repeat(32), type: 'direct_message',
+        actorId: 'user_a', actorName: 'Alice', actorUsername: '',
+        actorAvatarFileId: '', targetId: 'rmsg_1',
+        destination: '/messages/user_a',
+        occurredAt: '2026-10-07T10:00:00.000Z',
+        createdAt: '2026-10-07T10:00:00.000Z', readAt: '',
+        detail: 'Private information should not be visible',
+      }],
+      nextCursor: '', fetchedAt: '2026-10-08T10:00:00.000Z',
+    });
+    render(<NotificationsPage preview />);
+    expect(await screen.findByText('sent you a message')).toBeInTheDocument();
+    expect(screen.queryByText(/Private information should not be visible/)).not.toBeInTheDocument();
   });
 
 });

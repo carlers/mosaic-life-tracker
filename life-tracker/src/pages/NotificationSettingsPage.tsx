@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BellRing, ChevronLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SettingsRow } from '../components/ui/SettingsRow';
+import { ALERTS_CHANNELS_KEY, NOTIFICATION_CHANNELS, resolveNotificationChannels, type NotificationChannels, type NotificationChannelType } from '../lib/notificationChannels';
 import { useSettings } from '../hooks/useSettings';
 import {
   ALERTS_READ_RETENTION_SETTING_KEY, ALERTS_UNREAD_RETENTION_SETTING_KEY,
@@ -56,6 +57,34 @@ export const NotificationSettingsPage: React.FC = () => {
   const { getSetting, setSetting } = useSettings();
   const unreadDays = resolveUnreadRetentionDays(getSetting(ALERTS_UNREAD_RETENTION_SETTING_KEY));
   const readHours = resolveReadRetentionHours(getSetting(ALERTS_READ_RETENTION_SETTING_KEY));
+  const syncedChannels = resolveNotificationChannels(getSetting(ALERTS_CHANNELS_KEY));
+  const [channelDraft, setChannelDraft] = useState<{
+    userId: string;
+    channels: NotificationChannels;
+  } | null>(null);
+  const [channelsSaving, setChannelsSaving] = useState(false);
+  const [channelsError, setChannelsError] = useState('');
+  const channelValues = channelDraft?.userId === userId
+    ? channelDraft.channels : syncedChannels;
+
+  const toggleChannel = async (type: NotificationChannelType, channel: 'feed' | 'push') => {
+    if (!userId || channelsSaving) return;
+    const next = {
+      ...channelValues,
+      [type]: { ...channelValues[type], [channel]: !channelValues[type][channel] },
+    };
+    setChannelDraft({ userId, channels: next });
+    setChannelsSaving(true);
+    setChannelsError('');
+    try {
+      await setSetting(ALERTS_CHANNELS_KEY, next);
+    } catch {
+      setChannelsError('Could not save notification preferences. Retry.');
+    } finally {
+      setChannelDraft(null);
+      setChannelsSaving(false);
+    }
+  };
   const [retentionError, setRetentionError] = useState('');
   const saveRetention = (key: string, value: number) => {
     setRetentionError('');
@@ -190,13 +219,46 @@ export const NotificationSettingsPage: React.FC = () => {
         </p>
         {retentionError && <p className="px-4 pt-2 text-xs text-red-400" role="alert">{retentionError}</p>}
       </section>
+      <section className="py-3" aria-label="Notification categories">
+        <h2 className="px-4 pb-2 pt-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+          Activity types
+        </h2>
+        <p className="px-4 pb-3 text-xs text-gray-400">
+          Choose which events appear in Alerts and which send system push.
+          These choices sync across devices. Push also requires permission on each device.
+        </p>
+        {NOTIFICATION_CHANNELS.map(({ type, label }) => (
+          <div key={type} className="border-b border-[#2A2A2A] px-4 py-3">
+            <h3 className="mb-2 text-sm font-medium">{label}</h3>
+            <div className="flex gap-4 text-xs text-gray-300">
+              {(['feed', 'push'] as const).map(channel => (
+                <label key={channel} className="inline-flex items-center gap-2">
+                  <input type="checkbox"
+                    aria-label={`${label} ${channel === 'feed' ? 'in-app Alerts' : 'push'}`}
+                    checked={channelValues[type][channel]}
+                    disabled={channelsSaving}
+                    onChange={() => { void toggleChannel(type, channel); }}
+                    className="h-4 w-4" style={{ accentColor: 'var(--mosaic-accent)' }} />
+                  {channel === 'feed' ? 'In-app Alerts' : 'Push'}
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+        {channelsError && (
+          <p role="alert" className="px-4 pt-2 text-xs text-red-400">{channelsError}</p>
+        )}
+        <p className="px-4 pt-2 text-xs text-gray-500">
+          No message text is shown on the lock screen. Reactions default to in-app only.
+        </p>
+      </section>
       <section className="py-3">
         <h2 className="px-4 pb-2 pt-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
           This device
         </h2>
         <SettingsRow
           icon={<BellRing size={18} className="text-gray-400" aria-hidden="true" />}
-          label="Push friend completions"
+          label="Enable push notifications"
           value={pending ? 'Updating…' : pushState.label}
           showChevron={false}
           isToggle
