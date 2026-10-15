@@ -51,6 +51,20 @@ export function expectedIsolatedGitConfig(branch) {
   return disabled;
 }
 
+// The inherited policy for newly created stable branches: exact explicit
+// category/leaf matches are FALSE, while main and dev remain Git deployed.
+// "*" does not match slash-containing names and is not a safe fallback.
+export function expectedDefaultCiFirstGitConfig() {
+  let source = reviewedVercelBase().toString('utf8');
+  for (const category of ['feature', 'fix', 'perf', 'security', 'refactor']) {
+    const rule = '"' + category + '/*": true,';
+    if (source.split(rule).length !== 2)
+      throw new Error('Ambiguous default CI-first suppression policy');
+    source = source.replace(rule, '"' + category + '/*": false,');
+  }
+  return Buffer.from(source);
+}
+
 export function approvedHighLevelConfigHashes(branch = PREBUILT_CANARY_BRANCH) {
   return new Set([TRUSTED_HIGH_LEVEL_CONFIG_SHA256,
     sha256(expectedIsolatedGitConfig(branch))]);
@@ -64,7 +78,7 @@ function parseJson(bytes, name) {
 
 // The Actions ZIP is untrusted candidate data even when its filename and
 // metadata match. Require canonical GitHub acceptance separately and first.
-export function verifyPrebuiltCandidateBytes(zipBytes, { sha, branch, digest }) {
+export function verifyPrebuiltCandidateBytes(zipBytes, { sha, branch, digest, sourceConfigBytes }) {
   if (!/^sha256:[a-f0-9]{64}$/.test(digest ?? '') ||
       'sha256:' + sha256(zipBytes) !== digest)
     throw new Error('GitHub Actions artifact ZIP digest mismatch');
@@ -85,11 +99,13 @@ export function verifyPrebuiltCandidateBytes(zipBytes, { sha, branch, digest }) 
     archiveSha256: match[1], evidence, inventory,
     expected: { sha, ref: 'refs/heads/' + branch },
   });
+  if (!isExactPrebuiltSourceOptIn(sourceConfigBytes, branch))
+    throw new Error('Unapproved source Git suppression in accepted artifact');
   if (routing?.schemaVersion !== 1 ||
       routing.kind !== 'non-deployable-preview-routing-evidence' ||
       routing.deploymentAuthorized !== false ||
       !/^([a-f0-9]{64})$/.test(routing.vercelConfigSha256 ?? '') ||
-      routing.vercelConfigSha256 !== sha256(expectedIsolatedGitConfig(branch)) ||
+      routing.vercelConfigSha256 !== sha256(sourceConfigBytes) ||
       routing.generatedConfigSha256 !== PREBUILT_ROUTING_SHA256 ||
       sha256(data['config.json']) !== PREBUILT_ROUTING_SHA256 ||
       routing.rewrites !== 15 ||
@@ -141,5 +157,11 @@ export async function assembleVerifiedCandidateStatic(candidate, outputRoot) {
 export function isExactPrebuiltSourceOptIn(raw, branch) {
   if (!Buffer.isBuffer(raw) || !isApprovedPrebuiltBranch(branch)) return false;
   const expected = expectedIsolatedGitConfig(branch);
-  return raw.length === expected.length && raw.equals(expected);
+  if (raw.length === expected.length && raw.equals(expected)) return true;
+  // Existing canary branches still require their own reviewed one-branch
+  // policy. Only future generic stable branches may inherit the default.
+  if (branch === PREBUILT_CANARY_BRANCH ||
+      branch === 'feature/592-prebuilt-pilot-20261014') return false;
+  const general = expectedDefaultCiFirstGitConfig();
+  return raw.length === general.length && raw.equals(general);
 }

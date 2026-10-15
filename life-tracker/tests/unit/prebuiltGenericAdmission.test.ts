@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFile } from 'node:fs/promises';
-import { isExactPrebuiltSourceOptIn, expectedIsolatedGitConfig } from
+import { isExactPrebuiltSourceOptIn, expectedIsolatedGitConfig,
+  expectedDefaultCiFirstGitConfig } from
   '../../scripts/lib/prebuilt-candidate-payload.mjs';
 import { sourceOptInStatus } from '../../scripts/lib/prebuilt-github-admission.mjs';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH,
@@ -70,6 +71,32 @@ describe('default-off generic CI-first Preview admission #592', () => {
     expect(await sourceOptInStatus(event(branch))).toBe(false);
     fetcher.mockResolvedValue(fileResponse(expectedIsolatedGitConfig('feature/other')));
     expect(await sourceOptInStatus(event(branch))).toBe(false);
+  });
+
+  it('admits inherited CI-first suppression for every new single-leaf stable category without one-off edits', async () => {
+    vi.stubEnv('MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED', 'true');
+    const inherited = expectedDefaultCiFirstGitConfig();
+    const rules = JSON.parse(inherited.toString()).git.deploymentEnabled;
+    expect(rules.main).toBe(true);
+    expect(rules.dev).toBe(true);
+    for (const category of ['feature', 'fix', 'perf', 'security', 'refactor']) {
+      expect(rules[category + '/*']).toBe(false);
+      const branch = category + '/issue-852';
+      expect(isExactPrebuiltSourceOptIn(inherited, branch)).toBe(true);
+      const fetcher = vi.fn().mockResolvedValue(fileResponse(inherited));
+      vi.stubGlobal('fetch', fetcher);
+      expect(await sourceOptInStatus(event(branch))).toBe(true);
+      expect(await sourceOptInStatus(event(branch), { returnSourceBytes: true }))
+        .toEqual(inherited);
+      vi.unstubAllGlobals();
+    }
+    for (const branch of ['dev', 'main', 'feature/nested/path',
+      PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH]) {
+      expect(isExactPrebuiltSourceOptIn(inherited, branch)).toBe(false);
+    }
+    const forged = Buffer.from(inherited.toString()
+      .replace('"feature/*": false', '"feature/*": true'));
+    expect(isExactPrebuiltSourceOptIn(forged, 'feature/issue-852')).toBe(false);
   });
 
   it('rejects red, forged, unscoped, nested or quiet task pushes before external requests', async () => {

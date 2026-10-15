@@ -7,12 +7,34 @@ import { readFile } from 'node:fs/promises';
 import { resolve, matchesGlob } from 'node:path';
 import {
   approvedHighLevelConfigHashes, expectedIsolatedGitConfig,
+  expectedDefaultCiFirstGitConfig,
   isExactPrebuiltSourceOptIn, TRUSTED_HIGH_LEVEL_CONFIG_SHA256,
 } from '../../scripts/lib/prebuilt-candidate-payload.mjs';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 
 describe('one-branch Git-auto cutover safety (#592)', () => {
+  it('explicitly suppresses all supported ordinary stable branches without disabling main/dev', () => {
+    const bytes = expectedDefaultCiFirstGitConfig();
+    const rules = JSON.parse(bytes.toString()).git.deploymentEnabled as Record<string, boolean>;
+    const deploys = (branch: string) => {
+      const matched = Object.entries(rules).filter(([pattern]) => matchesGlob(branch, pattern));
+      return matched.length === 0 || matched.some(([, yes]) => yes);
+    };
+    for (const category of ['feature', 'fix', 'perf', 'security', 'refactor']) {
+      expect(rules[category + '/*']).toBe(false);
+      expect(deploys(category + '/new-feature'), category).toBe(false);
+      expect(deploys(category + '/nested/unsupported'), category).toBe(true);
+      expect(assertIsolatedCanaryGitDisable(bytes, category + '/new-feature')).toBe(true);
+    }
+    for (const branch of ['main', 'dev']) expect(deploys(branch)).toBe(true);
+    for (const branch of ['chatgpt/work', 'codex/work'])
+      expect(deploys(branch)).toBe(false);
+    expect(() => assertIsolatedCanaryGitDisable(bytes, PREBUILT_CANARY_BRANCH)).toThrow();
+    expect(() => assertIsolatedCanaryGitDisable(Buffer.from(bytes.toString()
+      .replace('"main": true', '"main": false')), 'feature/new-feature')).toThrow();
+  });
+
   it('requires an exact opt-in and preserves non-opted-in category branches', async () => {
     const base = await readFile(resolve(process.cwd(),
       'scripts/lib/trusted-prebuilt-vercel.json'));
