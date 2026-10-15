@@ -23,7 +23,7 @@ async function githubJson(path) {
   return response.json();
 }
 
-export async function sourceOptInStatus(event) {
+export async function sourceOptInStatus(event, { returnSourceBytes = false } = {}) {
   const run = event?.workflow_run;
   const branch = run?.head_branch;
   if (event?.repository?.full_name !== REPO ||
@@ -40,7 +40,9 @@ export async function sourceOptInStatus(event) {
     encodeURIComponent(run.head_sha));
   if (config?.encoding !== 'base64' || typeof config.content !== 'string')
     throw new Error('Missing exact source branch deployment policy');
-  return isExactPrebuiltSourceOptIn(Buffer.from(config.content, 'base64'), branch);
+  const sourceBytes = Buffer.from(config.content, 'base64');
+  const valid = isExactPrebuiltSourceOptIn(sourceBytes, branch);
+  return returnSourceBytes && valid ? sourceBytes : valid;
 }
 
 export async function accepted(event) {
@@ -117,8 +119,9 @@ async function boundedArtifact(id) {
 export async function loadAcceptedArtifact() {
   if (!token) throw new Error('Read-only GitHub workflow token unavailable');
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-  if (!await sourceOptInStatus(event))
-    throw new Error('Branch did not explicitly opt in to CI-first Preview');
+  const sourceConfigBytes = await sourceOptInStatus(event, { returnSourceBytes: true });
+  if (!Buffer.isBuffer(sourceConfigBytes))
+    throw new Error('Branch has no reviewed CI-first Git suppression policy');
   const acceptedRun = await accepted(event);
   const artifacts = await githubJson('/actions/runs/' + acceptedRun.runId +
     '/artifacts?per_page=100');
@@ -130,6 +133,7 @@ export async function loadAcceptedArtifact() {
     throw new Error('Downloaded ZIP differed from GitHub artifact digest');
   const verified = verifyPrebuiltCandidateBytes(zip, {
     sha: acceptedRun.sha, branch: acceptedRun.branch, digest: metadata.digest,
+    sourceConfigBytes,
   });
   await accepted(event); // Fresh latest HEAD, main checkout and canonical status.
   return { event, acceptedRun, metadata, verified };

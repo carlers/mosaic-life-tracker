@@ -11,7 +11,7 @@ async function main() {
   }
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
   if (!await sourceOptInStatus(event)) {
-    console.log('No reviewed per-branch opt-in; normal Git Preview remains unchanged.');
+    console.log('No reviewed source Git suppression; ordinary Git Preview unchanged.');
     return;
   }
   const { acceptedRun, verified } = await loadAcceptedArtifact();

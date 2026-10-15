@@ -402,7 +402,23 @@ cutover is **disabled unless** repository variable
 existing `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED` must also be true before any
 credentialed provider creation. Aliases remain OFF.
 
-When enabled, **only single-leaf** stable
+**Pending protected-main review / subsequent dev source rollout:** New ordinary
+stable branches may inherit a byte-exact reviewed default CI-first Git policy
+(`feature/*`, `fix/*`, `perf/*`, `security/*`, `refactor/*` are explicitly
+`false`; `dev` and `main` remain `true`). The default-main receiver and
+writer must both validate those exact bytes, full canonical CI and immutable
+static artifact before one CLI Preview. Historical per-branch opt-in remains
+supported for rollout and rollback. Changing the receiver alone does NOT cut
+over Git-first branches; changing dev Git rules before trusted main can admit
+the new config strands Preview delivery. Protected-main promotion and a
+separately approved source/dev policy transition are mandatory before calling
+this the default. CLI Previews currently have no stable aliases; testable
+Scratch origins must be resolved and verified before replacing existing
+accepted feature Preview hosting. Feature pilot #852 then #851 must prove
+normal no-opt-in behavior before #592 closes. Do not silently enable aliases.
+
+The previously admitted per-branch fallback remains available. When enabled,
+**only single-leaf** stable
 `feature/<name>`, `fix/<name>`, `perf/<name>`,
 `security/<name>`, or `refactor/<name>` refs can opt in. The branch's
 **first commit** must already contain the exact reviewed

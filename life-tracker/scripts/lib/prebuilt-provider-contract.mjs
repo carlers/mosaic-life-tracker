@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_ROUTING_SHA256,
   isApprovedPrebuiltBranch, isGenericPrebuiltBranch } from './prebuilt-receiver-gate.mjs';
-import { expectedIsolatedGitConfig } from './prebuilt-candidate-payload.mjs';
+import { isExactPrebuiltSourceOptIn } from './prebuilt-candidate-payload.mjs';
 
 // Policy and private staging helpers. Never run the CLI or contact Vercel here.
 // The provider writer consumes a plan only after fresh independent canonical
@@ -201,13 +201,12 @@ export function assertTrustedProviderProject(project) {
   return true;
 }
 
-// Source-side Vercel Git suppression MUST match trusted main's one-branch
-// template byte for byte. An unknown branch or overlapping true rule blocks
-// provider creation, while main/dev and every other Preview class stay on Git.
+// Source-side Vercel suppression MUST be an exact, protected-main-reviewed
+// source template: historical one-branch opt-in OR default inherited stable
+// suppression. Unknown/overlapping rules block provider creation. Main/dev Git
+// deployment remains enabled.
 export function assertIsolatedCanaryGitDisable(raw, branch = PREBUILT_CANARY_BRANCH) {
-  const expected = expectedIsolatedGitConfig(branch);
-  if (!Buffer.isBuffer(raw) || raw.length !== expected.length ||
-      digest(raw) !== digest(expected) || !raw.equals(expected))
+  if (!isExactPrebuiltSourceOptIn(raw, branch))
     throw new Error('Source Git deployment disable policy was not reviewed');
   return true;
 }

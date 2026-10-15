@@ -10,6 +10,8 @@ import {
   verifyPrebuiltHistoryDetail,
   VERIFIED_PREVIEW_PROJECT, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
 } from '../../scripts/lib/prebuilt-provider-contract.mjs';
+import { expectedDefaultCiFirstGitConfig } from
+  '../../scripts/lib/prebuilt-candidate-payload.mjs';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH, PREBUILT_ROUTING_SHA256 } from
   '../../scripts/lib/prebuilt-receiver-gate.mjs';
 
@@ -47,6 +49,10 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
       '"main": true,','"main": false,')))).toThrow();
     expect(()=>assertIsolatedCanaryGitDisable(Buffer.from(old.replace(
       '"fix/*": true,','"fix/*": false,')))).toThrow();
+    expect(assertIsolatedCanaryGitDisable(expectedDefaultCiFirstGitConfig(),
+      'feature/real-user-task')).toBe(true);
+    expect(() => assertIsolatedCanaryGitDisable(expectedDefaultCiFirstGitConfig(),
+      PREBUILT_CANARY_BRANCH)).toThrow();
   });
 
   it('accepts a separately vetted feature pilot but never auto-enables other branches', () => {
