@@ -9,13 +9,15 @@ export const TRUSTED_VERCEL_PROJECT = 'mosaic-life-tracker';
 export const SHA = /^[a-f0-9]{40}$/i;
 
 export function assessTrustedPreviewTrigger({ event, repository, eventName, ref,
-  checkoutSha, enabled, workflowRuns, checkRuns, branchHead }) {
+  checkoutSha, mainHead, enabled, workflowRuns, checkRuns, branchHead }) {
   const reasons = [];
   const source = event?.workflow_run;
   if (eventName !== 'workflow_run' || repository !== 'carlers/mosaic-life-tracker')
     reasons.push('untrusted GitHub event or repository');
   if (ref !== 'refs/heads/main' || !SHA.test(checkoutSha ?? ''))
     reasons.push('trusted main workflow checkout required');
+  if (mainHead !== checkoutSha || !SHA.test(mainHead ?? ''))
+    reasons.push('trusted main checkout is stale');
   if (enabled !== 'true') reasons.push('trusted Preview delivery disabled');
   if (event?.repository?.full_name !== 'carlers/mosaic-life-tracker' ||
       source?.head_repository?.full_name !== 'carlers/mosaic-life-tracker' ||
@@ -44,17 +46,59 @@ export function assertTrustedPreviewDeployment(deployment, sha) {
   const meta = deployment?.meta ?? {};
   if (!SHA.test(sha ?? '') || deployment?.projectId !== OFFICIAL_VERCEL_PROJECT_ID ||
       deployment?.readyState !== 'READY' ||
-      deployment?.target === 'production' ||
-      !['git', 'cli'].includes(deployment?.source) ||
+      ![null, 'preview'].includes(deployment?.target) ||
+      deployment?.source !== 'git' ||
       meta.githubCommitSha !== sha ||
       meta.githubOrg !== 'carlers' ||
       meta.githubRepo !== 'mosaic-life-tracker' ||
-      ![TRUSTED_PREVIEW_BRANCH, 'HEAD'].includes(meta.githubCommitRef) ||
+      meta.githubCommitRef !== TRUSTED_PREVIEW_BRANCH ||
       !/^[a-z0-9-]+\.vercel\.app$/.test(deployment?.url ?? '') ||
       typeof deployment?.id !== 'string') {
     throw new Error('READY Vercel deployment identity did not match the trusted exact SHA');
   }
   return deployment.id;
+}
+
+// The project-scoped Vercel deployment list does not include trustworthy full
+// project/source identity: caller must validate the chosen ID using the
+// authenticated deployment GET. Prefer an already READY exact-SHA Git Preview
+// over duplicate in-progress entries; do not waste a retry or quota unit.
+export function selectTrustedPreviewCandidate(deployments, sha) {
+  if (!Array.isArray(deployments) || !SHA.test(sha ?? '')) {
+    throw new Error('Incomplete or invalid Vercel candidate history');
+  }
+  const matches = deployments.filter(dep => {
+    const meta = dep?.meta ?? {};
+    return typeof dep?.id === 'string' && dep.id.startsWith('dpl_') &&
+      meta.githubCommitSha === sha && meta.githubOrg === 'carlers' &&
+      meta.githubRepo === 'mosaic-life-tracker' &&
+      meta.githubCommitRef === TRUSTED_PREVIEW_BRANCH &&
+      // LIST may omit the target. This only nominates an ID: the full
+      // authenticated GET still requires an explicit non-production target.
+      (dep.target == null || dep.target === 'preview') &&
+      ['READY', 'BUILDING', 'QUEUED', 'INITIALIZING'].includes(
+        dep.readyState ?? dep.state);
+  });
+  return (matches.find(dep => (dep.readyState ?? dep.state) === 'READY') ??
+    matches[0])?.id ?? null;
+}
+
+// Shadow mode has read access only: absence of a matching Vercel Git
+// deployment must not silently fall through to a privileged POST.
+export function assertTrustedPreviewCreationEnabled(enabled) {
+  if (enabled !== 'true') {
+    throw new Error('Trusted Preview creation disabled: reuse-only shadow mode');
+  }
+}
+
+// A remote POST is a write even if the provider later rejects the build.
+// Reject an unexpected target *before* polling, aliasing or trusting its ID.
+export function assertTrustedPreviewCreateResponse(created) {
+  const id = created?.id ?? created?.uid;
+  if (created?.target !== null || typeof id !== 'string' || !id.startsWith('dpl_')) {
+    throw new Error('Vercel create response is not a verified Preview target');
+  }
+  return id;
 }
 
 export function trustedGitSource(sha) {

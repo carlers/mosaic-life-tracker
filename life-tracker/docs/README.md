@@ -37,6 +37,7 @@ authorization, Scratch checks, or release gates.
 | What workstreams are planned or historically delivered? | [Roadmap](PLAN.md) — durable milestones, not live task status |
 | How should an AI agent work or hand off? | [AI workflow](AI_WORKFLOW.md) — execution and connected-chat practices |
 | Which branch, CI, Preview, and release gates apply? | [Delivery](DELIVERY.md) — approval and promotion policy |
+| How does the protected-main trusted CI-first Preview receiver work? | [Trusted Preview main bootstrap](TRUSTED_PREVIEW_MAIN_BOOTSTRAP.md) — historical pinned trust design; verify current protected main and dev before use |
 | Which automated/manual tests are appropriate? | [Test workflow](TEST_WORKFLOW.md) — test ownership and verification |
 | When do Preview versions change? | [Versioning protocol](VERSIONING.md) — semantic version and build identity |
 

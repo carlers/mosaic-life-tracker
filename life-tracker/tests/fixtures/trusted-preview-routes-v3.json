@@ -1,0 +1,93 @@
+{
+  "version": 3,
+  "routes": [
+    {
+      "src": "^(?:/(.*))$",
+      "headers": {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
+      },
+      "continue": true
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "^/reset-password$",
+      "dest": "/index.html",
+      "check": true
+    },
+    {
+      "src": "^/login$",
+      "dest": "/index.html",
+      "check": true
+    },
+    {
+      "src": "^/home$",
+      "dest": "/index.html",
+      "check": true
+    },
+    {
+      "src": "^/backlog$",
+      "dest": "/index.html",
+      "check": true
+    },
+    {
+      "src": "^/bucket-list$",
+      "dest": "/index.html",
+      "check": true
+    },
+    {
+      "src": "^/bucket-list(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?$",
+      "dest": "/index.html?path=$1",
+      "check": true
+    },
+    {
+      "src": "^/explore$",
+      "dest": "/index.html",
+      "check": true
+    },
+    {
+      "src": "^/friends(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?$",
+      "dest": "/index.html?path=$1",
+      "check": true
+    },
+    {
+      "src": "^/notifications$",
+      "dest": "/index.html",
+      "check": true
+    },
+    {
+      "src": "^/messages$",
+      "dest": "/index.html",
+      "check": true
+    },
+    {
+      "src": "^/messages(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?$",
+      "dest": "/index.html?path=$1",
+      "check": true
+    },
+    {
+      "src": "^/account$",
+      "dest": "/index.html",
+      "check": true
+    },
+    {
+      "src": "^/settings$",
+      "dest": "/index.html",
+      "check": true
+    },
+    {
+      "src": "^/settings(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?$",
+      "dest": "/index.html?path=$1",
+      "check": true
+    },
+    {
+      "src": "^/profile$",
+      "dest": "/index.html",
+      "check": true
+    }
+  ]
+}
