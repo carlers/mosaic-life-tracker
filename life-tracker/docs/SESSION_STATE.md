@@ -1,20 +1,16 @@
 # Session checkpoint
 
 Updated: 2026-10-15 UTC
-Current task: #408 + #682 — integrate user-accepted Diary and Notifications into current dev without losing #708 chat, #861 Sync progress, or #592/#784 workflow safeguards.
+Current task: #851 — select all tasks in one category for the active Day View date; second ordinary #592 CI-first rollout pilot.
 
-## Accepted isolated sources and immutable backend
-- `dev@dc24b1db7c7f10eb50922a8b263a9217a5c6aa7a` v0.24.4; Production/main unchanged at handoff.
-- Diary `feature/diary-408@c220e42b329affc535bbf6f405563075ea205894` v0.25.6: full CI #38678485869 SUCCESS; exact Vercel READY `dpl_9ueyBG8NoPu2wYAQHWzzapwmJVbd`. GitHub direct merge against dev is dirty.
-- Notifications `feature/notifications-682-integrated-20261015@70f02e02af056c6647ff488906b8f6ce99d9fb09` v0.26.1: full CI #38673898159 SUCCESS; Vercel READY `dpl_AyywLz34rRuHFMevE7oZ5gW2FK2o`; clean against dev.
-- Exact three-way compatible combined Scratch `message-action` source `refactor/scratch-union-526-682@ed9736793c3731bf139bb59bf4ff6b5525c7f381`, approved currently-active Scratch deployment `6ad04931c34b463de0b4`. Preserve this Function source on integration; no implied Production backend migration/activation.
+## Verified upstream
+- `main@bb58300052dc4c85974d97779e2b257ec4f28c7d` v0.17.4 main trusted receiver, full CI #38702258745 SUCCESS and Production Vercel READY, ruleset bypass actors [] after owner #894 approval.
+- `dev@6d488d3c3b2ae0e998162d4fe70303fdfa58b964` v0.26.2 remains protected and unmodified. Owner-accepted #853 v0.27.0 stable Preview not yet dev-promoted.
+- #852 v0.28.0 feature stable `feature/quick-date-actions-852-20261015@2898147968062abdf0ef4164f818c569743a23e8`: full #38703473737 SUCCESS, main trusted delivery #38703741227 SUCCESS, one Vercel CLI Preview `dpl_5kGtHyQoHfsSh5VqCMeGrGDxQTf5` READY. Same-SHA source-build retry delivered read-only reuse/zero further Vercel POST. Authenticated browser/owner acceptance and dev promotion remain pending.
 
-## Isolated integration work
-- Current `chatgpt/408-682-release-integration-20261015` task based on dev. Draft diagnostic PRs #885/#886 checked actual clean/dirty provenance without changing dev/main.
-- Local merge integrated Diary onto dev with six resolved merge conflicts (preserving newer dev #784 startup/Home hard limits and effective policy), then Notifications with higher integrated PATCH v0.26.2. Kept exact activated Scratch union Function source instead of accepting the older Notifications-only Function. Resolved one obsolete pre-Diary forward-compatibility fixture so recognized Diary `emoji`/`photos` round-trip and unknown future fields still strip.
-- Local sandbox: TypeScript PASS, version:check PASS, contracts:check PASS; unit 1086/1086 PASS, handler 204/204 PASS, DOM 519/519 PASS, lint exit 0 with six warnings, production build/PWA and two blocking startup/Home size budgets PASS. Five advisory size measurements explicitly remain warnings.
-- These local results are not canonical CI, hosted build, authenticated two-account Scratch use, phone testing or Production readiness.
+## Scope and constraints
+- This isolated #851 task is based on exact dev (no backend or Production changes). Add select/deselect-all to an existing category pill only while selection mode is active. The action applies exclusively to the active day, owning user, category and non-deleted tasks. Preserve selection elsewhere, normal add-task mode, task checkboxes, diary/shared rows, and no-op empty categories. Version proposal v0.29.0 MINOR after accepted #853 v0.27.0 and #852 v0.28.0.
+- Add pure selection scoping regression and category interaction tests. Stage only quiet task/focused verification until separate new source-first default CI-first stable Preview, verified immutable canonical then one trusted CLI READY, user-device acceptance and separately approved dev promotion.
 
-## Next action and safety boundaries
-- Publish one reviewed `[verify:focused]` integration task commit and require focused CI. Squash to a fresh isolated stable Preview and require one exact full canonical gate plus Vercel Scratch/GIPHY READY, alias/origin and read-time authorization verification. Revalidate current dev/tree before any approved dev merge; verify resulting dev CI and deployment.
-- Before any main release, review *all* changes since current production v0.17.4, release schema/Function compatibility and separately approved Production backend activation, exact main full CI/Production READY and tag publisher. Do not promote an unaccepted changed tree, silently activate Production backend, or close #408/#682/#526/#592 without their own completion evidence.
+## Next action
+Verify focused CI of task branch, fix failures, then inspect #852 owner acceptance and #592 rollout; do not create a Git-first stable Preview or touch protected dev/main automatically. Once approved, use inherited first-commit Git suppression and normal PR workflow for this second real feature pilot. Return to #889 after workflow acceptance.

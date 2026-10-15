@@ -5,6 +5,7 @@
 /* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { runBulkTaskActions } from './bulkTaskActions';
+import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -479,6 +480,13 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     });
   }, []);
 
+  const handleToggleCategorySelection = useCallback((categoryId: string) => {
+    if (!isSelectMode || isBacklogView || !currentUserId) return;
+    setSelectedTaskIds(current => toggleCategoryDaySelection(
+      current, tasks, categoryId, activeDateStr, currentUserId
+    ));
+  }, [activeDateStr, currentUserId, isBacklogView, isSelectMode, tasks]);
+
   const handleToggleSelectMode = useCallback(() => {
     if (isSelectMode) {
       exitSelectMode();
@@ -890,6 +898,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             selectionMode={isSelectMode}
             selectedTaskIds={selectedTaskIds}
             onToggleTaskSelection={handleToggleTaskSelection}
+            onToggleCategorySelection={handleToggleCategorySelection}
             reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
             reorderRuntimeActive={isOpen}
             onReorderTasks={reorderTasks}
@@ -1062,6 +1071,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       selectionMode={isSelectMode && i === activeIndex}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
+            onToggleCategorySelection={handleToggleCategorySelection}
                       reorderEnabled={
                         isOpen &&
                         i === activeIndex &&
