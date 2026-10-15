@@ -21,6 +21,7 @@ const DEFAULTS = Object.freeze({
   task_completed: { feed: true, push: true },
 });
 const KEY = 'alertsChannels';
+const SOCIAL_PUSH_DETAILS_KEY = 'alertsSocialPushDetails';
 const validId = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/.test(value);
 const sha = value => createHash('sha256').update(value).digest('hex');
 // Excerpts are generated only after live authorization; never stored in receipts or Push.
@@ -67,6 +68,32 @@ async function channels(db, userId) {
     return resolved;
   } catch { return DEFAULTS; }
 }
+async function includeSocialPushDetails(db, userId) {
+  const setting = await row(db, 'settings', makeSettingsRowId(userId, SOCIAL_PUSH_DETAILS_KEY));
+  // Fail closed for absent/invalid, deleted, mismatched or stale account rows.
+  return setting?.user_id === userId && setting.key === SOCIAL_PUSH_DETAILS_KEY &&
+    setting.deleted !== true && setting.value === 'true';
+}
+
+function socialPushBody(item) {
+  const actor = excerpt(item.actorName, 48) || 'A friend';
+  const detail = excerpt(item.detail, 88);
+  const quote = detail ? ` “${detail}”` : '';
+  const emoji = item.emoji ? ` ${excerpt(item.emoji, 6)}` : '';
+  const reply = excerpt(item.replyExcerpt, 50);
+  switch (item.type) {
+    case 'friend_request': return `${actor} sent you a friend request`;
+    case 'friend_accepted': return `${actor} accepted your friend request`;
+    case 'direct_message': return reply
+      ? `${actor} replied to “${reply}”: ${detail || 'a message'}`
+      : `${actor} sent a message${quote}`;
+    case 'message_reaction': return `${actor} reacted to your message${quote}${emoji}`;
+    case 'task_reaction': return `${actor} reacted to your task${quote}${emoji}`;
+    case 'shared_task_invite': return `${actor} invited you to a shared task${quote}`;
+    default: return '';
+  }
+}
+
 async function isFriend(db, left, right) {
   if (!validId(left) || !validId(right) || left === right) return false;
   const id = (a,b) => 'fr_' + sha(a + '|' + b).slice(0,32);
@@ -159,7 +186,8 @@ async function emitActivity(db, { type, recipientId, actorId, sourceId, occurred
     task_id:sourceId, completed_at:stamp, occurred_at:stamp,
     created_at:stamp, read_at:'',
   };
-  if (!await projectActivity(db,candidate,recipientId)) return;
+  const projected = await projectActivity(db,candidate,recipientId);
+  if (!projected) return;
   const selected = (await channels(db,recipientId))[type];
   if (!selected?.feed && !selected?.push) return;
   try {
@@ -177,12 +205,14 @@ async function emitActivity(db, { type, recipientId, actorId, sourceId, occurred
   }
   if (selected.push && typeof push === 'function') {
     try {
+      const socialDetails = await includeSocialPushDetails(db, recipientId)
+        ? { socialBody: socialPushBody(projected) } : null;
       await push(db,recipientId,{
         userId:recipientId,title:'Mosaic activity',body:'Open Mosaic to see an update.',
         url:'/notifications?alert=' + id,tag:id,
-      },log);
+      },log,socialDetails);
     } catch (error) { log('activity push delivery failed: ' + error.message); }
   }
 }
 
-module.exports = { TYPES, DEFAULTS, KEY, receiptId, channels, projectActivity, emitActivity };
+module.exports = { TYPES, DEFAULTS, KEY, SOCIAL_PUSH_DETAILS_KEY, receiptId, channels, projectActivity, emitActivity, socialPushBody };

@@ -1,20 +1,16 @@
-# Session checkpoint
+# #682 / #526 Scratch Function social push detail refinement
 
-Updated: 2026-10-15 UTC
-Current task: #526 + #682 — on-demand Scratch Function compatibility union, code only.
+Current task: #682 opted-in social push content.
 
-## Verified starting point
-- Scratch active Function `message-action` deployment `6acd0a6643868c68508c`, built from audited #408/#708 source `chatgpt/408-708-scratch-compat-20261012@49b2a33006e8d728ba7b505526404209f9d53d36`. This preserves Diary, replies/reactions and #708 chat repair; its predecessor is retained for rollback. Do not overwrite it with the dev-based Notifications Feature Function.
-- New Notifications integrated v0.26.0 stable Preview `feature/notifications-682-integrated-20261015@3388c03a93bc064c8c04d5dc52eca379fa49abe8`; focused and full canonical CI SUCCESS, Vercel READY. Frontend-based SHA lacks already-active Diary Function source and is not an activation candidate.
-- #526 historical client probe source `refactor/scratch-compatibility-526@951baedd77cbb5176f462d74ff45c3e420fbbab4`, read-only proof #38666394991 SUCCESS: current dev passes, old Diary/Notifications Previews correctly block future unknown fields. Dev integration PR #872 prepared, not merged.
+Updated 2026-10-15. Current approved report: task completions show details but social notifications remain generic. Live Scratch v0.26.0 union active Function deployment 6ad0368a1abc7259e499, source SHA 36eb4ea421fcdff6f05d9c79e4b77f329bf93983.
 
-## Implementation under verification
-- Started from exact previously activated #408/#708 union SHA `49b2a33006e8d728ba7b505526404209f9d53d36`, not the stale #682 Function.
-- Backport only #682 server-owned receipt module, friendship/task-share idempotent result markers, notification projection/channels and new side-effect hooks into the verified active union. Preserve current chat idempotency, `repair_thread_all`, Diary reader/reaction handlers and exact handler authorization. Add #682 live contextual excerpts, with generic push text by default.
-- No Appwrite Function/schema/config, Scratch or Production mutation. No frontend, release version or dev/main change in this backend-only task.
-
-## CI finding / narrow repair
-- Backend union task `34724ca3f7f1997d9068ad81ac2b756ac59287f6` focused gate #38668372719 SUCCESS. Stable backend union `20c2ab97c6af670cf0f1459887bdabedb94fff2b`, PR #876, Vercel READY; full gate #38668733361 failed old Alerts DOM tests because October 7 static receipts expired against today's unmocked Date.now. Current dev already pins that test clock. The repair carries only the deterministic clock fixture and its cleanup onto the backend union branch, without changing product retention logic. The full gate must rerun on the repaired stable SHA.
+## Root cause and scope
+- The new in-app feed can project live contextual text, but OS push from emitActivity deliberately uses generic payload and the existing include_task_details consent only applies to task completions.
+- Do not silently expose message text on existing devices with task-title consent. Add separate account-synced 'alertsSocialPushDetails' setting, default false, require the already explicit per-device include_task_details boolean too. Enforce both server-side before sensitive push body construction.
+- Preserve generic defaults, private/unsent/revoked authorization gating, deterministic receipt/push-on-first creation, disabled push categories, current Diary/chat repair Function handlers and Scratch schema.
+- No new schema columns or Function structural/event/secret changes. Exact integrated union code branch chatgpt/682-social-push-backend-20261015, version impact NONE; frontend is a separate v0.26.1 Preview.
+- Never activate stale single-feature Function from frontend PR. Before Scratch rollout compare active deployment 6ad0368a1abc7259e499, verify full canonical and exact Function source, create inactive exact-SHA deployment then activate only under coordinated authorization. No Production or dev/main promotion.
+- Verify two-account message/reply/react/share detail pushes only when both account and device opt-ins are true; default and other devices stay generic. Simulate revoked friendship/deleted target and ensure no disclosure, no duplicates, no messaging performance regression.
 
 ## Next action
-- Run focused handler/unit verification on `chatgpt/526-682-scratch-function-union-20261015`, repair failures and prepare an isolated backend union Preview after green. Before any Scratch activation: confirm exact source & manifest drift against live Scratch, compare every active Preview consumer (not just schema read mapping), coordinate one writer with previous active deployment ID, obtain explicit activation approval, then test Diary/chat/notification multi-account ACL/idempotency/latency live. Keep #526 and #682 open for device acceptance and explicit promotions.
+Run focused CI on task, then canonical stable Preview CI. Do not deploy/activate Scratch changes before compatible backend verification; test two real accounts and opted-in devices. No dev/main/Production promotion.
