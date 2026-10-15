@@ -821,6 +821,14 @@ test('diary long press follows held touch on both axes with a single full-card o
   const diary = region.locator('[data-diary-drag-source="true"]');
   const button = diary.getByTestId('diary-day-card');
   await button.scrollIntoViewIfNeeded();
+  // Drag geometry matters: the in-list Diary card must start on the same
+  // horizontal rail as ordinary tasks before the full-card overlay takes over.
+  const taskRow = region.locator('[data-task-id="task_0_0"]');
+  const [taskBounds, diaryBounds] = await Promise.all([
+    taskRow.boundingBox(), button.boundingBox(),
+  ]);
+  if (!taskBounds || !diaryBounds) throw new Error('Missing task/diary alignment geometry');
+  expect(Math.abs(diaryBounds.x - taskBounds.x)).toBeLessThan(2);
   const gesture = await startTaskLongPress(page, button);
   const overlay = page.locator('[data-diary-drag-overlay="true"]');
   await expect(overlay).toBeVisible();

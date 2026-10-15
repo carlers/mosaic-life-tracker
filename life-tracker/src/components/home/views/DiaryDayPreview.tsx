@@ -65,7 +65,7 @@ export const DiaryDayPreview: React.FC<{
   const expanded = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact')) === 'expanded';
   return (
     <>
-      <div className="mx-4 my-2 min-w-0">
+      <div className="my-2 min-w-0">
         <DiaryDayCard entry={entry} onOpen={() => setMode('read')} onEdit={entry ? () => setMode('edit') : undefined} expanded={expanded} dragHandleRef={dragHandleRef}/>
       </div>
       {mode && <Suspense fallback={null}><DiaryEntrySheet key={date} date={date} entry={entry} author="Me"
