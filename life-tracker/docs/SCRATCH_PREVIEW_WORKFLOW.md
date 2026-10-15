@@ -134,6 +134,21 @@ automatic reset, and restoration from production is NOT an alternative.
 
 One scratch project services all Preview branches and the `dev` Preview, so Appwrite schema and the active `message-action` Function are shared runtime state even when Git branches are isolated. Before changing them, inspect active Preview backend requirements and record the active scratch Function deployment/source SHA. Use additive/compatible rollout and fail closed on unexpected drift; batch compatible changes into the accepted branch before main. Revalidate existing critical Preview flows after an activation. No agent may silently replace another Preview's active Function, enable Scratch's cron, or reset scratch for a DR drill. Frontend-only work with unchanged backend code should simply reuse the verified scratch deployment after a read-only parity check where relevant.
 
+### Historical Preview and Production clients (#526)
+
+For shared Scratch migration planning, record the set of accepted, currently
+active Preview commit SHAs, the current dev SHA, the expected active Function
+deployment and backend contract. For Production release planning also include
+the **last released main SHA** and known cached/installed PWA clients. Apply
+the read-only `appwrite:preview:compat` preflight described in
+[Appwrite backend workflow](APPWRITE_BACKEND_WORKFLOW.md#read-only-historical-client-compatibility-preflight-526).
+A BLOCK result is an incompatibility signal, not permission to reset Scratch
+or force-upgrade Production users. The CLI never contacts Appwrite or mutates
+the backend; server actions, historical writes and recovery still need their
+own tests. Re-run compatibility after changing the candidate manifest or
+consumer SHA and after shared-backend activations affecting an accepted
+Preview. A frontend-only Preview does not need a new cloud migration.
+
 ## Shared project / disaster-recovery conflict
 
 The same Free-plan scratch project is the DR restore slot. A DR exercise
