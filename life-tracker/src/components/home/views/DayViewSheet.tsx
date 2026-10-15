@@ -1,8 +1,16 @@
+/* Day View owns stable, manually memoized callbacks for the shared sheet/swiper
+ * state machine. The compiler's dependency inference incorrectly treats
+ * stable React state setters as changing dependencies here.
+ */
+/* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { runBulkTaskActions } from './bulkTaskActions';
+import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
+import { Virtual } from 'swiper/modules';
+import 'swiper/css/virtual';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckSquare, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2 } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -10,10 +18,12 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
+import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { TaskActionSheet } from './TaskActionSheet';
-const LazyShareTaskSheet = lazy(() =>
-  import('./ShareTaskSheet').then(({ ShareTaskSheet }) => ({ default: ShareTaskSheet }))
-);
+const { Component: LazyLinkTaskToBucketSheet, preload: preloadLinkTaskToBucketSheet } =
+  createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
+const { Component: LazyShareTaskSheet, preload: preloadShareTaskSheet } =
+  createPreloadedLazy(() => import('./ShareTaskSheet').then(m => m.ShareTaskSheet));
 import { useSharedTasks } from '../../../hooks/useSharedTasks';
 import { useOptionalFriendList } from '../../../hooks/useFriends';
 import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
@@ -48,9 +58,13 @@ import {
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+  SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
+  DIARY_DAY_VIEW_POSITION_SETTING_KEY,
+  resolveDiaryDayViewPosition,
   SHOW_HOLIDAYS_SETTING_KEY,
 } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
+import { diaryPlacementKey, normalizeDiaryPlacement } from '../../../lib/diaryPlacement';
 import {
   EMPTY_HOLIDAYS,
   createHolidayDisplayConfig,
@@ -88,9 +102,25 @@ interface DayViewSheetProps {
   categories?: CategoryDocument[];
   focusTaskId?: string | null;
   holidayConfig?: HolidayDisplayConfig;
+  showDiaryAlways?: boolean;
 }
 
-export const DayViewSheet: React.FC<DayViewSheetProps> = ({
+interface SheetContentControls {
+  close: () => void;
+  settled: () => void;
+  transientDismiss: () => boolean;
+  horizontalSwipe: (direction: 'left' | 'right') => void;
+}
+
+interface SheetContentLock {
+  background: boolean;
+  reorder: boolean;
+}
+
+const DayViewSheetInner: React.FC<DayViewSheetProps & {
+  shellControlsRef?: React.MutableRefObject<SheetContentControls | null>;
+  onLockChange?: (next: SheetContentLock) => void;
+}> = ({
   isOpen,
   onClose,
   selectedDate,
@@ -100,7 +130,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   categories: categoriesOverride,
   focusTaskId = null,
   holidayConfig: holidayConfigOverride,
+  showDiaryAlways = false,
+  shellControlsRef,
+  onLockChange,
 }) => {
+  // Preserve the mature, manually memoized Day View gesture and sheet lifecycles.
+  // The React Compiler cannot safely infer dependencies across these state machines.
+  'use no memo';
   const isBacklogView = renderMode === 'backlog';
   const appearance = React.useContext(AppearanceContext);
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
@@ -132,6 +168,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
+  const showDiaryInDayView = !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
+  const diaryPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
   const holidayConfig =
     holidayConfigOverride ??
     createHolidayDisplayConfig(
@@ -203,6 +241,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [isBucketLinkOpen, setIsBucketLinkOpen] = useState(false);
   const [shareSheetMounted, setShareSheetMounted] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
   const [imagePickerTaskId, setImagePickerTaskId] = useState<string | null>(null);
@@ -325,15 +364,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     }
   }, [activeDateStr, exitSelectMode, isBulkWorking, isSelectMode]);
 
-  // #10: precompute the header label per slide so the render loop doesn't
-  // re-run date-fns' format() on every render for every in-window slide.
-  // Effectiveness depends on slideDates identity being stable across
-  // renders — if the hook returns a fresh array each time this is a
-  // no-op, never a regression.
-  const slideDateLabels = useMemo(
-    () => slideDates.map((d) => format(d, 'EEEE, MMMM d, yyyy')),
-    [slideDates]
-  );
+  // Only the active day and its six fast-swipe neighbors need labels.
+  // Formatting all 181 geometry dates during the opening render delays the
+  // sheet without making the off-window slides any more usable.
+  const slideDateLabels = useMemo(() => {
+    const labels = new Map<number, string>();
+    const start = Math.max(0, activeIndex - renderWindow);
+    const end = Math.min(slideDates.length - 1, activeIndex + renderWindow);
+    for (let i = start; i <= end; i += 1) {
+      labels.set(i, format(slideDates[i], 'EEEE, MMMM d, yyyy'));
+    }
+    return labels;
+  }, [activeIndex, renderWindow, slideDates]);
 
   const [deferredRenderWindow, setDeferredRenderWindow] = useState(0);
   // #7: this fires on any BottomSheet animation completion (entrance and
@@ -437,6 +479,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
       return next;
     });
   }, []);
+
+  const handleToggleCategorySelection = useCallback((categoryId: string) => {
+    if (!isSelectMode || isBacklogView || !currentUserId) return;
+    setSelectedTaskIds(current => toggleCategoryDaySelection(
+      current, tasks, categoryId, activeDateStr, currentUserId
+    ));
+  }, [activeDateStr, currentUserId, isBacklogView, isSelectMode, tasks]);
 
   const handleToggleSelectMode = useCallback(() => {
     if (isSelectMode) {
@@ -549,6 +598,12 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   );
 
   const handleOpenActions = useCallback((task: TaskDocument) => {
+    // The user requested task actions: warm only code for its two nested
+    // sheets while the action menu opens; no hidden sheet or data hooks.
+    if (!document.hidden) {
+      void preloadShareTaskSheet().catch(() => {});
+      void preloadLinkTaskToBucketSheet().catch(() => {});
+    }
     setActiveTaskId(task.id);
     setIsActionSheetOpen(true);
   }, []);
@@ -556,6 +611,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   const handleCloseActions = useCallback(() => {
     setIsActionSheetOpen(false);
   }, []);
+
   const leaveSharedTask = sharedTasks.updateMembership;
   const updateSharedCompletion = sharedTasks.updateCompletion;
   const handleSharedCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
@@ -771,6 +827,27 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
     onRight: handleNextDayFromUi,
   });
 
+  const handleTransientDismiss = useCallback(() => {
+    if (!isSelectMode || isBackgroundLocked) return false;
+    exitSelectMode();
+    return true;
+  }, [exitSelectMode, isBackgroundLocked, isSelectMode]);
+
+  React.useLayoutEffect(() => {
+    if (!shellControlsRef) return;
+    shellControlsRef.current = {
+      close: handleSheetClose,
+      settled: handleSheetSettled,
+      transientDismiss: handleTransientDismiss,
+      horizontalSwipe: handleSheetHorizontalSwipe,
+    };
+    return () => { shellControlsRef.current = null; };
+  }, [handleSheetClose, handleSheetSettled, handleSheetHorizontalSwipe, handleTransientDismiss, shellControlsRef]);
+
+  React.useEffect(() => {
+    onLockChange?.({ background: isBackgroundLocked, reorder: isTaskReorderActive });
+  }, [onLockChange, isBackgroundLocked, isTaskReorderActive]);
+
   const imageViewerUnavailable = (
     <div className="fixed inset-0 z-[80] bg-black flex items-center justify-center px-6">
       <div className="text-center">
@@ -829,6 +906,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         </>
       ) : (
       <Swiper
+        // Preserve all 181 logical dates for direct jumps, but avoid 181 DOM
+        // slides (and their synchronous layout) on every sheet open.
+        modules={renderMode === 'sheet' ? [Virtual] : undefined}
+        virtual={renderMode === 'sheet' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
         nested={renderMode === 'inline'}
         allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen}
         noSwiping={renderMode === 'sheet'}
@@ -867,6 +948,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
           return (
             <SwiperSlide
               key={date.toISOString()}
+              virtualIndex={i}
               className="min-w-0"
               aria-hidden={i === activeIndex ? undefined : true}
               style={{ height: renderMode === 'inline' ? 'auto' : '100%' }}
@@ -897,7 +979,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                           className="min-w-0 text-center text-base font-semibold text-white"
                           aria-live={i === activeIndex ? 'polite' : undefined}
                         >
-                          <span className="block truncate">{slideDateLabels[i]}</span>
+                          <span className="block truncate">{slideDateLabels.get(i)}</span>
                         </h3>
                         <button
                           type="button"
@@ -944,6 +1026,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                         Shared completion pending sync
                       </p>
                     )}
+
                     <DaySlide
                       date={date}
                       dateStr={dateStr}
@@ -987,6 +1070,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       selectionMode={isSelectMode && i === activeIndex}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
+                      onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
                       reorderEnabled={
                         isOpen &&
                         i === activeIndex &&
@@ -997,7 +1081,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
                       reorderRuntimeActive={isOpen && i === activeIndex}
                       onReorderTasks={reorderTasks}
                       onReorderActiveChange={setIsTaskReorderActive}
+                      diaryEnabled={showDiaryInDayView && !isSelectMode}
+                      diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
+                      onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
                     />
+
                   </>
                 )}
               </div>
@@ -1039,7 +1127,10 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
             onMoveToBacklog={isBacklogView ? undefined : () => runBulkUpdate({ date: '' })}
             onChangeDate={async date => { await runBulkUpdate({ date }); }}
             onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
+            onDoYesterday={() => runBulkUpdate({ date: format(addDays(new Date(), -1), 'yyyy-MM-dd') })}
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
+            showDoToday={selectedTasks.some(task => task.date !== format(new Date(), 'yyyy-MM-dd'))}
+            showDoYesterday={selectedTasks.some(task => task.date !== format(addDays(new Date(), -1), 'yyyy-MM-dd'))}
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
           />
 
@@ -1078,16 +1169,18 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
         onMoveToBacklog={handleMoveToBacklog}
+        onLinkToBucketList={() => setIsBucketLinkOpen(true)}
       />
-      <Suspense fallback={null}>
-        {shareSheetMounted && (
-          <LazyShareTaskSheet
-            isOpen={isShareSheetOpen && !!activeTask}
-            onClose={() => setIsShareSheetOpen(false)}
-            task={activeTask}
-          />
-        )}
-      </Suspense>
+      {shareSheetMounted && (
+        <LazyShareTaskSheet
+          isOpen={isShareSheetOpen && !!activeTask}
+          onClose={() => setIsShareSheetOpen(false)}
+          task={activeTask}
+        />
+      )}
+      {isBucketLinkOpen && (
+        <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
+      )}
       <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
@@ -1169,31 +1262,57 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = ({
   }
 
   return (
-    <BottomSheet
-      isOpen={isOpen}
-      onClose={handleSheetClose}
-      ariaLabel={format(selectedDate, 'EEEE, MMMM d, yyyy')}
-      height="full"
-      isLocked={isBackgroundLocked || isTaskReorderActive}
-      preventDismiss={isTaskReorderActive}
-      suspendInteraction={isBackgroundLocked}
-      contentMode="fixed"
-      onHorizontalSwipe={handleSheetHorizontalSwipe}
-      onAnimationComplete={handleSheetSettled}
-      deferChildrenUntilPaint
-      onTransientDismiss={() => {
-        if (!isSelectMode || isBackgroundLocked) return false;
-        exitSelectMode();
-        return true;
-      }}
+    <div
+      data-testid="day-sheet-swipe-surface"
+      data-day-view-focus-scope={focusTaskId ? 'true' : undefined}
+      className="flex h-full min-h-0 flex-col"
     >
-      <div
-        data-testid="day-sheet-swipe-surface"
-        data-day-view-focus-scope={focusTaskId ? 'true' : undefined}
-        className="flex h-full min-h-0 flex-col"
-      >
-        {content}
-      </div>
+      {content}
+    </div>
+  );
+};
+
+/**
+ * Keep the shared BottomSheet shell outside the expensive Day View subtree.
+ * Calendar's first tap must be able to commit and paint the entrance sheet
+ * BEFORE DayViewSheetInner runs its data hooks, Swiper init, and task rendering.
+ * BottomSheet's existing two-frame child deferral now covers the entire subtree,
+ * not just reconciliation of elements already built by its parent.
+ */
+export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
+  const isSheet = (props.renderMode ?? 'sheet') === 'sheet';
+  const shellControlsRef = useRef<SheetContentControls | null>(null);
+  const [lock, setLock] = useState<SheetContentLock>({ background: false, reorder: false });
+  const onLockChange = useCallback((next: SheetContentLock) => {
+    setLock(current => current.background === next.background && current.reorder === next.reorder
+      ? current : next);
+  }, []);
+
+  if (!isSheet) return <DayViewSheetInner {...props} />;
+
+  return (
+    <BottomSheet
+      isOpen={props.isOpen}
+      onClose={() => {
+        if (shellControlsRef.current) shellControlsRef.current.close();
+        else props.onClose();
+      }}
+      ariaLabel={format(props.selectedDate, 'EEEE, MMMM d, yyyy')}
+      height="full"
+      isLocked={lock.background || lock.reorder}
+      preventDismiss={lock.reorder}
+      suspendInteraction={lock.background}
+      contentMode="fixed"
+      onHorizontalSwipe={(direction) => shellControlsRef.current?.horizontalSwipe(direction)}
+      onAnimationComplete={() => shellControlsRef.current?.settled()}
+      deferChildrenUntilPaint
+      onTransientDismiss={() => shellControlsRef.current?.transientDismiss() ?? false}
+    >
+      <DayViewSheetInner
+        {...props}
+        shellControlsRef={shellControlsRef}
+        onLockChange={onLockChange}
+      />
     </BottomSheet>
   );
 };

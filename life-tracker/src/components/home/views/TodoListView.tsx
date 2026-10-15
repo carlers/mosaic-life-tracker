@@ -2,12 +2,19 @@ import React, { lazy, Suspense, useCallback, useState } from 'react';
 import {
   format,
   isSameMonth,
+  isSameDay,
 } from 'date-fns';
 import { DayViewSheet } from './DayViewSheet';
 import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { TodoCalendarGrid } from './TodoCalendarGrid';
-import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import { DiaryDayCard } from './DiaryDayPreview';
+import { useSettings } from '../../../hooks/useSettings';
+import {
+  DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, DIARY_DAY_VIEW_POSITION_SETTING_KEY,
+  SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, resolveDiaryDayViewHeight, resolveDiaryDayViewPosition,
+} from '../../../lib/preferences';
+import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import {
@@ -36,6 +43,9 @@ interface TodoListViewProps {
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
   weekStartsOn?: WeekStartsOn;
   holidayConfig?: HolidayDisplayConfig;
+  markerMode?: 'todo' | 'diary';
+  diaryEntries?: readonly DiaryDocument[];
+  onOpenDiary?: (date: Date) => void;
 }
 
 export const TodoListView: React.FC<TodoListViewProps> = ({
@@ -53,8 +63,20 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   onReactToTask,
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
+  markerMode = 'todo',
+  diaryEntries = [],
+  onOpenDiary,
 }) => {
   const [selectedDate, setSelectedDate] = useState(() => new Date(focusDate));
+  const { getSetting } = useSettings();
+  const showFriendDiaryCard = variant === 'friend' &&
+    (markerMode === 'diary' || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
+  const friendDiaryPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
+  const friendDiaryExpanded = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact')) === 'expanded';
+  const friendEntry = diaryEntries.find(item => item.date === format(selectedDate, 'yyyy-MM-dd'));
+  const friendDiaryCard = showFriendDiaryCard && friendEntry && onOpenDiary ? (
+    <div className="my-2 px-4"><DiaryDayCard entry={friendEntry} expanded={friendDiaryExpanded} onOpen={() => onOpenDiary(selectedDate)}/></div>
+  ) : null;
   const {
     replyTask,
     replyColor,
@@ -82,6 +104,14 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
     [focusDate, onFocusDateChange]
   );
 
+  const handleCalendarDateSelect = useCallback((date: Date) => {
+    if (markerMode === 'diary' && isSameDay(selectedDate, date)) {
+      onOpenDiary?.(date);
+      return;
+    }
+    handleDateChange(date);
+  }, [markerMode, selectedDate, handleDateChange, onOpenDiary]);
+
   return (
     <section
       className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300"
@@ -99,8 +129,10 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
           ownedSharedTaskIds={variant === 'me' ? ownedSharedTaskIds : undefined}
           categories={categories}
           categoriesMap={categoriesMap}
-          onDateSelect={handleDateChange}
+          onDateSelect={handleCalendarDateSelect}
           onMonthChange={onFocusDateChange}
+          markerMode={markerMode}
+          diaryEntries={diaryEntries}
           weekStartsOn={weekStartsOn}
           holidayConfig={holidayConfig}
         />
@@ -109,6 +141,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
       <div className="mt-0 min-w-0 w-full max-w-full overflow-x-hidden" data-testid="todo-day-section">
         {variant === 'friend' && friendUserId ? (
           <>
+            {friendDiaryPosition === 'top' && friendDiaryCard}
             <FriendDayViewSheet
               key={focusMonthKey}
               isOpen
@@ -124,6 +157,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
               onReactToTask={onReactToTask}
               holidayConfig={holidayConfig}
             />
+            {friendDiaryPosition === 'bottom' && friendDiaryCard}
             <Suspense fallback={null}>
               <ReplyComposerSheet isOpen={!!replyTask} onClose={closeReply}
                 task={replyTask} categoryColor={replyColor}
@@ -147,6 +181,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
             selectedDate={selectedDate}
             onDateChange={handleDateChange}
             renderMode="inline"
+            showDiaryAlways={markerMode === 'diary'}
             tasks={tasks}
             categories={categories}
             holidayConfig={holidayConfig}

@@ -1,6 +1,6 @@
 // Regression: §2 (friend Day View swipes navigate adjacent days).
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { addDays, startOfDay } from 'date-fns';
 import { describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
@@ -56,10 +56,14 @@ vi.mock('../../src/components/messages/EmojiPickerSheet', () => ({
   EmojiPickerSheet: () => null,
 }));
 
-vi.mock('../../src/components/home/views/ImageViewer', () => ({
-  ImageViewer: ({ isOpen, imageUrl }: { isOpen: boolean; imageUrl: string | null }) =>
-    isOpen ? <div data-testid="friend-image-viewer">{imageUrl}</div> : null,
-}));
+const imageViewerImport = vi.hoisted(() => vi.fn());
+vi.mock('../../src/components/home/views/ImageViewer', () => {
+  imageViewerImport();
+  return {
+    ImageViewer: ({ isOpen, imageUrl }: { isOpen: boolean; imageUrl: string | null }) =>
+      isOpen ? <div data-testid="friend-image-viewer">{imageUrl}</div> : null,
+  };
+});
 
 vi.mock('../../src/hooks/useTaskImage', () => ({
   useTaskImage: (fileId?: string) => ({
@@ -107,6 +111,20 @@ const tasks: TaskDocument[] = [];
 import { FriendDayViewSheet } from '../../src/components/friend/FriendDayViewSheet';
 
 describe('FriendDayViewSheet', () => {
+  it('does not load or overlay the photo viewer when opening a friend day without viewing a photo', async () => {
+    render(
+      <FriendDayViewSheet
+        isOpen onClose={vi.fn()} date={new Date(2026, 8, 20)}
+        onDateChange={vi.fn()} tasks={[]} categories={[]}
+        friendName="Friend" currentUserId="user_1"
+      />
+    );
+
+    await act(async () => { await Promise.resolve(); });
+    expect(imageViewerImport).not.toHaveBeenCalled();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
   it('reports the adjacent date after a horizontal swipe settles', () => {
     const date = new Date(2026, 8, 20);
     const onDateChange = vi.fn();
@@ -129,7 +147,7 @@ describe('FriendDayViewSheet', () => {
     expect(onDateChange).toHaveBeenCalledWith(addDays(startOfDay(date), 1));
   });
 
-  it('renders a friend task photo and opens the shared image viewer', () => {
+  it('renders a friend task photo and opens the shared image viewer', async () => {
     render(
       <FriendDayViewSheet
         isOpen
@@ -147,7 +165,7 @@ describe('FriendDayViewSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'View image' }));
 
-    expect(screen.getByTestId('friend-image-viewer')).toHaveTextContent(
+    expect(await screen.findByTestId('friend-image-viewer')).toHaveTextContent(
       'blob:tmimg_photo_1'
     );
   });

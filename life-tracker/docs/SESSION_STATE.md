@@ -1,23 +1,19 @@
 # Session checkpoint
 
-Updated: 2026-10-14 UTC
-Current task: #592 — generic opt-in CI-first Preview admission proposal, protected-main security boundary.
+Updated: 2026-10-15 UTC
+Current task: #889 isolated preparation of an integrated pre-1.0 dev/main candidate preserving protected-main trusted delivery and dev v0.29.1 product/CI.
 
-## Verified live before this change
-- Owner merged infrastructure-only PR #837: protected `main@2a6210d940c0387e88a617684ba4e24a21b7e1ad`; full main Quality Gate #38558325570 SUCCESS, Production Vercel `dpl_5gja3K4uWzYC8pquT2tfVQzgoDqU` READY v0.17.4, zero main bypass actors. `dev@f3d9558feca499e53c310c5a37be2794717bccf6` unchanged.
-- Two isolated CI-first pilots succeeded. Second exact `feature/592-prebuilt-pilot-20261014@d5c26e5e9eeaab87a21d3af262dd4446c9c11337` full Quality Gate #38561627651 attempts 1 and 2 SUCCESS; trusted main receiver/writer #38561903504 created exactly one static CLI Preview `dpl_95RhNayCZnMzu6d9WcSRiCrtPXjb` READY, zero Git-auto deployments or aliases; #38562308108 reused without provider POST. Authenticated hosted HTTP root, login, notifications, settings/messages deep links, SW and manifest 200; unconfigured path 404; required security headers correct. Not a logged-in device check.
-- Latest issue checkpoint: https://github.com/carlers/mosaic-life-tracker/issues/592#issuecomment-6168172545.
+## Source and authorization
+- Task base exact `dev@9b6319d956d59eafcef0357f97ccb02fd4075814` after user-approved #903; current Vercel dev exact READY and Quality Gate #38739248481 SUCCESS.
+- Protected `main@bb58300052dc4c85974d97779e2b257ec4f28c7d` Production v0.17.4 remains divergent. No Production backend, Vercel environment, `main`, version, tag or release action authorized.
+- Release audit #889 / #526 and isolated legacy v0.17.5 reader bridge `chatgpt/889-legacy-client-bridge-20261015@81bde2da` remain separate; focused run #38725371146 SUCCESS, no hotfix stable Preview or Production promotion.
+- Preserve all user-accepted v0.29.1 Diary, notifications, chat, #851/#852/#853 and CI-first policies; no UI, product behavior, RxDB mapping/schema, Appwrite migrations/Function, package version or Vercel project-settings changes in this integration task.
 
-## This candidate's scope
-- Main-owned, fail-closed **default-OFF** generic opt-in for precisely one branch at a time, single-leaf `feature|fix|perf|security|refactor` category. Separate repository switch `MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED`; the existing provider-create flag is still independently required, aliases remain OFF.
-- Require the branch's first commit to carry the exact main-reviewed, nonoverlapping own-category Git rule: complementary negative glob plus exact `false`, all other categories/main/dev unchanged. Read-only receiver checks source Git bytes at the accepted SHA before reading protected CI artifact; normal Git-auto branches skip. Credentialed writer requires explicit read-only `admitted=true` output and independently repeats source policy, exact CI/head, Scratch/public profile/route/artifact/provider history checks.
-- Preserve existing named pilots, main/dev/prod/version/backend/budgets, all other Vercel Git Preview branch behavior. Do not activate generic switch, alias or provider settings as part of staging.
-
-## Generic source-CI trust hardening
-- Main security review found that a candidate could change its own Quality Gate YAML while retaining successful check names. The generic receiver must bind the candidate's exact workflow blob to the independently verified six-file producer blob `5f64f715551f0c311a60d823367d849dfb369bba` before any admission; legacy pilots unchanged. This does not pin arbitrary candidate scripts and does not authorize extra branches/alias/provider settings.
-- Stable generic branch `8fa9556711e03f44d250d5b014ebf812ae1bfd9b`: Full Quality Gate #38566235786 SUCCESS, Vercel Git Preview `dpl_FXsrjmCRNypigTvLWsnt4ijGuF3C` READY. Concurrent repair PR #842 already merged, redundant #843 CLOSED. No main/dev changes.
+## Integration choices
+- Bring from actual protected main only the missing trusted PREBUILT sender/receiver/provider verification scripts and their tests/fixtures, archived trust bootstrap runbook, and newer guarded protected-main `trusted-preview-delivery.yml`, `trusted-preview-receiver.mjs`, `run-trusted-preview-receiver.mjs`.
+- Keep dev's current pinned `.github/workflows/quality-gate.yml` blob `5f64f715551f0c311a60d823367d849dfb369bba`, its full artifact producer, current `preview-evidence-schema.mjs` diagnostic/ref contract and its `vercel.json` default stable Git suppression; do not downgrade it to main's older CI/Git-first policy.
+- Keep dev's newer NotificationsPage test, main README/DELIVERY/SESSION conflicts unresolved by blind copy; link historical trust guide in docs index. Existing trusted main scripts must pass dev-focused tests and source contracts before a stable Preview or any protected promotion.
 
 ## Next action
-- First stable full Quality Gate #38565675231 failed THREE stale test-only assertions: two old fixed-branch expectations and one nested-invalid source ref mismatch. Build, dependency, both DOM shards and Vercel Git Preview were READY/passing. Batch the three assertions in one focused task repair, then require a fresh full stable canonical gate. The generic switch remains OFF and main/dev unchanged.
-- Task branch must pass focused checks with new generic admission, skip, category cutover, red/stale/forged/unsafe, wrong-target/reuse regressions. After focused-green, squash to isolated main-based fix Preview for full canonical CI and Vercel READY. Review changed main workflow security boundary and open protected-main PR only after acceptance. Main merge needs **fresh owner-only temporary Pull-requests-only protection exception**, then immediately restore zero bypass, confirm main full CI + Production READY. No automatic main merge or prior approval reuse.
-- **Later rollout:** separate explicit owner authorization to enable generic switch; first normal stable single-leaf feature branch pilot (zero premature Git Preview), same-SHA retry/rollback, independently approved feature Preview→dev, Scratch origin/device/login. Keep issue #592 OPEN until acceptance. Do not do backend writes, aliases, version bumps, app UI changes or Production promotion.
+- Run task [verify:focused], repair actual test/lint failures with regression coverage if needed, inspect exact diff and freeze one clean isolated candidate. Only then task→stable CI-first Preview full canonical and Vercel READY; approval required before dev/main promotion.
+- #889 hard gates still pending: immutable old-client read/write/device/offline compatibility and upgrade/retirement, independent encrypted R2 completed/hash + isolated restore, Production schema 010–015 and Function rollout, authenticated two-account mobile acceptance and explicit main/release/1.0 approval. Do not copy Production data to Scratch.

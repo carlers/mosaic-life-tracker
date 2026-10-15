@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
+import { preloadFriendDayViewSheet } from '../../src/components/friend/friendDayViewSheetModule';
 
 const daySheetState = vi.fn();
 
@@ -23,7 +24,8 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
 }));
 
 vi.mock('../../src/components/friend/FriendDayViewSheet', () => ({
-  FriendDayViewSheet: () => null,
+  FriendDayViewSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div role="dialog" aria-label="Friend day" /> : null,
 }));
 
 vi.mock('../../src/components/messages/ReplyComposerSheet', () => ({
@@ -76,5 +78,22 @@ describe('CalendarBody behavior', () => {
       isOpen: true,
       selectedDate: new Date('2026-01-05'),
     });
+  });
+
+  it('mounts a warmed friend Day View on the first day-cell commit', async () => {
+    await preloadFriendDayViewSheet();
+    const { getByTestId, getByRole } = render(
+      <CalendarBody
+        viewMode="month" slides={[new Date('2026-01-01')]}
+        renderStart={0} renderEnd={0} emblaRef={vi.fn()}
+        tasks={[]} categoriesMap={{}} variant="friend"
+        friendName="Friend" friendUserId="friend_1"
+        currentUserId="user_1" isActive
+        onPrev={vi.fn()} onNext={vi.fn()}
+      />
+    );
+    fireEvent.click(getByTestId('calendar-day'));
+    // A resolved import must not suspend for one blank React commit.
+    expect(getByRole('dialog', { name: 'Friend day' })).toBeInTheDocument();
   });
 });

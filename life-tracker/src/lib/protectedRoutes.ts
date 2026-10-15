@@ -46,6 +46,8 @@ export type ProtectedRoute = PrimaryRoute | DetailRoute | RedirectRoute;
 
 export const PROTECTED_ROUTES = [
   { id: 'home', path: '/home', kind: 'primary', tab: 'home', preview: 'supported', swipeMode: 'home-zone' },
+  { id: 'bucketListDetail', path: '/bucket-list/:id', kind: 'detail', tab: 'home', parent: '/bucket-list', preview: 'none' },
+  { id: 'bucketList', path: '/bucket-list', kind: 'detail', tab: 'home', parent: '/home', alternateParents: ['/account'], preview: 'none' },
   { id: 'backlog', path: '/backlog', kind: 'detail', tab: 'home', parent: '/home', alternateParents: ['/account'], preview: 'none' },
   { id: 'explore', path: '/explore', kind: 'primary', tab: 'explore', preview: 'supported' },
   { id: 'friendCalendar', path: '/friends/:friendId', kind: 'detail', tab: 'explore', parent: '/explore', preview: 'none', swipeMode: 'edge-back' },
@@ -60,11 +62,13 @@ export const PROTECTED_ROUTES = [
   { id: 'preferences', path: '/settings/preferences', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
   { id: 'notificationSettings', path: '/settings/notifications', kind: 'detail', tab: 'account', parent: '/settings', alternateParents: ['/notifications'], swipeMode: 'full', preview: 'supported' },
   { id: 'screenRedirect', path: '/settings/screen', kind: 'redirect', tab: 'account', parent: '/settings', redirectTo: '/settings/preferences', preview: 'none' },
+  // Catch mistyped nested Settings URLs inside the guarded shell.
+  { id: 'unknownSettingsRedirect', path: '/settings/*', kind: 'redirect', tab: 'account', parent: '/settings', redirectTo: '/settings', preview: 'none' },
   { id: 'profile', path: '/profile', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
 ] as const satisfies readonly ProtectedRoute[];
 
 export type ProtectedRouteEntry = (typeof PROTECTED_ROUTES)[number];
-export type ProtectedPageId = Exclude<ProtectedRouteEntry['id'], 'screenRedirect'>;
+export type ProtectedPageId = Exclude<ProtectedRouteEntry, { kind: 'redirect' }>['id'];
 
 export const PRIMARY_ROUTE_PATHS = PROTECTED_ROUTES
   .filter((route) => route.kind === 'primary')
@@ -73,7 +77,7 @@ export const PRIMARY_ROUTE_PATHS = PROTECTED_ROUTES
 const routeMatchers = PROTECTED_ROUTES.map((route) => ({
   route,
   pattern: new RegExp('^' + route.path.split('/').map((segment) =>
-    segment.startsWith(':') ? '[^/]+' : segment.replace(/[.*+?^{}()|[\]\\]/g, '\\$&')
+    segment === '*' ? '.*' : segment.startsWith(':') ? '[^/]+' : segment.replace(/[.*+?^{}()|[\]\\]/g, '\\$&')
   ).join('/') + '$'),
 }));
 
@@ -82,13 +86,9 @@ export function matchProtectedRoute(pathname: string): ProtectedRouteEntry | nul
 }
 
 export function protectedRouteSwipeMode(pathname: string): 'full' | 'home-zone' | 'edge-back' {
-  const route = matchProtectedRoute(pathname);
-  if (!route) return 'full';
-  if ('swipeMode' in route && route.swipeMode) return route.swipeMode;
-  return 'full';
+  return (matchProtectedRoute(pathname) as ProtectedRoute | null)?.swipeMode ?? 'full';
 }
 
 export function protectedRouteHidesBottomNav(pathname: string): boolean {
-  const route = matchProtectedRoute(pathname);
-  return Boolean(route && 'hideBottomNav' in route && route.hideBottomNav);
+  return Boolean((matchProtectedRoute(pathname) as ProtectedRoute | null)?.hideBottomNav);
 }

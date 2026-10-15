@@ -9,6 +9,7 @@ A user backup is a portable snapshot of the signed-in user's personal Mosaic dat
 - tasks (scheduled and explicitly undated Backlog tasks)
 - categories
 - diary entries
+- owner-only Bucket List aspirations (including current achievement timestamps)
 - synced settings/preferences
 - optional referenced task/profile images
 
@@ -18,8 +19,8 @@ Shared-task invitations and memberships (`task_shares`) are server-owned social 
 
 ## Format
 
-- New exports use backup format version 2.
-- Version 1 JSON/ZIP exports produced by Mosaic before this feature remain accepted for restore.
+- New exports use backup format version 3.
+- Version 1 and 2 JSON/ZIP exports produced before Bucket List remain accepted for restore; they contain no aspirations.
 - Backups include app/version metadata, export time, source-user metadata, record counts, the restorable data snapshot, friendship reference data, and image inventory.
 - For tasks, `date: ''` is the explicit unscheduled Backlog placement. Restore preserves this value and validates nonempty calendar dates; a missing `date` field is invalid. Diary dates remain required. Existing v1/v2 backup formats remain accepted.
 - JSON backups omit image blobs. ZIP backups may contain image blobs under `images/`.
@@ -42,7 +43,7 @@ Settings and diary IDs are regenerated from the current user plus their logical 
 
 ### Replace personal data
 
-- The selected backup becomes authoritative for tasks, categories, diary, and settings.
+- The selected backup becomes authoritative for tasks, categories, diary, settings, and Bucket List aspirations.
 - Matching backup records are restored even when the snapshot is older.
 - Current active personal records absent from the backup are tombstoned with the restore time so sync propagates the deletion safely.
 - Friendships, messages, login/account state, and reciprocal profile/social state are never part of this replacement.

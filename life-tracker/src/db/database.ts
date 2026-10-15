@@ -11,7 +11,9 @@ import {
   tasksSchema,
   categoriesSchema,
   diarySchema,
-  settingsSchema,
+    settingsSchema,
+  bucketListSchema,
+  bucketTaskLinksSchema,
   friendshipsSchema,
   messagesSchema,
   syncMetaSchema,
@@ -19,6 +21,8 @@ import {
   type CategoryDocument,
   type DiaryDocument,
   type SettingsDocument,
+  type BucketListDocument,
+  type BucketTaskLinkDocument,
   type FriendshipDocument,
   type MessageDocument,
   type SyncMetaDocument,
@@ -29,6 +33,7 @@ import {
   friendshipsMigrationStrategies,
   messagesMigrationStrategies,
   categoriesMigrationStrategies,
+  diaryMigrationStrategies,
   settingsMigrationStrategies,
   syncMetaMigrationStrategies,
 } from './migrations';
@@ -53,6 +58,8 @@ export interface AppDatabaseCollections {
   categories: RxCollection<CategoryDocument>;
   diary: RxCollection<DiaryDocument>;
   settings: RxCollection<SettingsDocument>;
+  bucketList: RxCollection<BucketListDocument>;
+  bucketTaskLinks: RxCollection<BucketTaskLinkDocument>;
   friendships: RxCollection<FriendshipDocument>;
   messages: RxCollection<MessageDocument>;
   syncMeta: RxCollection<SyncMetaDocument>;
@@ -87,7 +94,9 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
         schema: categoriesSchema,
         migrationStrategies: categoriesMigrationStrategies,
       },
-      diary: { schema: diarySchema },
+      diary: { schema: diarySchema, migrationStrategies: diaryMigrationStrategies },
+      bucketList: { schema: bucketListSchema },
+      bucketTaskLinks: { schema: bucketTaskLinksSchema },
       settings: {
         schema: settingsSchema,
         migrationStrategies: settingsMigrationStrategies,
@@ -188,6 +197,8 @@ export async function purgeAccountFromDatabase(
     database.categories,
     database.diary,
     database.settings,
+    database.bucketList,
+    database.bucketTaskLinks,
     database.friendships,
     database.messages,
     database.syncMeta,
@@ -212,13 +223,15 @@ export async function destroyDatabase(): Promise<void> {
 }
 export async function getDatabaseStats(db?: RxDatabase<AppDatabaseCollections>) {
   const database = db || getDatabase();
-  const [tasks, categories, diary, settings, friendships, messages] = await Promise.all([
+  const [tasks, categories, diary, settings, friendships, messages, bucketList, bucketTaskLinks] = await Promise.all([
     database.tasks.count().exec(),
     database.categories.count().exec(),
     database.diary.count().exec(),
     database.settings.count().exec(),
     database.friendships.count().exec(),
     database.messages.count().exec(),
+    database.bucketList.count().exec(),
+    database.bucketTaskLinks.count().exec(),
   ]);
-  return { tasks, categories, diary, settings, friendships, messages };
+  return { tasks, categories, diary, settings, friendships, messages, bucketList, bucketTaskLinks };
 }

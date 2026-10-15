@@ -4,6 +4,7 @@ import { getReadableTextColor } from '../../../constants/colors';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import type { TaskDocument } from '../../../db/schema';
+import { IncompleteTaskBlockColorContext } from '../../../hooks/incompleteTaskBlockColorContext';
 
 interface TaskBlockProps {
   task: TaskDocument;
@@ -18,13 +19,26 @@ interface TaskBlockProps {
 export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isShared = false }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
   const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
-  const textColor = task.completed ? 'mosaic-done' : 'text-gray-300';
+  const incompleteColorMode = React.useContext(IncompleteTaskBlockColorContext);
+  const showCategoryText = !task.completed && incompleteColorMode === 'text';
+  const showCategoryBorder = !task.completed && incompleteColorMode === 'border';
+  // Theme remaps of text-gray-300 use !important in Light/Black;
+  // omit that class when the category text override is active.
+  const textColor = task.completed ? 'mosaic-done' : showCategoryText ? '' : 'text-gray-300';
 
   return (
     <div
       ref={targetRef}
       className={`text-[10.5px] pt-0.5 w-full font-semibold rounded-[4.5px] overflow-hidden ${textColor}`}
-      style={{ backgroundColor: task.completed ? categoryColor : 'var(--mosaic-task-incomplete-bg)', color: task.completed ? getReadableTextColor(categoryColor) : undefined }}
+      style={{
+        backgroundColor: task.completed ? categoryColor : 'var(--mosaic-task-incomplete-bg)',
+        color: task.completed
+          ? getReadableTextColor(categoryColor)
+          : showCategoryText
+            ? categoryColor
+            : undefined,
+        boxShadow: showCategoryBorder ? `inset 0 0 0 1px ${categoryColor}` : undefined,
+      }}
       title={task.title}
     >
       <div className="flex flex-col gap-0.5">

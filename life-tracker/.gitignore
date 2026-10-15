@@ -33,3 +33,9 @@ repomix-output.xml
 
 # Vercel local project metadata
 .vercel/
+
+# Non-deployed PWA startup lab reports
+.mosaic/mobile-startup/
+
+# CI-only build evidence, never deployed or committed
+.mosaic/preview-build/

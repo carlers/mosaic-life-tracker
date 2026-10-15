@@ -32,6 +32,8 @@ import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
   GIPHY_AUTOPLAY_SETTING_KEY,
   TASK_COMPLETION_SORT_SETTING_KEY,
+  INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  resolveIncompleteTaskBlockColorMode,
   SHARED_LABEL_MODE_SETTING_KEY,
   SHOW_PENDING_SHARES_SETTING_KEY,
   ESCAPE_AS_BACK_SETTING_KEY,
@@ -40,8 +42,16 @@ import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+  SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
+  SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY,
+  DIARY_DAY_VIEW_HEIGHT_SETTING_KEY,
+  DIARY_DAY_VIEW_POSITION_SETTING_KEY,
+  resolveDiaryDayViewHeight,
+  resolveDiaryDayViewPosition,
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
+  CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  resolveCalendarZoomDays,
 } from '../lib/preferences';
 import {
   inferHolidayRegion,
@@ -225,14 +235,22 @@ export const PreferencesPage: React.FC = () => {
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
+  const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
+    getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
+  );
   const shareLabelMode = getSetting(SHARED_LABEL_MODE_SETTING_KEY, 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting(SHOW_PENDING_SHARES_SETTING_KEY, false) === true;
+  const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
+  const showDiaryInDayView = getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
+  const showDiaryTodayShortcut = getSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, true) === true;
+  const diaryDayViewHeight = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact'));
+  const diaryDayViewPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
   const showHolidays =
     getSetting(SHOW_HOLIDAYS_SETTING_KEY, false) === true;
   const storedHolidayRegion = normalizeHolidayRegion(
@@ -344,6 +362,21 @@ export const PreferencesPage: React.FC = () => {
             )}
           />
           <SelectSettingRow
+            id="incomplete-task-block-color"
+            icon={<Palette size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Incomplete calendar task color"
+            value={incompleteTaskBlockColor}
+            options={[
+              { value: 'default', label: 'Default' },
+              { value: 'text', label: 'Category text' },
+              { value: 'border', label: 'Category border' },
+            ]}
+            onChange={(value) => void setSetting(
+              INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+              resolveIncompleteTaskBlockColorMode(value)
+            )}
+          />
+          <SelectSettingRow
             id="shared-task-label"
             icon={<UsersRound size={18} className="text-gray-400" aria-hidden="true" />}
             label="Shared task labels"
@@ -382,6 +415,21 @@ export const PreferencesPage: React.FC = () => {
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Calendar
           </h2>
+          <SelectSettingRow
+            id="calendar-zoom-days"
+            icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Days visible on small screens"
+            value={String(calendarZoomDays)}
+            options={[
+              { value: '7', label: '7 days (default)' },
+              { value: '4', label: '4 days' },
+              { value: '3', label: '3 days' },
+            ]}
+            onChange={(value) => void setSetting(
+              CALENDAR_ZOOM_DAYS_SETTING_KEY,
+              resolveCalendarZoomDays(value)
+            )}
+          />
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Start week on Sunday"
@@ -408,6 +456,20 @@ export const PreferencesPage: React.FC = () => {
               )
             }
           />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show diary in Day View" showChevron={false} isToggle checked={showDiaryInDayView}
+            onClick={() => void setSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, !showDiaryInDayView)} />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label={`Diary text: ${diaryDayViewHeight === 'compact' ? 'One line' : 'Expanded'}`}
+            showChevron={false} isToggle checked={diaryDayViewHeight === 'expanded'}
+            onClick={() => void setSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, diaryDayViewHeight === 'compact' ? 'expanded' : 'compact')} />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label={`Default diary position: ${diaryDayViewPosition === 'top' ? 'Top' : 'Bottom'}`}
+            showChevron={false} isToggle checked={diaryDayViewPosition === 'bottom'}
+            onClick={() => void setSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, diaryDayViewPosition === 'top' ? 'bottom' : 'top')} />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show Diary Today shortcut" showChevron={false} isToggle checked={showDiaryTodayShortcut}
+            onClick={() => void setSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, !showDiaryTodayShortcut)} />
           <SettingsRow
             icon={<CalendarDays size={18} className="text-red-400" aria-hidden="true" />}
             label="Show holidays"

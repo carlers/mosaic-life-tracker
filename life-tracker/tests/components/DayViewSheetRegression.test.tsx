@@ -1,6 +1,6 @@
 // Regression: §2/§13 (Day View header and nested sheet context).
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -107,15 +107,24 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
     selectionMode,
     selectedTaskIds,
     onToggleTaskSelection,
+    onToggleCategorySelection,
   }: {
     tasks: TaskDocument[];
     onOpenActions: (task: TaskDocument) => void;
     selectionMode?: boolean;
     selectedTaskIds?: ReadonlySet<string>;
     onToggleTaskSelection?: (taskId: string) => void;
+    onToggleCategorySelection?: (categoryId: string) => void;
   }) =>
     tasks.length > 0 ? (
       <>
+        {selectionMode && onToggleCategorySelection && (
+          <button type="button" onClick={() => onToggleCategorySelection(tasks[0].categoryId)}>
+            {selectionMode && tasks.every(task => selectedTaskIds?.has(task.id))
+              ? 'Deselect category tasks'
+              : 'Select category tasks'}
+          </button>
+        )}
         {tasks.map((task, index) => (
           <button key={task.id} onClick={() => selectionMode ? onToggleTaskSelection?.(task.id) : onOpenActions(task)}>
             {selectionMode
@@ -145,6 +154,15 @@ vi.mock('../../src/components/home/views/TaskVisibilitySheet', () => ({
 vi.mock('../../src/components/home/views/ImagePickerSheet', () => ({
   ImagePickerSheet: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div data-testid="image-picker-sheet">Image picker child</div> : null,
+}));
+
+vi.mock('../../src/components/home/views/ShareTaskSheet', () => ({
+  ShareTaskSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div role="dialog" aria-label="Share task" /> : null,
+}));
+vi.mock('../../src/components/home/views/LinkTaskToBucketSheet', () => ({
+  LinkTaskToBucketSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div role="dialog" aria-label="Link to Bucket List" /> : null,
 }));
 
 vi.mock('../../src/components/home/views/ImageViewer', () => ({
@@ -201,15 +219,39 @@ vi.mock('../../src/lib/storage', () => ({
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 
 function renderSheet() {
-  return render(
+  // This suite verifies interactions *after* the sheet's paint-deferred
+  // controls mount. The separate BottomSheet regression verifies that the
+  // shell paints first, rather than accidentally testing an eager mount.
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    const frameId = ++nextFrame;
+    frames.set(frameId, callback);
+    return frameId;
+  });
+  const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((frameId) => {
+    frames.delete(frameId);
+  });
+
+  const result = render(
     <DayViewSheet
       isOpen
       onClose={vi.fn()}
       selectedDate={new Date(2026, 8, 20)}
       onDateChange={vi.fn()}
-      deferContentUntilAnimationComplete={false}
     />
   );
+  try {
+    for (let frame = 0; frame < 2; frame += 1) {
+      const pending = [...frames.values()];
+      frames.clear();
+      act(() => pending.forEach((callback) => callback(performance.now())));
+    }
+  } finally {
+    raf.mockRestore();
+    cancel.mockRestore();
+  }
+  return result;
 }
 
 describe('DayViewSheet nested task actions', () => {
@@ -255,6 +297,17 @@ describe('DayViewSheet nested task actions', () => {
     ).toBeInTheDocument();
   });
 
+  it('opens the warmed Link to Bucket List sheet through task actions', async () => {
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', { name: 'Open actions' }));
+    await act(async () => {
+      await import('../../src/components/home/views/LinkTaskToBucketSheet');
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Link to Bucket List' }));
+    expect(await screen.findByRole('dialog', { name: 'Link to Bucket List' })).toBeInTheDocument();
+  });
+
   it('maps unmodified horizontal arrow keys to day navigation while open', () => {
     renderSheet();
 
@@ -263,6 +316,24 @@ describe('DayViewSheet nested task actions', () => {
 
     expect(swiperFixture.slidePrev).toHaveBeenCalledTimes(1);
     expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('category pill toggles day tasks only after entering Select mode', () => {
+    renderSheet();
+    expect(screen.queryByRole('button', { name: 'Select category tasks' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More actions for selected tasks' })).toBeNull();
+    const select = screen.getAllByRole('button', { name: 'Select tasks' })
+      .find(button => button.getAttribute('tabindex') === '0');
+    expect(select).toBeDefined();
+    fireEvent.click(select as HTMLElement);
+    expect(screen.getByRole('button', { name: 'Select category tasks' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Select category tasks' }));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Deselect category tasks' }));
+    expect(screen.getByText('0 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeDisabled();
   });
 
   it('selects tasks and exposes bulk controls without opening task actions', () => {

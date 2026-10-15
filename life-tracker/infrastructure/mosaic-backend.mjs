@@ -23,6 +23,43 @@ export const MOSAIC_LEGACY_TABLE_IDS = [
 ];
 
 export const MOSAIC_TABLES = [
+  { id: 'diary_reactions', name: 'Diary Reactions', permissions: [], rowSecurity: true, enabled: true,
+    columns: [
+      { key: 'diary_id', type: 'varchar', size: 36, required: true },
+      { key: 'owner_id', type: 'varchar', size: 255, required: true },
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'date', type: 'varchar', size: 10, required: true },
+      { key: 'emoji', type: 'varchar', size: 32, required: true },
+      { key: 'deleted', type: 'boolean', required: false, default: false },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    ], indexes: [
+      { key: 'idx_diary_reactions_owner_date', type: 'key', attributes: ['owner_id','date'] },
+      { key: 'idx_diary_reactions_diary', type: 'key', attributes: ['diary_id'] },
+    ],
+  },
+  ownerTable('bucket_task_links', 'Bucket Task Links', [
+    { key: 'user_id', type: 'varchar', size: 255, required: true },
+    { key: 'bucket_list_id', type: 'varchar', size: 36, required: true },
+    { key: 'task_id', type: 'varchar', size: 255, required: true },
+    { key: 'created_at', type: 'varchar', size: 50, required: true },
+    { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    { key: 'deleted', type: 'boolean', required: false, default: false },
+  ], [
+    { key: 'idx_bucket_task_owner_updated', type: 'key', attributes: ['user_id', 'updated_at'] },
+    { key: 'idx_bucket_task_owner_goal', type: 'key', attributes: ['user_id', 'bucket_list_id'] },
+    { key: 'idx_bucket_task_owner_task', type: 'key', attributes: ['user_id', 'task_id'] },
+  ]),
+  ownerTable('bucket_list_items', 'Bucket List', [
+    { key: 'user_id', type: 'varchar', size: 255, required: true },
+    { key: 'title', type: 'varchar', size: 255, required: true },
+    { key: 'description', type: 'varchar', size: 2000, required: false, default: '' },
+    { key: 'achieved', type: 'boolean', required: false, default: false },
+    { key: 'achieved_at', type: 'varchar', size: 50, required: false, default: '' },
+    { key: 'created_at', type: 'varchar', size: 50, required: true },
+    { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    { key: 'deleted', type: 'boolean', required: false, default: false },
+  ], [{ key: 'idx_bucket_owner_updated', type: 'key', attributes: ['user_id', 'updated_at'] }]),
   ownerTable('tasks', 'tasks', [
     { key: 'title', type: 'varchar', size: 255, required: true },
     { key: 'is_completed', type: 'boolean', required: false, default: false },
@@ -56,6 +93,8 @@ export const MOSAIC_TABLES = [
   ownerTable('diary', 'diary', [
     { key: 'date', type: 'varchar', size: 50, required: true },
     { key: 'content', type: 'longtext', required: false },
+    { key: 'emoji', type: 'varchar', size: 32, required: false, default: '' },
+    { key: 'photos', type: 'longtext', required: false },
     { key: 'visibility', type: 'varchar', size: 50, required: true },
     { key: 'user_id', type: 'varchar', size: 255, required: true },
     {
@@ -160,6 +199,10 @@ export const MOSAIC_TABLES = [
       { key: 'task_ref_title', type: 'varchar', size: 500, required: false, default: '' },
       { key: 'task_ref_date', type: 'varchar', size: 50, required: false, default: '' },
       { key: 'task_ref_color', type: 'varchar', size: 20, required: false, default: '' },
+      { key: 'diary_ref_id', type: 'varchar', size: 36, required: false, default: '' },
+      { key: 'diary_ref_owner_id', type: 'varchar', size: 36, required: false, default: '' },
+      { key: 'diary_ref_date', type: 'varchar', size: 10, required: false, default: '' },
+      { key: 'diary_ref_excerpt', type: 'varchar', size: 160, required: false, default: '' },
       { key: 'read_at', type: 'varchar', size: 50, required: false, default: '' },
       { key: 'delivery_status', type: 'varchar', size: 20, required: false, default: 'delivered' },
       { key: 'created_at', type: 'varchar', size: 50, required: false, default: '' },

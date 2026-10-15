@@ -45,7 +45,7 @@ const TASK_TAP_DISAMBIGUATION_WINDOW = 200;
 
 const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode, onSelect }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLElement>();
-  const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
+  const { imageUrl, isLoading, retryImage, handleImageError } = useTaskImage(task.image, shouldLoad);
 
   if (imageUrl) {
     return (
@@ -64,10 +64,26 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode,
         <img
           src={imageUrl}
           alt={task.title}
+          onError={handleImageError}
           loading="lazy"
           decoding="async"
-          className="w-full h-full object-cover rounded-xl"
+          className="w-full h-full object-contain rounded-xl"
         />
+      </button>
+    );
+  }
+
+  if (!isLoading && shouldLoad && task.image) {
+    return (
+      <button
+        ref={targetRef}
+        type="button"
+        aria-label="Retry unavailable photo"
+        onClick={(event) => { event.stopPropagation(); retryImage(); }}
+        onPointerDown={(event) => event.stopPropagation()}
+        className="mt-2 flex w-full aspect-[16/9] items-center justify-center rounded-xl bg-gray-500/20 text-xs text-gray-400 focus-visible:outline"
+      >
+        Photo unavailable · Retry
       </button>
     );
   }

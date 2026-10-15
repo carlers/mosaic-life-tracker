@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
@@ -6,23 +6,15 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
-import type { WeekStartsOn } from '../../../lib/preferences';
+import type { WeekStartsOn, CalendarZoomDays } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
+import { LazyDayViewSheet } from './dayViewSheetModule';
 import {
   DISABLED_HOLIDAY_CONFIG,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
 
-const LazyDayViewSheet = React.lazy(() =>
-  import('./DayViewSheet').then(({ DayViewSheet }) => ({
-    default: DayViewSheet,
-  }))
-);
-const LazyFriendDayViewSheet = React.lazy(() =>
-  import('../../friend/FriendDayViewSheet').then(({ FriendDayViewSheet }) => ({
-    default: FriendDayViewSheet,
-  }))
-);
+import { LazyFriendDayViewSheet, preloadFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
 const LazyReplyComposerSheet = React.lazy(() =>
   import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
     default: ReplyComposerSheet,
@@ -39,6 +31,10 @@ interface CalendarBodyProps {
   categories?: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
+  zoomPreference?: CalendarZoomDays;
+  activeIndex?: number;
+  isZoomTransitioning?: boolean;
+  onZoomNavigate?: (direction: 'prev' | 'next') => boolean;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
   friendCategories?: CategoryDocument[];
@@ -63,6 +59,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   categories,
   categoriesMap,
   variant,
+  zoomPreference = 7,
+  activeIndex,
+  isZoomTransitioning,
+  onZoomNavigate,
   sharedByDay,
   ownedSharedTaskIds,
   friendCategories,
@@ -79,6 +79,38 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [calendarWidth, setCalendarWidth] = useState(0);
+  const calendarHostRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (zoomPreference === 7 || !isActive) return;
+    const host = calendarHostRef.current;
+    if (!host) return;
+    const measure = () => setCalendarWidth(host.getBoundingClientRect().width);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [zoomPreference, isActive]);
+  const zoomDays: CalendarZoomDays =
+    zoomPreference !== 7 && calendarWidth > 0 && calendarWidth <= 700
+      ? zoomPreference
+      : 7;
+
+  // Match owner Day View: warm a resolved component after the friend Calendar
+  // becomes usable. No friend hooks or sheets are mounted by this preload.
+  useEffect(() => {
+    if (variant !== 'friend' || !isActive) return;
+    const warm = () => {
+      if (!document.hidden) void preloadFriendDayViewSheet().catch(() => {});
+    };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1800 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = setTimeout(warm, 700);
+    return () => clearTimeout(id);
+  }, [variant, isActive]);
 
   const tasksByDate = useTasksByDate(tasks);
   const holidayYears = useMemo(() => {
@@ -104,10 +136,11 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   } = useFriendTaskReply(tasks);
 
   const handleDayClick = useCallback((date: Date) => {
+    if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
     setSelectedDate(date);
     setDaySheetMounted(true);
     setDaySheetOpen(true);
-  }, []);
+  }, [variant]);
 
   const handleCloseDaySheet = useCallback(() => {
     setDaySheetOpen(false);
@@ -130,6 +163,12 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       renderEnd={renderEnd}
       emblaRef={emblaRef}
       viewMode={viewMode}
+      zoomDays={zoomDays}
+      activeIndex={activeIndex}
+      isZoomTransitioning={isZoomTransitioning}
+      onZoomNavigate={onZoomNavigate}
+      onPrev={onPrev}
+      onNext={onNext}
       onDayClick={handleDayClick}
       tasksByDate={tasksByDate}
       sharedByDay={variant === 'me' ? sharedByDay : undefined}
@@ -141,7 +180,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   );
 
   const calendarContent = (content: React.ReactNode) => (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div ref={calendarHostRef} className="flex min-h-0 min-w-0 flex-1 flex-col"
+      onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
       {content}
     </div>
   );
@@ -151,7 +191,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       <>
         {calendarContent(carousel)}
         {daySheetMounted && (
-          <React.Suspense fallback={null}>
             <LazyFriendDayViewSheet
               isOpen={daySheetOpen}
               onClose={handleCloseDaySheet}
@@ -165,7 +204,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
               onReactToTask={onReactToTask}
               holidayConfig={holidayConfig}
             />
-          </React.Suspense>
         )}
         <React.Suspense fallback={null}>
           <LazyReplyComposerSheet
@@ -191,17 +229,15 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     <>
       {calendarContent(carousel)}
       {daySheetMounted && (
-        <React.Suspense fallback={null}>
-          <LazyDayViewSheet
-            isOpen={daySheetOpen}
-            onClose={handleCloseDaySheet}
-            selectedDate={selectedDate}
-            onDateChange={handleDateChange}
-            tasks={tasks}
-            categories={categories ?? []}
-            holidayConfig={holidayConfig}
-          />
-        </React.Suspense>
+        <LazyDayViewSheet
+          isOpen={daySheetOpen}
+          onClose={handleCloseDaySheet}
+          selectedDate={selectedDate}
+          onDateChange={handleDateChange}
+          tasks={tasks}
+          categories={categories ?? []}
+          holidayConfig={holidayConfig}
+        />
       )}
     </>
   );

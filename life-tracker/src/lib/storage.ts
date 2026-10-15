@@ -1,10 +1,5 @@
 import { Permission, Role } from 'appwrite';
-import {
-  guardedCall,
-  makeUnauthorizedError,
-  isUnauthorizedError,
-  OfflineError,
-} from './authEvents';
+import { isUnauthorizedError, OfflineError } from './authEvents';
 import { guardedStorage, guardedAccount } from './sdk';
 import { getCachedImage, cacheImage, deleteCachedImage } from './imageCache';
 import { getConnectivitySnapshot } from './connectivity';
@@ -15,29 +10,21 @@ import {
   isPendingImageId,
 } from './pendingImages';
 import {
-  APPWRITE_PROJECT_ID,
   APPWRITE_STORAGE_BUCKET_ID,
 } from './appwriteConfig';
 
 const APPWRITE_CONFIG = {
-  projectId: APPWRITE_PROJECT_ID,
   bucketId: APPWRITE_STORAGE_BUCKET_ID,
 };
 
 export async function compressImage(file: File): Promise<Blob> {
-  const options = {
+  const { default: imageCompression } = await import('browser-image-compression');
+  return imageCompression(file, {
     maxSizeMB: 0.15,
     maxWidthOrHeight: 1024,
     useWebWorker: true,
     fileType: 'image/webp',
-  };
-  try {
-    const { default: imageCompression } = await import('browser-image-compression');
-    return await imageCompression(file, options);
-  } catch (error) {
-    console.error('[Storage] Image compression failed:', error);
-    throw error;
-  }
+  });
 }
 
 function generateFileId(): string {
@@ -115,12 +102,7 @@ async function uploadCompressedBlobWithId(
       file: webpFile,
       permissions: buildFilePermissions(userId, readForAllUsers),
     });
-    await cacheImage(fileId, compressedBlob).catch((error) => {
-      console.warn('[Storage] Failed to cache uploaded image:', error);
-    });
-    return fileId;
   } catch (error) {
-    console.error('[Storage] Upload failed:', error);
     throw new Error(
       `Appwrite Storage Upload Error: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -128,6 +110,9 @@ async function uploadCompressedBlobWithId(
       { cause: error }
     );
   }
+  // Upload success must not depend on optional IndexedDB cache availability.
+  await cacheImage(fileId, compressedBlob).catch(console.warn);
+  return fileId;
 }
 
 async function uploadImageWithId(
@@ -140,6 +125,14 @@ async function uploadImageWithId(
 }
 
 /** Task attachments are visible through the authorized friend calendar. */
+/** Diary photos retain owner-only storage ACL, unlike friend-readable task photos. */
+export async function saveDiaryImage(file: File, userId: string): Promise<string> {
+  if (!userId) throw new Error('Sign in before adding a diary photo.');
+  if (getConnectivitySnapshot().status !== 'online') throw new Error('Connect to upload diary photos.');
+  const blob = await compressImage(file);
+  return uploadCompressedBlobWithId(blob, generateFileId(), userId, false);
+}
+
 export async function saveImage(
   file: File,
   userId: string
@@ -194,19 +187,11 @@ export async function uploadPendingImage(
   }
 }
 
+// Profiles and task photos share the same upload, staging, and permissions
+// contract; retain the profile-specific missing-user diagnostic.
 export async function saveProfileImage(file: File, userId: string): Promise<string> {
   if (!userId) throw new Error('Cannot save profile image: no authenticated user');
-  const compressedBlob = await compressImage(file);
-  if (getConnectivitySnapshot().status !== 'online') return createPendingImage(userId, compressedBlob);
-  try {
-    return await uploadCompressedBlobWithId(compressedBlob, generateFileId(), userId, true);
-  } catch (error) {
-    const cause = (error as Error & { cause?: unknown }).cause;
-    const code = (cause as { code?: number } | null)?.code;
-    const transient = !isUnauthorizedError(cause) && (typeof code !== 'number' || code === 429 || code >= 500);
-    if (!transient) throw error;
-    return createPendingImage(userId, compressedBlob);
-  }
+  return saveImage(file, userId);
 }
 
 export async function makeProfileImageReadable(fileId: string, userId: string): Promise<void> {
@@ -245,7 +230,8 @@ export async function ensureRestoredImage(
   file: File,
   preferredFileId: string,
   expectedUserId?: string,
-  alreadyCompressed = false
+  alreadyCompressed = false,
+  ownerOnly = false
 ): Promise<EnsuredImage> {
   if (!isValidFileId(preferredFileId)) {
     throw new Error('Backup image has an invalid file ID.');
@@ -267,7 +253,7 @@ export async function ensureRestoredImage(
     await guardedStorage.updateFile({
       bucketId: APPWRITE_CONFIG.bucketId,
       fileId: preferredFileId,
-      permissions: buildFilePermissions(userId, true),
+      permissions: buildFilePermissions(userId, !ownerOnly),
     });
     return { fileId: preferredFileId, uploaded: false };
   } catch (error) {
@@ -279,7 +265,7 @@ export async function ensureRestoredImage(
       file,
       preferredFileId,
       userId,
-      true
+      !ownerOnly
     );
     return { fileId: preferredFileId, uploaded: true };
   } catch (error) {
@@ -296,38 +282,28 @@ export async function ensureRestoredImage(
   }
 }
 
-export async function getLocalImageUrl(fileId: string): Promise<string | null> {
+export async function getLocalImageUrl(fileId: string, refreshFromCloud = false): Promise<string | null> {
   if (!fileId) return null;
-  if (isPendingImageId(fileId)) {
-    const pendingBlob = await getPendingImage(fileId);
-    return pendingBlob ? URL.createObjectURL(pendingBlob) : null;
-  }
-  const cachedBlob = await getCachedImage(fileId);
-  if (cachedBlob) {
-    return URL.createObjectURL(cachedBlob);
-  }
-  if (getConnectivitySnapshot().status !== 'online') return null;
   try {
-    const url = guardedStorage.getFileView({
+    const pending = isPendingImageId(fileId);
+    // IndexedDB failure must not block the authorized online file download.
+    const cached = pending
+      ? await getPendingImage(fileId)
+      : refreshFromCloud ? undefined : await getCachedImage(fileId).catch(() => undefined);
+    if (cached) return URL.createObjectURL(cached);
+    if (pending || getConnectivitySnapshot().status !== 'online') return null;
+
+    // Authenticated Appwrite request, including the browser session fallback.
+    // Reject incomplete/non-200 responses before they reach the image cache.
+    const blob = await guardedStorage.downloadFileBlob({
       bucketId: APPWRITE_CONFIG.bucketId,
-      fileId: fileId,
+      fileId,
     });
-    const res = await guardedCall(async () => {
-      const r = await fetch(url.toString(), {
-        credentials: 'include',
-        headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
-      });
-      if (r.status === 401) {
-        throw makeUnauthorizedError();
-      }
-      return r;
-    });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    await cacheImage(fileId, blob);
+    // Display the complete download even if the browser rejects caching it.
+    void cacheImage(fileId, blob).catch(console.warn);
     return URL.createObjectURL(blob);
-  } catch (err) {
-    console.error('[Storage] Failed to fetch image:', err);
+  } catch (error) {
+    console.error('[Storage] Failed to fetch image:', error);
     return null;
   }
 }

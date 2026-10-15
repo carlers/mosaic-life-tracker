@@ -11,9 +11,10 @@ if (verifiedPreviewBackend) {
 
 // Effective non-secret feature presence is logged on every hosted build so
 // identical-tree deployments can be compared without exposing Vite API keys.
-if (process.env.VERCEL_ENV) {
+if (process.env.VERCEL_ENV || process.env.GITHUB_ACTIONS === 'true') {
   console.info('[Mosaic] Build features: GIPHY stickers ' +
     (process.env.VITE_GIPHY_API_KEY?.trim() ? 'enabled' : 'disabled'));
+  console.info('[Mosaic] Build runtime: Node.js ' + process.versions.node);
 }
 
 const isLocalBuild = !process.env.VERCEL_ENV;
@@ -102,6 +103,9 @@ export default defineConfig({
     ...(isLocalBuild ? [basicSsl()] : []),
     ...(posthogSourceMapPlugin ? [posthogSourceMapPlugin] : []),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       // Keep an installed update waiting until the old worker controls no
       // clients: close all Mosaic tabs and installed-app windows, then reopen.
       // A refresh alone may leave the old worker active. `autoUpdate` forces
@@ -144,30 +148,20 @@ export default defineConfig({
           }
         ]
       },
-      workbox: {
-        // Precache the app shell only. Data is RxDB + the sync engine;
-        // images are `src/lib/imageCache.ts`. The SW is deliberately not
-        // a second cache for either — see PWA-1 and docs/PROJECT_REFERENCE.md §15
-        // (`imageCache.ts` is the single owner of the blob cache).
+      injectManifest: {
+        rollupFormat: 'iife',
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2,wasm,json}'],
-        // Build metadata is emitted only so the post-build size guard can
-        // follow Vite's static chunk graph. It is not part of the offline app.
         globIgnores: ['.vite/manifest.json'],
-        // SPA routes: cold-loading `/messages/abc123` offline must serve
-        // the app shell, not a 404 from the SW. The denylist keeps any
-        // `/v1/*` (Appwrite REST) or `/api/*` path from being rewritten
-        // to index.html. Cross-origin Appwrite calls are not matched by
-        // this SW's navigation handler, but the denylist documents
-        // intent and guards against a future same-origin proxy (PWA-3).
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/v1\//, /^\/api\//],
-        // Keep push handling additive so pwaLifecycle.ts remains the sole
-        // service-worker registrar and the tested update lifecycle is unchanged.
-        importScripts: ['/push-sw.js'],
-        // Preserve the current worker while it still controls open clients.
-        // See the registerType comment above (PWA-4).
-        skipWaiting: false,
-        clientsClaim: false,
+        // These are emitted, uncompressed asset bytes, not network transfer
+        // bytes (which depend on browser compression and existing caches).
+        manifestTransforms: [
+          (manifest) => ({
+            manifest: manifest.map((entry) => ({
+              ...entry,
+              mosaicBytes: entry.size,
+            })),
+          }),
+        ],
       }
     })
   ],

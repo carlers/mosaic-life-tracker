@@ -39,6 +39,28 @@ describe('reviewed build-size budget changes', () => {
       ...budget, baseline: { ...budget.baseline, measuredAt: '2026-10-11' },
     })).toThrow(/baseline changed/);
   });
+  it('rejects a silent switch to nonblocking metrics and accepts fully reviewed policy changes', () => {
+    const next = { ...budget, blockingMetrics: ['initialClosureGzipBytes', 'homeClosureGzipBytes'] };
+    expect(() => assertReviewedBudgetChange(budget, next)).toThrow(/policyReview/);
+    const policyReview = {
+      issue: '#784',
+      reason: 'The controlled Chromium regression established measurable eager dependency loading cost',
+      evidence: 'https://github.com/carlers/mosaic-life-tracker/actions/runs/38426273139',
+      previousBlockingMetrics: Object.keys(metrics),
+      nextBlockingMetrics: next.blockingMetrics,
+    };
+    expect(assertReviewedBudgetChange(budget, { ...next, policyReview }).policyChanged).toBe(true);
+    expect(() => assertReviewedBudgetChange(budget, {
+      ...next, policyReview: { ...policyReview, previousBlockingMetrics: ['entryRawBytes'] },
+    })).toThrow(/policyReview/);
+    expect(() => assertReviewedBudgetChange(budget, {
+      ...next, policyReview: { ...policyReview, evidence: 'not a link' },
+    })).toThrow(/policyReview/);
+    expect(() => assertReviewedBudgetChange({ ...next, policyReview }, {
+      ...next, policyReview: { ...policyReview, reason: 'silent metadata tampering' },
+    })).toThrow(/metadata/);
+  });
+
   it('accepts explicitly documented reviewed growth without making the guard permissive', () => {
     expect(assertReviewedBudgetChange(budget, reviewed).increased).toEqual(['homeClosureGzipBytes']);
   });

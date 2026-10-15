@@ -14,8 +14,10 @@ historical prose or a checkpoint as the state of a feature.
 
 | Working on… | Read first | Verify against |
 |---|---|---|
+| Locating UI source from a feature description | [Source map](REPO_MAP.md), [generated component/page index](COMPONENT_INDEX.md) (optional) | Exact branch-SHA files; map is only a starting hint |
 | Sync races, offline startup, owner isolation | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md), [project reference](PROJECT_REFERENCE.md) §§18, 19, 24.18 | `src/lib/` sync implementation, relevant unit/DOM regressions |
 | Appwrite schema, Functions, or scratch previews | [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md), [Scratch readiness](SCRATCH_PREVIEW_WORKFLOW.md) | `infrastructure/`, `appwrite-functions/`, migrations and actual target project |
+| Pre-1.0 Production migration and compatibility readiness | [Production readiness](PRODUCTION_RELEASE_READINESS.md), [Disaster recovery](DISASTER_RECOVERY.md) | Live Production schema/Function, historical PWA sources and separate approvals |
 | Alerts, notifications or push | [Project reference](PROJECT_REFERENCE.md) §2 (Alerts), [Mobile Push](MOBILE_PUSH_SETUP.md) | Alerts UI, Function authorization and browser contracts |
 | Theme, contrast or component styling | [Theme guide](THEMING.md) | `src/index.css`, `tailwind.config.js`, modified components and light/dark/black states |
 | Gestures, calendars, task reorder | [Project reference](PROJECT_REFERENCE.md) §§2, 13, 24; [manual reorder checklist](MANUAL_TASK_REORDER_ACCEPTANCE.md) when relevant | Gesture owners, interaction regressions and appropriate device acceptance |
@@ -35,6 +37,7 @@ authorization, Scratch checks, or release gates.
 | What workstreams are planned or historically delivered? | [Roadmap](PLAN.md) — durable milestones, not live task status |
 | How should an AI agent work or hand off? | [AI workflow](AI_WORKFLOW.md) — execution and connected-chat practices |
 | Which branch, CI, Preview, and release gates apply? | [Delivery](DELIVERY.md) — approval and promotion policy |
+| How does the protected-main trusted CI-first Preview receiver work? | [Trusted Preview main bootstrap](TRUSTED_PREVIEW_MAIN_BOOTSTRAP.md) — historical pinned trust design; verify current protected main and dev before use |
 | Which automated/manual tests are appropriate? | [Test workflow](TEST_WORKFLOW.md) — test ownership and verification |
 | When do Preview versions change? | [Versioning protocol](VERSIONING.md) — semantic version and build identity |
 
@@ -48,6 +51,7 @@ authorization, Scratch checks, or release gates.
 | Irreversible account deletion, privacy fencing, and DR non-resurrection | [Account erasure](ACCOUNT_ERASURE.md) |
 | Tombstones, garbage collection, and stale-client recovery | [Retention procedure](TOMBSTONE_RETENTION.md) |
 | User-controlled backup format and restore behavior | [Backup and restore](BACKUP_RESTORE.md) |
+| Private Bucket List and canonical task links | [Bucket List links](BUCKET_LIST_LINKS.md) |
 | One-way TodoMate personal-data import and mapping | [TodoMate import](TODOMATE_IMPORT.md) |
 
 ## Backend and operational runbooks
@@ -69,8 +73,8 @@ authorization, Scratch checks, or release gates.
 | [Build-vs-reuse audit](BUILD_VS_REUSE_AUDIT.md) | Completed architectural tradeoff evidence; reassess against current code |
 | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) | Human mobile gesture checklist; not an automated test result |
 | [Workflow telemetry](WORKFLOW_TELEMETRY.md) | Optional local-only measurement protocol, not a required gate |
-| [Trusted Preview main bootstrap](TRUSTED_PREVIEW_MAIN_BOOTSTRAP.md) | Review-only #592 default-branch receiver and required approval boundary |
-| [Mobile startup audit workflow](../../.github/workflows/mobile-startup-audit.yml) | Default-main-owned read-only Mon/Thu report of `dev` startup, size and PWA correctness (issue #784); never a Preview/Production deploy |
+| [Mobile startup size/performance lab](MOBILE_STARTUP_AUDIT.md) | Read-only throttled Chromium benchmark and nonblocking metrics, not real-device acceptance |
+| [Build parity diagnostics](BUILD_PARITY_DIAGNOSTICS.md) | Sanitized GitHub/Vercel exact-SHA size comparison and acceptance steps for #592 |
 
 **Ownership rule:** Specialist runbooks contain unique safety and operational contracts;
 the [project reference](PROJECT_REFERENCE.md) owns stable product/architecture invariants;

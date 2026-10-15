@@ -7,11 +7,12 @@ export interface ActiveTaskDrag {
   snapshot: TaskPlacement;
   projection: TaskPlacement;
   rowHeight: number;
+  diarySide?: 'before' | 'after';
 }
 
 type ParsedDropTarget =
   | { categoryId: string; position: 'start' }
-  | { categoryId: string; position: 'index'; index: number }
+  | { categoryId: string; position: 'index'; index: number; diarySide?: 'before' | 'after' }
   | {
       categoryId: string;
       position: 'before' | 'after';
@@ -36,6 +37,11 @@ export function taskInsertDropId(
   position: 'before' | 'after'
 ): string {
   return `${INSERT_PREFIX}${categoryId}:${taskId}:${position}`;
+}
+
+export function diaryTaskDropId(categoryId: string, index: number,
+  side: 'before' | 'after'): string {
+  return taskInsertDropId(categoryId, `diary_slot_${index}`, side);
 }
 
 export function findTaskCategory(
@@ -84,6 +90,11 @@ export function parseDropTarget(targetId: string): ParsedDropTarget | null {
     return null;
   }
 
+  if (taskId.startsWith('diary_slot_')) {
+    const index = Number(taskId.slice(11));
+    return Number.isInteger(index) && index >= 0
+      ? { categoryId, position: 'index', index, diarySide: position } : null;
+  }
   return { categoryId, taskId, position };
 }
 
@@ -116,7 +127,11 @@ export function projectTaskPlacement(
 
   let targetIndex = 0;
   if (target.position === 'index') {
-    targetIndex = target.index;
+    // Diary overlay exposes a gap in the original task sequence. Removing
+    // the source task before that gap shifts its insertion index left by one.
+    targetIndex = target.index -
+      (target.diarySide && sourceCategoryId === target.categoryId &&
+       sourceIndex < target.index ? 1 : 0);
   } else if (target.position !== 'start') {
     const targetTaskIndex = targetTaskIds.indexOf(target.taskId);
     if (targetTaskIndex < 0) return null;

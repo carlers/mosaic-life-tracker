@@ -1,7 +1,9 @@
 import { format } from 'date-fns';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-let idleCallback: IdleRequestCallback | null = null;
+const mockWarmDayView = vi.hoisted(() => vi.fn(async () => undefined));
+let idleCallbacks: IdleRequestCallback[] = [];
+let carouselLoading = false;
 const mockPersons = [
   { id: 'me', kind: 'me', displayName: 'Me' },
   { id: 'friend_1', kind: 'friend', displayName: 'Friend' },
@@ -34,6 +36,11 @@ const ownerCategory = {
   updatedAt: '2026-09-01T00:00:00.000Z',
 };
 
+vi.mock('../../src/components/home/views/dayViewSheetModule', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/components/home/views/dayViewSheetModule')>();
+  return { ...actual, loadDayViewSheet: mockWarmDayView };
+});
+
 vi.mock('swiper/react', () => ({
   Swiper: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   SwiperSlide: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -43,6 +50,7 @@ vi.mock('swiper/css', () => ({}));
 vi.mock('../../src/hooks/useFriendCarousel', () => ({
   useFriendCarousel: () => ({
     persons: mockPersons,
+    isLoading: carouselLoading,
     reorder: vi.fn(),
     toggleVisibility: vi.fn(),
     resetOrder: vi.fn(),
@@ -88,13 +96,15 @@ vi.mock('../../src/components/home/HomeTaskSearch', () => ({
   ),
 }));
 vi.mock('../../src/components/home/PersonCarousel', () => ({
-  PersonCarousel: () => <div>Carousel</div>,
+  PersonCarousel: ({ onOpenSettings }: { onOpenSettings: () => void }) =>
+    <div>Carousel <button type="button" onClick={onOpenSettings}>Friend preferences</button></div>,
 }));
 vi.mock('../../src/components/home/PersonPane', () => ({
   PersonPane: () => <div>Pane</div>,
 }));
 vi.mock('../../src/components/home/FriendCarouselSettingsSheet', () => ({
-  FriendCarouselSettingsSheet: () => null,
+  FriendCarouselSettingsSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div role="dialog" aria-label="Friends in Carousel" /> : null,
 }));
 vi.mock('../../src/components/home/views/DayViewSheet', () => ({
   DayViewSheet: ({
@@ -129,10 +139,12 @@ const renderHome = () => render(<MemoryRouter><HomePage /></MemoryRouter>);
 
 describe('HomePage task-search wiring', () => {
   beforeEach(() => {
-    idleCallback = null;
+    idleCallbacks = [];
+    carouselLoading = false;
+    mockWarmDayView.mockClear();
     vi.stubGlobal('requestIdleCallback', (cb: IdleRequestCallback) => {
-      idleCallback = cb;
-      return 1;
+      idleCallbacks.push(cb);
+      return idleCallbacks.length;
     });
     vi.stubGlobal('cancelIdleCallback', vi.fn());
   });
@@ -142,9 +154,52 @@ describe('HomePage task-search wiring', () => {
     renderHome();
     expect(screen.getAllByText('Pane')).toHaveLength(1);
     act(() => {
-      idleCallback?.({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
     });
     expect(screen.getAllByText('Pane')).toHaveLength(2);
+  });
+
+  // Regression: §19 (lazy interaction code must not delay first usable Home).
+  it('loads Day View code only in idle time without mounting a closed sheet', () => {
+    renderHome();
+    expect(mockWarmDayView).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('search-day-view')).not.toBeInTheDocument();
+
+    act(() => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+    });
+    expect(mockWarmDayView).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('search-day-view')).not.toBeInTheDocument();
+  });
+
+  it('warms owner Day View even while friend carousel data is unresolved', () => {
+    carouselLoading = true;
+    renderHome();
+    expect(mockWarmDayView).not.toHaveBeenCalled();
+    act(() => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+    });
+    expect(mockWarmDayView).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens friend preferences on the first click after carousel idle warmup', async () => {
+    renderHome();
+    await act(async () => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+      await import('../../src/components/home/FriendCarouselSettingsSheet');
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Friend preferences' }));
+    expect(screen.getByRole('dialog', { name: 'Friends in Carousel' })).toBeInTheDocument();
   });
 
   // Regression: §2 (Home task-search history and owner Day View integration).
