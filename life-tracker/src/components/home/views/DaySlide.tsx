@@ -52,7 +52,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     [categoryIds, materializedTasks]
   );
 
-  if (categories.length === 0 && !props.sharedItems?.length) {
+  if (categories.length === 0 && !props.sharedItems?.length && !props.diaryEnabled) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">No categories yet</p>
@@ -77,6 +77,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 
   return (
     <TaskReorderRuntime
+      key={`${props.currentUserId}:${props.dateStr}`}
       {...sharedProps}
       reorderRuntimeActive
       categoryIds={categoryIds}

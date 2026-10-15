@@ -182,6 +182,7 @@ describe('backup restore', () => {
       expect.any(File),
       expect.any(String),
       'user_A',
+      false,
       false
     );
   });

@@ -35,6 +35,10 @@ export interface DiaryDocument {
   id: string;
   date: string;
   content?: string;
+  /** Optional owner-selected day marker; legacy entries retain their original content. */
+  emoji?: string;
+  /** JSON-encoded ordered IDs; bounded to five owner-private photos. */
+  photos?: string;
   visibility: 'public' | 'followers' | 'private';
   userId: string;
   createdAt: string;
@@ -110,6 +114,10 @@ export interface MessageDocument {
   taskRefTitle: string;
   taskRefDate: string;
   taskRefColor: string;
+  diaryRefId?: string;
+  diaryRefOwnerId?: string;
+  diaryRefDate?: string;
+  diaryRefExcerpt?: string;
   replyToId: string;
   replyToContent: string;
   replyToSenderId: string;
@@ -195,7 +203,7 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
   ],
 };
 export const diarySchema: RxJsonSchema<DiaryDocument> = {
-  version: 0,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   required: ['id', 'date', 'visibility', 'userId', 'createdAt', 'updatedAt', 'isDeleted'],
@@ -203,6 +211,8 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     id: { type: 'string', maxLength: 255 },
     date: { type: 'string', maxLength: 50 },
     content: { type: 'string' },
+    emoji: { type: 'string', maxLength: 32, default: '' },
+    photos: { type: 'string', maxLength: 512, default: '[]' },
     visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
     userId: { type: 'string', maxLength: 255 },
     createdAt: { type: 'string', maxLength: 50 },
@@ -302,7 +312,7 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
   ],
 };
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 3,
+  version: 4,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -341,6 +351,10 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     taskRefTitle: { type: 'string', maxLength: 500, default: '' },
     taskRefDate: { type: 'string', maxLength: 50, default: '' },
     taskRefColor: { type: 'string', maxLength: 20, default: '' },
+    diaryRefId: { type: 'string', maxLength: 36, default: '' },
+    diaryRefOwnerId: { type: 'string', maxLength: 36, default: '' },
+    diaryRefDate: { type: 'string', maxLength: 10, default: '' },
+    diaryRefExcerpt: { type: 'string', maxLength: 160, default: '' },
     replyToId: { type: 'string', maxLength: 255, default: '' },
     replyToContent: { type: 'string', maxLength: 300, default: '' },
     replyToSenderId: { type: 'string', maxLength: 255, default: '' },

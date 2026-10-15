@@ -213,6 +213,8 @@ describe('toAppwriteFormat — categories, diary, settings, friendships', () => 
       id: 'd_1',
       date: '2026-01-15',
       content: 'Today was good.',
+      emoji: '',
+      photos: '[]',
       visibility: 'private',
       userId: USER_ID,
       createdAt: '2026-01-15T20:00:00.000Z',
@@ -582,6 +584,8 @@ describe('round-trip', () => {
       id: 'd_1',
       date: '2026-01-15',
       content: 'Today was good.',
+      emoji: '',
+      photos: '[]',
       visibility: 'private',
       userId: USER_ID,
       createdAt: '2026-01-15T20:00:00.000Z',
@@ -758,7 +762,7 @@ describe('fromAppwriteFormat — shared Scratch forward compatibility', () => {
     photos: '["photo1"]',
     future_diary_field: 'new value',
   };
-  it('drops the two actual new Scratch Diary fields and future unknowns only from local RxDB', () => {
+  it('preserves locally recognized Diary fields while stripping unknown future fields', () => {
     const remote = { ...diaryRow };
     const doc = fromAppwriteFormat(remote, 'diary');
     expect(Object.keys(doc).sort()).toEqual(Object.keys(diarySchema.properties).sort());
@@ -769,8 +773,12 @@ describe('fromAppwriteFormat — shared Scratch forward compatibility', () => {
     });
     expect(remote).toEqual(diaryRow);
     const outgoingPatch = toAppwriteFormat(doc, 'diary', USER_ID);
-    expect(outgoingPatch).not.toHaveProperty('emoji');
-    expect(outgoingPatch).not.toHaveProperty('photos');
+    expect(doc.emoji).toBe('📓');
+    expect(doc.photos).toBe('["photo1"]');
+    expect(doc).not.toHaveProperty('future_diary_field');
+    expect(outgoingPatch.emoji).toBe('📓');
+    expect(outgoingPatch.photos).toBe('["photo1"]');
+    expect(outgoingPatch).not.toHaveProperty('future_diary_field');
   });
   it('applies the same strict local-field boundary to categories', () => {
     const doc = fromAppwriteFormat({

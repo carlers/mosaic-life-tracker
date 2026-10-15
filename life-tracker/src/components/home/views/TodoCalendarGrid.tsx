@@ -18,7 +18,8 @@ import useEmblaCarousel from 'embla-carousel-react';
 import { useEmblaTrackpadNavigation } from '../../../hooks/useEmblaTrackpadNavigation';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
-import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
+import { diaryMarker } from '../../../lib/diaryMarker';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { UsersRound } from 'lucide-react';
 import type { WeekStartsOn } from '../../../lib/preferences';
@@ -41,6 +42,8 @@ interface TodoCalendarGridProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   onDateSelect: (date: Date) => void;
   onMonthChange: (date: Date) => void;
+  markerMode?: 'todo' | 'diary';
+  diaryEntries?: readonly DiaryDocument[];
   weekStartsOn?: WeekStartsOn;
   holidayConfig?: HolidayDisplayConfig;
 }
@@ -49,6 +52,7 @@ interface TodoMonthGridProps
   extends Omit<TodoCalendarGridProps, 'tasks' | 'onMonthChange'> {
   monthDate: Date;
   tasksByDate: Map<string, TaskDocument[]>;
+  diaryByDate: ReadonlyMap<string, DiaryDocument>;
   holidaysByDate: ReadonlyMap<string, readonly HolidayOccurrence[]>;
   isActive: boolean;
 }
@@ -63,6 +67,8 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
   monthDate,
   selectedDate,
   tasksByDate,
+  diaryByDate,
+  markerMode = 'todo',
   holidaysByDate,
   sharedByDay,
   ownedSharedTaskIds,
@@ -136,6 +142,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
           >
             {week.map((day) => {
               const dateKey = format(day, 'yyyy-MM-dd');
+              const diary = diaryByDate.get(dateKey);
               const dayTasks = tasksByDate.get(dateKey) ?? [];
               const received = sharedByDay?.get(dateKey) ?? [];
               const hasShares = received.length > 0 || dayTasks.some(task => ownedSharedTaskIds?.has(task.id));
@@ -194,7 +201,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                   role={isActive ? 'gridcell' : undefined}
                   tabIndex={isActive && selected ? 0 : -1}
                   data-todo-date={dateKey}
-                  aria-label={`${dateLabel}${dayHolidays.length > 0 ? `, holiday: ${holidayNames(dayHolidays)}` : ''}, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}`}
+                  aria-label={`${dateLabel}${dayHolidays.length > 0 ? `, holiday: ${holidayNames(dayHolidays)}` : ''}${markerMode === 'diary' ? (diary ? ', diary entry' : ', no diary entry') : `, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}`}`}
                   aria-selected={isActive ? selected : undefined}
                   aria-current={isActive && isToday(day) ? 'date' : undefined}
                   onClick={() => onDateSelect(day)}
@@ -206,7 +213,11 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                     className="relative h-7 w-7 shrink-0"
                     aria-hidden="true"
                   >
-                    {markerColors.map((color, index) => (
+                    {markerMode === 'diary' ? (
+                      <span data-testid={`diary-marker-${dateKey}`} className="absolute inset-0 flex items-center justify-center text-xl">
+                        {diary ? (diaryMarker(diary) || <span style={{ color: 'var(--mosaic-accent)' }}>●</span>) : <span className="text-gray-600">·</span>}
+                      </span>
+                    ) : <>{markerColors.map((color, index) => (
                       <span
                         key={index}
                         data-testid="todo-status-circle"
@@ -237,7 +248,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                     {hasShares && (
                       <UsersRound size={11} aria-hidden="true"
                         className="absolute -right-2 -top-1 text-gray-300" />
-                    )}
+                    )}</>}
                   </span>
                   <span
                     data-testid={`todo-day-number-${dateKey}`}
@@ -273,6 +284,8 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   categoriesMap,
   onDateSelect,
   onMonthChange,
+  markerMode = 'todo',
+  diaryEntries = [],
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
 }) => {
@@ -308,6 +321,8 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     }
     return grouped;
   }, [tasks]);
+
+  const diaryByDate = useMemo(() => new Map(diaryEntries.map(entry => [entry.date, entry])), [diaryEntries]);
 
   const appearance = React.useContext(AppearanceContext);
   const reduceMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
@@ -363,6 +378,8 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
           focusDate={focusDate}
           selectedDate={selectedDate}
           tasksByDate={tasksByDate}
+          diaryByDate={diaryByDate}
+          markerMode={markerMode}
           sharedByDay={sharedByDay}
           ownedSharedTaskIds={ownedSharedTaskIds}
           holidaysByDate={holidaysByDate}
@@ -382,6 +399,8 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
       onDateSelect,
       selectedDate,
       tasksByDate,
+      diaryByDate,
+      markerMode,
       sharedByDay,
       ownedSharedTaskIds,
       holidaysByDate,

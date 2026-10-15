@@ -60,6 +60,10 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DaySlide | [src/components/home/views/DaySlide.tsx](../src/components/home/views/DaySlide.tsx) |
 | DaySlideContent | [src/components/home/views/DaySlideContent.tsx](../src/components/home/views/DaySlideContent.tsx) |
 | DayViewSheet | [src/components/home/views/DayViewSheet.tsx](../src/components/home/views/DayViewSheet.tsx) |
+| DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
+| DiaryEntrySheet | [src/components/home/views/DiaryEntrySheet.tsx](../src/components/home/views/DiaryEntrySheet.tsx) |
+| DiaryPhotoGallery | [src/components/home/views/DiaryPhotoGallery.tsx](../src/components/home/views/DiaryPhotoGallery.tsx) |
+| DraggableDiaryDayPreview | [src/components/home/views/DraggableDiaryDayPreview.tsx](../src/components/home/views/DraggableDiaryDayPreview.tsx) |
 | DraggableTaskItem | [src/components/home/views/DraggableTaskItem.tsx](../src/components/home/views/DraggableTaskItem.tsx) |
 | ImagePickerSheet | [src/components/home/views/ImagePickerSheet.tsx](../src/components/home/views/ImagePickerSheet.tsx) |
 | ImageViewer | [src/components/home/views/ImageViewer.tsx](../src/components/home/views/ImageViewer.tsx) |
@@ -111,6 +115,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ChatSearchBar | [src/components/messages/ChatSearchBar.tsx](../src/components/messages/ChatSearchBar.tsx) |
 | ChatSyncSheet | [src/components/messages/ChatSyncSheet.tsx](../src/components/messages/ChatSyncSheet.tsx) |
 | ConversationRow | [src/components/messages/ConversationRow.tsx](../src/components/messages/ConversationRow.tsx) |
+| DiaryReferenceSheet | [src/components/messages/DiaryReferenceSheet.tsx](../src/components/messages/DiaryReferenceSheet.tsx) |
 | EmojiPickerSheet | [src/components/messages/EmojiPickerSheet.tsx](../src/components/messages/EmojiPickerSheet.tsx) |
 | GiphyStickerImage | [src/components/messages/GiphyStickerImage.tsx](../src/components/messages/GiphyStickerImage.tsx) |
 | GiphyStickerSearch | [src/components/messages/GiphyStickerSearch.tsx](../src/components/messages/GiphyStickerSearch.tsx) |

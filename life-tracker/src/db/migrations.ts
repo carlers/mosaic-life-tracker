@@ -29,6 +29,11 @@ export const messagesMigrationStrategies = {
     originalMessageId: '',
     reactions: '',
   }),
+  // v3 -> v4: optional, typed diary reference metadata; never rewrite body text.
+  4: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc,
+    diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',
+  }),
 };
 export const categoriesMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({
@@ -36,6 +41,11 @@ export const categoriesMigrationStrategies = {
     updatedAt: '',
   }),
 };
+export const diaryMigrationStrategies = {
+  1: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, emoji: '' }),
+  2: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, photos: '[]' }),
+};
+
 export const settingsMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({
     ...oldDoc,

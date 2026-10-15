@@ -614,11 +614,12 @@ async function makeMosaicBackup(
       if (!date) return null;
       const body = maybeString(entry.fields.body);
       const emoji = maybeString(entry.fields.emoji);
-      const content = [emoji, body].filter(Boolean).join(' ').trim();
+      const content = body;
       return {
         id: entry.id,
         date,
         content,
+        emoji: emoji.slice(0, 32),
         visibility: todoMateVisibility(entry.fields),
         userId: uid,
         createdAt:

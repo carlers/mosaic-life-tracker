@@ -722,7 +722,31 @@ test('task long-press stays under the finger while siblings reorder, then persis
     region.locator('[data-task-id^="task_0_"]:not([data-dnd-placeholder])')
   ).toHaveCount(3);
 
+  // Measure the released *real* row on animation frames, not the carried
+  // overlay. Its former absolute source slot must not FLIP back and overshoot.
+  await page.evaluate(() => {
+    window.__mosaicTaskReleaseY = [];
+    const started = performance.now();
+    const sample = () => {
+      if (performance.now() - started > 350) return;
+      const row = document.querySelector('[data-task-id="task_0_0"]');
+      if (row && !row.closest('[data-task-source-slot="true"]')) {
+        window.__mosaicTaskReleaseY.push(row.getBoundingClientRect().y);
+      }
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
   await gesture.finish();
+  await page.waitForTimeout(375);
+  const releaseTrajectory = await page.evaluate(() => ({
+    samples: window.__mosaicTaskReleaseY ?? [],
+    finalY: document.querySelector('[data-task-id="task_0_0"]')?.getBoundingClientRect().y,
+  }));
+  expect(releaseTrajectory.samples.length, JSON.stringify(releaseTrajectory)).toBeGreaterThan(1);
+  expect(releaseTrajectory.samples.every(y =>
+    Math.abs(y - releaseTrajectory.finalY) < 30
+  ), JSON.stringify(releaseTrajectory)).toBe(true);
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
     'reordered:task_0_1,task_0_2,task_0_0'
@@ -734,6 +758,112 @@ test('task long-press stays under the finger while siblings reorder, then persis
       (rows) => rows.map((row) => row.getAttribute('data-task-id'))
     ))
     .toEqual(['task_0_1', 'task_0_2', 'task_0_0']);
+
+  // Regression: releasing or canceling a drag may not strand a hidden source.
+  const visibleAtRest = async () => region.locator('[data-task-id^="task_0_"]')
+    .evaluateAll((rows) => rows.length === 3 && rows.every((row) => {
+      const rect = row.getBoundingClientRect();
+      const style = getComputedStyle(row);
+      return rect.width > 0 && rect.height > 0 &&
+        style.visibility !== 'hidden' && Number(style.opacity) > 0;
+    }));
+  await expect(region.locator('[data-task-source-slot="true"]')).toHaveCount(0);
+  await expect.poll(visibleAtRest).toBe(true);
+
+  const cancelTarget = region.locator('[data-task-id="task_0_1"]')
+    .getByRole('button', { name: 'Task 1.2', exact: true });
+  const canceled = await startTaskLongPress(page, cancelTarget);
+  await expect(region.locator('[data-task-source-slot="true"]')).toHaveCount(1);
+  await canceled.cancel();
+  await expect(region.locator('[data-task-source-slot="true"]')).toHaveCount(0);
+  await expect.poll(visibleAtRest).toBe(true);
+});
+
+// Regression: dragging upward from the last task must not leave an extra
+// painted task image over the category pill below the source.
+test('bottom-to-top task drag renders one overlay and no painted source ghost', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  const region = page.getByTestId('todo-day-content');
+  const source = region.locator('[data-task-id="task_0_2"]');
+  const title = source.getByRole('button', { name: 'Task 1.3', exact: true });
+  const target = region.locator('[data-task-id="task_0_0"]');
+  await source.scrollIntoViewIfNeeded();
+  const targetBox = await target.boundingBox();
+  if (!targetBox) throw new Error('Missing upward task target');
+
+  const gesture = await startTaskLongPress(page, title);
+  const overlay = page.locator('[data-task-overlay-id="task_0_2"]');
+  await expect(overlay).toBeVisible();
+  await gesture.moveTo(targetBox.x + targetBox.width * 0.5, targetBox.y + targetBox.height * 0.18);
+  await expect(region.locator('[data-task-drop-gap="true"]')).toHaveCount(1);
+  await expect(page.locator('[data-dnd-placeholder]')).toHaveCount(0);
+  await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(1);
+  const sourceStatus = await region.locator('[data-task-source-slot="true"]').evaluateAll(slots =>
+    slots.map(slot => ({
+      visibility: getComputedStyle(slot).visibility,
+      inline: slot.style.visibility,
+      aria: slot.getAttribute('aria-hidden'),
+    }))
+  );
+  expect(sourceStatus, JSON.stringify(sourceStatus)).toEqual([
+    expect.objectContaining({visibility: 'hidden', aria: 'true'}),
+  ]);
+
+  await gesture.finish();
+  await expect(page.getByTestId('todo-gesture')).toHaveText('reordered:task_0_2,task_0_0,task_0_1');
+  await expect(region.locator('[data-task-source-slot="true"]')).toHaveCount(0);
+  await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(0);
+});
+
+test('diary long press follows held touch on both axes with a single full-card overlay', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?diaryDrag=1`);
+  const region = page.getByTestId('todo-day-content');
+  const diary = region.locator('[data-diary-drag-source="true"]');
+  const button = diary.getByTestId('diary-day-card');
+  await button.scrollIntoViewIfNeeded();
+  // Drag geometry matters: the in-list Diary card must start on the same
+  // horizontal rail as ordinary tasks before the full-card overlay takes over.
+  const taskRow = region.locator('[data-task-id="task_0_0"]');
+  const [taskBounds, diaryBounds] = await Promise.all([
+    taskRow.boundingBox(), button.boundingBox(),
+  ]);
+  if (!taskBounds || !diaryBounds) throw new Error('Missing task/diary alignment geometry');
+  expect(Math.abs(diaryBounds.x - taskBounds.x)).toBeLessThan(2);
+  const gesture = await startTaskLongPress(page, button);
+  const overlay = page.locator('[data-diary-drag-overlay="true"]');
+  await expect(overlay).toBeVisible();
+  const start = await overlay.boundingBox();
+  if (!start) throw new Error('Missing full diary drag overlay');
+  await expect(region.locator('[data-diary-drag-gap="true"]')).toHaveCount(1);
+  const diarySourceStatus = await region.locator('[data-diary-source-slot="true"]').evaluateAll(slots =>
+    slots.map(slot => ({
+      visibility: getComputedStyle(slot).visibility,
+      inline: slot.style.visibility,
+      aria: slot.getAttribute('aria-hidden'),
+    }))
+  );
+  expect(diarySourceStatus, JSON.stringify(diarySourceStatus)).toEqual([
+    expect.objectContaining({visibility: 'hidden', aria: 'true'}),
+  ]);
+  await expect(page.locator('[data-dnd-placeholder]')).toHaveCount(0);
+
+  await gesture.moveTo(gesture.startX + 14, gesture.startY - 60);
+  await expect.poll(async () => (await overlay.boundingBox())?.y ?? start.y)
+    .toBeLessThan(start.y - 34);
+  const moved = await overlay.boundingBox();
+  if (!moved) throw new Error('Diary overlay disappeared during drag');
+  expect(Math.abs((moved.x - start.x) - 14)).toBeLessThan(20);
+  expect(Math.abs((moved.y - start.y) + 60)).toBeLessThan(20);
+
+  await gesture.moveTo(gesture.startX - 16, gesture.startY - 90);
+  const movedAgain = await overlay.boundingBox();
+  if (!movedAgain) throw new Error('Diary overlay stopped following touch');
+  expect(Math.abs((movedAgain.x - start.x) + 16)).toBeLessThan(20);
+  expect(Math.abs((movedAgain.y - start.y) + 90)).toBeLessThan(20);
+  await gesture.cancel();
+  await expect(overlay).toHaveCount(0);
+  await expect(region.locator('[data-diary-drag-gap="true"]')).toHaveCount(0);
+  await expect(diary.getByTestId('diary-day-card')).toBeVisible();
 });
 
 test('task can move into another populated category at the projected position', async ({ page }) => {
@@ -796,6 +926,10 @@ test('category header and first-row boundary share one stable insertion slot', a
 
   const gap = targetCategory.locator('[data-task-drop-gap="true"]');
   await expect(gap).toHaveCount(1);
+  // Layout projections animate; compare settled insertion geometry rather than
+  // sampling in the middle of the previous 200ms layout transition.
+  await waitForStableVerticalPosition(gap);
+  await waitForStableVerticalPosition(firstTarget);
   const gapAtHeader = await gap.boundingBox();
   const firstAtHeader = await firstTarget.boundingBox();
   if (!gapAtHeader || !firstAtHeader) {
@@ -807,7 +941,8 @@ test('category header and first-row boundary share one stable insertion slot', a
     firstAtHeader.x + firstAtHeader.width * 0.5,
     firstAtHeader.y + Math.min(4, firstAtHeader.height * 0.1)
   );
-  await page.waitForTimeout(80);
+  await waitForStableVerticalPosition(gap);
+  await waitForStableVerticalPosition(firstTarget);
 
   const gapAtFirstRow = await gap.boundingBox();
   const firstAtFirstRow = await firstTarget.boundingBox();
@@ -823,7 +958,8 @@ test('category header and first-row boundary share one stable insertion slot', a
     gapAtFirstRow.x + gapAtFirstRow.width * 0.5,
     gapAtFirstRow.y + gapAtFirstRow.height * 0.5
   );
-  await page.waitForTimeout(120);
+  await waitForStableVerticalPosition(gap);
+  await waitForStableVerticalPosition(firstTarget);
 
   const gapUnderFinger = await gap.boundingBox();
   const firstUnderFinger = await firstTarget.boundingBox();
@@ -944,14 +1080,22 @@ test('task can drop into an empty category from its category surface', async ({ 
     name: 'Add a task to Category 3',
   });
   await source.scrollIntoViewIfNeeded();
+  const gesture = await startTaskLongPress(page, title);
+  // Starting the drag shifts task/category geometry while the new insertion
+  // space animates. Target the visible header *after* it has settled.
+  await waitForStableVerticalPosition(emptyHeader);
   const headerBox = await emptyHeader.boundingBox();
   if (!headerBox) throw new Error('Missing empty-category bounds');
-
-  const gesture = await startTaskLongPress(page, title);
   await gesture.moveTo(
     headerBox.x + headerBox.width * 0.5,
     headerBox.y + headerBox.height * 0.5
   );
+  // The pointer stays still while Motion animates the projected gap. A nearby
+  // category must not steal the target just because its layout box moved.
+  await expect(emptyCategory.locator('[data-task-drop-gap="true"]')).toHaveCount(1);
+  await page.waitForTimeout(300);
+  await expect(emptyCategory.locator('[data-task-drop-gap="true"]')).toHaveCount(1);
+  await expect(region.locator('[data-task-category-id="cat_3"] [data-task-drop-gap="true"]')).toHaveCount(0);
   await gesture.finish();
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(
