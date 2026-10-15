@@ -265,6 +265,20 @@ deployment ID afterward. Re-activating a retained older deployment is the Functi
 mechanism. `message-action` currently keeps non-active deployments indefinitely; DR retention
 is governed by its Function config.
 
+## Shared Scratch consumer compatibility
+
+Before changing a table in the shared Scratch project, execute the read-only
+historical-client row-mapping preflight from
+[Scratch Preview Workflow](SCRATCH_PREVIEW_WORKFLOW.md#old-client-compatibility-preflight-before-a-shared-schema-change-526)
+against the current dev and affected actively tested Preview commit SHAs.
+A migration being additive is not enough: the October 15 Diary and messaging
+incident demonstrated that unknown remote columns can break strict old RxDB
+clients. Failed or missing consumer evidence blocks the schema write; do not
+silently drop an older Preview from the inventory. Review old-client writes
+and Function/privacy contracts separately. This does not add a mandatory
+cloud step for frontend-only changes.
+
+
 ## Normal agent flow
 
 For ordinary UI/client/refactor work, do nothing Appwrite-specific. For backend changes:
