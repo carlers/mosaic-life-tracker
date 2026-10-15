@@ -1,5 +1,7 @@
 /** Synced user-level preferences; browser/OS subscription controls stay device-local. */
 export const ALERTS_CHANNELS_KEY = 'alertsChannels';
+/** Explicit, account-synced consent for sensitive social push previews. */
+export const ALERTS_SOCIAL_PUSH_DETAILS_SETTING_KEY = 'alertsSocialPushDetails';
 
 export const NOTIFICATION_CHANNELS = [
   { type: 'friend_request', label: 'Friend requests' },
