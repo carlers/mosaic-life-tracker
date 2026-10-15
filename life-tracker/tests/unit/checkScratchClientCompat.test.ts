@@ -31,11 +31,15 @@ describe('shared Scratch backward-compatible client preflight', () => {
   it('rejects the previous unknown-field passthrough behavior before a migration', () => {
     // Recreate the #708 Diary regression: unknown server columns were kept
     // in the mapped object and rejected by strict RxDB document validation.
-    const unfiltered = source['life-tracker/src/lib/syncMapping.ts'].replace(
-      /  const known = KNOWN_FIELDS\[collection\];\n  if \(known\) \{\n    for \(const key of Object\.keys\(mapped\)\) \{\n      if \(!known\.has\(key\)\) delete mapped\[key\];\n    \}\n  \}\n/,
-      ''
+    const mapperSource = source['life-tracker/src/lib/syncMapping.ts'];
+    const start = mapperSource.indexOf(
+      '  const known = KNOWN_FIELDS[collection];',
+      mapperSource.indexOf('export function fromAppwriteFormat')
     );
-    expect(unfiltered).not.toBe(source['life-tracker/src/lib/syncMapping.ts']);
+    const end = mapperSource.indexOf("  if (collection === 'bucketTaskLinks')", start);
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    const unfiltered = mapperSource.slice(0, start) + mapperSource.slice(end);
     const failures = checkConsumerSource({
       sha: 'older',
       readSource: (_sha: string, path: string) =>
