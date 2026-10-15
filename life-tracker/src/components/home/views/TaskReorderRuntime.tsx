@@ -283,7 +283,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
 
       session.hasValidTarget = true;
       session.acceptedPointer = { ...event.operation.position.current };
-      const diarySide = parseDropTarget(String(target.id))?.diarySide ?? 'before';
+      const diaryTarget = parseDropTarget(String(target.id));
+      const diarySide = diaryTarget && 'diarySide' in diaryTarget
+        ? diaryTarget.diarySide ?? 'before' : 'before';
       if (taskPlacementsEqual(session.projection, next, categoryIds) &&
           session.diarySide === diarySide) return;
       session.diarySide = diarySide;

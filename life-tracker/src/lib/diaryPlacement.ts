@@ -31,13 +31,13 @@ export function placementFromTaskDrop(
 }
 
 export function diarySlotIndex(placement: DiaryPlacement, taskIds: readonly string[]): number {
-  if (placement.kind === 'top') return 0;
-  if (placement.kind === 'bottom') return taskIds.length;
+  if (placement.kind === 'top' || placement.kind === 'bottom')
+    return placement.kind === 'top' ? 0 : taskIds.length;
   if (placement.kind === 'before' || placement.kind === 'after') {
     const anchor = taskIds.indexOf(placement.taskId);
     if (anchor !== -1) return anchor + (placement.kind === 'after' ? 1 : 0);
   }
-  return Math.max(0, Math.min(taskIds.length, placement.index));
+  return 'index' in placement ? Math.max(0, Math.min(taskIds.length, placement.index)) : 0;
 }
 
 export function anchoredDiaryPlacement(categoryId: string, index: number,
@@ -71,6 +71,7 @@ export function diaryAfterTaskMove(
   dropRelativeToDiary: 'before' | 'after' = 'before'
 ): DiaryPlacement {
   if (placement.kind === 'top' || placement.kind === 'bottom') return placement;
+  if (!('categoryId' in placement)) return placement;
   const category = placement.categoryId;
   const source = Object.keys(before).find(id => before[id].includes(movingTaskId));
   const target = Object.keys(after).find(id => after[id].includes(movingTaskId));

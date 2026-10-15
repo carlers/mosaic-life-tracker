@@ -142,14 +142,13 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       : null;
 
 
-  const isDiaryInCategory = diaryPlacement.kind === 'slot' ||
-    diaryPlacement.kind === 'before' || diaryPlacement.kind === 'after';
+  const diaryPlacementCategory = 'categoryId' in diaryPlacement ? diaryPlacement.categoryId : '';
+  const isDiaryInCategory = Boolean(diaryPlacementCategory);
   const hasPlacementCategory = isDiaryInCategory &&
-    categories.some(cat => cat.id === diaryPlacement.categoryId);
+    categories.some(cat => cat.id === diaryPlacementCategory);
   const fallbackPlacement: DiaryPlacement =
     isDiaryInCategory && !hasPlacementCategory ? { kind: 'top' } : diaryPlacement;
-  const diaryCategoryId = fallbackPlacement.kind === 'top' || fallbackPlacement.kind === 'bottom'
-    ? '' : fallbackPlacement.categoryId;
+  const diaryCategoryId = 'categoryId' in fallbackPlacement ? fallbackPlacement.categoryId : '';
   const diaryTaskIds = (tasksByCategory.get(diaryCategoryId) ?? []).map(task => task.id);
   const displayedDiarySlotIndex = diarySlotIndex(fallbackPlacement, diaryTaskIds);
   const migratedLegacySlot = React.useRef<string | null>(null);
@@ -233,7 +232,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           categoryColor={category.color}
           diarySlot={diaryEnabled && diaryCategoryId === category.id ? diaryCard : undefined}
           diaryGhostSlot={showDiaryGhost &&
-             diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom' &&
+             diaryProjectedPlacement && 'categoryId' in diaryProjectedPlacement &&
              diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
           diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
              ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
