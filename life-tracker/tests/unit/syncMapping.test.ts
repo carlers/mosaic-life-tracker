@@ -704,3 +704,49 @@ describe('fromAppwriteFormat — schema drift detection', () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 });
+
+// Regression: Production release-readiness — optional Appwrite columns must
+// not invalidate installed legacy PWA RxDB documents during schema expansion.
+describe('legacy PWA schema expansion', () => {
+  it.each([
+    {
+      collection: 'diary',
+      row: {
+        $id: 'diary_1',
+        date: '2026-10-15', content: 'Existing entry',
+        visibility: 'private', user_id: USER_ID, deleted: false,
+        created_at: '2026-10-15T00:00:00.000Z',
+        updated_at: '2026-10-15T01:00:00.000Z',
+        emoji: '🌿', photos: '[]', future_server_field: 'added later',
+      },
+      absentKeys: ['emoji', 'photos', 'future_server_field'],
+      expected: { id: 'diary_1', content: 'Existing entry', userId: USER_ID },
+    },
+    {
+      collection: 'messages',
+      row: {
+        $id: 'msg_1', user_id: USER_ID,
+        thread_id: 'thread_1', sender_id: USER_ID,
+        recipient_id: 'friend_1', direction: 'outgoing',
+        content: 'Existing message', deleted: false,
+        created_at: '2026-10-15T00:00:00.000Z',
+        updated_at: '2026-10-15T01:00:00.000Z',
+        diary_ref_id: 'diary_1', diary_ref_owner_id: USER_ID,
+        diary_ref_date: '2026-10-15', diary_ref_excerpt: 'Existing',
+        future_server_field: 'added later',
+      },
+      absentKeys: [
+        'diary_ref_id', 'diary_ref_owner_id', 'diary_ref_date',
+        'diary_ref_excerpt', 'future_server_field',
+      ],
+      expected: { id: 'msg_1', content: 'Existing message', userId: USER_ID },
+    },
+  ])('$collection ignores additional remote columns without changing known data',
+    ({ collection, row, absentKeys, expected }) => {
+      const before = { ...row };
+      const out = fromAppwriteFormat(row, collection);
+      expect(out).toMatchObject(expected);
+      for (const key of absentKeys) expect(out).not.toHaveProperty(key);
+      expect(row).toEqual(before);
+    });
+});
