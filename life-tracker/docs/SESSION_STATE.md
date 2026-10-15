@@ -1,20 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-15 UTC
-Current task: #408 + #682 — integrate user-accepted Diary and Notifications into current dev without losing #708 chat, #861 Sync progress, or #592/#784 workflow safeguards.
+Current task: #592 default CI-first stable Preview rollout verified with #852 ordinary user-visible feature.
 
-## Accepted isolated sources and immutable backend
-- `dev@dc24b1db7c7f10eb50922a8b263a9217a5c6aa7a` v0.24.4; Production/main unchanged at handoff.
-- Diary `feature/diary-408@c220e42b329affc535bbf6f405563075ea205894` v0.25.6: full CI #38678485869 SUCCESS; exact Vercel READY `dpl_9ueyBG8NoPu2wYAQHWzzapwmJVbd`. GitHub direct merge against dev is dirty.
-- Notifications `feature/notifications-682-integrated-20261015@70f02e02af056c6647ff488906b8f6ce99d9fb09` v0.26.1: full CI #38673898159 SUCCESS; Vercel READY `dpl_AyywLz34rRuHFMevE7oZ5gW2FK2o`; clean against dev.
-- Exact three-way compatible combined Scratch `message-action` source `refactor/scratch-union-526-682@ed9736793c3731bf139bb59bf4ff6b5525c7f381`, approved currently-active Scratch deployment `6ad04931c34b463de0b4`. Preserve this Function source on integration; no implied Production backend migration/activation.
+## Current gate and source identity
+- Protected `main@bb58300052dc4c85974d97779e2b257ec4f28c7d`: owner-approved special infrastructure PR #894 merged; ruleset #24880070 active with zero bypass actors. Main full Quality Gate #38702258745 SUCCESS; exact Production deployment `dpl_3MoRfXuoz98wDBiivhoi731vBviv` READY, Production app v0.17.4 unchanged.
+- Protected `dev@6d488d3c3b2ae0e998162d4fe70303fdfa58b964` v0.26.2 unchanged. #853 v0.27.0 accepted on isolated stable Preview, but not dev-promoted; avoid version collision.
+- Main-owned trusted receiver now recognizes reviewed inherited byte-exact Git suppression, requiring official canonical CI, pinned producer blob/artifact, Scratch identity, PREBUILT-only CLI upload, no candidate execution/secret exposure, and at most one exact SHA provider creation. Other rules from #592 unchanged.
+- The tested `dev`-based source-policy task `aa10ea6f` changes `life-tracker/vercel.json` to `feature|fix|perf|security|refactor/*: false`, preserving `dev/main: true`; focused CI #38698327093 SUCCESS.
+- Ordinary frontend #852 task `49f34c0a` v0.28.0 adds Yesterday/date-context actions and component regressions; focused CI #38699831899 SUCCESS.
+- This combined task source derives from exact `dev@6d488d3c` with both reviewed change sets (no Appwrite schema/Function changes); `chatgpt/592-852-ci-first-integrated-20261015` exists solely to run focused verification before a *first-commit* stable CI-suppressed feature Preview.
 
-## Isolated integration work
-- Current `chatgpt/408-682-release-integration-20261015` task based on dev. Draft diagnostic PRs #885/#886 checked actual clean/dirty provenance without changing dev/main.
-- Local merge integrated Diary onto dev with six resolved merge conflicts (preserving newer dev #784 startup/Home hard limits and effective policy), then Notifications with higher integrated PATCH v0.26.2. Kept exact activated Scratch union Function source instead of accepting the older Notifications-only Function. Resolved one obsolete pre-Diary forward-compatibility fixture so recognized Diary `emoji`/`photos` round-trip and unknown future fields still strip.
-- Local sandbox: TypeScript PASS, version:check PASS, contracts:check PASS; unit 1086/1086 PASS, handler 204/204 PASS, DOM 519/519 PASS, lint exit 0 with six warnings, production build/PWA and two blocking startup/Home size budgets PASS. Five advisory size measurements explicitly remain warnings.
-- These local results are not canonical CI, hosted build, authenticated two-account Scratch use, phone testing or Production readiness.
+## Acceptance and next action
+1. Focused gate on combined task SHA, fix any actual regressions; do not create an ordinary Git-first stable Preview.
+2. Start a genuinely source-first single-leaf `feature/...` stable branch at the combined policy-carrying SHA; prove the **first push** creates ZERO Git-provider deployments. The main trusted writer may create only after exact full canonical success. If flags/alias/origin block delivery, investigate fail-closed and request the narrow owner action, not a Git-first fallback.
+3. Inspect canonical gate/CLI READY/Scratch browser identity, stable URL, routing/PWA security and idempotent same-SHA retry. Device authentication/acceptance is distinct and user-owned. Keep owner-accepted #853 promotion and any future #852 stable→dev promotion under separate explicit approvals.
+4. After #852, run second normal issue #851, then return to #889 #526 historical-client/Production migration/restore readiness; no Production backend or 1.0 promotion authority from this workflow phase.
 
-## Next action and safety boundaries
-- Publish one reviewed `[verify:focused]` integration task commit and require focused CI. Squash to a fresh isolated stable Preview and require one exact full canonical gate plus Vercel Scratch/GIPHY READY, alias/origin and read-time authorization verification. Revalidate current dev/tree before any approved dev merge; verify resulting dev CI and deployment.
-- Before any main release, review *all* changes since current production v0.17.4, release schema/Function compatibility and separately approved Production backend activation, exact main full CI/Production READY and tag publisher. Do not promote an unaccepted changed tree, silently activate Production backend, or close #408/#682/#526/#592 without their own completion evidence.
+No direct `dev/main` mutation or alias/provider settings change from this task.

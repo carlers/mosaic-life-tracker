@@ -17,7 +17,7 @@ import {
   Link2,
   Users,
 } from 'lucide-react';
-import { isToday } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import {
   resolveVisibility,
   isInheriting,
@@ -69,7 +69,10 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
 
   if (!task) return null;
 
-  const isTaskToday = isToday(new Date(task.date));
+  // Task dates are local calendar days, never UTC-midnight timestamps.
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const yesterday = format(addDays(new Date(), -1), 'yyyy-MM-dd');
+  const isTaskToday = task.date === today;
   const tomorrowOrTodayLabel = isTaskToday ? 'Do It Tomorrow' : 'Do It Today';
 
   const effective = resolveVisibility(task.visibility, category?.visibility);
@@ -314,6 +317,20 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             </div>
             <span className="text-base font-medium">Open Timer</span>
           </button>
+
+          {task.date !== yesterday && <button
+            type="button"
+            onClick={async () => {
+              await onChangeDate(yesterday);
+              dismiss();
+            }}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center" aria-hidden="true">
+              <ArrowRight size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">Do It Yesterday</span>
+          </button>}
 
           <button
             type="button"
