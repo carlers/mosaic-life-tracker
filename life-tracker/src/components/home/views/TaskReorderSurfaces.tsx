@@ -159,14 +159,14 @@ export const DiaryTaskInsertDropSurface: React.FC<{
   active: boolean;
   children: React.ReactNode;
 }> = ({ categoryId, index, active, children }) => {
-  const before = useDroppable({
+  const { ref: beforeRef } = useDroppable({
     id: diaryTaskDropId(categoryId, index, 'before'),
     type: 'task-insert',
     accept: 'task',
     collisionPriority: CollisionPriority.High,
     disabled: !active,
   });
-  const after = useDroppable({
+  const { ref: afterRef } = useDroppable({
     id: diaryTaskDropId(categoryId, index, 'after'),
     type: 'task-insert',
     accept: 'task',
@@ -175,10 +175,10 @@ export const DiaryTaskInsertDropSurface: React.FC<{
   });
   return (
     <div className="relative" data-diary-task-insertion="true">
-      <div ref={before.ref} aria-hidden="true" style={{
+      <div ref={beforeRef} aria-hidden="true" style={{
         position: 'absolute', insetInline: 0, top: 0, height: '50%', pointerEvents: 'none',
       }}/>
-      <div ref={after.ref} aria-hidden="true" style={{
+      <div ref={afterRef} aria-hidden="true" style={{
         position: 'absolute', insetInline: 0, bottom: 0, height: '50%', pointerEvents: 'none',
       }}/>
       {children}
