@@ -27,6 +27,8 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags --depth=1 origin "$HISTORICAL_SHA" || git fetch --no-tags --unshallow origin main
+          git fetch --no-tags --depth=1 origin 81bde2da1d35e95f1b37d39949f8fc5100238908
+          git cat-file -e 81bde2da1d35e95f1b37d39949f8fc5100238908^{commit}
           git cat-file -e "$HISTORICAL_SHA^{commit}"
           test "$(git rev-parse "$HISTORICAL_SHA")" = "$HISTORICAL_SHA"
       - name: Node 22
@@ -59,3 +61,13 @@ jobs:
           grep -Eq '^[[:space:]]+messages:' "$RUNNER_TEMP/compat.log" || exit 1
           grep -Fq 'UNASSESSED collections' "$RUNNER_TEMP/compat.log" || exit 1
           echo 'Verified: actual immutable v0.17.4 client BLOCKED for future Diary and Messages schema additions.'
+      - name: Verify immutable v0.17.5 bridge accepts additive columns
+        working-directory: life-tracker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run appwrite:preview:compat -- \
+            --consumer-sha 81bde2da1d35e95f1b37d39949f8fc5100238908 \
+            --table tasks --table categories --table diary \
+            --table settings --table friendships --table messages
+          echo 'Verified: v0.17.5 isolated bridge passes six historical subscription row/write-shape checks.'
