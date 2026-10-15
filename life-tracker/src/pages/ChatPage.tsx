@@ -3,6 +3,8 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, MessageSquare, Search } from 'lucide-react';
 import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { BottomSheet } from '../components/ui/BottomSheet';
+import { ChatSyncSheet } from '../components/messages/ChatSyncSheet';
+import type { ChatSyncStage } from '../lib/chatReconcile';
 import {
   MessageBubble,
   type MessageStatusKind,
@@ -85,6 +87,13 @@ export const ChatPage: React.FC = () => {
   const focusAfterActionReplyRef = useRef(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [syncingChat, setSyncingChat] = useState<string | null>(null);
+  const [syncDetailsOpen, setSyncDetailsOpen] = useState(false);
+  const [syncDetails, setSyncDetails] = useState<{
+    key: string;
+    stage: ChatSyncStage | 'failed';
+    repaired: number | null;
+    error: string | null;
+  } | null>(null);
   const chatKey = myUserId + ':' + friendId;
   const chatKeyRef = useRef(chatKey);
   useEffect(() => { chatKeyRef.current = chatKey; }, [chatKey]);
@@ -240,17 +249,32 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleSyncChat = async () => {
-    if (!myUserId || !friendId || syncingChat === chatKey) return;
+    if (syncingChat === chatKey) {
+      setSyncDetailsOpen(true);
+      return;
+    }
+    if (!myUserId || !friendId || connectivity.status !== 'online') return;
     const key = chatKey;
     setSyncingChat(key);
+    setSyncDetails({ key, stage: 'sending', repaired: null, error: null });
+    setSyncDetailsOpen(true);
     try {
       const { reconcileChat } = await import('../lib/chatReconcile');
-      const count = await reconcileChat(myUserId, friendId);
+      const count = await reconcileChat(myUserId, friendId, (progress) => {
+        if (chatKeyRef.current !== key) return;
+        setSyncDetails({
+          key, stage: progress.stage, repaired: progress.repaired ?? null, error: null,
+        });
+      });
       if (chatKeyRef.current === key)
         setFeedback(count ? `Recovered ${count} messages` : 'Chat synced');
-    } catch {
-      if (chatKeyRef.current === key)
-        setFeedback('Chat sync incomplete. Retry.');
+    } catch (err) {
+      if (chatKeyRef.current === key) {
+        const message = err instanceof Error ? err.message : 'Unknown sync error';
+        setSyncDetails((previous) => previous?.key === key
+          ? { ...previous, stage: 'failed', error: message.slice(0, 240) }
+          : previous);
+      }
     } finally {
       setSyncingChat((current) => current === key ? null : current);
     }
@@ -356,8 +380,8 @@ export const ChatPage: React.FC = () => {
         </span>
         <div className="ml-auto flex items-center gap-1 shrink-0">
           <button type="button" onClick={() => void handleSyncChat()}
-            disabled={syncingChat === chatKey || connectivity.status !== 'online'}
-            aria-label={syncingChat === chatKey ? 'Syncing chat' : 'Sync chat now'}
+            disabled={connectivity.status !== 'online' && syncingChat !== chatKey}
+            aria-label={syncingChat === chatKey ? 'View chat sync progress' : 'Sync chat now'}
             data-route-swipe-ignore="true"
             className="p-2 text-sm text-gray-400 disabled:opacity-50">
             {syncingChat === chatKey ? 'Syncing' : 'Sync'}
@@ -517,6 +541,13 @@ export const ChatPage: React.FC = () => {
         isOpen={!!reactionTarget}
         onClose={() => setReactionTargetId(null)}
         onPick={handleEmojiPicked}
+      />
+      <ChatSyncSheet
+        isOpen={syncDetailsOpen && syncDetails?.key === chatKey}
+        onClose={() => setSyncDetailsOpen(false)}
+        stage={syncDetails?.stage ?? 'sending'}
+        repaired={syncDetails?.repaired ?? null}
+        error={syncDetails?.error ?? null}
       />
       <BottomSheet
         isOpen={!!unsendTarget}

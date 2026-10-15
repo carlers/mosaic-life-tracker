@@ -223,6 +223,15 @@ export function fromAppwriteFormat(
   delete mapped.$databaseId;
   delete mapped.$tableId;
   delete mapped.$sequence;
+  // Scratch schema additions can reach older Preview builds. Preserve the
+  // server-only values remotely but never feed unknown keys into strict RxDB
+  // documents. This applies to every collection, not only messages.
+  const known = KNOWN_FIELDS[collection];
+  if (known) {
+    for (const key of Object.keys(mapped)) {
+      if (!known.has(key)) delete mapped[key];
+    }
+  }
   if (collection === 'bucketTaskLinks') {
     mapped.id = row.$id || mapped.id;
     mapped.userId = row.user_id;
@@ -338,15 +347,6 @@ export function fromAppwriteFormat(
     delete mapped.updated_at;
     delete mapped.deleted;
   } else if (collection === 'messages') {
-    // Scratch can deploy additive message columns ahead of older Preview UIs
-    // (e.g. Diary quote refs). Never copy unknown server fields into RxDB:
-    // RxDB forbids additional top-level properties and would reject the
-    // entire incoming/outgoing row, leaving fresh conversations empty.
-    // Keep unrecognized fields intact on the SERVER; message writes are
-    // Function-owned, not pushed back by this replication.
-    for (const key of Object.keys(mapped)) {
-      if (!KNOWN_FIELDS.messages.has(key)) delete mapped[key];
-    }
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
     mapped.threadId = mapped.thread_id || '';
