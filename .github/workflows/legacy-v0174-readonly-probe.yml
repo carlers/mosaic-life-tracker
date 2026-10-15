@@ -42,11 +42,13 @@ jobs:
           HISTORICAL_SHA: a7d4c431eef6902f1d2d35271b6b8e41f8e9228e
         shell: bash
         run: |
+          set +e
           set -uo pipefail
           npm run appwrite:preview:compat -- --consumer-sha "$HISTORICAL_SHA" \
             --table tasks --table categories --table diary \
             --table settings --table friendships --table messages > "$RUNNER_TEMP/compat.log" 2>&1
           rc=$?
+          set -e
           cat "$RUNNER_TEMP/compat.log"
           if [[ "$rc" -eq 0 ]]; then
             echo "::error::Unexpected historical client PASS; re-investigate candidate manifest and checker"
