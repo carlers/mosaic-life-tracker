@@ -2,7 +2,7 @@
 
 Current task: #682 opted-in social push content.
 
-Updated 2026-10-15. Current approved report: task completions show details but social notifications remain generic. Live Scratch v0.26.0 union active Function deployment 6ad0368a1abc7259e499, source SHA 36eb4ea421fcdff6f05d9c79e4b77f329bf93983.
+Updated: 2026-10-15. Current approved report: task completions show details but social notifications remain generic. Live Scratch v0.26.0 union active Function deployment 6ad0368a1abc7259e499, source SHA 36eb4ea421fcdff6f05d9c79e4b77f329bf93983.
 
 ## Root cause and scope
 - The new in-app feed can project live contextual text, but OS push from emitActivity deliberately uses generic payload and the existing include_task_details consent only applies to task completions.
