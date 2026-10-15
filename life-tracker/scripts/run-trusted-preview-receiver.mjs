@@ -11,7 +11,9 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { assessTrustedPreviewTrigger, assertTrustedPreviewDeployment,
   trustedGitSource, trustedProjectScope, assertTrustedVercelProject, TRUSTED_PREVIEW_BRANCH,
-  TRUSTED_PREVIEW_ALIAS, TRUSTED_VERCEL_PROJECT } from './lib/trusted-preview-receiver.mjs';
+  TRUSTED_PREVIEW_ALIAS, TRUSTED_VERCEL_PROJECT,
+  assertTrustedPreviewCreationEnabled, assertTrustedPreviewCreateResponse,
+  selectTrustedPreviewCandidate } from './lib/trusted-preview-receiver.mjs';
 import { canaryHistoryStart } from './lib/preview-canary-context.mjs';
 
 const repo = 'carlers/mosaic-life-tracker';
@@ -37,10 +39,11 @@ async function authorized(event) {
   const ref = TRUSTED_PREVIEW_BRANCH.split('/').map(encodeURIComponent).join('/');
   const gh = path => get('https://api.github.com/repos/' + repo + path,
     gitToken, 'GitHub acceptance');
-  const [runs, checks, branch] = await Promise.all([
+  const [runs, checks, branch, main] = await Promise.all([
     gh('/actions/runs?head_sha=' + sha + '&per_page=100'),
     gh('/commits/' + sha + '/check-runs?per_page=100'),
     gh('/git/ref/heads/' + ref),
+    gh('/git/ref/heads/main'),
   ]);
   if (!Array.isArray(runs.workflow_runs) || !Array.isArray(checks.check_runs) ||
       runs.total_count > 100 || checks.total_count > 100) {
@@ -55,7 +58,8 @@ async function authorized(event) {
   const verdict = assessTrustedPreviewTrigger({
     event, repository: process.env.GITHUB_REPOSITORY,
     eventName: process.env.GITHUB_EVENT_NAME, ref: process.env.GITHUB_REF,
-    checkoutSha, enabled: process.env.MOSAIC_TRUSTED_PREVIEW_ENABLED,
+    checkoutSha, mainHead: main.object?.sha,
+    enabled: process.env.MOSAIC_TRUSTED_PREVIEW_ENABLED,
     workflowRuns: runs.workflow_runs, checkRuns: checks.check_runs,
     branchHead: branch.object?.sha,
   });
@@ -65,6 +69,8 @@ async function authorized(event) {
 
 async function findDeployment(sha, since) {
   let until;
+  const stats = { pages: 0, listed: 0, sameSha: 0, exactRef: 0,
+    absentTarget: 0 };
   for (let page = 0; page < 5; page += 1) {
     const q = new URLSearchParams({
       teamId: orgId, projectId, since: String(since), limit: '100',
@@ -74,20 +80,24 @@ async function findDeployment(sha, since) {
       vercelToken, 'Vercel Preview history');
     if (!Array.isArray(body.deployments) || !body.pagination)
       throw new Error('Incomplete deployment history');
-    const accepted = body.deployments.find(dep => {
-      const m = dep?.meta ?? {};
-      return m.githubCommitSha === sha && m.githubOrg === 'carlers' &&
-        m.githubRepo === 'mosaic-life-tracker' &&
-        [TRUSTED_PREVIEW_BRANCH, 'HEAD'].includes(m.githubCommitRef) &&
-        // Vercel LIST omits source and projectId even for genuine Git
-        // deployments. The query is already project-scoped; FULL identity
-        // and project/source are checked by getDeployment() before use.
-        ['READY', 'BUILDING', 'QUEUED', 'INITIALIZING'].includes(dep.readyState ?? dep.state) &&
-        dep.target !== 'production';
-    });
-    if (accepted?.id) return accepted.id;
+    stats.pages += 1;
+    stats.listed += body.deployments.length;
+    for (const item of body.deployments) {
+      if (item?.meta?.githubCommitSha !== sha) continue;
+      stats.sameSha += 1;
+      if (item.meta.githubCommitRef !== TRUSTED_PREVIEW_BRANCH) continue;
+      stats.exactRef += 1;
+      if (item.target == null) stats.absentTarget += 1;
+    }
+    const acceptedId = selectTrustedPreviewCandidate(body.deployments, sha);
+    if (acceptedId) return acceptedId;
     const next = body.pagination.next;
-    if (next == null) return null;
+    if (next == null) {
+      // Counts only: no token, payload metadata or raw provider response.
+      console.log('Trusted Preview read-only history scan: ' +
+        Object.entries(stats).map(([name, count]) => name + '=' + count).join(' '));
+      return null;
+    }
     if (!Number.isSafeInteger(next) || next <= 0 ||
       (until != null && next >= until)) {
       throw new Error('Vercel history cursor is incomplete');
@@ -136,6 +146,10 @@ async function main() {
   const since = canaryHistoryStart(seconds, Date.now());
   let id = await findDeployment(sha, since);
   if (!id) {
+    // The normal first-stage shadow pilot reuses Vercel's existing Git
+    // deployment. A missing candidate must never create Production or
+    // consume an extra deployment quota without separate explicit opt-in.
+    assertTrustedPreviewCreationEnabled(process.env.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED);
     // Fail before requesting a remote build if the linked GitHub repo,
     // monorepo root, or production branch configuration is unverified.
     const project = await get('https://api.vercel.com/v9/projects/' +
@@ -155,9 +169,7 @@ async function main() {
           meta: { mosaic_trusted_preview_sha: sha },
         }),
       });
-    id = created.id ?? created.uid;
-    if (typeof id !== 'string' || !id.startsWith('dpl_'))
-      throw new Error('Vercel did not return a deployment ID');
+    id = assertTrustedPreviewCreateResponse(created);
   }
   const deployment = await waitReady(id, sha);
   // Do not print the deployed JavaScript or environment inputs; only the
