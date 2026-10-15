@@ -43,3 +43,24 @@ jobs:
       - name: Verify newest committed marker and ciphertext manifest HEAD (read-only)
         working-directory: life-tracker
         run: node scripts/dr-watch.mjs
+      - name: Verify ciphertext SHA-256 against committed marker (no decryption)
+        working-directory: life-tracker
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { createHash } from 'node:crypto';
+          import { createR2Client } from './appwrite-functions/dr-backup/r2.mjs';
+          import { readWatchConfig, newestCompletedSnapshot } from './scripts/dr-watch.mjs';
+          const config = readWatchConfig(process.env);
+          const r2 = createR2Client(config.r2);
+          const backupId = newestCompletedSnapshot(await r2.listObjects(`${config.prefix}/snapshots/`), config.prefix);
+          if (!backupId) throw new Error('No completed snapshot found');
+          const markerKey = `${config.prefix}/snapshots/${backupId}/COMPLETED`;
+          const marker = JSON.parse((await r2.getObject(markerKey)).toString('utf8'));
+          const encrypted = await r2.getObject(marker.manifestKey);
+          const actual = createHash('sha256').update(encrypted).digest('hex');
+          if (actual !== marker.manifestCipherSha256) {
+            throw new Error('Committed manifest SHA-256 differs from encrypted R2 object');
+          }
+          console.log(`Ciphertext SHA-256 verified for completed backup ${backupId} (without logging data)`);
+          NODE
