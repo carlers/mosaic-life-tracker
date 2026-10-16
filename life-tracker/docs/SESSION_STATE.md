@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-16 UTC
-Current task: #889 integrated Production-target acceptance before v0.29.1 pre-1.0 release.
+Current task: #889 pin local Production-target acceptance to exact product commit despite subsequent documentation merges into dev.
 
 ## Current verified state
 - Protected `dev@c733bfa73f4ca742f6333ee75e11c642f83daf53` = v0.29.1, full Quality Gate #38891390926 SUCCESS and exact dev Vercel READY. Protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0` = v0.17.4, Vercel Production READY; #909 OPEN, unmerged, 1.0.0 not approved.
@@ -11,7 +11,8 @@ Current task: #889 integrated Production-target acceptance before v0.29.1 pre-1.
 - The existing Production Appwrite Web platform registers a private laptop address, enabling a **local** v0.29.1 Production-target acceptance build without redirecting official Vercel Previews away from Scratch or merging main.
 
 ## Current source-only task
-- Document the repeatable exact-SHA local Production-target acceptance protocol in `docs/PRODUCTION_ACCEPTANCE.md`, link it from `docs/README.md` and `docs/PRODUCTION_RELEASE_READINESS.md`, and replace this stale checkpoint with factual milestones.
+- Correct the already-delivered runbook to explicitly detach the verified product source SHA rather than pulling moving dev HEAD. This avoids a false fail-closed local acceptance when docs-only dev promotions occur. No application changes.
+- The approved local Production-target acceptance protocol is in `docs/PRODUCTION_ACCEPTANCE.md`, link it from `docs/README.md` and `docs/PRODUCTION_RELEASE_READINESS.md`, and its factual checkpoint.
 - Version impact NONE. No app behavior, Vercel/provider configuration, Appwrite schema/Function or protected branch promotion in this documentation task.
 
 ## Next action
