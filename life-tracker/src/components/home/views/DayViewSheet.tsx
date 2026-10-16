@@ -307,7 +307,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     activeIndex,
     initialIndex,
     anchorKey,
-    renderWindow:
+    renderWindow,
     handlePrevDay,
     handleNextDay,
     handleSlideChange,
