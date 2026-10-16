@@ -18,6 +18,8 @@ import { EmojiPickerSheet } from '../components/messages/EmojiPickerSheet';
 import { ScrollToBottomButton } from '../components/messages/ScrollToBottomButton';
 import { ChatSearchBar } from '../components/messages/ChatSearchBar';
 import { useMessages } from '../hooks/useMessages';
+import { clearDeniedOutgoing, isDeniedOutgoing, subscribeDeniedOutgoing } from '../lib/messageSendDenials';
+import { retryDeniedOutgoing } from '../lib/messageDelivery';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
 import { useConnectivity } from '../hooks/useConnectivity';
@@ -78,6 +80,9 @@ export const ChatPage: React.FC = () => {
     unsendMessage,
     toggleReaction,
   } = useMessages(friendId ?? null);
+
+  const [denialRevision, setDenialRevision] = useState(0);
+  useEffect(() => subscribeDeniedOutgoing(() => setDenialRevision(value => value + 1)), []);
 
   const { friends } = useFriends();
   const friend = useMemo(
@@ -171,12 +176,28 @@ export const ChatPage: React.FC = () => {
         } else if (m.deliveryStatus === 'delivered') {
           map.set(m.id, 'delivered');
         } else {
-          map.set(m.id, 'pending');
+          map.set(m.id, isDeniedOutgoing(myUserId, m.id) ? 'not-sent' : 'pending');
         }
       }
     }
     return map;
-  }, [messages]);
+  }, [messages, myUserId, denialRevision]);
+
+  useEffect(() => {
+    if (!myUserId) return;
+    for (const message of messages) {
+      if (message.direction === 'outgoing' &&
+          (message.deliveryStatus === 'delivered' || message.readAt || message.isUnsent)) {
+        clearDeniedOutgoing(myUserId, message.id);
+      }
+    }
+  }, [messages, myUserId]);
+
+  const handleRetryDenied = useCallback((messageId: string) => {
+    void retryDeniedOutgoing(myUserId, messageId).catch(() => {
+      setFeedback('Could not retry message. Try again.');
+    });
+  }, [myUserId]);
 
   const resolveSenderName = useMemo(
     () => (senderId: string): string => {
@@ -444,6 +465,7 @@ export const ChatPage: React.FC = () => {
                     reducedMotion={effectiveReducedMotion}
                     showTimestamp={item.showTimestamp}
                     statusKind={statusById.get(item.message.id)}
+                    onRetrySend={handleRetryDenied}
                     resolveSenderName={resolveSenderName}
                     onLongPress={(m) => setActionMessageId(m.id)}
                     onQuoteTap={handleQuoteTap}

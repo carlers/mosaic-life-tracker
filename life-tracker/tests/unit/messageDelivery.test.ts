@@ -46,6 +46,9 @@ function messageDoc(userId: string, id: string) {
     id,
     userId,
     recipientId: userId === 'user_A' ? 'user_B' : 'user_A',
+    direction: 'outgoing',
+    isDeleted: false,
+    isUnsent: false,
     threadId: 'th_test',
     deliveryStatus: 'pending',
     content: 'hello',
@@ -165,6 +168,59 @@ describe('message delivery account ownership', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('keeps an authenticated 403 failure locally not-sent until explicit retry succeeds', async () => {
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.__resetAccountWorkScopeForTests();
+    accountWork.scopeAccountWork('user_A');
+    const doc = messageDoc('user_A', 'msg_denied');
+    getDatabaseMock.mockReturnValue({
+      messages: {
+        find: () => ({ exec: async () => [doc] }),
+        findOne: () => ({ exec: async () => doc }),
+      },
+    });
+    createExecutionMock
+      .mockResolvedValueOnce({
+        status: 'completed',
+        responseStatusCode: 403,
+        responseBody: '{"error":"not allowed"}',
+      })
+      .mockResolvedValue(successExecution());
+    const { deliverPendingMessages, retryDeniedOutgoing } = await import('../../src/lib/messageDelivery');
+    const { isDeniedOutgoing } = await import('../../src/lib/messageSendDenials');
+
+    await deliverPendingMessages('user_A');
+    expect(doc.patch).not.toHaveBeenCalled();
+    expect(isDeniedOutgoing('user_A', doc.id)).toBe(true);
+    expect(isDeniedOutgoing('user_B', doc.id)).toBe(false);
+    await deliverPendingMessages('user_A');
+    expect(createExecutionMock).toHaveBeenCalledTimes(1);
+
+    await retryDeniedOutgoing('user_A', doc.id);
+    expect(createExecutionMock).toHaveBeenCalledTimes(2);
+    expect(createExecutionMock.mock.calls[0][0].body).toBe(
+      createExecutionMock.mock.calls[1][0].body
+    );
+    expect(doc.patch).toHaveBeenCalledWith({ deliveryStatus: 'delivered' });
+    expect(isDeniedOutgoing('user_A', doc.id)).toBe(false);
+  });
+
+  it('does not misclassify a 401 authentication failure as a permanent send denial', async () => {
+    const accountWork = await import('../../src/lib/accountWorkScope');
+    accountWork.__resetAccountWorkScopeForTests();
+    accountWork.scopeAccountWork('user_A');
+    const doc = messageDoc('user_A', 'msg_auth');
+    getDatabaseMock.mockReturnValue({ messages: { find: () => ({ exec: async () => [doc] }) } });
+    createExecutionMock.mockResolvedValue({
+      status: 'completed', responseStatusCode: 401, responseBody: '{}',
+    });
+    const { deliverPendingMessages } = await import('../../src/lib/messageDelivery');
+    const { isDeniedOutgoing } = await import('../../src/lib/messageSendDenials');
+    await deliverPendingMessages('user_A');
+    expect(doc.patch).not.toHaveBeenCalled();
+    expect(isDeniedOutgoing('user_A', doc.id)).toBe(false);
   });
 
 });
