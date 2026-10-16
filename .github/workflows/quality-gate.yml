@@ -268,6 +268,8 @@ jobs:
         run: npm ci --prefer-offline --no-audit
       - name: Check project contracts
         run: npm run contracts:check
+      - name: Check supported historical clients on backend contract changes
+        run: node scripts/check-backend-consumer-compat.mjs --base HEAD^
       - name: Check test discovery
         run: npm run test:discovery
       - name: Lint

@@ -1,20 +1,18 @@
 # Session checkpoint
 
-Updated: 2026-10-15 UTC
-Current task: #889 prepare safe pre-1.0 Production release after owner-authorized dev/main history reconciliation.
+Updated: 2026-10-16 UTC
+Current task: #914 Phase A — automated pinned historical client/backend compatibility checks; #889 Production release remains separately gated.
 
 ## Verified state
-- Protected dev at `9c3152cdc6f92950cb0b54677b68b86c022508a3`, v0.29.1. Owner-approved PR #906 merged current protected main ancestry into dev without source-tree differences; main is dev's ancestor. Stable source `2820f7f8f5f2e73250fa929376ba3b55b505ad62` full canonical #38758786372 SUCCESS (first attempt), protected trusted Preview #38759081119 SUCCESS, CLI Vercel `dpl_G9THiGgHRsDYc8ktjs4oz5Xj3VQm` READY.
-- Protected main `bb58300052dc4c85974d97779e2b257ec4f28c7d` Production v0.17.4 unchanged. No Production backend schema/Function, R2, main product/version/tag write from #889.
-- The no-file-change PR #906 did not trigger dev path-filtered postmerge Quality Gate. This documentation task records enforceable release-readiness evidence and will be promoted through exact stable Preview so dev receives a new checked, attributable push.
-- Immutable v0.17.4 six-collection synthetic row/write checker BLOCKS Diary/message extra fields; isolated unshipped v0.17.5 bridge PASS, [#38756019542](https://github.com/carlers/mosaic-life-tracker/actions/runs/38756019542). Old installed PWA update/offline retirement remains unverified.
-- Production dr-backup scheduled execution 2026-10-15 11:01 UTC HTTP 200 reports a completed backup, NOT independently authenticated R2 marker/key/isolated restore.
-- Mixed-attempt artifacts after partial failed-jobs CI rerun are rejected by trusted main receiver; #592 checkpoint contains root cause. Fresh first-attempt canonical and PREBUILT passed for accepted reconciliation.
+- Protected `dev` remains `d51a9c6af7f67ceecdd88f02783debb45692726b` (v0.29.1); protected `main` remains `bb58300052dc4c85974d97779e2b257ec4f28c7d` (v0.17.4). #909 dev→main PR is open but blocked, no Production promotion.
+- #889 authentic Production backup snapshot `20261015T110126518Z` was independently decrypted and strictly restored to isolated DR Appwrite `6ad1074900371036eea5`: owners=6, rows=2924, files=137 exact historical evidence. Owner manually accepted the matching v0.17.4 application and later the migrated 010–015 / dev v0.29.1 app, including the prior 5/8 sync and friends' Diary failures. Current isolated DR has 17 schema tables, dev message-action deployment `6ad1a3c0058ae9c531e8`, and both Function schedules disabled. It intentionally no longer matches old immutable backup after browser writes/migrations.
+- There are no known externally installed Mosaic clients: owner controls the known v0.17.4 PWA. An unshipped v0.17.5 one-off hotfix is not required by default, but #889 still needs owner proof of synced/updated/retired old PWA before Production migrations 012–015. Original v0.17.4 strict mapper fails on new Diary/message fields; synthetic bridge was tested but not shipped.
 
-## Scope and boundaries
-- This task changes only Production release-readiness/runbook and session checkpoint, not runtime code, version, Appwrite, CI, provider settings, Production data or release tags. Version impact NONE (remains v0.29.1).
-- Production 010–015, Function activation and main cutover still need explicit verified old-client, independently restorable DR, backend target and human signed-in/mobile/offline acceptance. Do not downgrade dev, silently reuse old Production browser origins, or restore real Production accounts to shared Scratch.
+## #914 approved scope
+- Add Git-only, backend-change-triggered historical-client source contract gate to canonical `checks`, based on existing `check-scratch-client-compat.mjs`. Derive each pinned client's exact synced subscriptions from its immutable `replicationIds.ts`, reject unsupported/ambiguous sources, preserve outgoing/unknown-field constraints and report exclusions explicitly.
+- Policy `config/backend-client-compatibility.json` supports the dev v0.29.1 pre-public integration baseline. Main v0.17.4 is explicitly **pending retirement**, not falsely certified. See `docs/CLIENT_BACKEND_COMPATIBILITY.md`. Phase B live delayed-service-worker/offline fixtures and Phase C capability handshake are deferred until justified.
+- Task branch `chatgpt/914-backend-consumer-guard-20261016` from protected dev. Version impact NONE; test/tooling/docs only. No Production, Scratch, isolated DR, Vercel, protected branch or release write authorized by #914.
 
 ## Next action
-- Task [verify:focused] on exact commit with this checkpoint; source-first stable refactor Preview full canonical and protected PREBUILT READY; separately preflight then user-authorized merge to dev; prove postmerge Quality Gate/READY.
-- Prepare the protected dev-to-main release PR with aggregate user-facing release notes only after refreshed dev proof. Keep it unmerged until all Production gates in `PRODUCTION_RELEASE_READINESS.md` and #889 are independently verified; 1.0.0 requires distinct milestone approval.
+- Verify task's focused CI from an exact coherent commit. Squash task PR into isolated stable `fix/914-backend-consumer-guard-20261016`, check full canonical/Preview. Preserve explicit user approval before any promotion into dev/main.
+- #889 still requires owner-only installed PWA transition, target-specific Production migrations and Function activation approvals, real two-account/mobile/offline/PWA acceptance and separately approved dev→main release. DR fix `6147e0b4db38a083439ff8f6520785fe782d735a` remains isolated and is not silently promoted.

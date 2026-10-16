@@ -35,7 +35,9 @@ npm run appwrite:preview:compat -- \
 
 The exact subscribed collections must be verified against that client's original mapper/schema and sync code; do NOT blindly assume this illustrative selection applies to all installed PWAs. Never omit changed `diary` or `messages` merely to obtain PASS. The old mapper is expected to **BLOCK** on unknown fields; actually run the immutable historical source test before any migration. This checker does not prove Appwrite Function authorization, partial update semantics, PWA upgrade timing, offline convergence or login.
 
-Choose and verify a safe legacy-client strategy first: **a separately owner-approved v0.17.x backward-compatible Production client hotfix and proven upgrade/retirement**, or another demonstrated version-aware compatibility mechanism. Do not create new schema first and hope installed PWAs update.
+For this **pre-public owner-only release**, the owner reports no external installed clients and controls the known v0.17.4 installation. An extra v0.17.5 hotfix is **not automatically required**: before Production schema migration, explicitly verify that the owner's installed PWA is synced and updated/reinstalled or safely retired, with no unsynced offline work and no other old installations. This gate is **not passed solely because the owner controls the device**. If any v0.17.4 client remains supported or unaccounted for, retain the legacy block and require the historical bridge or a demonstrably safe alternative. Never create the schema first and hope waiting service workers update.
+
+For later multi-user releases, [client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md) and [#914](https://github.com/carlers/mosaic-life-tracker/issues/914) define a pinned supported-client matrix and source-only regression gate. The current pre-public baseline does **not** certify the older Production client or replace offline/mobile acceptance.
 
 ## Backup, Function, security and release gates
 
