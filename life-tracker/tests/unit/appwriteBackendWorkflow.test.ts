@@ -14,6 +14,7 @@ import {
 } from '../../scripts/lib/appwrite-backend.mjs';
 import {
   APPWRITE_MIGRATIONS,
+  runAppwriteMigrateCli,
   runAppwriteMigrations,
   selectMigrations,
 } from '../../scripts/appwrite-migrate.mjs';
@@ -310,6 +311,35 @@ describe('Appwrite managed-state drift checks', () => {
 });
 
 describe('ordered idempotent Appwrite migration runner', () => {
+  it('rejects a broad Production migration before any API request', async () => {
+    const productionProjectId = JSON.parse(
+      readFileSync(
+        fileURLToPath(new URL('../../appwrite.config.json', import.meta.url)),
+        'utf8'
+      )
+    ).projectId;
+    const argv = [
+      '--project', productionProjectId,
+      '--confirm-project', productionProjectId,
+      '--endpoint', 'https://sgp.cloud.appwrite.io/v1',
+    ];
+    const fetchImpl = vi.fn();
+    const options = {
+      env: { APPWRITE_API_KEY: 'fixture-only' },
+      fetchImpl,
+      log: vi.fn(),
+    };
+    await expect(runAppwriteMigrateCli({ ...options, argv }))
+      .rejects.toThrow(/Production migrations require --only/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    await expect(runAppwriteMigrateCli({
+      ...options,
+      argv: [...argv, '--only', '999-invalid'],
+    })).rejects.toThrow(/Unknown Appwrite migration/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('keeps migrations in a stable numbered order and supports a single migration selector', () => {
     expect(
       APPWRITE_MIGRATIONS.map((item) => item.id)

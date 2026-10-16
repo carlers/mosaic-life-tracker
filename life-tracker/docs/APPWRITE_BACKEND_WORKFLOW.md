@@ -195,8 +195,16 @@ baseline when this workflow was introduced. Old production-ID-hardcoded setup/ad
 scripts were therefore retired from the active tree; Git history preserves them for forensic
 reference, but future agents must not resurrect or run them.
 
-Use `--only <migration-id>` only for targeted recovery or compatibility work. The runner is
-intentionally ledger-free for now: every migration is idempotent and reconciles already
+**Production command safety:** the runner compares the confirmed target to the
+Git-owned Production `projectId` in `appwrite.config.json` and rejects commands
+without an explicit `--only <migration-id>` **before making any API requests**.
+Run each approved Production migration individually, verify the resulting schema,
+and never use the unqualified runner for Production. Confirmed non-Production
+targets retain the existing batch reconciliation path. This CLI safeguard does
+not replace old-client retirement, authenticated DR recovery checks, target
+approval or real device acceptance.
+
+The runner is intentionally ledger-free for now: every migration is idempotent and reconciles already
 applied state safely. Add the next numbered migration for new schema work; never create a new
 production-targeted one-off script and never repurpose an existing migration ID.
 
