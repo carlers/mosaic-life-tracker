@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFile } from 'node:fs/promises';
 import {
   assertConfirmedProject,
   createAppwriteAdminRequest,
@@ -121,6 +122,18 @@ export async function runAppwriteMigrateCli({
 } = {}) {
   const target = parseBackendTarget(argv, env);
   assertConfirmedProject(argv, target.projectId);
+  const { projectId: productionProjectId } = JSON.parse(
+    await readFile(new URL('../appwrite.config.json', import.meta.url), 'utf8')
+  );
+  if (typeof productionProjectId !== 'string' || !productionProjectId) {
+    throw new Error('Missing Production projectId in appwrite.config.json');
+  }
+  // Never let an omitted --only silently reconcile every migration on Production.
+  if (target.projectId === productionProjectId && !flagValue(argv, '--only')) {
+    throw new Error(
+      'Production migrations require --only <migration-id>; unscoped runs are forbidden.'
+    );
+  }
   const migrations = selectMigrations(argv);
   const request = createAppwriteAdminRequest({ ...target, fetchImpl });
   log(
