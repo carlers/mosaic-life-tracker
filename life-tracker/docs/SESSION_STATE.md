@@ -1,19 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-16 UTC
-Current task: #889 integrated Production-target acceptance before v0.29.1 pre-1.0 release.
+Current task: #914 shipped-client policy correction and pre-1.0 upgrade rehearsal preparation.
 
-## Current verified state
-- Protected `dev@c733bfa73f4ca742f6333ee75e11c642f83daf53` = v0.29.1, full Quality Gate #38891390926 SUCCESS and exact dev Vercel READY. Protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0` = v0.17.4, Vercel Production READY; #909 OPEN, unmerged, 1.0.0 not approved.
-- Owner confirmed every known old v0.17.4 PWA synced/retired plus independent R2/encryption key escrow; authenticated `npm run dr:check` PASS for snapshot `20261016T110126909Z`, completed 2026-10-16 11:02:17 UTC. This is owner attestation, not independently observed per device.
-- Approved Production schema 010–015 actually applied and individually verified via authenticated connected Appwrite API from exact Git manifest (preferred CLI blocked by credential-transfer checks): 17 tables, Diary 9 AVAILABLE columns, Messages 25 AVAILABLE columns; no 008/unscoped migration. New `message-action@6ad20d5de9380307809d` active READY from exact dev source; prior `6acb8162dc02a1deaa23` retained READY, cron/scopes/variables same. `dr_backup` unchanged. Details: issue #889 comment 6214794662.
-- Read-only `get_notifications` smoke on active Production Function returned HTTP 200. An independently rebuilt local Production-target v0.29.1 bundle passed build/PWA/size checks, HTTPS root and deep-link HTTP 200, and embeds approved Production Appwrite ID. This does NOT prove actual two-account/offline/mobile privacy acceptance.
-- The existing Production Appwrite Web platform registers a private laptop address, enabling a **local** v0.29.1 Production-target acceptance build without redirecting official Vercel Previews away from Scratch or merging main.
+## Verified production milestone
 
-## Current source-only task
-- Document the repeatable exact-SHA local Production-target acceptance protocol in `docs/PRODUCTION_ACCEPTANCE.md`, link it from `docs/README.md` and `docs/PRODUCTION_RELEASE_READINESS.md`, and replace this stale checkpoint with factual milestones.
-- Version impact NONE. No app behavior, Vercel/provider configuration, Appwrite schema/Function or protected branch promotion in this documentation task.
+- Owner-approved PR #909 merged to `main@b952f71ecd2add3172f90104bc0e856a2648ccc9`; exact main Quality Gate #38903977976 SUCCESS including canonical acceptance, matching Vercel Production `dpl_7D3WuWPB2zrFJSpxc2NDSQmyBYEZ` READY, publisher #38904182695 SUCCESS, tag/Release **v0.29.1** targets this exact commit. `dev@f9e01b6fc8f8913b75a9738fc978c0ed55427d98` is the last accepted source. **No 1.0.0 approval or tag.**
+- Prior owner-verified Production schema 010–015, active READY `message-action@6ad20d5de9380307809d`, retained READY former deployment, independent key escrow and authenticated DR health. Current live Production Appwrite storage `task_images` has fileSecurity=true and bucket permissions `[create("users")]` (no bucket-wide read).
+- Owner reports successful installed v0.29.1 PWA use on both laptop and phone; do not infer specific push, two-account privacy, offline queued-write or old/new SW-delayed compatibility scenarios were individually verified.
+
+## Current scoped implementation
+
+- Source-only #914 compatibility policy now targets **the published v0.29.1 Production merge SHA**, replacing the pre-release pinned source. Old v0.17.4 pending-retirement gate is cleared based on earlier confirmed retirement, **not** certified as backward compatible. The actual historical incompatibility remains documented.
+- Add `docs/COMPATIBILITY_REHEARSAL.md`: repeatable disposable old/new live Appwrite + waiting PWA + offline queued-write/privacy checklist, all live acceptance statuses NOT RUN. No schema, Function, Production, Scratch, release or frontend behavior mutation. Version impact NONE.
+- Follow `chatgpt/914-shipped-client-baseline-20261016` focused CI → squash into a stable `security/*` Preview → canonical CI and Vercel. No dev/main promotion without separate explicit instruction.
 
 ## Next action
-- Owner real signed-in two-account Diary/chat/reactions/notifications/private-record/offline/mobile/PWA acceptance on Production-target v0.29.1. Certificate-related PWA limitations remain BLOCKED until genuinely verified.
-- Current health/restore evidence, exact dev CI, and source pin rechecked before *separately approved* #909 dev→main merge; main full CI, matching Production Vercel deployment and release publisher then verified. No v1.0.0 tag.
+
+- Execute #914 Phase B live testing only on an approved isolated local/Scratch synthetic environment coordinated with #526; document real results. If live constraints prevent proof, record BLOCKED.
+- Investigate actual #745 permanent-chat-denial pending behavior and #855 distant-date/#858 slow-network reproducible defects; implement regression-proven critical fixes only.
+- #889 owns full 1.0 go/no-go assessment. Version/tag/release **1.0.0 is explicitly prohibited** without detailed owner review and approval.
