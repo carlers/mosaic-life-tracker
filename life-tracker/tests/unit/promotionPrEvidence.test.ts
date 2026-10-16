@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluatePromotionPrEvidence } from '../../scripts/lib/promotion-pr-evidence.mjs';
+import { evaluatePromotionPrEvidence, latestCanonicalState, waitForPromotionCanonicalEvidence } from '../../scripts/lib/promotion-pr-evidence.mjs';
 
 const a = 'a'.repeat(40);
 const b = 'b'.repeat(40);
@@ -68,5 +68,78 @@ describe('trusted-base promotion PR preflight', () => {
       { ...original.checkRuns[0], id: 11, conclusion: 'failure' },
     ] });
     expect(result.passed).toBe(false);
+  });
+});
+
+describe('canonical-acceptance PR event race', () => {
+  const check = (id: number, status: string, conclusion: string | null = null) =>
+    ({ id, name: 'canonical-acceptance', head_sha: b, status, conclusion,
+      app: { slug: 'github-actions' } });
+  it('distinguishes absent, pending, successful and terminal failure at the exact SHA', () => {
+    expect(latestCanonicalState({ ...valid(), checkRuns: [] })).toBe('missing');
+    expect(latestCanonicalState({ ...valid(), checkRuns: [check(11, 'in_progress')] })).toBe('pending');
+    expect(latestCanonicalState({ ...valid(), checkRuns: [check(11, 'completed', 'success')] })).toBe('success');
+    expect(latestCanonicalState({ ...valid(), checkRuns: [check(11, 'completed', 'failure')] })).toBe('failed');
+  });
+  it('waits through a missing and then queued exact-SHA check until latest succeeds', async () => {
+    const sequence = [
+      { ...valid(), checkRuns: [] },
+      { ...valid(), checkRuns: [check(11, 'queued')] },
+      { ...valid(), checkRuns: [check(11, 'completed', 'success')] },
+    ];
+    let reads = 0;
+    let waits = 0;
+    const result = await waitForPromotionCanonicalEvidence({
+      evidence: sequence[0],
+      refresh: async () => sequence[++reads],
+      sleep: async () => { waits += 1; }, maxAttempts: 4, intervalMs: 1,
+    });
+    expect(result).toEqual({ passed: true, reasons: [] });
+    expect(reads).toBe(2);
+    expect(waits).toBe(2);
+  });
+  it('never accepts an older green check while the newest is pending', async () => {
+    const evidence = { ...valid(), checkRuns: [
+      check(10, 'completed', 'success'), check(11, 'in_progress'),
+    ] };
+    expect(latestCanonicalState(evidence)).toBe('pending');
+    const result = await waitForPromotionCanonicalEvidence({
+      evidence, refresh: async () => evidence, sleep: async () => {},
+      maxAttempts: 2, intervalMs: 1,
+    });
+    expect(result.passed).toBe(false);
+  });
+  it('fails without waiting when newest check failed or independent checks reject', async () => {
+    for (const evidence of [
+      { ...valid(), checkRuns: [check(11, 'completed', 'failure')] },
+      { ...valid(), draft: true, checkRuns: [] },
+    ]) {
+      let waited = false;
+      const result = await waitForPromotionCanonicalEvidence({
+        evidence, refresh: async () => { throw Error('should not refresh'); },
+        sleep: async () => { waited = true; },
+      });
+      expect(result.passed).toBe(false);
+      expect(waited).toBe(false);
+    }
+  });
+  it('fails closed if base/head drifts while waiting', async () => {
+    const result = await waitForPromotionCanonicalEvidence({
+      evidence: { ...valid(), checkRuns: [] },
+      refresh: async () => ({ ...valid(), liveHeadSha: a, checkRuns: [check(11, 'completed', 'success')] }),
+      sleep: async () => {}, maxAttempts: 3,
+    });
+    expect(result.passed).toBe(false);
+    expect(result.reasons.join(' ')).toMatch(/changed/);
+  });
+  it('times out when no canonical result ever arrives', async () => {
+    let attempts = 0;
+    const evidence = { ...valid(), checkRuns: [] };
+    const result = await waitForPromotionCanonicalEvidence({
+      evidence, refresh: async () => { attempts++; return evidence; },
+      sleep: async () => {}, maxAttempts: 3,
+    });
+    expect(result.passed).toBe(false);
+    expect(attempts).toBe(2);
   });
 });
