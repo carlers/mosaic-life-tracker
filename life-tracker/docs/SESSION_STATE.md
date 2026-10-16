@@ -1,19 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-16 UTC
-Current task: #889 integrated Production-target acceptance before v0.29.1 pre-1.0 release.
+Current task: #855 bounded Day View far-date navigation regression repair (v0.29.2 Preview only).
 
-## Current verified state
-- Protected `dev@c733bfa73f4ca742f6333ee75e11c642f83daf53` = v0.29.1, full Quality Gate #38891390926 SUCCESS and exact dev Vercel READY. Protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0` = v0.17.4, Vercel Production READY; #909 OPEN, unmerged, 1.0.0 not approved.
-- Owner confirmed every known old v0.17.4 PWA synced/retired plus independent R2/encryption key escrow; authenticated `npm run dr:check` PASS for snapshot `20261016T110126909Z`, completed 2026-10-16 11:02:17 UTC. This is owner attestation, not independently observed per device.
-- Approved Production schema 010–015 actually applied and individually verified via authenticated connected Appwrite API from exact Git manifest (preferred CLI blocked by credential-transfer checks): 17 tables, Diary 9 AVAILABLE columns, Messages 25 AVAILABLE columns; no 008/unscoped migration. New `message-action@6ad20d5de9380307809d` active READY from exact dev source; prior `6acb8162dc02a1deaa23` retained READY, cron/scopes/variables same. `dr_backup` unchanged. Details: issue #889 comment 6214794662.
-- Read-only `get_notifications` smoke on active Production Function returned HTTP 200. An independently rebuilt local Production-target v0.29.1 bundle passed build/PWA/size checks, HTTPS root and deep-link HTTP 200, and embeds approved Production Appwrite ID. This does NOT prove actual two-account/offline/mobile privacy acceptance.
-- The existing Production Appwrite Web platform registers a private laptop address, enabling a **local** v0.29.1 Production-target acceptance build without redirecting official Vercel Previews away from Scratch or merging main.
+## Verified baseline
+- Owner-tested published Production v0.29.1: `main@b952f71ecd2add3172f90104bc0e856a2648ccc9`, Quality Gate #38903977976 SUCCESS, Vercel Production READY, GitHub Release publisher #38904182695 SUCCESS. User installed and reports normal laptop+phone PWA operation; specific Web Push and delayed offline SW upgrade remain independent acceptance.
+- Protected `dev@f9e01b6fc8f8913b75a9738fc978c0ed55427d98` remains v0.29.1. No v1.0.0 approval, tag or protected promotion.
+- Separate #914 source-only supported-release pin + disposable Phase B rehearsal procedure is stable `security/914-release-client-compat-20261016@eec2d3bfabb945ee91790a06213827b5028aac1a`; task focused #38913427677 PASS, stable full Quality Gate #38913679530 SUCCESS and exact artifact trusted Preview Delivery #38913955908 SUCCESS. Real old/new offline/permission rehearsal **NOT RUN**; do not represent that as a PASS. No dev/main merge authorized.
 
-## Current source-only task
-- Document the repeatable exact-SHA local Production-target acceptance protocol in `docs/PRODUCTION_ACCEPTANCE.md`, link it from `docs/README.md` and `docs/PRODUCTION_RELEASE_READINESS.md`, and replace this stale checkpoint with factual milestones.
-- Version impact NONE. No app behavior, Vercel/provider configuration, Appwrite schema/Function or protected branch promotion in this documentation task.
+## #855 current scoped fix
+- `useDayViewSwiper` previously anchored its 181-day logical window forever at initial selectedDate. Any later external date selection beyond ±90 days clamped to the boundary; continued daily swipes eventually hit the last slide. The existing 19-day test did not exercise this.
+- Re-anchor only when committed selected date approaches ±87 days, preserve ordinary short navigation and fast-swipe window; keyed Swiper remount resets the virtual DOM to the centered selected day. Add focused React regression tests for far-forward, far-backward, near-edge, subsequent arrows and unchanged short-jump behavior.
+- Product version candidate **0.29.2** (PATCH user-testable fix) in package, lock root metadata and appVersion. No Appwrite schema/Function, Scratch, Production or design system changes.
+- Task branch `chatgpt/855-day-view-window-20261016` must pass focused CI before squash into `fix/855-day-view-window-20261016` stable Preview with full Quality Gate and Vercel READY. No automatic dev/main promotion.
 
 ## Next action
-- Owner real signed-in two-account Diary/chat/reactions/notifications/private-record/offline/mobile/PWA acceptance on Production-target v0.29.1. Certificate-related PWA limitations remain BLOCKED until genuinely verified.
-- Current health/restore evidence, exact dev CI, and source pin rechecked before *separately approved* #909 dev→main merge; main full CI, matching Production Vercel deployment and release publisher then verified. No v1.0.0 tag.
+- Run focused CI for the exact #855 task commit; investigate and repair failing unit/react/contracts checks, then stable Preview full canonical and trusted CI-first Preview delivery.
+- Only after stable Preview acceptance propose this fix for separately authorized `dev` integration; do not tag or release v1.0.0.
+- Continue #745 permanent chat rejection audit and #914 live isolated old/new-client PWA rehearsal; #889 owns the eventual 1.0 go/no-go review and requires explicit owner approval.

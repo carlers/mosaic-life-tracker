@@ -306,7 +306,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     slideDateStrs,
     activeIndex,
     initialIndex,
-    renderWindow,
+    anchorKey,
+    renderWindow:
     handlePrevDay,
     handleNextDay,
     handleSlideChange,
@@ -906,6 +907,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         </>
       ) : (
       <Swiper
+        key={anchorKey}
         // Preserve all 181 logical dates for direct jumps, but avoid 181 DOM
         // slides (and their synchronous layout) on every sheet open.
         modules={renderMode === 'sheet' ? [Virtual] : undefined}
