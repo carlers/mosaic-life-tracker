@@ -1,19 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-16 UTC
-Current task: #889 integrated Production-target acceptance before v0.29.1 pre-1.0 release.
+Current task: #745 approved permanent chat send-denial repair, v0.29.3 isolated Preview candidate.
 
-## Current verified state
-- Protected `dev@c733bfa73f4ca742f6333ee75e11c642f83daf53` = v0.29.1, full Quality Gate #38891390926 SUCCESS and exact dev Vercel READY. Protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0` = v0.17.4, Vercel Production READY; #909 OPEN, unmerged, 1.0.0 not approved.
-- Owner confirmed every known old v0.17.4 PWA synced/retired plus independent R2/encryption key escrow; authenticated `npm run dr:check` PASS for snapshot `20261016T110126909Z`, completed 2026-10-16 11:02:17 UTC. This is owner attestation, not independently observed per device.
-- Approved Production schema 010–015 actually applied and individually verified via authenticated connected Appwrite API from exact Git manifest (preferred CLI blocked by credential-transfer checks): 17 tables, Diary 9 AVAILABLE columns, Messages 25 AVAILABLE columns; no 008/unscoped migration. New `message-action@6ad20d5de9380307809d` active READY from exact dev source; prior `6acb8162dc02a1deaa23` retained READY, cron/scopes/variables same. `dr_backup` unchanged. Details: issue #889 comment 6214794662.
-- Read-only `get_notifications` smoke on active Production Function returned HTTP 200. An independently rebuilt local Production-target v0.29.1 bundle passed build/PWA/size checks, HTTPS root and deep-link HTTP 200, and embeds approved Production Appwrite ID. This does NOT prove actual two-account/offline/mobile privacy acceptance.
-- The existing Production Appwrite Web platform registers a private laptop address, enabling a **local** v0.29.1 Production-target acceptance build without redirecting official Vercel Previews away from Scratch or merging main.
+## Verified baseline
+- Published Production main@b952f71ecd2add3172f90104bc0e856a2648ccc9 is v0.29.1; owner reports installed laptop and phone PWAs working.
+- Protected dev@f9e01b6fc8f8913b75a9738fc978c0ed55427d98 is still v0.29.1. No v1.0.0 approval.
+- Owner accepts #855 v0.29.2 Day View date jumps; stable fix/855-day-view-window-20261016@10feb70b8d942593fbbd11b2ed5d6120cab35500 passed full canonical #38915794320, not yet promoted.
+- #914 source-only supported-release pin stable eec2d3bfabb945ee91790a06213827b5028aac1a passed full canonical/Preview. Its Phase B live old/new offline/PWA rehearsal has not been run.
 
-## Current source-only task
-- Document the repeatable exact-SHA local Production-target acceptance protocol in `docs/PRODUCTION_ACCEPTANCE.md`, link it from `docs/README.md` and `docs/PRODUCTION_RELEASE_READINESS.md`, and replace this stale checkpoint with factual milestones.
-- Version impact NONE. No app behavior, Vercel/provider configuration, Appwrite schema/Function or protected branch promotion in this documentation task.
+## Current implementation
+- #745 fix: permanent Function 400/403/404/409/422 errors previously left outgoing pending messages auto-retrying without usable feedback.
+- Keep RxDB schema and remote delivery_status pending/delivered unchanged. Track denied message IDs locally per owner with bounded persistent metadata; suppress automatic retries of denied IDs; render accessible Not sent + Retry; retry the original ID and clear marker only after verified server receipt and local delivered patch. No message body/error logged into denial storage.
+- Preserve bounded transient, timeout, 429 and 5xx retries; 401 is authentication/session handling. Do not silently discard local messages or move denial metadata into Appwrite.
+- Work branch chatgpt/745-send-denial-20261016, stable Preview target fix/745-send-denial-20261016. Version candidate 0.29.3 follows v0.29.2 #855.
 
 ## Next action
-- Owner real signed-in two-account Diary/chat/reactions/notifications/private-record/offline/mobile/PWA acceptance on Production-target v0.29.1. Certificate-related PWA limitations remain BLOCKED until genuinely verified.
-- Current health/restore evidence, exact dev CI, and source pin rechecked before *separately approved* #909 dev→main merge; main full CI, matching Production Vercel deployment and release publisher then verified. No v1.0.0 tag.
+- Focused exact-SHA CI, repair if necessary, task→stable squash, full canonical CI and READY Preview. Record manual denied-send/revoked-friend/two-account testing separately.
+- #855, #745, #914 promotions to dev require independent owner authorization/tree-parity checks. #889 controls the 1.0 milestone and final go/no-go; never tag 1.0.0 automatically.
