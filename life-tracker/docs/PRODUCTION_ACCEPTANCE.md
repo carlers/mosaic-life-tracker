@@ -47,8 +47,8 @@ From the **Git root's `life-tracker/` directory** on the registered laptop:
 ```bash
 git status --short
 git fetch origin
-git switch dev
-git pull --ff-only origin dev
+# Pin the accepted product source: subsequent docs-only dev merges move dev HEAD.
+git switch --detach c733bfa73f4ca742f6333ee75e11c642f83daf53
 test "$(git rev-parse HEAD)" = "c733bfa73f4ca742f6333ee75e11c642f83daf53"
 npm ci --ignore-scripts --no-audit --no-fund
 ```
