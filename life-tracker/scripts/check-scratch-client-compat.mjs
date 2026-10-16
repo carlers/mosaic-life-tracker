@@ -183,6 +183,35 @@ export function checkConsumerWrites({
   return failures;
 }
 
+/**
+ * Resolve the exact TablesDB subscriptions from the immutable consumer source.
+ * Never infer old subscriptions from the current server manifest: new domains
+ * would be falsely counted as breaking older, otherwise compatible clients.
+ */
+export function subscribedTableIds({ sha, readSource = sourceAt }) {
+  const module = evaluateTypeScript(
+    readSource(sha, 'life-tracker/src/db/replicationIds.ts'),
+    sha + '/replicationIds.ts'
+  );
+  const collections = module.SYNCED_COLLECTION_NAMES;
+  if (!Array.isArray(collections) || collections.length === 0 ||
+      collections.some(value => typeof value !== 'string') ||
+      new Set(collections).size !== collections.length) {
+    throw new Error('Missing or invalid immutable sync subscription list: ' + sha);
+  }
+  const tableByCollection = new Map(
+    Object.entries(SYNCED_TABLE_IDS).map(([table, collection]) => [collection, table])
+  );
+  const ids = collections.map(collection => {
+    const table = tableByCollection.get(collection);
+    if (!table) {
+      throw new Error('Unknown immutable subscription ' + collection + ' in ' + sha);
+    }
+    return table;
+  });
+  return verifiedTableIds(ids);
+}
+
 export function checkConsumerSource({
   sha, readSource = sourceAt, tables = MOSAIC_TABLES,
   tableIds = Object.keys(SYNCED_TABLE_IDS),
