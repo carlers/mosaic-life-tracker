@@ -15,7 +15,7 @@ Current task: #914 shipped-client policy correction and pre-1.0 upgrade rehearsa
 - Add `docs/COMPATIBILITY_REHEARSAL.md`: repeatable disposable old/new live Appwrite + waiting PWA + offline queued-write/privacy checklist, all live acceptance statuses NOT RUN. No schema, Function, Production, Scratch, release or frontend behavior mutation. Version impact NONE.
 - Follow `chatgpt/914-shipped-client-baseline-20261016` focused CI → squash into a stable `security/*` Preview → canonical CI and Vercel. No dev/main promotion without separate explicit instruction.
 
-## Next safe actions
+## Next action
 
 - Execute #914 Phase B live testing only on an approved isolated local/Scratch synthetic environment coordinated with #526; document real results. If live constraints prevent proof, record BLOCKED.
 - Investigate actual #745 permanent-chat-denial pending behavior and #855 distant-date/#858 slow-network reproducible defects; implement regression-proven critical fixes only.
