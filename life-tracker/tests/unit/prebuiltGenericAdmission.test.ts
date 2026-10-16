@@ -5,7 +5,8 @@ import { isExactPrebuiltSourceOptIn, expectedIsolatedGitConfig,
   '../../scripts/lib/prebuilt-candidate-payload.mjs';
 import { sourceOptInStatus } from '../../scripts/lib/prebuilt-github-admission.mjs';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH,
-  REVIEWED_GENERIC_QUALITY_GATE_BLOB, assertReviewedGenericQualityGate } from
+  REVIEWED_GENERIC_QUALITY_GATE_BLOB, REVIEWED_GENERIC_QUALITY_GATE_BLOB_914,
+  assertReviewedGenericQualityGate } from
   '../../scripts/lib/prebuilt-receiver-gate.mjs';
 
 const sha = 'a'.repeat(40);
@@ -30,9 +31,17 @@ afterEach(() => {
 describe('default-off generic CI-first Preview admission #592', () => {
   it('rejects a changed candidate Quality Gate definition before provider admission', () => {
     expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB).toMatch(/^[a-f0-9]{40}$/);
+    expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_914).toMatch(/^[a-f0-9]{40}$/);
+    expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_914).not.toBe(REVIEWED_GENERIC_QUALITY_GATE_BLOB);
     const generic = 'feature/normal-work';
     expect(assertReviewedGenericQualityGate(generic,
       REVIEWED_GENERIC_QUALITY_GATE_BLOB)).toBe(true);
+    expect(assertReviewedGenericQualityGate(generic,
+      REVIEWED_GENERIC_QUALITY_GATE_BLOB_914)).toBe(true);
+    // An unreviewed third producer, including a one-character YAML change, stays blocked.
+    const altered914 = REVIEWED_GENERIC_QUALITY_GATE_BLOB_914.slice(0, -1) + '0';
+    expect(() => assertReviewedGenericQualityGate(generic, altered914))
+      .toThrow(/Unreviewed/);
     for (const changed of [null, undefined, '', 'f'.repeat(40)])
       expect(() => assertReviewedGenericQualityGate(generic, changed))
         .toThrow(/Unreviewed/);
