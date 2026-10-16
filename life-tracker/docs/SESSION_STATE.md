@@ -14,6 +14,6 @@ Current task: #914 Scratch wildcard Preview-origin guidance correction (docs-onl
 ## Current change
 - Documentation-only: update Scratch and backend Preview runbooks to accept either exact hosts or matching existing wildcard, explicitly restrict wildcard policy to disposable Scratch and retain live browser CORS/login verification. No runtime, version, backend or UI changes.
 
-## Next actions
+## Next action
 - [verify:focused] task docs check → squash into isolated `security/914-scratch-wildcard-20261016` Preview → full canonical quality gate. No protected promotion without review/approval.
 - User or authorized real browser harness must perform synthetic two-account #745 test; #914 Phase B needs genuine old/new offline PWA and schema/Function rehearsal on isolated disposable backend before 1.0 readiness.
