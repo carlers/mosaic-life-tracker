@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
+import { PwaAssetProgressView } from '../components/ui/PwaAssetProgressView';
 import { useAuth } from '../hooks/useAuth';
 import { usePwaLifecycle } from '../hooks/usePwaLifecycle';
 import type { PwaUpdateCheckStage } from '../lib/pwaLifecycle';
@@ -49,6 +50,7 @@ export const SettingsPage: React.FC = () => {
     applyUpdate,
     checkForUpdate,
     updateAvailable,
+    assetProgress,
   } = usePwaLifecycle();
   const { mode: appearanceMode } = useAppearance();
   const navigate = useNavigate();
@@ -436,7 +438,7 @@ export const SettingsPage: React.FC = () => {
             showChevron={false}
             onClick={isUpdateReady ? handleApplyUpdate : handleCheckForUpdates}
           />
-          {updateStatusMessage && (
+          {(updateStatusMessage || (assetProgress && !isUpdateReady)) && (
             <div
               role="status"
               aria-live="polite"
@@ -444,14 +446,17 @@ export const SettingsPage: React.FC = () => {
               className="px-4 pb-3 text-sm text-gray-400"
             >
               <div className="flex items-center gap-2">
-                {(isCheckingUpdate || isApplyingUpdate) && (
+                {(isCheckingUpdate || isApplyingUpdate || displayedUpdateStage === 'background-download') && (
                   <span
                     className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-gray-500 border-t-transparent animate-spin"
                     aria-hidden="true"
                   />
                 )}
-                <span>{updateStatusMessage}</span>
+                <span>{updateStatusMessage ?? 'App update in progress…'}</span>
               </div>
+              {assetProgress && !isUpdateReady && displayedUpdateStage !== 'error' && (
+                <PwaAssetProgressView progress={assetProgress} />
+              )}
             </div>
           )}
         </section>

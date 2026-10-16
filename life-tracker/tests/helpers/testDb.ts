@@ -11,7 +11,7 @@ import {
   tasksSchema,
   categoriesSchema,
   diarySchema,
-  settingsSchema,
+    settingsSchema,
   friendshipsSchema,
   messagesSchema,
   syncMetaSchema,
@@ -28,6 +28,7 @@ import {
   friendshipsMigrationStrategies,
   messagesMigrationStrategies,
   categoriesMigrationStrategies,
+  diaryMigrationStrategies,
   settingsMigrationStrategies,
   syncMetaMigrationStrategies,
 } from '../../src/db/migrations';
@@ -52,7 +53,7 @@ const collectionDefinitions = {
     schema: categoriesSchema,
     migrationStrategies: categoriesMigrationStrategies,
   },
-  diary: { schema: diarySchema },
+  diary: { schema: diarySchema, migrationStrategies: diaryMigrationStrategies },
   settings: {
     schema: settingsSchema,
     migrationStrategies: settingsMigrationStrategies,

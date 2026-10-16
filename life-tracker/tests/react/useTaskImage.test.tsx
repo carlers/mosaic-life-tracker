@@ -108,7 +108,7 @@ describe('useTaskImage', () => {
       ({ enabled }) => useTaskImage('file_gated_test', enabled),
       { initialProps: { enabled: false } }
     );
-    expect(result.current).toEqual({ imageUrl: null, isLoading: false });
+    expect(result.current).toMatchObject({ imageUrl: null, isLoading: false });
     expect(mockGetLocalImageUrl).not.toHaveBeenCalled();
 
     rerender({ enabled: true });
@@ -132,4 +132,55 @@ describe('useTaskImage', () => {
     );
     errorSpy.mockRestore();
   });
+  it('repairs an already cached broken image by bypassing the local cache exactly once', async () => {
+    mockGetLocalImageUrl
+      .mockResolvedValueOnce('blob:damaged-cached-photo')
+      .mockResolvedValueOnce('blob:recovered-photo');
+    const { result } = renderHook(() => useTaskImage('file_legacy_broken'));
+    await waitFor(() => expect(result.current.imageUrl).toBe('blob:damaged-cached-photo'));
+
+    act(() => result.current.handleImageError());
+    await waitFor(() => expect(result.current.imageUrl).toBe('blob:recovered-photo'));
+    expect(mockGetLocalImageUrl).toHaveBeenNthCalledWith(2, 'file_legacy_broken', true);
+    expect(mockGetLocalImageUrl).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops automatic retries after a second decoding failure and allows manual refresh', async () => {
+    mockGetLocalImageUrl
+      .mockResolvedValueOnce('blob:bad-one')
+      .mockResolvedValueOnce('blob:bad-two')
+      .mockResolvedValueOnce('blob:working-again');
+    const { result } = renderHook(() => useTaskImage('file_manual_recovery'));
+    await waitFor(() => expect(result.current.imageUrl).toBe('blob:bad-one'));
+    act(() => result.current.handleImageError());
+    await waitFor(() => expect(result.current.imageUrl).toBe('blob:bad-two'));
+    act(() => result.current.handleImageError());
+    expect(result.current).toMatchObject({ imageUrl: null, isLoading: false });
+    expect(mockGetLocalImageUrl).toHaveBeenCalledTimes(2);
+
+    act(() => result.current.retryImage());
+    await waitFor(() => expect(result.current.imageUrl).toBe('blob:working-again'));
+    expect(mockGetLocalImageUrl).toHaveBeenNthCalledWith(3, 'file_manual_recovery', true);
+  });
+
+  it('retries a failed remote image on focus without requiring a remount', async () => {
+    mockGetLocalImageUrl
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce('blob:recovered-image');
+
+    const { result } = renderHook(() => useTaskImage('file_retry_test'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.imageUrl).toBeNull();
+    expect(mockGetLocalImageUrl).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
+    await waitFor(() =>
+      expect(result.current.imageUrl).toBe('blob:recovered-image')
+    );
+    expect(mockGetLocalImageUrl).toHaveBeenCalledTimes(2);
+  });
+
 });

@@ -10,8 +10,9 @@ const PAGE_SIZE = 100;
 const MAX_PAGES = 1000;
 const DELETE_CONCURRENCY = 8;
 
-const OWNED_TABLES = ['tasks', 'categories', 'diary', 'settings', 'push_subscriptions'];
+const OWNED_TABLES = ['tasks', 'categories', 'diary', 'settings', 'bucket_list_items', 'bucket_task_links', 'push_subscriptions'];
 const CROSS_REFERENCE_QUERIES = {
+  diary_reactions: ['owner_id', 'user_id'],
   task_shares: ['owner_id', 'invitee_id'],
   friendships: ['user_id', 'friend_id'],
   messages: ['user_id', 'sender_id', 'recipient_id'],

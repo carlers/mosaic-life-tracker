@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -15,25 +15,18 @@ import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
+import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
 
-const LazyDayViewSheet = React.lazy(() =>
-  import('../components/home/views/DayViewSheet').then(({ DayViewSheet }) => ({
-    default: DayViewSheet,
-  }))
-);
-const LazyFriendCarouselSettingsSheet = React.lazy(() =>
-  import('../components/home/FriendCarouselSettingsSheet').then(
-    ({ FriendCarouselSettingsSheet }) => ({
-      default: FriendCarouselSettingsSheet,
-    })
-  )
-);
+const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
+  createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
 const RENDER_WINDOW = 1;
 const INITIAL_RENDER_WINDOW = 0;
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     persons,
     reorder,
@@ -90,12 +83,42 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     if (carouselLoading) return;
     markStartup('home:carousel-ready');
+    // Warm only the preferences module once its owning carousel is usable.
+    const warm = () => { if (!document.hidden) void preloadFriendSettings().catch(() => {}); };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1800 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(warm, 700);
+    return () => window.clearTimeout(id);
   }, [carouselLoading]);
 
   useEffect(() => {
     if (tasksLoading || categoriesLoading || carouselLoading) return;
     markStartup('home:local-data-ready');
   }, [carouselLoading, categoriesLoading, tasksLoading]);
+
+  // Warm the code after first usable local Home data, never in the startup graph.
+  // This does not mount the sheet or start its data hooks. Early taps still load
+  // on demand through the same cached import.
+  useEffect(() => {
+    // Friend/profile reads can remain pending while the owner Calendar is usable.
+    // They must not indefinitely suppress idle Day View module warmup.
+    if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
+
+    const warm = () => {
+      if (document.visibilityState === 'visible') void loadDayViewSheet().catch(() => {
+        // A warmup failure must not block the on-demand retry.
+      });
+    };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1200 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    // Safari fallback retains the delayed, startup-safe import.
+    const id = window.setTimeout(warm, 900);
+    return () => window.clearTimeout(id);
+  }, [activePersonId, categoriesLoading, tasksLoading]);
 
   useEffect(() => {
     const schedule = () => setRenderWindow(RENDER_WINDOW);
@@ -198,9 +221,35 @@ export const HomePage: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isSearchOpen]);
 
+  const handleOpenBucketList = useCallback(() => {
+    navigate('/bucket-list', { state: makeRouteParentState('/home') });
+  }, [navigate]);
+
   const handleOpenBacklog = useCallback(() => {
     navigate('/backlog', { state: makeRouteParentState('/home') });
   }, [navigate]);
+
+  // Deep-link a real dated task from its private Bucket List aspiration.
+  useEffect(() => {
+    const state = location.state as { bucketLinkedFocusTaskId?: string; bucketLinkedFocusDate?: string } | null;
+    if (!state?.bucketLinkedFocusTaskId || !state.bucketLinkedFocusDate) return;
+    const date = parseISO(state.bucketLinkedFocusDate);
+    if (!isValid(date)) return;
+    // Navigation is an external event. Defer this update to its microtask,
+    // not a synchronous state cascade inside the effect.
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setSearchSelectedDate(date);
+      setSearchFocusTaskId(state.bucketLinkedFocusTaskId ?? null);
+      setSearchSheetKey(current => current + 1);
+      searchDaySheetOpenRef.current = true;
+      setSearchDaySheetOpen(true);
+      // Consume the route intent exactly once, including on Android Back.
+      navigate('/home', { replace: true, state: null });
+    });
+    return () => { cancelled = true; };
+  }, [location.key, location.state, navigate]);
 
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
     if (task.date === '') {
@@ -241,7 +290,7 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} />}
+          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} />}
         />
 
         <div inert={isSearchOpen ? true : undefined} className="flex-1 min-h-0 flex flex-col relative">
@@ -299,7 +348,6 @@ export const HomePage: React.FC = () => {
       </div>
 
       {settingsSheetMounted && (
-        <React.Suspense fallback={null}>
           <LazyFriendCarouselSettingsSheet
             isOpen={isSettingsOpen}
             onClose={handleCloseSettings}
@@ -310,22 +358,19 @@ export const HomePage: React.FC = () => {
             onToggleVisibility={toggleVisibility}
             onReset={resetOrder}
           />
-        </React.Suspense>
       )}
 
       {searchSelectedDate && (
-        <React.Suspense fallback={null}>
-          <LazyDayViewSheet
-            key={searchSheetKey}
-            isOpen={searchDaySheetOpen}
-            onClose={handleCloseSearchDaySheet}
-            selectedDate={searchSelectedDate}
-            onDateChange={handleSearchDateChange}
-            tasks={ownerTasks}
-            categories={ownerCategories}
-            focusTaskId={searchFocusTaskId}
-          />
-        </React.Suspense>
+        <LazyDayViewSheet
+          key={searchSheetKey}
+          isOpen={searchDaySheetOpen}
+          onClose={handleCloseSearchDaySheet}
+          selectedDate={searchSelectedDate}
+          onDateChange={handleSearchDateChange}
+          tasks={ownerTasks}
+          categories={ownerCategories}
+          focusTaskId={searchFocusTaskId}
+        />
       )}
     </>
   );

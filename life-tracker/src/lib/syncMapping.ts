@@ -1,6 +1,8 @@
 type AppwriteRow = Record<string, unknown>;
 type AppwritePayload = Record<string, unknown>;
 const KNOWN_FIELDS: Record<string, Set<string>> = {
+  bucketTaskLinks: new Set(['user_id', 'bucket_list_id', 'task_id', 'created_at', 'updated_at', 'deleted']),
+  bucketList: new Set(['user_id', 'title', 'description', 'achieved', 'achieved_at', 'created_at', 'updated_at', 'deleted']),
   tasks: new Set([
     'title',
     'is_completed',
@@ -34,6 +36,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
   diary: new Set([
     'date',
     'content',
+    'emoji',
+    'photos',
     'visibility',
     'user_id',
     'deleted',
@@ -64,6 +68,10 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'task_ref_title',
     'task_ref_date',
     'task_ref_color',
+    'diary_ref_id',
+    'diary_ref_owner_id',
+    'diary_ref_date',
+    'diary_ref_excerpt',
     'reply_to_id',
     'reply_to_content',
     'reply_to_sender_id',
@@ -112,7 +120,23 @@ export function toAppwriteFormat(
   delete source._deleted;
   delete source._rev;
   const mapped: AppwritePayload = {};
-  if (collection === 'tasks') {
+  if (collection === 'bucketTaskLinks') {
+    mapped.user_id = userId;
+    mapped.bucket_list_id = source.bucketListId;
+    mapped.task_id = source.taskId;
+    mapped.created_at = source.createdAt;
+    mapped.updated_at = source.updatedAt;
+    mapped.deleted = source.isDeleted ?? false;
+  } else if (collection === 'bucketList') {
+    mapped.user_id = userId;
+    mapped.title = source.title ?? '';
+    mapped.description = source.description ?? '';
+    mapped.achieved = source.achieved ?? false;
+    mapped.achieved_at = source.achievedAt ?? '';
+    mapped.created_at = source.createdAt;
+    mapped.updated_at = source.updatedAt;
+    mapped.deleted = source.isDeleted ?? false;
+  } else if (collection === 'tasks') {
     mapped.title = source.title || '';
     mapped.is_completed = source.completed ?? false;
     mapped.category_id = source.categoryId || '';
@@ -143,6 +167,8 @@ export function toAppwriteFormat(
   } else if (collection === 'diary') {
     mapped.date = source.date || '';
     mapped.content = source.content || '';
+    mapped.emoji = source.emoji || '';
+    mapped.photos = source.photos || '[]';
     mapped.visibility = source.visibility || 'private';
     mapped.user_id = userId;
     mapped.deleted = source.isDeleted ?? false;
@@ -176,6 +202,13 @@ export function toAppwriteFormat(
     mapped.task_ref_title = source.taskRefTitle || '';
     mapped.task_ref_date = source.taskRefDate || '';
     mapped.task_ref_color = source.taskRefColor || '';
+    // Old Scratch deployments remain compatible for messages without references.
+    if (source.diaryRefId) {
+      mapped.diary_ref_id = source.diaryRefId;
+      mapped.diary_ref_owner_id = source.diaryRefOwnerId || '';
+      mapped.diary_ref_date = source.diaryRefDate || '';
+      mapped.diary_ref_excerpt = source.diaryRefExcerpt || '';
+    }
     mapped.reply_to_id = source.replyToId || '';
     mapped.reply_to_content = source.replyToContent || '';
     mapped.reply_to_sender_id = source.replyToSenderId || '';
@@ -205,7 +238,44 @@ export function fromAppwriteFormat(
   delete mapped.$databaseId;
   delete mapped.$tableId;
   delete mapped.$sequence;
-  if (collection === 'tasks') {
+  // Scratch schema additions can reach older Preview builds. Preserve the
+  // server-only values remotely but never feed unknown keys into strict RxDB
+  // documents. This applies to every collection, not only messages.
+  const known = KNOWN_FIELDS[collection];
+  if (known) {
+    for (const key of Object.keys(mapped)) {
+      if (!known.has(key)) delete mapped[key];
+    }
+  }
+  if (collection === 'bucketTaskLinks') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = row.user_id;
+    mapped.bucketListId = row.bucket_list_id;
+    mapped.taskId = row.task_id;
+    mapped.createdAt = row.created_at || row.$createdAt;
+    mapped.updatedAt = row.updated_at || row.$updatedAt;
+    mapped.isDeleted = row.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.bucket_list_id;
+    delete mapped.task_id;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+    delete mapped.deleted;
+  } else if (collection === 'bucketList') {
+    mapped.id = row.$id || mapped.id;
+    mapped.userId = row.user_id;
+    mapped.description = row.description || '';
+    mapped.achieved = row.achieved === true;
+    mapped.achievedAt = row.achieved_at || '';
+    mapped.createdAt = row.created_at || row.$createdAt;
+    mapped.updatedAt = row.updated_at || row.$updatedAt;
+    mapped.isDeleted = row.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.achieved_at;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+    delete mapped.deleted;
+  } else if (collection === 'tasks') {
     mapped.id = row.$id || mapped.id;
     mapped.completed = mapped.is_completed ?? false;
     mapped.categoryId = mapped.category_id || '';
@@ -258,6 +328,8 @@ export function fromAppwriteFormat(
       row.$createdAt ||
       new Date().toISOString();
     mapped.content = row.content || '';
+    mapped.emoji = row.emoji || '';
+    mapped.photos = row.photos || '[]';
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.created_at;
@@ -303,6 +375,14 @@ export function fromAppwriteFormat(
     mapped.taskRefTitle = mapped.task_ref_title || '';
     mapped.taskRefDate = mapped.task_ref_date || '';
     mapped.taskRefColor = mapped.task_ref_color || '';
+    // Older messages have no diary context. Preserve their original shape
+    // rather than synthesizing four empty fields on every legacy round trip.
+    if (mapped.diary_ref_id) {
+      mapped.diaryRefId = mapped.diary_ref_id;
+      mapped.diaryRefOwnerId = mapped.diary_ref_owner_id || '';
+      mapped.diaryRefDate = mapped.diary_ref_date || '';
+      mapped.diaryRefExcerpt = mapped.diary_ref_excerpt || '';
+    }
     mapped.replyToId = mapped.reply_to_id || '';
     mapped.replyToContent = mapped.reply_to_content || '';
     mapped.replyToSenderId = mapped.reply_to_sender_id || '';
@@ -322,6 +402,10 @@ export function fromAppwriteFormat(
     delete mapped.task_ref_title;
     delete mapped.task_ref_date;
     delete mapped.task_ref_color;
+    delete mapped.diary_ref_id;
+    delete mapped.diary_ref_owner_id;
+    delete mapped.diary_ref_date;
+    delete mapped.diary_ref_excerpt;
     delete mapped.reply_to_id;
     delete mapped.reply_to_content;
     delete mapped.reply_to_sender_id;

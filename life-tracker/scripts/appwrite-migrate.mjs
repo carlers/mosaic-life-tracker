@@ -1,12 +1,19 @@
 #!/usr/bin/env node
+import { readFile } from 'node:fs/promises';
 import {
   assertConfirmedProject,
   createAppwriteAdminRequest,
   flagValue,
   parseBackendTarget,
 } from './lib/appwrite-backend.mjs';
+import { migrateBucketTaskLinksBackend } from './migrate-bucket-task-links.mjs';
+import { migrateBucketListBackend } from './migrate-bucket-list.mjs';
 import { migrateAccountDeletionBackend } from './migrate-account-deletion.mjs';
 import { migrateDiaryCreatedAtBackend } from './migrate-diary-created-at.mjs';
+import { migrateDiaryEmojiBackend } from './migrate-diary-emoji.mjs';
+import { migrateDiaryPhotosBackend } from './migrate-diary-photos.mjs';
+import { migrateDiaryReactionsBackend } from './migrate-diary-reactions.mjs';
+import { migrateMessageDiaryReferences } from './migrate-message-diary-references.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
 import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
@@ -66,6 +73,12 @@ export const APPWRITE_MIGRATIONS = [
     description: 'Optional collaborative title/date edit grants, off by default',
     run: ({ request, log, sleep }) => migrateSharePermissions({ request, log, sleep }),
   },
+  { id: '010-bucket-list', description: 'Owner-scoped private aspirations', run: ({ request, log }) => migrateBucketListBackend({ request, log }) },
+  { id: '011-bucket-task-links', description: 'Private owner-only aspiration links', run: ({ request, log }) => migrateBucketTaskLinksBackend({ request, log }) },
+  { id: '012-diary-emoji', description: 'Optional diary day emoji', run: ({ request, log, sleep }) => migrateDiaryEmojiBackend({ request, log, sleep }) },
+  { id: '013-diary-photos', description: 'Private diary photo references', run: ({ request, log, sleep }) => migrateDiaryPhotosBackend({ request, log, sleep }) },
+  { id: '014-diary-reactions', description: 'Server-owned diary reaction ledger', run: ({ request, log }) => migrateDiaryReactionsBackend({ request, log }) },
+  { id: '015-message-diary-references', description: 'Typed private message diary references', run: ({ request, log, sleep }) => migrateMessageDiaryReferences({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {
@@ -109,6 +122,18 @@ export async function runAppwriteMigrateCli({
 } = {}) {
   const target = parseBackendTarget(argv, env);
   assertConfirmedProject(argv, target.projectId);
+  const { projectId: productionProjectId } = JSON.parse(
+    await readFile(new URL('../appwrite.config.json', import.meta.url), 'utf8')
+  );
+  if (typeof productionProjectId !== 'string' || !productionProjectId) {
+    throw new Error('Missing Production projectId in appwrite.config.json');
+  }
+  // Never let an omitted --only silently reconcile every migration on Production.
+  if (target.projectId === productionProjectId && !flagValue(argv, '--only')) {
+    throw new Error(
+      'Production migrations require --only <migration-id>; unscoped runs are forbidden.'
+    );
+  }
   const migrations = selectMigrations(argv);
   const request = createAppwriteAdminRequest({ ...target, fetchImpl });
   log(

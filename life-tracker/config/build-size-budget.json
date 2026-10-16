@@ -14,12 +14,107 @@
     }
   },
   "limits": {
-    "entryRawBytes": 444400,
-    "entryGzipBytes": 132200,
-    "initialClosureGzipBytes": 145200,
-    "homeClosureGzipBytes": 362900,
-    "appAssetsRawBytes": 2407000,
-    "appAssetsGzipBytes": 744350,
-    "precacheUniqueBytes": 2492250
+    "entryRawBytes": 446208,
+    "entryGzipBytes": 132850,
+    "initialClosureGzipBytes": 154500,
+    "homeClosureGzipBytes": 381000,
+    "appAssetsRawBytes": 2471000,
+    "appAssetsGzipBytes": 767075,
+    "precacheUniqueBytes": 2558300
+  },
+  "review": {
+    "issue": "#784",
+    "reason": "Measured mobile cold-load experiment on GitHub Actions #38426273139 forced an eager Notifications import: initial static closure grew 203,914 B gzip and Home closure 52,682 B; Login FCP worsened about 1.15 seconds while aggregate JS/CSS and PWA precache shrank. Historical micro-overages 1-25 B and 2-3.5 KB routine feature changes showed the old near-zero thresholds caused repetitive low-value rejections. Adopt reviewable startup/Home-only broad tripwires of 154,500/381,000 B (8,510/12,322 B headroom over exact 2026-10-13 no-GIPHY pilot, with environment/profile differences and validation still required). All seven measurements remain visible; five nonblocking warnings reflect legitimate feature growth. This is a reversible initial policy, not a measured device SLA.",
+    "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38426273139",
+    "metrics": [
+      "initialClosureGzipBytes",
+      "homeClosureGzipBytes"
+    ],
+    "previousLimits": {
+      "initialClosureGzipBytes": 146065,
+      "homeClosureGzipBytes": 368800
+    }
+  },
+  "priorReviews": [
+    {
+      "issue": "#692",
+      "reason": "Exact v0.23.4 combined Scratch/GIPHY build feature/calendar-zoom-692-dev-integration-20261012@5d049204 compiled successfully with full PWA policy passing, preserving current dev v0.20.7 Categories warmup and signed-out deep links plus user-accepted zoom v0.23.3. All five other metrics PASS. Integration increases initialClosureGzipBytes to 146051 B against the previously enforced 146050 B ceiling (+1 B), and appAssetsGzipBytes to 767025 B against 767000 B (+25 B). No runtime behavior, dependency, or startup path changes in this budget-only review, and no global guard waiver. Bound initial closure to 146065 B (+15 B limit) and aggregate gzip to 767075 B (+75 B limit), preserving other five ceilings and historical baseline. Independently reverify exact repaired stable SHA in canonical CI and hosted Scratch Vercel.",
+      "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/AoSnuyCFaM23GqHQueTYUCPmHDE8",
+      "metrics": [
+        "initialClosureGzipBytes",
+        "appAssetsGzipBytes"
+      ],
+      "previousLimits": {
+        "initialClosureGzipBytes": 146050,
+        "appAssetsGzipBytes": 767000
+      }
+    },
+    {
+      "issue": "#692",
+      "reason": "Dev integration of accepted #692 v0.23.3 zoom Preview b70bda9 with the newer accepted dev v0.20.7 Categories warmup e714c332. Both source trees passed full canonical CI and Scratch GIPHY Vercel independently. Accepted zoom exact hosted v0.23.3 measured entry raw 446120, gzip 132801, initial closure 146033, Home gzip 368761, app raw 2470601, gzip 766886, precache 2557908 bytes; dev v0.20.7 widened ONLY entryRawBytes to 446208 after measured Categories warmup. Retain dev's accepted entry raw 446208, entry gzip 132850 and initial gzip 146050, plus its Category performance fix and prior budget reviews. Inherit only the four separately reviewed zoom Home/aggregate ceilings, with exact original dev limits recorded below; these are not a waiver of verification. Combined new v0.23.4 Scratch build must independently pass all seven budgets; adjust only on newly measured evidence if necessary.",
+      "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38246298880",
+      "metrics": [
+        "homeClosureGzipBytes",
+        "appAssetsRawBytes",
+        "appAssetsGzipBytes",
+        "precacheUniqueBytes"
+      ],
+      "previousLimits": {
+        "homeClosureGzipBytes": 366100,
+        "appAssetsRawBytes": 2461000,
+        "appAssetsGzipBytes": 764000,
+        "precacheUniqueBytes": 2548500
+      }
+    },
+    {
+      "issue": "#656",
+      "reason": "Exact v0.20.7 Categories first-open GIPHY-enabled Scratch Preview 26a07f908cc6b0dad8f4a6b2621b791dd2926cf3: entryRawBytes 446202 B exceeds 446200 B by 2 B after two targeted React.lazy ready-component changes. Full canonical CI 38244072509 passed and hosted PWA policy plus the other six size metrics passed; last accepted dev 0.20.6 emitted 446199 B. A bounded 8-byte cap increment to 446208 B preserves just 6 B headroom without touching entry gzip or initial/Home closure gzip ceilings, avoiding unrelated startup refactors or correctness-obscuring byte golf.",
+      "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/3MQSt36V2qV7CC9rEXyTD5Sorg1Q",
+      "metrics": [
+        "entryRawBytes"
+      ],
+      "previousLimits": {
+        "entryRawBytes": 446200
+      }
+    },
+    {
+      "issue": "#656",
+      "reason": "Measured first GIPHY-enabled Scratch v0.20.4 Preview 5ca4f6da1b46b693e78e7c6ad63e70d1034ecb1e adds code-only ready-component warmup for Menu/friend Day View plus sheet-only Swiper Virtual, carrying user-accepted Chat/Notification lazy fixes onto dev v0.20.3. PWA, TS and browser/DOM behavior pass. Entry raw/gzip and initial closure budgets remain unchanged and pass. Four aggregate metrics exceeded prior narrowly sized limits by 314/1217/673/1424 B; dev #655 had only tens/hundreds of bytes headroom. Reviewed against hosted measurements in #656 comment 6117480055; preserve historic baseline and three startup-critical ceilings. Corrected SHA must independently pass canonical and GIPHY Scratch.",
+      "evidence": "https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/FYgDRjqccPkhCk6YH1RAAmzfh9Z5",
+      "metrics": [
+        "homeClosureGzipBytes",
+        "appAssetsRawBytes",
+        "appAssetsGzipBytes",
+        "precacheUniqueBytes"
+      ],
+      "previousLimits": {
+        "homeClosureGzipBytes": 365450,
+        "appAssetsRawBytes": 2459250,
+        "appAssetsGzipBytes": 763000,
+        "precacheUniqueBytes": 2546350
+      }
+    }
+  ],
+  "blockingMetrics": [
+    "initialClosureGzipBytes",
+    "homeClosureGzipBytes"
+  ],
+  "policyReview": {
+    "issue": "#784",
+    "reason": "Switch from seven extremely tight blocking byte cliffs to two risk-focused startup/Home closure hard guardrails after historical CI correlations, byte-only workflow failures, identical-byte runner variability, and a controlled eager route import causing +1.15 seconds login FCP. Preserve seven measurements and all PWA correctness checks, and stage with reversible baseline/fixture verification. Treat nonblocking cap overages as mandatory report warnings, not accepted-performance declarations.",
+    "evidence": "https://github.com/carlers/mosaic-life-tracker/issues/784#issuecomment-6149552791",
+    "previousBlockingMetrics": [
+      "entryRawBytes",
+      "entryGzipBytes",
+      "initialClosureGzipBytes",
+      "homeClosureGzipBytes",
+      "appAssetsRawBytes",
+      "appAssetsGzipBytes",
+      "precacheUniqueBytes"
+    ],
+    "nextBlockingMetrics": [
+      "initialClosureGzipBytes",
+      "homeClosureGzipBytes"
+    ]
   }
 }

@@ -159,7 +159,7 @@ test('loading, short conversations, late growth and viewport resize', async ({ p
   await page.setViewportSize({ width: 412, height: 915 });
   await open(page);
   await page.evaluate(() => window.chatControl.loading());
-  await expect(page.getByRole('status')).toContainText('Loading messages');
+  await expect(page.getByRole('status').filter({ hasText: 'Loading messages' })).toContainText('Loading messages');
   await page.evaluate(() => window.chatControl.load(0));
   await expect(page.getByText('No messages yet')).toBeVisible();
   await page.evaluate(() => window.chatControl.append());
@@ -189,7 +189,7 @@ test('switching and reopening a conversation resets the bottom pin', async ({ pa
   await open(page);
   await readHistory(page);
   await page.evaluate(() => { window.chatControl.loading(); window.chatNavigate('/messages/second'); });
-  await expect(page.getByRole('status')).toContainText('Loading messages');
+  await expect(page.getByRole('status').filter({ hasText: 'Loading messages' })).toContainText('Loading messages');
   await page.evaluate(() => window.chatControl.load(80));
   await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
   await readHistory(page);

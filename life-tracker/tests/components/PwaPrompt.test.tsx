@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   requestInstall: vi.fn().mockResolvedValue('accepted'),
   installAvailable: false,
   updateAvailable: false,
+  assetProgress: null as null | { completed: number; total: number; completedBytes: number | null; totalBytes: number | null },
 }));
 
 vi.mock('../../src/hooks/usePwaLifecycle', () => ({
@@ -29,6 +30,7 @@ describe('PwaPrompt', () => {
     vi.clearAllMocks();
     mocks.installAvailable = false;
     mocks.updateAvailable = false;
+    mocks.assetProgress = null;
   });
 
   it('stays hidden when neither browser action is available', () => {
@@ -44,6 +46,17 @@ describe('PwaPrompt', () => {
     expect(mocks.applyUpdate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Update now' }));
     await waitFor(() => expect(mocks.applyUpdate).toHaveBeenCalledOnce());
+  });
+
+  it('loads the progress presentation only when measured asset data exists', async () => {
+    mocks.updateAvailable = true;
+    mocks.assetProgress = {
+      completed: 1, total: 2, completedBytes: 234000, totalBytes: 500000,
+    };
+    render(<PwaPrompt />);
+    expect(await screen.findByRole('progressbar', { name: 'Preparing app files' }))
+      .toHaveAttribute('aria-valuenow', '47');
+    expect(mocks.applyUpdate).not.toHaveBeenCalled();
   });
 
   it('lets the user defer a waiting update', () => {

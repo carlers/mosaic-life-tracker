@@ -24,6 +24,14 @@ const statusRef = vi.hoisted(() => ({
       percent: number;
       label: string;
       pendingGroups?: string[];
+      phase?: 'refresh' | 'verify' | 'finalize';
+      activeGroup?: string | null;
+      verifiedGroups?: number;
+      groupTotal?: number;
+      scannedPages?: number;
+      scannedRows?: number;
+      localChecked?: number;
+      localTotal?: number;
     } | null;
   },
 }));
@@ -150,6 +158,29 @@ describe('SyncStatusSheet', () => {
       'aria-valuenow',
       '83'
     );
+  });
+
+  it('shows collection verification and measured page/row progress instead of claiming 100% early', () => {
+    statusRef.current = {
+      isSyncing: true, lastSync: null, errors: [], notice: null,
+      progress: {
+        completed: 11, total: 24, percent: 46,
+        phase: 'verify', activeGroup: 'Tasks',
+        verifiedGroups: 3, groupTotal: 8,
+        scannedPages: 2, scannedRows: 135, localChecked: 100, localTotal: 210,
+        label: 'Verifying local data · Tasks (4 of 8)',
+        pendingGroups: ['Tasks', 'Messages'],
+      },
+    };
+    render(<SyncStatusSheet isOpen onClose={vi.fn()} />);
+    const details = screen.getByRole('status', { name: 'Local verification details' });
+    expect(details).toHaveTextContent('3 of 8 data groups verified');
+    expect(details).toHaveTextContent('Current group: Tasks');
+    expect(details).toHaveTextContent('135 server rows checked across 2 pages');
+    expect(details).toHaveTextContent('100 of 210 local rows checked');
+    expect(screen.getByRole('progressbar', { name: 'Sync progress' }))
+      .toHaveAttribute('aria-valuenow', '46');
+    expect(screen.queryByText('Syncing · 100%')).not.toBeInTheDocument();
   });
 
   it('shows a non-error pending state when the freshness check times out but live sync continues', () => {

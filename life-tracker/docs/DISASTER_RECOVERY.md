@@ -130,6 +130,16 @@ Restore order is:
    metadata, file SHA-256 values, and permissions;
 7. deploy/configure the repository-owned application Functions against the target project.
 
+Appwrite materializes a non-null optional column default even when a restored
+row explicitly supplies `null`. To preserve historical records exactly, the
+restore now creates affected **integer** columns temporarily without defaults,
+imports the original row values, then reinstates the original schema defaults
+before strict verification. A nullable-with-default case for an unverified
+column type **fails closed**; never treat `null` and `0` as equivalent.
+An already-populated DR project must not be targeted by the initial restore
+again. After a carefully verified repair, use `--verify-only`, or restart
+with a genuinely fresh isolated project.
+
 The restore command refuses to target the same project ID recorded in the snapshot and
 refuses a non-empty target. It fails closed for unsupported password-hash types or MFA-enabled
 accounts rather than silently resetting credentials. Sessions are intentionally not restored.

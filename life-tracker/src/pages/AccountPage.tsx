@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+
 import { useNavigate } from 'react-router-dom';
-import { Settings, LogOut, BarChart3, Sticker, ListTodo } from 'lucide-react';
+import { Settings, LogOut, BarChart3, Sticker, ListTodo, Star } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
@@ -8,6 +9,10 @@ import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import { useFriends } from '../hooks/useFriends';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
+import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+
+const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
+  createPreloadedLazy(() => import('../components/modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 
 export const AccountPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -16,6 +21,19 @@ export const AccountPage: React.FC = () => {
   const { friends } = useFriends();
   const navigate = useNavigate();
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
+
+  // Me is already on screen: warm code only, not an invisible sheet or its data hooks.
+  useEffect(() => {
+    const warm = () => { if (!document.hidden) void preloadCategoryManagerSheet().catch(() => {}); };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(warm, { timeout: 1800 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(warm, 700);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
@@ -41,7 +59,7 @@ export const AccountPage: React.FC = () => {
           type="button"
           onClick={() => navigate('/settings', { state: makeRouteParentState('/account') })}
           onPointerDown={(e) => e.stopPropagation()}
-          className="p-2 rounded-lg bg-[#1E1E1E] border border-[#333333] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          className="p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Settings"
         >
           <Settings size={20} aria-hidden="true" />
@@ -77,6 +95,11 @@ export const AccountPage: React.FC = () => {
             <span className="text-xs text-gray-400">Sticker Shop</span>
           </div>
         </div>
+        <button type="button" onClick={() => navigate('/bucket-list', { state: makeRouteParentState('/account') })}
+          className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+          <div><h3 className="text-base font-bold text-white">Bucket List</h3><p className="text-sm text-gray-400">Life aspirations</p></div>
+          <Star size={24} className="text-gray-400" aria-hidden="true" />
+        </button>
         <button type="button" onClick={() => navigate('/backlog', { state: makeRouteParentState('/account') })}
           className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <div>
@@ -85,7 +108,16 @@ export const AccountPage: React.FC = () => {
           </div>
           <ListTodo size={24} className="text-gray-400" aria-hidden="true" />
         </button>
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            setCategoryManagerMounted(true);
+            setIsCategoryManagerOpen(true);
+          }}
+          onPointerDown={() => { void preloadCategoryManagerSheet().catch(() => {}); }}
+          onFocus={() => { void preloadCategoryManagerSheet().catch(() => {}); }}
+          className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        >
           <div>
             <h3 className="text-base font-bold text-white">Categories</h3>
             <p className="text-sm text-gray-400">{categories.length} active</p>
@@ -94,7 +126,7 @@ export const AccountPage: React.FC = () => {
             className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500"
             aria-hidden="true"
           />
-        </div>
+        </button>
         <div className="pb-4">
           <Button
           variant="danger"
@@ -106,6 +138,12 @@ export const AccountPage: React.FC = () => {
           </Button>
         </div>
       </div>
+      {categoryManagerMounted && (
+        <LazyCategoryManagerSheet
+          isOpen={isCategoryManagerOpen}
+          onClose={() => setIsCategoryManagerOpen(false)}
+        />
+      )}
       {feedback && (
         <div
           role="status"

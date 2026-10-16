@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { TaskDateEditor } from './TaskDateEditor';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -14,9 +14,10 @@ import {
   Image as ImageIcon,
   Eye,
   Copy,
+  Link2,
   Users,
 } from 'lucide-react';
-import { isToday } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import {
   resolveVisibility,
   isInheriting,
@@ -41,6 +42,7 @@ interface TaskActionSheetProps {
   onDeletePhoto: () => void;
   onDoItTomorrowOrToday: () => void;
   onMoveToBacklog: () => void;
+  onLinkToBucketList?: () => void;
 }
 
 export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
@@ -59,14 +61,19 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onDeletePhoto,
   onDoItTomorrowOrToday,
   onMoveToBacklog,
+  onLinkToBucketList,
 }) => {
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
+  const pendingEditRef = useRef(false);
   const dismiss = () => { setDateMode(false); onClose(); };
 
   if (!task) return null;
 
-  const isTaskToday = isToday(new Date(task.date));
+  // Task dates are local calendar days, never UTC-midnight timestamps.
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const yesterday = format(addDays(new Date(), -1), 'yyyy-MM-dd');
+  const isTaskToday = task.date === today;
   const tomorrowOrTodayLabel = isTaskToday ? 'Do It Tomorrow' : 'Do It Today';
 
   const effective = resolveVisibility(task.visibility, category?.visibility);
@@ -85,17 +92,25 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   };
 
   const handleEdit = () => {
-    // BottomSheet restores focus to the control that opened it when the sheet
-    // closes. Starting inline editing in the same event would focus the input
-    // and then immediately blur it during that focus restoration, causing the
-    // input's blur-save handler to exit edit mode. Close first, then enter edit
-    // mode after the sheet's focus-trap cleanup has run.
+    // Wait for the exit animation and focus-trap teardown before mounting
+    // the inline task editor. A zero-delay timer can race with focus return.
+    pendingEditRef.current = true;
     onClose();
-    window.setTimeout(onEdit, 0);
+  };
+
+  const handleExitComplete = () => {
+    onExitComplete();
+    if (!pendingEditRef.current) return;
+    pendingEditRef.current = false;
+    // BottomSheet releases the inert app tree and restores the prior focused
+    // trigger on the next animation frame. Enter edit mode after that return.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(onEdit);
+    });
   };
 
   return (
-    <BottomSheet onExitComplete={onExitComplete}
+    <BottomSheet onExitComplete={handleExitComplete}
       isOpen={isOpen}
       onClose={dismiss}
       onTransientDismiss={() => {
@@ -203,6 +218,11 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-base font-medium">Copy Task Text</span>
           </button>
 
+          {onLinkToBucketList && <button type="button" onClick={() => { onClose(); onLinkToBucketList(); }}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-surfaceHighlight text-foreground focus-visible:ring-2 focus-visible:ring-current">
+            <span className="w-8 h-8 rounded-full bg-surfaceHighlight flex items-center justify-center"><Link2 size={16} aria-hidden="true"/></span>
+            <span className="text-base font-medium">Link to Bucket List</span>
+          </button>}
           {!task.memo && (
             <button
               type="button"
@@ -306,6 +326,20 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             </div>
             <span className="text-base font-medium">Open Timer</span>
           </button>
+
+          {task.date !== yesterday && <button
+            type="button"
+            onClick={async () => {
+              await onChangeDate(yesterday);
+              dismiss();
+            }}
+            className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center" aria-hidden="true">
+              <ArrowRight size={16} className="text-black" />
+            </div>
+            <span className="text-base font-medium">Do It Yesterday</span>
+          </button>}
 
           <button
             type="button"

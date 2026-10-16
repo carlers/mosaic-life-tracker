@@ -21,6 +21,7 @@ const sdkRef = vi.hoisted(() => ({
   guardedStorageDeleteFile: vi.fn(),
   guardedStorageGetFile: vi.fn(),
   guardedStorageGetFileView: vi.fn(),
+  guardedStorageDownloadFileBlob: vi.fn(),
   guardedStorageGetFilePreview: vi.fn(),
   guardedStorageUpdateFile: vi.fn(),
 }));
@@ -32,6 +33,7 @@ vi.mock('../../src/lib/sdk', () => ({
     deleteFile: sdkRef.guardedStorageDeleteFile,
     getFile: sdkRef.guardedStorageGetFile,
     getFileView: sdkRef.guardedStorageGetFileView,
+    downloadFileBlob: sdkRef.guardedStorageDownloadFileBlob,
     getFilePreview: sdkRef.guardedStorageGetFilePreview,
     updateFile: sdkRef.guardedStorageUpdateFile,
   },
@@ -63,6 +65,7 @@ import {
   makeProfileImageReadable,
   uploadPendingImage,
   deleteImage,
+  getLocalImageUrl,
 } from '../../src/lib/storage';
 import { isOfflineError } from '../../src/lib/authEvents';
 import { markConnectivityOnline, markConnectivityOffline } from '../../src/lib/connectivity';
@@ -78,6 +81,7 @@ beforeEach(() => {
   sdkRef.guardedAccountGet.mockReset();
   sdkRef.guardedStorageCreateFile.mockReset();
   sdkRef.guardedStorageGetFile.mockReset();
+  sdkRef.guardedStorageDownloadFileBlob.mockReset();
   sdkRef.guardedStorageUpdateFile.mockReset();
   sdkRef.guardedStorageDeleteFile.mockReset();
   pendingRef.create.mockReset();
@@ -309,5 +313,87 @@ describe('storage.saveImage — offline staging', () => {
       'localimg_0123456789abcdef0123456789'
     );
     expect(sdkRef.guardedStorageDeleteFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('storage.getLocalImageUrl — cross-device authenticated downloads', () => {
+  const cloudBlob = () => new Blob(['valid-image'], { type: 'image/webp' });
+
+  it('displays the cloud photo even if IndexedDB refuses to cache it', async () => {
+    markConnectivityOnline('test');
+    imageCacheRef.get.mockResolvedValueOnce(undefined);
+    imageCacheRef.cache.mockRejectedValueOnce(new Error('QuotaExceededError'));
+    sdkRef.guardedStorageDownloadFileBlob.mockResolvedValueOnce(cloudBlob());
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:remote-photo');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(getLocalImageUrl('img_remote')).resolves.toBe('blob:remote-photo');
+      expect(sdkRef.guardedStorageDownloadFileBlob).toHaveBeenCalledWith({
+        bucketId: 'task_images',
+        fileId: 'img_remote',
+      });
+      expect(imageCacheRef.cache).toHaveBeenCalledOnce();
+      expect(warn).toHaveBeenCalledWith(expect.any(Error));
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      warn.mockRestore();
+      markConnectivityOffline('test-reset');
+    }
+  });
+
+  it('downloads from Appwrite when IndexedDB reads fail on another device', async () => {
+    markConnectivityOnline('test');
+    imageCacheRef.get.mockRejectedValueOnce(new Error('IndexedDB disabled'));
+    sdkRef.guardedStorageDownloadFileBlob.mockResolvedValueOnce(cloudBlob());
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:restored');
+    try {
+      await expect(getLocalImageUrl('img_cache_read_failure')).resolves.toBe('blob:restored');
+      expect(sdkRef.guardedStorageDownloadFileBlob).toHaveBeenCalledOnce();
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      markConnectivityOffline('test-reset');
+    }
+  });
+
+  it('bypasses a damaged existing cache entry when refreshing an old photo', async () => {
+    markConnectivityOnline('test');
+    imageCacheRef.get.mockResolvedValueOnce(new Blob(['bad'], { type: 'image/webp' }));
+    sdkRef.guardedStorageDownloadFileBlob.mockResolvedValueOnce(cloudBlob());
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:recovered-old-photo');
+    try {
+      await expect(getLocalImageUrl('img_existing', true)).resolves.toBe('blob:recovered-old-photo');
+      expect(imageCacheRef.get).not.toHaveBeenCalled();
+      expect(imageCacheRef.cache).toHaveBeenCalledWith('img_existing', expect.any(Blob));
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      markConnectivityOffline('test-reset');
+    }
+  });
+
+  it('does not cache a failed or partial download', async () => {
+    markConnectivityOnline('test');
+    imageCacheRef.get.mockResolvedValueOnce(undefined);
+    sdkRef.guardedStorageDownloadFileBlob.mockRejectedValueOnce(
+      Object.assign(new Error('Photo download failed (HTTP 206)'), { code: 206 })
+    );
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(getLocalImageUrl('img_partial')).resolves.toBeNull();
+      expect(imageCacheRef.cache).not.toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+      markConnectivityOffline('test-reset');
+    }
+  });
+
+  it('does not try to download a pending offline original from another device', async () => {
+    markConnectivityOnline('test');
+    pendingRef.get.mockResolvedValueOnce(null);
+    await expect(getLocalImageUrl('localimg_missing_on_this_device', true)).resolves.toBeNull();
+    expect(sdkRef.guardedStorageDownloadFileBlob).not.toHaveBeenCalled();
+    markConnectivityOffline('test-reset');
   });
 });

@@ -1,3 +1,17 @@
+import {
+  isBucketTaskLinksReplicationPilotActive,
+  resyncBucketTaskLinksReplicationPilot,
+  refreshBucketTaskLinksReplicationPilot,
+  startBucketTaskLinksReplicationPilot,
+  stopBucketTaskLinksReplicationPilot,
+} from './bucketTaskLinksReplicationPilot';
+import {
+  isBucketListReplicationPilotActive,
+  resyncBucketListReplicationPilot,
+  refreshBucketListReplicationPilot,
+  startBucketListReplicationPilot,
+  stopBucketListReplicationPilot,
+} from './bucketListReplicationPilot';
 import { syncFriendships } from '../lib/friendshipSync';
 import { getDatabase } from './database';
 import { Query } from 'appwrite';
@@ -71,6 +85,8 @@ export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
 const APPWRITE_CONFIG = {
   databaseId: APPWRITE_DATABASE_ID,
   tables: {
+    bucketList: APPWRITE_TABLES.bucketList,
+    bucketTaskLinks: APPWRITE_TABLES.bucketTaskLinks,
     tasks: APPWRITE_TABLES.tasks,
     categories: APPWRITE_TABLES.categories,
     diary: APPWRITE_TABLES.diary,
@@ -95,6 +111,20 @@ const TOMBSTONE_RETENTION_MS = TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const WEB_LOCKS_NAME = 'mosaic-sync';
 type CollectionName = SyncedCollectionName;
 const ALL_COLLECTIONS: CollectionName[] = [...SYNCED_COLLECTION_NAMES];
+const SYNC_GROUP_NAMES: Record<CollectionName, string> = {
+  bucketTaskLinks: 'Bucket List links',
+  bucketList: 'Bucket List',
+  categories: 'Categories',
+  diary: 'Diary',
+  settings: 'Preferences',
+  friendships: 'Friends',
+  tasks: 'Tasks',
+  messages: 'Messages',
+};
+
+type ReconcileScanProgress =
+  | { phase: 'remote'; pages: number; rows: number }
+  | { phase: 'local'; pages: number; rows: number; checked: number; total: number };
 interface PerCollectionSyncEntry {
   pull: string;
   dirty: string;
@@ -353,7 +383,9 @@ function allReplicationPilotsActive(userId: string): boolean {
     isDiaryReplicationPilotActive(userId) &&
     isSettingsReplicationPilotActive(userId) &&
     isFriendshipReplicationPilotActive(userId) &&
-    isMessageReplicationPilotActive(userId)
+    isMessageReplicationPilotActive(userId) &&
+    isBucketListReplicationPilotActive(userId) &&
+    isBucketTaskLinksReplicationPilotActive(userId)
   );
 }
 
@@ -364,6 +396,8 @@ function resyncAllReplicationPilots(userId: string): void {
   resyncSettingsReplicationPilot(userId);
   resyncFriendshipReplicationPilot(userId);
   resyncMessageReplicationPilot(userId);
+  resyncBucketListReplicationPilot(userId);
+  resyncBucketTaskLinksReplicationPilot(userId);
 }
 
 async function stopAllReplicationPilots(userId?: string): Promise<void> {
@@ -374,6 +408,8 @@ async function stopAllReplicationPilots(userId?: string): Promise<void> {
     stopSettingsReplicationPilot(userId),
     stopFriendshipReplicationPilot(userId),
     stopMessageReplicationPilot(userId),
+    stopBucketListReplicationPilot(userId),
+    stopBucketTaskLinksReplicationPilot(userId),
   ]);
 }
 
@@ -434,25 +470,31 @@ function formatSyncGroupList(groups: string[]): string {
 async function reconcileLocalReplica(
   userId: string,
   generation: number,
-  deadline: number
+  deadline: number,
+  onProgress?: (collection: CollectionName, completed: number, scan?: ReconcileScanProgress) => void
 ): Promise<void> {
   const db = getDatabase();
+  let completed = 0;
 
   for (const colName of ALL_COLLECTIONS) {
     assertSyncOwnerCurrent(userId, generation);
     if (Date.now() >= deadline) throw new Error('Reconciliation timed out');
+    onProgress?.(colName, completed);
 
     const result = await syncCollection(
       db[colName] as unknown as LocalCollection,
       colName,
       userId,
       generation,
-      colName === 'messages' ? Date.now() : Infinity
+      colName === 'messages' ? Date.now() : Infinity,
+      (scan) => onProgress?.(colName, completed, scan)
     );
 
     if (result.pullRowFailed || !result.pullComplete) {
       throw new Error('Reconciliation failed: ' + colName);
     }
+    completed++;
+    onProgress?.(colName, completed);
   }
 }
 
@@ -513,6 +555,16 @@ export async function refreshSync(
       [CollectionName, string, (timeout: number) => Promise<boolean>]
     > = [
       [
+        'bucketTaskLinks',
+        'Bucket List links',
+        (timeout) => refreshBucketTaskLinksReplicationPilot(userId, timeout),
+      ],
+      [
+        'bucketList',
+        'Bucket List',
+        (timeout) => refreshBucketListReplicationPilot(userId, timeout),
+      ],
+      [
         'categories',
         'Categories',
         (timeout) => refreshCategoryReplicationPilot(userId, timeout),
@@ -545,17 +597,23 @@ export async function refreshSync(
     ];
 
     const total = refreshes.length;
+    const totalSteps = total * (options.reconcile ? 3 : 1);
     let completed = 0;
     const pendingGroups = new Set(
       refreshes.map(([, displayName]) => displayName)
     );
-    const reportProgress = (label: string) => {
+    const reportProgress = (
+      label: string,
+      details: Partial<SyncProgress> = {}
+    ) => {
+      const stepsCompleted = details.completed ?? completed;
       const progress: SyncProgress = {
-        completed,
-        total,
-        percent: Math.round((completed / total) * 100),
+        completed: stepsCompleted,
+        total: totalSteps,
+        percent: Math.round((stepsCompleted / totalSteps) * 100),
         label,
         pendingGroups: [...pendingGroups],
+        ...details,
       };
       updateSyncStatus(
         {
@@ -569,9 +627,9 @@ export async function refreshSync(
       options.onProgress?.(progress);
     };
 
-    reportProgress('Checking all 6 data groups…');
+    reportProgress('Checking all 8 data groups…', { phase: 'refresh' });
 
-    // The six pilots are independent replication states. Awaiting them
+    // The eight pilots are independent replication states. Awaiting them
     // sequentially made later collections inherit only the scraps of one
     // shared deadline; a slow category pass could therefore make a healthy
     // diary pilot report a false timeout. Start every freshness proof against
@@ -597,7 +655,8 @@ export async function refreshSync(
                 completed +
                 ' of ' +
                 total +
-                ' synced'
+                ' synced',
+          { phase: 'refresh' }
         );
       })
     );
@@ -608,19 +667,72 @@ export async function refreshSync(
     if (failure) throw failure.reason;
 
     if (options.reconcile) {
-      reportProgress('Verifying local data…');
-      await reconcileLocalReplica(userId, generation, deadline);
+      await reconcileLocalReplica(userId, generation, deadline, (collection, verified, scan) => {
+        assertSyncOwnerCurrent(userId, generation);
+        const group = SYNC_GROUP_NAMES[collection];
+        const complete = verified === total;
+        const current = complete ? null : group;
+        let label = complete
+          ? 'Local data verified · 8 of 8 groups'
+          : 'Verifying local data · ' + group + ' (' + (verified + 1) + ' of ' + total + ')';
+        if (scan?.phase === 'remote') {
+          label += ' · ' + scan.rows + ' server rows checked (' + scan.pages + ' pages)';
+        } else if (scan?.phase === 'local') {
+          label += ' · ' + scan.checked + ' of ' + scan.total + ' local rows checked';
+        }
+        reportProgress(label, {
+          phase: 'verify',
+          completed: total + verified,
+          pendingGroups: ALL_COLLECTIONS.slice(verified).map(name => SYNC_GROUP_NAMES[name]),
+          activeGroup: current,
+          verifiedGroups: verified,
+          groupTotal: total,
+          ...(scan ? {
+            scannedPages: scan.pages,
+            scannedRows: scan.rows,
+            localChecked: scan.phase === 'local' ? scan.checked : undefined,
+            localTotal: scan.phase === 'local' ? scan.total : undefined,
+          } : {
+            scannedPages: undefined,
+            scannedRows: undefined,
+            localChecked: undefined,
+            localTotal: undefined,
+          }),
+        });
+      });
       assertSyncOwnerCurrent(userId, generation);
 
-      if (
-        (await Promise.all(
-          refreshes.map(([, , refresh]) => refresh(remaining()))
-        )).includes(false)
-      ) {
-        throw new Error('Fresh sync is not active');
-      }
+      // The final freshness barrier can also take time. Count each resolved
+      // barrier so 100% means the *entire* Sync Now operation has finished.
+      const finalPending = new Set(refreshes.map(([, displayName]) => displayName));
+      reportProgress('Confirming final freshness of all data groups…', {
+        phase: 'finalize', completed: 2 * total,
+        activeGroup: null, pendingGroups: [...finalPending],
+      });
+      let finalDone = 0;
+      const finalResults = await Promise.allSettled(
+        refreshes.map(async ([, displayName, refresh]) => {
+          assertSyncOwnerCurrent(userId, generation);
+          if (!await refresh(remaining()))
+            throw new Error('Fresh sync is not active: ' + displayName);
+          assertSyncOwnerCurrent(userId, generation);
+          finalPending.delete(displayName);
+          finalDone++;
+          reportProgress(
+            finalDone === total
+              ? 'All data groups verified'
+              : 'Confirming ' + formatSyncGroupList([...finalPending]) +
+                ' · ' + finalDone + ' of ' + total + ' refreshed',
+            { phase: 'finalize', completed: 2 * total + finalDone,
+              activeGroup: null, pendingGroups: [...finalPending] }
+          );
+        })
+      );
+      const finalFailure = finalResults.find(
+        (result): result is PromiseRejectedResult => result.status === 'rejected'
+      );
+      if (finalFailure) throw finalFailure.reason;
       assertSyncOwnerCurrent(userId, generation);
-      reportProgress('All data groups verified');
     }
 
     assertSyncOwnerCurrent(userId, generation);
@@ -853,6 +965,10 @@ function isReplicationPilotActive(
       return isFriendshipReplicationPilotActive(userId);
     case 'messages':
       return isMessageReplicationPilotActive(userId);
+    case 'bucketList':
+      return isBucketListReplicationPilotActive(userId);
+    case 'bucketTaskLinks':
+      return isBucketTaskLinksReplicationPilotActive(userId);
   }
   return false;
 }
@@ -880,6 +996,12 @@ function resyncReplicationPilot(
     case 'messages':
       resyncMessageReplicationPilot(userId);
       return;
+    case 'bucketList':
+      resyncBucketListReplicationPilot(userId);
+      return;
+    case 'bucketTaskLinks':
+      resyncBucketTaskLinksReplicationPilot(userId);
+      return;
   }
 }
 
@@ -891,6 +1013,12 @@ async function startReplicationPilot(
   assertSyncOwnerCurrent(userId, generation);
   const db = getDatabase();
   switch (collection) {
+    case 'bucketTaskLinks':
+      await startBucketTaskLinksReplicationPilot(userId, db.bucketTaskLinks, undefined);
+      return;
+    case 'bucketList':
+      await startBucketListReplicationPilot(userId, db.bucketList, undefined);
+      return;
     case 'tasks':
       await startTaskReplicationPilot(userId, db.tasks, undefined);
       return;
@@ -1137,7 +1265,8 @@ async function syncCollection(
   colName: CollectionName,
   userId: string,
   generation: number,
-  staleBoundaryMs: number
+  staleBoundaryMs: number,
+  onScan?: (progress: ReconcileScanProgress) => void
 ): Promise<CollectionSyncResult> {
   assertSyncOwnerCurrent(userId, generation);
 
@@ -1162,6 +1291,7 @@ async function syncCollection(
   >();
   let cursor: string | undefined;
   let pageCount = 0;
+  let remoteRowsChecked = 0;
   let pullRowFailed = false;
   let pullComplete = true;
   const collectionErrors: unknown[] = [];
@@ -1275,6 +1405,8 @@ async function syncCollection(
       }
     }
 
+    remoteRowsChecked += rows.length;
+    onScan?.({ phase: 'remote', pages: pageCount, rows: remoteRowsChecked });
     if (rows.length < PAGE_SIZE) break;
     const lastId = rows[rows.length - 1].$id as string | undefined;
     if (!lastId || lastId === cursor) {
@@ -1298,19 +1430,30 @@ async function syncCollection(
     const localDocs = await collection.find().exec();
     const reconciliationNow = new Date().toISOString();
 
-    for (const doc of localDocs) {
+    onScan?.({ phase: 'local', pages: pageCount, rows: remoteRowsChecked,
+      checked: 0, total: localDocs.length });
+    for (const [index, doc] of localDocs.entries()) {
+      if (index > 0 && index % 100 === 0) {
+        onScan?.({ phase: 'local', pages: pageCount, rows: remoteRowsChecked,
+          checked: index, total: localDocs.length });
+      }
       assertSyncOwnerCurrent(userId, generation);
       const json = doc.toJSON();
       if ((json.userId as string | undefined) !== userId) continue;
       const docId = (json.id as string) || doc.id;
       if (!docId || remoteIndex.has(docId) || json.isDeleted === true) continue;
 
-      if (
-        colName === 'messages' &&
-        json.direction === 'outgoing' &&
-        json.deliveryStatus === 'pending'
-      ) {
-        continue;
+      if (colName === 'messages' && json.direction === 'outgoing') {
+        if (json.deliveryStatus === 'pending') continue;
+        // A committed local outgoing row absent on its owner's server may
+        // be a partial pair. Do not erase the only surviving sender copy.
+        // Flag it for explicit investigation/repair instead of reporting
+        // a successful full reconciliation.
+        if (!json.isUnsent) {
+          // syncNow rejects on pullRowFailed; retain the local last copy.
+          pullRowFailed = true;
+          continue;
+        }
       }
 
       const localUpdatedAt = toMs(json.updatedAt);
@@ -1337,6 +1480,8 @@ async function syncCollection(
         pullRowFailed = true;
       }
     }
+    onScan?.({ phase: 'local', pages: pageCount, rows: remoteRowsChecked,
+      checked: localDocs.length, total: localDocs.length });
   }
 
   const nextPullIso =

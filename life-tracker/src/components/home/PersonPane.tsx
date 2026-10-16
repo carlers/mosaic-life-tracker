@@ -3,7 +3,9 @@ import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
-import { ComingSoon } from '../layout/ComingSoon';
+import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
+import { useDiary } from '../../hooks/useDiary';
+import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
 import { useAuth } from '../../hooks/useAuth';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
@@ -13,7 +15,12 @@ import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_HOLIDAYS_SETTING_KEY,
+  SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
+  INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  resolveCalendarZoomDays,
+  resolveIncompleteTaskBlockColorMode,
   resolveWeekStartsOn,
 } from '../../lib/preferences';
 import { createHolidayDisplayConfig } from '../../lib/holidays';
@@ -26,6 +33,7 @@ const LazyTodoListView = React.lazy(() =>
     default: TodoListView,
   }))
 );
+const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
     default: FriendPersonPane,
@@ -63,15 +71,28 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     () => new Set(ownedShares.map(share => share.taskId)), [ownedShares]
   );
   const { getSetting } = useSettings();
+  const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
+    getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
+  );
+  const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
+  const showDiaryTodayShortcut = getSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, true) === true;
   const holidayConfig = createHolidayDisplayConfig(
     getSetting(SHOW_HOLIDAYS_SETTING_KEY, false),
     getSetting(HOLIDAY_REGION_SETTING_KEY, ''),
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
+  const [diaryDate, setDiaryDate] = useState<string | null>(null);
+  const { entries: diaryEntries, getEntryByDate, saveEntry, deleteEntry } = useDiary(isActive && activeView === 'diary');
+  const handleViewChange = useCallback((next: ViewType) => {
+    setDiaryDate(null);
+    if (next === 'diary') preloadDiaryEntrySheet();
+    setActiveView(next);
+  }, []);
+  const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
 
@@ -96,26 +117,28 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, []);
 
   return (
+    <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex flex-col h-full">
-      <PersonProfileHeader person={person} isActive={isActive} />
+      <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
-          activeView === 'todo'
+          activeView !== 'calendar'
             ? format(todoFocusDate, 'MMMM yyyy')
             : calendarState.title
         }
         viewMode={calendarState.viewMode}
+        enableTitleSwipe={calendarZoomDays !== 7}
         onToggleMode={calendarState.handleToggle}
         onPrev={
-          activeView === 'todo' ? handleTodoPrev : calendarState.handlePrev
+          activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
         }
         onNext={
-          activeView === 'todo' ? handleTodoNext : calendarState.handleNext
+          activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
         }
         activeView={activeView}
-        onViewChange={setActiveView}
+        onViewChange={handleViewChange}
         onTitleClick={
-          activeView === 'todo'
+          activeView !== 'calendar'
             ? handleTodoToday
             : activeView === 'calendar'
               ? calendarState.resetToToday
@@ -133,6 +156,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
+          zoomPreference={calendarZoomDays}
+          activeIndex={calendarState.activeIndex}
+          isZoomTransitioning={calendarState.isZoomTransitioning}
+          onZoomNavigate={calendarState.handleZoomNavigate}
           sharedByDay={sharedByDay}
           ownedSharedTaskIds={ownedSharedTaskIds}
           currentUserId={currentUserId}
@@ -157,9 +184,21 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           />
         </React.Suspense>
       ) : (
-        <ComingSoon />
+        <React.Suspense fallback={null}>
+          <LazyTodoListView markerMode="diary" diaryEntries={diaryEntries} onOpenDiary={openDiary}
+            focusDate={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
+            sharedByDay={sharedByDay} ownedSharedTaskIds={ownedSharedTaskIds}
+            categoriesMap={categoriesMap} onFocusDateChange={setTodoFocusDate}
+            weekStartsOn={weekStartsOn} holidayConfig={holidayConfig} />
+        </React.Suspense>
       )}
+      {isActive && activeView === 'diary' && currentUserId && diaryDate && <React.Suspense fallback={null}>
+        <LazyDiaryEntrySheet key={`${currentUserId}:${diaryDate}`} date={diaryDate} entry={getEntryByDate(diaryDate)}
+          author={person.displayName} onSave={saveEntry} onDelete={deleteEntry}
+          onClose={() => setDiaryDate(null)} />
+      </React.Suspense>}
     </div>
+    </IncompleteTaskBlockColorContext.Provider>
   );
 };
 

@@ -18,6 +18,11 @@ on:
       - 'life-tracker/**'
       - '.github/workflows/quality-gate.yml'
   workflow_dispatch:
+    inputs:
+      preview_canary_sha:
+        description: 'Exact accepted Preview commit SHA for optional protected canary (blank means CI only)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -263,6 +268,8 @@ jobs:
         run: npm ci --prefer-offline --no-audit
       - name: Check project contracts
         run: npm run contracts:check
+      - name: Check supported historical clients on backend contract changes
+        run: node scripts/check-backend-consumer-compat.mjs --base HEAD^
       - name: Check test discovery
         run: npm run test:discovery
       - name: Lint
@@ -336,6 +343,22 @@ jobs:
     needs: [classify, promotion_check]
     if: ${{ always() && (needs.classify.outputs.mode == 'full' || (needs.classify.outputs.mode == 'promotion' && needs.promotion_check.outputs.eligible != 'true')) }}
     runs-on: ubuntu-latest
+    # Public browser build inputs only. No PostHog personal token or Vercel
+    # deployment secret is present in this unprivileged CI build job.
+    # A PREVIEW artifact remains NON-DEPLOYABLE until every effective browser
+    # input is proved to match hosted Preview and canonical CI is green.
+    env:
+      VERCEL_PROJECT_ID: prj_jysOLDbuO9c5rP8x6Q145DVIw0fc
+      VERCEL_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+      VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+      VERCEL_GIT_COMMIT_REF: ${{ github.ref_name }}
+      POSTHOG_SOURCE_MAPS_ENABLED: 'false'
+      VITE_APPWRITE_PROJECT_ID: ${{ github.ref == 'refs/heads/main' && '6a9703c50016b37110ff' || '6a96e82d000d1310b3be' }}
+      VITE_APPWRITE_ENDPOINT: ${{ github.ref == 'refs/heads/main' && 'https://sgp.cloud.appwrite.io/v1' || 'https://fra.cloud.appwrite.io/v1' }}
+      VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: '6aa8057f002a4c306fdd'
+      VITE_GIPHY_API_KEY: ${{ github.ref != 'refs/heads/main' && secrets.MOSAIC_PUBLIC_PREVIEW_GIPHY_KEY || '' }}
+      VITE_POSTHOG_TOKEN: ${{ github.ref != 'refs/heads/main' && secrets.MOSAIC_PUBLIC_PREVIEW_POSTHOG_TOKEN || '' }}
+      VITE_POSTHOG_HOST: ${{ github.ref != 'refs/heads/main' && secrets.MOSAIC_PUBLIC_PREVIEW_POSTHOG_HOST || '' }}
     timeout-minutes: 15
     defaults:
       run:
@@ -349,13 +372,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
       - name: Restore app dependencies from focused cache
         id: build-app-modules-cache
         uses: actions/cache@v4
         with:
           path: life-tracker/node_modules
-          key: ${{ runner.os }}-node22-focused-modules-${{ hashFiles('life-tracker/package-lock.json') }}
+          key: ${{ runner.os }}-node24-build-modules-${{ hashFiles('life-tracker/package-lock.json') }}
       - name: Install app dependencies on cache miss
         if: steps.build-app-modules-cache.outputs.cache-hit != 'true'
         run: npm ci --prefer-offline --no-audit
@@ -363,8 +386,37 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }} # Read-only accepted source evidence for main merge budgets.
         run: node scripts/check-build-budget-review.mjs HEAD^
+      - name: Verify browser-public Preview inputs without revealing values
+        run: node scripts/check-preview-public-profile.mjs
       - name: Build production app
         run: npm run build
+      # #592: nondeployable diagnostic only; this is one build, not a
+      # second build and not acceptance until every canonical check succeeds.
+      # The old hosted Preview Git deployment remains separate/unchanged.
+      - name: Record exact CI build bytes without using provider credentials
+        run: |
+          node scripts/preview-build-evidence.mjs create
+          tar -czf .mosaic/preview-build/dist.tar.gz -C dist .
+          sha256sum .mosaic/preview-build/dist.tar.gz > .mosaic/preview-build/dist.tar.gz.sha256
+      - name: Verify archived CI bytes, manifest and source before upload
+        run: node scripts/check-preview-artifact.mjs
+      - name: Translate existing Vercel routes/headers into static Build Output API v3
+        run: node scripts/prepare-preview-routes.mjs
+      - name: Assemble and verify the real static output without provider credentials
+        run: node scripts/verify-preview-static-output.mjs
+      - name: Preserve read-only build artifact for future gated reuse
+        uses: actions/upload-artifact@v4
+        with:
+          name: mosaic-ci-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            life-tracker/.mosaic/preview-build/evidence.json
+            life-tracker/.mosaic/preview-build/config.json
+            life-tracker/.mosaic/preview-build/routing-evidence.json
+            life-tracker/.mosaic/preview-build/inventory.json
+            life-tracker/.mosaic/preview-build/dist.tar.gz
+            life-tracker/.mosaic/preview-build/dist.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 3
 
   browser_contract:
     name: browser-contract (${{ matrix.shard }})
@@ -479,3 +531,290 @@ jobs:
             exit 1
           fi
           echo "Canonical acceptance passed for exact SHA ${{ github.sha }}."
+
+  preview_canary:
+    name: protected-preview-canary
+    needs: canonical_acceptance
+    # Disabled by default. An explicit dispatch on the accepted stable Preview SHA,
+    # canonical green and an owner-controlled opt-in must all agree.
+    if: >-
+      ${{ always() && !cancelled() &&
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'carlers/mosaic-life-tracker' &&
+      github.ref_type == 'branch' &&
+      inputs.preview_canary_sha != '' &&
+      inputs.preview_canary_sha == github.sha &&
+      vars.MOSAIC_PREBUILT_CANARY_ENABLED == 'true' &&
+      needs.canonical_acceptance.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    environment: mosaic-preview-canary
+    concurrency:
+      group: mosaic-preview-canary-${{ github.ref }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+        working-directory: life-tracker
+    env:
+      VERCEL_ORG_ID: team_UbpudOr8jXyrDA5SdVUxVGOr
+      VERCEL_PROJECT_ID: prj_jysOLDbuO9c5rP8x6Q145DVIw0fc
+      PREVIEW_DEPLOY_BRANCH: ${{ github.ref_name }}
+      PREVIEW_DEPLOY_SHA: ${{ github.sha }}
+      PREVIEW_CANARY_REQUESTED_SHA: ${{ inputs.preview_canary_sha }}
+      MOSAIC_PREBUILT_CANARY_ENABLED: ${{ vars.MOSAIC_PREBUILT_CANARY_ENABLED }}
+      VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+      VERCEL_GIT_COMMIT_REF: ${{ github.ref_name }}
+      VERCEL_ENV: preview
+    steps:
+      - name: Check out accepted commit without persisted checkout credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.sha }}
+      - name: Set up matching Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify manual opt-in, branch, SHA, repository and Vercel scope
+        run: node scripts/check-preview-canary-context.mjs
+      - name: Verify latest exact-SHA canonical GitHub acceptance
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-preview-deploy-gate.mjs
+      - name: Check protected Vercel credential availability
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: |
+          if [[ -z "${VERCEL_TOKEN:-}" ]]; then
+            echo "Protected canary token is missing; no Vercel deployment attempted." >&2
+            exit 1
+          fi
+      - name: Refuse repeat canary for the same branch and SHA
+        id: duplicates
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: node scripts/check-preview-canary-duplicate.mjs
+      - name: Install reviewed Vercel CLI
+        if: steps.duplicates.outputs.skip != 'true'
+        run: npm install --global vercel@62.7.0
+      # Mosaic is a monorepo: Vercel's configured project Root Directory is
+      # life-tracker/ relative to Git root. The Vercel CLI must be launched
+      # from Git root, not life-tracker/, or it looks for the output twice.
+      - name: Link only the existing official Vercel project
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        run: |
+          mkdir -p .vercel
+          printf '%s\n' '{"orgId":"team_UbpudOr8jXyrDA5SdVUxVGOr","projectId":"prj_jysOLDbuO9c5rP8x6Q145DVIw0fc"}' > .vercel/project.json
+      - name: Pull actual branch-scoped Preview build inputs
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=preview --git-branch="$PREVIEW_DEPLOY_BRANCH"
+      # Unlike Vercel's hosted builders, local `vercel build` uses an existing
+      # checkout. It does not install Mosaic's dependency tree automatically.
+      # Install from the committed lockfile *after* CI acceptance and the
+      # read-only duplicate preflight, before Vercel consumes local sources.
+      - name: Install locked app dependencies for protected Vercel build
+        if: steps.duplicates.outputs.skip != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Build and enforce Preview budgets with effective Vercel configuration
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: vercel build
+      - name: Verify prebuilt output exists at repository-root Vercel layout
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        run: |
+          test -f life-tracker/dist/index.html
+          test -f .vercel/output/config.json
+          echo "Vercel packaged the built app at the intended monorepo root."
+      - name: Re-check accepted SHA and branch before deployment
+        if: steps.duplicates.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-preview-deploy-gate.mjs
+      - name: Re-check canary idempotency before deployment
+        if: steps.duplicates.outputs.skip != 'true'
+        id: duplicates_final
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: node scripts/check-preview-canary-duplicate.mjs
+      - name: Deploy exact prebuilt Preview artifact
+        if: steps.duplicates.outputs.skip != 'true' && steps.duplicates_final.outputs.skip != 'true'
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_CANARY_VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          url="$(vercel deploy --yes --prebuilt --target=preview --archive=tgz \
+            --meta "mosaic_canary_sha=$PREVIEW_DEPLOY_SHA" \
+            --meta "mosaic_canary_branch=$PREVIEW_DEPLOY_BRANCH")"
+          DEPLOYMENT_URL="$url" node --input-type=module -e '
+            const url = new URL(process.env.DEPLOYMENT_URL);
+            if (url.protocol !== "https:" || url.origin !== process.env.DEPLOYMENT_URL ||
+                !url.hostname.endsWith(".vercel.app")) process.exit(1);
+          '
+          echo "Canary deployment created for accepted SHA $PREVIEW_DEPLOY_SHA."
+          echo "Confirm target metadata and registered alias before considering any Git-trigger change."
+
+  # Shadow-safe pilot: opt-in only, specific stable branch only, separate
+  # secret-scoped environment. No human review on routine pushes once the
+  # owner explicitly provisions this separate environment and enables it.
+  # Never activate alongside Vercel Git-triggered delivery without a rollout.
+  # Retired: never expose unattended deployment credentials to mutable
+  # branch workflows. Use main-pinned Trusted Preview Delivery instead.
+  preview_auto_pilot:
+    name: automatic-preview-pilot
+    needs: canonical_acceptance
+    if: >-
+      ${{ false && always() && !cancelled() &&
+      github.event_name == 'push' &&
+      github.repository == 'carlers/mosaic-life-tracker' &&
+      github.ref == 'refs/heads/fix/workflow-build-parity-592-20261012' &&
+      vars.MOSAIC_AUTO_PREVIEW_ENABLED == 'true' &&
+      needs.canonical_acceptance.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    environment: mosaic-preview-auto
+    concurrency:
+      group: mosaic-preview-auto-${{ github.ref }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+        working-directory: life-tracker
+    env:
+      VERCEL_ORG_ID: team_UbpudOr8jXyrDA5SdVUxVGOr
+      VERCEL_PROJECT_ID: prj_jysOLDbuO9c5rP8x6Q145DVIw0fc
+      PREVIEW_DEPLOY_BRANCH: ${{ github.ref_name }}
+      PREVIEW_DEPLOY_SHA: ${{ github.sha }}
+      MOSAIC_AUTO_PREVIEW_ENABLED: ${{ vars.MOSAIC_AUTO_PREVIEW_ENABLED }}
+      MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED: ${{ vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED }}
+      PREVIEW_AUTO_ALIAS: mosaic-life-tracker-git-fix-work-73127a-carls-projects-72516fde.vercel.app
+      VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+      VERCEL_GIT_COMMIT_REF: ${{ github.ref_name }}
+      VERCEL_ENV: preview
+    steps:
+      - name: Check out accepted push SHA without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.sha }}
+      - name: Set up matching Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify strict automatic Preview pilot context
+        run: node scripts/check-preview-auto-context.mjs
+      - name: Verify exact-SHA canonical-acceptance for this running push
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PREVIEW_DEPLOY_ALLOW_CURRENT_RUN: 'true'
+        run: node scripts/check-preview-deploy-gate.mjs
+      - name: Check automatic Preview credential availability
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo 'Automatic Preview environment credential unavailable' >&2; exit 1; }
+      - name: Prevent duplicate prebuilt Preview deployment
+        id: duplicates
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: node scripts/check-preview-canary-duplicate.mjs
+      - name: Install pinned Vercel CLI for build or alias
+        run: npm install --global vercel@62.7.0
+      - name: Link the official Vercel project at Git root
+        working-directory: .
+        run: |
+          mkdir -p .vercel
+          printf '%s\n' '{"orgId":"team_UbpudOr8jXyrDA5SdVUxVGOr","projectId":"prj_jysOLDbuO9c5rP8x6Q145DVIw0fc"}' > .vercel/project.json
+      - name: Pull the accepted branch Preview environment
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=preview --git-branch="$PREVIEW_DEPLOY_BRANCH"
+      - name: Install pinned Mosaic application dependencies
+        if: steps.duplicates.outputs.skip != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Build effective Preview and enforce seven size budgets
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: vercel build
+      - name: Require valid monorepo prebuilt artifact
+        if: steps.duplicates.outputs.skip != 'true'
+        working-directory: .
+        run: |
+          test -f life-tracker/dist/index.html
+          test -f .vercel/output/config.json
+      - name: Reconfirm accepted SHA before prebuilt upload
+        if: steps.duplicates.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PREVIEW_DEPLOY_ALLOW_CURRENT_RUN: 'true'
+        run: node scripts/check-preview-deploy-gate.mjs
+      - name: Recheck duplicate history before prebuilt upload
+        if: steps.duplicates.outputs.skip != 'true'
+        id: duplicates_final
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: node scripts/check-preview-canary-duplicate.mjs
+      - name: Deploy only the accepted prebuilt artifact
+        if: steps.duplicates.outputs.skip != 'true' && steps.duplicates_final.outputs.skip != 'true'
+        id: deploy
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          url="$(vercel deploy --yes --prebuilt --target=preview --archive=tgz)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - name: Verify the READY CLI deployment before aliasing
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+          PREVIEW_ALIAS_MODE: before
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url || steps.duplicates_final.outputs.existing_url || steps.duplicates.outputs.existing_url }}
+        run: node scripts/check-preview-auto-alias.mjs
+      - name: Confirm shadow Preview without alias mutation
+        if: vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED != 'true'
+        run: echo 'Shadow Preview READY. Stable alias unchanged.'
+      - name: Reconfirm accepted SHA before stable alias switch
+        if: vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PREVIEW_DEPLOY_ALLOW_CURRENT_RUN: 'true'
+        run: node scripts/check-preview-deploy-gate.mjs
+      - name: Assign accepted READY deployment to the stable Preview alias
+        if: vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED == 'true'
+        working-directory: .
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url || steps.duplicates_final.outputs.existing_url || steps.duplicates.outputs.existing_url }}
+        run: |
+          set -euo pipefail
+          url="$DEPLOYMENT_URL"
+          vercel alias set "$url" "$PREVIEW_AUTO_ALIAS"
+      - name: Read back exact-SHA stable alias assignment
+        if: vars.MOSAIC_AUTO_PREVIEW_ALIAS_ENABLED == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+          PREVIEW_ALIAS_MODE: after
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url || steps.duplicates_final.outputs.existing_url || steps.duplicates.outputs.existing_url }}
+        run: node scripts/check-preview-auto-alias.mjs

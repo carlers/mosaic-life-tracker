@@ -23,6 +23,8 @@ export function useEmblaTrackpadNavigation(api: EmblaCarouselType | undefined) {
         Math.abs(event.deltaX) < 1 ||
         Math.abs(event.deltaX) <= Math.abs(event.deltaY) * 1.35) return;
 
+      // A zoomed calendar owns horizontal wheel/trackpad panning.
+      if (event.target instanceof Element && event.target.closest('[data-calendar-zoom-lane]')) return;
       const nextDirection = Math.sign(event.deltaX);
       const elapsed = Date.now() - lastEvent;
       if (elapsed > WHEEL_GESTURE_GAP_MS || nextDirection !== direction) {

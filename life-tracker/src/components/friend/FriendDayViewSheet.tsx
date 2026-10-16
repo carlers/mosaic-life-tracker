@@ -2,7 +2,9 @@ import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'r
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
+import { Virtual } from 'swiper/modules';
 import 'swiper/css';
+import 'swiper/css/virtual';
 import {
   Check,
   ChevronLeft,
@@ -87,7 +89,7 @@ interface FriendTaskImageProps {
 
 const FriendTaskImage: React.FC<FriendTaskImageProps> = ({ task, onViewImage }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLElement>();
-  const { imageUrl, isLoading } = useTaskImage(task.image, shouldLoad);
+  const { imageUrl, isLoading, retryImage, handleImageError } = useTaskImage(task.image, shouldLoad);
 
   if (imageUrl) {
     return (
@@ -105,10 +107,26 @@ const FriendTaskImage: React.FC<FriendTaskImageProps> = ({ task, onViewImage }) 
         <img
           src={imageUrl}
           alt={task.title}
+          onError={handleImageError}
           loading="lazy"
           decoding="async"
-          className="w-full h-full object-cover rounded-xl"
+          className="w-full h-full object-contain rounded-xl"
         />
+      </button>
+    );
+  }
+
+  if (!isLoading && shouldLoad && task.image) {
+    return (
+      <button
+        ref={targetRef}
+        type="button"
+        aria-label="Retry unavailable photo"
+        onClick={(event) => { event.stopPropagation(); retryImage(); }}
+        onPointerDown={(event) => event.stopPropagation()}
+        className="mt-2 flex w-full aspect-[16/9] items-center justify-center rounded-xl bg-gray-500/20 text-xs text-gray-400 focus-visible:outline"
+      >
+        Photo unavailable · Retry
       </button>
     );
   }
@@ -426,6 +444,9 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
 
   const content = (
     <Swiper
+      // Same 181 logical dates as owner Day View, only nearby DOM slides.
+      modules={renderMode === 'sheet' ? [Virtual] : undefined}
+      virtual={renderMode === 'sheet' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
       nested={renderMode === 'inline'}
       noSwiping={renderMode === 'sheet'}
       touchStartPreventDefault={false}
@@ -456,6 +477,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         return (
           <SwiperSlide
             key={slideDate.toISOString()}
+            virtualIndex={index}
             style={{ height: renderMode === 'sheet' ? '100%' : 'auto' }}
           >
             <div
@@ -586,15 +608,17 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         onClose={() => setReactionTask(null)}
         onPick={handlePickEmoji}
       />
-      <Suspense fallback={<ImageViewerLoadingFallback />}>
-        <ImageViewer
-          isOpen={isImageViewerOpen && !!viewingImageUrl && !isViewingImageLoading}
-          imageUrl={viewingImageUrl}
-          taskTitle={viewingTask?.title}
-          taskDate={viewingTask?.date}
-          onClose={handleCloseImageViewer}
-        />
-      </Suspense>
+      {isImageViewerOpen && (
+        <Suspense fallback={<ImageViewerLoadingFallback />}>
+          <ImageViewer
+            isOpen={!!viewingImageUrl && !isViewingImageLoading}
+            imageUrl={viewingImageUrl}
+            taskTitle={viewingTask?.title}
+            taskDate={viewingTask?.date}
+            onClose={handleCloseImageViewer}
+          />
+        </Suspense>
+      )}
     </>
   );
 };

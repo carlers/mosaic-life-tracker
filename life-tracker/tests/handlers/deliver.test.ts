@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { invoke, makeMockDb, type MockDb } from '../helpers/invoke-handler';
+import { createHash } from 'node:crypto';
+const THREAD = 'th_' + createHash('sha256').update('user_a|user_b').digest('hex').slice(0, 30);
 
 const CALLER = 'user_a';
 const RECIPIENT = 'user_b';
@@ -100,7 +102,7 @@ describe('message-action / deliver', () => {
     });
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('Not friends with this user');
-    expect(mockDb.upsertRow).not.toHaveBeenCalled();
+    expect(mockDb.createRow).not.toHaveBeenCalled();
   });
 
   // Regression: §20.3 (cross-user delivery requires an accepted friendship).
@@ -122,7 +124,7 @@ describe('message-action / deliver', () => {
     });
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('Not friends with this user');
-    expect(mockDb.upsertRow).not.toHaveBeenCalled();
+    expect(mockDb.createRow).not.toHaveBeenCalled();
   });
 
   // Regression: §20.4 (delivery creates the recipient-owned peer row).
@@ -148,9 +150,9 @@ describe('message-action / deliver', () => {
     expect(res.body.recipientRowId).toMatch(/^rmsg_[a-f0-9]{30}$/);
     expect(res.body.threadId).toMatch(/^th_[a-f0-9]{30}$/);
 
-    expect(mockDb.upsertRow).toHaveBeenCalledTimes(2);
+    expect(mockDb.createRow).toHaveBeenCalledTimes(2);
 
-    const recipientCall = mockDb.upsertRow.mock.calls[0][0];
+    const recipientCall = mockDb.createRow.mock.calls[0][0];
     expect(recipientCall.rowId).toBe(res.body.recipientRowId);
     expect(recipientCall.data.user_id).toBe(RECIPIENT);
     expect(recipientCall.data.sender_id).toBe(CALLER);
@@ -161,7 +163,7 @@ describe('message-action / deliver', () => {
     expect(recipientCall.permissions).toContain(`update("user:${RECIPIENT}")`);
     expect(recipientCall.permissions).toContain(`delete("user:${RECIPIENT}")`);
 
-    const senderCall = mockDb.upsertRow.mock.calls[1][0];
+    const senderCall = mockDb.createRow.mock.calls[1][0];
     expect(senderCall.rowId).toBe(MESSAGE_ID);
     expect(senderCall.data.user_id).toBe(CALLER);
     expect(senderCall.data.direction).toBe('outgoing');
@@ -186,7 +188,8 @@ describe('message-action / deliver', () => {
         user_id: RECIPIENT,
         sender_id: CALLER,
         recipient_id: RECIPIENT,
-        content: 'original content',
+        content: 'new content',
+        thread_id: THREAD,
         direction: 'incoming',
       });
 
@@ -206,8 +209,67 @@ describe('message-action / deliver', () => {
 
     // No upsert may target the recipient row id.
     const recipientRowId = res.body.recipientRowId as string;
-    for (const call of mockDb.upsertRow.mock.calls) {
+    for (const call of mockDb.createRow.mock.calls) {
       expect(call[0].rowId).not.toBe(recipientRowId);
     }
   });
+
+  it('returns a retryable error if sender-row creation fails after recipient creation', async () => {
+    mockDb.listRows.mockResolvedValue({ rows: [friendshipRow()] });
+    mockDb.createRow.mockResolvedValueOnce({})
+      .mockRejectedValueOnce(Object.assign(new Error('transient write failure'), { code: 503 }));
+    const res = await invoke({
+      userId: CALLER, mockDb,
+      body: { action: 'deliver', messageId: MESSAGE_ID, recipientId: RECIPIENT, content: 'hello' },
+    });
+    expect(res.status).toBe(503);
+    expect(res.body.ok).not.toBe(true);
+    expect(mockDb.createRow).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not create either row if an existing-row lookup fails for reasons other than 404', async () => {
+    mockDb.listRows.mockResolvedValue({ rows: [friendshipRow()] });
+    mockDb.getRow.mockRejectedValueOnce(Object.assign(new Error('timeout'), { code: 503 }));
+    const res = await invoke({
+      userId: CALLER, mockDb,
+      body: { action: 'deliver', messageId: MESSAGE_ID, recipientId: RECIPIENT, content: 'hello' },
+    });
+    expect(res.status).toBe(503);
+    expect(mockDb.createRow).not.toHaveBeenCalled();
+  });
+
+  it('refuses to resurrect a previously unsent recipient copy', async () => {
+    mockDb.listRows.mockResolvedValue({ rows: [friendshipRow()] });
+    mockDb.getRow
+      .mockRejectedValueOnce(Object.assign(new Error('not found'), { code: 404 }))
+      .mockResolvedValueOnce({
+        user_id: RECIPIENT, sender_id: CALLER, recipient_id: RECIPIENT,
+        thread_id: THREAD, direction: 'incoming', content: '', is_unsent: true,
+      });
+    const res = await invoke({
+      userId: CALLER, mockDb,
+      body: { action: 'deliver', messageId: MESSAGE_ID, recipientId: RECIPIENT, content: 'hello' },
+    });
+    expect(res.status).toBe(409);
+    expect(mockDb.createRow).not.toHaveBeenCalled();
+  });
+
+  it('resumes a partially delivered pair by creating only the missing sender row', async () => {
+    mockDb.listRows.mockResolvedValue({ rows: [friendshipRow()] });
+    mockDb.getRow
+      .mockRejectedValueOnce(Object.assign(new Error('not found'), { code: 404 }))
+      .mockResolvedValueOnce({
+        user_id: RECIPIENT, sender_id: CALLER, recipient_id: RECIPIENT,
+        thread_id: THREAD, direction: 'incoming', content: 'hello',
+      });
+    const res = await invoke({
+      userId: CALLER, mockDb,
+      body: { action: 'deliver', messageId: MESSAGE_ID, recipientId: RECIPIENT, content: 'hello' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.messageId).toBe(MESSAGE_ID);
+    expect(mockDb.createRow).toHaveBeenCalledTimes(1);
+    expect(mockDb.createRow.mock.calls[0][0].rowId).toBe(MESSAGE_ID);
+  });
+
 });

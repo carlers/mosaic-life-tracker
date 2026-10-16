@@ -9,7 +9,9 @@ import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
-import { ComingSoon } from '../layout/ComingSoon';
+import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
+import { fetchFriendDiaryMonth, reactToFriendDiary, type FriendDiaryDocument } from '../../lib/friendData';
+import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
 import { useMessageActions } from '../../hooks/useMessageActions';
 import { useAuth } from '../../hooks/useAuth';
@@ -20,6 +22,10 @@ import {
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
+  INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  resolveCalendarZoomDays,
+  resolveIncompleteTaskBlockColorMode,
   resolveWeekStartsOn,
 } from '../../lib/preferences';
 import { createHolidayDisplayConfig } from '../../lib/holidays';
@@ -28,6 +34,7 @@ import type { ViewType } from './ViewSwitcher';
 import type { TaskDocument } from '../../db/schema';
 
 const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
+const { Component: LazyDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 
 const LazyTodoListView = React.lazy(() =>
   import('./views/TodoListView').then(({ TodoListView }) => ({
@@ -56,6 +63,10 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
   const { getSetting } = useSettings();
+  const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
+    getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
+  );
+  const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -64,11 +75,45 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     getSetting(HOLIDAY_REGION_SETTING_KEY, ''),
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
-  const { sendTaskReaction } = useMessageActions(person.userId);
+  const { sendTaskReaction, sendDiaryReply } = useMessageActions(person.userId);
 
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
+  const [diaryDate, setDiaryDate] = useState<string | null>(null);
+  const [diaryState, setDiaryState] = useState<{ key: string; entries: FriendDiaryDocument[] }>({ key: '', entries: [] });
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
+  const diaryMonth = format(todoFocusDate, 'yyyy-MM');
+  const diaryKey = `${currentUserId}:${person.userId}:${diaryMonth}`;
+  useEffect(() => {
+    if (!isActive || activeView !== 'diary' || !currentUserId) return;
+    let mounted = true;
+    fetchFriendDiaryMonth(currentUserId, person.userId, diaryMonth).then(entries => {
+      if (mounted) setDiaryState({ key: diaryKey, entries });
+    }).catch(() => { if (mounted) setDiaryState({ key: diaryKey, entries: [] }); });
+    return () => { mounted = false; };
+  }, [isActive, activeView, diaryKey, diaryMonth, currentUserId, person.userId]);
+  const diaryEntries = diaryState.key === diaryKey ? diaryState.entries : [];
+  const onDiaryReact = async (emoji: string, op: 'add' | 'remove') => {
+    const entry = diaryEntries.find(item => item.date === diaryDate);
+    if (!entry) return;
+    await reactToFriendDiary(person.userId, entry.id, emoji, op);
+    const updated = await fetchFriendDiaryMonth(currentUserId, person.userId, diaryMonth);
+    setDiaryState({ key: diaryKey, entries: updated });
+  };
+  const onDiaryReply = async (content: string) => {
+    const entry = diaryEntries.find(item => item.date === diaryDate);
+    if (!entry) throw new Error('Diary unavailable.');
+    await sendDiaryReply(entry, content);
+  };
+  const handleViewChange = useCallback((next: ViewType) => {
+    setDiaryDate(null);
+    setDiaryState({ key: '', entries: [] });
+    setActiveView(next);
+  }, []);
+  const openDiary = (date: Date) => {
+    const key = format(date, 'yyyy-MM-dd');
+    if (diaryEntries.some(entry => entry.date === key)) setDiaryDate(key);
+  };
 
   const {
     tasks = [],
@@ -113,26 +158,28 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
   }, []);
 
   return (
+    <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex flex-col h-full">
       <PersonProfileHeader person={person} isActive={isActive} />
       <CalendarHeader
         title={
-          activeView === 'todo'
+          activeView !== 'calendar'
             ? format(todoFocusDate, 'MMMM yyyy')
             : calendarState.title
         }
         viewMode={calendarState.viewMode}
+        enableTitleSwipe={calendarZoomDays !== 7}
         onToggleMode={calendarState.handleToggle}
         onPrev={
-          activeView === 'todo' ? handleTodoPrev : calendarState.handlePrev
+          activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
         }
         onNext={
-          activeView === 'todo' ? handleTodoNext : calendarState.handleNext
+          activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
         }
         activeView={activeView}
-        onViewChange={setActiveView}
+        onViewChange={handleViewChange}
         onTitleClick={
-          activeView === 'todo'
+          activeView !== 'calendar'
             ? handleTodoToday
             : activeView === 'calendar'
               ? calendarState.resetToToday
@@ -149,6 +196,10 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
           tasks={tasks}
           categoriesMap={categoriesMap}
           variant="friend"
+          zoomPreference={calendarZoomDays}
+          activeIndex={calendarState.activeIndex}
+          isZoomTransitioning={calendarState.isZoomTransitioning}
+          onZoomNavigate={calendarState.handleZoomNavigate}
           friendCategories={categories}
           friendName={person.displayName}
           friendUserId={person.userId}
@@ -178,8 +229,23 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
           />
         </React.Suspense>
       ) : (
-        <ComingSoon />
+        <React.Suspense fallback={null}>
+          <LazyTodoListView variant="friend" markerMode="diary" diaryEntries={diaryEntries}
+            onOpenDiary={openDiary} focusDate={todoFocusDate} tasks={tasks}
+            categories={categories} categoriesMap={categoriesMap}
+            onFocusDateChange={setTodoFocusDate} friendName={person.displayName}
+            friendUserId={person.userId} currentUserId={currentUserId}
+            onReactToTask={handleReactToTask} weekStartsOn={weekStartsOn}
+            holidayConfig={holidayConfig} />
+        </React.Suspense>
       )}
+      {isActive && activeView === 'diary' && diaryDate && diaryEntries.some(entry => entry.date === diaryDate) && <React.Suspense fallback={null}>
+        <LazyDiaryEntrySheet key={`${currentUserId}:${person.userId}:${diaryDate}`} date={diaryDate}
+          entry={diaryEntries.find(entry => entry.date === diaryDate)}
+          author={person.displayName} friendUserId={person.userId}
+          onReact={onDiaryReact} onReply={onDiaryReply} onClose={() => setDiaryDate(null)} />
+      </React.Suspense>}
     </div>
+    </IncompleteTaskBlockColorContext.Provider>
   );
 };

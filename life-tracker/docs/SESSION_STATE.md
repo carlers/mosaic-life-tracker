@@ -1,18 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-16 UTC
-Current task: #592 trusted generic CI-first Preview producer pin after #914; supports #889 DR recovery integration.
+Current task: #889 integrated Production-target acceptance before v0.29.1 pre-1.0 release.
 
-## Verified evidence
-- Protected `main@bb58300052dc4c85974d97779e2b257ec4f28c7d` remains v0.17.4 with trusted generic receiver. Protected `dev@dff508fb30c7db069fc753cd09359627242a3ffb` is v0.29.1 with #914 historical-client Quality Gate.
-- #889 restored the R2 snapshot to isolated DR, strict verified 6 users / 2924 rows / 137 files, tested ordered 010–015 schema+Function upgrade on DR and received owner browser acceptance. No real Production backend upgrade or client-retirement approval.
-- DR fidelity source fix replay: focused task #38865174720 SUCCESS; isolated stable `fix/889-dr-recovery-dev-20261016@69dff37905e42be3bc3423790afede62a9726aee` canonical #38865387907 SUCCESS. Protected dev/main remain unchanged; stable cannot be advertised as CI-first READY until trusted receiver passes.
-- Main-owned Trusted Preview Delivery #38865616797 **FAIL CLOSED** with `Unreviewed generic Quality Gate definition`. Precise root: pinned reviewed old blob `5f64f715551f0c311a60d823367d849dfb369bba`; #914 adds only a new historical-client preflight step, producing exact blob `28781399a01981c3e96aa99f8925320b0f61b8e4`.
+## Current verified state
+- Protected `dev@c733bfa73f4ca742f6333ee75e11c642f83daf53` = v0.29.1, full Quality Gate #38891390926 SUCCESS and exact dev Vercel READY. Protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0` = v0.17.4, Vercel Production READY; #909 OPEN, unmerged, 1.0.0 not approved.
+- Owner confirmed every known old v0.17.4 PWA synced/retired plus independent R2/encryption key escrow; authenticated `npm run dr:check` PASS for snapshot `20261016T110126909Z`, completed 2026-10-16 11:02:17 UTC. This is owner attestation, not independently observed per device.
+- Approved Production schema 010–015 actually applied and individually verified via authenticated connected Appwrite API from exact Git manifest (preferred CLI blocked by credential-transfer checks): 17 tables, Diary 9 AVAILABLE columns, Messages 25 AVAILABLE columns; no 008/unscoped migration. New `message-action@6ad20d5de9380307809d` active READY from exact dev source; prior `6acb8162dc02a1deaa23` retained READY, cron/scopes/variables same. `dr_backup` unchanged. Details: issue #889 comment 6214794662.
+- Read-only `get_notifications` smoke on active Production Function returned HTTP 200. An independently rebuilt local Production-target v0.29.1 bundle passed build/PWA/size checks, HTTPS root and deep-link HTTP 200, and embeds approved Production Appwrite ID. This does NOT prove actual two-account/offline/mobile privacy acceptance.
+- The existing Production Appwrite Web platform registers a private laptop address, enabling a **local** v0.29.1 Production-target acceptance build without redirecting official Vercel Previews away from Scratch or merging main.
 
-## This isolated fix
-- From protected main, allow **only** both security-reviewed Quality Gate Git blob SHAs for generic trusted admission. Preserve all other branch/owner/CI SHA/artifact/provider checks; test rejection of unexpected third hash.
-- Document the exact evidence. Version impact NONE, no application UI/runtime/backend/schema changes and no protected branch, Production, Vercel, or Appwrite write authorized by this task.
-- Task `chatgpt/592-914-trust-pin-20261016` → focused CI; stable `security/592-914-trust-pin-20261016` → full canonical/Preview (may use normal main-era Git Preview while main still owns the old pin).
+## Current source-only task
+- Document the repeatable exact-SHA local Production-target acceptance protocol in `docs/PRODUCTION_ACCEPTANCE.md`, link it from `docs/README.md` and `docs/PRODUCTION_RELEASE_READINESS.md`, and replace this stale checkpoint with factual milestones.
+- Version impact NONE. No app behavior, Vercel/provider configuration, Appwrite schema/Function or protected branch promotion in this documentation task.
 
 ## Next action
-After focused/full CI and diff review, prepare main infrastructure-only PR; **obtain separate explicit user permission** before any protected-main mutation (including required protection setting exceptions). Once approved, verify exact main CI/Production-safe delivery and revalidate the #889 stable trusted receiver. #889 still requires old installed PWA retirement, Production migrations/Function approvals and real Production acceptance before PR #909 can merge.
+- Owner real signed-in two-account Diary/chat/reactions/notifications/private-record/offline/mobile/PWA acceptance on Production-target v0.29.1. Certificate-related PWA limitations remain BLOCKED until genuinely verified.
+- Current health/restore evidence, exact dev CI, and source pin rechecked before *separately approved* #909 dev→main merge; main full CI, matching Production Vercel deployment and release publisher then verified. No v1.0.0 tag.

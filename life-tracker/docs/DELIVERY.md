@@ -102,6 +102,19 @@ category branches such as `fix/*`, `feature/*`, and `perf/*` are stable Preview
 branches. There is no deployment-only `preview` branch. Source development continues on
 these branches and AI task branches.
 
+### Read-only PR preflight versus push-driven canonical races (#592)
+
+A promotion PR `synchronize` event can be processed before the same exact source SHA's
+push-driven `canonical-acceptance` exists or completes. The trusted-base
+`check-promotion-pr.mjs` waits at most 140 seconds (15 evidence evaluations)
+**only** when that unavailable/pending canonical result is the sole rejection.
+Every retry re-reads the exact-SHA GitHub Actions check and both live branch refs
+and PR metadata; any changed target/source, draft/closed PR, integration mismatch,
+version regression, terminal failed canonical result or API error blocks immediately.
+A deadline with no exact successful result also **fails closed**. Earlier successes
+never override a newer queued/failed check. This is not an artifact trust bypass,
+a source rerun, Vercel deployment, user approval or completed main release.
+
 ## Read-only promotion preflight (#592)
 
 Before creating a new stable Preview → `dev` promotion PR, use the optional
@@ -394,80 +407,39 @@ GitHub administration/permissions and strict-check behavior are reviewed.
 `canonical-acceptance` is push-triggered; never require it as a PR check.
 No new protection setting, queue, or auto-merge is authorized.
 
-## CI-first stable Preview opt-in rollout (#592, pending protected-main approval)
+## #592 CI-first inherited stable-branch source policy — awaiting dev promotion
 
-The two previously accepted branches remain explicitly admitted. The general
-cutover is **disabled unless** repository variable
-`MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED=true` is separately enabled; main's
-existing `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED` must also be true before any
-credentialed provider creation. Aliases remain OFF.
+The reviewed rollout candidate disables Git-triggered Vercel deployment on
+single-leaf `feature/*`, `fix/*`, `perf/*`, `security/*`, and
+`refactor/*` branches **from their first commit**. `dev` and `main` remain
+Git deployed; quiet task branches stay disabled. A plain unmatched `"*":false`
+is not a safe fallback for names containing `/`, so each intended category
+has an explicit `false` rule with no overlapping `true` rule.
 
-**Pending protected-main review / subsequent dev source rollout:** New ordinary
-stable branches may inherit a byte-exact reviewed default CI-first Git policy
-(`feature/*`, `fix/*`, `perf/*`, `security/*`, `refactor/*` are explicitly
-`false`; `dev` and `main` remain `true`). The default-main receiver and
-writer must both validate those exact bytes, full canonical CI and immutable
-static artifact before one CLI Preview. Historical per-branch opt-in remains
-supported for rollout and rollback. Changing the receiver alone does NOT cut
-over Git-first branches; changing dev Git rules before trusted main can admit
-the new config strands Preview delivery. Protected-main promotion and a
-separately approved source/dev policy transition are mandatory before calling
-this the default. CLI Previews currently have no stable aliases; testable
-Scratch origins must be resolved and verified before replacing existing
-accepted feature Preview hosting. Feature pilot #852 then #851 must prove
-normal no-opt-in behavior before #592 closes. Do not silently enable aliases.
+**Current gate (2026-10-15):** The protected-main trusted receiver/writer was
+owner-approved in PR #894 and has accepted two genuine feature Previews under
+this exact inherited source policy: #852 v0.28.0 (canonical #38703473737,
+trusted #38703741227), and #851 v0.29.1 (canonical #38710984351,
+trusted #38711265392). Both published one CI-first immutable CLI Preview
+after canonical SUCCESS; no Git-first build was created at the reviewed
+stable SHA. #851 is owner-accepted; #852's human acceptance is separate.
 
-The previously admitted per-branch fallback remains available. When enabled,
-**only single-leaf** stable
-`feature/<name>`, `fix/<name>`, `perf/<name>`,
-`security/<name>`, or `refactor/<name>` refs can opt in. The branch's
-**first commit** must already contain the exact reviewed
-`life-tracker/vercel.json` alteration, replacing its own category's
-`"category/*": true` with a **nonoverlapping**
-`"category/!(name)": true` plus `"category/name": false`. Do not
-create the stable branch before this commit: its initial Git-triggered Preview
-would otherwise consume a build and could race the protected writer.
+The remaining generalization step is to promote this source policy to
+`dev` as an **independently fully verified stable infrastructure candidate**.
+It must not be silently merged into `dev`: require full exact stable canonical
+acceptance, provider readback, owner approval of the promotion, and dev
+exact-tree gate. This applies to *new* stable branches inheriting `dev`
+after the promotion; previously created branches retain their own source
+config, which must still be inspected before any rollout. Keep `main` and
+`dev` on Git deployment. The generic trusted receiver must remain enabled
+and accepting the exact new config before disabling Git-first on future
+stable branches. If the privileged writer is turned OFF for rollback, restore
+Git-deployment rules through a reviewed source change **before** continuing
+new stable branch delivery; switching a flag off alone strands Git-disabled
+Previews. Preserve existing accepted Preview URLs. Follow
+[#592 revised plan](https://github.com/carlers/mosaic-life-tracker/issues/592#issuecomment-6186555585)
+and continue to require user acceptance for product features and separate
+explicit stable→dev authorization for every promotion.
 
-A default-main read-only receiver compares **exact source bytes** at the
-completed push SHA to the main-owned template; ordinary Git-auto branches have
-no opt-in and are skipped, without privileged writer invocation. For newly opted-in generic branches it also verifies that the candidate's
-Quality Gate workflow definition matches the exact **protected-main-reviewed**
-six-file producer blob `5f64f715551f0c311a60d823367d849dfb369bba`;
-merely naming a workflow or check is insufficient. A changed workflow must
-be independently reviewed and re-pinned by a later protected-main change.
-This pins workflow semantics, not arbitrary candidate scripts or app behavior.
-The receiver
-also independently checks the current protected-main checkout, exact source
-HEAD, latest complete canonical CI and same-suite acceptance, artifact name/run
-attempt/digest, bounded six-member archive, Scratch/public-build parity, build
-budgets, and fixed SPA routes and security headers. It emits an explicit
-`admitted=true` job output **only after** all checks pass. The privileged
-default-main writer is gated by that output, the independent creation switch
-and protected environment, and repeats admission plus project, source config,
-provider history and READY/Preview verification before any prebuilt POST. It
-never executes source-branch code or scripts, builds a second app bundle,
-creates a custom alias, or promotes Production.
-
-Rejected/ordinary branches must never be interpreted as authorization from a
-successful `workflow_run` alone. Same-commit retries use the deterministic
-deployment identity and must reuse the existing READY Preview with zero
-additional provider POST. A previously failed, mismatched, in-progress,
-duplicate, Git-sourced, alias-mutating, or wrong-target provider candidate
-remains a blocking investigation, never a reason to create a duplicate.
-
-**Rollout/rollback order:** review a task PR and complete full stable Preview
-canonical and protected-main promotion before enabling the separate generic
-flag; verify the first single-leaf feature branch with the new suppression
-already present at branch creation and zero premature provider Git builds.
-Keep other branch categories on Git-auto while proving that first normal
-feature path, hosted static routes and unprivileged same-SHA retry. If adverse
-behavior occurs, disable `MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED` (or the
-provider create switch) FIRST, then restore that branch's original Git-auto
-rule by normal reviewed branch changes. Do not edit the protected main policy
-in response to a failing rollout or silently enable provider aliases, change
-Vercel project settings, Appwrite, dev, main, or production features.
-
-This is infrastructure rollout policy only. Registered Scratch origins,
-authenticated browser/device acceptance, and a real explicitly approved
-feature Preview → dev promotion must be verified separately. Main branch
-protection does not permit bypass reuse from an earlier main PR.
+A full green canonical gate by itself does not authorize provider configuration
+changes, Production backend writes, `main` product promotion, or a 1.0 tag.

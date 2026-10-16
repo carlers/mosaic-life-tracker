@@ -18,8 +18,10 @@ interface ReplyToContext {
 }
 
 interface MessageComposerProps {
-  onSend: (content: string) => void;
+  onSend: (content: string) => void | Promise<void>;
+  onSendError?: () => void;
   onOpenStickers?: () => void;
+  onPrepareStickers?: () => void;
   disabled?: boolean;
   placeholder?: string;
   replyTo?: ReplyToContext | null;
@@ -40,7 +42,9 @@ export const MessageComposer = forwardRef<
   (
     {
       onSend,
+      onSendError,
       onOpenStickers,
+      onPrepareStickers,
       disabled = false,
       placeholder = 'Message…',
       replyTo = null,
@@ -51,6 +55,7 @@ export const MessageComposer = forwardRef<
     const [value, setValue] = useState('');
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const counterId = useId();
+    const sendingRef = useRef(false);
 
     // Reply intent, not merely opening a chat, focuses the field by default.
     // A reply chosen from a BottomSheet is also refocused after the sheet exits.
@@ -68,11 +73,19 @@ export const MessageComposer = forwardRef<
       []
     );
 
-    const handleSend = () => {
+    const handleSend = async () => {
       const trimmed = value.trim();
-      if (!trimmed || disabled) return;
-      onSend(trimmed);
-      setValue('');
+      if (!trimmed || disabled || sendingRef.current) return;
+      sendingRef.current = true;
+      try {
+        // Do not discard the draft before its durable local insert succeeds.
+        await onSend(trimmed);
+        setValue((current) => current === value ? '' : current);
+      } catch {
+        onSendError?.();
+      } finally {
+        sendingRef.current = false;
+      }
       inputRef.current?.focus({ preventScroll: true });
     };
 
@@ -102,7 +115,10 @@ export const MessageComposer = forwardRef<
           {onOpenStickers && (
             <button type="button" aria-label="Open stickers" disabled={disabled}
               onClick={onOpenStickers}
-              onPointerDown={event => event.preventDefault()}
+              onPointerDown={event => {
+                event.preventDefault();
+                if (!disabled) onPrepareStickers?.();
+              }}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-300 hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50">
               <Sticker size={21} aria-hidden="true" />
             </button>

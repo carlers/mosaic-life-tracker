@@ -65,14 +65,19 @@ describe('resolvePrimarySwipeDestination', () => {
   });
   it('derives page layout and swipe defaults from the same protected-route entries', () => {
     expect(PROTECTED_ROUTES.map((route) => route.path)).toEqual([
-      '/home', '/backlog', '/explore', '/friends/:friendId', '/notifications',
+      '/home', '/bucket-list/:id', '/bucket-list', '/backlog', '/explore', '/friends/:friendId', '/notifications',
       '/messages', '/messages/:friendId', '/account', '/settings',
-      '/settings/releases', '/settings/preferences', '/settings/notifications', '/settings/screen', '/profile',
+      '/settings/releases', '/settings/preferences', '/settings/notifications', '/settings/screen', '/settings/*', '/profile',
     ]);
     expect(new Set(PROTECTED_ROUTES.map((route) => route.path)).size).toBe(PROTECTED_ROUTES.length);
     expect(PRIMARY_ROUTE_PATHS).toEqual([
       '/home', '/explore', '/notifications', '/messages', '/account',
     ]);
+    expect(matchProtectedRoute('/bucket-list')?.id).toBe('bucketList');
+    expect(matchProtectedRoute('/bucket-list/dream_test')?.id).toBe('bucketListDetail');
+    expect(resolveRouteParent('/bucket-list/dream_test')).toBe('/bucket-list');
+    expect(resolveRouteParent('/bucket-list')).toBe('/home');
+    expect(protectedRouteSwipeMode('/bucket-list')).toBe('full');
     expect(matchProtectedRoute('/backlog')?.id).toBe('backlog');
     expect(resolveRouteParent('/backlog')).toBe('/home');
     expect(protectedRouteSwipeMode('/backlog')).toBe('full');
@@ -84,6 +89,7 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(matchProtectedRoute('/friends/')?.id).toBeUndefined();
     expect(matchProtectedRoute('/settings/preferences')?.id).toBe('preferences');
     expect(matchProtectedRoute('/settings/notifications')?.id).toBe('notificationSettings');
+    expect(matchProtectedRoute('/settings/notifcations')?.id).toBe('unknownSettingsRedirect');
     expect(matchProtectedRoute('/login')).toBeNull();
     expect(protectedRouteSwipeMode('/messages/user_1')).toBe('edge-back');
     expect(protectedRouteSwipeMode('/friends/friend_1')).toBe('edge-back');

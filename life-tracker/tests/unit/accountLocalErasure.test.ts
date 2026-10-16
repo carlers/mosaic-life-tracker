@@ -25,7 +25,7 @@ describe('account-scoped local erasure', () => {
   // Regression: §23.8 (deleting one account cannot destroy another account).
   it('removes only the deleting owner from the shared local database', async () => {
     const stores = Object.fromEntries(
-      ['tasks', 'categories', 'diary', 'settings', 'friendships', 'messages', 'syncMeta'].map(
+      ['tasks', 'categories', 'diary', 'settings', 'bucketList', 'bucketTaskLinks', 'friendships', 'messages', 'syncMeta'].map(
         (name) => [
           name,
           [

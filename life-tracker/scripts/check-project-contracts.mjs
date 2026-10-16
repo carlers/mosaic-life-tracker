@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateVersionFiles } from './lib/versioning.mjs';
+import { checkComponentIndex } from './lib/repo-component-index.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 export const entrypoints = [
@@ -136,6 +137,7 @@ export function checkContracts(projectRoot = root) {
       errors.push(`${source}: missing entrypoint link to ${target}`);
     }
   }
+  errors.push(...checkComponentIndex(projectRoot));
   return { errors, count: files.size };
 }
 

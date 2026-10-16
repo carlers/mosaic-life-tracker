@@ -35,8 +35,32 @@ export interface DiaryDocument {
   id: string;
   date: string;
   content?: string;
+  /** Optional owner-selected day marker; legacy entries retain their original content. */
+  emoji?: string;
+  /** JSON-encoded ordered IDs; bounded to five owner-private photos. */
+  photos?: string;
   visibility: 'public' | 'followers' | 'private';
   userId: string;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
+export interface BucketListDocument {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  achieved: boolean;
+  achievedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
+export interface BucketTaskLinkDocument {
+  id: string;
+  userId: string;
+  bucketListId: string;
+  taskId: string;
   createdAt: string;
   updatedAt: string;
   isDeleted: boolean;
@@ -71,7 +95,9 @@ export interface SyncMetaDocument {
     | 'diary'
     | 'settings'
     | 'friendships'
-    | 'messages';
+    | 'messages'
+    | 'bucketList'
+    | 'bucketTaskLinks';
   replicationIdentifier: string;
   lastFreshAt: string;
 }
@@ -88,6 +114,10 @@ export interface MessageDocument {
   taskRefTitle: string;
   taskRefDate: string;
   taskRefColor: string;
+  diaryRefId?: string;
+  diaryRefOwnerId?: string;
+  diaryRefDate?: string;
+  diaryRefExcerpt?: string;
   replyToId: string;
   replyToContent: string;
   replyToSenderId: string;
@@ -173,7 +203,7 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
   ],
 };
 export const diarySchema: RxJsonSchema<DiaryDocument> = {
-  version: 0,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   required: ['id', 'date', 'visibility', 'userId', 'createdAt', 'updatedAt', 'isDeleted'],
@@ -181,6 +211,8 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     id: { type: 'string', maxLength: 255 },
     date: { type: 'string', maxLength: 50 },
     content: { type: 'string' },
+    emoji: { type: 'string', maxLength: 32, default: '' },
+    photos: { type: 'string', maxLength: 512, default: '[]' },
     visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
     userId: { type: 'string', maxLength: 255 },
     createdAt: { type: 'string', maxLength: 50 },
@@ -191,6 +223,40 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     ['userId', 'date', 'isDeleted'],
     ['visibility', 'userId', 'isDeleted'],
   ],
+};
+export const bucketListSchema: RxJsonSchema<BucketListDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: ['id', 'userId', 'title', 'description', 'achieved', 'achievedAt', 'createdAt', 'updatedAt', 'isDeleted'],
+  properties: {
+    id: { type: 'string', maxLength: 36 },
+    userId: { type: 'string', maxLength: 255 },
+    title: { type: 'string', maxLength: 255 },
+    description: { type: 'string', maxLength: 2000 },
+    achieved: { type: 'boolean' },
+    achievedAt: { type: 'string', maxLength: 50 },
+    createdAt: { type: 'string', maxLength: 50 },
+    updatedAt: { type: 'string', maxLength: 50 },
+    isDeleted: { type: 'boolean' },
+  },
+  indexes: [['userId', 'isDeleted'], ['userId', 'achieved', 'isDeleted']],
+};
+export const bucketTaskLinksSchema: RxJsonSchema<BucketTaskLinkDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: ['id','userId','bucketListId','taskId','createdAt','updatedAt','isDeleted'],
+  properties: {
+    id: { type: 'string', maxLength: 36 },
+    userId: { type: 'string', maxLength: 255 },
+    bucketListId: { type: 'string', maxLength: 36 },
+    taskId: { type: 'string', maxLength: 255 },
+    createdAt: { type: 'string', maxLength: 50 },
+    updatedAt: { type: 'string', maxLength: 50 },
+    isDeleted: { type: 'boolean' },
+  },
+  indexes: [['userId','bucketListId','isDeleted'],['userId','taskId','isDeleted']],
 };
 export const settingsSchema: RxJsonSchema<SettingsDocument> = {
   version: 1,
@@ -246,7 +312,7 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
   ],
 };
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 3,
+  version: 4,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -285,6 +351,10 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     taskRefTitle: { type: 'string', maxLength: 500, default: '' },
     taskRefDate: { type: 'string', maxLength: 50, default: '' },
     taskRefColor: { type: 'string', maxLength: 20, default: '' },
+    diaryRefId: { type: 'string', maxLength: 36, default: '' },
+    diaryRefOwnerId: { type: 'string', maxLength: 36, default: '' },
+    diaryRefDate: { type: 'string', maxLength: 10, default: '' },
+    diaryRefExcerpt: { type: 'string', maxLength: 160, default: '' },
     replyToId: { type: 'string', maxLength: 255, default: '' },
     replyToContent: { type: 'string', maxLength: 300, default: '' },
     replyToSenderId: { type: 'string', maxLength: 255, default: '' },
@@ -308,8 +378,10 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     ['userId', 'direction', 'readAt'],
   ],
 };
+// Whenever this collection's schema changes, bump the version and migrate persisted rows.
+// v3 expands collectionName to include bucketTaskLinks (v2 installs must not hit DB6).
 export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
-  version: 1,
+  version: 3,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -332,6 +404,8 @@ export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
         'settings',
         'friendships',
         'messages',
+        'bucketList',
+        'bucketTaskLinks',
       ],
     },
     replicationIdentifier: { type: 'string', maxLength: 500 },

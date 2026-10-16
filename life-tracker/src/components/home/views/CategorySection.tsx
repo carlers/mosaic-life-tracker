@@ -1,5 +1,6 @@
 import React, { useId, useState } from 'react';
-import { ChevronDown, Plus } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { CheckSquare, ChevronDown, Plus, Square } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
 import { TaskItem } from './TaskItem';
 import {
@@ -25,6 +26,15 @@ interface CategorySectionProps {
   tasks: TaskDocument[];
   ownerLabels?: ReadonlyMap<string, string>;
   sharedRows?: React.ReactNode;
+  diarySlot?: React.ReactNode;
+  diarySlotIndex?: number;
+  diaryGhostSlot?: React.ReactNode;
+  diaryGhostSlotIndex?: number;
+  animateDragProjection?: boolean;
+  diaryDragInProgress?: boolean;
+  diarySettling?: boolean;
+  settlingTaskId?: string | null;
+  lastReleasedTask?: { taskId: string; revision: number } | null;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
   onAddTask: (title: string, completed?: boolean) => void;
   onOpenActions: (task: TaskDocument) => void;
@@ -42,6 +52,7 @@ interface CategorySectionProps {
   selectionMode?: boolean;
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
+  onToggleCategorySelection?: (categoryId: string) => void;
   reorderEnabled?: boolean;
   activeDragTaskId?: string | null;
   dragGapIndex?: number | null;
@@ -57,6 +68,15 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   tasks,
   ownerLabels,
   sharedRows,
+  diarySlot,
+  diarySlotIndex = 0,
+  diaryGhostSlot,
+  diaryGhostSlotIndex = 0,
+  animateDragProjection = false,
+  diaryDragInProgress = false,
+  diarySettling = false,
+  settlingTaskId = null,
+  lastReleasedTask = null,
   onToggleTask,
   onAddTask,
   onOpenActions,
@@ -74,11 +94,14 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   selectionMode = false,
   selectedTaskIds = EMPTY_SELECTED_TASK_IDS,
   onToggleTaskSelection,
+  onToggleCategorySelection,
   reorderEnabled = false,
   activeDragTaskId = null,
   dragGapIndex = null,
   dragGapHeight = 0,
 }) => {
+  const prefersReducedMotion = useReducedMotion();
+  const animatePositions = animateDragProjection && !prefersReducedMotion;
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -126,6 +149,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const categoryCollapsed = showCollapseButton && isCollapsed;
+  const allCategoryTasksSelected = tasks.length > 0 &&
+    tasks.every(task => selectedTaskIds.has(task.id));
   const canReorder =
     reorderEnabled &&
     !selectionMode &&
@@ -147,7 +172,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     onEditChange,
     onEditSave,
     onEditCancel,
-    disableLayoutAnimation: disableTaskLayoutAnimation,
+    disableLayoutAnimation: disableTaskLayoutAnimation || task.id === settlingTaskId,
     selectionMode,
     isSelected: selectedTaskIds.has(task.id),
     onToggleSelection: () => onToggleTaskSelection?.(task.id),
@@ -184,7 +209,17 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       );
     };
 
-    tasks.forEach((task) => {
+    const renderDiary = (index: number) => (
+      <TaskRowDropSurface key="diary-slot" categoryId={categoryId}
+        taskId={`diary_slot_${index}`} acceptTasksOnly
+        animatePosition={animatePositions && !diaryDragInProgress && !diarySettling}>
+        {diarySlot}
+      </TaskRowDropSurface>
+    );
+
+    tasks.forEach((task, index) => {
+      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(renderDiary(index));
+      if (diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex)) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
       const isActiveSource = task.id === activeDragTaskId;
 
       if (!isActiveSource && clampedGapIndex === visibleIndex) {
@@ -193,10 +228,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
 
       rows.push(
         <TaskRowDropSurface
-          key={task.id}
+          key={lastReleasedTask?.taskId === task.id
+            ? `${task.id}:released:${lastReleasedTask.revision}`
+            : task.id}
           categoryId={categoryId}
           taskId={task.id}
           isActiveSource={isActiveSource}
+          animatePosition={animatePositions && task.id !== settlingTaskId}
         >
           <DraggableTaskItem {...taskProps(task)} />
         </TaskRowDropSurface>
@@ -210,7 +248,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     if (clampedGapIndex === visibleIndex) {
       pushGap();
     }
-
+    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(renderDiary(Math.min(tasks.length, diarySlotIndex)));
+    if (diaryGhostSlot && diaryGhostSlotIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
     return rows;
   };
 
@@ -218,10 +257,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     <>
       <button
         type="button"
-        onClick={handleOpen}
-        disabled={selectionMode}
+        onClick={selectionMode ? () => onToggleCategorySelection?.(categoryId) : handleOpen}
+        disabled={selectionMode && (!onToggleCategorySelection || tasks.length === 0)}
         className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-        aria-label={`Add a task to ${categoryName}`}
+        aria-label={selectionMode
+          ? `${allCategoryTasksSelected ? 'Deselect all' : 'Select all'} tasks in ${categoryName}`
+          : `Add a task to ${categoryName}`}
+        aria-pressed={selectionMode ? allCategoryTasksSelected : undefined}
       >
         {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
         <span
@@ -234,7 +276,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           className="mosaic-category-add-icon inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400"
           aria-hidden="true"
         >
-          <Plus data-testid="category-add-icon" size={18} />
+          {selectionMode
+            ? allCategoryTasksSelected ? <CheckSquare size={18} /> : <Square size={18} />
+            : <Plus data-testid="category-add-icon" size={18} />}
         </span>
       </button>
       {showCollapseButton && (
@@ -318,16 +362,20 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       {!categoryCollapsed &&
         (canReorder
           ? renderDraggableRows()
-          : tasks.map((task) => (
-              <TaskItem key={task.id} {...taskProps(task)} />
-            )))}
+          : <>{tasks.map((task, index) => <React.Fragment key={task.id}>
+              {diarySlot && index === Math.min(tasks.length, diarySlotIndex) && diarySlot}
+              {diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex) && diaryGhostSlot}
+              <TaskItem {...taskProps(task)} />
+            </React.Fragment>)}{diarySlot && diarySlotIndex >= tasks.length && diarySlot}{diaryGhostSlot && diaryGhostSlotIndex >= tasks.length && diaryGhostSlot}</>)}
+      {categoryCollapsed && diarySlot}
+      {categoryCollapsed && diaryGhostSlot}
       {!categoryCollapsed && sharedRows}
     </>
   );
 
   return (
-    <div className="mb-4" data-task-category-id={categoryId}>
+    <motion.div layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }} className="mb-4" data-task-category-id={categoryId}>
       {contents}
-    </div>
+    </motion.div>
   );
 };

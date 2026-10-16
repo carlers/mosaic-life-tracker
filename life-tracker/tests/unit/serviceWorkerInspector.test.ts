@@ -30,4 +30,42 @@ describe('service worker inspector', () => {
     expect(result.skipWaitingOnRequest).toBe(true);
     expect(result.skipWaitingOnUnrelatedMessage).toBe(false);
   });
+  it('inspects injected precache workers and rejects implicit activation', async () => {
+    const source = String.raw`
+      const assets = [{ url: "index.html", mosaicBytes: 100 },
+                      { url: "assets/app.js", mosaicBytes: 240 }];
+      self.__MOSAIC_ASSETS__ = assets;
+      importScripts("/push-sw.js");
+      const route = { denylist: [/^\/v1\//, /^\/api\//] };
+      controller.createHandlerBoundToURL("index.html");
+      self.addEventListener("message", (event) => {
+        if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+      });
+    `;
+    const result = await inspectServiceWorker(source);
+    expect(result.precacheUrls).toEqual(['index.html', 'assets/app.js']);
+    expect(result.precacheSizes).toEqual([100, 240]);
+    expect(result.importedScripts).toEqual(['/push-sw.js']);
+    expect(result.navigationDenylist?.length).toBe(2);
+    expect(result.skipWaitingOnStartup).toBe(false);
+    const variableRoute = source.replace('controller.createHandlerBoundToURL("index.html");', 'const page = "index.html"; controller.createHandlerBoundToURL(page);');
+    expect((await inspectServiceWorker(variableRoute)).navigationFallback).toBe('index.html');
+
+    const templateRoute = source.replace('controller.createHandlerBoundToURL("index.html");', 'controller.createHandlerBoundToURL(`index.html`);');
+    const minifiedStaticLiterals = source
+      .replace('importScripts("/push-sw.js");', 'importScripts(`/push-sw.js`);')
+      .replace('self.addEventListener("message",', 'self.addEventListener(`message`,')
+      .replace('"SKIP_WAITING"', '`SKIP_WAITING`');
+    const minifiedResult = await inspectServiceWorker(minifiedStaticLiterals);
+    expect(minifiedResult.importedScripts).toEqual(['/push-sw.js']);
+    expect(minifiedResult.skipWaitingOnRequest).toBe(true);
+    expect(minifiedResult.skipWaitingOnUnrelatedMessage).toBe(false);
+
+    expect((await inspectServiceWorker(templateRoute)).navigationFallback).toBe('index.html');
+
+    const unsafe = source + 'self.skipWaiting();';
+    const unsafeResult = await inspectServiceWorker(unsafe);
+    expect(unsafeResult.skipWaitingOnStartup).toBe(true);
+  });
+
 });
