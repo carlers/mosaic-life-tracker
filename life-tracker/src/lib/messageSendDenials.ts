@@ -5,8 +5,19 @@
  */
 const STORAGE_PREFIX = 'mosaic_denied_outgoing_v1_';
 const MAX_IDS_PER_OWNER = 500;
-const EVENT_NAME = 'mosaic:denied-outgoing-changed';
 const cache = new Map<string, string[]>();
+const listeners = new Set<() => void>();
+
+// Installed once even when ChatPage is not mounted: background delivery and
+// another tab must not use stale cached denial IDs after a storage change.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === null || event.key.startsWith(STORAGE_PREFIX)) {
+      cache.clear();
+      listeners.forEach(listener => listener());
+    }
+  });
+}
 
 function readIds(ownerId: string): string[] {
   if (!ownerId) return [];
@@ -39,7 +50,7 @@ function persist(ownerId: string, ids: string[]): void {
   } catch {
     // Session cache still prevents unintended automatic retries this session.
   }
-  if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENT_NAME));
+  listeners.forEach(listener => listener());
 }
 
 export function isDeniedOutgoing(ownerId: string, messageId: string): boolean {
@@ -57,19 +68,8 @@ export function clearDeniedOutgoing(ownerId: string, messageId: string): void {
 }
 
 export function subscribeDeniedOutgoing(listener: () => void): () => void {
-  if (typeof window === 'undefined') return () => {};
-  const onStorage = (event: StorageEvent) => {
-    if (event.key === null || event.key.startsWith(STORAGE_PREFIX)) {
-      cache.clear();
-      listener();
-    }
-  };
-  window.addEventListener(EVENT_NAME, listener);
-  window.addEventListener('storage', onStorage);
-  return () => {
-    window.removeEventListener(EVENT_NAME, listener);
-    window.removeEventListener('storage', onStorage);
-  };
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
 }
 
 export function __resetDeniedOutgoingForTests(): void {
