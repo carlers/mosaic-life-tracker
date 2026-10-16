@@ -1,24 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-16 UTC
-Current task: #889 DR restore-fidelity stable Preview delivery after #592/#914 trusted producer change.
+Current task: #889 pre-1.0 release rollout; approved #921 dev promotion completed, main security ancestry reconciliation underway.
 
 ## Current verified state
-- Owner merged infrastructure-only #919 to protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0`. Ruleset #24880070 is active with zero bypass actors and unchanged required PR preflight. Exact main Production Vercel deployment `dpl_3fS5n8JbG2QaVH9GgNistHpqT7EV` is READY; Product remains v0.17.4, Production backend remains unmodified. Main Quality Gate #38873787926 first attempt failed only the unchanged cross-category drag browser contracts; failed-jobs-only rerun requested, outcome must be rechecked. Do not reuse a mixed-attempt Quality Gate artifact for PREBUILT delivery.
-- Protected `dev@dff508fb30c7db069fc753cd09359627242a3ffb` v0.29.1 includes #914 Phase A; no #889 DR fidelity fix yet. `main` now has a security-only change not yet reconciled into dev. #909 remains blocked.
-- Original isolated `fix/889-dr-recovery-dev-20261016@69dff37905e42be3bc3423790afede62a9726aee` includes nullable-integer-default DR restore fidelity, regression tests and runbooks; focused #38865174720 and full canonical #38865387907 SUCCESS. The prior trusted Preview receiver #38865616797 failed closed only because protected main did not yet recognize #914's exact reviewed Quality Gate blob.
-- Authenticated isolated DR exact backup restore (6 users, 2,924 rows, 137 files), owner-accepted 010–015 upgraded DR rehearsal and isolated current-app browser acceptance are established evidence, not Production migration approval.
+- Owner authorized stable→dev #921, Production Appwrite migration 010–015 and Function upgrade on 2026-10-16, subject to safe rollout. These approvals do **not** establish installed-v0.17.4-PWA retirement, authenticated current backup recoverability, real Production two-account/mobile acceptance or a 1.0.0 milestone decision. Protect those factual release gates.
+- Protected `dev@99cd4729ed88c594abfd825ec65f3c60a0db0df5` v0.29.1 merged approved stable #921 normally; postmerge Quality Gate #38876370920 SUCCESS and exact Vercel Git dev `dpl_7pbJsNmBwraxjXPQQQi6Dq1gUh6S` READY. DR nullable-integer-default restore fidelity, tests/docs and #919 main-reviewed trust-pin sources are now on dev.
+- Protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0` is **still v0.17.4** (main-only #919 security infrastructure merge); Production web release has not occurred. Main's three #919 code/test/runbook blobs are byte-identical to dev. Only historical `SESSION_STATE.md` content differs. Main and dev still diverge in Git ancestry until reconciled; #909 cannot merge yet.
+- #914 generic source-only old-client compatibility gate is in dev. Old v0.17.4 strict Diary/message reader is **not compatible** with the new optional remote fields and cannot be upgraded retroactively by new checks. The owner controls the only *known* Production PWA; **no affirmative confirmation** yet that every old tab/PWA/account has synced all offline changes and been retired. This gate blocks schema changes that would break it.
+- Production Appwrite `6a9703c50016b37110ff` still has 14 tables; 010/011/014 tables and 012/013 Diary and 015 Messages columns are absent. Production Functions retain hourly/daily schedules. Earlier R2 backup `20261015T110126518Z` passed strict isolated DR restore (6 users, 2,924 rows, 137 files), not a fresh Production backup check.
 
-## Current isolated task
-- Task `chatgpt/889-dr-trusted-preview-20261016` branches from the existing DR stable source. Copy the **three exact reviewed** #919 main security code/test/runbook blobs into that source, with this checkpoint; do not edit UI, Function code, Appwrite schema, service settings or version. This re-delivers the existing DR fix using main-trusted code without broadening trust to other Quality Gate blobs.
-- Before stable delivery, require focused source CI, diff review, a squash PR into the same isolated `fix/889-dr-recovery-dev-20261016` branch, a fresh full first-attempt canonical gate, and a separately verified CI-first trusted Preview. If browser test flakes, investigate; never claim mixed-attempt PREBUILT evidence as equivalent.
-- Do not automatically merge into protected `dev`. After stable proof, separately obtain owner permission for stable→dev promotion and reconcile new main security ancestry to dev before proposing #909 release. Preserve protected branch rules.
+## Current task: non-destructive ancestry reconciliation
+- Source-only history reconciliation follows #906: parent commit `f2df426438c9833932adba12ce333fa9da82897c` includes main `1f146ba7` as second parent while keeping dev tree `af312e91d6904e4d0b52e292096efcc4c72e13b0` identical. Focused check #38877317454 SUCCESS after shortening this checkpoint. Candidate `refactor/889-main-trust-ancestry-verified-20261016@fdf8419bd3cd68b4f37ac45a41d9901a67443a82` was created from the exact reviewed task commit.
+- Old protected stable forbade direct ref writes; PR #922 could not preserve a merge commit under its merge policy and was closed unmerged. Fresh stable branch creation uses already reviewed SHA, no force update/bypass. Future *task→stable* documentation squash is safe because the new stable HEAD already contains both ancestors.
 
-## Production release gates remain closed
-- Confirm each old owner-installed v0.17.4 browser/PWA has fully synced and been closed/updated/reinstalled/retired, with no old offline queued changes. General #914 checks do not retrofit old JS.
-- Separately approve target-confirmed **Production** migrations 010–015, then separately approve Production `message-action` build/activation while retaining schedules, secrets and prior READY deployment.
-- Complete real Production two-account, Diary, photos, chat, notifications, Sync Now, offline/mobile/PWA and privacy acceptance, then separately approve dev→main pre-1.0 release. Do not tag 1.0.0.
+## Production release safety gates
+- Owner must positively verify every old Production v0.17.4 tab/PWA/account has synced any local queued writes and is closed/reinstalled/retired before 012/013/015. If not, use a proved compatibility alternative, not an incompatible rollout.
+- Before a Production migration, authenticate a current R2 `COMPLETED` marker/decryption/key escrow/recoverability; use only exact project-pinned ordered `--only` migration 010, 011, 012, 013, 014, 015, never default unscoped runner or migration 008. Confirm each created schema resource READY, ownership and permissions.
 
 ## Next action
-- Require task focused CI success; squash the verified task into the existing isolated DR stable Preview branch, then check fresh full canonical acceptance and trusted CI-first Vercel delivery for its exact source SHA. Independently recheck protected main's canonical attempt-2 result.
-- Keep stable→dev promotion subject to separate owner authorization, reconcile main ancestry, and preserve all #889 Production safety gates.
+- Finish focused verification of the checkpoint correction task, squash its PR into `refactor/889-main-trust-ancestry-verified-20261016`, require fresh full canonical and trusted CI-first Preview, then promote stable→dev by reviewed protected PR. Preserve the already-recorded main ancestry.
+- Production write authorization exists but safe execution requires affirmative installed-PWA retirement and current backup authentication, plus repo-owned exact target migration/function deployment mechanism; do not substitute undocumented ad-hoc Console mutations.
