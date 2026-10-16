@@ -2,15 +2,9 @@
   "version": 1,
   "consumers": [
     {
-      "label": "v0.29.1 pre-public integration baseline",
-      "sha": "d51a9c6af7f67ceecdd88f02783debb45692726b"
+      "label": "v0.29.1 published Production baseline (2026-10-16)",
+      "sha": "b952f71ecd2add3172f90104bc0e856a2648ccc9"
     }
   ],
-  "legacyPendingRetirement": [
-    {
-      "label": "v0.17.4 owner-controlled installed Production PWA",
-      "sha": "bb58300052dc4c85974d97779e2b257ec4f28c7d",
-      "requirement": "Issue #889: owner must verify old installed PWA has synced, upgraded or been safely retired before Production migrations 012, 013 and 015. A green candidate preflight is not Production approval."
-    }
-  ]
+  "legacyPendingRetirement": []
 }
