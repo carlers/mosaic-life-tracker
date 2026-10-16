@@ -102,6 +102,19 @@ category branches such as `fix/*`, `feature/*`, and `perf/*` are stable Preview
 branches. There is no deployment-only `preview` branch. Source development continues on
 these branches and AI task branches.
 
+### Read-only PR preflight versus push-driven canonical races (#592)
+
+A promotion PR `synchronize` event can be processed before the same exact source SHA's
+push-driven `canonical-acceptance` exists or completes. The trusted-base
+`check-promotion-pr.mjs` waits at most 140 seconds (15 evidence evaluations)
+**only** when that unavailable/pending canonical result is the sole rejection.
+Every retry re-reads the exact-SHA GitHub Actions check and both live branch refs
+and PR metadata; any changed target/source, draft/closed PR, integration mismatch,
+version regression, terminal failed canonical result or API error blocks immediately.
+A deadline with no exact successful result also **fails closed**. Earlier successes
+never override a newer queued/failed check. This is not an artifact trust bypass,
+a source rerun, Vercel deployment, user approval or completed main release.
+
 ## Read-only promotion preflight (#592)
 
 Before creating a new stable Preview → `dev` promotion PR, use the optional
