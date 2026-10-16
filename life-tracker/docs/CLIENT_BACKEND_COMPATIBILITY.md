@@ -46,21 +46,32 @@ remove it only after separately recorded installed-client retirement or
 the reviewed end of its support window. Changing that matrix is a reviewed
 backend contract decision, not a mechanism to make failing CI turn green.
 
-## Current pre-public policy (2026-10-16)
+## Current supported-release policy (2026-10-16)
 
-The pinned v0.29.1 dev SHA is the integration baseline for future backend
-changes. v0.17.4 main is separately documented as **legacy pending retirement**
-because the only known installed copy is controlled by the owner and the app
-has not been publicly released. The old version's strict RxDB mapper really
-fails on newer optional Diary/message fields. It is *not certified*, and its
-presence in `legacyPendingRetirement` is **not evidence that the owner has
-updated it**. Before Production migrations 012, 013 and 015, #889 still
-requires confirmation that the owner's PWA is synced and updated/retired,
-or else a separate backward-compatibility strategy.
+**Published v0.29.1** is the first current source baseline for future
+schema/Function compatibility decisions. The policy pins its exact immutable
+Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` merge commit,
+which is also the [published v0.29.1 Release](https://github.com/carlers/mosaic-life-tracker/releases/tag/v0.29.1)
+tag target. The earlier `d51a9c6...` integration build was never a
+separately shipped release and is no longer the support-policy pin.
 
-At first public release, review the actual supported release SHAs, subscriptions
-and guarantees with issue #914; the current pre-public matrix is not an
-automatic public-client retention policy.
+The owner confirmed every known v0.17.4 client synchronized and was retired
+*before* approved Production migrations 010–015. The owner subsequently
+installed v0.29.1 on both laptop and phone and reported normal app behavior.
+Consequently `legacyPendingRetirement` is currently empty. The historical
+v0.17.4 source `bb58300052dc4c85974d97779e2b257ec4f28c7d` is **not
+certified as compatible** with the expanded Diary/Message schema; clearing its
+retirement gate is not equivalent to fixing that incompatibility. Records and
+the rationale are preserved in [issue #914](https://github.com/carlers/mosaic-life-tracker/issues/914).
+
+This is a **pre-public owner-controlled** policy. Before additional
+independent users install Mosaic, agree on a supported-version window and
+verify genuine offline PWA update/old-writer semantics via
+[the Phase B rehearsal](COMPATIBILITY_REHEARSAL.md). Each newer published
+version must explicitly review and update the pinned source list; do not
+silently replace a still-installed supported release with the newest build.
+No feature Preview, schema change or healthy current phone install proves
+that an offline *older* client can safely reconnect to a newer backend.
 
 ## What the preflight proves — and does not prove
 
@@ -81,8 +92,9 @@ record human/mobile/PWA acceptance separately.
 
 ## Deferred work
 
-#914 Phase B: isolated live Appwrite old/new client and Function rehearsal
-including delayed PWA update, offline edits, tombstones/conflicts and privacy.
+#914 Phase B: follow the [isolated live rehearsal](COMPATIBILITY_REHEARSAL.md)
+for old/new Appwrite consumers, waiting service workers, offline edits, tombstones,
+conflicts and privacy. The checklist itself does not constitute a passing test.
 Phase C: only if actual multi-user release demand proves the need, design a
 minimum-supported-client protocol and graceful read-only/update UX that
 preserves queued local writes. Do not add a compatibility proxy or force
