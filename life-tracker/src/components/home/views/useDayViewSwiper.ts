@@ -26,6 +26,7 @@ interface UseDayViewSwiperReturn {
   slideDateStrs: string[];
   activeIndex: number;
   initialIndex: number;
+  anchorKey: string;
   totalSlides: number;
   renderWindow: number;
   handlePrevDay: () => void;
@@ -51,7 +52,16 @@ export function useDayViewSwiper({
   const isProgrammaticMoveRef = useRef(false);
   const rafRef = useRef<number | null>(null);
 
-  const [anchorDate] = useState(() => startOfDay(selectedDate));
+  const [anchorDate, setAnchorDate] = useState(() => startOfDay(selectedDate));
+  // The 181-day window must follow date selection beyond its initial ±90
+  // days. Rebase before exhausting the neighbor buffer, but keep the anchor
+  // stable for ordinary date changes so short swipes never remount Swiper.
+  const selectedDay = startOfDay(selectedDate);
+  const distanceFromAnchor = differenceInCalendarDays(selectedDay, anchorDate);
+  if (Math.abs(distanceFromAnchor) >= CENTER_INDEX - RENDER_WINDOW) {
+    setAnchorDate(selectedDay);
+  }
+  const anchorKey = formatDateStr(anchorDate);
 
   const slideDates = useMemo(() => {
     const dates: Date[] = [];
@@ -156,6 +166,7 @@ export function useDayViewSwiper({
     slideDateStrs,
     activeIndex,
     initialIndex,
+    anchorKey,
     totalSlides: TOTAL_SLIDES,
     renderWindow: RENDER_WINDOW,
     handlePrevDay,
