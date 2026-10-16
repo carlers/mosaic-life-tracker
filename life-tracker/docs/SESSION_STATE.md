@@ -1,18 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-16 UTC
-Current task: #914 Phase A — automated pinned historical client/backend compatibility checks; #889 Production release remains separately gated.
+Current task: #889 DR restore-fidelity stable Preview delivery after #592/#914 trusted producer change.
 
-## Verified state
-- Protected `dev` remains `d51a9c6af7f67ceecdd88f02783debb45692726b` (v0.29.1); protected `main` remains `bb58300052dc4c85974d97779e2b257ec4f28c7d` (v0.17.4). #909 dev→main PR is open but blocked, no Production promotion.
-- #889 authentic Production backup snapshot `20261015T110126518Z` was independently decrypted and strictly restored to isolated DR Appwrite `6ad1074900371036eea5`: owners=6, rows=2924, files=137 exact historical evidence. Owner manually accepted the matching v0.17.4 application and later the migrated 010–015 / dev v0.29.1 app, including the prior 5/8 sync and friends' Diary failures. Current isolated DR has 17 schema tables, dev message-action deployment `6ad1a3c0058ae9c531e8`, and both Function schedules disabled. It intentionally no longer matches old immutable backup after browser writes/migrations.
-- There are no known externally installed Mosaic clients: owner controls the known v0.17.4 PWA. An unshipped v0.17.5 one-off hotfix is not required by default, but #889 still needs owner proof of synced/updated/retired old PWA before Production migrations 012–015. Original v0.17.4 strict mapper fails on new Diary/message fields; synthetic bridge was tested but not shipped.
+## Current verified state
+- Owner merged infrastructure-only #919 to protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0`. Ruleset #24880070 is active with zero bypass actors and unchanged required PR preflight. Exact main Production Vercel deployment `dpl_3fS5n8JbG2QaVH9GgNistHpqT7EV` is READY; Product remains v0.17.4, Production backend remains unmodified. Main Quality Gate #38873787926 first attempt failed only the unchanged cross-category drag browser contracts; failed-jobs-only rerun requested, outcome must be rechecked. Do not reuse a mixed-attempt Quality Gate artifact for PREBUILT delivery.
+- Protected `dev@dff508fb30c7db069fc753cd09359627242a3ffb` v0.29.1 includes #914 Phase A; no #889 DR fidelity fix yet. `main` now has a security-only change not yet reconciled into dev. #909 remains blocked.
+- Original isolated `fix/889-dr-recovery-dev-20261016@69dff37905e42be3bc3423790afede62a9726aee` includes nullable-integer-default DR restore fidelity, regression tests and runbooks; focused #38865174720 and full canonical #38865387907 SUCCESS. The prior trusted Preview receiver #38865616797 failed closed only because protected main did not yet recognize #914's exact reviewed Quality Gate blob.
+- Authenticated isolated DR exact backup restore (6 users, 2,924 rows, 137 files), owner-accepted 010–015 upgraded DR rehearsal and isolated current-app browser acceptance are established evidence, not Production migration approval.
 
-## #914 approved scope
-- Add Git-only, backend-change-triggered historical-client source contract gate to canonical `checks`, based on existing `check-scratch-client-compat.mjs`. Derive each pinned client's exact synced subscriptions from its immutable `replicationIds.ts`, reject unsupported/ambiguous sources, preserve outgoing/unknown-field constraints and report exclusions explicitly.
-- Policy `config/backend-client-compatibility.json` supports the dev v0.29.1 pre-public integration baseline. Main v0.17.4 is explicitly **pending retirement**, not falsely certified. See `docs/CLIENT_BACKEND_COMPATIBILITY.md`. Phase B live delayed-service-worker/offline fixtures and Phase C capability handshake are deferred until justified.
-- Task branch `chatgpt/914-backend-consumer-guard-20261016` from protected dev. Version impact NONE; test/tooling/docs only. No Production, Scratch, isolated DR, Vercel, protected branch or release write authorized by #914.
+## Current isolated task
+- Task `chatgpt/889-dr-trusted-preview-20261016` branches from the existing DR stable source. Copy the **three exact reviewed** #919 main security code/test/runbook blobs into that source, with this checkpoint; do not edit UI, Function code, Appwrite schema, service settings or version. This re-delivers the existing DR fix using main-trusted code without broadening trust to other Quality Gate blobs.
+- Before stable delivery, require focused source CI, diff review, a squash PR into the same isolated `fix/889-dr-recovery-dev-20261016` branch, a fresh full first-attempt canonical gate, and a separately verified CI-first trusted Preview. If browser test flakes, investigate; never claim mixed-attempt PREBUILT evidence as equivalent.
+- Do not automatically merge into protected `dev`. After stable proof, separately obtain owner permission for stable→dev promotion and reconcile new main security ancestry to dev before proposing #909 release. Preserve protected branch rules.
+
+## Production release gates remain closed
+- Confirm each old owner-installed v0.17.4 browser/PWA has fully synced and been closed/updated/reinstalled/retired, with no old offline queued changes. General #914 checks do not retrofit old JS.
+- Separately approve target-confirmed **Production** migrations 010–015, then separately approve Production `message-action` build/activation while retaining schedules, secrets and prior READY deployment.
+- Complete real Production two-account, Diary, photos, chat, notifications, Sync Now, offline/mobile/PWA and privacy acceptance, then separately approve dev→main pre-1.0 release. Do not tag 1.0.0.
 
 ## Next action
-- Verify task's focused CI from an exact coherent commit. Squash task PR into isolated stable `fix/914-backend-consumer-guard-20261016`, check full canonical/Preview. Preserve explicit user approval before any promotion into dev/main.
-- #889 still requires owner-only installed PWA transition, target-specific Production migrations and Function activation approvals, real two-account/mobile/offline/PWA acceptance and separately approved dev→main release. DR fix `6147e0b4db38a083439ff8f6520785fe782d735a` remains isolated and is not silently promoted.
+- Require task focused CI success; squash the verified task into the existing isolated DR stable Preview branch, then check fresh full canonical acceptance and trusted CI-first Vercel delivery for its exact source SHA. Independently recheck protected main's canonical attempt-2 result.
+- Keep stable→dev promotion subject to separate owner authorization, reconcile main ancestry, and preserve all #889 Production safety gates.
