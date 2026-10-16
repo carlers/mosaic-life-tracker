@@ -18,3 +18,7 @@ Current task: #889 DR restore-fidelity stable Preview delivery after #592/#914 t
 - Confirm each old owner-installed v0.17.4 browser/PWA has fully synced and been closed/updated/reinstalled/retired, with no old offline queued changes. General #914 checks do not retrofit old JS.
 - Separately approve target-confirmed **Production** migrations 010–015, then separately approve Production `message-action` build/activation while retaining schedules, secrets and prior READY deployment.
 - Complete real Production two-account, Diary, photos, chat, notifications, Sync Now, offline/mobile/PWA and privacy acceptance, then separately approve dev→main pre-1.0 release. Do not tag 1.0.0.
+
+## Next action
+- Require task focused CI success; squash the verified task into the existing isolated DR stable Preview branch, then check fresh full canonical acceptance and trusted CI-first Vercel delivery for its exact source SHA. Independently recheck protected main's canonical attempt-2 result.
+- Keep stable→dev promotion subject to separate owner authorization, reconcile main ancestry, and preserve all #889 Production safety gates.
