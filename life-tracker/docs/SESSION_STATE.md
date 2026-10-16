@@ -1,23 +1,18 @@
 # Session checkpoint
 
-Updated: 2026-10-14 UTC
-Current task: #592 — generic opt-in CI-first Preview admission proposal, protected-main security boundary.
+Updated: 2026-10-16 UTC
+Current task: #592 trusted generic CI-first Preview producer pin after #914; supports #889 DR recovery integration.
 
-## Verified live before this change
-- Owner merged infrastructure-only PR #837: protected `main@2a6210d940c0387e88a617684ba4e24a21b7e1ad`; full main Quality Gate #38558325570 SUCCESS, Production Vercel `dpl_5gja3K4uWzYC8pquT2tfVQzgoDqU` READY v0.17.4, zero main bypass actors. `dev@f3d9558feca499e53c310c5a37be2794717bccf6` unchanged.
-- Two isolated CI-first pilots succeeded. Second exact `feature/592-prebuilt-pilot-20261014@d5c26e5e9eeaab87a21d3af262dd4446c9c11337` full Quality Gate #38561627651 attempts 1 and 2 SUCCESS; trusted main receiver/writer #38561903504 created exactly one static CLI Preview `dpl_95RhNayCZnMzu6d9WcSRiCrtPXjb` READY, zero Git-auto deployments or aliases; #38562308108 reused without provider POST. Authenticated hosted HTTP root, login, notifications, settings/messages deep links, SW and manifest 200; unconfigured path 404; required security headers correct. Not a logged-in device check.
-- Latest issue checkpoint: https://github.com/carlers/mosaic-life-tracker/issues/592#issuecomment-6168172545.
+## Verified evidence
+- Protected `main@bb58300052dc4c85974d97779e2b257ec4f28c7d` remains v0.17.4 with trusted generic receiver. Protected `dev@dff508fb30c7db069fc753cd09359627242a3ffb` is v0.29.1 with #914 historical-client Quality Gate.
+- #889 restored the R2 snapshot to isolated DR, strict verified 6 users / 2924 rows / 137 files, tested ordered 010–015 schema+Function upgrade on DR and received owner browser acceptance. No real Production backend upgrade or client-retirement approval.
+- DR fidelity source fix replay: focused task #38865174720 SUCCESS; isolated stable `fix/889-dr-recovery-dev-20261016@69dff37905e42be3bc3423790afede62a9726aee` canonical #38865387907 SUCCESS. Protected dev/main remain unchanged; stable cannot be advertised as CI-first READY until trusted receiver passes.
+- Main-owned Trusted Preview Delivery #38865616797 **FAIL CLOSED** with `Unreviewed generic Quality Gate definition`. Precise root: pinned reviewed old blob `5f64f715551f0c311a60d823367d849dfb369bba`; #914 adds only a new historical-client preflight step, producing exact blob `28781399a01981c3e96aa99f8925320b0f61b8e4`.
 
-## This candidate's scope
-- Main-owned, fail-closed **default-OFF** generic opt-in for precisely one branch at a time, single-leaf `feature|fix|perf|security|refactor` category. Separate repository switch `MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED`; the existing provider-create flag is still independently required, aliases remain OFF.
-- Require the branch's first commit to carry the exact main-reviewed, nonoverlapping own-category Git rule: complementary negative glob plus exact `false`, all other categories/main/dev unchanged. Read-only receiver checks source Git bytes at the accepted SHA before reading protected CI artifact; normal Git-auto branches skip. Credentialed writer requires explicit read-only `admitted=true` output and independently repeats source policy, exact CI/head, Scratch/public profile/route/artifact/provider history checks.
-- Preserve existing named pilots, main/dev/prod/version/backend/budgets, all other Vercel Git Preview branch behavior. Do not activate generic switch, alias or provider settings as part of staging.
-
-## Generic source-CI trust hardening
-- Main security review found that a candidate could change its own Quality Gate YAML while retaining successful check names. The generic receiver must bind the candidate's exact workflow blob to the independently verified six-file producer blob `5f64f715551f0c311a60d823367d849dfb369bba` before any admission; legacy pilots unchanged. This does not pin arbitrary candidate scripts and does not authorize extra branches/alias/provider settings.
-- Stable generic branch `8fa9556711e03f44d250d5b014ebf812ae1bfd9b`: Full Quality Gate #38566235786 SUCCESS, Vercel Git Preview `dpl_FXsrjmCRNypigTvLWsnt4ijGuF3C` READY. Concurrent repair PR #842 already merged, redundant #843 CLOSED. No main/dev changes.
+## This isolated fix
+- From protected main, allow **only** both security-reviewed Quality Gate Git blob SHAs for generic trusted admission. Preserve all other branch/owner/CI SHA/artifact/provider checks; test rejection of unexpected third hash.
+- Document the exact evidence. Version impact NONE, no application UI/runtime/backend/schema changes and no protected branch, Production, Vercel, or Appwrite write authorized by this task.
+- Task `chatgpt/592-914-trust-pin-20261016` → focused CI; stable `security/592-914-trust-pin-20261016` → full canonical/Preview (may use normal main-era Git Preview while main still owns the old pin).
 
 ## Next action
-- First stable full Quality Gate #38565675231 failed THREE stale test-only assertions: two old fixed-branch expectations and one nested-invalid source ref mismatch. Build, dependency, both DOM shards and Vercel Git Preview were READY/passing. Batch the three assertions in one focused task repair, then require a fresh full stable canonical gate. The generic switch remains OFF and main/dev unchanged.
-- Task branch must pass focused checks with new generic admission, skip, category cutover, red/stale/forged/unsafe, wrong-target/reuse regressions. After focused-green, squash to isolated main-based fix Preview for full canonical CI and Vercel READY. Review changed main workflow security boundary and open protected-main PR only after acceptance. Main merge needs **fresh owner-only temporary Pull-requests-only protection exception**, then immediately restore zero bypass, confirm main full CI + Production READY. No automatic main merge or prior approval reuse.
-- **Later rollout:** separate explicit owner authorization to enable generic switch; first normal stable single-leaf feature branch pilot (zero premature Git Preview), same-SHA retry/rollback, independently approved feature Preview→dev, Scratch origin/device/login. Keep issue #592 OPEN until acceptance. Do not do backend writes, aliases, version bumps, app UI changes or Production promotion.
+After focused/full CI and diff review, prepare main infrastructure-only PR; **obtain separate explicit user permission** before any protected-main mutation (including required protection setting exceptions). Once approved, verify exact main CI/Production-safe delivery and revalidate the #889 stable trusted receiver. #889 still requires old installed PWA retirement, Production migrations/Function approvals and real Production acceptance before PR #909 can merge.
