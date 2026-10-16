@@ -14,6 +14,6 @@ Current task: #889 integrated Production-target acceptance before v0.29.1 pre-1.
 - Document the repeatable exact-SHA local Production-target acceptance protocol in `docs/PRODUCTION_ACCEPTANCE.md`, link it from `docs/README.md` and `docs/PRODUCTION_RELEASE_READINESS.md`, and replace this stale checkpoint with factual milestones.
 - Version impact NONE. No app behavior, Vercel/provider configuration, Appwrite schema/Function or protected branch promotion in this documentation task.
 
-## Remaining release gates
+## Next action
 - Owner real signed-in two-account Diary/chat/reactions/notifications/private-record/offline/mobile/PWA acceptance on Production-target v0.29.1. Certificate-related PWA limitations remain BLOCKED until genuinely verified.
 - Current health/restore evidence, exact dev CI, and source pin rechecked before *separately approved* #909 dev→main merge; main full CI, matching Production Vercel deployment and release publisher then verified. No v1.0.0 tag.
