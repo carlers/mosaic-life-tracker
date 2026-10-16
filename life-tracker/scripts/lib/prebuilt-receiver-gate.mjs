@@ -26,10 +26,18 @@ const WORKFLOW = '.github/workflows/quality-gate.yml';
 // labels while changing their meaning; changing this pin needs main review.
 export const REVIEWED_GENERIC_QUALITY_GATE_BLOB =
   '5f64f715551f0c311a60d823367d849dfb369bba';
+// Reviewed #914 additive historical-consumer preflight is the ONLY difference
+// from the previously trusted producer. Keep both exact Git blobs recognized.
+export const REVIEWED_GENERIC_QUALITY_GATE_BLOB_914 =
+  '28781399a01981c3e96aa99f8925320b0f61b8e4';
+const REVIEWED_GENERIC_QUALITY_GATE_BLOBS = new Set([
+  REVIEWED_GENERIC_QUALITY_GATE_BLOB,
+  REVIEWED_GENERIC_QUALITY_GATE_BLOB_914,
+]);
 export function assertReviewedGenericQualityGate(branch, sourceBlob) {
   if (isLegacyPrebuiltPilot(branch)) return true; // No legacy rollout change.
   if (!isGenericPrebuiltBranch(branch) ||
-      sourceBlob !== REVIEWED_GENERIC_QUALITY_GATE_BLOB)
+      !REVIEWED_GENERIC_QUALITY_GATE_BLOBS.has(sourceBlob))
     throw new Error('Unreviewed generic Quality Gate definition');
   return true;
 }

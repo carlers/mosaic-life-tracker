@@ -415,3 +415,36 @@ provider project settings, globally disable Git builds, force push, merge into
 Production, or change credentials. Before wider rollout, prove one real
 second-branch CI-first creation and same-SHA reuse, and stage separately the
 normal stable Preview→dev promotion with explicit owner authorization.
+
+## #914 Quality Gate hash rotation — 2026-10-16 (#592)
+
+The protected-main generic trusted receiver deliberately admits only exact reviewed
+`.github/workflows/quality-gate.yml` Git blobs, not an unchanged check name or a
+successful status alone. The last approved producer was
+`5f64f715551f0c311a60d823367d849dfb369bba` (dev before #914).
+#914 Phase A inserted exactly one source-only check step:
+`node scripts/check-backend-consumer-compat.mjs --base HEAD^` in `checks`.
+The rest of the workflow bytes are identical. Its new Git blob is
+`28781399a01981c3e96aa99f8925320b0f61b8e4`.
+
+The first stable #889 DR fidelity integration at
+`fix/889-dr-recovery-dev-20261016@69dff37905e42be3bc3423790afede62a9726aee`
+passed canonical Quality Gate #38865387907 but default-main receiver
+#38865616797 correctly failed closed: `Unreviewed generic Quality Gate definition`.
+This was a legitimate **source approval mismatch**, not a failed test or source
+artifact. Old #914 stable also observed the same fail-closed receiver.
+
+Remediation is a separately reviewed, main-only **additive exact hash pin**:
+allow both previously approved `5f64…` and new `287813…` producer blobs,
+without wildcarding, bypassing source opt-in, changing actor/branch checks,
+acceptance artifact verification, provider eligibility, or credential access.
+Add regressions demonstrating both allowed, other hashes refused. This security
+boundary change requires the normal protected-main owner approval, ruleset,
+CI and Production-safe infrastructure-only publication. It does **not**
+authorize #889 Production backend migrations or main product promotion.
+
+After main approval, rerun trusted read-only admission for the **exact** stable
+#889 Quality Gate evidence; if the writer is explicitly enabled, verify
+provider deployment/no unexpected extra POST before advertising a Preview.
+The `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED` variable remains an independent
+operator setting; never make its status implicit from the read-only receiver.
