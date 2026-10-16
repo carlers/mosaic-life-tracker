@@ -1,23 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-16 UTC
-Current task: #889 pre-1.0 release rollout; approved #921 dev promotion completed, main security ancestry reconciliation underway.
+Current task: #592 PR preflight CI-race hardening, while #889 Production release remains gated.
 
 ## Current verified state
-- Owner authorized stable→dev #921, Production Appwrite migration 010–015 and Function upgrade on 2026-10-16, subject to safe rollout. These approvals do **not** establish installed-v0.17.4-PWA retirement, authenticated current backup recoverability, real Production two-account/mobile acceptance or a 1.0.0 milestone decision. Protect those factual release gates.
-- Protected `dev@99cd4729ed88c594abfd825ec65f3c60a0db0df5` v0.29.1 merged approved stable #921 normally; postmerge Quality Gate #38876370920 SUCCESS and exact Vercel Git dev `dpl_7pbJsNmBwraxjXPQQQi6Dq1gUh6S` READY. DR nullable-integer-default restore fidelity, tests/docs and #919 main-reviewed trust-pin sources are now on dev.
-- Protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0` is **still v0.17.4** (main-only #919 security infrastructure merge); Production web release has not occurred. Main's three #919 code/test/runbook blobs are byte-identical to dev. Only historical `SESSION_STATE.md` content differs. Main and dev still diverge in Git ancestry until reconciled; #909 cannot merge yet.
-- #914 generic source-only old-client compatibility gate is in dev. Old v0.17.4 strict Diary/message reader is **not compatible** with the new optional remote fields and cannot be upgraded retroactively by new checks. The owner controls the only *known* Production PWA; **no affirmative confirmation** yet that every old tab/PWA/account has synced all offline changes and been retired. This gate blocks schema changes that would break it.
-- Production Appwrite `6a9703c50016b37110ff` still has 14 tables; 010/011/014 tables and 012/013 Diary and 015 Messages columns are absent. Production Functions retain hourly/daily schedules. Earlier R2 backup `20261015T110126518Z` passed strict isolated DR restore (6 users, 2,924 rows, 137 files), not a fresh Production backup check.
+- Protected `dev@cfb877f88345c761a02cef40baed71cb74376f2c` = v0.29.1. #924 ancestry reconciliation has merged; postmerge Quality Gate #38878427030 SUCCESS (promotion reuse), exact dev Vercel `dpl_6DjV2a3EmEfyRxiURX5Mf9S5q5gz` READY.
+- Protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0` = v0.17.4. #909 pre-1.0 PR open, not released; main Production Vercel `dpl_3fS5n8JbG2QaVH9GgNistHpqT7EV` READY.
+- Production Appwrite project `6a9703c50016b37110ff` remains 14 tables, Diary 7 columns, Messages 21, old `message-action@6acb8162dc02a1deaa23` hourly, `dr_backup@6ac25457acb18594b6c2` daily. #914 Phase A on dev; legacy v0.17.4 client cannot read new optional fields.
+- Owner approved exact Production migrations 010–015 and message-action upgrade, but **never confirmed** all old PWA/tab/account offline queues synced and installations retired. Authenticated *current* R2 `COMPLETED`/manifest/escrow check remains outstanding, as does a target-pinned Git CLI environment. No Production backend writes until these proofs; no main or v1.0.0 approval inferred.
 
-## Current task: non-destructive ancestry reconciliation
-- Source-only history reconciliation follows #906: parent commit `f2df426438c9833932adba12ce333fa9da82897c` includes main `1f146ba7` as second parent while keeping dev tree `af312e91d6904e4d0b52e292096efcc4c72e13b0` identical. Focused check #38877317454 SUCCESS after shortening this checkpoint. Candidate `refactor/889-main-trust-ancestry-verified-20261016@fdf8419bd3cd68b4f37ac45a41d9901a67443a82` was created from the exact reviewed task commit.
-- Old protected stable forbade direct ref writes; PR #922 could not preserve a merge commit under its merge policy and was closed unmerged. Fresh stable branch creation uses already reviewed SHA, no force update/bypass. Future *task→stable* documentation squash is safe because the new stable HEAD already contains both ancestors.
-
-## Production release safety gates
-- Owner must positively verify every old Production v0.17.4 tab/PWA/account has synced any local queued writes and is closed/reinstalled/retired before 012/013/015. If not, use a proved compatibility alternative, not an incompatible rollout.
-- Before a Production migration, authenticate a current R2 `COMPLETED` marker/decryption/key escrow/recoverability; use only exact project-pinned ordered `--only` migration 010, 011, 012, 013, 014, 015, never default unscoped runner or migration 008. Confirm each created schema resource READY, ownership and permissions.
+## Current implementation: #592 exact-SHA PR preflight race
+- The #909 PR preflight failed prematurely twice after dev promotions (#38856664192, #38878432680 attempt 1), then passed after exact dev canonical settled. The tracked defect is cross-event timing, not a failed source test.
+- This task changes only `scripts/lib/promotion-pr-evidence.mjs`, `scripts/check-promotion-pr.mjs`, `tests/unit/promotionPrEvidence.test.ts` and `docs/DELIVERY.md`, plus this checkpoint. No application/UI/backend/version behavior changes.
+- Preflight retries boundedly *only* when exact-SHA canonical missing/pending is the sole failure; checks live PR/ref on every attempt; stops on terminal failure, drift, timeout. Regression coverage protects newest-run semantics, queued/missing→success, mismatches and deadline.
 
 ## Next action
-- Finish focused verification of the checkpoint correction task, squash its PR into `refactor/889-main-trust-ancestry-verified-20261016`, require fresh full canonical and trusted CI-first Preview, then promote stable→dev by reviewed protected PR. Preserve the already-recorded main ancestry.
-- Production write authorization exists but safe execution requires affirmative installed-PWA retirement and current backup authentication, plus repo-owned exact target migration/function deployment mechanism; do not substitute undocumented ad-hoc Console mutations.
+- Run focused branch check, squash accepted task into an isolated `fix/*` stable Preview, obtain canonical + Preview READY, then promote only through reviewed protected PR and exact source checks. #889 Production rollout still requires owner-device retirement and authenticated escrowed R2 health with repo-owned CLI; never use direct cloud mutations as a substitute.
