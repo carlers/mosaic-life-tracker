@@ -1,21 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 slow-network Home startup structural A/B audit; no new product change justified.
+Current task: #858 test whether Home-adjacent Explore preload competes with owner calendar JS.
 
-## Verified branch and release boundaries
+## Baseline and release boundary
 
-- Stable Scratch Preview `perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4` ships v0.29.6: full canonical #39013268008 SUCCESS, trusted prebuilt READY #39013382108. Owner physical-device acceptance is pending. Do not promote to dev/main/1.0 without separate approval.
-- Protected `dev@b0c703636c8c6e8d52c6dd3c59ebc0251070ab7e` is v0.29.5; `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` is v0.29.1. #936 security/privacy audit and #914 compatibility remain independent 1.0 gates.
-- Isolated diagnostics `chatgpt/858-sw-first-install-ab-20261017` do not change committed runtime or deploy. All Appwrite requests in synthetic Chromium are held; Scratch client identity only.
+- Stable Scratch Preview v0.29.6: perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4, full canonical #39013268008 SUCCESS, trusted READY #39013382108. No owner physical-device acceptance or approval for dev/main/1.0 promotion.
+- Protected dev@b0c703636c8c6e8d52c6dd3c59ebc0251070ab7e is v0.29.5; main@b952f71ecd2add3172f90104bc0e856a2648ccc9 is v0.29.1. #936 security/privacy and #914 compatibility remain separate pre-1.0 gates.
+- Synthetic slow uncached Home ~5.7s versus controlled PWA-cached repeat ~0.7s, with Appwrite held unresolved; RxDB opens in ~60ms and JS downloads dominate. Prior SW-install deferral A/B negligible with worse offline-ready time; Auth-route split worsened Login FCP. Neither was shipped. Previous exact-head focused/browser #39016753663 and lab #39016753657 SUCCESS.
 
-## Measured diagnostic results
+## Current isolated diagnostic
 
-- Phase A [lab #39016028932](https://github.com/carlers/mosaic-life-tracker/actions/runs/39016028932) SUCCESS, first-install native SW registration A/B (3 samples each): immediate Home-ready median **5836ms** versus deferred-to-Home-ready **5725ms**; FCP 1924 vs 1928ms; full offline-ready 7468 vs 7552ms. Both reopened Home fully offline with 173 worker static requests. Second lab #39016426029 reproduced only ~57ms Home difference (5705 vs 5648ms); first paint was not better deferred. CDP worker request throttling may differ from page throttling. **Reject runtime SW scheduling change**.
-- Phase B same-runner, two production builds in [lab #39016426029](https://github.com/carlers/mosaic-life-tracker/actions/runs/39016426029) SUCCESS. Baseline owner Home ready median 5649ms / Home FCP 1892ms / signed-out Login FCP 1872ms. Disposable auth-route lazy-split variant Home ready 5698ms / Home FCP 1860ms / Login FCP 2120ms; Home closure gzip 371402→369830B, with no usable Home gain and worse Login. **Reject auth-route runtime change**. No production code committed for either candidate.
-- Both lab suites are credential-free and directional only, not physical-device field measurements. A separate baseline run found slow uncached Home ~5.7s vs controlled precached PWA ~0.7s; required JS downloads dominate rather than Appwrite verification or RxDB open.
+- The AppLayout Home fallback mounts before database ready and schedules adjacent Explore code preloading from the Home route. Browser resource timings on the slow uncached load show SetUsernameSheet, BottomSheet and related Explore-only modules downloaded while Home is pending; causal cost not yet verified.
+- CI-only experiment on chatgpt/858-sw-first-install-ab-20261017 builds the unchanged baseline and disposable candidate that skips Home-adjacent preload. Four fresh Chrome mobile/CPU 2x, 220ms RTT, 120kB/s samples for each, with Appwrite held. Compare Home-ready, first paint, pre-Home JS transfer and first Explore tap latency. The production source remains unchanged; no remote data or production access.
 
 ## Next action
 
-- Fix/verify the issue-858 experiment branch's documentation handoff-size regression (focused #39016426012 failed at 3129/3000 estimated tokens; browser shards passed). Add a durable issue checkpoint after green.
-- Keep #858 OPEN for owner installed-PWA testing of already-READY v0.29.6; preserve all full precache, auth, local database and offline checks. Consider further bundle/request-waterfall analysis only if actual uncached startup remains material, with a separate evidence-based performance experiment before any shipped restructuring. No automatic dev/main/1.0 promotion.
+- Verify focused/browser task CI and the paired GitHub Actions slow-startup experiment at exact pushed SHA; fix any reproducible failures and record outcome on #858. If removing preloading speeds Home but harms first Explore navigation, investigate delaying the preload until Home is actionable rather than removing it permanently.
+- Keep #858 open for owner installed-PWA slow-link and offline acceptance. Preserve full offline precache, local DB readiness, owner isolation and revoked-session protection. Do not promote to stable Preview/dev/main/1.0 from this diagnostic.

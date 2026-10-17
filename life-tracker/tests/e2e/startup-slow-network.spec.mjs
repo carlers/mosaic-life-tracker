@@ -122,8 +122,19 @@ async function run(browser, scenario, iteration) {
           decodedBytes: e.decodedBodySize,
           initiator: e.initiatorType,
         }));
+      const beforeHomeJs = performance.getEntriesByType('resource').filter(e =>
+        e.name.startsWith(location.origin + '/assets/') &&
+        new URL(e.name).pathname.endsWith('.js') &&
+        e.startTime <= values['home:owner-data-ready']);
+      const namesBeforeHome = beforeHomeJs.map(e =>
+        new URL(e.name).pathname.split('/').pop());
       return {
         scenario, iteration,
+        preHomeJsRequests: beforeHomeJs.length,
+        preHomeJsTransferredBytes: beforeHomeJs.reduce((sum, e) => sum + e.transferSize, 0),
+        explorePreloadedBeforeHome: namesBeforeHome.some(s => s.startsWith('ExplorePage-')),
+        usernameSheetPreloadedBeforeHome: namesBeforeHome.some(s => s.startsWith('SetUsernameSheet-')),
+        firstContentfulPaintMs: round(performance.getEntriesByName('first-contentful-paint', 'paint')[0]?.startTime),
         homeReadyMs: round(values['home:owner-data-ready']),
         homeMountedMs: round(values['home:mounted']),
         databaseModuleMs: delta('database:import-start', 'database:module-ready'),
@@ -136,6 +147,13 @@ async function run(browser, scenario, iteration) {
       };
     }, { scenario, iteration, markNames: MARKS });
     record.wallClockMs = Date.now() - started;
+    if (process.env.MOSAIC_HOME_PRELOAD_VARIANT) {
+      const exploreTapStart = Date.now();
+      await page.getByRole('button', { name: 'Explore' }).click();
+      await expect(page.getByRole('heading', { name: 'Explore', exact: true }))
+        .toBeVisible({ timeout: 75_000 });
+      record.firstExploreReadyWallMs = Date.now() - exploreTapStart;
+    }
     record.serviceWorkerControlled = serviceWorkerControlled;
     record.heldAppwriteRequests = pendingRemoteRequests;
     expect(record.homeReadyMs).not.toBeNull();
@@ -150,10 +168,11 @@ async function run(browser, scenario, iteration) {
 
 test('@performance Issue 858 cached Home under independently throttled assets and Appwrite', async ({ browser }) => {
   test.setTimeout(500_000);
-  const modes = ['fast-assets', 'slow-assets', 'pwa-cached-assets'];
+  const modes = process.env.MOSAIC_HOME_PRELOAD_VARIANT
+    ? ['slow-assets'] : ['fast-assets', 'slow-assets', 'pwa-cached-assets'];
   const rows = [];
   for (const mode of modes) {
-    for (let i = 1; i <= 2; i++) {
+    for (let i = 1; i <= (process.env.MOSAIC_HOME_PRELOAD_VARIANT ? 4 : 2); i++) {
       rows.push(await run(browser, mode, i));
     }
   }
@@ -165,6 +184,12 @@ test('@performance Issue 858 cached Home under independently throttled assets an
       homeReadyP90Ms: percentile(records.map(r => r.homeReadyMs), .9),
       databaseModuleMedianMs: percentile(records.map(r => r.databaseModuleMs), .5),
       appShellModuleMedianMs: percentile(records.map(r => r.appShellModuleMs), .5),
+      preHomeJsBytesMedian: percentile(records.map(r => r.preHomeJsTransferredBytes), .5),
+      preHomeJsRequestsMedian: percentile(records.map(r => r.preHomeJsRequests), .5),
+      firstExploreReadyMedianMs: percentile(records.map(r => r.firstExploreReadyWallMs), .5),
+      firstContentfulPaintMedianMs: percentile(records.map(r => r.firstContentfulPaintMs), .5),
+      explorePreloadedCount: records.filter(r => r.explorePreloadedBeforeHome).length,
+      usernameSheetPreloadedCount: records.filter(r => r.usernameSheetPreloadedBeforeHome).length,
       databaseOpenMedianMs: percentile(records.map(r => r.databaseOpenMs), .5),
     }];
   }));

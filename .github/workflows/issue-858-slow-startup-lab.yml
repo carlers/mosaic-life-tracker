@@ -39,28 +39,26 @@ jobs:
       - run: npm run build
       - name: Measure production-output slow startup
         run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-slow-network.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
-      - name: Compare immediate and deferred first-install SW registration
-        if: github.ref_name == 'chatgpt/858-sw-first-install-ab-20261017'
-        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-sw-install.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
-      - name: Baseline cold Home versus signed-out Login
+      # One source and two paired builds; candidate rewrite is CI-only.
+      - name: Baseline adjacent-route preload under slow JS
         if: github.ref_name == 'chatgpt/858-sw-first-install-ab-20261017'
         env:
-          MOSAIC_AUTH_ROUTE_VARIANT: baseline
+          MOSAIC_HOME_PRELOAD_VARIANT: baseline
         run: |
-          tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-route-split.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
-          mv .mosaic/slow-startup/auth-route-split.json .mosaic/slow-startup/auth-route-baseline.json
-      - name: Build disposable auth-only route-split candidate
+          npm run audit:slow-startup
+          mv .mosaic/slow-startup/slow-startup.json .mosaic/slow-startup/home-preload-baseline.json
+      - name: Build disposable Home preload contender
         if: github.ref_name == 'chatgpt/858-sw-first-install-ab-20261017'
         run: |
-          node scripts/experimental-auth-route-split.mjs
+          node scripts/experimental-home-route-preload.mjs
           npm run build
-      - name: Candidate cold Home versus signed-out Login
+      - name: Candidate adjacent-route preload under slow JS
         if: github.ref_name == 'chatgpt/858-sw-first-install-ab-20261017'
         env:
-          MOSAIC_AUTH_ROUTE_VARIANT: split
+          MOSAIC_HOME_PRELOAD_VARIANT: no-home-explore-prefetch
         run: |
-          tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-route-split.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
-          mv .mosaic/slow-startup/auth-route-split.json .mosaic/slow-startup/auth-route-candidate.json
+          npm run audit:slow-startup
+          mv .mosaic/slow-startup/slow-startup.json .mosaic/slow-startup/home-preload-candidate.json
       - name: Archive synthetic timing report
         if: always()
         uses: actions/upload-artifact@v4
@@ -68,8 +66,7 @@ jobs:
           name: issue-858-slow-startup
           path: |
             life-tracker/.mosaic/slow-startup/slow-startup.json
-            life-tracker/.mosaic/slow-startup/first-install-registration-ab.json
-            life-tracker/.mosaic/slow-startup/auth-route-baseline.json
-            life-tracker/.mosaic/slow-startup/auth-route-candidate.json
+            life-tracker/.mosaic/slow-startup/home-preload-baseline.json
+            life-tracker/.mosaic/slow-startup/home-preload-candidate.json
           if-no-files-found: warn
           retention-days: 7
