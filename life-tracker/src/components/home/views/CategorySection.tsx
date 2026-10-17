@@ -211,7 +211,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
 
     const renderDiary = (index: number) => (
       <TaskRowDropSurface key="diary-slot" categoryId={categoryId}
-        taskId={`diary_slot_${index}`} acceptTasksOnly
+        taskId={`diary_slot_${index}`} acceptTasksOnly eagerRegister
         animatePosition={animatePositions && !diaryDragInProgress && !diarySettling}>
         {diarySlot}
       </TaskRowDropSurface>
@@ -233,6 +233,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             : task.id}
           categoryId={categoryId}
           taskId={task.id}
+          eagerRegister={index < 12}
           isActiveSource={isActiveSource}
           animatePosition={animatePositions && task.id !== settlingTaskId}
         >

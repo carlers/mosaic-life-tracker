@@ -1,22 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 slow-network pre-Home splash; automated reproduction confirmed and scoped v0.29.6 performance candidate prepared.
+Current task: #858 jointly optimize Calendar and Todo Home first mount (owner approval). Prototype only.
 
-## Branches and release boundaries
+## Boundary
 
-- Protected `dev@b0c703636c8c6e8d52c6dd3c59ebc0251070ab7e` remains v0.29.5. `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` remains published v0.29.1. No dev/main/1.0 promotion authorized.
-- Diagnostic stable `perf/858-startup-diagnostics-20261017@32175b4bb4b515ebb007fbf70624623e386c306e`: canonical #39011580584 SUCCESS, trusted Scratch Preview READY, no code optimization yet.
-- Isolated `chatgpt/858-slow-network-lab-20261017` is preparing user-visible patch candidate **v0.29.6** for the same stable Preview branch. Official Preview remains Scratch Appwrite, no backend schema/Function changes. #745 manual chat regression, #936 privacy audit and #914 compatibility gate remain independent.
+- Accepted stable Scratch Preview v0.29.6: `perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4`; dev/main/Production and 1.0 unchanged. No promotion authorization.
+- Candidate `chatgpt/858-local-mount-prototype-20261017` derives from accepted stable. Browser synthetic profiling only; Appwrite held, no backend writes, no deploy. Version remains 0.29.6 until justified user-testable Preview candidate.
 
-## Evidence and scoped implementation
+## Verified upstream facts
 
-- Owner specifically observes long **Mosaic — Opening your local data…** *before* Home. Source has two competing gates: actual local RxDB ready and an AppDataShell lazy module. Appwrite auth verification already runs in background; delayed `account.get()` does not gate cached Home.
-- [Cold/slow/warm production-output lab #39012480354](https://github.com/carlers/mosaic-life-tracker/actions/runs/39012480354), Chromium phone emulation, 2x CPU throttle, synthetic cached identity, Appwrite requests kept unresolved: fast Home owner data ready **1.11s**, throttled assets **5.81s**, pre-cached controlling PWA **0.75–0.80s**. Slow DB module download ~2.2s; AppDataShell import/dependencies ~3.6s; RxDB open ~80ms. **Network JS downloads, not remote connection or local database open, dominate the synthetic slow uncached case.**
-- [Initial early-shell A/B lab #39012763324](https://github.com/carlers/mosaic-life-tracker/actions/runs/39012763324) SUCCESS using same synthetic scenarios: fast Home 0.73–0.78s, slow 5.61–5.63s, controlled precache repeat 0.57–0.61s. Runners differ and n=2 per condition, so these directional savings are **not physical-device causal proof or a guaranteed speed budget**.
-- Candidate triggers the same memoized `AppDataShell` import as DB and Home at cached-identity bootstrap, without awaiting Appwrite, changing UI, bypassing RxDB or changing auth/sync. Failed focused lint in #39012763367 for exporting a helper beside a React component; corrected by moving the shared import into the existing `routeModuleLoaders.ts` (react-refresh convention). Same parent module promise reused by route and early bootstrap.
-- Add repeatable `npm run audit:slow-startup` script and independent branch-scoped credential-free runner/workflow, no mandatory CI-budget cost; captures sanitised perf marks/asset names and SW controlling state with real Vite production code. Backend requests held and never executed against real accounts.
+- #858 CI #39034283811: 1000 persisted same-day text tasks, Calendar Home-ready 664ms, Todo 2888ms (online, 2x CPU; offline 666/2973), n=3. Calendar observer-only suppression did not improve readiness.
+- Distribution CI #39035865412: 500 visible Calendar tasks 827–859ms vs 741ms outside mounted months. App-wide query remains even with no visible tasks.
+- Ephemeral ablation CI #39036689557: Todo baseline / disabled DnD p50 2404/1450ms at 500 tasks and 5306/2104ms at 1000. Disabling Motion layout alone had little impact. This broke dragging intentionally and cannot ship.
+- Diagnostic branch #902fe7a passed focused #39037189414 and slow startup #39037189437. These do not verify this new candidate.
 
-## Next action
+## Current work / next action
 
-- Verify final SHA with focused+browser Quality Gate, run controlled lab again to check the corrected loader's timing, fix failures. Squash verified task to stable `perf/858-startup-diagnostics-20261017`, verify full canonical and trusted Preview READY (Scratch), then report user-manual PWA acceptance as **pending** until performed. Do not promote v0.29.6 to `dev` or `main` without owner's new approval. Keep #858 open pending real device acceptance.
+- Prototype retains all Todo task content but uses one shared viewport observer, 800px overscan, and hook-safe registration only around visible rows; first 12 rows per category and active dragged source remain registered. Same markup and task actions; still must prove first-gesture after scroll, auto-scroll, Diary/shared, keyboard and cancel.
+- Calendar mounts image observer/storage hooks only inside image-bearing TaskBlocks, preserving text-only appearance and image loading. Earlier observer-only suppression was inconclusive; a real readiness gain is NOT yet claimed.
+- New isolated `issue-858-local-mount-prototype.yml` executes production build/PWA and offline/slow-online 0/25/500/1000 Calendar-vs-Todo diagnostic without live accounts. Inspect first CI, fix failures, compare **within-run** measurements, and reject any regression. Add targeted gesture and image correctness tests before Preview.
+- Keep #858 OPEN until Calendar and Todo performance gains are demonstrated and accepted. Real authenticated Scratch sync, 401, photo-heavy data, actual installed Android/iOS PWA remain pending. #936 and #914 independent pre-1.0 gates.
