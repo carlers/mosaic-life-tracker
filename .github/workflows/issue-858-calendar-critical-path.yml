@@ -4,6 +4,8 @@ name: Issue 858 Calendar Critical Path Audit
 on:
   push:
     branches: [chatgpt/858-calendar-critical-path-audit-20261017]
+    paths:
+      - 'life-tracker/tests/e2e/startup-calendar-critical-path.spec.mjs'
   workflow_dispatch:
 
 permissions:
