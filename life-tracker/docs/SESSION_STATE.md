@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 structural startup Phase A, first-install service-worker registration A/B diagnostic (no product change).
+Current task: #858 structural startup Phase B, owner-Home versus signed-out Login route dependency experiment; no product code committed.
 
 ## Branches and release boundaries
 
@@ -23,6 +23,11 @@ Current task: #858 structural startup Phase A, first-install service-worker regi
 - Isolated task branch `chatgpt/858-sw-first-install-ab-20261017` tests the **hypothesis** that immediate full-asset Workbox installation competes with Home JS on uncached slow networks. Uses the same product build, intercepts native worker registration before first navigation for immediate/deferred cases, measures owner Home first paint/readiness versus complete offline shell and offline relaunch; no real accounts, no backend writes, no published runtime flags.
 - Existing cold lab blocks service workers, so it cannot prove this hypothesis. Browser CDP throttling may not apply equally to service-worker requests; record that limitation and check request evidence before attributing any differences.
 
+## Phase A result and Phase B route split hypothesis
+
+- Test-only #858 worker-registration A/B, GitHub Actions #39016028932: both installed 173 Workbox-owned static requests and reopened Home offline. n=3, median owner Home ready immediate 5836ms vs deferred 5725ms (~111ms, 1.9%), first contentful paint 1924 vs 1928ms, offline-ready 7468 vs 7552ms. Too small to warrant a runtime scheduling change. CDP may not uniformly throttle worker-owned fetches. Preserve immediate SW registration in code.
+- `src/App.tsx` statically imports signed-out AuthPage and ResetPasswordPage even for cached-owner Home. Phase B tests (same CI runner) a **disposable compiled variant** that lazy-loads them with explicit route-specific preloading from `src/main.tsx` when signed out. Compare Home vs Login FCP/readiness, size contract and newly introduced chunk waterfall. Changes are applied only in disposable CI checkout after baseline test; no app runtime code committed yet.
+
 ## Next action
 
-- Run the isolated A/B GitHub Actions lab and inspect the full JSON report, including variability and offline-ready tradeoff. If results are significant and comparable, propose the minimal service-worker registration scheduling improvement; if not, reject and investigate Home dependency graph. No application code or stable Preview change until evidence is reviewed.
+- Run the paired, same-runner Phase B baseline/candidate browser lab and analyze Home/Login tradeoff. Adopt route split only if Home improvement is meaningful without regressing Login/offline behavior; otherwise reject and document. A later frontend product change needs a fresh versioned Preview acceptance. No dev/main/1.0 promotion.

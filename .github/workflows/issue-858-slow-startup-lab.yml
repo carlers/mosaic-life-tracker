@@ -42,6 +42,25 @@ jobs:
       - name: Compare immediate and deferred first-install SW registration
         if: github.ref_name == 'chatgpt/858-sw-first-install-ab-20261017'
         run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-sw-install.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+      - name: Baseline cold Home versus signed-out Login
+        if: github.ref_name == 'chatgpt/858-sw-first-install-ab-20261017'
+        env:
+          MOSAIC_AUTH_ROUTE_VARIANT: baseline
+        run: |
+          tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-route-split.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+          mv .mosaic/slow-startup/auth-route-split.json .mosaic/slow-startup/auth-route-baseline.json
+      - name: Build disposable auth-only route-split candidate
+        if: github.ref_name == 'chatgpt/858-sw-first-install-ab-20261017'
+        run: |
+          node scripts/experimental-auth-route-split.mjs
+          npm run build
+      - name: Candidate cold Home versus signed-out Login
+        if: github.ref_name == 'chatgpt/858-sw-first-install-ab-20261017'
+        env:
+          MOSAIC_AUTH_ROUTE_VARIANT: split
+        run: |
+          tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-route-split.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+          mv .mosaic/slow-startup/auth-route-split.json .mosaic/slow-startup/auth-route-candidate.json
       - name: Archive synthetic timing report
         if: always()
         uses: actions/upload-artifact@v4
@@ -50,5 +69,7 @@ jobs:
           path: |
             life-tracker/.mosaic/slow-startup/slow-startup.json
             life-tracker/.mosaic/slow-startup/first-install-registration-ab.json
+            life-tracker/.mosaic/slow-startup/auth-route-baseline.json
+            life-tracker/.mosaic/slow-startup/auth-route-candidate.json
           if-no-files-found: warn
           retention-days: 7
