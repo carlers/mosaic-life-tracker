@@ -1,22 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 slow-network pre-Home splash; automated reproduction confirmed and scoped v0.29.6 performance candidate prepared.
+Current task: #858 slow-network cold Home, identifying competing speculative route JS downloads.
 
-## Branches and release boundaries
+## Current boundaries
+- Stable Scratch Preview `perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4` v0.29.6: full canonical #39013268008 SUCCESS, trusted READY #39013382108; installed-device acceptance pending; no dev/main/1.0 promotion authorized.
+- Isolated `chatgpt/858-defer-neighbor-preload-20261017` has **test-only disposable source mutation** and benchmark workflow, no shippable runtime change.
+- Previous experiments discarded first-install SW deferral (<111ms Home and no paint improvement) and Auth route splitting (Login paint regression). Source: [#858 checkpoint](https://github.com/carlers/mosaic-life-tracker/issues/858#issuecomment-6231645081).
+- Paired HTML-first import experiment [#39017677504](https://github.com/carlers/mosaic-life-tracker/actions/runs/39017677504) SUCCESS: Home ready 5713→5390ms (~323ms), but wall time / first paint unchanged, and Login FCP capture in two candidate samples was null (must not interpret its invalid median). App shell download became earlier, but ~79 JS requests still contend.
 
-- Protected `dev@b0c703636c8c6e8d52c6dd3c59ebc0251070ab7e` remains v0.29.5. `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` remains published v0.29.1. No dev/main/1.0 promotion authorized.
-- Diagnostic stable `perf/858-startup-diagnostics-20261017@32175b4bb4b515ebb007fbf70624623e386c306e`: canonical #39011580584 SUCCESS, trusted Scratch Preview READY, no code optimization yet.
-- Isolated `chatgpt/858-slow-network-lab-20261017` is preparing user-visible patch candidate **v0.29.6** for the same stable Preview branch. Official Preview remains Scratch Appwrite, no backend schema/Function changes. #745 manual chat regression, #936 privacy audit and #914 compatibility gate remain independent.
-
-## Evidence and scoped implementation
-
-- Owner specifically observes long **Mosaic — Opening your local data…** *before* Home. Source has two competing gates: actual local RxDB ready and an AppDataShell lazy module. Appwrite auth verification already runs in background; delayed `account.get()` does not gate cached Home.
-- [Cold/slow/warm production-output lab #39012480354](https://github.com/carlers/mosaic-life-tracker/actions/runs/39012480354), Chromium phone emulation, 2x CPU throttle, synthetic cached identity, Appwrite requests kept unresolved: fast Home owner data ready **1.11s**, throttled assets **5.81s**, pre-cached controlling PWA **0.75–0.80s**. Slow DB module download ~2.2s; AppDataShell import/dependencies ~3.6s; RxDB open ~80ms. **Network JS downloads, not remote connection or local database open, dominate the synthetic slow uncached case.**
-- [Initial early-shell A/B lab #39012763324](https://github.com/carlers/mosaic-life-tracker/actions/runs/39012763324) SUCCESS using same synthetic scenarios: fast Home 0.73–0.78s, slow 5.61–5.63s, controlled precache repeat 0.57–0.61s. Runners differ and n=2 per condition, so these directional savings are **not physical-device causal proof or a guaranteed speed budget**.
-- Candidate triggers the same memoized `AppDataShell` import as DB and Home at cached-identity bootstrap, without awaiting Appwrite, changing UI, bypassing RxDB or changing auth/sync. Failed focused lint in #39012763367 for exporting a helper beside a React component; corrected by moving the shared import into the existing `routeModuleLoaders.ts` (react-refresh convention). Same parent module promise reused by route and early bootstrap.
-- Add repeatable `npm run audit:slow-startup` script and independent branch-scoped credential-free runner/workflow, no mandatory CI-budget cost; captures sanitised perf marks/asset names and SW controlling state with real Vite production code. Backend requests held and never executed against real accounts.
-
-## Next action
-
-- Verify final SHA with focused+browser Quality Gate, run controlled lab again to check the corrected loader's timing, fix failures. Squash verified task to stable `perf/858-startup-diagnostics-20261017`, verify full canonical and trusted Preview READY (Scratch), then report user-manual PWA acceptance as **pending** until performed. Do not promote v0.29.6 to `dev` or `main` without owner's new approval. Keep #858 open pending real device acceptance.
+## Structural hypothesis and execution
+- AppLayout preloads adjacent protected routes in a first-mount effect, including `/explore` when `/home` is displayed, with only an idle callback / 500ms timeout. This runs before RxDB ready, before Home's owner-data mark and even while AppDataShell is not mounted. The slow synthetic waterfall shows `ExplorePage`, `SetUsernameSheet`, `BottomSheet` and other route-related chunks finishing near Home readiness.
+- Paired same-runner Vite production-build test temporarily disables **only the Home-neighbor preload effect**, leaving actual swipe previews/nav unchanged. Compare required JS requests, Home-ready and first paint on slow network; check controlling PWA offline repeat and fast startup too. All Appwrite calls held; synthetic empty cached account, no real private data. Only pursue product scheduling change if gain is material and swipe UX preserved.
+- If confirmed, move speculative neighbor preloading behind *real usable Home data* and guard cleanup/account transition. Add targeted tests, version PATCH, focused + full canonical stable Preview and hosted manual checks. Preserve all all-route PWA precache, auth isolation, migration and backend boundaries. No dev/main without new authorization.

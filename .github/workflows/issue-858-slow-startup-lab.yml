@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - chatgpt/858-slow-network-lab-20261017
+      - chatgpt/858-defer-neighbor-preload-20261017
 
 permissions:
   contents: read
@@ -38,11 +39,27 @@ jobs:
       - run: npm run build
       - name: Measure production-output slow startup
         run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-slow-network.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+      - name: Preserve baseline report
+        if: github.ref_name == 'chatgpt/858-defer-neighbor-preload-20261017'
+        run: mv .mosaic/slow-startup/slow-startup.json .mosaic/slow-startup/neighbor-baseline.json
+      - name: Build isolated no-early-neighbor candidate
+        if: github.ref_name == 'chatgpt/858-defer-neighbor-preload-20261017'
+        run: |
+          node scripts/experimental-no-early-neighbor.mjs
+          npm run build
+      - name: Measure candidate no-early-neighbor slow startup
+        if: github.ref_name == 'chatgpt/858-defer-neighbor-preload-20261017'
+        run: |
+          tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-slow-network.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+          mv .mosaic/slow-startup/slow-startup.json .mosaic/slow-startup/neighbor-candidate.json
       - name: Archive synthetic timing report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: issue-858-slow-startup
-          path: life-tracker/.mosaic/slow-startup/slow-startup.json
+          path: |
+            life-tracker/.mosaic/slow-startup/slow-startup.json
+            life-tracker/.mosaic/slow-startup/neighbor-baseline.json
+            life-tracker/.mosaic/slow-startup/neighbor-candidate.json
           if-no-files-found: warn
           retention-days: 7
