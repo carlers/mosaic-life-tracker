@@ -16,7 +16,7 @@ Current task: #858 slow-network startup; owner approved execution after specifyi
 - Active isolated task `chatgpt/858-startup-diagnostics-20261017`, stable Preview `perf/858-startup-diagnostics-20261017`, both branched from exact dev SHA. Instrument distinct application-shell import and fallback stages using existing non-sensitive Performance marks, add browser contract that holds Appwrite requests unresolved until Home's actual local calendar/owner-data appear, and extend synthetic mobile-startup diagnostics with per-stage timings. No UI layout, auth, DB semantics, Appwrite, security-policy or version changes; version impact NONE for diagnostic-only phase.
 - Existing `audit:mobile-startup` uses a synthetic owner and deliberately blocks real Appwrite; a passing browser contract is **not** evidence of physical-device slow network performance or of an installed PWA cache hit. Correct root-cause optimization is reserved for per-stage evidence.
 
-## Execution / handoff
+## Next action
 
 - Complete focused CI for task checkpoint (`[verify:focused]`), then squash to stable Preview; require full canonical acceptance, trusted Preview + Vercel READY before device testing. Fix actual CI failures. Record exact commits, CI, source parity.
 - Owner still needs to reproduce on stable Preview with slow internet and collect the existing `mosaic:database:*`, `mosaic:app-shell:*` and `mosaic:home:*` Performance marks; compare app JS cache state. The next change should target whichever phase is slow. Do not claim a performance fix or manual acceptance before measurement.

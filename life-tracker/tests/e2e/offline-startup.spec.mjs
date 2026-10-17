@@ -79,11 +79,17 @@ test('cached account renders locally while browser claims online and Appwrite is
   ).toBeVisible({ timeout: 1000 });
 
   try {
-    await expect(page.getByTestId('calendar-region')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('grid', { name: /calendar/ }).first()).toBeVisible({ timeout: 15000 });
     await expect.poll(() => page.evaluate(() =>
       performance.getEntriesByName('mosaic:home:owner-data-ready', 'mark').length
     )).toBeGreaterThan(0);
     expect(appwriteRequests).toBeGreaterThan(0);
+    const stages = await page.evaluate(() => Object.fromEntries([
+      'database:module-ready', 'database:ready', 'app-shell:import-start',
+      'app-shell:module-ready', 'app-data-shell:mounted',
+      'home:mounted', 'home:owner-data-ready',
+    ].map((name) => [name, performance.getEntriesByName('mosaic:' + name, 'mark')[0]?.startTime ?? null])));
+    console.log('MOSAIC_STARTUP_HELD_APPWRITE ' + JSON.stringify(stages));
     // This is the key offline-first guarantee: even without an Appwrite
     // response, cached-owner Home must be usable, not stuck on the splash.
     await expect(page.getByRole('status', { name: 'Opening local data' }))
