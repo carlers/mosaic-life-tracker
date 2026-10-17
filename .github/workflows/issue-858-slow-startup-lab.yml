@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - chatgpt/858-slow-network-lab-20261017
+      - chatgpt/858-bundle-dependency-audit-20261017
 
 permissions:
   contents: read
@@ -38,6 +39,26 @@ jobs:
       - run: npm run build
       - name: Measure production-output slow startup
         run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-slow-network.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+      - name: Activate disposable module-level analyzer
+        if: github.ref_name == 'chatgpt/858-bundle-dependency-audit-20261017'
+        run: node scripts/experimental-bundle-analyzer.mjs
+      - name: Analyze exact production app dependency graph
+        if: github.ref_name == 'chatgpt/858-bundle-dependency-audit-20261017'
+        run: |
+          npm run build
+          test -s dist/analyze-data.md
+          echo 'MOSAIC_858_BUNDLE_ANALYSIS_START'
+          head -c 26000 dist/analyze-data.md
+          echo
+          echo 'MOSAIC_858_BUNDLE_ANALYSIS_END'
+      - name: Archive module dependency audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-858-module-analysis
+          path: life-tracker/dist/analyze-data.md
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Archive synthetic timing report
         if: always()
         uses: actions/upload-artifact@v4
