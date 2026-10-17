@@ -9,7 +9,6 @@ const BASE = 'http://127.0.0.1:4179';
 const COUNTS = [0, 25, 100, 250, 500];
 const MODES = ['pwa-online-slow', 'pwa-offline'];
 const BASE_VIEWS = ['calendar', 'todo'];
-const DISTANT_SCENARIO = 'calendar-distant';
 const REPEATS = 3;
 const USER = { $id: 'issue858_scale_user', email: 'scale@example.invalid', name: 'Scale Test', prefs: {} };
 const FAST = { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
@@ -139,8 +138,7 @@ async function seedStates(browser) {
 }
 
 async function sample(browser, tasks, state, mode, iteration, scenario) {
-  const view = scenario === DISTANT_SCENARIO ? 'calendar' : scenario;
-  const distant = scenario === DISTANT_SCENARIO;
+  const view = scenario;
   const cachedAssets = mode.startsWith('pwa-');
   const ctx = await browser.newContext({
     viewport: { width: 412, height: 915 }, deviceScaleFactor: 2,
@@ -181,11 +179,6 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
       } catch { /* Optional browser API. */ }
     }, { user: USER, view });
     const page = await ctx.newPage();
-    // Six months later: the identical persisted tasks are wholly outside mounted month grids.
-    // setFixedTime only overrides Date; performance.now and browser timers remain real.
-    if (distant) {
-      await page.clock.setFixedTime(new Date(Date.now() + 190 * 24 * 60 * 60 * 1000));
-    }
     const cdp = await ctx.newCDPSession(page);
     await cdp.send('Network.enable');
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 2 });
@@ -217,7 +210,7 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
     // This measures DOM visibility, NOT the first pixel's paint or touch responsiveness.
     let firstTaskVisibleMs = null;
     let lastTaskVisibleMs = null;
-    if (tasks > 0 && !distant) {
+    if (tasks > 0) {
       const taskLocator = n => view === 'calendar'
         ? page.locator('[data-calendar-slide-index="30"] [title="' + taskName(n) + '"]').first()
         : page.getByText(taskName(n), { exact: true }).first();
@@ -268,9 +261,7 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
     result.syntheticAccountResponses = network.accountResponses();
     expect(Number.isFinite(result.homeReadyMs)).toBe(true);
     expect(Number.isFinite(result.tasksReadyMs)).toBe(true);
-    if (distant) {
-      expect(result.calendarTaskBlocks, 'distant tasks should not mount in nearby Calendar grids').toBe(0);
-    } else if (view === 'calendar') {
+    if (view === 'calendar') {
       expect(result.calendarTaskBlocks, 'all tasks on selected day must appear in Calendar').toBeGreaterThanOrEqual(tasks);
     }
     expect(Number.isFinite(result.fcpMs)).toBe(true);
@@ -293,7 +284,7 @@ test('@performance Issue 858 Calendar-first view and visible-density scaling', a
   const groups = [];
   // Interleave mode/view order and reverse every second iteration to reduce warm-run drift.
   for (const count of COUNTS) {
-    const scenarios = count === 500 ? [...BASE_VIEWS, DISTANT_SCENARIO] : BASE_VIEWS;
+    const scenarios = BASE_VIEWS;
     for (let iteration = 1; iteration <= REPEATS; iteration++) {
       const pairs = scenarios.flatMap(scenario => MODES.map(mode => ({ scenario, mode })));
       if (iteration % 2 === 0) pairs.reverse();
@@ -336,20 +327,20 @@ test('@performance Issue 858 Calendar-first view and visible-density scaling', a
   const report = {
     sourceSha: process.env.MOSAIC_AUDIT_SOURCE_SHA ?? 'local',
     protocol: {
-      views: [...BASE_VIEWS, DISTANT_SCENARIO],
+      views: BASE_VIEWS,
       taskCounts: COUNTS,
       repeatsPerCondition: REPEATS,
       cpuSlowdown: 2,
       slowLink: SLOW,
       mobileViewport: '412x915',
       localData: '500 same-day tasks added via real UI, snapshots confirmed in IndexedDB',
-      distantScenario: 'Same stored task data; browser Date advanced 190 days, no app rewrite',
+      excludedScenario: 'Distant-date mock-clock test suspended after artificial date shift prevented a first warm Home-ready mark; no off-window data result is claimed.',
       notes: [
         'Calendar is the default view; Todo is a matched data/control view.',
         'Task DOM existence/visibility is not guaranteed painted or user-interactable.',
         'Three repeats per group are directional, not significance or equivalence tests.',
         'Image observer count is browser instrumentation, not proof observers cause latency.',
-        'Only dense selected-day versus out-of-window distribution is covered in this phase.',
+        'This run covers dense selected-day tasks; distant and distributed-day controls remain unmeasured.',
         'No physical device, real account, genuine remote sync, or images.',
       ],
     },

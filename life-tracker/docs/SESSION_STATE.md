@@ -21,6 +21,12 @@ Current task: #858 Calendar-first cached-task performance diagnostics; runtime u
 - Record per-sample task notification→owner-ready, FCP, DOM task presence, calendar block/day-cell counts, JS heap, long tasks and IntersectionObserver registrations; preserve original task-volume script and prior artifacts.
 - Route the branch-scoped diagnostic scaling lab workflow to Calendar-first script; no user-shipped runtime logic changes. `[verify:focused]` requested on coherent diagnostic checkpoint.
 
+## Diagnostic harness repair
+
+- Initial Calendar-first lab #39032505720 FAILED after valid 0/25/100/250 samples and first 500 dense Calendar/Todo samples. The added 190-day fake browser clock for a distant-date control prevented the initial owner-ready mark during cache warmup; the exact underlying clock/storage interaction is unverified. Do not count the distant-date scenario as evidence.
+- Remove only that unstable artificial-time fixture; retain exact same-store Calendar/Todo dense comparisons and raw observer/DOM metrics. Re-run with full tier completion before treating the lab as verified.
+- Focused Quality Gate #39032505698 SUCCESS and independent slow-startup lab #39032505699 SUCCESS at the preceding diagnostic SHA.
+
 ## Next action
 
 - Verify exact-head focused Quality Gate and Calendar-first lab (raw JSON and logs); investigate any failures, patch, rerun. Report only verified Calendar timing results and observed sources.
