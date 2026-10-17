@@ -1,6 +1,7 @@
-import { expect, test } from '@playwright/test';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { expect, test, chromium } from '@playwright/test';
+import { mkdir, writeFile, mkdtemp, rm } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 // Deterministic Chromium-only diagnostic using a production Vite build.
 // No real credentials, Production/Appwrite traffic, data rows or account access.
@@ -385,14 +386,14 @@ async function createPopulatedLocalFixture(browser) {
 }
 
 test('@performance Issue 858 populated owner cache network parity', async ({ browser }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(500_000);
   const seed = await createPopulatedLocalFixture(browser);
   const modes = [
     'pwa-offline-assets', 'pwa-cached-assets',
     'pwa-valid-session', 'pwa-server-error',
   ];
   const rows = [];
-  for (let iteration = 1; iteration <= 2; iteration++) {
+  for (let iteration = 1; iteration <= 4; iteration++) {
     const ordered = iteration % 2 ? modes : [...modes].reverse();
     for (const mode of ordered) {
       rows.push(await run(browser, mode, iteration, seed));
@@ -421,4 +422,118 @@ test('@performance Issue 858 populated owner cache network parity', async ({ bro
   await writeFile(resolve('.mosaic/slow-startup/populated-startup.json'),
     JSON.stringify(report, null, 2) + '\n');
   console.log('MOSAIC_858_POPULATED_SUMMARY ' + JSON.stringify(summary));
+});
+
+
+test('@performance Issue 858 installed cache across separate Chromium processes', async () => {
+  test.setTimeout(300_000);
+  const userDataDir = await mkdtemp(join(tmpdir(), 'mosaic-858-process-'));
+  const launch = () => chromium.launchPersistentContext(userDataDir, {
+    headless: true,
+    viewport: { width: 412, height: 915 },
+    deviceScaleFactor: 2,
+    isMobile: true, hasTouch: true,
+    serviceWorkers: 'allow',
+  });
+  const ready = async page => {
+    await expect(page.getByRole('grid', { name: /calendar/ }).first())
+      .toBeVisible({ timeout: 40_000 });
+    await page.waitForFunction(() =>
+      performance.getEntriesByName('mosaic:home:owner-data-ready', 'mark').length > 0,
+      null, { timeout: 40_000 });
+  };
+  try {
+    // Real browser profile, service worker, CacheStorage and IndexedDB
+    // persist to disk; close Chromium before each measured new process.
+    const setup = await launch();
+    try {
+      await setup.addInitScript(user => {
+        localStorage.setItem('mosaic_last_known_user', JSON.stringify(user));
+      }, USER);
+      await setup.route(/https:\/\/(?:fra|sgp)\.cloud\.appwrite\.io\//,
+        route => route.abort('failed'));
+      const page = setup.pages()[0] ?? await setup.newPage();
+      await page.goto(BASE + '/home', { waitUntil: 'domcontentloaded' });
+      await ready(page);
+      await page.evaluate(() => navigator.serviceWorker.ready);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await ready(page);
+      expect(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+        .toBe(true);
+    } finally {
+      await setup.close();
+    }
+
+    const rows = [];
+    for (let i = 1; i <= 3; i++) {
+      const order = i % 2
+        ? ['online-cached-process', 'offline-cached-process']
+        : ['offline-cached-process', 'online-cached-process'];
+      for (const scenario of order) {
+        const started = Date.now();
+        const context = await launch();
+        let releaseRemote;
+        const heldRemote = new Promise(resolve => { releaseRemote = resolve; });
+        try {
+          await context.route(/https:\/\/(?:fra|sgp)\.cloud\.appwrite\.io\//,
+            async route => {
+              await heldRemote;
+              await route.abort('failed').catch(() => {});
+            });
+          const page = context.pages()[0] ?? await context.newPage();
+          const cdp = await context.newCDPSession(page);
+          await cdp.send('Network.enable');
+          await cdp.send('Emulation.setCPUThrottlingRate', { rate: 2 });
+          await cdp.send('Network.emulateNetworkConditions',
+            scenario.startsWith('offline') ? OFFLINE : SLOW);
+          await page.goto(BASE + '/home',
+            { waitUntil: 'domcontentloaded', timeout: 55_000 });
+          await ready(page);
+          const row = await page.evaluate(({ scenario, iteration }) => ({
+            scenario, iteration,
+            browserOnline: navigator.onLine,
+            controlled: Boolean(navigator.serviceWorker.controller),
+            homeReadyMs: Math.round(performance.getEntriesByName(
+              'mosaic:home:owner-data-ready', 'mark')[0].startTime),
+            fcpMs: Math.round(performance.getEntriesByName(
+              'first-contentful-paint', 'paint')[0].startTime),
+            scriptTransfers: performance.getEntriesByType('resource')
+              .filter(e => e.initiatorType === 'script')
+              .reduce((sum, e) => sum + e.transferSize, 0),
+          }), { scenario, iteration: i });
+          row.processLaunchToReadyMs = Date.now() - started;
+          expect(row.browserOnline).toBe(scenario.startsWith('online'));
+          expect(row.controlled).toBe(true);
+          expect(row.scriptTransfers).toBe(0);
+          rows.push(row);
+          console.log('MOSAIC_858_PROCESS_SAMPLE ' + JSON.stringify(row));
+        } finally {
+          releaseRemote();
+          await context.close();
+        }
+      }
+    }
+    const summary = Object.fromEntries([
+      'online-cached-process', 'offline-cached-process',
+    ].map(mode => {
+      const subset = rows.filter(row => row.scenario === mode);
+      return [mode, {
+        samples: subset.length,
+        medianHomeMs: percentile(subset.map(row => row.homeReadyMs), .5),
+        medianProcessLaunchToReadyMs: percentile(
+          subset.map(row => row.processLaunchToReadyMs), .5),
+        medianFcpMs: percentile(subset.map(row => row.fcpMs), .5),
+      }];
+    }));
+    await mkdir(resolve('.mosaic/slow-startup'), { recursive: true });
+    await writeFile(resolve('.mosaic/slow-startup/process-startup.json'),
+      JSON.stringify({
+        sourceSha: process.env.MOSAIC_AUDIT_SOURCE_SHA ?? 'local',
+        note: 'Headless Chromium process restart on the same real PWA profile; synthetic empty account, no hosted device',
+        summary, rows,
+      }, null, 2) + '\n');
+    console.log('MOSAIC_858_PROCESS_SUMMARY ' + JSON.stringify(summary));
+  } finally {
+    await rm(userDataDir, { recursive: true, force: true });
+  }
 });

@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 repair populated IndexedDB browser fixture after timeout (no runtime changes).
+Current task: #858 final populated-cache and Chromium process-restart verification (no runtime changes).
 
 ## Live baseline / boundary
 
@@ -20,6 +20,8 @@ Current task: #858 repair populated IndexedDB browser fixture after timeout (no 
 
 ## Next action
 
+- Populated-only diagnostic #39026189958 PASSED: 24 tasks written through ordinary UI, persisted into 12 IndexedDB databases and survived reload; two samples each offline, held-online, mocked 200 and 503. Approximate first-task visibility p50 989/977/962/977ms respectively (small n; no statistical equality claim). Root of prior fixture failure was matching outer Swiper slide when filtering aria-hidden; innermost active day is correctly identified in the current test.
+- Restore complete no-credential lab, double populated samples to four per mode, and add separate fresh Chromium-process launch with persistent SW CacheStorage profile (3 per mode). Verify exact task CI + lab; no backend/Production work. Record objective parity and limits in #858.
 - Fifth lab #39025932213 progressed through category creation and Todo view; active-pill count was zero under the previous accessibility-state filter. Print scoped slide DOM metadata and wait for task-entry pills to settle. Temporarily select the populated-only test in the isolated lab for fast causal debugging, then restore the full lab before final verification.
 - Fourth lab #39025693747 reached active Todo category pill but `.first().click()` targeted an offscreen duplicated Swiper pill. Fixture now resolves the nearest Day View slide's aria-hidden attribute and invokes the real button handler without pointer hit-testing. Rerun independent performance lab and focused/browser CI; do not treat this Playwright locator error as a Home performance regression.
 - Third lab #39025462740 failed before fixture task creation: deliberate immediate Appwrite abort showed the offline status banner on top of the menu and intercepted pointer clicks. Hold requests unresolved during fixture creation instead, then release on cleanup. Add a seeded-task visibility timestamp distinct from Home owner-data mark; verify next isolated lab and Quality Gate.
