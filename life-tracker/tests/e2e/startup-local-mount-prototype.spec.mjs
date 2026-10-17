@@ -294,6 +294,31 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
           .find(node => node.querySelector('button[aria-label="' + title + '"]'));
         return Boolean(task?.parentElement?.querySelector('[data-task-dnd-registered="true"]'));
       }, taskName(tasks)), { timeout: 10000 }).toBe(true);
+      // First touch after scrolling a distant row must start dnd-kit drag on
+      // the first gesture, not merely expose a registered sensor element.
+      if (tasks === 1000 && mode === 'pwa-online-slow' && iteration === 1) {
+        const title = page.getByRole('button', { name: taskName(tasks), exact: true }).first();
+        const box = await title.boundingBox();
+        if (!box) throw new Error('Last Todo row has no touch bounds after scroll');
+        const x = box.x + box.width * 0.5;
+        const y = box.y + box.height * 0.5;
+        let touchStarted = false;
+        try {
+          await cdp.send('Input.dispatchTouchEvent', {
+            type: 'touchStart', touchPoints: [{ x, y }],
+          });
+          touchStarted = true;
+          await page.waitForTimeout(750);
+          await expect(page.locator('[data-task-overlay-id]').first())
+            .toHaveAttribute('data-task-dragging', 'true', { timeout: 8000 });
+        } finally {
+          if (touchStarted) await cdp.send('Input.dispatchTouchEvent', {
+            type: 'touchCancel', touchPoints: [],
+          });
+        }
+        await expect(page.locator('[data-task-overlay-id]')).toHaveCount(0);
+        result.firstDragAfterFarScrollPassed = true;
+      }
     }
     expect(result.online).toBe(mode !== 'pwa-offline');
     expect(result.controlled).toBe(cachedAssets);
