@@ -282,32 +282,46 @@ async function createPopulatedLocalFixture(browser) {
     await context.route(/https:\/\/(?:fra|sgp)\.cloud\.appwrite\.io\//, route =>
       route.abort('failed'));
     const page = await context.newPage();
+    page.setDefaultTimeout(12_000);
+    console.log('MOSAIC_858_SEED_STEP navigation');
     await page.goto(BASE + '/home', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('grid', { name: /calendar/ }).first())
       .toBeVisible({ timeout: 30_000 });
+    console.log('MOSAIC_858_SEED_STEP home-visible');
     await page.getByRole('button', { name: 'Open menu' }).click();
+    console.log('MOSAIC_858_SEED_STEP opened-menu');
     await page.getByRole('button', { name: 'Lists & Categories' }).click();
+    console.log('MOSAIC_858_SEED_STEP opened-manager');
     await page.getByRole('button', { name: 'Add Category' }).click();
     await page.getByRole('textbox', { name: 'Name' }).fill('Startup Fixture');
     await page.getByRole('button', { name: 'Add Category' }).click();
     await expect(page.getByText('Startup Fixture', { exact: true }).first())
       .toBeVisible();
+    console.log('MOSAIC_858_SEED_STEP category-created');
     await page.keyboard.press('Escape');
+    await expect(page.locator(
+      '.swiper-slide:not([aria-hidden="true"]) button[aria-label="Add a task to Startup Fixture"]'
+    ).first()).toBeVisible();
+    console.log('MOSAIC_858_SEED_STEP category-pill-ready');
     for (let i = 1; i <= 24; i++) {
-      await page.locator('button[aria-label="Add a task to Startup Fixture"]:visible')
-        .first().click();
+      await page.locator(
+        '.swiper-slide:not([aria-hidden="true"]) button[aria-label="Add a task to Startup Fixture"]'
+      ).first().click();
       const input = page.getByRole('textbox', { name: 'New task title' }).first();
       await input.fill('Startup fixture task ' + String(i).padStart(3, '0'));
       await input.press('Enter');
+      if (i % 6 === 0) console.log('MOSAIC_858_SEED_STEP tasks-submitted-' + i);
     }
     await expect(page.getByText('Startup fixture task 001', { exact: true }))
       .toBeVisible({ timeout: 20_000 });
     await expect(page.getByText('Startup fixture task 024', { exact: true }))
       .toBeVisible({ timeout: 20_000 });
+    console.log('MOSAIC_858_SEED_STEP task-ui-visible');
     // Finish local writes and verify that the original app can reopen them.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Startup fixture task 024', { exact: true }))
       .toBeVisible({ timeout: 30_000 });
+    console.log('MOSAIC_858_SEED_STEP survived-reload');
     const state = await context.storageState({ indexedDB: true });
     const idbs = state.origins.reduce((sum, origin) =>
       sum + (origin.indexedDB?.length ?? 0), 0);
@@ -322,7 +336,7 @@ async function createPopulatedLocalFixture(browser) {
 }
 
 test('@performance Issue 858 populated owner cache network parity', async ({ browser }) => {
-  test.setTimeout(500_000);
+  test.setTimeout(240_000);
   const seed = await createPopulatedLocalFixture(browser);
   const modes = [
     'pwa-offline-assets', 'pwa-cached-assets',

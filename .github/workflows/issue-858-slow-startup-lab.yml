@@ -44,6 +44,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: issue-858-slow-startup
-          path: life-tracker/.mosaic/slow-startup/*.json
+          path: |
+            life-tracker/.mosaic/slow-startup/*.json
+            life-tracker/test-results/**
           if-no-files-found: warn
           retention-days: 7

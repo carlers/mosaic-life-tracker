@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 populated IndexedDB network parity diagnostic (no runtime changes).
+Current task: #858 repair populated IndexedDB browser fixture after timeout (no runtime changes).
 
 ## Live baseline / boundary
 
@@ -20,4 +20,5 @@ Current task: #858 populated IndexedDB network parity diagnostic (no runtime cha
 
 ## Next action
 
+- First seeded-fixture CI #39024433162 failed after 500s without a completed fixture; earlier empty-cache case passed. Narrow active Swiper selection and emit stage progress/Playwright error context for causal diagnosis; do not misreport timeout as an app performance regression.
 - Verify the seeded IndexedDB production browser lab and exact task SHA focused/browser Quality Gate; repair root causes of failures. Compare 200/503 outcomes against the cached offline/hung baseline and flag CPU contention without attributing small sample variance. Report direct offline/online results with uncertainty and do not infer causation from uncached comparisons. #858 remains OPEN for owner installed-device/offline acceptance; #936 privacy audit and #914 compatibility gate remain separate mandatory pre-1.0 work. No protected-branch promotion without explicit approval.
