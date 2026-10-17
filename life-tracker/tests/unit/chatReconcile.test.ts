@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mock = vi.hoisted(() => ({
   deliver: vi.fn(), send: vi.fn(), sync: vi.fn(),
-  current: vi.fn(), capture: vi.fn(), getDatabase: vi.fn(),
+  current: vi.fn(), capture: vi.fn(), getDatabase: vi.fn(), denied: vi.fn(),
 }));
 vi.mock('../../src/lib/messageDelivery', () => ({
   deliverPendingMessages: mock.deliver, sendMessageAction: mock.send,
 }));
+vi.mock('../../src/lib/messageSendDenials', () => ({ isDeniedOutgoing: mock.denied }));
 vi.mock('../../src/db/messageReplicationPilot', () => ({ refreshMessageReplicationPilot: mock.sync }));
 vi.mock('../../src/lib/accountWorkScope', () => ({
   captureAccountWorkGeneration: mock.capture,
@@ -23,6 +24,7 @@ describe('reconcileChat', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mock.capture.mockReturnValue(1);
+    mock.denied.mockReturnValue(false);
     mock.current.mockReturnValue(true);
     mock.deliver.mockResolvedValue(undefined);
     mock.sync.mockResolvedValue(true);
@@ -60,6 +62,32 @@ describe('reconcileChat', () => {
       messages: { find: () => ({ exec: async () => [{ id: 'msg_pending' }] }) },
     });
     await expect(reconcileChat('user_a', 'user_b')).rejects.toThrow(/waiting/);
+    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.sync).not.toHaveBeenCalled();
+  });
+
+  it('repairs the thread while retaining a permanently denied outgoing message for explicit retry', async () => {
+    mock.getDatabase.mockReturnValue({
+      messages: { find: () => ({ exec: async () => [{ id: 'msg_denied' }] }) },
+    });
+    mock.denied.mockImplementation((_ownerId: string, messageId: string) => messageId === 'msg_denied');
+
+    await expect(reconcileChat('user_a', 'user_b')).resolves.toBe(1);
+    expect(mock.denied).toHaveBeenCalledWith('user_a', 'msg_denied');
+    expect(mock.send).toHaveBeenCalledTimes(1);
+    expect(mock.sync).toHaveBeenCalledTimes(1);
+  });
+
+  it('still blocks repair when an ordinary pending send coexists with a denied one', async () => {
+    mock.getDatabase.mockReturnValue({
+      messages: { find: () => ({ exec: async () => [
+        { id: 'msg_denied' }, { id: 'msg_awaiting_ack' },
+      ] }) },
+    });
+    mock.denied.mockImplementation((_ownerId: string, messageId: string) => messageId === 'msg_denied');
+
+    await expect(reconcileChat('user_a', 'user_b')).rejects.toThrow(/waiting/);
+    expect(mock.denied).toHaveBeenCalledWith('user_a', 'msg_awaiting_ack');
     expect(mock.send).not.toHaveBeenCalled();
     expect(mock.sync).not.toHaveBeenCalled();
   });
