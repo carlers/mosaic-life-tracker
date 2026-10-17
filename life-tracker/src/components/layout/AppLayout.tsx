@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
 import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
+import { markStartup } from '../../lib/startupMetrics';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
 import {
   preloadPrimaryRoute,
@@ -28,10 +29,18 @@ let appDataShellPromise:
   | null = null;
 
 function loadAppDataShell() {
-  appDataShellPromise ??= import('./AppDataShell').catch((error) => {
-    appDataShellPromise = null;
-    throw error;
-  });
+  if (!appDataShellPromise) {
+    markStartup('app-shell:import-start');
+    appDataShellPromise = import('./AppDataShell')
+      .then((module) => {
+        markStartup('app-shell:module-ready');
+        return module;
+      })
+      .catch((error) => {
+        appDataShellPromise = null;
+        throw error;
+      });
+  }
   return appDataShellPromise;
 }
 
@@ -41,7 +50,15 @@ const LazyAppDataShell = lazy(() =>
 
 const LocalDataStartupShell: React.FC<{
   connectivity: 'checking' | 'online' | 'offline';
-}> = ({ connectivity }) => (
+  stage: 'database' | 'module';
+}> = ({ connectivity, stage }) => {
+  useEffect(() => {
+    markStartup(stage === 'database'
+      ? 'app-shell:database-fallback-visible'
+      : 'app-shell:module-fallback-visible');
+  }, [stage]);
+
+  return (
   <div className="h-screen w-full bg-[#111111] text-white flex flex-col overflow-hidden">
     <div className="flex items-center justify-between px-4 py-3 border-b border-[#222222]">
       <div>
@@ -81,7 +98,8 @@ const LocalDataStartupShell: React.FC<{
       Opening local data
     </span>
   </div>
-);
+  );
+};
 
 let messageDeliveryModulePromise:
   | Promise<typeof import('../../lib/messageDelivery')>
@@ -325,7 +343,7 @@ export const AppLayout: React.FC = () => {
   }
 
   if (database.state === 'idle' || database.state === 'loading') {
-    return <LocalDataStartupShell connectivity={connectivity.status} />;
+    return <LocalDataStartupShell connectivity={connectivity.status} stage="database" />;
   }
 
   if (database.state === 'error') {
@@ -393,7 +411,7 @@ export const AppLayout: React.FC = () => {
 
   return (
     <Suspense
-      fallback={<LocalDataStartupShell connectivity={connectivity.status} />}
+      fallback={<LocalDataStartupShell connectivity={connectivity.status} stage="module" />}
     >
       <LazyAppDataShell
         includeConversations={includeConversations}
