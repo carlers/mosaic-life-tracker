@@ -14,3 +14,8 @@ Current task: read-only #858 structural Calendar cold-start audit, factorial Rea
 - Browser lab `tests/e2e/startup-suspense-reveal-ab.spec.mjs`: interleaved 0/25/1000 task fixtures, 2× CPU, offline vs slow-online, n=3 per variant/mode; original v0.29.7 code and direct variant in **the same disposable production-mode build**, Appwrite held. Tests preserve task visibility and mounted calendar.
 - Run focused CI, experimental lab; compare within-run Home mount/owner data/first-task DOM p50,p90 and FCP, isolating which of the two nested Suspense boundaries is the bottleneck, identify regressions; if accepted, plan production-safe route state/error handling with unit/browser/401/login/offline/device gates.
 - No module, schema, backend, version, dev/main or Preview changes are authorized by this diagnostic. Security #936 and compatibility #914 remain independent pre-1.0 gates.
+
+## Next action
+
+- Check factorial Suspense A/B exact CI results; isolate the actual delayed boundary and reject any case that does not improve verified readiness or changes UI/task correctness.
+- Preserve accepted v0.29.7 Preview; do not merge/deploy diagnostic code. If the A/B shows improvement, plan a production-safe module-cache/error-state refactor with focused and full browser tests before any new Preview.
