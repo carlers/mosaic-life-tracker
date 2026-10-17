@@ -38,7 +38,7 @@ jobs:
       - run: tests/e2e/node_modules/.bin/playwright install --with-deps chromium
       - run: npm run build
       - name: Measure production-output slow startup
-        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-slow-network.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-slow-network.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line --grep 'populated owner cache'
       - name: Archive synthetic timing report
         if: always()
         uses: actions/upload-artifact@v4

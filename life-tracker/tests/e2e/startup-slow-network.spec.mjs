@@ -319,10 +319,27 @@ async function createPopulatedLocalFixture(browser) {
     await page.evaluate(() => localStorage.setItem('mosaic_home_view', 'todo'));
     await expect(page.getByRole('tab', { name: 'Todo list' }))
       .toHaveAttribute('aria-selected', 'true');
-    const activeTaskPills = await page.evaluate(() =>
-      [...document.querySelectorAll('button[aria-label="Add a task to Startup Fixture"]')]
-        .filter(button => button.closest('.swiper-slide')?.getAttribute('aria-hidden') !== 'true').length);
-    expect(activeTaskPills, 'the selected day must expose an active category pill')
+    const selector = 'button[aria-label="Add a task to Startup Fixture"]';
+    await expect.poll(() => page.locator(selector).count(), { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    const pillDiagnostic = await page.evaluate((sel) => {
+      const list = [...document.querySelectorAll(sel)];
+      return {
+        count: list.length,
+        slides: list.slice(0, 9).map(button => {
+          const slide = button.closest('.swiper-slide');
+          const rect = button.getBoundingClientRect();
+          return {
+            aria: slide?.getAttribute('aria-hidden') ?? null,
+            cls: slide?.className ?? '',
+            x: Math.round(rect.x), y: Math.round(rect.y),
+            w: Math.round(rect.width), h: Math.round(rect.height),
+          };
+        }),
+      };
+    }, selector);
+    console.log('MOSAIC_858_SEED_PILLS ' + JSON.stringify(pillDiagnostic));
+    expect(pillDiagnostic.count, 'the Todo category must render task entry pills')
       .toBeGreaterThan(0);
     console.log('MOSAIC_858_SEED_STEP category-pill-ready');
     for (let i = 1; i <= 24; i++) {

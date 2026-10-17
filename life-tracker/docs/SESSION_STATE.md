@@ -20,6 +20,7 @@ Current task: #858 repair populated IndexedDB browser fixture after timeout (no 
 
 ## Next action
 
+- Fifth lab #39025932213 progressed through category creation and Todo view; active-pill count was zero under the previous accessibility-state filter. Print scoped slide DOM metadata and wait for task-entry pills to settle. Temporarily select the populated-only test in the isolated lab for fast causal debugging, then restore the full lab before final verification.
 - Fourth lab #39025693747 reached active Todo category pill but `.first().click()` targeted an offscreen duplicated Swiper pill. Fixture now resolves the nearest Day View slide's aria-hidden attribute and invokes the real button handler without pointer hit-testing. Rerun independent performance lab and focused/browser CI; do not treat this Playwright locator error as a Home performance regression.
 - Third lab #39025462740 failed before fixture task creation: deliberate immediate Appwrite abort showed the offline status banner on top of the menu and intercepted pointer clicks. Hold requests unresolved during fixture creation instead, then release on cleanup. Add a seeded-task visibility timestamp distinct from Home owner-data mark; verify next isolated lab and Quality Gate.
 - Second lab #39025200150 exposed the fixture defect: category created, but Home remained in its default Calendar mode with no task-category pill. Explicitly select Todo and persist the synthetic test profile's `mosaic_home_view=todo` before seeding; verify the next dedicated run. This is not a product issue.
