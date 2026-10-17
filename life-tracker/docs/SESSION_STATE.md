@@ -1,33 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 structural startup Phase B, owner-Home versus signed-out Login route dependency experiment; no product code committed.
+Current task: #858 slow-network Home startup structural A/B audit; no new product change justified.
 
-## Branches and release boundaries
+## Verified branch and release boundaries
 
-- Protected `dev@b0c703636c8c6e8d52c6dd3c59ebc0251070ab7e` remains v0.29.5. `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` remains published v0.29.1. No dev/main/1.0 promotion authorized.
-- Diagnostic stable `perf/858-startup-diagnostics-20261017@32175b4bb4b515ebb007fbf70624623e386c306e`: canonical #39011580584 SUCCESS, trusted Scratch Preview READY, no code optimization yet.
-- Isolated `chatgpt/858-slow-network-lab-20261017` is preparing user-visible patch candidate **v0.29.6** for the same stable Preview branch. Official Preview remains Scratch Appwrite, no backend schema/Function changes. #745 manual chat regression, #936 privacy audit and #914 compatibility gate remain independent.
+- Stable Scratch Preview `perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4` ships v0.29.6: full canonical #39013268008 SUCCESS, trusted prebuilt READY #39013382108. Owner physical-device acceptance is pending. Do not promote to dev/main/1.0 without separate approval.
+- Protected `dev@b0c703636c8c6e8d52c6dd3c59ebc0251070ab7e` is v0.29.5; `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` is v0.29.1. #936 security/privacy audit and #914 compatibility remain independent 1.0 gates.
+- Isolated diagnostics `chatgpt/858-sw-first-install-ab-20261017` do not change committed runtime or deploy. All Appwrite requests in synthetic Chromium are held; Scratch client identity only.
 
-## Evidence and scoped implementation
+## Measured diagnostic results
 
-- Owner specifically observes long **Mosaic — Opening your local data…** *before* Home. Source has two competing gates: actual local RxDB ready and an AppDataShell lazy module. Appwrite auth verification already runs in background; delayed `account.get()` does not gate cached Home.
-- [Cold/slow/warm production-output lab #39012480354](https://github.com/carlers/mosaic-life-tracker/actions/runs/39012480354), Chromium phone emulation, 2x CPU throttle, synthetic cached identity, Appwrite requests kept unresolved: fast Home owner data ready **1.11s**, throttled assets **5.81s**, pre-cached controlling PWA **0.75–0.80s**. Slow DB module download ~2.2s; AppDataShell import/dependencies ~3.6s; RxDB open ~80ms. **Network JS downloads, not remote connection or local database open, dominate the synthetic slow uncached case.**
-- [Initial early-shell A/B lab #39012763324](https://github.com/carlers/mosaic-life-tracker/actions/runs/39012763324) SUCCESS using same synthetic scenarios: fast Home 0.73–0.78s, slow 5.61–5.63s, controlled precache repeat 0.57–0.61s. Runners differ and n=2 per condition, so these directional savings are **not physical-device causal proof or a guaranteed speed budget**.
-- Candidate triggers the same memoized `AppDataShell` import as DB and Home at cached-identity bootstrap, without awaiting Appwrite, changing UI, bypassing RxDB or changing auth/sync. Failed focused lint in #39012763367 for exporting a helper beside a React component; corrected by moving the shared import into the existing `routeModuleLoaders.ts` (react-refresh convention). Same parent module promise reused by route and early bootstrap.
-- Add repeatable `npm run audit:slow-startup` script and independent branch-scoped credential-free runner/workflow, no mandatory CI-budget cost; captures sanitised perf marks/asset names and SW controlling state with real Vite production code. Backend requests held and never executed against real accounts.
-
-## Current experiment (read-only runtime behavior, test-only injection)
-
-- Stable Preview v0.29.6 head `41d196afd557d2e0d499cb9423e196d46e83adf4` has full canonical SUCCESS #39013268008 and trusted Preview delivery SUCCESS #39013382108, with a READY stable alias. Still not promoted to dev/main; owner device acceptance pending.
-- Isolated task branch `chatgpt/858-sw-first-install-ab-20261017` tests the **hypothesis** that immediate full-asset Workbox installation competes with Home JS on uncached slow networks. Uses the same product build, intercepts native worker registration before first navigation for immediate/deferred cases, measures owner Home first paint/readiness versus complete offline shell and offline relaunch; no real accounts, no backend writes, no published runtime flags.
-- Existing cold lab blocks service workers, so it cannot prove this hypothesis. Browser CDP throttling may not apply equally to service-worker requests; record that limitation and check request evidence before attributing any differences.
-
-## Phase A result and Phase B route split hypothesis
-
-- Test-only #858 worker-registration A/B, GitHub Actions #39016028932: both installed 173 Workbox-owned static requests and reopened Home offline. n=3, median owner Home ready immediate 5836ms vs deferred 5725ms (~111ms, 1.9%), first contentful paint 1924 vs 1928ms, offline-ready 7468 vs 7552ms. Too small to warrant a runtime scheduling change. CDP may not uniformly throttle worker-owned fetches. Preserve immediate SW registration in code.
-- `src/App.tsx` statically imports signed-out AuthPage and ResetPasswordPage even for cached-owner Home. Phase B tests (same CI runner) a **disposable compiled variant** that lazy-loads them with explicit route-specific preloading from `src/main.tsx` when signed out. Compare Home vs Login FCP/readiness, size contract and newly introduced chunk waterfall. Changes are applied only in disposable CI checkout after baseline test; no app runtime code committed yet.
+- Phase A [lab #39016028932](https://github.com/carlers/mosaic-life-tracker/actions/runs/39016028932) SUCCESS, first-install native SW registration A/B (3 samples each): immediate Home-ready median **5836ms** versus deferred-to-Home-ready **5725ms**; FCP 1924 vs 1928ms; full offline-ready 7468 vs 7552ms. Both reopened Home fully offline with 173 worker static requests. Second lab #39016426029 reproduced only ~57ms Home difference (5705 vs 5648ms); first paint was not better deferred. CDP worker request throttling may differ from page throttling. **Reject runtime SW scheduling change**.
+- Phase B same-runner, two production builds in [lab #39016426029](https://github.com/carlers/mosaic-life-tracker/actions/runs/39016426029) SUCCESS. Baseline owner Home ready median 5649ms / Home FCP 1892ms / signed-out Login FCP 1872ms. Disposable auth-route lazy-split variant Home ready 5698ms / Home FCP 1860ms / Login FCP 2120ms; Home closure gzip 371402→369830B, with no usable Home gain and worse Login. **Reject auth-route runtime change**. No production code committed for either candidate.
+- Both lab suites are credential-free and directional only, not physical-device field measurements. A separate baseline run found slow uncached Home ~5.7s vs controlled precached PWA ~0.7s; required JS downloads dominate rather than Appwrite verification or RxDB open.
 
 ## Next action
 
-- Run the paired, same-runner Phase B baseline/candidate browser lab and analyze Home/Login tradeoff. Adopt route split only if Home improvement is meaningful without regressing Login/offline behavior; otherwise reject and document. A later frontend product change needs a fresh versioned Preview acceptance. No dev/main/1.0 promotion.
+- Fix/verify the issue-858 experiment branch's documentation handoff-size regression (focused #39016426012 failed at 3129/3000 estimated tokens; browser shards passed). Add a durable issue checkpoint after green.
+- Keep #858 OPEN for owner installed-PWA testing of already-READY v0.29.6; preserve all full precache, auth, local database and offline checks. Consider further bundle/request-waterfall analysis only if actual uncached startup remains material, with a separate evidence-based performance experiment before any shipped restructuring. No automatic dev/main/1.0 promotion.
