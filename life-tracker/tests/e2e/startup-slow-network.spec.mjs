@@ -50,6 +50,8 @@ async function run(browser, scenario, iteration) {
   let releaseRemote;
   let pendingRemoteRequests = 0;
   let pending = false;
+  let remoteMode = 'held';
+  let authResponseCount = 0;
   const heldRemote = new Promise(resolve => { releaseRemote = resolve; });
   try {
     await context.addInitScript((user) => {
@@ -57,6 +59,31 @@ async function run(browser, scenario, iteration) {
       localStorage.setItem('mosaic_last_known_user', JSON.stringify(user));
     }, USER);
     await context.route(/https:\/\/(?:fra|sgp)\.cloud\.appwrite\.io\//, async route => {
+      const request = route.request();
+      if (remoteMode !== 'held' && request.method() === 'GET' &&
+          /\/v1\/account(?:\?|$)/.test(request.url())) {
+        authResponseCount += 1;
+        const isSuccess = remoteMode === 'valid-session';
+        await route.fulfill({
+          status: isSuccess ? 200 : 503,
+          contentType: 'application/json',
+          headers: {
+            'access-control-allow-origin': BASE,
+            'access-control-allow-credentials': 'true',
+            'access-control-allow-headers': '*',
+          },
+          body: JSON.stringify(isSuccess ? {
+            ...USER, $createdAt: '2026-01-01T00:00:00.000Z',
+            $updatedAt: '2026-01-01T00:00:00.000Z',
+            registration: '2026-01-01T00:00:00.000Z',
+            status: true, labels: [], emailVerification: true,
+            phone: '', phoneVerification: false, passwordUpdate: '',
+            accessedAt: '2026-01-01T00:00:00.000Z',
+            mfa: false, targets: [],
+          } : { message: 'Synthetic unavailable', code: 503, type: 'general_server_error' }),
+        });
+        return;
+      }
       pendingRemoteRequests += 1;
       pending = true;
       await heldRemote;
@@ -90,6 +117,10 @@ async function run(browser, scenario, iteration) {
         Boolean(navigator.serviceWorker.controller));
       expect(serviceWorkerControlled, 'PWA repeat run needs an active controller').toBe(true);
     }
+    // Warmups always hold auth. Only the measured navigation may return a
+    // synthetic account response; all other cloud work stays blocked.
+    remoteMode = scenario === 'pwa-valid-session' ? 'valid-session' :
+      scenario === 'pwa-server-error' ? 'server-error' : 'held';
     await cdp.send('Network.emulateNetworkConditions',
       scenario === 'fast-assets' ? FAST :
         scenario === 'pwa-offline-assets' ? OFFLINE : SLOW);
@@ -139,6 +170,7 @@ async function run(browser, scenario, iteration) {
     record.wallClockMs = Date.now() - started;
     record.serviceWorkerControlled = serviceWorkerControlled;
     record.heldAppwriteRequests = pendingRemoteRequests;
+    record.syntheticAuthResponses = authResponseCount;
     expect(record.homeReadyMs).not.toBeNull();
     expect(record.firstContentfulPaintMs).not.toBeNull();
     expect(record.browserOnline).toBe(scenario !== 'pwa-offline-assets');
@@ -147,7 +179,10 @@ async function run(browser, scenario, iteration) {
       expect(record.slowAssets.every(asset => asset.transferredBytes === 0))
         .toBe(true);
     }
-    expect(pending, 'Appwrite must remain unresolved during local Home startup').toBe(true);
+    expect(pending, 'Non-auth Appwrite work must never gate local Home startup').toBe(true);
+    if (remoteMode !== 'held') {
+      expect(authResponseCount, 'Account response must occur in the measured launch').toBeGreaterThan(0);
+    }
     console.log('MOSAIC_858_SLOW_STARTUP ' + JSON.stringify(record));
     return record;
   } finally {
@@ -158,7 +193,10 @@ async function run(browser, scenario, iteration) {
 
 test('@performance Issue 858 cached Home under independently throttled assets and Appwrite', async ({ browser }) => {
   test.setTimeout(500_000);
-  const modes = ['fast-assets', 'slow-assets', 'pwa-cached-assets', 'pwa-offline-assets'];
+  const modes = [
+    'fast-assets', 'slow-assets', 'pwa-cached-assets', 'pwa-offline-assets',
+    'pwa-valid-session', 'pwa-server-error',
+  ];
   const rows = [];
   // Interleave same-build, same-precached-state online/offline launches to
   // limit runner drift; preserve two historical uncached samples for context.
@@ -167,6 +205,14 @@ test('@performance Issue 858 cached Home under independently throttled assets an
       ? ['pwa-cached-assets', 'pwa-offline-assets']
       : ['pwa-offline-assets', 'pwa-cached-assets'];
     for (const mode of paired) rows.push(await run(browser, mode, i));
+    // Fast genuine-looking session resolution can schedule background sync,
+    // while HTTP 503 still establishes provider reachability. Both are
+    // mocked locally; the experiment never authenticates or writes remotely.
+    // Compare them against fully offline and hanging-auth cached launches.
+    for (const mode of i % 2 ? ['pwa-valid-session', 'pwa-server-error'] :
+      ['pwa-server-error', 'pwa-valid-session']) {
+      rows.push(await run(browser, mode, i));
+    }
     if (i <= 2) {
       for (const mode of ['fast-assets', 'slow-assets']) {
         rows.push(await run(browser, mode, i));
@@ -199,7 +245,9 @@ test('@performance Issue 858 cached Home under independently throttled assets an
         'Local Vite Preview hosting does not simulate carrier/CDN behavior.',
         '120 kB/s throttling covers same-origin assets, not solely the Appwrite API.',
         'Four service-worker online/offline samples per condition are directional, not a device SLA.',
-      'A warm installed SW-controlled page reload is not a cold OS process launch.',
+        'A warm installed SW-controlled page reload is not a cold OS process launch.',
+        '200/503 account replies are synthetic; they cannot verify real Appwrite sync contention or backend behavior.',
+        'All non-account provider calls remain held, so complete successful sync is not exercised.',
       'The two extra slow/fast asset cases remain online-uncached controls.',
       ],
     },
