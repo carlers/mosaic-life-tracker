@@ -16,7 +16,11 @@ Current task: #858 test whether Home-adjacent Explore preload competes with owne
 
 - Previous lab run #39020344430 failed its A/B-only first Explore DOM assertion: a synthetic account with no profile correctly shows the heading Set up your profile rather than Explore; normal slow-startup baseline and focused/browser gates passed. The repaired assertion accepts both legitimate page states; no runtime fix is involved.
 
+## Measured adjacent preload A/B
+
+- Diagnostic head befde2c7e0321061cb5c598dc09481f42a453a38: lab #39020611789 SUCCESS, Quality Gate #39020611788 SUCCESS; issue checkpoint comment #6232246880. Four controlled slow JS samples each, Appwrite held: existing Home-ready median 5627ms, first Explore 151ms, 79 JS/456679 transfer bytes; no-Home-preload candidate Home 5513ms, first Explore 1913ms, 67 JS/439889 bytes. FCP 1868→1872ms. **Reject unconditional preload removal**: ~114ms gain on Home costs ~1762ms first Explore. No product runtime changed.
+
 ## Next action
 
-- Verify focused/browser task CI and the paired GitHub Actions slow-startup experiment at exact pushed SHA; fix any reproducible failures and record outcome on #858. If removing preloading speeds Home but harms first Explore navigation, investigate delaying the preload until Home is actionable rather than removing it permanently.
+- Inspect and archive measured Vite static import closures of bootstrap, Home, AppDataShell, local database and Explore (read-only manifest graph report). Use this to identify avoidable *required* JS work before proposing changes; do not substitute static gzip totals for runtime transfer timing.
 - Keep #858 open for owner installed-PWA slow-link and offline acceptance. Preserve full offline precache, local DB readiness, owner isolation and revoked-session protection. Do not promote to stable Preview/dev/main/1.0 from this diagnostic.
