@@ -1,5 +1,21 @@
 import { markStartup } from '../../lib/startupMetrics';
 
+// Returning accounts import this module before React mounts. Keep a read-only
+// snapshot of the resolved component so an already-fetched route need not
+// suspend again merely to resolve the same React.lazy Promise.
+type ShellComponent = (typeof import('./AppDataShell'))['AppDataShell'];
+let loadedShell: ShellComponent | null = null;
+const shellListeners = new Set<() => void>();
+
+export function getLoadedAppDataShell(): ShellComponent | null {
+  return loadedShell;
+}
+
+export function subscribeLoadedAppDataShell(listener: () => void): () => void {
+  shellListeners.add(listener);
+  return () => { shellListeners.delete(listener); };
+}
+
 function memoizeImport<T>(load: () => Promise<T>): () => Promise<T> {
   let pending: Promise<T> | null = null;
   return () => {
@@ -18,7 +34,9 @@ function memoizeImport<T>(load: () => Promise<T>): () => Promise<T> {
 export const loadAppDataShell = memoizeImport(() => {
   markStartup('app-shell:import-start');
   return import('./AppDataShell').then((module) => {
+    loadedShell = module.AppDataShell;
     markStartup('app-shell:module-ready');
+    for (const listener of shellListeners) listener();
     return module;
   });
 });

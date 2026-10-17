@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState, useSyncExternalStore } from 'react';
 import { useOutlet, useLocation, useNavigate, useNavigationType, Navigate } from 'react-router-dom';
 import { resolveRouteTransition, readRouterHistoryIndex } from '../../lib/routeTransitions';
 import { WifiOff, UserX } from 'lucide-react';
@@ -8,7 +8,11 @@ import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
 import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
 import { markStartup } from '../../lib/startupMetrics';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
-import { loadAppDataShell } from './routeModuleLoaders';
+import {
+  getLoadedAppDataShell,
+  loadAppDataShell,
+  subscribeLoadedAppDataShell,
+} from './routeModuleLoaders';
 import {
   preloadPrimaryRoute,
 } from './primaryRoutePreload';
@@ -145,6 +149,13 @@ export const AppLayout: React.FC = () => {
   const [retryDisabled, setRetryDisabled] = useState(false);
   const connectivity = useConnectivity();
   const database = useDatabaseBootstrap();
+  // The cached-account bootstrap may finish importing AppDataShell before
+  // RxDB finishes opening. Consume that module directly on the first Home
+  // commit; keep React.lazy for login, retries and failed/late chunk loads.
+  const preloadedShell = useSyncExternalStore(
+    subscribeLoadedAppDataShell,
+    getLoadedAppDataShell,
+  );
 
   useEffect(() => {
     const userId = user?.$id;
@@ -390,36 +401,29 @@ export const AppLayout: React.FC = () => {
   const includeConversations =
     path.includes('/messages') || messagesIsAdjacent;
 
+  const shellProps = {
+    includeConversations,
+    activeTab,
+    routeKey: path,
+    routeTransitionDirection: routeTransition.direction,
+    onTabChange: handleTabChange,
+    canSwipeLeft: Boolean(leftSwipeDestination),
+    canSwipeRight: Boolean(rightSwipeDestination),
+    leftPreview: leftSwipeDestination
+      ? <PrimaryRoutePreview pathname={leftSwipeDestination} /> : null,
+    rightPreview: rightSwipeDestination
+      ? <PrimaryRoutePreview pathname={rightSwipeDestination} /> : null,
+    onRouteSwipe: handleRouteSwipe,
+    routeSwipeActivationMode: protectedRouteSwipeMode(path),
+    hideBottomNav: protectedRouteHidesBottomNav(path),
+    children: outlet,
+  };
+
   return (
-    <Suspense
-      fallback={<LocalDataStartupShell connectivity={connectivity.status} stage="module" />}
-    >
-      <LazyAppDataShell
-        includeConversations={includeConversations}
-        activeTab={activeTab}
-        routeKey={path}
-        routeTransitionDirection={routeTransition.direction}
-        onTabChange={handleTabChange}
-        canSwipeLeft={Boolean(leftSwipeDestination)}
-        canSwipeRight={Boolean(rightSwipeDestination)}
-        leftPreview={
-          leftSwipeDestination ? (
-            <PrimaryRoutePreview pathname={leftSwipeDestination} />
-          ) : null
-        }
-        rightPreview={
-          rightSwipeDestination ? (
-            <PrimaryRoutePreview pathname={rightSwipeDestination} />
-          ) : null
-        }
-        onRouteSwipe={handleRouteSwipe}
-        routeSwipeActivationMode={
-          protectedRouteSwipeMode(path)
-        }
-        hideBottomNav={protectedRouteHidesBottomNav(path)}
-      >
-        {outlet}
-      </LazyAppDataShell>
+    <Suspense fallback={<LocalDataStartupShell connectivity={connectivity.status} stage="module" />}>
+      {preloadedShell
+        ? React.createElement(preloadedShell, shellProps)
+        : React.createElement(LazyAppDataShell, shellProps)}
     </Suspense>
   );
 };
