@@ -8,6 +8,7 @@ import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
 import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
 import { markStartup } from '../../lib/startupMetrics';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
+import { loadAppDataShell } from './routeModuleLoaders';
 import {
   preloadPrimaryRoute,
 } from './primaryRoutePreload';
@@ -23,26 +24,6 @@ import {
 } from '../../lib/primarySwipeNavigation';
 
 const RETRY_COOLDOWN_MS = 2000;
-
-let appDataShellPromise:
-  | Promise<typeof import('./AppDataShell')>
-  | null = null;
-
-function loadAppDataShell() {
-  if (!appDataShellPromise) {
-    markStartup('app-shell:import-start');
-    appDataShellPromise = import('./AppDataShell')
-      .then((module) => {
-        markStartup('app-shell:module-ready');
-        return module;
-      })
-      .catch((error) => {
-        appDataShellPromise = null;
-        throw error;
-      });
-  }
-  return appDataShellPromise;
-}
 
 const LazyAppDataShell = lazy(() =>
   loadAppDataShell().then(({ AppDataShell }) => ({ default: AppDataShell }))
