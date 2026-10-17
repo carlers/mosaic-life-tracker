@@ -1,22 +1,29 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #745 chat repair after permanent send denial; approved pre-1.0 reliability batch also audits #682 social Notifications and #858 slow-network view mounting.
+Current task: #858 structural Calendar and Todo local-first cold startup — v0.29.8 preloaded-app-shell Preview candidate.
 
-## Live baseline / release boundary
+## Approved boundary
 
-- Protected `dev@b5590bf4ab2eef7729815ce408cc8d40734c4409` = owner-accepted v0.29.4, promoted from stable `fix/889-pre1-integration-20261016@c43c3c88fcbdb558bf933e77d82d91465da8952b` through PR #940. Dev [Quality Gate #39004957684](https://github.com/carlers/mosaic-life-tracker/actions/runs/39004957684) SUCCESS and matching Vercel READY. Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` = published v0.29.1. Never promote to dev/main or tag 1.0 without explicit new approval.
-- #745 owner accepted normal, offline, 403 Not sent/Retry, re-friend and account isolation. The unread/inbox filter after unfriend remains intentional; #937 separately deferred until after 1.0.
-- #682 rich social Alerts are built and on dev; genuine multi-device generic/detail push, privacy and notification-open acceptance remain unverified. #858 read-only source audit found no proven slow-network app-shell gate; authenticated throttled real-browser observation still outstanding.
+- User requested a structural audit and faster default Calendar mount, explicitly retaining both Calendar and Todo optimization as #858 scope. Existing v0.29.7 Scratch Preview `perf/858-startup-diagnostics-20261017@34ac29ed0790ea796c9d350c9da2796b2ab29e7a` remains the accepted starting point; canonical #39044763288 and trusted Preview #39044882214 SUCCESS.
+- This task changes only initial `AppDataShell` **already-preloaded module reveal**, with unchanged task queries, RxDB schema, account identity, sync behavior, Calendar/Todo visual tree and network boundaries. Maintain the `React.lazy` import, Suspense loading UI and original failure/retry behavior when the module is not loaded. Do not prematurely mount RxDB-backed providers before the protected-route DB-ready gate.
+- Release candidate version 0.29.8 (new user-testable PATCH iteration). No dev/main/Production/backend/1.0 promotion approval.
 
-## Isolated candidate v0.29.5
+## Measured causal evidence
 
-- Task branch `chatgpt/745-chat-reconcile-denied-20261017` and independent stable Preview `fix/745-chat-reconcile-denied-20261017` both created from exact above dev baseline. Scope: **frontend-only** Chat Sync correctness after a permanent 4xx send denial. Source `src/lib/chatReconcile.ts` previously queried all locally pending outgoing messages, while `messageDelivery.ts` deliberately leaves permanently rejected messages pending for explicit Retry/Discard. Thus an already denied message unnecessarily blocked the separate `repair_thread_all` and message freshness barrier even though no delivery was in flight.
-- New behavior ignores **only the current owner's explicitly denied message IDs** in the Chat Sync pending-send barrier. Real pending sends still block; denied data remains local for user Retry/Discard. Server repair auth, message pairing, pending queue, account-scope and stable chat UX unchanged. Source-level diagnosis is not a claim that this was reproduced on a physical device.
-- Add unit regressions for a sole denied row and mixed denied + genuinely pending rows, preserving existing unauthorized/owner-switch/freshness checks. Version patch 0.29.4 → 0.29.5 (package, lock root, appVersion); no Appwrite schema, Function, credentials, Production, shared Scratch, social push, or interface redesign.
-- #682 and #858 are separately inspected but deliberately not changed without a failing automated contract or measured authenticated slow-network root cause; don't manufacture code churn. Their outstanding owner/device and platform probes remain explicit.
+- [Isolated critical path #39048530590](https://github.com/carlers/mosaic-life-tracker/actions/runs/39048530590) SUCCESS: with cached-PWA mobile Chromium 2× CPU, synthetic owner IndexedDB 0/25/1000 tasks, n=3, offline/slow online, DB ready ~160–184ms and `AppDataShell` module ready ~144–153ms; `HomePage` doesn't mount until 492–517ms. The ~333–335ms DB→Home wait persists at 0 tasks and both connection modes, excluding query/render/network as its main explanation. No physical-device claim.
+- [Four-way same-bundle Suspense A/B #39049692367](https://github.com/carlers/mosaic-life-tracker/actions/runs/39049692367) SUCCESS: original nested lazy boundaries vs bypass Home only vs bypass `AppDataShell` only vs both. Slow-online Home-owner-ready p50 for 0/25/1000 tasks: original 587/578/719ms, **direct preloaded shell only 284/300/478ms** (saving 303/278/241ms). Home-only direct 560/570/724ms (minor/none). First 1000-task DOM 770→528ms, all preview tasks retained. Offline for 1000 727→493ms. This is an isolated causal diagnostic, not manual acceptance; interaction/lazy failure edge cases remain.
+- Focused experiment checkpoint #39049775650 SUCCESS after fixing a diagnostic-only docs heading. Direct-loaded-shell effect chosen for a narrow production candidate; Home's own nested lazy route remains untouched.
+
+## New task change
+
+- Task branch `chatgpt/858-direct-preloaded-shell-20261017` from stable v0.29.7.
+- `src/components/layout/routeModuleLoaders.ts`: export a synchronous read-only `AppDataShell` component snapshot, subscriber and notifications after the existing cached import finishes. No independent second module import or cache.
+- `src/components/layout/AppLayout.tsx`: `useSyncExternalStore` subscribes to that snapshot in protected AppLayout. Once cached user, database and module are ready, mount directly rather than re-suspending. When the module isn't resolved, preserve the **exact existing lazy component and Suspense** (including failed load path); do not replace it with an indefinite custom spinner. The original `AppDataShell` children and route swipe props remain.
+- `tests/components/AppDataShellPreload.test.tsx`: regression for memoized module, once-only listener, already-loaded first React commit and a preloading in-flight subscriber. Existing browser shards must verify route gestures, account and offline fallback.
+- Update package/package-lock/appVersion to 0.29.8 once; no unrelated styling or infrastructure edits.
 
 ## Next action
 
-- Run focused verification on final task SHA (`[verify:focused]`) and fix any failures. Squash into the dedicated stable Preview only after green; verify full canonical checks, exact source SHA and Vercel READY with Scratch build identity. Offer the new v0.29.5 stable Preview for human Chat Sync regression acceptance; no `dev` or `main` promotion before separate owner approval.
-- #889 1.0 is blocked by #936 mandatory planning-only security/privacy audit and #914 live changed-backend/privacy/rollback verification, which require their own authorization. Preserve that scope and no 1.0 release.
+- Run task focused+browser checks, resolve any lint/types/react/react-router failures with a scoped repair; compare build/PWA metrics against v0.29.7. After task gate green, create PR to existing `perf/858-startup-diagnostics-20261017`, squash only the candidate and run full canonical checks + trusted Scratch Preview READY. Never promote to dev/main/Production until explicitly approved.
+- Independently verify real authenticated and installed device cold-start with cached 0/25/100/500/1000 and distributed tasks, offline/slow/401/account switching, first task interactability, Diary/shared/photos/drag after scroll, iOS/Android. #858 remains OPEN until those are accepted. #936 privacy and #914 backend compatibility are independent pre-1.0 gates.

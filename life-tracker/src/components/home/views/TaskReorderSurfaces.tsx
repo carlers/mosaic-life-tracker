@@ -2,6 +2,9 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CollisionPriority } from '@dnd-kit/abstract';
 import { useDroppable } from '@dnd-kit/react';
+import { useTaskReorderProximity } from './useTaskReorderProximity';
+import { TaskRowRegistrationContext } from './taskRowRegistrationContext';
+
 import {
   categoryStartDropId,
   taskGapDropId,
@@ -70,20 +73,22 @@ export const TaskGapDropSurface: React.FC<{
   );
 };
 
-export const TaskRowDropSurface: React.FC<{
+interface RowTargetsProps {
   categoryId: string;
   taskId: string;
-  isActiveSource?: boolean;
-  animatePosition?: boolean;
-  acceptTasksOnly?: boolean;
-  children: React.ReactNode;
-}> = ({
-  categoryId,
-  taskId,
-  isActiveSource = false,
-  animatePosition = false,
-  acceptTasksOnly = false,
-  children,
+  isActiveSource: boolean;
+  acceptTasksOnly: boolean;
+}
+const dropZoneStyle = {
+  position: 'absolute',
+  insetInline: 0,
+  height: '50%',
+  pointerEvents: 'none',
+} as const;
+
+// Hook-safe boundary: offscreen rows do not call dnd-kit hooks.
+const RegisteredRowTargets: React.FC<RowTargetsProps> = ({
+  categoryId, taskId, isActiveSource, acceptTasksOnly,
 }) => {
   const { ref: beforeRef } = useDroppable({
     id: taskInsertDropId(categoryId, taskId, 'before'),
@@ -99,9 +104,44 @@ export const TaskRowDropSurface: React.FC<{
     collisionPriority: CollisionPriority.High,
     disabled: isActiveSource,
   });
+  return (
+    <>
+      <div ref={beforeRef} aria-hidden="true" style={{ ...dropZoneStyle, top: 0 }} />
+      <div ref={afterRef} aria-hidden="true" style={{ ...dropZoneStyle, bottom: 0 }} />
+    </>
+  );
+};
+const PassiveRowTargets = () => (
+  <>
+    <div aria-hidden="true" style={{ ...dropZoneStyle, top: 0 }} />
+    <div aria-hidden="true" style={{ ...dropZoneStyle, bottom: 0 }} />
+  </>
+);
+
+export const TaskRowDropSurface: React.FC<{
+  categoryId: string;
+  taskId: string;
+  isActiveSource?: boolean;
+  animatePosition?: boolean;
+  acceptTasksOnly?: boolean;
+  eagerRegister?: boolean;
+  children: React.ReactNode;
+}> = ({
+  categoryId,
+  taskId,
+  isActiveSource = false,
+  animatePosition = false,
+  acceptTasksOnly = false,
+  eagerRegister = false,
+  children,
+}) => {
+  const { ref, registered } = useTaskReorderProximity(eagerRegister);
+  // An active source must remain registered even if drag auto-scrolls it away.
+  const active = registered || isActiveSource;
 
   return (
     <motion.div
+      ref={ref}
       layout={animatePosition ? 'position' : false}
       transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
       className={isActiveSource ? 'relative !invisible' : 'relative'}
@@ -110,42 +150,22 @@ export const TaskRowDropSurface: React.FC<{
       style={
         isActiveSource
           ? {
-              // Out of flow only for the active session; never leave a zero-height
-              // Motion-owned row behind after drop/cancel.
               position: 'absolute',
               width: '100%',
               visibility: 'hidden',
               pointerEvents: 'none',
-              // Prevent the out-of-flow source from leaking over the next
-              // category pill while Framer Motion measures moving rows.
               overflow: 'hidden',
             }
           : undefined
       }
     >
-      <div
-        ref={beforeRef}
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          insetInline: 0,
-          top: 0,
-          height: '50%',
-          pointerEvents: 'none',
-        }}
-      />
-      <div
-        ref={afterRef}
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          insetInline: 0,
-          bottom: 0,
-          height: '50%',
-          pointerEvents: 'none',
-        }}
-      />
-      {children}
+      <TaskRowRegistrationContext.Provider value={active}>
+        {active
+          ? <RegisteredRowTargets categoryId={categoryId} taskId={taskId}
+              isActiveSource={isActiveSource} acceptTasksOnly={acceptTasksOnly} />
+          : <PassiveRowTargets />}
+        {children}
+      </TaskRowRegistrationContext.Provider>
     </motion.div>
   );
 };

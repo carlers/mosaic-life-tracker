@@ -34,6 +34,8 @@ test('cached account renders locally while browser claims online and Appwrite is
   page,
 }) => {
   let appwriteRequests = 0;
+  let releaseAppwrite;
+  const heldAppwrite = new Promise((resolve) => { releaseAppwrite = resolve; });
 
   await page.addInitScript((userId) => {
     // This is the Android/PWA false-positive we need to support: the browser
@@ -55,7 +57,9 @@ test('cached account renders locally while browser claims online and Appwrite is
 
   await page.route('https://sgp.cloud.appwrite.io/**', async (route) => {
     appwriteRequests += 1;
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    // A slow server can hang indefinitely. Keep verification in flight
+    // until the real local calendar is mounted and owner data has loaded.
+    await heldAppwrite;
     await route.abort('failed');
   });
   await stubPostHog(page);
@@ -73,6 +77,26 @@ test('cached account renders locally while browser claims online and Appwrite is
       .or(page.getByRole('status', { name: 'Opening local data' }))
       .or(page.getByRole('button', { name: 'Checking connection' }).first())
   ).toBeVisible({ timeout: 1000 });
+
+  try {
+    await expect(page.getByRole('grid', { name: /calendar/ }).first()).toBeVisible({ timeout: 15000 });
+    await expect.poll(() => page.evaluate(() =>
+      performance.getEntriesByName('mosaic:home:owner-data-ready', 'mark').length
+    )).toBeGreaterThan(0);
+    expect(appwriteRequests).toBeGreaterThan(0);
+    const stages = await page.evaluate(() => Object.fromEntries([
+      'database:module-ready', 'database:ready', 'app-shell:import-start',
+      'app-shell:module-ready', 'app-data-shell:mounted',
+      'home:mounted', 'home:owner-data-ready',
+    ].map((name) => [name, performance.getEntriesByName('mosaic:' + name, 'mark')[0]?.startTime ?? null])));
+    console.log('MOSAIC_STARTUP_HELD_APPWRITE ' + JSON.stringify(stages));
+    // This is the key offline-first guarantee: even without an Appwrite
+    // response, cached-owner Home must be usable, not stuck on the splash.
+    await expect(page.getByRole('status', { name: 'Opening local data' }))
+      .toHaveCount(0);
+  } finally {
+    releaseAppwrite();
+  }
 
   // Once the real request fails, the same shared reachability state must
   // become Offline even though navigator.onLine is still true.

@@ -1,7 +1,7 @@
 {
   "name": "life-tracker",
   "private": true,
-  "version": "0.29.5",
+  "version": "0.29.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,6 +16,7 @@
     "test:browser-contract": "tests/e2e/node_modules/.bin/playwright test tests/e2e --config=playwright.config.mjs --reporter=line --grep-invert @performance",
     "test:performance": "tests/e2e/node_modules/.bin/playwright test tests/e2e/performance-probe.spec.mjs --config=playwright.config.mjs --reporter=line --grep @performance",
     "audit:mobile-startup": "tests/e2e/node_modules/.bin/playwright test tests/e2e/mobile-startup.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line",
+    "audit:slow-startup": "tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-slow-network.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line",
     "size:report": "node scripts/size-report.mjs",
     "test:discovery": "node scripts/check-test-discovery.mjs",
     "test:benchmark": "node scripts/benchmark-tests.mjs",
