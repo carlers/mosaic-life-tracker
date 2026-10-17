@@ -15,6 +15,11 @@ Current task: #858 jointly optimize Calendar and Todo Home first mount (owner ap
 - Ephemeral ablation CI #39036689557: Todo baseline / disabled DnD p50 2404/1450ms at 500 tasks and 5306/2104ms at 1000. Disabling Motion layout alone had little impact. This broke dragging intentionally and cannot ship.
 - Diagnostic branch #902fe7a passed focused #39037189414 and slow startup #39037189437. These do not verify this new candidate.
 
+## Candidate investigation
+
+- Independent **read-only query strategy** diagnostic: `scripts/issue-858-calendar-query-ab.mjs`, `startup-calendar-query-ab.spec.mjs` and `issue-858-calendar-query-ab.yml`. In a throwaway same-bundle variant compare native RxDB sorted owner-task query to identical account-safe unsorted selector + stable in-memory date/createdAt sort. This is a *hypothesis*, not an authorized runtime query change; must measure early 0/25 and 500/1000 Calendar, preserve identity/sort semantics and reject if not clearly better.
+- Existing image-hook Calendar A/B and first-gesture after far-scroll Todo browser probe remain in separate CI; do not infer passing until run completion.
+
 ## Next action
 
 - Paired Calendar baseline/optimized **same-build, same-runner** A/B is staged at `scripts/issue-858-calendar-ab.mjs`, isolated workflow `issue-858-calendar-paired-ab.yml`, and `startup-calendar-paired-ab.spec.mjs`. Test-mode-only duplicate component code MUST NOT enter shipped runtime; exact upstream TaskBlock extracted from stable SHA. Compare 0/25/500/1000 cached text tasks, interleaved 3 runs each; record Home-ready, first task DOM, task query, image observers, heap and long tasks.
