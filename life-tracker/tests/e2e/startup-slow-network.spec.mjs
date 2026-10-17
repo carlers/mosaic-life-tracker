@@ -150,7 +150,7 @@ async function run(browser, scenario, iteration) {
     if (process.env.MOSAIC_HOME_PRELOAD_VARIANT) {
       const exploreTapStart = Date.now();
       await page.getByRole('button', { name: 'Explore' }).click();
-      await expect(page.getByRole('heading', { name: 'Explore', exact: true }))
+      await expect(page.getByRole('heading', { name: /^(Explore|Set up your profile)$/ }))
         .toBeVisible({ timeout: 75_000 });
       record.firstExploreReadyWallMs = Date.now() - exploreTapStart;
     }

@@ -14,6 +14,8 @@ Current task: #858 test whether Home-adjacent Explore preload competes with owne
 - The AppLayout Home fallback mounts before database ready and schedules adjacent Explore code preloading from the Home route. Browser resource timings on the slow uncached load show SetUsernameSheet, BottomSheet and related Explore-only modules downloaded while Home is pending; causal cost not yet verified.
 - CI-only experiment on chatgpt/858-sw-first-install-ab-20261017 builds the unchanged baseline and disposable candidate that skips Home-adjacent preload. Four fresh Chrome mobile/CPU 2x, 220ms RTT, 120kB/s samples for each, with Appwrite held. Compare Home-ready, first paint, pre-Home JS transfer and first Explore tap latency. The production source remains unchanged; no remote data or production access.
 
+- Previous lab run #39020344430 failed its A/B-only first Explore DOM assertion: a synthetic account with no profile correctly shows the heading Set up your profile rather than Explore; normal slow-startup baseline and focused/browser gates passed. The repaired assertion accepts both legitimate page states; no runtime fix is involved.
+
 ## Next action
 
 - Verify focused/browser task CI and the paired GitHub Actions slow-startup experiment at exact pushed SHA; fix any reproducible failures and record outcome on #858. If removing preloading speeds Home but harms first Explore navigation, investigate delaying the preload until Home is actionable rather than removing it permanently.
