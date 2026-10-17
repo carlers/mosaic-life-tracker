@@ -1,22 +1,16 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 slow-network pre-Home splash; automated reproduction confirmed and scoped v0.29.6 performance candidate prepared.
+Current task: #858 slow-network Home critical-path architecture; test Vite 8 Rolldown chunk grouping without lazy-route overfetch.
 
-## Branches and release boundaries
+## Accepted state and boundaries
 
-- Protected `dev@b0c703636c8c6e8d52c6dd3c59ebc0251070ab7e` remains v0.29.5. `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` remains published v0.29.1. No dev/main/1.0 promotion authorized.
-- Diagnostic stable `perf/858-startup-diagnostics-20261017@32175b4bb4b515ebb007fbf70624623e386c306e`: canonical #39011580584 SUCCESS, trusted Scratch Preview READY, no code optimization yet.
-- Isolated `chatgpt/858-slow-network-lab-20261017` is preparing user-visible patch candidate **v0.29.6** for the same stable Preview branch. Official Preview remains Scratch Appwrite, no backend schema/Function changes. #745 manual chat regression, #936 privacy audit and #914 compatibility gate remain independent.
+- Stable v0.29.6 Scratch Preview `perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4`: full canonical #39013268008 SUCCESS, trusted READY #39013382108. Installed-device owner acceptance pending. No dev/main/1.0 promotion.
+- `chatgpt/858-rolldown-grouped-20261017` is diagnostic-only and based on stable Preview. It never commits or deploys experimental runtime changes.
+- Experiments on same-runner controlled slow network (120 kB/s, 220ms, 2× CPU, Appwrite held): [SW and Auth-route A/B](https://github.com/carlers/mosaic-life-tracker/issues/858#issuecomment-6231645081) rejected. [HTML-first kickoff lab #39017677504](https://github.com/carlers/mosaic-life-tracker/actions/runs/39017677504) moved AppDataShell ready ~1.1s earlier but Home ready only ~323ms earlier; first paint / page wall clock unchanged. [Home-neighbor preload A/B #39018084785](https://github.com/carlers/mosaic-life-tracker/actions/runs/39018084785) showed only ~115ms slow Home benefit when disabling speculative Explore preloads; fast/cached impact ~14–25ms. Neither merits shipping.
+- Cold Home graph fetches ~79 JS chunks; many tiny shared UI/sheets modules and long import-dependent request waterfall. RxDB local open ~60–80ms. This suggests structural chunk fragmentation, not remote Appwrite.
 
-## Evidence and scoped implementation
+## This experiment
 
-- Owner specifically observes long **Mosaic — Opening your local data…** *before* Home. Source has two competing gates: actual local RxDB ready and an AppDataShell lazy module. Appwrite auth verification already runs in background; delayed `account.get()` does not gate cached Home.
-- [Cold/slow/warm production-output lab #39012480354](https://github.com/carlers/mosaic-life-tracker/actions/runs/39012480354), Chromium phone emulation, 2x CPU throttle, synthetic cached identity, Appwrite requests kept unresolved: fast Home owner data ready **1.11s**, throttled assets **5.81s**, pre-cached controlling PWA **0.75–0.80s**. Slow DB module download ~2.2s; AppDataShell import/dependencies ~3.6s; RxDB open ~80ms. **Network JS downloads, not remote connection or local database open, dominate the synthetic slow uncached case.**
-- [Initial early-shell A/B lab #39012763324](https://github.com/carlers/mosaic-life-tracker/actions/runs/39012763324) SUCCESS using same synthetic scenarios: fast Home 0.73–0.78s, slow 5.61–5.63s, controlled precache repeat 0.57–0.61s. Runners differ and n=2 per condition, so these directional savings are **not physical-device causal proof or a guaranteed speed budget**.
-- Candidate triggers the same memoized `AppDataShell` import as DB and Home at cached-identity bootstrap, without awaiting Appwrite, changing UI, bypassing RxDB or changing auth/sync. Failed focused lint in #39012763367 for exporting a helper beside a React component; corrected by moving the shared import into the existing `routeModuleLoaders.ts` (react-refresh convention). Same parent module promise reused by route and early bootstrap.
-- Add repeatable `npm run audit:slow-startup` script and independent branch-scoped credential-free runner/workflow, no mandatory CI-budget cost; captures sanitised perf marks/asset names and SW controlling state with real Vite production code. Backend requests held and never executed against real accounts.
-
-## Next action
-
-- Verify final SHA with focused+browser Quality Gate, run controlled lab again to check the corrected loader's timing, fix failures. Squash verified task to stable `perf/858-startup-diagnostics-20261017`, verify full canonical and trusted Preview READY (Scratch), then report user-manual PWA acceptance as **pending** until performed. Do not promote v0.29.6 to `dev` or `main` without owner's new approval. Keep #858 open pending real device acceptance.
+- Build and measure paired baseline and experimental Vite/Rolldown production outputs on one CI runner. Candidate uses `build.rolldownOptions.output.codeSplitting.groups` matching shared `src/components, hooks, lib` modules, `entriesAware:true`, bounded maxSize, without recursive dependency capture. Capture Home ready, first paint, JS request counts + transferred bytes (fast/slow/cached PWA), JS/CSS Home closure, all app assets and precache footprint. Synthetic account only, blocked Appwrite.
+- Do not ship without material improvement *and* preserving Login performance, lazy-route boundary, module side-effect ordering, full offline precache, and all browser contracts. Vite/Rolldown manual grouping can produce execution-order bugs or extra eager assets; reject if build budget fails, metrics regress, or risk outweighs gain. If experiment disproves this, investigate fine-grained auth/bootstrap imports instead.

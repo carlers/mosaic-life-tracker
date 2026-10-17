@@ -133,6 +133,11 @@ async function run(browser, scenario, iteration) {
         databaseReadyMs: round(values['database:ready']),
         marks: Object.fromEntries(Object.entries(values).map(([k, v]) => [k, round(v)])),
         slowAssets,
+        scriptRequests: performance.getEntriesByType('resource')
+          .filter(e => e.name.startsWith(location.origin + '/assets/') && e.name.includes('.js')).length,
+        transferredJsBytes: performance.getEntriesByType('resource')
+          .filter(e => e.name.startsWith(location.origin + '/assets/') && e.name.includes('.js'))
+          .reduce((bytes, e) => bytes + e.transferSize, 0),
       };
     }, { scenario, iteration, markNames: MARKS });
     record.wallClockMs = Date.now() - started;
@@ -165,6 +170,8 @@ test('@performance Issue 858 cached Home under independently throttled assets an
       homeReadyP90Ms: percentile(records.map(r => r.homeReadyMs), .9),
       databaseModuleMedianMs: percentile(records.map(r => r.databaseModuleMs), .5),
       appShellModuleMedianMs: percentile(records.map(r => r.appShellModuleMs), .5),
+      scriptRequestsMedian: percentile(records.map(r => r.scriptRequests), .5),
+      transferredJsBytesMedian: percentile(records.map(r => r.transferredJsBytes), .5),
       databaseOpenMedianMs: percentile(records.map(r => r.databaseOpenMs), .5),
     }];
   }));
