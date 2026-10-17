@@ -138,8 +138,8 @@ async function seedStates(browser) {
 }
 
 async function sample(browser, tasks, state, mode, iteration, scenario) {
-  const view = scenario === NO_TEXT_OBSERVERS_SCENARIO ? 'calendar' : scenario;
-  const skipTextObservers = scenario === NO_TEXT_OBSERVERS_SCENARIO;
+  const view = scenario;
+  const skipTextObservers = false;
   const cachedAssets = mode.startsWith('pwa-');
   const ctx = await browser.newContext({
     viewport: { width: 412, height: 915 }, deviceScaleFactor: 2,
