@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { createElement, lazy, Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { getLoadedHomePage, subscribeLoadedHomePage, preloadHomePage } from "./lib/homePreload";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
@@ -113,7 +113,7 @@ function RouteContent({
 function DirectHomeRouteProbe() {
   const Page = useSyncExternalStore(subscribeLoadedHomePage, getLoadedHomePage);
   useEffect(() => { void preloadHomePage().catch(() => {}); }, []);
-  return Page ? <Page /> : <HomeRouteFallback />;
+  return Page ? createElement(Page) : <HomeRouteFallback />;
 }
 
 function HomeRouteFallback() {

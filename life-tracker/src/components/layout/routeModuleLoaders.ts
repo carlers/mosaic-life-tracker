@@ -1,5 +1,14 @@
 import { markStartup } from '../../lib/startupMetrics';
 
+type ShellComponent = (typeof import('./AppDataShell'))['AppDataShell'];
+let loadedAppDataShell: ShellComponent | null = null;
+const shellListeners = new Set<() => void>();
+export const getLoadedAppDataShell = (): ShellComponent | null => loadedAppDataShell;
+export const subscribeLoadedAppDataShell = (listener: () => void): (() => void) => {
+  shellListeners.add(listener);
+  return () => { shellListeners.delete(listener); };
+};
+
 function memoizeImport<T>(load: () => Promise<T>): () => Promise<T> {
   let pending: Promise<T> | null = null;
   return () => {
@@ -18,6 +27,8 @@ function memoizeImport<T>(load: () => Promise<T>): () => Promise<T> {
 export const loadAppDataShell = memoizeImport(() => {
   markStartup('app-shell:import-start');
   return import('./AppDataShell').then((module) => {
+    loadedAppDataShell = module.AppDataShell;
+    for (const listener of shellListeners) listener();
     markStartup('app-shell:module-ready');
     return module;
   });

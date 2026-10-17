@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 const BASE = 'http://127.0.0.1:4179';
 const COUNTS = [0, 25, 1000];
 const MODES = ['pwa-online-slow', 'pwa-offline'];
-const BASE_VIEWS = ['calendar-lazy', 'calendar-direct'];
+const BASE_VIEWS = ['calendar-lazy', 'calendar-home-direct', 'calendar-shell-direct', 'calendar-both-direct'];
 const REPEATS = 3;
 const USER = { $id: 'issue858_scale_user', email: 'scale@example.invalid', name: 'Scale Test', prefs: {} };
 const FAST = { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
@@ -150,7 +150,8 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
   const network = await syntheticNetwork(ctx);
   try {
     await ctx.addInitScript(({ user, view, skipTextObservers, scenario }) => {
-      window.__mosaic858DirectHome = scenario === 'calendar-direct';
+      window.__mosaic858DirectHome = scenario === 'calendar-home-direct' || scenario === 'calendar-both-direct';
+      window.__mosaic858DirectShell = scenario === 'calendar-shell-direct' || scenario === 'calendar-both-direct';
       localStorage.setItem('mosaic_last_known_user', JSON.stringify(user));
       // Explicitly override the seed fixture's Todo preference for every measured launch.
       localStorage.setItem('mosaic_home_view', view);
@@ -235,7 +236,11 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
       const scripts = performance.getEntriesByType('resource').filter(e =>
         e.initiatorType === 'script' || /\.js(?:\?|$)/.test(e.name));
       const longTasks = window.__scaleLongTasks ?? [];
+      const startupMarks = Object.fromEntries(performance.getEntriesByType('mark')
+        .filter(entry => entry.name.startsWith('mosaic:'))
+        .map(entry => [entry.name.slice('mosaic:'.length), Math.round(entry.startTime)]));
       return {
+        startupMarks,
         tasks, mode, iteration, scenario,
         online: navigator.onLine,
         controlled: Boolean(navigator.serviceWorker?.controller),
@@ -332,7 +337,7 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
 }
 
 
-test('@performance Issue 858 paired React lazy vs direct-preloaded Calendar reveal', async ({ browser }) => {
+test('@performance Issue 858 four-way React.lazy Home/AppDataShell Calendar reveal ablation', async ({ browser }) => {
   test.setTimeout(2_900_000);
   const states = await seedStates(browser);
   const rows = [];
@@ -354,6 +359,7 @@ test('@performance Issue 858 paired React lazy vs direct-preloaded Calendar reve
         const samples = rows.filter(r => r.tasks === count && r.scenario === scenario && r.mode === mode);
         byScenario[scenario][mode] = {
           n: samples.length,
+          timeline: Object.fromEntries(['database:ready','app-shell:module-ready','app-data-shell:mounted','home:mounted','home:tasks-ready','home:owner-data-ready'].map(k=>[k,percentile(samples.map(r=>r.startupMarks[k]),.5)])),
           homeReadyP50Ms: percentile(samples.map(r => r.homeReadyMs), .5),
           homeReadyP90Ms: percentile(samples.map(r => r.homeReadyMs), .9),
           firstTaskDomP50Ms: percentile(samples.map(r => r.firstTaskVisibleMs), .5),
@@ -390,7 +396,7 @@ test('@performance Issue 858 paired React lazy vs direct-preloaded Calendar reve
       slowLink: SLOW,
       mobileViewport: '412x915',
       localData: '0/25/500/1000 same-day text-only tasks added via real UI and verified in IndexedDB',
-      routeVariant: 'Same binary selects React.lazy Home route vs direct module on document start; neither variant changes task query or CSS.',
+      routeVariant: 'Factorial A/B with original lazy Home + AppDataShell, direct Home only, direct shell only, or both; all in identical compiled PWA.',
       notes: [
         'Both variants test the default Calendar with identical IndexedDB fixtures, no live backend.',
         'Task DOM existence/visibility is not guaranteed painted or user-interactable.',
