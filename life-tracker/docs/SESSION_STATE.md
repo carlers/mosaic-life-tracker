@@ -1,22 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #745 chat repair after permanent send denial; approved pre-1.0 reliability batch also audits #682 social Notifications and #858 slow-network view mounting.
+Current task: #858 slow-network startup; owner approved execution after specifying that the prolonged screen is **“Mosaic — Opening your local data…”**, before Home mounts.
 
-## Live baseline / release boundary
+## Live baseline / protected boundaries
 
-- Protected `dev@b5590bf4ab2eef7729815ce408cc8d40734c4409` = owner-accepted v0.29.4, promoted from stable `fix/889-pre1-integration-20261016@c43c3c88fcbdb558bf933e77d82d91465da8952b` through PR #940. Dev [Quality Gate #39004957684](https://github.com/carlers/mosaic-life-tracker/actions/runs/39004957684) SUCCESS and matching Vercel READY. Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` = published v0.29.1. Never promote to dev/main or tag 1.0 without explicit new approval.
-- #745 owner accepted normal, offline, 403 Not sent/Retry, re-friend and account isolation. The unread/inbox filter after unfriend remains intentional; #937 separately deferred until after 1.0.
-- #682 rich social Alerts are built and on dev; genuine multi-device generic/detail push, privacy and notification-open acceptance remain unverified. #858 read-only source audit found no proven slow-network app-shell gate; authenticated throttled real-browser observation still outstanding.
+- Protected `dev@b0c703636c8c6e8d52c6dd3c59ebc0251070ab7e` = v0.29.5, post-merge Quality Gate #39009170682 SUCCESS, Vercel dev READY. Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` = released v0.29.1. Do not promote to dev/main or release 1.0 without explicit approval.
+- #745 accepted-in-dev Chat Sync fix has live-device regression still outstanding; #936 mandatory pre-1.0 security/privacy audit remains planning-only; #914 changed-backend/authorization rollback gate remains open. Preserve all.
+- Official Preview/dev use Scratch Appwrite only. No backend/schema changes in #858.
 
-## Isolated candidate v0.29.5
+## #858 source assessment and isolated task scope
 
-- Task branch `chatgpt/745-chat-reconcile-denied-20261017` and independent stable Preview `fix/745-chat-reconcile-denied-20261017` both created from exact above dev baseline. Scope: **frontend-only** Chat Sync correctness after a permanent 4xx send denial. Source `src/lib/chatReconcile.ts` previously queried all locally pending outgoing messages, while `messageDelivery.ts` deliberately leaves permanently rejected messages pending for explicit Retry/Discard. Thus an already denied message unnecessarily blocked the separate `repair_thread_all` and message freshness barrier even though no delivery was in flight.
-- New behavior ignores **only the current owner's explicitly denied message IDs** in the Chat Sync pending-send barrier. Real pending sends still block; denied data remains local for user Retry/Discard. Server repair auth, message pairing, pending queue, account-scope and stable chat UX unchanged. Source-level diagnosis is not a claim that this was reproduced on a physical device.
-- Add unit regressions for a sole denied row and mixed denied + genuinely pending rows, preserving existing unauthorized/owner-switch/freshness checks. Version patch 0.29.4 → 0.29.5 (package, lock root, appVersion); no Appwrite schema, Function, credentials, Production, shared Scratch, social push, or interface redesign.
-- #682 and #858 are separately inspected but deliberately not changed without a failing automated contract or measured authenticated slow-network root cause; don't manufacture code churn. Their outstanding owner/device and platform probes remain explicit.
+- `AppLayout.LocalDataStartupShell` has two distinct mount reasons: **(1)** local RxDB module/open/collections not ready, **(2)** an uncached `AppDataShell` lazy module not resolved. It is not gated on `account.get()`; the existing cached identity is usable locally, while remote session verification and sync proceed separately.
+- 2026-10-17 CI production build evidence: `database` chunk roughly 129.8 KB gzip, `AppDataShell` 8.4 KB gzip and `HomePage` 14.1 KB gzip. Cold/uncached network latency is plausible but not yet measured or established as the owner's exact cause.
+- Active isolated task `chatgpt/858-startup-diagnostics-20261017`, stable Preview `perf/858-startup-diagnostics-20261017`, both branched from exact dev SHA. Instrument distinct application-shell import and fallback stages using existing non-sensitive Performance marks, add browser contract that holds Appwrite requests unresolved until Home's actual local calendar/owner-data appear, and extend synthetic mobile-startup diagnostics with per-stage timings. No UI layout, auth, DB semantics, Appwrite, security-policy or version changes; version impact NONE for diagnostic-only phase.
+- Existing `audit:mobile-startup` uses a synthetic owner and deliberately blocks real Appwrite; a passing browser contract is **not** evidence of physical-device slow network performance or of an installed PWA cache hit. Correct root-cause optimization is reserved for per-stage evidence.
 
-## Next action
+## Execution / handoff
 
-- Run focused verification on final task SHA (`[verify:focused]`) and fix any failures. Squash into the dedicated stable Preview only after green; verify full canonical checks, exact source SHA and Vercel READY with Scratch build identity. Offer the new v0.29.5 stable Preview for human Chat Sync regression acceptance; no `dev` or `main` promotion before separate owner approval.
-- #889 1.0 is blocked by #936 mandatory planning-only security/privacy audit and #914 live changed-backend/privacy/rollback verification, which require their own authorization. Preserve that scope and no 1.0 release.
+- Complete focused CI for task checkpoint (`[verify:focused]`), then squash to stable Preview; require full canonical acceptance, trusted Preview + Vercel READY before device testing. Fix actual CI failures. Record exact commits, CI, source parity.
+- Owner still needs to reproduce on stable Preview with slow internet and collect the existing `mosaic:database:*`, `mosaic:app-shell:*` and `mosaic:home:*` Performance marks; compare app JS cache state. The next change should target whichever phase is slow. Do not claim a performance fix or manual acceptance before measurement.
