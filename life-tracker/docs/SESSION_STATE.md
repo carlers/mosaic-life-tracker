@@ -20,5 +20,6 @@ Current task: #858 repair populated IndexedDB browser fixture after timeout (no 
 
 ## Next action
 
+- Second lab #39025200150 exposed the fixture defect: category created, but Home remained in its default Calendar mode with no task-category pill. Explicitly select Todo and persist the synthetic test profile's `mosaic_home_view=todo` before seeding; verify the next dedicated run. This is not a product issue.
 - First seeded-fixture CI #39024433162 failed after 500s without a completed fixture; earlier empty-cache case passed. Narrow active Swiper selection and emit stage progress/Playwright error context for causal diagnosis; do not misreport timeout as an app performance regression.
 - Verify the seeded IndexedDB production browser lab and exact task SHA focused/browser Quality Gate; repair root causes of failures. Compare 200/503 outcomes against the cached offline/hung baseline and flag CPU contention without attributing small sample variance. Report direct offline/online results with uncertainty and do not infer causation from uncached comparisons. #858 remains OPEN for owner installed-device/offline acceptance; #936 privacy audit and #914 compatibility gate remain separate mandatory pre-1.0 work. No protected-branch promotion without explicit approval.

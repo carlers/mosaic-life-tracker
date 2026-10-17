@@ -299,6 +299,10 @@ async function createPopulatedLocalFixture(browser) {
       .toBeVisible();
     console.log('MOSAIC_858_SEED_STEP category-created');
     await page.keyboard.press('Escape');
+    // Fresh Mosaic opens in Calendar view, which has no category task pill.
+    // Persist the existing Todo preference in the synthetic profile.
+    await page.getByRole('tab', { name: 'Todo list' }).click();
+    await page.evaluate(() => localStorage.setItem('mosaic_home_view', 'todo'));
     await expect(page.locator(
       '.swiper-slide:not([aria-hidden="true"]) button[aria-label="Add a task to Startup Fixture"]'
     ).first()).toBeVisible();
