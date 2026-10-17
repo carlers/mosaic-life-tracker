@@ -317,14 +317,27 @@ async function createPopulatedLocalFixture(browser) {
     // Persist the existing Todo preference in the synthetic profile.
     await page.getByRole('tab', { name: 'Todo list' }).click();
     await page.evaluate(() => localStorage.setItem('mosaic_home_view', 'todo'));
-    await expect(page.locator(
-      '.swiper-slide:not([aria-hidden="true"]) button[aria-label="Add a task to Startup Fixture"]'
-    ).first()).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Todo list' }))
+      .toHaveAttribute('aria-selected', 'true');
+    const activeTaskPills = await page.evaluate(() =>
+      [...document.querySelectorAll('button[aria-label="Add a task to Startup Fixture"]')]
+        .filter(button => button.closest('.swiper-slide')?.getAttribute('aria-hidden') !== 'true').length);
+    expect(activeTaskPills, 'the selected day must expose an active category pill')
+      .toBeGreaterThan(0);
     console.log('MOSAIC_858_SEED_STEP category-pill-ready');
     for (let i = 1; i <= 24; i++) {
-      await page.locator(
-        '.swiper-slide:not([aria-hidden="true"]) button[aria-label="Add a task to Startup Fixture"]'
-      ).first().click();
+      // The inline Day View retains nearby offscreen Swiper slides. Target
+      // the innermost slide with aria-hidden != true; raw DOM click invokes
+      // the actual app handler without synthetic pointer geometry concerns.
+      await page.evaluate(() => {
+        const buttons = [...document.querySelectorAll(
+          'button[aria-label="Add a task to Startup Fixture"]'
+        )];
+        const active = buttons.find(button =>
+          button.closest('.swiper-slide')?.getAttribute('aria-hidden') !== 'true');
+        if (!active) throw new Error('No active-day task entry pill');
+        active.click();
+      });
       const input = page.getByRole('textbox', { name: 'New task title' }).first();
       await input.fill('Startup fixture task ' + String(i).padStart(3, '0'));
       await input.press('Enter');
