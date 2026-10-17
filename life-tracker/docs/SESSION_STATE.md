@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 slow-network pre-Home splash; automated reproduction confirmed and scoped v0.29.6 performance candidate prepared.
+Current task: #858 structural startup Phase A, first-install service-worker registration A/B diagnostic (no product change).
 
 ## Branches and release boundaries
 
@@ -17,6 +17,12 @@ Current task: #858 slow-network pre-Home splash; automated reproduction confirme
 - Candidate triggers the same memoized `AppDataShell` import as DB and Home at cached-identity bootstrap, without awaiting Appwrite, changing UI, bypassing RxDB or changing auth/sync. Failed focused lint in #39012763367 for exporting a helper beside a React component; corrected by moving the shared import into the existing `routeModuleLoaders.ts` (react-refresh convention). Same parent module promise reused by route and early bootstrap.
 - Add repeatable `npm run audit:slow-startup` script and independent branch-scoped credential-free runner/workflow, no mandatory CI-budget cost; captures sanitised perf marks/asset names and SW controlling state with real Vite production code. Backend requests held and never executed against real accounts.
 
+## Current experiment (read-only runtime behavior, test-only injection)
+
+- Stable Preview v0.29.6 head `41d196afd557d2e0d499cb9423e196d46e83adf4` has full canonical SUCCESS #39013268008 and trusted Preview delivery SUCCESS #39013382108, with a READY stable alias. Still not promoted to dev/main; owner device acceptance pending.
+- Isolated task branch `chatgpt/858-sw-first-install-ab-20261017` tests the **hypothesis** that immediate full-asset Workbox installation competes with Home JS on uncached slow networks. Uses the same product build, intercepts native worker registration before first navigation for immediate/deferred cases, measures owner Home first paint/readiness versus complete offline shell and offline relaunch; no real accounts, no backend writes, no published runtime flags.
+- Existing cold lab blocks service workers, so it cannot prove this hypothesis. Browser CDP throttling may not apply equally to service-worker requests; record that limitation and check request evidence before attributing any differences.
+
 ## Next action
 
-- Verify final SHA with focused+browser Quality Gate, run controlled lab again to check the corrected loader's timing, fix failures. Squash verified task to stable `perf/858-startup-diagnostics-20261017`, verify full canonical and trusted Preview READY (Scratch), then report user-manual PWA acceptance as **pending** until performed. Do not promote v0.29.6 to `dev` or `main` without owner's new approval. Keep #858 open pending real device acceptance.
+- Run the isolated A/B GitHub Actions lab and inspect the full JSON report, including variability and offline-ready tradeoff. If results are significant and comparable, propose the minimal service-worker registration scheduling improvement; if not, reject and investigate Home dependency graph. No application code or stable Preview change until evidence is reviewed.
