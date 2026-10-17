@@ -22,6 +22,7 @@ import { startDatabaseBootstrap } from './lib/databaseBootstrap';
 import { markStartup } from './lib/startupMetrics';
 import { initializeConnectivity } from './lib/connectivity';
 import { preloadHomePage } from './lib/homePreload';
+import { preloadAppDataShell } from './components/layout/AppLayout';
 
 markStartup('bootstrap:start');
 initializeConnectivity(window);
@@ -57,6 +58,11 @@ if (hasCachedIdentity) {
   beginDatabaseBootstrap();
   void preloadHomePage().catch((error) => {
     console.warn('[Bootstrap] Home preload failed:', error);
+  });
+  // Load the app-shell module graph alongside RxDB and Home instead of
+  // waiting for the first React effect. Never wait for network or sync.
+  void preloadAppDataShell().catch((error) => {
+    console.warn('[Bootstrap] App shell preload failed:', error);
   });
 }
 

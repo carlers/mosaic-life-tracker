@@ -44,6 +44,12 @@ function loadAppDataShell() {
   return appDataShellPromise;
 }
 
+// Idempotent early module warmup for a returning authenticated account.
+// The route uses this same promise, so no second module graph is fetched.
+export async function preloadAppDataShell(): Promise<void> {
+  await loadAppDataShell();
+}
+
 const LazyAppDataShell = lazy(() =>
   loadAppDataShell().then(({ AppDataShell }) => ({ default: AppDataShell }))
 );
