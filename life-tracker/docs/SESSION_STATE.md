@@ -14,3 +14,7 @@ Current task: #858 slow-network cached Home critical-path experiments; evaluatin
 - Cold Home downloads ~79 JS resources, ~457KB transferred. Entry ~133KB gzip, RxDB ~130KB, shared Framer module ~39KB. React bootstrap begins ~1.8s, after which DB/app-shell JS load takes ~2–4s.
 - Hypothesis: *passive* parser-driven modulepreload for one or more exact Vite hashed Home entry chunks can overlap initial entry download, without executing speculative modules ahead of auth/DB. Compare no preload, only DB, only AppDataShell, only HomePage, and all three at equal production-built assets. Measure Home/data, first paint, network requests, bytes; Appwrite held; first visit only.
 - If materially faster, implement the production mechanism *during Vite build* to retain exact SW precache/fingerprints, verify Login unaffected and full Android/iOS PWA offline. If not, reject. No hidden private snapshot or parallel database.
+
+## Next action
+
+- Inspect passive parser-preload A/B results and validate Home-ready, first paint, and Login before any runtime change. If successful, reproduce with a build-stage transform that maintains SW precache correctness and verify full browser/device lifecycle. Otherwise reject, document evidence and continue profiling the actual critical dependency boundary. No dev/main/1.0 promotion.
