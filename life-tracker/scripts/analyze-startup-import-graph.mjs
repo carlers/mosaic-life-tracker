@@ -15,7 +15,8 @@ const roots = {
   bootstrap: entries.find(([, chunk]) => chunk.isEntry)?.[0] ?? null,
   home: findSource('src/pages/HomePage.tsx'),
   shell: findSource('src/components/layout/AppDataShell.tsx'),
-  database: findSource('src/db/database.ts'),
+  database: findSource('src/db/database.ts') ?? entries.find(([, c]) =>
+    /^assets\/database-[a-zA-Z0-9_-]+\.js$/.test(c.file))?.[0] ?? null,
   explore: findSource('src/pages/ExplorePage.tsx'),
 };
 if (!roots.bootstrap || !roots.home) {

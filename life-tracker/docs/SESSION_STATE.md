@@ -20,7 +20,12 @@ Current task: #858 test whether Home-adjacent Explore preload competes with owne
 
 - Diagnostic head befde2c7e0321061cb5c598dc09481f42a453a38: lab #39020611789 SUCCESS, Quality Gate #39020611788 SUCCESS; issue checkpoint comment #6232246880. Four controlled slow JS samples each, Appwrite held: existing Home-ready median 5627ms, first Explore 151ms, 79 JS/456679 transfer bytes; no-Home-preload candidate Home 5513ms, first Explore 1913ms, 67 JS/439889 bytes. FCP 1868→1872ms. **Reject unconditional preload removal**: ~114ms gain on Home costs ~1762ms first Explore. No product runtime changed.
 
+## Import graph follow-up
+
+- Lab #39021033600 and Quality Gate #39021033656 SUCCESS at 36fd5c0a2614c915c9f288b72807d0e302a04c09. Read-only manifest report: bootstrap 146344 gzip bytes; Home static incremental 225058 (includes named database output 128432); shell static incremental 50017; required combined 421419 gzip bytes across 67 assets. Explore adds 12627 gzip bytes across 12 extra assets; filenames alone cannot establish which source module is removable.
+- Vite/Rolldown did not expose a direct database source-root key despite the database chunk being in the Home closure. The graph tool now falls back to identifying its emitted output by filename. Static gzip sizes are not live HTTP transfer timings.
+
 ## Next action
 
-- Inspect and archive measured Vite static import closures of bootstrap, Home, AppDataShell, local database and Explore (read-only manifest graph report). Use this to identify avoidable *required* JS work before proposing changes; do not substitute static gzip totals for runtime transfer timing.
-- Keep #858 open for owner installed-PWA slow-link and offline acceptance. Preserve full offline precache, local DB readiness, owner isolation and revoked-session protection. Do not promote to stable Preview/dev/main/1.0 from this diagnostic.
+- Verify the updated graph diagnostic and focused CI at exact new SHA, then record the checkpoint on #858. No safe high-impact startup refactor has been demonstrated; mandatory local database and bootstrap JS dominate. Avoid first-Explore regression and pre-1.0 architecture churn without stronger real-device data.
+- Owner acceptance remains pending on the already-READY stable v0.29.6 Scratch Preview: installed PWA, slow network, offline reopening and subsequent reconnection. Keep #858 open and do not promote to dev/main/1.0 without separate authorization.
