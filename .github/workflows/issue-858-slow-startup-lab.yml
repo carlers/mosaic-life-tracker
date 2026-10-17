@@ -52,6 +52,39 @@ jobs:
         run: |
           tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-slow-network.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
           mv .mosaic/slow-startup/slow-startup.json .mosaic/slow-startup/neighbor-candidate.json
+      - name: Validate and summarize paired startup results
+        if: github.ref_name == 'chatgpt/858-defer-neighbor-preload-20261017'
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const base = '.mosaic/slow-startup/';
+          const a = JSON.parse(readFileSync(base + 'neighbor-baseline.json', 'utf8'));
+          const b = JSON.parse(readFileSync(base + 'neighbor-candidate.json', 'utf8'));
+          const summary = {};
+          for (const mode of ['fast-assets', 'slow-assets', 'pwa-cached-assets']) {
+            if (!a.summary?.[mode] || !b.summary?.[mode]) {
+              throw new Error('Missing paired scenario: ' + mode);
+            }
+            const current = a.summary[mode].homeReadyMedianMs;
+            const candidate = b.summary[mode].homeReadyMedianMs;
+            if (!Number.isFinite(current) || !Number.isFinite(candidate)) {
+              throw new Error('Invalid timing in scenario ' + mode);
+            }
+            summary[mode] = {
+              currentHomeReadyMs: current,
+              candidateHomeReadyMs: candidate,
+              deltaMs: candidate - current,
+            };
+          }
+          for (const sample of [...a.rows, ...b.rows]) {
+            if (!(sample.heldAppwriteRequests > 0)) {
+              throw new Error('Backend not held during local Home');
+            }
+          }
+          console.log('MOSAIC_858_NEIGHBOR_AB ' + JSON.stringify(summary));
+          writeFileSync(base + 'neighbor-comparison.json',
+            JSON.stringify({ sourceSha: a.sourceSha, summary }, null, 2) + '\\n');
+          JS
       - name: Archive synthetic timing report
         if: always()
         uses: actions/upload-artifact@v4
@@ -61,5 +94,6 @@ jobs:
             life-tracker/.mosaic/slow-startup/slow-startup.json
             life-tracker/.mosaic/slow-startup/neighbor-baseline.json
             life-tracker/.mosaic/slow-startup/neighbor-candidate.json
+            life-tracker/.mosaic/slow-startup/neighbor-comparison.json
           if-no-files-found: warn
           retention-days: 7
