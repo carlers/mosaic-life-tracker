@@ -6,8 +6,8 @@ import { resolve } from 'node:path';
 // Seed legitimate local RxDB documents through the actual Mosaic UI.
 const BASE = 'http://127.0.0.1:4179';
 const COUNTS = [0, 25, 100, 250, 500];
-const MODES = ['pwa-online-slow', 'pwa-offline', 'uncached-online-fast', 'uncached-online-slow'];
-const REPEATS = 3;
+const MODES = ['pwa-online-slow', 'pwa-offline', 'pwa-online-session-200', 'uncached-online-fast', 'uncached-online-slow'];
+const REPEATS = 5;
 const USER = { $id: 'issue858_scale_user', email: 'scale@example.invalid', name: 'Scale Test', prefs: {} };
 const FAST = { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
 const SLOW = { offline: false, latency: 220, downloadThroughput: 120_000, uploadThroughput: 60_000 };
@@ -22,12 +22,38 @@ async function syntheticNetwork(context) {
   let release;
   const pending = new Promise(resolve => { release = resolve; });
   let requests = 0;
+  let accountResponses = 0;
+  let resolveAccount = false;
   await context.route(/https:\/\/(?:fra|sgp)\.cloud\.appwrite\.io\//, async route => {
+    const request = route.request();
+    if (resolveAccount && request.method() === 'GET' &&
+        /\/v1\/account(?:\?|$)/.test(request.url())) {
+      accountResponses++;
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        headers: {
+          'access-control-allow-origin': BASE,
+          'access-control-allow-credentials': 'true',
+          'access-control-allow-headers': '*',
+        },
+        body: JSON.stringify({
+          ...USER, $createdAt: '2026-01-01T00:00:00.000Z',
+          $updatedAt: '2026-01-01T00:00:00.000Z',
+          registration: '2026-01-01T00:00:00.000Z', status: true,
+          labels: [], emailVerification: true, phone: '',
+          phoneVerification: false, passwordUpdate: '', accessedAt: '',
+          mfa: false, targets: [],
+        }),
+      });
+      return;
+    }
     requests++;
     await pending;
     await route.abort('failed').catch(() => {});
   });
-  return { release, count: () => requests };
+  return { release, count: () => requests,
+    resolveSession: () => { resolveAccount = true; },
+    accountResponses: () => accountResponses };
 }
 async function waitForHome(page) {
   await expect(page.getByRole('grid', { name: /calendar/ }).first())
@@ -93,6 +119,10 @@ async function seedStates(browser) {
         const snapshot = await ctx.storageState({ indexedDB: true });
         const stores = snapshot.origins.reduce((n, o) => n + (o.indexedDB?.length ?? 0), 0);
         expect(stores).toBeGreaterThan(0);
+        // Verify every intended row exists, not merely the newest task.
+        const distinctTitles = new Set(
+          JSON.stringify(snapshot).match(/Startup scale task \d{4}/g) ?? []);
+        expect(distinctTitles.size, 'exact persisted task cardinality').toBe(index);
         snapshots.set(index, snapshot);
         console.log('MOSAIC_858_SCALE_SNAPSHOT ' + JSON.stringify({ tasks: index, stores }));
       }
@@ -141,6 +171,7 @@ async function sample(browser, tasks, state, mode, iteration) {
     }
     await cdp.send('Network.emulateNetworkConditions',
       mode === 'pwa-offline' ? OFFLINE : mode === 'uncached-online-fast' ? FAST : SLOW);
+    if (mode === 'pwa-online-session-200') network.resolveSession();
     const started = Date.now();
     if (cachedAssets) {
       await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 });
@@ -178,6 +209,9 @@ async function sample(browser, tasks, state, mode, iteration) {
         dbCollectionsMs: delta('database:collections-start', 'database:collections-ready'),
         appShellModuleMs: delta('app-shell:import-start', 'app-shell:module-ready'),
         homeAfterDatabaseMs: delta('database:ready', 'home:owner-data-ready'),
+        tasksReadyMs: Math.round(mark('home:tasks-ready') ?? NaN),
+        taskQueryAfterDbMs: delta('database:ready', 'home:tasks-ready'),
+        homeAfterTaskQueryMs: delta('home:tasks-ready', 'home:owner-data-ready'),
         longTaskCount: longTasks.length,
         totalLongTaskMs: longTasks.reduce((a, n) => a + n, 0),
         longestTaskMs: Math.max(0, ...longTasks),
@@ -189,7 +223,13 @@ async function sample(browser, tasks, state, mode, iteration) {
     result.lastTaskVisibleMs = lastTaskVisibleMs;
     result.wallClockReadyMs = Date.now() - started;
     result.appwriteRequestsHeld = network.count();
+    result.syntheticAccountResponses = network.accountResponses();
     expect(Number.isFinite(result.homeReadyMs)).toBe(true);
+    expect(Number.isFinite(result.tasksReadyMs)).toBe(true);
+    if (mode === 'pwa-online-session-200') {
+      expect(result.syntheticAccountResponses, 'measured launch must verify the synthetic session')
+        .toBeGreaterThan(0);
+    }
     expect(Number.isFinite(result.fcpMs)).toBe(true);
     expect(result.online).toBe(mode !== 'pwa-offline');
     expect(result.controlled).toBe(cachedAssets);
@@ -225,6 +265,8 @@ test('@performance Issue 858 task-volume startup scaling', async ({ browser }) =
         firstTaskP50Ms: percentile(samples.map(row => row.firstTaskVisibleMs), .5),
         dbCollectionsP50Ms: percentile(samples.map(row => row.dbCollectionsMs), .5),
         homeAfterDbP50Ms: percentile(samples.map(row => row.homeAfterDatabaseMs), .5),
+        taskQueryAfterDbP50Ms: percentile(samples.map(row => row.taskQueryAfterDbMs), .5),
+        homeAfterTaskQueryP50Ms: percentile(samples.map(row => row.homeAfterTaskQueryMs), .5),
         fcpP50Ms: percentile(samples.map(row => row.fcpMs), .5),
         longTaskSumP50Ms: percentile(samples.map(row => row.totalLongTaskMs), .5),
         longestTaskP50Ms: percentile(samples.map(row => row.longestTaskMs), .5),
@@ -244,13 +286,14 @@ test('@performance Issue 858 task-volume startup scaling', async ({ browser }) =
       taskCounts: COUNTS, repeatsPerMode: REPEATS,
       cpuSlowdown: 2, slowLink: SLOW, mobileViewport: '412x915',
       localData: 'Tasks created through actual app UI; copied genuine IndexedDB state',
-      onlineBackend: 'All Appwrite requests held; no remote-only task hydration',
+      onlineBackend: 'Appwrite held except synthetic account 200 mode; non-account calls held; no remote-only task hydration',
       appAssets: 'Production build; controlled SW vs blocked SW',
       limitations: [
         'All tasks are on the current day in one category (visible-day stress case).',
         'Uncached refers to JS assets. Tasks absent locally cannot load without remote sync.',
         'No physical device, real account, live sync or remote-only task population.',
-        'Three samples per condition are directional and cannot prove timing equivalence.',
+        'Five samples per condition are directional and cannot prove timing equivalence.',
+        'Synthetic 200 verifies account reachability but does not allow server data sync.',
       ],
     },
     groups, rows,
