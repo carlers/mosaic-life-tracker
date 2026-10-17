@@ -2,6 +2,7 @@ import { captureAccountWorkGeneration, isAccountWorkCurrent } from './accountWor
 import { getConnectivitySnapshot } from './connectivity';
 import { getDatabase } from '../db/database';
 import { deliverPendingMessages, sendMessageAction } from './messageDelivery';
+import { isDeniedOutgoing } from './messageSendDenials';
 import {
   refreshMessageReplicationPilot,
 } from '../db/messageReplicationPilot';
@@ -24,10 +25,14 @@ export async function reconcileChat(
   onProgress?.({ stage: 'sending' });
   await deliverPendingMessages(userId);
   if (!active()) throw new Error('Account changed');
-  if ((await getDatabase().messages.find({ selector: {
+  const pending = await getDatabase().messages.find({ selector: {
     userId, recipientId: partnerId, direction: 'outgoing',
     deliveryStatus: 'pending', isDeleted: false,
-  } }).exec()).length) throw new Error('Messages still waiting to send');
+  } }).exec();
+  // Permanently denied messages remain pending locally for explicit Retry or
+  // Discard. They are not in flight and must not block repairing other rows.
+  if (pending.some(doc => !isDeniedOutgoing(userId, doc.id)))
+    throw new Error('Messages still waiting to send');
   onProgress?.({ stage: 'repairing' });
   const result = await sendMessageAction({ action: 'repair_thread_all', partnerId }, 90_000);
   if (!active()) throw new Error('Account changed');
