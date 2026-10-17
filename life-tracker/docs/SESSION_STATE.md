@@ -1,28 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 jointly optimize Calendar and Todo Home first mount (owner approval). Prototype only.
+Current task: #858 Calendar + Todo startup optimization, v0.29.7 Scratch Preview candidate.
 
-## Boundary
+## Release boundary
 
-- Accepted stable Scratch Preview v0.29.6: `perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4`; dev/main/Production and 1.0 unchanged. No promotion authorization.
-- Candidate `chatgpt/858-local-mount-prototype-20261017` derives from accepted stable. Browser synthetic profiling only; Appwrite held, no backend writes, no deploy. Version remains 0.29.6 until justified user-testable Preview candidate.
+- Accepted stable v0.29.6 `perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4`, branch remains protected for owner acceptance. New task tree `chatgpt/858-local-mount-prototype-20261017`, PATCH candidate v0.29.7. No dev/main/Production/backend/1.0 approval.
+- Source: viewport-proximate Todo drag/drop hooks with 800px overscan; all task content remains rendered, first 12 rows/category and active source registered. Calendar text-only TaskBlocks skip image gate/storage hooks; image-bearing task previews keep their own lazy image hook.
+- One manual-only synthetic Calendar/Todo scale workflow stays reproducible; isolated A/B mutation scripts, expired branch-push workflows and duplicate throwaway builds are excluded from deliverable.
 
-## Verified upstream facts
+## Verified evidence
 
-- #858 CI #39034283811: 1000 persisted same-day text tasks, Calendar Home-ready 664ms, Todo 2888ms (online, 2x CPU; offline 666/2973), n=3. Calendar observer-only suppression did not improve readiness.
-- Distribution CI #39035865412: 500 visible Calendar tasks 827–859ms vs 741ms outside mounted months. App-wide query remains even with no visible tasks.
-- Ephemeral ablation CI #39036689557: Todo baseline / disabled DnD p50 2404/1450ms at 500 tasks and 5306/2104ms at 1000. Disabling Motion layout alone had little impact. This broke dragging intentionally and cannot ship.
-- Diagnostic branch #902fe7a passed focused #39037189414 and slow startup #39037189437. These do not verify this new candidate.
-
-## Candidate investigation
-
-- Independent **read-only query strategy** diagnostic: `scripts/issue-858-calendar-query-ab.mjs`, `startup-calendar-query-ab.spec.mjs` and `issue-858-calendar-query-ab.yml`. In a throwaway same-bundle variant compare native RxDB sorted owner-task query to identical account-safe unsorted selector + stable in-memory date/createdAt sort. This is a *hypothesis*, not an authorized runtime query change; must measure early 0/25 and 500/1000 Calendar, preserve identity/sort semantics and reject if not clearly better.
-- Existing image-hook Calendar A/B and first-gesture after far-scroll Todo browser probe remain in separate CI; do not infer passing until run completion.
+- Baseline synthetic ephemeral DnD-off vs normal #39036689557: 1000 tasks Todo readiness p50 5306ms normal vs 2104ms without any DnD (breaks reorder, not shipped). Source narrowed to actual row registrations, not Motion alone.
+- Combined real-runtime candidate #39042117777 SUCCESS: 60 cached-PWA launches, 0/25/500/1000 real UI-persisted text tasks, offline + slow online, 2x CPU. Online 500 Calendar/Todo 788/1375ms; 1000 897/1863ms. Normal unit/full size and 174-asset PWA policy passed.
+- Paired exact baseline vs candidate Calendar TaskBlock #39043046750 SUCCESS: same disposable compiled build; 1000-task Home ready p50 **928→892ms**, first task DOM **999→957ms**, postquery→ready **164→140ms**, n=3. 500-task 821→811ms. At 25 tasks 707→721ms, do not claim universal gain or statistical confidence. Image observers at 1000 text tasks 1001→1; unchanged task-block instances.
+- Actual far-scroll 1000th Todo task CDP long press/cancel verified in #39043116013 SUCCESS; 60-launch repeat plus shipped-size PWA budgets passed. Source-level first-drag regression #39042702374 and interaction browser shards on original candidate passed.
+- Paired sorted RxDB vs locally sorted hook #39043403886 SUCCESS but no meaningful win (1000 tasks 906 vs 904ms, 500 825 vs 836ms): rejected, no runtime query/sort change. All experiments use synthetic cached owner, Appwrite requests held, Chromium only, not authenticated device claims.
 
 ## Next action
 
-- Paired Calendar baseline/optimized **same-build, same-runner** A/B is staged at `scripts/issue-858-calendar-ab.mjs`, isolated workflow `issue-858-calendar-paired-ab.yml`, and `startup-calendar-paired-ab.spec.mjs`. Test-mode-only duplicate component code MUST NOT enter shipped runtime; exact upstream TaskBlock extracted from stable SHA. Compare 0/25/500/1000 cached text tasks, interleaved 3 runs each; record Home-ready, first task DOM, task query, image observers, heap and long tasks.
-- Combined prototype benchmark #39042117777 SUCCESS (60/60, built PWA, 174 precache assets). Same-run online Calendar 1000 p50 897ms vs Todo 1863ms; offline Calendar 922ms vs Todo 1865ms. At 500: Calendar 788ms vs Todo 1375ms online. Calendar text-only image observer count 1 instead of ~1000, but **runtime speed gain is not yet verified** against the exact baseline in one run. Separate earlier benchmark runners have materially different absolute timings.
-- Prototype focused Quality Gate #39042402115 SUCCESS after generated inventory and checkpoint repair. New unit/dom regressions for shared viewport observer and image-only task hooks on `d693b8c`; verify their own focused job #39042702374 before claiming passing.
-- Next: inspect paired CI and performance findings, fix tests/implementation if required; then prove first long-press after scrolling, cross-category/Diary/shared cancel, online/offline and Calendar photo rendering. Do not promote until meaningful Calendar improvement and full correctness acceptance. Retain #858 OPEN; physical Android/iOS + authenticated Scratch, 401, high-image data, multi-tab still outstanding. No dev/main/Production or 1.0 permission. Independent #936/#914 remain pre-1.0 gates.
+- Verify focused tree with version and stripped A/B scripts. Squash into existing stable Preview `perf/858-startup-diagnostics-20261017` through PR (no direct task→dev merge) for full canonical CI and trusted Vercel Scratch Preview READY; check exact version/commit and no production services altered.
+- Keep #858 OPEN for owner's real Android/iOS installed-PWA Calendar and Todo fast mount, data/cold launch under slow-online/offline/reconnection, first-gesture drag after scrolling, Diary/share/cross-category, image-heavy tasks, real authenticated Scratch sync and 401 owner revocation. Never claim these device/remote checks completed by synthetic CI.
+- Security/privacy #936 and backend compatibility #914 remain independent pre-1.0 blockers. No v1.0 release or dev/main promotion without explicit approval.

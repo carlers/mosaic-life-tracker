@@ -1,13 +1,7 @@
-name: Issue 858 Local Mount Prototype Lab
+name: Issue 858 Cached Home Scale Diagnostic
 
 # Read-only isolated synthetic browser diagnostic; never deploy this checkout.
 on:
-  push:
-    branches:
-      - chatgpt/858-local-mount-prototype-20261017
-    paths:
-      - 'life-tracker/src/components/home/views/**'
-      - 'life-tracker/tests/e2e/startup-local-mount-prototype.spec.mjs'
   workflow_dispatch:
 
 permissions:

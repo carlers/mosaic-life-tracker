@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-// #858 dual-view local-mount prototype. Synthetic Chromium diagnostic, not a release budget.
+// #858 reproducible dual-view cached Home scale diagnostic; advisory, not a release budget.
 // Compare default Calendar with Todo under identical persisted RxDB state.
 // Seed legitimate local RxDB documents through the actual Mosaic UI.
 const BASE = 'http://127.0.0.1:4179';
