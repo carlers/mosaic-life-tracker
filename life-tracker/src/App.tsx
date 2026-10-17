@@ -1,4 +1,5 @@
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { getLoadedHomePage, subscribeLoadedHomePage, preloadHomePage } from "./lib/homePreload";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
@@ -109,6 +110,12 @@ function RouteContent({
   );
 }
 
+function DirectHomeRouteProbe() {
+  const Page = useSyncExternalStore(subscribeLoadedHomePage, getLoadedHomePage);
+  useEffect(() => { void preloadHomePage().catch(() => {}); }, []);
+  return Page ? <Page /> : <HomeRouteFallback />;
+}
+
 function HomeRouteFallback() {
   return (
     <div
@@ -125,7 +132,11 @@ function HomeRouteFallback() {
 }
 
 const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
-  home: <RouteContent label="HomePage" fallback={<HomeRouteFallback />}><HomePage /></RouteContent>,
+  home: <RouteContent label="HomePage" fallback={<HomeRouteFallback />}>
+    {(window as Window & { __mosaic858DirectHome?: boolean }).__mosaic858DirectHome
+      ? <DirectHomeRouteProbe />
+      : <HomePage />}
+  </RouteContent>,
   backlog: <RouteContent label="BacklogPage"><BacklogPage /></RouteContent>,
   bucketList: <RouteContent label="BucketListPage"><BucketListPage /></RouteContent>,
   bucketListDetail: <RouteContent label="BucketListDetailPage"><BucketListDetailPage /></RouteContent>,
