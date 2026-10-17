@@ -16,7 +16,7 @@ Current task: #745 chat repair after permanent send denial; approved pre-1.0 rel
 - Add unit regressions for a sole denied row and mixed denied + genuinely pending rows, preserving existing unauthorized/owner-switch/freshness checks. Version patch 0.29.4 → 0.29.5 (package, lock root, appVersion); no Appwrite schema, Function, credentials, Production, shared Scratch, social push, or interface redesign.
 - #682 and #858 are separately inspected but deliberately not changed without a failing automated contract or measured authenticated slow-network root cause; don't manufacture code churn. Their outstanding owner/device and platform probes remain explicit.
 
-## Next safe action
+## Next action
 
 - Run focused verification on final task SHA (`[verify:focused]`) and fix any failures. Squash into the dedicated stable Preview only after green; verify full canonical checks, exact source SHA and Vercel READY with Scratch build identity. Offer the new v0.29.5 stable Preview for human Chat Sync regression acceptance; no `dev` or `main` promotion before separate owner approval.
 - #889 1.0 is blocked by #936 mandatory planning-only security/privacy audit and #914 live changed-backend/privacy/rollback verification, which require their own authorization. Preserve that scope and no 1.0 release.
