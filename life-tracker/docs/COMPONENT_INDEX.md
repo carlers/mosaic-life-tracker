@@ -87,6 +87,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | bulkTaskActions | [src/components/home/views/bulkTaskActions.ts](../src/components/home/views/bulkTaskActions.ts) |
 | dayViewSheetModule | [src/components/home/views/dayViewSheetModule.ts](../src/components/home/views/dayViewSheetModule.ts) |
 | taskReorder | [src/components/home/views/taskReorder.ts](../src/components/home/views/taskReorder.ts) |
+| taskRowRegistrationContext | [src/components/home/views/taskRowRegistrationContext.ts](../src/components/home/views/taskRowRegistrationContext.ts) |
 | useCalendarState | [src/components/home/views/useCalendarState.ts](../src/components/home/views/useCalendarState.ts) |
 | useDayViewSwiper | [src/components/home/views/useDayViewSwiper.ts](../src/components/home/views/useDayViewSwiper.ts) |
 | useTaskReorderProximity | [src/components/home/views/useTaskReorderProximity.ts](../src/components/home/views/useTaskReorderProximity.ts) |

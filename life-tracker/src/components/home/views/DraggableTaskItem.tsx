@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDraggable } from '@dnd-kit/react';
 import { TaskItem, type TaskItemProps } from './TaskItem';
-import { TaskRowRegistrationContext } from './TaskReorderSurfaces';
+import { TaskRowRegistrationContext } from './taskRowRegistrationContext';
 
 const RegisteredDraggableTaskItem: React.FC<TaskItemProps> = (
   taskItemProps

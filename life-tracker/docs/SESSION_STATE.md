@@ -17,6 +17,11 @@ Current task: #858 Calendar + Todo startup optimization, v0.29.7 Scratch Preview
 - Actual far-scroll 1000th Todo task CDP long press/cancel verified in #39043116013 SUCCESS; 60-launch repeat plus shipped-size PWA budgets passed. Source-level first-drag regression #39042702374 and interaction browser shards on original candidate passed.
 - Paired sorted RxDB vs locally sorted hook #39043403886 SUCCESS but no meaningful win (1000 tasks 906 vs 904ms, 500 825 vs 836ms): rejected, no runtime query/sort change. All experiments use synthetic cached owner, Appwrite requests held, Chromium only, not authenticated device claims.
 
+## Stable Preview lint repair
+
+- v0.29.7 stable Preview `perf/858-startup-diagnostics-20261017@a71e803b3406d02955558a55030843f9d2f48f88` entered canonical CI #39044437952 after squash PR #945. Build and DOM were green, but full lint found `react-refresh/only-export-components`: context exported alongside TaskReorderSurfaces React components.
+- New isolated repair task `chatgpt/858-fast-refresh-context-fix-20261017` moves `TaskRowRegistrationContext` into an independent context-only module. Imports and generated component index change; no runtime behavior/version/backend change. Preserve v0.29.7 and squash through stable Preview after focused green; rerun full canonical, Vercel Scratch delivery before acceptance.
+
 ## Next action
 
 - Verify focused tree with version and stripped A/B scripts. Squash into existing stable Preview `perf/858-startup-diagnostics-20261017` through PR (no direct task→dev merge) for full canonical CI and trusted Vercel Scratch Preview READY; check exact version/commit and no production services altered.

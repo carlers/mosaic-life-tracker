@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 import { CollisionPriority } from '@dnd-kit/abstract';
 import { useDroppable } from '@dnd-kit/react';
 import { useTaskReorderProximity } from './useTaskReorderProximity';
+import { TaskRowRegistrationContext } from './taskRowRegistrationContext';
 
-export const TaskRowRegistrationContext = React.createContext(true);
 import {
   categoryStartDropId,
   taskGapDropId,
