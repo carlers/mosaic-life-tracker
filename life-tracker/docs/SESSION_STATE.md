@@ -1,48 +1,26 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 Calendar-first cached-task performance diagnostics; runtime unchanged.
+Task: #858 cached Home startup, Calendar-first. Diagnostic-only branch.
 
 ## Release boundary
 
-- Stable v0.29.6 Scratch Preview `perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4`: canonical #39013268008 SUCCESS, Vercel #39013382108 READY. No dev/main/Production/1.0 authorization.
-- Isolated diagnostic branch `chatgpt/858-offline-online-pwa-20261017`: synthetic/browser tests, scoped workflow and checkpoint only. No live backend writes, app behavior changes, schema changes or promotion.
+- Stable Scratch Preview v0.29.6 `perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4` remains accepted (canonical #39013268008 SUCCESS, Vercel #39013382108 READY). No dev/main/Production/Appwrite/1.0 authorization.
+- Diagnostic branch `chatgpt/858-offline-online-pwa-20261017`: only synthetic browser labs, isolated Actions and checkpoint; no shipped app code or backend writes.
 
 ## Verified evidence
 
-- The former 125-launch offline/online/uncached scale test at `2f6daf18c3e610b52987dde183ee2c6d787dc6bc` succeeded in #39028694839: 0/25/100/250/500 same-day Todo tasks, five repetitions each across five modes. Cached slow-online Home p50 892/1002/1145/1616/2512ms, offline 911/1016/1201/1677/2448ms.
-- Latest diagnostic `0bff3bfd5a6110dfb2f28770f83e1d8d0c9899ba`: focused #39029949247 SUCCESS, existing startup lab #39029949268 SUCCESS, 125-launch scale #39029949275 SUCCESS.
-- **Limitation discovered:** the existing seed persists `mosaic_home_view=todo`. Those timings characterize the Todo inline/day-reorder path, not default Calendar.
-- Calendar source uses `useTasksByDate`, 61 logical slides with full grid contents within ±1 month, `DayCell` rendering each day's tasks, and `TaskBlock` image-load observer hooks even when `task.image` is absent. These are performance hypotheses, not measured causal findings.
+- Original 125-run Todo scale #39029949275 SUCCESS: cached SW online/offline nearly matching under synthetic held Appwrite; no statistical equivalence or real-session proof.
+- Calendar-versus-Todo 60-run #39033417750 SUCCESS. Extended 84-run #39034283811 SUCCESS with text-only, same-day, UI-persisted 0–1000 tasks: 1000 online Calendar Home-ready p50 664ms vs Todo 2888ms, offline 666ms vs 2973ms (2× CPU Chromium). Longest main-thread tasks 68ms vs 1815ms. No improvement when suppressing native task image observations at 500/1000. Raw results in Actions and #858 comments; cross-run absolute timing varies.
+- Calendar date-distribution #39035865412 SUCCESS (24/24): same 500 persisted task documents, slow-online Calendar Home-ready p50 827ms one day / 841ms seven days / 859ms thirty days / 741ms entirely outside mounted months. Thirty-day spread mounted 517 task blocks for 500 unique tasks (neighbor-grid overlap); the distant case mounted zero. Offline medians 863/862/861/792ms. No browser clock mutation. Regression #39035865398 SUCCESS.
+- Focused #39035865365 failed **only** because previous checkpoint enlarged the fixed handoff above 3000 tokens. Keep checkpoint short; never weaken guard.
 
-## Current diagnostic change
+## Current diagnostic
 
-- Add `tests/e2e/startup-calendar-volume.spec.mjs` comparing default Calendar and Todo on exactly matched existing 0/25/100/250/500 UI-persisted task snapshots, cached offline and cached slow-online (three interleaved repeats), and a same-data/190-day-distant Calendar control at 500.
-- Record per-sample task notification→owner-ready, FCP, DOM task presence, calendar block/day-cell counts, JS heap, long tasks and IntersectionObserver registrations; preserve original task-volume script and prior artifacts.
-- Route the branch-scoped diagnostic scaling lab workflow to Calendar-first script; no user-shipped runtime logic changes. `[verify:focused]` requested on coherent diagnostic checkpoint.
-
-## Diagnostic harness repair
-
-- Initial Calendar-first lab #39032505720 FAILED after valid 0/25/100/250 samples and first 500 dense Calendar/Todo samples. The added 190-day fake browser clock for a distant-date control prevented the initial owner-ready mark during cache warmup; the exact underlying clock/storage interaction is unverified. Do not count the distant-date scenario as evidence.
-- Remove only that unstable artificial-time fixture; retain exact same-store Calendar/Todo dense comparisons and raw observer/DOM metrics. Re-run with full tier completion before treating the lab as verified.
-- Focused Quality Gate #39032505698 SUCCESS and independent slow-startup lab #39032505699 SUCCESS at the preceding diagnostic SHA.
-
-## Extended 1,000-task Calendar experiment
-
-- Corrected first Calendar/Todo lab `chatgpt/858-offline-online-pwa-20261017@0c6efe69186b9d40261be77b8f82cca952378a68`: focused #39033417790 SUCCESS, independent regression #39033417805 SUCCESS, 60/60 matched launches #39033417750 SUCCESS.
-- Cached slow-online p50 Calendar vs Todo for 0/25/100/250/500 tasks: Calendar 675/688/744/767/820ms; Todo 840/946/1109/1443/2305ms. Offline consistent: Calendar 714/715/713/766/825ms vs Todo 850/978/1135/1578/2384ms.
-- At 500, Calendar rendered 500 TaskBlocks/501 total IntersectionObserver constructions, longest-task p50 71ms; Todo longest-task p50 1087ms. These are 3-sample, synthetic text-only same-day estimates, not real-device proof.
-- Extend on isolated branch to 1,000 tasks with same UI-created local fixtures and instrument observer-only ablation for 500/1,000 tasks; no shipped runtime changes. Keep true multi-date, media, real-device, and authenticated sync follow-ups separate.
-
-## Calendar distribution experiment
-
-- Verified diagnostic commit `f8be0d1c580762c7c0464d2ed5b71dcf092fea6a`: focused #39034283886 SUCCESS, slow-startup #39034283816 SUCCESS, 84/84 benchmark #39034283811 SUCCESS; raw artifacts in Actions.
-- 1000 same-day tasks: cached slow-online Calendar p50 664ms vs Todo 2888ms, offline Calendar 666ms vs Todo 2973ms; normal Calendar longest task 68ms vs Todo 1815ms. Observer-only ablation at 500 gave identical online p50 (596ms) and at 1000 did not improve it (664ms vs 698ms), so do not optimize image observer registration without further evidence.
-- New isolated read-only diagnostic: 500 actual UI-created tasks in identical IndexedDB state, rewrite only persisted task dates in copied snapshots for 1/7/30/365-day-offset patterns; verify all unique task previews after rehydration. Compare cached offline and slow online; never alter browser time or send backend data.
-- The completed heavy 1000-task lab is retained as a manually runnable diagnostic; default push now runs the new distribution lab instead to avoid repeating 84 browser launches on every diagnostics change.
+- New Todo ablation uses `scripts/issue-858-ablate.mjs` to modify only ephemeral CI-runner source files before compiling a throwaway production bundle. Per browser context at fixed mount-time flag, compare 500/1000 same-day tasks: normal, no DnD registration, no Motion row layout, both disabled. Identical local snapshot, retained task components; 3 repeats per case. No-DnD intentionally breaks reorder only in synthetic diagnostic build, never deployed.
+- Heavy 1000-task and distribution workflows are manual dispatch now; new `issue-858-todo-ablation-lab.yml` owns this push's independent performance experiment.
 
 ## Next action
 
-- Verify exact-head focused Quality Gate and Calendar-first lab (raw JSON and logs); investigate any failures, patch, rerun. Report only verified Calendar timing results and observed sources.
-- Subsequently extend diagnostic fixtures to 500/1000 tasks spread across week/month, single/multi-category, images, zoom and distributed out-of-window dates, then profile Chrome CPU/React render and isolate image observers/neighbor slides. Do not infer causal attribution before A/B evidence.
-- Retain #858 OPEN for real authenticated Scratch sync, physical PWA, cache eviction, 401, iOS and multi-tab checks. #936 and #914 remain independent 1.0 requirements.
+- Verify new focused gate, independent startup regression and ablation lab. If failing, inspect logs, repair, rerun exact SHA. Publish raw causal A/B results to #858; choose a targeted runtime candidate only after evidence and preserve drag, keyboard, Diary, reordering and offline startup.
+- Retain #858 OPEN for real authenticated Scratch sync, remote hydration, images, friend/shared, 401, cache eviction, multi-tab and actual Android/iOS installed PWA acceptance. #936 security/privacy and #914 backend compatibility are separate pre-1.0 gates.
