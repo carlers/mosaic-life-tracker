@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Task: #858 cached Home startup, Calendar-first. Diagnostic-only branch.
+Current task: #858 cached Home startup, Calendar-first. Diagnostic-only branch.
 
 ## Release boundary
 
