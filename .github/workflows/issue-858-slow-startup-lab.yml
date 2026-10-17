@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - chatgpt/858-slow-network-lab-20261017
+      - chatgpt/858-critical-head-preload-20261017
 
 permissions:
   contents: read
@@ -38,11 +39,29 @@ jobs:
       - run: npm run build
       - name: Measure production-output slow startup
         run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-slow-network.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+      - name: Measure baseline critical import waterfall
+        if: github.ref_name == 'chatgpt/858-critical-head-preload-20261017'
+        env:
+          MOSAIC_HEAD_PRELOAD_VARIANT: baseline
+        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-head-preload.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+      - name: Compile experimental HTML early-import variant
+        if: github.ref_name == 'chatgpt/858-critical-head-preload-20261017'
+        run: |
+          node scripts/experimental-head-preload.mjs
+          npm run build
+      - name: Measure HTML-dispatched critical imports
+        if: github.ref_name == 'chatgpt/858-critical-head-preload-20261017'
+        env:
+          MOSAIC_HEAD_PRELOAD_VARIANT: head
+        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-head-preload.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
       - name: Archive synthetic timing report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: issue-858-slow-startup
-          path: life-tracker/.mosaic/slow-startup/slow-startup.json
+          path: |
+            life-tracker/.mosaic/slow-startup/slow-startup.json
+            life-tracker/.mosaic/slow-startup/head-baseline.json
+            life-tracker/.mosaic/slow-startup/head-head.json
           if-no-files-found: warn
           retention-days: 7
