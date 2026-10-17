@@ -68,6 +68,11 @@ async function run(browser, scenario, iteration) {
           'first-contentful-paint', 'paint')[0]?.startTime ?? null,
         jsRequests: resources.length,
         totalJsTransferBytes: resources.reduce((n, resource) => n + resource.transferSize, 0),
+        slowScripts: resources.sort((a, b) => b.responseEnd - a.responseEnd).slice(0, 12)
+          .map(resource => ({ file: resource.name.split('/').at(-1),
+            startMs: Math.round(resource.startTime),
+            endMs: Math.round(resource.responseEnd),
+            transferredBytes: resource.transferSize })),
       };
     }, MARKS);
     const variant = process.env.MOSAIC_HEAD_PRELOAD_VARIANT ?? 'unspecified';
@@ -88,6 +93,7 @@ async function run(browser, scenario, iteration) {
       firstContentfulPaintMs: record.firstContentfulPaintMs,
       jsRequests: record.jsRequests,
       transferredBytes: record.totalJsTransferBytes,
+      lastLoadedScripts: record.slowScripts,
       markers: record.marks,
       heldAppwriteRequests: remoteRequests,
     };
