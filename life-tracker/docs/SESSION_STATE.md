@@ -1,22 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 slow-network pre-Home splash; automated reproduction confirmed and scoped v0.29.6 performance candidate prepared.
+Current task: #858 online/offline installed-PWA startup comparison (diagnostic only).
 
-## Branches and release boundaries
+## Live baseline / boundary
 
-- Protected `dev@b0c703636c8c6e8d52c6dd3c59ebc0251070ab7e` remains v0.29.5. `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` remains published v0.29.1. No dev/main/1.0 promotion authorized.
-- Diagnostic stable `perf/858-startup-diagnostics-20261017@32175b4bb4b515ebb007fbf70624623e386c306e`: canonical #39011580584 SUCCESS, trusted Scratch Preview READY, no code optimization yet.
-- Isolated `chatgpt/858-slow-network-lab-20261017` is preparing user-visible patch candidate **v0.29.6** for the same stable Preview branch. Official Preview remains Scratch Appwrite, no backend schema/Function changes. #745 manual chat regression, #936 privacy audit and #914 compatibility gate remain independent.
+- Stable `perf/858-startup-diagnostics-20261017@41d196afd557d2e0d499cb9423e196d46e83adf4`: v0.29.6, full canonical Quality Gate #39013268008 SUCCESS, trusted Scratch Preview #39013382108 READY. Dev remains v0.29.5, Production main v0.29.1. No dev/main/1.0 promotion approved.
+- Owner's long pre-Home "Opening your local data…" splash was reproduced with Appwrite permanently unresolved. Under a slow uncached site asset connection Home owner data took ~5.7s; under a previously installed, controlled SW cache ~0.65–0.70s. Those two differ in **asset-cache state**, not online/offline network state.
+- Previous structural tests rejected initial SW registration deferral, lazy Auth routes, and unconditional removal of adjacent Explore preload due to negligible Home gains or other regressions. Do not ship speculative import/bundle changes on these findings.
 
-## Evidence and scoped implementation
+## Experiment
 
-- Owner specifically observes long **Mosaic — Opening your local data…** *before* Home. Source has two competing gates: actual local RxDB ready and an AppDataShell lazy module. Appwrite auth verification already runs in background; delayed `account.get()` does not gate cached Home.
-- [Cold/slow/warm production-output lab #39012480354](https://github.com/carlers/mosaic-life-tracker/actions/runs/39012480354), Chromium phone emulation, 2x CPU throttle, synthetic cached identity, Appwrite requests kept unresolved: fast Home owner data ready **1.11s**, throttled assets **5.81s**, pre-cached controlling PWA **0.75–0.80s**. Slow DB module download ~2.2s; AppDataShell import/dependencies ~3.6s; RxDB open ~80ms. **Network JS downloads, not remote connection or local database open, dominate the synthetic slow uncached case.**
-- [Initial early-shell A/B lab #39012763324](https://github.com/carlers/mosaic-life-tracker/actions/runs/39012763324) SUCCESS using same synthetic scenarios: fast Home 0.73–0.78s, slow 5.61–5.63s, controlled precache repeat 0.57–0.61s. Runners differ and n=2 per condition, so these directional savings are **not physical-device causal proof or a guaranteed speed budget**.
-- Candidate triggers the same memoized `AppDataShell` import as DB and Home at cached-identity bootstrap, without awaiting Appwrite, changing UI, bypassing RxDB or changing auth/sync. Failed focused lint in #39012763367 for exporting a helper beside a React component; corrected by moving the shared import into the existing `routeModuleLoaders.ts` (react-refresh convention). Same parent module promise reused by route and early bootstrap.
-- Add repeatable `npm run audit:slow-startup` script and independent branch-scoped credential-free runner/workflow, no mandatory CI-budget cost; captures sanitised perf marks/asset names and SW controlling state with real Vite production code. Backend requests held and never executed against real accounts.
+- Isolated `chatgpt/858-offline-online-pwa-20261017` changes only the credential-free production-output Chromium diagnostic, enabling **same installed/controlled precache state** in slow-online and fully offline reload conditions with Appwrite requests held unresolved. It records FCP, local owner Home readiness, DB and shell marks, cache transfer, and navigator online status; four interleaved samples per condition, plus existing uncached controls.
+- No app runtime, schema, worker, Vercel, Appwrite project, or customer data changes. This is a synthetic owner with empty local RxDB on Chromium, not a real device, authenticated Scratch account or cold process.
 
 ## Next action
 
-- Verify final SHA with focused+browser Quality Gate, run controlled lab again to check the corrected loader's timing, fix failures. Squash verified task to stable `perf/858-startup-diagnostics-20261017`, verify full canonical and trusted Preview READY (Scratch), then report user-manual PWA acceptance as **pending** until performed. Do not promote v0.29.6 to `dev` or `main` without owner's new approval. Keep #858 open pending real device acceptance.
+- Check exact task SHA focused Quality Gate and isolated #858 lab; inspect any failure and repair. Report direct offline/online results with uncertainty and do not infer causation from uncached comparisons. #858 remains OPEN for owner installed-device/offline acceptance; #936 privacy audit and #914 compatibility gate remain separate mandatory pre-1.0 work. No protected-branch promotion without explicit approval.

@@ -25,6 +25,7 @@ const FAST = {
   downloadThroughput: -1,
   uploadThroughput: -1,
 };
+const OFFLINE = { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 };
 const MARKS = [
   'bootstrap:start', 'database:import-start', 'database:module-ready',
   'database:create-start', 'database:create-ready',
@@ -44,7 +45,7 @@ async function run(browser, scenario, iteration) {
   const context = await browser.newContext({
     viewport: { width: 412, height: 915 },
     deviceScaleFactor: 2, isMobile: true, hasTouch: true,
-    serviceWorkers: scenario === 'pwa-cached-assets' ? 'allow' : 'block',
+    serviceWorkers: scenario.startsWith('pwa-') ? 'allow' : 'block',
   });
   let releaseRemote;
   let pendingRemoteRequests = 0;
@@ -52,10 +53,7 @@ async function run(browser, scenario, iteration) {
   const heldRemote = new Promise(resolve => { releaseRemote = resolve; });
   try {
     await context.addInitScript((user) => {
-      // Browser reports online so auth attempts its real asynchronous probe.
-      Object.defineProperty(navigator, 'onLine', {
-        configurable: true, get: () => true,
-      });
+      // Preserve native navigator.onLine: CDP will set actual offline state.
       localStorage.setItem('mosaic_last_known_user', JSON.stringify(user));
     }, USER);
     await context.route(/https:\/\/(?:fra|sgp)\.cloud\.appwrite\.io\//, async route => {
@@ -78,7 +76,7 @@ async function run(browser, scenario, iteration) {
     };
 
     let serviceWorkerControlled = false;
-    if (scenario === 'pwa-cached-assets') {
+    if (scenario.startsWith('pwa-')) {
       // Install and populate the real VitePWA precache on fast network before
       // timing a slow repeat navigation in the same isolated browser profile.
       await cdp.send('Network.emulateNetworkConditions', FAST);
@@ -93,9 +91,10 @@ async function run(browser, scenario, iteration) {
       expect(serviceWorkerControlled, 'PWA repeat run needs an active controller').toBe(true);
     }
     await cdp.send('Network.emulateNetworkConditions',
-      scenario === 'fast-assets' ? FAST : SLOW);
+      scenario === 'fast-assets' ? FAST :
+        scenario === 'pwa-offline-assets' ? OFFLINE : SLOW);
     const started = Date.now();
-    if (scenario === 'pwa-cached-assets') {
+    if (scenario.startsWith('pwa-')) {
       await page.reload({ waitUntil: 'domcontentloaded', timeout: 75_000 });
     } else {
       await page.goto(BASE + '/home', { waitUntil: 'domcontentloaded', timeout: 75_000 });
@@ -125,6 +124,8 @@ async function run(browser, scenario, iteration) {
       return {
         scenario, iteration,
         homeReadyMs: round(values['home:owner-data-ready']),
+        firstContentfulPaintMs: round(performance.getEntriesByName('first-contentful-paint', 'paint')[0]?.startTime),
+        browserOnline: navigator.onLine,
         homeMountedMs: round(values['home:mounted']),
         databaseModuleMs: delta('database:import-start', 'database:module-ready'),
         databaseOpenMs: delta('database:create-start', 'database:create-ready'),
@@ -139,6 +140,13 @@ async function run(browser, scenario, iteration) {
     record.serviceWorkerControlled = serviceWorkerControlled;
     record.heldAppwriteRequests = pendingRemoteRequests;
     expect(record.homeReadyMs).not.toBeNull();
+    expect(record.firstContentfulPaintMs).not.toBeNull();
+    expect(record.browserOnline).toBe(scenario !== 'pwa-offline-assets');
+    if (scenario.startsWith('pwa-')) {
+      expect(serviceWorkerControlled).toBe(true);
+      expect(record.slowAssets.every(asset => asset.transferredBytes === 0))
+        .toBe(true);
+    }
     expect(pending, 'Appwrite must remain unresolved during local Home startup').toBe(true);
     console.log('MOSAIC_858_SLOW_STARTUP ' + JSON.stringify(record));
     return record;
@@ -150,11 +158,19 @@ async function run(browser, scenario, iteration) {
 
 test('@performance Issue 858 cached Home under independently throttled assets and Appwrite', async ({ browser }) => {
   test.setTimeout(500_000);
-  const modes = ['fast-assets', 'slow-assets', 'pwa-cached-assets'];
+  const modes = ['fast-assets', 'slow-assets', 'pwa-cached-assets', 'pwa-offline-assets'];
   const rows = [];
-  for (const mode of modes) {
-    for (let i = 1; i <= 2; i++) {
-      rows.push(await run(browser, mode, i));
+  // Interleave same-build, same-precached-state online/offline launches to
+  // limit runner drift; preserve two historical uncached samples for context.
+  for (let i = 1; i <= 4; i++) {
+    const paired = i % 2 === 1
+      ? ['pwa-cached-assets', 'pwa-offline-assets']
+      : ['pwa-offline-assets', 'pwa-cached-assets'];
+    for (const mode of paired) rows.push(await run(browser, mode, i));
+    if (i <= 2) {
+      for (const mode of ['fast-assets', 'slow-assets']) {
+        rows.push(await run(browser, mode, i));
+      }
     }
   }
   const summary = Object.fromEntries(modes.map(mode => {
@@ -162,6 +178,8 @@ test('@performance Issue 858 cached Home under independently throttled assets an
     return [mode, {
       samples: records.length,
       homeReadyMedianMs: percentile(records.map(r => r.homeReadyMs), .5),
+      firstPaintMedianMs: percentile(records.map(r => r.firstContentfulPaintMs), .5),
+      browserOnline: records[0].browserOnline,
       homeReadyP90Ms: percentile(records.map(r => r.homeReadyMs), .9),
       databaseModuleMedianMs: percentile(records.map(r => r.databaseModuleMs), .5),
       appShellModuleMedianMs: percentile(records.map(r => r.appShellModuleMs), .5),
@@ -180,7 +198,9 @@ test('@performance Issue 858 cached Home under independently throttled assets an
         'No real user data. PWA repeat uses synthetic empty account.',
         'Local Vite Preview hosting does not simulate carrier/CDN behavior.',
         '120 kB/s throttling covers same-origin assets, not solely the Appwrite API.',
-        'Two samples per scenario establish a controlled comparison, not a fleet-level SLA.',
+        'Four service-worker online/offline samples per condition are directional, not a device SLA.',
+      'A warm installed SW-controlled page reload is not a cold OS process launch.',
+      'The two extra slow/fast asset cases remain online-uncached controls.',
       ],
     },
     summary, rows,

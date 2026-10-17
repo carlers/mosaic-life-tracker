@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - chatgpt/858-slow-network-lab-20261017
+      - chatgpt/858-offline-online-pwa-20261017
 
 permissions:
   contents: read
