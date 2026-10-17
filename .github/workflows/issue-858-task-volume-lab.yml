@@ -1,4 +1,4 @@
-name: Issue 858 Task-Volume Scaling Lab
+name: Issue 858 Calendar-first Scaling Lab
 
 # Diagnostic-only synthetic data. Does not run on dev/main or release PRs.
 on:
@@ -10,9 +10,9 @@ permissions:
   contents: read
 
 jobs:
-  task-volume:
+  calendar-scale:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     defaults:
       run:
         working-directory: life-tracker
@@ -35,15 +35,15 @@ jobs:
       - run: npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund
       - run: tests/e2e/node_modules/.bin/playwright install --with-deps chromium
       - run: npm run build
-      - name: Measure cached tasks and asset-cache effects at increasing volumes
-        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-task-volume.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+      - name: Compare default Calendar with Todo at increasing cached task volumes
+        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-calendar-volume.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
       - name: Archive raw measurements, including partial results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: issue-858-task-volume
+          name: issue-858-calendar-volume
           path: |
-            life-tracker/.mosaic/slow-startup/task-volume-*.json
+            life-tracker/.mosaic/slow-startup/calendar-volume-*.json
             life-tracker/test-results/**
           if-no-files-found: warn
           retention-days: 14
