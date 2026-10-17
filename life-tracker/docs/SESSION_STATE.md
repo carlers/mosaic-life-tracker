@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-17 UTC
-Current task: #858 extended cached PWA startup network-response parity diagnostic (diagnostic only).
+Current task: #858 populated IndexedDB network parity diagnostic (no runtime changes).
 
 ## Live baseline / boundary
 
@@ -11,6 +11,8 @@ Current task: #858 extended cached PWA startup network-response parity diagnosti
 
 ## Experiment
 
+- New production-output browser experiment seeds 24 owner tasks through the app UI and captures IndexedDB/localStorage for controlled SW-cached reloads, comparing offline, hung Appwrite, mocked 200, and mocked 503. This addresses synthetic empty-data limitations without introducing test backdoors or real account access. A missing/corrupted SW cache and real device remain separate unverified conditions.
+
 - Extend the same isolated production-output lab to interleave cached offline and hung-online controls with two synthetic Appwrite account outcomes: immediate valid cached-owner 200 and HTTP 503. All other provider requests remain held. Capture Home readiness and prove the account response actually happened. This investigates whether connectivity-to-online can start background modules early enough to compete with Home; it is not real authenticated backend/sync validation.
 
 - Isolated `chatgpt/858-offline-online-pwa-20261017` changes only the credential-free production-output Chromium diagnostic, enabling **same installed/controlled precache state** in slow-online and fully offline reload conditions with Appwrite requests held unresolved. It records FCP, local owner Home readiness, DB and shell marks, cache transfer, and navigator online status; four interleaved samples per condition, plus existing uncached controls.
@@ -18,4 +20,4 @@ Current task: #858 extended cached PWA startup network-response parity diagnosti
 
 ## Next action
 
-- Check exact task SHA focused Quality Gate and isolated #858 lab; inspect any failure and repair. Compare 200/503 outcomes against the cached offline/hung baseline and flag CPU contention without attributing small sample variance. Report direct offline/online results with uncertainty and do not infer causation from uncached comparisons. #858 remains OPEN for owner installed-device/offline acceptance; #936 privacy audit and #914 compatibility gate remain separate mandatory pre-1.0 work. No protected-branch promotion without explicit approval.
+- Verify the seeded IndexedDB production browser lab and exact task SHA focused/browser Quality Gate; repair root causes of failures. Compare 200/503 outcomes against the cached offline/hung baseline and flag CPU contention without attributing small sample variance. Report direct offline/online results with uncertainty and do not infer causation from uncached comparisons. #858 remains OPEN for owner installed-device/offline acceptance; #936 privacy audit and #914 compatibility gate remain separate mandatory pre-1.0 work. No protected-branch promotion without explicit approval.

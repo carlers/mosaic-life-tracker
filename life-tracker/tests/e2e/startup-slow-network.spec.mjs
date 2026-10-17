@@ -41,11 +41,12 @@ function percentile(values, p) {
 }
 const round = n => Number.isFinite(n) ? Math.round(n) : null;
 
-async function run(browser, scenario, iteration) {
+async function run(browser, scenario, iteration, seededState = null) {
   const context = await browser.newContext({
     viewport: { width: 412, height: 915 },
     deviceScaleFactor: 2, isMobile: true, hasTouch: true,
     serviceWorkers: scenario.startsWith('pwa-') ? 'allow' : 'block',
+    ...(seededState ? { storageState: seededState } : {}),
   });
   let releaseRemote;
   let pendingRemoteRequests = 0;
@@ -171,7 +172,14 @@ async function run(browser, scenario, iteration) {
     record.serviceWorkerControlled = serviceWorkerControlled;
     record.heldAppwriteRequests = pendingRemoteRequests;
     record.syntheticAuthResponses = authResponseCount;
+    record.hasSeededData = Boolean(seededState);
     expect(record.homeReadyMs).not.toBeNull();
+    if (seededState) {
+      await expect(page.getByText('Startup fixture task 001', { exact: true }))
+        .toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText('Startup fixture task 024', { exact: true }))
+        .toBeVisible({ timeout: 15_000 });
+    }
     expect(record.firstContentfulPaintMs).not.toBeNull();
     expect(record.browserOnline).toBe(scenario !== 'pwa-offline-assets');
     if (scenario.startsWith('pwa-')) {
@@ -256,4 +264,96 @@ test('@performance Issue 858 cached Home under independently throttled assets an
   await mkdir(resolve('.mosaic/slow-startup'), { recursive: true });
   await writeFile(OUTPUT, JSON.stringify(report, null, 2) + '\n');
   console.log('MOSAIC_858_SUMMARY ' + JSON.stringify(summary));
+});
+
+
+// Seed real application storage through its public UI, then reuse the saved
+// IndexedDB + localStorage in fresh isolated Playwright profiles. No test-only
+// production exports, direct IDB document writes, or backend fixtures.
+async function createPopulatedLocalFixture(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 412, height: 915 },
+    deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+  });
+  try {
+    await context.addInitScript(user => {
+      localStorage.setItem('mosaic_last_known_user', JSON.stringify(user));
+    }, USER);
+    await context.route(/https:\/\/(?:fra|sgp)\.cloud\.appwrite\.io\//, route =>
+      route.abort('failed'));
+    const page = await context.newPage();
+    await page.goto(BASE + '/home', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('grid', { name: /calendar/ }).first())
+      .toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Open menu' }).click();
+    await page.getByRole('button', { name: 'Lists & Categories' }).click();
+    await page.getByRole('button', { name: 'Add Category' }).click();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Startup Fixture');
+    await page.getByRole('button', { name: 'Add Category' }).click();
+    await expect(page.getByText('Startup Fixture', { exact: true }).first())
+      .toBeVisible();
+    await page.keyboard.press('Escape');
+    for (let i = 1; i <= 24; i++) {
+      await page.locator('button[aria-label="Add a task to Startup Fixture"]:visible')
+        .first().click();
+      const input = page.getByRole('textbox', { name: 'New task title' }).first();
+      await input.fill('Startup fixture task ' + String(i).padStart(3, '0'));
+      await input.press('Enter');
+    }
+    await expect(page.getByText('Startup fixture task 001', { exact: true }))
+      .toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Startup fixture task 024', { exact: true }))
+      .toBeVisible({ timeout: 20_000 });
+    // Finish local writes and verify that the original app can reopen them.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Startup fixture task 024', { exact: true }))
+      .toBeVisible({ timeout: 30_000 });
+    const state = await context.storageState({ indexedDB: true });
+    const idbs = state.origins.reduce((sum, origin) =>
+      sum + (origin.indexedDB?.length ?? 0), 0);
+    expect(idbs, 'fixture must contain persisted IndexedDB databases')
+      .toBeGreaterThan(0);
+    console.log('MOSAIC_858_POPULATED_FIXTURE ' +
+      JSON.stringify({ tasks: 24, indexedDbCount: idbs }));
+    return state;
+  } finally {
+    await context.close();
+  }
+}
+
+test('@performance Issue 858 populated owner cache network parity', async ({ browser }) => {
+  test.setTimeout(500_000);
+  const seed = await createPopulatedLocalFixture(browser);
+  const modes = [
+    'pwa-offline-assets', 'pwa-cached-assets',
+    'pwa-valid-session', 'pwa-server-error',
+  ];
+  const rows = [];
+  for (let iteration = 1; iteration <= 2; iteration++) {
+    const ordered = iteration % 2 ? modes : [...modes].reverse();
+    for (const mode of ordered) {
+      rows.push(await run(browser, mode, iteration, seed));
+    }
+  }
+  const summary = Object.fromEntries(modes.map(mode => {
+    const records = rows.filter(row => row.scenario === mode);
+    return [mode, {
+      samples: records.length,
+      homeReadyMs: records.map(row => row.homeReadyMs),
+      medianMs: percentile(records.map(row => row.homeReadyMs), 0.5),
+      firstPaintMs: records.map(row => row.firstContentfulPaintMs),
+      dbOpenMs: records.map(row => row.databaseOpenMs),
+    }];
+  }));
+  const report = {
+    sourceSha: process.env.MOSAIC_AUDIT_SOURCE_SHA ?? 'local',
+    fixture: '24 private owner tasks in IndexedDB written through UI; synthetic identity',
+    backend: 'account outcomes intercepted locally, all other Appwrite held unresolved',
+    note: 'Warm SW-controlled reloads; no physical phone, no real session or real sync',
+    summary, rows,
+  };
+  await mkdir(resolve('.mosaic/slow-startup'), { recursive: true });
+  await writeFile(resolve('.mosaic/slow-startup/populated-startup.json'),
+    JSON.stringify(report, null, 2) + '\n');
+  console.log('MOSAIC_858_POPULATED_SUMMARY ' + JSON.stringify(summary));
 });
