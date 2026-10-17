@@ -132,6 +132,12 @@ async function run(browser, scenario, iteration, seededState = null) {
       await page.goto(BASE + '/home', { waitUntil: 'domcontentloaded', timeout: 75_000 });
     }
     await readyHome();
+    let seededTaskVisibleMs = null;
+    if (seededState) {
+      await expect(page.getByText('Startup fixture task 001', { exact: true }))
+        .toBeVisible({ timeout: 15_000 });
+      seededTaskVisibleMs = await page.evaluate(() => Math.round(performance.now()));
+    }
 
     const record = await page.evaluate(({ scenario, iteration, markNames }) => {
       const round = n => Number.isFinite(n) ? Math.round(n) : null;
@@ -173,6 +179,7 @@ async function run(browser, scenario, iteration, seededState = null) {
     record.heldAppwriteRequests = pendingRemoteRequests;
     record.syntheticAuthResponses = authResponseCount;
     record.hasSeededData = Boolean(seededState);
+    record.seededTaskVisibleMs = seededTaskVisibleMs;
     expect(record.homeReadyMs).not.toBeNull();
     if (seededState) {
       await expect(page.getByText('Startup fixture task 001', { exact: true }))
@@ -275,12 +282,19 @@ async function createPopulatedLocalFixture(browser) {
     viewport: { width: 412, height: 915 },
     deviceScaleFactor: 2, isMobile: true, hasTouch: true,
   });
+  let releaseRemote;
+  const heldRemote = new Promise(resolve => { releaseRemote = resolve; });
   try {
     await context.addInitScript(user => {
       localStorage.setItem('mosaic_last_known_user', JSON.stringify(user));
     }, USER);
-    await context.route(/https:\/\/(?:fra|sgp)\.cloud\.appwrite\.io\//, route =>
-      route.abort('failed'));
+    // A real fast network error displays a top status banner that can cover
+    // the app's menu while creating the synthetic fixture. Keep the remote
+    // indefinitely pending, as in the established no-network-gate contract.
+    await context.route(/https:\/\/(?:fra|sgp)\.cloud\.appwrite\.io\//, async route => {
+      await heldRemote;
+      await route.abort('failed').catch(() => {});
+    });
     const page = await context.newPage();
     page.setDefaultTimeout(12_000);
     console.log('MOSAIC_858_SEED_STEP navigation');
@@ -335,6 +349,7 @@ async function createPopulatedLocalFixture(browser) {
       JSON.stringify({ tasks: 24, indexedDbCount: idbs }));
     return state;
   } finally {
+    releaseRemote();
     await context.close();
   }
 }
@@ -359,6 +374,8 @@ test('@performance Issue 858 populated owner cache network parity', async ({ bro
       samples: records.length,
       homeReadyMs: records.map(row => row.homeReadyMs),
       medianMs: percentile(records.map(row => row.homeReadyMs), 0.5),
+      seededTaskVisibleMs: records.map(row => row.seededTaskVisibleMs),
+      seededTaskVisibleMedianMs: percentile(records.map(row => row.seededTaskVisibleMs), 0.5),
       firstPaintMs: records.map(row => row.firstContentfulPaintMs),
       dbOpenMs: records.map(row => row.databaseOpenMs),
     }];
