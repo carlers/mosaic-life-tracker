@@ -1,20 +1,26 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Synthetic cold-start experiment. Modifies already-built dist/index.html ONLY
 // inside a disposable CI checkout. This cannot be shipped as-is because the
 // PWA precache was generated before the mutation.
 const dist = 'dist';
-const manifest = JSON.parse(readFileSync(join(dist, '.vite/manifest.json'), 'utf8'));
-const find = path => {
-  const item = Object.values(manifest).find(m => m.src === path);
-  if (!item) throw new Error('Manifest missing ' + path);
-  if (!item.file?.endsWith('.js')) throw new Error('Not JS ' + path);
-  return item.file;
+// Vite 8's chunk-import-map manifest need not expose a source's original
+// path as a key. Resolve from the *emitted* exact basename with a uniqueness
+// assertion; fail if bundle identity becomes ambiguous.
+const assets = readdirSync(join(dist, 'assets'));
+const find = prefix => {
+  const matching = assets.filter(name =>
+    name.startsWith(prefix + '-') && name.endsWith('.js'));
+  if (matching.length !== 1) {
+    throw new Error('Expected one ' + prefix + ' entry chunk; found ' +
+      JSON.stringify(matching));
+  }
+  return 'assets/' + matching[0];
 };
-const db = find('src/db/database.ts');
-const shell = find('src/components/layout/AppDataShell.tsx');
-const home = find('src/pages/HomePage.tsx');
+const db = find('database');
+const shell = find('AppDataShell');
+const home = find('HomePage');
 const path = join(dist, 'index.html');
 const html = readFileSync(path, 'utf8');
 const marker = '<head>';
