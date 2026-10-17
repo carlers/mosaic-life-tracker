@@ -27,6 +27,13 @@ Current task: #858 Calendar-first cached-task performance diagnostics; runtime u
 - Remove only that unstable artificial-time fixture; retain exact same-store Calendar/Todo dense comparisons and raw observer/DOM metrics. Re-run with full tier completion before treating the lab as verified.
 - Focused Quality Gate #39032505698 SUCCESS and independent slow-startup lab #39032505699 SUCCESS at the preceding diagnostic SHA.
 
+## Extended 1,000-task Calendar experiment
+
+- Corrected first Calendar/Todo lab `chatgpt/858-offline-online-pwa-20261017@0c6efe69186b9d40261be77b8f82cca952378a68`: focused #39033417790 SUCCESS, independent regression #39033417805 SUCCESS, 60/60 matched launches #39033417750 SUCCESS.
+- Cached slow-online p50 Calendar vs Todo for 0/25/100/250/500 tasks: Calendar 675/688/744/767/820ms; Todo 840/946/1109/1443/2305ms. Offline consistent: Calendar 714/715/713/766/825ms vs Todo 850/978/1135/1578/2384ms.
+- At 500, Calendar rendered 500 TaskBlocks/501 total IntersectionObserver constructions, longest-task p50 71ms; Todo longest-task p50 1087ms. These are 3-sample, synthetic text-only same-day estimates, not real-device proof.
+- Extend on isolated branch to 1,000 tasks with same UI-created local fixtures and instrument observer-only ablation for 500/1,000 tasks; no shipped runtime changes. Keep true multi-date, media, real-device, and authenticated sync follow-ups separate.
+
 ## Next action
 
 - Verify exact-head focused Quality Gate and Calendar-first lab (raw JSON and logs); investigate any failures, patch, rerun. Report only verified Calendar timing results and observed sources.

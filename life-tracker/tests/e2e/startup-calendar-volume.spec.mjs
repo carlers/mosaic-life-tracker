@@ -6,9 +6,10 @@ import { resolve } from 'node:path';
 // Compare default Calendar with Todo under identical persisted RxDB state.
 // Seed legitimate local RxDB documents through the actual Mosaic UI.
 const BASE = 'http://127.0.0.1:4179';
-const COUNTS = [0, 25, 100, 250, 500];
+const COUNTS = [0, 25, 100, 250, 500, 1000];
 const MODES = ['pwa-online-slow', 'pwa-offline'];
 const BASE_VIEWS = ['calendar', 'todo'];
+const NO_TEXT_OBSERVERS_SCENARIO = 'calendar-no-text-image-observers';
 const REPEATS = 3;
 const USER = { $id: 'issue858_scale_user', email: 'scale@example.invalid', name: 'Scale Test', prefs: {} };
 const FAST = { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
@@ -138,7 +139,8 @@ async function seedStates(browser) {
 }
 
 async function sample(browser, tasks, state, mode, iteration, scenario) {
-  const view = scenario;
+  const view = scenario === NO_TEXT_OBSERVERS_SCENARIO ? 'calendar' : scenario;
+  const skipTextObservers = scenario === NO_TEXT_OBSERVERS_SCENARIO;
   const cachedAssets = mode.startsWith('pwa-');
   const ctx = await browser.newContext({
     viewport: { width: 412, height: 915 }, deviceScaleFactor: 2,
@@ -148,13 +150,14 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
   });
   const network = await syntheticNetwork(ctx);
   try {
-    await ctx.addInitScript(({ user, view }) => {
+    await ctx.addInitScript(({ user, view, skipTextObservers }) => {
       localStorage.setItem('mosaic_last_known_user', JSON.stringify(user));
       // Explicitly override the seed fixture's Todo preference for every measured launch.
       localStorage.setItem('mosaic_home_view', view);
       window.__scaleLongTasks = [];
       window.__calendarImageObservers = 0;
       window.__calendarObservedTaskBlocks = 0;
+      window.__calendarSkippedTaskObservations = 0;
       const NativeObserver = window.IntersectionObserver;
       if (NativeObserver) {
         window.IntersectionObserver = class extends NativeObserver {
@@ -165,6 +168,12 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
           observe(target) {
             if (target.getAttribute('title')?.startsWith('Startup scale task ')) {
               window.__calendarObservedTaskBlocks++;
+              // Diagnostic-only ablation: no image exists for these synthetic tasks.
+              // Suppress native observation and ensuing state updates, not the component tree.
+              if (skipTextObservers) {
+                window.__calendarSkippedTaskObservations++;
+                return;
+              }
             }
             return super.observe(target);
           }
@@ -177,7 +186,7 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
           }
         }).observe({ type: 'longtask', buffered: true });
       } catch { /* Optional browser API. */ }
-    }, { user: USER, view });
+    }, { user: USER, view, skipTextObservers });
     const page = await ctx.newPage();
     const cdp = await ctx.newCDPSession(page);
     await cdp.send('Network.enable');
@@ -252,6 +261,7 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
         calendarTaskBlocks: document.querySelectorAll('[data-calendar-slide-index] [title^="Startup scale task "]').length,
         calendarImageObservers: window.__calendarImageObservers,
         calendarObservedTaskBlocks: window.__calendarObservedTaskBlocks,
+        calendarSkippedTaskObservations: window.__calendarSkippedTaskObservations,
       };
     }, { tasks, mode, iteration, scenario });
     result.firstTaskVisibleMs = firstTaskVisibleMs;
@@ -278,13 +288,13 @@ async function sample(browser, tasks, state, mode, iteration, scenario) {
 
 
 test('@performance Issue 858 Calendar-first view and visible-density scaling', async ({ browser }) => {
-  test.setTimeout(2_400_000);
+  test.setTimeout(2_900_000);
   const states = await seedStates(browser);
   const rows = [];
   const groups = [];
   // Interleave mode/view order and reverse every second iteration to reduce warm-run drift.
   for (const count of COUNTS) {
-    const scenarios = BASE_VIEWS;
+    const scenarios = count >= 500 ? [...BASE_VIEWS, NO_TEXT_OBSERVERS_SCENARIO] : BASE_VIEWS;
     for (let iteration = 1; iteration <= REPEATS; iteration++) {
       const pairs = scenarios.flatMap(scenario => MODES.map(mode => ({ scenario, mode })));
       if (iteration % 2 === 0) pairs.reverse();
@@ -313,6 +323,7 @@ test('@performance Issue 858 Calendar-first view and visible-density scaling', a
           calendarTaskBlocksP50: percentile(samples.map(r => r.calendarTaskBlocks), .5),
           imageObserversP50: percentile(samples.map(r => r.calendarImageObservers), .5),
           observedTaskBlocksP50: percentile(samples.map(r => r.calendarObservedTaskBlocks), .5),
+          skippedTaskObservationsP50: percentile(samples.map(r => r.calendarSkippedTaskObservations), .5),
           heapP50Bytes: percentile(samples.map(r => r.jsHeapUsedBytes), .5),
         };
       }
@@ -327,20 +338,21 @@ test('@performance Issue 858 Calendar-first view and visible-density scaling', a
   const report = {
     sourceSha: process.env.MOSAIC_AUDIT_SOURCE_SHA ?? 'local',
     protocol: {
-      views: BASE_VIEWS,
+      views: [...BASE_VIEWS, NO_TEXT_OBSERVERS_SCENARIO],
       taskCounts: COUNTS,
       repeatsPerCondition: REPEATS,
       cpuSlowdown: 2,
       slowLink: SLOW,
       mobileViewport: '412x915',
       localData: '500 same-day tasks added via real UI, snapshots confirmed in IndexedDB',
-      excludedScenario: 'Distant-date mock-clock test suspended after artificial date shift prevented a first warm Home-ready mark; no off-window data result is claimed.',
+      observerAblation: 'At >=500 text-only tasks, the test suppresses IntersectionObserver.observe on TaskBlocks only. Native observer constructors and all React task components still run.',
       notes: [
         'Calendar is the default view; Todo is a matched data/control view.',
         'Task DOM existence/visibility is not guaranteed painted or user-interactable.',
         'Three repeats per group are directional, not significance or equivalence tests.',
         'Image observer count is browser instrumentation, not proof observers cause latency.',
         'This run covers dense selected-day tasks; distant and distributed-day controls remain unmeasured.',
+        'Observer-ablation variant is a causal probe for native observer registrations and resulting state updates only; no image-containing tasks and no runtime product change.',
         'No physical device, real account, genuine remote sync, or images.',
       ],
     },
