@@ -34,6 +34,13 @@ Current task: #858 Calendar-first cached-task performance diagnostics; runtime u
 - At 500, Calendar rendered 500 TaskBlocks/501 total IntersectionObserver constructions, longest-task p50 71ms; Todo longest-task p50 1087ms. These are 3-sample, synthetic text-only same-day estimates, not real-device proof.
 - Extend on isolated branch to 1,000 tasks with same UI-created local fixtures and instrument observer-only ablation for 500/1,000 tasks; no shipped runtime changes. Keep true multi-date, media, real-device, and authenticated sync follow-ups separate.
 
+## Calendar distribution experiment
+
+- Verified diagnostic commit `f8be0d1c580762c7c0464d2ed5b71dcf092fea6a`: focused #39034283886 SUCCESS, slow-startup #39034283816 SUCCESS, 84/84 benchmark #39034283811 SUCCESS; raw artifacts in Actions.
+- 1000 same-day tasks: cached slow-online Calendar p50 664ms vs Todo 2888ms, offline Calendar 666ms vs Todo 2973ms; normal Calendar longest task 68ms vs Todo 1815ms. Observer-only ablation at 500 gave identical online p50 (596ms) and at 1000 did not improve it (664ms vs 698ms), so do not optimize image observer registration without further evidence.
+- New isolated read-only diagnostic: 500 actual UI-created tasks in identical IndexedDB state, rewrite only persisted task dates in copied snapshots for 1/7/30/365-day-offset patterns; verify all unique task previews after rehydration. Compare cached offline and slow online; never alter browser time or send backend data.
+- The completed heavy 1000-task lab is retained as a manually runnable diagnostic; default push now runs the new distribution lab instead to avoid repeating 84 browser launches on every diagnostics change.
+
 ## Next action
 
 - Verify exact-head focused Quality Gate and Calendar-first lab (raw JSON and logs); investigate any failures, patch, rerun. Report only verified Calendar timing results and observed sources.
