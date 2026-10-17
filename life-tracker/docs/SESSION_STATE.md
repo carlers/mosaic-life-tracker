@@ -1,19 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-16 UTC
-Current task: #889 integrated Production-target acceptance before v0.29.1 pre-1.0 release.
+Current task: #889 combined pre-1.0 regression candidate; source-only integration of accepted #855/#745, pinned #914 release-client policy and Scratch runbooks. Isolated task branch `chatgpt/889-integrated-pre1-20261016` (base `fix/745-send-denial-20261016@62a5d63470e46b5f44941953bfaf211aa724ccd0`), proposed combined Preview v0.29.4.
 
-## Current verified state
-- Protected `dev@c733bfa73f4ca742f6333ee75e11c642f83daf53` = v0.29.1, full Quality Gate #38891390926 SUCCESS and exact dev Vercel READY. Protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0` = v0.17.4, Vercel Production READY; #909 OPEN, unmerged, 1.0.0 not approved.
-- Owner confirmed every known old v0.17.4 PWA synced/retired plus independent R2/encryption key escrow; authenticated `npm run dr:check` PASS for snapshot `20261016T110126909Z`, completed 2026-10-16 11:02:17 UTC. This is owner attestation, not independently observed per device.
-- Approved Production schema 010–015 actually applied and individually verified via authenticated connected Appwrite API from exact Git manifest (preferred CLI blocked by credential-transfer checks): 17 tables, Diary 9 AVAILABLE columns, Messages 25 AVAILABLE columns; no 008/unscoped migration. New `message-action@6ad20d5de9380307809d` active READY from exact dev source; prior `6acb8162dc02a1deaa23` retained READY, cron/scopes/variables same. `dr_backup` unchanged. Details: issue #889 comment 6214794662.
-- Read-only `get_notifications` smoke on active Production Function returned HTTP 200. An independently rebuilt local Production-target v0.29.1 bundle passed build/PWA/size checks, HTTPS root and deep-link HTTP 200, and embeds approved Production Appwrite ID. This does NOT prove actual two-account/offline/mobile privacy acceptance.
-- The existing Production Appwrite Web platform registers a private laptop address, enabling a **local** v0.29.1 Production-target acceptance build without redirecting official Vercel Previews away from Scratch or merging main.
+## Verified baseline
+- Protected `dev@f9e01b6fc8f8913b75a9738fc978c0ed55427d98` = v0.29.1; Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` = published v0.29.1. No 1.0 approval.
+- Owner accepted #855 far-date Day View on `fix/855-day-view-window-20261016@10feb70b8d942593fbbd11b2ed5d6120cab35500`, full canonical #38915794320 SUCCESS; and #745 Not sent/Retry on `fix/745-send-denial-20261016@62a5d63470e46b5f44941953bfaf211aa724ccd0`, full canonical #38922596566 SUCCESS. #745 also owner tested offline/retry and account isolation. Hide-on-unfriend stays current behavior; enhancement deferred #937 post-1.0.
+- #914 source-only policy and live test runbook from `security/914-release-client-compat-20261016@eec2d3bfabb945ee91790a06213827b5028aac1a`: supported client pinned to published main v0.29.1, legacy v0.17.4 owner-retired. Scratch wildcard guidance from `security/914-scratch-wildcard-20261016@5e4ed022840f785face593db3112fd35936910f2`: `*.vercel.app` intentionally covers single-label Preview domains; Production stays narrow.
+- #914 owner reports SUCCESS for v0.29.1→v0.29.3 same-origin live PWA upgrade (offline edits to task/Diary, deletion, old app reconnect before updating, independent fresh session convergence, normal update/reload, data persisted, final Sync Now green). Isolated compatibility alias switched only from v0.29.1 to v0.29.3; no backend changes. Live backend schema/Function expansion, negative cross-account privacy tests and rollback remain NOT RUN / UNASSESSED. See issue #914 comment 6226143261.
+- Scratch project `6a96e82d000d1310b3be` active with READY `message-action@6ad04931c34b463de0b4`; no Scratch or Production schema/Function mutations in this integration. No secrets copied.
 
-## Current source-only task
-- Document the repeatable exact-SHA local Production-target acceptance protocol in `docs/PRODUCTION_ACCEPTANCE.md`, link it from `docs/README.md` and `docs/PRODUCTION_RELEASE_READINESS.md`, and replace this stale checkpoint with factual milestones.
-- Version impact NONE. No app behavior, Vercel/provider configuration, Appwrite schema/Function or protected branch promotion in this documentation task.
+## Integration scope and version decision
+- Base is accepted v0.29.3 #745 code. Cherry-pick exact file contents only for #855 Day View hook/sheet and React regression, retaining all #745 denied-send source/regressions.
+- Apply docs and pinned supported-release policy from #914 branches without touching sync/schema/Function behavior.
+- Version **v0.29.4** because this combined user-testable Preview tree differs from both separately published v0.29.2 and v0.29.3 Preview artifacts; align package manifest, lock root, and appVersion.
+- Update #914 Phase B runbook with *owner-reported frontend-only* PWA acceptance, not full backend compatibility PASS.
+- No new features, hide-on-unfriend UX changes, backend mutations, Production changes, protected promotion or 1.0 release.
 
 ## Next action
-- Owner real signed-in two-account Diary/chat/reactions/notifications/private-record/offline/mobile/PWA acceptance on Production-target v0.29.1. Certificate-related PWA limitations remain BLOCKED until genuinely verified.
-- Current health/restore evidence, exact dev CI, and source pin rechecked before *separately approved* #909 dev→main merge; main full CI, matching Production Vercel deployment and release publisher then verified. No v1.0.0 tag.
+- Run focused CI on this task SHA; fix failures. Then squash via explicit task→isolated stable `fix/889-pre1-integration-20261016` PR, run full canonical CI and trusted Vercel READY Preview; verify combined app versions, both fixes, Scratch backend and regression coverage.
+- Ask owner for combined Preview smoke/acceptance before separately proposing a protected dev promotion; it is **not authorized** by this task.
+- Keep #936 comprehensive security/privacy audit as mandatory pre-1.0 gate; #914 changed-backend rehearsal and privacy/rollback negative tests remain uncompleted. Never tag v1.0.0 absent owner signoff.

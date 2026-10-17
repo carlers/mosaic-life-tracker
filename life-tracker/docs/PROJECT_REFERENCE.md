@@ -674,6 +674,7 @@ Function ID is shared by `src/lib/appAction.ts` and the message layer; `src/lib/
 5. Re-entrancy is scoped by the authenticated owner generation; same-owner triggers coalesce, a newer owner waits for the previous generation to retire, and the outer loop remains capped at 5 iterations (§18)
 6. Triggered on `AppLayout` mount, `window.focus`, `window.online`, and after every send
 7. Each trigger also best-effort flushes the `messageActionQueue` (§20.5)
+8. For a confirmed permanent non-authentication 400/403/404/409/422 message denial, the pending RxDB row and content are retained but an owner-scoped, bounded local-only denied ID prevents automatic retries. The sender sees **Not sent** and can explicitly **Retry** the original ID. The denied marker clears after verified server receipt and local delivered patch, without adding a replicated `delivery_status` enum value. Authentication 401 is distinct from denial; transient/timeout/408/425/429/5xx failures remain automatically retryable. Denial metadata contains IDs only, never message contents or Function error bodies. Other devices and delayed PWA upgrades require separate verification.
 
 ### 20.5 Read Receipt & Unsend Retry Flow
 1. Recipient opens `ChatPage`, patches their incoming rows' `readAt` locally (drives unread badge)
