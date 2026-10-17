@@ -1,3 +1,5 @@
+import { markStartup } from '../../lib/startupMetrics';
+
 function memoizeImport<T>(load: () => Promise<T>): () => Promise<T> {
   let pending: Promise<T> | null = null;
   return () => {
@@ -10,6 +12,16 @@ function memoizeImport<T>(load: () => Promise<T>): () => Promise<T> {
     return pending;
   };
 }
+
+// Shared lazy module loader: returning accounts warm this before React mounts,
+// while AppLayout reuses the same promise and resets naturally on failure.
+export const loadAppDataShell = memoizeImport(() => {
+  markStartup('app-shell:import-start');
+  return import('./AppDataShell').then((module) => {
+    markStartup('app-shell:module-ready');
+    return module;
+  });
+});
 
 export const loadHomePage = memoizeImport(() => import('../../pages/HomePage'));
 export const loadAccountPage = memoizeImport(() => import('../../pages/AccountPage'));
