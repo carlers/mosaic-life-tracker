@@ -16,11 +16,10 @@ const CASES = [
   { count: 250, distribution: 'dense' },
   { count: 1000, distribution: 'dense' },
   { count: 1000, distribution: 'month' },
-  { count: 1000, distribution: 'years' },
 ];
 const VARIANTS = {
-  calendar: ['baseline', 'active-month-only'],
-  todo: ['baseline', 'no-dnd', 'active-day-only', 'no-dnd-active-only', 'simple-rows'],
+  todo: ['baseline', 'no-passive-targets', 'no-idle-motion',
+    'no-idle-motion-no-passive', 'no-dnd'],
 };
 const REPEATS = 3;
 const FAST = { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
@@ -249,7 +248,7 @@ async function sample(browser, fixture, snapshot, mode, view, variant, iteration
         .toBeGreaterThanOrEqual(fixture.count);
     }
     expect(Number.isFinite(result.querySubscriptionToResultMs)).toBe(true);
-    console.log('MOSAIC_858_RENDER_ROW ' + JSON.stringify(result));
+    console.log('MOSAIC_858_IDLE_ROW ' + JSON.stringify(result));
     return result;
   } finally {
     network.release();
@@ -257,7 +256,7 @@ async function sample(browser, fixture, snapshot, mode, view, variant, iteration
   }
 }
 
-test('@performance Issue 858 matched Calendar/Todo render graph ablations', async ({ browser }) => {
+test('@performance Issue 858 selective idle Motion and passive drop-target ablations', async ({ browser }) => {
   test.setTimeout(3_500_000);
   await mkdir(resolve('.mosaic/slow-startup'), { recursive: true });
   const { states } = await seedFixtures(browser);
@@ -296,8 +295,8 @@ test('@performance Issue 858 matched Calendar/Todo render graph ablations', asyn
         }];
       }))));
     groups.push({ ...fixture, stats });
-    console.log('MOSAIC_858_RENDER_GROUP ' + JSON.stringify(groups.at(-1)));
-    await writeFile(resolve('.mosaic/slow-startup/structural-render-partial.json'),
+    console.log('MOSAIC_858_IDLE_GROUP ' + JSON.stringify(groups.at(-1)));
+    await writeFile(resolve('.mosaic/slow-startup/idle-motion-partial.json'),
       JSON.stringify({ groups, rows }, null, 2) + '\n');
   }
   const report = {
@@ -307,23 +306,22 @@ test('@performance Issue 858 matched Calendar/Todo render graph ablations', asyn
       browser: '412x915 Chromium, 2x CPU throttle, locally persisted task fixture, PWA precache',
       network: 'Every Appwrite request held; slow online all cases; offline dense 1000 control.',
       ablations: {
-        'active-month-only': 'Calendar removes adjacent months from initial React content; navigation prefetch parity NOT proven.',
-        'no-dnd': 'Todo removes active DayView drag runtime and draggable wrappers; long press/reorder deliberately disabled.',
-        'active-day-only': 'Todo removes six DayView neighbors from initial task content; navigation parity NOT proven.',
-        'no-dnd-active-only': 'Both Todo active-day and drag-runtime reductions.',
-        'simple-rows': 'Todo replaces task components with inert text rows; all titles but zero task-action semantics. Cost bound ONLY.',
+        'no-passive-targets': 'Offscreen TaskRowDropSurface omits two inert absolute divs; dnd-kit hooks and active target divs untouched.',
+        'no-idle-motion': 'Drag provider and hooks remain mounted, but Framer layout projection starts only once drag/diary settling begins.',
+        'no-idle-motion-no-passive': 'Combine both narrow idle optimizations.',
+        'no-dnd': 'Intentional destructive reference ceiling: disables drag runtime and wrappers. Not a product candidate.',
       },
       safeguards: 'Lab-only Vite compile flag, synthetic owner guard, never deploy/merge to stable.',
       limitations: [
-        'Ablations intentionally break drag or task-interaction semantics and must NOT ship.',
+        'No-dnd deliberately breaks drag. Idle Motion activation timing is unverified with real touch, Diary, fast multi-category drags.',
         'Readiness and DOM event response are browser proxies, not first-painted native touch.',
         'Three repetitions and shared order require a separate larger causal replication.',
-        'Photo/Diary/shared, multi-account, real-device and first fast-swipe behavior not tested.',
+        'Photo/Diary/shared, multi-account, real-device and first long-press/cross-category behavior not yet tested.',
       ],
     },
     groups, rows,
   };
-  await writeFile(resolve('.mosaic/slow-startup/structural-render.json'),
+  await writeFile(resolve('.mosaic/slow-startup/idle-motion.json'),
     JSON.stringify(report, null, 2) + '\n');
-  console.log('MOSAIC_858_RENDER_FINAL ' + JSON.stringify(groups));
+  console.log('MOSAIC_858_IDLE_FINAL ' + JSON.stringify(groups));
 });

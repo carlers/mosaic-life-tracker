@@ -134,6 +134,16 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   diaryProjectedPlacement = null,
   diaryDragHeight = 48,
 }) => {
+  // #858 laboratory-only ablation: keep drag provider/registration and rows,
+  // but suppress expensive idle Framer Motion layout measurement until a drag
+  // or diary settle is in progress. Never deploy this experimental branch.
+  const labVariant = import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1' &&
+    currentUserId === 'issue858_scale_user'
+    ? localStorage.getItem('mosaic_858_render_variant') : null;
+  const labMotionIdleOff = labVariant === 'no-idle-motion' ||
+    labVariant === 'no-idle-motion-no-passive';
+  const animateTaskProjection = reorderRuntimeActive &&
+    (!labMotionIdleOff || Boolean(activeDrag || diaryDragging || diarySettling || settlingTaskId));
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
     : null;
@@ -238,7 +248,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
              diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
           diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
              ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
-          animateDragProjection={reorderRuntimeActive}
+          animateDragProjection={animateTaskProjection}
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
           settlingTaskId={settlingTaskId}

@@ -111,6 +111,11 @@ const RegisteredRowTargets: React.FC<RowTargetsProps> = ({
     </>
   );
 };
+// #858 test-only: passive targets have no registration or pointer events.
+const labSkipPassiveTargets = import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1' &&
+  localStorage.getItem('mosaic_last_known_user')?.includes('"$id":"issue858_scale_user"') &&
+  ['no-passive-targets', 'no-idle-motion-no-passive'].includes(
+    localStorage.getItem('mosaic_858_render_variant') ?? '');
 const PassiveRowTargets = () => (
   <>
     <div aria-hidden="true" style={{ ...dropZoneStyle, top: 0 }} />
@@ -163,7 +168,7 @@ export const TaskRowDropSurface: React.FC<{
         {active
           ? <RegisteredRowTargets categoryId={categoryId} taskId={taskId}
               isActiveSource={isActiveSource} acceptTasksOnly={acceptTasksOnly} />
-          : <PassiveRowTargets />}
+          : labSkipPassiveTargets ? null : <PassiveRowTargets />}
         {children}
       </TaskRowRegistrationContext.Provider>
     </motion.div>
