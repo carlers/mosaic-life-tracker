@@ -44,6 +44,22 @@ An actual migration needs all of the following before any application switch:
 5. Quantified free-tier envelopes: rows, bytes, indexes, RLS cost, read/write rate, 95th percentile sync latency, Auth and realtime connection limits, photo/object storage/egress, plus a backup and disaster-recovery approach independent of this experimental project.
 6. A reversible dual-run/cutover strategy with real encrypted backups and explicit release approval. Never run both providers as independent authoritative writers.
 
+## Migration candidate v1 — private tasks/categories (2026-10-18)
+
+- Active migration [#967](https://github.com/carlers/mosaic-life-tracker/issues/967). The isolated Supabase `mosaic-dev` project now holds two additional migrations: `create_mosaic_candidate_tasks_categories_owner_rls` and `deny_candidate_physical_deletion_default_grants`. Their sources are in `supabase-poc/migrations/`. **Do not replay** CREATE migrations on an initialized target, or run any POC migrations in production/CI.
+- Candidate `public.mosaic_candidate_tasks` and `public.mosaic_candidate_categories` preserve the current RxDB *string document IDs* (text) but authenticate the owner through Supabase `auth.uid()` (UUID). An explicit mapping from old Appwrite `userId` identities is essential. Password/session portability and relational user references remain unresolved.
+- Task columns represent the current task fields for analysis. `order` maps to `order_index` and `date` maps to `task_date`. Owner-only RLS prevents social reads **even when visibility says public/followers**. That fail-closed limitation is deliberate until recipient, friendship, blocked-user and notification authorization are proven. Media may not be copied as inline database content without a capacity/security design.
+- Private per-owner revisions serialize writes across tasks and categories. `change_seq` is allocated transactionally by a fixed-search-path SECURITY DEFINER trigger. CAS updates filter on the expected sequence; a stale write then changes zero rows. One SQL transaction does not prove real concurrent-client behavior or a full RxDB adapter.
+- **Found and corrected a security fault:** Supabase's default `authenticated` grant included physical `DELETE` on newly created public tables, despite explicit migration grants listing only SELECT/INSERT/UPDATE. An adversarial test **failed**. A follow-up migration revokes all authenticated privileges and explicitly regrants only SELECT/INSERT/UPDATE. Verified: cross-user read/insert/update denied, forged client revision overwritten, owner ID immutable, stale CAS ignored, hard DELETE blocked, tombstone revision advanced, anonymous reads denied.
+- Ran the committed rollback-only SQL scripts on `mosaic-dev`. All checks PASS after the fix, and readback found 0 candidate task rows, 0 candidate category rows and 0 owner counter rows. Supabase Security Advisor returned no lint findings. These are SQL role simulations with fake claims, **not real signed JWT/HTTP/SDK/Realtime or multi-device tests**. No data migration was performed.
+- This schema is an experiment: there are no category foreign keys or social sharing policies; constraints and media representation need parity tests with current RxDB. The project remains free and isolated; no backend switch or Production change.
+
+### Provider direction and future portability
+
+Supabase Free provides unlimited API requests, **not** unlimited disk, egress, compute or Realtime. Relevant official Free quotas: 500 MB of Postgres database per project, 5 GB monthly organization egress, 2M monthly Realtime messages, 200 peak Realtime connections, and 500K Edge Function invocations. Monitor measured use and require an independent restore strategy. Provider self-hosting should reuse standard PostgreSQL migrations, config-driven endpoints, policies and no browser service-role credentials.
+
+Track the actual Appwrite→Supabase migration in [#967](https://github.com/carlers/mosaic-life-tracker/issues/967). The optional dual cloud/home-server replication idea is separate **post-1.0 planning only**, in [#968](https://github.com/carlers/mosaic-life-tracker/issues/968); never introduce two independent authoritative writers during this migration.
+
 ## Next experiments, in order
 
 1. **Authentication:** create two disposable Supabase Auth accounts in this isolated project when safe automated Auth-user tooling is available, exercise real JWT data requests against `mosaic_sync_probe`, then delete test accounts. No real user data.
