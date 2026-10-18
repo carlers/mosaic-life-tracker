@@ -66,6 +66,7 @@ authorization, Scratch checks, or release gates.
 | Portable OCI/NAS/laptop host prerequisite checks and disposable Appwrite health probe (#975) | [Oracle self-hosting PoC](SELF_HOSTING_ORACLE_POC.md) |
 | Read-only ARM64/x86 image registry checks for disposable Appwrite Compose stacks (#975) | [Self-host image audit](SELF_HOSTING_IMAGE_AUDIT.md) |
 | Real native ARM64 Docker pull/process proof on isolated hosted runner (#975) | [Native ARM64 probe](SELF_HOSTING_ARM64_RUNNER_PROOF.md) |
+| Node 18/22 native ARM64 Function-runtime proof and default installation caveat (#975) | [Function runtimes](SELF_HOSTING_FUNCTION_RUNTIMES.md) |
 | Exact-source local Production-target pre-release testing (not a Vercel Preview) | [Production acceptance](PRODUCTION_ACCEPTANCE.md) |
 | Independent forks and maintainer continuity | [Forking and recovery](FORKING.md) |
 | Friendship rollout, permissions, and legacy repair | [Friendship recovery](FRIENDSHIP_RECOVERY.md) |

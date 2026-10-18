@@ -33,6 +33,8 @@ Appwrite TablesDB, Auth, Storage, Realtime and Function behavior with the exact
 existing and target SDK/server versions using synthetic data before deciding on
 a separately reviewed client SDK change.
 
+Before installing, account for [Mosaic's required Node 18/22 Function runtimes](SELF_HOSTING_FUNCTION_RUNTIMES.md). Appwrite 2.5.0's default config enables only Node 22. The `node-18.0` Function must not disappear during a provider migration.
+
 ## Phase A — safe isolated OCI candidate
 
 1. Use a dedicated non-production OCI compartment, Ubuntu **ARM64** VM.Standard.A1.Flex,

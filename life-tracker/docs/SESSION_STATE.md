@@ -1,22 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #975 — native ARM64 Docker pull/process proof without an OCI VM.
+Current task: #975 native ARM64 Node Function runtime proof without OCI VM.
 
 ## Boundary
-- Starting from isolated unified selfhost Preview `refactor/975-unified-offline-readiness-20261019@06b45c6e994049fdd21dd849c43dadf88ca3aa9e`, after full canonical gate #39172181307 success and trusted delivery #39172343390 READY.
-- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, main `b952f71ecd2add3172f90104bc0e856a2648ccc9` remain unchanged. The owner cannot yet create OCI VM. No Production/Scratch access, secrets, user data or cutover.
-- Task branch `chatgpt/975-native-arm64-proof-20261019` contains a narrowly scoped native GitHub hosted ARM64 smoke workflow and guide, not Appwrite application runtime changes.
+- Based on accepted isolated `refactor/975-native-arm64-proof-20261019@5e332b3ec68ef2e3a9413295b82ab3759390757e`; previous native Appwrite image verification ten-of-ten passed in Actions #39173214388; full canonical #39173487970 and trusted delivery #39173625406 success.
+- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, Production main `b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged; owner has not created Oracle VM.
+- No Appwrite/Scratch/Production or OCI access or credentials. Internal test/tooling, app version impact NONE.
 
-## Evidence and work
-- Official Appwrite 2.5.0 upstream Compose tag lists appwrite/appwrite, appwrite/postgres, openruntimes/executor, orchestrator, clickhouse, Redis, Traefik, console, browser and geo images. GitHub supports ubuntu-24.04-arm runner on public repositories.
-- New `.github/workflows/selfhost-arm64-probe.yml`: branch-specific no-secret hosted `ubuntu-24.04-arm` image pulls/OS-arch verification for selected ten pinned images; one network-disabled low-privilege Appwrite ARM64 shell execution. No service launch, data writes, Docker socket mounts inside pulled containers, production functions or Appwrite credentials.
-- `docs/SELF_HOSTING_ARM64_RUNNER_PROOF.md` details interpretation, exclusions, upstream references and remaining OCI VM testing; docs index links it.
-- No application version impact or backend deployment. Full Compose stack, Node18/22 runtime, memory headroom and SDK proof remain unverified.
+## Work and finding
+- Mosaic's source Function manifests require `node-18.0` for message-action and `node-22` for dr-backup; upstream Appwrite 2.5.0 `.env` only enables Node 22 by default.
+- Isolated branch `chatgpt/975-node-runtime-arm64-20261019` adds a branch-scoped, no-secret native GitHub ARM runner proof for `openruntimes/node:v5-18.0` and `openruntimes/node:v5-22` real pulls plus synthetic Node code execution in network-disabled, read-only, 2-CPU/512-MiB containers.
+- `docs/SELF_HOSTING_FUNCTION_RUNTIMES.md` explains configuration requirements, known Node 18 EOL risk and major remaining Appwrite Function/integration gates; linked from OCI runbook and docs index.
 
 ## Verification
-- Pending one focused task Quality Gate, native ARM runner experimental job, then stable Preview canonical and trusted delivery as applicable. Do not claim anything from unobserved Actions.
-- Native container *startup* green is not proof that the full Appwrite backend, performance or recovery will run on Oracle A1.
+- Pending focused task CI, native ARM64 job, stable canonical and trusted delivery. No actual hosted Appwrite service or real Function has been run.
+- The unchanged Mosaic user data/permissions, SDK parity, 2-OCPU capacity and R2 DR/NAS remain unverified.
 
 ## Next action
-- Review exact independent ARM-runner workflow result. If failures, diagnose image metadata vs actual execution vs environment/network, without weakening security. Keep issue #975 open; after focused green promote only to isolated stable Preview for full CI; no dev/main promotion or real backend change without separate owner approval.
+- Review native runner and focused results, resolve relevant failures, squash into isolated stable Preview, run canonical and trusted delivery. Keep #975 open; no dev/main or Production changes without separate approval.

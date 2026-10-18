@@ -1,0 +1,86 @@
+name: OCI Appwrite Functions native ARM64 runtime proof
+
+# Synthetic-only. No OCI, no Appwrite service, no secrets and no Docker socket mounts.
+on:
+  push:
+    branches:
+      - 'chatgpt/975-node-runtime-arm64-20261019'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mosaic-975-runtime-arm64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node-runtime-smoke:
+    name: Real Node 18 and 22 ARM64 runtime execution
+    if: ${{ github.repository == 'carlers/mosaic-life-tracker' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - name: Validate native ARM64 runner and Docker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "aarch64"
+          test "$(docker info --format '{{.Architecture}}')" = "aarch64"
+
+      - name: Pull and run each exact Mosaic runtime on native ARM64
+        shell: bash
+        run: |
+          set -uo pipefail
+          failed=0
+          echo '## Synthetic Mosaic Node Function runtime checks' >> "$GITHUB_STEP_SUMMARY"
+          echo '| Image | Outcome |' >> "$GITHUB_STEP_SUMMARY"
+          echo '|---|---|' >> "$GITHUB_STEP_SUMMARY"
+          for spec in 'openruntimes/node:v5-18.0 18' 'openruntimes/node:v5-22 22'; do
+            read -r image expected <<< "$spec"
+            echo "::group::Testing $image"
+            if ! timeout 240s docker pull --quiet --platform linux/arm64 "$image" >/dev/null; then
+              echo "::error::ARM64 pull failed or timed out for $image"
+              printf '| %s | PULL FAILED |\n' "$image" >> "$GITHUB_STEP_SUMMARY"
+              failed=1
+              echo "::endgroup::"
+              continue
+            fi
+            platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image" 2>/dev/null || true)"
+            if [[ "$platform" != 'linux/arm64' ]]; then
+              echo "::error::$image has incompatible $platform architecture"
+              printf '| %s | INVALID PLATFORM |\n' "$image" >> "$GITHUB_STEP_SUMMARY"
+              failed=1
+              echo "::endgroup::"
+              continue
+            fi
+            if timeout 45s docker run --rm --platform linux/arm64 \
+              --network none --read-only --cap-drop ALL \
+              --security-opt no-new-privileges --pids-limit 64 \
+              --cpus 2 --memory 512m --env EXPECT_MAJOR="$expected" \
+              --entrypoint /bin/sh "$image" -c '
+                test "$(uname -m)" = aarch64 || exit 11
+                node -e "
+                  const c = require(\"node:crypto\");
+                  if (parseInt(process.versions.node, 10) !== parseInt(process.env.EXPECT_MAJOR, 10)) process.exit(12);
+                  if (c.createHash(\"sha256\").update(\"synthetic-mosaic\").digest(\"hex\").length !== 64) process.exit(13);
+                  if (Buffer.from(\"Mosaic\").toString(\"base64\") !== \"TW9zYWlj\") process.exit(14);
+                  console.log(\"PASS synthetic Node \" + process.versions.node + \" on ARM64\");
+                "
+              '; then
+              printf '| %s | Native ARM64 Node %s executed |\n' "$image" "$expected" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::error::ARM64 Node execution failed for $image"
+              printf '| %s | EXECUTION FAILED |\n' "$image" >> "$GITHUB_STEP_SUMMARY"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$failed"
+
+      - name: Record limits
+        if: always()
+        shell: bash
+        run: |
+          echo 'No Appwrite executor, Function packaging/deployments, scheduled jobs, auth, permissions, SDK or cloud backend tested.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ARM64 execution is not evidence of OCI 2 OCPU sustained performance, recovery or zero billing.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Appwrite 2.5 enables only Node 22 by default; Mosaic message-action needs Node 18.0 too.' >> "$GITHUB_STEP_SUMMARY"
