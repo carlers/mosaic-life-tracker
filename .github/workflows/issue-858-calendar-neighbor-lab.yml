@@ -36,7 +36,7 @@ jobs:
         run: |
           npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/mosaic-neighbor-vite.log 2>&1 &
           for attempt in {1..40}; do
-            if curl -kfsS https://127.0.0.1:4173/tests/e2e/interaction-contract.html >/dev/null; then
+            if curl -kfsS http://127.0.0.1:4173/tests/e2e/interaction-contract.html >/dev/null; then
               exit 0
             fi
             sleep 1

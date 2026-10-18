@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 // Diagnostic-only paired React/DOM local-data reveal probe. This is NOT a
 // browser-cached Home startup metric and has no account/network dependency.
-const ORIGIN = 'https://127.0.0.1:4173';
+const ORIGIN = 'http://127.0.0.1:4173';
 const COUNTS = [0, 25, 250, 1000];
 const REPEATS = 5;
 const median = xs => {
