@@ -1,0 +1,106 @@
+name: OCI Appwrite ARM64 datastore smoke
+
+on:
+  push:
+    branches:
+      - 'chatgpt/975-arm64-datastores-20261019'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mosaic-975-arm-db-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-arm64-stores:
+    name: Synthetic PostgreSQL Redis ClickHouse service smoke
+    if: ${{ github.repository == 'carlers/mosaic-life-tracker' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - name: Exercise isolated native ARM64 datastores
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = aarch64
+          test "$(docker info --format '{{.Architecture}}')" = aarch64
+          # Exact image tags from the Appwrite 2.5.0 upstream Compose source.
+          for image in appwrite/postgres:0.1.0 redis:7.4.7-alpine clickhouse/clickhouse-server:26.4.3-alpine; do
+            timeout 180s docker pull --quiet --platform linux/arm64 "$image" >/dev/null
+            test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = "linux/arm64"
+          done
+          docker network create --internal mosaic-975-network >/dev/null
+          cleanup() {
+            docker rm -f mosaic-975-pg mosaic-975-redis mosaic-975-ch >/dev/null 2>&1 || true
+            docker network rm mosaic-975-network >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          # Temporary synthetic credentials, private network, no published ports,
+          # no real data, no Docker socket passed into any container.
+          docker run -d --name mosaic-975-pg --network mosaic-975-network \
+            --cpuset-cpus 0,1 --memory 1500m --security-opt no-new-privileges \
+            -e POSTGRES_DB=mosaic_synthetic -e POSTGRES_USER=mosaic_synthetic \
+            -e POSTGRES_PASSWORD=synthetic-ci-only \
+            appwrite/postgres:0.1.0 postgres >/dev/null
+          docker run -d --name mosaic-975-redis --network mosaic-975-network \
+            --cpuset-cpus 0,1 --memory 384m --security-opt no-new-privileges \
+            redis:7.4.7-alpine redis-server --maxmemory 128mb >/dev/null
+          docker run -d --name mosaic-975-ch --network mosaic-975-network \
+            --cpuset-cpus 0,1 --memory 3g --security-opt no-new-privileges \
+            -e CLICKHOUSE_DB=mosaic_synthetic -e CLICKHOUSE_USER=mosaic_synthetic \
+            -e CLICKHOUSE_PASSWORD=synthetic-ci-only \
+            -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
+            clickhouse/clickhouse-server:26.4.3-alpine >/dev/null
+
+          ready=0
+          for attempt in $(seq 1 60); do
+            if docker exec mosaic-975-pg pg_isready -U mosaic_synthetic -d mosaic_synthetic >/dev/null 2>&1 &&
+               docker exec mosaic-975-redis redis-cli ping >/dev/null 2>&1 &&
+               docker exec mosaic-975-ch clickhouse-client --user mosaic_synthetic \
+                 --password synthetic-ci-only --query 'SELECT 1' >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [[ "$ready" -ne 1 ]]; then
+            echo "::error::One or more ARM64 datastores failed readiness"
+            for name in mosaic-975-pg mosaic-975-redis mosaic-975-ch; do
+              docker inspect --format 'name={{.Name}} status={{.State.Status}} exit={{.State.ExitCode}}' "$name" || true
+            done
+            exit 1
+          fi
+
+          docker exec mosaic-975-pg psql -X -v ON_ERROR_STOP=1 \
+            -U mosaic_synthetic -d mosaic_synthetic \
+            -c 'CREATE TABLE synthetic_probe (id integer PRIMARY KEY, value varchar(32));' >/dev/null
+          docker exec mosaic-975-pg psql -X -v ON_ERROR_STOP=1 \
+            -U mosaic_synthetic -d mosaic_synthetic \
+            -c "INSERT INTO synthetic_probe VALUES (1, 'test-only');" >/dev/null
+          pgcount="$(docker exec mosaic-975-pg psql -X -t -A -v ON_ERROR_STOP=1 \
+            -U mosaic_synthetic -d mosaic_synthetic \
+            -c 'SELECT count(*) FROM synthetic_probe;' | tr -d '[:space:]')"
+          test "$pgcount" = 1
+          test "$(docker exec mosaic-975-redis redis-cli SET synthetic_key 42)" = OK
+          test "$(docker exec mosaic-975-redis redis-cli GET synthetic_key)" = 42
+          docker exec mosaic-975-ch clickhouse-client --user mosaic_synthetic \
+            --password synthetic-ci-only \
+            --query 'CREATE TABLE mosaic_synthetic.synthetic_probe (value UInt8) ENGINE=Memory' >/dev/null
+          docker exec mosaic-975-ch clickhouse-client --user mosaic_synthetic \
+            --password synthetic-ci-only \
+            --query 'INSERT INTO mosaic_synthetic.synthetic_probe VALUES (42)' >/dev/null
+          test "$(docker exec mosaic-975-ch clickhouse-client --user mosaic_synthetic \
+            --password synthetic-ci-only \
+            --query 'SELECT value FROM mosaic_synthetic.synthetic_probe')" = 42
+          {
+            echo '## Native ARM64 synthetic datastore test'
+            echo 'PASS: PostgreSQL initialization + insert/readback.'
+            echo 'PASS: Redis initialization + set/get.'
+            echo 'PASS: ClickHouse initialization + insert/readback.'
+            echo 'All three ran on an internal Docker-only network with no host-published ports.'
+            echo 'Two shared CPU indices; constrained per-container memory; disposable data only.'
+            echo 'No full Appwrite service, user/permissions, real backup, or Oracle performance verified.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          docker stats --no-stream --format 'name={{.Name}} memory={{.MemUsage}} cpu={{.CPUPerc}}' \
+            mosaic-975-pg mosaic-975-redis mosaic-975-ch

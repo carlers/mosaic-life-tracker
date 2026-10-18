@@ -35,6 +35,8 @@ a separately reviewed client SDK change.
 
 Before installing, account for [Mosaic's required Node 18/22 Function runtimes](SELF_HOSTING_FUNCTION_RUNTIMES.md). Appwrite 2.5.0's default config enables only Node 22. The `node-18.0` Function must not disappear during a provider migration.
 
+The [native ARM64 datastore smoke](SELF_HOSTING_ARM64_DATASTORES.md) separately checks PostgreSQL, Redis and ClickHouse initialization and synthetic data roundtrips on an isolated runner, without certifying Appwrite API or OCI VM performance.
+
 ## Phase A — safe isolated OCI candidate
 
 1. Use a dedicated non-production OCI compartment, Ubuntu **ARM64** VM.Standard.A1.Flex,
