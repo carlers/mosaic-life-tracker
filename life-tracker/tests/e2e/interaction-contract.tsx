@@ -186,8 +186,10 @@ function ColdDayViewProbe({ tasks, categories, emptyDayTasks }: {
 }
 
 /** The actual CalendarBody / DayCell / lazy DayViewSheet entry path, rather than an isolated open button. */
-function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; categories: CategoryDocument[] }) {
-  const calendar = useCalendarState();
+function CalendarPathColdProbe({ tasks, categories, deferNeighbors = false }: {
+  tasks: TaskDocument[]; categories: CategoryDocument[]; deferNeighbors?: boolean;
+}) {
+  const calendar = useCalendarState({ deferNeighbors, ownerDataReady: !deferNeighbors });
   const [moduleReady, setModuleReady] = useState(false);
   React.useEffect(() => {
     // Test-only bridge: let the browser assert the already-warm first click
@@ -218,6 +220,7 @@ function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; c
         isActive
         onPrev={calendar.handlePrev}
         onNext={calendar.handleNext}
+        onBeginCalendarInteraction={calendar.prepareAdjacentSlides}
       />
     </div>
   );
@@ -230,6 +233,7 @@ export function InteractionHarness() {
   const compactDiaryMode = searchParams.get('compactDiary') === '1';
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
   const performanceCalendarPath = searchParams.get('calendarPath') === '1';
+  const calendarNeighborProbe = searchParams.get('calendarNeighbors') === 'deferred';
   const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
   const diaryDragProbe = searchParams.get('diaryDrag') === '1';
   const [diaryTestPlacement, setDiaryTestPlacement] = useState<DiaryPlacement>({kind: 'slot', categoryId: 'cat_0', index: 3});
@@ -598,7 +602,7 @@ export function InteractionHarness() {
       </BottomSheet>
 
       {performanceHeavy && (performanceCalendarPath
-        ? <CalendarPathColdProbe tasks={emptyDayTasks ? [] : todoTasks} categories={todoCategories} />
+        ? <CalendarPathColdProbe tasks={emptyDayTasks ? [] : todoTasks} categories={todoCategories} deferNeighbors={calendarNeighborProbe} />
         : <ColdDayViewProbe tasks={todoTasks} categories={todoCategories} emptyDayTasks={emptyDayTasks} />
       )}
       <button

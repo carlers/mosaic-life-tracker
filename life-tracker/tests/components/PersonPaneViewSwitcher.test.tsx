@@ -31,7 +31,7 @@ vi.mock('../../src/components/home/views/todoListViewModule', () => ({
 
 const calendarFixture = vi.hoisted(() => ({
   resetToToday: vi.fn(),
-  options: undefined as { weekStartsOn?: 0 | 1 } | undefined,
+  options: undefined as { weekStartsOn?: 0 | 1; deferNeighbors?: boolean; ownerDataReady?: boolean } | undefined,
 }));
 
 const settingsFixture = vi.hoisted(() => ({
@@ -41,7 +41,7 @@ const settingsFixture = vi.hoisted(() => ({
 }));
 
 vi.mock('../../src/components/home/views/useCalendarState', () => ({
-  useCalendarState: (options?: { weekStartsOn?: 0 | 1 }) => {
+  useCalendarState: (options?: { weekStartsOn?: 0 | 1; deferNeighbors?: boolean; ownerDataReady?: boolean }) => {
     calendarFixture.options = options;
     return {
       title: 'September 2026',
@@ -152,7 +152,7 @@ describe('PersonPane view switcher', () => {
 
     render(<PersonPane person={me} isActive />);
 
-    expect(calendarFixture.options).toEqual({ weekStartsOn: 1 });
+    expect(calendarFixture.options).toEqual({ weekStartsOn: 1, deferNeighbors: true, ownerDataReady: true });
     fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
     expect(calendarFixture.resetToToday).toHaveBeenCalledOnce();
   });

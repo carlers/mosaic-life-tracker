@@ -60,6 +60,47 @@ describe('useCalendarState render window', () => {
     emblaFixture.reset();
   });
 
+  it('first mounts just the focused owner month, then prepares neighbors after a paint opportunity', async () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    const raf = vi.spyOn(window, 'requestAnimationFrame')
+      .mockImplementation(callback => { frames.set(++nextId, callback); return nextId; });
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame')
+      .mockImplementation(id => { frames.delete(id); });
+    try {
+      const { result, rerender } = renderHook(
+        ({ ownerDataReady }) => useCalendarState({ deferNeighbors: true, ownerDataReady }),
+        { initialProps: { ownerDataReady: false } },
+      );
+      expect([result.current.renderStart, result.current.renderEnd]).toEqual([30, 30]);
+      rerender({ ownerDataReady: true });
+      expect([result.current.renderStart, result.current.renderEnd]).toEqual([30, 30]);
+      await act(async () => {
+        const first = frames.get(1);
+        if (!first) throw new Error('Missing first paint frame');
+        first(16);
+        const second = frames.get(2);
+        if (!second) throw new Error('Missing second paint frame');
+        second(32);
+      });
+      expect([result.current.renderStart, result.current.renderEnd]).toEqual([29, 31]);
+    } finally {
+      raf.mockRestore();
+      cancel.mockRestore();
+    }
+  });
+
+  it('mounts neighbors immediately when the user navigates before owner data is ready', () => {
+    const { result } = renderHook(() => useCalendarState({
+      deferNeighbors: true,
+      ownerDataReady: false,
+    }));
+    expect([result.current.renderStart, result.current.renderEnd]).toEqual([30, 30]);
+    act(() => result.current.handleNext());
+    expect(emblaFixture.api.scrollNext).toHaveBeenCalledOnce();
+    expect([result.current.renderStart, result.current.renderEnd]).toEqual([29, 31]);
+  });
+
   it('keeps the three-slide render window stable during per-frame scroll events', () => {
     const { result } = renderHook(() => useCalendarState());
 

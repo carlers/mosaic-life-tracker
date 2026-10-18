@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, useContext, startTransition } from 'react';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import {
@@ -40,10 +40,12 @@ export interface CalendarState {
   handleNext: () => void;
   handleToggle: () => void;
   resetToToday: () => void;
+  prepareAdjacentSlides: () => void;
 }
 
 export function useCalendarState(
-  { weekStartsOn = 0 }: { weekStartsOn?: WeekStartsOn } = {}
+  { weekStartsOn = 0, deferNeighbors = false, ownerDataReady = true }:
+  { weekStartsOn?: WeekStartsOn; deferNeighbors?: boolean; ownerDataReady?: boolean } = {}
 ): CalendarState {
   const appearance = useContext(AppearanceContext);
   const reduceMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
@@ -51,6 +53,24 @@ export function useCalendarState(
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
   const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
+  // Render the focused grid first; mount offscreen neighbors only after
+  // cached owner data is ready and the focused grid has had a paint chance.
+  // Navigation forces neighbors immediately to preserve first-swipe fidelity.
+  const [neighborsReady, setNeighborsReady] = useState(!deferNeighbors);
+  const prepareAdjacentSlides = useCallback(() => setNeighborsReady(true), []);
+  useEffect(() => {
+    if (!deferNeighbors || !ownerDataReady || neighborsReady) return;
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        startTransition(() => setNeighborsReady(true));
+      });
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [deferNeighbors, ownerDataReady, neighborsReady]);
   const isInternalSwipeRef = useRef(false);
   const zoomNavigationLock = useRef(false);
   const [isZoomTransitioning, setIsZoomTransitioning] = useState(false);
@@ -115,6 +135,7 @@ export function useCalendarState(
   }, [emblaApi]);
 
   const handleZoomNavigate = useCallback((direction: 'prev' | 'next'): boolean => {
+    prepareAdjacentSlides();
     if (!emblaApi || zoomNavigationLock.current ||
       (direction === 'next' ? !emblaApi.canScrollNext() : !emblaApi.canScrollPrev())) return false;
     zoomNavigationLock.current = true;
@@ -122,7 +143,7 @@ export function useCalendarState(
     if (direction === 'next') emblaApi.scrollNext();
     else emblaApi.scrollPrev();
     return true;
-  }, [emblaApi]);
+  }, [emblaApi, prepareAdjacentSlides]);
 
   // Keep the active render window aligned to settled snaps. The active slide
   // already has both immediate neighbors mounted, so a one-step drag never
@@ -182,26 +203,30 @@ export function useCalendarState(
   }, [emblaApi, baseDate, focusDate, viewMode]);
 
   const handlePrev = useCallback(() => {
+    prepareAdjacentSlides();
     emblaApi?.scrollPrev();
-  }, [emblaApi]);
+  }, [emblaApi, prepareAdjacentSlides]);
   const handleNext = useCallback(() => {
+    prepareAdjacentSlides();
     emblaApi?.scrollNext();
-  }, [emblaApi]);
+  }, [emblaApi, prepareAdjacentSlides]);
 
   const handleToggle = useCallback(() => {
+    prepareAdjacentSlides();
     if (viewMode === 'month') {
       setFocusDate(startOfMonth(focusDate));
       setViewMode('week');
     } else {
       setViewMode('month');
     }
-  }, [viewMode, focusDate]);
+  }, [viewMode, focusDate, prepareAdjacentSlides]);
 
   const resetToToday = useCallback(() => {
+    prepareAdjacentSlides();
     const today = new Date();
     setFocusDate(today);
     setBaseDate(today);
-  }, []);
+  }, [prepareAdjacentSlides]);
 
   const weekStart = startOfWeek(focusDate, { weekStartsOn });
   const weekEnd = endOfWeek(focusDate, { weekStartsOn });
@@ -224,13 +249,14 @@ export function useCalendarState(
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
   }, [focusDate, baseDate, viewMode, weekStartsOn]);
 
+  const neighborRadius = neighborsReady ? RENDER_WINDOW : 0;
   const renderStart = Math.max(
     0,
-    Math.min(emblaActiveIndex, focusIndex) - RENDER_WINDOW
+    Math.min(emblaActiveIndex, focusIndex) - neighborRadius
   );
   const renderEnd = Math.min(
     TOTAL_SLIDES - 1,
-    Math.max(emblaActiveIndex, focusIndex) + RENDER_WINDOW
+    Math.max(emblaActiveIndex, focusIndex) + neighborRadius
   );
 
   return {
@@ -248,5 +274,6 @@ export function useCalendarState(
     handleNext,
     handleToggle,
     resetToToday,
+    prepareAdjacentSlides,
   };
 }

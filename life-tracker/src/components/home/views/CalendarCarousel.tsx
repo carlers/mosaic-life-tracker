@@ -19,6 +19,7 @@ interface CalendarCarouselProps {
   onPrev?: () => void;
   onNext?: () => void;
   onDayClick: (date: Date) => void;
+  onBeginInteraction?: () => void;
   tasksByDate: Map<string, TaskDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
@@ -40,6 +41,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   onPrev,
   onNext,
   onDayClick,
+  onBeginInteraction,
   tasksByDate,
   sharedByDay,
   ownedSharedTaskIds,
@@ -114,6 +116,8 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
       <div
         className="swiper-no-swiping min-h-0 min-w-0 flex-1 overflow-hidden"
         data-route-swipe-horizontal-owner="true"
+        onPointerDownCapture={onBeginInteraction}
+        onWheelCapture={onBeginInteraction}
         ref={handleEmblaRef}
       >
         <div className="flex h-full min-h-full items-start will-change-transform">

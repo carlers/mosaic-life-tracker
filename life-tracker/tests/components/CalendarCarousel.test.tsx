@@ -22,6 +22,7 @@ describe('CalendarCarousel behavior', () => {
 
   it('exposes the Embla swipe target without swallowing the parent pointer lifecycle', () => {
     const parentPointerDown = vi.fn();
+    const onBeginInteraction = vi.fn();
     let swipeTarget: HTMLElement | null = null;
     const emblaRef = (node: HTMLElement | null) => {
       swipeTarget = node;
@@ -29,7 +30,7 @@ describe('CalendarCarousel behavior', () => {
 
     render(
       <div onPointerDown={parentPointerDown}>
-        <CalendarCarousel {...baseProps} emblaRef={emblaRef} />
+        <CalendarCarousel {...baseProps} emblaRef={emblaRef} onBeginInteraction={onBeginInteraction} />
       </div>
     );
 
@@ -38,6 +39,7 @@ describe('CalendarCarousel behavior', () => {
     fireEvent.pointerMove(swipeTarget!);
     fireEvent.pointerUp(swipeTarget!);
     expect(parentPointerDown).toHaveBeenCalledTimes(1);
+    expect(onBeginInteraction).toHaveBeenCalledTimes(1);
   });
 
   // Regression: only the active render window mounts expensive calendar content.

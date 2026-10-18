@@ -41,6 +41,7 @@ interface PersonPaneProps {
   isActive: boolean;
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
+  ownerDataReady?: boolean;
 }
 
 function readHomeView(): ViewType {
@@ -57,6 +58,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   isActive,
   ownerTasks = [],
   ownerCategories = [],
+  ownerDataReady = true,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -101,7 +103,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, []);
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
-  const calendarState = useCalendarState({ weekStartsOn });
+  const calendarState = useCalendarState({ weekStartsOn, deferNeighbors: true, ownerDataReady });
 
   const categoriesMap = useMemo(() => {
     const map: Record<string, { color: string; name: string }> = {};
@@ -167,6 +169,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           activeIndex={calendarState.activeIndex}
           isZoomTransitioning={calendarState.isZoomTransitioning}
           onZoomNavigate={calendarState.handleZoomNavigate}
+          onBeginCalendarInteraction={calendarState.prepareAdjacentSlides}
           sharedByDay={sharedByDay}
           ownedSharedTaskIds={ownedSharedTaskIds}
           currentUserId={currentUserId}

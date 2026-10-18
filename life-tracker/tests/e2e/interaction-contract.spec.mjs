@@ -1675,6 +1675,19 @@ test('interaction harness has no detectable non-visual WCAG A/AA axe violations'
 // #640: actual CalendarBody/DayCell first tap must paint the sheet shell
 // before running the expensive DayViewSheet subtree. This is an ordering
 // contract, not a machine-dependent millisecond performance budget.
+// Regression #858: owners see only the current Calendar grid on cold mount,
+// but their very first swipe must prepare neighboring grids before navigation.
+test('Calendar deferred neighbor grids mount on first pointer before the swipe', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?calendarPath=1&calendarNeighbors=deferred`);
+  const calendar = page.getByTestId('real-calendar-cold-probe');
+  await expect(calendar.locator('[role="grid"]')).toHaveCount(1);
+  await expect(calendar.locator('[data-calendar-slide-index="30"] [role="grid"]')).toBeVisible();
+  const viewport = calendar.locator('[data-route-swipe-horizontal-owner="true"]');
+  await viewport.dispatchEvent('pointerdown', { pointerType: 'touch', bubbles: true });
+  await expect(calendar.locator('[role="grid"]')).toHaveCount(3);
+  await expect(calendar.locator('[data-calendar-slide-index="31"] [role="grid"]')).toBeAttached();
+});
+
 test('Calendar first sheet open commits a shell before Day View slides', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&calendarPath=1`);

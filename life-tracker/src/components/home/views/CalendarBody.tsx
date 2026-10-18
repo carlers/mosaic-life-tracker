@@ -45,6 +45,7 @@ interface CalendarBodyProps {
   onPrev: () => void;
   onNext: () => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
+  onBeginCalendarInteraction?: () => void;
   weekStartsOn?: WeekStartsOn;
   holidayConfig?: HolidayDisplayConfig;
 }
@@ -73,6 +74,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   onPrev,
   onNext,
   onReactToTask,
+  onBeginCalendarInteraction,
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
 }) => {
@@ -170,6 +172,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       onPrev={onPrev}
       onNext={onNext}
       onDayClick={handleDayClick}
+      onBeginInteraction={onBeginCalendarInteraction}
       tasksByDate={tasksByDate}
       sharedByDay={variant === 'me' ? sharedByDay : undefined}
       ownedSharedTaskIds={variant === 'me' ? ownedSharedTaskIds : undefined}

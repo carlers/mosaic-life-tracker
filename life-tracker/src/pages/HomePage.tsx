@@ -346,6 +346,7 @@ export const HomePage: React.FC = () => {
                     isActive={i === activeIndex}
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
+                    ownerDataReady={!tasksLoading && !categoriesLoading}
                   />
                 ) : null}
               </SwiperSlide>

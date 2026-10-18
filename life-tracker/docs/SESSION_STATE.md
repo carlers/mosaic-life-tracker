@@ -1,22 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-18 UTC
-Current task: #858 compact Todo/Diary month grids blank after Today/frequent arrows; first Calendar→Todo/Diary switch blanks.
+Current task: #858 — accelerate default Calendar initial mount without changing visible content or first-gesture behavior.
 
-## Approved boundary
-- User asked to fix these bugs (also reported on main) and continue structural startup work. Calendar itself works and should remain unchanged. #858 OPEN. No dev/main/Production promotion approved.
-- New task branch chatgpt/858-todo-diary-grid-mount-fix-20261018 forks delivered Scratch Preview perf/858-todo-row-20261018@1769452d5139d1bd67de166a40e9e1583224535d v0.29.9. Stage **v0.29.10** for next user-testable revision; dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b and main@b952f71ecd2add3172f90104bc0e856a2648ccc9 untouched.
+## Approval and exact source
+- User manually accepted v0.29.10 Todo/Diary navigation fixes on 2026-10-18 and requested renewed Calendar initial-mount optimization. #957 acceptance comment filed; separate integration approval remains required. #858 OPEN.
+- Task `chatgpt/858-calendar-deferred-neighbors-20261018` forks accepted Preview `perf/858-todo-diary-grid-20261018@796085e23d7e48df5451849a878b0962a8e1cee8` v0.29.10. Next user-testable revision provisionally **v0.29.11**. `dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b`, `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged. No dev/main/Production, backend/schema/Function/1.0 approval.
 
-## Diagnosed issues and candidate
-- Shared TodoCalendarGrid.tsx had 61 finite Embla slots anchored forever to initial month, and only three month grids rendered relative to delayed activeIndex; external Today jumps and rapid arrow commands could point to unrendered grids or exceed supported snaps. Candidate rebases when focus month moves >24 months from base, reinitializes centered viewport, renders both focused target and selected neighbors, and guards programmatic snap select events from writing stale months into the parent. Applies automatically to both owner/friend Todo and Diary, not Calendar.
-- Owner PersonPane and FriendPersonPane dynamically imported the SAME TodoListView separately behind fallback=null. Home's existing idle warmup only loaded DayViewSheet. Introduce a shared createPreloadedLazy module, start its loading ONLY after local Calendar data ready and existing DayViewSheet warmup in HomePage. On view switch before preload resolves, leave Calendar visible until import ready and ignore outdated pending requests; use React transition to mount Todo/Diary. No eager task-view or drag-tree mounting.
-- Browser harness supports synthetic compact Diary/ Todo month jumping, reset and 68 rapid arrows. New browser contracts assert actual month grid and day cells, not just header title. PersonPane unit mocks delayed Todo module: Calendar must remain visible until resolve and canceled view change must not reappear.
-- Version stamped 0.29.10 in package, lockfile and appVersion only. No schema/backend, styling or data-query change.
+## Evidence and hypothesis
+- Earlier SAME-RUNNER [render-graph lab #39101668402](https://github.com/carlers/mosaic-life-tracker/actions/runs/39101668402) (old v0.29.8-era build), 3x mobile Chromium 2xCPU synthetic cached PWA slow-online: rendering ONLY the active Calendar month vs normal three on initial mount gave Home-ready p50 25 tasks 440→406ms; 250 505→476ms; 1000 dense 711→629ms; 1000 distributed years 544→485ms. The ablation omitted neighbors permanently and therefore **could not ship**: first swipe/fast navigation require neighbors. These results are directional lab evidence, not proof that the new deferred warmup has the same gains.
+- Current candidate uses `useCalendarState({deferNeighbors:true,ownerDataReady})` only on the OWNER Calendar. Initially render focused slide (plus any current embla/focus transition), then after owner local-data readiness and two requestAnimationFrame callbacks mount ±1 neighbors in a lower-priority React transition. Pointer-down, trackpad-wheel, month arrow, zoom navigation, Today or view toggle proactively restores both neighbors immediately. Friend Calendar remains unchanged. Keep 61 Embla snaps and focus/active indexing, no data filtering or cosmetic/layout changes. Home passes owner data readiness through PersonPane to Calendar hook; CalendarCarousel signals the first user interaction.
+- New useCalendarState unit tests assert zero neighbors until ready, post-paint warmup, immediate first-arrow restoration; CalendarCarousel component test asserts pointer signal; browser contract uses real Calendar path with forced unresolved owner-ready and verifies current-only content becomes three grids on first pointer. Default Calendar gesture tests continue.
+- Version stamp 0.29.11 across package, lock root and appVersion. No other app functionality changed.
 
-## Verification / limits
-- First task CI #39118018844: **both new** Todo/Diary browser month jump/68-arrow tests PASSED (browser shard 1/2 SUCCESS). Shard 2/2 FAILED one existing cross-category drag ordering assertion (source task does not modify drag runtime); investigate/repeat rather than assume flaky. Focused failed early only because generated docs/COMPONENT_INDEX.md omitted the new shared preload module; include regenerated row and run again. Run focused + both browser shards on next commit; repair any actual issue. Review Bundle/home closures and version guard. If ready for next Preview, use a new stable Preview branch from v0.29.9 (leave prior stable immutable), squash task after focused green, wait for exact-SHA canonical Quality Gate and trusted prebuilt Vercel READY; still no dev/main promotion.
-- The lazy-loading fix hides module-download blank, but synchronous first Todo mount cost may remain, so measure actual first view-switch separately before claiming performance goal complete. Physical phone, installed PWA, diary/photo/shared, offline and owner manual checks remain outstanding.
-- Security #936 / backend #914 distinct.
+## Verification and next steps
+- Final task needs scoped commit with [verify:browser], focused checks and both browser shards; investigate/fix failures before any Preview. Check full build/size and real first swipe. Contrast a same-runner matched v0.29.10 vs v0.29.11 local cache/dense task benchmark; old permanent-ablation measurements are not equivalent to this deferred implementation. Do NOT present old gain numbers as newly achieved.
+- If behavior and measurements justify release, squash to NEW stable Preview from accepted v0.29.10 (never mutate accepted stable) and check canonical CI-first Vercel Scratch READY. Any later dev/main promotion requires separate explicit owner approval.
+- Physical phone/installed PWA, first-paint/interaction latency, zoom swipes, rapid arrows, photos/shared content, offline/account switching remain human acceptance items. Security #936 and backend #914 separate pre-1.0 gates.
 
 ## Next action
-- Commit scoped task files, verify exact SHA CI, repair issues and record issue #858 checkpoint. Do not alter previously delivered v0.29.9 or dev/main/Production.
+- Commit candidate and tests once, run CI, repair findings; measure actual first-Calendar-owner-ready and initial 2-frame paint before claiming optimization. Keep #858 OPEN.
