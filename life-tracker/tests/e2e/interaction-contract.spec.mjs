@@ -675,16 +675,32 @@ test('fresh task reorder runtime keeps legacy RxDocument-backed rows readable be
 // On the first scroll into view, the *real* task title must still respond to
 // long-press without an extra gesture, and cancellation must restore all rows.
 test('Todo distant task activates drag on first touch after scrolling and restores rows', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?rxdocs=legacy`);
+  // Fifty real task rows produce a truly far-offscreen target with no
+  // dnd-kit registration. The former 12-row fixture was insufficient to
+  // prove the dormant -> near-viewport registration transition.
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&rxdocs=legacy`);
 
   const region = page.getByTestId('todo-day-content');
   const rows = region.locator('[data-task-id]');
-  await expect(rows).toHaveCount(12);
+  await expect(rows).toHaveCount(50);
   const lastRow = rows.last();
   const taskId = await lastRow.getAttribute('data-task-id');
   if (!taskId) throw new Error('Missing far-row task identity');
+  const registration = lastRow.locator('xpath=..')
+    .locator('[data-task-dnd-registered="true"]');
+  await expect(lastRow).toContainText('Task 5.10');
+  // This decisive assertion detects an accidentally eager-drag hook:
+  // before scrolling, the far row is rendered but unregistered.
+  await expect(registration).toHaveCount(0);
+  await expect.poll(() =>
+    lastRow.evaluate(el => el.getBoundingClientRect().top > innerHeight + 800)
+  ).toBe(true);
+
   await lastRow.scrollIntoViewIfNeeded();
-  const title = lastRow.locator('[data-day-swipe-through="true"]');
+  // The proximity observer must activate the real draggable handle on the
+  // FIRST appearance, before the user's FIRST long press.
+  await expect(registration).toHaveCount(1, { timeout: 10_000 });
+  const title = lastRow.getByRole('button', { name: 'Task 5.10', exact: true });
   await expect(title).toBeVisible();
 
   const gesture = await startTaskLongPress(page, title);
@@ -696,7 +712,7 @@ test('Todo distant task activates drag on first touch after scrolling and restor
   }
   await expect(page.locator(`[data-task-overlay-id="${taskId}"]`))
     .toHaveCount(0);
-  await expect(rows).toHaveCount(12);
+  await expect(rows).toHaveCount(50);
   await expect(lastRow).toBeVisible();
 });
 
