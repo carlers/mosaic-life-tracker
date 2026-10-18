@@ -74,11 +74,12 @@ const StatusRow: React.FC<StatusRowProps> = ({
   createdAt,
 }) => {
   return (
-    <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-gray-400 min-h-[14px]">
+    <div className="mosaic-chat-status mt-1 flex items-center justify-end gap-1 text-[10px] text-gray-400 min-h-[14px]">
       {statusKind === 'read' ? (
         <>
-          <CheckCheck size={12} />
-          <span>Seen at {format(new Date(readAt), 'h:mm a')}</span>
+          <CheckCheck size={12} className="mosaic-chat-read-icon" />
+          <span className="mosaic-chat-read-detail">Seen at {format(new Date(readAt), 'h:mm a')}</span>
+          <span className="mosaic-chat-read-label" title={`Seen at ${format(new Date(readAt), 'h:mm a')}`}>Read</span>
         </>
       ) : statusKind === 'delivered' ? (
         <>
@@ -233,11 +234,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             transform: `translateX(${swipeOffset}px)`,
             touchAction: 'pan-y',
           }}
-          className={`select-none block w-full text-left rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+          className={`mosaic-chat-bubble ${isOutgoing ? 'mosaic-chat-bubble-outgoing' : 'mosaic-chat-bubble-incoming'} ${!(packSticker || giphySticker) ? 'mosaic-chat-text-bubble' : ''} select-none block w-full text-left rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
             packSticker || giphySticker
               ? 'bg-transparent px-1 py-1 text-white'
               : isOutgoing
-                ? 'bg-surfaceHighlight text-white px-3 py-2'
+                ? 'bg-mosaicOutgoing text-white px-3 py-2'
                 : 'bg-mosaicIncoming border border-[#444444] text-white px-3 py-2'
           }`}
           aria-label={buildBubbleLabel(

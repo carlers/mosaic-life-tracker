@@ -4,7 +4,7 @@ import type { MessageDocument } from '../../db/schema';
 export const TIMESTAMP_GAP_MS = 5 * 60 * 1000;
 
 export type RenderItem =
-  | { kind: 'divider'; key: string; label: string }
+  | { kind: 'divider'; key: string; label: string; lightLabel: string }
   | {
       kind: 'message';
       key: string;
@@ -53,6 +53,9 @@ export function buildRenderItems(
           kind: 'divider',
           key: `divider-${m.id}`,
           label: dateDividerLabel(created),
+          lightLabel: isSameDay(created, new Date()) || isSameDay(created, subDays(new Date(), 1))
+            ? dateDividerLabel(created)
+            : format(created, 'MMM d'),
         });
         lastTimestamp = 0;
       } else if (createdMs - lastTimestamp > TIMESTAMP_GAP_MS) {
@@ -60,6 +63,7 @@ export function buildRenderItems(
           kind: 'divider',
           key: `divider-${m.id}`,
           label: format(created, 'h:mm a'),
+          lightLabel: format(created, 'h:mm a'),
         });
       }
     }

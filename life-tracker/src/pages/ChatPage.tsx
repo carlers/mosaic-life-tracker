@@ -55,8 +55,8 @@ interface ComposerReplyState {
 
 const ChatMessagesLoadingShell: React.FC = () => (
   <div className="flex min-h-full flex-col justify-end gap-3 pb-2" role="status">
-    <div className="h-10 w-2/3 rounded-2xl bg-[#1A1A1A]" />
-    <div className="ml-auto h-14 w-3/4 rounded-2xl bg-[#2A2A2A]" />
+    <div className="mosaic-chat-loading-incoming h-10 w-2/3 rounded-2xl bg-[#1A1A1A]" />
+    <div className="mosaic-chat-loading-outgoing ml-auto h-14 w-3/4 rounded-2xl bg-[#2A2A2A]" />
     <span className="sr-only">Loading messages</span>
   </div>
 );
@@ -383,7 +383,7 @@ export const ChatPage: React.FC = () => {
   };
 
   return (
-    <div className="relative flex flex-col h-full min-h-0 overflow-hidden bg-[#111111]">
+    <div className="mosaic-chat-thread relative flex flex-col h-full min-h-0 overflow-hidden bg-[#111111]">
       <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
         <button
           onClick={handleBack}
@@ -435,7 +435,7 @@ export const ChatPage: React.FC = () => {
       >
         <div
           ref={contentRef}
-          className="min-h-full px-4 pt-4 pb-3 space-y-1"
+          className="mosaic-chat-list min-h-full px-4 pt-4 pb-3 space-y-1"
         >
           {isLoading ? (
             <ChatMessagesLoadingShell />
@@ -447,16 +447,26 @@ export const ChatPage: React.FC = () => {
               </p>
             </div>
           ) : (
-            renderItems.map((item) =>
-              item.kind === 'divider' ? (
-                <div
-                  key={item.key}
-                  className="text-center text-xs text-gray-400 py-2"
-                >
-                  {item.label}
+            renderItems.map((item, index) => {
+              if (item.kind === 'divider') return (
+                <div key={item.key} className="mosaic-chat-date-divider text-center text-xs text-gray-400 py-2">
+                  <span className="mosaic-chat-date-default">{item.label}</span>
+                  <span className="mosaic-chat-date-light">{item.lightLabel}</span>
                 </div>
-              ) : (
-                <div key={item.key} id={`msg-${item.message.id}`}>
+              );
+              const previous = renderItems[index - 1];
+              const isIncoming = item.message.direction === 'incoming';
+              const showIncomingAvatar = isIncoming &&
+                (previous?.kind !== 'message' || previous.message.direction !== 'incoming');
+              return (
+                <div key={item.key} id={`msg-${item.message.id}`}
+                  className={isIncoming ? 'relative mosaic-chat-incoming-row' : 'relative'}>
+                  {showIncomingAvatar && (
+                    <span className="mosaic-chat-incoming-avatar absolute left-0 top-0" aria-hidden="true">
+                      <DeferredAvatar fileId={friend?.friendAvatarFileId || undefined}
+                        alt={friend?.friendDisplayName || friend?.friendUsername || 'Friend'} size="sm" />
+                    </span>
+                  )}
                   <MessageBubble
                     message={item.message}
                     isOutgoing={item.message.direction === 'outgoing'}
@@ -491,8 +501,8 @@ export const ChatPage: React.FC = () => {
                     gesturesDisabled={!!actionMessage || !!reactionTarget || !!unsendTarget}
                   />
                 </div>
-              )
-            )
+              );
+            })
           )}
         </div>
       </div>
