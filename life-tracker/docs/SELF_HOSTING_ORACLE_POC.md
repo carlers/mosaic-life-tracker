@@ -25,7 +25,7 @@ Authoritative references (recheck when executing):
 - [Appwrite Docker installation](https://appwrite.io/docs/advanced/self-hosting/installation)
 - [Appwrite Cloud-to-self-host migration](https://appwrite.io/docs/advanced/migrations/cloud)
 
-## Phase A — safe isolated OCI candidate
+**SDK compatibility gate:** Mosaic's current browser SDK is `appwrite:^26.2.0`;\nAppwrite's [self-host installation SDK table](https://appwrite.io/docs/advanced/self-hosting/installation)\nassociates Appwrite 2.5.0 with Web SDK 27.0.0 and Web SDK 26.2.0 with\nAppwrite 1.9.6. This does **not** establish actual incompatibility; verify\nAppwrite TablesDB, Auth, Storage, Realtime and Function behavior with the exact\nexisting and target SDK/server versions using synthetic data before deciding on\na separately reviewed client SDK change.\n\n## Phase A — safe isolated OCI candidate
 
 1. Use a dedicated non-production OCI compartment, Ubuntu **ARM64** VM.Standard.A1.Flex,
    **2 OCPU / 12 GB** and an Always Free-eligible boot volume. Enforce OCI account

@@ -13,7 +13,7 @@ Current task: #975 isolated Oracle Always Free Appwrite self-host host preflight
 - Add unit verification for minimum thresholds, fail-closed prerequisites, swap parsing and future x64 portability. Add `docs/SELF_HOSTING_ORACLE_POC.md` with isolated OCI setup, official version-pinned Docker installer, synthetic-only Mosaic bootstrap, ARM64 compatibility and Function/performance validation, encrypted offsite recovery, NAS/laptop cold standby and explicit no-production constraints.
 - Register `npm run selfhost:preflight` and link the runbook from docs index. No provider, SDK, RxDB, Function, schema, deployment settings, migration or PWA behavior changes.
 
-## Pending verification and next gates
+## Next action
 - Commit one coherent task SHA with `[verify:focused]`, confirm focused CI; then squash into a new stable, non-production Preview branch and require full canonical CI/trusted delivery under existing workflow (even though nothing user-facing changes). No automatic dev/main merge.
 - This connected environment has no Oracle Compute management connector and no local Docker daemon. **No OCI provisioning, Docker/ARM64 container execution, performance benchmark, DR restore or device acceptance has occurred**. Real go/no-go requires an operator-owned Always Free VM, verified free billing eligibility and actual synthetic deployment on it.
 - For #975 follow up with OCI ARM64 stack/Functions compatibility, observed CPU/RAM/disk/p95, isolated encrypted restore onto a second machine, account privacy and offline sync. Keep #968 active-active research separate.
