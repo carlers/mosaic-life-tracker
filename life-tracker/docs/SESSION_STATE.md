@@ -20,3 +20,7 @@ Current task: #858 — structural Calendar initial task-preview rendering optimi
 ## Verification and handoff
 - Commit scoped task+checkpoint with [verify:browser]; repair any focused or browser failures, do not misclassify them. If green, PR squash from task to NEW stable `perf/858-calendar-flat-taskblock-20261018` forked from v0.29.10, canonical CI plus trusted CI-first Scratch Preview READY, independent source and deployment check. Do not mutate v0.29.10 stable.
 - Owner manually verifies identical Calendar text/image/share display, Light/Black themes, scrolling, first and repeat touch, task counts and startup impression on installed PWA. Physical first-paint not measured. #858 remains OPEN for further structural optimization after this small gain. No dev/main/Production/1.0 promotion without explicit approval.
+
+## Next action
+
+- Verify corrected documentation-contract checkpoint through focused Quality Gate on exact task SHA; squash to new independent stable Preview only after all checks pass. Verify canonical gate and trusted Preview READY. Keep #858 OPEN and await real-device acceptance before any dev/main promotion.
