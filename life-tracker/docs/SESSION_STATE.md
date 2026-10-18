@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-18 UTC
-Task: #858 structural Calendar task update reconciliation after accepted dev v0.29.11.
+Current task: #858 structural Calendar task update reconciliation after accepted dev v0.29.11.
 
 ## Boundary / exact integration
 - Owner explicitly approved v0.29.11 Preview→dev and further profiling. [PR #960](https://github.com/carlers/mosaic-life-tracker/pull/960) merged exact Preview tree to `dev@6ad5d271a4717e10ddd8be9ff74b846236407425`; [dev CI #39124311386](https://github.com/carlers/mosaic-life-tracker/actions/runs/39124311386) SUCCESS, Vercel dev READY. Main/Production unchanged, #957 closed after manual acceptance, **#858 OPEN**. New Preview may be prepared, but another dev/main/Production promotion requires separate owner approval.
