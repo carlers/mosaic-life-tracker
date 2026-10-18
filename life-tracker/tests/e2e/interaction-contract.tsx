@@ -897,6 +897,28 @@ function makeReconcileTasks(count: number, scenario: ReconcileScenario): Reconci
   });
 }
 
+let reconcileFixturePrevious = new Map<string, ReconcileDoc[]>();
+function groupReconcileFixture(items: ReconcileDoc[], mode: ReconcileMode):
+  Map<string, ReconcileDoc[]> {
+  const fresh = new Map<string, ReconcileDoc[]>();
+  for (const task of items) {
+    const arr = fresh.get(task.date);
+    if (arr) arr.push(task);
+    else fresh.set(task.date, [task]);
+  }
+  if (mode === 'stable') {
+    for (const [date, next] of fresh) {
+      const previous = reconcileFixturePrevious.get(date);
+      if (previous && previous.length === next.length &&
+        previous.every((item, index) => item === next[index])) {
+        fresh.set(date, previous);
+      }
+    }
+  }
+  reconcileFixturePrevious = fresh;
+  return fresh;
+}
+
 function CalendarReconcileLab() {
   const params = new URLSearchParams(location.search);
   const count = Math.min(1000, Math.max(0, Number(params.get('count') ?? 250)));
@@ -906,31 +928,11 @@ function CalendarReconcileLab() {
   const schedule = params.get('schedule') === 'transition';
   const [tasks, setTasks] = useState(() => makeReconcileTasks(count, scenario));
   const [revision, setRevision] = useState(0);
-  // Fixture-local cache owned by a stable grouping closure, not a ref
-  // read/written during render. No React state, auth or RxDB is changed.
-  const groupTasks = useMemo(() => {
-    let previousGroups = new Map<string, ReconcileDoc[]>();
-    return (items: ReconcileDoc[]) => {
-      const fresh = new Map<string, ReconcileDoc[]>();
-      for (const task of items) {
-        const arr = fresh.get(task.date);
-        if (arr) arr.push(task);
-        else fresh.set(task.date, [task]);
-      }
-      if (mode === 'stable') {
-        for (const [date, next] of fresh) {
-          const old = previousGroups.get(date);
-          if (old && old.length === next.length &&
-            old.every((item, index) => item === next[index])) {
-            fresh.set(date, old);
-          }
-        }
-      }
-      previousGroups = fresh;
-      return fresh;
-    };
-  }, [mode]);
-  const grouped = useMemo(() => groupTasks(tasks), [groupTasks, tasks]);
+  // The benchmark's cache is module-local and outside React state/hooks.
+  // It never runs on Mosaic's application route and is reset by each
+  // independent Playwright page. Production must use a rigorously reactive,
+  // immutable strategy instead; this is only a causal upper-bound probe.
+  const grouped = useMemo(() => groupReconcileFixture(tasks, mode), [tasks, mode]);
   const emblaRef = useCallback(() => {}, []);
   const onRender = useCallback((
     _id: string, phase: string, actualDuration: number, baseDuration: number,

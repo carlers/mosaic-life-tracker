@@ -1,6 +1,66 @@
 import { expect, test } from '@playwright/test';
 
 const BASE = 'http://127.0.0.1:4173';
+
+// Actual isolated RxDB Dexie semantics, not an assumed immutable snapshot.
+// In particular, RxDocument can preserve the same JS object on patch while
+// exposing live getters. An identity-only cache would then hide task edits.
+test('@performance inspect RxDB task snapshot identity across a real patch', async ({ page }) => {
+  await page.goto(`${BASE}/tests/e2e/interaction-contract.html?calendarReconcileLab=1&count=25`);
+  const observation = await page.evaluate(async () => {
+    const { initializeDatabase, destroyDatabase } = await import('/src/db/database.ts');
+    const db = await initializeDatabase();
+    const id = 'reconcile_rxdb_reference_probe';
+    const baseTitle = 'RxDB original probe';
+    const now = '2026-10-18T00:00:00.000Z';
+    const task = await db.tasks.insert({
+      id, title: baseTitle, completed: false, categoryId: 'cat',
+      date: '2026-10-18', order: 0, userId: 'user_1', isDeleted: false,
+      createdAt: now, updatedAt: now, completedAt: '', visibility: 'private',
+    });
+    const query = db.tasks.find({
+      selector: { userId: 'user_1', isDeleted: false },
+      sort: [{ date: 'asc' }, { createdAt: 'desc' }],
+    });
+    const before = (await query.exec()).find(doc => doc.id === id);
+    if (!before) throw Error('RxDB initial owner query failed');
+    const initialTitle = before.title;
+    const events = [];
+    const sub = query.$.subscribe(docs => {
+      const match = docs.find(doc => doc.id === id);
+      if (match) events.push({
+        sameReferenceAsInitial: match === before,
+        title: match.title,
+        updatedAt: match.updatedAt,
+      });
+    });
+    await task.patch({
+      title: 'RxDB patched probe', completed: true,
+      updatedAt: '2026-10-18T00:00:01.000Z',
+    });
+    for (let k = 0; k < 100; k++) {
+      if (events.some(event => event.title === 'RxDB patched probe')) break;
+      await new Promise(resolve => setTimeout(resolve, 15));
+    }
+    const after = (await query.exec()).find(doc => doc.id === id);
+    const result = {
+      initialTitle,
+      firstRefEqualsAfterRef: before === after,
+      taskInsertRefEqualsAfterRef: task === after,
+      firstRefCurrentTitle: before.title,
+      afterTitle: after?.title,
+      events,
+    };
+    sub.unsubscribe();
+    await destroyDatabase();
+    return result;
+  });
+  console.log('MOSAIC_858_RXDB_IDENTITY ' + JSON.stringify(observation));
+  expect(observation.initialTitle).toBe('RxDB original probe');
+  expect(observation.afterTitle).toBe('RxDB patched probe');
+  expect(observation.events.some(v => v.title === 'RxDB patched probe')).toBe(true);
+});
+
 const fixtures = [
   { count: 25, scenario: 'dense' },
   { count: 250, scenario: 'dense' },
