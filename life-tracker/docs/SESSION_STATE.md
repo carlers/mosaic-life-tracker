@@ -1,29 +1,27 @@
 # Session checkpoint
 
 Updated: 2026-10-18 UTC
-Current task: Mosaic issue #858 — behavior-preserving native static Todo row / offscreen dnd projection candidate, with Calendar still in scope.
+Current task: #858 structural Calendar/Todo startup performance; Todo static native task-row candidate.
 
 ## Approved boundary
-- Continue performance optimization research and implementation after causal diagnostics. Keep #858 OPEN; no stable Preview, dev/main, Production, or 1.0 promotion without owner approval. Accepted `dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b` v0.29.8 is unchanged. Candidate branch forks exactly from this dev SHA, **not** from any synthetic lab code.
-- Preserve cached offline auth/data, cross-user owner isolation, full task history availability, Day View/Diary/shared/photos/selection, drag/scroll geometry, accessibility, colors and UI appearance. No backend or schema migration.
+- Issue #858 stays OPEN. Accepted `dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b` v0.29.8 unchanged. No stable Preview/dev/main/Production/1.0 promotion approval; no backend or version change.
+- Preserve offline/auth isolation, all dates/tasks, Diary/shared/photos, first drag, scroll/reorder, accessible actions and existing UI.
 
-## Verified diagnostic evidence
-- [Synthetic near-viewport Motion #39104388237](https://github.com/carlers/mosaic-life-tracker/actions/runs/39104388237) SUCCESS 72/72: Todo 1000 same-day startup 1580→1402ms with suppress far-offscreen Motion layout + unregistered passive target markup; 250 895→834ms; 25 634→616ms. First touch long-press/overlay/cancel passed Chromium at 25 rows.
-- [Native static TaskItem #39105911960](https://github.com/carlers/mosaic-life-tracker/actions/runs/39105911960) SUCCESS 72/72 plus [focused #39105911880](https://github.com/carlers/mosaic-life-tracker/actions/runs/39105911880) SUCCESS at `chatgpt/858-native-task-frame-lab-20261018@51d216b797f323690bcd60ae22ce5013cb7dfd3e`. Same-bundle slow-online cached PWA 2×CPU n=3 Todo owner-ready p50 baseline vs combined native+near offscreen: **25 499→468ms; 250 669→603ms; 1000 dense 1221→951ms; 1000 across month 684→662ms**. Offline 1000 dense 1250→983ms. Full task DOM counts maintained, 25-task first long-press and cancel succeeded baseline, native, near and combined variants. These synthetic measurements do NOT prove installed-phone performance, gesture sweep, complex mixed content, or first paint.
-- [Query prewarm #39105689490](https://github.com/carlers/mosaic-life-tracker/actions/runs/39105689490) SUCCESS 84/84 but **REJECT**: owner full-history query pre-execution after DB ready yielded inconsistent marginal wins, often did not complete ahead of Home subscription; redundant main-thread/IndexedDB competition.
-- [Date-window-only query ablation #39106414352](https://github.com/carlers/mosaic-life-tracker/actions/runs/39106414352) underway on synthetic lab branch `chatgpt/858-windowed-query-lab-20261018@0db4b837468dc1ca8374c4c9db248014eca2f5b2`; deliberately breaks distant-date loading/search, NEVER ship as-is.
+## Measured evidence
+- [Near-viewport Motion #39104388237](https://github.com/carlers/mosaic-life-tracker/actions/runs/39104388237) 72/72 SUCCESS: Todo dense 1000 tasks 1580→1402ms, 250 895→834ms; first 610ms long-press/overlay/cancel passed Chromium.
+- [Native nonanimated TaskItem frame #39105911960](https://github.com/carlers/mosaic-life-tracker/actions/runs/39105911960) 72/72 SUCCESS: Todo synthetic same-runner current→combined near/native medians 25 dense 499→468ms, 250 dense 669→603ms, 1000 dense 1221→951ms, 1000 monthly 684→662ms; offline 1000 dense 1250→983ms. All task rows retained, first long press/cancel passed in 25-task tests. **Synthetic Chrome 2x CPU, not physical device or paint SLA.**
+- [Owner-query prewarm #39105689490](https://github.com/carlers/mosaic-life-tracker/actions/runs/39105689490) 84/84 SUCCESS but rejected: gains marginal/inconsistent; prewarm rarely beat normal RxDB emission.
+- [Visible-date query #39106414352](https://github.com/carlers/mosaic-life-tracker/actions/runs/39106414352) 84/84 SUCCESS but rejected: at 1000 tasks across five years, Calendar 538→552ms and Todo 723→713ms; omits distant data. Neither data experiment can ship.
 
-## Current implementation candidate
-- Branch `chatgpt/858-task-row-native-candidate-20261018`, clean fork of dev v0.29.8. Two narrowly changed runtime files, no lab flags:
-  - `TaskReorderSurfaces.tsx`: omit two inert DOM targets when proximity observer already determined a row is not registered with dnd-kit; when near/active, render exact registered before/after targets. Keep Motion position animation on registered/active rows, disable it for far rows.
-  - `TaskItem.tsx`: when `disableLayoutAnimation` is already true (including draggable Day View), render native `div` instead of initializing a Framer Motion instance. Keep the animated Motion element for all enabled-animation paths and drag overlay. Shared DOM props/classes/styles/content/events are identical.
-- New browser behavior regression `tests/e2e/interaction-contract.spec.mjs`: legacy RxDocument real rows remain visible before drag; scroll to last distant row, first long-press produces actual overlay, cancellation leaves all rows intact. Existing browser-contract tests cover first drag, sibling projection/release, repeated moves, task controls and undo.
-- This **is a candidate, not accepted**. Normal phone/touch, variable-height diary/photo/shared, category reorder and scroll interactions need verification; compare performance independently without CI flags, and require stable Scratch Preview canonical/Vercel READY + owner manual acceptance before any dev/main promotion.
+## Candidate
+- Branch `chatgpt/858-task-row-native-candidate-20261018` cleanly forked from accepted dev, **no synthetic test-only code**.
+- `TaskReorderSurfaces.tsx`: remove unregistered inert offscreen drop-target DOM and suppress far-away row layout projection; keep near-row registration and Motion.
+- `TaskItem.tsx`: ordinary already-nonanimated rows use a native div instead of Framer Motion; retain all original handlers, classes/geometry, and Motion wrapper for drag overlay/animated modes.
+- Browser regression in `tests/e2e/interaction-contract.spec.mjs`: first hold after scrolling to last row, overlay, cancel, full row retention. Existing broader drag/reorder contracts also apply.
+- Unrelated test isolation repair `tests/react/AuthProviderPostHog.test.tsx`: reset queued mock implementations per case. Previously deterministic broad-test identity failure then passed after this change.
 
-## Exact candidate checks and repair
-- Initial candidate `68feabc3194cea5bb124d318596a1852ac578ca5` [browser+focused #39106759097](https://github.com/carlers/mosaic-life-tracker/actions/runs/39106759097) ran both browser shards SUCCESS; corrected the candidate's overlay behavior at `081e2e2c045d0a516abe100944cb7015cca974e7` before acceptance. [Browser+focused #39106846020](https://github.com/carlers/mosaic-life-tracker/actions/runs/39106846020): both browser shards SUCCESS, focused FAILED twice on `tests/react/AuthProviderPostHog.test.tsx` third case (expected 'user_1', got undefined). Auth component and app auth paths are not edited in this task. The test used `vi.clearAllMocks()`, retaining one-time response queues; changing to `vi.resetAllMocks()` isolates cases. Retest required, do not treat failure as proven flaky.
-- Independent exact candidate source build (plus a probe-only GitHub workflow file) on `chatgpt/858-native-candidate-build-probe-20261018@e588eaa29b8e0631469db7a24c2a21600dc206e7`, [#39107022640](https://github.com/carlers/mosaic-life-tracker/actions/runs/39107022640), verifies `tsc -b`, Vite, PWA and size separately without deploying.
-
-## Next action
-- On task branch commit scoped candidate and checkpoint, run focused and browser correctness CI, inspect failure root cause and repair. Do not promote. If browser passes, create a product-source same-runner A/B without test-only branches and coordinate stable Preview authorization with owner.
-- Finish and interpret independent read-only date-window diagnostic; any real windowed reader needs two-tier all-history behavior and strict owner switching, no silent omission. Calendar startup remains priority along with Todo, #858 stays OPEN. Security #936, backend #914 separate mandatory 1.0 gates.
+## CI and next action
+- [Candidate browser gate #39106846020](https://github.com/carlers/mosaic-life-tracker/actions/runs/39106846020): both browser shards SUCCESS; initial focused job failed on AuthProvider/PostHog test.
+- [Candidate test repair #39107221351](https://github.com/carlers/mosaic-life-tracker/actions/runs/39107221351): focused Auth test passed but checkpoint exceeded 3,000-token contract; trim fixes this, exact-SHA CI rerun required. Existing browser shards checked separately.
+- [Nondeploy production build probe #39107022640](https://github.com/carlers/mosaic-life-tracker/actions/runs/39107022640) SUCCESS: candidate source TypeScript, Vite/PWA and size checks.
+- Finish focused CI, repair failures. No stable Preview squash or deployment until authorized; afterward canonical/Scratch READY, real phone/desktop gestures, Diary/photo/shared and account isolation must be accepted. Calendar optimization still open. Security #936/backend #914 remain separate pre-1.0 gates.
