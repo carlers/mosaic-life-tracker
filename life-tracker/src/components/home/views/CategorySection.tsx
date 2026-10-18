@@ -151,6 +151,11 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const categoryCollapsed = showCollapseButton && isCollapsed;
   const allCategoryTasksSelected = tasks.length > 0 &&
     tasks.every(task => selectedTaskIds.has(task.id));
+  // A deliberately inert, non-shipping A/B control to isolate per-row React
+  // presentation cost from the surrounding DayView/category/swiper tree.
+  const labPlainRows = import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1' &&
+    currentUserId === 'issue858_scale_user' &&
+    localStorage.getItem('mosaic_858_render_variant') === 'simple-rows';
   const canReorder =
     reorderEnabled &&
     !selectionMode &&
@@ -361,7 +366,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       )}
 
       {!categoryCollapsed &&
-        (canReorder
+        (labPlainRows
+          ? tasks.map(task => <div key={task.id} data-task-id={task.id}
+              data-issue858-inert-row="true" className="py-2">{task.title}</div>)
+          : canReorder
           ? renderDraggableRows()
           : <>{tasks.map((task, index) => <React.Fragment key={task.id}>
               {diarySlot && index === Math.min(tasks.length, diarySlotIndex) && diarySlot}

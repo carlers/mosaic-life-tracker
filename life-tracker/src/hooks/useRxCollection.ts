@@ -129,7 +129,17 @@ export function useRxCollection<
           ...(sort ? { sort } : {}),
         });
 
+        if (collection === 'tasks' &&
+            import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1') {
+          performance.mark('mosaic:858:tasks-query-created');
+        }
         const sub = query.$.subscribe((incoming) => {
+          if (collection === 'tasks' &&
+              import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1') {
+            if (!performance.getEntriesByName('mosaic:858:tasks-first-emission', 'mark').length) {
+              performance.mark('mosaic:858:tasks-first-emission');
+            }
+          }
           if (!isMounted) return;
           setDocs(incoming as TDoc[]);
           setLoadedUserId(uid);

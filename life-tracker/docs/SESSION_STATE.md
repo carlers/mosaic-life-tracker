@@ -1,19 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-18 UTC
-Current task: #858 structural Calendar/Todo query, rendering and parallel-read scaling diagnostic; research only.
+Current task: Issue #858 structural Calendar/Todo rendering ablations and query critical-path analysis.
 
-## Accepted boundary
-- Baseline dev v0.29.8: `bfb0fff0c1c283f599f32db8c2a426416fa65e7b`. #858 stays OPEN. Do not promote this experimental source branch to stable Preview, dev, main, Production, or 1.0.
-- User approved a structural zoom-out focusing on parallelization and efficient task loading/rendering with increasing cached task counts, rather than marginal CSS containment.
-- New branch `chatgpt/858-structural-scaling-lab-20261018` forks dev. No backend/remote data, production accounts or real credentials.
+## Approved boundary
+- User approved continuing performance research beyond marginal CSS containment, investigating task-count scaling, parallel query readiness, and structural render methods. Keep #858 OPEN.
+- Accepted `dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b` v0.29.8 unchanged. No authorization for stable Preview/dev/main/Production/1.0 promotion or Appwrite backend changes.
+- Experiment `chatgpt/858-render-graph-lab-20261018` from prior [verified diagnostic #39097381435](https://github.com/carlers/mosaic-life-tracker/actions/runs/39097381435) (`ea328e71668de2b0267f369a811f24119f12c805`). This branch contains diagnostic-only synthetic owner scaffolding, not releaseable product code.
 
-## Read-only experiment
-- One diagnostic-only HomePage `useEffect` conditionally loads `src/lib/issue858ScalingLab.ts` **only** when the CI-only build flag and sessionStorage synthetic fixture flag are both set. The bridge rejects any cached owner other than `issue858_scale_user`; measured PWA launches do NOT set this flag or import the module. The bridge uses real RxDB `bulkInsert` for synthetic task documents and only reads while comparing global owner-scoped sorted tasks, month-window queries, and three month queries serial vs `Promise.all`.
-- Disposable Playwright `startup-structural-scaling.spec.mjs` creates a real UI category and persists IndexedDB snapshots at task counts 0/25/250/1000 on one day, plus 250/1000 across current month and 1000 across five years. Captures six warm, order-balanced read timings per populated fixture; tests current-month cardinality equality. Per fixture, run both default Calendar and Todo, 2× CPU, cached assets, offline vs throttled-online, three repeats (84 launched browser samples).
-- Measure DB→Home, DB→first RxDB task result, task result→Home, FCP, two-frame proxy, DOM count, long tasks and first synthetic action response. Full owner data remains loaded by existing production useTasks code. Interleaved test conditions minimize order bias; experiments cannot establish significance or real-phone paint.
-- Auth and Appwrite held/blocked in diagnostic. No app feature changes are proposed from this branch. Never ship `issue858ScalingLab.ts` or the HomePage diagnostic import.
+## Evidence and design
+- Previous 84-launch same-binary result: 1000 tasks on one day yielded Calendar/Todo Home-ready 397/913ms and Todo ~9706 DOM elements; 1000 across five years yielded 289/413ms and Todo ~1743 elements. Same owner/local IndexedDB; 2× CPU throttle; Home-readiness not real paint. Visual-density cost merits controlled ablation. Warm RxDB query microbench had near-zero cache-hit p50, so it does not justify parallel data queries.
+- Existing cached-user `main.tsx` already concurrently preloads RxDB, Home, AppDataShell. `useRxCollection` tasks query is created after Home mount. Probe setup→first RxDB emission separately from post-emission rendering.
+- Diagnostic-only opt-in variants selected by `mosaic_858_render_variant` and lab build flag; applicable to synthetic owner `issue858_scale_user` only. Calendar `active-month-only` suppresses neighbor rendering. Todo `no-dnd` disables drag runtime, `active-day-only` suppresses Day View neighbor contents, combined, and `simple-rows` substitutes inert task labels to bound TaskItem/render-wrapper cost.
+- These ablations deliberately remove features and are NEVER ready to ship. Preserved-task cardinality, local owner loading, cached PWA offline/slow online and first synthetic Add button behavior remain test assertions; no drag/swipe/diary correctness claim. Test compares 0/25/250/1000 dense plus 1000 current-month and multi-year fixtures, slow online all, 1000 dense offline n=3 per condition, same compiled source.
+- Experimental instrumentation records subscription creation and first task emission; `home:owner-data-ready` measures effect readiness, not first paint. A future product proposal needs full swipe/drag/Diary/shared/account isolation and installed device acceptance, plus CI-first stable Scratch Preview.
 
 ## Next action
-- Confirm exact Actions run and strict compile/build checks; repair any audit-specific failure without modifying production behavior. Analyze matched mode/view/task-distribution p50/p90, query concurrency and query/cardinality, not inter-run absolute speeds. Decide whether date-scoped loading, parallel subscriptions, preloading ahead of Home, or dense render/window changes are worth a separate product candidate, with regressions protecting account isolation, swipe/reorder/Diary/shared and accessibility.
-- Subsequent runtime changes require focused and canonical Scratch Preview gates, browser and device acceptance and explicit dev/main promotion. #936 security and #914 backend rollout remain separate 1.0 gates.
+- Run diagnostic workflow and focused Quality Gate on the exact task SHA, repair test-only failures, analyze paired absolute startup and DOM/critical-path evidence without inventing statistical certainty. Select at most one structural optimization candidate with demonstrable benefits to normal 25–250 tasks and high-density safety, not mere fast benchmarks.
+- Keep both Calendar and Todo in #858 scope; never merge diagnostic code into dev/main. Security #936 and backend compatibility #914 are separate pre-1.0 gates.

@@ -142,6 +142,14 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
+  // #858 research-only causal ablations. Neither path is production behavior.
+  const renderLabVariant = import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1' &&
+    currentUserId === 'issue858_scale_user'
+    ? localStorage.getItem('mosaic_858_render_variant') : null;
+  const labWithoutDnd = renderLabVariant === 'no-dnd' ||
+    renderLabVariant === 'no-dnd-active-only';
+  const labActiveDayOnly = renderLabVariant === 'active-day-only' ||
+    renderLabVariant === 'no-dnd-active-only';
 
   const taskStore = useTasks(tasksOverride === undefined);
   const {
@@ -388,7 +396,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // Inline Todo Day View has no sheet entrance animation, so its initial render
   // window must not wait for BottomSheet's animation-complete callback.
   const effectiveRenderWindow =
-    renderMode === 'inline' ? renderWindow : deferredRenderWindow;
+    renderMode === 'inline' ? (labActiveDayOnly ? 0 : renderWindow) : deferredRenderWindow;
 
   const handleSheetClose = useCallback(() => {
     setDeferredRenderWindow(0);
@@ -1076,11 +1084,12 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       reorderEnabled={
                         isOpen &&
                         i === activeIndex &&
+                        !labWithoutDnd &&
                         !isSelectMode &&
                         !isBackgroundLocked &&
                         editingTaskId === null
                       }
-                      reorderRuntimeActive={isOpen && i === activeIndex}
+                      reorderRuntimeActive={isOpen && i === activeIndex && !labWithoutDnd}
                       onReorderTasks={reorderTasks}
                       onReorderActiveChange={setIsTaskReorderActive}
                       diaryEnabled={showDiaryInDayView && !isSelectMode}

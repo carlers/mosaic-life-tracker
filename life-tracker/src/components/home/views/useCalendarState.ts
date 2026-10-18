@@ -224,13 +224,20 @@ export function useCalendarState(
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
   }, [focusDate, baseDate, viewMode, weekStartsOn]);
 
+  // Research-only active-month A/B; preserve the neighboring slide contract
+  // for every normal build and account.
+  const labOwner = import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1'
+    ? localStorage.getItem('mosaic_last_known_user') : null;
+  const labActiveMonthOnly = labOwner?.includes('"$id":"issue858_scale_user"') &&
+    localStorage.getItem('mosaic_858_render_variant') === 'active-month-only';
+  const windowSize = labActiveMonthOnly ? 0 : RENDER_WINDOW;
   const renderStart = Math.max(
     0,
-    Math.min(emblaActiveIndex, focusIndex) - RENDER_WINDOW
+    Math.min(emblaActiveIndex, focusIndex) - windowSize
   );
   const renderEnd = Math.min(
     TOTAL_SLIDES - 1,
-    Math.max(emblaActiveIndex, focusIndex) + RENDER_WINDOW
+    Math.max(emblaActiveIndex, focusIndex) + windowSize
   );
 
   return {
