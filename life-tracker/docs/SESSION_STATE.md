@@ -1,12 +1,12 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: TodoMate category order repair on a standalone task branch from dev v0.29.12. Existing #858 work remains open and its prior checkpoint follows.
+Current task: TodoMate category order fix from dev v0.29.12; #858 remains open.
 
-## TodoMate category order repair (2026-10-19)
-- Base: `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68`. Task branch: `chatgpt/todomate-category-order-20261019`. Proposed stable Preview: `fix/todomate-category-order-20261019`.
-- Invert only the sorted TodoMate Goal order before assigning consecutive Mosaic category orders. Preserve IDs, colors, visibility, tasks, Diary, source ownership, and Merge semantics. Update importer unit expectation and TodoMate mapping contract.
-- Candidate user-testable Preview version: `0.29.14` (`0.29.13` already used by another active Preview). Request focused CI with the task commit; stable Preview full CI, Vercel READY and live TodoMate acceptance remain required. Do not promote to `dev` or `main` without explicit approval.
+## 2026-10-19 TodoMate category fix
+- Base `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68`; task `chatgpt/todomate-category-order-20261019`; Preview `fix/todomate-category-order-20261019`.
+- Reverse TodoMate Goal ordering before assigning category indices; leave task IDs/references and Merge unchanged. Update adapter test and mapping docs. Candidate v0.29.14 (v0.29.13 reserved).
+- Focused CI, stable Preview CI/Vercel READY and live import acceptance required. Do not promote dev/main/Production without approval.
 
 ## Previous session: #858
 
