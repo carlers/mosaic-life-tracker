@@ -126,5 +126,34 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   );
 };
 
-export const DayCell = React.memo(DayCellComponent);
+/**
+ * RxDB emits a new task array after an edit; useTasksByDate groups that array
+ * into new day arrays even if 30 other days have exactly the same documents.
+ * Keep those unaffected cells out of React's expensive task-block render.
+ *
+ * RxDB replace/patch emits a new RxDocument for the changed row. Never skip
+ * if a task was inserted, removed, reordered, or replaced. Other props must
+ * still use normal React.memo identity semantics (shared, holidays, category
+ * colors, date, click handler). No cross-account or persisted cache.
+ */
+function dayCellPropsEqual(previous: DayCellProps, next: DayCellProps): boolean {
+  if (
+    previous.date !== next.date ||
+    previous.sharedItems !== next.sharedItems ||
+    previous.ownedSharedTaskIds !== next.ownedSharedTaskIds ||
+    previous.categories !== next.categories ||
+    previous.holidays !== next.holidays ||
+    previous.isCurrentMonth !== next.isCurrentMonth ||
+    previous.onDayClick !== next.onDayClick
+  ) return false;
+
+  if (previous.tasks === next.tasks) return true;
+  if (previous.tasks.length !== next.tasks.length) return false;
+  for (let index = 0; index < previous.tasks.length; index += 1) {
+    if (previous.tasks[index] !== next.tasks[index]) return false;
+  }
+  return true;
+}
+
+export const DayCell = React.memo(DayCellComponent, dayCellPropsEqual);
 DayCell.displayName = 'DayCell';
