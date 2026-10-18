@@ -851,6 +851,56 @@ export function InteractionHarness() {
   );
 }
 
+// Research-only #858 fixture (separate non-deploying lab branch).
+// It varies ONLY the offscreen-month scheduling while mounting real
+// CalendarBody/DayCell/TaskBlock for identical synthetic cached task rows.
+function CalendarNeighborRenderProbe() {
+  const params = new URLSearchParams(window.location.search);
+  const count = Math.min(1000, Math.max(0, Number(params.get('count') ?? 0)));
+  const deferred = params.get('variant') === 'deferred';
+  const [ownerDataReady, setOwnerDataReady] = useState(false);
+  const calendar = useCalendarState({ deferNeighbors: deferred, ownerDataReady });
+  const fixtureDate = format(new Date(), 'yyyy-MM-dd');
+  const categories: CategoryDocument[] = React.useMemo(() => [{
+    id: 'neighbor_cat', name: 'Benchmark', order: 0, color: '#3B82F6',
+    visibility: 'private', userId: 'user_1', isDeleted: false,
+  }], []);
+  const tasks = React.useMemo<TaskDocument[]>(() =>
+    Array.from({ length: count }, (_, i) => ({
+      id: `neighbor_${i}`, title: `Neighbor fixture ${i}`, completed: false,
+      categoryId: 'neighbor_cat', order: i, date: fixtureDate,
+      createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z',
+      completedAt: '', userId: 'user_1', isDeleted: false, visibility: 'private',
+    })), [count, fixtureDate]);
+  return (
+    <div data-testid="neighbor-benchmark-root" className="flex flex-col h-screen">
+      <button type="button" data-testid="neighbor-load" onClick={() => setOwnerDataReady(true)}>
+        Emulate local task result
+      </button>
+      <output data-testid="neighbor-ready">{ownerDataReady ? 'ready' : 'pending'}</output>
+      <div className="flex flex-1 min-h-0 flex-col" style={{ width: 412 }}>
+        <CalendarBody
+          viewMode={calendar.viewMode}
+          slides={calendar.slides}
+          renderStart={calendar.renderStart}
+          renderEnd={calendar.renderEnd}
+          emblaRef={calendar.emblaRef}
+          activeIndex={calendar.activeIndex}
+          tasks={ownerDataReady ? tasks : []}
+          categories={categories}
+          categoriesMap={{ neighbor_cat: { name: 'Benchmark', color: '#3B82F6' } }}
+          variant="me"
+          currentUserId="user_1"
+          isActive
+          onPrev={calendar.handlePrev}
+          onNext={calendar.handleNext}
+          onBeginCalendarInteraction={calendar.prepareAdjacentSlides}
+        />
+      </div>
+    </div>
+  );
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
@@ -869,9 +919,11 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('chatMotion')
-        ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
-        : <InteractionHarness />}
+      {new URLSearchParams(window.location.search).has('calendarNeighborBench')
+        ? <CalendarNeighborRenderProbe />
+        : new URLSearchParams(window.location.search).has('chatMotion')
+          ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
+          : <InteractionHarness />}
     </AuthContext.Provider>
   </StrictMode>
 );
