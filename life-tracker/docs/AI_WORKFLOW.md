@@ -13,6 +13,54 @@ checkpoint after CI turns green. Then follow [delivery](DELIVERY.md). No mandato
 model selection, response footers, verbatim prompt copies, or evidence ledger. [Telemetry](WORKFLOW_TELEMETRY.md)
 is optional. Batch independent reads and ask for missing files together.
 
+## Fast-path preflight for a new task
+
+Choose the **shortest compliant path** before calling a large set of tools. This
+is routing advice, **not** an exemption from tests, branch protections, Appwrite
+safety, documentation checkpoints, or user approval gates.
+
+1. **Resolve the scope and source of truth.** Read the root/app `AGENTS.md`,
+   `docs/SESSION_STATE.md`, and applicable process/product contracts; locate
+   `docs/PLAN.md` for sequencing. Confirm the **live branch/SHA** and any
+   issue-specific checkpoint before trusting dated notes. Use
+   [the index](README.md) and [source map](REPO_MAP.md) to select relevant
+   documentation, not to trigger a sweep of every `docs/*WORKFLOW*.md`.
+2. **Use an already-known path.** A source-map hit or an existing exact path
+   takes precedence over repository-wide search, directory listings, and
+   exhaustive API/tool discovery. Read the smallest ownership surface, its
+   callers and applicable tests. Expand only for an identified cross-cutting
+   dependency or unanswered correctness question.
+3. **Record a minimal change boundary.** Identify the user-requested outcome,
+   candidate files, affected behavior, themes, tests, Preview/version impact
+   and any backend/deployment prerequisite. Distinguish required implementation
+   from attractive but unrequested additions. A screenshot is evidence for
+   appearance, not permission to redesign unrelated behavior.
+4. **Pick the editing surface once.** In a local checkout, use local file edits,
+   diff and narrow checks; do not emulate local edits with repeated remote
+   Contents API writes. In GitHub-only Chat, fetch each file once per exact SHA,
+   plan all replacements against that content, and batch Git blobs into one
+   coherent tree/commit (respecting the connector-call budget below). Inspect
+   transformed content/diff **before** moving the branch ref.
+5. **Verify through the existing delivery path.** Run relevant narrow checks,
+   then one coherent `[verify:focused]` task commit. After focused green,
+   squash to stable Preview for the canonical CI and trusted Preview delivery.
+   Never substitute a narrow/manual check for a required canonical gate.
+   Promote to dev/main only with explicit approval.
+6. **Finish from authoritative evidence.** Use exact-SHA Actions and trusted
+   delivery results, the correct Preview hostname and required acceptance.
+   Report what is verified, not inferred. Stop routine status polling once
+   completion evidence is established; unresolved manual/device checks remain
+   explicit.
+
+**Example — small Light-mode chat polish:** Begin with
+`src/pages/ChatPage.tsx`, `src/components/messages/MessageBubble.tsx`,
+`src/index.css`, `tailwind.config.js`, `docs/THEMING.md`, and the
+relevant existing chat tests. Only inspect adjacent components if the requested
+styling affects them. Preserve Dark/Black and gestures. Pure decoration does
+not justify brittle class/pixel tests; visual acceptance remains manual.
+Do not create unrelated avatar, date-label, receipt-placement, or composer
+behavior changes merely because the reference image suggests them.
+
 ## Select the smallest correct work path
 
 | Request | Action | Verification and release boundary |
