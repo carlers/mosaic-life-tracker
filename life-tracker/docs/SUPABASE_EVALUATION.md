@@ -60,6 +60,13 @@ Supabase Free provides unlimited API requests, **not** unlimited disk, egress, c
 
 Track the actual Appwrite→Supabase migration in [#967](https://github.com/carlers/mosaic-life-tracker/issues/967). The optional dual cloud/home-server replication idea is separate **post-1.0 planning only**, in [#968](https://github.com/carlers/mosaic-life-tracker/issues/968); never introduce two independent authoritative writers during this migration.
 
+## Source-only mapping candidate (same isolated migration initiative)
+
+- `supabase-poc/candidateMapping.ts` is a **pure, non-runtime** converter for the current task/category RxDB contracts and the candidate SQL columns. It is not imported by Mosaic's production bundle; no SDK, HTTP network call or backend environment variables are switched.
+- Conversion requires an explicit verified mapping from legacy Appwrite account ID to Supabase Auth UUID. The helper refuses foreign-owned local input or remote rows; it does *not* prove the mapping is legitimate or authenticate the HTTP client. Existing string document IDs, category references, text date formats, empty optional strings, tombstones, legacy timestamps, source/reactions and per-domain field names remain stable across round trips.
+- Server-controlled `change_seq` and `server_updated_at` are deliberately absent from outgoing rows, and a separate revision parser uses arbitrary-precision `bigint` with rejection of unsafe JavaScript numeric cursors. Persisting/advancing a durable RxDB cursor still needs a separately verified adapter, not this helper.
+- `tests/unit/supabaseCandidateMapping.test.ts` covers round trips, wrong-user rejection, identity validation, server-field suppression and cursor precision. This is automated pure-mapping coverage, **not** an authenticated Supabase SDK, concurrent transaction, Realtime or real migration acceptance test.
+
 ## Next experiments, in order
 
 1. **Authentication:** create two disposable Supabase Auth accounts in this isolated project when safe automated Auth-user tooling is available, exercise real JWT data requests against `mosaic_sync_probe`, then delete test accounts. No real user data.
