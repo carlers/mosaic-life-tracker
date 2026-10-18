@@ -22,8 +22,16 @@ test('@performance inspect RxDB task snapshot identity across a real patch', asy
       selector: { userId: 'user_1', isDeleted: false },
       sort: [{ date: 'asc' }, { createdAt: 'desc' }],
     });
-    const before = (await query.exec()).find(doc => doc.id === id);
-    if (!before) throw Error('RxDB initial owner query failed');
+    const other = await db.tasks.insert({
+      id: 'reconcile_rxdb_reference_unchanged', title: 'Unchanged row',
+      completed: false, categoryId: 'cat', date: '2026-10-19', order: 0,
+      userId: 'user_1', isDeleted: false, createdAt: now, updatedAt: now,
+      completedAt: '', visibility: 'private',
+    });
+    const docsBefore = await query.exec();
+    const before = docsBefore.find(doc => doc.id === id);
+    const unchangedBefore = docsBefore.find(doc => doc.id === other.id);
+    if (!before || !unchangedBefore) throw Error('RxDB initial owner query failed');
     const initialTitle = before.title;
     const events = [];
     const sub = query.$.subscribe(docs => {
@@ -32,6 +40,7 @@ test('@performance inspect RxDB task snapshot identity across a real patch', asy
         sameReferenceAsInitial: match === before,
         title: match.title,
         updatedAt: match.updatedAt,
+        stableUnchangedRef: docs.find(doc => doc.id === other.id) === unchangedBefore,
       });
     });
     await task.patch({
@@ -49,6 +58,8 @@ test('@performance inspect RxDB task snapshot identity across a real patch', asy
       taskInsertRefEqualsAfterRef: task === after,
       firstRefCurrentTitle: before.title,
       afterTitle: after?.title,
+      unchangedBeforeEqualsAfter:
+        unchangedBefore === (await query.exec()).find(doc => doc.id === other.id),
       events,
     };
     sub.unsubscribe();
@@ -58,6 +69,8 @@ test('@performance inspect RxDB task snapshot identity across a real patch', asy
   console.log('MOSAIC_858_RXDB_IDENTITY ' + JSON.stringify(observation));
   expect(observation.initialTitle).toBe('RxDB original probe');
   expect(observation.afterTitle).toBe('RxDB patched probe');
+  expect(observation.unchangedBeforeEqualsAfter).toBe(true);
+  expect(observation.events.at(-1)?.stableUnchangedRef).toBe(true);
   expect(observation.events.some(v => v.title === 'RxDB patched probe')).toBe(true);
 });
 

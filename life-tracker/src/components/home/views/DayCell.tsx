@@ -126,5 +126,25 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   );
 };
 
-export const DayCell = React.memo(DayCellComponent);
+// #858 diagnostic-only A/B. This experiment lives exclusively on a
+// non-deploying laboratory branch. The clean product change, if supported,
+// will remove the URL-controlled variant entirely.
+function sameDaySequence(prev: DayCellProps, next: DayCellProps): boolean {
+  if (prev.date.getTime() !== next.date.getTime() ||
+      prev.isCurrentMonth !== next.isCurrentMonth ||
+      prev.categories !== next.categories ||
+      prev.holidays !== next.holidays ||
+      prev.sharedItems !== next.sharedItems ||
+      prev.ownedSharedTaskIds !== next.ownedSharedTaskIds ||
+      prev.onDayClick !== next.onDayClick) return false;
+  if (prev.tasks === next.tasks) return true;
+  if (prev.tasks.length !== next.tasks.length) return false;
+  for (let index = 0; index < prev.tasks.length; index++) {
+    if (prev.tasks[index] !== next.tasks[index]) return false;
+  }
+  return true;
+}
+const memoLabEnabled = typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('cellCompare') === 'sequence';
+export const DayCell = React.memo(DayCellComponent, memoLabEnabled ? sameDaySequence : undefined);
 DayCell.displayName = 'DayCell';
