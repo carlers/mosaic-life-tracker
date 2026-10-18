@@ -906,27 +906,32 @@ function CalendarReconcileLab() {
   const schedule = params.get('schedule') === 'transition';
   const [tasks, setTasks] = useState(() => makeReconcileTasks(count, scenario));
   const [revision, setRevision] = useState(0);
-  const prior = useRef(new Map<string, ReconcileDoc[]>());
-  const grouped = useMemo(() => {
-    const fresh = new Map<string, ReconcileDoc[]>();
-    for (const task of tasks) {
-      const arr = fresh.get(task.date);
-      if (arr) arr.push(task);
-      else fresh.set(task.date, [task]);
-    }
-    if (mode === 'stable') {
-      for (const [date, items] of fresh) {
-        const previous = prior.current.get(date);
-        if (previous && previous.length === items.length &&
-          previous.every((item, index) => item === items[index])) {
-          fresh.set(date, previous);
+  // Fixture-local cache owned by a stable grouping closure, not a ref
+  // read/written during render. No React state, auth or RxDB is changed.
+  const groupTasks = useMemo(() => {
+    let previousGroups = new Map<string, ReconcileDoc[]>();
+    return (items: ReconcileDoc[]) => {
+      const fresh = new Map<string, ReconcileDoc[]>();
+      for (const task of items) {
+        const arr = fresh.get(task.date);
+        if (arr) arr.push(task);
+        else fresh.set(task.date, [task]);
+      }
+      if (mode === 'stable') {
+        for (const [date, next] of fresh) {
+          const old = previousGroups.get(date);
+          if (old && old.length === next.length &&
+            old.every((item, index) => item === next[index])) {
+            fresh.set(date, old);
+          }
         }
       }
-    }
-    prior.current = fresh;
-    return fresh;
-  }, [tasks, mode]);
-  const emblaRef = useCallback((_node: HTMLElement | null) => {}, []);
+      previousGroups = fresh;
+      return fresh;
+    };
+  }, [mode]);
+  const grouped = useMemo(() => groupTasks(tasks), [groupTasks, tasks]);
+  const emblaRef = useCallback(() => {}, []);
   const onRender = useCallback((
     _id: string, phase: string, actualDuration: number, baseDuration: number,
     startTime: number, commitTime: number
