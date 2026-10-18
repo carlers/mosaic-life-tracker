@@ -202,8 +202,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     layout?: boolean;
     layoutDependency?: string;
   };
-  const TaskFrame: React.ElementType<LabFrameProps> =
-    nativeFrame ? 'div' : motion.div;
+  // Motion's forwarded-ref props and intrinsic div props do not share a
+  // single JSX declaration. Both support the common props supplied below.
+  const TaskFrame = (nativeFrame ? 'div' : motion.div) as unknown as React.ElementType<LabFrameProps>;
 
   return (
     <TaskFrame
