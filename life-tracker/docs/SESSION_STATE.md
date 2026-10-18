@@ -1,28 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-18 UTC
-Current task: #858 structural Calendar/Todo startup performance; Todo static native task-row candidate.
+Current task: #858 compact Todo/Diary month grids blank after Today/frequent arrows; first Calendar→Todo/Diary switch blanks.
 
 ## Approved boundary
-- Issue #858 stays OPEN. Accepted `dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b` v0.29.8 unchanged. User explicitly approved preparation and delivery of a versioned Scratch Preview v0.29.9. No dev/main/Production/1.0 promotion approval; no backend change.
-- Preserve offline/auth isolation, all dates/tasks, Diary/shared/photos, first drag, scroll/reorder, accessible actions and existing UI.
+- User asked to fix these bugs (also reported on main) and continue structural startup work. Calendar itself works and should remain unchanged. #858 OPEN. No dev/main/Production promotion approved.
+- New task branch chatgpt/858-todo-diary-grid-mount-fix-20261018 forks delivered Scratch Preview perf/858-todo-row-20261018@1769452d5139d1bd67de166a40e9e1583224535d v0.29.9. Stage **v0.29.10** for next user-testable revision; dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b and main@b952f71ecd2add3172f90104bc0e856a2648ccc9 untouched.
 
-## Measured evidence
-- [Near-viewport Motion #39104388237](https://github.com/carlers/mosaic-life-tracker/actions/runs/39104388237) 72/72 SUCCESS: Todo dense 1000 tasks 1580→1402ms, 250 895→834ms; first 610ms long-press/overlay/cancel passed Chromium.
-- [Native nonanimated TaskItem frame #39105911960](https://github.com/carlers/mosaic-life-tracker/actions/runs/39105911960) 72/72 SUCCESS: Todo synthetic same-runner current→combined near/native medians 25 dense 499→468ms, 250 dense 669→603ms, 1000 dense 1221→951ms, 1000 monthly 684→662ms; offline 1000 dense 1250→983ms. All task rows retained, first long press/cancel passed in 25-task tests. **Synthetic Chrome 2x CPU, not physical device or paint SLA.**
-- [Owner-query prewarm #39105689490](https://github.com/carlers/mosaic-life-tracker/actions/runs/39105689490) 84/84 SUCCESS but rejected: gains marginal/inconsistent; prewarm rarely beat normal RxDB emission.
-- [Visible-date query #39106414352](https://github.com/carlers/mosaic-life-tracker/actions/runs/39106414352) 84/84 SUCCESS but rejected: at 1000 tasks across five years, Calendar 538→552ms and Todo 723→713ms; omits distant data. Neither data experiment can ship.
+## Diagnosed issues and candidate
+- Shared TodoCalendarGrid.tsx had 61 finite Embla slots anchored forever to initial month, and only three month grids rendered relative to delayed activeIndex; external Today jumps and rapid arrow commands could point to unrendered grids or exceed supported snaps. Candidate rebases when focus month moves >24 months from base, reinitializes centered viewport, renders both focused target and selected neighbors, and guards programmatic snap select events from writing stale months into the parent. Applies automatically to both owner/friend Todo and Diary, not Calendar.
+- Owner PersonPane and FriendPersonPane dynamically imported the SAME TodoListView separately behind fallback=null. Home's existing idle warmup only loaded DayViewSheet. Introduce a shared createPreloadedLazy module, start its loading ONLY after local Calendar data ready and existing DayViewSheet warmup in HomePage. On view switch before preload resolves, leave Calendar visible until import ready and ignore outdated pending requests; use React transition to mount Todo/Diary. No eager task-view or drag-tree mounting.
+- Browser harness supports synthetic compact Diary/ Todo month jumping, reset and 68 rapid arrows. New browser contracts assert actual month grid and day cells, not just header title. PersonPane unit mocks delayed Todo module: Calendar must remain visible until resolve and canceled view change must not reappear.
+- Version stamped 0.29.10 in package, lockfile and appVersion only. No schema/backend, styling or data-query change.
 
-## Candidate
-- Branch `chatgpt/858-task-row-native-candidate-20261018` cleanly forked from accepted dev, **no synthetic test-only code**.
-- `TaskReorderSurfaces.tsx`: remove unregistered inert offscreen drop-target DOM and suppress far-away row layout projection; keep near-row registration and Motion.
-- `TaskItem.tsx`: ordinary already-nonanimated rows use a native div instead of Framer Motion; retain all original handlers, classes/geometry, and Motion wrapper for drag overlay/animated modes.
-- Browser regression in `tests/e2e/interaction-contract.spec.mjs`: first hold after scrolling to last row, overlay, cancel, full row retention. Existing broader drag/reorder contracts also apply.
-- Unrelated test isolation repair `tests/react/AuthProviderPostHog.test.tsx`: reset queued mock implementations per case. Previously deterministic broad-test identity failure then passed after this change.
+## Verification / limits
+- First task CI #39118018844: **both new** Todo/Diary browser month jump/68-arrow tests PASSED (browser shard 1/2 SUCCESS). Shard 2/2 FAILED one existing cross-category drag ordering assertion (source task does not modify drag runtime); investigate/repeat rather than assume flaky. Focused failed early only because generated docs/COMPONENT_INDEX.md omitted the new shared preload module; include regenerated row and run again. Run focused + both browser shards on next commit; repair any actual issue. Review Bundle/home closures and version guard. If ready for next Preview, use a new stable Preview branch from v0.29.9 (leave prior stable immutable), squash task after focused green, wait for exact-SHA canonical Quality Gate and trusted prebuilt Vercel READY; still no dev/main promotion.
+- The lazy-loading fix hides module-download blank, but synchronous first Todo mount cost may remain, so measure actual first view-switch separately before claiming performance goal complete. Physical phone, installed PWA, diary/photo/shared, offline and owner manual checks remain outstanding.
+- Security #936 / backend #914 distinct.
 
 ## Next action
-- Version stamp v0.29.9 in package.json, lockfile, appVersion.ts; release task SHA requires new focused verification. Then target a **new** stable Preview `perf/858-todo-row-20261018` created from accepted dev via task PR squash (not old v0.29.8 stable branch).
-- [Candidate browser gate #39106846020](https://github.com/carlers/mosaic-life-tracker/actions/runs/39106846020): both browser shards SUCCESS; initial focused job failed on AuthProvider/PostHog test.
-- [Candidate test repair #39107221351](https://github.com/carlers/mosaic-life-tracker/actions/runs/39107221351): focused Auth test passed but checkpoint exceeded 3,000-token contract; trim fixes this, exact-SHA CI rerun required. Existing browser shards checked separately.
-- [Nondeploy production build probe #39107022640](https://github.com/carlers/mosaic-life-tracker/actions/runs/39107022640) SUCCESS: candidate source TypeScript, Vite/PWA and size checks.
-- Finish focused CI, repair failures. Owner approved stable Preview. Complete task focused, squash PR, canonical CI/Scratch READY, real phone/desktop gestures, Diary/photo/shared and account isolation must be accepted. Calendar optimization still open. Security #936/backend #914 remain separate pre-1.0 gates.
+- Commit scoped task files, verify exact SHA CI, repair issues and record issue #858 checkpoint. Do not alter previously delivered v0.29.9 or dev/main/Production.
