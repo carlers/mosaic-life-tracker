@@ -198,6 +198,7 @@ async function sample(browser, fixture, snapshot, mode, view, iteration) {
     // The end-of-2-frame probe includes the browser's next paint
     // opportunity; it is not a physical-device "first actionable" SLA.
     result.twoFrameReadyMs = await page.evaluate(() => new Promise(resolve => {
+      const round = value => Number.isFinite(value) ? Math.round(value) : null;
       requestAnimationFrame(() => requestAnimationFrame(() =>
         resolve(round(performance.now()))));
     }));
@@ -290,7 +291,7 @@ test('@performance Issue 858 parallel read and Calendar/Todo scaling', async ({ 
       browser: 'cached PWA mobile Chromium 412x915, 2x simulated CPU',
       network: 'All Appwrite requests held. Offline and slow online measured.',
       fixture: 'Synthetic account with owner-fenced real RxDB bulkInsert, exactly persisted IndexedDB tasks',
-      queryMicrobench: 'Six warmed same-context repetitions, alternating serial vs parallel order; read-only, not cold startup',
+      queryMicrobench: 'Six mostly RxDB-cached same-context repetitions, alternating serial vs parallel order; near-zero p50 cannot establish startup or concurrency gains',
       caution: 'Lab import is gated to synthetic seed contexts only; no source/HTML from this branch is deployable or accepted',
       limitations: ['No authenticated Scratch or physical device',
         'Two-frame and first-action DOM proxies are not first painted/interactive human touch',

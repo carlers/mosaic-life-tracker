@@ -14,6 +14,6 @@ Current task: #858 structural Calendar/Todo query, rendering and parallel-read s
 - Measure DB→Home, DB→first RxDB task result, task result→Home, FCP, two-frame proxy, DOM count, long tasks and first synthetic action response. Full owner data remains loaded by existing production useTasks code. Interleaved test conditions minimize order bias; experiments cannot establish significance or real-phone paint.
 - Auth and Appwrite held/blocked in diagnostic. No app feature changes are proposed from this branch. Never ship `issue858ScalingLab.ts` or the HomePage diagnostic import.
 
-## Next
+## Next action
 - Confirm exact Actions run and strict compile/build checks; repair any audit-specific failure without modifying production behavior. Analyze matched mode/view/task-distribution p50/p90, query concurrency and query/cardinality, not inter-run absolute speeds. Decide whether date-scoped loading, parallel subscriptions, preloading ahead of Home, or dense render/window changes are worth a separate product candidate, with regressions protecting account isolation, swipe/reorder/Diary/shared and accessibility.
 - Subsequent runtime changes require focused and canonical Scratch Preview gates, browser and device acceptance and explicit dev/main promotion. #936 security and #914 backend rollout remain separate 1.0 gates.
