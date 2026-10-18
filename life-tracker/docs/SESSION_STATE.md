@@ -1,21 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #975 native ARM64 Node Function runtime proof without OCI VM.
+Current task: #975 synthetic native ARM64 PostgreSQL, Redis and ClickHouse service smoke.
 
 ## Boundary
-- Based on accepted isolated `refactor/975-native-arm64-proof-20261019@5e332b3ec68ef2e3a9413295b82ab3759390757e`; previous native Appwrite image verification ten-of-ten passed in Actions #39173214388; full canonical #39173487970 and trusted delivery #39173625406 success.
-- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, Production main `b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged; owner has not created Oracle VM.
-- No Appwrite/Scratch/Production or OCI access or credentials. Internal test/tooling, app version impact NONE.
+- Base is isolated stable `refactor/975-node-runtime-arm64-20261019@6ee676a934a0edadbb44cdf4b2d5520d639a7924` after real ARM Node 18/22 success #39174450297, focused #39174450275, canonical #39174561267; trusted Preview evidence remains to be checked.
+- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and Production main `b952f71ecd2add3172f90104bc0e856a2648ccc9` remain unaffected. The user has no OCI VM available yet.
+- No credentials, real user data, provider writes, Appwrite service, SDK migration, app version impact or release approval.
 
-## Work and finding
-- Mosaic's source Function manifests require `node-18.0` for message-action and `node-22` for dr-backup; upstream Appwrite 2.5.0 `.env` only enables Node 22 by default.
-- Isolated branch `chatgpt/975-node-runtime-arm64-20261019` adds a branch-scoped, no-secret native GitHub ARM runner proof for `openruntimes/node:v5-18.0` and `openruntimes/node:v5-22` real pulls plus synthetic Node code execution in network-disabled, read-only, 2-CPU/512-MiB containers.
-- `docs/SELF_HOSTING_FUNCTION_RUNTIMES.md` explains configuration requirements, known Node 18 EOL risk and major remaining Appwrite Function/integration gates; linked from OCI runbook and docs index.
+## Work
+- Task branch `chatgpt/975-arm64-datastores-20261019` adds a branch-limited GitHub ARM64 job that starts pinned Appwrite PostgreSQL, Redis and ClickHouse images on an internal Docker network with no published ports, two shared CPU indices, bounded memory and only synthetic records, then checks each read-back and tears down containers.
+- Add `docs/SELF_HOSTING_ARM64_DATASTORES.md` describing proof boundaries and link from OCI runbook/docs index.
+- Real Appwrite service startup, function invocations, 2 OCPU OCI performance, encrypted R2 DR and NAS restoration all remain unverified.
 
 ## Verification
-- Pending focused task CI, native ARM64 job, stable canonical and trusted delivery. No actual hosted Appwrite service or real Function has been run.
-- The unchanged Mosaic user data/permissions, SDK parity, 2-OCPU capacity and R2 DR/NAS remain unverified.
+- Task focused, dedicated native test, stable canonical and trusted Preview pending. Do not infer deployment success from synthetic datastore starts.
 
 ## Next action
-- Review native runner and focused results, resolve relevant failures, squash into isolated stable Preview, run canonical and trusted delivery. Keep #975 open; no dev/main or Production changes without separate approval.
+- Investigate actual native datastore job outcomes and fix any infrastructure-independent failures, then squash only into isolated stable Preview after focused success, require canonical CI and trusted READY; update #975 checkpoint. Never promote to dev/main, bill Oracle, move data or modify Production without separate approval.
