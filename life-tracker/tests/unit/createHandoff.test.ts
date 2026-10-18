@@ -65,6 +65,23 @@ describe('handoff state', () => {
       /SESSION_STATE\.md is missing/
     );
   });
+
+  it('warns instead of failing when a valid checkpoint omits an exact next-action heading', () => {
+    const state = 'Updated: 2026-10-19\nCurrent task: Scoped workflow cleanup\n## Verification\n- CI pending\n';
+    expect(validateSessionState(state)).toEqual({
+      warnings: ['Prefer a clear next-action section or line for cross-chat recovery.'],
+    });
+    for (const heading of ['## Next action', '## Next steps', '## Pending verification and next gates']) {
+      expect(validateSessionState(state + heading + '\n- Finish CI\n').warnings).toEqual([]);
+    }
+  });
+
+  it('still rejects missing date or task identity even when a next step is present', () => {
+    expect(() => validateSessionState('Current task: Cleanup\n## Next action\n- Verify\n'))
+      .toThrow(/Updated/);
+    expect(() => validateSessionState('Updated: 2026-10-19\n## Next action\n- Verify\n'))
+      .toThrow(/Current task/);
+  });
 });
 
 describe('handoff targets and paths', () => {

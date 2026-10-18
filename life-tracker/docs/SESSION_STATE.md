@@ -1,18 +1,22 @@
 # Session checkpoint
 
-Updated: 2026-10-18 UTC
-Current task: #858 structural Calendar task update reconciliation after accepted dev v0.29.11.
+Updated: 2026-10-19 UTC
+Current task: Reduce documentation-only CI friction for Mosaic handoff checkpoints and token estimates.
 
-## Boundary / exact integration
-- Owner explicitly approved v0.29.11 Preview→dev and further profiling. [PR #960](https://github.com/carlers/mosaic-life-tracker/pull/960) merged exact Preview tree to `dev@6ad5d271a4717e10ddd8be9ff74b846236407425`; [dev CI #39124311386](https://github.com/carlers/mosaic-life-tracker/actions/runs/39124311386) SUCCESS, Vercel dev READY. Main/Production unchanged, #957 closed after manual acceptance, **#858 OPEN**. New Preview may be prepared, but another dev/main/Production promotion requires separate owner approval.
+## Boundary
+- Base is protected `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
+- Scoped task branch: `chatgpt/doc-contract-advisories-20261019`. No app runtime, schema, auth, sync, provider, deployment, or version change.
+- Keep AGENTS.md and AI_WORKFLOW.md instructions unchanged. Continue writing clear next actions and aiming for a concise handoff; this changes enforcement of two incidental shape/size checks only.
 
-## Verified structural evidence
-- Nondeploying lab `chatgpt/858-calendar-reconcile-layout-lab-20261018@352e804372e3afa568ae322f53c967a97e356f36`: [focused #39125774450](https://github.com/carlers/mosaic-life-tracker/actions/runs/39125774450) and [72-sample lab #39125774481](https://github.com/carlers/mosaic-life-tracker/actions/runs/39125774481) SUCCESS. RxDB Dexie `patch()` emitted changed document with a new JS object identity; prior document retained original title; published query emitted original then new document reference. Grouping every RxDB array into new per-date arrays makes even unchanged days re-render: at 1000 tasks across month a single edit gave median React Profiler 377.8ms vs 50.0ms using original unchanged day arrays; 1000 same-day 340.3→333.7ms; recreated-all documents no benefit. `startTransition` slower and forced layout-read only ~1–2ms in proxy.
-- Independent test-only DayCell comparator branch `chatgpt/858-daycell-props-comparator-lab-20261018@a89d34c7bcb6b9bc99f0f0a08a4ffefe35f00191`: exact focused [#39129083184](https://github.com/carlers/mosaic-life-tracker/actions/runs/39129083184) SUCCESS and [60-sample lab #39129083117](https://github.com/carlers/mosaic-life-tracker/actions/runs/39129083117) SUCCESS. Same-runner 2× CPU Chromium with unchanged original per-day Map regeneration but DayCell comparison by task object identity/order, all other props shallow equality. 1000 month single-task edit: React 357→49ms, data reveal 401.2→66.2ms; 1000 dense same-day 305→311.2ms (minor regression). 1000 recreated-all docs 344.7→346.5ms (no benefit), as expected. Edited task asserted visible, task counts/geometry preserved. Synthetic Vite React Profiler **NOT** production cached startup, paint or real-device speed.
+## Changes
+- `scripts/lib/create-handoff.mjs`: missing next-action heading becomes a returned advisory, accepting common equivalent headings. Required Updated and Current task/work markers still fail closed.
+- `scripts/create-handoff.mjs`: surface advisory on stderr without blocking handoff generation; retain strict GitHub exact-SHA and path safety checks.
+- `tests/unit/documentationContracts.test.ts`: 3,000 estimated-token handoff target becomes an advisory, preserving proof that the complete agent instructions and session checkpoint are included.
+- `tests/unit/createHandoff.test.ts`: coverage for alternate headings, missing-step advisories, and continued required-context failures.
 
-## Clean product task (no lab flags)
-- Task `chatgpt/858-daycell-selective-reconciliation-20261018` direct fork of `dev@6ad5d271...`. Stage **v0.29.12** patch in package/lock/appVersion, with ONLY DayCell.tsx runtime change: custom React.memo comparator preserves all other prop identities; if per-day task array is reallocated but has identical TaskDocument reference entries in same order, skip expensive unchanged-day task-block reconciliation. Any new/replaced/deleted/reordered TaskDocument triggers normal render. Rich image, social shares, categories, holidays, date, click remain reactive by their own props. No global/group cache, database/query/schema/provider/sync/security changes.
-- New `tests/components/DayCellReconciliation.test.tsx` checks preserved click, skip unchanged task array, update title/completion, insert/delete/reorder, category/owned-share/holiday/friend-share updates. Browser interaction and general tests still required. This optimizes mounted Calendar **updates**, not initial cold startup; #858 remains open.
+## Verification
+- Pending task focused CI, canonical stable Preview gate and trusted delivery; no local test-run or CI acceptance has yet been asserted.
+- Existing unrelated performance, security and Supabase/Oracle backend workstreams remain separate.
 
 ## Next action
-- Commit clean task and checkpoint with `[verify:browser]`. Repair focused and both browser shards as needed. If successful, squash to **new** stable Scratch Preview `perf/858-calendar-daycell-reconcile-20261018` forked from dev v0.29.11, require full canonical CI and trusted prebuilt Vercel READY, request phone/manual behavior acceptance. Do not alter dev/main/Production. Continue profiling layout and first-mount cost after this candidate.
+- Commit coherent task with `[verify:focused]`; repair relevant failing tests if necessary. After focused green, squash into a separate stable Preview branch for canonical CI and trusted delivery. Do not promote to dev/main without explicit approval.

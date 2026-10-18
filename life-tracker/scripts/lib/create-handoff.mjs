@@ -47,20 +47,24 @@ export function promptForTarget(target) {
 }
 
 export function validateSessionState(content) {
-  // Both the older structured handoff template and the current concise
-  // task checkpoint are valid. Do not require one exact heading layout.
+  // Keep essential handoff identity fail-closed; prefer, but do not require,
+  // a specific next-action heading. Agents still follow AI_WORKFLOW.md.
   const missing = [];
   if (!/^Updated:\s*\S/m.test(content)) missing.push('Updated:');
   if (!/(?:^|[ \t])(?:Current task|Current work):[ \t]*\S/m.test(content)) {
     missing.push('Current task: or Current work:');
   }
-  if (!/^Next action:\s*\S/m.test(content) &&
-      !/^## Next action(?:\s|$)/m.test(content)) {
-    missing.push('Next action: or ## Next action');
-  }
   if (missing.length > 0) {
     throw new Error(`SESSION_STATE.md is missing checkpoint context: ${missing.join(', ')}`);
   }
+  const hasNextAction =
+    /^Next action:\s*\S/im.test(content) ||
+    /^#{1,4}\s*(?:Next action|Next steps?|Remaining(?: work| steps)?|Pending verification(?: and next gates)?|Follow[- ]?up)\b/im.test(content);
+  return {
+    warnings: hasNextAction
+      ? []
+      : ['Prefer a clear next-action section or line for cross-chat recovery.'],
+  };
 }
 
 export function parseWorkingSet(content) {
