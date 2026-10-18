@@ -671,6 +671,31 @@ test('fresh task reorder runtime keeps legacy RxDocument-backed rows readable be
     .toBe(true);
 });
 
+// #858 regression: an initially unregistered distant row must be fully
+// readable before scrolling and draggable on the FIRST long-press after it
+// enters the viewport (not only after an extra tap).
+test('offscreen Todo row registers in advance of its first long press', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?reorderProximity=1`);
+  const region = page.getByTestId('todo-day-content');
+  const last = region.locator('[data-task-id="task_0_29"]');
+  const registeredHandle = last.locator('xpath=..')
+    .locator('[data-task-dnd-registered="true"]');
+  await expect(last).toHaveCount(1);
+  await expect(last).toContainText('Task 1.30');
+  await expect(registeredHandle).toHaveCount(0);
+  await last.scrollIntoViewIfNeeded();
+  await expect(registeredHandle).toHaveCount(1, { timeout: 10_000 });
+  const title = last.getByRole('button', { name: 'Task 1.30', exact: true });
+  await expect(title).toBeVisible();
+  const touch = await startTaskLongPress(page, title);
+  await expect(page.locator('[data-task-overlay-id="task_0_29"]'))
+    .toBeVisible({ timeout: 10_000 });
+  await touch.cancel();
+  await expect(page.locator('[data-task-overlay-id="task_0_29"]'))
+    .toHaveCount(0);
+  await expect(last).toBeVisible();
+});
+
 // Regression: owner task reorder is a simple delayed sortable interaction.
 test('task long-press stays under the finger while siblings reorder, then persists on release', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

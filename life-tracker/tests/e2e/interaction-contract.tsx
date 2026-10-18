@@ -227,6 +227,7 @@ export function InteractionHarness() {
   const calendar = useCalendarState();
   const searchParams = new URLSearchParams(window.location.search);
   const performanceHeavy = searchParams.get('perf') === 'heavy';
+  const proximityTaskProbe = searchParams.get('reorderProximity') === '1';
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
   const performanceCalendarPath = searchParams.get('calendarPath') === '1';
   const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
@@ -269,11 +270,13 @@ export function InteractionHarness() {
       Array.from(
         {
           length:
-            !performanceHeavy && categoryIndex === 2
-              ? 0
-              : performanceHeavy
-                ? 10
-                : 3,
+            proximityTaskProbe && categoryIndex === 0
+              ? 30
+              : !performanceHeavy && categoryIndex === 2
+                ? 0
+                : performanceHeavy
+                  ? 10
+                  : 3,
         },
         (_, taskIndex) => ({
           id: `task_${categoryIndex}_${taskIndex}`,

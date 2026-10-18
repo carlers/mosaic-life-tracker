@@ -111,13 +111,10 @@ const RegisteredRowTargets: React.FC<RowTargetsProps> = ({
     </>
   );
 };
-const PassiveRowTargets = () => (
-  <>
-    <div aria-hidden="true" style={{ ...dropZoneStyle, top: 0 }} />
-    <div aria-hidden="true" style={{ ...dropZoneStyle, bottom: 0 }} />
-  </>
-);
-
+// Unregistered rows have no drop hooks or hit targets. Keeping inert
+// absolutely-positioned markup on every far-away row adds DOM/layout cost
+// without improving a first drag: useTaskReorderProximity activates before
+// the row enters the 800px viewport buffer.
 export const TaskRowDropSurface: React.FC<{
   categoryId: string;
   taskId: string;
@@ -142,7 +139,9 @@ export const TaskRowDropSurface: React.FC<{
   return (
     <motion.div
       ref={ref}
-      layout={animatePosition ? 'position' : false}
+      // Preserve Framer layout for approaching/active rows and all first-touch
+      // drag candidates; distant rows do not need layout measurement yet.
+      layout={animatePosition && active ? 'position' : false}
       transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
       className={isActiveSource ? 'relative !invisible' : 'relative'}
       data-task-source-slot={isActiveSource ? 'true' : undefined}
@@ -163,7 +162,7 @@ export const TaskRowDropSurface: React.FC<{
         {active
           ? <RegisteredRowTargets categoryId={categoryId} taskId={taskId}
               isActiveSource={isActiveSource} acceptTasksOnly={acceptTasksOnly} />
-          : <PassiveRowTargets />}
+          : null}
         {children}
       </TaskRowRegistrationContext.Provider>
     </motion.div>
