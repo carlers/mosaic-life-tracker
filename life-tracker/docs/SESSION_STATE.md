@@ -4,7 +4,7 @@ Updated: 2026-10-18 UTC
 Current task: #858 structural Calendar/Todo startup performance; Todo static native task-row candidate.
 
 ## Approved boundary
-- Issue #858 stays OPEN. Accepted `dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b` v0.29.8 unchanged. No stable Preview/dev/main/Production/1.0 promotion approval; no backend or version change.
+- Issue #858 stays OPEN. Accepted `dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b` v0.29.8 unchanged. User explicitly approved preparation and delivery of a versioned Scratch Preview v0.29.9. No dev/main/Production/1.0 promotion approval; no backend change.
 - Preserve offline/auth isolation, all dates/tasks, Diary/shared/photos, first drag, scroll/reorder, accessible actions and existing UI.
 
 ## Measured evidence
@@ -21,7 +21,8 @@ Current task: #858 structural Calendar/Todo startup performance; Todo static nat
 - Unrelated test isolation repair `tests/react/AuthProviderPostHog.test.tsx`: reset queued mock implementations per case. Previously deterministic broad-test identity failure then passed after this change.
 
 ## Next action
+- Version stamp v0.29.9 in package.json, lockfile, appVersion.ts; release task SHA requires new focused verification. Then target a **new** stable Preview `perf/858-todo-row-20261018` created from accepted dev via task PR squash (not old v0.29.8 stable branch).
 - [Candidate browser gate #39106846020](https://github.com/carlers/mosaic-life-tracker/actions/runs/39106846020): both browser shards SUCCESS; initial focused job failed on AuthProvider/PostHog test.
 - [Candidate test repair #39107221351](https://github.com/carlers/mosaic-life-tracker/actions/runs/39107221351): focused Auth test passed but checkpoint exceeded 3,000-token contract; trim fixes this, exact-SHA CI rerun required. Existing browser shards checked separately.
 - [Nondeploy production build probe #39107022640](https://github.com/carlers/mosaic-life-tracker/actions/runs/39107022640) SUCCESS: candidate source TypeScript, Vite/PWA and size checks.
-- Finish focused CI, repair failures. No stable Preview squash or deployment until authorized; afterward canonical/Scratch READY, real phone/desktop gestures, Diary/photo/shared and account isolation must be accepted. Calendar optimization still open. Security #936/backend #914 remain separate pre-1.0 gates.
+- Finish focused CI, repair failures. Owner approved stable Preview. Complete task focused, squash PR, canonical CI/Scratch READY, real phone/desktop gestures, Diary/photo/shared and account isolation must be accepted. Calendar optimization still open. Security #936/backend #914 remain separate pre-1.0 gates.
