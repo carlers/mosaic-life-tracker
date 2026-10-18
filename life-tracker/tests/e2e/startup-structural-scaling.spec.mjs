@@ -243,41 +243,39 @@ async function sample(browser, fixture, snapshot, mode, view, variant, iteration
       expect(result.taskBlockDomCount).toBeGreaterThanOrEqual(fixture.count);
     }
     result.heldAppwriteRequests = network.count();
-    // Behavior probe independent from timing: first 550ms+ touch hold must
-    // lift the original overlay, even with offscreen Motion suppressed.
+    // Behavior probe independent from timing: first 550ms+ touch holds must
+    // lift both the eager row and last row AFTER scrolling into view.
     if (fixture.count === 25 && iteration === 1 &&
         ['baseline', 'near-motion', 'near-motion-no-passive'].includes(variant)) {
       await page.keyboard.press('Escape');
-      const first = page.getByRole('button',
-        { name: 'Scaling fixture 00000', exact: true }).first();
-      await first.scrollIntoViewIfNeeded();
-      await expect(first).toBeVisible();
-      await expect.poll(() =>
-        page.locator('[data-task-dnd-registered="true"]').count(),
-      { timeout: 12_000 }).toBeGreaterThan(0);
-      const box = await first.boundingBox();
-      if (!box) throw new Error('First drag title has no bounding box');
-      const session = await context.newCDPSession(page);
-      const point = { x: box.x + box.width * 0.5,
-        y: box.y + box.height * 0.5 };
-      await session.send('Input.dispatchTouchEvent',
-        { type: 'touchStart', touchPoints: [point] });
-      try {
-        await page.waitForTimeout(610);
-        await expect(page.locator(
-          '[data-task-overlay-id="issue858_task_00000"]'))
-          .toBeVisible({ timeout: 10_000 });
-        result.firstLongPressOverlay = true;
-        await session.send('Input.dispatchTouchEvent', {
-          type: 'touchMove', touchPoints: [{ ...point, y: point.y - 30 }],
-        });
-      } finally {
+      result.firstLongPressOverlays = [];
+      for (const number of [0, 24]) {
+        const title = 'Scaling fixture ' + String(number).padStart(5, '0');
+        const taskId = 'issue858_task_' + String(number).padStart(5, '0');
+        const item = page.getByRole('button', { name: title, exact: true }).first();
+        await item.scrollIntoViewIfNeeded();
+        await expect(item).toBeVisible();
+        const box = await item.boundingBox();
+        if (!box) throw new Error('Dragged title has no bounding box: ' + title);
+        const session = await context.newCDPSession(page);
+        const point = { x: box.x + box.width * 0.5, y: box.y + box.height * 0.5 };
         await session.send('Input.dispatchTouchEvent',
-          { type: 'touchCancel', touchPoints: [] }).catch(() => {});
+          { type: 'touchStart', touchPoints: [point] });
+        try {
+          await page.waitForTimeout(610);
+          await expect(page.locator('[data-task-overlay-id="' + taskId + '"]'))
+            .toBeVisible({ timeout: 10_000 });
+          result.firstLongPressOverlays.push(taskId);
+          await session.send('Input.dispatchTouchEvent', {
+            type: 'touchMove', touchPoints: [{ ...point, y: point.y - 25 }],
+          });
+        } finally {
+          await session.send('Input.dispatchTouchEvent',
+            { type: 'touchCancel', touchPoints: [] }).catch(() => {});
+        }
+        await expect(page.locator('[data-task-overlay-id="' + taskId + '"]'))
+          .toHaveCount(0, { timeout: 10_000 });
       }
-      await expect(page.locator(
-        '[data-task-overlay-id="issue858_task_00000"]'))
-        .toHaveCount(0, { timeout: 10_000 });
     }
     if (view === 'todo' && fixture.distribution === 'dense') {
       expect(result.todoRowDomCount, 'all selected-day rows retained by ' + variant)
