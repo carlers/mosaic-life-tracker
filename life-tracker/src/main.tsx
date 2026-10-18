@@ -34,9 +34,35 @@ installChunkLoadErrorTracking();
 // lifecycle events, but leave all unrelated background work until after paint.
 initializePwaLifecycle(window, registerSW);
 
+// #858 isolated lab ONLY: this never executes on real owner identities
+// or in the shipping production build. Test whether one real RxDB all-owner
+// query can overlap Home/provider mount after DB readiness.
+const prewarmOwnerTasksForLab = () => {
+  if (import.meta.env.VITE_MOSAIC_858_SCALING_LAB !== '1') return;
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem('mosaic_last_known_user') ?? 'null');
+    const id = raw && typeof raw === 'object' && '$id' in raw
+      ? (raw as { $id?: unknown }).$id : null;
+    if (id !== 'issue858_scale_user' ||
+        localStorage.getItem('mosaic_858_query_variant') !== 'prewarm') return;
+    performance.mark('mosaic:858:prewarm-start');
+    void import('./db/database').then(async ({ getDatabase }) => {
+      const tasks = await getDatabase().tasks.find({
+        selector: { userId: id, isDeleted: false },
+        sort: [{ date: 'asc' }, { createdAt: 'desc' }],
+      }).exec();
+      performance.mark('mosaic:858:prewarm-end');
+      if (import.meta.env.DEV) console.debug('[Issue 858] Prewarmed rows:', tasks.length);
+    }).catch(error => console.warn('[Issue 858] Lab prewarm failed', error));
+  } catch { /* Non-production diagnostic only. */ }
+};
+
 const beginDatabaseBootstrap = () => {
   void startDatabaseBootstrap()
-    .then(() => markStartup('database:ready'))
+    .then(() => {
+      markStartup('database:ready');
+      prewarmOwnerTasksForLab();
+    })
     .catch((error) => {
       console.error('[Bootstrap] Database initialization failed', error);
       captureHandledException(error, { source: 'database-bootstrap' });
