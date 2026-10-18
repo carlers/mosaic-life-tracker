@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-18 UTC
-Task: #858 — Calendar task-to-React scheduling, date reconciliation, and layout study.
+Current task: #858 — Calendar task-to-React scheduling, date reconciliation, and layout study.
 
 ## Approved work and integration
 - Owner accepted v0.29.11 and explicitly authorized Preview → dev plus further #858 investigation. [PR #960](https://github.com/carlers/mosaic-life-tracker/pull/960) MERGED using a two-parent commit at `dev@6ad5d271a4717e10ddd8be9ff74b846236407425`, v0.29.11. Parents: previous dev `bfb0fff0c1c283f599f32db8c2a426416fa65e7b`, accepted Preview `4700bbea80e0c3f8a5160fda981a917883e69562`. Merge tree `312aa00634f197f0547cc2d2cdbcd92ec59df55f` equals accepted Preview. [Dev CI #39124311386](https://github.com/carlers/mosaic-life-tracker/actions/runs/39124311386) SUCCESS (promotion provenance and canonical reuse), Vercel dev `dpl_EMWazA7Qh9wqXQc5VRHFbCa1yNSu` READY on exact commit.
@@ -12,6 +12,6 @@ Task: #858 — Calendar task-to-React scheduling, date reconciliation, and layou
 - Isolated no-deploy task branch `chatgpt/858-calendar-reconcile-layout-lab-20261018` forks current dev. Only `tests/e2e/interaction-contract.tsx` (query-gated fake task fixture), `tests/e2e/calendar-reconcile-layout-lab.spec.mjs`, a branch-only workflow and this checkpoint change. No product runtime/schema/backend/remote data modifications.
 - Paired test: n=3 at 25/250/1000 dense, 1000 distributed monthly and across years; full regroup vs strict unchanged-day reference reuse, shared-document vs recreated-document snapshots; measures React Profiler, DOM-update, two-frame paint proxy and forced layout read. Separately probes sync vs `startTransition` under heavy updates. One added browser-local **real RxDB Dexie** probe checks whether RxDocument references survive `patch()`, because reference equality alone may hide changed task data.
 
-## Checks and next action
+## Next action
 - First lab [#39124908900](https://github.com/carlers/mosaic-life-tracker/actions/runs/39124908900) SUCCESS 60 updates/12 scheduling; focused failed React ref mutation lint. Second lab #39125120248 SUCCESS; focused failed closure-mutation lint. Lab moved cache outside React rendering; latest focused [#39125400850](https://github.com/carlers/mosaic-life-tracker/actions/runs/39125400850) failed **only** because prior checkpoint exceeded token limit; this shortened document repairs it. Diagnostic [#39125400859](https://github.com/carlers/mosaic-life-tracker/actions/runs/39125400859) running at last check; inspect RxDB identity/measurements and rerun final focused+lab on exact new SHA.
 - Do not ship naïve reference caching, which may skip live RxDB edits. Pursue immutable per-day version signatures/memo only if the real RxDB identity evidence and same-runner causal results support correctness and meaningful performance. No Preview/dev/main/Production changes without new gates and explicit promotion approval.
