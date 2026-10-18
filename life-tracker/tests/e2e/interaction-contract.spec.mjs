@@ -1678,7 +1678,7 @@ test('interaction harness has no detectable non-visual WCAG A/AA axe violations'
 // Regression #858: owners see only the current Calendar grid on cold mount,
 // but their very first swipe must prepare neighboring grids before navigation.
 test('Calendar deferred neighbor grids mount on first pointer before the swipe', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?calendarPath=1&calendarNeighbors=deferred`);
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&calendarPath=1&calendarNeighbors=deferred`);
   const calendar = page.getByTestId('real-calendar-cold-probe');
   await expect(calendar.locator('[role="grid"]')).toHaveCount(1);
   await expect(calendar.locator('[data-calendar-slide-index="30"] [role="grid"]')).toBeVisible();
