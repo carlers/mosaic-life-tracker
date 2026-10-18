@@ -198,7 +198,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     ['native-task-frame', 'near-motion-native-task-frame'].includes(
       localStorage.getItem('mosaic_858_render_variant') ?? '') &&
     disableLayoutAnimation;
-  const TaskFrame: React.ElementType = nativeFrame ? 'div' : motion.div;
+  type LabFrameProps = React.HTMLAttributes<HTMLDivElement> & {
+    layout?: boolean;
+    layoutDependency?: string;
+  };
+  const TaskFrame: React.ElementType<LabFrameProps> =
+    nativeFrame ? 'div' : motion.div;
 
   return (
     <TaskFrame
