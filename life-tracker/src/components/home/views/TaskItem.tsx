@@ -190,11 +190,21 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     }
   };
   const isCompleted = task.completed;
+  // Diagnostic-only: when layout animation is already disabled by the
+  // draggable Todo wrapper, compare a native div against a Motion instance.
+  // Preserve all row contents, handlers, and drag handle refs.
+  const nativeFrame = import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1' &&
+    currentUserId === 'issue858_scale_user' &&
+    ['native-task-frame', 'near-motion-native-task-frame'].includes(
+      localStorage.getItem('mosaic_858_render_variant') ?? '') &&
+    disableLayoutAnimation;
+  const TaskFrame: React.ElementType = nativeFrame ? 'div' : motion.div;
 
   return (
-    <motion.div
-      layout={!disableLayoutAnimation}
-      layoutDependency={`${task.updatedAt}:${isEditing}`}
+    <TaskFrame
+      layout={nativeFrame ? undefined : !disableLayoutAnimation}
+      layoutDependency={nativeFrame ? undefined : `${task.updatedAt}:${isEditing}`}
+      data-issue858-native-frame={nativeFrame ? 'true' : undefined}
       data-task-id={isDragOverlay ? undefined : task.id}
       data-task-overlay-id={isDragOverlay ? task.id : undefined}
       data-task-dragging={isDragOverlay ? 'true' : undefined}
@@ -308,6 +318,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           </div>
         )}
       </div>
-    </motion.div>
+    </TaskFrame>
   );
 };

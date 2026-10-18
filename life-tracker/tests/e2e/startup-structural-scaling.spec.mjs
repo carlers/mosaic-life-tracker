@@ -18,8 +18,8 @@ const CASES = [
   { count: 1000, distribution: 'month' },
 ];
 const VARIANTS = {
-  todo: ['baseline', 'near-motion', 'near-motion-no-passive',
-    'no-idle-motion-no-passive'],
+  todo: ['baseline', 'near-motion-no-passive', 'native-task-frame',
+    'near-motion-native-task-frame'],
 };
 const REPEATS = 3;
 const FAST = { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
@@ -191,6 +191,7 @@ async function sample(browser, fixture, snapshot, mode, view, variant, iteration
         taskBlockDomCount: document.querySelectorAll(
           '[data-calendar-slide-index="30"] [title^="Scaling fixture "]').length,
         todoRowDomCount: document.querySelectorAll('[data-task-id]').length,
+        nativeFrameCount: document.querySelectorAll('[data-issue858-native-frame="true"]').length,
         domElements: document.getElementsByTagName('*').length,
         longestTaskMs: Math.max(0, ...longTasks),
         totalLongTaskMs: longTasks.reduce((n, v) => n + v, 0),
@@ -246,7 +247,8 @@ async function sample(browser, fixture, snapshot, mode, view, variant, iteration
     // Behavior probe independent from timing: first 550ms+ touch hold must
     // lift the original overlay, even with offscreen Motion suppressed.
     if (fixture.count === 25 && iteration === 1 &&
-        ['baseline', 'near-motion', 'near-motion-no-passive'].includes(variant)) {
+        ['baseline', 'near-motion-no-passive', 'native-task-frame',
+          'near-motion-native-task-frame'].includes(variant)) {
       await page.keyboard.press('Escape');
       const first = page.getByRole('button',
         { name: 'Scaling fixture 00000', exact: true }).first();
@@ -282,9 +284,16 @@ async function sample(browser, fixture, snapshot, mode, view, variant, iteration
     if (view === 'todo' && fixture.distribution === 'dense') {
       expect(result.todoRowDomCount, 'all selected-day rows retained by ' + variant)
         .toBeGreaterThanOrEqual(fixture.count);
+      if (fixture.count > 0 && variant.includes('native-task-frame')) {
+        expect(result.nativeFrameCount,
+          'native frame variant must actually replace Motion row wrappers')
+          .toBeGreaterThanOrEqual(fixture.count);
+      } else {
+        expect(result.nativeFrameCount).toBe(0);
+      }
     }
     expect(Number.isFinite(result.querySubscriptionToResultMs)).toBe(true);
-    console.log('MOSAIC_858_NEAR_ROW ' + JSON.stringify(result));
+    console.log('MOSAIC_858_FRAME_ROW ' + JSON.stringify(result));
     return result;
   } finally {
     network.release();
@@ -292,7 +301,7 @@ async function sample(browser, fixture, snapshot, mode, view, variant, iteration
   }
 }
 
-test('@performance Issue 858 proximity-gated Motion and first long press', async ({ browser }) => {
+test('@performance Issue 858 native frame vs Motion with first touch', async ({ browser }) => {
   test.setTimeout(3_500_000);
   await mkdir(resolve('.mosaic/slow-startup'), { recursive: true });
   const { states } = await seedFixtures(browser);
@@ -331,8 +340,8 @@ test('@performance Issue 858 proximity-gated Motion and first long press', async
         }];
       }))));
     groups.push({ ...fixture, stats });
-    console.log('MOSAIC_858_NEAR_GROUP ' + JSON.stringify(groups.at(-1)));
-    await writeFile(resolve('.mosaic/slow-startup/near-motion-partial.json'),
+    console.log('MOSAIC_858_FRAME_GROUP ' + JSON.stringify(groups.at(-1)));
+    await writeFile(resolve('.mosaic/slow-startup/native-frame-partial.json'),
       JSON.stringify({ groups, rows }, null, 2) + '\n');
   }
   const report = {
@@ -342,13 +351,13 @@ test('@performance Issue 858 proximity-gated Motion and first long press', async
       browser: '412x915 Chromium, 2x CPU throttle, locally persisted task fixture, PWA precache',
       network: 'Every Appwrite request held; slow online all cases; offline dense 1000 control.',
       ablations: {
-        'near-motion': 'Only rows inside drag-proximity 800px observer use Motion layout; other registered drag hooks and controls retained.',
-        'near-motion-no-passive': 'Same with two inert offscreen target elements removed.',
-        'no-idle-motion-no-passive': 'Prior test-only lower bound: Motion layout off until drag starts; gesture compatibility unverified.',
+        'near-motion-no-passive': 'Reference from previous lab: near-viewport layout Motion + omit unregistered passive targets.',
+        'native-task-frame': 'Keep all DraggableTaskItem/TaskItem controls and callbacks; use native div only for TaskItem with disabled layout animation.',
+        'near-motion-native-task-frame': 'Combine native task frames with near-viewport Motion and omit offscreen inert targets.',
       },
       safeguards: 'Lab-only Vite compile flag, synthetic owner guard, never deploy/merge to stable.',
       limitations: [
-        'Real Chromium first long-press overlay check included on 25-task baseline and near variants; multi-category/autoscroll and device gestures remain unproven.',
+        'First touch-overlay activation and cancel in Chromium tested at 25 tasks for all variants; cross-category/autoscroll/device remain unproven.',
         'Readiness and DOM event response are browser proxies, not first-painted native touch.',
         'Three repetitions and shared order require a separate larger causal replication.',
         'Photo/Diary/shared, multi-account, real-device and cross-category/long-distance behavior remain untested.',
@@ -356,7 +365,7 @@ test('@performance Issue 858 proximity-gated Motion and first long press', async
     },
     groups, rows,
   };
-  await writeFile(resolve('.mosaic/slow-startup/near-motion.json'),
+  await writeFile(resolve('.mosaic/slow-startup/native-frame.json'),
     JSON.stringify(report, null, 2) + '\n');
-  console.log('MOSAIC_858_NEAR_FINAL ' + JSON.stringify(groups));
+  console.log('MOSAIC_858_FRAME_FINAL ' + JSON.stringify(groups));
 });
