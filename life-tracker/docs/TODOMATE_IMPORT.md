@@ -67,7 +67,7 @@ stable API. A schema/rule change must fail visibly without writing partial Mosai
 - `id` → source category ID
 - `title` → category name
 - ARGB `color` → Mosaic `#RRGGBB`
-- ascending TodoMate `priority` → contiguous Mosaic category `order`
+- descending TodoMate `priority` (reversing the previously imported list) → contiguous Mosaic category `order`
 - `isPublic == true` → `public`
 - `isViewerIDsFollowers == true` → `followers`
 - otherwise → `private`

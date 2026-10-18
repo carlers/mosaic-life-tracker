@@ -203,18 +203,18 @@ describe('TodoMate import adapter', () => {
 
     expect(payload.data.categories).toEqual([
       expect.objectContaining({
-        id: 'goal_work',
-        name: 'Work',
-        color: '#3366CC',
-        order: 0,
-        visibility: 'followers',
-      }),
-      expect.objectContaining({
         id: 'goal_personal',
         name: 'Personal',
         color: '#22AA77',
-        order: 1,
+        order: 0,
         visibility: 'private',
+      }),
+      expect.objectContaining({
+        id: 'goal_work',
+        name: 'Work',
+        color: '#3366CC',
+        order: 1,
+        visibility: 'followers',
       }),
     ]);
 

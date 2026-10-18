@@ -1,7 +1,14 @@
 # Session checkpoint
 
-Updated: 2026-10-18 UTC
-Current task: #858 structural Calendar task update reconciliation after accepted dev v0.29.11.
+Updated: 2026-10-19 UTC
+Current task: TodoMate category order fix from dev v0.29.12; #858 remains open.
+
+## 2026-10-19 TodoMate category fix
+- Base `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68`; task `chatgpt/todomate-category-order-20261019`; Preview `fix/todomate-category-order-20261019`.
+- Reverse TodoMate Goal ordering before assigning category indices; leave task IDs/references and Merge unchanged. Update adapter test and mapping docs. Candidate v0.29.14 (v0.29.13 reserved).
+- Focused CI, stable Preview CI/Vercel READY and live import acceptance required. Do not promote dev/main/Production without approval.
+
+## Previous session: #858
 
 ## Boundary / exact integration
 - Owner explicitly approved v0.29.11 Preview→dev and further profiling. [PR #960](https://github.com/carlers/mosaic-life-tracker/pull/960) merged exact Preview tree to `dev@6ad5d271a4717e10ddd8be9ff74b846236407425`; [dev CI #39124311386](https://github.com/carlers/mosaic-life-tracker/actions/runs/39124311386) SUCCESS, Vercel dev READY. Main/Production unchanged, #957 closed after manual acceptance, **#858 OPEN**. New Preview may be prepared, but another dev/main/Production promotion requires separate owner approval.

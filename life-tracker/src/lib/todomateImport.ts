@@ -552,7 +552,7 @@ async function makeMosaicBackup(
     const aPriority = maybeNumber(a.fields.priority) ?? Number.MAX_SAFE_INTEGER;
     const bPriority = maybeNumber(b.fields.priority) ?? Number.MAX_SAFE_INTEGER;
     return aPriority - bPriority;
-  });
+  }).reverse();
 
   const categories = orderedGoals.map((goal, index) => ({
     id: goal.id,
