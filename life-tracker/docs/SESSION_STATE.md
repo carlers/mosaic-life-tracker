@@ -20,7 +20,7 @@ Current task: #858 structural Calendar/Todo startup performance; Todo static nat
 - Browser regression in `tests/e2e/interaction-contract.spec.mjs`: first hold after scrolling to last row, overlay, cancel, full row retention. Existing broader drag/reorder contracts also apply.
 - Unrelated test isolation repair `tests/react/AuthProviderPostHog.test.tsx`: reset queued mock implementations per case. Previously deterministic broad-test identity failure then passed after this change.
 
-## CI and next action
+## Next action
 - [Candidate browser gate #39106846020](https://github.com/carlers/mosaic-life-tracker/actions/runs/39106846020): both browser shards SUCCESS; initial focused job failed on AuthProvider/PostHog test.
 - [Candidate test repair #39107221351](https://github.com/carlers/mosaic-life-tracker/actions/runs/39107221351): focused Auth test passed but checkpoint exceeded 3,000-token contract; trim fixes this, exact-SHA CI rerun required. Existing browser shards checked separately.
 - [Nondeploy production build probe #39107022640](https://github.com/carlers/mosaic-life-tracker/actions/runs/39107022640) SUCCESS: candidate source TypeScript, Vite/PWA and size checks.
