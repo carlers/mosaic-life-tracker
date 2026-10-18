@@ -1,29 +1,19 @@
 # Session checkpoint
 
-Updated: 2026-10-17 UTC
-Current task: #858 structural Calendar and Todo local-first cold startup — v0.29.8 preloaded-app-shell Preview candidate.
+Updated: 2026-10-18 UTC
+Current task: #858 structural Calendar/Todo query, rendering and parallel-read scaling diagnostic; research only.
 
-## Approved boundary
+## Accepted boundary
+- Baseline dev v0.29.8: `bfb0fff0c1c283f599f32db8c2a426416fa65e7b`. #858 stays OPEN. Do not promote this experimental source branch to stable Preview, dev, main, Production, or 1.0.
+- User approved a structural zoom-out focusing on parallelization and efficient task loading/rendering with increasing cached task counts, rather than marginal CSS containment.
+- New branch `chatgpt/858-structural-scaling-lab-20261018` forks dev. No backend/remote data, production accounts or real credentials.
 
-- User requested a structural audit and faster default Calendar mount, explicitly retaining both Calendar and Todo optimization as #858 scope. Existing v0.29.7 Scratch Preview `perf/858-startup-diagnostics-20261017@34ac29ed0790ea796c9d350c9da2796b2ab29e7a` remains the accepted starting point; canonical #39044763288 and trusted Preview #39044882214 SUCCESS.
-- This task changes only initial `AppDataShell` **already-preloaded module reveal**, with unchanged task queries, RxDB schema, account identity, sync behavior, Calendar/Todo visual tree and network boundaries. Maintain the `React.lazy` import, Suspense loading UI and original failure/retry behavior when the module is not loaded. Do not prematurely mount RxDB-backed providers before the protected-route DB-ready gate.
-- Release candidate version 0.29.8 (new user-testable PATCH iteration). No dev/main/Production/backend/1.0 promotion approval.
+## Read-only experiment
+- One diagnostic-only HomePage `useEffect` conditionally loads `src/lib/issue858ScalingLab.ts` **only** when the CI-only build flag and sessionStorage synthetic fixture flag are both set. The bridge rejects any cached owner other than `issue858_scale_user`; measured PWA launches do NOT set this flag or import the module. The bridge uses real RxDB `bulkInsert` for synthetic task documents and only reads while comparing global owner-scoped sorted tasks, month-window queries, and three month queries serial vs `Promise.all`.
+- Disposable Playwright `startup-structural-scaling.spec.mjs` creates a real UI category and persists IndexedDB snapshots at task counts 0/25/250/1000 on one day, plus 250/1000 across current month and 1000 across five years. Captures six warm, order-balanced read timings per populated fixture; tests current-month cardinality equality. Per fixture, run both default Calendar and Todo, 2× CPU, cached assets, offline vs throttled-online, three repeats (84 launched browser samples).
+- Measure DB→Home, DB→first RxDB task result, task result→Home, FCP, two-frame proxy, DOM count, long tasks and first synthetic action response. Full owner data remains loaded by existing production useTasks code. Interleaved test conditions minimize order bias; experiments cannot establish significance or real-phone paint.
+- Auth and Appwrite held/blocked in diagnostic. No app feature changes are proposed from this branch. Never ship `issue858ScalingLab.ts` or the HomePage diagnostic import.
 
-## Measured causal evidence
-
-- [Isolated critical path #39048530590](https://github.com/carlers/mosaic-life-tracker/actions/runs/39048530590) SUCCESS: with cached-PWA mobile Chromium 2× CPU, synthetic owner IndexedDB 0/25/1000 tasks, n=3, offline/slow online, DB ready ~160–184ms and `AppDataShell` module ready ~144–153ms; `HomePage` doesn't mount until 492–517ms. The ~333–335ms DB→Home wait persists at 0 tasks and both connection modes, excluding query/render/network as its main explanation. No physical-device claim.
-- [Four-way same-bundle Suspense A/B #39049692367](https://github.com/carlers/mosaic-life-tracker/actions/runs/39049692367) SUCCESS: original nested lazy boundaries vs bypass Home only vs bypass `AppDataShell` only vs both. Slow-online Home-owner-ready p50 for 0/25/1000 tasks: original 587/578/719ms, **direct preloaded shell only 284/300/478ms** (saving 303/278/241ms). Home-only direct 560/570/724ms (minor/none). First 1000-task DOM 770→528ms, all preview tasks retained. Offline for 1000 727→493ms. This is an isolated causal diagnostic, not manual acceptance; interaction/lazy failure edge cases remain.
-- Focused experiment checkpoint #39049775650 SUCCESS after fixing a diagnostic-only docs heading. Direct-loaded-shell effect chosen for a narrow production candidate; Home's own nested lazy route remains untouched.
-
-## New task change
-
-- Task branch `chatgpt/858-direct-preloaded-shell-20261017` from stable v0.29.7.
-- `src/components/layout/routeModuleLoaders.ts`: export a synchronous read-only `AppDataShell` component snapshot, subscriber and notifications after the existing cached import finishes. No independent second module import or cache.
-- `src/components/layout/AppLayout.tsx`: `useSyncExternalStore` subscribes to that snapshot in protected AppLayout. Once cached user, database and module are ready, mount directly rather than re-suspending. When the module isn't resolved, preserve the **exact existing lazy component and Suspense** (including failed load path); do not replace it with an indefinite custom spinner. The original `AppDataShell` children and route swipe props remain.
-- `tests/components/AppDataShellPreload.test.tsx`: regression for memoized module, once-only listener, already-loaded first React commit and a preloading in-flight subscriber. Existing browser shards must verify route gestures, account and offline fallback.
-- Update package/package-lock/appVersion to 0.29.8 once; no unrelated styling or infrastructure edits.
-
-## Next action
-
-- Run task focused+browser checks, resolve any lint/types/react/react-router failures with a scoped repair; compare build/PWA metrics against v0.29.7. After task gate green, create PR to existing `perf/858-startup-diagnostics-20261017`, squash only the candidate and run full canonical checks + trusted Scratch Preview READY. Never promote to dev/main/Production until explicitly approved.
-- Independently verify real authenticated and installed device cold-start with cached 0/25/100/500/1000 and distributed tasks, offline/slow/401/account switching, first task interactability, Diary/shared/photos/drag after scroll, iOS/Android. #858 remains OPEN until those are accepted. #936 privacy and #914 backend compatibility are independent pre-1.0 gates.
+## Next
+- Confirm exact Actions run and strict compile/build checks; repair any audit-specific failure without modifying production behavior. Analyze matched mode/view/task-distribution p50/p90, query concurrency and query/cardinality, not inter-run absolute speeds. Decide whether date-scoped loading, parallel subscriptions, preloading ahead of Home, or dense render/window changes are worth a separate product candidate, with regressions protecting account isolation, swipe/reorder/Diary/shared and accessibility.
+- Subsequent runtime changes require focused and canonical Scratch Preview gates, browser and device acceptance and explicit dev/main promotion. #936 security and #914 backend rollout remain separate 1.0 gates.

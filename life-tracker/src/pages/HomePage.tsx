@@ -75,6 +75,17 @@ export const HomePage: React.FC = () => {
     markStartup('home:mounted');
   }, []);
 
+  // Disposable #858 browser lab only: expose an owner-fenced fixture/probe
+  // AFTER initial mount, and only when the synthetic test explicitly opts in.
+  // This branch is never a deploy candidate; ordinary launches do not load it.
+  useEffect(() => {
+    if (import.meta.env.VITE_MOSAIC_858_SCALING_LAB !== '1' ||
+        sessionStorage.getItem('mosaic_858_fixture_mode') !== '1') return;
+    void import('../lib/issue858ScalingLab').then(({ installScalingLab }) =>
+      installScalingLab()
+    ).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (tasksLoading || categoriesLoading) return;
     markStartup('home:owner-data-ready');
