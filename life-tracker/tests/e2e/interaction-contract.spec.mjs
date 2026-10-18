@@ -1683,9 +1683,12 @@ test('Calendar deferred neighbor grids mount on first pointer before the swipe',
   await expect(calendar.locator('[role="grid"]')).toHaveCount(1);
   await expect(calendar.locator('[data-calendar-slide-index="30"] [role="grid"]')).toBeVisible();
   const viewport = calendar.locator('[data-route-swipe-horizontal-owner="true"]');
-  await viewport.dispatchEvent('pointerdown', { pointerType: 'touch', bubbles: true });
+  await viewport.scrollIntoViewIfNeeded();
+  // This is the genuine first CDP touch swipe: no artificial pre-warm
+  // pointer event is dispatched before the gesture begins.
+  await drag(page, viewport, -260);
+  await expect(calendar.locator('[data-calendar-slide-index="31"] [role="grid"]')).toBeVisible();
   await expect(calendar.locator('[role="grid"]')).toHaveCount(3);
-  await expect(calendar.locator('[data-calendar-slide-index="31"] [role="grid"]')).toBeAttached();
 });
 
 test('Calendar first sheet open commits a shell before Day View slides', async ({ page }) => {
