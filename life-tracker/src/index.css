@@ -72,8 +72,8 @@ html[data-theme='light'] {
   --mosaic-task-incomplete-bg: #e5e7eb;
   --mosaic-floating-surface: rgba(255, 255, 255, 0.96);
   --mosaic-hover-wash: rgba(17, 24, 39, 0.05);
-  --mosaic-chat-incoming: #ffffff;
-  --mosaic-chat-outgoing: #e5e7eb;
+  --mosaic-chat-incoming: #f2f5f9;
+  --mosaic-chat-outgoing: #000000;
   --mosaic-chat-quote-incoming: #f0f1f3;
   --mosaic-chat-quote-outgoing: #f0f1f3;
   --mosaic-accent-text: var(--mosaic-accent-text-light);
@@ -150,6 +150,64 @@ html:is([data-theme='light'], [data-theme='black']) [class~="hover:bg-[#333333]"
 }
 html:is([data-theme='light'], [data-theme='black']) [class~="hover:text-white"]:hover {
   color: var(--mosaic-text) !important;
+}
+
+/* Conversation-only Light palette. Dark and OLED Black keep their existing styling. */
+.mosaic-chat-incoming-avatar,
+.mosaic-chat-read-label,
+.mosaic-chat-date-light {
+  display: none;
+}
+html[data-theme='light'] .mosaic-chat-thread {
+  background-color: #ffffff !important;
+}
+html[data-theme='light'] .mosaic-chat-bubble-incoming {
+  border-color: transparent !important;
+  color: #111827 !important;
+}
+html[data-theme='light'] .mosaic-chat-bubble-outgoing {
+  color: #ffffff !important;
+  position: relative;
+}
+html[data-theme='light'] .mosaic-chat-text-bubble {
+  border-radius: 24px;
+  padding: 12px 18px;
+}
+html[data-theme='light'] .mosaic-chat-incoming-row {
+  padding-left: 44px;
+}
+html[data-theme='light'] .mosaic-chat-incoming-avatar {
+  display: inline-flex;
+}
+html[data-theme='light'] .mosaic-chat-date-default,
+html[data-theme='light'] .mosaic-chat-read-detail,
+html[data-theme='light'] .mosaic-chat-read-icon {
+  display: none;
+}
+html[data-theme='light'] .mosaic-chat-date-light,
+html[data-theme='light'] .mosaic-chat-read-label {
+  display: inline;
+}
+html[data-theme='light'] .mosaic-chat-date-divider {
+  color: #6b7280;
+}
+html[data-theme='light'] .mosaic-chat-bubble-outgoing .mosaic-chat-status {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  white-space: nowrap;
+  color: #6b7280;
+}
+html[data-theme='light'] .mosaic-chat-list > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 8px;
+}
+html[data-theme='light'] .mosaic-chat-loading-incoming {
+  background-color: #f2f5f9 !important;
+}
+html[data-theme='light'] .mosaic-chat-loading-outgoing {
+  background-color: #e5e7eb !important;
 }
 
 /* Dark and Black task previews: completed titles are white, while

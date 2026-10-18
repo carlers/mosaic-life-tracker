@@ -12,6 +12,7 @@ export default {
         surface: 'var(--mosaic-surface)',
         surfaceHighlight: 'var(--mosaic-surface-elevated)',
         mosaicIncoming: 'var(--mosaic-chat-incoming)',
+        mosaicOutgoing: 'var(--mosaic-chat-outgoing)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
