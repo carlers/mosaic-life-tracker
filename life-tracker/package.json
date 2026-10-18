@@ -43,6 +43,7 @@
     "dr:check": "node scripts/dr-health.mjs",
     "dr:watch": "node scripts/dr-watch.mjs",
     "mosaic:bootstrap": "node scripts/bootstrap-mosaic.mjs",
+    "selfhost:images": "node scripts/selfhost-image-audit.mjs",
     "friendships:repair": "node scripts/repair-friendships.mjs",
     "mosaic:migrate-account-deletion": "node scripts/appwrite-migrate.mjs --only 001-account-deletion",
     "mosaic:migrate-diary-created-at": "node scripts/appwrite-migrate.mjs --only 002-diary-created-at",
