@@ -64,6 +64,36 @@ if (hasCachedIdentity) {
   void loadAppDataShell().catch((error) => {
     console.warn('[Bootstrap] App shell preload failed:', error);
   });
+  // #858 experiment ONLY: while Auth and Home modules start independently,
+  // pre-execute the very same owner-fenced RxDB query Home subscribes to.
+  // No extra global store, no extra data fields, no remote requests.
+  // The owner is tightly pinned to the synthetic test account. Never ship.
+  if (import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1' &&
+      localStorage.getItem('mosaic_858_render_variant') === 'prewarm-owner-query') {
+    let userId = '';
+    try {
+      const record: unknown = JSON.parse(
+        localStorage.getItem('mosaic_last_known_user') ?? 'null'
+      );
+      if (record && typeof record === 'object' && '$id' in record &&
+          (record as { $id?: unknown }).$id === 'issue858_scale_user') {
+        userId = 'issue858_scale_user';
+      }
+    } catch { /* Never use a malformed cached identity. */ }
+    if (userId) {
+      const uid = userId;
+      void startDatabaseBootstrap().then(async () => {
+        // This module is already loaded by the awaited database bootstrap.
+        const { getDatabase } = await import('./db/database');
+        performance.mark('mosaic:858:prewarm-query-start');
+        await getDatabase().tasks.find({
+          selector: { userId: uid, isDeleted: false },
+          sort: [{ date: 'asc' }, { createdAt: 'desc' }],
+        }).exec();
+        performance.mark('mosaic:858:prewarm-query-ready');
+      }).catch((error) => console.warn('[#858 query lab] prewarm failed', error));
+    }
+  }
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
