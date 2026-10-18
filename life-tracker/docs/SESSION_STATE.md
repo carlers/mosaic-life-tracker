@@ -1,24 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 — isolated Supabase atomic CAS security hardening and checkpointed pull contract.
+Current task: #967 — source-only authenticated Supabase REST pull transport contract.
 
-## Source and approval boundary
+## Source and boundaries
 
-- Base accepted Preview `refactor/supabase-candidate-mapping-20261018@5246cd61d8a0f2eb8f8f7954dad6c822c6eca725`, derived from `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68`. Source-only candidate, no version bump; v0.29.12.
-- Task branch `chatgpt/supabase-atomic-cas-20261019`; intended new stable Preview `refactor/supabase-atomic-cas-20261019`. Active issue #967 stays open; optional self-host/home-cloud dual sync is separate post-1.0 #968.
-- Owner authorized development of isolated Supabase migration, **not** real user/data transfer, application provider switch, Production modifications, or promotion to dev/main. Supabase `mosaic-dev` project `hcxtiifzxoaflhjgoglb` remains development-only; Appwrite untouched.
+- Source base: accepted isolated stable Preview `refactor/supabase-atomic-cas-20261019@0e7e19e0ffa61acb1cd7754bdf51e6a20d8894d7`, derived from `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68`. No app version bump.
+- Task branch `chatgpt/supabase-http-transport-20261019`, intended separate Preview `refactor/supabase-http-transport-20261019`. Issue #967 open; #968 optional future self-host/cloud sync.
+- This change is strictly under `supabase-poc/`, `tests/unit/`, and documentation. It does not import Supabase into running app, deploy an SDK, access real accounts, modify Appwrite or Supabase schema, or promote to dev/main/Production.
+- Isolated `mosaic-dev` remains the only Supabase project used in POC. Existing two callable SECURITY DEFINER RPC warnings remain unresolved; no new cloud DDL in this stage.
 
-## Findings and verified scope
+## Implementation and verification
 
-- Identified candidate security flaw: ordinary authenticated UPDATE allowed bypassing compare-and-set. Applied Supabase dev-only migration revoking direct UPDATE and introducing narrow per-owner atomic CAS RPC functions for tasks/categories with fixed search path and explicit authorized patch fields.
-- The first RPC test caught an unavailable SQL helper `jsonb_object_length`; corrected to JSONB object equality. The committed introspected final SQL is in `supabase-poc/migrations/20261019_candidate_atomic_cas_rpc.sql`.
-- Replayed synthetic rollback-only SQL `supabase-poc/tests/candidate_atomic_cas_rollback.sql`: valid CAS, no direct UPDATE, stale and cross-owner RPC rejection, invalid/empty patch, anonymous EXECUTE denied, tombstones all PASS. Parallel two-request synthetic category test showed exactly one successful CAS at a shared revision; the other returned null. Removed seeded data and counter; probe tables remain empty.
-- Supabase Security Advisor reports **two warnings** for explicitly callable `SECURITY DEFINER` CAS RPCs. This is intentional in the candidate but remains an independent security review gate; do not label warnings clean.
-- Pure `supabase-poc/candidatePull.ts` and unit tests check owner isolation, monotonic high-precision checkpoint pages, tombstones and fail-closed on invalid/unavailable responses. Not wired to actual RxDB or HTTP/Auth; no new dependencies.
+- `supabase-poc/candidateHttpTransport.ts`: injected Fetch and explicitly verified session provider for HTTPS/localhost Supabase REST reads; owner, high-precision revision, limit and order filters; public publishable-key only; no browser credentials/cache; pre- and post-request session-epoch/owner checks; explicit authorization vs service failures.
+- `tests/unit/supabaseCandidateHttpTransport.test.ts`: fake-session and mock-response tests for query/headers, account switching, denied access, 5xx service failure, malformed pages, untrusted endpoints/secret-key prefix, and composition with candidate checkpoint validator.
+- `docs/SUPABASE_EVALUATION.md` records that the session provider must be implemented with real server-verified Supabase Auth; fake tests cannot prove signed JWTs or real HTTP. Version impact NONE.
 
 ## Next action
 
-- Run focused source and mapping/unit verification on coherent `[verify:focused]` commit; repair failures. Squash accepted task into an isolated stable Preview, then require full canonical CI and trusted READY delivery.
-- Continue #967 with disposable **real signed Auth** HTTP checks when account tooling is available, a real RxDB integration adapter, two-device offline/reconnect/CAS replay, friend/message/diary visibility ACLs, rate/size/egress forecasting and an independently recoverable cutover plan. Never claim this proof achieves those steps.
-- Keep #967 open; do not promote, import personal data, modify Appwrite Production or release Mosaic 1.0 without separately approved gates.
+- Inspect diff and run coherent `[verify:focused]` task CI, then isolated stable Preview full canonical CI and trusted delivery. Repair failures without weakening gates.
+- Future #967: real disposable signed-in Auth test users (current connector exposes project/database operations, not Auth create/sign-in); actual two-account PostgREST denied/allowed scenarios; CAS RPC HTTP/role audits, recoverable RxDB pull+push, Realtime, privacy for all eight domains and reversible cutover. User must separately approve Production/account migration.
+- No dev/main/Production promotion or release 1.0 without explicit authorization.
