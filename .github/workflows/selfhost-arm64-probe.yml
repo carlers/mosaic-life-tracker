@@ -1,0 +1,108 @@
+name: OCI Appwrite native ARM64 image probe
+
+# Deliberately isolated. No schedules, credentials, production environments,
+# Appwrite APIs, OCI instances, privileged mounts, or deployment steps.
+on:
+  push:
+    branches:
+      - 'chatgpt/975-native-arm64-proof-20261019'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mosaic-975-native-arm64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-arm64-image-probe:
+    name: Native ARM64 official Appwrite image pull/smoke
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    if: ${{ github.repository == 'carlers/mosaic-life-tracker' }}
+    steps:
+      - name: Confirm native ARM64 hosted runner and Docker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "aarch64"
+          docker info --format 'Docker architecture: {{.Architecture}}'
+          test "$(docker info --format '{{.Architecture}}')" = "aarch64"
+          echo 'ARM64 hosted runner and Docker daemon detected.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Pull selected pinned upstream Appwrite 2.5.0 stack images
+        shell: bash
+        run: |
+          set -uo pipefail
+          # Selected from upstream appwrite/appwrite tag 2.5.0 docker-compose.yml.
+          # This checks images used by a PostgreSQL + combined-worker + no-AutoGravity
+          # hypothesis. Generated installer topology, optional images and the dynamic
+          # Node18/22 runtime images MUST be independently inspected.
+          images=(
+            'appwrite/appwrite:2.5.0'
+            'appwrite/postgres:0.1.0'
+            'openruntimes/executor:1.1.2'
+            'ghcr.io/open-runtimes/orchestrator/orchestrator:2.2.2'
+            'clickhouse/clickhouse-server:26.4.3-alpine'
+            'redis:7.4.7-alpine'
+            'traefik:3.6'
+            'appwrite/new:1.2.74-self-hosted'
+            'appwrite/browser:0.3.6'
+            'appwrite/geo:0.3.2'
+          )
+          {
+            echo '## Native ARM64 image verification'
+            echo 'Each item is a real linux/arm64 pull + local Docker image architecture inspection.'
+            echo ''
+            echo '| Image | Result |'
+            echo '|---|---|'
+          } >> "$GITHUB_STEP_SUMMARY"
+          failed=0
+          for image in "${images[@]}"; do
+            echo "::group::ARM64 image $image"
+            if timeout 150s docker pull --quiet --platform linux/arm64 "$image" >/dev/null; then
+              platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image" 2>/dev/null || true)"
+              if [[ "$platform" == 'linux/arm64' ]]; then
+                echo "PASS image=$image platform=$platform"
+                echo "| \`$image\` | ARM64 pull and inspect passed |" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "::error::Image did not inspect as linux/arm64: $image ($platform)"
+                echo "| \`$image\` | BLOCKED (unexpected platform) |" >> "$GITHUB_STEP_SUMMARY"
+                failed=1
+              fi
+            else
+              echo "::error::ARM64 image pull failed or timed out: $image"
+              echo "| \`$image\` | BLOCKED (pull failed/timed out) |" >> "$GITHUB_STEP_SUMMARY"
+              failed=1
+            fi
+            echo '::endgroup::'
+          done
+          exit "$failed"
+
+      - name: Execute one upstream Appwrite ARM64 container without network
+        shell: bash
+        run: |
+          set -euo pipefail
+          # No Docker socket mount, API credentials, writeable root filesystem,
+          # network, project, bind mounts, or external service connections.
+          timeout 30s docker run --rm --platform linux/arm64 \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 64 \
+            --memory 256m --entrypoint /bin/sh appwrite/appwrite:2.5.0 \
+            -c 'test "$(uname -m)" = "aarch64"'
+          echo 'Appwrite 2.5.0 image executed a native ARM64 shell without network access.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: State limited evidence and remaining gates
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo ''
+            echo 'This workflow does NOT install the Compose stack, start Appwrite APIs,'
+            echo 'verify Node 18/22 Function runtimes, SDK compatibility, synthetic'
+            echo 'accounts/data, Realtime, TLS, security, backup recovery, Oracle VM'
+            echo 'availability, or performance on a 2-OCPU/12-GB host.'
+            echo 'No production credentials, Appwrite Cloud endpoints or OCI resources'
+            echo 'were accessed. A failed pull can reflect registry or runner availability'
+            echo 'rather than an unsupported architecture; inspect exact logs before ruling out.'
+          } >> "$GITHUB_STEP_SUMMARY"

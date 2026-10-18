@@ -1,22 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #975 — unified disposable Appwrite OCI/NAS preflight, image check, and health probe.
+Current task: #975 — native ARM64 Docker pull/process proof without an OCI VM.
 
 ## Boundary
-- Forked from exact dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1 (v0.29.12, documentation-contract advisories already promoted and dev CI/READY verified). Production main@b952f71ecd2add3172f90104bc0e856a2648ccc9 remains unchanged.
-- Owner unable to provision OCI VM currently; authorized continued safe source-only work, not Production/backend edits.
-- Previous independent accepted stable Previews: host preflight PR #976 at 9fc9e6bf588bfba3b95c815ed460f61497238933; image audit PR #979 at 1a649497d43ac9690f70756563b25b610bee8ce5. Neither was promoted to dev.
+- Starting from isolated unified selfhost Preview `refactor/975-unified-offline-readiness-20261019@06b45c6e994049fdd21dd849c43dadf88ca3aa9e`, after full canonical gate #39172181307 success and trusted delivery #39172343390 READY.
+- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, main `b952f71ecd2add3172f90104bc0e856a2648ccc9` remain unchanged. The owner cannot yet create OCI VM. No Production/Scratch access, secrets, user data or cutover.
+- Task branch `chatgpt/975-native-arm64-proof-20261019` contains a narrowly scoped native GitHub hosted ARM64 smoke workflow and guide, not Appwrite application runtime changes.
 
-## Coherent task
-- Consolidate those two tested tools under one isolated task branch `chatgpt/975-unified-offline-readiness-20261019` to allow running the entire readiness checklist from a single source ref.
-- Add bounded unauthenticated `scripts/selfhost-health-probe.mjs` + isolated unit tests. Exact HTTPS or loopback Appwrite test host + explicit double confirmation required. Reject managed Appwrite Cloud endpoints. Max 100 GET requests / 4 concurrency, only /v1/health/version; no auth token, user data, HTTP body, container startup or deployment.
-- Fix an earlier runbook Markdown linebreak serialization artifact and integrate a health probe guide / image audit; package scripts and docs index complete.
-- No frontend Appwrite SDK, PWA, schema, Function, Production, Scratch or DR snapshot mutation. No version impact.
+## Evidence and work
+- Official Appwrite 2.5.0 upstream Compose tag lists appwrite/appwrite, appwrite/postgres, openruntimes/executor, orchestrator, clickhouse, Redis, Traefik, console, browser and geo images. GitHub supports ubuntu-24.04-arm runner on public repositories.
+- New `.github/workflows/selfhost-arm64-probe.yml`: branch-specific no-secret hosted `ubuntu-24.04-arm` image pulls/OS-arch verification for selected ten pinned images; one network-disabled low-privilege Appwrite ARM64 shell execution. No service launch, data writes, Docker socket mounts inside pulled containers, production functions or Appwrite credentials.
+- `docs/SELF_HOSTING_ARM64_RUNNER_PROOF.md` details interpretation, exclusions, upstream references and remaining OCI VM testing; docs index links it.
+- No application version impact or backend deployment. Full Compose stack, Node18/22 runtime, memory headroom and SDK proof remain unverified.
 
 ## Verification
-- Pending: focused [verify:focused], stable Preview canonical CI and trusted READY; none may be presumed successful until observed.
-- This environment has no Docker daemon, registry network or Oracle OCI Compute connector; no live ARM64 compatibility, real SDK behavior, Appwrite deployment, p95 CRUD, CPU headroom or independent cross-host recovery proof yet.
+- Pending one focused task Quality Gate, native ARM runner experimental job, then stable Preview canonical and trusted delivery as applicable. Do not claim anything from unobserved Actions.
+- Native container *startup* green is not proof that the full Appwrite backend, performance or recovery will run on Oracle A1.
 
 ## Next action
-- Review focused logs and repair any failures, squash to a single stable isolated Preview with canonical gate and trusted delivery. Keep #975 open. Once operator provides an Always-Free-eligible disposable VM, run read-only preflight, registry audit, official Appwrite installer/bootstrap, bounded health probe, then full synthetic signed-in isolation/Function/DR/performance scenarios. Never promote to dev/main or cut over live users without separate explicit approval.
+- Review exact independent ARM-runner workflow result. If failures, diagnose image metadata vs actual execution vs environment/network, without weakening security. Keep issue #975 open; after focused green promote only to isolated stable Preview for full CI; no dev/main promotion or real backend change without separate owner approval.
