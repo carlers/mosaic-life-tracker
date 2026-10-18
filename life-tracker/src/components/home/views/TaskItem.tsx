@@ -308,13 +308,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     </>
   );
 
-  // The drag-enabled day-view path already disables inner layout animation.
-  // Use a native element there instead of initializing one Motion instance
-  // per task. Keep the animated frame for other modes and the drag overlay.
-  return disableLayoutAnimation ? (
+  // Static task rows do not need Motion measurement. Keep the original
+  // Motion wrapper for the dragged overlay and every animated presentation.
+  return disableLayoutAnimation && !isDragOverlay ? (
     <div {...frameProps}>{rowContent}</div>
   ) : (
-    <motion.div {...frameProps} layout
+    <motion.div {...frameProps} layout={!disableLayoutAnimation}
       layoutDependency={`${task.updatedAt}:${isEditing}`}>
       {rowContent}
     </motion.div>
