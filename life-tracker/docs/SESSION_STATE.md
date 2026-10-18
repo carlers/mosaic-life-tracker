@@ -14,7 +14,7 @@ Current task: #858 compact Todo/Diary month grids blank after Today/frequent arr
 - Version stamped 0.29.10 in package, lockfile and appVersion only. No schema/backend, styling or data-query change.
 
 ## Verification / limits
-- Commit this task and checkpoint with [verify:browser], run focused + browser shard checks; fix failures. Review Bundle/home closures and version guard. If ready for next Preview, use a new stable Preview branch from v0.29.9 (leave prior stable immutable), squash task after focused green, wait for exact-SHA canonical Quality Gate and trusted prebuilt Vercel READY; still no dev/main promotion.
+- First task CI #39118018844: **both new** Todo/Diary browser month jump/68-arrow tests PASSED (browser shard 1/2 SUCCESS). Shard 2/2 FAILED one existing cross-category drag ordering assertion (source task does not modify drag runtime); investigate/repeat rather than assume flaky. Focused failed early only because generated docs/COMPONENT_INDEX.md omitted the new shared preload module; include regenerated row and run again. Run focused + both browser shards on next commit; repair any actual issue. Review Bundle/home closures and version guard. If ready for next Preview, use a new stable Preview branch from v0.29.9 (leave prior stable immutable), squash task after focused green, wait for exact-SHA canonical Quality Gate and trusted prebuilt Vercel READY; still no dev/main promotion.
 - The lazy-loading fix hides module-download blank, but synchronous first Todo mount cost may remain, so measure actual first view-switch separately before claiming performance goal complete. Physical phone, installed PWA, diary/photo/shared, offline and owner manual checks remain outstanding.
 - Security #936 / backend #914 distinct.
 
