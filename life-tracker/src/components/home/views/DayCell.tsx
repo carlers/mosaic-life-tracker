@@ -126,5 +126,24 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   );
 };
 
-export const DayCell = React.memo(DayCellComponent);
+// #858 diagnostic-only gate, never shipped. Compare the active Calendar's
+// existing grouped TaskDocument arrays without creating an extra data cache.
+// The original branch uses the exact default shallow React.memo behavior.
+const labDayCellComparator =
+  new URLSearchParams(window.location.search).get('dayCellCompare') === '1';
+
+const propsEquivalent = (a: DayCellProps, b: DayCellProps): boolean => {
+  if (a.date !== b.date || a.categories !== b.categories ||
+      a.sharedItems !== b.sharedItems ||
+      a.ownedSharedTaskIds !== b.ownedSharedTaskIds ||
+      a.holidays !== b.holidays ||
+      a.isCurrentMonth !== b.isCurrentMonth ||
+      a.onDayClick !== b.onDayClick) return false;
+  if (!labDayCellComparator) return a.tasks === b.tasks;
+  if (a.tasks === b.tasks) return true;
+  return a.tasks.length === b.tasks.length &&
+    a.tasks.every((task, index) => task === b.tasks[index]);
+};
+
+export const DayCell = React.memo(DayCellComponent, propsEquivalent);
 DayCell.displayName = 'DayCell';

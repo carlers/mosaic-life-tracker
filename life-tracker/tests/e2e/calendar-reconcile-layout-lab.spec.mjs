@@ -69,15 +69,15 @@ const fixtures = [
   { count: 1000, scenario: 'years' },
 ];
 const cases = [
-  { mode: 'all', snapshot: 'structural' },
-  { mode: 'stable', snapshot: 'structural' },
-  { mode: 'all', snapshot: 'recreated' },
-  { mode: 'stable', snapshot: 'recreated' },
+  { mode: 'all', snapshot: 'structural', compare: '0' },
+  { mode: 'all', snapshot: 'structural', compare: '1' },
+  { mode: 'all', snapshot: 'recreated', compare: '0' },
+  { mode: 'all', snapshot: 'recreated', compare: '1' },
 ];
 const n = 3;
 function median(arr) { const a = [...arr].sort((x,y) => x-y); return a[Math.floor(a.length/2)]; }
 test.setTimeout(600_000);
-test('@performance #858 Calendar React reconciliation, scheduling and layout A/B', async ({ browser }) => {
+test('@performance #858 Calendar DayCell prop comparator A/B', async ({ browser }) => {
   const context = await browser.newContext({
     viewport: { width: 412, height: 915 },
     deviceScaleFactor: 2,
@@ -102,6 +102,7 @@ test('@performance #858 Calendar React reconciliation, scheduling and layout A/B
               scenario: fixture.scenario,
               mode: opt.mode,
               snapshot: opt.snapshot,
+              dayCellCompare: opt.compare,
               schedule: 'sync',
             });
             await page.goto(`${BASE}/tests/e2e/interaction-contract.html?${qs}`, {
@@ -156,14 +157,14 @@ test('@performance #858 Calendar React reconciliation, scheduling and layout A/B
             expect(result.updatedCount).toBe(1);
             expect(result.grids).toBe(3);
             results.push({ ...fixture, ...opt, trial, ...result });
-            console.log('MOSAIC_858_RECONCILE_ROW ' + JSON.stringify(results.at(-1)));
+            console.log('MOSAIC_858_COMPARATOR_ROW ' + JSON.stringify(results.at(-1)));
           } finally { await page.close(); }
         }
       }
       const sample = results.filter(x => x.count === fixture.count && x.scenario === fixture.scenario);
       const keyed = Object.fromEntries(cases.map(c => {
-        const rows = sample.filter(x => x.mode === c.mode && x.snapshot === c.snapshot);
-        return [c.mode + ':' + c.snapshot, {
+        const rows = sample.filter(x => x.mode === c.mode && x.snapshot === c.snapshot && x.compare === c.compare);
+        return [c.snapshot + ':' + (c.compare === '1' ? 'comparator' : 'original'), {
           reactP50Ms: median(rows.map(x=>x.reactActualMs)),
           updateDOMP50Ms: median(rows.map(x=>x.committedMs)),
           twoFrameP50Ms: median(rows.map(x=>x.twoFrameMs)),
@@ -171,7 +172,7 @@ test('@performance #858 Calendar React reconciliation, scheduling and layout A/B
           nodesP50: median(rows.map(x=>x.domNodes)),
         }];
       }));
-      console.log('MOSAIC_858_RECONCILE_GROUP ' +
+      console.log('MOSAIC_858_COMPARATOR_GROUP ' +
         JSON.stringify({ ...fixture, repeats: n, groups: keyed }));
     }
     // Independent scheduling A/B at two heavy densities. Do not confuse
@@ -214,7 +215,7 @@ test('@performance #858 Calendar React reconciliation, scheduling and layout A/B
         }
       }
     }
-    console.log('MOSAIC_858_RECONCILE_FINAL '+JSON.stringify({total:results.length,fixtures:fixtures.length}));
+    console.log('MOSAIC_858_COMPARATOR_FINAL '+JSON.stringify({total:results.length,fixtures:fixtures.length}));
     expect(results).toHaveLength(fixtures.length*cases.length*n);
   } finally {await context.close();}
 });
