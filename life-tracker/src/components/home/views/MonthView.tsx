@@ -9,6 +9,16 @@ import {
   isSameMonth,
 } from 'date-fns';
 import { DayCell } from './DayCell';
+const LAB_MEMO_DAY = import.meta.env.DEV && typeof window !== 'undefined' &&
+  ['day', 'both'].includes(new URLSearchParams(window.location.search).get('memo') ?? '');
+// Immutable from each render. Detects title, completion, date placement,
+// image and category updates even when RxDocument identity stays constant.
+function previewFingerprint(tasks: TaskDocument[]): string {
+  return JSON.stringify(tasks.map(task => [
+    task.id, task.title, task.completed, task.categoryId, task.image,
+    task.updatedAt, task.order, task.visibility,
+  ]));
+}
 import { CalendarZoomViewport } from './CalendarZoomViewport';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
@@ -111,6 +121,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
           >
             {week.map((day) => {
               const dateStr = format(day, 'yyyy-MM-dd');
+              const dayTasks = tasksByDate.get(dateStr) ?? EMPTY_TASKS;
               return (
                 <div
                   key={dateStr}
@@ -119,7 +130,8 @@ export const MonthView: React.FC<MonthViewProps> = ({
                 >
                   <DayCell
                     date={day}
-                    tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
+                    tasks={dayTasks}
+                    previewSignature={LAB_MEMO_DAY ? previewFingerprint(dayTasks) : undefined}
                     sharedItems={sharedByDay?.get(dateStr)}
                     ownedSharedTaskIds={ownedSharedTaskIds}
                     categories={categoriesMap}

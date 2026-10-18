@@ -13,6 +13,7 @@ import {
 interface DayCellProps {
   date: Date;
   tasks: TaskDocument[];
+  previewSignature?: string; // Diagnostic immutable visible-content fingerprint
   sharedItems?: SharedTaskItem[];
   ownedSharedTaskIds?: ReadonlySet<string>;
   categories: Record<string, { color: string; name: string }>;
@@ -126,5 +127,20 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   );
 };
 
-export const DayCell = React.memo(DayCellComponent);
+// Research only: guard equality with the *value* of every preview field,
+// not RxDocument object identity (which can differ by update strategy).
+const LAB_MEMO_DAY = import.meta.env.DEV && typeof window !== 'undefined' &&
+  ['day', 'both'].includes(new URLSearchParams(window.location.search).get('memo') ?? '');
+const DefaultDayCell = React.memo(DayCellComponent);
+const FingerprintDayCell = React.memo(DayCellComponent, (a, b) =>
+  a.date === b.date &&
+  a.previewSignature === b.previewSignature &&
+  a.sharedItems === b.sharedItems &&
+  a.ownedSharedTaskIds === b.ownedSharedTaskIds &&
+  a.categories === b.categories &&
+  a.holidays === b.holidays &&
+  a.isCurrentMonth === b.isCurrentMonth &&
+  a.onDayClick === b.onDayClick,
+);
+export const DayCell = LAB_MEMO_DAY ? FingerprintDayCell : DefaultDayCell;
 DayCell.displayName = 'DayCell';

@@ -32,7 +32,7 @@ const TaskBlockImage: React.FC<{ image: string }> = ({ image }) => {
   );
 };
 
-export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isShared = false }) => {
+const TaskBlockComponent: React.FC<TaskBlockProps> = ({ task, categoryColor, isShared = false }) => {
   const incompleteColorMode = React.useContext(IncompleteTaskBlockColorContext);
   const showCategoryText = !task.completed && incompleteColorMode === 'text';
   const showCategoryBorder = !task.completed && incompleteColorMode === 'border';
@@ -72,3 +72,8 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isSha
     </div>
   );
 };
+// Diagnostic-only: not part of any deployment. Compare component memoization
+// without changing user-facing props, styles, tasks or image loader behavior.
+const LAB_MEMO_BLOCK = import.meta.env.DEV && typeof window !== 'undefined' &&
+  ['block', 'both'].includes(new URLSearchParams(window.location.search).get('memo') ?? '');
+export const TaskBlock = LAB_MEMO_BLOCK ? React.memo(TaskBlockComponent) : TaskBlockComponent;
