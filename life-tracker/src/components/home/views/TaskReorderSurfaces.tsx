@@ -114,7 +114,13 @@ const RegisteredRowTargets: React.FC<RowTargetsProps> = ({
 // #858 test-only: passive targets have no registration or pointer events.
 const labSkipPassiveTargets = import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1' &&
   localStorage.getItem('mosaic_last_known_user')?.includes('"$id":"issue858_scale_user"') &&
-  ['no-passive-targets', 'no-idle-motion-no-passive'].includes(
+  ['no-passive-targets', 'no-idle-motion-no-passive', 'near-motion-no-passive'].includes(
+    localStorage.getItem('mosaic_858_render_variant') ?? '');
+// Unlike disabling all idle layout, this only suppresses Motion measuring
+// offscreen rows. The 800px proximity observer activates layout before touch.
+const labNearMotionOnly = import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1' &&
+  localStorage.getItem('mosaic_last_known_user')?.includes('"$id":"issue858_scale_user"') &&
+  ['near-motion', 'near-motion-no-passive'].includes(
     localStorage.getItem('mosaic_858_render_variant') ?? '');
 const PassiveRowTargets = () => (
   <>
@@ -147,7 +153,7 @@ export const TaskRowDropSurface: React.FC<{
   return (
     <motion.div
       ref={ref}
-      layout={animatePosition ? 'position' : false}
+      layout={animatePosition && (!labNearMotionOnly || active) ? 'position' : false}
       transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
       className={isActiveSource ? 'relative !invisible' : 'relative'}
       data-task-source-slot={isActiveSource ? 'true' : undefined}

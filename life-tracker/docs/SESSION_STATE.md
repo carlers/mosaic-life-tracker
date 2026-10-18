@@ -1,19 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-18 UTC
-Current task: #858 Todo idle drag/Motion and offscreen passive-target structural performance, diagnostic only.
+Current task: #858 structural Calendar/Todo startup performance; research-only proximity-gated drag-layout experiment.
 
 ## Approved boundary
-- User requested continued structural optimization research: scale task loading/rendering intelligently, avoid marginal CSS tweaks, investigate actual parallelism. Keep #858 OPEN; v0.29.8 dev `bfb0fff0c1c283f599f32db8c2a426416fa65e7b` unchanged.
-- No new stable Preview/dev/main/Production/1.0/backend approval; no experimental source may be shipped. This branch `chatgpt/858-idle-motion-lab-20261018` forks successful prior diagnostic `chatgpt/858-render-graph-lab-20261018@67b6fde56c753765de6a3bdec5594659cce04936`.
+- User requested continuing structural work, parallelization and lower startup growth with task count. #858 remains OPEN. Accepted v0.29.8 `dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b` unchanged; no stable Preview, dev/main, Production, 1.0, or Appwrite backend promotion authorized.
+- Branch `chatgpt/858-proximity-motion-lab-20261018` forks the successful prior diagnostic branch `chatgpt/858-idle-motion-lab-20261018@ad33179ab1690a50aeec4c067c0ca57d3b42103d`. **Neither this nor its parent is deployable product code**; it includes synthetic-only owner fixtures and experimental interaction-destroying variants as controls.
 
-## Verified trigger
-- [Same-binary render-graph CI #39101668402](https://github.com/carlers/mosaic-life-tracker/actions/runs/39101668402) SUCCESS, 147/147 synthetic cached-PWA, 2x CPU browser samples, all active-row cardinality assertions. Todo same-day 25/250/1000 startup p50 baseline 694/910/1592ms vs disabling drag runtime 620/814/1255ms; completely inert task rows 630/668/774ms. 1000 spread month baseline 952ms vs active-day-only 778ms. Calendar active-month-only 1000 month 746→659ms, but swipe safety is unverified. These options remove gestures, task controls, or eager neighbors, and cannot ship.
-- Existing `useTaskReorderProximity` gates offscreen dnd-kit hooks but `TaskRowDropSurface` still creates two inert passive drop-target elements per offscreen row and Framer Motion layout wrappers on idle draggable rows. More targeted causes need A/B measurement rather than dropping drag.
+## Verified evidence
+- [Render-graph CI #39101668402](https://github.com/carlers/mosaic-life-tracker/actions/runs/39101668402) SUCCESS: 147/147 Chromium samples. Todo 1000 same-day startup current 1592ms; disable drag runtime 1255ms; inert rows 774ms; all destructive baselines.
+- [Idle Motion CI #39102669699](https://github.com/carlers/mosaic-life-tracker/actions/runs/39102669699) SUCCESS: 90/90 samples. At 1000 dense slow-online 2x CPU, current 1542ms; no idle layout 1409ms; omit offscreen inert drop targets 1467ms; combined 1357ms. At 250 dense current 913 vs combined 810ms; at 25 644 vs 641ms (noise / insignificant). Offline 1000 dense current 1613 vs combined 1415ms. Rendering work matters most for dense days, and ordinary 25 tasks sees negligible benefit.
+- `useTaskReorderProximity` already switches dnd-kit hook registration 800px ahead of viewport; `TaskRowDropSurface` retains idle Motion layout and 2 passive absolute divs for far-offscreen rows. Removing drag itself is unsafe and not approved.
 
-## This diagnostic
-- On synthetic-owner, test-only localStorage variants, keep `TaskReorderRuntime`, task controls and real dnd hooks mounted: `no-passive-targets` removes only inert offscreen absolutely positioned elements; `no-idle-motion` delays Framer layout animation until actual drag, Diary settle or task release; `no-idle-motion-no-passive` combines. The previous destructive `no-dnd` remains a reference ceiling only. The synthetic owner guard plus `VITE_MOSAIC_858_SCALING_LAB=1` prevent these branches in non-lab builds.
-- Test 0/25/250/1000 dense and 1000 across month, 3 repetitions × five Todo variants × slow online, plus 1000 dense offline controls (90 full launches). Validate real RxDB persisted cardinality, all selected-day task row DOM counts, query->Home and first Add DOM response. No altered real user data or Appwrite calls. This does not prove touch/drag correctness or actual first paint.
+## Current experiment
+- With the existing CI-only `VITE_MOSAIC_858_SCALING_LAB` and synthetic cached owner guards, test `near-motion` and `near-motion-no-passive`: keep Framer layout enabled when a row is already registered/near the viewport, disabled only far offscreen; the passive option omits only inert offscreen divs. Compare to same-binary baseline and prior `no-idle-motion-no-passive` as a diagnostic ceiling.
+- Same real IndexedDB persisted task fixtures 0/25/250/1000 dense and 1000 month; 3 repeats, offline 1000 dense plus slow-online all, 72 launches. Test complete task DOM and first Add response as before; separately use real Chromium CDP 610ms touch hold to assert the *first* 25-task title activates an overlay and cancels cleanly, for baseline and both near variants.
+- This is neither an accepted product candidate nor full gesture regression. It does NOT establish first painted frame, physical Android/iOS touch, cross-category reorder or Diary/photos/shared safety. No CSS/production code shipped.
 
 ## Next action
-- Verify focused gate and own CI, repair any test issue. Compare matched medians and DOM counts in same binary. If narrow variants materially improve normal 25/250 scaling, construct a separately scoped behavior-preserving candidate branch and run browser regression for *first* 500ms long press, consecutive cross-category drags, edge auto-scroll, Diary/shared/photo heights and account isolation; device/manual acceptance remains required. No stable Preview or promotion without approval. Preserve existing 1.0 gates #936 and #914.
+- Verify focused gate, own diagnostic CI, fix any diagnostic failures. Compare per-condition p50/p90, first long-press overlay and DOM counts. If meaningful, consider narrow behavior-preserving production candidate separately with automated 500ms drag, category changes, auto-scroll, diary/social/photo, account isolation plus CI-first Scratch Preview and real PWA device acceptance. No dev promotion without owner approval. #936 privacy and #914 backend pre-1.0 gates separate.

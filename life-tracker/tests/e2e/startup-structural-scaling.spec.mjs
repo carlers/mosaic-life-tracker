@@ -18,8 +18,8 @@ const CASES = [
   { count: 1000, distribution: 'month' },
 ];
 const VARIANTS = {
-  todo: ['baseline', 'no-passive-targets', 'no-idle-motion',
-    'no-idle-motion-no-passive', 'no-dnd'],
+  todo: ['baseline', 'near-motion', 'near-motion-no-passive',
+    'no-idle-motion-no-passive'],
 };
 const REPEATS = 3;
 const FAST = { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
@@ -243,12 +243,48 @@ async function sample(browser, fixture, snapshot, mode, view, variant, iteration
       expect(result.taskBlockDomCount).toBeGreaterThanOrEqual(fixture.count);
     }
     result.heldAppwriteRequests = network.count();
+    // Behavior probe independent from timing: first 550ms+ touch hold must
+    // lift the original overlay, even with offscreen Motion suppressed.
+    if (fixture.count === 25 && iteration === 1 &&
+        ['baseline', 'near-motion', 'near-motion-no-passive'].includes(variant)) {
+      await page.keyboard.press('Escape');
+      const first = page.getByRole('button',
+        { name: 'Scaling fixture 00000', exact: true }).first();
+      await first.scrollIntoViewIfNeeded();
+      await expect(first).toBeVisible();
+      await expect.poll(() =>
+        page.locator('[data-task-dnd-registered="true"]').count(),
+      { timeout: 12_000 }).toBeGreaterThan(0);
+      const box = await first.boundingBox();
+      if (!box) throw new Error('First drag title has no bounding box');
+      const session = await context.newCDPSession(page);
+      const point = { x: box.x + box.width * 0.5,
+        y: box.y + box.height * 0.5 };
+      await session.send('Input.dispatchTouchEvent',
+        { type: 'touchStart', touchPoints: [point] });
+      try {
+        await page.waitForTimeout(610);
+        await expect(page.locator(
+          '[data-task-overlay-id="issue858_task_00000"]'))
+          .toBeVisible({ timeout: 10_000 });
+        result.firstLongPressOverlay = true;
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchMove', touchPoints: [{ ...point, y: point.y - 30 }],
+        });
+      } finally {
+        await session.send('Input.dispatchTouchEvent',
+          { type: 'touchCancel', touchPoints: [] }).catch(() => {});
+      }
+      await expect(page.locator(
+        '[data-task-overlay-id="issue858_task_00000"]'))
+        .toHaveCount(0, { timeout: 10_000 });
+    }
     if (view === 'todo' && fixture.distribution === 'dense') {
       expect(result.todoRowDomCount, 'all selected-day rows retained by ' + variant)
         .toBeGreaterThanOrEqual(fixture.count);
     }
     expect(Number.isFinite(result.querySubscriptionToResultMs)).toBe(true);
-    console.log('MOSAIC_858_IDLE_ROW ' + JSON.stringify(result));
+    console.log('MOSAIC_858_NEAR_ROW ' + JSON.stringify(result));
     return result;
   } finally {
     network.release();
@@ -256,7 +292,7 @@ async function sample(browser, fixture, snapshot, mode, view, variant, iteration
   }
 }
 
-test('@performance Issue 858 selective idle Motion and passive drop-target ablations', async ({ browser }) => {
+test('@performance Issue 858 proximity-gated Motion and first long press', async ({ browser }) => {
   test.setTimeout(3_500_000);
   await mkdir(resolve('.mosaic/slow-startup'), { recursive: true });
   const { states } = await seedFixtures(browser);
@@ -295,8 +331,8 @@ test('@performance Issue 858 selective idle Motion and passive drop-target ablat
         }];
       }))));
     groups.push({ ...fixture, stats });
-    console.log('MOSAIC_858_IDLE_GROUP ' + JSON.stringify(groups.at(-1)));
-    await writeFile(resolve('.mosaic/slow-startup/idle-motion-partial.json'),
+    console.log('MOSAIC_858_NEAR_GROUP ' + JSON.stringify(groups.at(-1)));
+    await writeFile(resolve('.mosaic/slow-startup/near-motion-partial.json'),
       JSON.stringify({ groups, rows }, null, 2) + '\n');
   }
   const report = {
@@ -306,22 +342,21 @@ test('@performance Issue 858 selective idle Motion and passive drop-target ablat
       browser: '412x915 Chromium, 2x CPU throttle, locally persisted task fixture, PWA precache',
       network: 'Every Appwrite request held; slow online all cases; offline dense 1000 control.',
       ablations: {
-        'no-passive-targets': 'Offscreen TaskRowDropSurface omits two inert absolute divs; dnd-kit hooks and active target divs untouched.',
-        'no-idle-motion': 'Drag provider and hooks remain mounted, but Framer layout projection starts only once drag/diary settling begins.',
-        'no-idle-motion-no-passive': 'Combine both narrow idle optimizations.',
-        'no-dnd': 'Intentional destructive reference ceiling: disables drag runtime and wrappers. Not a product candidate.',
+        'near-motion': 'Only rows inside drag-proximity 800px observer use Motion layout; other registered drag hooks and controls retained.',
+        'near-motion-no-passive': 'Same with two inert offscreen target elements removed.',
+        'no-idle-motion-no-passive': 'Prior test-only lower bound: Motion layout off until drag starts; gesture compatibility unverified.',
       },
       safeguards: 'Lab-only Vite compile flag, synthetic owner guard, never deploy/merge to stable.',
       limitations: [
-        'No-dnd deliberately breaks drag. Idle Motion activation timing is unverified with real touch, Diary, fast multi-category drags.',
+        'Real Chromium first long-press overlay check included on 25-task baseline and near variants; multi-category/autoscroll and device gestures remain unproven.',
         'Readiness and DOM event response are browser proxies, not first-painted native touch.',
         'Three repetitions and shared order require a separate larger causal replication.',
-        'Photo/Diary/shared, multi-account, real-device and first long-press/cross-category behavior not yet tested.',
+        'Photo/Diary/shared, multi-account, real-device and cross-category/long-distance behavior remain untested.',
       ],
     },
     groups, rows,
   };
-  await writeFile(resolve('.mosaic/slow-startup/idle-motion.json'),
+  await writeFile(resolve('.mosaic/slow-startup/near-motion.json'),
     JSON.stringify(report, null, 2) + '\n');
-  console.log('MOSAIC_858_IDLE_FINAL ' + JSON.stringify(groups));
+  console.log('MOSAIC_858_NEAR_FINAL ' + JSON.stringify(groups));
 });
