@@ -1,4 +1,4 @@
-import React, { Profiler, StrictMode, useRef, useState } from 'react';
+import React, { Profiler, StrictMode, useMemo, useRef, useState, useCallback, startTransition } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -847,6 +847,133 @@ export function InteractionHarness() {
   );
 }
 
+
+/**
+ * #858 synthetic, non-deploying Calendar reconciliation diagnosis.
+ * All task grouping, memoization, snapshots and Profiler instrumentation here
+ * are restricted to the /tests/e2e/ harness. They never alter app runtime.
+ */
+const RECONCILE_DAY = '2026-10-18';
+const RECONCILE_CATEGORIES = { cat: { name: 'Lab', color: '#3B82F6' } };
+const RECONCILE_DATES = Array.from({ length: 61 }, (_, i) =>
+  addMonths(new Date(2026, 9, 1), i - 30));
+const reconcileNoop = () => {};
+type ReconcileDoc = TaskDocument;
+type ReconcileMode = 'all' | 'stable';
+type ReconcileScenario = 'dense' | 'month' | 'years';
+interface ReconcileCommit {
+  phase: string;
+  actualDuration: number;
+  baseDuration: number;
+  startTime: number;
+  commitTime: number;
+}
+declare global {
+  interface Window {
+    __mosaic858ReconcileCommits?: ReconcileCommit[];
+  }
+}
+function makeReconcileTasks(count: number, scenario: ReconcileScenario): ReconcileDoc[] {
+  return Array.from({ length: count }, (_, i) => {
+    const date = scenario === 'dense'
+      ? RECONCILE_DAY
+      : scenario === 'month'
+        ? format(new Date(2026, 9, i % 31 + 1), 'yyyy-MM-dd')
+        : i < 25 ? RECONCILE_DAY : format(new Date(2022 + i % 4, i % 12, i % 28 + 1), 'yyyy-MM-dd');
+    return {
+      id: 'reconcile_' + i,
+      title: 'Reconcile fixture ' + i,
+      date,
+      categoryId: 'cat',
+      userId: 'user_1',
+      order: i,
+      completed: false,
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+      completedAt: '',
+      visibility: 'private',
+      isDeleted: false,
+    } as ReconcileDoc;
+  });
+}
+
+function CalendarReconcileLab() {
+  const params = new URLSearchParams(location.search);
+  const count = Math.min(1000, Math.max(0, Number(params.get('count') ?? 250)));
+  const scenario = (params.get('scenario') ?? 'dense') as ReconcileScenario;
+  const mode = (params.get('mode') ?? 'all') as ReconcileMode;
+  const cloneAll = params.get('snapshot') === 'recreated';
+  const schedule = params.get('schedule') === 'transition';
+  const [tasks, setTasks] = useState(() => makeReconcileTasks(count, scenario));
+  const [revision, setRevision] = useState(0);
+  const prior = useRef(new Map<string, ReconcileDoc[]>());
+  const grouped = useMemo(() => {
+    const fresh = new Map<string, ReconcileDoc[]>();
+    for (const task of tasks) {
+      const arr = fresh.get(task.date);
+      if (arr) arr.push(task);
+      else fresh.set(task.date, [task]);
+    }
+    if (mode === 'stable') {
+      for (const [date, items] of fresh) {
+        const previous = prior.current.get(date);
+        if (previous && previous.length === items.length &&
+          previous.every((item, index) => item === items[index])) {
+          fresh.set(date, previous);
+        }
+      }
+    }
+    prior.current = fresh;
+    return fresh;
+  }, [tasks, mode]);
+  const emblaRef = useCallback((_node: HTMLElement | null) => {}, []);
+  const onRender = useCallback((
+    _id: string, phase: string, actualDuration: number, baseDuration: number,
+    startTime: number, commitTime: number
+  ) => {
+    (window.__mosaic858ReconcileCommits ??= []).push({
+      phase, actualDuration, baseDuration, startTime, commitTime,
+    });
+  }, []);
+  const updateOne = useCallback(() => {
+    const change = () => {
+      setTasks(old => {
+        const next = old.map((task, i) =>
+          i === 0
+            ? { ...task, title: 'Reconcile fixture 0 changed', completed: !task.completed,
+                updatedAt: '2026-10-18T12:00:00.000Z' }
+            : cloneAll ? { ...task } : task
+        );
+        return next;
+      });
+      setRevision(n => n + 1);
+    };
+    if (schedule) startTransition(change);
+    else change();
+  }, [cloneAll, schedule]);
+  return (
+    <div data-testid="reconcile-lab" className="h-screen flex flex-col" style={{ width: 412 }}>
+      <button data-testid="reconcile-update" onClick={updateOne}>Update one task</button>
+      <output data-testid="reconcile-revision">{revision}</output>
+      <div className="min-h-0 flex-1 flex">
+        <Profiler id="CalendarReconcile" onRender={onRender}>
+          <CalendarCarousel
+            slides={RECONCILE_DATES}
+            renderStart={29}
+            renderEnd={31}
+            emblaRef={emblaRef}
+            viewMode="month"
+            activeIndex={30}
+            onDayClick={reconcileNoop}
+            tasksByDate={grouped}
+            categoriesMap={RECONCILE_CATEGORIES}
+          />
+        </Profiler>
+      </div>
+    </div>
+  );
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
@@ -865,9 +992,11 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('chatMotion')
-        ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
-        : <InteractionHarness />}
+      {new URLSearchParams(window.location.search).has('calendarReconcileLab')
+        ? <CalendarReconcileLab />
+        : new URLSearchParams(window.location.search).has('chatMotion')
+          ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
+          : <InteractionHarness />}
     </AuthContext.Provider>
   </StrictMode>
 );
