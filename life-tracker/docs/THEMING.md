@@ -32,9 +32,11 @@ and friend category pills render the existing `getCategoryLabelColor` result
 directly; do not darken or blend category labels in Light mode. Completed
 task checkmarks remain white on the original category-color fills, including
 on friend views; the existing owner-task shadow helps separate the white
-glyph from lighter colors. Text in completed Calendar task blocks may still
-use `getReadableTextColor(categoryColor)` for legibility without changing
-the fill. When the user selects Category text for unfinished Calendar task blocks,
+glyph from lighter colors. Completed Calendar TaskBlock text is white across Light/Dark/Black, using
+`.mosaic-done` to override the legacy inline readable-color fallback; the
+category fill remains unchanged. Very light category fills may reduce text
+contrast, so inspect actual categories during manual acceptance. When the user
+selects Category text for unfinished Calendar task blocks,
 use the stored category color unchanged across appearance modes.
 Some colors may have reduced readability against the task block background.
 Category text must omit the generic `text-gray-300` utility on its block:
