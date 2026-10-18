@@ -253,10 +253,20 @@ async function sample(browser, fixture, snapshot, mode, view, variant, iteration
         const title = 'Scaling fixture ' + String(number).padStart(5, '0');
         const taskId = 'issue858_task_' + String(number).padStart(5, '0');
         const item = page.getByRole('button', { name: title, exact: true }).first();
-        await item.scrollIntoViewIfNeeded();
-        await expect(item).toBeVisible();
-        const box = await item.boundingBox();
-        if (!box) throw new Error('Dragged title has no bounding box: ' + title);
+        // The inline Swiper can relayout after a distant row scrolls into
+        // view. Require an actual stable box; do not infer readiness from a
+        // momentary toBeVisible pass before the next React commit.
+        let box = null;
+        await expect(async () => {
+          await item.scrollIntoViewIfNeeded();
+          await expect(item).toBeVisible();
+          const candidate = await item.boundingBox();
+          expect(candidate, 'Distant title must retain geometry: ' + title).not.toBeNull();
+          expect(candidate?.width ?? 0).toBeGreaterThan(0);
+          expect(candidate?.height ?? 0).toBeGreaterThan(0);
+          box = candidate;
+        }).toPass({ timeout: 12_000, intervals: [100, 200, 300] });
+        if (!box) throw new Error('Dragged title not stable: ' + title);
         const session = await context.newCDPSession(page);
         const point = { x: box.x + box.width * 0.5, y: box.y + box.height * 0.5 };
         await session.send('Input.dispatchTouchEvent',
