@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
@@ -28,11 +28,7 @@ import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
-const LazyTodoListView = React.lazy(() =>
-  import('./views/TodoListView').then(({ TodoListView }) => ({
-    default: TodoListView,
-  }))
-);
+import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
@@ -87,10 +83,21 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const { entries: diaryEntries, getEntryByDate, saveEntry, deleteEntry } = useDiary(isActive && activeView === 'diary');
+  const viewRequestRef = useRef(0);
   const handleViewChange = useCallback((next: ViewType) => {
+    const request = ++viewRequestRef.current;
     setDiaryDate(null);
-    if (next === 'diary') preloadDiaryEntrySheet();
-    setActiveView(next);
+    if (next === 'diary') void preloadDiaryEntrySheet().catch(() => {});
+    if (next === 'calendar') {
+      setActiveView(next);
+      return;
+    }
+    // Retain the visible Calendar until the next module has downloaded.
+    // Ignore older pending switches when the user changes their mind.
+    void preloadTodoListView().then(
+      () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); },
+      () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
+    );
   }, []);
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());

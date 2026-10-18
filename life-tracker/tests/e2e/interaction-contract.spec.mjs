@@ -464,6 +464,45 @@ test('Calendar and Todo carousels own horizontal trackpad scrolling without movi
   await expect(friendIndex).toHaveText('0');
 });
 
+// Regression #858: the compact Todo and Diary carousel must always render
+// the programmatically selected month, even on a distant Today jump or after
+// more month-arrow requests than the original finite 61-slide range.
+for (const markerMode of ['todo', 'diary']) {
+  test(`${markerMode} compact grid survives future Today reset and fast month arrows`, async ({ page }) => {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html${markerMode === 'diary' ? '?compactDiary=1' : ''}`);
+    const region = page.getByTestId('todo-calendar-region');
+    const month = page.getByTestId('todo-month');
+    const gridFor = (name) => region.getByRole('grid', {
+      name: `${name} todo calendar`,
+    });
+    await expect(month).toHaveText('September 2026');
+    await expect(gridFor('September 2026')).toBeVisible();
+
+    // Jump forward 72 months (beyond original 61 snaps), then reset.
+    await page.getByTestId('compact-jump-future').click();
+    await expect(month).toHaveText('September 2032');
+    await expect(gridFor('September 2032')).toBeVisible();
+    await expect(gridFor('September 2032').getByRole('gridcell').first()).toBeVisible();
+    await page.getByTestId('compact-reset-today').click();
+    await expect(month).toHaveText('September 2026');
+    await expect(gridFor('September 2026').getByRole('gridcell').first()).toBeVisible();
+
+    // Rapid header-arrow actions queue parent updates before Embla settles.
+    // The last month must win, with a real grid rather than blank placeholders.
+    await page.evaluate(() => {
+      const next = document.querySelector('[data-testid="compact-next-month"]');
+      if (!(next instanceof HTMLButtonElement)) throw Error('missing month arrow');
+      for (let i = 0; i < 68; i++) next.click();
+    });
+    await expect(month).toHaveText('May 2032');
+    await expect(gridFor('May 2032')).toBeVisible();
+    await expect(gridFor('May 2032').getByRole('gridcell').first()).toBeVisible();
+    await expect(region.getByRole('grid')).toHaveCount(1);
+    await page.getByTestId('compact-reset-today').click();
+    await expect(gridFor('September 2026').getByRole('gridcell').first()).toBeVisible();
+  });
+}
+
 // Regression: §2/§7 (Todo calendar owns direct-manipulation swipes).
 test('todo calendar follows the finger before snapping months', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

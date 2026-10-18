@@ -36,11 +36,7 @@ import type { TaskDocument } from '../../db/schema';
 const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
 const { Component: LazyDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 
-const LazyTodoListView = React.lazy(() =>
-  import('./views/TodoListView').then(({ TodoListView }) => ({
-    default: TodoListView,
-  }))
-);
+import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
 
 function readHomeView(): ViewType {
   try {
@@ -105,10 +101,19 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     if (!entry) throw new Error('Diary unavailable.');
     await sendDiaryReply(entry, content);
   };
+  const viewRequestRef = useRef(0);
   const handleViewChange = useCallback((next: ViewType) => {
+    const request = ++viewRequestRef.current;
     setDiaryDate(null);
     setDiaryState({ key: '', entries: [] });
-    setActiveView(next);
+    if (next === 'calendar') {
+      setActiveView(next);
+      return;
+    }
+    void preloadTodoListView().then(
+      () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); },
+      () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
+    );
   }, []);
   const openDiary = (date: Date) => {
     const key = format(date, 'yyyy-MM-dd');
