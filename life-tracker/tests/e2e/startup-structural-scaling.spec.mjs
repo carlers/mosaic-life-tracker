@@ -15,7 +15,6 @@ const CASES = [
   { count: 25, distribution: 'dense' },
   { count: 250, distribution: 'dense' },
   { count: 1000, distribution: 'dense' },
-  { count: 250, distribution: 'month' },
   { count: 1000, distribution: 'month' },
   { count: 1000, distribution: 'years' },
 ];
@@ -137,13 +136,14 @@ async function seedFixtures(browser) {
   return { states, queryRows };
 }
 
-async function sample(browser, fixture, snapshot, mode, view, iteration) {
+async function sample(browser, fixture, snapshot, mode, view, variant, iteration) {
   const context = await syntheticContext(browser, snapshot, 'allow');
   const network = await holdAppwrite(context);
   try {
-    await context.addInitScript(({ user, view }) => {
+    await context.addInitScript(({ user, view, variant }) => {
       localStorage.setItem('mosaic_last_known_user', JSON.stringify(user));
       localStorage.setItem('mosaic_home_view', view);
+      localStorage.setItem('mosaic_858_render_variant', variant);
       window.__mosaic858LongTasks = [];
       try {
         new PerformanceObserver(list => {
@@ -152,7 +152,7 @@ async function sample(browser, fixture, snapshot, mode, view, iteration) {
           }
         }).observe({ type: 'longtask', buffered: true });
       } catch { /* Optional long-task API. */ }
-    }, { user: USER, view });
+    }, { user: USER, view, variant });
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
     await cdp.send('Network.enable');
@@ -168,14 +168,16 @@ async function sample(browser, fixture, snapshot, mode, view, iteration) {
       mode === 'pwa-offline' ? OFFLINE : SLOW);
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 });
     await ready(page, view);
-    const result = await page.evaluate(({ fixture, mode, view, iteration }) => {
+    const result = await page.evaluate(({ fixture, mode, view, variant, iteration }) => {
       const round = value => Number.isFinite(value) ? Math.round(value) : null;
       const mark = name => performance.getEntriesByName('mosaic:' + name, 'mark')[0]?.startTime ?? null;
       const delta = (a, b) => mark(a) !== null && mark(b) !== null
         ? round(mark(b) - mark(a)) : null;
       const longTasks = window.__mosaic858LongTasks || [];
       return {
-        ...fixture, mode, view, iteration,
+        ...fixture, mode, view, variant, iteration,
+        visibleTaskBlockCount: document.querySelectorAll(
+          '[data-calendar-slide-index="30"] [title^="Scaling fixture "]').length,
         ownerReadyMs: round(mark('home:owner-data-ready')),
         homeMountMs: round(mark('home:mounted')),
         dbReadyMs: round(mark('database:ready')),
@@ -194,7 +196,7 @@ async function sample(browser, fixture, snapshot, mode, view, iteration) {
         online: navigator.onLine,
         controlled: Boolean(navigator.serviceWorker.controller),
       };
-    }, { fixture, mode, view, iteration });
+    }, { fixture, mode, view, variant, iteration });
     // The end-of-2-frame probe includes the browser's next paint
     // opportunity; it is not a physical-device "first actionable" SLA.
     result.twoFrameReadyMs = await page.evaluate(() => new Promise(resolve => {
@@ -239,7 +241,7 @@ async function sample(browser, fixture, snapshot, mode, view, iteration) {
       expect(result.taskBlockDomCount).toBeGreaterThanOrEqual(fixture.count);
     }
     result.heldAppwriteRequests = network.count();
-    console.log('MOSAIC_858_SCALING_ROW ' + JSON.stringify(result));
+    console.log('MOSAIC_858_WINDOW_ROW ' + JSON.stringify(result));
     return result;
   } finally {
     network.release();
@@ -247,61 +249,63 @@ async function sample(browser, fixture, snapshot, mode, view, iteration) {
   }
 }
 
-test('@performance Issue 858 parallel read and Calendar/Todo scaling', async ({ browser }) => {
-  test.setTimeout(2_800_000);
+test('@performance Issue 858 cold visible-window vs full owner task query', async ({ browser }) => {
+  test.setTimeout(3_500_000);
   await mkdir(resolve('.mosaic/slow-startup'), { recursive: true });
-  const { states, queryRows } = await seedFixtures(browser);
+  const { states } = await seedFixtures(browser);
   const rows = [];
   const groups = [];
   for (const fixture of CASES) {
     const key = fixture.count + ':' + fixture.distribution;
-    for (let iteration = 1; iteration <= REPEATS; iteration++) {
-      const conditions = VIEWS.flatMap(view => MODES.map(mode => ({ view, mode })));
+    const modes = fixture.count === 1000 && fixture.distribution === 'years'
+      ? ['pwa-online-slow', 'pwa-offline'] : ['pwa-online-slow'];
+    for (let iteration = 1; iteration <= 3; iteration++) {
+      const conditions = ['calendar', 'todo'].flatMap(view =>
+        ['baseline','windowed-owner-query'].flatMap(variant =>
+          modes.map(mode => ({ view, variant, mode }))));
       if (iteration % 2 === 0) conditions.reverse();
-      for (const { view, mode } of conditions) {
-        rows.push(await sample(browser, fixture, states.get(key), mode, view, iteration));
+      for (const { view, variant, mode } of conditions) {
+        rows.push(await sample(browser, fixture, states.get(key),
+          mode, view, variant, iteration));
       }
     }
-    const stats = Object.fromEntries(VIEWS.flatMap(view =>
-      MODES.map(mode => {
-        const subset = rows.filter(row =>
-          row.count === fixture.count && row.distribution === fixture.distribution &&
-          row.view === view && row.mode === mode);
-        return [view + ':' + mode, {
-          n: subset.length,
-          ownerReadyP50Ms: percentile(subset.map(x => x.ownerReadyMs), .5),
-          ownerReadyP90Ms: percentile(subset.map(x => x.ownerReadyMs), .9),
-          dbToTaskQueryP50Ms: percentile(subset.map(x => x.dbToTaskQueryMs), .5),
-          afterQueryP50Ms: percentile(subset.map(x => x.taskQueryToOwnerReadyMs), .5),
-          homeMountP50Ms: percentile(subset.map(x => x.homeMountMs), .5),
-          twoFrameP50Ms: percentile(subset.map(x => x.twoFrameReadyMs), .5),
-          firstActionP50Ms: percentile(subset.map(x => x.firstActionDomResponseMs), .5),
-          domElementsP50: percentile(subset.map(x => x.domElements), .5),
-        }];
-      })));
+    const stats = Object.fromEntries(['calendar', 'todo'].flatMap(view =>
+      ['baseline', 'windowed-owner-query'].flatMap(variant =>
+        modes.map(mode => {
+          const subset = rows.filter(row => row.count === fixture.count &&
+            row.distribution === fixture.distribution && row.view === view &&
+            row.mode === mode && row.variant === variant);
+          return [view + ':' + variant + ':' + mode, {
+            n: subset.length,
+            readyP50Ms: percentile(subset.map(x => x.ownerReadyMs), .5),
+            readyP90Ms: percentile(subset.map(x => x.ownerReadyMs), .9),
+            dbToTaskQueryP50Ms: percentile(subset.map(x => x.dbToTaskQueryMs), .5),
+            afterQueryP50Ms: percentile(subset.map(x => x.taskQueryToOwnerReadyMs), .5),
+            firstActionP50Ms: percentile(subset.map(x => x.firstActionDomResponseMs), .5),
+            fcpP50Ms: percentile(subset.map(x => x.fcpMs), .5),
+            visibleTaskBlockP50: percentile(subset.map(x => x.visibleTaskBlockCount), .5),
+            domP50: percentile(subset.map(x => x.domElements), .5),
+          }];
+        }))));
     groups.push({ ...fixture, stats });
-    console.log('MOSAIC_858_SCALING_GROUP ' + JSON.stringify(groups.at(-1)));
-    await writeFile(resolve('.mosaic/slow-startup/structural-scaling-partial.json'),
-      JSON.stringify({ groups, queryRows, rows }, null, 2) + '\n');
+    console.log('MOSAIC_858_WINDOW_GROUP ' + JSON.stringify(groups.at(-1)));
+    await writeFile(resolve('.mosaic/slow-startup/owner-window-partial.json'),
+      JSON.stringify({ groups, rows }, null, 2) + '\n');
   }
   const report = {
     sourceSha: process.env.MOSAIC_AUDIT_SOURCE_SHA ?? 'local',
     protocol: {
-      cases: CASES, views: VIEWS, modes: MODES, repeats: REPEATS,
-      browser: 'cached PWA mobile Chromium 412x915, 2x simulated CPU',
-      network: 'All Appwrite requests held. Offline and slow online measured.',
-      fixture: 'Synthetic account with owner-fenced real RxDB bulkInsert, exactly persisted IndexedDB tasks',
-      queryMicrobench: 'Six mostly RxDB-cached same-context repetitions, alternating serial vs parallel order; near-zero p50 cannot establish startup or concurrency gains',
-      caution: 'Lab import is gated to synthetic seed contexts only; no source/HTML from this branch is deployable or accepted',
-      limitations: ['No authenticated Scratch or physical device',
-        'Two-frame and first-action DOM proxies are not first painted/interactive human touch',
-        'No actual image files, shared memberships, Diary or responsive-font stress',
-        'Query speed on a warmed seeded page is not a startup causal intervention',
-        'Limited n=3 observations cannot prove statistical significance'],
+      cases: CASES, repeats: 3, variants: ['baseline','windowed-owner-query'],
+      views: ['calendar','todo'],
+      network: 'Appwrite held; cached PWA offline/slow online',
+      browser: 'Chromium 412x915 mobile, 2x CPU',
+      intervention: 'Only synthetic owner useTasks selector changes from all nondeleted tasks to current +/- one calendar month; no separate cache or remote request. Distant jumps/search intentionally broken, NOT a product candidate.',
+      risks: ['IndexedDB date index may be slower than full owner query with sort', 'Excludes distant tasks and fails backlog/search/date-jump semantics'],
+      limitations: ['Synthetic only', 'Readiness not paint', 'No real 401/account switching', 'Small paired sample n=3'],
     },
-    groups, queryRows, rows,
+    groups, rows,
   };
-  await writeFile(resolve('.mosaic/slow-startup/structural-scaling.json'),
+  await writeFile(resolve('.mosaic/slow-startup/owner-window.json'),
     JSON.stringify(report, null, 2) + '\n');
-  console.log('MOSAIC_858_SCALING_FINAL ' + JSON.stringify(groups));
+  console.log('MOSAIC_858_WINDOW_FINAL ' + JSON.stringify(groups));
 });

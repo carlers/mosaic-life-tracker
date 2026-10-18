@@ -17,9 +17,25 @@ export function useTasks(enabled = true) {
   const { user } = useAuth();
   const reorderQueue = useRef(Promise.resolve());
 
+  // #858 diagnostic ONLY: bounded date selector to isolate cost of reading
+  // historical tasks on first render. Breaks distant-date search/jumps;
+  // NEVER ship this incomplete data contract.
+  const labWindowedQuery = import.meta.env.VITE_MOSAIC_858_SCALING_LAB === '1' &&
+    user?.$id === 'issue858_scale_user' &&
+    localStorage.getItem('mosaic_858_render_variant') === 'windowed-owner-query';
+  const now = new Date();
+  const dateKey = (d: Date) =>
+    [d.getFullYear(), String(d.getMonth()+1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0')].join('-');
+  const windowStart = dateKey(new Date(now.getFullYear(), now.getMonth()-1, 1));
+  const windowEnd = dateKey(new Date(now.getFullYear(), now.getMonth()+2, 0));
   const { data: tasks, isLoading } = useRxCollection<TaskDocument>({
     collection: 'tasks',
-    selector: { userId: user?.$id ?? '', isDeleted: false },
+    selector: {
+      userId: user?.$id ?? '',
+      isDeleted: false,
+      ...(labWindowedQuery ? { date: { $gte: windowStart, $lte: windowEnd } } : {}),
+    },
     sort: [{ date: 'asc' }, { createdAt: 'desc' }],
     logPrefix: '[useTasks]',
     enabled,

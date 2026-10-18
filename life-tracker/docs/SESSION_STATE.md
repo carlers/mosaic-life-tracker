@@ -1,19 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-18 UTC
-Current task: #858 structural Calendar/Todo query, rendering and parallel-read scaling diagnostic; research only.
+Current task: issue #858 structural Calendar/Todo startup and task-count scaling. Current research is cold owner-vs-visible date-window query.
 
-## Accepted boundary
-- Baseline dev v0.29.8: `bfb0fff0c1c283f599f32db8c2a426416fa65e7b`. #858 stays OPEN. Do not promote this experimental source branch to stable Preview, dev, main, Production, or 1.0.
-- User approved a structural zoom-out focusing on parallelization and efficient task loading/rendering with increasing cached task counts, rather than marginal CSS containment.
-- New branch `chatgpt/858-structural-scaling-lab-20261018` forks dev. No backend/remote data, production accounts or real credentials.
+## Boundary
+- User approved continued investigation, parallelization and faster task loading/rendering, preserving #858 OPEN. Dev v0.29.8 `bfb0fff0c1c283f599f32db8c2a426416fa65e7b` untouched. No promotion of any synthetic lab branch to stable Preview, dev/main, Production or 1.0.
+- This branch `chatgpt/858-windowed-query-lab-20261018` forks verified diagnostic source `ea328e71668de2b0267f369a811f24119f12c805`; **never deploy/merge**. Only owner `issue858_scale_user` in CI-only `VITE_MOSAIC_858_SCALING_LAB=1` can exercise variant.
 
-## Read-only experiment
-- One diagnostic-only HomePage `useEffect` conditionally loads `src/lib/issue858ScalingLab.ts` **only** when the CI-only build flag and sessionStorage synthetic fixture flag are both set. The bridge rejects any cached owner other than `issue858_scale_user`; measured PWA launches do NOT set this flag or import the module. The bridge uses real RxDB `bulkInsert` for synthetic task documents and only reads while comparing global owner-scoped sorted tasks, month-window queries, and three month queries serial vs `Promise.all`.
-- Disposable Playwright `startup-structural-scaling.spec.mjs` creates a real UI category and persists IndexedDB snapshots at task counts 0/25/250/1000 on one day, plus 250/1000 across current month and 1000 across five years. Captures six warm, order-balanced read timings per populated fixture; tests current-month cardinality equality. Per fixture, run both default Calendar and Todo, 2× CPU, cached assets, offline vs throttled-online, three repeats (84 launched browser samples).
-- Measure DB→Home, DB→first RxDB task result, task result→Home, FCP, two-frame proxy, DOM count, long tasks and first synthetic action response. Full owner data remains loaded by existing production useTasks code. Interleaved test conditions minimize order bias; experiments cannot establish significance or real-phone paint.
-- Auth and Appwrite held/blocked in diagnostic. No app feature changes are proposed from this branch. Never ship `issue858ScalingLab.ts` or the HomePage diagnostic import.
+## Verified findings
+- [Proximity + drag lab #39104388237](https://github.com/carlers/mosaic-life-tracker/actions/runs/39104388237) 72/72 SUCCESS. Todo slow-online same-day 25/250/1000 baseline 634/895/1580ms → 616/834/1402ms with near-view Motion and omit passive offscreen drop-targets. 1000 across month 919→877ms, offline dense 1597→1473ms. First 610ms long-press overlay/cancel passed baseline and near variants, but full drag/Diary/photos/device not accepted.
+- [Early owner prewarm lab #39105689490](https://github.com/carlers/mosaic-life-tracker/actions/runs/39105689490) 84/84 SUCCESS. Full RxDB owner query pre-executed after DB ready, while Home modules load. Effects marginal and inconsistent for default Calendar, and prewarm rarely finished ahead of normal first `useTasks` emission. **REJECT prewarm**: extra work/complexity not warranted.
+- [Native task-frame lab #39105911960](https://github.com/carlers/mosaic-life-tracker/actions/runs/39105911960) was still running at this checkpoint on SHA `51d216b797f323690bcd60ae22ce5013cb7dfd3e` (initial two build attempts failed TypeScript union; repaired exact-SHA build passed). No browser timing verdict yet.
+
+## Current experiment
+- Changing the first query's scope can be a distinct causal lever from prewarming an identical all-history query. Under test flag and synthetic owner only, `useTasks` adds a local date selector from start of previous month through end of next month, preserving owner/isDeleted/date/createdAt order. Baseline keeps all tasks. **The limited query deliberately breaks distant-date jumping/search/backlog and is NOT a user-facing implementation**; a real candidate would require a reactive two-tier reader with no missing data and strict auth.
+- Compare 0/25/250/1000 same-day, 1000 current-month, 1000 across five years, baseline and windowed, Calendar and Todo, PWA cache, 2× CPU; 3 repeats slow online all and offline 1000 years. 84 launches. Validate current-visible DOM tasks, FCP, first Add/day click, DB-ready→tasks-ready vs post-query, DOM count. All Appwrite calls held.
+- Need evaluate cold query index and whether shorter task set actually helps for 1000 historical tasks with ~17 active-month tasks. Check 1000 same-month: bounded query should NOT improve as rows remain visible.
 
 ## Next action
-- Confirm exact Actions run and strict compile/build checks; repair any audit-specific failure without modifying production behavior. Analyze matched mode/view/task-distribution p50/p90, query concurrency and query/cardinality, not inter-run absolute speeds. Decide whether date-scoped loading, parallel subscriptions, preloading ahead of Home, or dense render/window changes are worth a separate product candidate, with regressions protecting account isolation, swipe/reorder/Diary/shared and accessibility.
-- Subsequent runtime changes require focused and canonical Scratch Preview gates, browser and device acceptance and explicit dev/main promotion. #936 security and #914 backend rollout remain separate 1.0 gates.
+- Complete custom Actions and Quality Gate exact SHA, investigate and repair failures, record per-case same-build matched medians, no promotion.
+- Independently complete native frame A/B and gesture verification. For any product design, require search/date jumps/owner switching, Diary/photos/shared, first gestures, stable Preview CI and physical-device manual checks. Security #936 and backend #914 remain distinct pre-1.0 workstreams.
