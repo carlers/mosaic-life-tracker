@@ -1,22 +1,24 @@
 # Session checkpoint
 
-Updated: 2026-10-18 UTC
-Current task: #967 — candidate Supabase task/category pure mapping and unit proof.
+Updated: 2026-10-19 UTC
+Current task: #967 — isolated Supabase atomic CAS security hardening and checkpointed pull contract.
 
-## Boundary and source
+## Source and approval boundary
 
-- Base accepted Preview `refactor/supabase-candidate-task-category-20261018@01206108a014423b6da885c3fc271a8e71d61ba0`, inherited from `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68`. No version bump; still v0.29.12. No dev/main/Production promotion.
-- Work is a pure source-only Supabase mapping candidate, **not** live SDK/RxDB usage. Task branch `chatgpt/supabase-candidate-mapping-20261018`; intended stable Preview `refactor/supabase-candidate-mapping-20261018`.
-- Actual Supabase project `mosaic-dev` remains isolated and synthetic (Free plan, Singapore). No new cloud writes or Auth accounts needed for this step. Appwrite Scratch/Production, user data, Vercel runtime configuration, auth provider and real services untouched.
-- Active migration and future dual-server planning issues: #967 and #968. Keep both open.
+- Base accepted Preview `refactor/supabase-candidate-mapping-20261018@5246cd61d8a0f2eb8f8f7954dad6c822c6eca725`, derived from `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68`. Source-only candidate, no version bump; v0.29.12.
+- Task branch `chatgpt/supabase-atomic-cas-20261019`; intended new stable Preview `refactor/supabase-atomic-cas-20261019`. Active issue #967 stays open; optional self-host/home-cloud dual sync is separate post-1.0 #968.
+- Owner authorized development of isolated Supabase migration, **not** real user/data transfer, application provider switch, Production modifications, or promotion to dev/main. Supabase `mosaic-dev` project `hcxtiifzxoaflhjgoglb` remains development-only; Appwrite untouched.
 
-## Scoped implementation
+## Findings and verified scope
 
-- `supabase-poc/candidateMapping.ts`: typed pure task/category mapping between legacy RxDB documents and the isolated Supabase SQL row shape; explicit legacy ID to Supabase UUID mapping required; wrong-account fail-closed; preserve empty string, string row IDs, dates, tombstone fields, optional data and visibility metadata. Never send server-controlled revision/timestamp fields. PostgreSQL BIGINT cursor parsing is exact, rejects unsafe JS numbers.
-- `tests/unit/supabaseCandidateMapping.test.ts`: task/category round trips, foreign-user rejection, identity-map validation, original IDs, no cursor spoofing and bigint precision.
-- `docs/SUPABASE_EVALUATION.md`: distinguish this mapping proof from real signed session, adapter, Realtime and data migration. Version impact NONE.
+- Identified candidate security flaw: ordinary authenticated UPDATE allowed bypassing compare-and-set. Applied Supabase dev-only migration revoking direct UPDATE and introducing narrow per-owner atomic CAS RPC functions for tasks/categories with fixed search path and explicit authorized patch fields.
+- The first RPC test caught an unavailable SQL helper `jsonb_object_length`; corrected to JSONB object equality. The committed introspected final SQL is in `supabase-poc/migrations/20261019_candidate_atomic_cas_rpc.sql`.
+- Replayed synthetic rollback-only SQL `supabase-poc/tests/candidate_atomic_cas_rollback.sql`: valid CAS, no direct UPDATE, stale and cross-owner RPC rejection, invalid/empty patch, anonymous EXECUTE denied, tombstones all PASS. Parallel two-request synthetic category test showed exactly one successful CAS at a shared revision; the other returned null. Removed seeded data and counter; probe tables remain empty.
+- Supabase Security Advisor reports **two warnings** for explicitly callable `SECURITY DEFINER` CAS RPCs. This is intentional in the candidate but remains an independent security review gate; do not label warnings clean.
+- Pure `supabase-poc/candidatePull.ts` and unit tests check owner isolation, monotonic high-precision checkpoint pages, tombstones and fail-closed on invalid/unavailable responses. Not wired to actual RxDB or HTTP/Auth; no new dependencies.
 
 ## Next action
 
-- Run task focused CI for this exact change; repair any failures; squash to separate stable Preview; verify canonical CI and trusted delivery. No automatic database migration or changed Production service.
-- Then continue isolated #967: signed two-user Auth/HTTP tests, CAS racing transactions, real RxDB adapter with replay/reconnect proof, all eight domain ACLs, user identity/password migration, storage, functions and secure DR/cutover. No live user data or production writes without explicit separately reviewed authorization.
+- Run focused source and mapping/unit verification on coherent `[verify:focused]` commit; repair failures. Squash accepted task into an isolated stable Preview, then require full canonical CI and trusted READY delivery.
+- Continue #967 with disposable **real signed Auth** HTTP checks when account tooling is available, a real RxDB integration adapter, two-device offline/reconnect/CAS replay, friend/message/diary visibility ACLs, rate/size/egress forecasting and an independently recoverable cutover plan. Never claim this proof achieves those steps.
+- Keep #967 open; do not promote, import personal data, modify Appwrite Production or release Mosaic 1.0 without separately approved gates.

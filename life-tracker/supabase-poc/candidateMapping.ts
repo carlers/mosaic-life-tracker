@@ -57,7 +57,7 @@ export type CandidateCategoryRow = CandidateCategoryWrite & {
   server_updated_at: string;
 };
 
-function validateIdentity(identity: CandidateIdentity): void {
+export function validateCandidateIdentity(identity: CandidateIdentity): void {
   if (!identity.legacyUserId) throw new Error('Unverified legacy account mapping');
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -69,14 +69,14 @@ function validateIdentity(identity: CandidateIdentity): void {
 }
 
 function assertLocalOwner(userId: string, identity: CandidateIdentity): void {
-  validateIdentity(identity);
+  validateCandidateIdentity(identity);
   if (userId !== identity.legacyUserId) {
     throw new Error('Refusing to write a different legacy account');
   }
 }
 
 function assertRemoteOwner(ownerId: string, identity: CandidateIdentity): void {
-  validateIdentity(identity);
+  validateCandidateIdentity(identity);
   if (ownerId !== identity.supabaseUserId) {
     throw new Error('Refusing a Supabase row with unexpected owner');
   }
