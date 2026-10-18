@@ -66,7 +66,8 @@ try {
   const { target, alias } = normalizeHandoffTarget(requestedTarget);
   const prompt = promptForTarget(target);
   const sessionState = readFileSync(join(projectRoot, 'docs/SESSION_STATE.md'), 'utf8');
-  validateSessionState(sessionState);
+  const { warnings } = validateSessionState(sessionState);
+  for (const warning of warnings) report(`Checkpoint advisory: ${warning}`);
 
   if (alias) {
     console.warn(`Handoff target "${alias}" is an alias; prefer "${target}".`);

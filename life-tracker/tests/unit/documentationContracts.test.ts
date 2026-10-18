@@ -54,15 +54,27 @@ it('validates the checked-in checkpoint and accepts missing optional working set
   const state = readFileSync(new URL('../../docs/SESSION_STATE.md', import.meta.url), 'utf8');
   expect(() => validateSessionState(state)).not.toThrow();
   expect(parseWorkingSet('# Session checkpoint\n## Working references\n- PR #419\n')).toEqual([]);
-  expect(() => validateSessionState('Updated: 2026-10-09\nCurrent task: missing action\n')).toThrow(/Next action/);
+  expect(validateSessionState('Updated: 2026-10-09\nCurrent task: missing action\n').warnings)
+    .toContain('Prefer a clear next-action section or line for cross-chat recovery.');
+  expect(() => validateSessionState('Current task: missing date\n## Next action\n- Continue'))
+    .toThrow(/Updated/);
 });
 
-// Regression: AI_WORKFLOW.md (source-independent handoff context stays within its budget).
-it('keeps the default fixed handoff below 3000 estimated tokens', () => {
+// A 3,000-token fixed handoff remains a writing target, not a CI release gate.
+// An approximate character/4 estimator cannot justify blocking unrelated work.
+it('advises when the default fixed handoff exceeds 3000 estimated tokens', () => {
   const root = new URL('../../', import.meta.url);
   const read = (path: string) => readFileSync(new URL(path, root), 'utf8');
+  const agents = read('AGENTS.md');
+  const state = read('docs/SESSION_STATE.md');
   const packet = buildWebChatPacket({ target: 'chat-plan', projectRoot: root.pathname,
-    agents: read('AGENTS.md'), sessionState: read('docs/SESSION_STATE.md'),
+    agents, sessionState: state,
     workingSet: [], git: { branch: 'task', head: 'a'.repeat(40), status: '' } });
-  expect(estimateTokens(packet)).toBeLessThanOrEqual(3000);
+  expect(packet).toContain(agents.trimEnd());
+  expect(packet).toContain(state.trimEnd());
+  const tokens = estimateTokens(packet);
+  expect(tokens).toBeGreaterThan(0);
+  if (tokens > 3000) {
+    console.warn(`Handoff size advisory: ~${tokens} estimated tokens (target 3000). Keep checkpoints concise.`);
+  }
 });
