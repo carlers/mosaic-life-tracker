@@ -10,6 +10,7 @@ import { HomeTaskSearch } from '../components/home/HomeTaskSearch';
 import { HomeStatusIndicators } from '../components/home/HomeStatusIndicators';
 import { PersonCarousel } from '../components/home/PersonCarousel';
 import { PersonPane } from '../components/home/PersonPane';
+import { preloadTodoListView } from '../components/home/views/todoListViewModule';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
@@ -107,9 +108,16 @@ export const HomePage: React.FC = () => {
     if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
 
     const warm = () => {
-      if (document.visibilityState === 'visible') void loadDayViewSheet().catch(() => {
-        // A warmup failure must not block the on-demand retry.
-      });
+      if (document.visibilityState === 'visible') {
+        // After Calendar is usable, warm the shared Todo/Diary module too.
+        // Delay its JS evaluation until after the critical Calendar path;
+        // no task view, provider or offscreen DOM is mounted by this work.
+        void loadDayViewSheet().catch(() => {}).then(() =>
+          preloadTodoListView().catch(() => {
+            // On-demand navigation will retry a failed module import.
+          })
+        );
+      }
     };
     if (window.requestIdleCallback) {
       const id = window.requestIdleCallback(warm, { timeout: 1200 });

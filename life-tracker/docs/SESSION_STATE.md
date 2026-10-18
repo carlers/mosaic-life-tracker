@@ -1,29 +1,26 @@
 # Session checkpoint
 
-Updated: 2026-10-17 UTC
-Current task: #858 structural Calendar and Todo local-first cold startup — v0.29.8 preloaded-app-shell Preview candidate.
+Updated: 2026-10-18 UTC
+Current task: #858 — structural Calendar initial task-preview rendering optimization after accepted v0.29.10.
 
-## Approved boundary
+## Source, approval and limits
+- Owner reports the v0.29.10 Todo/Diary compact-month bugs fully fixed in manual testing, requests continuing Calendar initial-mount performance. Keep #858 OPEN; #957 accepted on Preview but not promoted. Owner has **not** approved Preview→dev/main/Production or v1.0 release.
+- Stable starting source: `perf/858-todo-diary-grid-20261018@796085e23d7e48df5451849a878b0962a8e1cee8` (v0.29.10), canonical [#39118517009](https://github.com/carlers/mosaic-life-tracker/actions/runs/39118517009) and trusted Preview delivery [#39118661130](https://github.com/carlers/mosaic-life-tracker/actions/runs/39118661130) SUCCESS. `dev@bfb0fff0c1c283f599f32db8c2a426416fa65e7b`, `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
+- New *clean* product candidate branch `chatgpt/858-calendar-taskblock-flat-candidate-20261018` direct fork of current Preview. Stage **v0.29.11** with package, lock and appVersion; no backend/schema/data/query/appearance/route change.
 
-- User requested a structural audit and faster default Calendar mount, explicitly retaining both Calendar and Todo optimization as #858 scope. Existing v0.29.7 Scratch Preview `perf/858-startup-diagnostics-20261017@34ac29ed0790ea796c9d350c9da2796b2ab29e7a` remains the accepted starting point; canonical #39044763288 and trusted Preview #39044882214 SUCCESS.
-- This task changes only initial `AppDataShell` **already-preloaded module reveal**, with unchanged task queries, RxDB schema, account identity, sync behavior, Calendar/Todo visual tree and network boundaries. Maintain the `React.lazy` import, Suspense loading UI and original failure/retry behavior when the module is not loaded. Do not prematurely mount RxDB-backed providers before the protected-route DB-ready gate.
-- Release candidate version 0.29.8 (new user-testable PATCH iteration). No dev/main/Production/backend/1.0 promotion approval.
+## Rejected idea and matched evidence
+- `chatgpt/858-calendar-deferred-neighbors-20261018@1d6c110946506eba178b57ff48af58e33f67a6a1`: focused + 2 browser shards [#39120707123](https://github.com/carlers/mosaic-life-tracker/actions/runs/39120707123) SUCCESS and actual first swipe. But SAME-RUNNER render lab [#39120787129](https://github.com/carlers/mosaic-life-tracker/actions/runs/39120787129) SUCCESS, n=5 each, shows 1000 dense 205.7→267.7ms (+62), despite 0/25 gains. **REJECTED**; no owner Calendar runtime/state modifications from this in the new clean candidate. Prior permanent active-only ablation is not a safe shipping proxy.
+- Separate **diagnostic ONLY** `chatgpt/858-calendar-taskblock-flat-lab-20261018@af5f40ad004797b8812acf5c2f1e0d3774d7b28e`; focused Quality Gate [#39121269210](https://github.com/carlers/mosaic-life-tracker/actions/runs/39121269210) SUCCESS, same-runner paired 2× CPU DOM render [#39121269247](https://github.com/carlers/mosaic-life-tracker/actions/runs/39121269247) SUCCESS 40/40. Render firstReady median original→flat: 0:55.7→56.0ms, 25:71.2→67.4ms, 250:167.2→130.3ms, 1000:268.8→242.5ms. Two-frame 1000 355→305.5ms, DOM 5638→3638 nodes; TaskBlock 19.75px and whole slide scrollHeight 23285px exactly equal in 1000 synthetic text-only case; all task count preserved. These are same-context synthetic reveal timings, **not** physical device or end-to-end Home-startup proof.
 
-## Measured causal evidence
+## Clean implementation candidate
+- Only `src/components/home/views/TaskBlock.tsx` runtime: text-only, unshared task preview renders a clipped one-line span instead of the original three-layer flex structure. Same outer tooltip, width, text size, color modes, background, inset border, corner radius, task order and day-cell semantics; image-bearing or shared tasks retain the *exact original rich path* (image observers and friend marker). No lab URL toggle, no deferred-neighbor state or diagnostic workflow in product candidate.
+- Focused new `tests/components/TaskBlock.test.tsx` checks text previews, completed/category mode, thumbnail and shared marker. Existing Calendar TaskBlock theme color browser test and first touch/swipe/zoom/day-sheet contracts run.
+- Product candidate staged version 0.29.11; stamp once before next user-testable Preview. Future state depends on exact-SHA CI.
 
-- [Isolated critical path #39048530590](https://github.com/carlers/mosaic-life-tracker/actions/runs/39048530590) SUCCESS: with cached-PWA mobile Chromium 2× CPU, synthetic owner IndexedDB 0/25/1000 tasks, n=3, offline/slow online, DB ready ~160–184ms and `AppDataShell` module ready ~144–153ms; `HomePage` doesn't mount until 492–517ms. The ~333–335ms DB→Home wait persists at 0 tasks and both connection modes, excluding query/render/network as its main explanation. No physical-device claim.
-- [Four-way same-bundle Suspense A/B #39049692367](https://github.com/carlers/mosaic-life-tracker/actions/runs/39049692367) SUCCESS: original nested lazy boundaries vs bypass Home only vs bypass `AppDataShell` only vs both. Slow-online Home-owner-ready p50 for 0/25/1000 tasks: original 587/578/719ms, **direct preloaded shell only 284/300/478ms** (saving 303/278/241ms). Home-only direct 560/570/724ms (minor/none). First 1000-task DOM 770→528ms, all preview tasks retained. Offline for 1000 727→493ms. This is an isolated causal diagnostic, not manual acceptance; interaction/lazy failure edge cases remain.
-- Focused experiment checkpoint #39049775650 SUCCESS after fixing a diagnostic-only docs heading. Direct-loaded-shell effect chosen for a narrow production candidate; Home's own nested lazy route remains untouched.
-
-## New task change
-
-- Task branch `chatgpt/858-direct-preloaded-shell-20261017` from stable v0.29.7.
-- `src/components/layout/routeModuleLoaders.ts`: export a synchronous read-only `AppDataShell` component snapshot, subscriber and notifications after the existing cached import finishes. No independent second module import or cache.
-- `src/components/layout/AppLayout.tsx`: `useSyncExternalStore` subscribes to that snapshot in protected AppLayout. Once cached user, database and module are ready, mount directly rather than re-suspending. When the module isn't resolved, preserve the **exact existing lazy component and Suspense** (including failed load path); do not replace it with an indefinite custom spinner. The original `AppDataShell` children and route swipe props remain.
-- `tests/components/AppDataShellPreload.test.tsx`: regression for memoized module, once-only listener, already-loaded first React commit and a preloading in-flight subscriber. Existing browser shards must verify route gestures, account and offline fallback.
-- Update package/package-lock/appVersion to 0.29.8 once; no unrelated styling or infrastructure edits.
+## Verification and handoff
+- Commit scoped task+checkpoint with [verify:browser]; repair any focused or browser failures, do not misclassify them. If green, PR squash from task to NEW stable `perf/858-calendar-flat-taskblock-20261018` forked from v0.29.10, canonical CI plus trusted CI-first Scratch Preview READY, independent source and deployment check. Do not mutate v0.29.10 stable.
+- Owner manually verifies identical Calendar text/image/share display, Light/Black themes, scrolling, first and repeat touch, task counts and startup impression on installed PWA. Physical first-paint not measured. #858 remains OPEN for further structural optimization after this small gain. No dev/main/Production/1.0 promotion without explicit approval.
 
 ## Next action
 
-- Run task focused+browser checks, resolve any lint/types/react/react-router failures with a scoped repair; compare build/PWA metrics against v0.29.7. After task gate green, create PR to existing `perf/858-startup-diagnostics-20261017`, squash only the candidate and run full canonical checks + trusted Scratch Preview READY. Never promote to dev/main/Production until explicitly approved.
-- Independently verify real authenticated and installed device cold-start with cached 0/25/100/500/1000 and distributed tasks, offline/slow/401/account switching, first task interactability, Diary/shared/photos/drag after scroll, iOS/Android. #858 remains OPEN until those are accepted. #936 privacy and #914 backend compatibility are independent pre-1.0 gates.
+- Verify corrected documentation-contract checkpoint through focused Quality Gate on exact task SHA; squash to new independent stable Preview only after all checks pass. Verify canonical gate and trusted Preview READY. Keep #858 OPEN and await real-device acceptance before any dev/main promotion.

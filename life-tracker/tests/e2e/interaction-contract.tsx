@@ -5,7 +5,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
 import '../../src/index.css';
-import { format } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 import { CalendarCarousel } from '../../src/components/home/views/CalendarCarousel';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 import { TaskBlock } from '../../src/components/home/views/TaskBlock';
@@ -227,6 +227,7 @@ export function InteractionHarness() {
   const calendar = useCalendarState();
   const searchParams = new URLSearchParams(window.location.search);
   const performanceHeavy = searchParams.get('perf') === 'heavy';
+  const compactDiaryMode = searchParams.get('compactDiary') === '1';
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
   const performanceCalendarPath = searchParams.get('calendarPath') === '1';
   const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
@@ -325,6 +326,14 @@ export function InteractionHarness() {
         <span>Friend index: <output data-testid="friend-index">{friendIndex}</output></span>
         <span>Todo day: <output data-testid="todo-day-index">{todoDayIndex}</output></span>
         <span>Todo month: <output data-testid="todo-month">{format(todoMonth, 'MMMM yyyy')}</output></span>
+        <button type="button" data-testid="compact-next-month"
+          onClick={() => setTodoMonth(current => addMonths(current, 1))}>Next compact month</button>
+        <button type="button" data-testid="compact-prev-month"
+          onClick={() => setTodoMonth(current => addMonths(current, -1))}>Previous compact month</button>
+        <button type="button" data-testid="compact-reset-today"
+          onClick={() => { setTodoMonth(new Date(2026, 8, 15)); setTodoSelectedDate(new Date(2026, 8, 15)); }}>Compact back to September</button>
+        <button type="button" data-testid="compact-jump-future"
+          onClick={() => setTodoMonth(new Date(2032, 8, 15))}>Compact jump to September 2032</button>
         <span>Todo selected: <output data-testid="todo-selected-date">{format(todoSelectedDate, 'yyyy-MM-dd')}</output></span>
         <span>Todo gesture: <output data-testid="todo-gesture">{todoGesture}</output></span>
         <span>Calendar: <output data-testid="calendar-title">{calendar.title}</output></span>
@@ -394,6 +403,7 @@ export function InteractionHarness() {
                   setTodoMonth(date);
                   setTodoSelectedDate(date);
                 }}
+                markerMode={compactDiaryMode ? 'diary' : 'todo'}
               />
             </div>
             <div

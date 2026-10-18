@@ -464,6 +464,45 @@ test('Calendar and Todo carousels own horizontal trackpad scrolling without movi
   await expect(friendIndex).toHaveText('0');
 });
 
+// Regression #858: the compact Todo and Diary carousel must always render
+// the programmatically selected month, even on a distant Today jump or after
+// more month-arrow requests than the original finite 61-slide range.
+for (const markerMode of ['todo', 'diary']) {
+  test(`${markerMode} compact grid survives future Today reset and fast month arrows`, async ({ page }) => {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html${markerMode === 'diary' ? '?compactDiary=1' : ''}`);
+    const region = page.getByTestId('todo-calendar-region');
+    const month = page.getByTestId('todo-month');
+    const gridFor = (name) => region.getByRole('grid', {
+      name: `${name} todo calendar`,
+    });
+    await expect(month).toHaveText('September 2026');
+    await expect(gridFor('September 2026')).toBeVisible();
+
+    // Jump forward 72 months (beyond original 61 snaps), then reset.
+    await page.getByTestId('compact-jump-future').click();
+    await expect(month).toHaveText('September 2032');
+    await expect(gridFor('September 2032')).toBeVisible();
+    await expect(gridFor('September 2032').getByRole('gridcell').first()).toBeVisible();
+    await page.getByTestId('compact-reset-today').click();
+    await expect(month).toHaveText('September 2026');
+    await expect(gridFor('September 2026').getByRole('gridcell').first()).toBeVisible();
+
+    // Rapid header-arrow actions queue parent updates before Embla settles.
+    // The last month must win, with a real grid rather than blank placeholders.
+    await page.evaluate(() => {
+      const next = document.querySelector('[data-testid="compact-next-month"]');
+      if (!(next instanceof HTMLButtonElement)) throw Error('missing month arrow');
+      for (let i = 0; i < 68; i++) next.click();
+    });
+    await expect(month).toHaveText('May 2032');
+    await expect(gridFor('May 2032')).toBeVisible();
+    await expect(gridFor('May 2032').getByRole('gridcell').first()).toBeVisible();
+    await expect(region.getByRole('grid')).toHaveCount(1);
+    await page.getByTestId('compact-reset-today').click();
+    await expect(gridFor('September 2026').getByRole('gridcell').first()).toBeVisible();
+  });
+}
+
 // Regression: §2/§7 (Todo calendar owns direct-manipulation swipes).
 test('todo calendar follows the finger before snapping months', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
@@ -669,6 +708,35 @@ test('fresh task reorder runtime keeps legacy RxDocument-backed rows readable be
       )
     )
     .toBe(true);
+});
+
+// #858: offscreen row wrappers may omit inert dnd surfaces and Motion layout.
+// On the first scroll into view, the *real* task title must still respond to
+// long-press without an extra gesture, and cancellation must restore all rows.
+test('Todo distant task activates drag on first touch after scrolling and restores rows', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?rxdocs=legacy`);
+
+  const region = page.getByTestId('todo-day-content');
+  const rows = region.locator('[data-task-id]');
+  await expect(rows).toHaveCount(12);
+  const lastRow = rows.last();
+  const taskId = await lastRow.getAttribute('data-task-id');
+  if (!taskId) throw new Error('Missing far-row task identity');
+  await lastRow.scrollIntoViewIfNeeded();
+  const title = lastRow.locator('[data-day-swipe-through="true"]');
+  await expect(title).toBeVisible();
+
+  const gesture = await startTaskLongPress(page, title);
+  try {
+    await expect(page.locator(`[data-task-overlay-id="${taskId}"]`))
+      .toBeVisible();
+  } finally {
+    await gesture.cancel();
+  }
+  await expect(page.locator(`[data-task-overlay-id="${taskId}"]`))
+    .toHaveCount(0);
+  await expect(rows).toHaveCount(12);
+  await expect(lastRow).toBeVisible();
 });
 
 // Regression: owner task reorder is a simple delayed sortable interaction.

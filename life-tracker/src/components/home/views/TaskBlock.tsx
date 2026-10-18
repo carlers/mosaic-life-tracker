@@ -54,16 +54,21 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isSha
       }}
       title={task.title}
     >
-      <div className="flex flex-col gap-0.5">
-        {/* Padding lives on the outer element; clipping lives on the inner
-            one. Because the inner span has no padding, its clip rect ends
-            exactly where the outer padding begins, so the right gutter is
-            preserved on hard-cut text. */}
+      {!task.image && !isShared ? (
+        // Text-only task previews need one clipping span, not a nested flex
+        // stack and child span. Keep exactly the same padding and hard clip;
+        // real image and shared previews retain their richer existing path.
         <div className="px-[0.3rem] pb-0.5">
-          <span className="flex items-center gap-0.5 overflow-hidden whitespace-nowrap">{isShared && <UsersRound size={10} className="shrink-0" aria-hidden="true" />}<span className="min-w-0">{task.title}</span></span>
+          <span className="block overflow-hidden whitespace-nowrap">{task.title}</span>
         </div>
-        {task.image && <TaskBlockImage image={task.image} />}
-      </div>
+      ) : (
+        <div className="flex flex-col gap-0.5">
+          <div className="px-[0.3rem] pb-0.5">
+            <span className="flex items-center gap-0.5 overflow-hidden whitespace-nowrap">{isShared && <UsersRound size={10} className="shrink-0" aria-hidden="true" />}<span className="min-w-0">{task.title}</span></span>
+          </div>
+          {task.image && <TaskBlockImage image={task.image} />}
+        </div>
+      )}
     </div>
   );
 };
