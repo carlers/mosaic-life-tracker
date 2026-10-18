@@ -111,13 +111,8 @@ const RegisteredRowTargets: React.FC<RowTargetsProps> = ({
     </>
   );
 };
-const PassiveRowTargets = () => (
-  <>
-    <div aria-hidden="true" style={{ ...dropZoneStyle, top: 0 }} />
-    <div aria-hidden="true" style={{ ...dropZoneStyle, bottom: 0 }} />
-  </>
-);
-
+// Inactive offscreen rows do not register with dnd-kit; extra invisible
+// drop-target elements here did no work and increased dense Todo DOM cost.
 export const TaskRowDropSurface: React.FC<{
   categoryId: string;
   taskId: string;
@@ -142,7 +137,7 @@ export const TaskRowDropSurface: React.FC<{
   return (
     <motion.div
       ref={ref}
-      layout={animatePosition ? 'position' : false}
+      layout={animatePosition && active ? 'position' : false}
       transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
       className={isActiveSource ? 'relative !invisible' : 'relative'}
       data-task-source-slot={isActiveSource ? 'true' : undefined}
@@ -160,10 +155,8 @@ export const TaskRowDropSurface: React.FC<{
       }
     >
       <TaskRowRegistrationContext.Provider value={active}>
-        {active
-          ? <RegisteredRowTargets categoryId={categoryId} taskId={taskId}
-              isActiveSource={isActiveSource} acceptTasksOnly={acceptTasksOnly} />
-          : <PassiveRowTargets />}
+        {active && <RegisteredRowTargets categoryId={categoryId} taskId={taskId}
+          isActiveSource={isActiveSource} acceptTasksOnly={acceptTasksOnly} />}
         {children}
       </TaskRowRegistrationContext.Provider>
     </motion.div>

@@ -190,40 +190,37 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     }
   };
   const isCompleted = task.completed;
+  const frameStyle: React.CSSProperties | undefined = isDragOverlay
+    ? {
+        backgroundColor: 'var(--mosaic-bg)',
+        boxShadow: '0 14px 36px rgba(0, 0, 0, 0.38)',
+        pointerEvents: 'none',
+      }
+    : isSelected
+      ? { backgroundColor: `${categoryColor}33` }
+      : undefined;
 
-  return (
-    <motion.div
-      layout={!disableLayoutAnimation}
-      layoutDependency={`${task.updatedAt}:${isEditing}`}
-      data-task-id={isDragOverlay ? undefined : task.id}
-      data-task-overlay-id={isDragOverlay ? task.id : undefined}
-      data-task-dragging={isDragOverlay ? 'true' : undefined}
-      role={!isDragOverlay && selectionMode ? 'checkbox' : undefined}
-      aria-checked={!isDragOverlay && selectionMode ? isSelected : undefined}
-      aria-label={
-        !isDragOverlay && selectionMode
-          ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}`
-          : undefined
-      }
-      aria-hidden={isDragOverlay ? true : undefined}
-      tabIndex={!isDragOverlay && selectionMode ? 0 : undefined}
-      onClick={selectionMode ? onToggleSelection : undefined}
-      onKeyDown={selectionMode ? (event) => {
-        activateOnEnterOrSpace(event, () => onToggleSelection?.());
-      } : undefined}
-      className="flex scroll-mt-16 items-start gap-3 rounded-lg pl-0 pr-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
-      style={
-        isDragOverlay
-          ? {
-              backgroundColor: 'var(--mosaic-bg)',
-              boxShadow: '0 14px 36px rgba(0, 0, 0, 0.38)',
-              pointerEvents: 'none',
-            }
-          : isSelected
-            ? { backgroundColor: `${categoryColor}33` }
-            : undefined
-      }
-    >
+  const frameProps = {
+    'data-task-id': isDragOverlay ? undefined : task.id,
+    'data-task-overlay-id': isDragOverlay ? task.id : undefined,
+    'data-task-dragging': isDragOverlay ? 'true' : undefined,
+    role: !isDragOverlay && selectionMode ? ('checkbox' as const) : undefined,
+    'aria-checked': !isDragOverlay && selectionMode ? isSelected : undefined,
+    'aria-label': !isDragOverlay && selectionMode
+      ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}`
+      : undefined,
+    'aria-hidden': isDragOverlay ? (true as const) : undefined,
+    tabIndex: !isDragOverlay && selectionMode ? 0 : undefined,
+    onClick: selectionMode ? onToggleSelection : undefined,
+    onKeyDown: selectionMode ? (event: React.KeyboardEvent<HTMLDivElement>) => {
+      activateOnEnterOrSpace(event, () => onToggleSelection?.());
+    } : undefined,
+    className: 'flex scroll-mt-16 items-start gap-3 rounded-lg pl-0 pr-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60',
+    style: frameStyle,
+  };
+
+  const rowContent = (
+    <>
       <button
         type="button"
         onClick={(event) => {
@@ -308,6 +305,18 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           </div>
         )}
       </div>
+    </>
+  );
+
+  // The drag-enabled day-view path already disables inner layout animation.
+  // Use a native element there instead of initializing one Motion instance
+  // per task. Keep the animated frame for other modes and the drag overlay.
+  return disableLayoutAnimation ? (
+    <div {...frameProps}>{rowContent}</div>
+  ) : (
+    <motion.div {...frameProps} layout
+      layoutDependency={`${task.updatedAt}:${isEditing}`}>
+      {rowContent}
     </motion.div>
   );
 };

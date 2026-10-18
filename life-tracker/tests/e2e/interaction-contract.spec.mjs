@@ -671,6 +671,35 @@ test('fresh task reorder runtime keeps legacy RxDocument-backed rows readable be
     .toBe(true);
 });
 
+// #858: offscreen row wrappers may omit inert dnd surfaces and Motion layout.
+// On the first scroll into view, the *real* task title must still respond to
+// long-press without an extra gesture, and cancellation must restore all rows.
+test('Todo distant task activates drag on first touch after scrolling and restores rows', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?rxdocs=legacy`);
+
+  const region = page.getByTestId('todo-day-content');
+  const rows = region.locator('[data-task-id]');
+  await expect(rows).toHaveCount(12);
+  const lastRow = rows.last();
+  const taskId = await lastRow.getAttribute('data-task-id');
+  if (!taskId) throw new Error('Missing far-row task identity');
+  await lastRow.scrollIntoViewIfNeeded();
+  const title = lastRow.locator('[data-day-swipe-through="true"]');
+  await expect(title).toBeVisible();
+
+  const gesture = await startTaskLongPress(page, title);
+  try {
+    await expect(page.locator(`[data-task-overlay-id="${taskId}"]`))
+      .toBeVisible();
+  } finally {
+    await gesture.cancel();
+  }
+  await expect(page.locator(`[data-task-overlay-id="${taskId}"]`))
+    .toHaveCount(0);
+  await expect(rows).toHaveCount(12);
+  await expect(lastRow).toBeVisible();
+});
+
 // Regression: owner task reorder is a simple delayed sortable interaction.
 test('task long-press stays under the finger while siblings reorder, then persists on release', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
