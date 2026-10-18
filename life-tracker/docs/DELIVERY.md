@@ -256,6 +256,31 @@ normal UI-only iterations. CI and Vercel READY never substitute for this
 gate. Stop and report any unavailable API credentials/real-device acceptance
 instead of claiming a passing backend gate.
 
+## Efficient CI-first Preview evidence
+
+After a stable Preview squash, verify the **exact stable commit's**
+`canonical-acceptance`, then inspect the corresponding
+`Trusted Preview Delivery` run. The trusted prebuilt deployment may be
+created by CLI and lack `githubCommitSha` metadata; a Vercel deployment
+search filtered solely by Git SHA can return zero results even when the
+trusted deployment is READY. **Do not repeatedly run that failed search.**
+
+Use the trusted run's explicit accepted SHA, canonical run ID and deployed
+artifact/deployment ID as the provenance chain; confirm delivery success and
+the actual READY deployment with a targeted lookup (or recent project
+deployments when Git metadata is absent). Inspect full runner logs only if
+the summary is insufficient, a job failed or the run is anomalously stalled.
+Use the [latency discipline](AI_WORKFLOW.md#connected-chat-latency-discipline)
+while waiting instead of repeated unchanged CI/Vercel polls.
+
+For authenticated user testing, resolve the deployment's **stable branch
+alias**, check that exact alias against Scratch Appwrite Web-platform origins,
+and share that verified hostname. An immutable CLI deployment URL with
+`READY` status proves neither alias registration nor authenticated login.
+If no usable registered alias can be verified, report a Preview-login
+handoff blocker rather than implying the immutable URL is authenticated-ready.
+This does not change CI-first delivery or Scratch/Production approval gates.
+
 ## Branch deployment review loop
 
 1. Finish the task on its AI task branch. Include the durable session/doc checkpoint in the

@@ -3,7 +3,8 @@
 Run project commands from `life-tracker/`; Git root is its parent.
 Read [the checkpoint](docs/SESSION_STATE.md), inspect Git/current files, then read
 only relevant source and reference sections. [Docs index](docs/README.md) routes
-additional reading. Current code and Git override stale progress prose.
+additional reading; use the [fast-path preflight](docs/AI_WORKFLOW.md#fast-path-preflight-for-a-new-task)
+to avoid exhaustive unrelated reads. Current code and Git override stale progress prose.
 
 ## Work and delivery
 
