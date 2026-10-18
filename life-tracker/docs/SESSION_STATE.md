@@ -1,22 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: Reduce documentation-only CI friction for Mosaic handoff checkpoints and token estimates.
+Current task: #975 — unified disposable Appwrite OCI/NAS preflight, image check, and health probe.
 
 ## Boundary
-- Base is protected `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Scoped task branch: `chatgpt/doc-contract-advisories-20261019`. No app runtime, schema, auth, sync, provider, deployment, or version change.
-- Keep AGENTS.md and AI_WORKFLOW.md instructions unchanged. Continue writing clear next actions and aiming for a concise handoff; this changes enforcement of two incidental shape/size checks only.
+- Forked from exact dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1 (v0.29.12, documentation-contract advisories already promoted and dev CI/READY verified). Production main@b952f71ecd2add3172f90104bc0e856a2648ccc9 remains unchanged.
+- Owner unable to provision OCI VM currently; authorized continued safe source-only work, not Production/backend edits.
+- Previous independent accepted stable Previews: host preflight PR #976 at 9fc9e6bf588bfba3b95c815ed460f61497238933; image audit PR #979 at 1a649497d43ac9690f70756563b25b610bee8ce5. Neither was promoted to dev.
 
-## Changes
-- `scripts/lib/create-handoff.mjs`: missing next-action heading becomes a returned advisory, accepting common equivalent headings. Required Updated and Current task/work markers still fail closed.
-- `scripts/create-handoff.mjs`: surface advisory on stderr without blocking handoff generation; retain strict GitHub exact-SHA and path safety checks.
-- `tests/unit/documentationContracts.test.ts`: 3,000 estimated-token handoff target becomes an advisory, preserving proof that the complete agent instructions and session checkpoint are included.
-- `tests/unit/createHandoff.test.ts`: coverage for alternate headings, missing-step advisories, and continued required-context failures.
+## Coherent task
+- Consolidate those two tested tools under one isolated task branch `chatgpt/975-unified-offline-readiness-20261019` to allow running the entire readiness checklist from a single source ref.
+- Add bounded unauthenticated `scripts/selfhost-health-probe.mjs` + isolated unit tests. Exact HTTPS or loopback Appwrite test host + explicit double confirmation required. Reject managed Appwrite Cloud endpoints. Max 100 GET requests / 4 concurrency, only /v1/health/version; no auth token, user data, HTTP body, container startup or deployment.
+- Fix an earlier runbook Markdown linebreak serialization artifact and integrate a health probe guide / image audit; package scripts and docs index complete.
+- No frontend Appwrite SDK, PWA, schema, Function, Production, Scratch or DR snapshot mutation. No version impact.
 
 ## Verification
-- Pending task focused CI, canonical stable Preview gate and trusted delivery; no local test-run or CI acceptance has yet been asserted.
-- Existing unrelated performance, security and Supabase/Oracle backend workstreams remain separate.
+- Pending: focused [verify:focused], stable Preview canonical CI and trusted READY; none may be presumed successful until observed.
+- This environment has no Docker daemon, registry network or Oracle OCI Compute connector; no live ARM64 compatibility, real SDK behavior, Appwrite deployment, p95 CRUD, CPU headroom or independent cross-host recovery proof yet.
 
 ## Next action
-- Commit coherent task with `[verify:focused]`; repair relevant failing tests if necessary. After focused green, squash into a separate stable Preview branch for canonical CI and trusted delivery. Do not promote to dev/main without explicit approval.
+- Review focused logs and repair any failures, squash to a single stable isolated Preview with canonical gate and trusted delivery. Keep #975 open. Once operator provides an Always-Free-eligible disposable VM, run read-only preflight, registry audit, official Appwrite installer/bootstrap, bounded health probe, then full synthetic signed-in isolation/Function/DR/performance scenarios. Never promote to dev/main or cut over live users without separate explicit approval.
