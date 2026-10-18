@@ -17,7 +17,7 @@ Current task: Isolated Supabase Free feasibility experiment; NO provider migrati
 - Diagnostic `EXPLAIN ANALYZE` on rolled-back 6,000-row synthetic data used owner/sequence index: 100-row pull about 0.074 ms database execution only; not end-to-end or sustained service speed. Security Advisor zero lints; Performance Advisor had informational unused-index suggestions.
 - Both public probe tables confirmed empty after rollback. Existing Supabase projects, Appwrite, live Mosaic clients and users remain untouched.
 
-## Required verification and next action
+## Next action
 
 - Review the new SQL/source/doc diff; task `[verify:focused]`, squash to new stable Preview for canonical CI and trusted delivery, with no app version bump. Do not run POC SQL from CI or deploy it against any other project.
 - `docs/SUPABASE_EVALUATION.md` owns test outcomes, reproducibility, risks and next proof gates. Real signed-user SDK RLS checks, multi-connection conflict/commit order, RxDB adapter, social/chat/diary authorization and free-tier envelopes remain before any backend migration decision.
