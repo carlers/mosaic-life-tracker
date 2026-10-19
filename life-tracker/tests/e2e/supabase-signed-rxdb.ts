@@ -80,7 +80,7 @@ const changes = {
   async listChanges<R>(request: {
     domain: 'tasks' | 'categories'; ownerId: string; afterExclusive: string; batchSize: number;
   }): Promise<R[]> {
-    cursors.push(request.afterExclusive);
+    if (request.domain === 'categories') cursors.push(request.afterExclusive);
     return changeTransport.listChanges<R>(request);
   },
 };

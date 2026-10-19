@@ -35,7 +35,7 @@ function authFixture() {
       return reply({ id: bearer === 'Bearer ' + access('b') ? B
         : bearer === 'Bearer ' + access('rotated') ? refreshId : A });
     }
-    if (url.endsWith('/auth/v1/logout')) return reply({}, 204);
+    if (url.endsWith('/auth/v1/logout')) return new Response(null, { status: 204 });
     if (url.endsWith('/auth/v1/signup')) return reply({ user: { id: A } });
     if (url.endsWith('/auth/v1/recover')) return reply({});
     if (url.includes('/rest/v1/')) return reply([]);
@@ -137,6 +137,29 @@ describe('candidate Supabase session lifecycle (#1027)', () => {
     expect(f.session.getOwnerId()).toBeNull();
     expect(await f.session.getVerifiedSession()).toBeNull();
     await expect(f.session.refresh()).rejects.toThrow('No Supabase session');
+  });
+
+  it('confirms remote logout on HTTP 204 and erases local access promptly', async () => {
+    const f = authFixture();
+    await f.session.signIn('a@example.org', 'password');
+    await expect(f.session.signOut()).resolves.toBe(true);
+    expect(await f.session.getSessionSnapshot()).toBeNull();
+    expect(f.requests.some(x => x.url.endsWith('/auth/v1/logout'))).toBe(true);
+  });
+
+  it('clears old login after a definitive refresh denial but not after an outage', async () => {
+    const denied = authFixture();
+    await denied.session.signIn('a@example.org', 'password');
+    denied.fetcher.mockImplementationOnce(async () => reply({ error: 'invalid session' }, 401));
+    await expect(denied.session.refresh()).rejects.toThrow('rejected by the server');
+    expect(await denied.session.getSessionSnapshot()).toBeNull();
+
+    const offline = authFixture();
+    await offline.session.signIn('a@example.org', 'password');
+    const before = await offline.session.getSessionSnapshot();
+    offline.fetcher.mockImplementationOnce(async () => { throw Error('transient network outage'); });
+    await expect(offline.session.refresh()).rejects.toThrow('Supabase Auth network unavailable');
+    expect(await offline.session.getSessionSnapshot()).toEqual(before);
   });
 
   it('signup and recovery do not treat returned user metadata as an active login', async () => {

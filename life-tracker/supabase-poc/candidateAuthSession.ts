@@ -24,6 +24,13 @@ export class CandidateSessionError extends Error {
   }
 }
 
+export class CandidateSessionDeniedError extends CandidateSessionError {
+  constructor() {
+    super('Supabase Auth session was rejected by the server');
+    this.name = 'CandidateSessionDeniedError';
+  }
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function parseAuthTokens(payload: unknown, ownerId: string | null = null): Tokens {
   if (!payload || typeof payload !== 'object') throw new CandidateSessionError('Invalid Auth token response');
@@ -98,6 +105,8 @@ export function createCandidateAuthSession(options: {
       // Do not expose network errors containing a token/email/password.
       throw new CandidateSessionError('Supabase Auth network unavailable');
     }
+    if (response.status === 401 || response.status === 403)
+      throw new CandidateSessionDeniedError();
     if (!response.ok) throw new CandidateSessionError('Supabase Auth request denied');
     try { return await response.json() as unknown; }
     catch { throw new CandidateSessionError('Invalid Supabase Auth JSON'); }
@@ -155,9 +164,18 @@ export function createCandidateAuthSession(options: {
     const before = active;
     const generation = epoch;
     if (!before) throw new CandidateSessionError('No Supabase session to refresh');
-    const response = await post('/auth/v1/token?grant_type=refresh_token', {
-      refresh_token: before.refreshToken,
-    });
+    let response: unknown;
+    try {
+      response = await post('/auth/v1/token?grant_type=refresh_token', {
+        refresh_token: before.refreshToken,
+      });
+    } catch (error) {
+      // Only a definitive Auth denial revokes local trust. Offline/network
+      // uncertainty is NOT a confirmed 401 and must be handled separately.
+      if (error instanceof CandidateSessionDeniedError &&
+          active === before && epoch === generation) invalidate();
+      throw error;
+    }
     const tokens = parseAuthTokens(response, before.ownerId);
     const verified = await serverOwner(tokens.accessToken);
     if (verified !== before.ownerId || active !== before || epoch !== generation)
