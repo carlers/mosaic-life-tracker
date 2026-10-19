@@ -1,23 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: Implement optional sticky weekday headers in Calendar View (issue #952).
+Current task: Preserve original Calendar background for optional sticky weekday headers (#952).
 
 ## Boundary
-- Planned task branch: `chatgpt/sticky-weekday-header-952-20261020`, based on `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`; Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` not modified.
-- User explicitly authorized implementation, not promotion or Production release. Previous post-1.0 scheduling is superseded only for working on an isolated Preview.
-- Frontend-only existing synced-settings change, no schema/Function migration. Preview version candidate 0.31.0 (other active features use 0.30.0).
+- Accepted first Preview: `feature/sticky-weekday-header-952-20261020@fe8ae38ecdc177a17ffeb3d3d411a6bdae1d5c40` (v0.31.0), PR #1043.
+- Revision task branch: `chatgpt/sticky-weekday-bg-952-20261020` from that exact accepted Preview. Intended destination is the same stable Preview branch.
+- Existing `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged by this task. No dev/main promotion authorized.
+- Revision Preview version candidate 0.31.1: new user-testable revision to previously accepted 0.31.0; maintain consistent package, lock and appVersion identities.
 
-## Changes
-- Synced `stickyCalendarWeekdayHeader` preference, off by default, surfaced under Preferences → Calendar.
-- Viewer-controlled setting propagated to owner and friend month/week grids.
-- Pin weekday row to vertical slide scroller; for narrow zoom, keep it outside nested horizontal overflow and track native horizontal scroll imperatively without React scroll-frame updates.
-- Add Preferences toggle regression and Calendar semantics/zoom synchronization coverage.
+## Change
+- `MonthView.tsx` and `WeekView.tsx`: replace only the sticky header's `bg-surface` with `bg-background` so the pinned row uses exactly the calendar's original base background in Dark, Light and Black.
+- No changes to sticky positioning, horizontal zoom alignment, gesture ownership, display semantics, user preferences, schema or backend.
+- No new CSS-class assertions: regression is visual/theme acceptance, while existing DOM/browser suites cover scrolling and alignment.
 
 ## Verification
-- At time of this task commit: implementation prepared through GitHub connector; local tests not executed because this environment has no Mosaic checkout.
-- Focused Quality Gate #39291462015 passed for initial task SHA cfb725b7941b4c7eb00961f13770c31778ae5803.
-- Added a browser contract to verify vertical pinning and horizontal column alignment on the 3-day zoom; browser CI, stable Preview canonical gate, provider deployment, and real-device acceptance remain pending.
+- Prior accepted first Preview canonical Quality Gate #39292519381 SUCCESS and trusted Preview delivery #39292874170 READY.
+- This revision still requires a new task focused Quality Gate and an exact-SHA full stable Preview canonical and trusted delivery.
+- Manual iOS Safari/Android Chrome and connected Scratch login remain unverified.
 
 ## Next action
-- Trigger focused verification on the complete task commit ([verify:focused]), diagnose/redress any failures; then squash accepted code into distinct stable Preview candidate, run canonical CI and trusted Preview delivery. Do not promote to dev/main without explicit approval.
+- Verify the scoped revision commit with `[verify:focused]`, squash through a PR into `feature/sticky-weekday-header-952-20261020`, check canonical gate and trusted delivery, then request manual visual acceptance; do not promote to dev or main without explicit approval.
