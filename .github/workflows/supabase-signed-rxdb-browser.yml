@@ -13,6 +13,8 @@ on:
       - 'refactor/967-conflict-retry-gate-*'
       - 'chatgpt/967-conflict-review-refresh-*'
       - 'refactor/967-conflict-review-refresh-*'
+      - 'chatgpt/967-signed-rpc-denial-matrix-*'
+      - 'refactor/967-signed-rpc-denial-matrix-*'
     paths:
       - '.github/workflows/supabase-signed-rxdb-browser.yml'
       - 'life-tracker/tests/e2e/supabase-signed-rxdb*'
