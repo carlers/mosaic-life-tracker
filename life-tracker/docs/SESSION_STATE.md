@@ -16,7 +16,7 @@ Current task: Implement issue #859, owner Day View category drag/reorder and in-
 - Focused pure-order and React interaction regressions.
 
 ## Verification
-- Source changes staged for focused CI; no tests/Preview/deployment or real-device acceptance claimed yet.
+- Initial focused CI passed at 589ab9868b6fb0c922cec9c5dfa46696cad180be. Preview version 0.31.0 staged; full canonical CI, hosted deployment and manual/device acceptance not yet completed.
 
 ## Next action
-- Complete the coherent task commit with `[verify:focused]`, review exact-SHA CI, repair failures, and prepare the versioned stable Preview only after focused verification. Do not promote to dev/main without approval.
+- Verify versioned task commit with `[verify:focused]`, then squash into a dedicated stable Preview for canonical CI and Vercel. Do not promote to dev/main without explicit approval. Do not promote to dev/main without approval.
