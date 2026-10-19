@@ -98,7 +98,7 @@ export function createCandidateCasTransport(options: {
     }): Promise<CandidateCasOutcome<Row>> {
       // Check input before sending anything to the network.
       if (!Object.prototype.hasOwnProperty.call(RPC, domain) ||
-        !documentId || documentId.length > 255 || /[\u0000-\u001f]/.test(documentId)) {
+        !documentId || documentId.length > 255 || Array.from(documentId).some(char => char.charCodeAt(0) < 32)) {
         throw new Error('Invalid candidate CAS row identity');
       }
       const revision = parseCandidateRevision(expectedRevision);
