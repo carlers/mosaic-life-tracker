@@ -11,6 +11,9 @@ export function evaluatePromotionPreflight(e) {
   if (!/^(feature|fix|perf|security|refactor)\//.test(e.sourceBranch)) {
     reasons.push('source is not a stable Preview branch');
   }
+  if (e.sourceBranch === 'feature/dogfood') {
+    reasons.push('dogfood is experimental and cannot be used as a dev promotion source');
+  }
   if (e.targetSha !== e.expectedTargetSha) reasons.push('dev advanced since the requested base SHA');
   if (e.targetBranch !== 'dev') reasons.push('this preflight only handles dev promotions');
   if (e.latestSourceSha !== e.sourceSha) reasons.push('stable Preview source moved during preflight');

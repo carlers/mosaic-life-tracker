@@ -30,6 +30,7 @@ describe('safe dev promotion preflight', () => {
     [{ mergeConflict: true }, 'conflict'],
     [{ mergedTree: '' }, 'missing'],
     [{ sourceBranch: 'chatgpt/task' }, 'stable'],
+    [{ sourceBranch: 'feature/dogfood' }, 'dogfood'],
   ])('blocks missing, stale or unsafe evidence: %j', (override, expected) => {
     const result = evaluatePromotionPreflight({ ...base(), ...override });
     expect(result.outcome).toBe('blocked');

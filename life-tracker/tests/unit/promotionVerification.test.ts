@@ -66,6 +66,20 @@ describe('stable Preview promotion verification', () => {
     });
   });
 
+  it('does not accept the permanent experimental dogfood branch as a dev promotion', () => {
+    const pulls = [{
+      number: 44,
+      merged_at: '2026-10-19T00:00:00Z',
+      merge_commit_sha: headSha,
+      base: { ref: 'dev' },
+      head: { ref: 'feature/dogfood', sha: sourceSha },
+    }];
+    expect(evaluatePromotionEvidence(evidence({ pulls }))).toMatchObject({
+      eligible: false,
+      reason: 'no merged stable Preview pull request matches this promotion',
+    });
+  });
+
   it('falls back when the promotion did not come from a stable Preview PR', () => {
     const pulls = [
       {

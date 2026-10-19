@@ -102,6 +102,16 @@ category branches such as `fix/*`, `feature/*`, and `perf/*` are stable Preview
 branches. There is no deployment-only `preview` branch. Source development continues on
 these branches and AI task branches.
 
+The reserved long-lived `feature/dogfood` branch is an experimental manual-testing
+Preview, not a releasable feature source. It reuses the existing stable-Preview
+canonical gate and protected-main trusted artifact delivery policy; never enable
+Git-triggered deployment or relax its reviewed Vercel suppression to make it deploy.
+Normal temporary stable Previews are still the per-feature acceptance sources. Never
+promote `feature/dogfood` to `dev` or `main`, even if its combined tree is green;
+use an independently accepted, source-identical feature Preview and explicit owner
+approval. Revert rejected experiments on dogfood through reviewable commits,
+without force-moving the branch. See [dogfood workflow](DOGFOOD_WORKFLOW.md).
+
 ### Read-only PR preflight versus push-driven canonical races (#592)
 
 A promotion PR `synchronize` event can be processed before the same exact source SHA's

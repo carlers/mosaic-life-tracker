@@ -23,6 +23,14 @@ describe('trusted-base promotion PR preflight', () => {
   it('recognizes a canonical-accepted exact-tree stable Preview to dev', () => {
     expect(evaluatePromotionPrEvidence(valid())).toEqual({ passed: true, reasons: [] });
   });
+  it('blocks direct dogfood to dev even when canonical evidence is otherwise valid', () => {
+    const proof = valid();
+    proof.headBranch = 'feature/dogfood';
+    proof.livePr.head.ref = 'feature/dogfood';
+    const result = evaluatePromotionPrEvidence(proof);
+    expect(result.passed).toBe(false);
+    expect(result.reasons.join(' ')).toMatch(/dogfood/i);
+  });
   it('permits dev to main with a non-regressing version', () => {
     const proof = valid();
     proof.baseBranch = 'main';
