@@ -146,9 +146,17 @@ Object.assign(window, {
     start, stop, edit, snapshot,
     setOffline(value: boolean) { offline = value; },
     resync() { if (!active) throw new Error('No active signed replica'); active.resync(); },
+    async awaitSynced() {
+      if (!active) throw new Error('No active signed replica');
+      await active.state.awaitInSync();
+    },
     async resolveKeepLocal(id: string, revision: string) {
       if (!conflictPilot) throw new Error('No active signed conflict pilot');
       return conflictPilot.resolveKeepLocal(id, revision);
+    },
+    async refreshConflict(id: string) {
+      if (!conflictPilot) throw new Error('No active signed conflict pilot');
+      return conflictPilot.refreshPendingConflict(id);
     },
   },
 });

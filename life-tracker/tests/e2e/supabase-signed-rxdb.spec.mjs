@@ -66,13 +66,13 @@ async function owned(user, id) {
   if (!Array.isArray(rows)) throw new Error('Invalid signed owner read');
   return rows[0] ?? null;
 }
-async function secondDeviceCas(user, row, newName) {
+async function secondDeviceCas(user, row, newName, updatedAt = '2026-10-21T00:00:00.000Z') {
   const reply = await request('/rest/v1/rpc/mosaic_candidate_cas_category', {
     method: 'POST', token: user.token,
     body: {
       p_id: row.id, p_expected_seq: String(row.change_seq),
       p_patch: {
-        name: newName, updated_at: '2026-10-21T00:00:00.000Z',
+        name: newName, updated_at: updatedAt,
       },
     },
   });
@@ -197,5 +197,57 @@ test('actual signed Supabase + Chromium RxDB: checkpoint, offline retry, and saf
     timeout: 15_000,
   }).toBe('Conflicting offline local draft');
   expect((await probe()).pending).toEqual([]);
+  // The accepted server value can be visible before RxDB has finished
+  // acknowledging the previous push checkpoint. Never start a new edit
+  // against an incomplete replication cycle in this restart test.
+  await page.evaluate(() => window.__mosaicSignedRxdb.awaitSynced());
+
+  // A second local draft is conflicted by a different signed writer. Review
+  // refresh is explicit and makes exactly one remote master read per click,
+  // without any automatic poll, CAS, or destructive master-wins merge.
+  await page.evaluate(async id => {
+    window.__mosaicSignedRxdb.setOffline(true);
+    await window.__mosaicSignedRxdb.edit(id, 'Converged independently');
+  }, firstId);
+  const afterFirstResolution = await owned(a, firstId);
+  await secondDeviceCas(a, afterFirstResolution, 'Another divergent server edit');
+  const previousReads = (await probe()).remoteReads;
+  await page.evaluate(() => {
+    window.__mosaicSignedRxdb.setOffline(false);
+    window.__mosaicSignedRxdb.resync();
+  });
+  await expect.poll(async () => (await probe()).remoteReads,
+    { timeout: 20_000 }).toBeGreaterThan(previousReads);
+  await expect.poll(async () => (await probe()).pending.find(
+    conflict => conflict.documentId === firstId,
+  )?.remoteRevision, { timeout: 20_000 }).toBeTruthy();
+  const reviewed = (await probe()).pending.find(conflict => conflict.documentId === firstId);
+  const beforeUnchanged = await probe();
+  expect(beforeUnchanged.local.find(item => item.id === firstId)?.name)
+    .toBe(reviewed.localName);
+  await expect(page.evaluate(id => window.__mosaicSignedRxdb.refreshConflict(id), firstId))
+    .resolves.toEqual({ state: 'unchanged', revision: reviewed.remoteRevision });
+  const afterUnchanged = await probe();
+  expect(afterUnchanged.masterReads).toBe(beforeUnchanged.masterReads + 1);
+  expect(afterUnchanged.pending).toEqual(beforeUnchanged.pending);
+
+  // Now an independent signed HTTP client applies the EXACT pending local
+  // draft. One explicit review refresh should clear the conflict and wake
+  // RxDB's parked push. That push must only read/ack — no extra CAS write.
+  const anotherRemote = await owned(a, firstId);
+  const converged = await secondDeviceCas(a, anotherRemote,
+    'Converged independently', '2026-10-20T00:00:00.000Z');
+  const beforeConvergence = await probe();
+  await expect(page.evaluate(id => window.__mosaicSignedRxdb.refreshConflict(id), firstId))
+    .resolves.toEqual({ state: 'converged', revision: String(converged.change_seq) });
+  await expect.poll(async () => (await probe()).pending.length,
+    { timeout: 15_000 }).toBe(0);
+  expect((await probe()).local.find(item => item.id === firstId)?.name)
+    .toBe('Converged independently');
+  const stableMaster = await owned(a, firstId);
+  expect(stableMaster.name).toBe('Converged independently');
+  expect(String(stableMaster.change_seq)).toBe(String(converged.change_seq));
+  expect((await probe()).masterReads).toBeGreaterThanOrEqual(beforeConvergence.masterReads + 1);
+
   await page.evaluate(() => window.__mosaicSignedRxdb.stop());
 });

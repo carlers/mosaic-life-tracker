@@ -244,6 +244,117 @@ describe('isolated Supabase RxDB native replication bridge (#967)', () => {
     await active.stop();
   });
 
+  it('explicit refresh releases a parked push only after another writer converges with the unchanged local draft', async () => {
+    const findOne = vi.fn().mockReturnValue({
+      exec: async () => ({ toJSON: () => ({ ...changed }) }),
+    });
+    const h = makeHarness({ findOne });
+    let master = row({ ...initial, name: 'Competing remote draft' }, '2');
+    h.readCategoryMaster.mockImplementation(async () => master);
+    replicate.mockReturnValue({ cancel: vi.fn().mockResolvedValue(true), reSync: vi.fn() });
+    const active = h.pilot.start({ findOne } as never);
+    const native = replicate.mock.calls[0][0].push.handler as typeof h.pilot.push;
+    const pending = native([{
+      newDocumentState: changed, assumedMasterState: initial,
+    }] as never);
+    await vi.waitFor(() => expect(h.pilot.listPendingConflicts()).toHaveLength(1));
+    const readsBefore = h.readCategoryMaster.mock.calls.length;
+    const authBefore = h.session.getVerifiedSession.mock.calls.length;
+    master = row(changed, '9007199254740993'); // independently applied winner
+    await expect(h.pilot.refreshPendingConflict(initial.id)).resolves.toEqual({
+      state: 'converged', revision: '9007199254740993',
+    });
+    await expect(pending).resolves.toEqual([]);
+    expect(h.readCategoryMaster.mock.calls.length).toBe(readsBefore + 2);
+    expect(h.session.getVerifiedSession.mock.calls.length).toBeGreaterThan(authBefore);
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+    expect(h.pilot.listPendingConflicts()).toEqual([]);
+    await active.stop();
+  });
+
+  it('explicit refresh changes only the review on divergent/missing remote masters, without waking the parked writer', async () => {
+    const findOne = vi.fn().mockReturnValue({
+      exec: async () => ({ toJSON: () => ({ ...changed }) }),
+    });
+    const h = makeHarness({ findOne });
+    const events: unknown[] = [];
+    h.pilot.conflictEvents$.subscribe(value => events.push(value));
+    let remote = row({ ...initial, name: 'Other' }, '2');
+    h.readCategoryMaster.mockImplementation(async () => remote);
+    await expect(h.push(changed, initial)).rejects.toBeInstanceOf(CandidatePendingConflictError);
+    const eventCount = events.length;
+    await expect(h.pilot.refreshPendingConflict(initial.id)).resolves.toEqual({
+      state: 'unchanged', revision: '2',
+    });
+    expect(events).toHaveLength(eventCount);
+    remote = row({ ...initial, name: 'Third edit' }, '3');
+    await expect(h.pilot.refreshPendingConflict(initial.id)).resolves.toEqual({
+      state: 'updated', revision: '3',
+    });
+    expect(h.pilot.listPendingConflicts()[0]).toMatchObject({
+      reason: 'divergent-master', remoteRevision: '3', remote: { name: 'Third edit' },
+      local: { name: 'New' },
+    });
+    // Name equality alone is insufficient: a different stored timestamp
+    // means the remote has NOT independently converged to the local draft.
+    remote = row({ ...changed, updatedAt: '2026-10-22' }, '4');
+    await expect(h.pilot.refreshPendingConflict(initial.id)).resolves.toEqual({
+      state: 'updated', revision: '4',
+    });
+    expect(h.pilot.listPendingConflicts()[0].remoteRevision).toBe('4');
+    expect(h.pilot.listPendingConflicts()[0].remote?.name).toBe('New');
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+    remote = null as never;
+    await expect(h.pilot.refreshPendingConflict(initial.id)).resolves.toEqual({
+      state: 'updated', revision: null,
+    });
+    expect(h.pilot.listPendingConflicts()[0]).toMatchObject({
+      reason: 'missing-master', remote: null, remoteRevision: null,
+    });
+    await expect(h.pilot.refreshPendingConflict(initial.id)).resolves.toEqual({
+      state: 'unchanged', revision: null,
+    });
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+    expect(events.filter(event => (event as { type: string }).type === 'cleared')).toHaveLength(0);
+  });
+
+  it('never clears a review when the local document changed or the owner switched mid-refresh', async () => {
+    let local = { ...changed };
+    const findOne = vi.fn().mockReturnValue({
+      exec: async () => ({ toJSON: () => ({ ...local }) }),
+    });
+    const h = makeHarness({ findOne });
+    h.readCategoryMaster.mockResolvedValue(row({ ...initial, name: 'Other' }, '2'));
+    await expect(h.push(changed, initial)).rejects.toBeInstanceOf(CandidatePendingConflictError);
+    const reads = h.readCategoryMaster.mock.calls.length;
+    local = { ...changed, name: 'Further local edit' };
+    await expect(h.pilot.refreshPendingConflict(initial.id)).resolves.toEqual({
+      state: 'local-changed', revision: '2',
+    });
+    expect(h.readCategoryMaster).toHaveBeenCalledTimes(reads);
+    expect(h.pilot.listPendingConflicts()[0].local.name).toBe('New');
+
+    local = { ...changed };
+    h.readCategoryMaster.mockImplementationOnce(async () => {
+      h.switchTo(bob.supabaseUserId);
+      return row(changed, '3');
+    });
+    await expect(h.pilot.refreshPendingConflict(initial.id)).rejects.toBeInstanceOf(CandidateAuthError);
+    expect(h.pilot.listPendingConflicts()).toEqual([]);
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+  });
+
+  it('requires a current review and explicit collection before performing any refresh reads', async () => {
+    const h = makeHarness();
+    await expect(h.pilot.refreshPendingConflict(initial.id)).rejects.toThrow('No pending');
+    expect(h.session.getVerifiedSession).not.toHaveBeenCalled();
+    h.readCategoryMaster.mockResolvedValue(row({ ...initial, name: 'Other' }, '2'));
+    await expect(h.push(changed, initial)).rejects.toBeInstanceOf(CandidatePendingConflictError);
+    const reads = h.readCategoryMaster.mock.calls.length;
+    await expect(h.pilot.refreshPendingConflict(initial.id)).rejects.toThrow('collection required');
+    expect(h.readCategoryMaster).toHaveBeenCalledTimes(reads);
+  });
+
   it('releases a parked push before cancellation without acknowledging it or leaking review snapshots', async () => {
     const h = makeHarness();
     h.readCategoryMaster.mockResolvedValue(row({ ...initial, name: 'Remote winner' }, '2'));
