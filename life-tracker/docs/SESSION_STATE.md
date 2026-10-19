@@ -1,21 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 isolated create/master async rejection contract repair (no live backend switch).
+Current task: #967 autonomous genuine signed Supabase Auth local integration smoke test, not a hosted backend switch.
 
 ## Boundary
-- Accepted isolated task/category pull prototype stable `refactor/967-atomic-pull-checkpoint-20261019@f87219b6ea61ebacaad58c5eb92261ac8eb4dcb2`: focused #39184309345, canonical #39184409560, trusted READY #39184559649 successful.
-- Create/master [PR #991](https://github.com/carlers/mosaic-life-tracker/pull/991) and precision-lint [PR #992](https://github.com/carlers/mosaic-life-tracker/pull/992) landed in isolated `refactor/967-create-master-transport-20261019@fda2f749d46f7856a048908e18a6c3cc4f079737`. First canonical #39185030390 failed on test numeric literal lint and fix preserved intended unsafe-cursor check. Second canonical #39185308482 had 1208 unit PASS, exactly 1 FAIL: test expects createCategory wrong-owner rejection as a Promise but mapper threw synchronously before helper returns.
-- Repair task `chatgpt/967-create-master-async-contract-fix-20261019`, scoped to wrapper Promise consistency, no lowering security or test assertions. No Supabase cloud writes, real Auth users/data, runtime app imports, Appwrite or protected dev/main/Production changes.
+- Exact accepted isolated Supabase Preview source before task: `refactor/967-create-master-transport-20261019@90d4964c3b454696556758f558a0461432f0df76`; full #39185591566 SUCCESS, trusted prebuilt READY #39185753239.
+- New `chatgpt/967-local-signed-auth-ci-20261019` task branch from that isolated source. No Mosaic runtime import, Production/Appwrite/provider config change, Auth loosening on hosted `mosaic-dev`, real user data, Git branch promotion or version change.
+- Previous autonomous hosted Edge Function probe could invoke Supabase HTTPS but admin Auth account creation failed HTTP 400 validation_failed; a later protected invocation was disallowed. The cloud function was made inert (HTTP 410) at version 5. Fresh hosted database read showed 0 users, 0 candidate tasks/categories. Do not bypass tool controls or resurrect that insecure invocation path.
+- Read-only hosted Auth /auth/v1/settings returned anonymous sign-ins disabled and email confirmation required; therefore public self-sign-up alone cannot yield two immediately usable hosted accounts.
 
 ## Work
-- Change exported createTask/createCategory wrappers to async, ensuring identity/ID mapping validation failures reject returned Promises (same contract as all network/auth failures).
-- Existing mock regression for wrong-owner async rejection remains unchanged and now exercises intended API behavior.
-- Create/master source-only candidate continues to require matched verified Auth session, POST no-upsert, owner-scoped GET on 409, exact server change sequence and no automatic ambiguous retry. Existing two advisor SECURITY DEFINER warnings unresolved.
+- Add `supabase-poc/signed-local-smoke.mjs` to run genuine Supabase Auth password grants and verified JWT GET /user, owner/foreign positive RLS, spoofed insert denial, denied ordinary UPDATE/DELETE, unauthorized anon actions, duplicate create conflict, two simultaneous same-revision CAS writers, stale/foreign denial and tombstone cursor read.
+- Add a dedicated experimental GitHub Actions workflow `.github/workflows/supabase-local-signed-auth.yml` to boot ephemeral **local** Supabase CLI on an isolated runner, copy checked-in candidate migrations, disable confirmation only in local CLI config, run the smoke and destroy it. Source script rejects all URLs except 127.0.0.1/localhost on port 54321.
+- Update Supabase evaluation to distinguish local real-signed-Auth proof from hosted real-signed-Auth acceptance. No credentials or service-role keys committed.
 
 ## Verification
-- Repair focused and stable canonical/trusted delivery pending; final coherent code commit MUST request [verify:focused] and include the code change in the HEAD diff so related tests run. No signed-user acceptance yet.
+- Local smoke workflow and focused branch CI pending. If local stack fails startup, debug in runner logs. No claim of real signed HTTP passing until the exact GitHub job exits SUCCESS.
+- Remote hosted RLS signed test and two SEC DEFINER advisor warnings remain unresolved. No backend cutover.
 
 ## Next action
-- Commit repaired async wrappers [verify:focused]; require focused pass, then squash into isolated stable Preview, run canonical full including all unit tests, inspect trusted prebuilt READY. Leave #967 open and no dev/main/Production rollout or real-user migration.
-- After automation, genuine RLS/CAS/insert signed HTTP requires two distinct confirmed disposable mosaic-dev Auth users created by an authorized operator. No real customer accounts or shared passwords.
+- Commit workflow with [verify:focused], inspect local signed-Auth integration CI and repair failures. Once focused and local smoke green, squash into a *new* isolated stable Preview for one canonical full CI/trusted Preview delivery, record exact SHA on #967. Do not promote dev/main without distinct approval.
+- After local proof, build native RxDB replication push/pull and plan safe hosted two-user validation with an authorized administrative test channel, without disabling production protections. Keep issue #967 OPEN.
