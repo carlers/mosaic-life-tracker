@@ -1,23 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: Promote approved sticky Calendar weekday header (#952) to dev while preserving concurrent category improvements.
+Current task: Integrate owner-approved #1033 Select-mode completion guard onto latest dev.
 
 ## Boundary
-- Latest protected dev baseline: `9139816ac73817cb714d300282c314c83e8fbcc4` (v0.30.1). It already includes accepted inline Category Manager editing (#1037) and reverse order (#1036); do not overwrite or bypass either.
-- Source approved by user: `feature/sticky-weekday-header-952-20261020@b937cddb7a31c21058603e33f78e06c3addb7610` (v0.31.1), canonical CI #39295635684 SUCCESS, trusted delivery #39295973967 READY; user manually verified original Calendar background and authorized merge to dev.
-- Concurrent dev movement invalidated initial integration baseline `682303946c00b14ee3ac3fc3e33b2dc541a39a86`. First task `chatgpt/sticky-weekday-952-dev-integration-20261020@2b976cede61d096c570dbb45d44532f53c473e9e` passed focused Quality Gate #39297547128, but must not promote its stale base.
-- New task branch: `chatgpt/sticky-weekday-952-current-dev-20261020`; new stable Preview: `feature/sticky-weekday-952-current-dev-20261020`, both directly from current dev above. Distinct integration Preview version: v0.31.2.
-- Scope: frontend-only; no Appwrite backend changes and no main/Production authorization.
+- Source owner-approved stable Preview: `fix/select-mode-checkbox-1033-20261020@096b48a17e156f99ab85591345ed043d13c6621b` (v0.29.14). Canonical CI #39290228245 SUCCESS; trusted delivery #39290494053 READY; owner acceptance and explicit dev promotion approval recorded.
+- Protected dev baseline: `ec1cb4db12fed5d23a8cb3ae6d1c5c923370e201` (v0.31.2), which already contains category manager reverse and inline editing, plus sticky weekday Calendar headers. Do not overwrite these newer changes.
+- Integration task branch: `chatgpt/1033-checkbox-current-dev-20261020`. Stable integrated Preview: `fix/1033-checkbox-current-dev-20261020`, v0.31.3 (avoids version regression).
+- Scope: Frontend task selection fix, its DOM tests, reference contract and synchronized version; no backend/schema/security/provider change, no main/Production authorization.
 
 ## Changes
-- Carry the user-accepted synced sticky weekday header switch and pinned row in month/week views, including own/friend Calendar, 7/4/3-day zoom, original `bg-background` theme, and preserved scroll/keyboard semantics.
-- Preserve current dev Category Manager source, category hook and tests exactly as-is, including inline editor and reverse action.
-- Merge additive sticky browser geometry probe/test into dev's existing category editor geometry probe/test so both test cases run.
-- Keep the three application version identifiers synchronized at 0.31.2.
+- Apply exactly the accepted Select-mode completion guard to the current dev `TaskItem.tsx`: completion control is aria-disabled and inert, nested keydown stays isolated; row/title selection unaffected.
+- Apply accepted `TaskItemGestures.test.tsx` regression: completed and incomplete tasks in select mode cannot toggle completion or accidental selection; ordinary toggle restored outside select mode.
+- Update `PROJECT_REFERENCE.md` §2 selection completion contract on current dev; preserve unrelated sections.
+- Version three source-of-truth files consistently from 0.31.2 to 0.31.3.
 
 ## Verification
-- Pending exact new task focused Quality Gate, canonical integrated stable Preview CI, trusted Vercel delivery, and approved protected dev promotion evidence. Historical Preview and stale task CI are not proof for this combined commit.
+- Prior accepted source verified: focused CI #39289771779, canonical #39290228245, trusted Delivery #39290494053 SUCCESS (old baseline only).
+- This integrated tree is **not yet verified**. Requires task focused CI, stable Preview full canonical gate and trusted delivery; verify live dev head, exact tree and version before promotion.
 
 ## Next action
-- Complete focused verification on this latest-dev integration, squash into its stable Preview, validate full canonical acceptance and trusted READY for exact SHA, and only then create and merge a two-parent promotion PR to dev after live branch and promotion-preflight checks. Do not change main or Production.
+- Create coherent `[verify:focused]` task commit, squash to integrated stable Preview only after green, verify canonical acceptance and trusted delivery, then create and merge a two-parent promotion PR into dev on the current first-parent baseline with exact-tree/CI evidence. Never promote to main or Production.
