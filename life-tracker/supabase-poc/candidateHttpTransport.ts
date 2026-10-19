@@ -44,7 +44,7 @@ export function createCandidateHttpTransport(options: {
     (base.protocol !== 'https:' && !(base.protocol === 'http:' && isLocal)) ||
     base.username || base.password || base.search || base.hash
   ) throw new Error('Candidate endpoint must use HTTPS (HTTP only for localhost)');
-  if (!options.publishableKey || options.publishableKey.trim() !== options.publishableKey || options.publishableKey.startsWith('sb_secret_'))
+  if (!options.publishableKey?.startsWith('sb_publishable_') || options.publishableKey.trim() !== options.publishableKey || /\s/.test(options.publishableKey))
     throw new Error('Missing or invalid candidate publishable key');
 
   const fetcher = options.fetcher ?? fetch;

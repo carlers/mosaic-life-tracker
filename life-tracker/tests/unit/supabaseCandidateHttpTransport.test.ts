@@ -105,6 +105,14 @@ describe('isolated Supabase REST candidate boundary', () => {
     expect(() => createCandidateHttpTransport({
       baseUrl: 'https://synthetic.supabase.co', publishableKey: 'sb_secret_forbidden', session,
     })).toThrow('publishable key');
+    for (const publishableKey of [
+      'eyJlegacyServiceRole.synthetic.jwtSignature',
+      'sb_publishable_contains whitespace', '', 'sb_secret_forbidden',
+    ]) {
+      expect(() => createCandidateHttpTransport({
+        baseUrl: 'https://synthetic.supabase.co', publishableKey, session,
+      })).toThrow('publishable key');
+    }
     const fetcher = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: 'not a page' }), { status: 200 }),
     ) as unknown as typeof fetch;
