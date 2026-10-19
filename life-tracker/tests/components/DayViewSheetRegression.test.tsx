@@ -323,7 +323,7 @@ describe('DayViewSheet nested task actions', () => {
     expect(taskMocks.deleteTask).not.toHaveBeenCalled();
   });
 
-  it('directly deletes selected tasks when disabled, retaining partial failures', async () => {
+  it('always confirms selected deletion even when individual prompts are off, retaining partial failures', async () => {
     settingsFixture.values = { confirmTaskDelete: false };
     taskMocks.deleteTask.mockImplementation(async (id: string) => {
       if (id === 'task_2') throw new Error('offline');
@@ -337,6 +337,18 @@ describe('DayViewSheet nested task actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
     fireEvent.click(screen.getByRole('button', { name: 'Select mocked task task_2' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete selected tasks' }));
+    const message = screen.getByText('The selected tasks will be removed from your calendar.');
+    const confirmation = message.closest('[role="dialog"]') as HTMLElement;
+    expect(taskMocks.deleteTask).not.toHaveBeenCalled();
+
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }));
+    expect(taskMocks.deleteTask).not.toHaveBeenCalled();
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected tasks' }));
+    const retryMessage = screen.getByText('The selected tasks will be removed from your calendar.');
+    fireEvent.click(within(retryMessage.closest('[role="dialog"]') as HTMLElement)
+      .getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(feedbackMocks.show).toHaveBeenCalledWith('1 task could not be deleted'));
     expect(taskMocks.deleteTask).toHaveBeenCalledTimes(2);
     expect(taskMocks.deleteTask).toHaveBeenCalledWith('task_1');
@@ -344,6 +356,18 @@ describe('DayViewSheet nested task actions', () => {
     expect(screen.queryByText('The selected tasks will be removed from your calendar.')).toBeNull();
     expect(screen.getByRole('button', { name: 'Select mocked task' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Deselect mocked task task_2' })).toBeInTheDocument();
+  });
+
+  it('still confirms selected Backlog deletion when individual prompts are off', () => {
+    settingsFixture.values = { confirmTaskDelete: false };
+    const undated = { ...fixture.task, date: '', image: '' };
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
+      renderMode="backlog" tasks={[undated]} categories={[fixture.category]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Select tasks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected tasks' }));
+    expect(screen.getByText('The selected tasks will be removed from your calendar.')).toBeInTheDocument();
+    expect(taskMocks.deleteTask).not.toHaveBeenCalled();
   });
 
   it('applies the off preference to Backlog task deletion', async () => {

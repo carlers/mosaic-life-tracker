@@ -1135,7 +1135,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking} onClick={() => setIsBulkActionOpen(true)} aria-label="More actions for selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
               <MoreHorizontal aria-hidden="true" />
             </button>
-            <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking} onClick={() => { if (confirmTaskDelete) setIsBulkDeleteOpen(true); else void handleBulkDelete(); }} aria-label="Delete selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500 text-black disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
+            <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking} onClick={() => setIsBulkDeleteOpen(true)} aria-label="Delete selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500 text-black disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
               <Trash2 aria-hidden="true" />
             </button>
           </motion.div>

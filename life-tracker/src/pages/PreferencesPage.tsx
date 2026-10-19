@@ -352,7 +352,7 @@ export const PreferencesPage: React.FC = () => {
           />
           <SettingsRow
             icon={<Trash2 size={18} className="text-red-400" aria-hidden="true" />}
-            label="Confirm before deleting tasks"
+            label="Confirm individual task deletion"
             showChevron={false}
             isToggle
             checked={confirmTaskDelete}
