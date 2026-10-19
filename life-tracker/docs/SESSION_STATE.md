@@ -1,21 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #975 separated private GitHub scheduler for OCI A1 capacity monitoring and guarded one-shot claim.
+Current task: #975 faster, cost-aware OCI GitHub private scheduler polling.
 
-## Verified source and branch
-- Isolated stable `refactor/975-github-a1-autoclaim-20261019@561d10a778b5ddc8227df39a7ab0521dcac1db4b` accepted: #995 focused Quality Gate #39186397899 SUCCESS, stable full #39186492717 SUCCESS, trusted Preview #39186643986 SUCCESS, exact source READY. Original #993 auto-claim implementation remains staged, not activated.
-- Mosaic Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` and protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` have not been changed by this work. Issue #975 remains OPEN; #967 Supabase independent.
-- A standalone private scheduler avoids promotion to Mosaic's Production default branch. GitHub still requires the independent scheduler's default branch for hourly runs.
-- No OCI API key, live Oracle capacity result, existing private scheduler repository, GitHub Actions secrets or approved VM launch available in connected chat. Latest user-reported check OUT_OF_HOST_CAPACITY at 2026-10-19T01:07:01Z.
+## Verified source and boundary
+- Isolated accepted stable `refactor/975-github-a1-autoclaim-20261019@8a64727d029b373051c22ebc72bf93f59ca80c25`: task PR #996 focused #39187536875 SUCCESS, stable full #39187654569 SUCCESS and trusted Preview #39187802747 SUCCESS (exact SHA READY).
+- No separate private scheduler repository or OCI keys/quotas verified via connected tools; no scheduler activation or VM. Owner's last known OCI status was OUT_OF_HOST_CAPACITY at 2026-10-19T01:07:01Z.
+- Protected Mosaic `main@b952f71ecd2add3172f90104bc0e856a2648ccc9`, `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` remain outside #975; Appwrite/Production/Scratch, user data and Supabase #967 unchanged.
 
 ## Scoped work
-- Add fixed second trusted context `carlers/mosaic-oci-a1-scheduler` to the controller's exact scheduled-main repository allowlist.
-- Add private scheduler workflow template under `ops/oci-a1-scheduler/.github/workflows/` requiring private repository + trusted default ref, pinned Mosaic source SHA, one shared serial concurrency group, default observe-only variables, OCI encrypted secrets and never a public IPv4 assignment.
-- Extend controller/template regressions; add concrete step-by-step setup and confirmed Oracle compute+boot quota family names to the operator guide.
-- No changed Mosaic PWA, Appwrite backend, schema, functions, secrets, OCI instance, provider choice, resource shape, version, `dev` or `main`.
+- Standalone private-scheduler template defaults to GitHub cron twice hourly (UTC :17/:47) rather than once hourly.
+- Opt-in `MOSAIC_OCI_FAST_POLL=true` allows ten additional cron events per hour to achieve an *attempted* five-minute cadence. These extra jobs skip without that variable, avoiding their runner-minute charges.
+- Synthetic workflow contract tests pin both cron strings, 5-minute union, opt-in condition and default-disabled launch. Existing OCI A1 one-shot launch safeguards are unchanged.
+- Operator runbook records GitHub Free's shared 2,000 monthly private minutes and minimum round-up: ~1,440 runs/month for 30-minute, ~8,640 for 5-minute (more if jobs exceed one minute); cron may skip/delay.
+- No additional GitHub secrets, OCI rights, external resources or Mosaic app version impact.
 
-## Next action and approval gates
-- Coherent task branch [verify:focused], then squash to isolated stable Preview and require full canonical Quality Gate plus trusted READY. Replace the template's source SHA placeholder only when the accepted stable SHA exists.
-- **Manual owner prerequisites:** create the private scheduler repository (exact name), independent least-privilege Oracle IAM user/key, dedicated compartment/verified enforced quotas, image/subnet/public SSH selection, cost alerts, then encrypted scheduler Actions secrets; perform default observe-only dispatch. Requires separate explicit owner authorization before enabling any scheduled OCI launch or promoting protected Mosaic branches.
-- Report actual CI, Preview and account-setup state. No claim of successful automated OCI provisioning. Keep #975 OPEN.
+## Next and approval
+- Focused quality gate on task SHA → squash to isolated stable Preview only after success → full canonical gate and trusted READY. Do not promote to `dev`/`main` or activate VM provisioning.
+- Owner still must create private `carlers/mosaic-oci-a1-scheduler`, pin the accepted source SHA in its workflow template, create dedicated limited OCI IAM/quotas and GitHub Actions secrets and verify observe-only run. Fast polling is optional and may exceed free Actions minutes; automatic VM launch remains separately gated by explicit owner approvals.
+- Keep #975 open. No claim of actual scheduler/OCI activation.
