@@ -128,7 +128,7 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
         capacity: () => cap(), spawn })).toThrow(/inventory/i);
       expect(spawn.mock.calls.some(([, args]) => args.includes('launch'))).toBe(false);
     }
-    expect(existingA1({ data: [{ shape: null }] })).toThrow(/verify/);
+    expect(() => existingA1({ data: [{ shape: null }] })).toThrow(/verify/);
     expect(readInstanceInventory(compartmentId, () =>
       ({ status: 0, stdout: '{"data":[]}' }))).toEqual({ data: [] });
   });
