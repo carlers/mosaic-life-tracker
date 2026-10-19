@@ -1,22 +1,24 @@
 # Session checkpoint
 
-Updated: 2026-10-19 UTC
-Current task: Reduce documentation-only CI friction for Mosaic handoff checkpoints and token estimates.
+Updated: 2026-10-20 UTC
+Current task: #1047 — CI-first Vercel Preview commit titles, metadata-only.
 
 ## Boundary
-- Base is protected `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Scoped task branch: `chatgpt/doc-contract-advisories-20261019`. No app runtime, schema, auth, sync, provider, deployment, or version change.
-- Keep AGENTS.md and AI_WORKFLOW.md instructions unchanged. Continue writing clear next actions and aiming for a concise handoff; this changes enforcement of two incidental shape/size checks only.
+- Source base: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12). Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
+- Task branch `chatgpt/ci-first-preview-commit-titles-20261020`; **version impact NONE**. Separate accepted stable Preview and protected-main approval required.
+- Preserve current trusted CI-first artifact verification, idempotency, no Git-triggered rebuilds, and no Production/alias/provider configuration edits.
 
 ## Changes
-- `scripts/lib/create-handoff.mjs`: missing next-action heading becomes a returned advisory, accepting common equivalent headings. Required Updated and Current task/work markers still fail closed.
-- `scripts/create-handoff.mjs`: surface advisory on stderr without blocking handoff generation; retain strict GitHub exact-SHA and path safety checks.
-- `tests/unit/documentationContracts.test.ts`: 3,000 estimated-token handoff target becomes an advisory, preserving proof that the complete agent instructions and session checkpoint are included.
-- `tests/unit/createHandoff.test.ts`: coverage for alternate headings, missing-step advisories, and continued required-context failures.
+- Protected writer derives Git display metadata from its existing authenticated exact-SHA GitHub commit GET and passes conventional `githubCommitMessage`/`githubCommitSha`/`githubCommitRef`/repo/author keys to `vercel deploy --prebuilt --meta`.
+- Metadata is strictly bounded and checked against the accepted Preview plan; Vercel READY readback must reflect the intended values.
+- Duplicate detection now distinguishes our recognized CLI deployment with Git *presentation* fields from a real Git deployment or any unknown same-SHA/ref upload when the listing omits a source.
+- Regression coverage expanded for trusted source, title handling, CLI flags, identity checks, safe collisions and preserved writer isolation.
+- Deployment workflow policy clarified in `docs/DELIVERY.md`.
 
 ## Verification
-- Pending task focused CI, canonical stable Preview gate and trusted delivery; no local test-run or CI acceptance has yet been asserted.
-- Existing unrelated performance, security and Supabase/Oracle backend workstreams remain separate.
+- New task SHA requests `[verify:focused]`; inspect exact-run result and repair if needed. Canonical stable Preview and trusted artifact delivery must pass before any separate protected-main approval request.
+- Static tests cannot prove the Vercel dashboard uses supplied Git metadata. A new deployment using the updated protected-main writer is required for definitive UI acceptance.
+- No Production release, protected-main change, version bump or provider mutation performed by this task commit.
 
 ## Next action
-- Commit coherent task with `[verify:focused]`; repair relevant failing tests if necessary. After focused green, squash into a separate stable Preview branch for canonical CI and trusted delivery. Do not promote to dev/main without explicit approval.
+- Verify focused CI, squash to isolated stable Preview, verify canonical and trusted delivery. Prepare the smallest protected-main infrastructure-only promotion **only after explicit separate approval**, preserving the entire Production app tree. Verify the first subsequent CI-first Preview dashboard title; keep issue #1047 open until provider acceptance.
