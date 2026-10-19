@@ -22,3 +22,8 @@ Current task: Light appearance refinements on the existing completed-TaskBlock P
 - On focused green, squash into the existing stable Preview, verify full canonical Actions acceptance and matching Vercel Preview READY.
 - Manual visual acceptance remains for Light: completed Calendar TaskBlocks, Todo grid date cells and circle glyphs, Friend Day View category pills, bright category colors; confirm Dark/Black and diary-marker views remain unchanged.
 - No `dev`, `main`, Production or 1.0 promotion without explicit owner approval.
+
+## Next action
+- Resolve the checkpoint validator failure from first focused run #39183256973, then confirm the new exact task SHA passes focused CI.
+- After focused green, squash PR to `fix/taskblock-light-completed-white-20261018` and inspect canonical Actions/Vercel Preview acceptance.
+- Hand off Light/Dark/Black browser/device visual acceptance before any authorized promotion.
