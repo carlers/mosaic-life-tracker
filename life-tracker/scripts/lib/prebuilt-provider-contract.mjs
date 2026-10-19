@@ -72,7 +72,47 @@ export function addUniquePrebuiltDeploymentId(configBytes, plan) {
   return Buffer.from(JSON.stringify({ ...parsed, deploymentId: plan.deploymentId }) + '\n');
 }
 
-export function prebuiltCliArguments(plan) {
+// Git metadata is derived exclusively from the protected writer's exact SHA
+// GitHub readback, never from a candidate artifact or untrusted build script.
+// Vercel uses these conventional metadata keys for the dashboard commit title.
+export function verifiedPrebuiltGitMetadata(commit, plan) {
+  if (commit?.sha !== plan?.sha ||
+      plan?.target !== 'preview' ||
+      plan?.projectId !== VERIFIED_PREVIEW_PROJECT ||
+      typeof commit?.commit?.message !== 'string') {
+    throw new Error('Unverified Git commit metadata');
+  }
+  const subject = commit.commit.message.split(/\r?\n/, 1)[0].trim();
+  // A title is presentation data: preserve punctuation and Unicode, but
+  // reject control characters and bound its size without shell interpolation.
+  if (!subject || [...subject].length > 180 ||
+      /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(subject)) {
+    throw new Error('Missing or unsafe Git commit subject');
+  }
+  const meta = {
+    githubCommitMessage: subject,
+    githubCommitSha: plan.sha,
+    githubCommitRef: plan.branch,
+    githubCommitOrg: 'carlers',
+    githubCommitRepo: 'mosaic-life-tracker',
+    githubOrg: 'carlers',
+    githubRepo: 'mosaic-life-tracker',
+    githubDeployment: '1',
+  };
+  const authorName = commit.commit.author?.name;
+  if (typeof authorName === 'string' && authorName.trim() &&
+      [...authorName].length <= 100 &&
+      !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(authorName)) {
+    meta.githubCommitAuthorName = authorName.trim();
+  }
+  const login = commit.author?.login;
+  if (typeof login === 'string' && /^[A-Za-z0-9-]{1,39}$/.test(login)) {
+    meta.githubCommitAuthorLogin = login;
+  }
+  return Object.freeze(meta);
+}
+
+export function prebuiltCliArguments(plan, gitMetadata = null) {
   if (plan?.target !== 'preview' ||
       plan?.projectId !== VERIFIED_PREVIEW_PROJECT ||
       plan?.teamId !== VERIFIED_PREVIEW_TEAM ||
@@ -87,6 +127,35 @@ export function prebuiltCliArguments(plan) {
       throw new Error('Unsafe Vercel metadata');
     }
     argv.push('--meta', key + '=' + value);
+  }
+  if (gitMetadata !== null) {
+    if (!gitMetadata || typeof gitMetadata !== 'object' ||
+        gitMetadata.githubCommitSha !== plan.sha ||
+        gitMetadata.githubCommitRef !== plan.branch ||
+        gitMetadata.githubCommitOrg !== 'carlers' ||
+        gitMetadata.githubCommitRepo !== 'mosaic-life-tracker' ||
+        gitMetadata.githubOrg !== 'carlers' ||
+        gitMetadata.githubRepo !== 'mosaic-life-tracker' ||
+        gitMetadata.githubDeployment !== '1') {
+      throw new Error('Unverified Vercel Git presentation metadata');
+    }
+    const allowed = new Set([
+      'githubCommitMessage', 'githubCommitSha', 'githubCommitRef',
+      'githubCommitOrg', 'githubCommitRepo', 'githubOrg', 'githubRepo',
+      'githubDeployment', 'githubCommitAuthorName', 'githubCommitAuthorLogin',
+    ]);
+    if (typeof gitMetadata.githubCommitMessage !== 'string' ||
+        !gitMetadata.githubCommitMessage.trim()) {
+      throw new Error('Missing Git deployment title');
+    }
+    for (const [key, value] of Object.entries(gitMetadata)) {
+      if (!allowed.has(key) || typeof value !== 'string' ||
+          !value.trim() || [...value].length > 180 ||
+          /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(value)) {
+        throw new Error('Unsafe Git presentation metadata');
+      }
+      argv.push('--meta', key + '=' + value);
+    }
   }
   return argv;
 }
@@ -144,11 +213,15 @@ export function assessKnownPrebuiltDeployments(deployments, plan, { exhaustive =
   if (!exhaustive || !Array.isArray(deployments) || !plan?.deploymentId) {
     throw new Error('Incomplete Vercel history cannot prove safe first creation');
   }
+  // CLI previews now also carry Git presentation metadata. Never treat our
+  // own recognized prebuilt as an unrelated Git integration deployment when
+  // Vercel omits 'source' in a paginated list. Still reject explicit Git
+  // deployments or any unknown deployment for the same exact SHA/ref.
   if (deployments.some(dep =>
     dep?.meta?.githubCommitSha === plan.sha &&
     dep?.meta?.githubCommitRef === plan.branch &&
-    (dep?.source == null || dep.source === 'git'))) {
-    throw new Error('Git integration already created this SHA; do not double deploy');
+    (dep.source === 'git' || !isKnownPrebuiltHistoryCandidate(dep, plan)))) {
+    throw new Error('Another deployment already created this SHA; do not double deploy');
   }
   const matches = deployments.filter(dep => isKnownPrebuiltHistoryCandidate(dep, plan));
   if (matches.length > 1) throw new Error('Duplicate prebuilt provider deployments');

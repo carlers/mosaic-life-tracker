@@ -1,19 +1,22 @@
 # Session checkpoint
 
-Updated: 2026-10-16 UTC
-Current task: #889 integrated Production-target acceptance before v0.29.1 pre-1.0 release.
+Updated: 2026-10-20 UTC
+Current task: #1047 — main-only trusted CI-first Preview deployment title metadata.
 
-## Current verified state
-- Protected `dev@c733bfa73f4ca742f6333ee75e11c642f83daf53` = v0.29.1, full Quality Gate #38891390926 SUCCESS and exact dev Vercel READY. Protected `main@1f146ba7e935a1f2595c176ca21f41413698d2c0` = v0.17.4, Vercel Production READY; #909 OPEN, unmerged, 1.0.0 not approved.
-- Owner confirmed every known old v0.17.4 PWA synced/retired plus independent R2/encryption key escrow; authenticated `npm run dr:check` PASS for snapshot `20261016T110126909Z`, completed 2026-10-16 11:02:17 UTC. This is owner attestation, not independently observed per device.
-- Approved Production schema 010–015 actually applied and individually verified via authenticated connected Appwrite API from exact Git manifest (preferred CLI blocked by credential-transfer checks): 17 tables, Diary 9 AVAILABLE columns, Messages 25 AVAILABLE columns; no 008/unscoped migration. New `message-action@6ad20d5de9380307809d` active READY from exact dev source; prior `6acb8162dc02a1deaa23` retained READY, cron/scopes/variables same. `dr_backup` unchanged. Details: issue #889 comment 6214794662.
-- Read-only `get_notifications` smoke on active Production Function returned HTTP 200. An independently rebuilt local Production-target v0.29.1 bundle passed build/PWA/size checks, HTTPS root and deep-link HTTP 200, and embeds approved Production Appwrite ID. This does NOT prove actual two-account/offline/mobile privacy acceptance.
-- The existing Production Appwrite Web platform registers a private laptop address, enabling a **local** v0.29.1 Production-target acceptance build without redirecting official Vercel Previews away from Scratch or merging main.
+## Boundary
+- Parent/source is protected Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` (v0.29.1); this is a **draft proposal branch only**.
+- Version impact NONE. No application files, Appwrite, Production deployment, alias, Git integration settings, runtime feature flags or workflow configuration changed.
+- Approved stable Preview source is `refactor/ci-first-preview-commit-titles-1047@f81e13cbef9b7588eb16b0f3497ca77cc1e40ba6`; canonical full CI and Vercel acceptance must be verified separately.
+- NO main merge/Production operation without separately explicit owner-approved narrow workflow exception and all repository release/provenance gates.
 
-## Current source-only task
-- Document the repeatable exact-SHA local Production-target acceptance protocol in `docs/PRODUCTION_ACCEPTANCE.md`, link it from `docs/README.md` and `docs/PRODUCTION_RELEASE_READINESS.md`, and replace this stale checkpoint with factual milestones.
-- Version impact NONE. No app behavior, Vercel/provider configuration, Appwrite schema/Function or protected branch promotion in this documentation task.
+## Proposed changes
+- Only protected writer + its pure Vercel contract and two regression test modules, using content proven identical on original dev and main.
+- Exact accepted GitHub SHA commit metadata is passed via CLI to improve dashboard labels; no rebuilds, routes, extra files, aliases, provider project changes, or version updates.
+
+## Verification
+- Integrated dev feature task commit `7fc32d2d2c5aebbb1122d65aea6443f870699a16` focused CI #39296476373 SUCCESS.
+- Stable Preview commit `f81e13cbef9b7588eb16b0f3497ca77cc1e40ba6` under full canonical acceptance; do not assert success until checked.
+- This main-only draft has no Production effect. Runtime Vercel dashboard label remains unverified until a new Preview uses the amended protected writer.
 
 ## Next action
-- Owner real signed-in two-account Diary/chat/reactions/notifications/private-record/offline/mobile/PWA acceptance on Production-target v0.29.1. Certificate-related PWA limitations remain BLOCKED until genuinely verified.
-- Current health/restore evidence, exact dev CI, and source pin rechecked before *separately approved* #909 dev→main merge; main full CI, matching Production Vercel deployment and release publisher then verified. No v1.0.0 tag.
+- Verify this task's focused checks; review its four-file diff and exact main parent. Require owner approval for an exceptional narrowly scoped protected-main PR merge that is **not** dev/main app promotion. After approved deployment, inspect first new trusted Preview's exact provider metadata/dashboard title and close #1047 only on confirmed acceptance.
