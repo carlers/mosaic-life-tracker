@@ -1,24 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 prepare real disposable Supabase Auth signed-user permission testing, without a provider switch.
+Current task: #967 isolated Supabase candidate pull-and-cursor atomicity, no live backend switch.
 
 ## Boundary
-- Forked accepted isolated source refactor/967-cas-write-transport-20261019@9b8f91596c07dccc6f0281e8ef2aa66a792a1938 (canonical #39181028620 SUCCESS, trusted Preview #39181192332 SUCCESS and READY).
-- Task chatgpt/967-signed-auth-denial-probe-20261019; source-only probe. Shipped Mosaic/Appwrite untouched. Isolated Supabase mosaic-dev healthy at last inspection, no schema, accounts, rows, Function, Storage, or remote provider writes this task.
-- Protected dev/main release branches remain independent; no version bump, UI/RxDB import, Vercel or credential mutation. Prior dev/main snapshot a9c5192a / b952f71e was historical, not rechecked this task.
-- Existing two Supabase Security Advisor WARNs are confirmed for exposed SECURITY DEFINER CAS RPCs. Not waived.
+- Task source is accepted isolated `refactor/967-signed-auth-probe-20261019@aead4d2d7fca703a9fc19fcf43851d69b979ba5e`, [PR #988](https://github.com/carlers/mosaic-life-tracker/pull/988). Its focused #39183186956, canonical #39183492348, trusted delivery #39183650488 all SUCCESS.
+- New task `chatgpt/967-atomic-pull-checkpoint-20261019`. No Mosaic app runtime import, cloud schema/Auth/users/rows changes, Appwrite, Production, dev/main promotion or version bump.
+- Isolated Supabase Free `mosaic-dev` ACTIVE_HEALTHY at read; last observed 0 candidate rows and 0 Auth users. Two unresolved CAS SECURITY DEFINER Advisor warnings persist.
 
 ## Work
-- Add a node-only signed Auth/Data API denial-path probe fixed to the isolated Singapore mosaic-dev origin. An operator must supply two verified disposable Auth users and a modern sb_publishable_ public API key locally; legacy JWT-formatted anon/service-role and sb_secret_ keys fail closed before network. No hardcoded account credentials.
-- Probe performs real sign-in and server Auth /user verification, owner and wrong-owner SELECT, denied direct table UPDATE/DELETE, denied anonymous SELECT/RPC, missing-row CAS conflict, and unapproved field rejection without intentionally persisting rows.
-- Add Vitest mock-HTTP regressions and a documented opt-in npm command. No browser bundle or production backend changes.
-- Read-only management inspection confirmed both privileged RPC definitions use auth.uid owner predicates, non-null checks, fixed empty search_path, and patch allowlists. Those properties do not resolve the security warnings.
+- Add source-only `supabase-poc/candidatePullCoordinator.ts` composing existing verified task/category pull, exact bigint revisions and legacy-to-UUID owner mapping.
+- Introduce explicit store contract: document apply and checkpoint advance MUST be one atomic transaction, compare old checkpoint, reject pending local edits, fence account session generation inside commit, distinguish stale result without blind retry.
+- Tests use a strict in-memory transactional fake to exercise two-page restart, tombstones, offline replay, crash/storage fault, concurrent pulls with stale loser, wrong owner, session switch during HTTP and commit, pending unacknowledged local edits.
+- Update `docs/SUPABASE_EVALUATION.md` with exact research boundary and outstanding real RxDB/IndexedDB store + signed HTTP proof.
+- Version impact NONE: no user-visible runtime change, no Vercel/Appwrite/Supabase provisioning changes.
 
 ## Verification
-- Local Node simulation of equivalent probe scenarios passed 3/3 tests (not an exact checked-out repo CI run). Project's canonical Vitest and remote Actions checks remain pending.
-- No live signed-user proof: connector cannot create/sign in Auth test accounts and neither disposable credential was available. Empty-table wrong-owner queries are not positive isolation proof.
+- Pending final focused task CI and separate stable Preview canonical/trusted delivery. Do not treat in-memory fake store tests as real persistent IndexedDB/RxDB or signed-user evidence.
 
 ## Next action
-- Verify task source diff and request focused CI using [verify:focused]. Repair any failures; then squash the coherent task into an isolated stable Preview branch and run canonical and trusted Preview gates if available. Keep #967 open.
-- To obtain actual signed HTTP evidence, provision two confirmed disposable Auth users in mosaic-dev using an authorized channel, set the six local MOSAIC_SB_PROBE_* environment variables without recording passwords, run npm run supabase:auth:probe, and record sanitized result. After that, add synthetic owner-owned fixture/RLS positive proof and concurrent CAS tests, then RxDB offline replay. No Supabase production/app/provider switch, or dev/main/1.0 release without distinct owner approval.
+- Request [verify:focused] on coherent task commit; diagnose/fix any failing lint/tests. After focused green, squash into a fresh isolated stable Preview, run canonical full CI and trusted delivery, record exact-SHA evidence on #967. No dev/main promotion or real backend switch.
+- Then implement actual persistent, transactional RxDB/local-storage adapter and new-row push/conflict-master flow. Genuine signed-user tests require authorized creation of two confirmed disposable `mosaic-dev` Auth accounts, not real Mosaic users. Keep #967 OPEN and preserve the two advisor warnings for independent security review.
