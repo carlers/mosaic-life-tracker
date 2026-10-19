@@ -23,6 +23,20 @@ Updated: 2026-10-19 UTC. **Source review and read-only hosted ACL inspection onl
 | Resource exhaustion | Nonempty patch, valid sequence and owner filter limit individual CAS update; owner counter serializes revision assignment | Unbounded authenticated RPC attempts may consume compute/Free quota; evaluate request throttling, payload length constraints, auth failure rate and cleanup under realistic load |
 | Auth and user migration | Current mapping requires explicit old Appwrite ID ↔ Supabase UUID | No proof of credential/session continuity, signed hosted login behavior or safe migrated password hash; do not ingest real accounts |
 
+## Owner/server-owned task fields — explicit pending gate
+
+**Status: NOT IMPLEMENTED, NO HOSTED MIGRATION.** The existing candidate RPC currently permits ordinary authenticated owners to patch both `created_at` and `reactions`. The isolated candidate RxDB push currently constructs whole-document CAS payloads including those fields, so simply deleting the SQL allowlist keys would break normal owner edits. Client and database changes must be accepted together.
+
+Required coordinated sequence on a **new isolated, disposable local Supabase CLI stack**, with all SQL versioned, no cloud mutation:
+
+1. Restrict *task* CAS payload to owner-editable task fields. Exclude both `created_at` and `reactions` from the **server RPC** and the **client-side transport** allowlists, retaining auth.uid(), id and exact revision guards. Keep category CAS unaffected.
+2. Build task CAS patches against the verified current owner master; if local `createdAt` or `reactions` differs, preserve the pending RxDB edit and add a typed owner-conflict review, **never** omit a changed field and silently acknowledge. Explicit keep-local resolution must not bypass this check. New untrusted client INSERTs cannot supply nonempty `reactions`; use a trusted, separately audited one-time legacy-data import for nonempty historical reactions.
+3. Make original `created_at` immutable after INSERT (enforce at the table/trigger boundary, not only in one RPC). Current legacy task creation dates are locally meaningful and cannot simply be replaced by clock time without a migration/compatibility decision. Client-provided initial `created_at` remains untrusted until trusted-origin import and creation policy are designed.
+4. Introduce future reaction mutations **only** through a separate server-authorized endpoint: actor identity from signed session, eligibility determined from current friendship/block/visibility rules, stable reaction ownership, revoke/undo semantics, CAS/transactional preservation of other actors' entries, and recipient state permissions. This design must not be collapsed into owner-only full JSON overwrite.
+5. In genuine two-JWT local REST tests, prove valid owner task creation and edits, forbidden direct UPDATE/DELETE, protected-field CAS rejection for both current and stale revisions, initial forged reactions INSERT denied, no creation timestamp rewriting, preserved existing reaction state, no revision bump on a rejected patch, and deferred protected-field RxDB draft surviving restart and review. Only after that, independently review hosted role/definer/RLS exposure, abuse-rate and signer identity before any separately authorized hosted rollout.
+
+The portable acceptance runner protects owner/revision/cursor invariants only. Its exact change-sequence parser now rejects unsafe JavaScript numeric Postgres bigint revisions rather than rounding them; this is a **test-runner correctness fix**, not proof that the listed protected-field requirements are already met.
+
 ## Explicit decision
 
 **No security signoff.** The current two public RPCs are acceptable only as a deliberately isolated, owner-private proof while the tested ACL remains intact. Do not suppress their security warnings, grant direct UPDATE/DELETE, switch to invoker as a workaround, enable shared visibility, introduce unrestricted browser writes or perform a hosted schema migration without a separate reviewed design.

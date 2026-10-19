@@ -1,23 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967/#975 provider-neutral signed owner-private acceptance runner with shared eight-domain fixtures.
+Current task: #967 read-only privileged CAS field-ownership design and provider acceptance bigint/cursor hardening.
 
-## Baseline and boundary
-- Accepted predecessor Preview refactor/967-cas-threat-fixture-20261019@6695cf3353b4ce1202a093ea1802d29fc561c855 (PR #1017); canonical Quality Gate #39224210760 and trusted Preview #39224436651 SUCCESS, exact prebuilt READY.
-- Protected dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1, main@b952f71ecd2add3172f90104bc0e856a2648ccc9 at task start. OCI Appwrite #975 and Supabase Free #967 remain reversible competing options, neither selected.
-- Only synthetic test harness, disposable localhost signed CI, and docs. No hosted Supabase Auth/schema/data, Appwrite Scratch/Production, OCI VM, shipped runtime, provider config, version or protected branch changes.
+## Verified baseline
+- Accepted isolated refactor/967-provider-contract-signed-local-20261019@ad6de18fca1b55dc94c6256a3a11fce2ac7f7d9c, PR #1019, canonical #39227581978 SUCCESS, signed local Auth/Chromium #39227582313 SUCCESS (3 tests), trusted Preview #39227825503 SUCCESS (CI-first READY).
+- At task start dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1, main@b952f71ecd2add3172f90104bc0e856a2648ccc9. No dev/main/Production/hosted Auth/Appwrite/OCI changes authorized. Supabase #967 and OCI Appwrite #975 remain parallel, reversible options.
+- Hosted Supabase owner-private prototype still has two security advisor WARNs; task RPC currently allows created_at/reactions client modifications. No formal security signoff and no deployed schema changes this task.
 
-## Work
-- tests/provider/ownerPrivateAcceptance.mjs: injectable provider-neutral two-signed-principal positive/negative owner-private contract for tasks/categories ONLY. Denies unimplemented six domains, foreign/anonymous access, forged inserts, unguarded DML, stale and foreign CAS, and validates monotonic owner-scoped cursors with tombstones.
-- tests/e2e/supabase-signed-rxdb.ts exposes tasks/categories mapped from existing typed eight-domain fixture; signed disposable UUIDs are provided only by dedicated local CLI test.
-- tests/e2e/supabase-signed-rxdb.spec.mjs adds genuine local Supabase signed Auth/PostgREST acceptance consuming fixture/runner. Original signed RxDB offline/restart/review tests unchanged.
-- tests/unit/backendOwnerPrivateAcceptance.test.ts simulates leaky reads and revision bypass for fail-closed runner coverage; .github/workflows/supabase-signed-rxdb-browser.yml has scoped new task/Preview branch patterns and source triggers.
-- Privileged CAS WARNs, writable reactions/created-at, server-owned social/message semantics and independent hosted signoff remain OPEN.
+## This scope
+- tests/provider/ownerPrivateAcceptance.mjs rejects unsafe JS numeric PostgreSQL bigint revision in portable signed-provider adapter acceptance, rather than silently rounding string checkpoint precision.
+- tests/unit/backendOwnerPrivateAcceptance.test.ts fixes revision-number mock behavior and adds adversarial cases: unsafe numeric revision, reversed incremental cursor, missing soft tombstone; existing foreign-owner and stale-CAS negative cases unchanged.
+- docs/SUPABASE_PRIVILEGED_CAS_REVIEW.md documents explicit coordinated database + pilot field-ownership hardening design, negative-JWT acceptance plan, future trusted reaction handler, and why unilateral SQL allowlist changes would break the existing whole-document pilot.
+- Changes are confined to offline test tooling/docs. No SQL migration, CAS privilege/role, current Appwrite runtime, remote service or security warning modifications.
 
 ## Verification
-- At checkpoint authoring, task focused, disposable signed CLI+Chromium, canonical stable Preview and trusted prebuilt delivery are PENDING, not proven.
-- Signed service acceptance only covers owner-private tasks/categories on localhost; remaining six domains, OCI ARM64 feasibility, hosted signed Auth, formal security signoff, Auth continuity, media/Functions, DR, Free capacity and old-PWA-safe rollback are open.
+- Focused CI, canonical stable Preview and trusted prebuilt Preview are pending at checkpoint creation; use exact remote Actions for final truth.
+- The current candidate still permits owner-authored creation timestamps and reactions fields. Do not claim these gaps closed until a matching versioned local candidate schema, non-destructive pilot behavior, genuine JWT negative tests and formal signoff pass.
 
 ## Next action
-- Commit coherent chatgpt/967-provider-contract-* task with [verify:focused], run dedicated disposable signed browser lab, repair failures. Squash only after task focused and signed lab success to isolated stable refactor/967-provider-contract-*, require canonical full Quality Gate and trusted Preview READY, post exact evidence in issue #967. No dev/main/Production/1.0 promotion without separate explicit owner approval.
+- Commit task branch with [verify:focused]. After focused success squash to new isolated stable Preview and require full canonical Quality Gate and trusted prebuilt READY. Save exact evidence in #967 issue.
+- Separately implement and evaluate protected task-field semantics atomically on disposable local candidate and pilot, with authorized hosted changes only after independent review. Keep OCI #975, six unported Supabase domains, Auth continuity, media, DR and old-client-safe cutover open. No dev/main promotion or 1.0 without owner approval.

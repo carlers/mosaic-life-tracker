@@ -13,6 +13,10 @@ function ensure(condition, message) {
 function validRevision(value) {
   ensure(typeof value === 'string' || typeof value === 'number',
     'missing provider revision');
+  // Postgres bigint cursors must never be rounded through JavaScript number.
+  // REST often sends int8 as text; reject numeric values outside safe range.
+  if (typeof value === 'number')
+    ensure(Number.isSafeInteger(value), 'unsafe numeric provider revision');
   const text = String(value);
   ensure(/^\d+$/.test(text), 'invalid provider revision');
   const n = BigInt(text);
