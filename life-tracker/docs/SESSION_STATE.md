@@ -1,18 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #975 isolated GitHub Actions OCI A1 auto-claim variable-wiring repair.
+Current task: #975 separated private GitHub scheduler for OCI A1 capacity monitoring and guarded one-shot claim.
 
-## Verified baseline and boundaries
-- Accepted isolated stable `refactor/975-github-a1-autoclaim-20261019@62e1be4b19c7947f48c3282454494637245a1e7c`: PR #993 squash merged; focused #39185149564 SUCCESS, canonical #39185433786 SUCCESS, trusted Preview #39185602690 SUCCESS.
-- `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` remain unaffected by OCI work. The hourly GitHub schedule is DORMANT on nondefault Preview; no OCI credentials, instance launch, backend migration, GitHub Secrets write or production promotion.
-- Owner ran the local OCI capacity report on Fedora; Singapore A1 2 OCPU / 12 GiB was OUT_OF_HOST_CAPACITY at 2026-10-19T01:07:01Z. Later availability is unverified.
+## Verified source and branch
+- Isolated stable `refactor/975-github-a1-autoclaim-20261019@561d10a778b5ddc8227df39a7ab0521dcac1db4b` accepted: #995 focused Quality Gate #39186397899 SUCCESS, stable full #39186492717 SUCCESS, trusted Preview #39186643986 SUCCESS, exact source READY. Original #993 auto-claim implementation remains staged, not activated.
+- Mosaic Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` and protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` have not been changed by this work. Issue #975 remains OPEN; #967 Supabase independent.
+- A standalone private scheduler avoids promotion to Mosaic's Production default branch. GitHub still requires the independent scheduler's default branch for hourly runs.
+- No OCI API key, live Oracle capacity result, existing private scheduler repository, GitHub Actions secrets or approved VM launch available in connected chat. Latest user-reported check OUT_OF_HOST_CAPACITY at 2026-10-19T01:07:01Z.
 
-## Current scoped repair
-- In `.github/workflows/oci-a1-autoclaim.yml`, replace the malformed computed environment-map key with literal `MOSAIC_OCI_QUOTA_CONFIRMED`, retaining a fail-closed `'NO'` default.
-- Add an exact workflow-to-controller opt-in variable wiring regression to `tests/unit/ociA1Autoclaim.test.ts`.
-- No shape/disk/region/IAM/launch change, no version change or manual infrastructure action.
+## Scoped work
+- Add fixed second trusted context `carlers/mosaic-oci-a1-scheduler` to the controller's exact scheduled-main repository allowlist.
+- Add private scheduler workflow template under `ops/oci-a1-scheduler/.github/workflows/` requiring private repository + trusted default ref, pinned Mosaic source SHA, one shared serial concurrency group, default observe-only variables, OCI encrypted secrets and never a public IPv4 assignment.
+- Extend controller/template regressions; add concrete step-by-step setup and confirmed Oracle compute+boot quota family names to the operator guide.
+- No changed Mosaic PWA, Appwrite backend, schema, functions, secrets, OCI instance, provider choice, resource shape, version, `dev` or `main`.
 
-## Next action
-- Run focused Quality Gate on the coherent task commit, squash to isolated stable Preview after green, then verify full canonical CI and trusted READY for that new stable SHA. Report exact results.
-- Activation remains separately gated: owner-created least-privilege OCI identity, compartment quotas/free-tier and billing verification, encrypted GitHub Actions secrets, plus explicit authorization before any default-branch scheduling or actual VM launch. Keep #975 open and Supabase #967 independent.
+## Next action and approval gates
+- Coherent task branch [verify:focused], then squash to isolated stable Preview and require full canonical Quality Gate plus trusted READY. Replace the template's source SHA placeholder only when the accepted stable SHA exists.
+- **Manual owner prerequisites:** create the private scheduler repository (exact name), independent least-privilege Oracle IAM user/key, dedicated compartment/verified enforced quotas, image/subnet/public SSH selection, cost alerts, then encrypted scheduler Actions secrets; perform default observe-only dispatch. Requires separate explicit owner authorization before enabling any scheduled OCI launch or promoting protected Mosaic branches.
+- Report actual CI, Preview and account-setup state. No claim of successful automated OCI provisioning. Keep #975 OPEN.
