@@ -1,0 +1,38 @@
+# Privileged Supabase CAS security review — #967
+
+Updated: 2026-10-19 UTC. **Source review and read-only hosted ACL inspection only; no formal security approval.** Applies solely to the isolated mosaic-dev candidate. The public Mosaic runtime is still Appwrite and #975 OCI self-host is an independent alternative.
+
+## Reviewed source and live evidence
+
+- The candidate functions are defined in supabase-poc/migrations/20261019_candidate_atomic_cas_rpc.sql: public.mosaic_candidate_cas_task and public.mosaic_candidate_cas_category. Their source is **not** a migration suitable for replaying against an existing project. The companion creation source is 20261018_candidate_task_category_owner_schema.sql; 20261018_candidate_revoke_default_delete.sql documents default-grant hardening.
+- Read-only hosted mosaic-dev PostgreSQL catalog checks on 2026-10-19 verified both are SECURITY DEFINER, with empty search_path, explicit auth.uid() owner and change_seq predicates, nonempty JSON object/field allowlist, authenticated EXECUTE true, anon/PUBLIC EXECUTE false. Both candidate tables have RLS, three policies, authenticated SELECT/INSERT true and direct UPDATE/DELETE false; anonymous SELECT false.
+- Supabase Security Advisor still reports **two WARNs**: [authenticated-callable SECURITY DEFINER functions](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable). This is **intentional exposure**, not a false-positive dismissal. Supabase [database function guidance](https://supabase.com/docs/guides/database/functions) recommends invoker functions by default, an empty search path for definers and not exposing elevated functions in API schemas.
+- Local disposable genuine signed-user adversarial Auth/PostgREST and Chromium RxDB tests on accepted #967 baseline 0fdd3a5e190a9ccad1ebe0d3beeaa75ec779c869 passed two cases ([signed lab #39218374934](https://github.com/carlers/mosaic-life-tracker/actions/runs/39218374934)). These were **local** and are not independent hosted or penetration-test evidence.
+
+## Threats and dispositions
+
+| Surface | Current enforcement | Outstanding risk / required gate |
+|---|---|---|
+| Cross-account guessed ID and exact revision | auth.uid() principal must equal target row owner_id; stale revision matches zero rows, returned NULL is not acknowledged. Local signed denial matrix exercises cross-user and stale cases | Hosted real-JWT negative case, multi-device concurrency and readback; a definer bypasses normal RLS, so every future branch/return value needs independent owner checks |
+| Anonymous and direct write | RPC EXECUTE is revoked for PUBLIC/anon; authenticated direct UPDATE/DELETE revoked. RLS SELECT/INSERT owner-scoped; trigger disallows owner_id/id UPDATE | Verify hosted session revocation, anonymously signed-in user product policy, repeated request costs and default grants after future migrations |
+| Arbitrary patch | Nonempty JSON object and explicit task/category field allowlists; id, owner_id, change_seq, server_updated_at cannot be patched by these functions | **Product-integrity gap:** task allows owner-write reactions and created_at, and direct owner INSERT accepts initial values; if friends can react later, client must not forge/erase third-party reactions. Server ownership/immutability for reaction and creation metadata is not proven. Do not expose social reads or reuse current allowlist as final policy |
+| Elevated execution environment | Function uses SECURITY DEFINER with empty search_path and schema-qualified relations. Trigger stamp function and private revision counter also use fixed empty search paths and restricted grants | Independent inspection of function owner, extension/schema/trigger privilege chain and future SQL additions; source-only checks are not complete RLS bypass analysis |
+| Revision and replay | A per-owner counter/row lock stamps each changed row in a trigger; CAS matches exact change_seq; bigint carried as text in client | Adversarial concurrent transaction, rollback, idempotent duplicate and high-volume contention test; no claim of benchmark or P99 at present |
+| Object identity and relationships | Owner row primary key (owner_id,id); update trigger prevents changing identity/owner | DB accepts string IDs up to 255 and does not enforce existing <=36 Appwrite remote ID rule or category/goal referential integrity. Validate during migration and test collisions, stale clients and references before cutover |
+| Privacy visibility | visibility is stored but all candidate task/category policies remain **owner-only**, including public/followers values | No friendship/blocked-user policy, chat delivery, notification, photo, account erasure or recipient authorization. Do not interpret visibility metadata as sharing |
+| Resource exhaustion | Nonempty patch, valid sequence and owner filter limit individual CAS update; owner counter serializes revision assignment | Unbounded authenticated RPC attempts may consume compute/Free quota; evaluate request throttling, payload length constraints, auth failure rate and cleanup under realistic load |
+| Auth and user migration | Current mapping requires explicit old Appwrite ID ↔ Supabase UUID | No proof of credential/session continuity, signed hosted login behavior or safe migrated password hash; do not ingest real accounts |
+
+## Explicit decision
+
+**No security signoff.** The current two public RPCs are acceptable only as a deliberately isolated, owner-private proof while the tested ACL remains intact. Do not suppress their security warnings, grant direct UPDATE/DELETE, switch to invoker as a workaround, enable shared visibility, introduce unrestricted browser writes or perform a hosted schema migration without a separate reviewed design.
+
+Before any Supabase social/runtime promotion, prefer a trusted narrowly scoped server API or formally justify the exposure and prove equivalent least-privilege behavior; redesign server-owned task-reaction and immutable origin fields, write denial tests for each permitted role and row relationship, and have the resulting hosted policies independently reviewed. Keep the OCI/Appwrite fallback intact.
+
+## Repeatable provider-neutral synthetic acceptance
+
+- tests/fixtures/backendProviderParity.ts defines **synthetic, deterministic, independent** two-owner records for all eight source RxDB replication domains, including private diary photo-reference placeholders, goal-task links, active and tombstoned rows, blocked friendship records and paired two-row messages. It contains no real user data, credentials or network calls.
+- tests/unit/backendProviderParity.test.ts validates current schema requirements and field constraints, eight-domain round trips through the existing Appwrite mapping, tombstone preservation, sender/recipient message relationship and Supabase candidate task/category owner-bound mapping. It is a **contract fixture**, not evidence that Supabase or an OCI Appwrite host has implemented these domains.
+- Future provider adapters should consume identical fixtures and run real two-principal hosted/Appwrite permission and offline/race/DR tests. Do not infer backend authorization from a serialization round trip.
+
+Issue #967 remains open, linked to #975. No Production, Appwrite or hosted Supabase mutations were approved or performed in this milestone.
