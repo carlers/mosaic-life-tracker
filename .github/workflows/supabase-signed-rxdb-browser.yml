@@ -1,0 +1,95 @@
+name: Supabase Signed RxDB Browser Lab
+
+# No hosted Supabase credentials or customer data. Only ephemeral local CLI
+# Auth/PostgREST/Postgres + Chromium/Dexie. Deliberately restricted to #967.
+on:
+  push:
+    branches:
+      - 'chatgpt/967-signed-rxdb-http-*'
+      - 'refactor/967-signed-rxdb-http-*'
+    paths:
+      - '.github/workflows/supabase-signed-rxdb-browser.yml'
+      - 'life-tracker/tests/e2e/supabase-signed-rxdb*'
+      - 'life-tracker/supabase-poc/**'
+      - 'life-tracker/docs/SESSION_STATE.md'
+      - 'life-tracker/docs/SUPABASE_EVALUATION.md'
+permissions:
+  contents: read
+concurrency:
+  group: supabase-signed-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  signed-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    name: Signed Auth + browser RxDB offline/restart/competing CAS
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Install browser and app dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm run test:browser:prepare
+          tests/e2e/node_modules/.bin/playwright install chromium
+      - name: Configure isolated candidate SQL and Auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase init --yes
+          mkdir -p supabase/migrations
+          cp supabase-poc/migrations/20261018_candidate_task_category_owner_schema.sql supabase/migrations/20261018000000_candidate_task_category_owner_schema.sql
+          cp supabase-poc/migrations/20261018_candidate_revoke_default_delete.sql supabase/migrations/20261018000001_candidate_revoke_default_delete.sql
+          cp supabase-poc/migrations/20261019_candidate_atomic_cas_rpc.sql supabase/migrations/20261019000000_candidate_atomic_cas_rpc.sql
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('supabase/config.toml')
+          contents = p.read_text()
+          pattern = r'(?m)^enable_confirmations\s*=\s*(true|false)\s*$'
+          if not re.search(pattern, contents):
+              raise SystemExit('Local Auth confirmation toggle not found')
+          p.write_text(re.sub(pattern, 'enable_confirmations = false', contents))
+          PY
+      - name: Start disposable local Supabase Auth and REST
+        run: |
+          set -euo pipefail
+          supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler
+          supabase db reset --local
+      - name: Start HTTPS browser-only Vite fixture
+        shell: bash
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/mosaic-signed-vite.log" 2>&1 &
+          for attempt in {1..40}; do
+            if curl -kfsS https://127.0.0.1:4173/tests/e2e/supabase-signed-rxdb.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/mosaic-signed-vite.log"
+          exit 1
+      - name: Exercise real JWTs, Chromium Dexie and actual CAS over HTTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env > "$RUNNER_TEMP/mosaic-supabase-local.env"
+          set -a
+          source "$RUNNER_TEMP/mosaic-supabase-local.env"
+          set +a
+          : "${PUBLISHABLE_KEY:?Local CLI must expose a modern publishable key}"
+          [[ "$PUBLISHABLE_KEY" == sb_publishable_* ]] || { echo "Local key must be publishable"; exit 1; }
+          export MOSAIC_SB_LOCAL_URL="http://127.0.0.1:54321"
+          export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
+          export MOSAIC_E2E_BASE_URL="https://127.0.0.1:4173"
+          tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-signed-rxdb.spec.mjs --config=playwright.config.mjs --reporter=line
+      - name: Destroy synthetic Supabase data and containers
+        if: always()
+        run: supabase stop --no-backup || true
