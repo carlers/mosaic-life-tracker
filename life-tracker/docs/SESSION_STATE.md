@@ -1,24 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: Restore Category Manager inline editing on current dev and deliver a fresh stable Preview (issue #1037).
+Current task: #1036 — Integrate accepted category reversal with current dev inline editor and promote to dev on explicit user approval.
 
 ## Boundary
-- Source baseline: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, v0.29.12; `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Current task: `chatgpt/category-inline-forwardport-20261020` → stable `fix/category-inline-forwardport-20261020`.
-- October 12 stable `fix/category-editor-inline-20261012@3494cbca65541b489e357a6e53a953b96bb61a9f` contained inline editor v0.20.8, not promoted; canonical acceptance succeeded but the Vercel status failed due build-rate limits.
-- Frontend-only repair, no backend/permissions/data modifications; no `dev`/`main` promotion without approval.
+- Accepted category reversal: `feature/category-reverse-1036-20261020@1c90edb539c4389b7a1221f95d84054addc88a49` (v0.30.0), canonical #39289754491 SUCCESS, trusted prebuilt #39290055614 READY; owner manually accepted.
+- Current dev advanced independently to `682303946c00b14ee3ac3fc3e33b2dc541a39a86` (v0.29.15) through #1037 inline Category Manager edit. Direct old-Preview promotion is unsafe because its tree is missing that accepted dev behavior.
+- Integration task: `chatgpt/1036-category-reverse-forwardport-20261020`, based on exact dev above. Intended integrated stable Preview: `feature/category-reverse-integrated-1036-20261020`.
+- User authorized promotion to dev of the reverse-category feature. Do not promote to main/Production. No schema, backend, account, or provider changes.
 
 ## Changes
-- Port the proven row-local Category Manager accordion into the current component, including natural-height no-overlap animation, inert exiting controls, grip-only drag, selected-row error banner and single active edit.
-- Preserve current dev category ordering memoization and autofocus when switching to the selected category.
-- Restore explicit edit placement/switch/reorder/cancel DOM regression plus production-CategoryRow browser per-frame overlap regression and fixture.
-- Planned first new Preview version `0.29.15`, above `0.29.12` dev and the separately planned `0.29.13` WebKit / `0.29.14` TodoMate branches. Recheck version reservations and updated dev before promotion.
+- Preserve dev's inline accordion CategoryRow, drag grip, animated transitions and selected edit input.
+- Add one-tap Reverse order with async save guard, disabled zero/one categories, and failure feedback.
+- Surface failed category row writes from `useCategories().reorderCategories`; serialize manual drag saves through shared sheet save action.
+- Combine accepted reverse DOM regressions with latest inline editing tests and add active-editor reversal test.
+- Candidate version v0.30.1: patched from accepted v0.30.0 due fresh integrated user-testable Preview; maintain package/lock/appVersion consistency.
 
 ## Verification
-- The October 12 prior Preview passed full canonical `38255151010`; its Vercel GitHub status failed for provider build-rate limit. This is historical evidence, not proof for the new source.
-- This new task requires exact-SHA focused CI, canonical stable Preview CI, Vercel Scratch READY / build-size verification and manual mobile interaction checks; all pending at this checkpoint.
-- Connector-based edit: no local build or browser run asserted.
+- Integrated focused Quality Gate pending on task commit `[verify:focused]`; no local test execution claimed.
+- Require new exact-SHA full canonical stable Preview, trusted Vercel READY, trusted dev PR preflight, dev CI and dev deployment verification. Record actual results in issue #1036, not a post-green status commit.
 
 ## Next action
-- Verify focused task SHA on GitHub, repair if necessary; squash focused-green task PR into the new stable Preview, then verify the stable exact-SHA full gate and provider deployment. Stop before `dev` or `main` merge.
+- Complete coherent task commit and CI focused verification; repair if necessary. Squash into integrated stable Preview after green. Verify canonical and trusted READY, then open and merge the exact stable Preview -> dev PR using user approval, preserving tree and reporting dev gate and deployment. Leave main/Production untouched.
