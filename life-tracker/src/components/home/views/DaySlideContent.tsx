@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CategorySection, type CategoryPillActions } from './CategorySection';
+import { CategorySection } from './CategorySection';
 import { DayViewCategoryReorder } from './DayViewCategoryReorder';
 import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
@@ -243,7 +243,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         onUpdate={onUpdateCategory ?? (async () => undefined)}
         onDragActiveChange={onReorderActiveChange}
         onError={onCategoryActionError}
-        renderCategory={(category: CategoryDocument, categoryActions?: CategoryPillActions) => (
+        renderCategory={(category: CategoryDocument) => (
         <CategorySection
           key={category.id}
           categoryId={category.id}
@@ -289,7 +289,6 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           onToggleTaskSelection={onToggleTaskSelection}
           onToggleCategorySelection={onToggleCategorySelection}
           reorderEnabled={reorderEnabled}
-          categoryActions={categoryActions}
           activeDragTaskId={
             activeDrag?.initialCategoryId === category.id
               ? activeDrag.taskId

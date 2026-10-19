@@ -26,13 +26,26 @@ vi.mock('framer-motion', async (importOriginal) => {
     useDragControls: () => ({ start: mocks.startDrag }),
   };
 });
-import { DayViewCategoryReorder } from '../../src/components/home/views/DayViewCategoryReorder';
+import { CategoryPillActionContext, DayViewCategoryReorder } from '../../src/components/home/views/DayViewCategoryReorder';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
 
 const categories: CategoryDocument[] = ['Work', 'Home'].map((name, index) => ({
   id: name.toLowerCase(), userId: 'owner', name, color: '#345678', icon: '',
   order: index, visibility: 'private', isDeleted: false, updatedAt: '2026-10-01T00:00:00.000Z',
 }));
+
+const FakeCategory = ({ category }: { category: CategoryDocument }) => {
+  const actions = React.useContext(CategoryPillActionContext);
+  return (
+    <div>
+      <button type="button" onPointerDown={actions?.onPointerDown}
+        onClickCapture={actions?.consumeClick} onClick={mocks.startDrag}>
+        {category.name}
+      </button>
+      {actions?.menuOpen && <button type="button" onClick={() => actions.setMenuOpen(false)}>Edit</button>}
+    </div>
+  );
+};
 
 const createProps = () => ({
   categories,
@@ -42,15 +55,7 @@ const createProps = () => ({
   onUpdate: vi.fn().mockResolvedValue(undefined),
   onDragActiveChange: vi.fn(),
   onError: vi.fn(),
-  renderCategory: (category: CategoryDocument, actions?: import('../../src/components/home/views/CategorySection').CategoryPillActions) => (
-    <div>
-      <button type="button" onPointerDown={actions?.onPointerDown}
-        onClickCapture={actions?.consumeClick} onClick={mocks.startDrag}>
-        {category.name}
-      </button>
-      {actions?.menuOpen && <button type="button" onClick={() => actions.setMenuOpen(false)}>Edit</button>}
-    </div>
-  ),
+  renderCategory: (category: CategoryDocument) => <FakeCategory category={category} />,
 });
 
 describe('Day View category gesture isolation', () => {
@@ -104,7 +109,7 @@ describe('inline category actions', () => {
   const renderRealSection = () => {
     const props = createProps();
     render(<DayViewCategoryReorder {...props}
-      renderCategory={(category, actions) => (
+      renderCategory={(category) => (
         <CategorySection
           categoryId={category.id}
           categoryName={category.name}
@@ -122,7 +127,6 @@ describe('inline category actions', () => {
           onEditChange={vi.fn()}
           onEditSave={vi.fn()}
           onEditCancel={vi.fn()}
-          categoryActions={actions}
         />
       )}
     />);

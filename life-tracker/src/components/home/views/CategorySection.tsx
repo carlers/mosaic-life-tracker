@@ -1,4 +1,5 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useContext, useEffect, useId, useRef, useState } from 'react';
+import { CategoryPillActionContext } from './DayViewCategoryReorder';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CheckSquare, ChevronDown, MoreHorizontal, Plus, Square } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
@@ -112,8 +113,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   activeDragTaskId = null,
   dragGapIndex = null,
   dragGapHeight = 0,
-  categoryActions,
+  categoryActions: suppliedCategoryActions,
 }) => {
+  const contextualActions = useContext(CategoryPillActionContext);
+  const categoryActions = suppliedCategoryActions ?? contextualActions;
   const prefersReducedMotion = useReducedMotion();
   const animatePositions = animateDragProjection && !prefersReducedMotion;
   const [isAdding, setIsAdding] = useState(false);
