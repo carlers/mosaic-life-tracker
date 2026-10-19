@@ -1,9 +1,11 @@
 # Oracle Singapore A1 Always Free: local capacity watcher (#975)
 
-**Status:** source-only tool requiring an OCI CLI profile on **your own**
-laptop. This repository cannot read your Oracle account or run scheduled
-checks when your laptop is off. **No OCI credentials belong in GitHub,
-environment variables committed to the repository, or ChatGPT.**
+**Status:** source-only **local** tool requiring an OCI CLI profile on **your own**
+laptop. This local mode has no unattended scheduler. A separate, dormant,
+security-reviewed [GitHub A1 automation](OCI_GITHUB_A1_AUTOMATION.md) is being
+prepared for an owner-approved scheduled deployment using a **dedicated** IAM
+signing identity in encrypted GitHub secrets. Never commit any OCI credentials,
+share private keys in chat, or use an account administrator API key.
 
 ## One-time setup
 
