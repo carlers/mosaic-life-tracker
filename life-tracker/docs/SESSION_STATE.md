@@ -1,20 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 signed local Supabase CAS adversarial authorization denial matrix.
+Current task: #967 provider-neutral eight-domain backend parity audit supporting Supabase Free and OCI Appwrite evaluation.
 
-## Accepted source and approvals
-- Latest accepted isolated stable Preview: `refactor/967-conflict-review-refresh-20261019@a76fd9da8a36a8565964d873a6428935c4bc0787`, from PR #1005. Exact SHA full canonical #39214533727 SUCCESS; real signed local Supabase JWT/PostgREST/Chromium RxDB lab #39214533726 SUCCESS, 1 passed with cleanup; trusted CI-first Preview #39214730975 SUCCESS with prebuilt READY for the accepted SHA. Latest issue #967 acceptance comment #6262124584; issue remains OPEN.
-- Task `chatgpt/967-signed-rpc-denial-matrix-20261019` branches from accepted SHA. Version impact NONE. No Mosaic app runtime imports or provider activation; no Appwrite, hosted Supabase schema/Auth/users, dev/main, Production, or release modifications.
-- Two hosted `authenticated_security_definer_function_executable` security-advisor WARNs are still open, not suppressed. RPCs are deliberately authenticated-callable SECURITY DEFINER; direct table UPDATE/DELETE privilege is revoked and authorization must be proven by Auth principal + row ownership + revision.
+## Baseline and boundary
+- Branch `chatgpt/967-provider-parity-audit-20261019` from previously accepted isolated Supabase stable `refactor/967-signed-rpc-denial-matrix-20261019@0fdd3a5e190a9ccad1ebe0d3beeaa75ec779c869` (PR #1013). Protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, `main@b952f71ecd2add3172f90104bc0e856a2648ccc9`; neither is to be changed.
+- Owner direction: #967 Supabase migration and #975 OCI Always Free Appwrite self-host remain **reversible parallel options**. No selection, auto-launch, cloud write, runtime provider import, production/user migration or dev/main promotion authorized. Version impact NONE.
 
-## Task scope
-- Extend the existing real disposable local Supabase signed-browser lab with an **adversarial second test**: two independent real JWT users, owner category and task rows, cross-user guessed-row CAS update attempts with correct revision, anonymous CAS, forbidden owner/id patch injection, non-object/empty patches, stale replay after authorized CAS, direct PATCH/DELETE denial even for the owner, cross-owner SELECT and forged INSERT owner rejection. Assert both owner rows remain intact. Do not weaken RLS or grant privileged shortcuts.
-- Add isolated task/stable branch family to dedicated signed lab CI. Document empirical coverage and advisor warning limitations in `SUPABASE_EVALUATION.md`. One runner and synthetic users only; no hosted signed-user verification, formal security audit, physical multi-device or real user data.
-
-## Verification
-- Initial task SHA dca641c3704f134fedbd75612b2d1fb46bf5cf81: focused CI #39217337389 SUCCESS; signed local lab #39217337332 FAILED at first *foreign-owner CAS no-row test* because PostgREST serialized the SQL composite NULL as an object with every field NULL rather than JSON null. The existing source-only candidateCasTransport and its unit tests already normalize both safely; fix only adversarial test to require either JSON null or the full all-null composite (never a partial nonempty/foreign row). Cleanup succeeded. Final task [verify:focused] and signed lab repeat pending. Dedicated signed real Auth lab must pass BOTH Chromium/RxDB and adversarial RPC cases, plus regular focused tasks. After green, squash only to a fresh isolated stable Preview, run full canonical Quality Gate, exact SHA signed lab and trusted CI-first READY. No claims before running.
+## Current work
+- Add `docs/BACKEND_PROVIDER_PARITY.md`: trace all eight current RxDB owner-scoped collections to source, distinguish Supabase local-only task/category proof from remaining six domains, record OCI scheduler status, compare security, Auth, offline/CAS, DR, cost and old-PWA cutover gates and define next disposable experiments. This is a source/read-only audit, not an implementation milestone.
+- Read-only hosted Supabase check on 2026-10-19: `mosaic-dev` ACTIVE_HEALTHY, four RLS-enabled experimental tables at zero rows; two authenticated-callable SECURITY DEFINER CAS Advisor warnings remain open.
+- Read-only private scheduler Actions check on 2026-10-19: five manual runs, zero schedule events. Last manual prerequisite audit passed, A1 capacity unavailable; autonomous auto-claim not established.
 
 ## Next action
-- Review focused checks + signed lab results, repair tests or any true access-control failure **without weakening policies**, then accept via isolated stable branch only. Record exact SHA and evidence in open #967.
-- Continue hosted signed-user security signoff, identity migration, other six domains, media/DR/cost and reversible cutover. No dev/main/Production or 1.0 promotion without separate explicit approval.
+- GitHub exact-source commit with `[verify:focused]` and focused documentation/contracts gate **not yet verified at checkpoint write**. After task focused green, squash only into a **new isolated stable Preview** for canonical CI/trusted delivery. Do not promote to `dev` or `main`.
+- Review security of privileged Supabase RPCs without changing grants, then choose next synthetic parity/hosted Auth probes based on evidence. Keep #967 and #975 OPEN; note remaining manual/hosted approvals and actual CI/deployment outcomes in their issue checkpoints.
