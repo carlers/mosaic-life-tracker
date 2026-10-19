@@ -105,6 +105,9 @@ export function createCandidateRxdbPilot<D extends Document>(
       conflictEvents.next({ type: 'cleared', documentId });
     }
   }
+  function clearAllReviews() {
+    for (const documentId of pendingConflicts.keys()) clearReview(documentId);
+  }
   function recordConflict(
     local: Replicated<D>, base: Replicated<D> | null,
     remote: { document: Replicated<D>; revision: string } | null,
@@ -157,7 +160,7 @@ export function createCandidateRxdbPilot<D extends Document>(
     if (!value || value.userId !== identity.supabaseUserId ||
       !value.accessToken || !Number.isSafeInteger(value.sessionEpoch) ||
       value.sessionEpoch < 0) {
-      pendingConflicts.clear();
+      clearAllReviews();
       throw new CandidateAuthError('Candidate RxDB has no verified owner session');
     }
     return value;
@@ -173,7 +176,7 @@ export function createCandidateRxdbPilot<D extends Document>(
       : await pullCandidateCategories({ identity, transport: changes, checkpoint, batchSize });
     const after = await guardedSession();
     if (after.sessionEpoch !== before.sessionEpoch || after.accessToken !== before.accessToken) {
-      pendingConflicts.clear();
+      clearAllReviews();
       throw new CandidateAuthError('Candidate RxDB account changed during pull');
     }
     return {
@@ -216,7 +219,7 @@ export function createCandidateRxdbPilot<D extends Document>(
       const next = await guardedSession();
       if (next.sessionEpoch !== initial.sessionEpoch ||
         next.accessToken !== initial.accessToken) {
-        pendingConflicts.clear();
+        clearAllReviews();
         throw new CandidateAuthError('Candidate RxDB account changed during push');
       }
     };
@@ -303,7 +306,7 @@ export function createCandidateRxdbPilot<D extends Document>(
       const now = await guardedSession();
       if (now.sessionEpoch !== before.sessionEpoch ||
         now.accessToken !== before.accessToken) {
-        pendingConflicts.clear();
+        clearAllReviews();
         throw new CandidateAuthError('Candidate account switched during conflict resolution');
       }
     };
@@ -385,7 +388,7 @@ export function createCandidateRxdbPilot<D extends Document>(
       stop: async () => {
         stream.complete();
         await state.cancel();
-        pendingConflicts.clear();
+        clearAllReviews();
         conflictEvents.complete();
       },
     };

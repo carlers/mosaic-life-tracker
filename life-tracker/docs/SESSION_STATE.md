@@ -16,7 +16,7 @@ Current task: #967 isolated owner-scoped pending-conflict review and explicit ke
 - Evaluation doc records security/privacy and remaining UX design acceptance boundary.
 
 ## Verification
-- Pending: final coherent task [verify:browser] gate including focused/typecheck, both browser shards, and dedicated ephemeral signed Auth browser lab; then isolated stable Preview canonical full and trusted delivery.
+- Initial task Quality Gate #39200500536 passed focused and both regular browser shards. Temporary workflow-coverage fix at task SHA ea94a310 activated local Supabase signed lab #39200711695, **SUCCESS** with exact signed conflict-review/keep-local Playwright assertion and successful local teardown. Final owner-switch clear-event hardening has not yet been verified; rerun task-focused/browser and signed lab on its exact final SHA before isolated stable Preview canonical/trusted.
 - No claim of verified conflict event/choice until CI and real signed browser lab pass.
 
 ## Next action

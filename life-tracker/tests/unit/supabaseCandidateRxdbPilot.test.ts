@@ -291,10 +291,13 @@ describe('isolated Supabase RxDB native replication bridge (#967)', () => {
     expect(h.pilot.listPendingConflicts()[0]).toMatchObject({
       reason: 'cas-conflict', remoteRevision: '5',
     });
+    const events: unknown[] = [];
+    h.pilot.conflictEvents$.subscribe(event => events.push(event));
     h.switchTo(bob.supabaseUserId);
     await expect(h.pilot.resolveKeepLocal(initial.id, '5'))
       .rejects.toBeInstanceOf(CandidateAuthError);
     expect(h.pilot.listPendingConflicts()).toEqual([]);
+    expect(events).toContainEqual({ type: 'cleared', documentId: initial.id });
   });
 
   it('rejects invalid push batches, malformed server owner and expired sessions', async () => {
