@@ -7,8 +7,16 @@ test.use({
   hasTouch: true,
   isMobile: true,
   viewport: { width: 412, height: 915 },
-  userAgent:
+  // Use native WebKit UA rather than advertising Chromium/Samsung on Safari.
+  userAgent: process.env.MOSAIC_WEBKIT === '1' ? undefined :
     'Mozilla/5.0 (Linux; Android 15; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 SamsungBrowser/28.0',
+});
+
+// Playwright WebKit lacks Chromium CDP for trusted touch-drag injection.
+test.beforeEach(({ browserName }, testInfo) => {
+  test.skip(browserName === 'webkit' &&
+    testInfo.title === 'dragging the header closes a sheet that initially mounted closed',
+    'Native touch drag requires Chromium CDP; not yet available in Playwright WebKit');
 });
 
 test('three nested sheets consume Back one layer at a time before route history', async ({ page }) => {

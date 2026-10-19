@@ -1,23 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #1008 iPad task-input blur-save and pre-1.0 Playwright WebKit regression coverage.
+Current task: #1008 extend WebKit across the complete Playwright browser correctness suite, without Appwrite.
 
 ## Boundary
-- Original base: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Stable Preview `fix/ios-task-input-webkit-1008-20261019` at `024dcea6d4fcfcb7c60497fb6ebab5e635c27c96`, v0.29.13, via PR #1012. Task repair branch `chatgpt/1008-webkit-trusted-delivery-20261019` starts at that SHA.
-- Issue #1008 is pre-1.0 authorized now; issue #1009 is post-1.0 Firefox planning only. No dev/main promotion approved, no backend/schema changes.
+- Base: stable Preview `fix/ios-task-input-webkit-1008-20261019@82840a2c866acf4ff92f5127185df87c7a8f76fd` (v0.29.13); protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` are unmodified.
+- Task: `chatgpt/1008-webkit-full-browser-suite-20261019`; no product runtime or data/backend/security pin changes. Version impact NONE (keep v0.29.13).
+- Appwrite is unavailable for owner manual verification; no promotion to dev/main or 1.0 authorized. Post-1.0 Firefox issue #1009 remains planning only.
 
-## Changes
-- Nonempty new-task drafts commit on ordinary blur; Enter, checkbox, cancel and continuous-add remain supported, failed local writes retain the draft with feedback.
-- Existing Chromium browser contract plus first-shard Playwright WebKit iPad-sized task-entry regression.
-- Trusted receiver pins reviewed Quality Gate YAML blob: current Preview #39217697332 was canonical SUCCESS, but Trusted Preview Delivery #39217963457 rejected its changed YAML with 'Unreviewed generic Quality Gate definition'. Preserve this fail-closed security gate.
-- Repair: restore byte-identical reviewed YAML and move the additional required WebKit regression into the existing browser-test command's CI orchestration. Version remains 0.29.13; this Preview has not yet delivered successfully.
+## Scope
+- Replace first-shard-only WebKit task-input smoke run with all non-performance Playwright browser correctness specs, same shard split as Chromium on both existing CI runners.
+- Preserve the protected-main-reviewed Quality Gate YAML byte-for-byte and its trusted deployment receiver; keep browser runner and workflow contracts explicit.
+- Use native WebKit user agent, phone-sized default plus iPad task-entry viewport; keep Chromium-only trusted CDP touch drags explicitly reported as WebKit skips rather than fabricating cross-browser touch coverage.
+- Keep Vitest unit, handler, and DOM suites unchanged (engine-independent), diagnostic `@performance` excluded from acceptance, and native iPad Safari/PWA testing pending.
 
-## Verification
-- Original task focused and Chromium/WebKit checks successful: #39217414310; stable Preview full canonical successful #39217697332 (before receiver compatibility repair). Initial trusted-delivery repair CI #39218689325 passed both browser shards (including WebKit), but focused verification failed one pre-existing direct-package-script performance exclusion assertion. The test was updated to check the new wrapper's explicit Chromium exclusion and WebKit lane; final repair CI is pending.
-- Trusted Preview provider delivery for the original stable SHA FAILED; no matching READY deployment yet verified.
-- Actual iPad Safari, installed PWA behavior, authenticated disposable-user check, and keyboard UI are unverified.
+## Prior verified
+- #1008 v0.29.13 task blur-save Preview canonical #39219337007 SUCCESS and Trusted Preview Delivery #39219583581 SUCCESS at base SHA, with Vercel READY CLI readback.
+- This expanded WebKit task branch has no verified CI/Preview yet; do not claim acceptance before exact-SHA checks.
 
-## Next action
-- Commit repair with `[verify:browser]` and verify focused + browser CI. Squash repair into the stable Preview after success; run full canonical and verify trusted receiver plus exact READY Preview before handoff. Never bypass the trusted workflow pin or promote dev/main without explicit approval.
+## Next safe action
+- Run focused + browser CI on a coherent task commit; repair real engine-specific failures. After green, squash into stable Preview and confirm canonical CI, trusted receiver and matching READY deployment. No dev/main promotion without explicit approval.
