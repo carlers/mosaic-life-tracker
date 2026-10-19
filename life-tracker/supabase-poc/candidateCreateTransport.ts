@@ -179,9 +179,9 @@ export function createCandidateCreateTransport(options: {
       master('tasks', id, identity) as Promise<CandidateTaskRow | null>,
     readCategoryMaster: (id: string, identity: CandidateIdentity) =>
       master('categories', id, identity) as Promise<CandidateCategoryRow | null>,
-    createTask: (doc: TaskDocument, identity: CandidateIdentity) =>
+    createTask: async (doc: TaskDocument, identity: CandidateIdentity) =>
       create('tasks', toCandidateTaskWrite(doc, identity), identity) as Promise<CandidateCreateOutcome<CandidateTaskRow>>,
-    createCategory: (doc: CategoryDocument, identity: CandidateIdentity) =>
+    createCategory: async (doc: CategoryDocument, identity: CandidateIdentity) =>
       create('categories', toCandidateCategoryWrite(doc, identity), identity) as Promise<CandidateCreateOutcome<CandidateCategoryRow>>,
   };
 }
