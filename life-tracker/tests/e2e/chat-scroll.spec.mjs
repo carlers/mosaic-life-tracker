@@ -153,7 +153,102 @@ for (const { viewport, width } of [
     await page.mouse.move(startX + 180, y + 2, { steps: 5 });
     await page.mouse.up();
 
-    await expect(path).toHaveText('/messages');
+    // WebKit may retain outgoing and incoming routes during the transition.
+    // Assert the destination route instead of requiring all route nodes to match.
+    await expect(page.getByTestId('chat-path').filter({ hasText: new RegExp('^/messages
+  });
+}
+
+test('search restores history, incoming stays below, FAB acknowledges, send exits search', async ({ page }) => {
+  await open(page);
+  const before = await readHistory(page);
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Search messages', exact: true }).fill('Message 1:');
+  await page.evaluate(() => window.chatControl.append());
+  await expect(page.getByRole('button', { name: /Scroll to bottom/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close search' }).click();
+  await expect.poll(() => scroller(page).evaluate(el => el.scrollTop)).toBeCloseTo(before, 0);
+  await page.getByRole('button', { name: 'Scroll to bottom, new messages' }).click();
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+  await readHistory(page);
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Search messages', exact: true }).fill('no matches');
+  await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Sent from search');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Search messages', exact: true })).toHaveCount(0);
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+});
+
+test('loading, short conversations, late growth and viewport resize', async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await open(page);
+  await page.evaluate(() => window.chatControl.loading());
+  await expect(page.getByRole('status').filter({ hasText: 'Loading messages' })).toContainText('Loading messages');
+  await page.evaluate(() => window.chatControl.load(0));
+  await expect(page.getByText('No messages yet')).toBeVisible();
+  await page.evaluate(() => window.chatControl.append());
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+  await page.evaluate(() => window.chatControl.load(60));
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+  await page.locator('[id^="msg-"]').last().evaluate(el => { el.style.minHeight = '500px'; });
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+  await page.setViewportSize({ width: 412, height: 500 });
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+  await expect
+    .poll(async () => {
+      const dock = await page.getByTestId('chat-dock').boundingBox();
+      return dock.y + dock.height;
+    })
+    .toBeCloseTo(500, 0);
+  const before = await readHistory(page);
+  await page.locator('[id^="msg-"]').last().evaluate(el => { el.style.minHeight = '700px'; });
+  await page.setViewportSize({ width: 412, height: 650 });
+  await expect.poll(() => scroller(page).evaluate(el => el.scrollTop)).toBeCloseTo(before, 0);
+  await page.evaluate(() => { Object.defineProperty(navigator, 'onLine', { configurable: true, value: false }); window.dispatchEvent(new Event('offline')); });
+  await expect(page.getByText('You are offline. Changes will sync later.')).toBeVisible();
+  expect(await scroller(page).evaluate(el => el.scrollTop)).toBeCloseTo(before, 0);
+});
+
+test('switching and reopening a conversation resets the bottom pin', async ({ page }) => {
+  await open(page);
+  await readHistory(page);
+  await page.evaluate(() => { window.chatControl.loading(); window.chatNavigate('/messages/second'); });
+  await expect(page.getByRole('status').filter({ hasText: 'Loading messages' })).toContainText('Loading messages');
+  await page.evaluate(() => window.chatControl.load(80));
+  // On WebKit a newly navigated conversation can still be in its empty
+  // transition state when gap() is zero. Wait for the actual loaded messages
+  // before asserting that history scrolling exposes the bottom-jump control.
+  await expect(page.locator('[id^="msg-"]')).toHaveCount(80);
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+  await readHistory(page);
+  await page.evaluate(() => window.chatNavigate('/messages/friend'));
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+});
+
+test('quote navigation suspends following and reply expansion keeps dock anchored', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => window.chatControl.quote());
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+  await page.getByRole('button', { name: /Jump to earlier message/ }).click();
+  await expect(page.getByRole('button', { name: 'Scroll to bottom', exact: true })).toBeVisible();
+  // Wait for the deliberate smooth quote navigation to finish before receiving.
+  await expect.poll(() => scroller(page).evaluate(el => el.scrollTop)).toBeLessThan(300);
+  await page.evaluate(() => window.chatControl.append());
+  await expect(page.getByRole('button', { name: 'Scroll to bottom, new messages' })).toBeVisible();
+  await page.getByRole('button', { name: 'Scroll to bottom, new messages' }).click();
+  const last = page.locator('[id^="msg-"]').last();
+  const box = await last.getByRole('button').first().boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await expect(page.getByRole('button', { name: 'Reply', exact: true })).toBeVisible();
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'Reply', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Cancel reply' })).toBeVisible();
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+  const dock = await page.getByTestId('chat-dock').boundingBox();
+  expect(dock.y + dock.height).toBeCloseTo(page.viewportSize().height, 0);
+});
+) })).toHaveCount(1);
     await expect(page.getByTestId('messages-parent-page')).toBeVisible();
   });
 }

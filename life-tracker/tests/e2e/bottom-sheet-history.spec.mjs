@@ -218,28 +218,49 @@ test('data-backed message actions retain their exit after Android-style Back', a
 // Complementary browser-pointer coverage: page.mouse produces trusted
 // mouse/pointer input in both engines. This does NOT replace the native-touch
 // drag test below, which remains a required Chromium CDP contract.
-test('trusted mouse-pointer drag dismisses an initially closed retained sheet', async ({ page }) => {
-  await page.goto(`${BASE_URL}/tests/e2e/bottom-sheet-history.html`);
-  await page.getByRole('button', { name: 'Open data-clearing memo' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Memo exit regression', includeHidden: true });
-  await expect(dialog).toBeVisible();
-  const handle = dialog.locator('.cursor-grab').first();
-  await expect.poll(() => dialog.evaluate((node) => {
-    return Math.abs(new DOMMatrix(getComputedStyle(node).transform).m42);
-  })).toBeLessThan(2);
+test('trusted mouse-pointer drag dismisses an initially closed retained sheet', async ({ browser }) => {
+  // This is a mouse-pointer contract, not a virtual mobile touch-drag test.
+  // Mobile WebKit sometimes translates Playwright mouse actions differently;
+  // run genuine desktop pointer input in BOTH engines at a narrow viewport.
+  const context = await browser.newContext({
+    isMobile: false,
+    hasTouch: false,
+    viewport: { width: 412, height: 915 },
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(`${BASE_URL}/tests/e2e/bottom-sheet-history.html`);
+    await page.getByRole('button', { name: 'Open data-clearing memo' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Memo exit regression', includeHidden: true });
+    await expect(dialog).toBeVisible();
+    const handle = dialog.locator('.cursor-grab').first();
+    await expect.poll(() => dialog.evaluate(node =>
+      Math.abs(new DOMMatrix(getComputedStyle(node).transform).m42)
+    )).toBeLessThan(2);
+    const initial = await dialog.boundingBox();
+    const box = await handle.boundingBox();
+    if (!box || !initial) throw new Error('Missing drag handle/sheet bounds');
+    const x = box.x + box.width / 2;
+    const y = box.y + Math.min(box.height * 0.35, 24);
 
-  const box = await handle.boundingBox();
-  if (!box) throw new Error('Missing drag handle bounds');
-  const x = box.x + box.width / 2;
-  const y = box.y + Math.min(box.height * 0.35, 24);
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  for (let step = 1; step <= 12; step += 1) {
-    await page.mouse.move(x, y + (190 * step) / 12);
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    try {
+      await page.mouse.move(x, y + 240, { steps: 16 });
+      // Assert a real rendered drag, not merely pointer-up after coordinates
+      // changed. This catches failure to activate Framer's drag controls.
+      await expect.poll(async () =>
+        (await dialog.boundingBox())?.y ?? initial.y
+      ).toBeGreaterThan(initial.y + 50);
+    } finally {
+      await page.mouse.up();
+    }
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(() => page.locator('#root').evaluate(node => node.inert)).toBe(false);
+  } finally {
+    await context.close();
   }
-  await page.mouse.up();
-  await expect(dialog).toHaveCount(0);
-  await expect.poll(() => page.locator('#root').evaluate(node => node.inert)).toBe(false);
 });
 
 test('dragging the header closes a sheet that initially mounted closed', async ({ page }) => {
