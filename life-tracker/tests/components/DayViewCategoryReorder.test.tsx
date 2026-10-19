@@ -26,7 +26,8 @@ vi.mock('framer-motion', async (importOriginal) => {
     useDragControls: () => ({ start: mocks.startDrag }),
   };
 });
-import { CategoryPillActionContext, DayViewCategoryReorder } from '../../src/components/home/views/DayViewCategoryReorder';
+import { DayViewCategoryReorder } from '../../src/components/home/views/DayViewCategoryReorder';
+import { CategoryPillActionContext } from '../../src/components/home/views/categoryPillActionContext';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
 
 const categories: CategoryDocument[] = ['Work', 'Home'].map((name, index) => ({

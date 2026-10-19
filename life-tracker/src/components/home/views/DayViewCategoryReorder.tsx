@@ -2,12 +2,11 @@ import React from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import type { CategoryDocument } from '../../../db/schema';
 import type { CategoryPillActions } from './CategorySection';
+import { CategoryPillActionContext } from './categoryPillActionContext';
 import { moveCategoryId, sameCategoryIds } from '../../../lib/categoryReorder';
 
 const HOLD_MS = 500;
 const TOLERANCE_PX = 8;
-
-export const CategoryPillActionContext = React.createContext<CategoryPillActions | null>(null);
 
 interface ReorderProps {
   categories: CategoryDocument[];
