@@ -71,9 +71,10 @@ export function createCandidateCasTransport(options: {
     !['', '/'].includes(base.pathname)) {
     throw new Error('Candidate CAS endpoint must use HTTPS or loopback HTTP without URL credentials/path');
   }
-  if (!options.publishableKey || options.publishableKey !== options.publishableKey.trim() ||
-    options.publishableKey.startsWith('sb_secret_')) {
-    throw new Error('Candidate CAS requires a public key');
+  if (!options.publishableKey?.startsWith('sb_publishable_') ||
+    options.publishableKey !== options.publishableKey.trim() ||
+    /\s/.test(options.publishableKey)) {
+    throw new Error('Candidate CAS requires a modern publishable key');
   }
   const fetcher = options.fetcher ?? fetch;
 
