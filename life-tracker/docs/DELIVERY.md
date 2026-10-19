@@ -146,6 +146,29 @@ promotion-verification and deployment gates remain authoritative. If
 provider permissions or tokens are unavailable, fail closed and verify the
 same evidence with connected GitHub/Vercel read tools; never skip it.
 
+### CI-first Preview display metadata (#1047)
+
+Trusted prebuilt Preview deployments use a main-owned writer after
+canonical GitHub acceptance. This writer already fetches the exact accepted
+GitHub commit; it may attach **bounded Git presentation metadata** (SHA,
+branch, subject and author) to the existing `vercel deploy --prebuilt` call
+for readable dashboard titles. Derive it only from the authenticated exact-SHA
+GitHub response; preserve all `mosaicPrebuilt*` identity markers and
+strict project, routing, artifact, scope, alias, and duplicate checks.
+An authenticated Vercel READY readback must still match the metadata actually
+sent. A Vercel CLI-created deployment with Git presentation keys must not
+be confused with an *independent* Git-created deployment when the provider
+omits `source` from deployment-list summaries. Explicit Git-origin
+collisions and unknown same-SHA deployments remain blockers.
+
+The live writer runs from protected `main` via `workflow_run`; a change
+accepted on a stable Preview branch does not take effect in that writer.
+Moving this infrastructure-only helper to `main` is a separately
+approved trusted-main change, **not** permission to promote unrelated
+application work or alter Production, aliases, or version numbers.
+Dashboard appearance is not proven by static tests; validate it on a new
+Preview with the updated trusted-main writer.
+
 ## Preview branch promotion policy
 
 Individual development branches such as `chatgpt/*` and `codex/*` should enter the active stable Preview branch through **Squash and merge**. This keeps experimental development commits out of the durable Preview history while preserving the detailed development history in the pull request.
