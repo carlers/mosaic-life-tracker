@@ -368,6 +368,51 @@ test('signed local Supabase CAS denies cross-owner writes, forged patches, direc
   expect(finalTasks[0]).toMatchObject({
     owner_id: a.id, id: taskId, title: 'A private task',
   });
+
+  // The owner cannot impersonate a friend reaction or rewrite the original
+  // creation timestamp. Invalid requests must not consume a CAS revision.
+  const protectedRevision = String(finalTasks[0].change_seq);
+  for (const protectedPatch of [
+    { created_at: '2000-01-01' },
+    { reactions: 'forged-actor-reaction' },
+    { title: 'Mixed forged edit', reactions: 'forged-actor-reaction' },
+  ]) {
+    await expectDenied(await rpc('task', taskId, protectedRevision, protectedPatch, a.token));
+    const same = await request('/rest/v1/mosaic_candidate_tasks?' +
+      new URLSearchParams({ select: 'id,change_seq,title,created_at,reactions',
+        owner_id: 'eq.' + a.id, id: 'eq.' + taskId }), { token: a.token });
+    expect(same).toHaveLength(1);
+    expect(String(same[0].change_seq)).toBe(protectedRevision);
+    expect(same[0].created_at).toBe(taskRow.created_at);
+    expect(same[0].reactions ?? '').toBe('');
+    expect(same[0].title).toBe('A private task');
+  }
+
+  const spoofed = await raw('/rest/v1/mosaic_candidate_tasks', {
+    token: a.token,
+    body: {
+      owner_id: a.id, id: 'forged_reactions_' + suffix,
+      title: 'Forged first write', completed: false,
+      category_id: categoryId, order_index: 0, task_date: '2026-10-19',
+      created_at: '2026-10-19T00:00:00.000Z',
+      updated_at: '2026-10-19T00:00:00.000Z', visibility: 'private',
+      reactions: 'server-impersonation', is_deleted: false,
+    },
+  });
+  await expectDenied(spoofed, [401, 403]);
+
+  const ownerTaskCas = await rpc('task', taskId, protectedRevision,
+    { title: 'Legitimate owner task edit' }, a.token);
+  expect(ownerTaskCas.status).toBe(200);
+  const ownerTask = await ownerTaskCas.json();
+  expect(ownerTask).toMatchObject({
+    id: taskId, owner_id: a.id,
+    created_at: taskRow.created_at, title: 'Legitimate owner task edit',
+  });
+  expect(ownerTask.reactions ?? '').toBe('');
+  expect(BigInt(ownerTask.change_seq)).toBeGreaterThan(BigInt(protectedRevision));
+  await expectNoRow(await rpc('task', taskId, protectedRevision,
+    { title: 'Stale task edit' }, a.token));
 });
 
 

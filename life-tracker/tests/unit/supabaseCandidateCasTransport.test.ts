@@ -105,6 +105,7 @@ describe('isolated Supabase candidate atomic CAS transport (#967)', () => {
     const { transport, fetcher } = setup();
     for (const patch of [
       { owner_id: other }, { id: 'switched' }, { change_seq: '10' },
+      { created_at: 'forged-original-date' }, { reactions: 'forged-friend-reaction' },
       { server_updated_at: 'now' }, {}, { title: { nested: 'bad' } },
       { title: Number.POSITIVE_INFINITY },
     ]) {

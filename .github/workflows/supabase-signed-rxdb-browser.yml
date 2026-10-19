@@ -17,6 +17,8 @@ on:
       - 'refactor/967-signed-rpc-denial-matrix-*'
       - 'chatgpt/967-provider-contract-*'
       - 'refactor/967-provider-contract-*'
+      - 'chatgpt/967-protected-fields-*'
+      - 'refactor/967-protected-fields-*'
     paths:
       - '.github/workflows/supabase-signed-rxdb-browser.yml'
       - 'life-tracker/tests/e2e/supabase-signed-rxdb*'
@@ -64,6 +66,7 @@ jobs:
           cp supabase-poc/migrations/20261018_candidate_task_category_owner_schema.sql supabase/migrations/20261018000000_candidate_task_category_owner_schema.sql
           cp supabase-poc/migrations/20261018_candidate_revoke_default_delete.sql supabase/migrations/20261018000001_candidate_revoke_default_delete.sql
           cp supabase-poc/migrations/20261019_candidate_atomic_cas_rpc.sql supabase/migrations/20261019000000_candidate_atomic_cas_rpc.sql
+          cp supabase-poc/migrations/20261020_candidate_task_protected_fields.sql supabase/migrations/20261020000000_candidate_task_protected_fields.sql
           python3 - <<'PY'
           from pathlib import Path
           import re
