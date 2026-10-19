@@ -40,11 +40,13 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
   const dragStarted = React.useRef(false);
   const pressCleanup = React.useRef<(() => void) | null>(null);
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
+  const activeChangeRef = React.useRef(onDragActiveChange);
+  activeChangeRef.current = onDragActiveChange;
 
   React.useEffect(() => () => {
     pressCleanup.current?.();
-    if (dragStarted.current) onDragActiveChange?.(false);
-  }, [onDragActiveChange]);
+    if (dragStarted.current) activeChangeRef.current?.(false);
+  }, []);
 
   const onPointerDown: CategoryPillActions['onPointerDown'] = (event) => {
     if (!canStartDrag || event.button !== 0) return;
@@ -83,6 +85,7 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
       if (state.held) {
         suppressClick.current = true;
         if (!state.moved) setMenuOpen(true);
+        window.setTimeout(() => { suppressClick.current = false; }, 100);
       }
     };
     const cancel = (next: PointerEvent) => {
@@ -140,6 +143,7 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
         dragStarted.current = false;
         onDragActiveChange?.(false);
         onDrop();
+        window.setTimeout(() => { suppressClick.current = false; }, 100);
       }}
     >
       {children(actions)}
@@ -159,9 +163,8 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
   const pendingIds = React.useRef(orderedIds);
   const persisting = React.useRef(false);
   const dragging = React.useRef(false);
-  const incomingIds = categories.map(c => c.id);
-
   React.useEffect(() => {
+    const incomingIds = categories.map(c => c.id);
     if (!sameCategoryIds(incomingIds, pendingIds.current)) {
       pendingIds.current = incomingIds;
       persisting.current = false;
