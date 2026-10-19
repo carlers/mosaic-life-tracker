@@ -152,7 +152,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     reorderTasks,
     moveTasksToCategory,
   } = taskStore;
-  const { categories: hookCategories = [] } = useCategories(
+  const { categories: hookCategories = [], reorderCategories, updateCategory } = useCategories(
     categoriesOverride === undefined
   );
   const { message: deleteFeedback, show: showFeedback } = useFeedback();
@@ -902,6 +902,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
             reorderRuntimeActive={isOpen}
             onReorderTasks={reorderTasks}
+            onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
+            onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
+            onCategoryActionError={showFeedback}
             onReorderActiveChange={setIsTaskReorderActive}
           />
         </>
@@ -1082,6 +1085,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       }
                       reorderRuntimeActive={isOpen && i === activeIndex}
                       onReorderTasks={reorderTasks}
+            onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
+            onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
+            onCategoryActionError={showFeedback}
                       onReorderActiveChange={setIsTaskReorderActive}
                       diaryEnabled={showDiaryInDayView && !isSelectMode}
                       diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}

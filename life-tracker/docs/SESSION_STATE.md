@@ -1,22 +1,22 @@
 # Session checkpoint
 
-Updated: 2026-10-19 UTC
-Current task: Reduce documentation-only CI friction for Mosaic handoff checkpoints and token estimates.
+Updated: 2026-10-20 UTC
+Current task: Implement issue #859, owner Day View category drag/reorder and in-place editing.
 
 ## Boundary
-- Base is protected `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Scoped task branch: `chatgpt/doc-contract-advisories-20261019`. No app runtime, schema, auth, sync, provider, deployment, or version change.
-- Keep AGENTS.md and AI_WORKFLOW.md instructions unchanged. Continue writing clear next actions and aiming for a concise handoff; this changes enforcement of two incidental shape/size checks only.
+- Protected dev baseline: `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12); main remains untouched.
+- Scoped branch: `chatgpt/859-dayview-category-gestures-20261020`.
+- Owner-only UI change; no backend, schema, auth, provider or production change.
+- Existing task/diary/shared drag and date swipe semantics must remain intact.
 
 ## Changes
-- `scripts/lib/create-handoff.mjs`: missing next-action heading becomes a returned advisory, accepting common equivalent headings. Required Updated and Current task/work markers still fail closed.
-- `scripts/create-handoff.mjs`: surface advisory on stderr without blocking handoff generation; retain strict GitHub exact-SHA and path safety checks.
-- `tests/unit/documentationContracts.test.ts`: 3,000 estimated-token handoff target becomes an advisory, preserving proof that the complete agent instructions and session checkpoint are included.
-- `tests/unit/createHandoff.test.ts`: coverage for alternate headings, missing-step advisories, and continued required-context failures.
+- Framer Motion category reordering with drag activation from category pill label; desktop mouse drag or delayed touch press.
+- Category action bubble allows in-place name/visibility editing and keyboard-accessible moving up/down.
+- Existing global category order and update hook are reused; propagate failed writes as errors.
+- Focused pure-order and React interaction regressions.
 
 ## Verification
-- Pending task focused CI, canonical stable Preview gate and trusted delivery; no local test-run or CI acceptance has yet been asserted.
-- Existing unrelated performance, security and Supabase/Oracle backend workstreams remain separate.
+- Initial focused CI passed at 589ab9868b6fb0c922cec9c5dfa46696cad180be. Preview version 0.31.0 staged; full canonical CI, hosted deployment and manual/device acceptance not yet completed.
 
 ## Next action
-- Commit coherent task with `[verify:focused]`; repair relevant failing tests if necessary. After focused green, squash into a separate stable Preview branch for canonical CI and trusted delivery. Do not promote to dev/main without explicit approval.
+- Verify versioned task commit with `[verify:focused]`, then squash into a dedicated stable Preview for canonical CI and Vercel. Do not promote to dev/main without explicit approval. Do not promote to dev/main without approval.
