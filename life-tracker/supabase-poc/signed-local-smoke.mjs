@@ -187,8 +187,18 @@ const [raceA, raceB] = await Promise.all([
   cas(a, a.task.id, firstRev, { title: 'race-a' }),
   cas(a, a.task.id, firstRev, { title: 'race-b' }),
 ]);
-const one = await jsonOk(raceA, 'Racing CAS A');
-const two = await jsonOk(raceB, 'Racing CAS B');
+// PostgREST serializes a SQL RETURNS-composite typed NULL as a JSON object
+// with null columns. Normalize exactly that shape, not mixed/malformed rows.
+const normalizeCas = (value) => {
+  if (value === null) return null;
+  if (value && typeof value === 'object' && !Array.isArray(value) &&
+    ['owner_id', 'id', 'change_seq', 'is_deleted'].every(
+      field => Object.prototype.hasOwnProperty.call(value, field) && value[field] === null,
+    ) && Object.values(value).every(item => item === null)) return null;
+  return value;
+};
+const one = normalizeCas(await jsonOk(raceA, 'Racing CAS A'));
+const two = normalizeCas(await jsonOk(raceB, 'Racing CAS B'));
 if ((one === null) === (two === null)) {
   const shape = (value) => value === null ? 'null'
     : Array.isArray(value) ? 'array'
@@ -204,13 +214,13 @@ assert(winner.id === a.task.id && winner.owner_id === a.id &&
   BigInt(winner.change_seq) > firstRev, 'CAS winner did not advance its revision');
 counters.casSuccesses++;
 
-const stale = await jsonOk(await cas(a, a.task.id, firstRev, { title: 'stale' }),
-  'Stale CAS');
+const stale = normalizeCas(await jsonOk(await cas(a, a.task.id, firstRev, { title: 'stale' }),
+  'Stale CAS'));
 assert(stale === null, 'Stale CAS overwrote the winner');
 counters.staleConflicts++;
 
-const foreign = await jsonOk(await cas(b, a.task.id, firstRev, { title: 'hijacked' }),
-  'Foreign CAS');
+const foreign = normalizeCas(await jsonOk(await cas(b, a.task.id, firstRev, { title: 'hijacked' }),
+  'Foreign CAS'));
 assert(foreign === null, 'Foreign CAS modified another account');
 counters.foreignCasConflicts++;
 
