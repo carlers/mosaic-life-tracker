@@ -297,7 +297,17 @@ test('signed local Supabase CAS denies cross-owner writes, forged patches, direc
   };
   const expectNoRow = async (response) => {
     expect(response.status).toBe(200);
-    expect(await response.json()).toBeNull();
+    const result = await response.json();
+    // PostgREST can encode a PostgreSQL RETURNS <composite> NULL as a
+    // typed row with every field null. Both forms mean ZERO rows changed;
+    // never accept partial-null or ownerless-but-nonempty responses.
+    if (result !== null) {
+      expect(result).toMatchObject({
+        owner_id: null, id: null, change_seq: null, is_deleted: null,
+      });
+      expect(Object.values(result).length).toBeGreaterThan(4);
+      expect(Object.values(result).every(value => value === null)).toBe(true);
+    }
   };
   for (const [domain, id, seq, patch] of [
     ['category', categoryId, category.change_seq, { name: 'Stolen category' }],
