@@ -114,6 +114,36 @@ Track the actual Appwrite→Supabase migration in [#967](https://github.com/carl
   UI changes can proceed in `dev` through their normal Preview/CI path,
   since neither experiment is imported by the running app.
 
+
+## Candidate atomic compare-and-set HTTP push (2026-10-19)
+
+- `supabase-poc/candidateCasTransport.ts` adds an **isolated-only** write
+  transport for existing candidate task/category rows using the precisely
+  scoped authenticated `mosaic_candidate_cas_task` and
+  `mosaic_candidate_cas_category` PostgREST RPCs. These were previously
+  verified in synthetic SQL. It does **not** issue a direct unrestricted
+  table `UPDATE`, which the candidate database deliberately revokes.
+- The transport requires a server-verified owner session, exact legacy
+  document ID, positive precision-safe expected revision **as a string**,
+  and a strict domain-specific patch allowlist. An RPC `null` response
+  is a conflict (stale, missing or foreign), **never** a write success or
+  silent retry. Successful replies must have matching owner/row ID,
+  a boolean logical tombstone flag and a strictly advancing revision.
+- The candidate GET transport additionally rejects token replacement
+  mid-request **even when the session epoch was not incremented**.
+  The write transport checks both token and epoch before/after RPC.
+  Unit tests use fake authenticated HTTP and cover CAS success,
+  >2^53 revisions, conflicts, injected fields, foreign responses,
+  account switches and 401/403/5xx failures.
+- **Still not done:** this transport isn't used by live Mosaic RxDB,
+  doesn't implement inserts, durable per-document revisions or conflict
+  master retrieval, and has **not executed the RPC through a genuine
+  signed Supabase Auth session**. A real two-account HTTP/RLS test,
+  security audit of the existing two intentionally exposed
+  `SECURITY DEFINER` RPCs, offline idempotency/concurrent devices,
+  all social/diary domains, Storage, Functions and encrypted disaster
+  recovery remain acceptance blockers.
+
 ## Next experiments, in order
 
 1. **Authentication:** create two disposable Supabase Auth accounts in this isolated project when safe automated Auth-user tooling is available, exercise real JWT data requests against `mosaic_sync_probe`, then delete test accounts. No real user data.

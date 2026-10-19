@@ -28,6 +28,17 @@ function harness(body: unknown = [], status = 200) {
 }
 
 describe('isolated Supabase REST candidate boundary', () => {
+  it('rejects a token rotation even when a session provider forgets to bump its epoch', async () => {
+    const { transport, auth, fetcher } = harness([]);
+    auth.mockResolvedValueOnce(verified).mockResolvedValue({
+      ...verified, accessToken: 'rotated-synthetic-token-with-same-epoch',
+    });
+    await expect(transport.listChanges({
+      domain: 'tasks', ownerId: id, afterExclusive: '0', batchSize: 10,
+    })).rejects.toBeInstanceOf(CandidateAuthError);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it('queries only own changed rows with bearer token, exact cursor and bounded limit', async () => {
     const { fetcher, auth, transport } = harness([]);
     await transport.listChanges({
