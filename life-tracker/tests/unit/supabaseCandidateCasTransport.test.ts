@@ -160,9 +160,14 @@ describe('isolated Supabase candidate atomic CAS transport (#967)', () => {
         session: { getVerifiedSession: async () => session },
       })).toThrow();
     }
-    expect(() => createCandidateCasTransport({
-      baseUrl: 'https://synthetic.supabase.co', publishableKey: 'sb_secret_unsafe',
-      session: { getVerifiedSession: async () => session },
-    })).toThrow();
+    for (const publishableKey of [
+      'sb_secret_unsafe', 'eyJlegacyServiceRole.isNotPublic.jwtSignature',
+      'sb_publishable_invalid key with whitespace',
+    ]) {
+      expect(() => createCandidateCasTransport({
+        baseUrl: 'https://synthetic.supabase.co', publishableKey,
+        session: { getVerifiedSession: async () => session },
+      })).toThrow();
+    }
   });
 });
