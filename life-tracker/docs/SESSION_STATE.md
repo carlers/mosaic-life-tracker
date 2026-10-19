@@ -1,17 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 — server-verified Supabase Auth token boundary for isolated REST candidate.
+Current task: #967 isolated candidate Supabase RPC atomic compare-and-set write transport.
 
-## Boundaries
-- Base isolated accepted `refactor/supabase-http-transport-20261019@f88c4d4fdc72a36db8286e6a9271b1e953bb2a77` (PR #974; focused, canonical and trusted delivery passed). Source-only, no app version impact.
-- Project `mosaic-dev` still ACTIVE_HEALTHY; connector Security Advisor shows two outstanding WARNs for authenticated-executable SECURITY DEFINER CAS RPCs, no real Auth users or schema changes made.
-- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and Production main `b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged by this experiment. OCI #975 capacity watch develops separately.
+## Boundary
+- Forked from verified isolated `refactor/967-verified-auth-transport-20261019@54fea0b4d91f05be5eed485996ab2c0d92617937`; Auth provider mock tests, focused #39179778943 and canonical #39179935812 succeeded, trusted #39180113890 READY.
+- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and Production main `b952f71ecd2add3172f90104bc0e856a2648ccc9` not changed. No source import into runtime, real users, Supabase schema change, SDK switch or version bump.
+- `mosaic-dev` isolated Supabase remains ACTIVE_HEALTHY and two Security Advisor WARNs remain for intentionally callable SECURITY DEFINER CAS RPCs. Actual source functions inspected: explicit auth.uid owner, fixed search_path, field allowlist, expected revision. Independent signed HTTP security review still required.
 
-## Scoped change
-- Task `chatgpt/967-verified-auth-transport-20261019`: add `supabase-poc/candidateVerifiedAuth.ts` implementing the pending `CandidateSessionProvider`. It calls Supabase Auth GET /auth/v1/user with a supplied in-memory access token; relies on server-returned signed-in UUID, never local JWT decoding. Validates HTTPS/publishable key, denies insecure/secret URLs, enforces pre/post account epoch and token equality; fail-closed offline/errors/expired session.
-- Unit tests `tests/unit/supabaseCandidateVerifiedAuth.test.ts` use mocked Auth/REST requests, wrong-account switches and token rotation; no actual signed HTTP executed, no keys copied to repo. Docs `SUPABASE_EVALUATION.md` clarifies the gate.
+## Work
+- Add `supabase-poc/candidateCasTransport.ts`: POST only allowlisted CAS task/category RPC, signed-in owner from verified session, strict positive precision-safe revision, validated patch and resulting owner/id/new revision/tombstone; a NULL server response is conflict, no automatic retry or false acknowledgment.
+- Additional regression tests `tests/unit/supabaseCandidateCasTransport.test.ts` for stale writes, foreign replies, >2^53 seq, patch injection, session switch and no hidden retry.
+- Tighten source-only `candidateHttpTransport.ts` to compare token as well as epoch before and after a GET; add matching regression.
+- Update `docs/SUPABASE_EVALUATION.md`. App behaviour/source version impact NONE. OCI #975 capacity watcher is separate stable branch; user's independent UI work on dev remains untouched.
 
-## Next action
-- Coherent task [verify:focused] CI; then squash to isolated stable Preview and await full canonical gate/trusted READY. If CI fails, fix scope without weakening checks. Update issue #967 resume checkpoint.
-- Later: real disposable Auth accounts and signed JWT HTTP RLS tests, CAS RPC independent security review, actual offline RxDB pull+push and all-domain privacy, storage/functions/DR and reversible provider migration. Keep Supabase and Oracle POCs isolated from user's independent UI changes on dev.
+## Verification / next action
+- Run task [verify:focused], squash into isolated stable Preview, then canonical Quality Gate and trusted delivery. If there are failures, repair without weakening security or verification.
+- Later: genuine signed-in disposable Supabase Auth tests, REST CAS/owner RLS attacks, insert/idempotent replays, RxDB push+pull/conflict handling and queued changes, all eight domains/media/Functions, cost/DR, user identity continuity and reversible cutover. No provider/dev/main/Production promotion without distinct approval. Keep #967 open.

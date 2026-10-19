@@ -95,7 +95,8 @@ export function createCandidateHttpTransport(options: {
       // Reject in-flight results after a logout/account switch/session replacement,
       // even when the HTTP request was issued under a formerly valid account.
       const current = await checkedSession(ownerId);
-      if (current.sessionEpoch !== session.sessionEpoch)
+      if (current.sessionEpoch !== session.sessionEpoch ||
+        current.accessToken !== session.accessToken)
         throw new CandidateAuthError('Candidate account changed during request');
       return rows as Row[];
     },
