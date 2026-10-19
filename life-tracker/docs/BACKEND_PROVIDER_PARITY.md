@@ -38,7 +38,7 @@ This is a **parity inventory**, not a statement that either candidate provider p
 | Capacity and total cost | Measure representative 1K/10K/100K-row profiles, P95/P99 sync/Function latency, reads/RPC writes, bytes/index size, media storage+egress, Free caps, backup costs, capacity/reclaim and operator load; no fabricated Free-limit guarantees | **Open**; no representative end-to-end benchmark/OCI host |
 | Release/rollback | Test old-PWA behavior (#914), independent fresh DR, freeze and settle queued writes, one writer, verified snapshot and reverse-delta or *zero acknowledged target-only writes* abort. DNS rollback alone is **not** reversible after new writes | **Open**; separate explicit owner approval required for dev/main, provider config, hosted writes and Production |
 
-The focused [privileged CAS threat review](SUPABASE_PRIVILEGED_CAS_REVIEW.md) records remaining security restrictions and links reusable two-owner synthetic contract fixtures for all eight domains. This is not hosted or production security signoff.
+The focused [privileged CAS threat review](SUPABASE_PRIVILEGED_CAS_REVIEW.md) records remaining security restrictions and links reusable two-owner synthetic contract fixtures for all eight domains. The [owner-private provider acceptance runner](../tests/provider/ownerPrivateAcceptance.mjs) covers ONLY the **two** task/category domains; all six other domains fail closed, not pass by omission. This is not hosted or production security signoff.
 
 ## Next executable safe sequence
 

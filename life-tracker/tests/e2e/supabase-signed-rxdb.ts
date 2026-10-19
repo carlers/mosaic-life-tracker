@@ -3,6 +3,8 @@
  * The JWT is supplied by the dedicated GitHub Actions test via addInitScript;
  * never imported by the shipped Mosaic app, persisted, or logged.
  */
+import { makeBackendParityFixtures, PARITY_OWNERS } from '../fixtures/backendProviderParity';
+import { toCandidateCategoryWrite, toCandidateTaskWrite } from '../../supabase-poc/candidateMapping';
 import { addRxPlugin, createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
@@ -141,8 +143,28 @@ async function snapshot() {
     })) ?? [],
   };
 }
+/**
+ * Browser only: compile the checked-in typed eight-domain fixture through Vite,
+ * map ONLY the two implemented owner-private domains to signed Supabase UUIDs.
+ * Future adapters must independently implement and verify the remaining six.
+ */
+function privateProviderFixtures(principals: { a: string; b: string }) {
+  const source = makeBackendParityFixtures();
+  const records = { a: { tasks: [], categories: [] }, b: { tasks: [], categories: [] } } as {
+    a: { tasks: ReturnType<typeof toCandidateTaskWrite>[]; categories: ReturnType<typeof toCandidateCategoryWrite>[] };
+    b: { tasks: ReturnType<typeof toCandidateTaskWrite>[]; categories: ReturnType<typeof toCandidateCategoryWrite>[] };
+  };
+  for (const label of ['a', 'b'] as const) {
+    const identity = { legacyUserId: PARITY_OWNERS[label], supabaseUserId: principals[label] };
+    records[label].categories = source[label].categories.map(doc => toCandidateCategoryWrite(doc, identity));
+    records[label].tasks = source[label].tasks.map(doc => toCandidateTaskWrite(doc, identity));
+  }
+  return records;
+}
+
 Object.assign(window, {
   __mosaicSignedRxdb: {
+    privateProviderFixtures,
     start, stop, edit, snapshot,
     setOffline(value: boolean) { offline = value; },
     resync() { if (!active) throw new Error('No active signed replica'); active.resync(); },

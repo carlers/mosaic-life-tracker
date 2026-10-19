@@ -1,21 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 privileged Supabase CAS security review and provider-neutral eight-domain synthetic acceptance fixtures.
+Current task: #967/#975 provider-neutral signed owner-private acceptance runner with shared eight-domain fixtures.
 
 ## Baseline and boundary
-- Branch chatgpt/967-cas-threat-fixture-20261019 from accepted isolated stable refactor/967-provider-parity-audit-20261019@da3999d74b339915e07d324b32bfb2a9efed85a3 (PR #1015); canonical #39221951438 and trusted Preview #39222183787 SUCCESS.
-- Protected dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1 and main@b952f71ecd2add3172f90104bc0e856a2648ccc9 unchanged at task start. Do not promote either.
-- OCI Appwrite #975 and Supabase Free #967 remain separate reversible candidate providers. No hosted DB/schema/Auth data changes, Appwrite/OCI/Production changes, runtime provider selection or version bump approved.
+- Accepted predecessor Preview refactor/967-cas-threat-fixture-20261019@6695cf3353b4ce1202a093ea1802d29fc561c855 (PR #1017); canonical Quality Gate #39224210760 and trusted Preview #39224436651 SUCCESS, exact prebuilt READY.
+- Protected dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1, main@b952f71ecd2add3172f90104bc0e856a2648ccc9 at task start. OCI Appwrite #975 and Supabase Free #967 remain reversible competing options, neither selected.
+- Only synthetic test harness, disposable localhost signed CI, and docs. No hosted Supabase Auth/schema/data, Appwrite Scratch/Production, OCI VM, shipped runtime, provider config, version or protected branch changes.
 
 ## Work
-- docs/SUPABASE_PRIVILEGED_CAS_REVIEW.md independently inventories the two hosted authenticated-callable SECURITY DEFINER CAS functions and ACL/owner/revision/patch protections. Records remaining server-owned task reactions/created-at, privacy, revision contention, Auth, signed-hosted proof and formal signoff gaps; two advisor WARNs remain unresolved. No security bypass, warning suppression or hosted privilege change.
-- tests/fixtures/backendProviderParity.ts defines synthetic deterministic two-owner normal/soft-tombstone records for all eight current RxDB domains; tests/unit/backendProviderParity.test.ts checks schema, Appwrite mapping, two-row message and owner references, and Supabase candidate owner fence. Unit checks cannot establish provider-specific backend parity.
-- Link the audit from docs/README.md and docs/BACKEND_PROVIDER_PARITY.md; no shipped app import or remote test data.
+- tests/provider/ownerPrivateAcceptance.mjs: injectable provider-neutral two-signed-principal positive/negative owner-private contract for tasks/categories ONLY. Denies unimplemented six domains, foreign/anonymous access, forged inserts, unguarded DML, stale and foreign CAS, and validates monotonic owner-scoped cursors with tombstones.
+- tests/e2e/supabase-signed-rxdb.ts exposes tasks/categories mapped from existing typed eight-domain fixture; signed disposable UUIDs are provided only by dedicated local CLI test.
+- tests/e2e/supabase-signed-rxdb.spec.mjs adds genuine local Supabase signed Auth/PostgREST acceptance consuming fixture/runner. Original signed RxDB offline/restart/review tests unchanged.
+- tests/unit/backendOwnerPrivateAcceptance.test.ts simulates leaky reads and revision bypass for fail-closed runner coverage; .github/workflows/supabase-signed-rxdb-browser.yml has scoped new task/Preview branch patterns and source triggers.
+- Privileged CAS WARNs, writable reactions/created-at, server-owned social/message semantics and independent hosted signoff remain OPEN.
 
 ## Verification
-- Full focused task CI and stable Preview acceptance **pending at checkpoint authoring**. Commit coherent task with [verify:focused], repair failures without weakening privacy guards, squash only into a fresh isolated stable Preview, require canonical full Quality Gate and trusted Preview READY.
-- Signed hosted users, 6 remaining Supabase domains, formal RPC security signoff, media/Functions, credentials, independent DR, quota/OCI benchmarks and reversible cutover remain unresolved.
+- At checkpoint authoring, task focused, disposable signed CLI+Chromium, canonical stable Preview and trusted prebuilt delivery are PENDING, not proven.
+- Signed service acceptance only covers owner-private tasks/categories on localhost; remaining six domains, OCI ARM64 feasibility, hosted signed Auth, formal security signoff, Auth continuity, media/Functions, DR, Free capacity and old-PWA-safe rollback are open.
 
 ## Next action
-- After focused and stable acceptance, post exact SHA/CI/deployment evidence into #967 and keep #975 linked and open. Prioritize portable provider fixture runner and genuine independently approved hosted/OCI tests when access and infrastructure gates are satisfied. Never alter dev/main/Production or release 1.0 without separate explicit approval.
+- Commit coherent chatgpt/967-provider-contract-* task with [verify:focused], run dedicated disposable signed browser lab, repair failures. Squash only after task focused and signed lab success to isolated stable refactor/967-provider-contract-*, require canonical full Quality Gate and trusted Preview READY, post exact evidence in issue #967. No dev/main/Production/1.0 promotion without separate explicit owner approval.
