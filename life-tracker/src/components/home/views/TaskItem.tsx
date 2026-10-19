@@ -213,6 +213,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     tabIndex: !isDragOverlay && selectionMode ? 0 : undefined,
     onClick: selectionMode ? onToggleSelection : undefined,
     onKeyDown: selectionMode ? (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.target !== event.currentTarget) return;
       activateOnEnterOrSpace(event, () => onToggleSelection?.());
     } : undefined,
     className: 'flex scroll-mt-16 items-start gap-3 rounded-lg pl-0 pr-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60',
@@ -225,7 +226,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         type="button"
         onClick={(event) => {
           event.stopPropagation();
-          onToggle(task.id);
+          if (!selectionMode) onToggle(task.id);
         }}
         onPointerDown={(e) => {
           e.stopPropagation();
@@ -238,6 +239,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           backgroundColor: isCompleted ? categoryColor : 'transparent',
         }}
         aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+        aria-disabled={selectionMode || undefined}
       >
         {isCompleted && (
           <Check
