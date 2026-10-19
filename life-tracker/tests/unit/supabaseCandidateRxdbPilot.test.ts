@@ -295,6 +295,15 @@ describe('isolated Supabase RxDB native replication bridge (#967)', () => {
       reason: 'divergent-master', remoteRevision: '3', remote: { name: 'Third edit' },
       local: { name: 'New' },
     });
+    // Name equality alone is insufficient: a different stored timestamp
+    // means the remote has NOT independently converged to the local draft.
+    remote = row({ ...changed, updatedAt: '2026-10-22' }, '4');
+    await expect(h.pilot.refreshPendingConflict(initial.id)).resolves.toEqual({
+      state: 'updated', revision: '4',
+    });
+    expect(h.pilot.listPendingConflicts()[0].remoteRevision).toBe('4');
+    expect(h.pilot.listPendingConflicts()[0].remote?.name).toBe('New');
+    expect(h.compareAndSet).not.toHaveBeenCalled();
     remote = null as never;
     await expect(h.pilot.refreshPendingConflict(initial.id)).resolves.toEqual({
       state: 'updated', revision: null,

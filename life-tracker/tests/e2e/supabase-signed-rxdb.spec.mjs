@@ -66,13 +66,13 @@ async function owned(user, id) {
   if (!Array.isArray(rows)) throw new Error('Invalid signed owner read');
   return rows[0] ?? null;
 }
-async function secondDeviceCas(user, row, newName) {
+async function secondDeviceCas(user, row, newName, updatedAt = '2026-10-21T00:00:00.000Z') {
   const reply = await request('/rest/v1/rpc/mosaic_candidate_cas_category', {
     method: 'POST', token: user.token,
     body: {
       p_id: row.id, p_expected_seq: String(row.change_seq),
       p_patch: {
-        name: newName, updated_at: '2026-10-21T00:00:00.000Z',
+        name: newName, updated_at: updatedAt,
       },
     },
   });
@@ -235,7 +235,8 @@ test('actual signed Supabase + Chromium RxDB: checkpoint, offline retry, and saf
   // draft. One explicit review refresh should clear the conflict and wake
   // RxDB's parked push. That push must only read/ack — no extra CAS write.
   const anotherRemote = await owned(a, firstId);
-  const converged = await secondDeviceCas(a, anotherRemote, 'Converged independently');
+  const converged = await secondDeviceCas(a, anotherRemote,
+    'Converged independently', '2026-10-20T00:00:00.000Z');
   const beforeConvergence = await probe();
   await expect(page.evaluate(id => window.__mosaicSignedRxdb.refreshConflict(id), firstId))
     .resolves.toEqual({ state: 'converged', revision: String(converged.change_seq) });
