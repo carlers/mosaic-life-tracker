@@ -12,6 +12,6 @@ Current task: #967 provider-neutral eight-domain backend parity audit supporting
 - Read-only hosted Supabase check on 2026-10-19: `mosaic-dev` ACTIVE_HEALTHY, four RLS-enabled experimental tables at zero rows; two authenticated-callable SECURITY DEFINER CAS Advisor warnings remain open.
 - Read-only private scheduler Actions check on 2026-10-19: five manual runs, zero schedule events. Last manual prerequisite audit passed, A1 capacity unavailable; autonomous auto-claim not established.
 
-## Verification and next action
+## Next action
 - GitHub exact-source commit with `[verify:focused]` and focused documentation/contracts gate **not yet verified at checkpoint write**. After task focused green, squash only into a **new isolated stable Preview** for canonical CI/trusted delivery. Do not promote to `dev` or `main`.
 - Review security of privileged Supabase RPCs without changing grants, then choose next synthetic parity/hosted Auth probes based on evidence. Keep #967 and #975 OPEN; note remaining manual/hosted approvals and actual CI/deployment outcomes in their issue checkpoints.
