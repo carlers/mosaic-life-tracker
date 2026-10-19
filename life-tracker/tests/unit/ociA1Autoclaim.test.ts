@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  claimA1, SPEC, buildLaunchArgs, existingA1,
+  claimA1, SPEC, buildLaunchArgs, existingA1, readInstanceInventory,
   validateImageAndSubnet, validateConfig,
 } from '../../scripts/oci-a1-autoclaim.mjs';
 
@@ -38,8 +38,15 @@ const results = {
 };
 function mockOci(overrides = {}) {
   return vi.fn((exe, args, opts) => {
-    expect(exe).toBe('oci');
     expect(opts.shell).toBe(false);
+    if (exe === 'python') {
+      expect(args[0]).toBe('-c');
+      expect(args[1]).toContain('list_call_get_all_results');
+      expect(opts.env.MOSAIC_A1_INVENTORY_COMPARTMENT).toBe(compartmentId);
+      return { status: 0,
+        stdout: JSON.stringify({ ...results, ...overrides }['compute instance list']), stderr: '' };
+    }
+    expect(exe).toBe('oci');
     expect(args).toContain('--no-retry');
     const key = args.slice(0, args.indexOf('--compartment-id') > 0
       ? args.indexOf('--compartment-id') : args.indexOf('--image-id') > 0
@@ -107,6 +114,24 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
       capacity: () => cap(), spawn }).outcome).toBe('already_present');
     expect(spawn.mock.calls.some(([, args]) => args.includes('launch'))).toBe(false);
   });
+  it('fails closed on empty SDK stdout, errors or incomplete instance metadata', () => {
+    const normal = mockOci();
+    for (const inventoryResult of [
+      { status: 0, stdout: '' },
+      { status: 0, stdout: '{}' },
+      { status: 0, stdout: '{"data":[{"shape":null}]}' },
+      { status: 1, stdout: '', stderr: 'SECRET_SIGNING_KEY=no-log' },
+    ]) {
+      const spawn = vi.fn((exe, args, opts) =>
+        exe === 'python' ? inventoryResult : normal(exe, args, opts));
+      expect(() => claimA1({ mode: 'launch', enabled: true, context, config,
+        capacity: () => cap(), spawn })).toThrow(/inventory/i);
+      expect(spawn.mock.calls.some(([, args]) => args.includes('launch'))).toBe(false);
+    }
+    expect(() => existingA1({ data: [{ shape: null }] })).toThrow(/verify/);
+    expect(readInstanceInventory(compartmentId, () =>
+      ({ status: 0, stdout: '{"data":[]}' }))).toEqual({ data: [] });
+  });
   it('refuses wrong image, incompatible architecture and missing subnet', () => {
     expect(() => validateImageAndSubnet(
       { data: { 'operating-system': 'Oracle Linux', 'operating-system-version': '9',
@@ -131,7 +156,8 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     spawn.mockImplementation((exe, args) => args.includes('launch')
       ? { status: 1, stdout: '', stderr: 'key_file=private-secret' }
       : { status: 0, stdout: JSON.stringify(results[
-          [...Object.keys(results)].find(n => args.slice(0, n.split(' ').length).join(' ') === n)
+          exe === 'python' ? 'compute instance list' :
+            [...Object.keys(results)].find(n => args.slice(0, n.split(' ').length).join(' ') === n)
         ]), stderr: '' });
     expect(() => claimA1({ mode: 'launch', enabled: true, context, config,
       capacity: () => cap(), spawn })).toThrow(/no fallback or retry/);
