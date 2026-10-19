@@ -124,7 +124,9 @@ session in Playwright. Twenty Chromium-native touch-drag correctness tests
 `bottom-sheet-history.spec.mjs`) remain required Chromium tests but are
 explicitly reported as WebKit skips. Other browser tests, including keyboard,
 focus, history, scrolling, accessibility, offline/local storage, and task-entry
-regressions, execute in both engines. Do not claim native-touch gesture parity
+regressions, execute in both engines. Tests that explicitly validate trackpad
+wheel routing use a desktop-input browser context under WebKit because the
+Playwright mobile WebKit backend does not implement `page.mouse.wheel`. Do not claim native-touch gesture parity
 or treat a synthetic `TouchEvent` or mouse drag as the same device interaction.
 The iPad-sized task-entry scenario is still exercised within the complete
 WebKit run. Diagnostics tagged `@performance` retain their distinct

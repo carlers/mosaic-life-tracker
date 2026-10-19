@@ -191,6 +191,10 @@ test('switching and reopening a conversation resets the bottom pin', async ({ pa
   await page.evaluate(() => { window.chatControl.loading(); window.chatNavigate('/messages/second'); });
   await expect(page.getByRole('status').filter({ hasText: 'Loading messages' })).toContainText('Loading messages');
   await page.evaluate(() => window.chatControl.load(80));
+  // On WebKit a newly navigated conversation can still be in its empty
+  // transition state when gap() is zero. Wait for the actual loaded messages
+  // before asserting that history scrolling exposes the bottom-jump control.
+  await expect(page.locator('[id^="msg-"]')).toHaveCount(80);
   await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
   await readHistory(page);
   await page.evaluate(() => window.chatNavigate('/messages/friend'));

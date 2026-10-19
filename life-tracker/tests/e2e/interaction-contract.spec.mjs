@@ -371,8 +371,27 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
   await expect(page.getByTestId('primary-route')).toHaveText('explore');
 });
 
+// Trackpad/wheel contracts must use a desktop input context on WebKit;
+// Playwright's mobile WebKit backend rejects page.mouse.wheel. Keep the
+// browser-correctness assertions themselves unchanged.
+async function withDesktopWheelPage({ page, browser, browserName }, callback) {
+  if (browserName !== 'webkit') return callback(page);
+  const context = await browser.newContext({
+    isMobile: false,
+    hasTouch: false,
+    viewport: { width: 412, height: 915 },
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    return await callback(await context.newPage());
+  } finally {
+    await context.close();
+  }
+}
+
 // Regression: §2/§7 (desktop horizontal wheel reuses route gesture ownership).
-test('horizontal trackpad wheel follows the route compositor and detail edge rules', async ({ page }) => {
+test('horizontal trackpad wheel follows the route compositor and detail edge rules', async ({ page, browser, browserName }) => {
+  await withDesktopWheelPage({ page, browser, browserName }, async (page) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   await page.getByTestId('set-primary-explore').click();
 
@@ -404,6 +423,7 @@ test('horizontal trackpad wheel follows the route compositor and detail edge rul
   await page.mouse.move(box.x + 20, box.y + 40);
   await page.mouse.wheel(-150, 0);
   await expect(page.getByTestId('primary-route')).toHaveText('explore');
+  });
 });
 
 // Regression: §24.17 (switch thumb remains inside its usable track).
@@ -468,7 +488,8 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
   await expect(friendIndex).toHaveText('1');
 });
 
-test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page }) => {
+test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page, browser, browserName }) => {
+  await withDesktopWheelPage({ page, browser, browserName }, async (page) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const friendIndex = page.getByTestId('friend-index');
   const calendarTitle = page.getByTestId('calendar-title');
@@ -492,6 +513,7 @@ test('Calendar and Todo carousels own horizontal trackpad scrolling without movi
   await page.mouse.wheel(90, 0);
   await expect(page.getByTestId('todo-month')).toHaveText('October 2026');
   await expect(friendIndex).toHaveText('0');
+  });
 });
 
 // Regression #858: the compact Todo and Diary carousel must always render

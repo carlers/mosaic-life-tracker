@@ -16,7 +16,7 @@ Current task: #1008 extend WebKit across the complete Playwright browser correct
 
 ## Prior verified
 - #1008 v0.29.13 task blur-save Preview canonical #39219337007 SUCCESS and Trusted Preview Delivery #39219583581 SUCCESS at base SHA, with Vercel READY CLI readback.
-- This expanded WebKit task branch has no verified CI/Preview yet; do not claim acceptance before exact-SHA checks.
+- Expanded task CI #39223047500: focused checks SUCCESS; Chromium both shards SUCCESS; WebKit shard 2 SUCCESS (16 passed, 15 CDP-only skips). WebKit shard 1 revealed three cases (24 passed, 5 CDP-only skips): two desktop wheel tests invoked on unsupported mobile WebKit, and one chat test raced the loaded message list after route transition. Repairs are on the task branch, not yet reverified. No accepted full WebKit suite or Preview for this revision yet.
 
 ## Next safe action
 - Run focused + browser CI on a coherent task commit; repair real engine-specific failures. After green, squash into stable Preview and confirm canonical CI, trusted receiver and matching READY deployment. No dev/main promotion without explicit approval.
