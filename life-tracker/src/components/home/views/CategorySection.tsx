@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react';
+import React, { useCallback, useId, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CheckSquare, ChevronDown, Plus, Square } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
@@ -36,7 +36,7 @@ interface CategorySectionProps {
   settlingTaskId?: string | null;
   lastReleasedTask?: { taskId: string; revision: number } | null;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
-  onAddTask: (title: string, completed?: boolean) => void;
+  onAddTask: (title: string, completed?: boolean) => void | Promise<void>;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
   onEditTask: (task: TaskDocument) => void;
@@ -106,25 +106,43 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const inputId = useId();
+  const submittingRef = useRef(false);
 
-  const setInputRef = (node: HTMLInputElement | null) => {
+  // Keep ref identity stable: re-rendering a pending row must not steal focus
+  // from the category/task the user tapped after leaving this input.
+  const setInputRef = useCallback((node: HTMLInputElement | null) => {
     node?.focus();
-  };
+  }, []);
 
   const closeInput = () => {
     setNewTitle('');
     setIsAdding(false);
   };
 
-  const commitAdd = (completed = false) => {
+  const commitAdd = (completed = false, keepAdding = continueAddingAfterSubmit) => {
     const trimmed = newTitle.trim();
-    if (trimmed) {
-      onAddTask(trimmed, completed);
-      if (continueAddingAfterSubmit) {
-        setNewTitle('');
+    if (!trimmed || submittingRef.current) return;
+    submittingRef.current = true;
+
+    const finish = () => {
+      submittingRef.current = false;
+      if (keepAdding) setNewTitle('');
+      else closeInput();
+    };
+    const failed = () => {
+      // Keep the unsaved draft so users can retry after a local write failure.
+      // The caller displays feedback; a rejected write must never clear this input.
+      submittingRef.current = false;
+    };
+    try {
+      const result = onAddTask(trimmed, completed);
+      if (result && typeof result.then === 'function') {
+        void result.then(finish, failed);
       } else {
-        closeInput();
+        finish();
       }
+    } catch {
+      failed();
     }
   };
 
@@ -138,9 +156,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const handleBlur = () => {
-    if (!newTitle.trim()) {
-      closeInput();
-    }
+    if (newTitle.trim()) commitAdd(false, false);
+    else if (!submittingRef.current) closeInput();
   };
 
   const handleOpen = () => {
@@ -345,6 +362,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
               data-task-inline-input
               ref={setInputRef}
               type="text"
+              enterKeyHint="done"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={handleKeyDown}

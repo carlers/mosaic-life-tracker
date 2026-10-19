@@ -41,7 +41,7 @@ export interface DaySlideProps {
   editingTaskId: string | null;
   editValue: string;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
-  onAddTask: (title: string, categoryId: string, dateStr: string, completed?: boolean) => void;
+  onAddTask: (title: string, categoryId: string, dateStr: string, completed?: boolean) => void | Promise<void>;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
   onEditTask: (task: TaskDocument) => void;

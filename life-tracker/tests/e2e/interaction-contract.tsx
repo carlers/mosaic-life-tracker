@@ -13,6 +13,7 @@ import { IncompleteTaskBlockColorContext } from '../../src/hooks/incompleteTaskB
 import { loadDayViewSheet } from '../../src/components/home/views/dayViewSheetModule';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
+import { CategorySection } from '../../src/components/home/views/CategorySection';
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 import { AuthContext } from '../../src/hooks/authContext';
 import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
@@ -847,6 +848,57 @@ export function InteractionHarness() {
   );
 }
 
+
+/** Real CategorySection rendering with in-memory persistence, deliberately isolated
+ * from remote authentication and production/scratch user data. */
+function TaskEntryProbe() {
+  const [tasks, setTasks] = useState<TaskDocument[]>([]);
+  const categories = [
+    { id: 'work', name: 'Work', color: '#3B82F6' },
+    { id: 'personal', name: 'Personal', color: '#22C55E' },
+  ];
+  const addTask = (title: string, categoryId: string) => {
+    setTasks(current => [...current, {
+      id: `task_${current.length + 1}`,
+      title,
+      categoryId,
+      userId: 'user_1',
+      date: '2026-10-19',
+      order: current.filter(task => task.categoryId === categoryId).length,
+      completed: false,
+      visibility: 'private',
+      isDeleted: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as TaskDocument]);
+  };
+
+  return <main data-testid="webkit-task-entry" className="mx-auto w-full max-w-xl p-4">
+    <h1>Task input browser regression</h1>
+    <output data-testid="saved-task-count">{tasks.length}</output>
+    {categories.map(category => (
+      <CategorySection
+        key={category.id}
+        categoryId={category.id}
+        categoryName={category.name}
+        categoryColor={category.color}
+        currentUserId="user_1"
+        tasks={tasks.filter(task => task.categoryId === category.id)}
+        editingTaskId={null}
+        editValue=""
+        onAddTask={title => addTask(title, category.id)}
+        onToggleTask={() => {}}
+        onOpenActions={() => {}}
+        onOpenMemo={() => {}}
+        onEditTask={() => {}}
+        onEditChange={() => {}}
+        onEditSave={() => {}}
+        onEditCancel={() => {}}
+      />
+    ))}
+  </main>;
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
@@ -865,9 +917,11 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('chatMotion')
-        ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
-        : <InteractionHarness />}
+      {new URLSearchParams(window.location.search).has('taskEntry')
+        ? <TaskEntryProbe />
+        : new URLSearchParams(window.location.search).has('chatMotion')
+          ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
+          : <InteractionHarness />}
     </AuthContext.Provider>
   </StrictMode>
 );

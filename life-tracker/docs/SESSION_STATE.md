@@ -1,22 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: Reduce documentation-only CI friction for Mosaic handoff checkpoints and token estimates.
+Current task: #1008 Playwright WebKit pre-1.0 coverage plus iPad task-entry blur-save regression.
 
 ## Boundary
-- Base is protected `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Scoped task branch: `chatgpt/doc-contract-advisories-20261019`. No app runtime, schema, auth, sync, provider, deployment, or version change.
-- Keep AGENTS.md and AI_WORKFLOW.md instructions unchanged. Continue writing clear next actions and aiming for a concise handoff; this changes enforcement of two incidental shape/size checks only.
+- Base: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12); `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
+- Task branch: `chatgpt/1008-webkit-task-blur-20261019`; stable Preview target: `fix/ios-task-input-webkit-1008-20261019`. Proposed user-testable Preview v0.29.13 (PATCH); no dev/main promotion approved.
+- Issue #1008 is pre-1.0 authorized for immediate work; issue #1009 records Firefox as post-1.0 planning only.
+- No backend/schema changes; Preview remains Scratch-only. Real Safari installed PWA verification is a separate manual requirement.
 
-## Changes
-- `scripts/lib/create-handoff.mjs`: missing next-action heading becomes a returned advisory, accepting common equivalent headings. Required Updated and Current task/work markers still fail closed.
-- `scripts/create-handoff.mjs`: surface advisory on stderr without blocking handoff generation; retain strict GitHub exact-SHA and path safety checks.
-- `tests/unit/documentationContracts.test.ts`: 3,000 estimated-token handoff target becomes an advisory, preserving proof that the complete agent instructions and session checkpoint are included.
-- `tests/unit/createHandoff.test.ts`: coverage for alternate headings, missing-step advisories, and continued required-context failures.
+## Changes being delivered
+- Nonempty inline new-task drafts commit on blur even without an iPadOS keyboard Done key; preserve empty/cancel, checkbox, and continuous Enter semantics.
+- Await local creation in Day View, show failure feedback, and retain the unsaved draft instead of closing prematurely.
+- Add a small Playwright WebKit task-entry regression lane in CI beside the existing Chromium browser contract gate. Avoid unsupported Chromium CDP gestures in WebKit.
 
 ## Verification
-- Pending task focused CI, canonical stable Preview gate and trusted delivery; no local test-run or CI acceptance has yet been asserted.
-- Existing unrelated performance, security and Supabase/Oracle backend workstreams remain separate.
+- Initial task CI #39216997858: Playwright WebKit task-entry regression PASS; Chromium browser shard 1 PASS. Focused job failed because the Todo integration test double returned no saved task ID, and Chromium shard 2 failed because the new test did not ignore the local Vite HTTPS certificate. Both test-fixture defects are corrected in the pending repair commit; no final-SHA green is yet asserted.
+- Stable Preview canonical acceptance, Vercel READY, disposable-user end-to-end verification, and actual iPad Safari/PWA acceptance are pending.
 
 ## Next action
-- Commit coherent task with `[verify:focused]`; repair relevant failing tests if necessary. After focused green, squash into a separate stable Preview branch for canonical CI and trusted delivery. Do not promote to dev/main without explicit approval.
+- Publish the coherent `[verify:browser]` task commit, inspect and repair focused/browser CI. If green, squash to stable Preview and verify canonical CI and Preview delivery. Do not promote to dev/main without explicit approval.

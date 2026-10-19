@@ -582,20 +582,27 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [deleteTask, exitSelectMode, isBulkWorking, selectedTasks, showFeedback]);
 
   const handleAddTask = useCallback(
-    (title: string, categoryId: string, dateStr: string, completed = false) => {
-      addTask(
-        {
-          title,
-          categoryId,
-          date: dateStr,
-          completed,
-          ...(completed ? { completedAt: new Date().toISOString() } : {}),
-          visibility: dateStr === '' ? 'private' : '',
-        },
-        addTasksToTop ? 'top' : 'bottom'
-      );
+    async (title: string, categoryId: string, dateStr: string, completed = false) => {
+      try {
+        const savedId = await addTask(
+          {
+            title,
+            categoryId,
+            date: dateStr,
+            completed,
+            ...(completed ? { completedAt: new Date().toISOString() } : {}),
+            visibility: dateStr === '' ? 'private' : '',
+          },
+          addTasksToTop ? 'top' : 'bottom'
+        );
+        if (!savedId) throw new Error('Task creation did not return a saved task');
+      } catch (error) {
+        console.error('[DayViewSheet] Task creation failed', error);
+        showFeedback('Could not save task. Please retry.');
+        throw error;
+      }
     },
-    [addTask, addTasksToTop]
+    [addTask, addTasksToTop, showFeedback]
   );
 
   const handleOpenActions = useCallback((task: TaskDocument) => {

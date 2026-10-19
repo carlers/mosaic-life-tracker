@@ -1,6 +1,6 @@
 import type React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent, screen } from '@testing-library/react';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
 
 // ---------------------------------------------------------------------------
@@ -11,7 +11,7 @@ import { CategorySection } from '../../src/components/home/views/CategorySection
 //     "Add a task to <Category>...".
 //   - Enter with non-whitespace content fires onAddTask(trimmed, false) and closes.
 //   - Escape clears and closes without firing onAddTask.
-//   - Blur with empty content closes; blur with content stays open.
+//   - Blur cancels an empty draft; blur commits a nonempty draft exactly once.
 // Deliberately NOT tested here:
 //   - TaskItem's internal rendering. Pinned separately where relevant.
 //   - Class strings on the chip or the inline-add row.
@@ -261,28 +261,48 @@ describe('CategorySection', () => {
     ).toBeNull();
   });
 
-  it('blur closes the input when empty; keeps it open when content remains', () => {
-    renderSection();
-    // First: empty blur closes.
+  // Regression: §2 (unfocused nonempty drafts must not accumulate across categories).
+  it('blur cancels empty drafts and commits nonempty drafts even with continuous-add on', () => {
+    const { cbs } = renderSection({ continueAddingAfterSubmit: true });
     fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
-    const input = screen.getByPlaceholderText(
-      'Add a task to Work...'
-    ) as HTMLInputElement;
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    expect(input).toHaveAttribute('enterkeyhint', 'done');
     fireEvent.blur(input);
-    expect(
-      screen.queryByPlaceholderText('Add a task to Work...')
-    ).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'New task title' })).toBeNull();
 
-    // Reopen, type, blur — should stay open.
     fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
-    const input2 = screen.getByPlaceholderText(
-      'Add a task to Work...'
-    ) as HTMLInputElement;
-    fireEvent.change(input2, { target: { value: 'kept' } });
-    fireEvent.blur(input2);
-    expect(
-      screen.getByPlaceholderText('Add a task to Work...')
-    ).toBeInTheDocument();
+    const secondInput = screen.getByRole('textbox', { name: 'New task title' });
+    fireEvent.change(secondInput, { target: { value: '  Write report  ' } });
+    fireEvent.blur(secondInput);
+    expect(cbs.onAddTask).toHaveBeenCalledExactlyOnceWith('Write report', false);
+    expect(screen.queryByRole('textbox', { name: 'New task title' })).toBeNull();
+  });
+
+  it('retains the draft until the write resolves and avoids duplicate blur submissions', async () => {
+    const { cbs } = renderSection();
+    let resolveSave: (() => void) | undefined;
+    cbs.onAddTask.mockImplementation(() => new Promise<void>(resolve => { resolveSave = resolve; }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    fireEvent.change(input, { target: { value: 'first' } });
+    fireEvent.blur(input);
+    fireEvent.blur(input);
+    expect(cbs.onAddTask).toHaveBeenCalledTimes(1);
+    expect(input).toHaveValue('first');
+    resolveSave?.();
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'New task title' })).toBeNull());
+  });
+
+  it('preserves an unsaved title after the caller reports failure', async () => {
+    const { cbs } = renderSection();
+    cbs.onAddTask.mockRejectedValue(new Error('local write denied'));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    fireEvent.change(input, { target: { value: 'retry me' } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(cbs.onAddTask).toHaveBeenCalledTimes(1));
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveValue('retry me');
   });
 
 });
