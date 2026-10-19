@@ -1,22 +1,24 @@
 # Session checkpoint
 
-Updated: 2026-10-19 UTC
-Current task: Reduce documentation-only CI friction for Mosaic handoff checkpoints and token estimates.
+Updated: 2026-10-20 UTC
+Current task: Implement user preference to confirm task deletions (issue #1034).
 
 ## Boundary
-- Base is protected `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Scoped task branch: `chatgpt/doc-contract-advisories-20261019`. No app runtime, schema, auth, sync, provider, deployment, or version change.
-- Keep AGENTS.md and AI_WORKFLOW.md instructions unchanged. Continue writing clear next actions and aiming for a concise handoff; this changes enforcement of two incidental shape/size checks only.
+- Base: `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12); Production is unchanged.
+- Task branch: `chatgpt/1034-task-delete-confirmation-20261020`.
+- User-visible setting only: no schema, remote backend, photo/category/account deletion, auth or sync changes.
+- Proposed feature Preview version: v0.30.0, subject to a collision check before stable acceptance.
 
-## Changes
-- `scripts/lib/create-handoff.mjs`: missing next-action heading becomes a returned advisory, accepting common equivalent headings. Required Updated and Current task/work markers still fail closed.
-- `scripts/create-handoff.mjs`: surface advisory on stderr without blocking handoff generation; retain strict GitHub exact-SHA and path safety checks.
-- `tests/unit/documentationContracts.test.ts`: 3,000 estimated-token handoff target becomes an advisory, preserving proof that the complete agent instructions and session checkpoint are included.
-- `tests/unit/createHandoff.test.ts`: coverage for alternate headings, missing-step advisories, and continued required-context failures.
+## Implementation
+- `src/lib/preferences.ts`: `confirmTaskDelete` setting; only boolean false disables confirmation.
+- `src/pages/PreferencesPage.tsx`: **Confirm before deleting tasks** switch under Tasks, using existing account-scoped synced settings.
+- `src/components/home/views/DayViewSheet.tsx`: optional existing single/bulk confirmation; preserve error feedback, selection semantics and tombstone deletes; add in-flight guards.
+- Regression coverage in `tests/components/PreferencesPage.test.tsx` and `DayViewSheetRegression.test.tsx`.
+- No change to Delete Photo or other destructive confirmations.
 
 ## Verification
-- Pending task focused CI, canonical stable Preview gate and trusted delivery; no local test-run or CI acceptance has yet been asserted.
-- Existing unrelated performance, security and Supabase/Oracle backend workstreams remain separate.
+- Task changes are prepared for focused CI. No local `npm` test, browser/device acceptance, canonical full CI, or Preview deployment is yet asserted.
+- GitHub-only connected environment; local GitHub clone/npm test execution unavailable due network DNS restrictions.
 
 ## Next action
-- Commit coherent task with `[verify:focused]`; repair relevant failing tests if necessary. After focused green, squash into a separate stable Preview branch for canonical CI and trusted delivery. Do not promote to dev/main without explicit approval.
+- Check exact-SHA task focused CI; diagnose/repair failures. Squash accepted changes to stable Preview for canonical gate + Vercel readiness, then seek explicit approval before `dev` or `main` promotion.
