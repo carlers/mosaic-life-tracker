@@ -427,6 +427,17 @@ for the active task, and [test workflow](TEST_WORKFLOW.md) for verification comm
   worker active and preserves unsaved state. On first install, the worker does not claim
   the already-open page; a subsequent navigation can be controlled. Never add an
   automatic reload or activation request as routine error handling.
+- **User-facing PWA release descriptions (#1035).** The waiting worker responds
+  to a bounded MessageChannel query with its own compiled version and curated,
+  checked-in `src/data/pwaUpdateNotes.json` entries. The old client determines
+  major/minor/patch relative to its installed version, with same-version
+  maintenance and invalid/missing-metadata fallbacks. Both the banner and
+  Settings use `PwaUpdateDescription` and only display selected verified
+  highlights, never claim a complete cross-version changelog. The worker
+  communication does not trigger `SKIP_WAITING`; release descriptions require
+  no new startup network fetch, Appwrite row, or GitHub Release publication.
+  Update the catalog alongside each user-facing version change; a missing
+  current-version catalog entry is intentionally generic instead of invented.
 - **Why `autoUpdate` was removed.** That mode forced both activation flags to true.
   The custom Workbox `injectManifest` worker (`src/sw.js`) retains only an
   explicit, guarded `SKIP_WAITING` message handler and no automatic claim.

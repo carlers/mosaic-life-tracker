@@ -205,6 +205,39 @@ describe('PWA lifecycle', () => {
     expect(setup.getRegistration).toHaveBeenCalledOnce();
   });
 
+  it('reads release metadata from the waiting worker without fetching the network', async () => {
+    class FakeMessageChannel {
+      port1 = {
+        onmessage: null as null | ((event: { data: unknown }) => void),
+        close: vi.fn(),
+      };
+      port2 = {
+        close: vi.fn(),
+        send: (data: unknown) => this.port1.onmessage?.({ data }),
+      };
+    }
+    vi.stubGlobal('MessageChannel', FakeMessageChannel);
+    const setup = fixture();
+    const waiting = {
+      postMessage: vi.fn((message: { type: string }, ports: Array<{ send: (value: unknown) => void }>) => {
+        expect(message.type).toBe('MOSAIC_PWA_UPDATE_INFO_REQUEST');
+        ports[0].send({
+          type: 'MOSAIC_PWA_UPDATE_INFO',
+          info: { version: '0.30.0', releases: [{
+            version: '0.30.0', headline: 'A real update', changes: ['See release details'],
+          }] },
+        });
+      }),
+    } as unknown as ServiceWorker;
+    Object.assign(setup.registration, { waiting });
+    await expect(checkForPwaUpdate()).resolves.toBe('update-available');
+    await vi.waitFor(() => expect(getPwaLifecycleSnapshot().updateInfo?.version).toBe('0.30.0'));
+    expect((waiting.postMessage as ReturnType<typeof vi.fn>)).toHaveBeenCalledOnce();
+    expect(setup.registration.update).not.toHaveBeenCalled();
+    await expect(applyPwaUpdate()).resolves.toBe(true);
+    expect(getPwaLifecycleSnapshot().updateInfo).toBeNull();
+  });
+
   it('re-surfaces an already-waiting update without another network check', async () => {
     const setup = fixture();
     const stages: string[] = [];
@@ -353,6 +386,7 @@ describe('PWA lifecycle', () => {
     expect(getPwaLifecycleSnapshot()).toEqual({
       installAvailable: false,
       updateAvailable: false,
+      updateInfo: null,
       assetProgress: null,
     });
     expect(setup.update).not.toHaveBeenCalled();

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   requestInstall: vi.fn().mockResolvedValue('accepted'),
   installAvailable: false,
   updateAvailable: false,
+  updateInfo: null as null | { version: string; releases: Array<{ version: string; headline: string; changes: string[] }> },
   assetProgress: null as null | { completed: number; total: number; completedBytes: number | null; totalBytes: number | null },
 }));
 
@@ -30,6 +31,7 @@ describe('PwaPrompt', () => {
     vi.clearAllMocks();
     mocks.installAvailable = false;
     mocks.updateAvailable = false;
+    mocks.updateInfo = null;
     mocks.assetProgress = null;
   });
 
@@ -46,6 +48,25 @@ describe('PwaPrompt', () => {
     expect(mocks.applyUpdate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Update now' }));
     await waitFor(() => expect(mocks.applyUpdate).toHaveBeenCalledOnce());
+  });
+
+  it('shows the exact waiting worker release description without applying until confirmed', async () => {
+    mocks.updateAvailable = true;
+    mocks.updateInfo = {
+      version: '0.31.0',
+      releases: [{
+        version: '0.31.0',
+        headline: 'Improved calendar navigation',
+        changes: ['New calendar controls'],
+      }],
+    };
+    render(<PwaPrompt />);
+
+    expect(screen.getByText('Improved calendar navigation')).toBeInTheDocument();
+    expect(screen.getByText('v0.31.0')).toBeInTheDocument();
+    expect(mocks.applyUpdate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("See what's changed"));
+    expect(screen.getByText('New calendar controls')).toBeInTheDocument();
   });
 
   it('loads the progress presentation only when measured asset data exists', async () => {

@@ -1,22 +1,22 @@
 # Session checkpoint
 
-Updated: 2026-10-19 UTC
-Current task: Reduce documentation-only CI friction for Mosaic handoff checkpoints and token estimates.
+Updated: 2026-10-20 UTC
+Current task: #1035 — version-specific PWA update descriptions (implementation).
 
 ## Boundary
-- Base is protected `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Scoped task branch: `chatgpt/doc-contract-advisories-20261019`. No app runtime, schema, auth, sync, provider, deployment, or version change.
-- Keep AGENTS.md and AI_WORKFLOW.md instructions unchanged. Continue writing clear next actions and aiming for a concise handoff; this changes enforcement of two incidental shape/size checks only.
+- Source base: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12). `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` (v0.29.1) remains untouched.
+- Task branch `chatgpt/pwa-release-description-20261020`; candidate v0.30.0 MINOR. #1031 v0.29.13 dev promotion PR was open at task start.
+- No backend, migrations, API, offline app data, or Production changes; explicit PWA activation remains mandatory.
 
 ## Changes
-- `scripts/lib/create-handoff.mjs`: missing next-action heading becomes a returned advisory, accepting common equivalent headings. Required Updated and Current task/work markers still fail closed.
-- `scripts/create-handoff.mjs`: surface advisory on stderr without blocking handoff generation; retain strict GitHub exact-SHA and path safety checks.
-- `tests/unit/documentationContracts.test.ts`: 3,000 estimated-token handoff target becomes an advisory, preserving proof that the complete agent instructions and session checkpoint are included.
-- `tests/unit/createHandoff.test.ts`: coverage for alternate headings, missing-step advisories, and continued required-context failures.
+- The waiting SW returns its compiled version and curated `src/data/pwaUpdateNotes.json` entries via MessageChannel; no mutable server/GitHub lookup or user data.
+- `pwaLifecycle.ts` validates the waiting worker response, fences stale workers, and keeps generic fallback. `pwaUpdateInfo.ts` classifies major/minor/patch/maintenance and selected skipped-version highlights.
+- Reusable description UI appears in the PWA prompt and Settings, preserving install/dismiss/apply/progress behavior.
+- Unit + component coverage added for version labels, metadata validity, waiting-worker delivery, user consent, and highlights; version sources aligned to 0.30.0. Reference and versioning docs updated.
 
 ## Verification
-- Pending task focused CI, canonical stable Preview gate and trusted delivery; no local test-run or CI acceptance has yet been asserted.
-- Existing unrelated performance, security and Supabase/Oracle backend workstreams remain separate.
+- GitHub-only connected environment; no local checkout or npm test execution available.
+- Coherent task SHA requests `[verify:focused]`. Focused CI and subsequent stable Preview full canonical acceptance/hosted deployment remain unverified until observed.
 
 ## Next action
-- Commit coherent task with `[verify:focused]`; repair relevant failing tests if necessary. After focused green, squash into a separate stable Preview branch for canonical CI and trusted delivery. Do not promote to dev/main without explicit approval.
+- Verify focused exact-SHA GitHub Actions, inspect failures and repair on the task branch. After focused green, squash into a separate stable Preview branch, require canonical quality gate and Vercel Preview READY, perform manual waiting-update checks in Chromium/WebKit. Do not promote to dev/main without explicit approval.

@@ -122,6 +122,23 @@ For every approved `dev` → `main` production promotion:
 
 As of 2026-10-10, `main` has v0.6.2 in source, but its public Releases feed and tag list were empty. A truthful v0.6.2 release may be published only after its production CI/deployment evidence and tag target are checked; earlier releases must be reconstructed from verified evidence rather than inferred.
 
+## PWA update descriptions
+
+For each user-facing minor/patch/major version, maintain a factual, concise
+entry in `src/data/pwaUpdateNotes.json` in the same accepted version tree.
+Each entry has `version`, `headline`, and up to four `changes` describing
+that version only. Retain a bounded number of recent, verified entries for
+users skipping versions; old or missing entries are not fabricated. Ensure a
+new version's notes reflect its actual tested feature scope rather than an
+earlier plan or future release. The waiting service worker packages the
+catalog at build time and replies through `MOSAIC_PWA_UPDATE_INFO_REQUEST`,
+so a mutable latest-deployment URL and GitHub production Releases are never
+used to describe an already-downloaded Preview or Production update.
+The client classifies the waiting worker relative to its installed version;
+same-version rebuilds get maintenance copy without using potentially stale
+release highlights. The user must still explicitly activate the new worker.
+A missing/malformed response falls back to a generic, actionable prompt.
+
 ## Build identity and PWA
 
 Every hosted build embeds the Vercel SHA, branch, commit message (including body when provided), UTC timestamp and channel (`Preview` or `Production`). Local builds show `local`. Settings shows only the Version label and number by default; tapping Version expands the Appwrite backend identity, Git branch/commit and message metadata. The commit message has its own nested control to reveal/collapse the full multiline body. Git identity separates builds even if no app-version bump is required. As before, service-worker install/update prompts are separate from semantic versions and offline data sync.
