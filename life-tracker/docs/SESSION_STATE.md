@@ -1,22 +1,24 @@
 # Session checkpoint
 
-Updated: 2026-10-19 UTC
-Current task: Reduce documentation-only CI friction for Mosaic handoff checkpoints and token estimates.
+Updated: 2026-10-20 UTC
+Current task: Restore Category Manager inline editing on current dev and deliver a fresh stable Preview (issue #1037).
 
 ## Boundary
-- Base is protected `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Scoped task branch: `chatgpt/doc-contract-advisories-20261019`. No app runtime, schema, auth, sync, provider, deployment, or version change.
-- Keep AGENTS.md and AI_WORKFLOW.md instructions unchanged. Continue writing clear next actions and aiming for a concise handoff; this changes enforcement of two incidental shape/size checks only.
+- Source baseline: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, v0.29.12; `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
+- Current task: `chatgpt/category-inline-forwardport-20261020` → stable `fix/category-inline-forwardport-20261020`.
+- October 12 stable `fix/category-editor-inline-20261012@3494cbca65541b489e357a6e53a953b96bb61a9f` contained inline editor v0.20.8, not promoted; canonical acceptance succeeded but the Vercel status failed due build-rate limits.
+- Frontend-only repair, no backend/permissions/data modifications; no `dev`/`main` promotion without approval.
 
 ## Changes
-- `scripts/lib/create-handoff.mjs`: missing next-action heading becomes a returned advisory, accepting common equivalent headings. Required Updated and Current task/work markers still fail closed.
-- `scripts/create-handoff.mjs`: surface advisory on stderr without blocking handoff generation; retain strict GitHub exact-SHA and path safety checks.
-- `tests/unit/documentationContracts.test.ts`: 3,000 estimated-token handoff target becomes an advisory, preserving proof that the complete agent instructions and session checkpoint are included.
-- `tests/unit/createHandoff.test.ts`: coverage for alternate headings, missing-step advisories, and continued required-context failures.
+- Port the proven row-local Category Manager accordion into the current component, including natural-height no-overlap animation, inert exiting controls, grip-only drag, selected-row error banner and single active edit.
+- Preserve current dev category ordering memoization and autofocus when switching to the selected category.
+- Restore explicit edit placement/switch/reorder/cancel DOM regression plus production-CategoryRow browser per-frame overlap regression and fixture.
+- Planned first new Preview version `0.29.15`, above `0.29.12` dev and the separately planned `0.29.13` WebKit / `0.29.14` TodoMate branches. Recheck version reservations and updated dev before promotion.
 
 ## Verification
-- Pending task focused CI, canonical stable Preview gate and trusted delivery; no local test-run or CI acceptance has yet been asserted.
-- Existing unrelated performance, security and Supabase/Oracle backend workstreams remain separate.
+- The October 12 prior Preview passed full canonical `38255151010`; its Vercel GitHub status failed for provider build-rate limit. This is historical evidence, not proof for the new source.
+- This new task requires exact-SHA focused CI, canonical stable Preview CI, Vercel Scratch READY / build-size verification and manual mobile interaction checks; all pending at this checkpoint.
+- Connector-based edit: no local build or browser run asserted.
 
 ## Next action
-- Commit coherent task with `[verify:focused]`; repair relevant failing tests if necessary. After focused green, squash into a separate stable Preview branch for canonical CI and trusted delivery. Do not promote to dev/main without explicit approval.
+- Verify focused task SHA on GitHub, repair if necessary; squash focused-green task PR into the new stable Preview, then verify the stable exact-SHA full gate and provider deployment. Stop before `dev` or `main` merge.

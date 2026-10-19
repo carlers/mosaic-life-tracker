@@ -17,6 +17,8 @@ import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 import { AuthContext } from '../../src/hooks/authContext';
 import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
+import { CategoryRow } from '../../src/components/modals/CategoryManagerSheet';
+import { Reorder } from 'framer-motion';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
 import { MessageComposer } from '../../src/components/messages/MessageComposer';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../src/db/schema';
@@ -847,6 +849,52 @@ export function InteractionHarness() {
   );
 }
 
+/** Isolated browser fixture exercises the production category row animation. */
+function CategoryEditorMotionProbe() {
+  const [items, setItems] = useState<CategoryDocument[]>(() =>
+    ['First', 'Second', 'Third'].map((name, order) => ({
+      id: `motion_${order}`,
+      name,
+      color: '#64748b',
+      icon: '',
+      order,
+      visibility: 'private',
+      userId: 'fixture',
+      isDeleted: false,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }))
+  );
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const orderSignature = items.map((item) => item.id).join('|');
+  return (
+    <div className="max-w-md p-4" data-testid="category-editor-motion-probe">
+      <Reorder.Group axis="y" values={items} onReorder={setItems} className="space-y-2">
+        {items.map((item) => (
+          <CategoryRow
+            key={item.id}
+            cat={item}
+            overriddenCount={0}
+            isEditing={editingId === item.id}
+            orderSignature={orderSignature}
+            onEditStart={(category) => setEditingId(category.id)}
+            onDeleteRequest={() => setEditingId(null)}
+            onReorderEnd={() => {}}
+            disabled={false}
+          >
+            {editingId === item.id && (
+              <div className="space-y-3">
+                <label className="block text-white">Name <input aria-label="Name" defaultValue={item.name} /></label>
+                <div className="h-32 rounded-md border border-[#333333]">Visibility settings</div>
+                <button type="button" onClick={() => setEditingId(null)}>Save Changes</button>
+              </div>
+            )}
+          </CategoryRow>
+        ))}
+      </Reorder.Group>
+    </div>
+  );
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
@@ -867,7 +915,9 @@ createRoot(root).render(
     >
       {new URLSearchParams(window.location.search).has('chatMotion')
         ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
-        : <InteractionHarness />}
+        : new URLSearchParams(window.location.search).has('categoryMotion')
+          ? <CategoryEditorMotionProbe />
+          : <InteractionHarness />}
     </AuthContext.Provider>
   </StrictMode>
 );
