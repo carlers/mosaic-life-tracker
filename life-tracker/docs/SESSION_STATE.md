@@ -1,24 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: Restore Category Manager inline editing on current dev and deliver a fresh stable Preview (issue #1037).
+Current task: #1047 — readable commit titles for CI-first Vercel Previews.
 
 ## Boundary
-- Source baseline: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, v0.29.12; `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Current task: `chatgpt/category-inline-forwardport-20261020` → stable `fix/category-inline-forwardport-20261020`.
-- October 12 stable `fix/category-editor-inline-20261012@3494cbca65541b489e357a6e53a953b96bb61a9f` contained inline editor v0.20.8, not promoted; canonical acceptance succeeded but the Vercel status failed due build-rate limits.
-- Frontend-only repair, no backend/permissions/data modifications; no `dev`/`main` promotion without approval.
+- Base is protected `dev@682303946c00b14ee3ac3fc3e33b2dc541a39a86` (v0.29.15); `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
+- Working branch `chatgpt/ci-first-preview-titles-integrated-20261020`, superseding prior proof-only `chatgpt/ci-first-preview-commit-titles-20261020@3e479401611dc1a55c4b57c4eb92067bc9a4fad6`.
+- Infrastructure-only, version impact NONE. No Production/app/alias/provider changes. Protected-main deployment writer needs separate approval.
 
 ## Changes
-- Port the proven row-local Category Manager accordion into the current component, including natural-height no-overlap animation, inert exiting controls, grip-only drag, selected-row error banner and single active edit.
-- Preserve current dev category ordering memoization and autofocus when switching to the selected category.
-- Restore explicit edit placement/switch/reorder/cancel DOM regression plus production-CategoryRow browser per-frame overlap regression and fixture.
-- Planned first new Preview version `0.29.15`, above `0.29.12` dev and the separately planned `0.29.13` WebKit / `0.29.14` TodoMate branches. Recheck version reservations and updated dev before promotion.
+- GitHub exact-SHA commit title, branch, author and repo are validated and attached as bounded Vercel CLI Git metadata alongside the unchanged `mosaicPrebuilt*` identity markers.
+- Provider READY metadata is verified. Existing artifact trust, allowed Preview project, deterministic deployment ID and no-alias guarantees remain.
+- Collision detector distinguishes the recognized CLI prebuilt from independently deployed Git/unknown records even when Vercel omits list `source`.
+- Added unit tests for malformed/spoofed metadata, CLI scope and collisions; documented main-owned writer handoff in `docs/DELIVERY.md`.
 
 ## Verification
-- The October 12 prior Preview passed full canonical `38255151010`; its Vercel GitHub status failed for provider build-rate limit. This is historical evidence, not proof for the new source.
-- This new task requires exact-SHA focused CI, canonical stable Preview CI, Vercel Scratch READY / build-size verification and manual mobile interaction checks; all pending at this checkpoint.
-- Connector-based edit: no local build or browser run asserted.
+- Earlier exact feature tree at `3e479401611dc1a55c4b57c4eb92067bc9a4fad6` passed focused Quality Gate #39296042413. This branch replays identical task source blobs atop newer dev, preserving unrelated v0.29.15 changes.
+- Awaiting new exact-SHA focused CI, stable Preview full canonical CI and trusted delivery. Actual Vercel title display cannot be established until the updated writer is separately approved into protected main and runs for a new Preview.
 
 ## Next action
-- Verify focused task SHA on GitHub, repair if necessary; squash focused-green task PR into the new stable Preview, then verify the stable exact-SHA full gate and provider deployment. Stop before `dev` or `main` merge.
+- Verify focused CI and repair; squash into stable Preview; verify exact SHA canonical acceptance / READY. Prepare a minimal main-only infrastructure PR (never promote full dev) and await explicit owner approval to merge to protected main. Verify a new CI-first Preview dashboard title after activation.
