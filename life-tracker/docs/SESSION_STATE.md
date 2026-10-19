@@ -16,7 +16,8 @@ Current task: Implement optional sticky weekday headers in Calendar View (issue 
 
 ## Verification
 - At time of this task commit: implementation prepared through GitHub connector; local tests not executed because this environment has no Mosaic checkout.
-- Focused Actions, stable Preview canonical gate, provider deployment, and real-device interaction acceptance remain pending. Do not label them green without exact run evidence.
+- Focused Quality Gate #39291462015 passed for initial task SHA cfb725b7941b4c7eb00961f13770c31778ae5803.
+- Added a browser contract to verify vertical pinning and horizontal column alignment on the 3-day zoom; browser CI, stable Preview canonical gate, provider deployment, and real-device acceptance remain pending.
 
 ## Next action
 - Trigger focused verification on the complete task commit ([verify:focused]), diagnose/redress any failures; then squash accepted code into distinct stable Preview candidate, run canonical CI and trusted Preview delivery. Do not promote to dev/main without explicit approval.
