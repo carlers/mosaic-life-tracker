@@ -138,6 +138,17 @@ export function createCandidateCasTransport(options: {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
         throw new Error('Invalid candidate CAS RPC result');
       }
+      // A SQL function declared RETURNS <composite> may return a typed NULL
+      // row that PostgREST represents as an object whose every field is null,
+      // not as JSON null. This is a missing/stale/foreign CAS conflict, never
+      // evidence that a write was acknowledged. Require the full row identity
+      // shape to avoid hiding malformed partial responses as conflicts.
+      const values = raw as Record<string, unknown>;
+      if (['owner_id', 'id', 'change_seq', 'is_deleted'].every(
+        field => Object.prototype.hasOwnProperty.call(values, field) && values[field] === null,
+      ) && Object.values(values).every(value => value === null)) {
+        return { state: 'conflict' };
+      }
       const row = raw as CandidateCasRow;
       if (row.owner_id !== ownerId || row.id !== documentId ||
         typeof row.is_deleted !== 'boolean' ||
