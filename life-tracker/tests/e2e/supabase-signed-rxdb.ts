@@ -8,8 +8,8 @@ import { toCandidateCategoryWrite, toCandidateTaskWrite } from '../../supabase-p
 import { addRxPlugin, createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
-import { categoriesSchema, type CategoryDocument } from '../../src/db/schema';
-import { categoriesMigrationStrategies } from '../../src/db/migrations';
+import { categoriesSchema, tasksSchema, type CategoryDocument, type TaskDocument } from '../../src/db/schema';
+import { categoriesMigrationStrategies, tasksMigrationStrategies } from '../../src/db/migrations';
 import { createCandidateHttpTransport, type CandidateVerifiedSession } from '../../supabase-poc/candidateHttpTransport';
 import { createCandidateCreateTransport } from '../../supabase-poc/candidateCreateTransport';
 import { createCandidateCasTransport } from '../../supabase-poc/candidateCasTransport';
@@ -20,7 +20,7 @@ type LocalConfiguration = {
   endpoint: string; publishableKey: string; token: string;
   supabaseId: string; legacyId: string; dbTag: string;
 };
-type Collections = { categories: RxCollection<CategoryDocument> };
+type Collections = { categories: RxCollection<CategoryDocument>; tasks: RxCollection<TaskDocument> };
 type Db = RxDatabase<Collections>;
 const config = (window as unknown as { __mosaicSignedRxdbConfig?: LocalConfiguration })
   .__mosaicSignedRxdbConfig;
@@ -34,6 +34,7 @@ addRxPlugin(RxDBMigrationSchemaPlugin);
 let database: Db | null = null;
 let active: ReturnType<ReturnType<typeof createCandidateRxdbPilot<CategoryDocument>>['start']> | null = null;
 let conflictPilot: ReturnType<typeof createCandidateRxdbPilot<CategoryDocument>> | null = null;
+let taskActive: ReturnType<ReturnType<typeof createCandidateRxdbPilot<TaskDocument>>['start']> | null = null;
 let offline = false;
 let failures = 0;
 let remoteReads = 0;
@@ -100,6 +101,7 @@ async function start() {
   });
   await database.addCollections({
     categories: { schema: categoriesSchema, migrationStrategies: categoriesMigrationStrategies },
+    tasks: { schema: tasksSchema, migrationStrategies: tasksMigrationStrategies },
   });
   const pilot = createCandidateRxdbPilot<CategoryDocument>({
     domain: 'categories',
@@ -108,14 +110,24 @@ async function start() {
   });
   conflictPilot = pilot;
   active = pilot.start();
+  const taskPilot = createCandidateRxdbPilot<TaskDocument>({
+    domain: 'tasks',
+    identity: { legacyUserId: config.legacyId, supabaseUserId: config.supabaseId },
+    session, changes, writer, cas, collection: database.tasks,
+  });
+  taskActive = taskPilot.start();
   active.state.error$.subscribe((error: unknown) => {
     const rendered = String(error);
     if (rendered.includes('conflict') || rendered.includes('CONFLICT'))
       conflictErrors++;
   });
-  await active.state.awaitInitialReplication();
+  await Promise.all([
+    active.state.awaitInitialReplication(), taskActive.state.awaitInitialReplication(),
+  ]);
 }
 async function stop() {
+  if (taskActive) await taskActive.stop();
+  taskActive = null;
   if (active) await active.stop();
   active = null;
   conflictPilot = null;
@@ -128,9 +140,34 @@ async function edit(id: string, name: string) {
   if (!document) throw new Error('Cannot edit missing local category');
   await document.incrementalPatch({ name, updatedAt: '2026-10-20T00:00:00.000Z' });
 }
+async function createLocalTask(input: { id: string; categoryId: string; title: string }) {
+  if (!database) throw new Error('Core task RxDB fixture not started');
+  if (!/^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/.test(input.id))
+    throw new Error('Invalid test task id');
+  const createdAt = '2026-10-19T00:00:00.000Z';
+  await database.tasks.insert({
+    id: input.id, title: input.title, completed: false,
+    categoryId: input.categoryId, order: 0, date: '2026-10-19',
+    createdAt, updatedAt: createdAt, userId: config.legacyId,
+    isDeleted: false, visibility: 'private',
+  });
+}
+async function editLocalTask(id: string, change: 'complete' | 'delete') {
+  if (!database) throw new Error('Core task RxDB fixture not started');
+  const task = await database.tasks.findOne(id).exec();
+  if (!task) throw new Error('Task missing from owner-scoped local cache');
+  await task.incrementalPatch({
+    ...(change === 'complete' ? { completed: true, completedAt: '2026-10-20T00:00:00.000Z' }
+      : { isDeleted: true }),
+    updatedAt: '2026-10-20T00:00:00.000Z',
+  });
+}
 async function snapshot() {
   const docs = database ? await database.categories.find().exec() : [];
+  const tasks = database ? await database.tasks.find().exec() : [];
   return {
+    localTasks: tasks.map(doc => ({ id: doc.id, title: doc.title,
+      completed: doc.completed, date: doc.date, userId: doc.userId, isDeleted: doc.isDeleted })),
     local: docs.map(doc => ({
       id: doc.id, name: doc.name, userId: doc.userId, isDeleted: doc.isDeleted,
     })),
@@ -215,7 +252,7 @@ Object.assign(window, {
   __mosaicSignedRxdb: {
     privateProviderFixtures,
     exerciseSignedAuthLifecycle,
-    start, stop, edit, snapshot,
+    start, stop, edit, snapshot, createLocalTask, editLocalTask,
     setOffline(value: boolean) { offline = value; },
     resync() { if (!active) throw new Error('No active signed replica'); active.resync(); },
     async awaitSynced() {

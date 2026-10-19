@@ -566,3 +566,89 @@ test('real local browser Supabase Auth lifecycle: password login, rotation, acco
   await page.reload();
   await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb));
 });
+
+test('signed local core domains: native RxDB task create, offline completion and tombstone replay', async ({ page }) => {
+  if (!configured) throw new Error('Local signed provider configuration absent');
+  const suffix = 'core' + randomBytes(6).toString('hex');
+  const categoryId = 'category_' + suffix;
+  const peerCategoryId = 'peer_category_' + suffix;
+  const taskId = 'task_' + suffix;
+  const otherTaskId = 'foreign_task_' + suffix;
+  const a = await newSignedUser('core-a');
+  const b = await newSignedUser('core-b');
+  await seed(a, categoryId, 'Owner private category');
+  await seed(b, peerCategoryId, 'Peer private category');
+  const peerTask = await request('/rest/v1/mosaic_candidate_tasks', {
+    token: b.token, method: 'POST',
+    body: {
+      owner_id: b.id, id: otherTaskId, title: 'Never leak peer task',
+      category_id: peerCategoryId, completed: false, order_index: 0,
+      task_date: '2026-10-19', created_at: '2026-10-19T00:00:00.000Z',
+      updated_at: '2026-10-19T00:00:00.000Z', visibility: 'private',
+      reactions: null, is_deleted: false,
+    },
+  });
+  expect(peerTask).toHaveLength(1);
+  await page.addInitScript(settings => { window.__mosaicSignedRxdbConfig = settings; }, {
+    endpoint: url, publishableKey: key,
+    token: a.token, supabaseId: a.id, legacyId: 'legacy_local_candidate_owner',
+    dbTag: suffix,
+  });
+  const target = BASE_URL + '/tests/e2e/supabase-signed-rxdb.html';
+  const start = async () => {
+    await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb));
+    await page.evaluate(() => window.__mosaicSignedRxdb.start());
+  };
+  const ownerTask = async () => request('/rest/v1/mosaic_candidate_tasks?' +
+    new URLSearchParams({ select: '*', owner_id: 'eq.' + a.id, id: 'eq.' + taskId }),
+  { token: a.token }).then(rows => rows[0] ?? null);
+  await page.goto(target);
+  await start();
+  expect((await page.evaluate(() => window.__mosaicSignedRxdb.snapshot())).localTasks)
+    .toEqual([]);
+  await page.evaluate(args => window.__mosaicSignedRxdb.createLocalTask(args), {
+    id: taskId, categoryId, title: 'Offline-ready private task',
+  });
+  await expect.poll(async () => (await ownerTask())?.title, { timeout: 20_000 })
+    .toBe('Offline-ready private task');
+  const synced = await page.evaluate(() => window.__mosaicSignedRxdb.snapshot());
+  expect(synced.localTasks).toEqual([expect.objectContaining({
+    id: taskId, userId: 'legacy_local_candidate_owner', completed: false,
+  })]);
+  expect(synced.localTasks.some(task => task.id === otherTaskId)).toBe(false);
+
+  // Disconnect REST while local IndexedDB stays usable; no checkpoint may
+  // falsely acknowledge the write while server ownership stays unchanged.
+  await page.evaluate(async id => {
+    window.__mosaicSignedRxdb.setOffline(true);
+    await window.__mosaicSignedRxdb.editLocalTask(id, 'complete');
+  }, taskId);
+  await expect.poll(async () =>
+    (await page.evaluate(() => window.__mosaicSignedRxdb.snapshot())).failures,
+  { timeout: 20_000 }).toBeGreaterThan(0);
+  expect((await ownerTask()).completed).toBe(false);
+  await page.evaluate(() => window.__mosaicSignedRxdb.stop());
+
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb));
+  await page.evaluate(() => window.__mosaicSignedRxdb.setOffline(false));
+  await start();
+  await expect.poll(async () => (await ownerTask())?.completed, { timeout: 20_000 })
+    .toBe(true);
+  const restored = await page.evaluate(() => window.__mosaicSignedRxdb.snapshot());
+  expect(restored.localTasks.find(task => task.id === taskId)?.completed).toBe(true);
+  expect(restored.localTasks.some(task => task.id === otherTaskId)).toBe(false);
+
+  await page.evaluate(id => window.__mosaicSignedRxdb.editLocalTask(id, 'delete'), taskId);
+  await expect.poll(async () => (await ownerTask())?.is_deleted, { timeout: 20_000 })
+    .toBe(true);
+  // Deletion is a soft tombstone: the owner still sees it in incremental
+  // revision replay, and a foreign owner still cannot read this row.
+  const cursor = String((await ownerTask()).change_seq);
+  expect(BigInt(cursor)).toBeGreaterThan(0n);
+  const deniedForeign = await request('/rest/v1/mosaic_candidate_tasks?' +
+    new URLSearchParams({ owner_id: 'eq.' + a.id, id: 'eq.' + taskId, select: '*' }),
+  { token: b.token });
+  expect(deniedForeign).toEqual([]);
+  await page.evaluate(() => window.__mosaicSignedRxdb.stop());
+});
