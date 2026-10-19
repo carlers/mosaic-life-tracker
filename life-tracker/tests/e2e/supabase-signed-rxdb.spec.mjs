@@ -197,6 +197,10 @@ test('actual signed Supabase + Chromium RxDB: checkpoint, offline retry, and saf
     timeout: 15_000,
   }).toBe('Conflicting offline local draft');
   expect((await probe()).pending).toEqual([]);
+  // The accepted server value can be visible before RxDB has finished
+  // acknowledging the previous push checkpoint. Never start a new edit
+  // against an incomplete replication cycle in this restart test.
+  await page.evaluate(() => window.__mosaicSignedRxdb.awaitSynced());
 
   // A second local draft is conflicted by a different signed writer. Review
   // refresh is explicit and makes exactly one remote master read per click,
@@ -219,6 +223,8 @@ test('actual signed Supabase + Chromium RxDB: checkpoint, offline retry, and saf
   )?.remoteRevision, { timeout: 20_000 }).toBeTruthy();
   const reviewed = (await probe()).pending.find(conflict => conflict.documentId === firstId);
   const beforeUnchanged = await probe();
+  expect(beforeUnchanged.local.find(item => item.id === firstId)?.name)
+    .toBe(reviewed.localName);
   await expect(page.evaluate(id => window.__mosaicSignedRxdb.refreshConflict(id), firstId))
     .resolves.toEqual({ state: 'unchanged', revision: reviewed.remoteRevision });
   const afterUnchanged = await probe();

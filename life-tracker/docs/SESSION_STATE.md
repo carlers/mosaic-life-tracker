@@ -15,7 +15,7 @@ Current task: #967 explicit one-shot refresh for conflicts parked in isolated Su
 - Update Supabase evaluation with behavior and limitations. No React conflict UI or hosted provider activation.
 
 ## Verification
-- Final task `[verify:browser]`, focused/browser quality and disposable real signed local Supabase browser lab pending. On green, squash only into fresh isolated `refactor/967-conflict-review-refresh-20261019`, require canonical full gate, exact-source signed browser lab, trusted Preview READY, then add precise resume evidence on #967. Do not substitute mock results for real signed provider proof.
+- First task SHA `81863a8cbaaa239a86c13da4c09ba1d06b1a019a`: focused and both repository browser shards PASS (#39212908427). Signed local browser #39212908455 failed the *new second-conflict test* because review returned `local-changed` rather than `unchanged`; existing Auth/CAS test and cleanup reached completion. Root hypothesis: second draft started before previous RxDB push checkpoint had finished acknowledging. Repair test to await RxDB `awaitInSync()` **only after** first manually resolved scenario, then assert the next review local name equals the actual local RxDB document, without relaxing refresh data-loss protection. Final task [verify:browser] + signed lab remain pending. On green, squash only into fresh isolated `refactor/967-conflict-review-refresh-20261019`, require canonical full gate, exact-source signed browser lab, trusted Preview READY, then add precise resume evidence on #967. Do not substitute mock results for real signed provider proof.
 
 ## Next action
 - Inspect task CI for types/browser failures, batch repairs without weakening fail-closed behavior. Complete isolated stable Preview delivery only after green.
