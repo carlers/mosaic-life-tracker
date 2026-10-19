@@ -11,6 +11,7 @@ export type IncompleteTaskBlockColorMode = 'default' | 'text' | 'border';
 export function resolveIncompleteTaskBlockColorMode(value: unknown): IncompleteTaskBlockColorMode {
   return value === 'text' || value === 'border' ? value : 'default';
 }
+export const STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY = 'stickyCalendarWeekdayHeader';
 export const CALENDAR_ZOOM_DAYS_SETTING_KEY = 'calendarZoomDays';
 export type CalendarZoomDays = 3 | 4 | 7;
 export function resolveCalendarZoomDays(value: unknown): CalendarZoomDays {

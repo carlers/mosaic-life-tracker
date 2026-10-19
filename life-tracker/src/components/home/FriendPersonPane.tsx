@@ -24,6 +24,7 @@ import {
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
   resolveCalendarZoomDays,
   resolveIncompleteTaskBlockColorMode,
   resolveWeekStartsOn,
@@ -63,6 +64,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
+  const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -202,6 +204,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
           categoriesMap={categoriesMap}
           variant="friend"
           zoomPreference={calendarZoomDays}
+          stickyWeekdayHeader={stickyWeekdayHeader}
           activeIndex={calendarState.activeIndex}
           isZoomTransitioning={calendarState.isZoomTransitioning}
           onZoomNavigate={calendarState.handleZoomNavigate}

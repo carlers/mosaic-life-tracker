@@ -1,22 +1,22 @@
 # Session checkpoint
 
-Updated: 2026-10-19 UTC
-Current task: Reduce documentation-only CI friction for Mosaic handoff checkpoints and token estimates.
+Updated: 2026-10-20 UTC
+Current task: Implement optional sticky weekday headers in Calendar View (issue #952).
 
 ## Boundary
-- Base is protected `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Scoped task branch: `chatgpt/doc-contract-advisories-20261019`. No app runtime, schema, auth, sync, provider, deployment, or version change.
-- Keep AGENTS.md and AI_WORKFLOW.md instructions unchanged. Continue writing clear next actions and aiming for a concise handoff; this changes enforcement of two incidental shape/size checks only.
+- Planned task branch: `chatgpt/sticky-weekday-header-952-20261020`, based on `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`; Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` not modified.
+- User explicitly authorized implementation, not promotion or Production release. Previous post-1.0 scheduling is superseded only for working on an isolated Preview.
+- Frontend-only existing synced-settings change, no schema/Function migration. Preview version candidate 0.31.0 (other active features use 0.30.0).
 
 ## Changes
-- `scripts/lib/create-handoff.mjs`: missing next-action heading becomes a returned advisory, accepting common equivalent headings. Required Updated and Current task/work markers still fail closed.
-- `scripts/create-handoff.mjs`: surface advisory on stderr without blocking handoff generation; retain strict GitHub exact-SHA and path safety checks.
-- `tests/unit/documentationContracts.test.ts`: 3,000 estimated-token handoff target becomes an advisory, preserving proof that the complete agent instructions and session checkpoint are included.
-- `tests/unit/createHandoff.test.ts`: coverage for alternate headings, missing-step advisories, and continued required-context failures.
+- Synced `stickyCalendarWeekdayHeader` preference, off by default, surfaced under Preferences → Calendar.
+- Viewer-controlled setting propagated to owner and friend month/week grids.
+- Pin weekday row to vertical slide scroller; for narrow zoom, keep it outside nested horizontal overflow and track native horizontal scroll imperatively without React scroll-frame updates.
+- Add Preferences toggle regression and Calendar semantics/zoom synchronization coverage.
 
 ## Verification
-- Pending task focused CI, canonical stable Preview gate and trusted delivery; no local test-run or CI acceptance has yet been asserted.
-- Existing unrelated performance, security and Supabase/Oracle backend workstreams remain separate.
+- At time of this task commit: implementation prepared through GitHub connector; local tests not executed because this environment has no Mosaic checkout.
+- Focused Actions, stable Preview canonical gate, provider deployment, and real-device interaction acceptance remain pending. Do not label them green without exact run evidence.
 
 ## Next action
-- Commit coherent task with `[verify:focused]`; repair relevant failing tests if necessary. After focused green, squash into a separate stable Preview branch for canonical CI and trusted delivery. Do not promote to dev/main without explicit approval.
+- Trigger focused verification on the complete task commit ([verify:focused]), diagnose/redress any failures; then squash accepted code into distinct stable Preview candidate, run canonical CI and trusted Preview delivery. Do not promote to dev/main without explicit approval.
