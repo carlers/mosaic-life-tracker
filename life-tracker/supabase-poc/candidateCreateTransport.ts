@@ -1,0 +1,189 @@
+/**
+ * Source-only Supabase candidate task/category create + master read (#967).
+ * No upsert and no blind retry: 409 requires a fresh owner-scoped master read.
+ * Not wired to Mosaic's shipped RxDB or Appwrite sync.
+ */
+import type { CategoryDocument, TaskDocument } from '../src/db/schema';
+import {
+  parseCandidateRevision, toCandidateTaskWrite, toCandidateCategoryWrite,
+  validateCandidateIdentity, type CandidateIdentity,
+  type CandidateTaskRow, type CandidateCategoryRow,
+  type CandidateTaskWrite, type CandidateCategoryWrite,
+} from './candidateMapping';
+import {
+  CandidateAuthError, CandidateHttpError,
+  type CandidateSessionProvider, type CandidateVerifiedSession,
+} from './candidateHttpTransport';
+
+type Domain = 'tasks' | 'categories';
+type Row = CandidateTaskRow | CandidateCategoryRow;
+type Write = CandidateTaskWrite | CandidateCategoryWrite;
+const TABLE: Record<Domain, string> = {
+  tasks: 'mosaic_candidate_tasks',
+  categories: 'mosaic_candidate_categories',
+};
+const ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export type CandidateCreateOutcome<T extends Row> =
+  | { state: 'created'; row: T; revision: string }
+  | { state: 'conflict'; row: T; revision: string };
+
+function checkedId(id: string): void {
+  if (!ID.test(id)) throw new Error('Invalid Mosaic candidate document ID');
+}
+
+function checkSession(
+  session: CandidateVerifiedSession | null, owner: CandidateIdentity,
+): CandidateVerifiedSession {
+  if (!session || !UUID.test(session.userId) ||
+    session.userId !== owner.supabaseUserId ||
+    typeof session.accessToken !== 'string' || !session.accessToken ||
+    !Number.isSafeInteger(session.sessionEpoch) || session.sessionEpoch < 0) {
+    throw new CandidateAuthError('Candidate insert/master has no matching verified session');
+  }
+  return session;
+}
+
+function sameSession(first: CandidateVerifiedSession, next: CandidateVerifiedSession): boolean {
+  return next.userId === first.userId &&
+    next.sessionEpoch === first.sessionEpoch &&
+    next.accessToken === first.accessToken;
+}
+
+function checkedRow(value: unknown, ownerId: string, id: string): Row {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('Invalid candidate master row');
+  const row = value as Row;
+  if (row.owner_id !== ownerId || row.id !== id ||
+    typeof row.is_deleted !== 'boolean' ||
+    parseCandidateRevision(row.change_seq) < 1n)
+    throw new Error('Candidate master returned foreign or invalid revision');
+  return row;
+}
+
+export function createCandidateCreateTransport(options: {
+  baseUrl: string;
+  publishableKey: string;
+  session: CandidateSessionProvider;
+  fetcher?: typeof fetch;
+}) {
+  const base = new URL(options.baseUrl);
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname);
+  if ((base.protocol !== 'https:' && !(base.protocol === 'http:' && local)) ||
+    base.username || base.password || base.search || base.hash ||
+    !['', '/'].includes(base.pathname)) {
+    throw new Error('Candidate insert/master needs a safe root HTTPS or loopback URL');
+  }
+  // Modern public keys only. A legacy JWT can embed service_role claims.
+  if (!options.publishableKey?.startsWith('sb_publishable_') ||
+    options.publishableKey !== options.publishableKey.trim() ||
+    /\s/.test(options.publishableKey)) {
+    throw new Error('Candidate insert/master requires a modern publishable key');
+  }
+  const fetcher = options.fetcher ?? fetch;
+
+  async function authorizedRequest(
+    path: string,
+    user: CandidateVerifiedSession,
+    method: 'GET' | 'POST',
+    body?: Write,
+  ): Promise<Response> {
+    let response: Response;
+    try {
+      response = await fetcher(new URL(path, base).toString(), {
+        method, cache: 'no-store', credentials: 'omit', redirect: 'error',
+        headers: {
+          apikey: options.publishableKey,
+          Authorization: 'Bearer ' + user.accessToken,
+          Accept: 'application/json',
+          ...(method === 'POST'
+            ? { 'Content-Type': 'application/json', Prefer: 'return=representation' }
+            : {}),
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+    } catch {
+      // An ambiguous POST may already have committed. Never automatically retry.
+      throw new CandidateHttpError(0);
+    }
+    if (response.status === 401 || response.status === 403)
+      throw new CandidateAuthError('Supabase candidate request denied');
+    return response;
+  }
+
+  async function verifyAfter(owner: CandidateIdentity, initial: CandidateVerifiedSession) {
+    const next = checkSession(await options.session.getVerifiedSession(), owner);
+    if (!sameSession(initial, next))
+      throw new CandidateAuthError('Candidate account changed during insert/master request');
+  }
+
+  async function master(domain: Domain, id: string, identity: CandidateIdentity): Promise<Row | null> {
+    validateCandidateIdentity(identity);
+    checkedId(id);
+    const before = checkSession(await options.session.getVerifiedSession(), identity);
+    const query = new URLSearchParams({
+      select: '*',
+      owner_id: 'eq.' + identity.supabaseUserId,
+      id: 'eq.' + id,
+      limit: '1',
+    });
+    const response = await authorizedRequest(
+      '/rest/v1/' + TABLE[domain] + '?' + query.toString(), before, 'GET',
+    );
+    if (!response.ok) throw new CandidateHttpError(response.status);
+    let rows: unknown;
+    try { rows = await response.json(); }
+    catch { throw new Error('Invalid Supabase master JSON'); }
+    await verifyAfter(identity, before);
+    if (!Array.isArray(rows) || rows.length > 1)
+      throw new Error('Invalid Supabase master cardinality');
+    return rows.length ? checkedRow(rows[0], identity.supabaseUserId, id) : null;
+  }
+
+  async function create(
+    domain: Domain, write: Write, identity: CandidateIdentity,
+  ): Promise<CandidateCreateOutcome<Row>> {
+    validateCandidateIdentity(identity);
+    checkedId(write.id);
+    if (write.owner_id !== identity.supabaseUserId)
+      throw new Error('Candidate create owner mismatch');
+    const before = checkSession(await options.session.getVerifiedSession(), identity);
+    const response = await authorizedRequest('/rest/v1/' + TABLE[domain], before, 'POST', write);
+    // Explicit 409, never an upsert; always read the *current* owner master.
+    if (response.status === 409) {
+      await verifyAfter(identity, before);
+      const current = await master(domain, write.id, identity);
+      if (!current) throw new Error('Duplicate candidate ID without accessible owner master');
+      return {
+        state: 'conflict', row: current,
+        revision: parseCandidateRevision(current.change_seq).toString(),
+      };
+    }
+    if (response.status !== 201) throw new CandidateHttpError(response.status);
+    let rows: unknown;
+    try { rows = await response.json(); }
+    catch { throw new Error('Invalid Supabase inserted-row JSON'); }
+    await verifyAfter(identity, before);
+    if (!Array.isArray(rows) || rows.length !== 1)
+      throw new Error('Supabase candidate create lacked authoritative row');
+    const created = checkedRow(rows[0], identity.supabaseUserId, write.id);
+    return {
+      state: 'created', row: created,
+      revision: parseCandidateRevision(created.change_seq).toString(),
+    };
+  }
+
+  return {
+    readTaskMaster: (id: string, identity: CandidateIdentity) =>
+      master('tasks', id, identity) as Promise<CandidateTaskRow | null>,
+    readCategoryMaster: (id: string, identity: CandidateIdentity) =>
+      master('categories', id, identity) as Promise<CandidateCategoryRow | null>,
+    createTask: (doc: TaskDocument, identity: CandidateIdentity) =>
+      create('tasks', toCandidateTaskWrite(doc, identity), identity)
+        as Promise<CandidateCreateOutcome<CandidateTaskRow>>,
+    createCategory: (doc: CategoryDocument, identity: CandidateIdentity) =>
+      create('categories', toCandidateCategoryWrite(doc, identity), identity)
+        as Promise<CandidateCreateOutcome<CandidateCategoryRow>>,
+  };
+}
