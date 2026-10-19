@@ -71,9 +71,10 @@ export function createCandidateCasTransport(options: {
     !['', '/'].includes(base.pathname)) {
     throw new Error('Candidate CAS endpoint must use HTTPS or loopback HTTP without URL credentials/path');
   }
-  if (!options.publishableKey || options.publishableKey !== options.publishableKey.trim() ||
-    options.publishableKey.startsWith('sb_secret_')) {
-    throw new Error('Candidate CAS requires a public key');
+  if (!options.publishableKey?.startsWith('sb_publishable_') ||
+    options.publishableKey !== options.publishableKey.trim() ||
+    /\s/.test(options.publishableKey)) {
+    throw new Error('Candidate CAS requires a modern publishable key');
   }
   const fetcher = options.fetcher ?? fetch;
 
@@ -137,6 +138,17 @@ export function createCandidateCasTransport(options: {
       if (raw === null) return { state: 'conflict' };
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
         throw new Error('Invalid candidate CAS RPC result');
+      }
+      // A SQL function declared RETURNS <composite> may return a typed NULL
+      // row that PostgREST represents as an object whose every field is null,
+      // not as JSON null. This is a missing/stale/foreign CAS conflict, never
+      // evidence that a write was acknowledged. Require the full row identity
+      // shape to avoid hiding malformed partial responses as conflicts.
+      const values = raw as Record<string, unknown>;
+      if (['owner_id', 'id', 'change_seq', 'is_deleted'].every(
+        field => Object.prototype.hasOwnProperty.call(values, field) && values[field] === null,
+      ) && Object.values(values).every(value => value === null)) {
+        return { state: 'conflict' };
       }
       const row = raw as CandidateCasRow;
       if (row.owner_id !== ownerId || row.id !== documentId ||

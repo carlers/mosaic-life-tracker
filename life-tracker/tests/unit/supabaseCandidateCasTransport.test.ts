@@ -58,6 +58,37 @@ describe('isolated Supabase candidate atomic CAS transport (#967)', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it('normalizes a PostgreSQL typed-null composite response to a conflict', async () => {
+    // Real Supabase/PostgREST can encode RETURNS table_row with every field
+    // null as a JSON object rather than a JSON null.
+    const nullTask = {
+      owner_id: null, id: null, change_seq: null, is_deleted: null,
+      title: null, server_updated_at: null,
+    };
+    const { transport, getVerifiedSession } = setup(nullTask);
+    expect(await transport.compareAndSet(args)).toEqual({ state: 'conflict' });
+    expect(getVerifiedSession).toHaveBeenCalledTimes(2);
+
+    const nullCategory = {
+      owner_id: null, id: null, change_seq: null, is_deleted: null,
+      color: null,
+    };
+    await expect(setup(nullCategory).transport.compareAndSet({
+      domain: 'categories', ownerId: owner, documentId: 'category',
+      expectedRevision: '1', patch: { name: 'updated' },
+    })).resolves.toEqual({ state: 'conflict' });
+  });
+
+  it('never accepts partially-null or mixed-owner composites as successful writes', async () => {
+    for (const result of [
+      { owner_id: null, id: null, change_seq: null, is_deleted: true },
+      { owner_id: null, id: null, change_seq: null, is_deleted: null, title: 'forged' },
+      { owner_id: null, id: null },
+    ]) {
+      await expect(setup(result).transport.compareAndSet(args)).rejects.toThrow();
+    }
+  });
+
   it('supports the category RPC without granting unrestricted patch fields', async () => {
     const { transport, fetcher } = setup({
       owner_id: owner, id: 'category', change_seq: '2', is_deleted: false, color: '#123456',
@@ -129,9 +160,14 @@ describe('isolated Supabase candidate atomic CAS transport (#967)', () => {
         session: { getVerifiedSession: async () => session },
       })).toThrow();
     }
-    expect(() => createCandidateCasTransport({
-      baseUrl: 'https://synthetic.supabase.co', publishableKey: 'sb_secret_unsafe',
-      session: { getVerifiedSession: async () => session },
-    })).toThrow();
+    for (const publishableKey of [
+      'sb_secret_unsafe', 'eyJlegacyServiceRole.isNotPublic.jwtSignature',
+      'sb_publishable_invalid key with whitespace',
+    ]) {
+      expect(() => createCandidateCasTransport({
+        baseUrl: 'https://synthetic.supabase.co', publishableKey,
+        session: { getVerifiedSession: async () => session },
+      })).toThrow();
+    }
   });
 });
