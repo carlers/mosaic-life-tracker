@@ -14,7 +14,7 @@ Current task: #967 isolated Supabase create-and-master HTTP proof; no backend sw
 - Unit mock HTTP coverage and evaluation notes. Existing RxDB replicateRxCollection native checkpoint should be preferred over adding a second storage system; earlier atomic-store POC is a contract only.
 
 ## Verification
-- Task focused and isolated stable Preview canonical/trusted verification PENDING. No real signed HTTP/JWT nor live concurrency tests.
+- First task focused #39184821800 failed during Vitest source transform (TypeScript parser expected a closing brace before a line-broken `as` assertion in candidateCreateTransport.ts). This was corrected without semantics changes. Focused recheck on final repair commit PENDING. No real signed HTTP/JWT nor live concurrency tests.
 
 ## Next action
 - Commit final work with [verify:focused], review focused failures, then squash into a new stable isolated Preview; require canonical and trusted delivery. Keep #967 open and no dev/main/Production/app/provider switch.
