@@ -15,7 +15,7 @@ Current task: #1008 Playwright WebKit pre-1.0 coverage plus iPad task-entry blur
 - Add a small Playwright WebKit task-entry regression lane in CI beside the existing Chromium browser contract gate. Avoid unsupported Chromium CDP gestures in WebKit.
 
 ## Verification
-- Branch commit and focused / WebKit CI not yet verified; do not claim green until actual workflow results are inspected.
+- Initial task CI #39216997858: Playwright WebKit task-entry regression PASS; Chromium browser shard 1 PASS. Focused job failed because the Todo integration test double returned no saved task ID, and Chromium shard 2 failed because the new test did not ignore the local Vite HTTPS certificate. Both test-fixture defects are corrected in the pending repair commit; no final-SHA green is yet asserted.
 - Stable Preview canonical acceptance, Vercel READY, disposable-user end-to-end verification, and actual iPad Safari/PWA acceptance are pending.
 
 ## Next action

@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+test.use({ ignoreHTTPSErrors: true });
+
 const BASE = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
 test('repeated tasks save when focus leaves an inline draft on an iPad-sized WebKit page', async ({ page }) => {
