@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument } from '../../src/db/schema';
 
-const mocks = vi.hoisted(() => ({ startDrag: vi.fn() }));
+const mocks = vi.hoisted(() => ({ startDrag: vi.fn(), addTask: vi.fn() }));
 vi.mock('framer-motion', async (importOriginal) => {
   const actual = await importOriginal<typeof import('framer-motion')>();
   return {
@@ -40,8 +40,9 @@ const FakeCategory = ({ category }: { category: CategoryDocument }) => {
   return (
     <div>
       <button type="button" onPointerDown={actions?.onPointerDown}
-        onClickCapture={actions?.consumeClick} onClick={mocks.startDrag}>
-        {category.name}
+        onClickCapture={actions?.consumeClick} onClick={mocks.addTask}>
+        <span data-category-drag-handle>{category.name}</span>
+        <span aria-hidden="true">+</span>
       </button>
       {actions?.menuOpen && <button type="button" onClick={() => actions.setMenuOpen(false)}>Edit</button>}
     </div>
@@ -60,7 +61,7 @@ const createProps = () => ({
 });
 
 describe('Day View category gesture isolation', () => {
-  beforeEach(() => { mocks.startDrag.mockReset(); });
+  beforeEach(() => { mocks.startDrag.mockReset(); mocks.addTask.mockReset(); });
   afterEach(() => { vi.useRealTimers(); });
 
   it('persists the final order only on drop', async () => {
@@ -76,22 +77,93 @@ describe('Day View category gesture isolation', () => {
     ]));
   });
 
-  it('starts pointer dragging from the desktop pill and delays touch', () => {
+  it('starts desktop drag on the label, and opens Edit on touch hold without dragging', () => {
     vi.useFakeTimers();
-    const props = createProps();
-    render(<DayViewCategoryReorder {...props}/>);
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Work' }), {
-      button: 0, pointerId: 1, pointerType: 'mouse', clientX: 10, clientY: 10,
+    render(<DayViewCategoryReorder {...createProps()}/>);
+    const workLabel = screen.getByText('Work');
+    const homeLabel = screen.getByText('Home');
+    fireEvent.pointerDown(workLabel, {
+      isPrimary: true, button: 0, pointerId: 1, pointerType: 'mouse', clientX: 10, clientY: 10,
     });
     expect(mocks.startDrag).toHaveBeenCalledTimes(1);
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Home' }), {
-      button: 0, pointerId: 2, pointerType: 'touch', clientX: 10, clientY: 10,
+    fireEvent.pointerDown(homeLabel, {
+      isPrimary: true, button: 0, pointerId: 2, pointerType: 'touch', clientX: 10, clientY: 10,
     });
-    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
     act(() => { vi.advanceTimersByTime(500); });
-    expect(mocks.startDrag).toHaveBeenCalledTimes(2);
-    fireEvent.pointerUp(window, { pointerId: 2, pointerType: 'touch' });
+    // Regression: the previous implementation called controls.start() at
+    // the hold deadline, so Framer Motion could immediately dismiss Edit.
+    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    fireEvent.pointerUp(window, { pointerId: 2, pointerType: 'touch' });
+    fireEvent.click(homeLabel.closest('button')!);
+    expect(mocks.addTask).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    fireEvent.pointerDown(homeLabel, {
+      isPrimary: true, button: 0, pointerId: 3, pointerType: 'touch', clientX: 10, clientY: 10,
+    });
+    fireEvent.pointerUp(window, { pointerId: 3, pointerType: 'touch' });
+    fireEvent.click(homeLabel.closest('button')!);
+    expect(mocks.addTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('arms touch drag only on the label when movement follows the long press', () => {
+    vi.useFakeTimers();
+    render(<DayViewCategoryReorder {...createProps()}/>);
+    fireEvent.pointerDown(screen.getByText('Work'), {
+      isPrimary: true, button: 0, pointerId: 4, pointerType: 'touch', clientX: 10, clientY: 10,
+    });
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    fireEvent.pointerMove(window, {
+      pointerId: 4, pointerType: 'touch', clientX: 30, clientY: 10,
+    });
+    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    fireEvent.pointerMove(window, {
+      pointerId: 4, pointerType: 'touch', clientX: 45, clientY: 10,
+    });
+    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
+    fireEvent.pointerUp(window, { pointerId: 4, pointerType: 'touch' });
+  });
+
+  it('allows long press on the full pill but not dragging from its plus affordance', () => {
+    vi.useFakeTimers();
+    render(<DayViewCategoryReorder {...createProps()}/>);
+    const pill = screen.getByText('Work').closest('button')!;
+    fireEvent.pointerDown(pill, {
+      isPrimary: true, button: 0, pointerId: 5, pointerType: 'touch', clientX: 10, clientY: 10,
+    });
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    fireEvent.pointerMove(window, {
+      pointerId: 5, pointerType: 'touch', clientX: 25, clientY: 10,
+    });
+    expect(mocks.startDrag).not.toHaveBeenCalled();
+    fireEvent.pointerUp(window, { pointerId: 5, pointerType: 'touch' });
+    fireEvent.click(pill);
+    expect(mocks.addTask).not.toHaveBeenCalled();
+  });
+
+  it('cancels a touch hold after a pre-hold swipe or pointer cancellation', () => {
+    vi.useFakeTimers();
+    render(<DayViewCategoryReorder {...createProps()}/>);
+    const pill = screen.getByText('Work').closest('button')!;
+    fireEvent.pointerDown(pill, {
+      isPrimary: true, button: 0, pointerId: 6, pointerType: 'touch', clientX: 10, clientY: 10,
+    });
+    fireEvent.pointerMove(window, {
+      pointerId: 6, pointerType: 'touch', clientX: 10, clientY: 40,
+    });
+    act(() => { vi.advanceTimersByTime(600); });
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    fireEvent.pointerUp(window, { pointerId: 6, pointerType: 'touch' });
+    fireEvent.pointerDown(pill, {
+      isPrimary: true, button: 0, pointerId: 7, pointerType: 'touch', clientX: 10, clientY: 10,
+    });
+    fireEvent.pointerCancel(window, { pointerId: 7, pointerType: 'touch' });
+    act(() => { vi.advanceTimersByTime(600); });
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(mocks.startDrag).not.toHaveBeenCalled();
   });
 
   it('does not offer drag controls in read-only views', () => {
@@ -151,6 +223,22 @@ describe('inline category actions', () => {
     await waitFor(() => expect(props.onUpdate).toHaveBeenCalledWith('work', {
       name: 'Career', visibility: 'public',
     }));
+  });
+
+  it('opens the actual category actions from a touch hold anywhere on the pill', () => {
+    vi.useFakeTimers();
+    renderRealSection();
+    const pill = screen.getByRole('button', { name: 'Add a task to Work' });
+    fireEvent.pointerDown(pill, {
+      isPrimary: true, button: 0, pointerId: 8, pointerType: 'touch', clientX: 10, clientY: 10,
+    });
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    fireEvent.pointerUp(window, { pointerId: 8, pointerType: 'touch' });
+    fireEvent.click(pill);
+    expect(screen.queryByRole('textbox', { name: 'New task title' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByRole('textbox', { name: 'Category name' })).toBeInTheDocument();
   });
 
   it('allows keyboard users to move a category using the visible action menu', async () => {

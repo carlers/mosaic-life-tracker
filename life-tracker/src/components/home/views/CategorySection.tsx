@@ -225,6 +225,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     reorderEnabled &&
     !selectionMode &&
     !isAdding &&
+    !editingCategory &&
     editingTaskId === null;
 
   const taskProps = (task: TaskDocument) => ({
@@ -330,6 +331,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         type="button"
         ref={categoryPillRef}
         onClickCapture={categoryActions?.consumeClick}
+        onPointerDown={!editingCategory && !isAdding && editingTaskId === null
+          ? categoryActions?.onPointerDown : undefined}
+        onContextMenu={!editingCategory ? categoryActions?.onContextMenu : undefined}
         onClick={selectionMode ? () => onToggleCategorySelection?.(categoryId) : handleOpen}
         disabled={selectionMode && (!onToggleCategorySelection || tasks.length === 0)}
         className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
@@ -341,9 +345,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
         <span
           className="text-[0.9375rem] font-bold"
-          onPointerDown={editingCategory ? undefined : categoryActions?.onPointerDown}
-          onContextMenu={categoryActions?.onContextMenu}
-          style={{ color: getCategoryLabelColor(categoryColor), touchAction: categoryActions && !editingCategory ? 'none' : undefined }}
+          data-category-drag-handle={categoryActions && !editingCategory ? 'true' : undefined}
+          style={{ color: getCategoryLabelColor(categoryColor),
+            touchAction: categoryActions && !editingCategory ? 'none' : undefined }}
         >
           {categoryName}
         </span>
