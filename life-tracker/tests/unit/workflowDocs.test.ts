@@ -86,9 +86,16 @@ describe('verification workflow contracts', () => {
     const packageJson = JSON.parse(read('package.json'));
     const performanceProbe = read('tests/e2e/performance-probe.spec.mjs');
 
-    expect(packageJson.scripts['test:browser-contract']).toContain(
-      '--grep-invert @performance'
+    const browserScript = read('scripts/run-browser-contract.mjs');
+    expect(packageJson.scripts['test:browser-contract']).toBe(
+      'node scripts/run-browser-contract.mjs'
     );
+    // The wrapper must preserve the original Chromium performance exclusion
+    // even as it adds first-shard WebKit correctness checks.
+    expect(browserScript).toContain("'--grep-invert', '@performance'");
+    expect(browserScript).toContain("run(['test', 'tests/e2e'");
+    expect(browserScript).toContain("run(['test', 'tests/e2e/webkit-task-entry.spec.mjs'");
+    expect(browserScript).toContain("process.env.CI === 'true' && firstShard");
     expect(packageJson.scripts['test:performance']).toContain(
       'performance-probe.spec.mjs'
     );
