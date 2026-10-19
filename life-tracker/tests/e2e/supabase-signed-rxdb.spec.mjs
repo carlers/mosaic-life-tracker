@@ -251,3 +251,110 @@ test('actual signed Supabase + Chromium RxDB: checkpoint, offline retry, and saf
 
   await page.evaluate(() => window.__mosaicSignedRxdb.stop());
 });
+
+
+test('signed local Supabase CAS denies cross-owner writes, forged patches, direct DML and stale revisions', async () => {
+  if (!configured) throw new Error('Local-only test credentials required');
+  const a = await newSignedUser('cas_owner_a');
+  const b = await newSignedUser('cas_owner_b');
+  const suffix = randomBytes(7).toString('hex');
+  const categoryId = 'isolated_category_' + suffix;
+  const taskId = 'isolated_task_' + suffix;
+  const category = await seed(a, categoryId, 'A private category');
+  const taskRows = await request('/rest/v1/mosaic_candidate_tasks', {
+    token: a.token, method: 'POST',
+    body: {
+      owner_id: a.id, id: taskId, title: 'A private task',
+      completed: false, category_id: categoryId, order_index: 0,
+      task_date: '2026-10-19', created_at: '2026-10-19T00:00:00.000Z',
+      updated_at: '2026-10-19T00:00:00.000Z', visibility: 'private',
+      is_deleted: false,
+    },
+  });
+  expect(taskRows).toHaveLength(1);
+  const taskRow = taskRows[0];
+
+  const raw = async (path, { token, method = 'POST', body } = {}) =>
+    fetch(url + path, {
+      method, redirect: 'error',
+      headers: {
+        apikey: key,
+        ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        ...(body === undefined ? {} : {
+          'Content-Type': 'application/json', Prefer: 'return=representation',
+        }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  const rpc = (domain, id, seq, patch, token) =>
+    raw('/rest/v1/rpc/mosaic_candidate_cas_' + domain, {
+      token,
+      body: { p_id: id, p_expected_seq: String(seq), p_patch: patch },
+    });
+  const expectDenied = async (response, expectedStatuses = [400, 401, 403]) => {
+    expect(expectedStatuses, 'unexpected RPC rejection status').toContain(response.status);
+    expect(response.ok).toBe(false);
+  };
+  const expectNoRow = async (response) => {
+    expect(response.status).toBe(200);
+    expect(await response.json()).toBeNull();
+  };
+  for (const [domain, id, seq, patch] of [
+    ['category', categoryId, category.change_seq, { name: 'Stolen category' }],
+    ['task', taskId, taskRow.change_seq, { title: 'Stolen task' }],
+  ]) {
+    // SECURITY DEFINER is callable to signed clients; the function MUST use
+    // auth.uid(), not the caller's owner_id or merely the guessed document ID.
+    await expectNoRow(await rpc(domain, id, seq, patch, b.token));
+    await expectDenied(await rpc(domain, id, seq, patch, undefined), [401, 403]);
+    await expectDenied(await rpc(domain, id, seq, { ...patch, owner_id: b.id }, a.token));
+    await expectDenied(await rpc(domain, id, seq, { ...patch, id: 'forged_id' }, a.token));
+    await expectDenied(await rpc(domain, id, seq, {}, a.token));
+    await expectDenied(await rpc(domain, id, seq, ['array-is-not-a-patch'], a.token));
+  }
+
+  // A valid full owner-signed CAS is a positive control for the privilege
+  // boundary. The exact same revision must be a stale no-op after this update.
+  const applied = await rpc('category', categoryId, category.change_seq,
+    { name: 'A authorized edit' }, a.token);
+  expect(applied.status).toBe(200);
+  const updated = await applied.json();
+  expect(updated).toMatchObject({ id: categoryId, owner_id: a.id, name: 'A authorized edit' });
+  expect(BigInt(updated.change_seq)).toBeGreaterThan(BigInt(category.change_seq));
+  await expectNoRow(await rpc('category', categoryId, category.change_seq,
+    { name: 'Stale overwrite' }, a.token));
+
+  // RLS + grants must deny physical deletion and direct UPDATE even to the
+  // rightful owner. Only the narrow, revision-checked CAS RPC may modify rows.
+  for (const table of ['mosaic_candidate_categories', 'mosaic_candidate_tasks']) {
+    const id = table.endsWith('categories') ? categoryId : taskId;
+    const selector = '/rest/v1/' + table + '?' +
+      new URLSearchParams({ owner_id: 'eq.' + a.id, id: 'eq.' + id });
+    await expectDenied(await raw(selector, {
+      method: 'PATCH', token: a.token, body: table.endsWith('categories')
+        ? { name: 'Direct permission bypass' } : { title: 'Direct permission bypass' },
+    }), [401, 403]);
+    await expectDenied(await raw(selector, { method: 'DELETE', token: a.token }), [401, 403]);
+    const outsiderRead = await request(selector, { token: b.token });
+    expect(outsiderRead).toEqual([]);
+  }
+
+  // Forged INSERT ownership must be blocked independently of the RPC path.
+  const foreignInsert = await raw('/rest/v1/mosaic_candidate_categories', {
+    token: b.token, body: {
+      owner_id: a.id, id: 'forged_' + suffix, name: 'Foreign forged',
+      color: '#000000', order_index: 0, visibility: 'private',
+      updated_at: '2026-10-19T00:00:00.000Z', is_deleted: false,
+    },
+  });
+  await expectDenied(foreignInsert, [401, 403]);
+  expect((await owned(a, categoryId)).name).toBe('A authorized edit');
+  const finalTasks = await request('/rest/v1/mosaic_candidate_tasks?' +
+    new URLSearchParams({ select: '*', owner_id: 'eq.' + a.id, id: 'eq.' + taskId }), {
+    token: a.token,
+  });
+  expect(finalTasks).toHaveLength(1);
+  expect(finalTasks[0]).toMatchObject({
+    owner_id: a.id, id: taskId, title: 'A private task',
+  });
+});
