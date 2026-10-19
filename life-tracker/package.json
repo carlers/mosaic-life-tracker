@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
+    "supabase:auth:probe": "node supabase-poc/signed-auth-probe.mjs",
     "test:handlers": "vitest run --project handlers",
     "test:dom": "vitest run --project dom",
     "test:browser-contract": "tests/e2e/node_modules/.bin/playwright test tests/e2e --config=playwright.config.mjs --reporter=line --grep-invert @performance",
