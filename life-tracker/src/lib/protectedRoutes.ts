@@ -1,4 +1,5 @@
 import type { TabId } from '../components/layout/BottomNav';
+import { isPageAvailable } from './backendCapabilities';
 
 /**
  * Single registration point for protected app pages and their navigation
@@ -71,7 +72,7 @@ export type ProtectedRouteEntry = (typeof PROTECTED_ROUTES)[number];
 export type ProtectedPageId = Exclude<ProtectedRouteEntry, { kind: 'redirect' }>['id'];
 
 export const PRIMARY_ROUTE_PATHS = PROTECTED_ROUTES
-  .filter((route) => route.kind === 'primary')
+  .filter((route) => route.kind === 'primary' && isPageAvailable(route.id))
   .map((route) => route.path);
 
 const routeMatchers = PROTECTED_ROUTES.map((route) => ({

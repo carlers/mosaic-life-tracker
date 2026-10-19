@@ -2,6 +2,7 @@ import React from 'react';
 import { Home, Compass, Bell, MessageCircle, User } from 'lucide-react';
 import { useUnreadMessages } from '../../hooks/useUnreadMessages';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
+import { MOSAIC_FEATURE_PROFILE } from '../../lib/backendCapabilities';
 
 export type TabId = 'home' | 'explore' | 'notifications' | 'messages' | 'account';
 
@@ -24,7 +25,7 @@ interface BottomNavProps {
   onTabChange: (tab: TabId) => void;
 }
 
-export const BottomNav: React.FC<BottomNavProps> = ({
+const FullBottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   onTabChange,
 }) => {
@@ -101,3 +102,35 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     </nav>
   );
 };
+
+/** Core-only chrome contains no unread/invitation hooks or social fetches. */
+const CoreBottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
+  const coreTabs = tabs.filter(tab => tab.id === 'home' || tab.id === 'account');
+  return (
+    <nav aria-label="Main"
+      className="fixed bottom-0 left-0 right-0 z-30 bg-[#1E1E1E] border-t border-[#333333]">
+      <div className="flex justify-around items-center h-[calc(4rem+env(safe-area-inset-bottom))] max-w-lg mx-auto pb-[env(safe-area-inset-bottom)]">
+        {coreTabs.map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button key={tab.id} type="button"
+              onClick={() => onTabChange(tab.id)}
+              aria-label={tab.label} aria-current={isActive ? 'page' : undefined}
+              className="flex flex-col items-center justify-center flex-1 h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60">
+              <Icon size={22} className={isActive ? 'text-white' : 'text-gray-400'} aria-hidden="true" />
+              <span className={`text-[10px] mt-1 font-medium ${isActive ? 'text-white' : 'text-gray-400'}`} aria-hidden="true">
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+};
+
+export const BottomNav: React.FC<BottomNavProps> = (props) =>
+  MOSAIC_FEATURE_PROFILE === 'core-only'
+    ? <CoreBottomNav {...props} />
+    : <FullBottomNav {...props} />;

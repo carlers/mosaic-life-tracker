@@ -8,6 +8,7 @@ import { useDiary } from '../../hooks/useDiary';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
 import { useAuth } from '../../hooks/useAuth';
+import { hasCapability } from '../../lib/backendCapabilities';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
@@ -46,7 +47,7 @@ interface PersonPaneProps {
 function readHomeView(): ViewType {
   try {
     const value = localStorage.getItem('mosaic_home_view');
-    return value === 'diary' || value === 'todo' ? value : 'calendar';
+    return (value === 'todo' || (value === 'diary' && hasCapability('diary'))) ? value : 'calendar';
   } catch {
     return 'calendar';
   }
@@ -60,8 +61,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
-  const { activeItems: receivedShares } = useSharedTasks('received', isActive);
-  const { items: ownedShares } = useSharedTasks('owned', isActive);
+  const { activeItems: receivedShares } = useSharedTasks('received', isActive && hasCapability('sharedTasks'));
+  const { items: ownedShares } = useSharedTasks('owned', isActive && hasCapability('sharedTasks'));
   const sharedByDay = useMemo(() => sharedByDate(receivedShares), [receivedShares]);
   const ownedSharedTaskIds = useMemo(
     () => new Set(ownedShares.map(share => share.taskId)), [ownedShares]
@@ -82,7 +83,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
-  const { entries: diaryEntries, getEntryByDate, saveEntry, deleteEntry } = useDiary(isActive && activeView === 'diary');
+  const { entries: diaryEntries, getEntryByDate, saveEntry, deleteEntry } = useDiary(hasCapability('diary') && isActive && activeView === 'diary');
   const viewRequestRef = useRef(0);
   const handleViewChange = useCallback((next: ViewType) => {
     const request = ++viewRequestRef.current;

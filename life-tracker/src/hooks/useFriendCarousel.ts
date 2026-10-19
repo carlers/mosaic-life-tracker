@@ -3,6 +3,7 @@ import { useFriends } from './useFriends';
 import { useMyProfile } from './useMyProfile';
 import { useSettings } from './useSettings';
 import { useAuth } from './useAuth';
+import { hasCapability } from '../lib/backendCapabilities';
 import { useConnectivity } from './useConnectivity';
 import {
   fetchProfileByUserId,
@@ -71,7 +72,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
   const attemptedBiosRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!canUseNetwork) return;
+    if (!canUseNetwork || !hasCapability('social')) return;
     const missing = friends.filter(
       (f) =>
         (!f.friendBio || f.friendBio === '') &&
@@ -156,7 +157,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
       return aName.localeCompare(bName);
     });
 
-    for (const f of sorted) {
+    for (const f of (hasCapability('social') ? sorted : [])) {
       list.push({
         id: f.friendId,
         kind: 'friend',

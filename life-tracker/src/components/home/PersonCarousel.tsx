@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Users } from 'lucide-react';
+import { hasCapability } from '../../lib/backendCapabilities';
 import { DeferredAvatar } from '../ui/DeferredAvatar';
 import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 
@@ -81,7 +82,7 @@ const PersonCarouselComponent: React.FC<PersonCarouselProps> = ({
             onSelect={onSelect}
           />
         ))}
-        <button
+        {hasCapability('social') && <button
           type="button"
           onClick={onOpenSettings}
           onPointerDown={(e) => e.stopPropagation()}
@@ -89,7 +90,7 @@ const PersonCarouselComponent: React.FC<PersonCarouselProps> = ({
           aria-label="Friend preferences"
         >
           <Users size={14} />
-        </button>
+        </button>}
       </div>
     </div>
   );

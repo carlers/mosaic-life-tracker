@@ -4,6 +4,7 @@ import { resolveRouteTransition, readRouterHistoryIndex } from '../../lib/routeT
 import { WifiOff, UserX } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
+import { hasCapability } from '../../lib/backendCapabilities';
 import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
 import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
 import { markStartup } from '../../lib/startupMetrics';
@@ -159,7 +160,7 @@ export const AppLayout: React.FC = () => {
 
   useEffect(() => {
     const userId = user?.$id;
-    if (!userId || connectivity.status !== 'online') return;
+    if (!hasCapability('alerts') || !userId || connectivity.status !== 'online') return;
 
     let active = true;
     void import('../../lib/pushNotifications')
@@ -185,7 +186,7 @@ export const AppLayout: React.FC = () => {
 
   useEffect(() => {
     const uid = user?.$id;
-    if (!uid || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
+    if (!hasCapability('chat') || !uid || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
 
     let active = true;
     const tryDeliver = () => {
@@ -398,8 +399,8 @@ export const AppLayout: React.FC = () => {
         : undefined
     );
   };
-  const includeConversations =
-    path.includes('/messages') || messagesIsAdjacent;
+  const includeConversations = hasCapability('chat') &&
+    (path.includes('/messages') || messagesIsAdjacent);
 
   const shellProps = {
     includeConversations,

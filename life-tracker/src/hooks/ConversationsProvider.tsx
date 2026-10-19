@@ -6,6 +6,7 @@ import React, {
 } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
+import { hasCapability } from '../lib/backendCapabilities';
 import { useFriends } from './useFriends';
 import {
   ConversationsContext,
@@ -36,7 +37,7 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!hasCapability('chat') || !userId) return;
     const uid = userId;
     let isMounted = true;
     let subscription: { unsubscribe: () => void } | undefined;
