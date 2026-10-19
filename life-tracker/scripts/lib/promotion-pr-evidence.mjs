@@ -2,6 +2,7 @@
 // version-impact, human acceptance, or explicit merge authorization.
 const SHA = /^[a-f0-9]{40}$/;
 const STABLE = /^(feature|fix|perf|security|refactor)\/[a-zA-Z0-9._/-]+$/;
+const DOGFOOD = 'feature/dogfood';
 const VERSION = /^(\d+)\.(\d+)\.(\d+)$/;
 const CANONICAL_REASON = 'latest exact-source GitHub Actions canonical acceptance missing or failed';
 
@@ -17,6 +18,9 @@ export function evaluatePromotionPrEvidence(e) {
   }
   if (e?.baseBranch === 'dev' && !STABLE.test(e?.headBranch ?? '')) {
     reasons.push('dev promotions must originate from a stable Preview');
+  }
+  if (e?.baseBranch === 'dev' && e?.headBranch === DOGFOOD) {
+    reasons.push('experimental dogfood cannot promote directly to dev');
   }
   if (e?.baseBranch === 'main' && e?.headBranch !== 'dev') {
     reasons.push('main promotions must originate from dev');

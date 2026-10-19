@@ -8,8 +8,12 @@ export const STABLE_PREVIEW_PREFIXES = [
   'refactor/',
 ];
 
+export const DOGFOOD_PREVIEW_BRANCH = 'feature/dogfood';
+
 export function isStablePreviewBranch(branch) {
-  return STABLE_PREVIEW_PREFIXES.some((prefix) => branch?.startsWith(prefix));
+  // This long-lived experimental integration is never a direct dev promotion source.
+  return branch !== DOGFOOD_PREVIEW_BRANCH &&
+    STABLE_PREVIEW_PREFIXES.some((prefix) => branch?.startsWith(prefix));
 }
 
 export function evaluatePromotionEvidence({
