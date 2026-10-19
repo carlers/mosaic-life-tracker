@@ -65,6 +65,16 @@ async function readHistory(page) {
   )).toBeGreaterThan(800);
   await scroller(page).evaluate(async el => {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+  // Wait until the initial conversation has genuinely pinned to bottom, not
+  // just until its content was rendered. WebKit can defer scroll event delivery.
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+  await scroller(page).evaluate(el => {
+    // The existing test scrolls directly via scrollTop. Notify the app's
+    // upward-wheel-intent handler synchronously before doing so: a pending
+    // resize rAF must not override an intentional move into history. This
+    // event exercises the app's scroll-intent state, NOT native touch gesture.
+    el.dispatchEvent(new WheelEvent('wheel', { deltaY: -1, bubbles: true }));
     el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight - 700);
   });
   // Verify the browser has actually moved away from the end before asserting
