@@ -1,22 +1,22 @@
 # Session checkpoint
 
-Updated: 2026-10-19 UTC
-Current task: Reduce documentation-only CI friction for Mosaic handoff checkpoints and token estimates.
+Updated: 2026-10-20 UTC
+Current task: #1033 disable task completion control during Select mode.
 
 ## Boundary
-- Base is protected `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Scoped task branch: `chatgpt/doc-contract-advisories-20261019`. No app runtime, schema, auth, sync, provider, deployment, or version change.
-- Keep AGENTS.md and AI_WORKFLOW.md instructions unchanged. Continue writing clear next actions and aiming for a concise handoff; this changes enforcement of two incidental shape/size checks only.
+- Base: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12); separate accepted #1008 Preview v0.29.13 has an open dev-promotion PR #1031.
+- Task branch: `chatgpt/1033-select-mode-checkbox-20261020`, with planned v0.29.14 Preview revision to avoid #1031's v0.29.13.
+- Frontend-only change. No backend, schema, Appwrite/Supabase, Vercel configuration, dev/main promotion, or 1.0 release authorized.
 
 ## Changes
-- `scripts/lib/create-handoff.mjs`: missing next-action heading becomes a returned advisory, accepting common equivalent headings. Required Updated and Current task/work markers still fail closed.
-- `scripts/create-handoff.mjs`: surface advisory on stderr without blocking handoff generation; retain strict GitHub exact-SHA and path safety checks.
-- `tests/unit/documentationContracts.test.ts`: 3,000 estimated-token handoff target becomes an advisory, preserving proof that the complete agent instructions and session checkpoint are included.
-- `tests/unit/createHandoff.test.ts`: coverage for alternate headings, missing-step advisories, and continued required-context failures.
+- Select mode completion circle remains visually unchanged but is aria-disabled and never mutates completion or selection, including nested keyboard events.
+- Existing task completion, keyboard editing and row/title/category selection outside this exception remain unchanged.
+- Update `tests/components/TaskItemGestures.test.tsx` and `docs/PROJECT_REFERENCE.md` §2 for intentional changed behavior.
+- Synchronize `package.json`, `package-lock.json`, and `src/lib/appVersion.ts` for the next user-testable Preview candidate.
 
 ## Verification
-- Pending task focused CI, canonical stable Preview gate and trusted delivery; no local test-run or CI acceptance has yet been asserted.
-- Existing unrelated performance, security and Supabase/Oracle backend workstreams remain separate.
+- GitHub-only changes prepared; no local test run performed.
+- Pending coherent task commit with `[verify:focused]`, CI evidence, stable Preview canonical acceptance, Vercel delivery, and manual/device checks.
 
 ## Next action
-- Commit coherent task with `[verify:focused]`; repair relevant failing tests if necessary. After focused green, squash into a separate stable Preview branch for canonical CI and trusted delivery. Do not promote to dev/main without explicit approval.
+- Finish task changes, request focused CI on exact task SHA; repair failures if needed. After focused success, create/squash PR to `fix/select-mode-checkbox-1033-20261020` and verify canonical Preview CI and deployment. Keep #1033 open; do not promote to `dev` or `main` without separate approval.
