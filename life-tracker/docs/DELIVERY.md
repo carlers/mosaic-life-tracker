@@ -110,7 +110,11 @@ Normal temporary stable Previews are still the per-feature acceptance sources. N
 promote `feature/dogfood` to `dev` or `main`, even if its combined tree is green;
 use an independently accepted, source-identical feature Preview and explicit owner
 approval. Revert rejected experiments on dogfood through reviewable commits,
-without force-moving the branch. See [dogfood workflow](DOGFOOD_WORKFLOW.md).
+without force-moving the branch. After exact canonical CI and trusted READY Preview
+deployment, the connected operator may assign the reserved dogfood alias to the
+verified deployment and read it back. This is a separate CI-gated alias step,
+not automatic main-owned alias switching or permission to redeploy rejected code.
+See [dogfood workflow](DOGFOOD_WORKFLOW.md).
 
 ### Read-only PR preflight versus push-driven canonical races (#592)
 

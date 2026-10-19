@@ -1,22 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #1004 permanent experimental dogfood PWA integration.
+Current task: #1004 permanent experimental dogfood Preview PWA handoff.
 
-## Boundary
-- Source baseline: `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12); `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` not modified.
-- Reserved stable dogfood branch: `feature/dogfood`, created at the verified dev baseline; task branch: `chatgpt/1004-dogfood-workflow-20261019`.
-- No frontend/runtime version, schema, auth, backend, or production promotion change. Reuse reviewed generic Preview producer and source-side Vercel Git suppression unchanged.
+## Verified source and isolation
+- `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12); `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
+- `feature/dogfood@e3327131546b1d4a9fe3a34f74968864ef871eb4` squash merge of [PR #1006](https://github.com/carlers/mosaic-life-tracker/pull/1006), version impact NONE.
+- Three explicit direct dogfood→dev promotion guards and regressions, plus `docs/DOGFOOD_WORKFLOW.md`. No backend schema, Function, PWA implementation, protected-main, Vercel source policy, or Production change.
 
-## Changes
-- Document permanent dogfood testing, ordinary isolated Preview acceptance, per-feature rejection/revert, and accepted Preview → dev authorization boundary.
-- Fail closed on direct dogfood→dev in all three promotion assessment paths with targeted regressions.
-- Add dedicated linked dogfood workflow guide. Initial stable alias and installed-PWA acceptance require a live accepted deployment.
+## Verified delivery
+- Focused task Quality Gate [#39214446705](https://github.com/carlers/mosaic-life-tracker/actions/runs/39214446705) SUCCESS; stable dogfood full Quality Gate [#39215632119](https://github.com/carlers/mosaic-life-tracker/actions/runs/39215632119) SUCCESS.
+- Trusted protected-main [#39215830876](https://github.com/carlers/mosaic-life-tracker/actions/runs/39215830876) receiver + prebuilt writer SUCCESS for exact SHA `e332713...`; Vercel `dpl_2YSk2g6uShRVmxWggXQxfZsmRm37` READY, Preview target null.
+- Reserved stable alias `https://mosaic-life-tracker-dogfood-carls-projects-72516fde.vercel.app` assigned via Vercel connector, read back bound to that READY deployment. Main-owned writer itself never assigns aliases: connected operator repeats the verified alias handoff after each accepted dogfood update.
+- Scratch Appwrite active, existing `*.vercel.app` platform present; exact hostname creation blocked by 403 Free-plan platform ceiling. No cloud schema changes or Production writes. Vercel SSO remains enabled for Preview URLs.
 
-## Verification
-- Pending focused task CI, stable dogfood canonical acceptance, trusted Preview READY/readback, exact Scratch origin registration and real device/PWA tests.
-- Main-owned trusted Preview writer currently does not assign stable aliases; do not claim an installed permanent PWA or invent a URL before that gap is resolved safely.
-
-## Next action
-- Commit coherent task and request `[verify:focused]`, then squash only after focused green into `feature/dogfood` for canonical CI. Verify the default-main generic trusted receiver and exact Vercel READY deployment; design/gate a stable alias handoff before any installed-PWA claim.
-- Record a separate explicit approval if later main-owned trust/alias infrastructure must change. Never directly promote dogfood, dev/main or modify Production.
+## Remaining verification / next action
+- On task branch `chatgpt/1004-dogfood-alias-handoff-20261019`, document safe reproducible alias rotation and exact first-bootstrap evidence; request focused CI then squash to stable dogfood for a second full canonical/prebuilt candidate. Rotate the **same** reserved alias to the newly verified READY Preview and read it back, proving stable URL updates.
+- Only user/device testing can confirm authenticated PWA install, local data persistence, Update now, offline reopen/reconnect and rejected-feature rollback; record results in issue #1004. Do not claim these from server status. Never promote dogfood→dev/main or release 1.0 without explicit approval.
