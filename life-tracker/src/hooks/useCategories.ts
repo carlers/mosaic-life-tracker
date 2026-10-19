@@ -90,6 +90,7 @@ export function useCategories(enabled = true) {
       const order = [...newOrder];
       const applyOrder = async () => {
         const db = getDatabase();
+        let failures = 0;
         for (let i = 0; i < order.length; i++) {
           const id = order[i].id;
           try {
@@ -101,11 +102,15 @@ export function useCategories(enabled = true) {
               updatedAt: new Date().toISOString(),
             });
           } catch (err) {
+            failures++;
             console.error(
               `[useCategories] reorder failed for ${id}:`,
               err
             );
           }
+        }
+        if (failures > 0) {
+          throw new Error(`Could not reorder ${failures} categories`);
         }
       };
 
