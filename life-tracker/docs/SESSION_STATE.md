@@ -1,23 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 read-only privileged CAS field-ownership design and provider acceptance bigint/cursor hardening.
+Current task: #967 coordinated local-only task CAS protection for original timestamp and reaction ownership.
 
-## Verified baseline
-- Accepted isolated refactor/967-provider-contract-signed-local-20261019@ad6de18fca1b55dc94c6256a3a11fce2ac7f7d9c, PR #1019, canonical #39227581978 SUCCESS, signed local Auth/Chromium #39227582313 SUCCESS (3 tests), trusted Preview #39227825503 SUCCESS (CI-first READY).
-- At task start dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1, main@b952f71ecd2add3172f90104bc0e856a2648ccc9. No dev/main/Production/hosted Auth/Appwrite/OCI changes authorized. Supabase #967 and OCI Appwrite #975 remain parallel, reversible options.
-- Hosted Supabase owner-private prototype still has two security advisor WARNs; task RPC currently allows created_at/reactions client modifications. No formal security signoff and no deployed schema changes this task.
+## Baseline and guardrails
+- Accepted predecessor refactor/967-cursor-security-contract-20261019@50347776966aa924d53646f9c04a7dfbabeed9ec, PR #1023, canonical #39230129094 SUCCESS and trusted Preview #39230420159 SUCCESS (prebuilt READY).
+- Protected dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1 and main@b952f71ecd2add3172f90104bc0e856a2648ccc9 unchanged at task start. Existing hosted mosaic-dev SECURITY DEFINER task/category advisor WARNs remain unresolved. Keep OCI Appwrite #975 viable with Supabase Free #967.
+- NO hosted database migration, Supabase Auth signup, Appwrite/OCI change, live configuration, Runtime provider import, dual-write, Production operation, protected branch promotion, paid VM claim or release approval.
 
-## This scope
-- tests/provider/ownerPrivateAcceptance.mjs rejects unsafe JS numeric PostgreSQL bigint revision in portable signed-provider adapter acceptance, rather than silently rounding string checkpoint precision.
-- tests/unit/backendOwnerPrivateAcceptance.test.ts fixes revision-number mock behavior and adds adversarial cases: unsafe numeric revision, reversed incremental cursor, missing soft tombstone; existing foreign-owner and stale-CAS negative cases unchanged.
-- docs/SUPABASE_PRIVILEGED_CAS_REVIEW.md documents explicit coordinated database + pilot field-ownership hardening design, negative-JWT acceptance plan, future trusted reaction handler, and why unilateral SQL allowlist changes would break the existing whole-document pilot.
-- Changes are confined to offline test tooling/docs. No SQL migration, CAS privilege/role, current Appwrite runtime, remote service or security warning modifications.
+## Scoped implementation
+- New source-only supabase-poc/migrations/20261020_candidate_task_protected_fields.sql follows the initial candidate CAS migration ONLY inside the disposable Supabase CLI signed-browser workflow. It restricts task CAS updated field allowlist, tightens owner INSERT to blank reactions, and makes created_at immutable on UPDATE in row trigger. Initial created_at is still client-provided for backward-compatible historical data and is not yet a trusted origin.
+- candidateCasTransport.ts rejects owner CAS patched created_at/reactions before network. candidateRxdbPilot.ts keeps ordinary task edits working by comparing protected field values against the verified signed master and omitting unchanged protected metadata from submitted CAS. Attempts to change them remain owner-scoped pending conflicts (including keep-local), while new task inserts with reactions are blocked pending trusted import/review.
+- Signed local Supabase/Chromium JWT test adds forged task CAS and forged initial reaction denial, unchanged revision checks and positive owner CAS; preserve existing category RxDB offline/restart/same-owner race tests. New pure pilot tests cover preservation and explicit review behavior; existing candidate transport unit checks reject both protected fields.
+- Only local candidate SQL/source-only pilot/tests/docs. Normal shipped Mosaic remains Appwrite.
 
 ## Verification
-- Focused CI, canonical stable Preview and trusted prebuilt Preview are pending at checkpoint creation; use exact remote Actions for final truth.
-- The current candidate still permits owner-authored creation timestamps and reactions fields. Do not claim these gaps closed until a matching versioned local candidate schema, non-destructive pilot behavior, genuine JWT negative tests and formal signoff pass.
+- At checkpoint creation, task-focused CI, dedicated disposable genuine-JWT signed browser integration, stable canonical full Quality Gate and CI-first trusted Preview are NOT YET VERIFIED. Treat GitHub Actions results and exact-SHA logs as truth. No hosted signoff or security warning suppression.
 
 ## Next action
-- Commit task branch with [verify:focused]. After focused success squash to new isolated stable Preview and require full canonical Quality Gate and trusted prebuilt READY. Save exact evidence in #967 issue.
-- Separately implement and evaluate protected task-field semantics atomically on disposable local candidate and pilot, with authorized hosted changes only after independent review. Keep OCI #975, six unported Supabase domains, Auth continuity, media, DR and old-client-safe cutover open. No dev/main promotion or 1.0 without owner approval.
+- Create coherent task branch chatgpt/967-protected-fields-20261019 with [verify:focused], run genuine local signed lab, fix failures without weakening protections, squash only to isolated refactor/967-protected-fields-20261019 after both pass. Require full canonical stable gate and trusted prebuilt READY; post exact evidence to #967 and keep #975 open.
+- Production-worthy design still needs original timestamp trust/legacy migration, actor-authorized friend reactions and blocking, independent RPC/RLS security audit, hosted JWT test with approved disposable-user lifecycle, six unported domains, Auth/session continuity, media/Functions, restore proof, Free budgets and old-client-safe cutover. Do not promote dev/main or Mosaic 1.0 without separate approval.

@@ -39,7 +39,7 @@ type Cas = ReturnType<typeof createCandidateCasTransport>;
 
 export type CandidateConflictReason =
   | 'missing-master' | 'divergent-master' | 'duplicate-create'
-  | 'cas-conflict' | 'unconfirmed-write';
+  | 'cas-conflict' | 'unconfirmed-write' | 'protected-field-change';
 
 export interface CandidateConflictReview<D extends Document> {
   domain: CandidateDomain;
@@ -220,6 +220,8 @@ export function createCandidateRxdbPilot<D extends Document>(
   }
 
   async function create(doc: Replicated<D>): Promise<Revisioned | null> {
+    if (domain === 'tasks' && ((doc as TaskDocument).reactions ?? '') !== '')
+      recordConflict(doc, null, null, 'protected-field-change');
     const result = domain === 'tasks'
       ? await writer.createTask(doc as TaskDocument, identity)
       : await writer.createCategory(doc as CategoryDocument, identity);
@@ -236,6 +238,27 @@ export function createCandidateRxdbPilot<D extends Document>(
     if (canonical(domain, doc, identity) !== canonical(domain, remote.document, identity))
       recordConflict(doc, null, remote, 'unconfirmed-write');
     return null;
+  }
+
+  function makeOwnerPatch(local: Replicated<D>, master: Replicated<D>) {
+    if (domain === 'tasks') {
+      const current = toCandidateTaskWrite(local as TaskDocument, identity);
+      const previous = toCandidateTaskWrite(master as TaskDocument, identity);
+      if (current.created_at !== previous.created_at ||
+          current.reactions !== previous.reactions) return null;
+      const { owner_id: _owner, id: _id, created_at: _created,
+        reactions: _reactions, ...patch } = current;
+      void _owner;
+      void _id;
+      void _created;
+      void _reactions;
+      return patch;
+    }
+    const { owner_id: _owner, id: _id, ...patch } =
+      toCandidateCategoryWrite(local as CategoryDocument, identity);
+    void _owner;
+    void _id;
+    return patch;
   }
 
   async function push(rows: RxReplicationWriteToMasterRow<D>[]): Promise<Replicated<D>[]> {
@@ -285,12 +308,8 @@ export function createCandidateRxdbPilot<D extends Document>(
       if (!assumed || canonical(domain, assumed, identity) !== remote)
         recordConflict(next, assumed ?? null, master, 'divergent-master');
 
-      const write = domain === 'tasks'
-        ? toCandidateTaskWrite(next as TaskDocument, identity)
-        : toCandidateCategoryWrite(next as CategoryDocument, identity);
-      const { owner_id: _owner, id: _id, ...patch } = write;
-      void _owner;
-      void _id;
+      const patch = makeOwnerPatch(next, master.document);
+      if (!patch) recordConflict(next, assumed, master, 'protected-field-change');
       const result = await cas.compareAndSet<Row>({
         domain,
         ownerId: identity.supabaseUserId,
@@ -414,12 +433,8 @@ export function createCandidateRxdbPilot<D extends Document>(
       clearReview(documentId);
       return { state: 'already-applied' as const, revision: master.revision };
     }
-    const write = domain === 'tasks'
-      ? toCandidateTaskWrite(local as TaskDocument, identity)
-      : toCandidateCategoryWrite(local as CategoryDocument, identity);
-    const { owner_id: _owner, id: _id, ...patch } = write;
-    void _owner;
-    void _id;
+    const patch = makeOwnerPatch(local, master.document);
+    if (!patch) recordConflict(local, review.base, master, 'protected-field-change');
     const result = await cas.compareAndSet<Row>({
       domain, ownerId: identity.supabaseUserId, documentId,
       expectedRevision: master.revision, patch,

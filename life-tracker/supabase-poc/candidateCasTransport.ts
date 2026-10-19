@@ -28,8 +28,8 @@ export type CandidateCasOutcome<Row extends CandidateCasRow> =
 const ALLOWED: Record<CandidateDomain, readonly string[]> = {
   tasks: [
     'title', 'completed', 'category_id', 'order_index', 'tags', 'task_date',
-    'memo', 'image', 'created_at', 'completed_at', 'updated_at', 'source',
-    'routine_id', 'reminder_time', 'reactions', 'visibility', 'is_deleted',
+    'memo', 'image', 'completed_at', 'updated_at', 'source',
+    'routine_id', 'reminder_time', 'visibility', 'is_deleted',
   ],
   categories: [
     'name', 'color', 'order_index', 'visibility', 'icon', 'updated_at', 'is_deleted',
