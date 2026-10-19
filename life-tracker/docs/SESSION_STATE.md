@@ -5,7 +5,7 @@ Current task: Implement issue #859, owner Day View category drag/reorder and in-
 
 ## Boundary
 - Protected dev baseline: `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12); main remains untouched.
-- Scoped branch: `chatgpt/859-dayview-category-gestures-20261020`.
+- Scoped repair branch: `chatgpt/859-category-gesture-repair-20261020`. Stable Preview: `feature/dayview-category-gesture-859-20261020@dd7417300bd17240672befe1049eb5be7d6c31f5`.
 - Owner-only UI change; no backend, schema, auth, provider or production change.
 - Existing task/diary/shared drag and date swipe semantics must remain intact.
 
@@ -16,7 +16,9 @@ Current task: Implement issue #859, owner Day View category drag/reorder and in-
 - Focused pure-order and React interaction regressions.
 
 ## Verification
-- Initial focused CI passed at 589ab9868b6fb0c922cec9c5dfa46696cad180be. Preview version 0.31.0 staged; full canonical CI, hosted deployment and manual/device acceptance not yet completed.
+- Initial task focused CI green at `4571f4305f4a9a591963cdb43e6c4c1ba1b12c62`.
+- Stable Preview full run `39292125129`: build, DOM, browser-contract, dependency audit passed; static checks failed (React refs during render and hook dependency contract). Canonical acceptance therefore failed.
+- This repair moves the category menu ref fully inside its owner component and corrects hook memoization dependency. No new Preview acceptance or real-device testing is claimed.
 
 ## Next action
-- Verify versioned task commit with `[verify:focused]`, then squash into a dedicated stable Preview for canonical CI and Vercel. Do not promote to dev/main without explicit approval. Do not promote to dev/main without approval.
+- Commit scoped repair with `[verify:focused]`, verify focused CI, squash through a repair PR to the same stable Preview, then verify exact-SHA full canonical acceptance and hosted Vercel deployment. Do not promote to dev/main without approval.

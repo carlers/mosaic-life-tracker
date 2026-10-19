@@ -22,7 +22,6 @@ export interface CategoryPillActions {
   onContextMenu: React.MouseEventHandler<HTMLElement>;
   menuOpen: boolean;
   setMenuOpen: (open: boolean) => void;
-  menuButtonRef: React.RefObject<HTMLButtonElement | null>;
   moveUp?: () => void;
   moveDown?: () => void;
   update: (changes: Pick<CategoryDocument, 'name' | 'visibility'>) => Promise<void>;
@@ -127,20 +126,21 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const [categoryError, setCategoryError] = useState('');
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const categoryPillRef = useRef<HTMLButtonElement>(null);
+  const optionsButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!categoryActions?.menuOpen) return;
     const dismiss = (event: PointerEvent) => {
       if (actionMenuRef.current?.contains(event.target as Node) ||
           categoryPillRef.current?.contains(event.target as Node) ||
-          categoryActions.menuButtonRef.current?.contains(event.target as Node)) return;
+          optionsButtonRef.current?.contains(event.target as Node)) return;
       categoryActions.setMenuOpen(false);
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.stopPropagation();
       categoryActions.setMenuOpen(false);
-      categoryActions.menuButtonRef.current?.focus();
+      optionsButtonRef.current?.focus();
     };
     document.addEventListener('pointerdown', dismiss);
     document.addEventListener('keydown', escape, true);
@@ -165,7 +165,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     try {
       await categoryActions.update({ name: editName.trim(), visibility: editVisibility });
       setEditingCategory(false);
-      categoryActions.menuButtonRef.current?.focus();
+      optionsButtonRef.current?.focus();
     } catch (error) {
       setCategoryError(error instanceof Error ? error.message : 'Could not update category');
     } finally {
@@ -377,7 +377,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         <>
           <button
             type="button"
-            ref={categoryActions.menuButtonRef}
+            ref={optionsButtonRef}
             aria-label={'Category options for ' + categoryName}
             aria-expanded={categoryActions.menuOpen}
             onClick={() => categoryActions.setMenuOpen(!categoryActions.menuOpen)}
@@ -431,7 +431,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             if (event.key === 'Escape' && !savingCategory) {
               event.stopPropagation();
               setEditingCategory(false);
-              categoryActions.menuButtonRef.current?.focus();
+              optionsButtonRef.current?.focus();
             }
           }}
         >
@@ -459,7 +459,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
               Save
             </button>
             <button type="button" disabled={savingCategory}
-              onClick={() => { setEditingCategory(false); categoryActions.menuButtonRef.current?.focus(); }}
+              onClick={() => { setEditingCategory(false); optionsButtonRef.current?.focus(); }}
               className="rounded-lg px-3 py-2 text-sm text-gray-300">Cancel</button>
           </div>
         </form>

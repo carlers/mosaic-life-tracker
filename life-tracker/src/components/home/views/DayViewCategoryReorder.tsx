@@ -39,7 +39,6 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
   const suppressClick = React.useRef(false);
   const dragStarted = React.useRef(false);
   const pressCleanup = React.useRef<(() => void) | null>(null);
-  const menuButtonRef = React.useRef<HTMLButtonElement>(null);
   const activeChangeRef = React.useRef(onDragActiveChange);
   React.useEffect(() => {
     activeChangeRef.current = onDragActiveChange;
@@ -122,7 +121,6 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
     },
     menuOpen,
     setMenuOpen,
-    menuButtonRef,
     moveUp: index > 0 ? () => onMove(category.id, -1) : undefined,
     moveDown: index < total - 1 ? () => onMove(category.id, 1) : undefined,
     update: (changes) => onUpdate(category.id, changes),
