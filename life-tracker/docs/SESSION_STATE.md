@@ -10,7 +10,7 @@ Current task: #967 prepare real disposable Supabase Auth signed-user permission 
 - Existing two Supabase Security Advisor WARNs are confirmed for exposed SECURITY DEFINER CAS RPCs. Not waived.
 
 ## Work
-- Add a node-only signed Auth/Data API denial-path probe fixed to the isolated Singapore mosaic-dev origin. An operator must supply two verified disposable Auth users and a public API key locally; no secret keys or hardcoded account credentials.
+- Add a node-only signed Auth/Data API denial-path probe fixed to the isolated Singapore mosaic-dev origin. An operator must supply two verified disposable Auth users and a modern sb_publishable_ public API key locally; legacy JWT-formatted anon/service-role and sb_secret_ keys fail closed before network. No hardcoded account credentials.
 - Probe performs real sign-in and server Auth /user verification, owner and wrong-owner SELECT, denied direct table UPDATE/DELETE, denied anonymous SELECT/RPC, missing-row CAS conflict, and unapproved field rejection without intentionally persisting rows.
 - Add Vitest mock-HTTP regressions and a documented opt-in npm command. No browser bundle or production backend changes.
 - Read-only management inspection confirmed both privileged RPC definitions use auth.uid owner predicates, non-null checks, fixed empty search_path, and patch allowlists. Those properties do not resolve the security warnings.
