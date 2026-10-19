@@ -69,6 +69,7 @@ authorization, Scratch checks, or release gates.
 | Node 18/22 native ARM64 Function-runtime proof and default installation caveat (#975) | [Function runtimes](SELF_HOSTING_FUNCTION_RUNTIMES.md) |
 | Synthetic PostgreSQL, Redis and ClickHouse ARM64 service and CRUD checks (#975) | [Datastore smoke](SELF_HOSTING_ARM64_DATASTORES.md) |
 | Read-only local Singapore A1 capacity polling; never provisions a VM (#975) | [OCI capacity watcher](OCI_CAPACITY_WATCH.md) |
+| Staged opt-in GitHub scheduled A1 capacity claim, disabled until separate activation (#975) | [GitHub A1 automation](OCI_GITHUB_A1_AUTOMATION.md) |
 | Exact-source local Production-target pre-release testing (not a Vercel Preview) | [Production acceptance](PRODUCTION_ACCEPTANCE.md) |
 | Independent forks and maintainer continuity | [Forking and recovery](FORKING.md) |
 | Friendship rollout, permissions, and legacy repair | [Friendship recovery](FRIENDSHIP_RECOVERY.md) |

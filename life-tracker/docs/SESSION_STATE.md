@@ -1,17 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #975 local Oracle Always Free A1 capacity watcher while Singapore is out of hardware.
+Current task: #975 opt-in GitHub scheduled Oracle A1 capacity and one-shot VM claiming design.
 
-## Boundary
-- Forked from accepted isolated `refactor/975-arm64-datastores-20261019@3473ca548e6f428f9cdf22587b7a358a02d47160`, full canonical #39175178419 and trusted Preview #39175314432 successful; prior native ARM64 app/runtime/datastore proofs all passed.
-- Protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- User has configured an OCI VCN/public subnet and attempted A1 VM in Singapore AD-1; Oracle returned OUT_OF_HOST_CAPACITY. No VM created. No Oracle credentials or tenancy access through ChatGPT. No billed resources authorized.
+## Source and governance
+- Branch `chatgpt/975-github-a1-autoclaim-20261019` forks isolated accepted `refactor/975-local-oci-capacity-watch-20261019@ccf6c95145cfb78c1866fb7987ac56116435454b`, CI #39179848967 and trusted #39180025489 SUCCESS; local command `npm run oci:capacity` is already working on the owner's Fedora CLI and reports Singapore AD-1 OUT_OF_HOST_CAPACITY.
+- Protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` untouched. No OCI tenancy or signing key available to ChatGPT; no permission to promote Preview to main or create billed resources.
+- GitHub scheduled workflows only execute from the default branch. The staged scheduled workflow on a nondefault Preview is **DORMANT**. Activation requires future explicit owner approval for default-branch workflow deployment, secure GitHub encrypted secrets and OCI dedicated user/compartment/quotas.
 
 ## Work
-- New source-only `scripts/oci-capacity-watch.mjs`: local OCI CLI read-only IAM AD list and Compute capacity report for Singapore A1 2 OCPU/12GB, CLI profile kept local, 60-min watcher/once mode (15-min minimum), advisory result status/positive count only, fail-closed errors, never launch VM or print root OCID/CLI stderr.
-- New unit tests `tests/unit/ociCapacityWatch.test.ts` for argument constraints, tenancy/AD validation, report statuses/unknown safety, exact command allowlist and secrets suppression.
-- Package script `oci:capacity`, docs guide `docs/OCI_CAPACITY_WATCH.md`, OCI runbook/docs index links. App runtime/version impact NONE.
+- New `scripts/oci-a1-autoclaim.mjs`: monitor existing 2 OCPU/12 GB Singapore A1 capacity report; optional full opt-in launch only if positive available count, exact scheduled default-branch context, dedicated compartment/quotas/free-tier confirmations, no existing A1 in compartment (including stopped), compatible Ubuntu 24.04 image, valid subnet and public SSH key. One no-retry launch, 50GB disk, **no public IPv4**, no extra volumes/paid shape fallback, no Appwrite deployment.
+- New `.github/workflows/oci-a1-autoclaim.yml`: hourly at minute 17, no PR trigger, encrypted key only as step secret, ephemeral OCI CLI/profile, contents-read and serialized concurrency. Main branch only once separately promoted; launch variable disabled by default.
+- New `tests/unit/ociA1Autoclaim.test.ts`: synthetic OCI CLI and safety/duplicate/owner guards.
+- New `docs/OCI_GITHUB_A1_AUTOMATION.md` with manual security/activation gates and residual cost risks; package command + docs index/local watcher reference.
 
 ## Next action
-- Verify focused CI then squash to a new isolated stable Preview for canonical CI/trusted READY. No real OCI report can run until user's local CLI credentials are configured; never claim live host availability. Track #975. Separately resume #967 Supabase REST/auth/RxDB prototype on its own accepted isolated branch, without touching `dev`, `main`, Appwrite Scratch, Production, real accounts or overlapping UI files.
+- Commit [verify:focused] and resolve tests, then squash into isolated stable Preview for canonical Quality Gate and trusted delivery. Do not enable GitHub schedule, write GitHub secrets, create OCI resources or promote to dev/main without a separate approval.
+- When ready: owner creates least-privilege OCI API key in dedicated compartment, verifies Always Free quotas and image/subnet, adds GitHub secrets and variables, and explicitly approves default-branch activation. Even with fixed shape, script **cannot guarantee zero cloud charges**. Keep #975 open, and #967 Supabase fallback independent.
