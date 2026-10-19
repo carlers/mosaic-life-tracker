@@ -6,6 +6,7 @@ import type { CategoryDocument } from '../db/schema';
 
 export function useCategories(enabled = true) {
   const { user } = useAuth();
+  const userId = user?.$id;
   const reorderQueue = useRef(Promise.resolve());
 
   const { data: categories, isLoading } = useRxCollection<CategoryDocument>({
@@ -95,7 +96,7 @@ export function useCategories(enabled = true) {
           const id = order[i].id;
           try {
             const doc = await db.categories.findOne(id).exec();
-            if (!doc || doc.isDeleted || doc.userId !== user?.$id) {
+            if (!doc || doc.isDeleted || doc.userId !== userId) {
               throw new Error('Category no longer belongs to this account');
             }
             if (doc.order === i) continue;
@@ -120,7 +121,7 @@ export function useCategories(enabled = true) {
       reorderQueue.current = queued.catch(() => undefined);
       return queued;
     },
-    [user?.$id]
+    [userId]
   );
 
   return {

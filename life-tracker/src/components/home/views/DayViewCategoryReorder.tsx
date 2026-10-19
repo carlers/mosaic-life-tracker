@@ -2,6 +2,7 @@ import React from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import type { CategoryDocument } from '../../../db/schema';
 import type { CategoryPillActions } from './CategorySection';
+import { CategoryPillActionContext } from './categoryPillActionContext';
 import { moveCategoryId, sameCategoryIds } from '../../../lib/categoryReorder';
 
 const HOLD_MS = 500;
@@ -15,7 +16,7 @@ interface ReorderProps {
   onUpdate: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility'>) => Promise<void>;
   onDragActiveChange?: (active: boolean) => void;
   onError?: (message: string) => void;
-  renderCategory: (category: CategoryDocument, actions?: CategoryPillActions) => React.ReactNode;
+  renderCategory: (category: CategoryDocument) => React.ReactNode;
 }
 
 interface DragRowProps {
@@ -27,7 +28,7 @@ interface DragRowProps {
   onDrop: () => void;
   onMove: (id: string, delta: -1 | 1) => void;
   onUpdate: ReorderProps['onUpdate'];
-  children: (actions: CategoryPillActions) => React.ReactNode;
+  children: React.ReactNode;
 }
 
 const DraggableCategoryRow: React.FC<DragRowProps> = ({
@@ -39,7 +40,6 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
   const suppressClick = React.useRef(false);
   const dragStarted = React.useRef(false);
   const pressCleanup = React.useRef<(() => void) | null>(null);
-  const menuButtonRef = React.useRef<HTMLButtonElement>(null);
   const activeChangeRef = React.useRef(onDragActiveChange);
   React.useEffect(() => {
     activeChangeRef.current = onDragActiveChange;
@@ -122,7 +122,6 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
     },
     menuOpen,
     setMenuOpen,
-    menuButtonRef,
     moveUp: index > 0 ? () => onMove(category.id, -1) : undefined,
     moveDown: index < total - 1 ? () => onMove(category.id, 1) : undefined,
     update: (changes) => onUpdate(category.id, changes),
@@ -148,7 +147,7 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
         window.setTimeout(() => { suppressClick.current = false; }, 100);
       }}
     >
-      {children(actions)}
+      <CategoryPillActionContext.Provider value={actions}>{children}</CategoryPillActionContext.Provider>
     </Reorder.Item>
   );
 };
@@ -240,7 +239,7 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
           onMove={move}
           onUpdate={onUpdate}
         >
-          {(actions) => renderCategory(category, actions)}
+          {renderCategory(category)}
         </DraggableCategoryRow>
       ))}
     </Reorder.Group>
