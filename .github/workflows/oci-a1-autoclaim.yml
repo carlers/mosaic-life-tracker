@@ -25,7 +25,7 @@ jobs:
       MOSAIC_OCI_SUBNET_OCID: ${{ secrets.MOSAIC_OCI_SUBNET_OCID }}
       MOSAIC_OCI_IMAGE_OCID: ${{ secrets.MOSAIC_OCI_IMAGE_OCID }}
       MOSAIC_OCI_FREE_TIER_CONFIRMED: ${{ vars.MOSAIC_OCI_FREE_TIER_CONFIRMED || 'NO' }}
-      MOSAIC_OCI_${{ vars.MOSAIC_OCI_QUOTA_CONFIRMED || 'NO' }}ED: ${{ vars.MOSAIC_OCI_QUOTA_CONFIRMED || 'NO' }}
+      MOSAIC_OCI_QUOTA_CONFIRMED: ${{ vars.MOSAIC_OCI_QUOTA_CONFIRMED || 'NO' }}
     steps:
       - name: Check out pinned default-branch source
         uses: actions/checkout@v4

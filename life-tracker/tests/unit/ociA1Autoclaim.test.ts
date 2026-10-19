@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -136,6 +136,19 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     expect(() => claimA1({ mode: 'launch', enabled: true, context, config,
       capacity: () => cap(), spawn })).toThrow(/no fallback or retry/);
     expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
+  });
+  it('wires the three operator opt-in variables to literal controller environment names', () => {
+    const workflow = readFileSync(
+      new URL('../../../.github/workflows/oci-a1-autoclaim.yml', import.meta.url), 'utf8',
+    );
+    for (const [key, fallback] of [
+      ['MOSAIC_OCI_AUTOLAUNCH', 'false'],
+      ['MOSAIC_OCI_FREE_TIER_CONFIRMED', 'NO'],
+      ['MOSAIC_OCI_QUOTA_CONFIRMED', 'NO'],
+    ]) {
+      expect(workflow).toContain("      " + key + ": ${{ vars." + key + " || '" + fallback + "' }}");
+    }
+    expect(workflow).not.toContain('MOSAIC_OCI_${{');
   });
 });
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
