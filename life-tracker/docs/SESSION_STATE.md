@@ -1,19 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #1008 close WebKit gesture coverage gaps that are possible without real iPadOS or Appwrite.
+Current task: #1008 trusted WebKit tap and complementary pointer coverage, plus exact stable-Preview chat-scroll CI repair.
 
-## Boundary
-- Live stable Preview base: `fix/ios-task-input-webkit-1008-20261019@46437537b9e7d1aacca03d2a5a4490bf46bac427` (v0.29.13); protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`; protected `main@b952f71ecd2add3172f90104bc0e856a2648ccc9`. No approvals for dev/main promotion.
-- Latest stable Preview canonical #39224425474 SUCCESS, trusted delivery #39224825886 SUCCESS and Vercel READY. Full Playwright correctness suite covered Chromium 63 passed, WebKit 43 passed, 20 explicitly skipped native-touch drags. Firefox #1009 remains post-1.0 planning.
-- Task branch: `chatgpt/1008-webkit-trusted-taps-pointer-20261019`, based on accepted Preview. Internal test/docs work only, no app runtime/backend/version changes.
+## Branch and authorization
+- Protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged; no dev/main/production promotion authorized.
+- Stable Preview `fix/ios-task-input-webkit-1008-20261019@0d6df83805565a62f5836fec832b208f4d3efaad` (version v0.29.13 unchanged). PR #1018 squash-merged into Preview; current repair task branch `chatgpt/1008-webkit-chat-scroll-settle-20261019`.
+- Backend Appwrite outage means real iPad/PWA authenticated manual acceptance still pending. Internal tests/docs only, no runtime/backend/provider modifications.
 
-## Current work
-- Upstream Playwright Touchscreen API has only `tap` (no trusted touch down/move/up; open upstream feature microsoft/playwright#39043). Synthetic touch events carry `isTrusted=false`, so do not misrepresent them as iPad Safari native swipe coverage or remove CDP-only WebKit skips.
-- Task-entry iPad-sized browser test now uses genuine `locator.tap()` for category and outside-blank-space interactions, proving blur/save without invoking a keyboard Done key. Tests use `hasTouch: true` across both engines.
-- Add complementary cross-engine trusted *mouse/pointer* tests for delayed sortable task activation and retained bottom sheet header dragging/dismissal. These test pointer handling, not native touch-drag parity.
-- The 20 WebKit CDP-only drag skips remain explicit. No Appwrite-dependent tests or provider work in scope.
+## Changes and evidence
+- Task branch #1018 focused/browser #39226567008 SUCCESS: Chromium 65 passed, WebKit 45 passed + 20 explicit Chromium-CDP native touch-drag skips.
+- New tests use trusted `locator.tap()` for repeated task creation with iPad-sized viewport; complementary genuine browser mouse/pointer gesture regressions check task hold/drag activation and retained BottomSheet drag dismissal. These are not native iPad swipe equivalents. Playwright touchscreen API cannot currently issue trusted touch down/move/up.
+- Stable Preview canonical #39227139684 FAILED only in browser shard 1, intermittent WebKit chat history scroll-to-bottom control after route switch; all other canonical jobs including browser shard 2 passed. Existing chat test waited for 80 messages but immediately set scrollTop while pending initial resize pin could override. Repair waits for scrollable content, settles the pending animation frames and asserts actual distance from bottom before requiring the button; never skips the test.
+- No successful Preview acceptance or new trusted deployment at this SHA is claimed.
 
-## Verification and handoff
-- This task branch has not yet completed focused/browser CI at the checkpoint; do not claim it is green.
-- Next: publish one coherent task commit with `[verify:browser]`; verify focused + Chromium/WebKit shards, repair any engine failures. Then squash to stable Preview, run full canonical and trusted Preview delivery. Leave #1008 open for real iPad Safari/PWA gesture and keyboard acceptance when Appwrite/device testing is possible. No dev/main promotion.
+## Next action
+- Commit focused browser repair `[verify:browser]`, confirm exact-SHA task CI and both WebKit shards. Squash repair to stable Preview only after focused+browser green, then require exact full canonical and trusted prebuilt READY delivery. Keep #1008 open for actual iPad Safari/PWA manual acceptance and 20 unsupported native-touch drag gaps; no dev/main promotion.
