@@ -153,7 +153,9 @@ for (const { viewport, width } of [
     await page.mouse.move(startX + 180, y + 2, { steps: 5 });
     await page.mouse.up();
 
-    await expect(path).toHaveText('/messages');
+    // WebKit may retain both outgoing and incoming route nodes during a transition.
+    // Assert the exact destination without assuming the outgoing element has unmounted.
+    await expect(page.getByTestId('chat-path').filter({ hasText: new RegExp('^/messages$') })).toHaveCount(1);
     await expect(page.getByTestId('messages-parent-page')).toBeVisible();
   });
 }
