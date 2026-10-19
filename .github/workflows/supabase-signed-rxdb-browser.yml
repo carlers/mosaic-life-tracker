@@ -15,9 +15,13 @@ on:
       - 'refactor/967-conflict-review-refresh-*'
       - 'chatgpt/967-signed-rpc-denial-matrix-*'
       - 'refactor/967-signed-rpc-denial-matrix-*'
+      - 'chatgpt/967-provider-contract-*'
+      - 'refactor/967-provider-contract-*'
     paths:
       - '.github/workflows/supabase-signed-rxdb-browser.yml'
       - 'life-tracker/tests/e2e/supabase-signed-rxdb*'
+      - 'life-tracker/tests/provider/**'
+      - 'life-tracker/tests/fixtures/backendProviderParity.ts'
       - 'life-tracker/supabase-poc/**'
       - 'life-tracker/docs/SESSION_STATE.md'
       - 'life-tracker/docs/SUPABASE_EVALUATION.md'

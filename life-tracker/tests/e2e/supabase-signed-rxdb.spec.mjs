@@ -4,6 +4,7 @@
  * Does not use hosted projects, Appwrite, actual user accounts or service keys.
  */
 import { randomBytes } from 'node:crypto';
+import { runOwnerPrivateProviderAcceptance, OWNER_PRIVATE_ACCEPTANCE_DOMAINS } from '../provider/ownerPrivateAcceptance.mjs';
 import { expect, test } from '@playwright/test';
 
 const url = process.env.MOSAIC_SB_LOCAL_URL;
@@ -367,4 +368,128 @@ test('signed local Supabase CAS denies cross-owner writes, forged patches, direc
   expect(finalTasks[0]).toMatchObject({
     owner_id: a.id, id: taskId, title: 'A private task',
   });
+});
+
+
+test('shared eight-domain fixtures exercise only implemented private task/category contracts with real signed provider sessions', async ({ page }) => {
+  if (!configured) throw new Error('Local-only test credentials required');
+  const a = await newSignedUser('fixture_a');
+  const b = await newSignedUser('fixture_b');
+  await page.addInitScript(config => { window.__mosaicSignedRxdbConfig = config; }, {
+    endpoint: url, publishableKey: key, token: a.token,
+    supabaseId: a.id, legacyId: 'synthetic_owner_a',
+    dbTag: 'parity_' + randomBytes(5).toString('hex'),
+  });
+  await page.goto(BASE_URL + '/tests/e2e/supabase-signed-rxdb.html');
+  await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb?.privateProviderFixtures));
+  const fixtures = await page.evaluate(principals =>
+    window.__mosaicSignedRxdb.privateProviderFixtures(principals), {
+    a: a.id, b: b.id,
+  });
+
+  const tableNames = {
+    categories: 'mosaic_candidate_categories',
+    tasks: 'mosaic_candidate_tasks',
+  };
+  const rpcNames = {
+    categories: 'mosaic_candidate_cas_category',
+    tasks: 'mosaic_candidate_cas_task',
+  };
+  const raw = async (path, { token, method = 'GET', body } = {}) => {
+    const response = await fetch(url + path, {
+      method, redirect: 'error', cache: 'no-store',
+      headers: {
+        apikey: key,
+        ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        ...(body === undefined ? {} : {
+          'Content-Type': 'application/json', Prefer: 'return=representation',
+        }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    return response;
+  };
+  const denied = response => [401, 403].includes(response.status) && !response.ok
+    ? 'denied' : 'unexpected';
+  const rpc = async (domain, principal, id, revision, patch) => {
+    const response = await raw('/rest/v1/rpc/' + rpcNames[domain], {
+      token: principal?.token,
+      method: 'POST',
+      body: { p_id: id, p_expected_seq: revision, p_patch: patch },
+    });
+    if (!response.ok) throw new Error('Signed private CAS failed HTTP ' + response.status);
+    const value = await response.json();
+    if (value === null) return { state: 'conflict' };
+    // PostgreSQL RETURNS composite can serialize a no-update result as a
+    // fully NULL typed record. Reject incomplete or mixed-null responses.
+    if (value && typeof value === 'object' && !Array.isArray(value) &&
+      ['owner_id', 'id', 'change_seq', 'is_deleted'].every(
+        name => Object.hasOwn(value, name) && value[name] === null,
+      ) && Object.values(value).every(field => field === null)) {
+      return { state: 'conflict' };
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error('Malformed signed private CAS response');
+    }
+    return { state: 'applied', row: value };
+  };
+
+  const adapter = {
+    async create(domain, principal, body) {
+      const response = await raw('/rest/v1/' + tableNames[domain], {
+        token: principal.token, method: 'POST', body,
+      });
+      if (response.status !== 201) throw new Error('Signed fixture create failed HTTP ' + response.status);
+      const rows = await response.json();
+      if (!Array.isArray(rows) || rows.length !== 1) throw new Error('Invalid signed create representation');
+      return rows[0];
+    },
+    async read(domain, principal, ownerId) {
+      return request('/rest/v1/' + tableNames[domain] + '?' + new URLSearchParams({
+        select: '*', owner_id: 'eq.' + ownerId, order: 'change_seq.asc',
+      }), { token: principal.token });
+    },
+    async forgedInsert(domain, principal, otherOwnerFixture) {
+      return denied(await raw('/rest/v1/' + tableNames[domain], {
+        token: principal.token, method: 'POST', body: otherOwnerFixture,
+      }));
+    },
+    async anonRead(domain, ownerId) {
+      return denied(await raw('/rest/v1/' + tableNames[domain] + '?' +
+        new URLSearchParams({ select: 'id', owner_id: 'eq.' + ownerId })));
+    },
+    async anonCas(domain, id, revision, patch) {
+      const response = await raw('/rest/v1/rpc/' + rpcNames[domain], {
+        method: 'POST',
+        body: { p_id: id, p_expected_seq: revision, p_patch: patch },
+      });
+      return denied(response);
+    },
+    async directWrite(domain, principal, row, method) {
+      return denied(await raw('/rest/v1/' + tableNames[domain] + '?' +
+        new URLSearchParams({ owner_id: 'eq.' + principal.id, id: 'eq.' + row.id }), {
+        token: principal.token, method,
+        ...(method === 'PATCH' ? { body: { is_deleted: true } } : {}),
+      }));
+    },
+    cas: rpc,
+    async changes(domain, principal, afterExclusive) {
+      return request('/rest/v1/' + tableNames[domain] + '?' + new URLSearchParams({
+        select: '*', owner_id: 'eq.' + principal.id,
+        change_seq: 'gt.' + afterExclusive, order: 'change_seq.asc', limit: '100',
+      }), { token: principal.token });
+    },
+  };
+  const principals = { a, b };
+  const results = [];
+  for (const domain of OWNER_PRIVATE_ACCEPTANCE_DOMAINS) {
+    results.push(await runOwnerPrivateProviderAcceptance({
+      domain, principals, fixtures, adapter,
+    }));
+  }
+  expect(results.map(result => result.domain)).toEqual(['categories', 'tasks']);
+  expect(results.every(result => result.signedOwners === 2 &&
+    result.recordsCreated === 4 && result.checks >= 12)).toBe(true);
+  // Domain capabilities are honest. The other six fixtures exist, but
+  // no current signed target implements their authorization/side effects.
 });

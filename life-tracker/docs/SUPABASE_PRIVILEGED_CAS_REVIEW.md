@@ -35,4 +35,11 @@ Before any Supabase social/runtime promotion, prefer a trusted narrowly scoped s
 - tests/unit/backendProviderParity.test.ts validates current schema requirements and field constraints, eight-domain round trips through the existing Appwrite mapping, tombstone preservation, sender/recipient message relationship and Supabase candidate task/category owner-bound mapping. It is a **contract fixture**, not evidence that Supabase or an OCI Appwrite host has implemented these domains.
 - Future provider adapters should consume identical fixtures and run real two-principal hosted/Appwrite permission and offline/race/DR tests. Do not infer backend authorization from a serialization round trip.
 
+### Reusable genuine-signed provider acceptance lab (follow-up)
+
+- [Owner-private acceptance runner](../tests/provider/ownerPrivateAcceptance.mjs) uses an injected provider adapter plus two **distinct verified signed principals**. It refuses any of the six unsupported domains rather than falsely reporting parity; only tasks/categories have the private-owner contract.
+- Each supported domain verifies two owners' active and soft-deleted rows, proper own reads, denied foreign read/forged INSERT, denied anonymous read/CAS, denied direct authenticated PATCH/DELETE, guessed-ID foreign CAS conflict, positive signed owner CAS, stale replay denial, and monotonic owner-only cursor replay including the tombstone. A successful HTTP code is not enough to acknowledge a row or revision.
+- The existing disposable Supabase CLI + Chromium lab now compiles the **same typed eight-domain source fixtures** in Vite, maps only tasks/categories to signed disposable Auth UUIDs, and executes the portable runner. Six unported domains remain explicitly unaccepted. [Focused unit regressions](../tests/unit/backendOwnerPrivateAcceptance.test.ts) intentionally leak an owner's rows or ignore CAS revision to verify fail-closed behavior.
+- Dedicated GitHub Actions lab remains local-only, no hosted Supabase/Auth, no real user records, no service-role credentials, and cleans up with no backup. Tests must actually complete green before claiming signed-provider success. This does not remedy either Security Advisor WARN or authorize social visibility.
+
 Issue #967 remains open, linked to #975. No Production, Appwrite or hosted Supabase mutations were approved or performed in this milestone.
