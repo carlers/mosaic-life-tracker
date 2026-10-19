@@ -8,8 +8,38 @@ test.use({
   hasTouch: true,
   isMobile: true,
   viewport: { width: 412, height: 915 },
-  userAgent:
+  // Use native WebKit UA rather than advertising Chromium/Samsung on Safari.
+  userAgent: process.env.MOSAIC_WEBKIT === '1' ? undefined :
     'Mozilla/5.0 (Linux; Android 15; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 SamsungBrowser/28.0',
+});
+
+// Playwright exposes trusted touch-drag streams through Chromium CDP only.
+// Keep these real-touch assertions required on Chromium; report them as skips
+// on WebKit rather than substituting untrusted JS events or mouse drags.
+const chromiumTouchDragContracts = new Set([
+  "primary route swipe is direct-manipulation with Home and Me ownership rules",
+  "calendar swipe moves the calendar without advancing the friend carousel",
+  "todo calendar follows the finger before snapping months",
+  "Todo distant task activates drag on first touch after scrolling and restores rows",
+  "task long-press stays under the finger while siblings reorder, then persists on release",
+  "bottom-to-top task drag renders one overlay and no painted source ghost",
+  "diary long press follows held touch on both axes with a single full-card overlay",
+  "task can move into another populated category at the projected position",
+  "category header and first-row boundary share one stable insertion slot",
+  "cross-category persistence leaves every task visible and a second drag immediately usable",
+  "task can drop into an empty category from its category surface",
+  "moving before the task hold threshold cancels reorder activation",
+  "active task sorting keeps the real Day View sheet and day swiper locked in place",
+  "DayView reopens on another and the same date after teardown",
+  "sheet date row follows the finger horizontally and still supports vertical drag-to-close",
+  "shared sheet drag header tracks held touch before dismissing",
+  "blank lower sheet area swipes to the adjacent day",
+  "todo day swipe advances the nested day view without advancing the friend carousel",
+  "rapid Day View swipes never outrun the rendered slide buffer",
+]);
+test.beforeEach(({ browserName }, testInfo) => {
+  test.skip(browserName === 'webkit' && chromiumTouchDragContracts.has(testInfo.title),
+    'Native touch drag requires Chromium CDP; not yet available in Playwright WebKit');
 });
 
 async function drag(page, locator, deltaX) {
@@ -341,8 +371,27 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
   await expect(page.getByTestId('primary-route')).toHaveText('explore');
 });
 
+// Trackpad/wheel contracts must use a desktop input context on WebKit;
+// Playwright's mobile WebKit backend rejects page.mouse.wheel. Keep the
+// browser-correctness assertions themselves unchanged.
+async function withDesktopWheelPage({ page, browser, browserName }, callback) {
+  if (browserName !== 'webkit') return callback(page);
+  const context = await browser.newContext({
+    isMobile: false,
+    hasTouch: false,
+    viewport: { width: 412, height: 915 },
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    return await callback(await context.newPage());
+  } finally {
+    await context.close();
+  }
+}
+
 // Regression: §2/§7 (desktop horizontal wheel reuses route gesture ownership).
-test('horizontal trackpad wheel follows the route compositor and detail edge rules', async ({ page }) => {
+test('horizontal trackpad wheel follows the route compositor and detail edge rules', async ({ page, browser, browserName }) => {
+  await withDesktopWheelPage({ page, browser, browserName }, async (page) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   await page.getByTestId('set-primary-explore').click();
 
@@ -374,6 +423,7 @@ test('horizontal trackpad wheel follows the route compositor and detail edge rul
   await page.mouse.move(box.x + 20, box.y + 40);
   await page.mouse.wheel(-150, 0);
   await expect(page.getByTestId('primary-route')).toHaveText('explore');
+  });
 });
 
 // Regression: §24.17 (switch thumb remains inside its usable track).
@@ -438,7 +488,8 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
   await expect(friendIndex).toHaveText('1');
 });
 
-test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page }) => {
+test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page, browser, browserName }) => {
+  await withDesktopWheelPage({ page, browser, browserName }, async (page) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const friendIndex = page.getByTestId('friend-index');
   const calendarTitle = page.getByTestId('calendar-title');
@@ -462,6 +513,7 @@ test('Calendar and Todo carousels own horizontal trackpad scrolling without movi
   await page.mouse.wheel(90, 0);
   await expect(page.getByTestId('todo-month')).toHaveText('October 2026');
   await expect(friendIndex).toHaveText('0');
+  });
 });
 
 // Regression #858: the compact Todo and Diary carousel must always render

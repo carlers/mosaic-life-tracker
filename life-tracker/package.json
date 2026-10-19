@@ -14,7 +14,7 @@
     "test:handlers": "vitest run --project handlers",
     "test:dom": "vitest run --project dom",
     "test:browser-contract": "node scripts/run-browser-contract.mjs",
-    "test:webkit-contract": "tests/e2e/node_modules/.bin/playwright test tests/e2e/webkit-task-entry.spec.mjs --config=playwright.webkit.config.mjs --reporter=line",
+    "test:webkit-contract": "tests/e2e/node_modules/.bin/playwright test tests/e2e --config=playwright.webkit.config.mjs --reporter=line --grep-invert @performance",
     "test:performance": "tests/e2e/node_modules/.bin/playwright test tests/e2e/performance-probe.spec.mjs --config=playwright.config.mjs --reporter=line --grep @performance",
     "audit:mobile-startup": "tests/e2e/node_modules/.bin/playwright test tests/e2e/mobile-startup.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line",
     "audit:slow-startup": "tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-slow-network.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line",

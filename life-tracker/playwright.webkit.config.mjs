@@ -1,15 +1,16 @@
 import shared from './playwright.config.mjs';
 
-// Target a real WebKit browser engine with an iPad-sized touch viewport. This
-// is not the iPadOS system Safari build or a virtual iOS keyboard simulation.
+// Run the same correctness corpus under the actual WebKit engine, with
+// mobile touch emulation. The dedicated task-entry case also exercises an
+// iPad-sized viewport. Neither simulates the native iPadOS keyboard/PWA.
 export default {
   ...shared,
-  workers: 1,
+  workers: process.env.CI ? 1 : undefined,
   projects: [{
-    name: 'webkit-ipad-viewport',
+    name: 'webkit-mobile',
     use: {
       browserName: 'webkit',
-      viewport: { width: 820, height: 1180 },
+      viewport: { width: 412, height: 915 },
       deviceScaleFactor: 2,
       isMobile: true,
       hasTouch: true,
