@@ -15,7 +15,7 @@ Current task: #1008 iPad task-input blur-save and pre-1.0 Playwright WebKit regr
 - Repair: restore byte-identical reviewed YAML and move the additional required WebKit regression into the existing browser-test command's CI orchestration. Version remains 0.29.13; this Preview has not yet delivered successfully.
 
 ## Verification
-- Original task focused and Chromium/WebKit checks successful: #39217414310; stable Preview full canonical successful #39217697332 (before receiver compatibility repair). No final repair CI asserted.
+- Original task focused and Chromium/WebKit checks successful: #39217414310; stable Preview full canonical successful #39217697332 (before receiver compatibility repair). Initial trusted-delivery repair CI #39218689325 passed both browser shards (including WebKit), but focused verification failed one pre-existing direct-package-script performance exclusion assertion. The test was updated to check the new wrapper's explicit Chromium exclusion and WebKit lane; final repair CI is pending.
 - Trusted Preview provider delivery for the original stable SHA FAILED; no matching READY deployment yet verified.
 - Actual iPad Safari, installed PWA behavior, authenticated disposable-user check, and keyboard UI are unverified.
 
