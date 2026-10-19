@@ -13,7 +13,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 function assertConfig(config) {
   if (!config || config.baseUrl !== ISOLATED_ORIGIN ||
     !config.publishableKey || config.publishableKey.trim() !== config.publishableKey ||
-    config.publishableKey.startsWith('sb_secret_') || /[\r\n]/.test(config.publishableKey)) {
+    !config.publishableKey.startsWith('sb_publishable_') || /[\r\n]/.test(config.publishableKey)) {
     throw new Error('Probe requires the isolated Mosaic development origin and a public key');
   }
   for (const account of [config.alice, config.bob]) {
