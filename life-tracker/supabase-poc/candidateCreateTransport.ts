@@ -180,10 +180,8 @@ export function createCandidateCreateTransport(options: {
     readCategoryMaster: (id: string, identity: CandidateIdentity) =>
       master('categories', id, identity) as Promise<CandidateCategoryRow | null>,
     createTask: (doc: TaskDocument, identity: CandidateIdentity) =>
-      create('tasks', toCandidateTaskWrite(doc, identity), identity)
-        as Promise<CandidateCreateOutcome<CandidateTaskRow>>,
+      create('tasks', toCandidateTaskWrite(doc, identity), identity) as Promise<CandidateCreateOutcome<CandidateTaskRow>>,
     createCategory: (doc: CategoryDocument, identity: CandidateIdentity) =>
-      create('categories', toCandidateCategoryWrite(doc, identity), identity)
-        as Promise<CandidateCreateOutcome<CandidateCategoryRow>>,
+      create('categories', toCandidateCategoryWrite(doc, identity), identity) as Promise<CandidateCreateOutcome<CandidateCategoryRow>>,
   };
 }
