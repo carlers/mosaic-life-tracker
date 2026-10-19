@@ -166,7 +166,19 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     expect(template).toContain("github.repository == 'carlers/mosaic-oci-a1-scheduler'");
     expect(template).toContain('github.event.repository.private == true');
     expect(template).toContain("github.ref == 'refs/heads/main'");
-    expect(template).toContain("cron: '17 * * * *'");
+    // The normal two checks per hour are always eligible; extra ten only
+    // when the operator explicitly accepts 5-minute GitHub billing exposure.
+    expect(template).toContain("cron: '17,47 * * * *'");
+    expect(template).toContain("cron: '2,7,12,22,27,32,37,42,52,57 * * * *'");
+    const crons = [...template.matchAll(/^    - cron: '([^']+)'$/gm)].map(m => m[1]);
+    expect(crons).toHaveLength(2);
+    const minutes = crons.flatMap(cron => cron.split(' ')[0].split(',').map(Number))
+      .sort((a, b) => a - b);
+    expect(minutes).toEqual(Array.from({ length: 12 }, (_, i) => 2 + i * 5));
+    expect(template).toContain("github.event.schedule == '17,47 * * * *'");
+    expect(template).toContain("vars.MOSAIC_OCI_FAST_POLL == 'true'");
+    expect(template).toContain("github.event_name == 'workflow_dispatch'");
+    expect(template).toContain("MOSAIC_OCI_AUTOLAUNCH: ${{ vars.MOSAIC_OCI_AUTOLAUNCH || 'false' }}");
     expect(template).toContain('repository: carlers/mosaic-life-tracker');
     expect(template).toContain('MOSAIC_CONTROLLER_SHA: REPLACE_WITH_ACCEPTED_STABLE_SHA');
     expect(template).toContain('git -C mosaic-source rev-parse HEAD');

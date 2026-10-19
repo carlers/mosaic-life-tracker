@@ -1,7 +1,7 @@
 # GitHub-hosted A1 capacity claim — DORMANT until approved (#975)
 
 **Purpose:** User cannot keep Fedora powered on, wants GitHub to check
-Oracle Singapore A1 capacity hourly and, once a slot is likely available,
+Oracle Singapore A1 capacity on a configurable schedule and, once a slot is likely available,
 claim one *specific* Always Free-sized ARM VM automatically.
 
 **Current status: NOT ACTIVE.** The existing Mosaic-repository workflow is
@@ -21,6 +21,41 @@ it must be installed in its own repository. The scheduled job downloads a
 and invokes the controller. It refuses non-private/other repository contexts,
 non-default refs and any manual event for launch. Its signing credentials
 stay only in the private scheduler's encrypted GitHub Actions secrets.
+
+### Polling interval, trade-offs and GitHub Actions costs
+
+- **Normal (default):** `17,47 * * * *` (30-minute interval,
+  UTC minute 17 and 47). The private scheduler attempts 1,440 runs in
+  30 days, compared with 720 for hourly. Actual runs can be delayed or
+  dropped, so this is not an exact polling SLA.
+- **Fast (opt-in):** Set the **repository variable**
+  `MOSAIC_OCI_FAST_POLL=true` to enable the ten extra scheduled
+  events per hour; together with the two baseline events, polls are
+  requested at UTC minutes 2, 7, 12, ... 57 (every 5 minutes).
+  Disable it by deleting the variable or setting it to `false`.
+  The extra events stay present in the GitHub schedule but their jobs
+  are **skipped** when fast polling is off.
+- **GitHub Actions cost:** GitHub Free private repositories have 2,000
+  included standard-runner minutes **shared by the account** each month.
+  Private-repo jobs bill at least 1 minute per run; 30-minute polling
+  is *at least* 1,440 minutes per 30 days, while 5-minute polling is
+  *at least* 8,640 minutes per 30 days. Actual runs and accrued minutes
+  depend on GitHub scheduling, startup delays and execution duration.
+  Other private-repository CI consumes the same account quota. Even
+  30-minute polling might exceed the allowance; do **not** assume $0.
+  Explicitly check GitHub Billing → Budgets and alerts, enable
+  **Stop usage when budget limit is reached** where available, and
+  inspect the real execution minutes after the observe-only trial.
+  With a payment method, overages may incur charges; without one,
+  GitHub may stop running workflows on exhaustion of free minutes.
+- **Scheduling limitation:** GitHub's shortest supported Actions cron
+  interval is 5 minutes; starts may be delayed or skipped under load.
+  More frequent capacity reports cannot guarantee allocation and should
+  not be used to imply a free or guaranteed VM.
+
+Official documentation: [schedule limits](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax-for-github-actions#onschedule),
+[GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions),
+[rounded billable minutes](https://docs.github.com/en/actions/how-tos/monitor-workflows/view-job-execution-time).
 
 ### One-time setup (on your own accounts; no credentials in chat)
 
@@ -80,7 +115,9 @@ stay only in the private scheduler's encrypted GitHub Actions secrets.
    text for `MOSAIC_OCI_SSH_PUBLIC_KEY`. Neither belongs in a commit or chat.
 7. Keep the private repository variable `MOSAIC_OCI_AUTOLAUNCH` **unset**
    (default `false`). Leave `MOSAIC_OCI_FREE_TIER_CONFIRMED` and
-   `MOSAIC_OCI_QUOTA_CONFIRMED` unset (default `NO`). In Actions select
+   `MOSAIC_OCI_QUOTA_CONFIRMED` unset (default `NO`). Leave optional
+   `MOSAIC_OCI_FAST_POLL` unset (default normal 30-minute cadence).
+   In Actions select
    the new workflow → **Run workflow** and inspect its advisory result
    and logs. It may report no capacity or OCI IAM failures without launching.
    If workflow installation/pinning/secrets fail, repair those first.
@@ -93,7 +130,7 @@ stay only in the private scheduler's encrypted GitHub Actions secrets.
    MOSAIC_OCI_QUOTA_CONFIRMED=CONFIRMED
    ```
    These are ordinary GitHub Variables, **not** Secrets. A manual dispatch
-   can never launch; *only an hourly scheduled run* may attempt a single
+   can never launch; *only a scheduled run* may attempt a single
    eligible VM. On successful creation, turn `MOSAIC_OCI_AUTOLAUNCH` off
    or disable the workflow and inspect OCI Console/billing. Do not rely
    on this workflow to stop or terminate a VM.
@@ -118,8 +155,10 @@ Original Mosaic-repository workflow: `../../.github/workflows/oci-a1-autoclaim.y
 Standalone private-repository template: `../ops/oci-a1-scheduler/.github/workflows/oci-a1-autoclaim.yml`.
 Controller: `../scripts/oci-a1-autoclaim.mjs`.
 
-- **Observe (default):** Once per hour at minute 17 UTC, run the same
-  advisory report from OCI for ap-singapore-1, AD-1, exact A1 2 OCPU /
+- **Observe (default):** The standalone private scheduler checks every
+  30 minutes (5 minutes if fast polling is explicitly enabled). The
+  original, dormant Mosaic-repository workflow remains hourly. Both run
+  the same advisory report from OCI for ap-singapore-1, AD-1, exact A1 2 OCPU /
   12 GiB. Does not launch VM. An AVAILABLE report still can race
   against another requester.
 - **Auto-claim (opt-in only):** Requires the repository variable
