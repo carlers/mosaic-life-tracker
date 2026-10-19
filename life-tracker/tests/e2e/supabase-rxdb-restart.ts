@@ -6,9 +6,11 @@
  * simulated via sessionStorage to survive browser reload independently.
  * Do not mistake this for hosted Supabase Auth or live multi-device evidence.
  */
-import { createRxDatabase, type RxDatabase, type RxCollection } from 'rxdb';
+import { addRxPlugin, createRxDatabase, type RxDatabase, type RxCollection } from 'rxdb';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { categoriesSchema, type CategoryDocument } from '../../src/db/schema';
+import { categoriesMigrationStrategies } from '../../src/db/migrations';
 import {
   type CandidateCategoryRow, type CandidateIdentity,
   toCandidateCategoryWrite,
@@ -19,6 +21,8 @@ import {
 import type { CandidateChangeTransport } from '../../supabase-poc/candidatePull';
 import type { createCandidateCreateTransport } from '../../supabase-poc/candidateCreateTransport';
 import type { createCandidateCasTransport } from '../../supabase-poc/candidateCasTransport';
+
+addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const params = new URLSearchParams(window.location.search);
 const tag = params.get('id') ?? 'default';
@@ -147,7 +151,7 @@ async function openDb() {
     multiInstance: false,
     eventReduce: true,
   });
-  await db.addCollections({ categories: { schema: categoriesSchema } });
+  await db.addCollections({ categories: { schema: categoriesSchema, migrationStrategies: categoriesMigrationStrategies } });
 }
 async function start() {
   if (replication) throw new Error('Candidate pilot already started');
