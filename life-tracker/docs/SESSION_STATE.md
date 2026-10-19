@@ -14,6 +14,6 @@ Current task: #967 isolated candidate Supabase RPC atomic compare-and-set write 
 - Tighten source-only `candidateHttpTransport.ts` to compare token as well as epoch before and after a GET; add matching regression.
 - Update `docs/SUPABASE_EVALUATION.md`. App behaviour/source version impact NONE. OCI #975 capacity watcher is separate stable branch; user's independent UI work on dev remains untouched.
 
-## Verification / next action
+## Next action
 - Run task [verify:focused], squash into isolated stable Preview, then canonical Quality Gate and trusted delivery. If there are failures, repair without weakening security or verification.
 - Later: genuine signed-in disposable Supabase Auth tests, REST CAS/owner RLS attacks, insert/idempotent replays, RxDB push+pull/conflict handling and queued changes, all eight domains/media/Functions, cost/DR, user identity continuity and reversible cutover. No provider/dev/main/Production promotion without distinct approval. Keep #967 open.
