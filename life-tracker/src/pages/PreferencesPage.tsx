@@ -51,6 +51,7 @@ import {
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
   resolveCalendarZoomDays,
 } from '../lib/preferences';
 import {
@@ -241,6 +242,7 @@ export const PreferencesPage: React.FC = () => {
   const shareLabelMode = getSetting(SHARED_LABEL_MODE_SETTING_KEY, 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting(SHOW_PENDING_SHARES_SETTING_KEY, false) === true;
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
+  const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
@@ -429,6 +431,14 @@ export const PreferencesPage: React.FC = () => {
               CALENDAR_ZOOM_DAYS_SETTING_KEY,
               resolveCalendarZoomDays(value)
             )}
+          />
+          <SettingsRow
+            icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Keep weekday header visible"
+            showChevron={false}
+            isToggle
+            checked={stickyWeekdayHeader}
+            onClick={() => void setSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, !stickyWeekdayHeader)}
           />
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}

@@ -438,6 +438,34 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
   await expect(friendIndex).toHaveText('1');
 });
 
+// Geometry regression for optional pinned headings: CSS sticky alone fails
+// when the weekday row is nested inside the horizontal zoom scroller.
+test('sticky Calendar weekdays stay pinned and aligned at 3-day zoom', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?stickyCalendar=3&perf=heavy`);
+  const region = page.getByTestId('calendar-region');
+  const activeSlide = region.locator('[data-calendar-slide-index="30"]');
+  const grid = activeSlide.getByRole('grid');
+  const heading = grid.getByRole('columnheader', { name: 'Tuesday' });
+  const lane = activeSlide.getByRole('region', { name: 'Scrollable calendar weekdays' });
+  await expect(heading).toBeVisible();
+  const before = await heading.boundingBox();
+  if (!before) throw new Error('Missing sticky weekday heading');
+  await activeSlide.evaluate(node => { node.scrollTop = 150; });
+  expect(await activeSlide.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+  const after = await heading.boundingBox();
+  if (!after) throw new Error('Pinned heading disappeared after vertical scroll');
+  expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(2);
+
+  await lane.evaluate(node => { node.scrollLeft = 100; });
+  const firstWeekTuesday = grid.getByRole('gridcell').nth(2);
+  await expect.poll(async () => {
+    const label = await heading.boundingBox();
+    const day = await firstWeekTuesday.boundingBox();
+    if (!label || !day) return Infinity;
+    return Math.abs(label.x + label.width / 2 - day.x - day.width / 2);
+  }).toBeLessThanOrEqual(3);
+});
+
 test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const friendIndex = page.getByTestId('friend-index');

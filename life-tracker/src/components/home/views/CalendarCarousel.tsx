@@ -13,6 +13,7 @@ interface CalendarCarouselProps {
   emblaRef: (node: HTMLElement | null) => void;
   viewMode: CalendarViewMode;
   zoomDays?: CalendarZoomDays;
+  stickyWeekdayHeader?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
   onZoomNavigate?: (direction: 'prev' | 'next') => boolean;
@@ -34,6 +35,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   emblaRef,
   viewMode,
   zoomDays = 7,
+  stickyWeekdayHeader = false,
   activeIndex = 30,
   isZoomTransitioning = false,
   onZoomNavigate,
@@ -139,6 +141,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                     date={date}
                     viewMode={viewMode}
                     zoomDays={zoomDays}
+                    stickyWeekdayHeader={stickyWeekdayHeader}
                     onZoomMount={handleZoomMount}
                     onZoomScroll={handleZoomScroll}
                     onZoomNavigate={handleZoomNavigate}
