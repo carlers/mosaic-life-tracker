@@ -51,59 +51,82 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
   }, []);
 
   const onPointerDown: CategoryPillActions['onPointerDown'] = (event) => {
-    if (!canStartDrag || event.button !== 0) return;
-    setMenuOpen(false);
+    if (!canStartDrag || event.button !== 0 || event.isPrimary === false) return;
+    const touch = event.pointerType === 'touch';
+    const fromLabel = event.target instanceof Element &&
+      Boolean(event.target.closest('[data-category-drag-handle]'));
+    // Mouse dragging is label-only. Touch long-press works across the pill,
+    // while only the label (which disables native pan) may initiate a drag.
+    if (!touch && !fromLabel) return;
     pressCleanup.current?.();
+    suppressClick.current = false;
+    setMenuOpen(false);
 
-    if (event.pointerType === 'mouse' || event.pointerType === 'pen') {
+    if (!touch) {
       controls.start(event);
       return;
     }
 
-    // Touch starts only after a stationary hold. Moving early abandons the
-    // gesture, leaving the regular day/task surfaces to own their gestures.
     const state = {
-      pointerId: event.pointerId, x: event.clientX, y: event.clientY,
-      held: false, moved: false, timer: 0,
-    };
-    const move = (next: PointerEvent) => {
-      if (next.pointerId !== state.pointerId) return;
-      if (Math.hypot(next.clientX - state.x, next.clientY - state.y) > TOLERANCE_PX) {
-        state.moved = true;
-        window.clearTimeout(state.timer);
-        setMenuOpen(false);
-      }
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      held: false,
+      dragging: false,
+      timer: 0,
     };
     const cleanup = () => {
       window.clearTimeout(state.timer);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', cancel);
-      pressCleanup.current = null;
+      if (pressCleanup.current === cleanup) pressCleanup.current = null;
+    };
+    const move = (next: PointerEvent) => {
+      if (next.pointerId !== state.pointerId) return;
+      if (Math.hypot(next.clientX - state.x, next.clientY - state.y) <= TOLERANCE_PX) return;
+      if (!state.held) {
+        // A normal swipe/scroll before the hold is never a category gesture.
+        cleanup();
+        return;
+      }
+      if (!fromLabel) {
+        // The rest of the pill is an edit affordance, not a drag surface.
+        cleanup();
+        return;
+      }
+      if (!state.dragging) {
+        state.dragging = true;
+        suppressClick.current = true;
+        setMenuOpen(false);
+        // Starting with the *current* move event avoids a stale React
+        // pointerdown being handed to Framer Motion 500ms after its dispatch.
+        controls.start(next);
+      }
     };
     const finish = (next: PointerEvent) => {
       if (next.pointerId !== state.pointerId) return;
       cleanup();
-      if (state.held) {
-        suppressClick.current = true;
-        if (!state.moved) setMenuOpen(true);
-        window.setTimeout(() => { suppressClick.current = false; }, 100);
-      }
+      if (state.held) suppressClick.current = true;
     };
     const cancel = (next: PointerEvent) => {
       if (next.pointerId !== state.pointerId) return;
       cleanup();
-      setMenuOpen(false);
+      // iOS can dispatch pointercancel after its long-press context menu.
+      // Keep an already opened stationary menu; cancel only an in-flight drag
+      // or a press which never met the hold threshold.
+      if (state.dragging || (!state.held && !suppressClick.current)) setMenuOpen(false);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', finish);
     window.addEventListener('pointercancel', cancel);
     pressCleanup.current = cleanup;
     state.timer = window.setTimeout(() => {
-      if (state.moved || !pressCleanup.current) return;
+      if (pressCleanup.current !== cleanup) return;
       state.held = true;
       suppressClick.current = true;
-      controls.start(event);
+      // Show Edit immediately on a stationary hold. Only a subsequent
+      // deliberate move from the label may transition into a drag.
       setMenuOpen(true);
     }, HOLD_MS);
   };
@@ -117,7 +140,9 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
       suppressClick.current = false;
     },
     onContextMenu: (event) => {
+      if (!canStartDrag) return;
       event.preventDefault();
+      suppressClick.current = true;
       setMenuOpen(true);
     },
     menuOpen,
@@ -144,7 +169,6 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
         dragStarted.current = false;
         onDragActiveChange?.(false);
         onDrop();
-        window.setTimeout(() => { suppressClick.current = false; }, 100);
       }}
     >
       <CategoryPillActionContext.Provider value={actions}>{children}</CategoryPillActionContext.Provider>
@@ -163,15 +187,18 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
   const [orderedIds, setOrderedIds] = React.useState(() => categories.map(c => c.id));
   const pendingIds = React.useRef(orderedIds);
   const persisting = React.useRef(false);
+  const pendingWrites = React.useRef(0);
+  const latestCategoryIds = React.useRef(categories.map(c => c.id));
   const dragging = React.useRef(false);
   React.useEffect(() => {
     const incomingIds = categories.map(c => c.id);
+    latestCategoryIds.current = incomingIds;
     if (!sameCategoryIds(incomingIds, pendingIds.current)) {
       pendingIds.current = incomingIds;
-      persisting.current = false;
+      persisting.current = pendingWrites.current > 0;
       setOrderedIds(incomingIds);
     } else if (sameCategoryIds(incomingIds, pendingIds.current, true)) {
-      persisting.current = false;
+      if (pendingWrites.current === 0) persisting.current = false;
       if (!dragging.current) setOrderedIds(incomingIds);
     } else if (!persisting.current && !dragging.current) {
       pendingIds.current = incomingIds;
@@ -183,7 +210,11 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
     .map(id => categories.find(category => category.id === id))
     .filter((category): category is CategoryDocument => Boolean(category));
   const commit = React.useCallback(async (ids: string[]) => {
-    if (sameCategoryIds(ids, categories.map(c => c.id), true)) return;
+    // A user may reverse a pending reorder before the first write settles.
+    // Even if the desired order equals the old props, it must be queued.
+    if (sameCategoryIds(ids, categories.map(c => c.id), true) &&
+        pendingWrites.current === 0) return;
+    pendingWrites.current += 1;
     persisting.current = true;
     try {
       const byId = new Map(categories.map(c => [c.id, c]));
@@ -193,11 +224,19 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
       }
       await onCommit(next as CategoryDocument[]);
     } catch (error) {
-      persisting.current = false;
-      const original = categories.map(c => c.id);
-      pendingIds.current = original;
-      setOrderedIds(original);
+      // A failed older write must never undo a newer drag / keyboard move.
+      if (sameCategoryIds(ids, pendingIds.current, true)) {
+        const original = latestCategoryIds.current;
+        pendingIds.current = original;
+        setOrderedIds(original);
+      }
       onError?.(error instanceof Error ? error.message : 'Could not reorder categories');
+    } finally {
+      pendingWrites.current -= 1;
+      if (pendingWrites.current === 0 &&
+          sameCategoryIds(latestCategoryIds.current, pendingIds.current, true)) {
+        persisting.current = false;
+      }
     }
   }, [categories, onCommit, onError]);
   const move = React.useCallback((id: string, delta: -1 | 1) => {
