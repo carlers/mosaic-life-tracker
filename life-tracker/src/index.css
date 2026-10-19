@@ -166,6 +166,15 @@ html[data-theme='light'] .mosaic-holiday-label {
 html[data-theme='light'] .mosaic-category-pill {
   background-color: var(--mosaic-task-incomplete-bg) !important;
 }
+
+/* Todo month cells use a subtle Light surface; status overlays remain
+   white against their unchanged category-color circles. */
+html[data-theme='light'] .mosaic-todo-day-cell {
+  background-color: var(--mosaic-surface-elevated);
+}
+html[data-theme='light'] .mosaic-todo-status-glyph {
+  color: #ffffff !important;
+}
 html[data-theme='light'] .mosaic-category-add-icon {
   background-color: #ffffff !important;
 }

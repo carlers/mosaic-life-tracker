@@ -1,29 +1,24 @@
 # Session checkpoint
 
-Updated: 2026-10-18 UTC
-Current task: Light-theme completed Calendar TaskBlock foreground, small UI workflow test.
+Updated: 2026-10-19 UTC
+Current task: Light appearance refinements on the existing completed-TaskBlock Preview.
 
-## Source and authorization
+## Source and scope
+- Stable Preview source: `fix/taskblock-light-completed-white-20261018@f498f1f442e5b4134081469262d8eac19a3fe265`, already containing the owner's white completed Calendar TaskBlock text change (v0.29.13).
+- Working task branch: `chatgpt/light-ui-refinements-20261019`, based on that exact Preview SHA. Integration `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` remains on v0.29.12; its separate changes are not silently merged.
+- User-requested Light-only refinements: slightly grey Todo List month day cells; white completed markers and task-count glyphs on the category-color circles; use the normal Calendar category-pill surface on Friend Day View.
+- Preserve Dark/Black appearance, stored category hues, calendar selection/keyboard navigation, task behavior, offline data and sync. No backend, schema, Function or Production mutations.
+- Version impact: patch candidate v0.29.14 (one new user-testable refinement to this Preview, with no independent version assigned to internal fixes).
 
-- Base: `dev@87b3a1d027b088e55d4b6dfccb6230b7df053f68`, v0.29.12 (accepted #858 DayCell reconciliation). `main` and Production are not in scope.
-- Owner requested completed Calendar TaskBlocks use white text in Light mode. Preserve the original category fill, incomplete task color options, and existing Dark/Black appearance.
-- Task branch: `chatgpt/taskblock-light-completed-white-20261018`; intended stable Preview: `fix/taskblock-light-completed-white-20261018`. Patch candidate v0.29.13; unrelated v0.30.0 Chat Preview remains separate.
-- Frontend styling only; no data/sync/backend changes, Scratch migration, or Function deployment. No dev/main/Production promotion without explicit owner instruction.
-
-## Minimal implementation
-
-- `src/index.css`: existing `.mosaic-done` marker is already rendered on completed Calendar TaskBlocks; make its white text override apply in all themes. Incomplete blocks are untouched. This preserves effective Dark/Black white styling.
-- `docs/THEMING.md`: document white completed text in all themes, unchanged category fills, and possible contrast limitations on light category hues.
-- Patch-version trio: `package.json`, `package-lock.json`, `src/lib/appVersion.ts`. No runtime TaskBlock JSX, selectors, gestures, layout, or interactions changed.
-- No new class-level decoration test: existing TaskBlock tests cover completion behavior and the user-requested color requires manual visual acceptance; canonical browser and DOM checks still run.
+## Implementation
+- `src/index.css`: Light-only Todo date-cell and white marker overrides, alongside the existing completed TaskBlock and category-pill selectors.
+- `src/components/home/views/TodoCalendarGrid.tsx`: apply the two explicit classes to day cells and overlay glyphs, leaving day-date label styling untouched.
+- `src/components/friend/FriendDayViewSheet.tsx`: reuse the existing `mosaic-category-pill` theme class; preserve original category text hues.
+- `docs/THEMING.md`: document scoped Light appearance behavior and light-category contrast caveat.
+- Synchronize patch version in package.json, package-lock.json and src/lib/appVersion.ts.
 
 ## Verification and handoff
-
-- Task commit requests `[verify:focused]`; review resulting exact file diff and focused CI.
-- On focused green, squash to new stable Preview and verify full canonical acceptance plus trusted CI-first Preview READY.
-- Manual remaining: verify completed task previews in Light (including bright category colors), unchanged incomplete task color modes, Dark and Black. If login required, confirm a registered stable Scratch alias; deployment-specific URLs are not automatically authenticated.
-- Keep #858 separate and open; do not modify unrelated branches or promote without approval.
-
-## Next action
-
-- Run focused verification, then stable Preview acceptance/delivery and report actual remaining manual acceptance.
+- Final task commit must request `[verify:focused]`; CI is not asserted complete by this checkpoint.
+- On focused green, squash into the existing stable Preview, verify full canonical Actions acceptance and matching Vercel Preview READY.
+- Manual visual acceptance remains for Light: completed Calendar TaskBlocks, Todo grid date cells and circle glyphs, Friend Day View category pills, bright category colors; confirm Dark/Black and diary-marker views remain unchanged.
+- No `dev`, `main`, Production or 1.0 promotion without explicit owner approval.

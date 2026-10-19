@@ -206,7 +206,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                   aria-current={isActive && isToday(day) ? 'date' : undefined}
                   onClick={() => onDateSelect(day)}
                   onKeyDown={handleKeyDown}
-                  className="mx-auto flex h-14 w-10 flex-col items-center justify-center rounded-lg focus:outline-none hover:bg-[#2A2A2A]"
+                  className="mosaic-todo-day-cell mx-auto flex h-14 w-10 flex-col items-center justify-center rounded-lg focus:outline-none hover:bg-[#2A2A2A]"
                 >
                   <span
                     data-testid={`todo-status-marker-${dateKey}`}
@@ -238,10 +238,10 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                         data-testid="todo-status-complete"
                         size={18}
                         strokeWidth={3}
-                        className="absolute inset-0 m-auto text-white drop-shadow"
+                        className="mosaic-todo-status-glyph absolute inset-0 m-auto text-white drop-shadow"
                       />
                     ) : incompleteCount > 0 ? (
-                      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white drop-shadow">
+                      <span className="mosaic-todo-status-glyph absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white drop-shadow">
                         {incompleteCount}
                       </span>
                     ) : null}
