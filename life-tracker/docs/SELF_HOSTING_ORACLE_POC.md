@@ -6,6 +6,8 @@ See [Appwrite backend workflow](APPWRITE_BACKEND_WORKFLOW.md), [DR](DISASTER_REC
 [client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md) and [issue #975](https://github.com/carlers/mosaic-life-tracker/issues/975).
 The optional cloud+NAS/laptop dual-server discussion remains [#968](https://github.com/carlers/mosaic-life-tracker/issues/968).
 
+If Singapore AD-1 has no available `VM.Standard.A1.Flex` hardware, the [local OCI capacity watcher](OCI_CAPACITY_WATCH.md) can query the official advisory capacity report without attempting VM launches or changing the tenancy. It cannot guarantee free capacity and requires local CLI authentication.
+
 ## Provider limits / go-no-go
 
 Oracle's published Always Free Ampere A1 allowance is 1,500 OCPU-hours +

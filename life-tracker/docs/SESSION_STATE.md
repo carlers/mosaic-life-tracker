@@ -1,20 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #975 synthetic native ARM64 PostgreSQL, Redis and ClickHouse service smoke.
+Current task: #975 local Oracle Always Free A1 capacity watcher while Singapore is out of hardware.
 
 ## Boundary
-- Base is isolated stable `refactor/975-node-runtime-arm64-20261019@6ee676a934a0edadbb44cdf4b2d5520d639a7924` after real ARM Node 18/22 success #39174450297, focused #39174450275, canonical #39174561267; trusted Preview evidence remains to be checked.
-- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and Production main `b952f71ecd2add3172f90104bc0e856a2648ccc9` remain unaffected. The user has no OCI VM available yet.
-- No credentials, real user data, provider writes, Appwrite service, SDK migration, app version impact or release approval.
+- Forked from accepted isolated `refactor/975-arm64-datastores-20261019@3473ca548e6f428f9cdf22587b7a358a02d47160`, full canonical #39175178419 and trusted Preview #39175314432 successful; prior native ARM64 app/runtime/datastore proofs all passed.
+- Protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
+- User has configured an OCI VCN/public subnet and attempted A1 VM in Singapore AD-1; Oracle returned OUT_OF_HOST_CAPACITY. No VM created. No Oracle credentials or tenancy access through ChatGPT. No billed resources authorized.
 
 ## Work
-- Task branch `chatgpt/975-arm64-datastores-20261019` adds a branch-limited GitHub ARM64 job that starts pinned Appwrite PostgreSQL, Redis and ClickHouse images on an internal Docker network with no published ports, two shared CPU indices, bounded memory and only synthetic records, then checks each read-back and tears down containers.
-- Add `docs/SELF_HOSTING_ARM64_DATASTORES.md` describing proof boundaries and link from OCI runbook/docs index.
-- Real Appwrite service startup, function invocations, 2 OCPU OCI performance, encrypted R2 DR and NAS restoration all remain unverified.
-
-## Verification
-- Task focused, dedicated native test, stable canonical and trusted Preview pending. Do not infer deployment success from synthetic datastore starts.
+- New source-only `scripts/oci-capacity-watch.mjs`: local OCI CLI read-only IAM AD list and Compute capacity report for Singapore A1 2 OCPU/12GB, CLI profile kept local, 60-min watcher/once mode (15-min minimum), advisory result status/positive count only, fail-closed errors, never launch VM or print root OCID/CLI stderr.
+- New unit tests `tests/unit/ociCapacityWatch.test.ts` for argument constraints, tenancy/AD validation, report statuses/unknown safety, exact command allowlist and secrets suppression.
+- Package script `oci:capacity`, docs guide `docs/OCI_CAPACITY_WATCH.md`, OCI runbook/docs index links. App runtime/version impact NONE.
 
 ## Next action
-- Investigate actual native datastore job outcomes and fix any infrastructure-independent failures, then squash only into isolated stable Preview after focused success, require canonical CI and trusted READY; update #975 checkpoint. Never promote to dev/main, bill Oracle, move data or modify Production without separate approval.
+- Verify focused CI then squash to a new isolated stable Preview for canonical CI/trusted READY. No real OCI report can run until user's local CLI credentials are configured; never claim live host availability. Track #975. Separately resume #967 Supabase REST/auth/RxDB prototype on its own accepted isolated branch, without touching `dev`, `main`, Appwrite Scratch, Production, real accounts or overlapping UI files.

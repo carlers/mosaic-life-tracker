@@ -46,6 +46,7 @@
     "selfhost:preflight": "node scripts/selfhost-preflight.mjs",
     "selfhost:images": "node scripts/selfhost-image-audit.mjs",
     "selfhost:health-probe": "node scripts/selfhost-health-probe.mjs",
+    "oci:capacity": "node scripts/oci-capacity-watch.mjs",
     "friendships:repair": "node scripts/repair-friendships.mjs",
     "mosaic:migrate-account-deletion": "node scripts/appwrite-migrate.mjs --only 001-account-deletion",
     "mosaic:migrate-diary-created-at": "node scripts/appwrite-migrate.mjs --only 002-diary-created-at",
