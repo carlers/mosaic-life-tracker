@@ -40,6 +40,7 @@ const FakeCategory = ({ category }: { category: CategoryDocument }) => {
   return (
     <div>
       <button type="button" onPointerDown={actions?.onPointerDown}
+        onContextMenu={actions?.onContextMenu}
         onClickCapture={actions?.consumeClick} onClick={mocks.addTask}>
         <span data-category-drag-handle>{category.name}</span>
         <span aria-hidden="true">+</span>

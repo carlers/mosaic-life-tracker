@@ -18,5 +18,5 @@ Current task: #859 owner Day View category reorder — long-press/touch reliabil
 - Audit also found and fixed a persistence race: reversing a still-pending reorder had been skipped because the new order matched stale input props. Keep an in-flight write count, queue the reversing commit, and prevent failed older commits from rolling back newer intents.
 
 ## Verification / next action
-- Initial focused CI #39300133082 had 1919 passing tests and a single test timeout caused by fake timers leaking from the new inline editor test; fixed test cleanup in this repair. New task verification and full stable-Preview acceptance remain pending. No real-device gestures or hosted revision acceptance claimed.
+- Initial focused CI #39300133082 had 1919 passing tests and one test timeout from fake-timer leakage, now corrected. Follow-up #39300772803: 120 passing/1 failing selected tests because the mock category did not forward contextmenu even though the real UI does; fixed harness wiring. No production source failure identified in either run. Final task focused CI and stable full acceptance are pending; manual device/hosted revision not yet checked.
 - Commit this coherent task with `[verify:focused]`; after green, squash PR into existing stable Preview; confirm exact-SHA full CI, trusted Vercel Preview, Scratch target/host before owner iOS/Android re-test.
