@@ -229,6 +229,7 @@ export function InteractionHarness() {
   const calendar = useCalendarState();
   const searchParams = new URLSearchParams(window.location.search);
   const performanceHeavy = searchParams.get('perf') === 'heavy';
+  const stickyCalendarProbe = searchParams.get('stickyCalendar') === '3';
   const compactDiaryMode = searchParams.get('compactDiary') === '1';
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
   const performanceCalendarPath = searchParams.get('calendarPath') === '1';
@@ -455,13 +456,15 @@ export function InteractionHarness() {
                 ))}
               </Swiper>
             </div>
-            <div data-testid="calendar-region" style={{ height: 280, overflow: 'hidden' }}>
+            <div data-testid="calendar-region" style={{ height: 280, overflow: 'hidden', ...(stickyCalendarProbe ? { display: 'flex', flexDirection: 'column' } as const : {}) }}>
               <CalendarCarousel
                 slides={calendar.slides}
                 renderStart={calendar.renderStart}
                 renderEnd={calendar.renderEnd}
                 emblaRef={calendar.emblaRef}
                 viewMode={calendar.viewMode}
+                zoomDays={stickyCalendarProbe ? 3 : 7}
+                stickyWeekdayHeader={stickyCalendarProbe}
                 onDayClick={() => {}}
                 tasksByDate={performanceHeavy ? calendarTasksByDate : new Map()}
                 categoriesMap={{}}

@@ -11,6 +11,7 @@ interface CalendarSlideProps {
   date: Date;
   viewMode: CalendarViewMode;
   zoomDays?: CalendarZoomDays;
+  stickyWeekdayHeader?: boolean;
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;
   onZoomNavigate?: (direction: 'prev' | 'next') => void;
@@ -28,6 +29,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
   date,
   viewMode,
   zoomDays = 7,
+  stickyWeekdayHeader = false,
   onZoomMount,
   onZoomScroll,
   onZoomNavigate,
@@ -45,14 +47,15 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
       <MonthView
         focusDate={date}
         zoomDays={zoomDays}
+        stickyWeekdayHeader={stickyWeekdayHeader}
         onZoomMount={onZoomMount}
         onZoomScroll={onZoomScroll}
         onZoomNavigate={onZoomNavigate}
         navigationLocked={navigationLocked}
         onDayClick={onDayClick}
         tasksByDate={tasksByDate}
-      sharedByDay={sharedByDay}
-      ownedSharedTaskIds={ownedSharedTaskIds}
+        sharedByDay={sharedByDay}
+        ownedSharedTaskIds={ownedSharedTaskIds}
         categoriesMap={categoriesMap}
         weekStartsOn={weekStartsOn}
         holidaysByDate={holidaysByDate}
@@ -63,6 +66,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
     <WeekView
       focusDate={date}
       zoomDays={zoomDays}
+      stickyWeekdayHeader={stickyWeekdayHeader}
       onZoomMount={onZoomMount}
       onZoomScroll={onZoomScroll}
       onZoomNavigate={onZoomNavigate}

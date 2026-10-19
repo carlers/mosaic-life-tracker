@@ -1,24 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1036 — Integrate accepted category reversal with current dev inline editor and promote to dev on explicit user approval.
+Current task: Promote approved sticky Calendar weekday header (#952) to dev while preserving concurrent category improvements.
 
 ## Boundary
-- Accepted category reversal: `feature/category-reverse-1036-20261020@1c90edb539c4389b7a1221f95d84054addc88a49` (v0.30.0), canonical #39289754491 SUCCESS, trusted prebuilt #39290055614 READY; owner manually accepted.
-- Current dev advanced independently to `682303946c00b14ee3ac3fc3e33b2dc541a39a86` (v0.29.15) through #1037 inline Category Manager edit. Direct old-Preview promotion is unsafe because its tree is missing that accepted dev behavior.
-- Integration task: `chatgpt/1036-category-reverse-forwardport-20261020`, based on exact dev above. Intended integrated stable Preview: `feature/category-reverse-integrated-1036-20261020`.
-- User authorized promotion to dev of the reverse-category feature. Do not promote to main/Production. No schema, backend, account, or provider changes.
+- Latest protected dev baseline: `9139816ac73817cb714d300282c314c83e8fbcc4` (v0.30.1). It already includes accepted inline Category Manager editing (#1037) and reverse order (#1036); do not overwrite or bypass either.
+- Source approved by user: `feature/sticky-weekday-header-952-20261020@b937cddb7a31c21058603e33f78e06c3addb7610` (v0.31.1), canonical CI #39295635684 SUCCESS, trusted delivery #39295973967 READY; user manually verified original Calendar background and authorized merge to dev.
+- Concurrent dev movement invalidated initial integration baseline `682303946c00b14ee3ac3fc3e33b2dc541a39a86`. First task `chatgpt/sticky-weekday-952-dev-integration-20261020@2b976cede61d096c570dbb45d44532f53c473e9e` passed focused Quality Gate #39297547128, but must not promote its stale base.
+- New task branch: `chatgpt/sticky-weekday-952-current-dev-20261020`; new stable Preview: `feature/sticky-weekday-952-current-dev-20261020`, both directly from current dev above. Distinct integration Preview version: v0.31.2.
+- Scope: frontend-only; no Appwrite backend changes and no main/Production authorization.
 
 ## Changes
-- Preserve dev's inline accordion CategoryRow, drag grip, animated transitions and selected edit input.
-- Add one-tap Reverse order with async save guard, disabled zero/one categories, and failure feedback.
-- Surface failed category row writes from `useCategories().reorderCategories`; serialize manual drag saves through shared sheet save action.
-- Combine accepted reverse DOM regressions with latest inline editing tests and add active-editor reversal test.
-- Candidate version v0.30.1: patched from accepted v0.30.0 due fresh integrated user-testable Preview; maintain package/lock/appVersion consistency.
+- Carry the user-accepted synced sticky weekday header switch and pinned row in month/week views, including own/friend Calendar, 7/4/3-day zoom, original `bg-background` theme, and preserved scroll/keyboard semantics.
+- Preserve current dev Category Manager source, category hook and tests exactly as-is, including inline editor and reverse action.
+- Merge additive sticky browser geometry probe/test into dev's existing category editor geometry probe/test so both test cases run.
+- Keep the three application version identifiers synchronized at 0.31.2.
 
 ## Verification
-- Integrated focused Quality Gate pending on task commit `[verify:focused]`; no local test execution claimed.
-- Require new exact-SHA full canonical stable Preview, trusted Vercel READY, trusted dev PR preflight, dev CI and dev deployment verification. Record actual results in issue #1036, not a post-green status commit.
+- Pending exact new task focused Quality Gate, canonical integrated stable Preview CI, trusted Vercel delivery, and approved protected dev promotion evidence. Historical Preview and stale task CI are not proof for this combined commit.
 
 ## Next action
-- Complete coherent task commit and CI focused verification; repair if necessary. Squash into integrated stable Preview after green. Verify canonical and trusted READY, then open and merge the exact stable Preview -> dev PR using user approval, preserving tree and reporting dev gate and deployment. Leave main/Production untouched.
+- Complete focused verification on this latest-dev integration, squash into its stable Preview, validate full canonical acceptance and trusted READY for exact SHA, and only then create and merge a two-parent promotion PR to dev after live branch and promotion-preflight checks. Do not change main or Production.
