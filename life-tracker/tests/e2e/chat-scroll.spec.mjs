@@ -56,7 +56,20 @@ for (const { viewport, width } of [
 }
 
 async function readHistory(page) {
-  await scroller(page).evaluate(el => { el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight - 700); });
+  // WebKit can finish rendering the new message list before its queued
+  // scroll-to-bottom frame and ResizeObserver pin have settled. Programmatic
+  // scroll immediately after render can then be overridden by that pending
+  // initial pin, unlike a genuine user scroll once layout is stable.
+  await expect.poll(() => scroller(page).evaluate(el =>
+    el.scrollHeight - el.clientHeight
+  )).toBeGreaterThan(800);
+  await scroller(page).evaluate(async el => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight - 700);
+  });
+  // Verify the browser has actually moved away from the end before asserting
+  // the corresponding action control. Do not silently skip the behavior.
+  await expect.poll(() => gap(page)).toBeGreaterThan(300);
   await expect(page.getByRole('button', { name: 'Scroll to bottom', exact: true })).toBeVisible();
   return scroller(page).evaluate(el => el.scrollTop);
 }
