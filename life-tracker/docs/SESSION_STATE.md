@@ -17,6 +17,6 @@ Current task: #967 coordinated local-only task CAS protection for original times
 ## Verification
 - At checkpoint creation, task-focused CI, dedicated disposable genuine-JWT signed browser integration, stable canonical full Quality Gate and CI-first trusted Preview are NOT YET VERIFIED. Treat GitHub Actions results and exact-SHA logs as truth. No hosted signoff or security warning suppression.
 
-## Remaining gates and next action
+## Next action
 - Create coherent task branch chatgpt/967-protected-fields-20261019 with [verify:focused], run genuine local signed lab, fix failures without weakening protections, squash only to isolated refactor/967-protected-fields-20261019 after both pass. Require full canonical stable gate and trusted prebuilt READY; post exact evidence to #967 and keep #975 open.
 - Production-worthy design still needs original timestamp trust/legacy migration, actor-authorized friend reactions and blocking, independent RPC/RLS security audit, hosted JWT test with approved disposable-user lifecycle, six unported domains, Auth/session continuity, media/Functions, restore proof, Free budgets and old-client-safe cutover. Do not promote dev/main or Mosaic 1.0 without separate approval.
