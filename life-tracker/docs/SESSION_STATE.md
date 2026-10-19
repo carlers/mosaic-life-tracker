@@ -14,8 +14,9 @@ Current task: #859 owner Day View category reorder — long-press/touch reliabil
 - Revised to open the popup after a stationary hold and start drag only on subsequent deliberate movement from the label using the current pointer event.
 - Suppress the synthetic click following a hold until it is actually consumed, instead of expiring a 100ms timer; cancel pre-hold movement and pointer cancellation.
 - Avoid initiating category gestures during inline category/task editing or add-task input; preserve tap-add, selection mode, owner-only gate and native scroll outside drag label.
-- DOM regressions added for whole-pill hold, move-after-hold, click suppression, swipe/cancel, real category editor and keyboard options.
+- DOM regressions added for whole-pill hold, move-after-hold, click suppression, swipe/cancel, native context menu cancellation, real category editor and keyboard options.
+- Audit also found and fixed a persistence race: reversing a still-pending reorder had been skipped because the new order matched stale input props. Keep an in-flight write count, queue the reversing commit, and prevent failed older commits from rolling back newer intents.
 
 ## Verification / next action
-- New task implementation is pending focused CI and full stable-Preview acceptance. No real-device gestures or hosted revision acceptance claimed.
+- Initial focused CI #39300133082 had 1919 passing tests and a single test timeout caused by fake timers leaking from the new inline editor test; fixed test cleanup in this repair. New task verification and full stable-Preview acceptance remain pending. No real-device gestures or hosted revision acceptance claimed.
 - Commit this coherent task with `[verify:focused]`; after green, squash PR into existing stable Preview; confirm exact-SHA full CI, trusted Vercel Preview, Scratch target/host before owner iOS/Android re-test.

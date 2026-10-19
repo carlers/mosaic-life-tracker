@@ -166,6 +166,37 @@ describe('Day View category gesture isolation', () => {
     expect(mocks.startDrag).not.toHaveBeenCalled();
   });
 
+  it('does not skip reversing a reorder while the first save is pending', async () => {
+    let finishFirst!: () => void;
+    const first = new Promise<void>(resolve => { finishFirst = resolve; });
+    const props = createProps();
+    props.onCommit.mockImplementationOnce(() => first);
+    render(<DayViewCategoryReorder {...props}/>);
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder categories' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Drop category' })[0]);
+    expect(props.onCommit).toHaveBeenCalledWith([categories[1], categories[0]]);
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder categories' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Drop category' })[0]);
+    await waitFor(() => expect(props.onCommit).toHaveBeenCalledTimes(2));
+    expect(props.onCommit).toHaveBeenLastCalledWith([categories[0], categories[1]]);
+    finishFirst();
+  });
+
+  it('preserves the native touch context menu when iOS cancels its pointer', () => {
+    vi.useFakeTimers();
+    render(<DayViewCategoryReorder {...createProps()}/>);
+    const pill = screen.getByText('Work').closest('button')!;
+    fireEvent.pointerDown(pill, {
+      isPrimary: true, button: 0, pointerId: 9, pointerType: 'touch', clientX: 10, clientY: 10,
+    });
+    fireEvent.contextMenu(pill);
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    fireEvent.pointerCancel(window, { pointerId: 9, pointerType: 'touch' });
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(600); });
+    expect(mocks.startDrag).not.toHaveBeenCalled();
+  });
+
   it('does not offer drag controls in read-only views', () => {
     const props = createProps();
     render(<DayViewCategoryReorder {...props} enabled={false}/>);
@@ -179,6 +210,7 @@ describe('Day View category gesture isolation', () => {
 
 
 describe('inline category actions', () => {
+  afterEach(() => { vi.useRealTimers(); });
   const renderRealSection = () => {
     const props = createProps();
     render(<DayViewCategoryReorder {...props}

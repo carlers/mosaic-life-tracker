@@ -115,7 +115,7 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
       // iOS can dispatch pointercancel after its long-press context menu.
       // Keep an already opened stationary menu; cancel only an in-flight drag
       // or a press which never met the hold threshold.
-      if (!state.held || state.dragging) setMenuOpen(false);
+      if (state.dragging || (!state.held && !suppressClick.current)) setMenuOpen(false);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', finish);
@@ -187,15 +187,18 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
   const [orderedIds, setOrderedIds] = React.useState(() => categories.map(c => c.id));
   const pendingIds = React.useRef(orderedIds);
   const persisting = React.useRef(false);
+  const pendingWrites = React.useRef(0);
+  const latestCategoryIds = React.useRef(categories.map(c => c.id));
   const dragging = React.useRef(false);
   React.useEffect(() => {
     const incomingIds = categories.map(c => c.id);
+    latestCategoryIds.current = incomingIds;
     if (!sameCategoryIds(incomingIds, pendingIds.current)) {
       pendingIds.current = incomingIds;
-      persisting.current = false;
+      persisting.current = pendingWrites.current > 0;
       setOrderedIds(incomingIds);
     } else if (sameCategoryIds(incomingIds, pendingIds.current, true)) {
-      persisting.current = false;
+      if (pendingWrites.current === 0) persisting.current = false;
       if (!dragging.current) setOrderedIds(incomingIds);
     } else if (!persisting.current && !dragging.current) {
       pendingIds.current = incomingIds;
@@ -207,7 +210,11 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
     .map(id => categories.find(category => category.id === id))
     .filter((category): category is CategoryDocument => Boolean(category));
   const commit = React.useCallback(async (ids: string[]) => {
-    if (sameCategoryIds(ids, categories.map(c => c.id), true)) return;
+    // A user may reverse a pending reorder before the first write settles.
+    // Even if the desired order equals the old props, it must be queued.
+    if (sameCategoryIds(ids, categories.map(c => c.id), true) &&
+        pendingWrites.current === 0) return;
+    pendingWrites.current += 1;
     persisting.current = true;
     try {
       const byId = new Map(categories.map(c => [c.id, c]));
@@ -217,11 +224,19 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
       }
       await onCommit(next as CategoryDocument[]);
     } catch (error) {
-      persisting.current = false;
-      const original = categories.map(c => c.id);
-      pendingIds.current = original;
-      setOrderedIds(original);
+      // A failed older write must never undo a newer drag / keyboard move.
+      if (sameCategoryIds(ids, pendingIds.current, true)) {
+        const original = latestCategoryIds.current;
+        pendingIds.current = original;
+        setOrderedIds(original);
+      }
       onError?.(error instanceof Error ? error.message : 'Could not reorder categories');
+    } finally {
+      pendingWrites.current -= 1;
+      if (pendingWrites.current === 0 &&
+          sameCategoryIds(latestCategoryIds.current, pendingIds.current, true)) {
+        persisting.current = false;
+      }
     }
   }, [categories, onCommit, onError]);
   const move = React.useCallback((id: string, delta: -1 | 1) => {
