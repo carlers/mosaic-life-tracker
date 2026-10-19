@@ -353,7 +353,7 @@ describe('DayViewSheet nested task actions', () => {
     expect(taskMocks.deleteTask).toHaveBeenCalledTimes(2);
     expect(taskMocks.deleteTask).toHaveBeenCalledWith('task_1');
     expect(taskMocks.deleteTask).toHaveBeenCalledWith('task_2');
-    expect(screen.queryByText('The selected tasks will be removed from your calendar.')).toBeNull();
+    await waitFor(() => expect(screen.queryByText('The selected tasks will be removed from your calendar.')).toBeNull());
     expect(screen.getByRole('button', { name: 'Select mocked task' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Deselect mocked task task_2' })).toBeInTheDocument();
   });
