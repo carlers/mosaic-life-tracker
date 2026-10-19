@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
+import { hasCapability } from '../lib/backendCapabilities';
 import {
   sendFriendRequest,
   acceptFriendRequest,
@@ -34,6 +35,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
   const [confirmedRows, setRows] = useState<FriendshipDocument[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   useEffect(() => {
+    if (!hasCapability('social')) return;
     scopeFriendshipCommands(userId ?? null);
     if (!userId) return;
     const uid = userId;
@@ -86,7 +88,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
   const queueRevision = useSyncExternalStore(subscribeFriendshipCommands, getFriendshipRevision);
   const rows = useMemo(() => {
     const visible = userId && loadedUserId === userId ? confirmedRows : [];
-    if (!userId) return [];
+    if (!userId || !hasCapability('social')) return [];
     // External-store revision invalidates the persisted queue projection.
     void queueRevision;
     const pending = pendingFriendshipRows(userId);

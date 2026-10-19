@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { Menu, List, RefreshCw, Bell, Archive, Star } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { hasCapability } from '../../lib/backendCapabilities';
 
 const { Component: LazyBottomSheet, preload: preloadMenuBottomSheet } =
   createPreloadedLazy(() => import('../ui/BottomSheet').then(m => m.BottomSheet));
@@ -65,7 +66,7 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
       {menuSheetMounted && (
           <LazyBottomSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} title="Menu">
             <div className="space-y-2 pt-2">
-              {menuItems.map((item) => {
+              {menuItems.filter(item => item.label !== 'Bucket List' || hasCapability('bucketList')).map((item) => {
                 const Icon = item.icon;
                 return (
                   <Button

@@ -7,6 +7,8 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { AuthPage } from "./pages/AuthPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { PROTECTED_ROUTES, type ProtectedPageId } from './lib/protectedRoutes';
+import { isPageAvailable } from './lib/backendCapabilities';
+import { ComingSoon } from './components/layout/ComingSoon';
 import {
   loadAccountPage,
   loadChatPage,
@@ -176,7 +178,9 @@ function App() {
               path={route.path}
               element={route.kind === 'redirect'
                 ? <Navigate to={route.redirectTo} replace />
-                : protectedPageElements[route.id]}
+                : isPageAvailable(route.id)
+                  ? protectedPageElements[route.id]
+                  : <ComingSoon />}
             />
           ))}
         </Route>

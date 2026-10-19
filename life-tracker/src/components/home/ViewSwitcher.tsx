@@ -1,5 +1,6 @@
 import React from 'react';
 import { Calendar, BookOpen, ListChecks } from 'lucide-react';
+import { hasCapability } from '../../lib/backendCapabilities';
 
 export type ViewType = 'calendar' | 'todo' | 'diary';
 
@@ -28,7 +29,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
       aria-label="View"
       className="relative flex bg-[#1E1E1E] rounded-lg p-0.5 border border-[#333333] flex-shrink-0"
     >
-      {views.map((view) => {
+      {views.filter(view => view.id !== 'diary' || hasCapability('diary')).map((view) => {
         const isActive = activeView === view.id;
         const Icon = view.icon;
         return (
