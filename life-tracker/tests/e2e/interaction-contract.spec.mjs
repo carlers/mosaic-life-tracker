@@ -791,6 +791,33 @@ test('Todo distant task activates drag on first touch after scrolling and restor
   await expect(lastRow).toBeVisible();
 });
 
+// Cross-engine delayed-pointer sensor check. Unlike the native touch-drag
+// regression below, this uses genuine browser mouse/pointer input, NOT a fake
+// TouchEvent or a substitute for the iPad long-press gesture.
+test('trusted mouse-pointer hold activates task sort and releases the overlay', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  const region = page.getByTestId('todo-day-content');
+  const source = region.locator('[data-task-id="task_0_0"]');
+  const title = source.getByRole('button', { name: 'Task 1.1', exact: true });
+  await source.scrollIntoViewIfNeeded();
+  const box = await title.boundingBox();
+  if (!box) throw new Error('Missing sortable task title bounds');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  try {
+    await expect(page.locator('[data-task-overlay-id="task_0_0"]'))
+      .toHaveAttribute('data-task-dragging', 'true', { timeout: 2500 });
+    await page.mouse.move(x, y + 45, { steps: 6 });
+  } finally {
+    await page.mouse.up();
+  }
+  await expect(page.locator('[data-task-overlay-id="task_0_0"]')).toHaveCount(0);
+  await expect(region.getByRole('button', { name: 'Task 1.1', exact: true })).toBeVisible();
+});
+
 // Regression: owner task reorder is a simple delayed sortable interaction.
 test('task long-press stays under the finger while siblings reorder, then persists on release', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

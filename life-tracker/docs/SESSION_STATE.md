@@ -1,22 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #1008 extend WebKit across the complete Playwright browser correctness suite, without Appwrite.
+Current task: #1008 close WebKit gesture coverage gaps that are possible without real iPadOS or Appwrite.
 
 ## Boundary
-- Base: stable Preview `fix/ios-task-input-webkit-1008-20261019@82840a2c866acf4ff92f5127185df87c7a8f76fd` (v0.29.13); protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` are unmodified.
-- Task: `chatgpt/1008-webkit-full-browser-suite-20261019`; no product runtime or data/backend/security pin changes. Version impact NONE (keep v0.29.13).
-- Appwrite is unavailable for owner manual verification; no promotion to dev/main or 1.0 authorized. Post-1.0 Firefox issue #1009 remains planning only.
+- Live stable Preview base: `fix/ios-task-input-webkit-1008-20261019@46437537b9e7d1aacca03d2a5a4490bf46bac427` (v0.29.13); protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`; protected `main@b952f71ecd2add3172f90104bc0e856a2648ccc9`. No approvals for dev/main promotion.
+- Latest stable Preview canonical #39224425474 SUCCESS, trusted delivery #39224825886 SUCCESS and Vercel READY. Full Playwright correctness suite covered Chromium 63 passed, WebKit 43 passed, 20 explicitly skipped native-touch drags. Firefox #1009 remains post-1.0 planning.
+- Task branch: `chatgpt/1008-webkit-trusted-taps-pointer-20261019`, based on accepted Preview. Internal test/docs work only, no app runtime/backend/version changes.
 
-## Scope
-- Replace first-shard-only WebKit task-input smoke run with all non-performance Playwright browser correctness specs, same shard split as Chromium on both existing CI runners.
-- Preserve the protected-main-reviewed Quality Gate YAML byte-for-byte and its trusted deployment receiver; keep browser runner and workflow contracts explicit.
-- Use native WebKit user agent, phone-sized default plus iPad task-entry viewport; keep Chromium-only trusted CDP touch drags explicitly reported as WebKit skips rather than fabricating cross-browser touch coverage.
-- Keep Vitest unit, handler, and DOM suites unchanged (engine-independent), diagnostic `@performance` excluded from acceptance, and native iPad Safari/PWA testing pending.
+## Current work
+- Upstream Playwright Touchscreen API has only `tap` (no trusted touch down/move/up; open upstream feature microsoft/playwright#39043). Synthetic touch events carry `isTrusted=false`, so do not misrepresent them as iPad Safari native swipe coverage or remove CDP-only WebKit skips.
+- Task-entry iPad-sized browser test now uses genuine `locator.tap()` for category and outside-blank-space interactions, proving blur/save without invoking a keyboard Done key. Tests use `hasTouch: true` across both engines.
+- Add complementary cross-engine trusted *mouse/pointer* tests for delayed sortable task activation and retained bottom sheet header dragging/dismissal. These test pointer handling, not native touch-drag parity.
+- The 20 WebKit CDP-only drag skips remain explicit. No Appwrite-dependent tests or provider work in scope.
 
-## Prior verified
-- #1008 v0.29.13 task blur-save Preview canonical #39219337007 SUCCESS and Trusted Preview Delivery #39219583581 SUCCESS at base SHA, with Vercel READY CLI readback.
-- Expanded task CI #39223047500: focused checks SUCCESS; Chromium both shards SUCCESS; WebKit shard 2 SUCCESS (16 passed, 15 CDP-only skips). WebKit shard 1 revealed three cases (24 passed, 5 CDP-only skips): two desktop wheel tests invoked on unsupported mobile WebKit, and one chat test raced the loaded message list after route transition. Repairs are on the task branch, not yet reverified. No accepted full WebKit suite or Preview for this revision yet.
-
-## Next safe action
-- Run focused + browser CI on a coherent task commit; repair real engine-specific failures. After green, squash into stable Preview and confirm canonical CI, trusted receiver and matching READY deployment. No dev/main promotion without explicit approval.
+## Verification and handoff
+- This task branch has not yet completed focused/browser CI at the checkpoint; do not claim it is green.
+- Next: publish one coherent task commit with `[verify:browser]`; verify focused + Chromium/WebKit shards, repair any engine failures. Then squash to stable Preview, run full canonical and trusted Preview delivery. Leave #1008 open for real iPad Safari/PWA gesture and keyboard acceptance when Appwrite/device testing is possible. No dev/main promotion.

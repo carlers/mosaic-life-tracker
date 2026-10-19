@@ -128,6 +128,12 @@ regressions, execute in both engines. Tests that explicitly validate trackpad
 wheel routing use a desktop-input browser context under WebKit because the
 Playwright mobile WebKit backend does not implement `page.mouse.wheel`. Do not claim native-touch gesture parity
 or treat a synthetic `TouchEvent` or mouse drag as the same device interaction.
+The iPad-sized task-entry scenario now uses Playwright's *trusted touchscreen taps*
+to confirm cross-category blur-save, empty input dismissal and repeated creation
+without a virtual keyboard Done button. Complementary genuine browser mouse/pointer
+drag cases exercise delayed task sorting and retained bottom-sheet dismissal
+in both engines, while the separate native-touch-drag tests remain Chromium-only.
+This additional pointer coverage is not touch-swipe equivalence.
 The iPad-sized task-entry scenario is still exercised within the complete
 WebKit run. Diagnostics tagged `@performance` retain their distinct
 benchmark runner and are not release correctness checks. Linux WebKit is not
