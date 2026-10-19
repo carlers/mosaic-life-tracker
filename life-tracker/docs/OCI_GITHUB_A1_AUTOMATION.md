@@ -4,18 +4,119 @@
 Oracle Singapore A1 capacity hourly and, once a slot is likely available,
 claim one *specific* Always Free-sized ARM VM automatically.
 
-**Current status: NOT ACTIVE.** This workflow is prepared only on an
-isolated Preview branch. GitHub's scheduled workflows run **only from a
-repository's default branch**. Mosaic's default branch is protected
-Production main; this workflow must **not** be promoted to main without
-the owner's separate explicit production-branch approval. It also needs
-a dedicated OCI IAM identity and encrypted GitHub secrets installed by
-the owner, which are deliberately unavailable to this chat.
+**Current status: NOT ACTIVE.** The existing Mosaic-repository workflow is
+prepared in an isolated Preview branch only. GitHub runs scheduled workflows
+from the *default branch of the repository containing the workflow*. Promotion
+of Mosaic's workflow to Production `main` is **not** authorized. The
+recommended alternative below uses a separate private GitHub repository's
+default `main` and therefore does not affect Mosaic's Production branch.
+
+## Recommended: separate private scheduler (no Mosaic main promotion)
+
+This source tree contains the reviewed **template** at
+`../ops/oci-a1-scheduler/.github/workflows/oci-a1-autoclaim.yml`.
+The template is not live merely because it exists inside Mosaic's tree;
+it must be installed in its own repository. The scheduled job downloads a
+**specific approved Mosaic commit SHA**, verifies that exact source revision,
+and invokes the controller. It refuses non-private/other repository contexts,
+non-default refs and any manual event for launch. Its signing credentials
+stay only in the private scheduler's encrypted GitHub Actions secrets.
+
+### One-time setup (on your own accounts; no credentials in chat)
+
+1. On GitHub, create a **private** repository named
+   `carlers/mosaic-oci-a1-scheduler`, default branch `main`. Do not
+   select a different owner/name without a reviewed controller change.
+   This does not touch Mosaic's protected `main`.
+2. After this Mosaic source-only change passes focused and full CI/trusted
+   Preview, copy the above template into the private repository as
+   `.github/workflows/oci-a1-autoclaim.yml` on the new repository's
+   `main`. Replace exactly `REPLACE_WITH_ACCEPTED_STABLE_SHA` in
+   `MOSAIC_CONTROLLER_SHA` with the **40-character stable Preview commit SHA**
+   from the accepted handoff. Do not pin a task branch, a tag or a floating
+   ref. The checkout plus `git rev-parse HEAD` check fail closed on mismatch.
+   The workflow has no PR trigger; the first manual dispatch is *observe only*.
+3. In the Oracle Singapore home region verify eligibility, existing A1 usage,
+   storage usage, alerts and no-charge classification. Create a **dedicated
+   compartment** named `MosaicA1` (or a separately chosen controlled name),
+   with approved quota statements no higher than these **exact cap candidates**:
+   ```text
+   set compute-core quota standard-a1-core-count to 2 in compartment MosaicA1
+   set compute-memory quota standard-a1-memory-count to 12 in compartment MosaicA1
+   set block-storage quota total-storage-gb to 50 in compartment MosaicA1
+   ```
+   Verify that OCI accepted and **enforces** each quota, and that other
+   resources in the compartment do not consume the available allowance.
+   The block quota covers **boot and block** volumes; avoid any extra paid
+   capacity. OCI quotas constrain quantities, not your tenancy's pricing.
+   Do not equate 2 OCPU/12 GiB/50 GiB with guaranteed free billing.
+4. Create a dedicated OCI automation **IAM user/group and new API signing
+   key**, not the personal CLI/administrator key. Grant only the required
+   compartment-scoped instance launch/inventory and VNIC/boot volume rights,
+   plus read-only tenancy availability-domain/capacity and image lookups.
+   Network `use` policy should target the existing VCN/subnet compartment.
+   Validate the policy using Oracle's current IAM policy evaluator/common
+   policies before providing credentials. Create no unbounded tenancy-wide
+   `manage all-resources` grant.
+5. Choose an OCI ARM-compatible **Ubuntu 24.04** platform image OCID,
+   the exact allowed subnet OCID and a valid **public** SSH key. Never
+   upload an SSH private key. The claimed machine will **not** have a public
+   IPv4 address, Appwrite installation, open services or user data.
+6. In the **private scheduler** repository → Settings → Secrets and variables
+   → Actions → Repository secrets, install these eight encrypted secrets
+   under their exact names:
+   ```text
+   MOSAIC_OCI_TENANCY_OCID
+   MOSAIC_OCI_USER_OCID
+   MOSAIC_OCI_FINGERPRINT
+   MOSAIC_OCI_API_KEY_PEM
+   MOSAIC_OCI_COMPARTMENT_OCID
+   MOSAIC_OCI_SUBNET_OCID
+   MOSAIC_OCI_IMAGE_OCID
+   MOSAIC_OCI_SSH_PUBLIC_KEY
+   ```
+   Paste the **new dedicated automation** API private PEM only into the
+   encrypted `MOSAIC_OCI_API_KEY_PEM` secret. Use the *public* SSH key
+   text for `MOSAIC_OCI_SSH_PUBLIC_KEY`. Neither belongs in a commit or chat.
+7. Keep the private repository variable `MOSAIC_OCI_AUTOLAUNCH` **unset**
+   (default `false`). Leave `MOSAIC_OCI_FREE_TIER_CONFIRMED` and
+   `MOSAIC_OCI_QUOTA_CONFIRMED` unset (default `NO`). In Actions select
+   the new workflow → **Run workflow** and inspect its advisory result
+   and logs. It may report no capacity or OCI IAM failures without launching.
+   If workflow installation/pinning/secrets fail, repair those first.
+8. Only with fresh, explicit owner authorization to accept the residual
+   launch/billing risk and separately confirmed hard quotas, configure
+   repository **variables**:
+   ```text
+   MOSAIC_OCI_AUTOLAUNCH=true
+   MOSAIC_OCI_FREE_TIER_CONFIRMED=CONFIRMED
+   MOSAIC_OCI_QUOTA_CONFIRMED=CONFIRMED
+   ```
+   These are ordinary GitHub Variables, **not** Secrets. A manual dispatch
+   can never launch; *only an hourly scheduled run* may attempt a single
+   eligible VM. On successful creation, turn `MOSAIC_OCI_AUTOLAUNCH` off
+   or disable the workflow and inspect OCI Console/billing. Do not rely
+   on this workflow to stop or terminate a VM.
+
+The standalone private repository may consume the account's GitHub Actions
+minutes; scheduled workflow starts can be delayed or skipped. A positive
+capacity report is advisory; a denied one-shot launch is not retried. A
+separate repository is **not** a separate billing account and does not
+change any OCI tenancy service limits. No automatic notification outside
+GitHub Actions is implemented. This plan is an *operator template*, not
+evidence that the repository, secrets, hard quotas or VM already exist.
+
+Relevant official references:
+- [GitHub schedule default-branch rule](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+- [Oracle compute core and memory quota names](https://docs.oracle.com/en-us/iaas/Content/Quotas/Concepts/resourcequotas_topic-Compute_Quotas.htm)
+- [Oracle boot/block storage quota](https://docs.oracle.com/en-us/iaas/Content/Quotas/Concepts/resourcequotas_topic-Block_Volume_Quotas.htm)
+- [Oracle launch IAM policies](https://docs.oracle.com/en-us/iaas/Content/Identity/Concepts/commonpolicies.htm)
 
 ## Two modes and their protections
 
-Workflow: ../../.github/workflows/oci-a1-autoclaim.yml.
-Controller: ../scripts/oci-a1-autoclaim.mjs.
+Original Mosaic-repository workflow: `../../.github/workflows/oci-a1-autoclaim.yml`.
+Standalone private-repository template: `../ops/oci-a1-scheduler/.github/workflows/oci-a1-autoclaim.yml`.
+Controller: `../scripts/oci-a1-autoclaim.mjs`.
 
 - **Observe (default):** Once per hour at minute 17 UTC, run the same
   advisory report from OCI for ap-singapore-1, AD-1, exact A1 2 OCPU /
@@ -26,7 +127,8 @@ Controller: ../scripts/oci-a1-autoclaim.mjs.
   MOSAIC_OCI_FREE_TIER_CONFIRMED=CONFIRMED and
   MOSAIC_OCI_QUOTA_CONFIRMED=CONFIRMED. Code independently verifies
   the scheduled workflow runs on the exact default-branch ref of
-  carlers/mosaic-life-tracker, positive available-count, no prior A1
+  `carlers/mosaic-life-tracker` or the dedicated
+  `carlers/mosaic-oci-a1-scheduler`, positive available-count, no prior A1
   instance (including stopped and listed terminated) in the dedicated
   compartment, Ubuntu 24.04 image AVAILABLE and compatible with A1,
   and the chosen subnet AVAILABLE. Then it makes **at most one**
@@ -78,11 +180,9 @@ Controller: ../scripts/oci-a1-autoclaim.mjs.
    automation IAM user's* private API signing key),
    MOSAIC_OCI_COMPARTMENT_OCID, MOSAIC_OCI_SUBNET_OCID,
    MOSAIC_OCI_IMAGE_OCID and MOSAIC_OCI_SSH_PUBLIC_KEY.
-   These are never committed. Prefer a separate private scheduler
-   repository to keep automation credentials away from the Mosaic
-   production codebase; the supplied workflow/controller are
-   initially hard-guarded to this repository and would need a
-   separately reviewed adaptation for a dedicated repo.
+   These are never committed. Prefer the separate private scheduler described above over changing
+   Mosaic Production `main`. The controller requires one of the two
+   explicitly reviewed repository names and a real schedule event.
 5. Initially leave automatic launch **OFF**. After an approved
    workflow promotion onto the default branch, confirm a successful
    observed report via the workflow's manual dispatch. The manual

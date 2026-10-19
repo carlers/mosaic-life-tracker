@@ -114,7 +114,7 @@ export function claimA1({
     r => ({ ad: r.availabilityDomain, status: r.status })),
     outcome: matching.length ? 'capacity_possible' : 'capacity_unavailable' };
   if (!matching.length || mode === 'observe' || !enabled) return status;
-  if (context.repository !== 'carlers/mosaic-life-tracker' ||
+  if (!['carlers/mosaic-life-tracker', 'carlers/mosaic-oci-a1-scheduler'].includes(context.repository) ||
       context.ref !== 'refs/heads/main' || context.eventName !== 'schedule') {
     throw new Error('Launch only allowed for scheduled workflow on trusted default branch');
   }

@@ -137,6 +137,49 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
       capacity: () => cap(), spawn })).toThrow(/no fallback or retry/);
     expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
   });
+  it('permits only the owner dedicated scheduler repository on its default branch schedule', () => {
+    const spawn = mockOci();
+    expect(claimA1({
+      mode: 'launch', enabled: true,
+      context: { ...context, repository: 'carlers/mosaic-oci-a1-scheduler' },
+      config, capacity: () => cap(), spawn,
+    }).outcome).toBe('instance_created');
+    expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
+    for (const override of [
+      { repository: 'carlers/mosaic-oci-a1-scheduler-fork' },
+      { repository: 'different/mosaic-oci-a1-scheduler' },
+      { repository: 'carlers/mosaic-oci-a1-scheduler', ref: 'refs/heads/preview' },
+      { repository: 'carlers/mosaic-oci-a1-scheduler', eventName: 'workflow_dispatch' },
+    ]) {
+      const denied = mockOci();
+      expect(() => claimA1({
+        mode: 'launch', enabled: true, context: { ...context, ...override },
+        config, capacity: () => cap(), spawn: denied,
+      })).toThrow(/scheduled workflow/);
+      expect(denied).not.toHaveBeenCalled();
+    }
+  });
+  it('keeps the independent private scheduler opt-in and pinned to reviewed source', () => {
+    const template = readFileSync(
+      new URL('../../ops/oci-a1-scheduler/.github/workflows/oci-a1-autoclaim.yml', import.meta.url), 'utf8',
+    );
+    expect(template).toContain("github.repository == 'carlers/mosaic-oci-a1-scheduler'");
+    expect(template).toContain('github.event.repository.private == true');
+    expect(template).toContain("github.ref == 'refs/heads/main'");
+    expect(template).toContain("cron: '17 * * * *'");
+    expect(template).toContain('repository: carlers/mosaic-life-tracker');
+    expect(template).toContain('MOSAIC_CONTROLLER_SHA: REPLACE_WITH_ACCEPTED_STABLE_SHA');
+    expect(template).toContain('git -C mosaic-source rev-parse HEAD');
+    expect(template).toContain('node mosaic-source/life-tracker/scripts/oci-a1-autoclaim.mjs');
+    expect(template).not.toContain('cancel-in-progress: true');
+    for (const [key, fallback] of [
+      ['MOSAIC_OCI_AUTOLAUNCH', 'false'],
+      ['MOSAIC_OCI_FREE_TIER_CONFIRMED', 'NO'],
+      ['MOSAIC_OCI_QUOTA_CONFIRMED', 'NO'],
+    ]) {
+      expect(template).toContain("      " + key + ": ${{ vars." + key + " || '" + fallback + "' }}");
+    }
+  });
   it('wires the three operator opt-in variables to literal controller environment names', () => {
     const workflow = readFileSync(
       new URL('../../../.github/workflows/oci-a1-autoclaim.yml', import.meta.url), 'utf8',
