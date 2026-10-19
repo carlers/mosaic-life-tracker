@@ -1,23 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 isolated Supabase candidate pull-and-cursor atomicity, no live backend switch.
+Current task: #967 isolated Supabase create-and-master HTTP proof; no backend switch.
 
 ## Boundary
-- Task source is accepted isolated `refactor/967-signed-auth-probe-20261019@aead4d2d7fca703a9fc19fcf43851d69b979ba5e`, [PR #988](https://github.com/carlers/mosaic-life-tracker/pull/988). Its focused #39183186956, canonical #39183492348, trusted delivery #39183650488 all SUCCESS.
-- New task `chatgpt/967-atomic-pull-checkpoint-20261019`. No Mosaic app runtime import, cloud schema/Auth/users/rows changes, Appwrite, Production, dev/main promotion or version bump.
-- Isolated Supabase Free `mosaic-dev` ACTIVE_HEALTHY at read; last observed 0 candidate rows and 0 Auth users. Two unresolved CAS SECURITY DEFINER Advisor warnings persist.
+- Base accepted isolated stable `refactor/967-atomic-pull-checkpoint-20261019@f87219b6ea61ebacaad58c5eb92261ac8eb4dcb2`. Focused #39184309345 SUCCESS, canonical #39184409560 SUCCESS; trusted #39184559649 prebuilt READY for exact source.
+- Task `chatgpt/967-create-master-transport-20261019`; no source imported into shipped runtime, Supabase schema or real accounts/records changes, Appwrite/deployment config/promotions/version changes.
+- Isolated `mosaic-dev` candidate remains a Free test project; last observed 0 Auth users and 0 candidate tasks/categories. Two callable SECURITY DEFINER CAS warning findings unresolved.
 
 ## Work
-- Add source-only `supabase-poc/candidatePullCoordinator.ts` composing existing verified task/category pull, exact bigint revisions and legacy-to-UUID owner mapping.
-- Introduce explicit store contract: document apply and checkpoint advance MUST be one atomic transaction, compare old checkpoint, reject pending local edits, fence account session generation inside commit, distinguish stale result without blind retry.
-- Tests use a strict in-memory transactional fake to exercise two-page restart, tombstones, offline replay, crash/storage fault, concurrent pulls with stale loser, wrong owner, session switch during HTTP and commit, pending unacknowledged local edits.
-- Update `docs/SUPABASE_EVALUATION.md` with exact research boundary and outstanding real RxDB/IndexedDB store + signed HTTP proof.
-- Version impact NONE: no user-visible runtime change, no Vercel/Appwrite/Supabase provisioning changes.
+- Implement opt-in `candidateCreateTransport.ts`: create task/category with verified owner session, strict Mosaic row ID, POST only with server returned revision, no client sequence, no upsert.
+- On 409 only, authenticated owner-scoped master GET and explicit conflict. Missing owner master or malicious/faulty reply fails closed. No automatic retry for ambiguous network writes; 401/403 and 5xx are distinct.
+- Unit mock HTTP coverage and evaluation notes. Existing RxDB replicateRxCollection native checkpoint should be preferred over adding a second storage system; earlier atomic-store POC is a contract only.
 
 ## Verification
-- Pending final focused task CI and separate stable Preview canonical/trusted delivery. Do not treat in-memory fake store tests as real persistent IndexedDB/RxDB or signed-user evidence.
+- First task focused #39184821800 failed during Vitest source transform (TypeScript parser expected a closing brace before a line-broken `as` assertion in candidateCreateTransport.ts). This was corrected without semantics changes. Focused recheck on final repair commit PENDING. No real signed HTTP/JWT nor live concurrency tests.
 
 ## Next action
-- Request [verify:focused] on coherent task commit; diagnose/fix any failing lint/tests. After focused green, squash into a fresh isolated stable Preview, run canonical full CI and trusted delivery, record exact-SHA evidence on #967. No dev/main promotion or real backend switch.
-- Then implement actual persistent, transactional RxDB/local-storage adapter and new-row push/conflict-master flow. Genuine signed-user tests require authorized creation of two confirmed disposable `mosaic-dev` Auth accounts, not real Mosaic users. Keep #967 OPEN and preserve the two advisor warnings for independent security review.
+- Commit final work with [verify:focused], review focused failures, then squash into a new stable isolated Preview; require canonical and trusted delivery. Keep #967 open and no dev/main/Production/app/provider switch.
+- Genuine HTTP acceptance requires two confirmed disposable Supabase Auth users; operator only, never paste passwords. After that, test real insertion/duplicate ownership, cross-connection CAS and RxDB integrated pull/push with owned pending local changes.
