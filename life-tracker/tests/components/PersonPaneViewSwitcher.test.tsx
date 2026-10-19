@@ -126,6 +126,10 @@ describe('PersonPane view switcher', () => {
 
   // Regression: §2 (friends expose the shared Todo List and its date title returns to the current month).
   it('renders Todo List for a friend in friend mode and lets its date header return to today', async () => {
+    // This test covers the view switch/date behavior, not the lazy-import timing.
+    // Prime the real friend-pane module so an overloaded CI worker cannot leave
+    // the Suspense fallback on screen beyond Testing Library's default wait.
+    await import('../../src/components/home/FriendPersonPane');
     render(<PersonPane person={friend} isActive />);
 
     fireEvent.click(await screen.findByLabelText('Todo list'));
