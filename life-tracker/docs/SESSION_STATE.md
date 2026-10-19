@@ -1,22 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #1008 Playwright WebKit pre-1.0 coverage plus iPad task-entry blur-save regression.
+Current task: #1008 iPad task-input blur-save and pre-1.0 Playwright WebKit regression coverage.
 
 ## Boundary
-- Base: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12); `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Task branch: `chatgpt/1008-webkit-task-blur-20261019`; stable Preview target: `fix/ios-task-input-webkit-1008-20261019`. Proposed user-testable Preview v0.29.13 (PATCH); no dev/main promotion approved.
-- Issue #1008 is pre-1.0 authorized for immediate work; issue #1009 records Firefox as post-1.0 planning only.
-- No backend/schema changes; Preview remains Scratch-only. Real Safari installed PWA verification is a separate manual requirement.
+- Original base: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` (v0.29.12); Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
+- Stable Preview `fix/ios-task-input-webkit-1008-20261019` at `024dcea6d4fcfcb7c60497fb6ebab5e635c27c96`, v0.29.13, via PR #1012. Task repair branch `chatgpt/1008-webkit-trusted-delivery-20261019` starts at that SHA.
+- Issue #1008 is pre-1.0 authorized now; issue #1009 is post-1.0 Firefox planning only. No dev/main promotion approved, no backend/schema changes.
 
-## Changes being delivered
-- Nonempty inline new-task drafts commit on blur even without an iPadOS keyboard Done key; preserve empty/cancel, checkbox, and continuous Enter semantics.
-- Await local creation in Day View, show failure feedback, and retain the unsaved draft instead of closing prematurely.
-- Add a small Playwright WebKit task-entry regression lane in CI beside the existing Chromium browser contract gate. Avoid unsupported Chromium CDP gestures in WebKit.
+## Changes
+- Nonempty new-task drafts commit on ordinary blur; Enter, checkbox, cancel and continuous-add remain supported, failed local writes retain the draft with feedback.
+- Existing Chromium browser contract plus first-shard Playwright WebKit iPad-sized task-entry regression.
+- Trusted receiver pins reviewed Quality Gate YAML blob: current Preview #39217697332 was canonical SUCCESS, but Trusted Preview Delivery #39217963457 rejected its changed YAML with 'Unreviewed generic Quality Gate definition'. Preserve this fail-closed security gate.
+- Repair: restore byte-identical reviewed YAML and move the additional required WebKit regression into the existing browser-test command's CI orchestration. Version remains 0.29.13; this Preview has not yet delivered successfully.
 
 ## Verification
-- Initial task CI #39216997858: Playwright WebKit task-entry regression PASS; Chromium browser shard 1 PASS. Focused job failed because the Todo integration test double returned no saved task ID, and Chromium shard 2 failed because the new test did not ignore the local Vite HTTPS certificate. Both test-fixture defects are corrected in the pending repair commit; no final-SHA green is yet asserted.
-- Stable Preview canonical acceptance, Vercel READY, disposable-user end-to-end verification, and actual iPad Safari/PWA acceptance are pending.
+- Original task focused and Chromium/WebKit checks successful: #39217414310; stable Preview full canonical successful #39217697332 (before receiver compatibility repair). No final repair CI asserted.
+- Trusted Preview provider delivery for the original stable SHA FAILED; no matching READY deployment yet verified.
+- Actual iPad Safari, installed PWA behavior, authenticated disposable-user check, and keyboard UI are unverified.
 
 ## Next action
-- Publish the coherent `[verify:browser]` task commit, inspect and repair focused/browser CI. If green, squash to stable Preview and verify canonical CI and Preview delivery. Do not promote to dev/main without explicit approval.
+- Commit repair with `[verify:browser]` and verify focused + browser CI. Squash repair into the stable Preview after success; run full canonical and verify trusted receiver plus exact READY Preview before handoff. Never bypass the trusted workflow pin or promote dev/main without explicit approval.

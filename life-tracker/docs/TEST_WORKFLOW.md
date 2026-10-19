@@ -106,6 +106,16 @@ npm run test:browser-contract
 npm run test:performance
 ```
 
+On the supported GitHub Actions Ubuntu runner, `test:browser-contract` runs the
+existing Chromium browser contracts on both shards, then installs and executes
+the narrow iPad-sized Playwright WebKit task-entry contract on the first shard.
+This is a required part of the existing browser gate without modifying the
+protected-main-reviewed Quality Gate YAML. Locally, `test:browser-contract`
+remains Chromium-only by default; run `npm run test:webkit-contract` after
+installing Playwright WebKit on a supported OS/container for explicit coverage.
+The Linux WebKit engine is not real iPadOS Safari, keyboard, or installed PWA
+acceptance; keep those manual checks separate.
+
 Use `test:unit` for pure helpers and local libraries, `test:handlers` for Appwrite
 Function handlers, and `test:dom` for React hooks, providers, and components. Watch-mode
 variants are `test:watch:unit`, `test:watch:handlers`, and `test:watch:dom`.

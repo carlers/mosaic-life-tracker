@@ -488,14 +488,6 @@ jobs:
         env:
           MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
         run: npm run test:browser-contract -- --shard="${{ matrix.shard }}"
-      - name: Install Playwright WebKit and Linux dependencies for the iPad-sized regression
-        if: matrix.shard == '1/2'
-        run: tests/e2e/node_modules/.bin/playwright install --with-deps webkit
-      - name: Run required WebKit task-entry regression
-        if: matrix.shard == '1/2'
-        env:
-          MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
-        run: npm run test:webkit-contract
 
   canonical_acceptance:
     name: canonical-acceptance
