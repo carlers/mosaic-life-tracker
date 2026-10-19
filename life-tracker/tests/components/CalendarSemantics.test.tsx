@@ -115,6 +115,39 @@ describe('calendar accessibility semantics', () => {
     expect(screen.getAllByRole('columnheader')).toHaveLength(7);
   });
 
+  it('pins and horizontally aligns the weekday headings without duplicating grid semantics', () => {
+    const month = render(
+      <MonthView focusDate={new Date(2026, 8, 15)} zoomDays={3}
+        stickyWeekdayHeader weekStartsOn={1}
+        onDayClick={() => {}} tasksByDate={emptyTasks} categoriesMap={{}} />
+    );
+    const grid = screen.getByRole('grid', { name: 'September 2026 calendar' });
+    const headings = within(grid).getAllByRole('columnheader');
+    expect(headings).toHaveLength(7);
+    expect(headings[0]).toHaveAccessibleName('Monday');
+    const pinned = grid.querySelector('[data-sticky-weekday-header]');
+    expect(pinned).toBeInTheDocument();
+    const lane = screen.getByRole('region', { name: 'Scrollable calendar weekdays' });
+    expect(within(lane).queryAllByRole('columnheader')).toHaveLength(0);
+    expect(within(lane).getAllByRole('gridcell')).toHaveLength(35);
+    Object.defineProperty(lane, 'scrollLeft', { configurable: true, writable: true, value: 90 });
+    fireEvent.scroll(lane);
+    expect(pinned?.querySelector('[role="row"]')).toHaveStyle({
+      transform: 'translate3d(-90px, 0, 0)',
+    });
+    month.unmount();
+
+    render(
+      <WeekView focusDate={new Date(2026, 8, 23)} zoomDays={4}
+        stickyWeekdayHeader onDayClick={() => {}}
+        tasksByDate={emptyTasks} categoriesMap={{}} />
+    );
+    const weekGrid = screen.getByRole('grid', { name: 'Week of September 20, 2026' });
+    expect(within(weekGrid).getAllByRole('columnheader')).toHaveLength(7);
+    expect(weekGrid.querySelector('[data-sticky-weekday-header]')).toBeInTheDocument();
+    expect(within(weekGrid).getAllByRole('gridcell')).toHaveLength(7);
+  });
+
   // Regression: §2 (week-start preference applies to Calendar and Todo grids).
   it('starts month, week, and Todo calendars on Monday when Sunday-start is disabled', () => {
     const month = render(
