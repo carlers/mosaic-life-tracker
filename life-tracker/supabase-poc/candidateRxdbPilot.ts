@@ -5,9 +5,10 @@
  * RxDB owns its native durable pull/push checkpoints. Do not add a second
  * checkpoint store or start this alongside the Appwrite pilot on shared data.
  *
- * Until a conflict UI/merge strategy exists, ambiguous owner edits throw
- * instead of returning conflicting masters to RxDB's default winner strategy,
- * which could silently discard offline local changes.
+ * Ambiguous owner edits never return a default master-wins result. Direct
+ * push callers receive a typed conflict; active RxDB replication instead
+ * suspends that batch until explicit resolution, avoiding 5-second retries
+ * that would otherwise spend Auth and PostgREST reads indefinitely.
  */
 import type {
   RxCollection, RxReplicationPullStreamItem, RxReplicationWriteToMasterRow,
@@ -99,10 +100,28 @@ export function createCandidateRxdbPilot<D extends Document>(
   // rebuilds the review from the unacknowledged push. Never log these values.
   const pendingConflicts = new Map<string, CandidateConflictReview<D>>();
   const conflictEvents = new Subject<CandidateConflictReviewEvent<D>>();
+  // A parked RxDB push holds its pending checkpoint and makes NO Auth/REST
+  // calls until the owner resolves the conflict. Only the review event's
+  // document id is used as a wakeup; local document contents stay in RxDB.
+  const conflictWaiters = new Map<string, Set<() => void>>();
+  function wakeConflictWaiters(documentId: string) {
+    const waiters = conflictWaiters.get(documentId);
+    conflictWaiters.delete(documentId);
+    for (const resume of waiters ?? []) resume();
+  }
+  function waitForReviewClear(documentId: string): Promise<void> {
+    if (!pendingConflicts.has(documentId)) return Promise.resolve();
+    return new Promise(resolve => {
+      const waiters = conflictWaiters.get(documentId) ?? new Set<() => void>();
+      waiters.add(resolve);
+      conflictWaiters.set(documentId, waiters);
+    });
+  }
   const copy = <T>(value: T): T => structuredClone(value);
   function clearReview(documentId: string) {
     if (pendingConflicts.delete(documentId)) {
       conflictEvents.next({ type: 'cleared', documentId });
+      wakeConflictWaiters(documentId);
     }
   }
   function clearAllReviews() {
@@ -363,6 +382,23 @@ export function createCandidateRxdbPilot<D extends Document>(
     const stream = new Subject<RxReplicationPullStreamItem<D, CandidateCheckpoint>>();
     // No realtime guarantee yet. Caller must reSync() on foreground and
     // reconnect; RxDB itself persists checkpoints and retries failed pushes.
+    let stopped = false;
+    const pushAfterReview = async (
+      rows: RxReplicationWriteToMasterRow<D>[],
+    ): Promise<Replicated<D>[]> => {
+      for (;;) {
+        if (stopped) throw new Error('Candidate RxDB replication was stopped');
+        try {
+          return await push(rows);
+        } catch (error) {
+          if (!(error instanceof CandidatePendingConflictError)) throw error;
+          // The only wakeups are explicit review resolution, an owner/session
+          // invalidation, or stop. No interval or background Auth/network
+          // polling runs while a human decision is outstanding.
+          await waitForReviewClear(error.documentId);
+        }
+      }
+    };
     const state = replicateRxCollection<D, CandidateCheckpoint>({
       replicationIdentifier:
         'mosaic-supabase-poc-v1:' + domain + ':' +
@@ -379,17 +415,23 @@ export function createCandidateRxdbPilot<D extends Document>(
       },
       push: {
         batchSize: 20,
-        handler: push,
+        handler: pushAfterReview,
       },
     });
     return {
       state,
       resync: () => state.reSync(),
       stop: async () => {
-        stream.complete();
-        await state.cancel();
+        // Release parked jobs BEFORE awaiting RxDB cancellation so close,
+        // logout, and tab teardown cannot deadlock on an unresolved draft.
+        stopped = true;
         clearAllReviews();
-        conflictEvents.complete();
+        stream.complete();
+        try {
+          await state.cancel();
+        } finally {
+          conflictEvents.complete();
+        }
       },
     };
   }

@@ -197,11 +197,69 @@ describe('isolated Supabase RxDB native replication bridge (#967)', () => {
     expect(options.pull.stream$).toBeDefined();
     expect(options.collection).toBe(local);
     expect(options.pull.handler).toBe(h.pilot.pull);
-    expect(options.push.handler).toBe(h.pilot.push);
+    expect(options.push.handler).not.toBe(h.pilot.push);
+    expect(typeof options.push.handler).toBe('function');
     started.resync();
     await started.stop();
     expect(reSync).toHaveBeenCalledTimes(1);
     expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('parks a native RxDB conflicting push without polling Auth/master and resumes after explicit checked CAS', async () => {
+    const findOne = vi.fn().mockReturnValue({
+      exec: async () => ({ toJSON: () => ({ ...changed }) }),
+    });
+    const h = makeHarness({ findOne });
+    let remoteRow = row({ ...initial, name: 'Remote winner' }, '2');
+    h.readCategoryMaster.mockImplementation(async () => remoteRow);
+    h.compareAndSet.mockImplementation(async () => {
+      remoteRow = row(changed, '3');
+      return { state: 'applied', row: remoteRow, revision: '3' };
+    });
+    replicate.mockReturnValue({
+      cancel: vi.fn().mockResolvedValue(true), reSync: vi.fn(),
+    });
+    const active = h.pilot.start({ findOne } as never);
+    const nativeHandler = replicate.mock.calls[0][0].push.handler as typeof h.pilot.push;
+    let settled = false;
+    const pending = nativeHandler([{
+      newDocumentState: changed, assumedMasterState: initial,
+    }] as never).finally(() => { settled = true; });
+    await vi.waitFor(() => expect(h.pilot.listPendingConflicts()).toHaveLength(1));
+    const reads = h.readCategoryMaster.mock.calls.length;
+    const verifications = h.session.getVerifiedSession.mock.calls.length;
+    // Allow multiple event-loop turns: no repeat read or Auth call should
+    // occur while the review remains unresolved.
+    await new Promise(resolve => setTimeout(resolve, 35));
+    expect(settled).toBe(false);
+    expect(h.readCategoryMaster).toHaveBeenCalledTimes(reads);
+    expect(h.session.getVerifiedSession).toHaveBeenCalledTimes(verifications);
+    expect(h.pilot.listPendingConflicts()[0].remoteRevision).toBe('2');
+    await expect(h.pilot.resolveKeepLocal(initial.id, '2')).resolves.toEqual({
+      state: 'applied', revision: '3',
+    });
+    await expect(pending).resolves.toEqual([]);
+    expect(h.pilot.listPendingConflicts()).toEqual([]);
+    expect(h.readCategoryMaster).toHaveBeenCalledTimes(reads + 2);
+    await active.stop();
+  });
+
+  it('releases a parked push before cancellation without acknowledging it or leaking review snapshots', async () => {
+    const h = makeHarness();
+    h.readCategoryMaster.mockResolvedValue(row({ ...initial, name: 'Remote winner' }, '2'));
+    const cancel = vi.fn().mockResolvedValue(true);
+    replicate.mockReturnValue({ cancel, reSync: vi.fn() });
+    const active = h.pilot.start({ name: 'test-only-candidate' } as never);
+    const nativeHandler = replicate.mock.calls[0][0].push.handler as typeof h.pilot.push;
+    const pending = nativeHandler([{
+      newDocumentState: changed, assumedMasterState: initial,
+    }] as never);
+    await vi.waitFor(() => expect(h.pilot.listPendingConflicts()).toHaveLength(1));
+    await active.stop();
+    await expect(pending).rejects.toThrow('stopped');
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(h.pilot.listPendingConflicts()).toEqual([]);
+    expect(h.readCategoryMaster).toHaveBeenCalledTimes(1);
   });
 
   it('surfaces an owner-scoped conflict review without acknowledging or replacing the offline draft', async () => {

@@ -34,11 +34,14 @@ let conflictPilot: ReturnType<typeof createCandidateRxdbPilot<CategoryDocument>>
 let offline = false;
 let failures = 0;
 let remoteReads = 0;
+let masterReads = 0;
+let authChecks = 0;
 let conflictErrors = 0;
 const cursors: string[] = [];
 
 const session = {
   async getVerifiedSession(): Promise<CandidateVerifiedSession> {
+    authChecks++;
     const response = await fetch(config.endpoint + '/auth/v1/user', {
       cache: 'no-store', credentials: 'omit',
       headers: { apikey: config.publishableKey, Authorization: 'Bearer ' + config.token },
@@ -60,8 +63,10 @@ const safeFetch: typeof fetch = async (input, init) => {
     failures++;
     throw new Error('Synthetic browser-to-Supabase network outage');
   }
-  if ((init?.method ?? 'GET') === 'GET' && target.pathname.includes('mosaic_candidate_categories'))
+  if ((init?.method ?? 'GET') === 'GET' && target.pathname.includes('mosaic_candidate_categories')) {
     remoteReads++;
+    if (target.searchParams.has('id')) masterReads++;
+  }
   return fetch(input, init);
 };
 const changeTransport = createCandidateHttpTransport({
@@ -126,7 +131,7 @@ async function snapshot() {
     local: docs.map(doc => ({
       id: doc.id, name: doc.name, userId: doc.userId, isDeleted: doc.isDeleted,
     })),
-    cursors: [...cursors], failures, remoteReads, conflictErrors,
+    cursors: [...cursors], failures, remoteReads, masterReads, authChecks, conflictErrors,
     pending: conflictPilot?.listPendingConflicts().map(review => ({
       documentId: review.documentId,
       reason: review.reason,
