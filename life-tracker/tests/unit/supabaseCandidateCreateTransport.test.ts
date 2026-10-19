@@ -102,7 +102,7 @@ describe('Supabase candidate new-row/master transport (#967, mock HTTP)', () => 
     });
     for (const bad of [
       { ...row, owner_id: bob }, { ...row, id: 'category_2' },
-      { ...row, change_seq: '0' }, { ...row, change_seq: 9007199254740993 },
+      { ...row, change_seq: '0' }, { ...row, change_seq: Number.MAX_SAFE_INTEGER + 1 },
       { ...row, is_deleted: null },
     ]) {
       await expect(setup([json([bad], 201)]).transport.createCategory(category, alice))

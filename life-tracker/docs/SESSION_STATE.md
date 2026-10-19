@@ -1,21 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 isolated Supabase create-and-master HTTP proof; no backend switch.
+Current task: #967 isolated Supabase create/master candidate canonical lint repair.
 
 ## Boundary
-- Base accepted isolated stable `refactor/967-atomic-pull-checkpoint-20261019@f87219b6ea61ebacaad58c5eb92261ac8eb4dcb2`. Focused #39184309345 SUCCESS, canonical #39184409560 SUCCESS; trusted #39184559649 prebuilt READY for exact source.
-- Task `chatgpt/967-create-master-transport-20261019`; no source imported into shipped runtime, Supabase schema or real accounts/records changes, Appwrite/deployment config/promotions/version changes.
-- Isolated `mosaic-dev` candidate remains a Free test project; last observed 0 Auth users and 0 candidate tasks/categories. Two callable SECURITY DEFINER CAS warning findings unresolved.
+- Accepted isolated prior pull source `refactor/967-atomic-pull-checkpoint-20261019@f87219b6ea61ebacaad58c5eb92261ac8eb4dcb2`: focused #39184309345, full #39184409560, trusted Preview #39184559649 all SUCCESS; trusted log confirmed READY deployment `mos1e3e4569022df72ee4bf393e3ff0c`.
+- Create/master transport [PR #991](https://github.com/carlers/mosaic-life-tracker/pull/991) squash-merged to isolated `refactor/967-create-master-transport-20261019@c81adbc6026ccd6ca1e634028967a67589bc96a6`. Task focused #39184920807 SUCCESS. Stable canonical #39185030390 initially FAILED in full ESLint: one unsafe numeric literal used solely as a test fixture. Build, dependency audit and DOM shards succeeded.
+- Repair task `chatgpt/967-create-master-precision-lint-fix-20261019` from stable SHA. No schema, Auth, real users/rows, Appwrite, shipped Mosaic, dev/main/Production, env, or version changes.
 
 ## Work
-- Implement opt-in `candidateCreateTransport.ts`: create task/category with verified owner session, strict Mosaic row ID, POST only with server returned revision, no client sequence, no upsert.
-- On 409 only, authenticated owner-scoped master GET and explicit conflict. Missing owner master or malicious/faulty reply fails closed. No automatic retry for ambiguous network writes; 401/403 and 5xx are distinct.
-- Unit mock HTTP coverage and evaluation notes. Existing RxDB replicateRxCollection native checkpoint should be preferred over adding a second storage system; earlier atomic-store POC is a contract only.
+- Replace deliberately unsafe integer literal in `tests/unit/supabaseCandidateCreateTransport.test.ts` with `Number.MAX_SAFE_INTEGER + 1`, retaining exactly the intended runtime unsafe-revision regression without triggering ESLint no-loss-of-precision.
+- No implementation or security control modified. Prior insert/master transport implements owner-fenced POST create, no upsert, and GET for 409 owner-master conflicts; mock HTTP only.
+- Source-only `supabase-poc/candidatePullCoordinator.ts` remains a reference contract; production path should reuse native RxDB durable replication checkpoint rather than a separate storage backend.
 
 ## Verification
-- First task focused #39184821800 failed during Vitest source transform (TypeScript parser expected a closing brace before a line-broken `as` assertion in candidateCreateTransport.ts). This was corrected without semantics changes. Focused recheck on final repair commit PENDING. No real signed HTTP/JWT nor live concurrency tests.
+- Repair focused CI pending; after focused green, squash into the same isolated Preview branch for canonical full + trusted delivery. No real signed JWT/HTTP accounts or live CAS proof. Existing two SEC DEFINER warnings unresolved.
 
 ## Next action
-- Commit final work with [verify:focused], review focused failures, then squash into a new stable isolated Preview; require canonical and trusted delivery. Keep #967 open and no dev/main/Production/app/provider switch.
-- Genuine HTTP acceptance requires two confirmed disposable Supabase Auth users; operator only, never paste passwords. After that, test real insertion/duplicate ownership, cross-connection CAS and RxDB integrated pull/push with owned pending local changes.
+- Commit scoped fix [verify:focused], verify focused. PR/squash repair to stable Preview, confirm full canonical and trusted CI-first READY. Record final issue #967 checkpoint. Keep issue open and do not promote to dev/main without separate approval.
+- Genuine signed HTTP acceptance blocked on two confirmed disposable Auth users in isolated mosaic-dev, not the production accounts. Then test owned positive RLS, conflicts, real CAS concurrency and RxDB offline replay.
