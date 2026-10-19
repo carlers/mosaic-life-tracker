@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CategorySection } from './CategorySection';
+import { CategorySection, type CategoryPillActions } from './CategorySection';
+import { DayViewCategoryReorder } from './DayViewCategoryReorder';
 import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
@@ -64,6 +65,9 @@ export interface DaySlideProps {
     groups: readonly TaskOrderGroup[]
   ) => Promise<void> | void;
   onReorderActiveChange?: (active: boolean) => void;
+  onReorderCategories?: (next: CategoryDocument[]) => Promise<void>;
+  onUpdateCategory?: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility'>) => Promise<void>;
+  onCategoryActionError?: (message: string) => void;
   diaryEnabled?: boolean;
   diaryEntryOverride?: DiaryDocument;
   diaryPlacement?: DiaryPlacement;
@@ -120,6 +124,10 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   onToggleCategorySelection,
   reorderEnabled = false,
   reorderRuntimeActive = false,
+  onReorderActiveChange,
+  onReorderCategories,
+  onUpdateCategory,
+  onCategoryActionError,
   tasksByCategory,
   activeDrag,
   diaryEnabled = false,
@@ -226,7 +234,16 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="top" active={diaryDragging}/>}
       {diaryEnabled && fallbackPlacement.kind === 'top' && <motion.div layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
-      {categories.map((category) => (
+      <DayViewCategoryReorder
+        categories={categories}
+        enabled={Boolean(reorderEnabled && onReorderCategories && onUpdateCategory &&
+          !selectionMode && categories.every(category => category.userId === currentUserId))}
+        canStartDrag={!activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling}
+        onCommit={onReorderCategories ?? (async () => undefined)}
+        onUpdate={onUpdateCategory ?? (async () => undefined)}
+        onDragActiveChange={onReorderActiveChange}
+        onError={onCategoryActionError}
+        renderCategory={(category: CategoryDocument, categoryActions?: CategoryPillActions) => (
         <CategorySection
           key={category.id}
           categoryId={category.id}
@@ -272,6 +289,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           onToggleTaskSelection={onToggleTaskSelection}
           onToggleCategorySelection={onToggleCategorySelection}
           reorderEnabled={reorderEnabled}
+          categoryActions={categoryActions}
           activeDragTaskId={
             activeDrag?.initialCategoryId === category.id
               ? activeDrag.taskId
@@ -282,7 +300,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           }
           dragGapHeight={activeDrag?.rowHeight ?? 0}
         />
-      ))}
+      )}
+      />
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'bottom' && diaryGhost}
       {diaryEnabled && fallbackPlacement.kind === 'bottom' && <motion.div layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="bottom" active={diaryDragging}/>}
