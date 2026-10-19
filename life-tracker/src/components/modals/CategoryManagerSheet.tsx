@@ -6,7 +6,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
-import { Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
+import { ArrowDownUp, Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
 import {
@@ -241,10 +241,33 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     );
   };
 
+  const handleReverse = () => {
+    if (isSaving || orderedCategories.length < 2) return;
+    const reversed = [...orderedCategories].reverse();
+    void save(
+      () => reorderCategories(reversed),
+      () => {
+        pendingOrder.current = reversed;
+        setOrderedIds(reversed.map((cat) => cat.id));
+      },
+      'Could not reverse category order. Try again.'
+    );
+  };
+
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full" preventDismiss={isSaving}>
       <div className="pt-2 pb-8 px-4">
         {!editingId && <SheetErrorBanner message={error} />}
+        <div className="mb-3 flex justify-end">
+          <Button
+            variant="ghost"
+            onClick={handleReverse}
+            disabled={isSaving || orderedCategories.length < 2}
+          >
+            <ArrowDownUp size={16} />
+            Reverse order
+          </Button>
+        </div>
         <Reorder.Group
           axis="y"
           values={orderedCategories}
@@ -276,7 +299,13 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setDeleteId(id);
               }}
               onReorderEnd={() => {
-                if (!isSaving) void reorderCategories(pendingOrder.current);
+                if (!isSaving) {
+                  void save(
+                    () => reorderCategories(pendingOrder.current),
+                    () => {},
+                    'Could not reorder categories. Try again.'
+                  );
+                }
               }}
               disabled={isSaving}
             >
