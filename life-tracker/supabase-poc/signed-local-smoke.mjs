@@ -189,7 +189,16 @@ const [raceA, raceB] = await Promise.all([
 ]);
 const one = await jsonOk(raceA, 'Racing CAS A');
 const two = await jsonOk(raceB, 'Racing CAS B');
-assert((one === null) !== (two === null), 'Same-revision concurrent CAS had no unique winner');
+if ((one === null) === (two === null)) {
+  const shape = (value) => value === null ? 'null'
+    : Array.isArray(value) ? 'array'
+    : typeof value !== 'object' ? typeof value
+    : value.owner_id === null && value.id === null ? 'null-composite'
+    : value.owner_id === a.id && value.id === a.task.id ? 'owned-composite'
+    : 'unexpected-composite';
+  // Sanitized shape only, no JWTs, passwords, emails or row contents.
+  throw new Error('Same-revision CAS response shapes: ' + shape(one) + ' / ' + shape(two));
+}
 const winner = one ?? two;
 assert(winner.id === a.task.id && winner.owner_id === a.id &&
   BigInt(winner.change_seq) > firstRev, 'CAS winner did not advance its revision');
