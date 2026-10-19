@@ -15,6 +15,7 @@ Current task: #967 isolated Supabase RxDB-native task/category push/pull bridge,
 - Native RxDB wiring uses waitForLeadership, 100-row pull, 20-row push, retryTime 5s and explicit resync/stop. No Realtime. No dual-writer activation in app.
 - Unit tests cover bootstrap and assumed edits, real-precision CAS, stale or ambiguous outcomes, owner switches, tombstones, foreign rows and wiring.
 - Evaluation doc differentiates this source-only bridge and the still-unproven actual Dexie/IndexedDB persistence on device/browser restart.
+- Security consistency: candidate pull/HTTP transport now requires modern `sb_publishable_` keys, matching create/CAS/probe and rejecting potential legacy JWT service-role keys. Add negative unit coverage.
 
 ## Verification
 - Task final focused [verify:focused] requested on coherent code+test+doc commit; actual result pending. Stable isolated Preview canonical and trusted delivery pending. No claim of browser-persistent or hosted signed acceptance yet.
