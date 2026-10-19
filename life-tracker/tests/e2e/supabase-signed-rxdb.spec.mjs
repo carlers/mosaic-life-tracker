@@ -165,19 +165,24 @@ test('actual signed Supabase + Chromium RxDB: checkpoint, offline retry, and saf
   });
   await expect.poll(async () => (await probe()).remoteReads, { timeout: 20_000 })
     .toBeGreaterThan(readsBefore);
-  // Allow failed pushes and any competing remote pull to reconcile, then
-  // verify both sides independently. A stale client must never overwrite.
-  await page.waitForTimeout(5500);
+  // Wait for the genuine owner-scoped conflict rather than a sleep-based
+  // assumption; it must be surfaced before any manual resolution.
+  await expect.poll(async () => (await probe()).pending.find(
+    row => row.documentId === firstId,
+  )?.remoteRevision, { timeout: 20_000 }).toBeTruthy();
+  // Longer than RxDB's configured 5s network retry. The parked conflicted
+  // push must not repeat owner-master GET or Auth /user during human review.
+  const baseline = await probe();
+  await page.waitForTimeout(6200);
   const end = await probe();
+  expect(end.masterReads).toBe(baseline.masterReads);
+  expect(end.authChecks).toBe(baseline.authChecks);
   expect(end.local.find(item => item.id === firstId)?.name)
     .toBe('Conflicting offline local draft');
   expect((await owned(a, firstId))?.name).toBe('Other device authoritative edit');
   // The bridge must *surface* the owner-scoped conflict rather than only
   // preserving it silently. An explicit keep-local decision is then CAS
   // guarded by the server revision the user actually reviewed.
-  await expect.poll(async () => (await probe()).pending.find(
-    row => row.documentId === firstId,
-  )?.remoteRevision, { timeout: 20_000 }).toBeTruthy();
   const conflict = (await probe()).pending.find(row => row.documentId === firstId);
   expect(conflict).toMatchObject({
     localName: 'Conflicting offline local draft',

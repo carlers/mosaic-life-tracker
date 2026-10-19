@@ -1,24 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 isolated owner-scoped pending-conflict review and explicit keep-local CAS, not a shipped UI.
+Current task: #967 owner-scoped conflict network suppression in unshipped Supabase RxDB pilot.
 
-## Accepted source
-- Accepted isolated Preview `refactor/967-signed-rxdb-http-20261019@2feea0854874eee7cba471713d00e8d8e3bc28da`, PR #1001. Canonical Quality Gate #39197309493 SUCCESS; real-signed local Chromium/RxDB lab #39197309638 SUCCESS (1 Playwright test, cleanup); trusted prebuilt READY #39197486425 SUCCESS.
-- User authorized continuing Supabase work, **not** activating a backend migration or promoting dev/main/Production. Issue #967 OPEN.
-- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, main `b952f71ecd2add3172f90104bc0e856a2648ccc9`, isolated hosted mosaic-dev last read had 0 Auth users/tasks/categories, two unresolved privileged RPC security-advisor warnings.
+## Accepted base and boundaries
+- Exact accepted isolated Preview: `refactor/967-pending-conflict-review-20261019@4d94aed050eb94d8da1c858fe0cdc581258a1738` via PR #1002. Canonical Quality Gate #39201478108, signed local Supabase/Chromium lab #39201478111, trusted CI-first Preview #39201673430 all SUCCESS. #967 OPEN.
+- New task branch `chatgpt/967-conflict-retry-gate-20261019` from that exact SHA. Source-only Supabase fallback POC/tests/workflow/docs; version impact **NONE**. No shipped Mosaic `src/` imports, runtime backend switch, real accounts, hosted Supabase migrations/Auth, Appwrite, Vercel Production, dev/main or release work.
+- Hosted project and security findings remain separately gated; two authenticated-callable SECURITY DEFINER Advisor WARNs not accepted/suppressed.
 
-## This task
-- Task `chatgpt/967-pending-conflict-review-20261019` branched at accepted source. Source-only POC, tests and docs; no shipped React UI, SDK import, app version, real-user data or provider config changes.
-- Extend `candidateRxdbPilot.ts` to record owner-validated pending conflicts (local, assumed master, current server master and revision), distinguish reasons, emit observable events, allow defensive-copy review and clear the scoped in-memory inbox on convergence, invalid session and stop. The original pending edits stay in RxDB durable storage; the 100-entry bounded in-memory review map is **not** a second data store. No automatic master-wins merge.
-- Add **explicit manual keep-local** resolution requiring the exact reviewed server revision. Re-read the real isolated RxDB local document and current owner-scoped server master, check that both still match the reviewed versions, verify login epoch/token throughout, then CAS against fresh server revision. A concurrent race does not overwrite server master; it produces a new pending review. No automatic "discard my local draft" operation.
-- Expand unit tests for surfaced review values, defensive copies, stale reviewed revision, intervening local/server writes, CAS race, owner-account switch and explicit resolved CAS. Expand dedicated signed-local Supabase/Chromium browser test to confirm both versions are reviewable and explicit keep-local CAS updates server only after user action.
-- Evaluation doc records security/privacy and remaining UX design acceptance boundary.
+## Scope and changes
+- Previously `candidateRxdbPilot.push` threw `CandidatePendingConflictError`; RxDB's `retryTime: 5_000` would repeatedly call `getVerifiedSession()` and remote master GET while waiting for a manual user decision.
+- Preserve direct `push()` contract (typed conflict error for callers), but wrap **native replication push.handler** in `pushAfterReview`: catch only the typed pending conflict, park that batch on a document-scoped memory wakeup until the review is cleared; no timers, repeated Auth/user or PostgREST GET while a human decision is outstanding. Ordinary offline/network errors retain normal RxDB bounded retries. A resolved manual keep-local CAS wakes the batch, which re-verifies ownership and confirms master equivalence before advancing native RxDB durable push checkpoint.
+- Shutdown / owner switch actively clears review and wakes parked handlers before awaiting `state.cancel()`, then rejects cancelled pending push, preventing hang or draft leakage. No duplicate checkpoint/conflict store; pending edits still persist in RxDB.
+- Unit test uses mock native replication handler to prove no repeated Auth/master calls during unresolved conflict, exact CAS resolution then successful resume, and cancellation of parked push. Signed local browser spec measures master/Auth calls across a >5s hold then validates the previous signed CAS resolution/offline-reload/racing-writer behavior.
+- Dedicated Supabase local-only workflow updated to run on the new isolated task/stable Preview family; evaluation doc records scope, limits and next UI needs.
 
 ## Verification
-- Initial task Quality Gate #39200500536 passed focused and both regular browser shards. Temporary workflow-coverage fix at task SHA ea94a310 activated local Supabase signed lab #39200711695, **SUCCESS** with exact signed conflict-review/keep-local Playwright assertion and successful local teardown. Final owner-switch clear-event hardening has not yet been verified; rerun task-focused/browser and signed lab on its exact final SHA before isolated stable Preview canonical/trusted.
-- No claim of verified conflict event/choice until CI and real signed browser lab pass.
+- Task coherent `[verify:browser]` commit, focused checks/both browser shards and dedicated signed local Supabase/Chromium integration **pending**. Fix any failures before isolated stable Preview merge. Then full canonical Quality Gate and trusted READY exact accepted SHA.
+- No full user-facing conflict UX, hosted real signed users, true separate-device or 24-hour outage acceptance claimed.
 
 ## Next action
-- Commit scoped POC and tests+docs as one task [verify:browser]. Diagnose and batch repairs without weakening data-loss/conflict/owner invariants. On green, squash to new isolated Preview, check canonical Quality Gate + trusted READY and log issue #967.
-- Subsequent work: user-facing conflict review UX decisions, durable notifications across reload/account switch, safe keep-both/export and remote-choice policy, multi-tab/physical-device stress, hosted signed JWT/RLS/security-advisor acceptance, remaining six domains, media/DR and reversible cutover. No dev/main/Production promotion or 1.0 release without separate explicit approval.
+- Finish task verification, squash into fresh `refactor/967-conflict-retry-gate-20261019` stable isolated Preview, verify canonical + signed lab + trusted CI-first prebuilt READY, post issue #967 exact SHA and resume steps. Do not promote dev/main, change Production, alter hosted auth policy, or release 1.0 without distinct approval.
+- Future: explicit review refresh / durable UX and safe save-both/export, multi-tab owner switches and bounded reconnect behavior, hosted privileged RPC audit and signed RLS acceptance, missing six domains, media/DR/budget and reversible cutover.
