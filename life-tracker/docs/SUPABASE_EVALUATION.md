@@ -85,6 +85,35 @@ Track the actual Appwrite→Supabase migration in [#967](https://github.com/carl
 - For future self-hosting portability this transport needs no hardcoded Supabase Cloud hostname; the Auth, RPC, Realtime, Storage and operational equivalence remain separate investigations. The \`getVerifiedSession()\` design must be reviewed for Auth roundtrip overhead and how to tie access token/epoch to the same verified identity.
 - **Still not done:** create two disposable signed-in users through an authorized Auth test path, send actual PostgREST calls from separate user sessions, test revoked/expired JWT, connect RxDB's durable pull/push checkpoints, and prove live Realtime wakeups. Neither a mock HTTP test nor a simulated SQL RLS test substitutes for this.
 
+
+## Candidate server-verified Supabase Auth boundary (2026-10-19)
+
+- `supabase-poc/candidateVerifiedAuth.ts` now supplies the previously missing
+  `CandidateSessionProvider` implementation. It takes an injected, ephemeral
+  `getSessionSnapshot()` (raw access token plus session epoch) from an eventual
+  signed-in Supabase Auth SDK, and calls **GET `/auth/v1/user`** with the token.
+  The returned server-side user UUID, **not locally decoded JWT claims**, is the
+  identity used by the existing owner-scoped REST pull transport.
+- It forbids non-TLS public URLs, URL credentials/path/query, secret keys,
+  malformed account IDs and missing/invalid session snapshots; requests use
+  no browser credentials, no cache and no redirects. After Auth verification
+  it rechecks **both the raw token and epoch**, rejecting sign-out, account
+  switches or token rotation during the request. Auth 401/403 fails closed;
+  network/server failures do not fall back to cached unverified identity.
+- `tests/unit/supabaseCandidateVerifiedAuth.test.ts` covers these invariants
+  with injected **mock** Auth and PostgREST requests, including successful
+  two-stage REST pull integration and foreign-account denial. No token, user,
+  service-role credential or project URL is committed.
+- The previously accepted `mosaic-dev` project remains unchanged. This is
+  **not evidence of actual Supabase-signed HTTP**: the management connector
+  cannot create/sign in disposable Auth accounts; genuine JWT/401/403,
+  revoked token, two-account RLS, account migration, RxDB durability,
+  realtime, media, CAS RPC authorization and two existing Security Advisor
+  warnings must still be resolved before any app/provider switch.
+- Both the Supabase and OCI #975 efforts remain independent. Appwrite-only
+  UI changes can proceed in `dev` through their normal Preview/CI path,
+  since neither experiment is imported by the running app.
+
 ## Next experiments, in order
 
 1. **Authentication:** create two disposable Supabase Auth accounts in this isolated project when safe automated Auth-user tooling is available, exercise real JWT data requests against `mosaic_sync_probe`, then delete test accounts. No real user data.
