@@ -106,6 +106,40 @@ npm run test:browser-contract
 npm run test:performance
 ```
 
+On the supported GitHub Actions Ubuntu runner, `test:browser-contract` now
+runs **every non-performance Playwright correctness spec in both Chromium and
+WebKit**, forwarding the same 1/2 or 2/2 shard to each engine. The first
+Chromium stage retains the existing checks. The second stage installs the
+pinned Playwright WebKit engine, then exercises all browser-correctness specs,
+rather than only the task-entry smoke test. This is required by the existing
+canonical browser job and leaves the protected-main-reviewed Quality Gate YAML
+byte-identical. Locally, `test:browser-contract` is Chromium-only by default;
+run `npm run test:webkit-contract` to run the complete WebKit correctness
+corpus on a supported OS/container after installing WebKit.
+
+**Known engine limitation:** Playwright's Chromium CDP offers trusted
+`Input.dispatchTouchEvent` touch-drag injection; WebKit has no equivalent CDP
+session in Playwright. Twenty Chromium-native touch-drag correctness tests
+(19 in `interaction-contract.spec.mjs`, one in
+`bottom-sheet-history.spec.mjs`) remain required Chromium tests but are
+explicitly reported as WebKit skips. Other browser tests, including keyboard,
+focus, history, scrolling, accessibility, offline/local storage, and task-entry
+regressions, execute in both engines. Tests that explicitly validate trackpad
+wheel routing use a desktop-input browser context under WebKit because the
+Playwright mobile WebKit backend does not implement `page.mouse.wheel`. Do not claim native-touch gesture parity
+or treat a synthetic `TouchEvent` or mouse drag as the same device interaction.
+The iPad-sized task-entry scenario now uses Playwright's *trusted touchscreen taps*
+to confirm cross-category blur-save, empty input dismissal and repeated creation
+without a virtual keyboard Done button. Complementary genuine browser mouse/pointer
+drag cases exercise delayed task sorting and retained bottom-sheet dismissal
+in both engines, while the separate native-touch-drag tests remain Chromium-only.
+This additional pointer coverage is not touch-swipe equivalence.
+The iPad-sized task-entry scenario is still exercised within the complete
+WebKit run. Diagnostics tagged `@performance` retain their distinct
+benchmark runner and are not release correctness checks. Linux WebKit is not
+real iOS/iPadOS Safari, its virtual keyboard, or an installed Home Screen PWA;
+manual/device acceptance remains independent.
+
 Use `test:unit` for pure helpers and local libraries, `test:handlers` for Appwrite
 Function handlers, and `test:dom` for React hooks, providers, and components. Watch-mode
 variants are `test:watch:unit`, `test:watch:handlers`, and `test:watch:dom`.

@@ -119,7 +119,10 @@ describe('AuthProvider PostHog identity integration', () => {
   });
 
   it('resets identity after successful logout', async () => {
-    accountRef.get.mockResolvedValueOnce(makeUser());
+    // The auth lifecycle may issue a second harmless get while connectivity
+    // settles. Keep this mock stable so one-time response consumption cannot
+    // turn it into undefined and obscure the logout identity assertion.
+    accountRef.get.mockResolvedValue(makeUser());
     accountRef.deleteSession.mockResolvedValueOnce(undefined);
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.user?.$id).toBe('user_1'));

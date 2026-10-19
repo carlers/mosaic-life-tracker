@@ -86,9 +86,22 @@ describe('verification workflow contracts', () => {
     const packageJson = JSON.parse(read('package.json'));
     const performanceProbe = read('tests/e2e/performance-probe.spec.mjs');
 
-    expect(packageJson.scripts['test:browser-contract']).toContain(
-      '--grep-invert @performance'
+    const browserScript = read('scripts/run-browser-contract.mjs');
+    expect(packageJson.scripts['test:browser-contract']).toBe(
+      'node scripts/run-browser-contract.mjs'
     );
+    // Chromium and WebKit must execute the same non-performance correctness
+    // corpus under the same forwarded CI shard; an unsharded single smoke test
+    // would silently lose cross-browser regression coverage.
+    expect(browserScript.match(/'--grep-invert', '@performance'/g)).toHaveLength(2);
+    expect(browserScript).toContain("run(['test', 'tests/e2e'");
+    expect(browserScript).toContain("'--config=playwright.webkit.config.mjs'");
+    expect(browserScript).toContain("...forwarded]");
+    expect(browserScript).toContain("process.env.CI === 'true'");
+    expect(browserScript).not.toContain('firstShard');
+    expect(packageJson.scripts['test:webkit-contract']).toContain('tests/e2e --config=playwright.webkit.config.mjs');
+    expect(packageJson.scripts['test:webkit-contract']).toContain('--grep-invert @performance');
+    expect(read('tests/e2e/interaction-contract.spec.mjs')).toContain("chromiumTouchDragContracts.has(testInfo.title)");
     expect(packageJson.scripts['test:performance']).toContain(
       'performance-probe.spec.mjs'
     );

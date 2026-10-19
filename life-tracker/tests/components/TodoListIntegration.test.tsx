@@ -1,6 +1,6 @@
 // Regression: §2 (Todo selected-day workspace uses the real Day View integration).
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -108,7 +108,7 @@ import { TodoListView } from '../../src/components/home/views/TodoListView';
 
 describe('TodoListView integrated selected-day workspace', () => {
   beforeEach(() => {
-    taskMocks.addTask.mockReset();
+    taskMocks.addTask.mockReset().mockResolvedValue('task_saved');
     settingsFixture.values = {
       continueAddingTasks: true,
       addTasksToTop: true,
@@ -161,7 +161,7 @@ describe('TodoListView integrated selected-day workspace', () => {
   });
 
   // Regression: §2 (synced continuous-entry preference reaches Todo Day View).
-  it('keeps the real same-category task input active after adding when the setting is enabled', () => {
+  it('keeps the real same-category task input active after adding when the setting is enabled', async () => {
     render(
       <TodoListView
         focusDate={new Date(2026, 8, 15)}
@@ -197,9 +197,9 @@ describe('TodoListView integrated selected-day workspace', () => {
       },
       'top'
     );
-    expect(
+    await waitFor(() => expect(
       screen.getByPlaceholderText('Add a task to Integrated category...')
-    ).toHaveValue('');
+    ).toHaveValue(''));
     expect(
       screen.getByPlaceholderText('Add a task to Integrated category...')
     ).toHaveFocus();

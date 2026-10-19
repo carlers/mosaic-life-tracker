@@ -56,7 +56,30 @@ for (const { viewport, width } of [
 }
 
 async function readHistory(page) {
-  await scroller(page).evaluate(el => { el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight - 700); });
+  // WebKit can finish rendering the new message list before its queued
+  // scroll-to-bottom frame and ResizeObserver pin have settled. Programmatic
+  // scroll immediately after render can then be overridden by that pending
+  // initial pin, unlike a genuine user scroll once layout is stable.
+  await expect.poll(() => scroller(page).evaluate(el =>
+    el.scrollHeight - el.clientHeight
+  )).toBeGreaterThan(800);
+  await scroller(page).evaluate(async el => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+  // Wait until the initial conversation has genuinely pinned to bottom, not
+  // just until its content was rendered. WebKit can defer scroll event delivery.
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
+  await scroller(page).evaluate(el => {
+    // The existing test scrolls directly via scrollTop. Notify the app's
+    // upward-wheel-intent handler synchronously before doing so: a pending
+    // resize rAF must not override an intentional move into history. This
+    // event exercises the app's scroll-intent state, NOT native touch gesture.
+    el.dispatchEvent(new WheelEvent('wheel', { deltaY: -1, bubbles: true }));
+    el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight - 700);
+  });
+  // Verify the browser has actually moved away from the end before asserting
+  // the corresponding action control. Do not silently skip the behavior.
+  await expect.poll(() => gap(page)).toBeGreaterThan(300);
   await expect(page.getByRole('button', { name: 'Scroll to bottom', exact: true })).toBeVisible();
   return scroller(page).evaluate(el => el.scrollTop);
 }
@@ -130,7 +153,9 @@ for (const { viewport, width } of [
     await page.mouse.move(startX + 180, y + 2, { steps: 5 });
     await page.mouse.up();
 
-    await expect(path).toHaveText('/messages');
+    // WebKit may retain both outgoing and incoming route nodes during a transition.
+    // Assert the exact destination without assuming the outgoing element has unmounted.
+    await expect(page.getByTestId('chat-path').filter({ hasText: new RegExp('^/messages$') })).toHaveCount(1);
     await expect(page.getByTestId('messages-parent-page')).toBeVisible();
   });
 }
@@ -191,6 +216,10 @@ test('switching and reopening a conversation resets the bottom pin', async ({ pa
   await page.evaluate(() => { window.chatControl.loading(); window.chatNavigate('/messages/second'); });
   await expect(page.getByRole('status').filter({ hasText: 'Loading messages' })).toContainText('Loading messages');
   await page.evaluate(() => window.chatControl.load(80));
+  // On WebKit a newly navigated conversation can still be in its empty
+  // transition state when gap() is zero. Wait for the actual loaded messages
+  // before asserting that history scrolling exposes the bottom-jump control.
+  await expect(page.locator('[id^="msg-"]')).toHaveCount(80);
   await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
   await readHistory(page);
   await page.evaluate(() => window.chatNavigate('/messages/friend'));

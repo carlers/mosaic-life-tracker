@@ -255,6 +255,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             ref={inputRef}
             data-task-inline-input
             type="text"
+            enterKeyHint="done"
             value={editValue}
             onChange={(e) => onEditChange(e.target.value)}
             onKeyDown={handleKeyDown}
