@@ -167,7 +167,7 @@ describe('isolated Supabase RxDB native replication bridge (#967)', () => {
       { ...row(initial, '9007199254740993'), is_deleted: true },
     ]);
     await expect(h.pilot.pull(undefined, 100)).resolves.toEqual({
-      documents: [{ ...initial, isDeleted: true, icon: undefined, _deleted: false }],
+      documents: [{ ...initial, isDeleted: true, _deleted: false }],
       checkpoint: { changeSeq: '9007199254740993' },
     });
     expect(h.listChanges.mock.calls[0][0]).toMatchObject({
