@@ -1,0 +1,80 @@
+name: Supabase Local Signed Auth Lab
+
+# Deliberately restricted to the isolated #967 branch. No hosted Supabase keys,
+# GitHub secrets, Appwrite, or live Mosaic runtime are used by this experiment.
+on:
+  push:
+    branches:
+      - 'chatgpt/967-local-signed-auth-*'
+    paths:
+      - '.github/workflows/supabase-local-signed-auth.yml'
+      - 'life-tracker/supabase-poc/**'
+      - 'life-tracker/docs/SESSION_STATE.md'
+      - 'life-tracker/docs/SUPABASE_EVALUATION.md'
+
+permissions:
+  contents: read
+
+jobs:
+  local-signed-auth:
+    name: Real local Auth JWT + RLS + CAS
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Prepare disposable local-only migrations
+        working-directory: life-tracker
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase init --yes
+          mkdir -p supabase/migrations
+          cp supabase-poc/migrations/20261018_candidate_task_category_owner_schema.sql \
+            supabase/migrations/20261018000000_candidate_task_category_owner_schema.sql
+          cp supabase-poc/migrations/20261018_candidate_revoke_default_delete.sql \
+            supabase/migrations/20261018000001_candidate_revoke_default_delete.sql
+          cp supabase-poc/migrations/20261019_candidate_atomic_cas_rpc.sql \
+            supabase/migrations/20261019000000_candidate_atomic_cas_rpc.sql
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("supabase/config.toml")
+          text = p.read_text()
+          pattern = r"(?m)^enable_confirmations\s*=\s*(true|false)\s*$"
+          if not re.search(pattern, text):
+              raise SystemExit("Supabase CLI auth.email.enable_confirmations setting absent")
+          text = re.sub(pattern, "enable_confirmations = false", text)
+          p.write_text(text)
+          PY
+      - name: Start isolated Supabase Auth and PostgREST
+        working-directory: life-tracker
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Keep Auth + REST + Postgres; do not start any hosted environment.
+          supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler
+          supabase db reset --local
+      - name: Exercise real signed Auth user isolation and CAS
+        working-directory: life-tracker
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env > "$RUNNER_TEMP/mosaic-supabase-local.env"
+          set -a
+          # Supabase CLI emits shell variable assignments. Never print them.
+          source "$RUNNER_TEMP/mosaic-supabase-local.env"
+          set +a
+          : "${API_URL:?Local Supabase CLI did not expose API_URL}"
+          : "${ANON_KEY:?Local Supabase CLI did not expose ANON_KEY}"
+          export MOSAIC_SB_LOCAL_URL="$API_URL"
+          export MOSAIC_SB_LOCAL_ANON_KEY="$ANON_KEY"
+          node supabase-poc/signed-local-smoke.mjs
+      - name: Destroy disposable local Supabase stack
+        if: always()
+        working-directory: life-tracker
+        shell: bash
+        run: |
+          supabase stop --no-backup || true
