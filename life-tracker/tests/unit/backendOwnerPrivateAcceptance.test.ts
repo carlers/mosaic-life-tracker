@@ -18,13 +18,14 @@ function createFixtureRows() {
     }];
   }));
 }
-function memoryAdapter(options: { leak?: boolean; ignoreRevision?: boolean } = {}) {
+function memoryAdapter(options: { leak?: boolean; ignoreRevision?: boolean; unsafeRevision?: boolean; reverseCursor?: boolean; dropTombstone?: boolean } = {}) {
   const rows = new Map<string, Record<string, unknown>>();
   let revision = 0;
   return {
     async create(_domain: string, principal: { id: string }, row: Record<string, unknown>) {
       if (principal.id !== row.owner_id) throw new Error('owner mismatch');
-      const value = { ...row, change_seq: String(++revision) };
+      revision += 1;
+      const value = { ...row, change_seq: options.unsafeRevision ? Number.MAX_SAFE_INTEGER + 1 : String(revision) };
       rows.set(principal.id + ':' + row.id, value);
       return { ...value };
     },
@@ -37,10 +38,10 @@ function memoryAdapter(options: { leak?: boolean; ignoreRevision?: boolean } = {
     async anonCas() { return 'denied'; },
     async directWrite() { return 'denied'; },
     async cas(_domain: string, principal: { id: string }, id: string,
-      revision: string, patch: Record<string, unknown>) {
+      expectedRevision: string, patch: Record<string, unknown>) {
       const key = principal.id + ':' + id;
       const existing = rows.get(key);
-      if (!existing || (!options.ignoreRevision && existing.change_seq !== revision))
+      if (!existing || (!options.ignoreRevision && existing.change_seq !== expectedRevision))
         return { state: 'conflict' as const };
       revision += 1;
       const value = { ...existing, ...patch, change_seq: String(revision) };
@@ -48,10 +49,12 @@ function memoryAdapter(options: { leak?: boolean; ignoreRevision?: boolean } = {
       return { state: 'applied' as const, row: { ...value } };
     },
     async changes(_domain: string, principal: { id: string }, after: string) {
-      return [...rows.values()].filter(row => row.owner_id === principal.id &&
-        BigInt(row.change_seq as string) > BigInt(after))
-        .sort((a, b) => Number(BigInt(a.change_seq as string) - BigInt(b.change_seq as string)))
-        .map(row => ({ ...row }));
+      const selected = [...rows.values()].filter(row => row.owner_id === principal.id &&
+        BigInt(row.change_seq as string) > BigInt(after) &&
+        (!options.dropTombstone || row.is_deleted !== true))
+        .sort((a, b) => Number(BigInt(a.change_seq as string) - BigInt(b.change_seq as string)));
+      if (options.reverseCursor) selected.reverse();
+      return selected.map(row => ({ ...row }));
     },
   };
 }
@@ -82,6 +85,27 @@ describe('portable signed-provider acceptance contract (#967/#975)', () => {
       domain: 'categories', principals,
       fixtures: createFixtureRows(), adapter: memoryAdapter({ leak: true }),
     })).rejects.toThrow('cross-owner signed read leaked');
+  });
+
+  it('rejects an unsafe numeric int8 revision instead of silently rounding a cursor', async () => {
+    await expect(runOwnerPrivateProviderAcceptance({
+      domain: 'categories', principals,
+      fixtures: createFixtureRows(), adapter: memoryAdapter({ unsafeRevision: true }),
+    })).rejects.toThrow('unsafe numeric provider revision');
+  });
+
+  it('rejects an out-of-order cursor page even when all rows belong to the right owner', async () => {
+    await expect(runOwnerPrivateProviderAcceptance({
+      domain: 'categories', principals,
+      fixtures: createFixtureRows(), adapter: memoryAdapter({ reverseCursor: true }),
+    })).rejects.toThrow('cursor was duplicate, unordered, or stale');
+  });
+
+  it('detects a missing tombstone during incremental replay', async () => {
+    await expect(runOwnerPrivateProviderAcceptance({
+      domain: 'categories', principals,
+      fixtures: createFixtureRows(), adapter: memoryAdapter({ dropTombstone: true }),
+    })).rejects.toThrow('incremental replay lost the tombstone');
   });
 
   it('fails closed if a provider ignores the expected CAS revision', async () => {
