@@ -30,6 +30,7 @@ addRxPlugin(RxDBMigrationSchemaPlugin);
 
 let database: Db | null = null;
 let active: ReturnType<ReturnType<typeof createCandidateRxdbPilot<CategoryDocument>>['start']> | null = null;
+let conflictPilot: ReturnType<typeof createCandidateRxdbPilot<CategoryDocument>> | null = null;
 let offline = false;
 let failures = 0;
 let remoteReads = 0;
@@ -97,6 +98,7 @@ async function start() {
     identity: { legacyUserId: config.legacyId, supabaseUserId: config.supabaseId },
     session, changes, writer, cas, collection: database.categories,
   });
+  conflictPilot = pilot;
   active = pilot.start();
   active.state.error$.subscribe((error: unknown) => {
     const rendered = String(error);
@@ -108,6 +110,7 @@ async function start() {
 async function stop() {
   if (active) await active.stop();
   active = null;
+  conflictPilot = null;
   if (database) await database.close();
   database = null;
 }
@@ -124,6 +127,13 @@ async function snapshot() {
       id: doc.id, name: doc.name, userId: doc.userId, isDeleted: doc.isDeleted,
     })),
     cursors: [...cursors], failures, remoteReads, conflictErrors,
+    pending: conflictPilot?.listPendingConflicts().map(review => ({
+      documentId: review.documentId,
+      reason: review.reason,
+      remoteRevision: review.remoteRevision,
+      localName: (review.local as CategoryDocument).name,
+      remoteName: (review.remote as CategoryDocument | null)?.name ?? null,
+    })) ?? [],
   };
 }
 Object.assign(window, {
@@ -131,5 +141,9 @@ Object.assign(window, {
     start, stop, edit, snapshot,
     setOffline(value: boolean) { offline = value; },
     resync() { if (!active) throw new Error('No active signed replica'); active.resync(); },
+    async resolveKeepLocal(id: string, revision: string) {
+      if (!conflictPilot) throw new Error('No active signed conflict pilot');
+      return conflictPilot.resolveKeepLocal(id, revision);
+    },
   },
 });

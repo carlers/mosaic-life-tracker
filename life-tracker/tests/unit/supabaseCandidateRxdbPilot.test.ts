@@ -30,7 +30,7 @@ const changed = { ...initial, name: 'New', updatedAt: '2026-10-20' };
 function row(doc = initial, revision = '1'): CandidateCategoryRow {
   return { ...toCandidateCategoryWrite(doc, alice), change_seq: revision, server_updated_at: 'today' };
 }
-function makeHarness() {
+function makeHarness(collection?: unknown) {
   const readCategoryMaster = vi.fn<(id: string) => Promise<CandidateCategoryRow | null>>()
     .mockResolvedValue(null);
   const createCategory = vi.fn().mockResolvedValue({
@@ -53,6 +53,7 @@ function makeHarness() {
     changes: { listChanges },
     writer: writer as never,
     cas: { compareAndSet } as never,
+    collection: collection as never,
   });
   const push = (next = initial, assumed?: typeof initial) =>
     pilot.push([{ newDocumentState: next, assumedMasterState: assumed }] as never);
@@ -201,6 +202,99 @@ describe('isolated Supabase RxDB native replication bridge (#967)', () => {
     await started.stop();
     expect(reSync).toHaveBeenCalledTimes(1);
     expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces an owner-scoped conflict review without acknowledging or replacing the offline draft', async () => {
+    const h = makeHarness();
+    const events: unknown[] = [];
+    h.pilot.conflictEvents$.subscribe(value => events.push(value));
+    h.readCategoryMaster.mockResolvedValue(row({ ...initial, name: 'Other device' }, '10'));
+    await expect(h.push(changed, initial)).rejects.toBeInstanceOf(CandidatePendingConflictError);
+    const pending = h.pilot.listPendingConflicts();
+    expect(pending).toEqual([{
+      domain: 'categories', documentId: 'category_a', reason: 'divergent-master',
+      local: changed, base: initial,
+      remote: { ...initial, name: 'Other device' }, remoteRevision: '10',
+    }]);
+    expect(events).toEqual([{ type: 'pending', review: pending[0] }]);
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+    // UI consumers cannot mutate the private snapshot registry by editing a returned object.
+    pending[0].local.name = 'Mutated by a UI consumer';
+    expect(h.pilot.listPendingConflicts()[0].local.name).toBe('New');
+
+    h.readCategoryMaster.mockResolvedValue(row(changed, '11'));
+    await expect(h.push(changed, initial)).resolves.toEqual([]);
+    expect(h.pilot.listPendingConflicts()).toEqual([]);
+    expect(events.at(-1)).toEqual({ type: 'cleared', documentId: 'category_a' });
+  });
+
+  it('only explicitly keeps a reviewed local version when fresh server revision still matches', async () => {
+    const findOne = vi.fn().mockReturnValue({
+      exec: async () => ({ toJSON: () => ({ ...changed }) }),
+    });
+    const h = makeHarness({ findOne });
+    h.readCategoryMaster.mockResolvedValue(row({ ...initial, name: 'Remote edit' }, '2'));
+    await expect(h.push(changed, initial)).rejects.toBeInstanceOf(CandidatePendingConflictError);
+    await expect(h.pilot.resolveKeepLocal(initial.id, '1')).rejects.toThrow('reviewed remote revision');
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+    h.compareAndSet.mockResolvedValue({
+      state: 'applied', row: row(changed, '3'), revision: '3',
+    });
+    await expect(h.pilot.resolveKeepLocal(initial.id, '2')).resolves.toEqual({
+      state: 'applied', revision: '3',
+    });
+    expect(findOne).toHaveBeenCalledWith(initial.id);
+    expect(h.compareAndSet).toHaveBeenCalledWith(expect.objectContaining({
+      ownerId: alice.supabaseUserId, documentId: initial.id,
+      expectedRevision: '2',
+      patch: expect.objectContaining({ name: 'New' }),
+    }));
+    expect(h.pilot.listPendingConflicts()).toEqual([]);
+  });
+
+  it('refuses resolution after server revision advances, or local draft changes since review', async () => {
+    const findOne = vi.fn().mockReturnValue({
+      exec: async () => ({ toJSON: () => ({ ...changed }) }),
+    });
+    const h = makeHarness({ findOne });
+    h.readCategoryMaster.mockResolvedValue(row({ ...initial, name: 'Remote edit' }, '2'));
+    await expect(h.push(changed, initial)).rejects.toBeInstanceOf(CandidatePendingConflictError);
+    h.readCategoryMaster.mockResolvedValue(row({ ...initial, name: 'New remote revision' }, '3'));
+    await expect(h.pilot.resolveKeepLocal(initial.id, '2'))
+      .rejects.toBeInstanceOf(CandidatePendingConflictError);
+    expect(h.pilot.listPendingConflicts()[0]).toMatchObject({
+      reason: 'divergent-master', remoteRevision: '3',
+      remote: { name: 'New remote revision' },
+    });
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+
+    findOne.mockReturnValue({
+      exec: async () => ({ toJSON: () => ({ ...changed, name: 'New unsaved local version' }) }),
+    });
+    await expect(h.pilot.resolveKeepLocal(initial.id, '3'))
+      .rejects.toBeInstanceOf(CandidatePendingConflictError);
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+  });
+
+  it('keeps a conflict pending on a racing CAS loss; account switching clears sensitive previews', async () => {
+    const findOne = vi.fn().mockReturnValue({
+      exec: async () => ({ toJSON: () => ({ ...changed }) }),
+    });
+    const h = makeHarness({ findOne });
+    h.readCategoryMaster.mockResolvedValue(row({ ...initial, name: 'Other' }, '4'));
+    await expect(h.push(changed, initial)).rejects.toBeInstanceOf(CandidatePendingConflictError);
+    h.compareAndSet.mockResolvedValue({ state: 'conflict' });
+    h.readCategoryMaster.mockResolvedValueOnce(row({ ...initial, name: 'Other' }, '4'))
+      .mockResolvedValueOnce(row({ ...initial, name: 'After CAS race' }, '5'));
+    await expect(h.pilot.resolveKeepLocal(initial.id, '4'))
+      .rejects.toBeInstanceOf(CandidatePendingConflictError);
+    expect(h.pilot.listPendingConflicts()[0]).toMatchObject({
+      reason: 'cas-conflict', remoteRevision: '5',
+    });
+    h.switchTo(bob.supabaseUserId);
+    await expect(h.pilot.resolveKeepLocal(initial.id, '5'))
+      .rejects.toBeInstanceOf(CandidateAuthError);
+    expect(h.pilot.listPendingConflicts()).toEqual([]);
   });
 
   it('rejects invalid push batches, malformed server owner and expired sessions', async () => {

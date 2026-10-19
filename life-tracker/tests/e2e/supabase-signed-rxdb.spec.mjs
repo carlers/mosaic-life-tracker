@@ -172,5 +172,25 @@ test('actual signed Supabase + Chromium RxDB: checkpoint, offline retry, and saf
   expect(end.local.find(item => item.id === firstId)?.name)
     .toBe('Conflicting offline local draft');
   expect((await owned(a, firstId))?.name).toBe('Other device authoritative edit');
+  // The bridge must *surface* the owner-scoped conflict rather than only
+  // preserving it silently. An explicit keep-local decision is then CAS
+  // guarded by the server revision the user actually reviewed.
+  await expect.poll(async () => (await probe()).pending.find(
+    row => row.documentId === firstId,
+  )?.remoteRevision, { timeout: 20_000 }).toBeTruthy();
+  const conflict = (await probe()).pending.find(row => row.documentId === firstId);
+  expect(conflict).toMatchObject({
+    localName: 'Conflicting offline local draft',
+    remoteName: 'Other device authoritative edit',
+  });
+  const approved = await page.evaluate(({ id, revision }) =>
+    window.__mosaicSignedRxdb.resolveKeepLocal(id, revision), {
+    id: firstId, revision: conflict.remoteRevision,
+  });
+  expect(approved.state).toBe('applied');
+  await expect.poll(async () => (await owned(a, firstId))?.name, {
+    timeout: 15_000,
+  }).toBe('Conflicting offline local draft');
+  expect((await probe()).pending).toEqual([]);
   await page.evaluate(() => window.__mosaicSignedRxdb.stop());
 });
