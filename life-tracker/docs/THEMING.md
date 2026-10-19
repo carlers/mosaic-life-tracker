@@ -43,6 +43,15 @@ Category text must omit the generic `text-gray-300` utility on its block:
 Light/Black theme remaps use `!important`, which otherwise overrides the
 category foreground even when supplied inline. Category border uses the
 original stored hue as an inset outline, without resizing the task block. The Default option preserves prior rendering.
+
+**Light Todo List and friend Day View:** The Todo List month grid paints a
+subtle elevated-grey surface behind each date cell without changing the task
+category circles. Checkmarks for fully completed days and task-count numbers
+on the category circles stay white, independent of the Light theme's normal
+foreground remap; selected date numerals still use their existing contrasting
+foreground. Friend Day View category pills share the normal Calendar
+`mosaic-category-pill` surface token (grey in Light), while retaining the
+original stored category-label color. Dark and Black mode surfaces are unchanged.
 Selection tint may derive from the category hue, but its text
 must use the normal theme foreground rather than assuming an opaque category
 fill.
