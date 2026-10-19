@@ -170,7 +170,7 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     // when the operator explicitly accepts 5-minute GitHub billing exposure.
     expect(template).toContain("cron: '17,47 * * * *'");
     expect(template).toContain("cron: '2,7,12,22,27,32,37,42,52,57 * * * *'");
-    const crons = [...template.matchAll(/^    - cron: '([^']+)'$/gm)].map(m => m[1]);
+    const crons = [...template.matchAll(/^ {4}- cron: '([^']+)'$/gm)].map(m => m[1]);
     expect(crons).toHaveLength(2);
     const minutes = crons.flatMap(cron => cron.split(' ')[0].split(',').map(Number))
       .sort((a, b) => a - b);
