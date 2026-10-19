@@ -1,19 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 isolated candidate Supabase RPC atomic compare-and-set write transport.
+Current task: #967 prepare real disposable Supabase Auth signed-user permission testing, without a provider switch.
 
 ## Boundary
-- Forked from verified isolated `refactor/967-verified-auth-transport-20261019@54fea0b4d91f05be5eed485996ab2c0d92617937`; Auth provider mock tests, focused #39179778943 and canonical #39179935812 succeeded, trusted #39180113890 READY.
-- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and Production main `b952f71ecd2add3172f90104bc0e856a2648ccc9` not changed. No source import into runtime, real users, Supabase schema change, SDK switch or version bump.
-- `mosaic-dev` isolated Supabase remains ACTIVE_HEALTHY and two Security Advisor WARNs remain for intentionally callable SECURITY DEFINER CAS RPCs. Actual source functions inspected: explicit auth.uid owner, fixed search_path, field allowlist, expected revision. Independent signed HTTP security review still required.
+- Forked accepted isolated source refactor/967-cas-write-transport-20261019@9b8f91596c07dccc6f0281e8ef2aa66a792a1938 (canonical #39181028620 SUCCESS, trusted Preview #39181192332 SUCCESS and READY).
+- Task chatgpt/967-signed-auth-denial-probe-20261019; source-only probe. Shipped Mosaic/Appwrite untouched. Isolated Supabase mosaic-dev healthy at last inspection, no schema, accounts, rows, Function, Storage, or remote provider writes this task.
+- Protected dev/main release branches remain independent; no version bump, UI/RxDB import, Vercel or credential mutation. Prior dev/main snapshot a9c5192a / b952f71e was historical, not rechecked this task.
+- Existing two Supabase Security Advisor WARNs are confirmed for exposed SECURITY DEFINER CAS RPCs. Not waived.
 
 ## Work
-- Add `supabase-poc/candidateCasTransport.ts`: POST only allowlisted CAS task/category RPC, signed-in owner from verified session, strict positive precision-safe revision, validated patch and resulting owner/id/new revision/tombstone; a NULL server response is conflict, no automatic retry or false acknowledgment.
-- Additional regression tests `tests/unit/supabaseCandidateCasTransport.test.ts` for stale writes, foreign replies, >2^53 seq, patch injection, session switch and no hidden retry.
-- Tighten source-only `candidateHttpTransport.ts` to compare token as well as epoch before and after a GET; add matching regression.
-- Update `docs/SUPABASE_EVALUATION.md`. App behaviour/source version impact NONE. OCI #975 capacity watcher is separate stable branch; user's independent UI work on dev remains untouched.
+- Add a node-only signed Auth/Data API denial-path probe fixed to the isolated Singapore mosaic-dev origin. An operator must supply two verified disposable Auth users and a public API key locally; no secret keys or hardcoded account credentials.
+- Probe performs real sign-in and server Auth /user verification, owner and wrong-owner SELECT, denied direct table UPDATE/DELETE, denied anonymous SELECT/RPC, missing-row CAS conflict, and unapproved field rejection without intentionally persisting rows.
+- Add Vitest mock-HTTP regressions and a documented opt-in npm command. No browser bundle or production backend changes.
+- Read-only management inspection confirmed both privileged RPC definitions use auth.uid owner predicates, non-null checks, fixed empty search_path, and patch allowlists. Those properties do not resolve the security warnings.
+
+## Verification
+- Local Node simulation of equivalent probe scenarios passed 3/3 tests (not an exact checked-out repo CI run). Project's canonical Vitest and remote Actions checks remain pending.
+- No live signed-user proof: connector cannot create/sign in Auth test accounts and neither disposable credential was available. Empty-table wrong-owner queries are not positive isolation proof.
 
 ## Next action
-- Run task [verify:focused], squash into isolated stable Preview, then canonical Quality Gate and trusted delivery. If there are failures, repair without weakening security or verification.
-- Later: genuine signed-in disposable Supabase Auth tests, REST CAS/owner RLS attacks, insert/idempotent replays, RxDB push+pull/conflict handling and queued changes, all eight domains/media/Functions, cost/DR, user identity continuity and reversible cutover. No provider/dev/main/Production promotion without distinct approval. Keep #967 open.
+- Verify task source diff and request focused CI using [verify:focused]. Repair any failures; then squash the coherent task into an isolated stable Preview branch and run canonical and trusted Preview gates if available. Keep #967 open.
+- To obtain actual signed HTTP evidence, provision two confirmed disposable Auth users in mosaic-dev using an authorized channel, set the six local MOSAIC_SB_PROBE_* environment variables without recording passwords, run npm run supabase:auth:probe, and record sanitized result. After that, add synthetic owner-owned fixture/RLS positive proof and concurrent CAS tests, then RxDB offline replay. No Supabase production/app/provider switch, or dev/main/1.0 release without distinct owner approval.
