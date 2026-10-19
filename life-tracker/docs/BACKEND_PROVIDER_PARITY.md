@@ -1,0 +1,49 @@
+# Backend-provider parity and reversible decision gates — #967 / #975
+
+Updated: 2026-10-19 UTC. **Read-only source/host inventory and acceptance plan, not a provider-selection or release authorization.** Continue **both** alternatives: isolated Supabase Free (#967) and OCI Always Free self-hosted Appwrite (#975). Do not enable parallel authoritative writers.
+
+## Evidence boundary
+
+- Shipped data path: `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, `main@b952f71ecd2add3172f90104bc0e856a2648ccc9`, via Appwrite Cloud. Eight owner-scoped RxDB collections are declared in `src/db/replicationIds.ts`, mirrored in `src/db/schema.ts`, `src/lib/syncMapping.ts` and orchestrated by `src/db/sync.ts`. The historical `SYNC_SCENARIO_MATRIX.md` introduction says *six*; current code has **eight**. Treat the executable eight-collection constant as authoritative.
+- Supabase source-only candidate: `refactor/967-signed-rpc-denial-matrix-20261019@0fdd3a5e190a9ccad1ebe0d3beeaa75ec779c869`. Task/category SQL, field converters, signed owner-scoped HTTP/CAS/RxDB prototype and local disposable signed-user/Chromium tests only. Canonical CI #39218374908, signed local lab #39218374934 (2 tests), trusted Preview #39218628225 succeeded. **Nothing imports the pilot into shipped Mosaic.**
+- Supabase `mosaic-dev` (`hcxtiifzxoaflhjgoglb`) read-only management check on 2026-10-19: `ACTIVE_HEALTHY`; four experimental public tables with **zero** rows, RLS enabled; seven experimental migration history entries. Security Advisor still raises **two WARNs** for authenticated-callable `SECURITY DEFINER` RPCs (`mosaic_candidate_cas_task`, `mosaic_candidate_cas_category`). A local adversarial two-JWT test passing does **not** resolve hosted security signoff. See [Supabase database lint 0029](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
+- OCI scheduler read-only Actions list on 2026-10-19: **five manual `workflow_dispatch` runs, zero `schedule` runs**. Latest manual preflight #39217511942 passed read-only prerequisites and returned `OUT_OF_HOST_CAPACITY`. There is no verified VM or running Appwrite stack; auto-claim remains separately approval-gated and defaults off. Evidence: [#975 checkpoint](https://github.com/carlers/mosaic-life-tracker/issues/975#issuecomment-6262625217).
+
+## Eight-domain source contract and acceptance gaps
+
+This is a **parity inventory**, not a statement that either candidate provider passes the listed requirements. Each row must pass disposable two-owner Auth, deny tests and restart/offline multi-client convergence **at the selected target** before any backend decision.
+
+| RxDB domain | Existing contract and source | Supabase status | Minimum provider-neutral acceptance |
+|---|---|---|---|
+| `tasks` | `taskReplicationPilot.ts`, `schema.ts`, `syncMapping.ts`; owner edits, category/order/date, completion, tombstones, image, visibility, reactions and shared-task references | **Local prototype only**: private-owner mappings + signed CAS/RxDB; no friends/media parity | Stable ID/order/date and task-image refs; owner CAS conflict, friend reaction, shared visibility, simultaneous offline edits, re-open and tombstones without foreign leakage |
+| `categories` | `categoryReplicationPilot.ts`; owner category order/color/icon, visibility, tombstones | **Local prototype only**: private-owner mappings + signed CAS/RxDB | Category/task referential behavior, ordering/visibility, foreign-owner denial, replay and multi-device convergence |
+| `diary` | `diaryReplicationPilot.ts`, `diaryPhotos.ts`; entry date/content/visibility, up to five owner-private photos, created/updated timestamps | **Not ported** | Private/friend policy, photos/upload/removal and bytes, expiry/retention, timestamp and offline edits, no cross-user disclosure |
+| `settings` | `settingsReplicationPilot.ts`, `preferences.ts`; per-owner key/value, profile/image side effects | **Not ported** | Owner-only settings, device convergence, profile-image mirror failure/retry and no cross-account cache use |
+| `friendships` | `friendshipReplicationPilot.ts`, `friendshipCommands.ts`, `social.ts`; server-owned social mutations, incoming/outgoing/blocked states and peer-cache invalidation | **Not ported** | Real two-owner accept/block/unfriend sequence, permission changes and stale cache revocation; never translate server actions to unrestricted browser writes |
+| `messages` | `messageReplicationPilot.ts`, `messageDelivery.ts`, `appAction.ts`; two-row messaging and Function/outbox-owned writes, unsend/read-at/reactions | **Not ported** | Sender/recipient isolation, fanout, idempotent outbox, read/unsend/reaction permissions, notifications, offline replays and recipient revocation |
+| `bucketList` | `bucketListReplicationPilot.ts`, `simpleOwnerReplicationPilot.ts`; owner-private goal records and achievement timestamps | **Not ported** | Owner CAS/revisions, achievement ordering, tombstones, restart, data export/restore with exact IDs |
+| `bucketTaskLinks` | `bucketTaskLinksReplicationPilot.ts`, `bucketTaskLinkId.ts`; owner-private goal/task references | **Not ported** | Reference integrity under task/goal changes and tombstones, deterministic IDs and no foreign-goal association |
+
+**Status accounting:** Two of eight domains have a local-only **partial** Supabase prototype; **zero** domains have approved hosted/runtime parity or production cutover. All eight work in the existing Appwrite Cloud application; deployment on OCI ARM64 is **untested**, not automatically equivalent to Cloud.
+
+## Cross-domain gates — identical decision questions for both candidate providers
+
+| Gate | Required evidence and fail-closed condition | Current status |
+|---|---|---|
+| Identity and privacy | Verify legacy Appwrite user ID ↔ target Auth principal mapping; passwords/re-auth, sessions, recovery, account switch, confirmed 401 versus offline, blocked-user and shared/social RLS; compare actual signed users on the intended **hosted or OCI target**, not only SQL role impersonation | **Open**. Supabase local JWT deny matrix covers only private tasks/categories and two RPCs |
+| Replication and no data loss | For **all eight**: exact ID/field round trip, `isDeleted` ↔ remote `deleted`, own/foreign authorization; signed owner-fenced CAS, immutable identity, page/cursor precision, 90-day stale-pull recovery, checkpoint advancement only after acknowledgement, owner switch and RxDB durable pending edits | **Open** beyond local two-domain Supabase proof; `SYNC_SCENARIO_MATRIX.md` is the Appwrite baseline |
+| Trusted operations and side effects | Profile and friend controls, `message-action` equivalents, account erasure and permanent DR non-resurrection, push/SMTP, Realtime-as-wakeup, image/diary file permissions, Function events/schedules, secure API secrets | **Open** for both alternatives |
+| Security signoff | Enumerate each browser-exposed permission, negative JWT and guessed-ID tests, privileged RPC/function review, formal threat audit (#936); no public service key, permissive RLS, or silent advisor suppression | **Open**; two hosted Supabase SECURITY DEFINER warnings |
+| Independent DR | Versioned encrypted export and offline key escrow, exact row/file/permission hashes/counts, restore to **separate** disposable target, login and Function recovery, measured RPO/RTO, erasure markers, recover without source cloud | **Open** for target-specific restore, notwithstanding existing Appwrite Cloud R2 DR |
+| Capacity and total cost | Measure representative 1K/10K/100K-row profiles, P95/P99 sync/Function latency, reads/RPC writes, bytes/index size, media storage+egress, Free caps, backup costs, capacity/reclaim and operator load; no fabricated Free-limit guarantees | **Open**; no representative end-to-end benchmark/OCI host |
+| Release/rollback | Test old-PWA behavior (#914), independent fresh DR, freeze and settle queued writes, one writer, verified snapshot and reverse-delta or *zero acknowledged target-only writes* abort. DNS rollback alone is **not** reversible after new writes | **Open**; separate explicit owner approval required for dev/main, provider config, hosted writes and Production |
+
+## Next executable safe sequence
+
+1. **No cloud writes:** verify GitHub scheduler has a genuine `event=schedule` run before claiming OCI watcher automation, and document its launch/Free-quota IAM preflight separately in #975. Keep auto-launch disabled until authorized.
+2. **Supabase security (source/read-only first):** independently inspect both existing privileged CAS bodies, trigger `search_path`, default grants, ownership predicates, patch allowlists and concurrency; classify each hosted advisor warning with exact source, threat model and evidence. Do **not** suppress warnings or alter hosted privileges merely to remove lints.
+3. **Portable synthetic acceptance harness:** define repeatable fixtures for all eight contracts; share neutral invariants between Appwrite Cloud, isolated OCI and Supabase without abstracting away provider-specific Auth/messaging/security. No implicit provider fallback.
+4. **Separate provider proofs:** with approved disposable hosted credentials/OCI VM, run genuine hosted signed-user, multi-device and performance tests. Continue Supabase diary/settings/bucket pilots only after deciding whether this duplication has decision value.
+5. **Decision checkpoint:** present measured failure matrix, privacy/DR evidence, real cost and reversibility design for owner **go/no-go**. No migration of real users, environment switch, paid resources, dev/main promotion or Mosaic 1.0 until separately authorized.
+
+This audit is intentionally provider-neutral so a successful OCI Appwrite experiment does not require throwing away the isolated Supabase fallback, and Supabase development cannot silently make Appwrite incompatible.
