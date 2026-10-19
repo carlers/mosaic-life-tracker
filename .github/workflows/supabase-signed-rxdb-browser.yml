@@ -7,6 +7,8 @@ on:
     branches:
       - 'chatgpt/967-signed-rxdb-http-*'
       - 'refactor/967-signed-rxdb-http-*'
+      - 'chatgpt/967-pending-conflict-review-*'
+      - 'refactor/967-pending-conflict-review-*'
     paths:
       - '.github/workflows/supabase-signed-rxdb-browser.yml'
       - 'life-tracker/tests/e2e/supabase-signed-rxdb*'
