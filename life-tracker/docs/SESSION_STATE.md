@@ -14,8 +14,9 @@ Current task: #967 isolated browser Dexie/IndexedDB replication persistence acro
 - Simulate the remote going offline after initial sync, edit a real local RxDB document, verify failed push leaves the remote unchanged and the local edit in IndexedDB, close/reload and reconnect, verify the pending local edit reaches remote. No changes to app UI or database and no external network.
 
 ## Verification
-- Task browser verification [verify:browser] pending. Report/repair any timeout or RxDB integration failure before isolated stable Preview merge. No assertion of browser persistence until the actual Playwright job passes.
+- First browser Quality Gate #39195032903 failed before executing the test due to the local Vite HTTPS self-signed certificate. Follow repository E2E fixture convention with Playwright ignoreHTTPSErrors on this isolated test only. Documentation focused check also required explicit '## Next action' heading; fixed.
+- Corrected task browser verification [verify:browser] pending. Report/repair any timeout or RxDB integration failure before isolated stable Preview merge. No assertion of browser persistence until the actual Playwright job passes.
 - New browser fixture does not establish cloud signed Auth or real-network/mobile PWA durability; hosted Auth/RPC security and multi-device acceptance still need independent proof.
 
-## Next
+## Next action
 - Run browser + focused test gates, repair failures, then squash into fresh isolated stable Preview for canonical full and trusted CI-first delivery. Post issue #967 exact SHA evidence. Keep issue OPEN; no dev/main promotion, Production backend change or 1.0 release.

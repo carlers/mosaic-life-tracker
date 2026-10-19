@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 
 const BASE_URL = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
+test.use({ ignoreHTTPSErrors: true }); // existing local HTTPS test certificate only
+
 test('Supabase candidate RxDB retains native IndexedDB cursor and pending offline writes across reload', async ({ page }) => {
   const runId = 'sb' + Date.now().toString(36);
   const url = BASE_URL + '/tests/e2e/supabase-rxdb-restart.html?id=' + runId;
