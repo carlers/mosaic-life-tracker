@@ -32,6 +32,7 @@ interface CalendarBodyProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
   zoomPreference?: CalendarZoomDays;
+  stickyWeekdayHeader?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
   onZoomNavigate?: (direction: 'prev' | 'next') => boolean;
@@ -60,6 +61,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   categoriesMap,
   variant,
   zoomPreference = 7,
+  stickyWeekdayHeader = false,
   activeIndex,
   isZoomTransitioning,
   onZoomNavigate,
@@ -164,6 +166,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       emblaRef={emblaRef}
       viewMode={viewMode}
       zoomDays={zoomDays}
+      stickyWeekdayHeader={stickyWeekdayHeader}
       activeIndex={activeIndex}
       isZoomTransitioning={isZoomTransitioning}
       onZoomNavigate={onZoomNavigate}

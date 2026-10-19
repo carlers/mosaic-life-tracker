@@ -105,6 +105,10 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('calendarZoomDays', 3);
     fireEvent.change(zoom, { target: { value: '4' } });
     expect(mocks.setSetting).toHaveBeenCalledWith('calendarZoomDays', 4);
+    const sticky = screen.getByRole('switch', { name: 'Keep weekday header visible' });
+    expect(sticky).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(sticky);
+    expect(mocks.setSetting).toHaveBeenCalledWith('stickyCalendarWeekdayHeader', true);
     const sunday = screen.getByRole('switch', {
       name: 'Start week on Sunday',
     });

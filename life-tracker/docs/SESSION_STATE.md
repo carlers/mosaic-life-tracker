@@ -1,24 +1,25 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: Restore Category Manager inline editing on current dev and deliver a fresh stable Preview (issue #1037).
+Current task: Integrate approved sticky Calendar weekday header #952 into protected dev without regressing existing Category Manager inline editor #1037.
 
-## Boundary
-- Source baseline: protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, v0.29.12; `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged.
-- Current task: `chatgpt/category-inline-forwardport-20261020` → stable `fix/category-inline-forwardport-20261020`.
-- October 12 stable `fix/category-editor-inline-20261012@3494cbca65541b489e357a6e53a953b96bb61a9f` contained inline editor v0.20.8, not promoted; canonical acceptance succeeded but the Vercel status failed due build-rate limits.
-- Frontend-only repair, no backend/permissions/data modifications; no `dev`/`main` promotion without approval.
+## Baselines and scope
+- Protected dev: `682303946c00b14ee3ac3fc3e33b2dc541a39a86` at v0.29.15, with approved inline Category Manager row editing.
+- Original tested and manually approved sticky header Preview: `feature/sticky-weekday-header-952-20261020@b937cddb7a31c21058603e33f78e06c3addb7610` at v0.31.1; canonical CI #39295635684 SUCCESS, trusted Preview delivery #39295973967 SUCCESS. User confirmed background fix works and explicitly authorized merge to dev, not main.
+- These branches diverged; an exact original Preview merge would discard or conflict with the current Category Manager source. Integrate from dev and layer only accepted sticky-header changes.
+- Task: `chatgpt/sticky-weekday-952-dev-integration-20261020`. Stable integrated Preview: `feature/sticky-weekday-952-dev-integration-20261020`.
+- Integration Preview version v0.31.2, new patch after accepted v0.31.1, to uniquely identify materially different combined source.
 
 ## Changes
-- Port the proven row-local Category Manager accordion into the current component, including natural-height no-overlap animation, inert exiting controls, grip-only drag, selected-row error banner and single active edit.
-- Preserve current dev category ordering memoization and autofocus when switching to the selected category.
-- Restore explicit edit placement/switch/reorder/cancel DOM regression plus production-CategoryRow browser per-frame overlap regression and fixture.
-- Planned first new Preview version `0.29.15`, above `0.29.12` dev and the separately planned `0.29.13` WebKit / `0.29.14` TodoMate branches. Recheck version reservations and updated dev before promotion.
+- Copy accepted owner/friend Calendar sticky setting, propagation, month/week pinned header and 3/4-day horizontal scroll synchronization into current dev.
+- Preserve current dev Category Manager editing implementation and tests byte-for-byte.
+- Merge the accepted sticky browser scroll geometry contract and fixture with dev's category editor browser geometry contract and fixture, keeping both tests.
+- Maintain original themed Calendar background `bg-background`, never `bg-surface`, under pinned headers.
+- Sync version triple in package.json, lock and appVersion; no backend/schema change.
 
 ## Verification
-- The October 12 prior Preview passed full canonical `38255151010`; its Vercel GitHub status failed for provider build-rate limit. This is historical evidence, not proof for the new source.
-- This new task requires exact-SHA focused CI, canonical stable Preview CI, Vercel Scratch READY / build-size verification and manual mobile interaction checks; all pending at this checkpoint.
-- Connector-based edit: no local build or browser run asserted.
+- Pending new task focused CI, integrated stable Preview canonical CI, trusted delivery and protected dev promotion check; do not infer acceptance from historical source branches.
+- User reported sticky-header Preview visual behavior satisfactory. Physical iOS/Android hardware still not independently verified by agent.
 
 ## Next action
-- Verify focused task SHA on GitHub, repair if necessary; squash focused-green task PR into the new stable Preview, then verify the stable exact-SHA full gate and provider deployment. Stop before `dev` or `main` merge.
+- Run focused CI for task commit with `[verify:focused]`, then squash into stable integration Preview. Require exact SHA canonical acceptance and trusted Preview READY. Create PR stable Preview → dev only while previously approved, recheck dev SHA and run promotion preflight, merge via normal two-parent PR preserving exact accepted source tree; verify dev Quality Gate and deployment. Do not modify main or publish production release.
