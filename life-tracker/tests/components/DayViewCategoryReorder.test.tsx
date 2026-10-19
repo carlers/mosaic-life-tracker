@@ -27,6 +27,7 @@ vi.mock('framer-motion', async (importOriginal) => {
   };
 });
 import { DayViewCategoryReorder } from '../../src/components/home/views/DayViewCategoryReorder';
+import { CategorySection } from '../../src/components/home/views/CategorySection';
 
 const categories: CategoryDocument[] = ['Work', 'Home'].map((name, index) => ({
   id: name.toLowerCase(), userId: 'owner', name, color: '#345678', icon: '',
@@ -95,5 +96,64 @@ describe('Day View category gesture isolation', () => {
       button: 0, pointerType: 'mouse',
     });
     expect(mocks.startDrag).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('inline category actions', () => {
+  const renderRealSection = () => {
+    const props = createProps();
+    render(<DayViewCategoryReorder {...props}
+      renderCategory={(category, actions) => (
+        <CategorySection
+          categoryId={category.id}
+          categoryName={category.name}
+          categoryColor={category.color}
+          visibility={category.visibility}
+          currentUserId="owner"
+          tasks={[]}
+          editingTaskId={null}
+          editValue=""
+          onToggleTask={vi.fn()}
+          onAddTask={vi.fn()}
+          onOpenActions={vi.fn()}
+          onOpenMemo={vi.fn()}
+          onEditTask={vi.fn()}
+          onEditChange={vi.fn()}
+          onEditSave={vi.fn()}
+          onEditCancel={vi.fn()}
+          categoryActions={actions}
+        />
+      )}
+    />);
+    return props;
+  };
+
+  it('retains click-to-add, but supports editing without Category Manager', async () => {
+    const props = renderRealSection();
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    expect(screen.getByRole('textbox', { name: 'New task title' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Category options for Work' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Category name' }), {
+      target: { value: 'Career' },
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Visibility' }), {
+      target: { value: 'public' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(props.onUpdate).toHaveBeenCalledWith('work', {
+      name: 'Career', visibility: 'public',
+    }));
+  });
+
+  it('allows keyboard users to move a category using the visible action menu', async () => {
+    const props = renderRealSection();
+    fireEvent.click(screen.getByRole('button', { name: 'Category options for Work' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move down' }));
+    await waitFor(() => expect(props.onCommit).toHaveBeenCalledWith([
+      categories[1], categories[0],
+    ]));
   });
 });
