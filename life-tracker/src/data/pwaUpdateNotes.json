@@ -1,0 +1,11 @@
+[
+  {
+    "version": "0.30.0",
+    "headline": "Know what's new before updating",
+    "changes": [
+      "Update prompts now explain what's changed in Mosaic.",
+      "Major, minor, and patch updates get clearer, more useful descriptions.",
+      "Release highlights are also available from Settings before installing."
+    ]
+  }
+]

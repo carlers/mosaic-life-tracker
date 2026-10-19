@@ -1,3 +1,5 @@
+import releaseNotes from './data/pwaUpdateNotes.json';
+import { APP_VERSION } from './lib/appVersion';
 import { PrecacheController } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 
@@ -72,5 +74,14 @@ registerRoute(new NavigationRoute(
 ));
 
 self.addEventListener('message', (event) => {
-  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  } else if (event.data?.type === 'MOSAIC_PWA_UPDATE_INFO_REQUEST') {
+    // The browser targets the exact waiting worker. Do not fetch a mutable
+    // deploy URL, which could belong to a later release by the time it loads.
+    event.ports?.[0]?.postMessage({
+      type: 'MOSAIC_PWA_UPDATE_INFO',
+      info: { version: APP_VERSION, releases: releaseNotes },
+    });
+  }
 });

@@ -2,6 +2,7 @@ import { lazy, Suspense, useState, useSyncExternalStore } from 'react';
 import { Download, RefreshCw, X } from 'lucide-react';
 import { usePwaLifecycle } from '../../hooks/usePwaLifecycle';
 import { isSheetVisible, subscribeToSheetVisibility } from '../../lib/sheetVisibility';
+import { PwaUpdateDescription } from './PwaUpdateDescription';
 
 const PwaAssetProgressView = lazy(() => import('./PwaAssetProgressView').then((mod) => ({ default: mod.PwaAssetProgressView })));
 
@@ -10,6 +11,7 @@ export function PwaPrompt() {
   const {
     installAvailable,
     updateAvailable,
+    updateInfo,
     assetProgress,
     applyUpdate,
     dismissInstall,
@@ -52,14 +54,16 @@ export function PwaPrompt() {
             : <Download size={18} aria-hidden="true" />}
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="font-semibold text-white">
-            {isUpdate ? 'Mosaic update ready' : 'Install Mosaic'}
-          </h2>
-          <p className="mt-1 text-sm leading-5 text-gray-400">
-            {isUpdate
-              ? 'Update now to use the latest version. Mosaic will reload after you confirm.'
-              : 'Add Mosaic to this device for quick access and a standalone app experience.'}
-          </p>
+          {isUpdate ? (
+            <PwaUpdateDescription info={updateInfo ?? null} />
+          ) : (
+            <>
+              <h2 className="font-semibold text-white">Install Mosaic</h2>
+              <p className="mt-1 text-sm leading-5 text-gray-400">
+                Add Mosaic to this device for quick access and a standalone app experience.
+              </p>
+            </>
+          )}
           {isUpdate && assetProgress && (
             <Suspense fallback={null}>
               <PwaAssetProgressView progress={assetProgress} />

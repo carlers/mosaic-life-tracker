@@ -1,4 +1,5 @@
 import { markOfflineShellReady } from './offlineReadiness';
+import { parsePwaUpdateInfo, type PwaUpdateInfo } from './pwaUpdateInfo';
 export interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -14,6 +15,7 @@ export interface PwaAssetProgress {
 export interface PwaLifecycleSnapshot {
   installAvailable: boolean;
   updateAvailable: boolean;
+  updateInfo: PwaUpdateInfo | null;
   assetProgress: PwaAssetProgress | null;
 }
 
@@ -51,6 +53,7 @@ type RegisterServiceWorker = (
 let snapshot: PwaLifecycleSnapshot = {
   installAvailable: false,
   updateAvailable: false,
+  updateInfo: null,
   assetProgress: null,
 };
 let installPrompt: InstallPromptEvent | null = null;
@@ -59,6 +62,7 @@ let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 let serviceWorkerContainer: ServiceWorkerContainer | null = null;
 let initialized = false;
 let activeProgressWorker: ServiceWorker | null = null;
+let activeInfoWorker: ServiceWorker | null = null;
 
 function receiveAssetProgress(event: MessageEvent): void {
   const data = event.data;
@@ -163,7 +167,7 @@ export function initializePwaLifecycle(
 
   updateServiceWorker = register({
     immediate: true,
-    onNeedRefresh: () => publish({ updateAvailable: true }),
+    onNeedRefresh: () => { publishWaitingUpdate(); },
     onRegisteredSW: (_swUrl, registration) => {
       serviceWorkerRegistration = registration ?? null;
       observeOfflineShellReady(serviceWorkerRegistration);
@@ -227,6 +231,47 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
   }
 }
 
+// Request only the *waiting* worker's own compiled release metadata. The active
+// client version is already bundled in this page; no network release lookup occurs.
+async function refreshWaitingUpdateInfo(): Promise<void> {
+  const registration = await resolveServiceWorkerRegistration();
+  const worker = registration?.waiting;
+  if (!worker || typeof MessageChannel === 'undefined') {
+    activeInfoWorker = null;
+    publish({ updateInfo: null });
+    return;
+  }
+  if (worker === activeInfoWorker) return;
+  activeInfoWorker = worker;
+  publish({ updateInfo: null });
+
+  const info = await new Promise<PwaUpdateInfo | null>((resolve) => {
+    const channel = new MessageChannel();
+    let finished = false;
+    const finish = (value: PwaUpdateInfo | null) => {
+      if (finished) return;
+      finished = true;
+      globalThis.clearTimeout(timeout);
+      channel.port1.close();
+      channel.port2.close();
+      resolve(value);
+    };
+    const timeout = globalThis.setTimeout(() => finish(null), 1500);
+    channel.port1.onmessage = (event) => {
+      if (event.data?.type !== 'MOSAIC_PWA_UPDATE_INFO') return;
+      finish(parsePwaUpdateInfo(event.data.info));
+    };
+    try {
+      worker.postMessage({ type: 'MOSAIC_PWA_UPDATE_INFO_REQUEST' }, [channel.port2]);
+    } catch {
+      finish(null);
+    }
+  });
+  if (activeInfoWorker !== worker) return;
+  const current = await resolveServiceWorkerRegistration();
+  if (current?.waiting === worker) publish({ updateInfo: info });
+}
+
 const INSTALL_WAIT_BEFORE_BACKGROUND_MS = 30_000;
 
 type InstallingWorkerResult =
@@ -278,6 +323,7 @@ function publishWaitingUpdate(
   report?: PwaUpdateProgressListener
 ): PwaUpdateCheckResult {
   publish({ updateAvailable: true });
+  void refreshWaitingUpdateInfo();
   report?.('ready');
   return 'update-available';
 }
@@ -399,7 +445,8 @@ export async function prefetchPwaUpdate(): Promise<PwaUpdateCheckResult> {
 export async function applyPwaUpdate(): Promise<boolean> {
   if (!updateServiceWorker) return false;
   await updateServiceWorker();
-  publish({ updateAvailable: false });
+  publish({ updateAvailable: false, updateInfo: null });
+  activeInfoWorker = null;
   return true;
 }
 
@@ -408,7 +455,8 @@ export function dismissPwaUpdate(): void {
 }
 
 export function resetPwaLifecycleForTests(): void {
-  snapshot = { installAvailable: false, updateAvailable: false, assetProgress: null };
+  snapshot = { installAvailable: false, updateAvailable: false, updateInfo: null, assetProgress: null };
+  activeInfoWorker = null;
   activeProgressWorker = null;
   installPrompt = null;
   updateServiceWorker = null;

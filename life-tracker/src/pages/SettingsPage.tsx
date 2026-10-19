@@ -24,6 +24,7 @@ import {
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { PwaAssetProgressView } from '../components/ui/PwaAssetProgressView';
+import { PwaUpdateDescription } from '../components/ui/PwaUpdateDescription';
 import { useAuth } from '../hooks/useAuth';
 import { usePwaLifecycle } from '../hooks/usePwaLifecycle';
 import type { PwaUpdateCheckStage } from '../lib/pwaLifecycle';
@@ -50,6 +51,7 @@ export const SettingsPage: React.FC = () => {
     applyUpdate,
     checkForUpdate,
     updateAvailable,
+    updateInfo,
     assetProgress,
   } = usePwaLifecycle();
   const { mode: appearanceMode } = useAppearance();
@@ -438,6 +440,11 @@ export const SettingsPage: React.FC = () => {
             showChevron={false}
             onClick={isUpdateReady ? handleApplyUpdate : handleCheckForUpdates}
           />
+          {isUpdateReady && (
+            <div className="px-4 pb-3">
+              <PwaUpdateDescription info={updateInfo} />
+            </div>
+          )}
           {(updateStatusMessage || (assetProgress && !isUpdateReady)) && (
             <div
               role="status"
