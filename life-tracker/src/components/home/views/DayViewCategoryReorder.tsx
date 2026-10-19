@@ -41,7 +41,9 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
   const pressCleanup = React.useRef<(() => void) | null>(null);
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
   const activeChangeRef = React.useRef(onDragActiveChange);
-  activeChangeRef.current = onDragActiveChange;
+  React.useEffect(() => {
+    activeChangeRef.current = onDragActiveChange;
+  }, [onDragActiveChange]);
 
   React.useEffect(() => () => {
     pressCleanup.current?.();
