@@ -70,6 +70,7 @@ describe('isolated Supabase genuine-signed-user denial-path harness (#967)', () 
       { baseUrl: 'https://production.example' },
       { baseUrl: 'http://' + ISOLATED_PROJECT_REF + '.supabase.co' },
       { publishableKey: 'sb_secret_danger' },
+      { publishableKey: 'eyJhbGciOiJIUzI1NiJ9.fake.service-role-key' },
       { bob: config.alice },
     ]) {
       await expect(runSignedAuthProbe({ ...config, ...override }, { fetcher, nonce }))
