@@ -14,7 +14,7 @@ export const SPEC = Object.freeze({
 });
 
 const COMMANDS = new Set([
-  'compute instance list', 'compute instance launch',
+  'compute instance launch',
   'compute image get', 'compute image-shape-compatibility-entry list',
   'network subnet get',
 ]);
@@ -38,9 +38,43 @@ export function validateConfig(config) {
   }
 }
 
+// A successful OCI CLI instance-list call can emit zero bytes on an empty
+// compartment. Use the OCI Python SDK's explicit paginated result instead;
+// absent/malformed metadata is never proof that the compartment has no A1 VM.
+export function readInstanceInventory(compartmentId, spawn = spawnSync) {
+  const python = [
+    'import json, os, oci',
+    'config = oci.config.from_file()',
+    'client = oci.core.ComputeClient(config, retry_strategy=oci.retry.NoneRetryStrategy())',
+    'instances = oci.pagination.list_call_get_all_results(',
+    '    client.list_instances, compartment_id=os.environ["MOSAIC_A1_INVENTORY_COMPARTMENT"]).data',
+    'print(json.dumps({"data": [{"shape": item.shape} for item in instances]}))',
+  ].join('\n');
+  const result = spawn('python', ['-c', python], {
+    encoding: 'utf8', timeout: 90000, maxBuffer: 2 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'], shell: false,
+    env: { ...process.env, MOSAIC_A1_INVENTORY_COMPARTMENT: compartmentId },
+  });
+  // Do not log OCI stderr, instance identifiers or private signing information.
+  if (result.error || result.status !== 0) {
+    throw new Error('OCI inventory verification failed');
+  }
+  let inventory;
+  try { inventory = JSON.parse(result.stdout); }
+  catch { throw new Error('OCI inventory JSON unavailable'); }
+  if (!Array.isArray(inventory?.data) ||
+      !inventory.data.every(item => typeof item?.shape === 'string' && item.shape.length > 0)) {
+    throw new Error('OCI inventory metadata invalid');
+  }
+  return inventory;
+}
+
 export function existingA1(instanceList) {
-  if (!Array.isArray(instanceList?.data)) throw new Error('Cannot verify existing VMs');
-  return instanceList.data.some(x => x?.shape === SPEC.shape);
+  if (!Array.isArray(instanceList?.data) ||
+      !instanceList.data.every(x => typeof x?.shape === 'string' && x.shape.length > 0)) {
+    throw new Error('Cannot verify existing VMs');
+  }
+  return instanceList.data.some(x => x.shape === SPEC.shape);
 }
 
 export function validateImageAndSubnet(image, compatibility, subnet, subnetId) {
@@ -119,8 +153,7 @@ export function claimA1({
     throw new Error('Launch only allowed for scheduled workflow on trusted default branch');
   }
   validateConfig(config);
-  const inventory = oci(['compute', 'instance', 'list'],
-    ['--compartment-id', config.compartmentId, '--all'], spawn);
+  const inventory = readInstanceInventory(config.compartmentId, spawn);
   // Includes STOPPED and TERMINATED so no second VM is intentionally launched.
   if (existingA1(inventory)) return { ...status, outcome: 'already_present' };
   validateImageAndSubnet(

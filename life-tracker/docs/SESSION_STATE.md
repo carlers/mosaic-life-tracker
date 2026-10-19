@@ -1,21 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #975 faster, cost-aware OCI GitHub private scheduler polling.
+Current task: #975 private OCI A1 scheduler launch-inventory fail-closed repair.
 
-## Verified source and boundary
-- Isolated accepted stable `refactor/975-github-a1-autoclaim-20261019@8a64727d029b373051c22ebc72bf93f59ca80c25`: task PR #996 focused #39187536875 SUCCESS, stable full #39187654569 SUCCESS and trusted Preview #39187802747 SUCCESS (exact SHA READY).
-- No separate private scheduler repository or OCI keys/quotas verified via connected tools; no scheduler activation or VM. Owner's last known OCI status was OUT_OF_HOST_CAPACITY at 2026-10-19T01:07:01Z.
-- Protected Mosaic `main@b952f71ecd2add3172f90104bc0e856a2648ccc9`, `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` remain outside #975; Appwrite/Production/Scratch, user data and Supabase #967 unchanged.
+## Verified scope and state
+- Isolated stable Preview `refactor/975-github-a1-autoclaim-20261019@7ce292b819c85bc87380c24a1a7b54c96ed31cab`, previously passed full canonical acceptance and trusted Preview. Protected `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` and `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` remain untouched.
+- Private scheduler exists `carlers/mosaic-oci-a1-scheduler@db35ca0d01c4ab1f86bd23f782482e6b8397719b`. First manual capacity run #39207768310 succeeded (Oracle Singapore A1 OUT_OF_HOST_CAPACITY). Three manual read-only launch preflights failed. Latest #39214660878 passed explicit SDK inventory and image/compatibility calls but failed `network subnet get` (root-compartment subnet authorization).
+- Owner reports creating dedicated OCI compartment quotas, bot identity+API key, limited IAM policies, budget alerts, eight private scheduler secrets, and setting observe-only 30-minute watch variable. These settings cannot be independently read via connected tools. No schedule-event run verified. No OCI VM created or launch attempt authorized.
 
-## Scoped work
-- Standalone private-scheduler template defaults to GitHub cron twice hourly (UTC :17/:47) rather than once hourly.
-- Opt-in `MOSAIC_OCI_FAST_POLL=true` allows ten additional cron events per hour to achieve an *attempted* five-minute cadence. These extra jobs skip without that variable, avoiding their runner-minute charges.
-- Synthetic workflow contract tests pin both cron strings, 5-minute union, opt-in condition and default-disabled launch. Existing OCI A1 one-shot launch safeguards are unchanged.
-- Operator runbook records GitHub Free's shared 2,000 monthly private minutes and minimum round-up: ~1,440 runs/month for 30-minute, ~8,640 for 5-minute (more if jobs exceed one minute); cron may skip/delay.
-- No additional GitHub secrets, OCI rights, external resources or Mosaic app version impact.
+## Source-only fix (this task)
+- `scripts/oci-a1-autoclaim.mjs`: replace CLI `instance list --all` with OCI SDK explicit paginated instance-shape inventory. Reject absent/malformed/missing shape metadata, no fallback-to-empty. All other fixed-shape, no-public-IP, one-attempt, schedule-only and billing/quota launch gates preserved.
+- `tests/unit/ociA1Autoclaim.test.ts`: adapt synthetic subprocess mocks and add regression cases for empty stdout, invalid JSON shape metadata and denied SDK request; never invoke launch under inventory uncertainty.
+- `docs/OCI_GITHUB_A1_AUTOMATION.md`: record diagnostic and migration restrictions.
+- This is internal tooling only: no app version bump, frontend, Appwrite, Supabase or Production changes.
 
-## Next and approval
-- Focused quality gate on task SHA → squash to isolated stable Preview only after success → full canonical gate and trusted READY. Do not promote to `dev`/`main` or activate VM provisioning.
-- Owner still must create private `carlers/mosaic-oci-a1-scheduler`, pin the accepted source SHA in its workflow template, create dedicated limited OCI IAM/quotas and GitHub Actions secrets and verify observe-only run. Fast polling is optional and may exceed free Actions minutes; automatic VM launch remains separately gated by explicit owner approvals.
-- Keep #975 open. No claim of actual scheduler/OCI activation.
+## Next and gates
+- Run task focused CI and then squash to isolated stable Preview; verify canonical acceptance and trusted Preview before updating the private scheduler's immutable controller SHA.
+- Owner needs a corrected *read-only* `SUBNET_READ` permission for `GetSubnet` scoped to the root tenancy compartment. Do not grant tenancy-wide network management.
+- Have owner rerun the manual read-only prerequisite audit after IAM propagation. Prove network and image checks and observe at least one scheduled watch run; diagnose missing scheduled events if needed.
+- **No launch authorization**: Leave `MOSAIC_OCI_AUTOLAUNCH`, quota and Always Free confirmation variables unset. Do not claim source unit tests prove launch IAM, OCI costs or enforced quotas. Keep #975 open.

@@ -57,6 +57,20 @@ Official documentation: [schedule limits](https://docs.github.com/en/actions/ref
 [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions),
 [rounded billable minutes](https://docs.github.com/en/actions/how-tos/monitor-workflows/view-job-execution-time).
 
+### Duplicate-instance inventory is fail-closed
+
+OCI CLI 3.95.0 was observed returning exit status 0 but an empty stdout for
+`compute instance list --all` on the private scheduler bot. A blank CLI
+response must **never** be interpreted as an empty compartment. The launch
+controller instead uses the OCI Python SDK (already installed with the
+scheduler OCI CLI) and enumerates all pages, returning only instance shapes.
+A failed, malformed or incomplete SDK result prevents launch. The private
+scheduler must be updated to pin the accepted controller SHA **only after**
+focused and canonical Preview verification. The bot must also have access to
+the selected root-compartment subnet; `GetSubnet` requires `SUBNET_READ`.
+The additional read-only preflight and scheduled workflow behavior need
+separate live evidence. No extra authorization to launch is implied.
+
 ### One-time setup (on your own accounts; no credentials in chat)
 
 1. On GitHub, create a **private** repository named
