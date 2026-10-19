@@ -21,6 +21,7 @@ on:
       - '.github/workflows/supabase-signed-rxdb-browser.yml'
       - 'life-tracker/tests/e2e/supabase-signed-rxdb*'
       - 'life-tracker/tests/provider/**'
+      - 'life-tracker/tests/unit/backendOwnerPrivateAcceptance.test.ts'
       - 'life-tracker/tests/fixtures/backendProviderParity.ts'
       - 'life-tracker/supabase-poc/**'
       - 'life-tracker/docs/SESSION_STATE.md'

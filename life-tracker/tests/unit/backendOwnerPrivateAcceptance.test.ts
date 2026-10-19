@@ -42,7 +42,8 @@ function memoryAdapter(options: { leak?: boolean; ignoreRevision?: boolean } = {
       const existing = rows.get(key);
       if (!existing || (!options.ignoreRevision && existing.change_seq !== revision))
         return { state: 'conflict' as const };
-      const value = { ...existing, ...patch, change_seq: String(++revision) };
+      revision += 1;
+      const value = { ...existing, ...patch, change_seq: String(revision) };
       rows.set(key, value);
       return { state: 'applied' as const, row: { ...value } };
     },
