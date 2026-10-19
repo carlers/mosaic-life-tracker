@@ -1,24 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-19 UTC
-Current task: #967 combine authentic local Supabase signed HTTP and RxDB browser/IndexedDB replication.
+Current task: #967 isolated owner-scoped pending-conflict review and explicit keep-local CAS, not a shipped UI.
 
-## Verified base
-- Accepted isolated Preview `refactor/967-rxdb-dexie-restart-20261019@5970a70ba4f732685ac3c8ec504aec41e98a73c4`, canonical #39195705350 and trusted READY #39195885233 SUCCESS; PR #1000 merged. Issue #967 OPEN.
-- Protected `dev@a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1` and `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` unchanged. No Supabase hosted accounts/schema/data or Appwrite/Production configuration modified; still two hosted `authenticated_security_definer_function_executable` WARNs.
-- Separate earlier real signed local Auth/CAS lab #39192772712 SUCCESS and browser Dexie/IndexedDB synthetic-remote persistence test #39195480777 SUCCESS. Combined HTTP + browser proof previously absent.
+## Accepted source
+- Accepted isolated Preview `refactor/967-signed-rxdb-http-20261019@2feea0854874eee7cba471713d00e8d8e3bc28da`, PR #1001. Canonical Quality Gate #39197309493 SUCCESS; real-signed local Chromium/RxDB lab #39197309638 SUCCESS (1 Playwright test, cleanup); trusted prebuilt READY #39197486425 SUCCESS.
+- User authorized continuing Supabase work, **not** activating a backend migration or promoting dev/main/Production. Issue #967 OPEN.
+- Protected dev `a9c5192a6aa6cea9d16ef8d1dca60e6d108756c1`, main `b952f71ecd2add3172f90104bc0e856a2648ccc9`, isolated hosted mosaic-dev last read had 0 Auth users/tasks/categories, two unresolved privileged RPC security-advisor warnings.
 
-## Current task
-- Task branch `chatgpt/967-signed-rxdb-http-20261019` from exact isolated accepted source, no shipped runtime change or app version bump.
-- Add localhost-only signed browser fixture `tests/e2e/supabase-signed-rxdb.{html,ts,spec.mjs}` that uses RxDB Dexie/IndexedDB with actual candidate HTTP pull/create/master/CAS transports and server-verified Supabase Auth sessions (two disposable password users, no elevated API key).
-- Add dedicated ephemeral local Supabase + Chromium GitHub Actions workflow `.github/workflows/supabase-signed-rxdb-browser.yml`. Test fixture runs only when modern local CLI publishable key env is present; normal app browser suite skips it. Use same isolated candidate SQL migrations as previous accepted signed lab.
-- Test plan: signed RLS owner reads, initial pull, reopen with server-side additional row (persisted checkpoint), offline draft survives close/reload and reconnect CAS, concurrent independently applied remote revision while offline conservatively preserves both server winner and local pending draft.
-- Docs/Supabase evaluation updated with exact limits. The combined lab is **not yet verified**; hosted acceptance not claimed.
+## This task
+- Task `chatgpt/967-pending-conflict-review-20261019` branched at accepted source. Source-only POC, tests and docs; no shipped React UI, SDK import, app version, real-user data or provider config changes.
+- Extend `candidateRxdbPilot.ts` to record owner-validated pending conflicts (local, assumed master, current server master and revision), distinguish reasons, emit observable events, allow defensive-copy review and clear the scoped in-memory inbox on convergence, invalid session and stop. The original pending edits stay in RxDB durable storage; the 100-entry bounded in-memory review map is **not** a second data store. No automatic master-wins merge.
+- Add **explicit manual keep-local** resolution requiring the exact reviewed server revision. Re-read the real isolated RxDB local document and current owner-scoped server master, check that both still match the reviewed versions, verify login epoch/token throughout, then CAS against fresh server revision. A concurrent race does not overwrite server master; it produces a new pending review. No automatic "discard my local draft" operation.
+- Expand unit tests for surfaced review values, defensive copies, stale reviewed revision, intervening local/server writes, CAS race, owner-account switch and explicit resolved CAS. Expand dedicated signed-local Supabase/Chromium browser test to confirm both versions are reviewable and explicit keep-local CAS updates server only after user action.
+- Evaluation doc records security/privacy and remaining UX design acceptance boundary.
 
 ## Verification
-- Dedicated real local Supabase/Chromium test job and task browser/focused checks pending. Diagnose failures before stable Preview squash. Do not reduce owner/RLS, checkpoint, offline replay or conflict preservation assertions to make CI pass.
+- Initial task Quality Gate #39200500536 passed focused and both regular browser shards. Temporary workflow-coverage fix at task SHA ea94a310 activated local Supabase signed lab #39200711695, **SUCCESS** with exact signed conflict-review/keep-local Playwright assertion and successful local teardown. Final owner-switch clear-event hardening has not yet been verified; rerun task-focused/browser and signed lab on its exact final SHA before isolated stable Preview canonical/trusted.
+- No claim of verified conflict event/choice until CI and real signed browser lab pass.
 
 ## Next action
-- Commit coherent task tree with `[verify:browser]`, inspect dedicated ephemeral signed browser lab and repo browser/focused tests, repair failures in batch.
-- When task gates pass, squash to fresh isolated stable Preview, run canonical full Quality Gate and trusted CI-first READY; post exact SHA evidence to #967. Keep #967 OPEN.
-- Next after this milestone: resolve fail-closed pending conflict UX/retry policy, multi-device/owner switch under real Supabase server, other six domains, hosted signed-user proof, privileged RPC security review, media, DR, cost and reversible cutover. No protected dev/main promotion, Production/backend migration or 1.0 release without separate explicit user approval.
+- Commit scoped POC and tests+docs as one task [verify:browser]. Diagnose and batch repairs without weakening data-loss/conflict/owner invariants. On green, squash to new isolated Preview, check canonical Quality Gate + trusted READY and log issue #967.
+- Subsequent work: user-facing conflict review UX decisions, durable notifications across reload/account switch, safe keep-both/export and remote-choice policy, multi-tab/physical-device stress, hosted signed JWT/RLS/security-advisor acceptance, remaining six domains, media/DR and reversible cutover. No dev/main/Production promotion or 1.0 release without separate explicit approval.
