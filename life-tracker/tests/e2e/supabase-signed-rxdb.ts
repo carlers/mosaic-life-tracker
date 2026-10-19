@@ -1,0 +1,135 @@
+/**
+ * #967 ONLY: ephemeral localhost Supabase Auth/REST + real browser RxDB/Dexie.
+ * The JWT is supplied by the dedicated GitHub Actions test via addInitScript;
+ * never imported by the shipped Mosaic app, persisted, or logged.
+ */
+import { addRxPlugin, createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
+import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
+import { categoriesSchema, type CategoryDocument } from '../../src/db/schema';
+import { categoriesMigrationStrategies } from '../../src/db/migrations';
+import { createCandidateHttpTransport, type CandidateVerifiedSession } from '../../supabase-poc/candidateHttpTransport';
+import { createCandidateCreateTransport } from '../../supabase-poc/candidateCreateTransport';
+import { createCandidateCasTransport } from '../../supabase-poc/candidateCasTransport';
+import { createCandidateRxdbPilot } from '../../supabase-poc/candidateRxdbPilot';
+
+type LocalConfiguration = {
+  endpoint: string; publishableKey: string; token: string;
+  supabaseId: string; legacyId: string; dbTag: string;
+};
+type Collections = { categories: RxCollection<CategoryDocument> };
+type Db = RxDatabase<Collections>;
+const config = (window as unknown as { __mosaicSignedRxdbConfig?: LocalConfiguration })
+  .__mosaicSignedRxdbConfig;
+if (!config || config.endpoint !== 'http://127.0.0.1:54321' ||
+    !config.publishableKey.startsWith('sb_publishable_') ||
+    !/^[a-z][a-z0-9_]{1,32}$/.test(config.dbTag)) {
+  throw new Error('Signed RxDB probe refuses non-local or invalid test inputs');
+}
+addRxPlugin(RxDBMigrationSchemaPlugin);
+
+let database: Db | null = null;
+let active: ReturnType<ReturnType<typeof createCandidateRxdbPilot<CategoryDocument>>['start']> | null = null;
+let offline = false;
+let failures = 0;
+let remoteReads = 0;
+let conflictErrors = 0;
+const cursors: string[] = [];
+
+const session = {
+  async getVerifiedSession(): Promise<CandidateVerifiedSession> {
+    const response = await fetch(config.endpoint + '/auth/v1/user', {
+      cache: 'no-store', credentials: 'omit',
+      headers: { apikey: config.publishableKey, Authorization: 'Bearer ' + config.token },
+    });
+    if (!response.ok) throw new Error('Real signed local Auth verification failed');
+    const user: unknown = await response.json();
+    if (!user || typeof user !== 'object' ||
+      (user as { id?: string }).id !== config.supabaseId) {
+      throw new Error('Real Supabase Auth identity mismatch');
+    }
+    return { userId: config.supabaseId, accessToken: config.token, sessionEpoch: 1 };
+  },
+};
+const safeFetch: typeof fetch = async (input, init) => {
+  const target = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  if (target.origin !== config.endpoint || !target.pathname.startsWith('/rest/v1/'))
+    throw new Error('Signed RxDB fixture blocked an unexpected remote request');
+  if (offline) {
+    failures++;
+    throw new Error('Synthetic browser-to-Supabase network outage');
+  }
+  if ((init?.method ?? 'GET') === 'GET' && target.pathname.includes('mosaic_candidate_categories'))
+    remoteReads++;
+  return fetch(input, init);
+};
+const changeTransport = createCandidateHttpTransport({
+  baseUrl: config.endpoint, publishableKey: config.publishableKey, session, fetcher: safeFetch,
+});
+const changes = {
+  async listChanges<R>(request: {
+    domain: 'tasks' | 'categories'; ownerId: string; afterExclusive: string; batchSize: number;
+  }): Promise<R[]> {
+    cursors.push(request.afterExclusive);
+    return changeTransport.listChanges<R>(request);
+  },
+};
+const writer = createCandidateCreateTransport({
+  baseUrl: config.endpoint, publishableKey: config.publishableKey, session, fetcher: safeFetch,
+});
+const cas = createCandidateCasTransport({
+  baseUrl: config.endpoint, publishableKey: config.publishableKey, session, fetcher: safeFetch,
+});
+
+async function start() {
+  if (database || active) throw new Error('Signed RxDB fixture already started');
+  await session.getVerifiedSession();
+  database = await createRxDatabase<Collections>({
+    name: 'mosaic_sb_signed_' + config.dbTag,
+    storage: getRxStorageDexie(),
+    multiInstance: false,
+  });
+  await database.addCollections({
+    categories: { schema: categoriesSchema, migrationStrategies: categoriesMigrationStrategies },
+  });
+  const pilot = createCandidateRxdbPilot<CategoryDocument>({
+    domain: 'categories',
+    identity: { legacyUserId: config.legacyId, supabaseUserId: config.supabaseId },
+    session, changes, writer, cas, collection: database.categories,
+  });
+  active = pilot.start();
+  active.state.error$.subscribe((error: unknown) => {
+    const rendered = String(error);
+    if (rendered.includes('conflict') || rendered.includes('CONFLICT'))
+      conflictErrors++;
+  });
+  await active.state.awaitInitialReplication();
+}
+async function stop() {
+  if (active) await active.stop();
+  active = null;
+  if (database) await database.close();
+  database = null;
+}
+async function edit(id: string, name: string) {
+  if (!database) throw new Error('Signed RxDB fixture is not open');
+  const document = await database.categories.findOne(id).exec();
+  if (!document) throw new Error('Cannot edit missing local category');
+  await document.incrementalPatch({ name, updatedAt: '2026-10-20T00:00:00.000Z' });
+}
+async function snapshot() {
+  const docs = database ? await database.categories.find().exec() : [];
+  return {
+    local: docs.map(doc => ({
+      id: doc.id, name: doc.name, userId: doc.userId, isDeleted: doc.isDeleted,
+    })),
+    cursors: [...cursors], failures, remoteReads, conflictErrors,
+  };
+}
+Object.assign(window, {
+  __mosaicSignedRxdb: {
+    start, stop, edit, snapshot,
+    setOffline(value: boolean) { offline = value; },
+    resync() { if (!active) throw new Error('No active signed replica'); active.resync(); },
+  },
+});
