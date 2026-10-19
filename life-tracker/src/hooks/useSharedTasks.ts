@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './useAuth';
 import { useConnectivity } from './useConnectivity';
+import { hasCapability } from '../lib/backendCapabilities';
 import {
   changeSharedTaskMembership, enqueueSharedCompletion, flushSharedCompletions,
   enqueueSharedMembership, flushSharedMemberships, pendingSharedMembership,
@@ -88,6 +89,8 @@ export function clearSharedTaskCache(userId: string): void {
 
 export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   const { user } = useAuth();
+  const available = hasCapability('sharedTasks');
+  const allowed = available && enabled;
   const userId = user?.$id ?? null;
   const connectivity = useConnectivity();
   const online = connectivity.status === 'online';
@@ -99,21 +102,22 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   const [lastMutation, setLastMutation] = useState<SharedCommandResult | null>(null);
   const [queueRevision, setQueueRevision] = useState(0);
 
-  useEffect(() => subscribeSharedTaskQueue(
-    () => setQueueRevision(n => n + 1)
-  ), []);
+  useEffect(() => {
+    if (!allowed) return;
+    return subscribeSharedTaskQueue(() => setQueueRevision(n => n + 1));
+  }, [allowed]);
 
   const reload = useCallback(async () => {
-    if (!userId) return;
+    if (!allowed || !userId) return;
     const list = await listDeduped(userId, scope);
     writeSharedTaskCache(userId, scope, list);
     setState(list);
     setLoadedKey(cacheKey(userId, scope));
     setError('');
-  }, [scope, userId]);
+  }, [allowed, scope, userId]);
 
   useEffect(() => {
-    if (!userId || !key || !enabled) return;
+    if (!userId || !key || !allowed) return;
     let active = true;
     if (!online) return () => { active = false; };
     void listDeduped(userId, scope).then(items => {
@@ -129,11 +133,11 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
       setAttemptedKey(key);
     });
     return () => { active = false; };
-  }, [userId, key, scope, online, enabled]);
+  }, [userId, key, scope, online, allowed]);
 
   // Peer actions change membership outside this tab; revalidate on return.
   useEffect(() => {
-    if (!userId || !online || !enabled) return;
+    if (!userId || !online || !allowed) return;
     let lastCheck = 0;
     const recheck = () => {
       if (document.visibilityState === 'hidden' || Date.now() - lastCheck < 15_000) return;
@@ -146,9 +150,11 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
       window.removeEventListener('focus', recheck);
       document.removeEventListener('visibilitychange', recheck);
     };
-  }, [enabled, online, reload, userId]);
+  }, [allowed, online, reload, userId]);
 
-  useEffect(() => subscribeSharedTaskSettlements(result => {
+  useEffect(() => {
+    if (!allowed) return;
+    return subscribeSharedTaskSettlements(result => {
     if (!userId || result.userId !== userId) return;
     if (result.status === 'rejected') {
       setError(result.reason || 'Shared completion failed.');
@@ -157,10 +163,11 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
         setError(cause instanceof Error ? cause.message : 'Could not refresh shared task.');
       });
     }
-  }), [reload, userId]);
+    });
+  }, [allowed, reload, userId]);
 
   const updateCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
-    if (!userId || !key || item.status !== 'accepted') {
+    if (!allowed || !userId || !key || item.status !== 'accepted') {
       throw new Error('Shared-task membership unavailable');
     }
     enqueueSharedCompletion(userId, item, desired);
@@ -177,11 +184,12 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
       // The settlement subscription refreshes both foreground and background replay.
     }
     return latest ?? { status: 'pending' } as const;
-  }, [key, userId, online, reload]);
+  }, [allowed, key, userId, online, reload]);
 
   const updateMembership = useCallback(async (
     item: SharedTaskItem, operation: 'accept' | 'decline' | 'leave' | 'revoke'
   ): Promise<SharedCommandResult | { status: 'pending' }> => {
+    if (!allowed) throw new Error('Shared tasks unavailable');
     if (!userId) throw new Error('Not authenticated');
     if (operation === 'revoke') {
       if (!online) throw new Error('Connect to remove a collaborator');
@@ -200,38 +208,39 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
       { status: 'pending' } as const;
     if (outcome.status === 'confirmed') await reload();
     return outcome;
-  }, [online, reload, userId]);
+  }, [allowed, online, reload, userId]);
 
   const invite = useCallback(async (taskId: string, friendUserId: string) => {
+    if (!allowed) throw new Error('Shared tasks unavailable');
     await changeSharedTaskMembership({ operation: 'invite', taskId, friendUserId });
     await reload();
-  }, [reload]);
+  }, [allowed, reload]);
 
   // The account-scoped key prevents a retained view showing a prior user's data.
   const cachedItems = useMemo(() => userId ? readSharedTaskCache(userId, scope) : [],
     [userId, scope]);
-  const items = useMemo(() => loadedKey === key ? state : cachedItems,
-    [loadedKey, key, state, cachedItems]);
+  const items = useMemo(() => available ? (loadedKey === key ? state : cachedItems) : [],
+    [available, loadedKey, key, state, cachedItems]);
   const activeItems = useMemo(() => items.filter(item => item.status === 'accepted'), [items]);
   const failure = useMemo(() => {
     void queueRevision;
-    return userId ? readSharedCompletionFailures(userId).at(-1)?.reason ?? '' : '';
-  }, [userId, queueRevision]);
+    return available && userId ? readSharedCompletionFailures(userId).at(-1)?.reason ?? '' : '';
+  }, [available, userId, queueRevision]);
   const clearFailure = useCallback(() => {
-    if (userId) acknowledgeSharedCompletionFailures(userId);
+    if (allowed && userId) acknowledgeSharedCompletionFailures(userId);
     setError('');
-  }, [userId]);
+  }, [allowed, userId]);
   const pendingFor = useCallback((taskId: string) => {
     void queueRevision;
-    return userId ? pendingSharedCompletion(userId, taskId) : undefined;
-  }, [queueRevision, userId]);
+    return available && userId ? pendingSharedCompletion(userId, taskId) : undefined;
+  }, [available, queueRevision, userId]);
   const pendingMembershipFor = useCallback((taskId: string) => {
     void queueRevision;
-    return userId ? pendingSharedMembership(userId, taskId) : undefined;
-  }, [queueRevision, userId]);
+    return available && userId ? pendingSharedMembership(userId, taskId) : undefined;
+  }, [available, queueRevision, userId]);
 
   return {
-    items, activeItems, isLoading: Boolean(online && enabled && key && loadedKey !== key && attemptedKey !== key), error: error || failure, clearFailure, online, pendingFor,
+    items, activeItems, isLoading: Boolean(online && allowed && key && loadedKey !== key && attemptedKey !== key), error: error || failure, clearFailure, online, pendingFor,
     lastMutation, invite, updateCompletion, updateMembership, pendingMembershipFor, reload,
   };
 }

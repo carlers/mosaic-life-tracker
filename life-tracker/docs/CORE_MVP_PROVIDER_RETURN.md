@@ -30,6 +30,12 @@ The goal is **repeatable tested migration in either direction**, not one-click f
 
 The target is a short, safe *operational* switchover once rehearsed, not unconditional immediate reversibility. `assertSingleCloudWriter()` and `assertSafeProviderSwitch()` encode minimum preconditions in the source-only acceptance contract, and will be wired into the writer orchestration during integration; current tests do not prove an end-to-end reverse migration.
 
+## Social shared-task disable safety (2026-10-19 follow-up)
+
+The core-only profile must **not** expose cached shared-task invitations or peer task titles from a previous full Appwrite session. The `useSharedTasks` hook now returns empty items, skips queue and settlement subscriptions/online refreshes, and rejects shared-task mutation commands when the provider capability is off. Data remains in owner-scoped storage for eventual re-enable; this disables presentation and side effects, not existing records. Full Appwrite mode keeps its existing behavior. Unit/React regression explicitly seeds synthetic cached friend task data to prove the core-only boundary.
+
+Remaining work: social outbox/sync coordinator and backend-specific Auth still need full suppression before enabling the core-only build for any real users; this hook-level hardening is not equivalent to cloud-provider switching.
+
 ## Must pass before any core MVP release
 
 - Signed, real Supabase Auth signup/login/logout/recovery and validated account mapping, hosted RLS and privileged RPC review, two-owner negative tests, local offline boot and cross-device convergence.
