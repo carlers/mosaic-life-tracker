@@ -150,5 +150,9 @@ Object.assign(window, {
       if (!conflictPilot) throw new Error('No active signed conflict pilot');
       return conflictPilot.resolveKeepLocal(id, revision);
     },
+    async refreshConflict(id: string) {
+      if (!conflictPilot) throw new Error('No active signed conflict pilot');
+      return conflictPilot.refreshPendingConflict(id);
+    },
   },
 });

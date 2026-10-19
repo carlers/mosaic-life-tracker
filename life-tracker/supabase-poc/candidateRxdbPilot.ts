@@ -127,11 +127,11 @@ export function createCandidateRxdbPilot<D extends Document>(
   function clearAllReviews() {
     for (const documentId of pendingConflicts.keys()) clearReview(documentId);
   }
-  function recordConflict(
+  function saveConflictReview(
     local: Replicated<D>, base: Replicated<D> | null,
     remote: { document: Replicated<D>; revision: string } | null,
     reason: CandidateConflictReason,
-  ): never {
+  ): CandidateConflictReview<D> {
     if (local.userId !== identity.legacyUserId ||
       base && base.userId !== identity.legacyUserId ||
       remote && remote.document.userId !== identity.legacyUserId) {
@@ -147,6 +147,14 @@ export function createCandidateRxdbPilot<D extends Document>(
     };
     pendingConflicts.set(local.id, review);
     conflictEvents.next({ type: 'pending', review: copy(review) });
+    return review;
+  }
+  function recordConflict(
+    local: Replicated<D>, base: Replicated<D> | null,
+    remote: { document: Replicated<D>; revision: string } | null,
+    reason: CandidateConflictReason,
+  ): never {
+    saveConflictReview(local, base, remote, reason);
     throw new CandidatePendingConflictError(domain, local.id);
   }
   function listPendingConflicts(): CandidateConflictReview<D>[] {
@@ -314,6 +322,65 @@ export function createCandidateRxdbPilot<D extends Document>(
     return [];
   }
 
+  /**
+   * A user-initiated single refresh for a parked conflict. No interval,
+   * automatic resync or additional durable cursor is created.
+   *
+   * Only identical, owner-verified local and remote content may unblock a
+   * pending native push. Diverging/missing masters update its review in place
+   * without waking the push or sending CAS. Concurrent review replacement,
+   * account switch and local edits fail closed.
+   */
+  async function refreshPendingConflict(documentId: string): Promise<
+    | { state: 'converged'; revision: string }
+    | { state: 'updated' | 'unchanged' | 'local-changed'; revision: string | null }
+  > {
+    const review = pendingConflicts.get(documentId);
+    if (!review) throw new Error('No pending candidate conflict to refresh');
+    if (!options.collection) throw new Error('Explicit isolated RxDB collection required for refresh');
+
+    const before = await guardedSession();
+    const fence = async () => {
+      const now = await guardedSession();
+      if (now.sessionEpoch !== before.sessionEpoch ||
+        now.accessToken !== before.accessToken) {
+        clearAllReviews();
+        throw new CandidateAuthError('Candidate account switched during conflict refresh');
+      }
+      if (pendingConflicts.get(documentId) !== review)
+        throw new CandidatePendingConflictError(domain, documentId);
+    };
+    const document = await options.collection.findOne(documentId).exec();
+    await fence();
+    if (!document)
+      return { state: 'local-changed', revision: review.remoteRevision };
+    const local = document.toJSON() as Replicated<D>;
+    if (local.userId !== identity.legacyUserId) {
+      clearAllReviews();
+      throw new CandidateAuthError('Candidate conflict refresh owner mismatch');
+    }
+    // A parked native RxDB batch may still contain an earlier version.
+    // Never wake it or silently acknowledge a newer local edit.
+    if (canonical(domain, local, identity) !== canonical(domain, review.local, identity))
+      return { state: 'local-changed', revision: review.remoteRevision };
+
+    const master = await readMaster(documentId);
+    await fence();
+    if (master && canonical(domain, master.document, identity) === canonical(domain, local, identity)) {
+      clearReview(documentId);
+      return { state: 'converged', revision: master.revision };
+    }
+    if (master?.revision === review.remoteRevision &&
+      (master && review.remote
+        ? canonical(domain, master.document, identity) === canonical(domain, review.remote, identity)
+        : !master && !review.remote))
+      return { state: 'unchanged', revision: review.remoteRevision };
+    if (!master && !review.remote)
+      return { state: 'unchanged', revision: null };
+    saveConflictReview(local, review.base, master, master ? 'divergent-master' : 'missing-master');
+    return { state: 'updated', revision: master?.revision ?? null };
+  }
+
   async function resolveKeepLocal(documentId: string, reviewedRevision: string) {
     const review = pendingConflicts.get(documentId);
     if (!review || review.remoteRevision === null ||
@@ -437,7 +504,7 @@ export function createCandidateRxdbPilot<D extends Document>(
   }
 
   return {
-    pull, push, start, listPendingConflicts, resolveKeepLocal,
+    pull, push, start, listPendingConflicts, refreshPendingConflict, resolveKeepLocal,
     conflictEvents$: conflictEvents.asObservable(),
   };
 }
