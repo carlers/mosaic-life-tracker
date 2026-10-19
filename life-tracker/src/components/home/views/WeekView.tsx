@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   format,
   startOfWeek,
@@ -16,6 +16,7 @@ import type { HolidayOccurrence } from '../../../lib/holidays';
 interface WeekViewProps {
   focusDate: Date;
   zoomDays?: CalendarZoomDays;
+  stickyWeekdayHeader?: boolean;
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;
   onZoomNavigate?: (direction: 'prev' | 'next') => void;
@@ -32,6 +33,7 @@ interface WeekViewProps {
 export const WeekView: React.FC<WeekViewProps> = ({
   focusDate,
   zoomDays = 7,
+  stickyWeekdayHeader = false,
   onZoomMount,
   onZoomScroll,
   onZoomNavigate,
@@ -50,13 +52,32 @@ export const WeekView: React.FC<WeekViewProps> = ({
     return eachDayOfInterval({ start: weekStart, end: weekEnd });
   }, [focusDate, weekStartsOn]);
 
-  const grid = (
-    <div
-      className="flex flex-col min-h-full"
-      role="grid"
-      aria-label={`Week of ${format(weekDays[0], 'MMMM d, yyyy')}`}
-    >
-      <div className="grid grid-cols-7 gap-1 px-2 mb-1" role="row">
+
+  // The vertical scroller is each CalendarCarousel slide. Keep the pinned row
+  // outside the nested horizontal zoom lane so CSS sticky uses that scroller.
+  // Synchronize its weekday columns imperatively; never update React on scroll.
+  const weekdayHeaderRef = useRef<HTMLDivElement>(null);
+  const syncWeekdayHeader = (node: HTMLDivElement) => {
+    if (stickyWeekdayHeader && weekdayHeaderRef.current)
+      weekdayHeaderRef.current.style.transform = `translate3d(${-node.scrollLeft}px, 0, 0)`;
+  };
+  const handleZoomMount = (node: HTMLDivElement, days: number) => {
+    onZoomMount?.(node, days);
+    syncWeekdayHeader(node);
+  };
+  const handleZoomScroll = (node: HTMLDivElement, days: number) => {
+    syncWeekdayHeader(node);
+    onZoomScroll?.(node, days);
+  };
+  const weekdayRow = (
+      <div
+        ref={stickyWeekdayHeader ? weekdayHeaderRef : undefined}
+        className="grid grid-cols-7 gap-1 px-2 mb-1"
+        role="row"
+        style={stickyWeekdayHeader && zoomDays !== 7
+          ? { width: `${(7 / zoomDays) * 100}%` }
+          : undefined}
+      >
         {weekDays.map((day) => (
           <div
             key={day.toISOString()}
@@ -68,6 +89,13 @@ export const WeekView: React.FC<WeekViewProps> = ({
           </div>
         ))}
       </div>
+  );
+  const pinnedHeader = stickyWeekdayHeader ? (
+    <div className="sticky top-0 z-10 overflow-hidden bg-background" data-sticky-weekday-header="true">
+      {weekdayRow}
+    </div>
+  ) : weekdayRow;
+  const dayRows = (
       <div
         className="grid grid-cols-7 gap-1 px-2 auto-rows-max"
         role="rowgroup"
@@ -96,13 +124,23 @@ export const WeekView: React.FC<WeekViewProps> = ({
           })}
         </div>
       </div>
+  );
+  const grid = (
+    <div className="flex flex-col min-h-full" role="grid" aria-label={`Week of ${format(weekDays[0], 'MMMM d, yyyy')}`}>
+      {pinnedHeader}
+      {stickyWeekdayHeader && zoomDays !== 7 ? (
+        <CalendarZoomViewport zoomDays={zoomDays}
+          onZoomMount={handleZoomMount} onZoomScroll={handleZoomScroll}
+          onNavigate={onZoomNavigate} navigationLocked={navigationLocked}>
+          {dayRows}
+        </CalendarZoomViewport>
+      ) : dayRows}
     </div>
   );
-  return zoomDays === 7 ? grid : (
+  return zoomDays === 7 || stickyWeekdayHeader ? grid : (
     <CalendarZoomViewport zoomDays={zoomDays}
       onZoomMount={onZoomMount} onZoomScroll={onZoomScroll}
-      onNavigate={onZoomNavigate}
-      navigationLocked={navigationLocked}>
+      onNavigate={onZoomNavigate} navigationLocked={navigationLocked}>
       {grid}
     </CalendarZoomViewport>
   );
