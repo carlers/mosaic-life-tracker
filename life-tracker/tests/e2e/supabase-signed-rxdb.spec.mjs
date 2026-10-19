@@ -44,7 +44,7 @@ async function newSignedUser(label) {
   const user = await request('/auth/v1/user', { token: grant.access_token });
   if (!user.id || user.id !== signup.user?.id)
     throw new Error('Supabase Auth signed principal failed server verification');
-  return { id: user.id, token: grant.access_token };
+  return { id: user.id, token: grant.access_token, email, password };
 }
 async function seed(user, id, name) {
   const rows = await request('/rest/v1/mosaic_candidate_categories', {
@@ -537,4 +537,32 @@ test('shared eight-domain fixtures exercise only implemented private task/catego
     result.recordsCreated === 4 && result.checks >= 12)).toBe(true);
   // Domain capabilities are honest. The other six fixtures exist, but
   // no current signed target implements their authorization/side effects.
+});
+
+test('real local browser Supabase Auth lifecycle: password login, rotation, account switch and logout', async ({ page }) => {
+  if (!configured) throw new Error('Local signed provider configuration absent');
+  const a = await newSignedUser('auth-a');
+  const b = await newSignedUser('auth-b');
+  const dbTag = 'auth' + randomBytes(6).toString('hex');
+  await page.addInitScript(settings => { window.__mosaicSignedRxdbConfig = settings; }, {
+    endpoint: url, publishableKey: key, token: a.token,
+    supabaseId: a.id, legacyId: 'legacy_auth_fixture', dbTag,
+  });
+  await page.goto(BASE_URL + '/tests/e2e/supabase-signed-rxdb.html');
+  await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb));
+  const state = await page.evaluate(async ({ a, b }) => {
+    return window.__mosaicSignedRxdb.exerciseSignedAuthLifecycle({ a, b });
+  }, {
+    a: { id: a.id, email: a.email, password: a.password },
+    b: { id: b.id, email: b.email, password: b.password },
+  });
+  expect(state).toMatchObject({
+    firstOwner: a.id, refreshedOwner: a.id, switchedOwner: b.id,
+    refreshEpochAdvanced: true, previousOwnerDenied: true,
+    localSessionCleared: true,
+  });
+  // Do not expose JWTs/refresh tokens in Playwright outputs or persistent
+  // browser storage. This adapter has no silent offline identity fallback.
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb));
 });

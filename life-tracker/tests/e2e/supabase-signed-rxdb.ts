@@ -14,6 +14,7 @@ import { createCandidateHttpTransport, type CandidateVerifiedSession } from '../
 import { createCandidateCreateTransport } from '../../supabase-poc/candidateCreateTransport';
 import { createCandidateCasTransport } from '../../supabase-poc/candidateCasTransport';
 import { createCandidateRxdbPilot } from '../../supabase-poc/candidateRxdbPilot';
+import { createCandidateAuthSession } from '../../supabase-poc/candidateAuthSession';
 
 type LocalConfiguration = {
   endpoint: string; publishableKey: string; token: string;
@@ -162,9 +163,58 @@ function privateProviderFixtures(principals: { a: string; b: string }) {
   return records;
 }
 
+/**
+ * Only callable by the throwaway localhost CI browser fixture.
+ * Return non-secret metadata. No real account credentials or tokens persist.
+ */
+async function exerciseSignedAuthLifecycle(input: {
+  a: { email: string; password: string; id: string };
+  b: { email: string; password: string; id: string };
+}) {
+  const auth = createCandidateAuthSession({
+    baseUrl: config.endpoint, publishableKey: config.publishableKey,
+  });
+  if (await auth.getVerifiedSession() !== null) throw new Error('New Auth adapter was not empty');
+  const first = await auth.signIn(input.a.email, input.a.password);
+  if (first.userId !== input.a.id || (await auth.getVerifiedSession())?.userId !== input.a.id)
+    throw new Error('First real JWT owner check failed');
+  const refreshed = await auth.refresh();
+  if (refreshed.userId !== first.userId || refreshed.sessionEpoch <= first.sessionEpoch ||
+      (await auth.getVerifiedSession())?.userId !== input.a.id)
+    throw new Error('Refreshed Supabase session was not verified');
+  const second = await auth.signIn(input.b.email, input.b.password);
+  if (second.userId !== input.b.id || second.sessionEpoch <= refreshed.sessionEpoch ||
+      (await auth.getVerifiedSession())?.userId !== input.b.id)
+    throw new Error('Login switch did not fence old owner');
+  const oldUserChanges = createCandidateHttpTransport({
+    baseUrl: config.endpoint, publishableKey: config.publishableKey, session: auth,
+  });
+  let deniedPreviousOwner = false;
+  try {
+    await oldUserChanges.listChanges({
+      domain: 'tasks', ownerId: input.a.id, afterExclusive: '0', batchSize: 5,
+    });
+  } catch {
+    deniedPreviousOwner = true;
+  }
+  if (!deniedPreviousOwner) throw new Error('Old account could still pull after switch');
+  const revoked = await auth.signOut();
+  if (await auth.getSessionSnapshot() !== null ||
+      await auth.getVerifiedSession() !== null) {
+    throw new Error('Signed-out account still has local session');
+  }
+  return {
+    firstOwner: first.userId, refreshedOwner: refreshed.userId,
+    switchedOwner: second.userId, refreshEpochAdvanced: true,
+    previousOwnerDenied: deniedPreviousOwner, remoteRevocationConfirmed: revoked,
+    localSessionCleared: true,
+  };
+}
+
 Object.assign(window, {
   __mosaicSignedRxdb: {
     privateProviderFixtures,
+    exerciseSignedAuthLifecycle,
     start, stop, edit, snapshot,
     setOffline(value: boolean) { offline = value; },
     resync() { if (!active) throw new Error('No active signed replica'); active.resync(); },

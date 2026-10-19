@@ -19,6 +19,8 @@ on:
       - 'refactor/967-provider-contract-*'
       - 'chatgpt/967-protected-fields-*'
       - 'refactor/967-protected-fields-*'
+      - 'chatgpt/1027-core-auth-*'
+      - 'refactor/1027-core-auth-*'
     paths:
       - '.github/workflows/supabase-signed-rxdb-browser.yml'
       - 'life-tracker/tests/e2e/supabase-signed-rxdb*'
