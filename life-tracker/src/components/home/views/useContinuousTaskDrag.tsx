@@ -69,7 +69,6 @@ export function useContinuousTaskDrag({
   const [carried, setCarried] = React.useState<CarriedTask | null>(null);
   const [edgeHint, setEdgeHint] = React.useState<-1 | 0 | 1>(0);
   const latestRef = React.useRef({ isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished });
-  latestRef.current = { isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished };
 
   const clearTimers = React.useCallback(() => {
     for (const timer of [dwellTimerRef, cooldownTimerRef, transitionTimerRef]) {
@@ -120,7 +119,10 @@ export function useContinuousTaskDrag({
 
   const advanceRef = React.useRef<() => void>(() => undefined);
   const scheduleRef = React.useRef<(delay: number) => void>(() => undefined);
-  advanceRef.current = () => {
+  const onSettledRef = React.useRef<(date: string) => void>(() => undefined);
+  React.useLayoutEffect(() => {
+    latestRef.current = { isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished };
+    advanceRef.current = () => {
     dwellTimerRef.current = null;
     const session = sessionRef.current;
     const swiper = swiperRef.current;
@@ -190,7 +192,6 @@ export function useContinuousTaskDrag({
     dwellTimerRef.current = window.setTimeout(() => advanceRef.current(), delay);
   };
 
-  const onSettledRef = React.useRef<(date: string) => void>(() => undefined);
   onSettledRef.current = (date: string) => {
     const session = sessionRef.current;
     if (!session || session.stage !== 'external' || !session.inFlight) return;
@@ -210,6 +211,7 @@ export function useContinuousTaskDrag({
       }, REPEAT_COOLDOWN_MS);
     });
   };
+  }, [isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished, projectAtPointer, swiperRef]);
 
   const updatePoint = React.useCallback((event: PointerEvent) => {
     const session = sessionRef.current;
@@ -255,7 +257,7 @@ export function useContinuousTaskDrag({
   }, [reset]);
 
   React.useEffect(() => {
-    if (!isOpen) { reset(); return; }
+    if (!isOpen) return;
     const move = (event: PointerEvent) => updatePoint(event);
     const up = (event: PointerEvent) => {
       const s = sessionRef.current;
@@ -307,7 +309,7 @@ export function useContinuousTaskDrag({
       clientX: pointer.x, clientY: pointer.y,
       pointerId: pointerId ?? -1,
     } as PointerEvent);
-  }, [reset, updatePoint]);
+  }, [reset, updatePoint, swiperRef]);
 
   const onNativeEnd = React.useCallback((taskId: string) => {
     if (suppressedEndRef.current === taskId) return true;
