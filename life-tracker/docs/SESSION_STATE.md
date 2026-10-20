@@ -12,6 +12,7 @@ Current task: issue #956 — Day View first-category focus and task keyboard dra
 - DayView sheet auto-focuses first accessible category in the active slide after the modal focus trap mounts; once per opening, not on day changes, snap-backs, nested sheets or while editing/search focus is active.
 - Keep task Enter/Space action handling; dnd-kit KeyboardSensor declines task-title activation while retaining pointer delay/drag and keyboard drag on unrelated surfaces.
 - Add targeted DOM regression for opening focus and sensor target guard; preserve existing gesture, selection and shortcut tests.
+- First focused task gate (39442771122) stopped at react-refresh/only-export-components because the configured sensor was exported from a component module; corrected by moving that sensor to a non-component module, updating its regression import and generated component inventory. Recheck focused CI on the repair commit before Preview squash.
 - Bump package, package-lock and appVersion to v0.35.1; no backend/schema changes.
 
 ## Delivery

@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DragDropProvider, useDraggable } from '@dnd-kit/react';
 import { PointerSensor } from '@dnd-kit/dom';
-import { TASK_REORDER_KEYBOARD_SENSOR } from '../../src/components/home/views/TaskReorderRuntime';
+import { TASK_REORDER_KEYBOARD_SENSOR } from '../../src/components/home/views/taskKeyboardSensor';
 
 function DraggableTaskTitle({ onAction }: { onAction: (key: string) => void }) {
   const { ref, handleRef } = useDraggable({ id: 'task', type: 'task' });
