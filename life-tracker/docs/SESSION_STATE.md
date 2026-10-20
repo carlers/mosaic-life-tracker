@@ -16,6 +16,8 @@ Current task: #956 — Day View keyboard navigation Phase 1, proposed v0.35.0.
 - Version 0.35.0 is the proposed initial MINOR user-testable Preview; reconcile against concurrently active Preview branches before stamping a stable release.
 
 ## Verification / delivery
-- Make one coherent task commit [verify:focused] and task PR; inspect exact-SHA focused CI and repair failures.
-- After focused green, squash onto stable Preview, run canonical CI and verify trusted Vercel READY before user testing. Manual desktop keyboard, WebKit/physical keyboard, screen-reader and nested-sheet checks are separate unverified acceptance.
+- Task PR #1104 was squash-merged to stable Preview `feature/dayview-keyboard-956-20261020@33b82a3a98e1ddcf18c70a071598baf85a4a7764`. Task focused CI succeeded: https://github.com/carlers/mosaic-life-tracker/actions/runs/39439551726.
+- That Preview's canonical CI https://github.com/carlers/mosaic-life-tracker/actions/runs/39439747686 failed on TypeScript (missing toggle argument), refs lint from hook return shape, and a stale legacy selection-mode assertion. No Preview acceptance or deployment may be claimed.
+- Repair branch `chatgpt/956-keyboard-preview-repair-20261020` from failed Preview SHA fixes those issues without bumping the user-visible version; focused verification and another stable Preview squash/canonical/READY are required.
+- Manual desktop keyboard, WebKit/physical keyboard, screen-reader and nested-sheet checks are separate unverified acceptance.
 - Do not merge to dev/main automatically or mark #956 complete before follow-on decisions and acceptance.

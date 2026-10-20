@@ -145,9 +145,11 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   diaryProjectedPlacement = null,
   diaryDragHeight = 48,
 }) => {
-  const keyboardNavigation = useDayViewKeyboardNavigation(
-    keyboardNavigationEnabled && !activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling
-  );
+  const { rootRef: keyboardRootRef, onKeyDown: handleBrowseKeyDown,
+    onFocusCapture: handleBrowseFocus, onBlurCapture: handleBrowseBlur } =
+    useDayViewKeyboardNavigation(
+      keyboardNavigationEnabled && !activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling
+    );
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
     : null;
@@ -226,10 +228,10 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
 
   return (
     <motion.div
-      ref={keyboardNavigation.rootRef}
-      onFocusCapture={keyboardNavigation.onFocusCapture}
-      onBlurCapture={keyboardNavigation.onBlurCapture}
-      onKeyDown={keyboardNavigation.onKeyDown}
+      ref={keyboardRootRef}
+      onFocusCapture={handleBrowseFocus}
+      onBlurCapture={handleBrowseBlur}
+      onKeyDown={handleBrowseKeyDown}
       tabIndex={-1}
       aria-label="Day tasks"
       layoutScroll={scrollMode === 'contained' && reorderRuntimeActive}

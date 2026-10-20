@@ -4,9 +4,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useDayViewKeyboardNavigation } from '../../src/components/home/views/useDayViewKeyboardNavigation';
 
 function Harness({ enabled = true, hideLast = false }: { enabled?: boolean; hideLast?: boolean }) {
-  const nav = useDayViewKeyboardNavigation(enabled);
-  return <div ref={nav.rootRef} onKeyDown={nav.onKeyDown}
-    onFocusCapture={nav.onFocusCapture} onBlurCapture={nav.onBlurCapture} tabIndex={-1}>
+  const { rootRef, onKeyDown, onFocusCapture, onBlurCapture } = useDayViewKeyboardNavigation(enabled);
+  return <div ref={rootRef} onKeyDown={onKeyDown}
+    onFocusCapture={onFocusCapture} onBlurCapture={onBlurCapture} tabIndex={-1}>
     <button data-day-keyboard-target="category" data-day-keyboard-id="work">Work</button>
     <button data-day-keyboard-target="task" data-day-keyboard-id="one">First task</button>
     {!hideLast && <button data-day-keyboard-target="task" data-day-keyboard-id="two">Second task</button>}
