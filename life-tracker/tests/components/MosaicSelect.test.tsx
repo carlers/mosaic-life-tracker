@@ -65,6 +65,33 @@ describe('MosaicSelect', () => {
     expect(screen.getByRole('combobox', { name: 'Setting: Choose' })).toBeInTheDocument();
   });
 
+
+  it('returns Tab focus to the next field rather than the body portal', () => {
+    const onChange = vi.fn();
+    render(<div>
+      <MosaicSelect label="Setting" value="a" options={choices} onChange={onChange} />
+      <input aria-label="Next field" />
+    </div>);
+    fireEvent.click(screen.getByRole('combobox'));
+    const listbox = screen.getByRole('listbox');
+    fireEvent.keyDown(listbox, { key: 'Tab' });
+    expect(screen.getByRole('textbox', { name: 'Next field' })).toHaveFocus();
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('consumes typeahead keys before they can trigger parent navigation shortcuts', () => {
+    const onKeyDown = vi.fn();
+    render(<div onKeyDown={onKeyDown}>
+      <MosaicSelect label="Setting" value="a" options={choices} onChange={vi.fn()} />
+    </div>);
+    fireEvent.click(screen.getByRole('combobox'));
+    onKeyDown.mockClear();
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'b' });
+    expect(onKeyDown).not.toHaveBeenCalled();
+    expect(screen.getByRole('option', { name: /Beta/ })).toHaveFocus();
+  });
+
   it('closes on outside pointer press and prevents a disabled control from opening', () => {
     const onChange = vi.fn();
     const view = render(<MosaicSelect label="Setting" value="a" options={choices} onChange={onChange} />);

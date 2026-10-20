@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 
@@ -38,7 +38,15 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
   const [position, setPosition] = useState<{
     top: number; left: number; width: number; maxHeight: number;
   } | null>(null);
-  const selected = options.find(option => option.value === value);
+  const uniqueOptions = useMemo(() => {
+    const values = new Set<string>();
+    return options.filter(option => {
+      if (values.has(option.value)) return false;
+      values.add(option.value);
+      return true;
+    });
+  }, [options]);
+  const selected = uniqueOptions.find(option => option.value === value);
   const selectedLabel = selected?.label ?? placeholder;
   const isCategory = variant === 'category';
   const isCompact = variant === 'compact';
@@ -49,7 +57,7 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
   };
 
   const show = () => {
-    if (disabled || options.length === 0) return;
+    if (disabled || uniqueOptions.length === 0) return;
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const margin = 8;
@@ -69,16 +77,16 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
     if (!open) return;
     const outside = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (!rootRef.current?.contains(target) && !popupRef.current?.contains(target)) close();
+      if (!rootRef.current?.contains(target) && !popupRef.current?.contains(target)) setOpen(false);
     };
     const focusOutside = (event: FocusEvent) => {
       const target = event.target as Node;
-      if (!rootRef.current?.contains(target) && !popupRef.current?.contains(target)) close();
+      if (!rootRef.current?.contains(target) && !popupRef.current?.contains(target)) setOpen(false);
     };
     const scroll = (event: Event) => {
-      if (!popupRef.current?.contains(event.target as Node)) close();
+      if (!popupRef.current?.contains(event.target as Node)) setOpen(false);
     };
-    const resize = () => close();
+    const resize = () => setOpen(false);
     document.addEventListener('pointerdown', outside);
     document.addEventListener('focusin', focusOutside);
     document.addEventListener('scroll', scroll, true);
@@ -133,20 +141,35 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
       return;
     }
     if (event.key === 'Tab') {
-      // The portal must not trap focus or leave focus behind a closed sheet.
+      // Options are portaled to body, so explicitly resume tab order at the trigger.
+      event.preventDefault();
+      event.stopPropagation();
+      const trigger = triggerRef.current;
+      const scope = trigger?.closest<HTMLElement>('[role="dialog"]') ?? document.body;
+      const focusable = Array.from(scope.querySelectorAll<HTMLElement>(
+        'a[href], button, input, select, textarea, [tabindex]'
+      )).filter(element => element.tabIndex >= 0 && !element.closest('[aria-hidden="true"]'));
+      const currentIndex = trigger ? focusable.indexOf(trigger) : -1;
+      const target = focusable[currentIndex + (event.shiftKey ? -1 : 1)] ?? trigger;
       close();
+      target?.focus();
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.stopPropagation();
       return;
     }
     if (event.key.length !== 1 || event.altKey || event.ctrlKey || event.metaKey) return;
+    event.stopPropagation();
     const search = (typeaheadRef.current + event.key).toLocaleLowerCase();
     typeaheadRef.current = search;
     if (typeaheadTimer.current) clearTimeout(typeaheadTimer.current);
     typeaheadTimer.current = setTimeout(() => { typeaheadRef.current = ''; }, 650);
     const next = items.find(item => {
-      const option = options.find(option => option.value === item.dataset.value);
+      const option = uniqueOptions.find(option => option.value === item.dataset.value);
       return option?.label.toLocaleLowerCase().startsWith(search);
     }) ?? items.find(item => {
-      const option = options.find(option => option.value === item.dataset.value);
+      const option = uniqueOptions.find(option => option.value === item.dataset.value);
       return option?.label.toLocaleLowerCase().startsWith(event.key.toLocaleLowerCase());
     });
     if (next) {
@@ -168,7 +191,7 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label={label + ': ' + selectedLabel}
-        disabled={disabled || options.length === 0}
+        disabled={disabled || uniqueOptions.length === 0}
         onClick={() => open ? close() : show()}
         onKeyDown={event => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -207,7 +230,7 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
             width: position.width, maxHeight: position.maxHeight }}
           className="overflow-y-auto overscroll-contain rounded-2xl border border-[#444444] bg-surface p-1.5 shadow-2xl"
         >
-          {options.map(option => (
+          {uniqueOptions.map(option => (
             <button
               key={option.value}
               type="button"

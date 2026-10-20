@@ -17,6 +17,6 @@ Current task: #1126 — Reusable Mosaic Select and app-wide dropdown migration.
 
 ## Verification and handoff
 - Source edits are assembled through GitHub Git objects; local checkout and local test runner are unavailable in this chat runtime.
-- Pending: publish task commit with [verify:focused], inspect exact diff and focused Actions results; repair any failures.
+- Focused run #39462200518 for task SHA 969f1e34 completed FAILURE: 2 stale SharedTaskRows tests expected a native select name; 295 other test files passed. Repair updates those tests, deduplicates popup options and improves Tab/typeahead keyboard ownership. Next publish a coherent repair commit with [verify:focused] and rerun focused verification.
 - Then squash into stable Preview branch for canonical CI + Scratch Vercel acceptance. Real Android/iOS device visual/interaction checks remain manual.
 - Do not claim user acceptance or release based solely on automated CI.
