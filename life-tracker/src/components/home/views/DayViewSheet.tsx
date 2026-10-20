@@ -480,13 +480,14 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [exitSelectMode, handleNextDay, isSelectMode]);
 
   const handleSlideChangeFromUi = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
+    if (!continuousDrag.onSlideChanged(swiper)) return;
     if (isSelectMode) exitSelectMode();
     handleSlideChange(swiper);
-  }, [exitSelectMode, handleSlideChange, isSelectMode]);
+  }, [continuousDrag.onSlideChanged, exitSelectMode, handleSlideChange, isSelectMode]);
 
   const handleSwipeSettledFromUi = useCallback((swiper: Parameters<typeof handleSwipeSettled>[0]) => {
     const settled = slideDateStrs[swiper.activeIndex];
-    if (settled) continuousDrag.onSettled(settled);
+    if (!settled || !continuousDrag.onSettled(settled, swiper)) return;
     handleSwipeSettled(swiper);
   }, [continuousDrag.onSettled, handleSwipeSettled, slideDateStrs]);
 
@@ -1131,10 +1132,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       onCrossDayTaskMove={continuousDrag.moveTask}
                       onCrossDayNativeEnd={continuousDrag.onNativeEnd}
                       crossDayDragTaskId={continuousDrag.carried?.task.id}
-                      crossDayInsertion={continuousDrag.carried?.date === dateStr
-                        ? { categoryId: continuousDrag.carried.categoryId,
-                            index: continuousDrag.carried.index, height: continuousDrag.carried.height }
-                        : undefined}
                       onReorderTasks={reorderTasks}
             onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
             onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
@@ -1152,13 +1149,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           );
         })}
       </Swiper>
-      )}
-      {continuousDrag.carried && (
-        <div role="status" aria-live="polite" data-testid="cross-day-drag-status"
-          className="pointer-events-none fixed left-1/2 top-4 z-[90] -translate-x-1/2 rounded-lg border border-emerald-500/40 bg-surface px-3 py-1.5 text-xs text-white shadow-xl">
-          Moving task to {continuousDrag.carried.date}
-          {continuousDrag.edgeHint !== 0 ? ' · Continue holding at edge' : ''}
-        </div>
       )}
       {continuousDrag.overlay}
       <AnimatePresence initial={false}>

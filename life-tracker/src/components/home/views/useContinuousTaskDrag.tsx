@@ -36,6 +36,8 @@ interface Session {
   direction: -1 | 0 | 1;
   inFlight: boolean;
   lastSettledIndex: number;
+  expectedIndex: number | null;
+  expectedDate: string | null;
   target: { categoryId: string; index: number };
 }
 
@@ -80,7 +82,7 @@ export function useContinuousTaskDrag({
   const cooldownTimerRef = React.useRef<number | null>(null);
   const transitionTimerRef = React.useRef<number | null>(null);
   const [carried, setCarried] = React.useState<CarriedTask | null>(null);
-  const [edgeHint, setEdgeHint] = React.useState<-1 | 0 | 1>(0);
+  const overlayRef = React.useRef<HTMLDivElement | null>(null);
   const latestRef = React.useRef({ isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished });
 
   const clearTimers = React.useCallback(() => {
@@ -94,8 +96,20 @@ export function useContinuousTaskDrag({
     clearTimers();
     sessionRef.current = null;
     setCarried(null);
-    setEdgeHint(0);
   }, [clearTimers]);
+
+  // Position on a compositor layer: never re-render 181 logical slides for
+  // every phone touchmove, including movements during a slide animation.
+  const positionOverlay = React.useCallback((session: Session) => {
+    const point = session.point;
+    if (!point || !overlayRef.current) return;
+    overlayRef.current.style.transform =
+      `translate3d(${point.x - session.offset.x}px, ${point.y - session.offset.y}px, 0)`;
+  }, []);
+  const attachOverlay = React.useCallback((node: HTMLDivElement | null) => {
+    overlayRef.current = node;
+    if (node && sessionRef.current) positionOverlay(sessionRef.current);
+  }, [positionOverlay]);
 
   const projectAtPointer = React.useCallback((session: Session) => {
     if (session.stage !== 'external' || session.inFlight) return;
@@ -123,16 +137,18 @@ export function useContinuousTaskDrag({
       row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 < pointer.y).length : rows.length;
     session.target = { categoryId, index: clampTaskInsertIndex(index, rows.length) };
     const pos = pointer ?? { x: 0, y: 0 };
-    setCarried({
-      task: session.task, date: session.settledDate, ...session.target,
-      height: session.height, width: session.width, offset: session.offset,
-      x: pos.x, y: pos.y,
-    });
+    setCarried(current => current && current.date === session.settledDate &&
+      current.categoryId === session.target.categoryId &&
+      current.index === session.target.index ? current : {
+        task: session.task, date: session.settledDate, ...session.target,
+        height: session.height, width: session.width, offset: session.offset,
+        x: pos.x, y: pos.y,
+      });
   }, [swiperRef]);
 
   const advanceRef = React.useRef<() => void>(() => undefined);
   const scheduleRef = React.useRef<(delay: number) => void>(() => undefined);
-  const onSettledRef = React.useRef<(date: string) => void>(() => undefined);
+  const onSettledRef = React.useRef<(date: string, swiper: SwiperClass) => boolean>(() => false);
   React.useLayoutEffect(() => {
     latestRef.current = { isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished };
     advanceRef.current = () => {
@@ -146,10 +162,7 @@ export function useContinuousTaskDrag({
         session.task.userId !== latestRef.current.currentUserId) return;
     // Never navigate into a virtual-window edge. Parent selectedDate rebases
     // the 181-slide window near ±87; retry only after Swiper is recentered.
-    if (swiper.activeIndex <= 2 || swiper.activeIndex >= TOTAL_SLIDES - 3) {
-      setEdgeHint(session.direction);
-      return;
-    }
+    if (swiper.activeIndex <= 2 || swiper.activeIndex >= TOTAL_SLIDES - 3) return;
     const edge = session.point ? dragEdgeDirection(
       session.point.x, session.point.y, swiper.el.getBoundingClientRect()) : 0;
     if (edge !== session.direction) return;
@@ -176,13 +189,14 @@ export function useContinuousTaskDrag({
     session.inFlight = true;
     session.lastSettledIndex = swiper.activeIndex;
     const nextIndex = swiper.activeIndex + session.direction;
+    session.expectedIndex = nextIndex;
+    session.expectedDate = adjacentCalendarDate(session.settledDate, session.direction);
     swiper.slideTo(nextIndex);
     // Reduced-motion zero-duration swipes need the same settled handshake.
     if (swiper.params.speed === 0) {
       window.requestAnimationFrame(() => {
         if (sessionRef.current === session && session.inFlight) {
-          onSettledRef.current(adjacentCalendarDate(session.settledDate, (nextIndex > session.lastSettledIndex ? 1 : -1)));
-
+          onSettledRef.current(session.expectedDate ?? session.settledDate, swiper);
         }
       });
     }
@@ -190,11 +204,12 @@ export function useContinuousTaskDrag({
     transitionTimerRef.current = window.setTimeout(() => {
       if (sessionRef.current === session && session.inFlight) {
         session.inFlight = false;
+        session.expectedIndex = null;
+        session.expectedDate = null;
         // Restore the last settled day rather than displaying an undefined or
         // half-virtualized date. Do not advance again without a fresh edge move.
-        if (!swiper.destroyed) swiper.slideTo(session.lastSettledIndex, 0);
+        if (!swiper.destroyed) swiper.slideTo(session.lastSettledIndex, 0, false);
         session.direction = 0; // Fail closed; never run blind repeated slides.
-        setEdgeHint(0);
         latestRef.current.onFeedback('Day navigation paused. Move away and back to the edge.');
       }
     }, Math.max(MIN_TRANSITION_GUARD_MS, (swiper.params.speed || 0) + 300));
@@ -207,13 +222,18 @@ export function useContinuousTaskDrag({
     dwellTimerRef.current = window.setTimeout(() => advanceRef.current(), delay);
   };
 
-  onSettledRef.current = (date: string) => {
+  onSettledRef.current = (date: string, swiper: SwiperClass) => {
     const session = sessionRef.current;
-    if (!session || session.stage !== 'external' || !session.inFlight) return;
+    if (!session || session.stage !== 'external' || !session.inFlight ||
+        swiper !== swiperRef.current || swiper.destroyed ||
+        swiper.activeIndex !== session.expectedIndex ||
+        date !== session.expectedDate) return false;
     if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
     transitionTimerRef.current = null;
     session.inFlight = false;
-    session.lastSettledIndex = swiperRef.current?.activeIndex ?? session.lastSettledIndex;
+    session.lastSettledIndex = swiper.activeIndex;
+    session.expectedIndex = null;
+    session.expectedDate = null;
     session.settledDate = date;
     session.target = { categoryId: session.task.categoryId, index: Number.MAX_SAFE_INTEGER };
     window.requestAnimationFrame(() => {
@@ -225,6 +245,7 @@ export function useContinuousTaskDrag({
         if (sessionRef.current === session) scheduleRef.current(INITIAL_DWELL_MS);
       }, REPEAT_COOLDOWN_MS);
     });
+    return true;
   };
   }, [isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished, projectAtPointer, swiperRef]);
 
@@ -232,24 +253,31 @@ export function useContinuousTaskDrag({
     const session = sessionRef.current;
     if (!session || (session.pointerId !== null && event.pointerId !== session.pointerId)) return;
     session.point = { x: event.clientX, y: event.clientY };
+    if (session.stage === 'external') positionOverlay(session);
     const swiper = swiperRef.current;
     const rect = swiper?.el?.getBoundingClientRect();
     const next = rect ? dragEdgeDirection(event.clientX, event.clientY, rect) : 0;
     if (next !== session.direction) {
       session.direction = next;
-      setEdgeHint(next);
       if (dwellTimerRef.current !== null) window.clearTimeout(dwellTimerRef.current);
       dwellTimerRef.current = null;
       if (!session.inFlight && next) scheduleRef.current(INITIAL_DWELL_MS);
     }
-    if (session.stage === 'external') projectAtPointer(session);
-  }, [projectAtPointer, swiperRef]);
+    if (session.stage === 'external' && !session.inFlight) projectAtPointer(session);
+  }, [positionOverlay, projectAtPointer, swiperRef]);
 
   const finish = React.useCallback((commit: boolean) => {
     const session = sessionRef.current;
     if (!session) return;
     const external = session.stage === 'external';
     if (external) suppressedEndRef.current = session.task.id;
+    // Releasing mid-transition commits the last *settled* day. Without
+    // restoring its rendered index, an abandoned touch swipe can complete
+    // after cleanup and appear to teleport the Day View several dates.
+    const swiper = swiperRef.current;
+    if (session.inFlight && swiper && !swiper.destroyed) {
+      swiper.slideTo(session.lastSettledIndex, 0, false);
+    }
     if (external && session.pointerId !== null) {
       try {
         if (document.body.hasPointerCapture(session.pointerId)) {
@@ -396,12 +424,22 @@ export function useContinuousTaskDrag({
     }
     reset();
     suppressedEndRef.current = null;
+    // Swiper may have started its own gesture on the original pointerdown,
+    // before dnd-kit's long-press sensor activated. Retire only that native
+    // gesture: the active task now owns this pointer until release.
+    const swiper = swiperRef.current;
+    if (swiper && !swiper.destroyed) {
+      swiper.touchEventsData.isTouched = false;
+      swiper.touchEventsData.isMoved = false;
+      swiper.touchEventsData.startMoving = false;
+    }
     sessionRef.current = {
       task, sourceDate: task.date, settledDate: task.date, stage: 'native',
       point: { x: held.x, y: held.y }, pointerId: held.id,
       offset: { x: held.downX - rect.left, y: held.downY - rect.top },
       width: rect.width, height: rect.height,
       direction: 0, inFlight: false, lastSettledIndex: swiperRef.current?.activeIndex ?? 0,
+      expectedIndex: null, expectedDate: null,
       target: { categoryId: task.categoryId, index: Number.MAX_SAFE_INTEGER },
     };
     updatePoint({
@@ -430,26 +468,47 @@ export function useContinuousTaskDrag({
     return false;
   }, [finish, reset]);
 
-  const onSettled = React.useCallback((date: string) => onSettledRef.current(date), []);
+  const onSettled = React.useCallback((date: string, swiper: SwiperClass) => {
+    if (swiper.destroyed || swiper !== swiperRef.current) return false;
+    if (!sessionRef.current) return true;
+    return onSettledRef.current(date, swiper);
+  }, []);
+  const onSlideChanged = React.useCallback((swiper: SwiperClass) => {
+    if (swiper.destroyed || swiper !== swiperRef.current) return false;
+    const session = sessionRef.current;
+    if (!session) return true;
+    const expected = session.inFlight ? session.expectedIndex : session.lastSettledIndex;
+    if (expected !== null && swiper.activeIndex !== expected && !swiper.destroyed) {
+      // Block native Swiper momentum from jumping extra dates during a held drag.
+      swiper.slideTo(expected, 0, false);
+      return false;
+    }
+    return session.inFlight;
+  }, []);
   const onWindowRebased = React.useCallback(() => {
     const session = sessionRef.current;
     if (!session || session.stage !== 'external' ||
         heldRef.current?.id !== session.pointerId) return;
     window.requestAnimationFrame(() => {
       if (sessionRef.current === session) {
+        const swiper = swiperRef.current;
+        // A virtual-window rebase mounts a new Swiper centered at index 90.
+        if (swiper && !swiper.destroyed && !session.inFlight) {
+          session.lastSettledIndex = swiper.activeIndex;
+        }
+        positionOverlay(session);
         projectAtPointer(session);
         if (session.direction && !session.inFlight && !dwellTimerRef.current) {
           scheduleRef.current(INITIAL_DWELL_MS);
         }
       }
     });
-  }, [projectAtPointer]);
+  }, [positionOverlay, projectAtPointer, swiperRef]);
 
   const overlay = carried && createPortal(
-    <div aria-hidden="true" data-cross-day-drag-overlay="true" style={{
-      position: 'fixed', zIndex: 100, left: carried.x - carried.offset.x,
-      top: carried.y - carried.offset.y, width: carried.width,
-      pointerEvents: 'none',
+    <div ref={attachOverlay} aria-hidden="true" data-cross-day-drag-overlay="true" style={{
+      position: 'fixed', zIndex: 100, left: 0, top: 0, width: carried.width,
+      pointerEvents: 'none', willChange: 'transform',
     }}>
       <TaskItem task={carried.task}
         categoryColor={categories.find(c => c.id === carried.categoryId)?.color ?? '#6B7280'}
@@ -462,7 +521,7 @@ export function useContinuousTaskDrag({
     </div>, document.body);
 
   return {
-    carried, edgeHint, overlay, startTask, moveTask, onNativeEnd, onSettled,
-    onWindowRebased, cancel: reset,
+    carried, overlay, startTask, moveTask, onNativeEnd, onSettled,
+    onSlideChanged, onWindowRebased, cancel: reset,
   };
 }
