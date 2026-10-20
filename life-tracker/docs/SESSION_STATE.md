@@ -1,20 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #953 — simplify customizable accents to a single palette color with component placement toggles.
+Current task: #953 — v0.34.2 follow-up for navbar icon/label targeting and Settings subroute/icon accents.
 
-## Authorization and sources
-- Owner requested this redesign after v0.34.0 Preview: one account accent, per-component on/off, extend to actual UI text such as date headers, weekday headers, Settings text.
-- Base: accepted stable Preview `feature/ui-custom-colors-953-20261020@5e03730a55aba82acd05992ba78013a6b07edf8b` (v0.34.0) and current `dev@27c4725e382c8f57b6302c382fc4ece7f30d05b2`.
-- Task branch `chatgpt/953-single-accent-scope-20261020`; target same stable Preview for PATCH `v0.34.1`. Do not promote to dev/main without explicit approval.
+## Scope and authorization
+- Owner approved extending the v0.34.1 single App accent Preview with more placements, specifically Settings icons and Settings text on child routes; clarified that the Navbar switch must color **icons and text**, never navbar background.
+- Current `dev@27c4725e382c8f57b6302c382fc4ece7f30d05b2` v0.33.2 remains untouched.
+- Exact parent Preview `feature/ui-custom-colors-953-20261020@f7884132393b611b236fec853668f92cf6302468` v0.34.1 is validated; task branch `chatgpt/953-settings-nav-scope-20261020`; patch Preview v0.34.2. No dev/main/Production approval.
 
 ## Implementation
-- Remove per-component palette pickers; one existing App accent picker plus grouped placement switches.
-- Enable/disable UI roles through existing per-role synced settings keys `uiColor:<role>` storing boolean. Legacy cache and rows with `default`/`app`/curated color values safely migrate at read time. No extra backend schema.
-- Default enabled for formerly global-accent icons, labels and controls; other roles initially disabled. Explicit off changes existing accent-consumer classes to neutral theme surfaces/text, not an unrelated hard-coded accent.
-- New text roles: Calendar month/date header, Day View date, weekday headers/day numbers, main Settings/Preferences headings, row labels/descriptions. Preserve semantic category/task, holiday defaults, destructive text, selected day text contrast.
-- Continue CSS-scoped variables and existing color/contrast normalization; no per-cell React prop churn. Tests updated for one-accent semantics, legacy migration, account cache isolation, and switch behavior.
+- Preserve independent boolean role `uiColor:navigationBar` for backward-compatible prefs but redefine its effect as the foreground (all navbar icons, labels and indicator) with AA-contrast token against the fixed original bar surface; never recolor navbar fill. The independent active tab role remains unchanged in meaning, with contrast no longer derived from a custom bar.
+- New default-off `uiColor:settingsIcons` role. Scope only explicitly marked row/back/safe icons and exclude destructive/warning colors.
+- Extend existing `uiColor:settingsText` role to NotificationSettingsPage, ReleaseHistoryPage and ProfilePage as well as the existing Settings/Preferences roots. Mark label/hint text selectively rather than changing alert/error semantics.
+- Use shared theme CSS vars and owner-synced/cache role keys. No schema, backend, Auth, category/task palette, navbar layout or route changes.
 
-## Verification / next
-- Publish one coherent task commit with [verify:focused], repair any failures, squash via PR to stable Preview, then canonical Quality Gate + exact READY Vercel with Scratch identity. Separate physical-device, auth origin and cross-device/manual testing outstanding.
-- No backend, Production, dev/main or release 1.0 authorization.
+## Verification and handoff
+- Update affected behavior/unit tests and the documentation before a single focused `[verify:focused]` task commit.
+- If focused CI passes, squash PR to existing stable Preview; require full canonical Quality Gate, trusted Preview delivery and exact Vercel READY.
+- Manual Light/Dark/Black and physical mobile testing, Scratch login origin and actual multi-device settings sync remain owner checks; do not claim those were performed.
+- No stable Preview -> dev or main promotion and no Production change.

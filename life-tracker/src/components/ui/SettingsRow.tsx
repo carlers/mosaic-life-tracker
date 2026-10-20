@@ -42,7 +42,7 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
       <div className="flex items-center gap-3">
         <div
           className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            isDestructive ? 'bg-red-500/10' : 'bg-[#2A2A2A]'
+            isDestructive ? 'bg-red-500/10' : 'mosaic-settings-icon bg-[#2A2A2A]'
           }`}
           aria-hidden="true"
         >

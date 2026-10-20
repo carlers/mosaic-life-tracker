@@ -31,8 +31,8 @@ function RetentionChoice({ id, label, hint, value, options, format, onChange }: 
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3">
       <div className="min-w-0">
-        <label htmlFor={id} className="text-sm font-medium">{label}</label>
-        <p className="text-xs text-gray-400">{hint}</p>
+        <label htmlFor={id} className="mosaic-settings-label text-sm font-medium">{label}</label>
+        <p className="mosaic-settings-copy text-xs text-gray-400">{hint}</p>
       </div>
       <select
         id={id}
@@ -199,10 +199,10 @@ export const NotificationSettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full bg-[#111111] text-white">
+    <div className="mosaic-settings-page min-h-full bg-[#111111] text-white">
       <header className="flex items-center gap-3 border-b border-[#2A2A2A] px-4 py-3">
         <button type="button" onClick={back}
-          className="rounded-lg p-1 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          className="mosaic-settings-icon rounded-lg p-1 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label={backParent === '/notifications' ? 'Back to Alerts' : 'Back to Settings'}><ChevronLeft size={22}/></button>
         <h1 className="text-lg font-bold">Notifications</h1>
       </header>
@@ -228,7 +228,7 @@ export const NotificationSettingsPage: React.FC = () => {
             : `${hours} ${hours === 1 ? 'hour' : 'hours'}`}
           onChange={(hours) => saveRetention(ALERTS_READ_RETENTION_SETTING_KEY, hours)}
         />
-        <p className="px-4 pt-2 text-xs leading-relaxed text-gray-400">
+        <p className="mosaic-settings-copy px-4 pt-2 text-xs leading-relaxed text-gray-400">
           These choices sync across your devices. Reading an alert starts its
           own timer; receipts are permanently cleared after at most 37 days.
           Alerts become read when viewed in the active feed.
@@ -239,7 +239,7 @@ export const NotificationSettingsPage: React.FC = () => {
         <h2 className="px-4 pb-2 pt-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
           Activity types
         </h2>
-        <p className="px-4 pb-3 text-xs text-gray-400">
+        <p className="mosaic-settings-copy px-4 pb-3 text-xs text-gray-400">
           Choose which events appear in Alerts and which send system push.
           These choices sync across devices. Push also requires permission on each device.
         </p>
@@ -248,7 +248,7 @@ export const NotificationSettingsPage: React.FC = () => {
             <h3 className="mb-2 text-sm font-medium">{label}</h3>
             <div className="flex gap-4 text-xs text-gray-300">
               {(['feed', 'push'] as const).map(channel => (
-                <label key={channel} className="inline-flex items-center gap-2">
+                <label key={channel} className="mosaic-settings-copy inline-flex items-center gap-2">
                   <input type="checkbox"
                     aria-label={`${label} ${channel === 'feed' ? 'in-app Alerts' : 'push'}`}
                     checked={channelValues[type][channel]}

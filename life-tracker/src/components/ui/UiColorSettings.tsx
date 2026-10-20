@@ -63,7 +63,7 @@ export const UiColorSettings: React.FC = () => {
     <>
       <button type="button" className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         onClick={() => setOpen(true)} aria-label="Choose where accent color appears">
-        <span className="flex items-center gap-3">
+        <span className="mosaic-settings-icon flex items-center gap-3">
           <Palette size={18} className="text-emerald-500" aria-hidden="true" />
           <span><span className="block text-sm font-semibold text-white">Where accent color appears</span>
             <span className="block text-xs text-gray-400">Switch accents on for specific UI elements</span>

@@ -136,10 +136,10 @@ function SelectSettingRow({
   return (
     <div className="flex w-full items-center justify-between gap-3 px-4 py-3">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]" aria-hidden="true">
+        <div className="mosaic-settings-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]" aria-hidden="true">
           {icon}
         </div>
-        <label htmlFor={id} className="text-base font-medium text-white">{label}</label>
+        <label htmlFor={id} className="mosaic-settings-label text-base font-medium text-white">{label}</label>
       </div>
       <select
         id={id}
@@ -314,13 +314,13 @@ export const PreferencesPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="mosaic-settings-page flex min-h-full flex-col">
       <div className="sticky top-0 z-20 flex items-center justify-center border-b border-[#333333] bg-[#111111] px-4 py-3">
         <button
           type="button"
           onClick={handleBack}
           onPointerDown={(event) => event.stopPropagation()}
-          className="absolute left-4 rounded-lg p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          className="mosaic-settings-icon absolute left-4 rounded-lg p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Back"
         >
           <ChevronLeft size={20} aria-hidden="true" />
@@ -603,7 +603,7 @@ export const PreferencesPage: React.FC = () => {
           >
             <span className="flex min-w-0 items-center gap-3">
               <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]"
+                className="mosaic-settings-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]"
                 aria-hidden="true"
               >
                 <Palette size={17} className="text-emerald-500" />
