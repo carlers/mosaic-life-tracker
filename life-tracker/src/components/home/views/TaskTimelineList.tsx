@@ -194,7 +194,7 @@ const TimelineCategoryMenu: React.FC<TimelineCategoryMenuProps> = ({
             </button>
           ))}
         </div>
-        , document.body)
+        , document.body)}
     </div>
   );
 };
