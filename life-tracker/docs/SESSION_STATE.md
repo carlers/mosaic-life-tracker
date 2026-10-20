@@ -1,20 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #953, v0.34.4 — friend carousel, utility action icons and shared bottom sheet text accent placements.
+Current task: #951 — Day View timestamps and chronological Timeline Mode.
 
-## Authority and baseline
-- Owner requests expanding the single App accent roles to friend carousel, search icon, hamburger, bottom sheet text, etc. Existing Preferences > Accent color grouping remains.
-- Current baseline stable Preview `feature/ui-custom-colors-953-20261020@878b763fdef50570e8d28cdab15a3ea30aa7573a` v0.34.3 passed exact SHA full CI + trusted Vercel READY (issue #953 checkpoint); `dev@27c4725e382c8f57b6302c382fc4ece7f30d05b2` unchanged.
-- Task branch `chatgpt/953-carousel-sheet-icons-20261020`, expected patch v0.34.4, no dev/main/Production authorization.
+## Boundary
+- Working branch: `chatgpt/dayview-timeline-951-20261020`, based on `dev@0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0`.
+- Preview candidate `v0.36.0`, distinct from active #956 keyboard Preview `v0.35.0`.
+- Source/UI + owner settings only: no backend/schema changes, no Appwrite production operations, no Preview/dev/main promotion approval.
 
-## Scoped implementation
-- New default-off account-sync/cache `uiColor:friendCarousel`: selected pill uses accent background/border and readable contrast foreground; inactive pill labels use theme-aware readable accent text, while avatars, neutral inactive background and carousel interactions remain unchanged.
-- Existing `uiColor:icons` now colors explicitly marked neutral search/open/close, Home hamburger, menu icons, friend-carousel preferences and calendar arrows, but not semantic status icons.
-- New default-off `uiColor:bottomSheetText`: shared portal BottomSheet heading and explicitly marked static menu/placement/category-manager labels. No blanket descendant text or unsafe user-entered/task/category/message changes; contrast chosen for elevated Dark/Light sheets.
-- Keep single App accent palette and other roles, Preferences grouping, category/task colors, sheet dragging/keyboard/focus unchanged. No Appwrite schema/sync changes.
-- Update unit/Preferences DOM tests, theme documentation and package/app version v0.34.4.
+## Implementation
+- Add optional created/completed timestamps in ordinary Day View, with account-synced independent visibility and icon-vs-text labels.
+- Add account-synced Categories/Timeline mode and ascending/descending direction, client-only deterministic chronology, category and completion filters, and category-aware quick-add.
+- Reuse TaskItem for checkbox, edit, memo, photo, selection and task actions. Canonical category/manual task order remains unchanged.
+- Diary and shared-task content remains in Categories view; Timeline displays explicit guidance.
+- New pure sorting/formatting tests.
 
-## Delivery to complete
-- Make one coherent task commit [verify:focused] with this checkpoint, repair any CI issues, squash task PR to stable feature Preview, verify canonical Quality Gate and exact-SHA trusted Vercel READY. Manual device contrast/motion/sheet nesting plus Scratch browser-login, offline startup and cross-device sync remain unverified.
-- Do not merge Preview to dev/main or touch Production/1.0. Keep issue #953 open.
+## Verification
+- Connected GitHub editing environment cannot run local npm/browser tests or authenticated device testing.
+- Focused CI requested by task commit; check its result before claiming verified or preparing stable Preview.
+- Manual cross-device sheet swipes, task editor focus, scroll, selection, quick-add, and visual/a11y acceptance outstanding.
+
+## Next action
+- Inspect focused CI for this exact task SHA and fix any failures. Then submit to stable Preview for full canonical CI + trusted Vercel READY, obtain owner device acceptance; no automatic dev/main promotion.

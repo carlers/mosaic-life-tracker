@@ -61,3 +61,9 @@ export type WeekStartsOn = 0 | 1;
 export function resolveWeekStartsOn(weekStartsOnSunday: boolean): WeekStartsOn {
   return weekStartsOnSunday ? 0 : 1;
 }
+
+export const SHOW_TASK_CREATED_TIME_SETTING_KEY = 'showTaskCreatedTime';
+export const SHOW_TASK_COMPLETED_TIME_SETTING_KEY = 'showTaskCompletedTime';
+export const TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY = 'taskTimestampLabelStyle';
+export const DAY_VIEW_MODE_SETTING_KEY = 'dayViewMode';
+export const TIMELINE_DIRECTION_SETTING_KEY = 'dayTimelineDirection';
