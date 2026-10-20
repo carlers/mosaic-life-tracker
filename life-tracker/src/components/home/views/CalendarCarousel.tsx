@@ -3,7 +3,7 @@ import { CalendarSlide } from './CalendarSlide';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
-import type { WeekStartsOn, CalendarZoomDays } from '../../../lib/preferences';
+import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
 
 interface CalendarCarouselProps {
@@ -13,6 +13,7 @@ interface CalendarCarouselProps {
   emblaRef: (node: HTMLElement | null) => void;
   viewMode: CalendarViewMode;
   zoomDays?: CalendarZoomDays;
+  taskPreviewLimit?: CalendarTaskPreviewLimit;
   stickyWeekdayHeader?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
@@ -35,6 +36,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   emblaRef,
   viewMode,
   zoomDays = 7,
+  taskPreviewLimit = 'unlimited',
   stickyWeekdayHeader = false,
   activeIndex = 30,
   isZoomTransitioning = false,
@@ -141,6 +143,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                     date={date}
                     viewMode={viewMode}
                     zoomDays={zoomDays}
+                    taskPreviewLimit={taskPreviewLimit}
                     stickyWeekdayHeader={stickyWeekdayHeader}
                     onZoomMount={handleZoomMount}
                     onZoomScroll={handleZoomScroll}

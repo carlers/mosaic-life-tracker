@@ -4,6 +4,7 @@ import { TaskBlock } from './TaskBlock';
 import { UsersRound } from 'lucide-react';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { TaskDocument } from '../../../db/schema';
+import type { CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import {
   EMPTY_HOLIDAYS,
   holidayNames,
@@ -13,6 +14,7 @@ import {
 interface DayCellProps {
   date: Date;
   tasks: TaskDocument[];
+  taskPreviewLimit?: CalendarTaskPreviewLimit;
   sharedItems?: SharedTaskItem[];
   ownedSharedTaskIds?: ReadonlySet<string>;
   categories: Record<string, { color: string; name: string }>;
@@ -24,6 +26,7 @@ interface DayCellProps {
 const DayCellComponent: React.FC<DayCellProps> = ({
   date,
   tasks,
+  taskPreviewLimit = 'unlimited',
   sharedItems = [],
   ownedSharedTaskIds,
   categories,
@@ -53,6 +56,16 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     });
   }, [tasks]);
 
+  const ownedVisibleCount = taskPreviewLimit === 'unlimited'
+    ? sortedTasks.length : Math.min(sortedTasks.length, taskPreviewLimit);
+  const sharedVisibleCount = taskPreviewLimit === 'unlimited'
+    ? sharedItems.length : Math.min(sharedItems.length, taskPreviewLimit - ownedVisibleCount);
+  const visibleTasks = ownedVisibleCount === sortedTasks.length
+    ? sortedTasks : sortedTasks.slice(0, ownedVisibleCount);
+  const visibleShares = sharedVisibleCount === sharedItems.length
+    ? sharedItems : sharedItems.slice(0, sharedVisibleCount);
+  const hiddenTaskCount = tasks.length + sharedItems.length - ownedVisibleCount - sharedVisibleCount;
+
   // Accessible name includes the full date and a task count so a
   // screen-reader user gets the same information the visual grid
   // conveys (day-of-week coloring, today's border, task density).
@@ -64,8 +77,9 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     }
     const n = tasks.length + sharedItems.length;
     parts.push(n === 0 ? 'no tasks' : `${n} task${n === 1 ? '' : 's'}`);
+    if (hiddenTaskCount > 0) parts.push(`${hiddenTaskCount} more not previewed`);
     return parts.join(', ');
-  }, [date, holidays, tasks.length, sharedItems.length, isTodayDate]);
+  }, [date, holidays, tasks.length, sharedItems.length, hiddenTaskCount, isTodayDate]);
 
   const handleClick = onDayClick ? () => onDayClick(date) : undefined;
 
@@ -106,7 +120,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
             </span>
           </div>
         ))}
-        {sortedTasks.map((task) => (
+        {visibleTasks.map((task) => (
           <TaskBlock
             key={task.id}
             task={task}
@@ -114,13 +128,18 @@ const DayCellComponent: React.FC<DayCellProps> = ({
             isShared={ownedSharedTaskIds?.has(task.id)}
           />
         ))}
-        {sharedItems.map(item => (
+        {visibleShares.map(item => (
           <div key={item.id} title={'Shared by a friend: ' + item.title}
             className="flex min-w-0 items-center gap-1 rounded bg-surfaceHighlight px-1 py-0.5 text-[10px] text-gray-300">
             <UsersRound size={10} aria-hidden="true" className="shrink-0" />
             <span className="min-w-0 truncate">{item.title}</span>
           </div>
         ))}
+        {hiddenTaskCount > 0 && (
+          <div className="px-1 text-[10px] font-medium text-gray-400">
+            +{hiddenTaskCount} more tasks
+          </div>
+        )}
       </div>
     </button>
   );
@@ -139,6 +158,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
 function dayCellPropsEqual(previous: DayCellProps, next: DayCellProps): boolean {
   if (
     previous.date !== next.date ||
+    previous.taskPreviewLimit !== next.taskPreviewLimit ||
     previous.sharedItems !== next.sharedItems ||
     previous.ownedSharedTaskIds !== next.ownedSharedTaskIds ||
     previous.categories !== next.categories ||

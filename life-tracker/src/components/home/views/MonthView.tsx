@@ -13,12 +13,13 @@ import { CalendarZoomViewport } from './CalendarZoomViewport';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
-import type { WeekStartsOn, CalendarZoomDays } from '../../../lib/preferences';
+import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
 
 interface MonthViewProps {
   focusDate: Date;
   zoomDays?: CalendarZoomDays;
+  taskPreviewLimit?: CalendarTaskPreviewLimit;
   stickyWeekdayHeader?: boolean;
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;
@@ -46,6 +47,7 @@ const WEEKDAY_LABELS = [
 export const MonthView: React.FC<MonthViewProps> = ({
   focusDate,
   zoomDays = 7,
+  taskPreviewLimit = 'unlimited',
   stickyWeekdayHeader = false,
   onZoomMount,
   onZoomScroll,
@@ -147,6 +149,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                 >
                   <DayCell
                     date={day}
+                    taskPreviewLimit={taskPreviewLimit}
                     tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
                     sharedItems={sharedByDay?.get(dateStr)}
                     ownedSharedTaskIds={ownedSharedTaskIds}
