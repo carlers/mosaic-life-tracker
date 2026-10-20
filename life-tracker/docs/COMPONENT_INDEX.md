@@ -204,6 +204,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ReleaseHistoryPage | [src/pages/ReleaseHistoryPage.tsx](../src/pages/ReleaseHistoryPage.tsx) |
 | ResetPasswordPage | [src/pages/ResetPasswordPage.tsx](../src/pages/ResetPasswordPage.tsx) |
 | SettingsPage | [src/pages/SettingsPage.tsx](../src/pages/SettingsPage.tsx) |
+| UncompletedTasksPage | [src/pages/UncompletedTasksPage.tsx](../src/pages/UncompletedTasksPage.tsx) |
 
 ## route entrypoints
 
