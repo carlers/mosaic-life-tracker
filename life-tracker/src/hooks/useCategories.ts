@@ -7,6 +7,7 @@ import type { CategoryDocument } from '../db/schema';
 export function useCategories(enabled = true) {
   const { user } = useAuth();
   const reorderQueue = useRef(Promise.resolve());
+  const ownerId = user?.$id;
 
   const { data: categories, isLoading } = useRxCollection<CategoryDocument>({
     collection: 'categories',
@@ -24,7 +25,7 @@ export function useCategories(enabled = true) {
         'id' | 'userId' | 'isDeleted' | 'updatedAt'
       >
     ) => {
-      const uid = user?.$id;
+      const uid = ownerId;
       if (!uid) {
         console.error(
           '[useCategories] Cannot add category: User not authenticated'
@@ -46,7 +47,7 @@ export function useCategories(enabled = true) {
         throw error;
       }
     },
-    [user?.$id]
+    [ownerId]
   );
 
   const updateCategory = useCallback(
@@ -55,6 +56,11 @@ export function useCategories(enabled = true) {
       try {
         const doc = await db.categories.findOne(id).exec();
         if (!doc) throw new Error('Category no longer exists');
+        if (!ownerId || doc.userId !== ownerId)
+          throw new Error('[useCategories] Cannot update category for another account');
+        if ((updates.userId !== undefined && updates.userId !== ownerId) ||
+            (updates.id !== undefined && updates.id !== id))
+          throw new Error('[useCategories] Cannot reassign category identity');
         let changed = false;
         for (const key of Object.keys(updates) as (keyof CategoryDocument)[]) {
           // `updatedAt` is hook-managed; a caller passing it is not a
@@ -75,7 +81,7 @@ export function useCategories(enabled = true) {
         throw err;
       }
     },
-    []
+    [ownerId]
   );
 
   const deleteCategory = useCallback(
@@ -89,22 +95,27 @@ export function useCategories(enabled = true) {
     (newOrder: CategoryDocument[]) => {
       const order = [...newOrder];
       const applyOrder = async () => {
+        const uid = ownerId;
+        if (!uid) throw new Error('[useCategories] Cannot reorder without an account');
         const db = getDatabase();
-        for (let i = 0; i < order.length; i++) {
-          const id = order[i].id;
+        // Read and owner-check every entry before applying the first update.
+        // Stale category reorder arrays may retain another account's IDs.
+        const docs = await Promise.all(order.map(async ({ id }) => {
+          try { return await db.categories.findOne(id).exec(); }
+          catch (err) {
+            console.error(`[useCategories] reorder lookup failed for ${id}:`, err);
+            return null;
+          }
+        }));
+        if (docs.some(doc => doc && doc.userId !== uid))
+          throw new Error('[useCategories] Cannot reorder category for another account');
+        for (let i = 0; i < docs.length; i++) {
+          const doc = docs[i];
+          if (!doc || doc.order === i) continue;
           try {
-            const doc = await db.categories.findOne(id).exec();
-            if (!doc) continue;
-            if (doc.order === i) continue;
-            await doc.incrementalPatch({
-              order: i,
-              updatedAt: new Date().toISOString(),
-            });
+            await doc.incrementalPatch({ order: i, updatedAt: new Date().toISOString() });
           } catch (err) {
-            console.error(
-              `[useCategories] reorder failed for ${id}:`,
-              err
-            );
+            console.error(`[useCategories] reorder failed for ${order[i].id}:`, err);
           }
         }
       };
@@ -115,7 +126,7 @@ export function useCategories(enabled = true) {
       reorderQueue.current = queued.catch(() => undefined);
       return queued;
     },
-    []
+    [ownerId]
   );
 
   return {

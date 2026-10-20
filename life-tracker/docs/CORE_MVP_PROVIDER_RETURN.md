@@ -42,6 +42,12 @@ The Appwrite-backed `AuthProvider` now leaves shared-task queue scoping/online f
 
 **This is a fail-closed source guard, NOT operational Supabase sync.** Appwrite authentication and signup/profile actions remain coupled to legacy code, additional social/background paths require review, and core-only must not be enabled for real users until Supabase session persistence, two-domain sync routing, data preservation and old-PWA writer fencing are implemented.
 
+## Core local RxDB owner mutation hardening (2026-10-20)
+
+Owner-scoped **pull and push transports are not sufficient** if an old UI retained a task or category ID from a previously selected account. The normal task/category hooks now reject ID-addressed writes against any local RxDB document whose `userId` differs from the current authenticated `user.$id`. They also reject caller-supplied changes to the document's `id` or `userId`. Category reorder preflights **every** proposed local document's owner before applying any order writes, avoiding partial changes from a mixed-account drag snapshot. Synthetic React tests exercise foreign task edit/completion/tombstone, category edits/deletion/reorder, identity rewriting, account-switch rerender and ordinary same-owner actions. Full Appwrite and candidate core-only logic retain same-owner workflows; no cloud writers or user data are changed by the isolated code milestone.
+
+This is client-side defense in depth, **not** a replacement for server RLS, old-PWA fences or a signed session lifecycle. Race tests after unmount, cross-tab stale asynchronous callbacks and privileged server ownership still require independent end-to-end verification.
+
 ## Source-only Supabase Auth lifecycle pilot
 
 `supabase-poc/candidateAuthSession.ts` adds an **experimental non-persistent in-memory session manager** around Supabase GoTrue password/refresh/logout/signup/recover endpoints, layered over the existing server-verified `/auth/v1/user` boundary. Every login and refresh resolves the identity from the live Auth endpoint before acknowledging ownership, increases account epoch on token replacement and refuses stale in-flight replies. Switching account invalidates the old session **before** network sign-in. A failed server logout still clears the local token and reports revocation as unconfirmed; JWTs already issued may remain usable until expiration. No credentials/tokens are logged or written to storage.

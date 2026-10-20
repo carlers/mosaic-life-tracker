@@ -72,8 +72,15 @@ export function useTasks(enabled = true) {
       const db = getDatabase();
       const doc = await db.tasks.findOne(id).exec();
       if (doc) {
-        const now = new Date().toISOString();
+        // An ID retained by a stale view must never mutate another owner's
+        // offline document, even if that document is cached in this RxDB.
         const uid = user?.$id;
+        if (!uid || doc.userId !== uid)
+          throw new Error('[useTasks] Cannot update task for another account');
+        if ((updates.userId !== undefined && updates.userId !== uid) ||
+            (updates.id !== undefined && updates.id !== id))
+          throw new Error('[useTasks] Cannot reassign task identity');
+        const now = new Date().toISOString();
         const isSharedCompletion = Boolean(uid && doc.userId === uid &&
           typeof updates.completed === 'boolean' && updates.completed !== doc.completed &&
           hasCachedOwnedSharedTask(uid, id));
