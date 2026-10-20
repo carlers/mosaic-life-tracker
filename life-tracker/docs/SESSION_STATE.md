@@ -19,7 +19,7 @@ Current task: #1027 persistent offline restart and browser-tab session coordinat
 ## Checks and limits
 - Related Auth/domain/UI tests: 239 passed; the additional storage-failure case and 6 documentation contracts passed. TypeScript/lint and Supabase build/PWA/blocking size budgets passed; existing advisory overruns remain warnings.
 - Hosted offline/security run `387e9880b3b67fe8c38a71e5` passed reload/edit retention, reconnect/second-device convergence, shared-tab rotation, tab close, logout and account isolation. All 4 users retired; zero live rows. Earlier test setup failures also retired fixtures. Additional write-after-rotation/logout assertions await CI.
-- Exact-source focused/canonical/local-stack CI and deployed acceptance are pending. Physical installed Android/iOS PWA behavior remains untested.
+- Initial task focused #39465219280 passed. Lab #39465219282 passed 4 cases but offline boot could not register its service worker under self-signed HTTPS. Chromium reproduced the certificate rejection; loopback HTTP registered successfully. The lab now serves the validated build on loopback HTTP. Repaired exact-source CI/deployment and physical mobile acceptance remain pending.
 - Only hosted backend is mosaic-dev `hcxtiifzxoaflhjgoglb`; migrations already installed, never rerun `--apply-empty-project`. Environment Supabase/Vercel credentials and required network hosts are working. Operator evidence/scripts remain in `/workspace/mosaic-preview-operations/`.
 
 ## Remaining MVP gates

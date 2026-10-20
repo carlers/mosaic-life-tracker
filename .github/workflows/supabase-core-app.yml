@@ -78,9 +78,14 @@ jobs:
           export MOSAIC_CORE_APP_LAB=true
           export MOSAIC_CORE_SHORT_JWT=true
           npm run build
-          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > "$RUNNER_TEMP/mosaic-core-vite.log" 2>&1 &
+          # Service workers reject the development self-signed certificate even
+          # when a page accepts it. Loopback HTTP is a browser secure context.
+          # Serve the already validated build without the dev-only SSL plugin.
+          printf '%s\n' 'export default {};' > "$RUNNER_TEMP/mosaic-core-http.config.mjs"
+          export MOSAIC_E2E_BASE_URL=http://127.0.0.1:4173
+          npm run preview -- --config "$RUNNER_TEMP/mosaic-core-http.config.mjs" --host 127.0.0.1 --port 4173 --strictPort > "$RUNNER_TEMP/mosaic-core-vite.log" 2>&1 &
           for attempt in {1..40}; do
-            if [ -f node_modules/.vite/basic-ssl/_cert.pem ] && curl --cacert node_modules/.vite/basic-ssl/_cert.pem -fsS https://127.0.0.1:4173/ >/dev/null; then break; fi
+            if curl -fsS "$MOSAIC_E2E_BASE_URL/" >/dev/null; then break; fi
             sleep 1
           done
           tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --workers=1 --reporter=line,github
