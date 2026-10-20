@@ -86,12 +86,9 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarWidth, setCalendarWidth] = useState(0);
-  const [pinchOverride, setPinchOverride] = useState<CalendarZoomDays | null>(null);
-  useEffect(() => {
-    if (pinchOverride === zoomPreference || !pinchGestureEnabled) setPinchOverride(null);
-  }, [pinchOverride, zoomPreference, pinchGestureEnabled]);
   const handlePinchChange = useCallback((days: CalendarZoomDays) => {
-    setPinchOverride(days);
+    // The account-synced settings subscription is the single source of truth.
+    // Avoid render-time overrides that can race with another device's choice.
     onZoomPreferenceChange?.(days);
   }, [onZoomPreferenceChange]);
   const calendarHostRef = useRef<HTMLDivElement>(null);
@@ -106,10 +103,9 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     observer.observe(host);
     return () => observer.disconnect();
   }, [zoomPreference, pinchGestureEnabled, isActive]);
-  const effectiveZoomPreference = pinchOverride ?? zoomPreference;
   const zoomDays: CalendarZoomDays =
-    effectiveZoomPreference !== 7 && calendarWidth > 0 && calendarWidth <= 700
-      ? effectiveZoomPreference
+    zoomPreference !== 7 && calendarWidth > 0 && calendarWidth <= 700
+      ? zoomPreference
       : 7;
   const allowPinch = pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
