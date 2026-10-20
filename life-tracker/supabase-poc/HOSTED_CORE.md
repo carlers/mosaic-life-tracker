@@ -11,6 +11,7 @@ Run from `life-tracker/`, with Node 22 and installed app/browser dependencies:
 node supabase-poc/hosted-core.mjs --inspect
 node supabase-poc/hosted-core.mjs --probe
 node supabase-poc/hosted-core.mjs --ui
+node supabase-poc/hosted-core.mjs --conflicts
 ```
 
 In a managed environment where Node must use the configured HTTP proxy, set
@@ -80,6 +81,16 @@ round trips; the local lab retains its own shorter limits. Failure diagnostics
 include bounded request method/path/status counts and network errors, never
 request headers or bodies. Disposable passwords and access tokens are redacted
 from assertion errors.
+
+`--conflicts` runs the signed security checks and a separate disposable browser
+contract: lose a real create response, edit offline while another signed session
+changes the cloud row, review both versions, refresh a newer local draft, reject a
+stale cloud choice, explicitly keep the device version and verify another device.
+Identical response-lost replays may recover automatically; cloud divergence makes
+this review scenario deterministic. `MOSAIC_CORE_REVIEW_SCREENSHOT_DIR` optionally
+captures only the disposable comparison in Light, Dark and Black. It never captures
+login fields or credential-bearing traces. These are browser screenshots, not
+physical-device acceptance.
 
 Finally, the runner tombstones fixture rows through signed CAS, freezes their
 authorities and bans their Auth accounts. It preserves revisions and tombstones;

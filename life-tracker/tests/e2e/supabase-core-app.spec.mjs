@@ -1,4 +1,6 @@
 import { randomBytes } from 'node:crypto';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 
 const url = process.env.MOSAIC_SB_LOCAL_URL;
@@ -331,9 +333,12 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
     owner.token = (await observer.json()).access_token;
     let attempts = 0;
     let refreshed = false;
+    let allowRefresh = false;
     await page.route(url + '/auth/v1/token?grant_type=refresh_token', async route => {
       attempts++;
-      if (attempts === 1) await route.abort('failed');
+      // Browser online/focus events may overlap the explicit reconnect event.
+      // Keep the outage in force until its retained-draft assertions complete.
+      if (!allowRefresh) await route.abort('failed');
       else await route.continue();
     });
     page.on('response', response => {
@@ -342,9 +347,11 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
     });
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await expect.poll(() => attempts).toBe(1);
+    await expect.poll(() => attempts).toBeGreaterThanOrEqual(1);
     await expect(page.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
     expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
+    expect(refreshed).toBe(false);
+    allowRefresh = true;
     await expect.poll(async () => {
       await page.evaluate(() => window.dispatchEvent(new Event('online')));
       return refreshed;
@@ -360,6 +367,140 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
     const redacted = [owner.password, owner.token, oldToken, ...browserTokens].reduce((text, secret) =>
       secret ? text.replaceAll(secret, '[redacted]') : text, String(error));
     throw new Error(redacted + '\nSupabase request counts: ' + JSON.stringify(responses));
+  } finally {
+    await Promise.allSettled([context.close(), secondContext.close()]);
+  }
+});
+
+test('lost write acknowledgement: preserve offline draft and review changing cloud state', async ({ browser }) => {
+  const owner = await account();
+  const context = await browser.newContext({ ignoreHTTPSErrors: !hosted });
+  const secondContext = await browser.newContext({ ignoreHTTPSErrors: !hosted });
+  const tokens = [];
+  const responses = {};
+  let stage = 'sign-in';
+  try {
+    const page = await context.newPage();
+    page.on('response', async response => {
+      if (response.url().startsWith(url + '/')) {
+        const label = response.request().method() + ' ' + new URL(response.url()).pathname + ' ' + response.status();
+        responses[label] = (responses[label] ?? 0) + 1;
+      }
+      if (response.url().startsWith(url + '/auth/v1/token?') && response.status() === 200) {
+        const grant = await response.json().catch(() => null);
+        if (grant?.access_token) tokens.push(grant.access_token);
+      }
+    });
+    await signIn(page, owner);
+    await page.getByRole('button', { name: 'Open menu' }).click();
+    await page.getByRole('button', { name: 'Lists & Categories' }).click();
+    await page.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await page.getByLabel('Name', { exact: true }).fill('Conflict review list');
+    await page.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'categories')).length).toBe(1);
+    await page.keyboard.press('Escape');
+    await page.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    let lostAck = false;
+    let allowReads = false;
+    stage = 'lost create acknowledgement';
+    await page.route(url + '/rest/v1/mosaic_candidate_tasks**', async route => {
+      if (route.request().method() === 'POST' && !lostAck) {
+        const response = await route.fetch();
+        lostAck = response.ok();
+        await route.abort('failed'); // The real server committed, browser never received its acknowledgement.
+      } else if (route.request().method() === 'GET' && lostAck && !allowReads) {
+        await route.abort('failed'); // Prevent a pull from supplying the missing acknowledgement.
+      } else await route.continue();
+    });
+    await page.getByRole('button', { name: 'Add a task to Conflict review list', exact: true }).first().click();
+    await page.getByPlaceholder('Add a task to Conflict review list...').first().fill('My preserved draft');
+    await page.getByPlaceholder('Add a task to Conflict review list...').first().press('Enter');
+    await expect.poll(() => lostAck).toBe(true);
+    stage = 'offline edit';
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'Mark complete', exact: true }).first().click();
+    expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
+    await expect(page.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+    // A dropped response alone can recover safely by retrying the identical
+    // create before pushing the newer edit. Make the conflict unambiguous:
+    // another signed session changes the cloud row while this device is offline.
+    expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'acquire' })).ok).toBe(true);
+    const offlineMaster = (await rows(owner, 'tasks'))[0];
+    const offlineChange = await api('/rest/v1/rpc/mosaic_candidate_cas_task', owner.token, {
+      p_id: offlineMaster.id, p_expected_seq: offlineMaster.change_seq,
+      p_patch: { title: 'Cloud draft while offline' },
+    });
+    expect(offlineChange.ok).toBe(true);
+    expect((await offlineChange.json()).title).toBe('Cloud draft while offline');
+    allowReads = true;
+    await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    stage = 'pending review';
+    await page.getByRole('button', { name: 'Online', exact: true }).click();
+    const review = page.getByRole('region', { name: 'Changes needing review' });
+    await expect(review).toBeVisible({ timeout: 25_000 });
+    // A native retry may still hold the original create snapshot. Refresh must
+    // reconstruct review from the durable offline edit before it can be chosen.
+    await review.getByRole('button', { name: 'Refresh comparison' }).click();
+    await expect(review.getByRole('row', { name: 'Completed Yes No' })).toBeVisible();
+    expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
+    // Optional operator screenshots contain only this disposable comparison,
+    // never login fields, headers, tokens or a credential-bearing trace.
+    const screenshots = process.env.MOSAIC_CORE_REVIEW_SCREENSHOT_DIR;
+    if (screenshots) {
+      await mkdir(screenshots, { recursive: true });
+      const originalTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+      try {
+        for (const theme of ['light', 'dark', 'black']) {
+          await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+          await review.screenshot({ path: join(screenshots, 'conflict-' + theme + '.png') });
+        }
+      } finally {
+        await page.evaluate(value => value === null
+          ? document.documentElement.removeAttribute('data-theme')
+          : document.documentElement.setAttribute('data-theme', value), originalTheme);
+      }
+    }
+    // Editing while parked must rebuild the comparison from durable current
+    // local state, never apply or acknowledge the old queued snapshot.
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'My preserved draft', exact: true }).first().dblclick();
+    await page.getByLabel('Task title', { exact: true }).fill('My latest draft');
+    await page.getByLabel('Task title', { exact: true }).press('Enter');
+    stage = 'review of newer local draft';
+    await page.getByRole('button', { name: 'Online', exact: true }).click();
+    await review.getByRole('button', { name: 'Refresh comparison' }).click();
+    await expect(review.getByRole('article', { name: 'Review My latest draft' })).toBeVisible();
+    expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'acquire' })).ok).toBe(true);
+    const original = (await rows(owner, 'tasks'))[0];
+    const changed = await api('/rest/v1/rpc/mosaic_candidate_cas_task', owner.token, {
+      p_id: original.id, p_expected_seq: original.change_seq, p_patch: { title: 'Cloud changed again' },
+    });
+    expect(changed.ok).toBe(true);
+    expect((await changed.json()).title).toBe('Cloud changed again');
+    stage = 'stale cloud choice';
+    await review.getByRole('button', { name: 'Keep my version' }).click();
+    await expect(review.getByRole('alert')).toBeVisible();
+    await expect(review.getByRole('cell', { name: 'Cloud changed again', exact: true })).toBeVisible();
+    expect((await rows(owner, 'tasks'))[0].title).toBe('Cloud changed again');
+    stage = 'confirmed choice';
+    await review.getByRole('button', { name: 'Keep my version' }).click();
+    await expect(review).not.toBeVisible({ timeout: 25_000 });
+    await expect.poll(async () => {
+      const task = (await rows(owner, 'tasks'))[0];
+      return task.completed && task.title === 'My latest draft';
+    }).toBe(true);
+    await page.keyboard.press('Escape');
+    stage = 'second-device convergence';
+    const second = await secondContext.newPage();
+    await signIn(second, owner);
+    await second.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await expect(second.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+    await expect(second.getByText('My latest draft', { exact: true }).first()).toBeVisible();
+  } catch (error) {
+    const safe = [owner.password, owner.token, ...tokens].reduce((text, secret) =>
+      secret ? text.replaceAll(secret, '[redacted]') : text, String(error));
+    throw new Error(stage + ': ' + safe + '\nRequest counts: ' + JSON.stringify(responses));
   } finally {
     await Promise.allSettled([context.close(), secondContext.close()]);
   }

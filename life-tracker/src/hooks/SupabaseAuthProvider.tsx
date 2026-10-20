@@ -8,6 +8,8 @@ import { scopeAccountWork } from '../lib/accountWorkScope';
 import { publishSyncStatus, scopeSyncStatusToUser } from '../lib/syncStatus';
 import { registerCoreSync } from '../lib/appSync';
 import { reportConnectivityResult } from '../lib/connectivity';
+import { registerSyncConflictReview } from '../lib/syncConflictReview';
+import { presentSupabaseConflicts } from '../lib/supabaseConflictReview';
 
 function createRuntime(config: Extract<CoreBackendConfig, { driver: 'supabase' }>) {
   // Memory-only credentials in this first disposable-account slice: no shared
@@ -40,6 +42,7 @@ export default function SupabaseAuthProvider({ config, children }: {
   const busy = useRef(false);
   const mounted = useRef(true);
   const retrySync = useRef(async () => {});
+  const conflictReview = useRef<ReturnType<typeof registerSyncConflictReview> | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -51,6 +54,58 @@ export default function SupabaseAuthProvider({ config, children }: {
         void runtime.coordinator.signOut().catch(() => {});
     };
   }, [runtime]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    const restart = async () => {
+      await runtime.coordinator.refreshAndRestart();
+      if (!mounted.current) {
+        await runtime.coordinator.signOut();
+        throw new Error('Account closed during review');
+      }
+      if (active) setSyncGeneration(generation => generation + 1);
+    };
+    const perform = async (action: () => Promise<void>) => {
+      if (busy.current || !active || navigator.onLine === false)
+        throw new Error('Reconnect and wait for account recovery before reviewing');
+      busy.current = true;
+      try {
+        if (runtime.coordinator.getPhase() === 'paused' ||
+            (runtime.session.getExpiresAt() ?? 0) <= Date.now()) {
+          await restart();
+          throw new Error('Connection renewed. Review the current versions again');
+        }
+        await action();
+      } catch (error) {
+        if (active && ['blocked', 'signed-out'].includes(runtime.coordinator.getPhase())) {
+          scopeAccountWork(null);
+          scopeSyncStatusToUser(null);
+          setUser(null);
+          setError('Session recovery could not be confirmed. Reload and sign in again. Local changes are retained.');
+        }
+        throw error;
+      } finally { busy.current = false; }
+    };
+    const registration = registerSyncConflictReview(user.$id, {
+      refresh: conflict => perform(async () => {
+        const result = await runtime.coordinator.refreshConflict(conflict.domain, conflict.documentId);
+        // A parked native batch holds its original snapshot. Restart through
+        // the normal guarded lifecycle to rebuild review of newer local edits.
+        if (result.state === 'local-changed') await restart();
+      }),
+      keepLocal: conflict => perform(async () => {
+        if (!conflict.revision) throw new Error('A current cloud version is required');
+        await runtime.coordinator.keepLocalConflict(conflict.domain, conflict.documentId, conflict.revision);
+      }),
+    });
+    conflictReview.current = registration;
+    return () => {
+      active = false;
+      registration.unregister();
+      if (conflictReview.current === registration) conflictReview.current = null;
+    };
+  }, [runtime, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -114,11 +169,22 @@ export default function SupabaseAuthProvider({ config, children }: {
       });
     };
     const activity = [false, false];
+    let conflictCount = 0;
+    const unsubscribeConflicts = runtime.coordinator.subscribeConflicts(() => {
+      if (!active) return;
+      const conflicts = presentSupabaseConflicts(runtime.coordinator.getPendingConflicts());
+      conflictCount = conflicts.length;
+      conflictReview.current?.publish(conflicts);
+      publishSyncStatus({
+        isSyncing: activity.some(Boolean) && conflictCount === 0,
+        notice: conflictCount ? 'Some changes need your review. Your edits are kept on this device.' : null,
+      });
+    });
     const subscriptions = states?.flatMap((state, index) => [
       state.active$.subscribe(value => {
         if (!active) return;
         activity[index] = value;
-        publishSyncStatus({ isSyncing: activity.some(Boolean) });
+        publishSyncStatus({ isSyncing: activity.some(Boolean) && conflictCount === 0 });
         if (!activity.some(Boolean)) recordSettled();
       }),
       state.error$.subscribe(() => {
@@ -135,6 +201,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       active = false;
       retrySync.current = async () => {};
       unregister();
+      unsubscribeConflicts();
       subscriptions.forEach(subscription => subscription.unsubscribe());
       window.clearInterval(timer);
       window.removeEventListener('online', online);

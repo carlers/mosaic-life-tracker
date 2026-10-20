@@ -390,15 +390,17 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const mode = process.argv[2] ?? '--inspect';
-    check(process.argv.length <= 3 && ['--inspect', '--apply-empty-project', '--probe', '--ui'].includes(mode),
-      'Usage: hosted-core.mjs [--inspect|--apply-empty-project|--probe|--ui]');
+    check(process.argv.length <= 3 &&
+      ['--inspect', '--apply-empty-project', '--probe', '--ui', '--conflicts'].includes(mode),
+    'Usage: hosted-core.mjs [--inspect|--apply-empty-project|--probe|--ui|--conflicts]');
     const client = await connect({ token: process.env.SUPABASE_ACCESS_TOKEN });
     const result = mode === '--apply-empty-project' ? await applyEmptyProject(client) :
-      mode === '--probe' || mode === '--ui' ? await runHostedProbe(client, {
+      ['--probe', '--ui', '--conflicts'].includes(mode) ? await runHostedProbe(client, {
         onProgress: progress => process.stdout.write(JSON.stringify(progress) + '\n'),
-        ...(mode === '--ui' ? { exerciseUi: async accounts => {
+        ...(['--ui', '--conflicts'].includes(mode) ? { exerciseUi: async accounts => {
           const { exerciseHostedUi } = await import('./hosted-core-ui.mjs');
-          await exerciseHostedUi(client, accounts, ORIGIN);
+          await exerciseHostedUi(client, accounts, ORIGIN, null,
+            mode === '--conflicts' ? 'lost write acknowledgement' : 'real Mosaic UI');
         } } : {}),
       }) : await inspect(client);
     process.stdout.write(JSON.stringify({ ok: true, mode, result }, null, 2) + '\n');

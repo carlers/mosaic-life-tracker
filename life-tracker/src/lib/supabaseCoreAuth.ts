@@ -258,6 +258,20 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
     signOut,
     refreshAndRestart,
     resync,
+    getPendingConflicts: () => phase === 'active' && active
+      ? active.run.getPendingConflicts() : { tasks: [], categories: [] },
+    subscribeConflicts(listener: () => void) {
+      if (phase !== 'active' || !active) return () => {};
+      return active.run.subscribeConflicts(listener);
+    },
+    async refreshConflict(domain: 'tasks' | 'categories', id: string) {
+      if (phase !== 'active' || !active) throw new Error('Core conflict account is not active');
+      return active.run.refreshConflict(domain, id);
+    },
+    async keepLocalConflict(domain: 'tasks' | 'categories', id: string, revision: string) {
+      if (phase !== 'active' || !active) throw new Error('Core conflict account is not active');
+      return active.run.keepLocalConflict(domain, id, revision);
+    },
     getPhase: () => phase,
     getReplicationStates: () => phase === 'active' && active
       ? [active.run.taskState, active.run.categoryState] : null,

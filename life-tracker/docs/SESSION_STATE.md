@@ -1,28 +1,27 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1027 Supabase recovery and isolated Preview, v0.32.1.
+Current task: #1027 preserved-draft conflict review; internal completion of candidate v0.32.1.
 
-## Scope and source
-- Baseline `refactor/1027-supabase-hosted-20261020@1bb2521c`, PR #1096: canonical, real lab and trusted Preview passed. Full resume: #1027 comment 6292548078.
-- Task `codex/1027-supabase-recovery-20261020`, PR #1103 → `feature/1027-supabase-recovery-20261020`. PATCH 0.32.1. Unrelated dev is 0.34.4; future promotion needs version/integration reconciliation.
-- No Production, real-user migration, dev/main promotion or 1.0. Keep #1027/#967 open; Diary #1029 follows core release.
+## Accepted baseline and scope
+- `feature/1027-supabase-recovery-20261020@f010d9008adef064d429d9e968426c9afe513a9a`, PR #1103: canonical #39444309814 and real Supabase lab/artifact #39444309733 passed. Resume evidence: #1027 comment 6293773081.
+- Current task `codex/1027-supabase-recovery-conflicts-20261020` targets that stable branch. Version impact NONE: the isolated Supabase v0.32.1 Preview remains undelivered. No Production, real-user migration, dev/main promotion or 1.0. Diary #1029 follows core MVP release.
+- Recovery pauses local writers before same-owner token rotation, then releases/reacquires signed authority. Ambiguous failures retain drafts; denied Auth/unconfirmed cancellation block replacement writers. The real expiry test starts from an acknowledged task; it does not cover a lost create response.
 
-## Implementation
-- Expired-token recovery pauses both local writers before rotating credentials, retaining the server lease. Verified same-owner rotation precedes original lease release and guarded restart. Ambiguous failure retains drafts/credentials and permits bounded retry; denied refresh or uncertain cancellation blocks replacement writers. Terminal recovery requires reload/sign-in.
-- Lease release is bound to the original owner; late refresh completion after provider unmount stops the new writer. GoTrue numeric `code` plus symbolic `error_code` is handled.
-- Disposable local lab uses real 60-second JWTs. Hosted Auth policy is unchanged. Browser test verifies server expiry, failed first refresh, retry and second-device convergence.
-- Separate public-input Supabase CI artifact follows the real lab. Exact source/provider/origin/key-digest, archive inventory and routing are verified; ordinary Appwrite receiver rejects it. Hosted UI can test deployed bytes with exact source/provider checks before login. Runbook: `supabase-poc/HOSTED_CORE.md`.
+## Current implementation
+- Pending conflicts now reach an owner-scoped, provider-neutral review hook and Sync Status UI. It shows device/cloud differences, explicit keep-device/deletion action and refresh comparison; closing retains the draft. No silent master-wins resolution.
+- Existing signed conditional resolution requires the exact reviewed cloud revision and unchanged local snapshot. A cloud change updates the comparison and rejects the stale choice. Missing masters/protected-field changes cannot be applied automatically. There is not yet a discard-device/use-cloud action.
+- Local edits made while an old native batch is parked require a guarded writer restart on Refresh comparison. It rebuilds review from current durable RxDB state. Review work is serialized and drained before writer cancellation/lease release; queued/stale-owner actions are rejected. Account changes clear the review registry.
+- Real browser case drops a committed create response, edits offline while another signed session changes the cloud row, reviews the durable draft, edits again while parked, rejects a stale choice, then resolves and verifies a second device. Identical lost-response replay can safely recover automatically; cloud divergence makes review deterministic.
 
-## Evidence and current repair
-- Recovery `df574b72`: focused #39440410286 and real lab #39440410258 passed, including three browser/server cases.
-- Combined focused #39441461446: 2110 tests passed; checkpoint length failed. This repair shortens the handoff. Supabase build/PWA/blocking sizes and reconstruction of 175 static files passed locally.
-- Lab #39441461417 intermittently failed post-refresh replay. Expiry setup now waits for initial push acknowledgement; server insert alone can race it. Added bounded request diagnostics; no relaxed replay assertion/deadline. Repeat must pass before deployment.
-- Hosted baseline UI/security run `defe11f80a976cb7fa409fb5` passed; all four disposable users retired, no live fixture rows. Never rerun empty-project rollout.
+## Checks and environment
+- Local runtime/owner/UI and hosted safety/documentation tests, lint and Supabase build/PWA/blocking sizes passed. Hosted conflict/security run `0c81e95968d43d8d80ef5cde` passed: 25 denied writes, 2 CAS winners/2 conflicts, 5 guard denials; all 4 accounts retired with no live rows. Light/Dark/Black comparison screenshots inspected; physical mobile remains open.
+- Initial b375f887 lab #39448325770 passed conflict acceptance but failed expiry's exact-one-refresh timing assertion. Repair holds refresh requests offline until retained-draft checks finish, then permits signed retry. The previous hosted conflict scenario allowed valid identical replay; the deterministic cloud-divergence case now passes. Batch still needs exact-SHA focused and real lab acceptance.
+- Deployment is blocked by enforced egress. Saved draft adds `mosaic-supabase-core-preview.vercel.app`, `productionresultssa7.blob.core.windows.net` (task artifact), and `productionresultssa1.blob.core.windows.net` (stable artifact). Requires user Review/Save/Publish. No Supabase deployment has been created; do not substitute a local rebuild for CI bytes.
+- Supabase/Vercel environment credentials work. Only backend target is mosaic-dev / `hcxtiifzxoaflhjgoglb`; exact Vercel scope and deployment procedure are in `supabase-poc/HOSTED_CORE.md`.
+- Hosted Auth has confirmation enabled, localhost redirect, no custom SMTP; signup/recovery acceptance remains open. Scratch Appwrite is suspended, Oracle is unprovisioned. Never substitute Production or request unavailable Appwrite credentials repeatedly.
 
 ## Next action
-- Only Supabase target: mosaic-dev / `hcxtiifzxoaflhjgoglb`. Management/Auth readback works; confirmation and refresh rotation enabled, leaked-password protection disabled.
-- Vercel token/project readback works. Planned isolated alias `mosaic-supabase-core-preview.vercel.app` was unassigned. Its environment allowlist draft needs user publication. No deployment claimed. Preserve shared Vercel variables/protection/aliases.
-- Scratch Appwrite `6a96e82d000d1310b3be` is suspended after free-tier exhaustion. Oracle VM/endpoint/project are unprovisioned. Do not request unavailable credentials or substitute Production.
-- Complete final focused/lab/artifact checks, squash PR #1103 only after green, then stable canonical acceptance. Deploy exact Supabase CI bytes and verify hosted UI/retirement when hostname access is available. Record remote evidence in #1027; no status-only post-green commit.
-- Remaining MVP: persistent offline cold-start/cross-tab recovery, conflict UI, old Appwrite writer fencing/identity mapping, reversible three-backend transfers preserving drafts/tombstones/revisions, encrypted restore and mobile acceptance. Live migration tests await functioning Scratch and Oracle.
+- Push repaired batch for focused and real lab acceptance, squash only after green, then stable canonical/lab acceptance. Hosted reproduction: `node supabase-poc/hosted-core.mjs --conflicts`. Record results in #1027 without a status-only post-green commit.
+- Deploy verified CI bytes after network publication; verify actual hosted UI/retirement. Operator helpers are in `/workspace/mosaic-preview-operations/`.
+- Remaining MVP: persistent offline cold-start/cross-tab rotation, complete Auth recovery, existing-user mapping/old Appwrite writer fencing, reversible three-backend transfers, encrypted restore and physical mobile acceptance. Keep #1027/#967 open.
