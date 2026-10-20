@@ -658,7 +658,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               }
             }}
             style={{ ...SHEET_SURFACE_STYLE, zIndex: 60 + layerDepth * 20, transformOrigin: 'bottom center' }}
-            className={`fixed bottom-0 left-0 right-0 bg-surface text-white shadow-2xl border flex flex-col overflow-hidden ${layerIndex > 0 ? 'border-[var(--mosaic-border-strong)] shadow-[0_-12px_30px_rgba(0,0,0,0.28)]' : 'border-[var(--mosaic-border)]'} ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
+            className={`mosaic-bottom-sheet fixed bottom-0 left-0 right-0 bg-surface text-white shadow-2xl border flex flex-col overflow-hidden ${layerIndex > 0 ? 'border-[var(--mosaic-border-strong)] shadow-[0_-12px_30px_rgba(0,0,0,0.28)]' : 'border-[var(--mosaic-border)]'} ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
           >
             <div
               className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${
@@ -679,7 +679,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               {title && (
                 <h3
                   id={titleId}
-                  className="text-lg font-semibold w-full text-center"
+                  className="mosaic-sheet-heading text-lg font-semibold w-full text-center"
                 >
                   {title}
                 </h3>

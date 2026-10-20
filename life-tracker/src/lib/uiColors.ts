@@ -5,7 +5,7 @@ import { getAccentColorTokens } from './accentColor';
 export const UI_COLOR_ROLES = [
   'calendarGrid', 'profileRing', 'navigationBar', 'navigationActive',
   'icons', 'text', 'controls', 'holidays', 'dateHeaders', 'dayHeaders',
-  'settingsText', 'settingsIcons', 'generalText',
+  'settingsText', 'settingsIcons', 'generalText', 'friendCarousel', 'bottomSheetText',
 ] as const;
 export type UiColorRole = typeof UI_COLOR_ROLES[number];
 export type UiColorChoices = Record<UiColorRole, boolean>;
@@ -23,12 +23,14 @@ export const UI_COLOR_LABELS: Record<UiColorRole, string> = {
   settingsText: 'Settings and subpage text',
   settingsIcons: 'Settings and subpage icons',
   generalText: 'General page text',
+  friendCarousel: 'Friend carousel selection and labels',
+  bottomSheetText: 'Bottom sheet headings and labels',
 };
 export const UI_COLOR_GROUPS: readonly { title: string; roles: readonly UiColorRole[] }[] = [
   { title: 'Calendar', roles: ['calendarGrid', 'dateHeaders', 'dayHeaders', 'holidays'] },
-  { title: 'Navigation and profile', roles: ['navigationBar', 'navigationActive', 'profileRing'] },
+  { title: 'Navigation and profile', roles: ['navigationBar', 'navigationActive', 'profileRing', 'friendCarousel'] },
   { title: 'Settings', roles: ['settingsText', 'settingsIcons'] },
-  { title: 'Text across the app', roles: ['generalText', 'text', 'icons', 'controls'] },
+  { title: 'Text across the app', roles: ['generalText', 'bottomSheetText', 'text', 'icons', 'controls'] },
 ];
 // Preserve the existing global-accent styling without requiring a user migration.
 export const DEFAULT_ACCENT_ROLES: readonly UiColorRole[] = ['icons', 'text', 'controls'];
@@ -146,6 +148,15 @@ export function applyUiColors(
     }
     for (const suffix of suffixes) root.style.setProperty(prefix + suffix, entries[suffix]);
   }
+  // Bottom sheets use surface/highlight paints that differ from the page
+  // background. Contrast against the hardest composited dark/light variants.
+  if (values.bottomSheetText) {
+    root.style.setProperty('--mosaic-ui-sheet-label-dark', readableAccentOn(color, '#2A2A2A'));
+    root.style.setProperty('--mosaic-ui-sheet-label-light', readableAccentOn(color, '#F0F1F3'));
+  } else {
+    root.style.removeProperty('--mosaic-ui-sheet-label-dark');
+    root.style.removeProperty('--mosaic-ui-sheet-label-light');
+  }
   // The navbar background remains unchanged; foregrounds depend on that surface.
   if (values.navigationBar) {
     root.style.setProperty('--mosaic-ui-nav-label-dark', readableAccentOn(color, '#1E1E1E'));
@@ -153,6 +164,15 @@ export function applyUiColors(
   } else {
     root.style.removeProperty('--mosaic-ui-nav-label-dark');
     root.style.removeProperty('--mosaic-ui-nav-label-light');
+  }
+  // Selected friend pills use the single accent as a fill with an accessible
+  // foreground; inactive pills keep their neutral surface and readable text.
+  if (values.friendCarousel) {
+    root.style.setProperty('--mosaic-ui-carousel-inactive-dark', readableAccentOn(color, '#1E1E1E'));
+    root.style.setProperty('--mosaic-ui-carousel-inactive-light', readableAccentOn(color, '#F7F7F8'));
+  } else {
+    root.style.removeProperty('--mosaic-ui-carousel-inactive-dark');
+    root.style.removeProperty('--mosaic-ui-carousel-inactive-light');
   }
   if (values.navigationActive) {
     root.style.setProperty('--mosaic-ui-nav-active-dark', readableAccentOn(color, '#1E1E1E'));

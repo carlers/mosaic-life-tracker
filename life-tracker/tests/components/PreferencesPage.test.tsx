@@ -99,6 +99,18 @@ describe('PreferencesPage', () => {
     expect(mocks.setAccentColor).not.toHaveBeenCalled();
   });
 
+  it('offers friend carousel and sheet text as independent default-off placements', () => {
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Choose where accent color appears' }));
+    const carousel = screen.getByRole('switch', { name: 'Friend carousel selection and labels' });
+    const sheet = screen.getByRole('switch', { name: 'Bottom sheet headings and labels' });
+    expect(carousel).toHaveAttribute('aria-checked', 'false');
+    expect(sheet).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(carousel);
+    expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:friendCarousel', true);
+    expect(mocks.setAccentColor).not.toHaveBeenCalled();
+  });
+
   // Regression: §2 (Preferences owns display/layout and synced behavior controls).
   it('exposes existing screen choices and the requested behavior preferences', async () => {
     render(

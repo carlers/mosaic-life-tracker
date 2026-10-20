@@ -161,7 +161,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
               <Search
                 size={18}
                 aria-hidden="true"
-                className="pointer-events-none absolute left-3 text-gray-400"
+                className="mosaic-action-icon pointer-events-none absolute left-3 text-gray-400"
               />
               <input
                 autoFocus
@@ -182,7 +182,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
               <button
                 type="button"
                 onClick={handleClose}
-                className="absolute right-2 rounded-lg p-1.5 text-gray-400 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                className="mosaic-action-icon absolute right-2 rounded-lg p-1.5 text-gray-400 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                 aria-label="Close task search"
               >
                 <X size={16} aria-hidden="true" />
@@ -200,7 +200,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
             <button
               type="button"
               onClick={onOpen}
-              className="rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              className="mosaic-action-icon rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               aria-label="Search tasks"
             >
               <Search size={20} aria-hidden="true" />
@@ -232,14 +232,14 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
           <div className="max-h-[min(72dvh,42rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[#333333] bg-surface shadow-2xl">
             <div className="border-b border-[#2A2A2A] px-3 py-3">
               <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                <span className="mosaic-general-text text-xs font-medium uppercase tracking-wide text-gray-500">
                   Categories
                 </span>
                 {hasActiveFilter && (
                   <button
                     type="button"
                     onClick={resetSearch}
-                    className="rounded px-2 py-1 text-xs text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                    className="mosaic-general-text rounded px-2 py-1 text-xs text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                   >
                     Reset
                   </button>
