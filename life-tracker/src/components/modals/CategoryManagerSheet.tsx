@@ -29,7 +29,7 @@ const VisibilityPicker: React.FC<VisibilityPickerProps> = ({
   onChange,
 }) => (
   <div>
-    <p className="mb-2 text-xs text-gray-400">Visibility</p>
+    <p className="mosaic-sheet-text mb-2 text-xs text-gray-400">Visibility</p>
     <div
       role="group"
       aria-label="Visibility"
@@ -265,7 +265,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             disabled={isSaving || orderedCategories.length < 2}
           >
             <ArrowDownUp size={16} />
-            Reverse order
+            <span className="mosaic-sheet-text">Reverse order</span>
           </Button>
         </div>
         <Reorder.Group

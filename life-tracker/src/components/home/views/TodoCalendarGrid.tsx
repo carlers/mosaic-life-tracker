@@ -252,7 +252,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                   </span>
                   <span
                     data-testid={`todo-day-number-${dateKey}`}
-                    className={`mt-1 flex h-7 w-7 items-center justify-center rounded-full text-base font-semibold leading-none ${
+                    className={`mt-1 flex h-7 w-7 items-center justify-center rounded-full text-base font-semibold leading-none ${dayHolidays.length > 0 && !selected ? 'mosaic-holiday-date' : !selected ? 'mosaic-day-number' : ''} ${
                       selected
                         ? 'bg-white text-black'
                         : currentMonth

@@ -555,7 +555,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
     <div className="min-h-full bg-[#111111] text-white">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-[#2A2A2A] bg-[#111111] px-4 py-3">
         <div>
-          <h1 className="text-lg font-bold">Alerts</h1>
+          <h1 className="mosaic-general-text text-lg font-bold">Alerts</h1>
           {visibleFetchedAt && (
             <p className="text-[11px] text-gray-400">
               {connectivity.status === 'online'
@@ -567,7 +567,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
         <div className="flex items-center gap-1">
         {!preview && unreadIds.length > 0 && (
           <button type="button" onClick={() => void markRead(unreadIds)}
-            disabled={!canInteract} className="px-2 py-1 text-xs text-gray-400 disabled:opacity-40">
+            disabled={!canInteract} className="mosaic-general-text px-2 py-1 text-xs text-gray-400 disabled:opacity-40">
             Mark loaded read
           </button>
         )}
@@ -619,8 +619,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
               aria-hidden="true"
             />
           </div>
-          <h2 className="text-base font-semibold">No activity yet</h2>
-          <p className="mt-2 max-w-xs text-sm leading-relaxed text-gray-400">
+          <h2 className="mosaic-general-text text-base font-semibold">No activity yet</h2>
+          <p className="mosaic-general-text mt-2 max-w-xs text-sm leading-relaxed text-gray-400">
             Friend activity and shared-task invitations will appear here.
           </p>
           {error && (
@@ -643,7 +643,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           <div className="space-y-5">
             {socialItems.length > 0 && (
               <section aria-label="Social and message activity">
-                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h2 className="mosaic-general-text mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Requests, messages & reactions
                 </h2>
                 <div className="divide-y divide-[#2A2A2A]">

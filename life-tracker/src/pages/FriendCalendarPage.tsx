@@ -119,7 +119,7 @@ export const FriendCalendarPage: React.FC = () => {
         <FriendCalendarLoadingShell />
       ) : error ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center text-gray-400">
-          <p>
+          <p className="mosaic-general-text">
             {errorKind === 'forbidden'
               ? 'No access to this calendar'
               : 'Something went wrong'}

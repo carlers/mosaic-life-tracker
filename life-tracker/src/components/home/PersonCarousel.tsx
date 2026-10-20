@@ -29,10 +29,10 @@ const PersonPill = React.memo<PersonPillProps>(
         type="button"
         onClick={() => onSelect(person.id)}
         onPointerDown={(e) => e.stopPropagation()}
-        className={`flex-shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-[color,background-color,border-color,transform] active:scale-95 ${
+        className={`mosaic-person-pill flex-shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-[color,background-color,border-color,transform] active:scale-95 ${
           isActive
-            ? 'bg-white border-white'
-            : 'bg-[#1E1E1E] border-[#333333] hover:bg-[#252525]'
+            ? 'mosaic-person-active bg-white border-white'
+            : 'mosaic-person-inactive bg-[#1E1E1E] border-[#333333] hover:bg-[#252525]'
         }`}
       >
         <DeferredAvatar
@@ -42,7 +42,7 @@ const PersonPill = React.memo<PersonPillProps>(
           size="sm"
         />
         <span
-          className={`text-xs font-medium whitespace-nowrap ${
+          className={`mosaic-person-label text-xs font-medium whitespace-nowrap ${
             isActive ? 'text-black' : 'text-gray-400'
           }`}
         >
@@ -85,7 +85,7 @@ const PersonCarouselComponent: React.FC<PersonCarouselProps> = ({
           type="button"
           onClick={onOpenSettings}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#252525] transition-[color,background-color,transform] active:scale-95"
+          className="mosaic-action-icon flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#252525] transition-[color,background-color,transform] active:scale-95"
           aria-label="Friend preferences"
         >
           <Users size={14} />

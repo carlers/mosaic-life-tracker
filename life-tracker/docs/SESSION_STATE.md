@@ -1,22 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: integrate user-approved #692 Calendar pinch / smooth animation into current dev while preserving #954.
+Current task: #953, v0.34.4 — friend carousel, utility action icons and shared bottom sheet text accent placements.
 
-## Authorization and exact sources
-- Owner accepted live pinch behavior and 240-ms animation Preview, then explicitly requested merge to dev; **no main/Production approval**.
-- Latest dev integration baseline `c8310550c81e140c98c8dc1003880fa2afe49554` (v0.32.0, accepted #954 3/5/8/10/15/20/unlimited Calendar task-preview limit).
-- #692 owner-accepted source `feature/calendar-pinch-692-20261020@2ffb4c74b32d6cab68b1faebe190236fd962f3a0` (v0.33.1), full canonical Quality Gate #39412126255 SUCCESS, trusted Preview Delivery #39412350130 SUCCESS, matching Vercel READY.
-- Source branches diverged from `a14c270`; a direct source-PR merge would not reproduce both accepted feature trees. Prepare new integrated feature Preview `feature/692-pinch-954-integration-20261020` from current dev, task branch `chatgpt/692-pinch-954-integration-20261020` and **unique v0.33.2** for materially different combined tree.
+## Authority and baseline
+- Owner requests expanding the single App accent roles to friend carousel, search icon, hamburger, bottom sheet text, etc. Existing Preferences > Accent color grouping remains.
+- Current baseline stable Preview `feature/ui-custom-colors-953-20261020@878b763fdef50570e8d28cdab15a3ea30aa7573a` v0.34.3 passed exact SHA full CI + trusted Vercel READY (issue #953 checkpoint); `dev@27c4725e382c8f57b6302c382fc4ece7f30d05b2` unchanged.
+- Task branch `chatgpt/953-carousel-sheet-icons-20261020`, expected patch v0.34.4, no dev/main/Production authorization.
 
-## Integration scope
-- Preserve every #954 owner/friend Calendar task-preview limit setting/prop and DayCell/MonthView/WeekView changes and associated existing tests.
-- Port #692 disabled-by-default `calendarPinchZoom` preference, owner/friend synced day-count changes and active narrow viewport recognizer, 7/4/3 gestures, 240ms pinch-centered morph respecting effective reduced-motion, scroll/sticky weekday and snap guards, and tests.
-- Combined CalendarBody and CalendarCarousel now propagate both `taskPreviewLimit` and pinch-zoom options. No backend, auth, schema or other branch mutations.
+## Scoped implementation
+- New default-off account-sync/cache `uiColor:friendCarousel`: selected pill uses accent background/border and readable contrast foreground; inactive pill labels use theme-aware readable accent text, while avatars, neutral inactive background and carousel interactions remain unchanged.
+- Existing `uiColor:icons` now colors explicitly marked neutral search/open/close, Home hamburger, menu icons, friend-carousel preferences and calendar arrows, but not semantic status icons.
+- New default-off `uiColor:bottomSheetText`: shared portal BottomSheet heading and explicitly marked static menu/placement/category-manager labels. No blanket descendant text or unsafe user-entered/task/category/message changes; contrast chosen for elevated Dark/Light sheets.
+- Keep single App accent palette and other roles, Preferences grouping, category/task colors, sheet dragging/keyboard/focus unchanged. No Appwrite schema/sync changes.
+- Update unit/Preferences DOM tests, theme documentation and package/app version v0.34.4.
 
-## Gates/next
-- This task commit requests focused CI; **not yet verified**. If green, squash task PR into integrated stable Preview and require exact merged-SHA canonical CI and trusted Vercel READY. Confirm concurrent `dev` SHA unchanged and promotion PR preflight/source/deployment, then **merge to dev** under explicit user approval. No promotion of old 2ffb tree, no blind commit/cherry-pick or source overwrite, no main/Production.
-- User physically accepted the original #692 zoom and Preview animation. Combined tree has no separate device acceptance; automated gates plus user-approved scope required, and report any manual checks still outstanding.
-
-## Integrated Preview repair
-- First integrated stable Preview `caee6a71` canonical build failed because CalendarCarousel used the #954 `CalendarTaskPreviewLimit` type but its import was not included. React/DOM and static checks were green. Repair only that import and rerun focused + exact stable canonical before promotion; do not reduce build/TypeScript gates.
+## Delivery to complete
+- Make one coherent task commit [verify:focused] with this checkpoint, repair any CI issues, squash task PR to stable feature Preview, verify canonical Quality Gate and exact-SHA trusted Vercel READY. Manual device contrast/motion/sheet nesting plus Scratch browser-login, offline startup and cross-device sync remain unverified.
+- Do not merge Preview to dev/main or touch Production/1.0. Keep issue #953 open.
