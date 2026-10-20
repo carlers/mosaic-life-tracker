@@ -23,17 +23,17 @@ function Harness({ mode = 'month', enabled = true }: { mode?: CalendarViewMode; 
   const slides = mode === 'month' ? MONTH_SLIDES : WEEK_SLIDES;
   const onPrev = useCallback(() => setIndex(i => Math.max(0, i - 1)), []);
   const onNext = useCallback(() => setIndex(i => Math.min(2, i + 1)), []);
-  const keyboard = useCalendarGridKeyboard({
+  const { rootRef, onKeyDown, onFocusCapture, activeKey } = useCalendarGridKeyboard({
     enabled, slides, activeIndex: index, viewMode: mode,
     weekStartsOn: 0, onPrev, onNext,
   });
   const View = mode === 'month' ? MonthView : WeekView;
-  return <div ref={keyboard.rootRef} onKeyDown={keyboard.onKeyDown}
-    onFocusCapture={keyboard.onFocusCapture}>
+  return <div ref={rootRef} onKeyDown={onKeyDown}
+    onFocusCapture={onFocusCapture}>
     <label>Other input<input aria-label="Other input" /></label>
     <button type="button">Outside grid</button>
     <div data-calendar-slide-index={index} data-testid="active-calendar-slide">
-      <View focusDate={slides[index]} keyboardActive keyboardFocusDay={keyboard.activeKey}
+      <View focusDate={slides[index]} keyboardActive keyboardFocusDay={activeKey}
         tasksByDate={new Map()} categoriesMap={{}} onDayClick={openDay} />
     </div>
   </div>;
