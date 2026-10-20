@@ -1710,6 +1710,18 @@ test('Calendar keyboard period changes snap to a full-width slide', async ({ pag
   await expect(start).toHaveCount(1);
   await start.evaluate(node => node.focus({ preventScroll: true }));
 
+  // The fixture may have a stable inset from its scroll-gutter and
+  // surrounding layout. Compare incoming slides to the initially settled
+  // period, rather than assuming the viewport and slide share pixel-zero.
+  const snapOffset = async (index) => host.evaluate((root, selected) => {
+    const viewport = root.querySelector('[data-route-swipe-horizontal-owner]');
+    const slide = root.querySelector(`[data-calendar-slide-index="${selected}"]`);
+    if (!(viewport instanceof HTMLElement) || !(slide instanceof HTMLElement)) return 10000;
+    return slide.getBoundingClientRect().left - viewport.getBoundingClientRect().left;
+  }, index);
+  const initialOffset = await snapOffset(30);
+  expect(Math.abs(initialOffset)).toBeLessThan(20);
+
   // Exercise successive keyboard changes while the carousel is animating.
   for (const [key, index, date] of [
     ['PageDown', 31, '2026-10-15'],
@@ -1720,12 +1732,8 @@ test('Calendar keyboard period changes snap to a full-width slide', async ({ pag
     await page.keyboard.press(key);
     await expect(host.locator(`[data-calendar-slide-index="${index}"] button[data-calendar-day="${date}"]`))
       .toBeFocused();
-    await expect.poll(async () => host.evaluate((root, selected) => {
-      const viewport = root.querySelector('[data-route-swipe-horizontal-owner]');
-      const slide = root.querySelector(`[data-calendar-slide-index="${selected}"]`);
-      if (!(viewport instanceof HTMLElement) || !(slide instanceof HTMLElement)) return 10000;
-      return Math.abs(slide.getBoundingClientRect().left - viewport.getBoundingClientRect().left);
-    }, index), { timeout: 3500, intervals: [70, 100, 130, 170, 250] }).toBeLessThan(2);
+    await expect.poll(async () => Math.abs((await snapOffset(index)) - initialOffset),
+      { timeout: 3500, intervals: [70, 100, 130, 170, 250] }).toBeLessThan(2);
   }
 });
 
