@@ -403,6 +403,18 @@ export function useContinuousTaskDrag({
       heldRef.current = null;
       finish(true);
     };
+    // Native TouchEvents remain targeted at their ORIGINAL touched element.
+    // Swiper may detach that row during a cross-day handoff; events no longer
+    // bubble through window then. Retain direct listeners on that source
+    // element until this single-finger gesture actually terminates.
+    let sourceTouchTarget: Element | null = null;
+    const detachSourceTouch = () => {
+      if (!sourceTouchTarget) return;
+      sourceTouchTarget.removeEventListener('touchmove', touchMove, true);
+      sourceTouchTarget.removeEventListener('touchend', touchEnd, true);
+      sourceTouchTarget.removeEventListener('touchcancel', touchCancel, true);
+      sourceTouchTarget = null;
+    };
     // The task title deliberately permits pan-y for *pre*-long-press
     // scrolling. After dnd-kit lifts the task, that same native pan can
     // intermittently steal a finger and cancel pointer events on mobile.
@@ -419,6 +431,12 @@ export function useContinuousTaskDrag({
       }
       if (event.touches.length === 1 && held.touchId === null) {
         held.touchId = event.touches[0].identifier;
+      }
+      if (!sourceTouchTarget && event.target instanceof Element) {
+        sourceTouchTarget = event.target;
+        sourceTouchTarget.addEventListener('touchmove', touchMove, { capture: true, passive: false });
+        sourceTouchTarget.addEventListener('touchend', touchEnd, true);
+        sourceTouchTarget.addEventListener('touchcancel', touchCancel, true);
       }
     };
     const touchMove = (event: TouchEvent) => {
@@ -450,6 +468,7 @@ export function useContinuousTaskDrag({
         updatePoint({pointerId: held.id, clientX: held.x, clientY: held.y} as PointerEvent);
       }
       heldRef.current = null;
+      detachSourceTouch();
       finish(true);
     };
     const touchCancel = (event: TouchEvent) => {
@@ -458,10 +477,12 @@ export function useContinuousTaskDrag({
       if (held.touchId !== null && !Array.from(event.changedTouches)
         .some(touch => touch.identifier === held.touchId)) return;
       heldRef.current = null;
+      detachSourceTouch();
       finish(false);
     };
     const lost = () => {
       heldRef.current = null;
+      detachSourceTouch();
       finish(false);
     };
     const onVisibility = () => { if (document.hidden) lost(); };
@@ -493,6 +514,7 @@ export function useContinuousTaskDrag({
       window.removeEventListener('touchmove', touchMove, true);
       window.removeEventListener('touchend', touchEnd, true);
       window.removeEventListener('touchcancel', touchCancel, true);
+      detachSourceTouch();
       window.removeEventListener('blur', lost);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('keydown', key, true);
