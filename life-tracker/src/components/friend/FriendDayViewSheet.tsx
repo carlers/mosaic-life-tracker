@@ -500,7 +500,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                   <ChevronLeft size={20} />
                 </button>
                 <h3
-                  className="min-w-0 flex-1 text-center text-base font-semibold text-white"
+                  className="mosaic-date-header min-w-0 flex-1 text-center text-base font-semibold text-white"
                   aria-live={index === activeIndex ? 'polite' : undefined}
                 >
                   {format(slideDate, 'EEEE, MMMM d, yyyy')}
@@ -581,7 +581,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
             </button>
             <h3
               data-bottom-sheet-drag-handle="true"
-              className="flex min-h-10 flex-1 cursor-grab touch-none select-none items-center justify-center text-center text-base font-semibold text-white active:cursor-grabbing"
+              className="mosaic-date-header flex min-h-10 flex-1 cursor-grab touch-none select-none items-center justify-center text-center text-base font-semibold text-white active:cursor-grabbing"
               aria-live="polite"
             >
               {format(date, 'EEEE, MMMM d, yyyy')}

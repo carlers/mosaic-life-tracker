@@ -66,10 +66,11 @@ import { PreferencesPage } from '../../src/pages/PreferencesPage';
 describe('PreferencesPage', () => {
   it('exposes independent holiday color customization', async () => {
     render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'Customize UI colors' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Customize Holidays' }));
-    fireEvent.click(screen.getByRole('button', { name: 'App accent' }));
-    expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:holidays', 'app');
+    fireEvent.click(screen.getByRole('button', { name: 'Choose where accent color appears' }));
+    const holidayScope = screen.getByRole('switch', { name: 'Holiday labels and dates' });
+    expect(holidayScope).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(holidayScope);
+    expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:holidays', true);
   });
 
   // Regression: §2 (Preferences owns display/layout and synced behavior controls).

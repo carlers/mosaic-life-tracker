@@ -48,10 +48,10 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
         >
           {icon}
         </div>
-        <span className="text-base font-medium">{label}</span>
+        <span className={`text-base font-medium ${isDestructive ? "" : "mosaic-settings-label"}`}>{label}</span>
       </div>
       <div className="flex items-center gap-2">
-        {value && <span className="text-sm text-gray-400">{value}</span>}
+        {value && <span className="mosaic-settings-detail text-sm text-gray-400">{value}</span>}
         {rightElement}
         {isToggle && (
           <span

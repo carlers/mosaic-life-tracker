@@ -54,7 +54,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     <div className="px-4 py-3 flex items-center gap-3 border-b border-[#333333]">
       <ViewSwitcher activeView={activeView} onViewChange={onViewChange} />
       <h2
-        className="min-w-0 flex-1 text-base font-bold text-white transition-all duration-200"
+        className="mosaic-date-header min-w-0 flex-1 text-base font-bold text-white transition-all duration-200"
         aria-live="polite"
         onTouchStart={handleTitleTouchStart}
         onTouchEnd={handleTitleTouchEnd}

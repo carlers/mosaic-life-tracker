@@ -116,7 +116,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
             key={shortLabel}
             role="columnheader"
             aria-label={fullLabel}
-            className="text-center text-[10px] font-medium text-gray-400 py-1"
+            className="mosaic-weekday-header text-center text-[10px] font-medium text-gray-400 py-1"
           >
             {shortLabel}
           </div>

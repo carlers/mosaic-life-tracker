@@ -430,3 +430,47 @@ html[data-theme='light'][data-ui-holidays='true'] .mosaic-holiday-label {
 html[data-theme='light'][data-ui-holidays='true'] .mosaic-holiday-date {
   color: var(--mosaic-ui-holidays-text-light) !important;
 }
+
+
+/* Accent placements: only explicitly marked text, without recoloring task data. */
+html[data-ui-dateHeaders='true'] .mosaic-date-header {
+  color: var(--mosaic-ui-dateHeaders-text-dark) !important;
+}
+html[data-ui-dayHeaders='true'] :is(.mosaic-weekday-header, .mosaic-day-number) {
+  color: var(--mosaic-ui-dayHeaders-text-dark) !important;
+}
+html[data-ui-settingsText='true'] .mosaic-settings-page :is(h1, h2, h3, .mosaic-settings-label, .mosaic-settings-detail, .mosaic-settings-copy) {
+  color: var(--mosaic-ui-settingsText-text-dark) !important;
+}
+html[data-theme='light'][data-ui-dateHeaders='true'] .mosaic-date-header {
+  color: var(--mosaic-ui-dateHeaders-text-light) !important;
+}
+html[data-theme='light'][data-ui-dayHeaders='true'] :is(.mosaic-weekday-header, .mosaic-day-number) {
+  color: var(--mosaic-ui-dayHeaders-text-light) !important;
+}
+html[data-theme='light'][data-ui-settingsText='true'] .mosaic-settings-page :is(h1, h2, h3, .mosaic-settings-label, .mosaic-settings-detail, .mosaic-settings-copy) {
+  color: var(--mosaic-ui-settingsText-text-light) !important;
+}
+/* Disabled placements return to neutral theme roles, not a second green accent. */
+html[data-ui-icons='false'] svg:is([class~='text-emerald-400'], [class~='text-emerald-500']):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-text-muted) !important;
+}
+html[data-ui-text='false'] :is([class~='text-emerald-400'], [class~='text-emerald-500']):not(svg):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-text) !important;
+}
+html[data-ui-controls='false'] [class~='bg-emerald-500'] {
+  background-color: var(--mosaic-surface-pressed) !important;
+  color: var(--mosaic-text) !important;
+}
+html[data-ui-controls='false'] [class~='hover:bg-emerald-600']:hover {
+  background-color: var(--mosaic-surface-elevated) !important;
+}
+html[data-ui-controls='false'] [class~='bg-emerald-500/15'] {
+  background-color: var(--mosaic-hover-wash) !important;
+}
+html[data-ui-controls='false'] :is([class~='border-emerald-500'], [class~='border-emerald-500/50']) {
+  border-color: var(--mosaic-border-strong) !important;
+}
+html[data-ui-controls='false'] [class*='ring-emerald-'] {
+  --tw-ring-color: var(--mosaic-text-muted) !important;
+}
