@@ -109,7 +109,7 @@ export const AccountPage: React.FC = () => {
           </div>
           <ListTodo size={24} className="text-gray-400" aria-hidden="true" />
         </button>
-        <button type="button" onClick={() => navigate('/uncompleted', { state: makeRouteParentState('/account') })}
+        <button type="button" onClick={() => navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/account') })}
           className="w-full bg-surface border border-border rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-accent">
           <div>
             <h3 className="mosaic-general-text text-base font-bold text-white">Uncompleted Tasks</h3>

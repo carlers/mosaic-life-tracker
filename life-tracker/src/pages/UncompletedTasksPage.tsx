@@ -15,7 +15,7 @@ export const UncompletedTasksPage: React.FC = () => {
   const { categories, isLoading: categoriesLoading } = useCategories();
   const location = useLocation();
   const navigate = useNavigate();
-  const parent = resolveRouteParent('/uncompleted', location.state) ?? '/home';
+  const parent = resolveRouteParent('/backlog', location.state) ?? '/home';
   const [today, setToday] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export const UncompletedTasksPage: React.FC = () => {
 
   const openTask = (task: TaskDocument) => {
     if (task.date === '') {
-      navigate('/backlog', { state: { ...makeRouteParentState('/uncompleted'), focusTaskId: task.id } });
+      navigate('/backlog', { state: { ...makeRouteParentState('/backlog'), focusTaskId: task.id } });
     } else if (isScheduledDateKey(task.date)) {
       navigate('/home', { state: { focusTaskId: task.id, focusTaskDate: task.date } });
     }
