@@ -68,7 +68,8 @@ jobs:
           export MOSAIC_SB_LOCAL_URL="$VITE_SUPABASE_URL"
           export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
           export MOSAIC_CORE_APP_LAB=true
-          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > "$RUNNER_TEMP/mosaic-core-vite.log" 2>&1 &
+          npm run build
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > "$RUNNER_TEMP/mosaic-core-vite.log" 2>&1 &
           for attempt in {1..40}; do
             if [ -f node_modules/.vite/basic-ssl/_cert.pem ] && curl --cacert node_modules/.vite/basic-ssl/_cert.pem -fsS https://127.0.0.1:4173/ >/dev/null; then break; fi
             sleep 1

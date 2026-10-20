@@ -48,13 +48,18 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
   const owner = await account();
   const other = await account();
   const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext({ ignoreHTTPSErrors: true })));
+  const boundaryErrors = [];
   try {
     const [first, second, foreign] = await Promise.all(contexts.map(context => context.newPage()));
     const appwriteRequests = [];
-    for (const page of [first, second, foreign])
+    for (const page of [first, second, foreign]) {
+      page.on('console', message => {
+        if (message.text().startsWith('[ErrorBoundary:')) boundaryErrors.push(message.text().slice(0, 1500));
+      });
       page.on('request', request => {
         if (/appwrite\.(io|invalid)/.test(request.url())) appwriteRequests.push(request.url().split('?')[0]);
       });
+    }
     await signIn(first, owner);
     await first.getByRole('button', { name: 'Open menu' }).click();
     await first.getByRole('button', { name: 'Lists & Categories' }).click();
@@ -103,11 +108,13 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
       .toBe('');
     await first.getByRole('button', { name: 'Open menu' }).click();
     await first.getByRole('button', { name: 'Backlogs', exact: true }).click();
-    await expect(first.getByRole('button', { name: 'Renamed core task', exact: true }).first()).toBeVisible();
+    await expect(first.getByRole('main', { name: 'Backlog tasks', exact: true })
+      .getByRole('button', { name: 'Renamed core task', exact: true })).toBeVisible();
     await second.evaluate(() => window.dispatchEvent(new Event('online')));
     await second.getByRole('button', { name: 'Open menu' }).click();
     await second.getByRole('button', { name: 'Backlogs', exact: true }).click();
-    await expect(second.getByRole('button', { name: 'Renamed core task', exact: true }).first())
+    await expect(second.getByRole('main', { name: 'Backlog tasks', exact: true })
+      .getByRole('button', { name: 'Renamed core task', exact: true }))
       .toBeVisible({ timeout: 20_000 });
     await contexts[0].setOffline(true);
     await first.getByRole('button', { name: 'Renamed core task', exact: true }).first().click();
@@ -143,7 +150,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     const tasks = (await rows(owner, 'tasks')).map(row => ({
       id: row.id, title: row.title, date: row.task_date, deleted: row.is_deleted, completed: row.completed,
     }));
-    throw new Error(String(error) + '\nDisposable UI state: ' + JSON.stringify({ views, tasks }));
+    throw new Error(String(error) + '\nDisposable UI state: ' + JSON.stringify({ views, tasks, boundaryErrors }));
   } finally {
     await Promise.allSettled(contexts.map(context => context.close()));
   }
