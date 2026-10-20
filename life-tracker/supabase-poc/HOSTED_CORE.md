@@ -151,3 +151,36 @@ embedded source SHA, Preview channel and provider before login. HTTPS validation
 stays enabled; fixture provisioning and retirement follow the existing runner.
 Record the resulting disposable-account evidence separately from provider READY.
 Email-confirmation signup/recovery and mobile/manual acceptance remain separate.
+
+## Email confirmation and recovery
+
+The v0.32.3 candidate adds isolated `/auth/confirm` and `/reset-password`
+routes. Link fragments are removed before startup and on same-document
+navigation; these pages never mount the ordinary Auth provider or core writers.
+The signed user is verified before showing the target email or changing a
+password. Completing the action closes only its temporary link session.
+
+`NODE_USE_ENV_PROXY=1 node supabase-poc/hosted-email.mjs --ui` exercises real
+mosaic-dev confirmation and recovery with admin-prepared, server-marked
+disposable accounts and generated one-time links. It proves active-account
+isolation, successful password login, old-password rejection and link replay
+rejection. The runner bans/freezes fixtures and verifies no live rows even
+after failure. It never sends email. The two email cases require these hosted
+fixtures; the ordinary local CLI lab skips them and still runs its five core
+cases. Do not describe generated links as actual signup/email delivery proof.
+
+Read policy with `node supabase-poc/hosted-email.mjs --inspect-policy`.
+For delivery of this accepted candidate, the explicitly selected
+`--configure-preview-email` command changes only mosaic-dev's Preview site URL,
+adds its two exact redirects while preserving existing entries, and installs
+the two static token-hash templates. It preserves required confirmation and
+all SMTP/security settings, refuses an unexpected current site, and verifies
+readback. Apply this only when delivering the matching email-capable Preview;
+do not point email links at the older app. The management token needs permission
+to update Auth configuration. Verify readback before offering hosted email
+actions to testers.
+
+Actual controlled-mailbox signup/recovery delivery and physical mobile remain
+mandatory acceptance. Default hosted SMTP restrictions and the two-email/hour
+limit are not resolved by generated links. No existing-user migration or
+Production work is authorized by this runbook.

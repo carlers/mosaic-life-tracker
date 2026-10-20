@@ -228,3 +228,24 @@ offline reload, shared-family rotation and separate-device isolation is part of
 `supabase-core-app.spec.mjs`; `hosted-core.mjs --offline` runs it against mosaic-dev
 and verifies fixture retirement even on failure. Exact passing run evidence belongs
 in #1027, not an inference from this implementation description.
+
+## Email callback refinement candidate v0.32.3
+
+The Supabase core candidate now routes email confirmation and password recovery
+through a separate, provider-neutral view. The backend wrapper exchanges a
+one-time fragment token, verifies the live Auth user, displays the target
+email, and changes the password only for that verified owner. It does not
+mount the ordinary account provider, persist bearer/refresh credentials, touch
+the current browser family, or start a writer. Repeated fragment navigation
+cleans the URL and opens a fresh action; stale unmounted replies cannot clear
+a newer link. Existing Appwrite callbacks remain separate.
+
+Hosted generated-link run `f8d80f40899fefe5742ec2ec` passed both real browser
+cases, including active-account preservation, confirmation, password login,
+old-password denial and used-link denial. Both fixtures were retired with no
+live rows. Earlier run `d160fd0ff3ecf188b8075ab0` exposed same-document callback
+navigation and also retired both fixtures; the regression is repaired.
+These accounts were admin-prepared: actual public signup and email delivery,
+hosted template/redirect rollout, exact-source CI/deployed acceptance and
+physical mobile checks remain open. Never infer mail delivery from generated
+links or disable confirmation to make the acceptance pass.

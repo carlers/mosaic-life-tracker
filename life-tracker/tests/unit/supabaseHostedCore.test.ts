@@ -1,11 +1,52 @@
 import { describe, expect, it, vi } from 'vitest';
 import { assertProject, connect, inspect, isCasConflict, PROJECT } from '../../supabase-poc/hosted-core.mjs';
 import { exerciseHostedUi } from '../../supabase-poc/hosted-core-ui.mjs';
+import { inspectEmailPolicy, previewEmailPolicy, EMAIL_ROUTES } from '../../supabase-poc/email-policy.mjs';
 
 const project = { id: PROJECT, name: 'mosaic-dev', status: 'ACTIVE_HEALTHY' };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 
 describe('hosted core verification safety boundary', () => {
+  it('limits email policy edits to the isolated callbacks and preserves existing redirect entries', () => {
+    const current = { site_url: 'http://localhost:3000', mailer_autoconfirm: false,
+      uri_allow_list: 'http://localhost:3000/reset-password', smtp_pass: 'never-display' };
+    const patch = previewEmailPolicy(current);
+    expect(Object.keys(patch).sort()).toEqual(['mailer_templates_confirmation_content',
+      'mailer_templates_recovery_content', 'site_url', 'uri_allow_list']);
+    expect(patch.uri_allow_list.split(',')).toEqual([current.uri_allow_list, ...EMAIL_ROUTES]);
+    expect(inspectEmailPolicy({ ...current, ...patch })).toMatchObject({
+      confirmationRequired: true, siteReady: true, redirectsReady: true, templatesReady: true,
+    });
+    expect(JSON.stringify(inspectEmailPolicy(current))).not.toContain('never-display');
+    for (const change of [{ mailer_autoconfirm: true }, { site_url: 'https://production.example' }])
+      expect(() => previewEmailPolicy({ ...current, ...change })).toThrow('Unexpected isolated');
+  });
+  it('generates email grants only for the exact server-marked disposable account', async () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const runId = 'a'.repeat(24);
+    const user = { id, email: `mosaic-hosted-${runId}-email-b@example.org`,
+      app_metadata: { mosaic_disposable_run: runId }, email_confirmed_at: null };
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith(PROJECT)) return json(project);
+      if (url.includes('/api-keys')) return json([
+        { type: 'publishable', api_key: 'sb_publishable_test' },
+        { type: 'secret', api_key: 'sb_secret_fixture' },
+      ]);
+      if (url.endsWith('/admin/users/' + id)) return json(user);
+      if (url.endsWith('/admin/generate_link')) return json({ id, hashed_token: 'b'.repeat(64) });
+      throw Error('Unexpected operation');
+    });
+    const client = await connect({ token: 'test-management-credential', fetcher });
+    await expect(client.fixtureEmailLink({ id, runId, type: 'signup', password: 'synthetic disposable password' }))
+      .resolves.toEqual({ tokenHash: 'b'.repeat(64) });
+    user.app_metadata.mosaic_disposable_run = 'different-run';
+    fetcher.mockClear();
+    await expect(client.fixtureEmailLink({ id, runId, type: 'recovery' }))
+      .rejects.toThrow('exact server-marked');
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/generate_link'))).toBe(false);
+    await expect(client.dataApi('/auth/v1/admin/generate_link', { admin: true, body: {} }))
+      .rejects.toThrow('Admin key limited');
+  });
   it('refuses an unbound Preview before retrieving keys or launching credential-bearing browsers', async () => {
     const client = { management: vi.fn() };
     for (const preview of [

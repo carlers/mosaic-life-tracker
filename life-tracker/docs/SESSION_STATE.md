@@ -1,30 +1,31 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1027 persistent offline restart and browser-tab session coordination; candidate v0.32.2.
+Current task: #1027 isolated email confirmation/password recovery; candidate v0.32.3.
 
-## Accepted baseline and scope
-- Stable `feature/1027-supabase-recovery-20261020@bfe8e1355dc06f0b714d69ade119fd48dd0aeb79`, PR #1115, v0.32.1. Canonical #39451594885 and Supabase app lab/artifact #39451594936 passed. Live isolated Preview: https://mosaic-supabase-core-preview.vercel.app, Vercel `dpl_CSBQtqBXqz2naXLx3bS73rE4UTAR`.
-- Both deployed UI/conflict/security runs passed; all fixtures retired. Approved temporary Vercel access was revoked and SSO protection unchanged. Exact evidence: #1027 comment 6293773081.
-- Task `codex/1027-supabase-recovery-offline-20261021` starts from that source. PATCH 0.32.2 has no active collision. Dev 0.36.3/main 0.29.1 checked; future promotion requires integration/version reconciliation.
-- No Production, real-user migration, dev/main promotion or 1.0. Keep #1027/#967 open. Diary #1029 follows core release.
+## Baseline and constraints
+- Stable `feature/1027-supabase-recovery-20261020@d36102220c28e43e577059c4989bc1f293db7143`, PR #1132, v0.32.2. Canonical #39468574466 and Supabase lab/artifact #39468574342 passed; all five browser/security cases passed.
+- Live isolated Preview remains accepted v0.32.1 at https://mosaic-supabase-core-preview.vercel.app, Vercel `dpl_CSBQtqBXqz2naXLx3bS73rE4UTAR`. Its deployed UI/conflict checks passed; temporary access was revoked and protection unchanged.
+- v0.32.2 deployment stopped before creating a deployment: exact artifact `12286895853` uses blocked `productionresultssa5.blob.core.windows.net`. An additive environment draft is saved; publication is required. No local rebuild substitution. Evidence: #1027 comment 6293773081.
+- Task `codex/1027-supabase-recovery-email-20261020` refines the same core feature. PATCH 0.32.3 checked against 225 stable/integration branches without collision; dev 0.36.3/main 0.29.1 still require later promotion reconciliation.
+- No Production, real-user migration, dev/main promotion or 1.0. Keep #1027/#967 open; Diary #1029 follows core release. Scratch Appwrite is suspended; Oracle remains unprovisioned. Do not repeatedly request unavailable keys.
 
 ## Implementation
-- `supabaseBrowserSession` serializes durable refresh transactions through Web Locks, reads the newest refresh token, stores only refresh credentials plus a separately verified local owner cache, and fences stale tabs by browser family. Access JWTs/passwords stay in memory. Unsupported locking/storage retains memory-only behavior.
-- Cached personal data renders during offline startup or background Auth checks. Remote writers still require signed Auth, canonical mapping and server lease guards. Restore outages retain credentials/drafts; confirmed denial clears the family. Access-JWT expiry requests renewal rather than erasing the refresh family.
-- View teardown pauses local writers without logging out sibling tabs. Explicit logout retains guarded shutdown. Cross-tab changes clear the visible owner; task/category writes also synchronously check the provider-neutral family fence before dispatch. Account replacement requires reloading the stale tab.
-- Completed core replication marks owner offline-data readiness; Sync Status uses provider-neutral reachability text. No backend schema or Auth policy change.
-- Added real browser `offline cold start` acceptance and `hosted-core.mjs --offline`: installed shell/offline reload, acknowledged local edit/reload, reconnect/second-device convergence, shared-tab rotation, tab close, logout and account isolation. Fixture retirement is reported after verified readback even on failed tests.
+- Separate email routes never mount the ordinary Auth provider or core writers. URL fragments are removed before startup and on repeated same-document navigation; a new link remounts the action and stale replies cannot clear it.
+- Explicit verification exchanges a one-time hash and checks the signed Auth user before showing its email. Password update rechecks the owner; completion revokes only the link session. No active-account replacement or token persistence. Appwrite callbacks retain their flow.
+- Signup/recovery requests supply exact callback paths. The hosted policy helper prepares the isolated site/redirects/templates, preserves confirmation and unrelated settings, and verifies readback. No hosted Auth policy was changed in this task.
+- Generated-link browser runner restricts admin generation to exact server-marked disposable users, removes secrets from child diagnostics, and verifies fixture retirement even after failure. Local CLI CI skips these two hosted-only email cases; its existing five core cases remain.
 
-## Checks and limits
-- Related Auth/domain/UI tests: 239 passed; the additional storage-failure case and 6 documentation contracts passed. TypeScript/lint and Supabase build/PWA/blocking size budgets passed; existing advisory overruns remain warnings.
-- Hosted offline/security run `387e9880b3b67fe8c38a71e5` passed reload/edit retention, reconnect/second-device convergence, shared-tab rotation, tab close, logout and account isolation. All 4 users retired; zero live rows. Earlier test setup failures also retired fixtures. Additional write-after-rotation/logout assertions await CI.
-- Initial task focused #39465219280 passed. Lab #39465219282 passed 4 cases but offline boot could not register its service worker under self-signed HTTPS. Chromium reproduced the certificate rejection; loopback HTTP registered successfully. The lab now serves the validated build on loopback HTTP. Repaired exact-source CI/deployment and physical mobile acceptance remain pending.
-- Only hosted backend is mosaic-dev `hcxtiifzxoaflhjgoglb`; migrations already installed, never rerun `--apply-empty-project`. Environment Supabase/Vercel credentials and required network hosts are working. Operator evidence/scripts remain in `/workspace/mosaic-preview-operations/`.
-
-## Remaining MVP gates
-- Hosted signup/recovery (confirmation enabled, localhost site URL, no custom SMTP), existing-user mapping and old Appwrite PWA cutoff, reversible three-installation transfers with pending edits/tombstones/revisions, encrypted restore, physical mobile acceptance and discard-device/use-cloud conflict choice.
-- Scratch Appwrite is suspended by exhausted free-tier limits; Oracle VM/endpoint/project unprovisioned. Do not request unavailable credentials repeatedly or substitute Production.
+## Evidence and limits
+- 64 related Auth/browser-session/DOM/safety/documentation tests passed across scoped runs. TypeScript, changed-file lint, contracts/discovery, Supabase build/PWA and blocking sizes passed. Light/Dark/Black/System screenshots and computed text/control contrast passed at mobile viewport; physical mobile is separate. Remote focused/lab and deployed acceptance remain pending.
+- Real hosted run `f8d80f40899fefe5742ec2ec` passed confirmation and recovery, preserved another active account, rejected the old password and used links, and signed in the target through actual Mosaic UI. Both users retired; zero live rows.
+- Initial run `d160fd0ff3ecf188b8075ab0` passed confirmation/login but failed same-document replay navigation; both users retired. The URL callback lifecycle was repaired and the hosted rerun passed.
+- Generated links use admin-prepared accounts and do not prove public signup or actual mail delivery. Hosted policy still has localhost redirect/no custom SMTP/two emails per hour. Actual controlled-mailbox acceptance, template rollout and physical Android/iOS remain mandatory.
+- Only backend is mosaic-dev `hcxtiifzxoaflhjgoglb`; migrations are already installed. Never rerun `--apply-empty-project`. No temporary automation credential is outstanding.
 
 ## Next action
-- Push the reviewed coherent focused task commit with this checkpoint. Require task focused + real Supabase lab, then squash to stable for canonical/lab acceptance. Deploy verified exact CI artifact, verify deployed behavior and revoke any explicitly approved temporary access. Update #1027 evidence without a status-only post-green source commit.
+- Finish the coherent focused email task and PR; update issue evidence without a status-only post-green source commit. Keep it separate from the v0.32.2 delivery.
+- After publication, deploy d3610222 from exact stable artifact #39468574342 and run all three deployed core cases with approved temporary access, then revoke/read back.
+- Only then squash the green email task, require new stable canonical/lab acceptance, deliver its exact artifact with matching email-policy readback, and verify deployed core/email behavior.
+- Remaining MVP: actual signup/mail delivery, existing-user mapping and old Appwrite PWA cutoff, reversible three-installation transfers preserving pending edits/tombstones/revisions, encrypted restore, physical mobile, and discard-device/use-cloud conflict choice.
+- Operator logs/deployment helpers are under `/workspace/mosaic-preview-operations/`; the issue checkpoint is the durable live status.

@@ -325,21 +325,32 @@ export function createCandidateAuthSession(options: {
     }
   }
 
-  async function signUp(email: string, password: string): Promise<void> {
+  function emailEndpoint(path: string, redirectTo?: string) {
+    if (!redirectTo) return path;
+    const redirect = new URL(redirectTo);
+    const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(redirect.hostname);
+    if ((redirect.protocol !== 'https:' && !(redirect.protocol === 'http:' && loopback)) ||
+        redirect.username || redirect.password || redirect.hash || redirect.search ||
+        !['/auth/confirm', '/reset-password'].includes(redirect.pathname))
+      throw new CandidateSessionError('Invalid email callback destination');
+    return path + '?redirect_to=' + encodeURIComponent(redirect.toString());
+  }
+
+  async function signUp(email: string, password: string, redirectTo?: string): Promise<void> {
     if (!email?.includes('@') || !password || password.length < 8)
       throw new CandidateSessionError('Valid email and password required');
     invalidate();
     clearSaved();
     // Email confirmation may be mandatory in hosted projects. Never assume
     // that a user field returned by signup is a verified active identity.
-    await post('/auth/v1/signup', { email: email.trim().toLowerCase(), password });
+    await post(emailEndpoint('/auth/v1/signup', redirectTo), { email: email.trim().toLowerCase(), password });
   }
 
-  async function requestPasswordRecovery(email: string): Promise<void> {
+  async function requestPasswordRecovery(email: string, redirectTo?: string): Promise<void> {
     if (!email?.includes('@')) throw new CandidateSessionError('Valid email required');
     // Product layer should always display a generic answer to prevent account
     // enumeration; do not use user_metadata as an authorization claim.
-    await post('/auth/v1/recover', { email: email.trim().toLowerCase() });
+    await post(emailEndpoint('/auth/v1/recover', redirectTo), { email: email.trim().toLowerCase() });
   }
 
   return {

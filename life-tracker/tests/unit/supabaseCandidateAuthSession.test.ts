@@ -48,6 +48,22 @@ function authFixture() {
 }
 
 describe('candidate Supabase session lifecycle (#1027)', () => {
+  it('uses exact callback routes for signup and recovery without adopting the email account', async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => reply({}));
+    const session = createCandidateAuthSession({ baseUrl: URL, publishableKey: KEY, fetcher });
+    await session.signUp('A@example.org', 'synthetic-password', 'https://preview.example/auth/confirm');
+    await session.requestPasswordRecovery('A@example.org', 'https://preview.example/reset-password');
+    expect(fetcher.mock.calls.map(call => String(call[0]))).toEqual([
+      URL + '/auth/v1/signup?redirect_to=https%3A%2F%2Fpreview.example%2Fauth%2Fconfirm',
+      URL + '/auth/v1/recover?redirect_to=https%3A%2F%2Fpreview.example%2Freset-password',
+    ]);
+    expect(session.getOwnerId()).toBeNull();
+    for (const destination of ['https://preview.example/home', 'https://preview.example/reset-password#secret',
+      'http://remote.example/reset-password', 'https://user:pass@preview.example/reset-password'])
+      await expect(session.requestPasswordRecovery('A@example.org', destination))
+        .rejects.toThrow('callback destination');
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
   it('server-verifies login, then composes with existing owner-locked REST transport', async () => {
     const f = authFixture();
     expect(await f.session.getSessionSnapshot()).toBeNull();

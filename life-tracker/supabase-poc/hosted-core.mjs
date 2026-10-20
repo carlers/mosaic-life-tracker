@@ -6,6 +6,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { inspectEmailPolicy, previewEmailPolicy } from './email-policy.mjs';
 
 export const PROJECT = 'hcxtiifzxoaflhjgoglb';
 export const ORIGIN = `https://${PROJECT}.supabase.co`;
@@ -119,7 +120,38 @@ export async function connect({ token, fetcher = fetch } = {}) {
       },
     });
   }
-  return { management, sql, dataApi, requireOk };
+  async function fixtureEmailLink({ id, runId, type, password }) {
+    check(UUID.test(id ?? '') && /^[a-f0-9]{24}$/.test(runId ?? '') &&
+      ['signup', 'recovery'].includes(type), 'Invalid disposable email action');
+    const user = await requireOk(await dataApi('/auth/v1/admin/users/' + id, { admin: true }),
+      'Fixture email identity inspection');
+    check(user.id === id && user.app_metadata?.mosaic_disposable_run === runId &&
+      user.email === `mosaic-hosted-${runId}-email-b@example.org`,
+    'Email links require the exact server-marked disposable account');
+    if (type === 'signup') check(typeof password === 'string' && password.length >= 20 &&
+      !user.email_confirmed_at, 'Signup link requires an unconfirmed fixture');
+    // This dedicated operation does not broaden dataApi's admin endpoint guard.
+    const adminKey = keys.find(k => k.type === 'secret')?.api_key;
+    const result = await requireOk(await request(ORIGIN, '/auth/v1/admin/generate_link', {
+      body: { type, email: user.email, ...(type === 'signup' ? { password } : {}) },
+      headers: { apikey: adminKey, Authorization: 'Bearer ' + adminKey },
+    }), 'Disposable email link generation');
+    check(result.id === id && /^[a-f0-9]{32,128}$/i.test(result.hashed_token ?? ''),
+      'Generated email link owner or token mismatch');
+    return { tokenHash: result.hashed_token };
+  }
+  async function configurePreviewEmailPolicy() {
+    const before = await requireOk(await management('/config/auth'), 'Auth email policy inspection');
+    const patch = previewEmailPolicy(before);
+    await requireOk(await request(MANAGEMENT, '/config/auth', {
+      method: 'PATCH', body: patch, headers: { Authorization: `Bearer ${token}` },
+    }), 'Isolated Preview Auth email configuration');
+    const after = await requireOk(await management('/config/auth'), 'Auth email policy readback');
+    check(Object.entries(patch).every(([name, value]) => after[name] === value) &&
+      after.mailer_autoconfirm === false, 'Auth email configuration readback mismatch');
+    return inspectEmailPolicy(after);
+  }
+  return { management, sql, dataApi, requireOk, fixtureEmailLink, configurePreviewEmailPolicy };
 }
 
 export async function inspect(client) {

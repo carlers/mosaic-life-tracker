@@ -910,6 +910,24 @@ for candidate limits and [hosted verification](../supabase-poc/HOSTED_CORE.md)
 for actual browser acceptance. None of this permits existing-account migration
 or removes Appwrite writer-cutoff and reversible-transfer requirements.
 
+### 23.10 Isolated email confirmation and recovery
+
+Supabase email callbacks enter a separate route without mounting an account
+provider or core writer. One-time token hashes arrive in URL fragments, are
+removed before application startup and on repeated fragment navigation, and
+remain memory-only. A deliberate verification action exchanges the link and
+checks the signed Auth user; the page displays that verified email before
+accepting a new password. Neither email parameters nor user metadata grant
+Mosaic ownership. Password updates recheck the signed owner and revoke only
+the link session after completion. Network uncertainty remains visible and
+never silently adopts an account or erases cached data.
+
+Opening or completing a link must preserve another account's durable browser
+family. Returning to Mosaic reloads the normal account lifecycle. Existing
+Appwrite recovery callbacks retain their established flow. Hosted email
+templates/redirects and actual mail delivery are separate release gates;
+admin-generated disposable links establish signed callback behavior only.
+
 ## 24. Test Suite
 
 ### 24.1 Overview

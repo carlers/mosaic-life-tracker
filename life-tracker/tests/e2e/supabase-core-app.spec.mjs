@@ -676,3 +676,68 @@ test('signed server denies old clients without leases, foreign writes, and relea
   expect((await api('/auth/v1/logout?scope=local', owner.token, {})).ok).toBe(true);
   expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'acquire' })).status).toBe(403);
 });
+
+// Hosted generated email grants exercise real GoTrue verification without
+// sending mail to uncontrolled recipients. SMTP delivery is a separate gate.
+for (const kind of ['signup', 'recovery']) {
+  test(`signed email ${kind === 'signup' ? 'confirmation' : 'recovery'} preserves the active account`, async ({ browser }) => {
+    const action = JSON.parse(process.env.MOSAIC_CORE_EMAIL_ACTION ?? 'null');
+    test.skip(!hosted || !action || action.kind !== kind, 'Requires runner-owned one-time email grant');
+    const [active, target] = hostedAccounts;
+    if (!active || !target || !/^[a-f0-9]{32,128}$/i.test(action.tokenHash ?? '') ||
+        !/^mosaic-hosted-[0-9a-f]{24}-email-a@example\.org$/.test(active.email) ||
+        target.email !== active.email.replace('-email-a@', '-email-b@'))
+      throw Error('Invalid disposable email fixtures');
+    const context = await browser.newContext({ ignoreHTTPSErrors: false });
+    const separate = await browser.newContext({ ignoreHTTPSErrors: false });
+    try {
+      const appPage = await context.newPage();
+      await signIn(appPage, active);
+      const browserFamily = () => appPage.evaluate(origin => {
+        const record = JSON.parse(localStorage.getItem('mosaic_supabase_browser_v1:' + origin) ?? 'null');
+        return record ? { family: record.family, owner: record.cache?.legacyUserId } : null;
+      }, url);
+      const before = await browserFamily();
+      expect(Boolean(before?.family && before?.owner)).toBe(true);
+      const emailPage = await context.newPage();
+      let leaked = false;
+      let writerRequest = false;
+      emailPage.on('request', request => {
+        if (request.url().includes(action.tokenHash) || (request.headers().referer ?? '').includes(action.tokenHash)) leaked = true;
+        if (request.url().startsWith(url + '/rest/')) writerRequest = true;
+      });
+      emailPage.on('console', message => { if (message.text().includes(action.tokenHash)) leaked = true; });
+      const route = kind === 'signup' ? '/auth/confirm' : '/reset-password';
+      await emailPage.goto(app + route + '#type=' + kind + '&token_hash=' + action.tokenHash);
+      await expect(emailPage.getByRole('button', { name: 'Verify email link' })).toBeVisible();
+      expect(new URL(emailPage.url()).hash === '').toBe(true);
+      await emailPage.getByRole('button', { name: 'Verify email link' }).click();
+      await expect(emailPage.getByRole('status')).toContainText(target.email);
+      if (kind === 'recovery') {
+        await emailPage.getByLabel('New password', { exact: true }).fill(action.newPassword);
+        await emailPage.getByLabel('Confirm new password', { exact: true }).fill(action.newPassword);
+        await emailPage.getByRole('button', { name: 'Reset password', exact: true }).click();
+        await expect(emailPage.getByRole('status')).toContainText('password has been reset successfully');
+        const oldGrant = await api('/auth/v1/token?grant_type=password', null, { email: target.email, password: target.password });
+        expect(oldGrant.ok).toBe(false);
+      } else {
+        await emailPage.getByRole('button', { name: 'Finish confirmation' }).click();
+        await expect(emailPage.getByRole('status')).toContainText('Your email is confirmed');
+      }
+      expect(await browserFamily()).toEqual(before);
+      expect(writerRequest).toBe(false);
+      expect(leaked).toBe(false);
+      await appPage.reload();
+      await expect(appPage.getByRole('tab', { name: 'Calendar', exact: true })).toBeVisible({ timeout: 30_000 });
+      expect((await browserFamily())?.owner).toBe(before.owner);
+      const recovered = await separate.newPage();
+      await signIn(recovered, { ...target, password: kind === 'recovery' ? action.newPassword : target.password });
+      await emailPage.goto(app + route + '#type=' + kind + '&token_hash=' + action.tokenHash);
+      await emailPage.getByRole('button', { name: 'Verify email link' }).click();
+      await expect(emailPage.getByRole('alert')).toContainText('could not be confirmed');
+      expect(writerRequest).toBe(false);
+    } finally {
+      await Promise.all([context.close(), separate.close()]);
+    }
+  });
+}
