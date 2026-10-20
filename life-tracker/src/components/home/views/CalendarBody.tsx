@@ -32,6 +32,8 @@ interface CalendarBodyProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
   zoomPreference?: CalendarZoomDays;
+  pinchGestureEnabled?: boolean;
+  onZoomPreferenceChange?: (days: CalendarZoomDays) => void;
   taskPreviewLimit?: CalendarTaskPreviewLimit;
   stickyWeekdayHeader?: boolean;
   activeIndex?: number;
@@ -62,6 +64,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   categoriesMap,
   variant,
   zoomPreference = 7,
+  pinchGestureEnabled = false,
+  onZoomPreferenceChange,
   taskPreviewLimit = 'unlimited',
   stickyWeekdayHeader = false,
   activeIndex,
@@ -84,9 +88,13 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarWidth, setCalendarWidth] = useState(0);
+  const handlePinchChange = useCallback((days: CalendarZoomDays) => {
+    // The account-synced setting is the single source of truth.
+    onZoomPreferenceChange?.(days);
+  }, [onZoomPreferenceChange]);
   const calendarHostRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (zoomPreference === 7 || !isActive) return;
+    if ((zoomPreference === 7 && !pinchGestureEnabled) || !isActive) return;
     const host = calendarHostRef.current;
     if (!host) return;
     const measure = () => setCalendarWidth(host.getBoundingClientRect().width);
@@ -95,11 +103,13 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     const observer = new ResizeObserver(measure);
     observer.observe(host);
     return () => observer.disconnect();
-  }, [zoomPreference, isActive]);
+  }, [zoomPreference, pinchGestureEnabled, isActive]);
   const zoomDays: CalendarZoomDays =
     zoomPreference !== 7 && calendarWidth > 0 && calendarWidth <= 700
       ? zoomPreference
       : 7;
+
+  const allowPinch = pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
   // Match owner Day View: warm a resolved component after the friend Calendar
   // becomes usable. No friend hooks or sheets are mounted by this preload.
@@ -168,6 +178,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       emblaRef={emblaRef}
       viewMode={viewMode}
       zoomDays={zoomDays}
+      pinchEnabled={allowPinch}
+      onPinchChange={handlePinchChange}
       taskPreviewLimit={taskPreviewLimit}
       stickyWeekdayHeader={stickyWeekdayHeader}
       activeIndex={activeIndex}

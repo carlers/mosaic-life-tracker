@@ -27,6 +27,7 @@ import {
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
+import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
 import {
@@ -54,6 +55,7 @@ import {
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMITS,
   resolveCalendarTaskPreviewLimit,
@@ -134,10 +136,10 @@ function SelectSettingRow({
   return (
     <div className="flex w-full items-center justify-between gap-3 px-4 py-3">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]" aria-hidden="true">
+        <div className="mosaic-settings-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]" aria-hidden="true">
           {icon}
         </div>
-        <label htmlFor={id} className="text-base font-medium text-white">{label}</label>
+        <label htmlFor={id} className="mosaic-settings-label text-base font-medium text-white">{label}</label>
       </div>
       <select
         id={id}
@@ -190,10 +192,10 @@ function ChoiceGroup<T extends string>({
               className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#2A2A2A] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >
               <span className="min-w-0">
-                <span className="block text-sm font-semibold text-white">
+                <span className="mosaic-settings-copy block text-sm font-semibold text-white">
                   {optionCopy.label}
                 </span>
-                <span className="mt-0.5 block text-xs leading-relaxed text-gray-400">
+                <span className="mosaic-settings-copy mt-0.5 block text-xs leading-relaxed text-gray-400">
                   {optionCopy.description}
                 </span>
               </span>
@@ -249,6 +251,7 @@ export const PreferencesPage: React.FC = () => {
   const shareLabelMode = getSetting(SHARED_LABEL_MODE_SETTING_KEY, 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting(SHOW_PENDING_SHARES_SETTING_KEY, false) === true;
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
+  const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const weekStartsOnSunday =
@@ -311,13 +314,13 @@ export const PreferencesPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="mosaic-settings-page flex min-h-full flex-col">
       <div className="sticky top-0 z-20 flex items-center justify-center border-b border-[#333333] bg-[#111111] px-4 py-3">
         <button
           type="button"
           onClick={handleBack}
           onPointerDown={(event) => event.stopPropagation()}
-          className="absolute left-4 rounded-lg p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          className="mosaic-settings-icon absolute left-4 rounded-lg p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Back"
         >
           <ChevronLeft size={20} aria-hidden="true" />
@@ -464,6 +467,14 @@ export const PreferencesPage: React.FC = () => {
           />
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Pinch to change visible days"
+            showChevron={false}
+            isToggle
+            checked={calendarPinchZoom}
+            onClick={() => void setSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, !calendarPinchZoom)}
+          />
+          <SettingsRow
+            icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Keep weekday header visible"
             showChevron={false}
             isToggle
@@ -580,8 +591,8 @@ export const PreferencesPage: React.FC = () => {
             onClick={() => void setSetting(GIPHY_AUTOPLAY_SETTING_KEY, !giphyAutoplay)}
           />
         </section>
-        <section className="border-b border-[#333333] px-4 py-5">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <section aria-labelledby="preferences-accent-heading" className="border-b border-[#333333] px-4 py-5">
+          <h2 id="preferences-accent-heading" className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Accent color
           </h2>
           <button
@@ -592,7 +603,7 @@ export const PreferencesPage: React.FC = () => {
           >
             <span className="flex min-w-0 items-center gap-3">
               <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]"
+                className="mosaic-settings-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]"
                 aria-hidden="true"
               >
                 <Palette size={17} className="text-emerald-500" />
@@ -612,6 +623,9 @@ export const PreferencesPage: React.FC = () => {
               aria-hidden="true"
             />
           </button>
+          <div className="mt-2 border-t border-[#333333] pt-2">
+            <UiColorSettings />
+          </div>
         </section>
         <BottomSheet
           isOpen={isAccentPickerOpen}

@@ -1,22 +1,19 @@
 # Session checkpoint
 
-Updated: 2026-10-20 UTC
-Current task: #856 — remove subtle flicker at cross-day task drop.
+Updated: 2026-10-21 UTC
+Current task: #856 — owner-approved stable Preview → dev promotion (v0.34.8).
 
-## Live baseline and owner feedback
-- Owner confirms previous v0.34.7 edge-release and no-overlap fixes work, but cross-day drop has a brief flash when settling; same-day reorder settles smoothly. Preserve touch release, timers, destination gap, saving and unrelated gestures.
-- Stable Preview `feature/cross-day-drag-856-20261020@ad52a93f8c5d6d77d89a68b5dbe508b8e5a7a7c4`, v0.34.7, canonical Gate #39448892769 success on attempt 2, Vercel exact-SHA READY. Separate dev `0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0`; no approval to promote. Issue #856 remains open.
-- Task branch `chatgpt/856-smooth-cross-day-settle-20261020`; PATCH candidate v0.34.8.
+## Accepted source, regression and approval
+- The owner reports cross-day task dragging, mobile edge release and settling now work well, and explicitly approved final cleanup/polish followed by a merge to dev. Preserve issue #856's cross-day dates, task/category projections, long-held touch safeguards, neutral slot and quiet successful move.
+- Accepted stable Preview `feature/cross-day-drag-856-20261020@6921e154b2e21983acc2975965cb11bddcbd9678` (v0.34.8), [PR #1117](https://github.com/carlers/mosaic-life-tracker/pull/1117). Focused/browser task Gate #39451733357 SUCCESS; full canonical Gate #39452162714 SUCCESS at attempt 3 (earlier unrelated same-day reorder flakes did not repeat on the final run). Exact-SHA Vercel deployment `dpl_4EtDD7rP4Dffur1AvZhDyKq5v8Lj` READY.
+- Live `dev@0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0` is **diverged** from the original cross-day Preview: it separately accepted #953 accent-color placements v0.34.4. Do **not** overwrite that already-approved dev behavior or promote the original divergent preview directly.
+- Merge authorization is for dev only; not main, Production, new backend services or v1.0.
 
-## Cause and narrow repair
-- Before v0.34.8 the active destination `DaySlide` switched `ReadOnlySlide` → `TaskReorderRuntime` as soon as the temporary `continuousDrag.projection` cleared. That unmounted/remounted the **entire task list** while the gap became a saved row, visually flashing despite non-overlapping bounds.
-- Keep the already-active day in `TaskReorderRuntime` during carried drag, settling and normal mode. Native task sorting remains disabled while a held/settling projection exists.
-- Keep `DayViewCategoryReorder` in its usual `Reorder.Group` / `Reorder.Item` structure during external carry on the active day, with `canStartDrag=false` until release. This prevents swapping layout wrappers from `LayoutGroup` → `Reorder.Group` when settling clears.
-- While carried externally and the active runtime is mounted, render destination siblings as the exact same `TaskRowDropSurface` and `DraggableTaskItem` component tree used by native same-day reorder. Their stable keyed DOM/task content no longer remounts at drop. Non-active/read-only slides retain cheap normal rendering; do not add providers to all virtual slides.
-- Keep v0.34.7's overlay removal + reserved neutral gap through commit and two frames; no extra colored UI or toast.
-- Extend existing CDP browser edge/category release regression: record stable task+category DOM elements before releasing in a populated next-day category and assert those same actual elements remain connected/active after settling, in addition to no overlapping rows and stable date.
+## Integrated Preview preflight
+- Integration task branch `chatgpt/856-integrate-dev-accent-20261021` derives from the accepted feature Preview and reapplies all dev-only #953 theme/pinch-zoom files by their exact approved dev Git blobs.
+- Preserve v0.34.8 version in package.json, package-lock.json and appVersion.ts. Merge the one dev-only `mosaic-date-header` class into the feature's DayViewSheet, and union docs/COMPONENT_INDEX entries for crossDayTaskDrag/useContinuousTaskDrag and dev's useCalendarPinchZoom/UiColorSettings. Keep the feature checkpoint instead of replacing it with stale #953 state.
+- No new task behavior, data schema, Appwrite sync or user-facing redesign. Integration must pass new focused task checks, squash into stable feature Preview, full exact-SHA canonical CI, and new Vercel READY evidence.
+- Before the final approved dev merge, fail-closed preflight: check latest refs, versions, exact canonical status, READY Preview deployment, mergeability and GitHub synthetic merge-tree equality with accepted Preview tree. No production promotion. Capture merge SHA, two parents, dev CI and Vercel when available.
 
-## Delivery
-- Verify task focused/browser gate, repair any test/build failures, squash to stable Preview, run full canonical CI, then deploy exact-SHA Vercel Preview READY and checkpoint issue.
-- Owner phone visual smoothness still requires physical Android/iOS acceptance; persistence/offline sync and >87-day rebases remain manual.
-- Do not promote dev/main, deploy Production, or change backend/schema.
+## Remaining manual acceptance
+- Physical iOS/Android repeated drag and smooth settling, device-specific offline sync, and extreme >87-day virtual rebase remain manual. Issue #856 may remain open through production acceptance; report explicitly.
