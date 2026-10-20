@@ -1,0 +1,226 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createSupabaseCoreAuthCoordinator } from '../../src/lib/supabaseCoreAuth';
+
+const OWNER = '11111111-1111-4111-8111-111111111111';
+const OTHER = '22222222-2222-4222-8222-222222222222';
+const mocks = vi.hoisted(() => ({
+  bootstrap: vi.fn(),
+}));
+vi.mock('../../src/lib/supabaseCoreBootstrap', () => ({
+  createAppSupabaseCoreBootstrap: mocks.bootstrap,
+}));
+
+type Signed = { userId: string; accessToken: string; sessionEpoch: number };
+const original = (): Signed => ({
+  userId: OWNER, accessToken: 'signed-owner-token-a', sessionEpoch: 11,
+});
+
+function fixture() {
+  let signed: Signed | null = null;
+  let phase: 'idle' | 'active' | 'blocked' = 'idle';
+  const run = {
+    taskState: {},
+    categoryState: {},
+    awaitInitialReplication: vi.fn(async () => {}),
+    resync: vi.fn(async () => {}),
+    getPendingConflicts: vi.fn(() => ({ tasks: [], categories: [] })),
+    stop: vi.fn(async () => { phase = 'idle'; }),
+  };
+  const bridge = {
+    start: vi.fn(async () => { phase = 'active'; return run; }),
+    stop: vi.fn(async () => { await run.stop(); }),
+    getPhase: vi.fn(() => phase),
+  };
+  mocks.bootstrap.mockReturnValue(bridge);
+  const session = {
+    signIn: vi.fn(async () => { signed = original(); return signed; }),
+    restoreFromPersistence: vi.fn(async (): Promise<Signed | null> => {
+      signed = original();
+      return signed;
+    }),
+    refresh: vi.fn(async () => {
+      if (!signed) throw Error('No stored Auth session');
+      signed = { ...signed, sessionEpoch: signed.sessionEpoch + 1, accessToken: 'rotated-owner-token-b' };
+      return signed;
+    }),
+    signOut: vi.fn(async () => { signed = null; return true; }),
+    getVerifiedSession: vi.fn(async () => signed),
+  };
+  const identity = { legacyUserId: 'mosaic_existing_owner', supabaseUserId: OWNER };
+  const guard = {
+    verifyLegacyMapping: vi.fn(async () => {}),
+    assertAppwriteWritersFenced: vi.fn(async () => {}),
+    acquireExclusiveLease: vi.fn(async () => ({ isCurrent: () => true, release: vi.fn(async () => {}) })),
+  };
+  const resolveIdentity = vi.fn(async () => identity);
+  const assertLocalAppwriteStopped = vi.fn(async () => {});
+  const options = {
+    selectedBackend: 'supabase-cloud' as const,
+    featureProfile: 'core-only' as const,
+    baseUrl: 'https://isolated.test.supabase.co',
+    publishableKey: 'sb_publishable_synthetic_only',
+    guard,
+    resolveIdentity,
+    assertLocalAppwriteStopped,
+    session: session as never,
+  };
+  const coordinator = createSupabaseCoreAuthCoordinator(options);
+  return {
+    coordinator, options, session, bridge, run, guard, identity, resolveIdentity,
+    setOwner(id: string) {
+      if (!signed) throw Error('Missing synthetic Auth');
+      signed = { ...signed, userId: id };
+    },
+  };
+}
+
+beforeEach(() => vi.clearAllMocks());
+
+describe('app-owned signed Supabase core Auth+RxDB lifecycle (#1027)', () => {
+  it('stays passive and publishes no cached owner until signed Auth and trusted mapping succeed', async () => {
+    const f = fixture();
+    expect(f.coordinator.getPhase()).toBe('signed-out');
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+    expect(mocks.bootstrap).not.toHaveBeenCalled();
+    expect(await f.coordinator.signIn('owner@example.test', 'password')).toEqual(f.identity);
+    expect(f.resolveIdentity).toHaveBeenCalledWith(original());
+    expect(mocks.bootstrap).toHaveBeenCalledWith(expect.objectContaining({
+      selectedBackend: 'supabase-cloud',
+      featureProfile: 'core-only',
+      identity: f.identity,
+      session: f.session,
+      guard: f.guard,
+      assertLocalAppwriteStopped: f.options.assertLocalAppwriteStopped,
+    }));
+    expect(f.coordinator.getPhase()).toBe('active');
+    expect(f.coordinator.getAuthenticatedOwner()).toEqual(f.identity);
+    expect(f.coordinator.getAuthenticatedOwner()).not.toHaveProperty('accessToken');
+    await f.coordinator.resync();
+    expect(f.run.resync).toHaveBeenCalledOnce();
+  });
+
+  it('restores only after signed refresh verifies the same owner, never from local hints', async () => {
+    const f = fixture();
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+    expect(await f.coordinator.restore()).toEqual(f.identity);
+    expect(f.session.restoreFromPersistence).toHaveBeenCalledOnce();
+    expect(f.coordinator.getAuthenticatedOwner()).toEqual(f.identity);
+  });
+
+  it('returns no account when restore finds no credential; never launches a writer', async () => {
+    const f = fixture();
+    f.session.restoreFromPersistence.mockResolvedValueOnce(null);
+    expect(await f.coordinator.restore()).toBeNull();
+    expect(f.coordinator.getPhase()).toBe('signed-out');
+    expect(mocks.bootstrap).not.toHaveBeenCalled();
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+  });
+
+  it('refuses missing/mismatched legacy mapping and clears session before data access', async () => {
+    const f = fixture();
+    f.resolveIdentity.mockResolvedValueOnce({ ...f.identity, supabaseUserId: OTHER });
+    await expect(f.coordinator.signIn('owner@example.test', 'pass'))
+      .rejects.toThrow('different signed owner');
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+    expect(f.session.signOut).toHaveBeenCalledOnce();
+    expect(mocks.bootstrap).not.toHaveBeenCalled();
+    expect(f.coordinator.getPhase()).toBe('signed-out');
+  });
+
+  it('fences delayed mapping after the verified server owner switches', async () => {
+    const f = fixture();
+    f.resolveIdentity.mockImplementationOnce(async () => {
+      f.setOwner(OTHER);
+      return f.identity;
+    });
+    await expect(f.coordinator.signIn('owner@example.test', 'pass'))
+      .rejects.toThrow('signed account changed');
+    expect(mocks.bootstrap).not.toHaveBeenCalled();
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+  });
+
+  it('does not acknowledge a stale authentication after remote writer starts', async () => {
+    const f = fixture();
+    f.bridge.start.mockImplementationOnce(async () => {
+      f.setOwner(OTHER);
+      return f.run;
+    });
+    await expect(f.coordinator.signIn('owner@example.test', 'pass'))
+      .rejects.toThrow('signed account changed');
+    expect(f.run.stop).toHaveBeenCalledOnce();
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+    expect(f.coordinator.getPhase()).toBe('signed-out');
+  });
+
+  it('blocks all future authentication if a started writer cannot be stopped', async () => {
+    const f = fixture();
+    f.bridge.start.mockImplementationOnce(async () => {
+      f.setOwner(OTHER);
+      return f.run;
+    });
+    f.run.stop.mockRejectedValueOnce(Error('replicator cannot cancel'));
+    await expect(f.coordinator.signIn('owner@example.test', 'pass'))
+      .rejects.toThrow('cleanup unconfirmed');
+    expect(f.coordinator.getPhase()).toBe('blocked');
+    await expect(f.coordinator.signIn('another@example.test', 'pass'))
+      .rejects.toThrow('busy or blocked');
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+  });
+
+  it('stops all cloud writers before revoking an account and rejects overlapping logins', async () => {
+    const f = fixture();
+    await f.coordinator.signIn('owner@example.test', 'pass');
+    await expect(f.coordinator.signIn('another@example.test', 'pass'))
+      .rejects.toThrow('busy or blocked');
+    f.session.signOut.mockImplementationOnce(async () => {
+      expect(f.run.stop).toHaveBeenCalledOnce();
+      return false; // Remote logout unconfirmed; local tokens still cleared by real Auth
+    });
+    expect(await f.coordinator.signOut()).toBe(false);
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+    expect(f.coordinator.getPhase()).toBe('signed-out');
+  });
+
+  it('blocks account switching if an active writer cannot be stopped', async () => {
+    const f = fixture();
+    await f.coordinator.signIn('owner@example.test', 'pass');
+    f.run.stop.mockRejectedValueOnce(Error('unconfirmed cancellation'));
+    await expect(f.coordinator.signOut()).rejects.toThrow('account switch blocked');
+    expect(f.coordinator.getPhase()).toBe('blocked');
+    expect(f.session.signOut).not.toHaveBeenCalled();
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+  });
+
+  it('rotates Auth only after stopping the previous writer and reacquires all mapping/lease gates', async () => {
+    const f = fixture();
+    await f.coordinator.signIn('owner@example.test', 'pass');
+    expect(await f.coordinator.refreshAndRestart()).toEqual(f.identity);
+    expect(f.run.stop).toHaveBeenCalledOnce();
+    expect(f.session.refresh).toHaveBeenCalledOnce();
+    expect(f.resolveIdentity).toHaveBeenCalledTimes(2);
+    expect(mocks.bootstrap).toHaveBeenCalledTimes(2);
+    expect(f.coordinator.getAuthenticatedOwner()).toEqual(f.identity);
+  });
+
+  it('does not refresh or reacquire if the previous replication cannot stop', async () => {
+    const f = fixture();
+    await f.coordinator.signIn('owner@example.test', 'pass');
+    f.run.stop.mockRejectedValueOnce(Error('unconfirmed stop'));
+    await expect(f.coordinator.refreshAndRestart()).rejects.toThrow('cannot refresh');
+    expect(f.session.refresh).not.toHaveBeenCalled();
+    expect(f.coordinator.getPhase()).toBe('blocked');
+  });
+
+  it('rejects invalid provider/profile and missing required server or local safeguards', () => {
+    const f = fixture();
+    expect(() => createSupabaseCoreAuthCoordinator({
+      ...f.options, selectedBackend: 'appwrite-cloud' as never,
+    })).toThrow('explicit Supabase');
+    expect(() => createSupabaseCoreAuthCoordinator({
+      ...f.options, resolveIdentity: undefined as never,
+    })).toThrow('trusted legacy');
+    expect(() => createSupabaseCoreAuthCoordinator({
+      ...f.options, guard: {} as never,
+    })).toThrow('all server and local');
+  });
+});
