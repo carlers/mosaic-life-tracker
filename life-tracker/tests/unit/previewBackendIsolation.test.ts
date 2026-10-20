@@ -8,6 +8,7 @@ import {
   MOSAIC_PRODUCTION_FUNCTION_ID,
   assertPreviewBackendIsolation,
   assertProductionBackendIsolation,
+  MOSAIC_SUPABASE_DEV_ORIGIN,
 } from '../../scripts/lib/preview-backend-isolation.ts';
 
 describe('Vercel Preview Appwrite isolation', () => {
@@ -36,6 +37,24 @@ describe('Vercel Preview Appwrite isolation', () => {
     ]) {
       expect(() => assertPreviewBackendIsolation(env)).toThrow(/Refusing Mosaic Preview build/);
     }
+  });
+
+  it('limits the explicit Supabase Preview to core-only mosaic-dev and forbids Production', () => {
+    const candidate = {
+      VERCEL_ENV: 'preview', MOSAIC_SUPABASE_CORE_PREVIEW: 'true',
+      VITE_MOSAIC_BACKEND: 'supabase-cloud', VITE_MOSAIC_FEATURE_PROFILE: 'core-only',
+      VITE_SUPABASE_URL: MOSAIC_SUPABASE_DEV_ORIGIN,
+      VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_synthetic',
+    };
+    expect(assertPreviewBackendIsolation(candidate)?.endpoint).toBe(MOSAIC_SUPABASE_DEV_ORIGIN);
+    for (const override of [
+      { MOSAIC_SUPABASE_CORE_PREVIEW: '' }, { VITE_MOSAIC_FEATURE_PROFILE: 'full' },
+      { VITE_SUPABASE_URL: 'https://other.supabase.co' },
+      { VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_secret_never_browser' },
+      { VITE_MOSAIC_BACKEND: 'appwrite-oracle' },
+    ]) expect(() => assertPreviewBackendIsolation({ ...candidate, ...override })).toThrow(/Refusing/);
+    expect(() => assertProductionBackendIsolation({ ...candidate, VERCEL_ENV: 'production' }))
+      .toThrow(/Preview-only/);
   });
 
   it('enforces the production project, region and Function when building official main', () => {

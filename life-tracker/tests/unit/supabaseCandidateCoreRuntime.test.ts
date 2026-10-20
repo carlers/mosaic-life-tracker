@@ -147,6 +147,43 @@ describe('isolated signed two-domain core sync lifecycle (#1027)', () => {
     await expect(run.stop()).rejects.toThrow('writer lease retained');
     const lease = await f.guard.acquireExclusiveLease.mock.results[0].value;
     expect(lease.release).not.toHaveBeenCalled();
+    await expect(f.runtime.start()).rejects.toThrow('already started');
+    await expect(run.stop()).rejects.toThrow('writer lease retained');
+    expect(lease.release).not.toHaveBeenCalled();
+  });
+
+  it('pauses both writers without remote Auth, retaining the lease until signed release', async () => {
+    const f = fixture();
+    const run = await f.runtime.start();
+    const lease = await f.guard.acquireExclusiveLease.mock.results[0].value;
+    f.session.getVerifiedSession.mockRejectedValue(Error('JWT expired'));
+    await run.pause();
+    await run.pause();
+    expect(mocks.tasksStop).toHaveBeenCalledOnce();
+    expect(mocks.categoriesStop).toHaveBeenCalledOnce();
+    expect(lease.release).not.toHaveBeenCalled();
+    await expect(run.resync()).rejects.toThrow('no longer active');
+    await expect(f.runtime.start()).rejects.toThrow('already started');
+    lease.release.mockRejectedValueOnce(Error('release response lost'));
+    await expect(run.stop()).rejects.toThrow('response lost');
+    await expect(f.runtime.start()).rejects.toThrow('already started');
+    await run.stop();
+    expect(mocks.tasksStop).toHaveBeenCalledOnce();
+    expect(lease.release).toHaveBeenCalledTimes(2);
+  });
+
+  it('fences a resync whose Auth verification returns after the local pause', async () => {
+    const f = fixture();
+    const run = await f.runtime.start();
+    let resolve!: (signed: { userId: string; accessToken: string; sessionEpoch: number }) => void;
+    f.session.getVerifiedSession.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+    const pending = run.resync();
+    await run.pause();
+    resolve({ userId: OWNER, accessToken: 'signed-token-a', sessionEpoch: 3 });
+    await expect(pending).rejects.toThrow('no longer active');
+    expect(mocks.taskResync).not.toHaveBeenCalled();
+    expect(mocks.categoryResync).not.toHaveBeenCalled();
+    await run.stop();
   });
 
   it('denies concurrent starts and rejects runtime creation without safety guards', async () => {

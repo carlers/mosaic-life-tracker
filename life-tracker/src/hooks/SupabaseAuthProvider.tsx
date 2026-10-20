@@ -39,6 +39,7 @@ export default function SupabaseAuthProvider({ config, children }: {
   const [recoverySuccess, setRecoverySuccess] = useState<'requested' | null>(null);
   const busy = useRef(false);
   const mounted = useRef(true);
+  const retrySync = useRef(async () => {});
 
   useEffect(() => {
     mounted.current = true;
@@ -46,7 +47,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       mounted.current = false;
       scopeAccountWork(null);
       scopeSyncStatusToUser(null);
-      if (runtime.coordinator.getPhase() === 'active')
+      if (['active', 'paused'].includes(runtime.coordinator.getPhase()))
         void runtime.coordinator.signOut().catch(() => {});
     };
   }, [runtime]);
@@ -59,6 +60,17 @@ export default function SupabaseAuthProvider({ config, children }: {
       if (busy.current || !active || navigator.onLine === false) return;
       busy.current = true;
       try {
+        // An expired access JWT can still have a valid refresh credential.
+        // Pause local writers and rotate before asking Auth to verify it.
+        if (runtime.coordinator.getPhase() === 'paused' ||
+            (runtime.session.getExpiresAt() ?? 0) - Date.now() < 120_000) {
+          await runtime.coordinator.refreshAndRestart();
+          if (!mounted.current) {
+            await runtime.coordinator.signOut();
+            return;
+          }
+          if (active) setSyncGeneration(generation => generation + 1);
+        }
         if (!await runtime.session.getVerifiedSession()) {
           scopeAccountWork(null);
           scopeSyncStatusToUser(null);
@@ -66,20 +78,26 @@ export default function SupabaseAuthProvider({ config, children }: {
           await runtime.coordinator.signOut();
           throw new Error('Core account authorization was revoked');
         }
-        if ((runtime.session.getExpiresAt() ?? 0) - Date.now() < 120_000) {
-          await runtime.coordinator.refreshAndRestart();
-          if (active) setSyncGeneration(generation => generation + 1);
-        }
         await runtime.authority.renew();
         await runtime.coordinator.resync();
         reportConnectivityResult();
       } catch {
         // Retain offline local edits. A rejected session never authorizes
         // remote writes; reauthentication is explicit.
-        if (active) publishSyncStatus({ errors: ['Core sync unavailable. Reconnect or sign in again.'] });
+        if (active) {
+          const phase = runtime.coordinator.getPhase();
+          if (phase === 'blocked' || phase === 'signed-out') {
+            scopeAccountWork(null);
+            scopeSyncStatusToUser(null);
+            setUser(null);
+            setError('Session recovery could not be confirmed. Reload and sign in again. Local changes are retained.');
+          } else if (phase === 'paused') setSyncGeneration(generation => generation + 1);
+          publishSyncStatus({ errors: ['Core sync unavailable. Reconnect or sign in again.'] });
+        }
       } finally { busy.current = false; }
     };
     const unregister = registerCoreSync(ownerId, catchUp);
+    retrySync.current = catchUp;
     const states = runtime.coordinator.getReplicationStates();
     let settling: Promise<void> | null = null;
     const recordSettled = () => {
@@ -115,6 +133,7 @@ export default function SupabaseAuthProvider({ config, children }: {
     document.addEventListener('visibilitychange', visible);
     return () => {
       active = false;
+      retrySync.current = async () => {};
       unregister();
       subscriptions.forEach(subscription => subscription.unsubscribe());
       window.clearInterval(timer);
@@ -198,7 +217,7 @@ export default function SupabaseAuthProvider({ config, children }: {
     },
     completePasswordRecovery: unsupported, deleteAccount: unsupported,
     updateEmail: unsupported, updatePassword: unsupported,
-    async retry() { if (user) await runtime.coordinator.resync(); },
+    async retry() { if (user) await retrySync.current(); },
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

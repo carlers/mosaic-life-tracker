@@ -174,6 +174,26 @@ describe('candidate Supabase session lifecycle (#1027)', () => {
     expect(await offline.session.getSessionSnapshot()).toEqual(before);
   });
 
+  it.each(['refresh_token_not_found', 'refresh_token_already_used', 'session_not_found', 'session_expired']
+    .flatMap(code => [{ code }, { code: 400, error_code: code }]))(
+    'recognizes GoTrue HTTP 400 %j as definitive refresh rejection', async body => {
+      const f = authFixture();
+      await f.session.signIn('a@example.org', 'password');
+      f.fetcher.mockImplementationOnce(async () => reply(body, 400));
+      await expect(f.session.refresh()).rejects.toThrow('rejected by the server');
+      expect(await f.session.getSessionSnapshot()).toBeNull();
+    },
+  );
+
+  it('retains credentials on an unclassified refresh response without granting a new session', async () => {
+    const f = authFixture();
+    await f.session.signIn('a@example.org', 'password');
+    const before = await f.session.getSessionSnapshot();
+    f.fetcher.mockImplementationOnce(async () => reply({ code: 400, error_code: 'unexpected_service_failure' }, 400));
+    await expect(f.session.refresh()).rejects.toThrow('request denied');
+    expect(await f.session.getSessionSnapshot()).toEqual(before);
+  });
+
   it('signup and recovery do not treat returned user metadata as an active login', async () => {
     const f = authFixture();
     await f.session.signUp('a@example.org', 'password123');

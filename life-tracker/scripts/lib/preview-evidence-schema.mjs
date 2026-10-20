@@ -31,5 +31,12 @@ export function validateBuildEvidence(manifest, expected = {}) {
       !Number.isSafeInteger(profile.nodeMajor) || profile.nodeMajor < 20) {
     throw new Error('Untrusted or incomplete CI build profile');
   }
+  if (profile.backend === 'supabase-cloud' &&
+      (profile.vercelEnvironment !== 'preview' || profile.appwriteBackend !== 'none' ||
+       profile.featureProfile !== 'core-only' ||
+       profile.supabaseOrigin !== 'https://hcxtiifzxoaflhjgoglb.supabase.co' ||
+       !/^[a-f0-9]{64}$/.test(profile.publishableKeySha256 ?? ''))) {
+    throw new Error('Incomplete isolated Supabase Preview build profile');
+  }
   return manifest;
 }

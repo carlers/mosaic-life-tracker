@@ -117,6 +117,24 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
       categoryRun = categories.start(options.collections.categories);
       const established = { lease, taskRun, categoryRun, signed: before };
       active = established;
+      let cancellation: Promise<void> | null = null;
+      const pause = async () => {
+        if (active !== established) throw new Error('Candidate core replication no longer active');
+        cancellation ??= Promise.allSettled([
+          established.taskRun.stop(), established.categoryRun.stop(),
+        ]).then(results => {
+          if (results.some(result => result.status === 'rejected'))
+            throw new Error('Candidate core shutdown unconfirmed; writer lease retained');
+        });
+        await cancellation;
+      };
+      const stop = async () => {
+        // Pausing is local and works after JWT expiry. Release remains a
+        // separate signed operation; failure never permits another start.
+        await pause();
+        await established.lease.release();
+        active = null;
+      };
       return {
         taskState: taskRun.state,
         categoryState: categoryRun.state,
@@ -126,16 +144,18 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
             established.categoryRun.state.awaitInitialReplication(),
           ]);
           const latest = await checkedOwner();
-          if (!established.lease.isCurrent() ||
+          if (active !== established || cancellation || !established.lease.isCurrent() ||
               latest.sessionEpoch !== established.signed.sessionEpoch ||
               latest.accessToken !== established.signed.accessToken) {
             throw new CandidateAuthError('Candidate core session or lease changed during initial sync');
           }
         },
         async resync() {
-          if (active !== established || !established.lease.isCurrent())
+          if (active !== established || cancellation || !established.lease.isCurrent())
             throw new Error('Candidate core replication no longer active');
           const latest = await checkedOwner();
+          if (active !== established || cancellation || !established.lease.isCurrent())
+            throw new Error('Candidate core replication no longer active');
           if (latest.sessionEpoch !== established.signed.sessionEpoch ||
               latest.accessToken !== established.signed.accessToken)
             throw new CandidateAuthError('Candidate core session replaced; stop and restart with fresh owner lease');
@@ -143,6 +163,7 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
           established.categoryRun.resync();
         },
         stop,
+        pause,
         getPendingConflicts: () => ({
           tasks: tasks.listPendingConflicts(),
           categories: categories.listPendingConflicts(),
@@ -167,17 +188,5 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
     }
   }
 
-  async function stop(): Promise<void> {
-    const current = active;
-    active = null;
-    if (!current) return;
-    const results = await Promise.allSettled([
-      current.taskRun.stop(), current.categoryRun.stop(),
-    ]);
-    if (results.some(result => result.status === 'rejected'))
-      throw new Error('Candidate core shutdown unconfirmed; writer lease retained');
-    await current.lease.release();
-  }
-
-  return { start, stop };
+  return { start };
 }

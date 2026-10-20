@@ -51,6 +51,13 @@ Before user-testable Preview acceptance, agents set the planned version in the f
 
 Give all task squash merges and dev/main promotion merges an explicit descriptive subject and detailed body summarizing what actually changed (including aggregate work at production release); PR bodies retain mechanical acceptance/provenance. Preview and dev Vercel builds must use Scratch Appwrite, while official main uses Production. Build-time assertions enforce both targets and verify a Preview Function ID is explicit; Settings also exposes the runtime-effective Appwrite identity. In backend-dependent Preview handoffs, check the registered stable alias, scratch migrations/active Function, and disposable-user login; backend changes during a shared Preview can affect other branches before they merge. See [scratch runbook](SCRATCH_PREVIEW_WORKFLOW.md).
 
+The explicitly isolated #1027 Supabase core Preview is a separate candidate:
+`mosaic-supabase-core-preview.vercel.app`, core-only, pinned to `mosaic-dev`.
+Its separate public-input artifact follows [the hosted core runbook](../supabase-poc/HOSTED_CORE.md).
+It does not use the ordinary Appwrite receiver, shared Preview variables or
+Production. Require exact source canonical acceptance, the real Supabase lab,
+verified CI bytes and disposable-account hosted UI evidence before acceptance.
+
 ## Production publication (no agent-specific plugin required)
 
 An approved `dev → main` release promotion continues to require an accepted Preview and explicit user instruction. The PR body must contain `## User-facing release notes`, with a concise complete aggregate summary of user-visible changes since the last production release. A successful merge is **not** a published release. A dedicated `Publish Production Release` Actions job runs after the exact `main` canonical gate, waits for matching live production build identity and Vercel status, then safely publishes a `vX.Y.Z` GitHub tag/Release. It skips non-version-changing commits; failed publishing is observable, can be retried through manual dispatch, and is reconciled every six hours. If the GitHub Actions token cannot write repository contents due to repository settings, maintainer must enable Actions read/write permissions. The public releases API is the sole source used by Settings history; publishing requires no Mosaic redeploy and no Appwrite table.

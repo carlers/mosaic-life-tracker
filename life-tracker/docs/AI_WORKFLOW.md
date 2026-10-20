@@ -79,6 +79,11 @@ Every squash/promotion merge should have a descriptive `commit_title` and `commi
 
 **Environment invariant:** official Vercel Preview (including dev) uses only registered Scratch Appwrite; official main uses only Production. Browser-facing `appwrite:` Settings metadata comes from actual SDK project + endpoint, not the branch. Use stable registered Preview aliases, not unregistered immutable deployment URLs. Follow [scratch Preview readiness](SCRATCH_PREVIEW_WORKFLOW.md) only for backend-dependent work, never add Appwrite delays to frontend-only changes.
 
+For the separately authorized #1027 Supabase core candidate, follow the isolated
+Preview exception in [delivery](DELIVERY.md#versioned-preview-and-environment-safety)
+and [hosted core runbook](../supabase-poc/HOSTED_CORE.md). Ordinary Appwrite
+Preview and Production configuration remain separate.
+
 ## Environment selection
 
 | Environment | Work and verification | Transfer |

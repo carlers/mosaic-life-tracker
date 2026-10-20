@@ -6,7 +6,8 @@ import { assertPreviewBackendIsolation, assertProductionBackendIsolation } from 
 
 const verifiedPreviewBackend = assertPreviewBackendIsolation(process.env);
 if (verifiedPreviewBackend) {
-  console.info(`[Mosaic] Preview backend: scratch Appwrite ${verifiedPreviewBackend.projectId} (${verifiedPreviewBackend.endpoint})`);
+  const provider = 'backend' in verifiedPreviewBackend ? 'mosaic-dev Supabase core' : 'scratch Appwrite';
+  console.info(`[Mosaic] Preview backend: ${provider} ${verifiedPreviewBackend.projectId} (${verifiedPreviewBackend.endpoint})`);
 }
 
 // Effective non-secret feature presence is logged on every hosted build so
@@ -46,6 +47,8 @@ const embeddedBuildInfo = JSON.stringify({
   branch: buildRef || null,
   builtAt: new Date().toISOString(),
   channel: buildChannel,
+  backend: process.env.VITE_MOSAIC_BACKEND || 'appwrite-cloud',
+  featureProfile: process.env.VITE_MOSAIC_FEATURE_PROFILE || 'full',
 });
 
 const buildInfoMetaPlugin = {

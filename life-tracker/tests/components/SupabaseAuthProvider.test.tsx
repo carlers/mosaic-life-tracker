@@ -8,15 +8,16 @@ const mock = vi.hoisted(() => ({
   signIn: vi.fn(), signOut: vi.fn(), resync: vi.fn(), signUp: vi.fn(),
   getPhase: vi.fn(), scope: vi.fn(), verify: vi.fn(), renew: vi.fn(),
   getReplicationStates: vi.fn(), publishStatus: vi.fn(),
+  refreshAndRestart: vi.fn(), expiresAt: vi.fn(),
 }));
 vi.mock('../../src/lib/supabaseCoreAuth', () => ({
   createSupabaseCoreAuthCoordinator: () => ({
-    ...mock, refreshAndRestart: vi.fn(),
+    ...mock,
   }),
 }));
 vi.mock('../../supabase-poc/candidateAuthSession', () => ({
   createCandidateAuthSession: () => ({
-    signUp: mock.signUp, getExpiresAt: () => Date.now() + 3600_000,
+    signUp: mock.signUp, getExpiresAt: mock.expiresAt,
     getVerifiedSession: mock.verify,
   }),
 }));
@@ -51,10 +52,57 @@ beforeEach(() => {
   mock.verify.mockResolvedValue({ userId: 'signed-owner' });
   mock.renew.mockResolvedValue(undefined);
   mock.resync.mockResolvedValue(undefined);
+  mock.expiresAt.mockImplementation(() => Date.now() + 3600_000);
+  mock.refreshAndRestart.mockResolvedValue(undefined);
 });
 afterEach(cleanup);
 
 describe('Supabase app AuthContext lifecycle', () => {
+  it('stops a refreshed writer if the provider unmounts while recovery is in flight', async () => {
+    const view = render(<SupabaseAuthProvider config={config}><Consumer /></SupabaseAuthProvider>);
+    fireEvent.click(screen.getByText('Sign in'));
+    await screen.findByText('canonical_owner');
+    mock.expiresAt.mockReturnValue(Date.now() - 1);
+    mock.getPhase.mockReturnValue('active');
+    let finish!: () => void;
+    mock.refreshAndRestart.mockImplementationOnce(() => {
+      mock.getPhase.mockReturnValue('stopping');
+      return new Promise<void>(resolve => { finish = resolve; });
+    });
+    act(() => window.dispatchEvent(new Event('online')));
+    await waitFor(() => expect(mock.refreshAndRestart).toHaveBeenCalledOnce());
+    view.unmount();
+    mock.getPhase.mockReturnValue('active');
+    finish();
+    await waitFor(() => expect(mock.signOut).toHaveBeenCalledOnce());
+    expect(mock.resync).not.toHaveBeenCalled();
+  });
+
+  it('refreshes expired access before verification and retains the owner through a transient outage', async () => {
+    render(<SupabaseAuthProvider config={config}><Consumer /></SupabaseAuthProvider>);
+    fireEvent.click(screen.getByText('Sign in'));
+    await screen.findByText('canonical_owner');
+    mock.getPhase.mockReturnValue('active');
+    mock.expiresAt.mockReturnValue(Date.now() - 1000);
+    mock.refreshAndRestart.mockImplementationOnce(async () => {
+      mock.getPhase.mockReturnValue('paused');
+      throw Error('temporary network failure');
+    });
+    act(() => window.dispatchEvent(new Event('online')));
+    await waitFor(() => expect(mock.refreshAndRestart).toHaveBeenCalledOnce());
+    expect(mock.verify).not.toHaveBeenCalled();
+    expect(mock.signOut).not.toHaveBeenCalled();
+    expect(screen.getByText('canonical_owner')).toBeInTheDocument();
+    mock.refreshAndRestart.mockImplementationOnce(async () => {
+      mock.getPhase.mockReturnValue('active');
+      mock.expiresAt.mockReturnValue(Date.now() + 3600_000);
+    });
+    act(() => window.dispatchEvent(new Event('online')));
+    await waitFor(() => expect(mock.resync).toHaveBeenCalledOnce());
+    expect(mock.refreshAndRestart.mock.invocationCallOrder.at(-1))
+      .toBeLessThan(mock.verify.mock.invocationCallOrder[0]);
+  });
+
   it('publishes the canonical owner only after guarded sign-in and clears it after stopped logout', async () => {
     let finish!: (value: unknown) => void;
     mock.signIn.mockImplementation(() => new Promise(resolve => { finish = resolve; }));

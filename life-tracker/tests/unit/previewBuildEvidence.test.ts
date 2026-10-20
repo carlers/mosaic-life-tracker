@@ -25,6 +25,19 @@ const evidence = {
 };
 
 describe('prebuilt CI evidence contract (#592)', () => {
+  it('keeps Supabase artifacts explicit and rejects cross-provider or Production evidence', () => {
+    const candidate = { ...evidence, buildProfile: {
+      ...evidence.buildProfile, backend: 'supabase-cloud', featureProfile: 'core-only',
+      appwriteBackend: 'none', vercelEnvironment: 'preview',
+      supabaseOrigin: 'https://hcxtiifzxoaflhjgoglb.supabase.co', publishableKeySha256: digest,
+    } };
+    expect(validateBuildEvidence(candidate)).toEqual(candidate);
+    for (const override of [
+      { appwriteBackend: 'scratch' }, { vercelEnvironment: 'production' },
+      { supabaseOrigin: 'https://other.supabase.co' }, { publishableKeySha256: undefined },
+    ]) expect(() => validateBuildEvidence({ ...candidate,
+      buildProfile: { ...candidate.buildProfile, ...override } })).toThrow(/Supabase Preview/);
+  });
   it('accepts only explicit non-deployable, matched-source diagnostics', () => {
     expect(validateBuildEvidence(evidence, { sha, ref: evidence.source.ref })).toEqual(evidence);
     expect(() => validateBuildEvidence({ ...evidence, deploymentAuthorized: true }))

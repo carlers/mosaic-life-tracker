@@ -39,3 +39,4 @@ repomix-output.xml
 
 # CI-only build evidence, never deployed or committed
 .mosaic/preview-build/
+.mosaic/supabase-core-preview/

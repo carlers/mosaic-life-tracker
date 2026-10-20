@@ -19,9 +19,12 @@ function child(command, args, options) {
   });
 }
 
-export async function exerciseHostedUi(client, accounts, origin) {
+export async function exerciseHostedUi(client, accounts, origin, preview = null) {
   if (origin !== 'https://hcxtiifzxoaflhjgoglb.supabase.co')
     throw new Error('Hosted UI requires isolated mosaic-dev');
+  if (preview && (preview.origin !== 'https://mosaic-supabase-core-preview.vercel.app' ||
+      !/^[a-f0-9]{40}$/.test(preview.sha ?? '')))
+    throw new Error('Hosted Preview requires the isolated alias and exact accepted source SHA');
   const keys = await client.requireOk(await client.management('/api-keys'), 'Public build key access');
   const publishableKey = keys.find(k => k.type === 'publishable')?.api_key;
   if (!publishableKey?.startsWith('sb_publishable_')) throw new Error('Public build key required');
@@ -34,7 +37,7 @@ export async function exerciseHostedUi(client, accounts, origin) {
     VITE_MOSAIC_BACKEND: 'supabase-cloud', VITE_MOSAIC_FEATURE_PROFILE: 'core-only',
     VITE_SUPABASE_URL: origin, VITE_SUPABASE_PUBLISHABLE_KEY: publishableKey,
   });
-  await child('npm', ['run', 'build'], { cwd, env });
+  if (!preview) await child('npm', ['run', 'build'], { cwd, env });
   const root = resolve(cwd, 'dist');
   const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
     '.json': 'application/json', '.webmanifest': 'application/manifest+json',
@@ -55,7 +58,7 @@ export async function exerciseHostedUi(client, accounts, origin) {
   });
   const scratch = await mkdtemp(resolve(tmpdir(), 'mosaic-hosted-ui-'));
   try {
-    await new Promise((resolvePromise, reject) => {
+    if (!preview) await new Promise((resolvePromise, reject) => {
       server.once('error', reject);
       server.listen(0, '127.0.0.1', resolvePromise);
     });
@@ -80,11 +83,12 @@ export async function exerciseHostedUi(client, accounts, origin) {
       // forcing this process's own static server through the outbound proxy.
       PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK: '1',
       MOSAIC_CORE_APP_LAB: 'true', MOSAIC_CORE_HOSTED_LAB: 'true',
-      MOSAIC_E2E_BASE_URL: `http://127.0.0.1:${server.address().port}`,
+      MOSAIC_E2E_BASE_URL: preview?.origin ?? `http://127.0.0.1:${server.address().port}`,
+      ...(preview ? { MOSAIC_CORE_PREVIEW_SHA: preview.sha } : {}),
       MOSAIC_CORE_HOSTED_FIXTURES: JSON.stringify(accounts.map(({ email, password }) => ({ email, password }))),
     } });
   } finally {
-    await new Promise(resolvePromise => server.close(resolvePromise));
+    if (server.listening) await new Promise(resolvePromise => server.close(resolvePromise));
     await rm(scratch, { recursive: true, force: true });
   }
 }

@@ -109,6 +109,9 @@ describe('main-trusted prebuilt receiver read-only acceptance (#592)', () => {
       { giphy: 'disabled' }, { posthog: 'disabled' },
       { vercelEnvironment: 'production' }, { appwriteBackend: 'production' },
       { nodeMajor: 22 },
+      { backend: 'supabase-cloud', featureProfile: 'core-only', appwriteBackend: 'none',
+        supabaseOrigin: 'https://hcxtiifzxoaflhjgoglb.supabase.co',
+        publishableKeySha256: 'a'.repeat(64) },
     ]) expect(assessPrebuiltManifest({ ...evidence,
       buildProfile: { ...evidence.buildProfile, ...altered } }, expected).eligible).toBe(false);
     expect(assessPrebuiltManifest({ ...evidence, metrics: {

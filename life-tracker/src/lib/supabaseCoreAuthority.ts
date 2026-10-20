@@ -20,9 +20,11 @@ export function createSupabaseCoreAuthority(options: {
 }) {
   let authority: Authority | null = null;
   const fetcher = options.fetcher ?? fetch;
-  async function request(action: 'acquire' | 'release') {
+  async function request(action: 'acquire' | 'release', expectedOwner?: string) {
     const signed = await options.session.getVerifiedSession();
     if (!signed) throw new Error('Core authority requires a verified account');
+    if (expectedOwner && signed.userId !== expectedOwner)
+      throw new Error('Core authority owner changed before lease release');
     const response = await fetcher(new URL('/rest/v1/rpc/mosaic_core_session', options.baseUrl), {
       method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error',
       headers: {
@@ -65,7 +67,7 @@ export function createSupabaseCoreAuthority(options: {
         isCurrent: () => !released && authority?.epoch === epoch &&
           authority.ownerId === identity.supabaseUserId && Date.parse(authority.expiresAt) > Date.now(),
         async release() {
-          await request('release');
+          await request('release', identity.supabaseUserId);
           released = true;
         },
       };

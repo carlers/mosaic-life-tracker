@@ -31,7 +31,7 @@ export interface AppSupabaseCoreBootstrapOptions {
 }
 
 type PilotRun = Awaited<ReturnType<ReturnType<typeof createCandidateCoreRuntime>['start']>>;
-type BridgePhase = 'idle' | 'starting' | 'active' | 'stopping' | 'blocked';
+type BridgePhase = 'idle' | 'starting' | 'active' | 'paused' | 'stopping' | 'blocked';
 
 export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrapOptions) {
   if (options.selectedBackend !== 'supabase-cloud' ||
@@ -59,20 +59,38 @@ export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrap
     return session;
   }
 
-  async function stop(): Promise<void> {
-    if (phase === 'idle') return;
+  async function pause(): Promise<void> {
+    if (phase === 'paused') return;
     if (phase !== 'active' || !activeRun)
       throw new Error('Supabase core bootstrap cannot stop an incomplete writer');
     phase = 'stopping';
     const run = activeRun;
     activeRun = null;
     try {
-      await run.stop();
-      phase = 'idle';
+      await run.pause();
+      activeRun = run;
+      phase = 'paused';
     } catch (error) {
       // Underlying RxDB cancellation may have failed. Never release/reacquire
       // a second authority through this controller after an uncertain stop.
       phase = 'blocked';
+      throw error;
+    }
+  }
+
+  async function stop(): Promise<void> {
+    if (phase === 'idle') return;
+    await pause();
+    const run = activeRun!;
+    phase = 'stopping';
+    try {
+      await run.stop();
+      activeRun = null;
+      phase = 'idle';
+    } catch (error) {
+      // Both local writers are already confirmed stopped. Keep the retained
+      // lease and allow a signed release retry, never a replacement start.
+      phase = 'paused';
       throw error;
     }
   }
@@ -147,8 +165,12 @@ export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrap
           return established.getPendingConflicts();
         },
         stop: async () => {
-          ensureActive();
+          if (activeRun !== established) throw new Error('Supabase core writer no longer owns the active session');
           await stop();
+        },
+        pause: async () => {
+          if (activeRun !== established) throw new Error('Supabase core writer no longer owns the active session');
+          await pause();
         },
       };
     } catch (error) {
