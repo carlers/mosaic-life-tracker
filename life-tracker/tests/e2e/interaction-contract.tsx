@@ -273,8 +273,8 @@ export function InteractionHarness() {
     todoCategories.flatMap((category, categoryIndex) =>
       Array.from(
         {
-          length:
-            !performanceHeavy && categoryIndex === 2
+          length: crossDayDestinations ? 3
+            : !performanceHeavy && categoryIndex === 2
               ? 0
               : performanceHeavy
                 ? 10

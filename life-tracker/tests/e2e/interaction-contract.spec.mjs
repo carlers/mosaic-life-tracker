@@ -1701,7 +1701,7 @@ test('held touch drag animates insertion through populated next-day rows and cat
   page.on('console', message => {
     if (message.type() === 'error') fixtureErrors.push(message.text());
   });
-  const loaded = await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?crossDayDestinations=1`);
+  const loaded = await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&crossDayDestinations=1`);
   await page.waitForTimeout(750);
   console.log('CROSS_DAY_FIXTURE_DIAGNOSTICS', JSON.stringify({
     status: loaded?.status(), url: page.url(), errors: fixtureErrors.slice(0, 8),
