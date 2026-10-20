@@ -84,7 +84,7 @@ to depth transitions as well as opening and closing animations.
 See `docs/ACCESSIBILITY_AUDIT.md` for the separate accessibility protocol
 and `docs/TEST_WORKFLOW.md` for test selection.
 
-## Single-accent placement toggles (issue #953, v0.34.2)
+## Single-accent placement toggles (issue #953, v0.34.3)
 
 Mosaic has **one** user-selected App accent color, cached and account-synced through the existing global accent preference. The UI placement editor contains no color picker: it only switches the global accent on or off for predefined roles. Per-component hues are not supported.
 
@@ -93,5 +93,7 @@ The independent roles are Calendar grid, profile ring, navbar icons/labels (neve
 `src/lib/uiColors.ts` applies CSS variables scoped by `data-ui-*` attributes; Calendar cells receive no new React color props. CSS `mosaic-*-header`, `mosaic-settings-*`, and `mosaic-holiday-*` selectors limit color changes to the chosen text regions without altering category/task data or destructive semantics. Text accents use WCAG AA foreground tokens for dark/light backgrounds, and holiday labels are evaluated on their translucent tinted fills.
 
 The navigation placement leaves the navbar background and border unchanged; both glyphs and captions use the contrast-adjusted app accent when enabled. The separate Active navigation placement can recolor only the active tab and indicator. `settingsText` covers headings, row labels and chosen descriptive text in Settings, Preferences, Notifications settings, Release History and editable Profile. `settingsIcons` separately covers marked Settings row/selection icons, back controls and safe subroute icons; destructive and warning symbols retain their semantic colors. Both Settings toggles start disabled for backward-compatible rendering. No broad page-wide SVG or paragraph class remaps.
+
+The Preferences **Accent color** section now contains both the single App accent picker and the **Where accent color appears** row in the same section. The default-off `uiColor:generalText` role colors selected authored interface labels and headings across Home controls, Explore, Messages, Chat empty states, Alerts, Account, Backlogs, Friend Calendar and Bucket List. Those elements explicitly opt into the `mosaic-general-text` selector. It never broadly recolors `p`/`span`/all headings by DOM ancestry; user-authored messages, alert bodies/actor names, tasks, categories, entered notes, and semantic state/errors are intentionally left alone. It is separate from the Settings text and existing Date/Day header switches, and draws the same contrast-aware dark/light App accent foreground tokens with no React props or runtime text scanning. Additional screens can opt in by marking authored UI copy instead of adding another unrelated palette.
 
 Switching an optional role off preserves the existing theme appearance. Turning off an original global-accent consumer applies neutral theme tokens (not a separate green hue), without changing the single account accent setting. Validate cold-start/cache, account switching, sync, contrast in every appearance, dense Calendar/zoom and native devices before dev promotion.

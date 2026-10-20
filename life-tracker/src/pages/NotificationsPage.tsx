@@ -567,7 +567,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
         <div className="flex items-center gap-1">
         {!preview && unreadIds.length > 0 && (
           <button type="button" onClick={() => void markRead(unreadIds)}
-            disabled={!canInteract} className="px-2 py-1 text-xs text-gray-400 disabled:opacity-40">
+            disabled={!canInteract} className="mosaic-general-text px-2 py-1 text-xs text-gray-400 disabled:opacity-40">
             Mark loaded read
           </button>
         )}

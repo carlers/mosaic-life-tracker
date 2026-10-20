@@ -591,8 +591,8 @@ export const PreferencesPage: React.FC = () => {
             onClick={() => void setSetting(GIPHY_AUTOPLAY_SETTING_KEY, !giphyAutoplay)}
           />
         </section>
-        <section className="border-b border-[#333333] px-4 py-5">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <section aria-labelledby="preferences-accent-heading" className="border-b border-[#333333] px-4 py-5">
+          <h2 id="preferences-accent-heading" className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Accent color
           </h2>
           <button

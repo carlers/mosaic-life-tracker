@@ -57,7 +57,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               <Icon size={14} />
             </span>
             <span
-              className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-[#2A2A2A] border border-[#444444] rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden md:block z-50"
+              className="mosaic-general-text pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-[#2A2A2A] border border-[#444444] rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden md:block z-50"
               aria-hidden="true"
             >
               {view.label}

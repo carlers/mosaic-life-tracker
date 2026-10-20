@@ -28,7 +28,7 @@ export const MessagesPage: React.FC = () => {
   return (
     <div className="flex min-h-full flex-col">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
-        <h1 className="text-lg font-bold text-white">Messages</h1>
+        <h1 className="mosaic-general-text text-lg font-bold text-white">Messages</h1>
       </div>
       <div className="flex-1 pb-24 pt-4">
         {isLoading ? (
@@ -41,8 +41,8 @@ export const MessagesPage: React.FC = () => {
             >
               <MessageCircle size={28} className="text-gray-400" />
             </div>
-            <h2 className="text-lg font-bold text-white mb-2">No friends yet</h2>
-            <p className="text-sm text-gray-400 mb-6 max-w-xs">
+            <h2 className="mosaic-general-text text-lg font-bold text-white mb-2">No friends yet</h2>
+            <p className="mosaic-general-text text-sm text-gray-400 mb-6 max-w-xs">
               Add friends to start chatting. You can also reply to their tasks
               from their calendar.
             </p>

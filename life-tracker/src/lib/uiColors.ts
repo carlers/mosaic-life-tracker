@@ -5,7 +5,7 @@ import { getAccentColorTokens } from './accentColor';
 export const UI_COLOR_ROLES = [
   'calendarGrid', 'profileRing', 'navigationBar', 'navigationActive',
   'icons', 'text', 'controls', 'holidays', 'dateHeaders', 'dayHeaders',
-  'settingsText', 'settingsIcons',
+  'settingsText', 'settingsIcons', 'generalText',
 ] as const;
 export type UiColorRole = typeof UI_COLOR_ROLES[number];
 export type UiColorChoices = Record<UiColorRole, boolean>;
@@ -22,12 +22,13 @@ export const UI_COLOR_LABELS: Record<UiColorRole, string> = {
   dayHeaders: 'Weekday headers and day numbers',
   settingsText: 'Settings and subpage text',
   settingsIcons: 'Settings and subpage icons',
+  generalText: 'General page text',
 };
 export const UI_COLOR_GROUPS: readonly { title: string; roles: readonly UiColorRole[] }[] = [
   { title: 'Calendar', roles: ['calendarGrid', 'dateHeaders', 'dayHeaders', 'holidays'] },
   { title: 'Navigation and profile', roles: ['navigationBar', 'navigationActive', 'profileRing'] },
   { title: 'Settings', roles: ['settingsText', 'settingsIcons'] },
-  { title: 'Elsewhere', roles: ['text', 'icons', 'controls'] },
+  { title: 'Text across the app', roles: ['generalText', 'text', 'icons', 'controls'] },
 ];
 // Preserve the existing global-accent styling without requiring a user migration.
 export const DEFAULT_ACCENT_ROLES: readonly UiColorRole[] = ['icons', 'text', 'controls'];

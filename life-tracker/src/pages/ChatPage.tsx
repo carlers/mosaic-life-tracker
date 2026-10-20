@@ -442,7 +442,7 @@ export const ChatPage: React.FC = () => {
           ) : renderItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <MessageSquare size={48} />
-              <p className="mt-2 text-sm">
+              <p className="mosaic-general-text mt-2 text-sm">
                 {isSearching ? 'No matches' : 'No messages yet'}
               </p>
             </div>
