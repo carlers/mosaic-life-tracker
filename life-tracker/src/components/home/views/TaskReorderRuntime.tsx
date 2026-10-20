@@ -325,7 +325,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       >[0]
     ) => {
       if (event.operation.source &&
-          props.onCrossDayNativeEnd?.(String(event.operation.source.id))) {
+          props.onCrossDayNativeEnd?.(String(event.operation.source.id), event.canceled)) {
         // The carried task is now owned above Swiper. Its final pointer-up is
         // handled there, never by this stale per-date reorder projection.
         return;

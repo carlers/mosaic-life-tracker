@@ -1673,6 +1673,79 @@ test('long-held task at Day View edge advances repeatedly without releasing or s
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
 });
 
+test.describe('desktop pointer ownership — no touch emulation', () => {
+  test.use({
+    isMobile: false,
+    hasTouch: false,
+    viewport: { width: 1280, height: 840 },
+    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+  });
+
+// #856: genuine held primary-mouse dragging is distinct from Swiper's
+// ordinary mouse swipe. The old touch-only regression missed this failure.
+test('held mouse task drag advances Day View at right edge and ends at mouseup', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View viewport');
+  const title = swiper.locator('.swiper-slide-active').getByRole('button', {
+    name: 'Task 1.1', exact: true,
+  });
+  const task = await title.boundingBox();
+  if (!task) throw new Error('Missing draggable task title');
+  const x = task.x + task.width * 0.5;
+  const y = task.y + Math.min(task.height * 0.5, 18);
+  await page.mouse.move(x, y);
+  await page.mouse.down({ button: 'left' });
+  try {
+    await page.waitForTimeout(580);
+    await expect(page.locator('[data-task-drag-overlay="true"]')).toBeVisible();
+    await page.mouse.move(bounds.x + bounds.width - 8, y, { steps: 9 });
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Wednesday, September 16, 2026', { timeout: 6500 },
+    );
+    await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toBeVisible();
+    await page.mouse.move(bounds.x + bounds.width * 0.5, y, { steps: 5 });
+  } finally {
+    await page.mouse.up({ button: 'left' });
+  }
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+  const releasedDay = await dialog.locator('.swiper-slide-active [data-date-str]').first().getAttribute('data-date-str');
+  if (!releasedDay) throw new Error('No settled day after mouse release');
+  // Moving to an edge WITHOUT pressing again must not restart any dragged
+  // overlay or make the date advance autonomously.
+  await page.mouse.move(bounds.x + 8, y, { steps: 10 });
+  await page.waitForTimeout(1200);
+  await expect(dialog.locator('.swiper-slide-active [data-date-str]').first()).toHaveAttribute('data-date-str', releasedDay);
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
+test('ordinary mouse Day View swipe stops following cursor when button is released', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View viewport');
+  const title = swiper.locator('.swiper-slide-active').getByRole('button', {
+    name: 'Task 1.1', exact: true,
+  });
+  await dragWithMouse(page, title, -240);
+  await expect(dialog.locator('.swiper-slide-active')).toContainText('Wednesday, September 16, 2026');
+  await page.mouse.move(bounds.x + bounds.width - 9, bounds.y + bounds.height / 2, { steps: 12 });
+  await page.waitForTimeout(1100);
+  await expect(dialog.locator('.swiper-slide-active')).toContainText('Wednesday, September 16, 2026');
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
+}); // desktop pointer ownership
+
 test('mouse drag over a task title swipes the Day View instead of being trapped by the task control', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
