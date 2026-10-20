@@ -65,7 +65,8 @@ export interface DaySlideProps {
     groups: readonly TaskOrderGroup[]
   ) => Promise<void> | void;
   onReorderActiveChange?: (active: boolean) => void;
-  onCrossDayTaskStart?: (task: TaskDocument, rect: DOMRect, event?: Event | null) => void;
+  onCrossDayTaskStart?: (task: TaskDocument, rect: DOMRect, event?: Event | null, point?: { x: number; y: number }) => void;
+  onCrossDayTaskMove?: (point: { x: number; y: number }, event?: Event | null) => void;
   onCrossDayNativeEnd?: (taskId: string) => boolean;
   crossDayDragTaskId?: string | null;
   crossDayInsertion?: { categoryId: string; index: number; height: number };

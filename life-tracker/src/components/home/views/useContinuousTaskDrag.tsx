@@ -289,12 +289,27 @@ export function useContinuousTaskDrag({
     };
   }, [isOpen, finish, reset, updatePoint]);
 
-  const startTask = React.useCallback((task: TaskDocument, rect: Rect, event?: Event | null) => {
+  // Native drag-move events can be captured by the sensor instead of window.
+  // Accept the actual native pointer when supplied, otherwise the dnd-kit
+  // operation position as an explicit fallback.
+  const moveTask = React.useCallback((position: Point, event?: Event | null) => {
+    const session = sessionRef.current;
+    if (!session) return;
+    const pointer = event && 'clientX' in event && 'clientY' in event
+      ? { x: Number(event.clientX), y: Number(event.clientY) } : position;
+    if (!Number.isFinite(pointer.x) || !Number.isFinite(pointer.y)) return;
+    updatePoint({ clientX: pointer.x, clientY: pointer.y,
+      pointerId: session.pointerId ?? -1 } as PointerEvent);
+  }, [updatePoint]);
+
+  const startTask = React.useCallback((task: TaskDocument, rect: Rect, event?: Event | null, position?: Point) => {
     reset();
     if (!latestRef.current.isOpen || task.userId !== latestRef.current.currentUserId || !task.date) return;
     suppressedEndRef.current = null;
-    const pointer = event && 'clientX' in event && 'clientY' in event
+    const native = event && 'clientX' in event && 'clientY' in event
       ? { x: Number(event.clientX), y: Number(event.clientY) } : null;
+    const pointer = native ?? (position && Number.isFinite(position.x) && Number.isFinite(position.y)
+      ? position : null);
     const pointerId = event && 'pointerId' in event ? Number(event.pointerId) : null;
     sessionRef.current = {
       task, sourceDate: task.date, settledDate: task.date, stage: 'native',
@@ -351,7 +366,7 @@ export function useContinuousTaskDrag({
     </div>, document.body);
 
   return {
-    carried, edgeHint, overlay, startTask, onNativeEnd, onSettled,
+    carried, edgeHint, overlay, startTask, moveTask, onNativeEnd, onSettled,
     onWindowRebased, cancel: reset,
   };
 }
