@@ -1,25 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1027 Supabase core-only Auth + two-domain RxDB pilot CI repair; source-only and not activated for users.
+Current task: #1027 eliminate unsupported core-only AuthProvider background side effects without changing shipped Appwrite behavior.
 
-## Protected boundary
-- Accepted capability-only isolated Preview: `refactor/1027-core-capability-reversible-20261019@1b09dee3ba3c2251bd5fb784a931541a0ee5cf85`; canonical #39239546559 SUCCESS and trusted #39239808796 READY. It does not ship a Supabase-backed app.
-- Active experimental task branch: `chatgpt/1027-core-two-domain-20261019`, combining Auth and task/category RxDB source pilots. Shipped Mosaic still uses Appwrite for all eight domains; these pilots are not wired to `src/hooks/AuthProvider.tsx` or `src/db/sync.ts`.
-- No Supabase hosted SQL/Auth/data, user data import, Appwrite or OCI writes, Vercel provider/environment switch, `dev`/`main`/Production promotion or release authorized by this checkpoint. One-writer isolation and verified symmetric Appwrite return remain mandatory; Diary #1029 immediately follows a working core release.
+## Baseline and safety
+- Previously accepted isolated Preview: `refactor/1027-core-two-domain-20261019@09dbbfc8b8fd460bfd01f75fd0aaea1c70bf7fd6`; full canonical #39367657759, signed lab #39367657766, trusted delivery #39367821057 all SUCCESS. Source-only signed Supabase Auth / task/category RxDB pilots not wired into the shipped app.
+- Current task branch: `chatgpt/1027-core-auth-side-effects-20261020`, based on that exact accepted isolated Preview. No `dev`/`main`/Production/hosted Supabase changes or authorized provider migration. Existing user data and reversible Appwrite/OCI return remain mandatory.
 
-## Implemented
-- `supabase-poc/candidateAuthSession.ts`: experimental in-memory signed GoTrue login/signup/refresh/logout/recovery and session-epoch fencing, including confirmed 401/403 refresh invalidation. No persistent app Auth or legacy account migration.
-- `supabase-poc/candidateCoreRuntime.ts`: isolated guarded dual task/category RxDB native replication requiring verified owner, injected legacy mapping, Appwrite writer fencing and exclusive Supabase lease. Failure cancellation retains the lease if either writer teardown is unconfirmed; preserve original startup error as cause when throwing a cleanup failure.
-- Disposable signed browser acceptance exercises both domains including offline task completion, restart/replay, tombstones, foreign-owner denial and category conflicts; source unit tests cover lifecycle and denied Auth.
-- This repair also restores the exact `## Next action` checkpoint heading demanded by repository contract tests. No app-facing provider switch or schema migration.
+## Change
+- In `src/hooks/AuthProvider.tsx`, gate shared-task background queue scope/flush on `hasCapability('sharedTasks')` and push owner registration on `hasCapability('alerts')`. Disable the eight-domain Appwrite `initializeSync` startup when `MOSAIC_FEATURE_PROFILE !== 'full'`; never claim this is working Supabase sync. Keep all default `full` behavior and owner cache cleanup unchanged.
+- Add `tests/react/AuthProviderCoreOnly.test.tsx` using a seeded owner with online/offline synthetic connectivity. Assert disabled paths do not dispatch sharing, push or Appwrite sync. Do not delete cache/drafts.
+- Describe the gap precisely in `docs/CORE_MVP_PROVIDER_RETURN.md`. Actual provider-aware auth, session persistence/identity, hosted ACL review, writer/old-client fencing, two-domain app lifecycle, backup/rollback/DR, devices and Diary sequencing remain outstanding.
 
 ## Verification
-- Auth task `46af120df5671e5d30ad7bcc1b31eee89de8e771`: focused #39279620091 SUCCESS; signed local Auth/RxDB lab #39279620505 SUCCESS.
-- Combined initial `d7f70e98d1329ab0d60040939466319e558796f7`: signed #39280874242 SUCCESS, focused #39280874284 FAILED due to `candidateCoreRuntime.ts` missing preserved cause in error thrown while handling startup failure.
-- Reviewed repair `e1e0ed640196afe42a4f2bf5acd3dd4258cf6b06`: signed lab #39282816268 SUCCESS; focused #39282816230 FAILED `documentationContracts.test.ts` because checkpoint lacked `Next action:` or `## Next action`.
-- New repair commit requires fresh exact-SHA focused CI. Original signed-lab success is not proof of a new commit's canonical acceptance. Local npm/Playwright was not executed in this connected-chat environment. No new stable Preview, full canonical or trusted delivery yet.
+- A new scoped commit requests focused CI. No local npm, browser verification, stable full gate, trusted Preview delivery or real backend write is claimed yet. Previous signed lab #39367657766 proves the isolated candidate only.
 
 ## Next action
-- Review focused results for this checkpoint/exception repair and the same-branch signed lab. If green, squash verified combined source into a NEW isolated stable `refactor/1027-core-two-domain-20261019` Preview through a PR. Verify full canonical Quality Gate and trusted Preview delivery for exact stable SHA; do not promote to `dev` or `main` without separate approval.
-- Next implement real provider-aware AuthProvider persistence/session offline distinction and owner identity mapping, authenticated server writer/old-PWA fencing, app task/category bootstrap separation, complete disabled-feature side-effect audit, hosted signed-user security, independent reversible migration/DR and multi-device acceptance before any core rollout.
+- Review exact task focused CI; repair any failures without weakening coverage. After green, squash via PR to a NEW isolated stable Preview and verify full canonical gate and trusted prebuilt READY for the resulting SHA; no `dev` or `main` promotion.
+- Then implement real Supabase app Auth/session, signed identity migration, single writer and task/category bootstrap with recovery/rollback validation; keep #967/#1027/#975 open and prioritize Diary #1029 immediately following usable core release.

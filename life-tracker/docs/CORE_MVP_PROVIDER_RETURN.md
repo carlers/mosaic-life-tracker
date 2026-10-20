@@ -36,6 +36,12 @@ The core-only profile must **not** expose cached shared-task invitations or peer
 
 Remaining work: social outbox/sync coordinator and backend-specific Auth still need full suppression before enabling the core-only build for any real users; this hook-level hardening is not equivalent to cloud-provider switching.
 
+## Core-only AuthProvider background side-effect boundary (2026-10-20)
+
+The Appwrite-backed `AuthProvider` now leaves shared-task queue scoping/online flushes and push-notification owner registration **unmounted** when their build capabilities are disabled. When `core-only` is explicitly selected, its automatic eight-domain **Appwrite** sync startup also stays off rather than dispatching unsupported/social writes or accidentally creating a second writer. The existing `full` Appwrite build preserves all three behaviors. React tests use a cached synthetic owner and prove that online core-only startup dispatches none of these effects.
+
+**This is a fail-closed source guard, NOT operational Supabase sync.** Appwrite authentication and signup/profile actions remain coupled to legacy code, additional social/background paths require review, and core-only must not be enabled for real users until Supabase session persistence, two-domain sync routing, data preservation and old-PWA writer fencing are implemented.
+
 ## Source-only Supabase Auth lifecycle pilot
 
 `supabase-poc/candidateAuthSession.ts` adds an **experimental non-persistent in-memory session manager** around Supabase GoTrue password/refresh/logout/signup/recover endpoints, layered over the existing server-verified `/auth/v1/user` boundary. Every login and refresh resolves the identity from the live Auth endpoint before acknowledging ownership, increases account epoch on token replacement and refuses stale in-flight replies. Switching account invalidates the old session **before** network sign-in. A failed server logout still clears the local token and reports revocation as unconfirmed; JWTs already issued may remain usable until expiration. No credentials/tokens are logged or written to storage.
