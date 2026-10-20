@@ -63,6 +63,12 @@ vi.mock('../../src/hooks/useHolidays', () => ({
 
 import { PreferencesPage } from '../../src/pages/PreferencesPage';
 
+
+function choosePreference(label: string, option: string) {
+  fireEvent.click(screen.getByRole('combobox', { name: new RegExp('^' + label + ':') }));
+  fireEvent.click(screen.getByRole('option', { name: option }));
+}
+
 describe('PreferencesPage', () => {
   it('exposes independent holiday color customization', async () => {
     render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
@@ -150,11 +156,10 @@ describe('PreferencesPage', () => {
     const taskPosition = screen.getByRole('switch', {
       name: 'Add new tasks to top',
     });
-    const zoom = screen.getByRole('combobox', { name: 'Days visible on small screens' });
-    expect(zoom).toHaveValue('7');
-    fireEvent.change(zoom, { target: { value: '3' } });
+    expect(screen.getByRole('combobox', { name: /^Days visible on small screens:/ })).toHaveTextContent('7 days');
+    choosePreference('Days visible on small screens', '3 days');
     expect(mocks.setSetting).toHaveBeenCalledWith('calendarZoomDays', 3);
-    fireEvent.change(zoom, { target: { value: '4' } });
+    choosePreference('Days visible on small screens', '4 days');
     expect(mocks.setSetting).toHaveBeenCalledWith('calendarZoomDays', 4);
     const pinch = screen.getByRole('switch', { name: 'Pinch to change visible days' });
     expect(pinch).toHaveAttribute('aria-checked', 'false');
@@ -183,9 +188,7 @@ describe('PreferencesPage', () => {
     expect(todayTag).toHaveAttribute('aria-checked', 'false');
     expect(holidays).toHaveAttribute('aria-checked', 'false');
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Task completion order' }), {
-      target: { value: 'completed-last' },
-    });
+    choosePreference('Task completion order', 'Completed last');
     expect(mocks.setSetting).toHaveBeenCalledWith('taskCompletionSort', 'completed-last');
 
     fireEvent.click(continuous);
@@ -194,12 +197,8 @@ describe('PreferencesPage', () => {
     fireEvent.click(collapse);
     fireEvent.click(todayTag);
     fireEvent.click(holidays);
-    fireEvent.change(screen.getByRole('combobox', { name: 'Holiday region' }), {
-      target: { value: 'PH' },
-    });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Holiday types' }), {
-      target: { value: 'public' },
-    });
+    choosePreference('Holiday region', 'Philippines');
+    choosePreference('Holiday types', 'Public holidays only');
 
     expect(mocks.setSetting).toHaveBeenCalledWith('continueAddingTasks', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('addTasksToTop', true);
@@ -251,11 +250,10 @@ describe('PreferencesPage', () => {
     const { unmount } = render(
       <MemoryRouter><PreferencesPage /></MemoryRouter>
     );
-    const select = screen.getByRole('combobox', { name: 'Incomplete calendar task color' });
-    expect(select).toHaveValue('default');
-    fireEvent.change(select, { target: { value: 'text' } });
+    expect(screen.getByRole('combobox', { name: /^Incomplete calendar task color:/ })).toHaveTextContent('Default');
+    choosePreference('Incomplete calendar task color', 'Category text');
     expect(mocks.setSetting).toHaveBeenCalledWith('incompleteTaskBlockColor', 'text');
-    fireEvent.change(select, { target: { value: 'border' } });
+    choosePreference('Incomplete calendar task color', 'Category border');
     expect(mocks.setSetting).toHaveBeenCalledWith('incompleteTaskBlockColor', 'border');
     unmount();
 
@@ -263,14 +261,14 @@ describe('PreferencesPage', () => {
       key === 'incompleteTaskBlockColor' ? 'border' : defaultValue
     );
     const saved = render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
-    expect(screen.getByRole('combobox', { name: 'Incomplete calendar task color' })).toHaveValue('border');
+    expect(screen.getByRole('combobox', { name: /^Incomplete calendar task color:/ })).toHaveTextContent('Category border');
     saved.unmount();
 
     mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
       key === 'incompleteTaskBlockColor' ? 'invalid' : defaultValue
     );
     render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
-    expect(screen.getByRole('combobox', { name: 'Incomplete calendar task color' })).toHaveValue('default');
+    expect(screen.getByRole('combobox', { name: /^Incomplete calendar task color:/ })).toHaveTextContent('Default');
   });
 
 });

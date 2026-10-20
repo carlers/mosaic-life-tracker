@@ -40,40 +40,40 @@ function renderTimeline() {
 describe('Timeline category menus', () => {
   it('filters using the accessible custom category menu', async () => {
     renderTimeline();
-    fireEvent.click(screen.getByRole('button', { name: 'Filter timeline by category: All categories' }));
-    const menu = await screen.findByRole('menu', { name: 'Filter timeline by category' });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Filter timeline by category: All categories' }));
+    const menu = await screen.findByRole('listbox', { name: 'Filter timeline by category' });
     expect(menu).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Work' }));
-    expect(screen.getByRole('button', { name: 'Filter timeline by category: Work' })).toHaveAttribute('aria-expanded', 'false');
-    await waitFor(() => expect(screen.queryByRole('menu', { name: 'Filter timeline by category' })).toBeNull());
+    fireEvent.click(screen.getByRole('option', { name: 'Work' }));
+    expect(screen.getByRole('combobox', { name: 'Filter timeline by category: Work' })).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(screen.queryByRole('listbox', { name: 'Filter timeline by category' })).toBeNull());
   });
 
   it('opens by keyboard and closes with Escape without changing category', async () => {
     renderTimeline();
-    const trigger = screen.getByRole('button', { name: 'New task category: Work' });
+    const trigger = screen.getByRole('combobox', { name: 'New task category: Work' });
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-    const menu = await screen.findByRole('menu', { name: 'New task category' });
+    const menu = await screen.findByRole('listbox', { name: 'New task category' });
     expect(menu).toBeInTheDocument();
     fireEvent.keyDown(menu, { key: 'End' });
-    expect(screen.getByRole('menuitemradio', { name: 'Personal' })).toHaveFocus();
+    expect(screen.getByRole('option', { name: 'Personal' })).toHaveFocus();
     fireEvent.keyDown(menu, { key: 'Escape' });
-    expect(screen.queryByRole('menu', { name: 'New task category' })).toBeNull();
+    expect(screen.queryByRole('listbox', { name: 'New task category' })).toBeNull();
     expect(trigger).toHaveFocus();
-    expect(screen.getByRole('button', { name: 'New task category: Work' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'New task category: Work' })).toBeInTheDocument();
   });
 
   it('uses the chosen category when adding a task and keeps the category picker available', async () => {
     const { onAddTask } = renderTimeline();
-    fireEvent.click(screen.getByRole('button', { name: 'New task category: Work' }));
-    await screen.findByRole('menu', { name: 'New task category' });
-    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Personal' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'New task category: Work' }));
+    await screen.findByRole('listbox', { name: 'New task category' });
+    fireEvent.click(screen.getByRole('option', { name: 'Personal' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'New timeline task title' }), {
       target: { value: '  Pay rent  ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Add timeline task' }));
     expect(onAddTask).toHaveBeenCalledWith('Pay rent', 'personal', '2026-10-20');
     expect(screen.getByRole('textbox', { name: 'New timeline task title' })).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'New task category: Personal' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'New task category: Personal' })).toBeInTheDocument();
   });
 
   it('keeps timeline sorting basis as an independent state choice', () => {

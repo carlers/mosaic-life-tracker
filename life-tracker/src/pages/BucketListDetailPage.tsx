@@ -2,6 +2,8 @@ import { lazy, Suspense, useMemo, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Circle, Link2, Plus, Pencil, Trash2, CalendarDays, ArrowUpRight, Sparkles } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
+import { MosaicSelect } from '../components/ui/MosaicSelect';
+import { getCategoryLabelColor } from '../constants/colors';
 import { ConfirmSheet } from '../components/ui/ConfirmSheet';
 import { useBucketList } from '../hooks/useBucketList';
 import { useBucketTaskLinks } from '../hooks/useBucketTaskLinks';
@@ -163,11 +165,23 @@ export function BucketListDetailPage() {
       <form onSubmit={saveTask} className="space-y-4 px-4 pb-9 pt-3">
         <label htmlFor="goal-new-task" className="block text-sm">Task</label>
         <input id="goal-new-task" autoFocus required maxLength={255} value={taskTitle} disabled={Boolean(pendingCreatedTask)} onChange={e=>setTaskTitle(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3" placeholder="Research the trip"/>
-        <label htmlFor="goal-new-category" className="block text-sm">Category</label>
-        <select id="goal-new-category" required value={categoryId} disabled={Boolean(pendingCreatedTask)} onChange={e=>setCategoryId(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3">
-          <option value="">Choose a category</option>
-          {categories.filter(c=>!c.isDeleted).map(c=><option value={c.id} key={c.id}>{c.name}</option>)}
-        </select>
+        <span className="block text-sm">Category</span>
+        <MosaicSelect
+          id="goal-new-category"
+          label="Category for new task"
+          value={categoryId}
+          disabled={Boolean(pendingCreatedTask)}
+          onChange={setCategoryId}
+          className="w-full"
+          placeholder="Choose a category"
+          options={[
+            { value: '', label: 'Choose a category' },
+            ...categories.filter(category => !category.isDeleted).map(category => ({
+              value: category.id, label: category.name, color: category.color,
+              textColor: getCategoryLabelColor(category.color),
+            })),
+          ]}
+        />
         <label htmlFor="goal-new-date" className="flex items-center gap-2 text-sm"><CalendarDays size={16}/> Date (optional; leave empty for Backlog)</label>
         <input id="goal-new-date" type="date" value={date} disabled={Boolean(pendingCreatedTask)} onChange={e=>setDate(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3"/>
         {pendingCreatedTask && <p className="text-sm text-muted-foreground">Task created. Retry linking without creating a duplicate.</p>}

@@ -6,6 +6,8 @@ import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { useOptionalFriendList } from '../../../hooks/useFriends';
 import type { SharedCompletionCommand, SharedTaskItem } from '../../../lib/taskShareQueue';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { MosaicSelect } from '../../ui/MosaicSelect';
+import { getCategoryLabelColor } from '../../../constants/colors';
 import { TaskDateEditor } from './TaskDateEditor';
 import { TaskRowDropSurface } from './TaskReorderSurfaces';
 
@@ -331,13 +333,24 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
                 <span className="text-sm">Duplicate</span>
               </button>
             </div>
-            <label className="mb-3 block text-sm">
+            <div className="mb-3 text-sm">
               <span className="flex items-center gap-3"><span className={SHEET_ICON_CLASS + ' bg-surfaceHighlight'}>
                 <FolderInput size={16} /></span> My category</span>
-              <select aria-label="Assign shared task to my category"
-                value={categoryInput} disabled={busy}
-                onChange={event => {
-                  const id = event.target.value;
+              <MosaicSelect
+                label="Assign shared task to my category"
+                value={categoryInput}
+                disabled={busy}
+                className="mt-2 w-full"
+                options={[
+                  { value: '', label: 'Shared with me (unassigned)' },
+                  ...categories.map(category => ({
+                    value: category.id,
+                    label: category.name,
+                    color: category.color,
+                    textColor: getCategoryLabelColor(category.color),
+                  })),
+                ]}
+                onChange={id => {
                   setCategoryInput(id);
                   if (onAssignCategory) runAction(async () => {
                     try {
@@ -348,12 +361,8 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
                     }
                   }, 'Category updated.');
                 }}
-                className="mt-2 w-full rounded-lg border border-gray-600 bg-surfaceHighlight p-3 text-sm text-white">
-                <option value="">Shared with me (unassigned)</option>
-                {categories.map(category =>
-                  <option key={category.id} value={category.id}>{category.name}</option>)}
-              </select>
-            </label>
+              />
+            </div>
             <button type="button" className={SHEET_ACTION_CLASS}
               onClick={() => runAction(async () => {
                 await navigator.clipboard.writeText(current.title);

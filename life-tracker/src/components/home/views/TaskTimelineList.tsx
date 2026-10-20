@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { CalendarPlus2, Check, CheckCircle2, ChevronDown, ListFilter, Plus } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { CalendarPlus2, CheckCircle2, ListFilter, Plus } from 'lucide-react';
 import { getCategoryLabelColor } from '../../../constants/colors';
+import { MosaicSelect } from '../../ui/MosaicSelect';
 import type { DaySlideProps } from './DaySlideContent';
 import { TaskItem } from './TaskItem';
 import { TaskTimestampMeta } from './TaskTimestampMeta';
@@ -27,175 +27,6 @@ type Props = Pick<DaySlideProps,
   showOtherContentNotice?: boolean;
 };
 
-
-type TimelineCategoryMenuProps = {
-  categories: DaySlideProps['categories'];
-  value: string;
-  onChange: (categoryId: string) => void;
-  label: string;
-  includeAll?: boolean;
-  pill?: boolean;
-};
-
-const TimelineCategoryMenu: React.FC<TimelineCategoryMenuProps> = ({
-  categories, value, onChange, label, includeAll = false, pill = false,
-}) => {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuId = React.useId();
-  const [menuPosition, setMenuPosition] = useState<{
-    top: number; left: number; width: number; maxHeight: number;
-  } | null>(null);
-  const selected = categories.find(category => category.id === value);
-  const selectedLabel = selected?.name ?? (includeAll ? 'All categories' : 'Choose category');
-
-  const openMenu = () => {
-    const rect = triggerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    // Lift the menu above the scroll-clipped Day View using viewport bounds.
-    const margin = 8;
-    const width = Math.min(288, Math.max(rect.width, 176), window.innerWidth - margin * 2);
-    const left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin));
-    const below = window.innerHeight - rect.bottom - margin * 2;
-    const above = rect.top - margin * 2;
-    const showBelow = below >= 176 || below >= above;
-    const maxHeight = Math.max(0, Math.min(240, showBelow ? below : above));
-    const top = showBelow ? rect.bottom + margin : rect.top - margin - maxHeight;
-    setMenuPosition({ top, left, width, maxHeight });
-    setOpen(true);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const onOutside = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
-        setOpen(false);
-      }
-    };
-    const onFocusOut = (event: FocusEvent) => {
-      const target = event.target as Node;
-      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
-        setOpen(false);
-      }
-    };
-    const onScroll = (event: Event) => {
-      // Scrolling the options themselves should not close their own popup.
-      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onResize = () => setOpen(false);
-    document.addEventListener('pointerdown', onOutside);
-    document.addEventListener('focusin', onFocusOut);
-    document.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onResize);
-    const frame = requestAnimationFrame(() => {
-      const checked = menuRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]');
-      (checked ?? menuRef.current?.querySelector<HTMLButtonElement>('button'))?.focus();
-    });
-    return () => {
-      document.removeEventListener('pointerdown', onOutside);
-      document.removeEventListener('focusin', onFocusOut);
-      document.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onResize);
-      cancelAnimationFrame(frame);
-    };
-  }, [open]);
-
-
-  const choose = (next: string) => {
-    onChange(next);
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-  const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      setOpen(false);
-      triggerRef.current?.focus();
-      return;
-    }
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? []);
-    if (!items.length) return;
-    const current = items.indexOf(document.activeElement as HTMLButtonElement);
-    const next = event.key === 'Home' ? 0
-      : event.key === 'End' ? items.length - 1
-      : event.key === 'ArrowDown' ? (current + 1) % items.length
-      : (current < 0 ? items.length - 1 : (current + items.length - 1) % items.length);
-    items[next]?.focus();
-  };
-
-  return (
-    <div ref={rootRef} className={pill ? 'relative inline-flex max-w-[85%]' : 'relative inline-flex max-w-[55%]'}
-      onPointerDown={event => event.stopPropagation()}>
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        aria-label={`${label}: ${selectedLabel}`}
-        onClick={() => open ? setOpen(false) : openMenu()}
-        onKeyDown={event => {
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            event.preventDefault();
-            event.stopPropagation();
-            if (!open) openMenu();
-          }
-        }}
-        className={pill
-          ? 'mosaic-category-pill inline-flex max-w-full items-center gap-2 rounded-full bg-black py-1 pl-3.5 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
-          : 'inline-flex max-w-full items-center gap-2 rounded-full border border-[#444444] bg-surfaceHighlight py-2 pl-3 pr-2 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'}
-      >
-        <span className={pill ? 'min-w-0 truncate text-[0.9375rem] font-bold' : 'min-w-0 truncate'}
-          style={selected ? { color: getCategoryLabelColor(selected.color) } : undefined}>
-          {selectedLabel}
-        </span>
-        <span className={pill
-          ? 'mosaic-category-add-icon inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400'
-          : 'inline-flex shrink-0 items-center justify-center text-gray-400'} aria-hidden="true">
-          <ChevronDown size={pill ? 18 : 14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-        </span>
-      </button>
-      {open && menuPosition && createPortal(
-        <div
-          id={menuId}
-          ref={menuRef}
-          role="menu"
-          aria-label={label}
-          onKeyDown={onMenuKeyDown}
-          onPointerDown={event => event.stopPropagation()}
-          style={{ position: 'fixed', zIndex: 1000, top: menuPosition!.top, left: menuPosition!.left,
-            width: menuPosition!.width, maxHeight: menuPosition!.maxHeight }}
-          className="overflow-y-auto overscroll-contain rounded-2xl border border-[#444444] bg-surface p-1.5 shadow-2xl"
-        >
-          {(includeAll ? [{ id: '', name: 'All categories', color: '' }, ...categories] : categories).map(category => (
-            <button
-              key={category.id}
-              type="button"
-              role="menuitemradio"
-              aria-checked={category.id === value}
-              onClick={() => choose(category.id)}
-              className="flex w-full min-w-36 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-white hover:bg-surfaceHighlight focus:bg-surfaceHighlight focus:outline-none"
-            >
-              {category.color
-                ? <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: category.color }} aria-hidden="true" />
-                : <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-[#444444]" aria-hidden="true" />}
-              <span className="min-w-0 flex-1 break-words"
-                style={category.color ? { color: getCategoryLabelColor(category.color) } : undefined}>{category.name}</span>
-              {category.id === value && <Check size={16} className="shrink-0 text-gray-300" aria-hidden="true" />}
-            </button>
-          ))}
-        </div>
-        , document.body)}
-    </div>
-  );
-};
 
 export const TaskTimelineList: React.FC<Props> = ({
   dateStr,
@@ -260,27 +91,31 @@ export const TaskTimelineList: React.FC<Props> = ({
     >
       <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline filters">
         <ListFilter size={16} className="shrink-0 text-gray-400" aria-hidden="true" />
-        <TimelineCategoryMenu
-          categories={categories}
+        <MosaicSelect
           value={categoryFilter}
           onChange={setCategoryFilter}
           label="Filter timeline by category"
-          includeAll
+          variant="compact"
+          className="max-w-[55%]"
+          options={[
+            { value: '', label: 'All categories' },
+            ...categories.map(category => ({
+              value: category.id, label: category.name, color: category.color,
+              textColor: getCategoryLabelColor(category.color),
+            })),
+          ]}
         />
-        <div className="relative flex min-w-0 items-center rounded-full border border-[#444444] bg-surfaceHighlight transition-colors focus-within:ring-2 focus-within:ring-emerald-500/60">
-          <label className="sr-only" htmlFor={`timeline-status-${dateStr}`}>Filter timeline by completion</label>
-          <select
-            id={`timeline-status-${dateStr}`}
-            value={statusFilter}
-            onChange={event => setStatusFilter(event.target.value)}
-            className="min-w-0 max-w-full appearance-none rounded-full bg-transparent py-2 pl-3 pr-8 text-xs font-semibold text-white outline-none"
-          >
-            <option className="bg-surface text-white" value="all">All tasks</option>
-            <option className="bg-surface text-white" value="open">Incomplete</option>
-            <option className="bg-surface text-white" value="complete">Completed</option>
-          </select>
-          <ChevronDown size={14} className="pointer-events-none absolute right-2.5 text-gray-400" aria-hidden="true" />
-        </div>
+        <MosaicSelect
+          label="Filter timeline by completion"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          variant="compact"
+          options={[
+            { value: 'all', label: 'All tasks' },
+            { value: 'open', label: 'Incomplete' },
+            { value: 'complete', label: 'Completed' },
+          ]}
+        />
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline sort basis">
         <span className="text-xs text-gray-400">Sort by</span>
@@ -350,12 +185,16 @@ export const TaskTimelineList: React.FC<Props> = ({
       {!selectionMode && categories.length > 0 && (
         <form onSubmit={submitTask} className="mt-5 rounded-2xl border border-[#333333] bg-surface px-3 py-3" aria-label="Add timeline task">
           <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-            <TimelineCategoryMenu
-              categories={categories}
+            <MosaicSelect
               value={chosenCategory}
               onChange={setAddCategory}
               label="New task category"
-              pill
+              variant="category"
+              className="max-w-[85%]"
+              options={categories.map(category => ({
+                value: category.id, label: category.name, color: category.color,
+                textColor: getCategoryLabelColor(category.color),
+              }))}
             />
             <span className="shrink-0 text-[11px] text-gray-400" aria-hidden="true">Add task</span>
           </div>
