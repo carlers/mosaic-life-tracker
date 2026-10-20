@@ -12,7 +12,8 @@ Current task: #859 cross-device category long-press and drag gesture repair.
 - Touch category drag used `controls.start(pointermove)` after hold, even though Motion PanSession expects `pointerdown` to attach listeners; mobile could open Edit but not drag.
 - Desktop label created a drag session without arming a hold timer, so a stationary mouse hold could not open Edit.
 - Unified hold recognition across mouse, pen and touch: a stationary 500 ms press on the full pill opens contextual Edit; label mouse/pen starts a Motion session from original pointerdown immediately (actual drag only after movement); touch label registers that same original pointerdown at the hold threshold so continued movement starts drag. Motion onDragStart hides Edit and cancels hold listener. Plus/padding can open Edit without dragging. Pre-hold movement cancels long-press, preserving ordinary scrolling, short tap-add and selection behavior.
-- DOM tests verify original pointerdown handed to Motion, stationary holds on desktop/touch, mouse-plus hold, touch cancellation, short taps and click suppression. The Framer Motion drag session on physical WebKit/Android is pending owner acceptance, not proven by the mock tests.
+- DOM tests verify original pointerdown handed to Motion, stationary holds on desktop/touch, mouse-plus hold, touch cancellation, short taps and click suppression.
+- Added isolated Playwright browser fixture and Chromium interaction contract using **real** Framer Motion Reorder/CategorySection: after a stationary hold, mouse or emulated touch moves a live category drag, with the Edit bubble dismissed. Physical WebKit/Android acceptance still belongs to the owner.
 
 ## Next
 - Commit coherent task with `[verify:focused]`, verify CI, squash to stable feature branch, get canonical QA and trusted Vercel READY exact SHA, report new Preview URL for device retest. Do not promote to dev/main.
