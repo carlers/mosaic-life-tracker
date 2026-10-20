@@ -164,6 +164,22 @@ export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrap
           ensureActive();
           return established.getPendingConflicts();
         },
+        subscribeConflicts(listener: () => void) {
+          ensureActive();
+          return established.subscribeConflicts(listener);
+        },
+        async refreshConflict(domain: 'tasks' | 'categories', id: string) {
+          ensureActive();
+          const result = await established.refreshConflict(domain, id);
+          ensureActive();
+          return result;
+        },
+        async keepLocalConflict(domain: 'tasks' | 'categories', id: string, revision: string) {
+          ensureActive();
+          const result = await established.keepLocalConflict(domain, id, revision);
+          ensureActive();
+          return result;
+        },
         stop: async () => {
           if (activeRun !== established) throw new Error('Supabase core writer no longer owns the active session');
           await stop();

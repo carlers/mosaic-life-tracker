@@ -150,6 +150,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | EditNameSheet | [src/components/modals/EditNameSheet.tsx](../src/components/modals/EditNameSheet.tsx) |
 | ExportDataSheet | [src/components/modals/ExportDataSheet.tsx](../src/components/modals/ExportDataSheet.tsx) |
 | SetUsernameSheet | [src/components/modals/SetUsernameSheet.tsx](../src/components/modals/SetUsernameSheet.tsx) |
+| SyncConflictReview | [src/components/modals/SyncConflictReview.tsx](../src/components/modals/SyncConflictReview.tsx) |
 | SyncStatusSheet | [src/components/modals/SyncStatusSheet.tsx](../src/components/modals/SyncStatusSheet.tsx) |
 | TodoMateImportSheet | [src/components/modals/TodoMateImportSheet.tsx](../src/components/modals/TodoMateImportSheet.tsx) |
 

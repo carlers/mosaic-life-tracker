@@ -118,11 +118,39 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
       const established = { lease, taskRun, categoryRun, signed: before };
       active = established;
       let cancellation: Promise<void> | null = null;
+      let reviewWork: Promise<unknown> = Promise.resolve();
+      const ensureCurrent = async () => {
+        if (active !== established || cancellation || !established.lease.isCurrent())
+          throw new Error('Candidate core replication no longer active');
+        const signed = await checkedOwner();
+        if (active !== established || cancellation || !established.lease.isCurrent() ||
+            signed.sessionEpoch !== established.signed.sessionEpoch ||
+            signed.accessToken !== established.signed.accessToken)
+          throw new CandidateAuthError('Candidate conflict account changed');
+      };
+      const review = <T>(action: () => Promise<T>): Promise<T> => {
+        const next = reviewWork.then(async () => {
+          await ensureCurrent();
+          return action();
+        });
+        reviewWork = next.catch(() => {});
+        return next;
+      };
+      const pilot = (domain: 'tasks' | 'categories') => {
+        if (domain === 'tasks') return tasks;
+        if (domain === 'categories') return categories;
+        throw new Error('Unsupported core conflict domain');
+      };
+      const conflicts = () => ({
+        tasks: tasks.listPendingConflicts(), categories: categories.listPendingConflicts(),
+      });
       const pause = async () => {
         if (active !== established) throw new Error('Candidate core replication no longer active');
-        cancellation ??= Promise.allSettled([
+        // No new review action may start once cancellation is requested.
+        // Drain an already dispatched signed resolution before lease release.
+        cancellation ??= reviewWork.then(() => Promise.allSettled([
           established.taskRun.stop(), established.categoryRun.stop(),
-        ]).then(results => {
+        ])).then(results => {
           if (results.some(result => result.status === 'rejected'))
             throw new Error('Candidate core shutdown unconfirmed; writer lease retained');
         });
@@ -164,10 +192,18 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
         },
         stop,
         pause,
-        getPendingConflicts: () => ({
-          tasks: tasks.listPendingConflicts(),
-          categories: categories.listPendingConflicts(),
-        }),
+        getPendingConflicts: conflicts,
+        subscribeConflicts(listener: () => void) {
+          const subscriptions = [
+            tasks.conflictEvents$.subscribe(listener), categories.conflictEvents$.subscribe(listener),
+          ];
+          listener();
+          return () => subscriptions.forEach(subscription => subscription.unsubscribe());
+        },
+        refreshConflict: (domain: 'tasks' | 'categories', id: string) =>
+          review(() => pilot(domain).refreshPendingConflict(id)),
+        keepLocalConflict: (domain: 'tasks' | 'categories', id: string, revision: string) =>
+          review(() => pilot(domain).resolveKeepLocal(id, revision)),
       };
     } catch (error) {
       // No partially started writer may continue if verification or a second

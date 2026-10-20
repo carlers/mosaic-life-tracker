@@ -9,6 +9,8 @@ const mock = vi.hoisted(() => ({
   getPhase: vi.fn(), scope: vi.fn(), verify: vi.fn(), renew: vi.fn(),
   getReplicationStates: vi.fn(), publishStatus: vi.fn(),
   refreshAndRestart: vi.fn(), expiresAt: vi.fn(),
+  getPendingConflicts: vi.fn(), subscribeConflicts: vi.fn(),
+  refreshConflict: vi.fn(), keepLocalConflict: vi.fn(),
 }));
 vi.mock('../../src/lib/supabaseCoreAuth', () => ({
   createSupabaseCoreAuthCoordinator: () => ({
@@ -54,6 +56,8 @@ beforeEach(() => {
   mock.resync.mockResolvedValue(undefined);
   mock.expiresAt.mockImplementation(() => Date.now() + 3600_000);
   mock.refreshAndRestart.mockResolvedValue(undefined);
+  mock.getPendingConflicts.mockReturnValue({ tasks: [], categories: [] });
+  mock.subscribeConflicts.mockImplementation(listener => { listener(); return vi.fn(); });
 });
 afterEach(cleanup);
 

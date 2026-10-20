@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   categoryResync: vi.fn(),
   taskReady: vi.fn(async () => {}),
   categoryReady: vi.fn(async () => {}),
+  refreshConflict: vi.fn(async () => ({ state: 'unchanged' })),
+  keepLocalConflict: vi.fn(async () => ({ state: 'applied' })),
   failCategories: false,
 }));
 vi.mock('../../supabase-poc/candidateRxdbPilot', () => ({
@@ -29,6 +31,9 @@ vi.mock('../../supabase-poc/candidateRxdbPilot', () => ({
       };
     },
     listPendingConflicts: () => [],
+    refreshPendingConflict: mocks.refreshConflict,
+    resolveKeepLocal: mocks.keepLocalConflict,
+    conflictEvents$: { subscribe: () => ({ unsubscribe: vi.fn() }) },
   }),
 }));
 
@@ -104,6 +109,40 @@ describe('isolated signed two-domain core sync lifecycle (#1027)', () => {
     await expect(invalid.runtime.start()).rejects.toThrow('Legacy identity unverified');
     expect(invalid.guard.acquireExclusiveLease).not.toHaveBeenCalled();
     expect(mocks.started).toEqual([]);
+  });
+
+  it('drains an in-flight reviewed write before cancellation/release and rejects queued reviews', async () => {
+    const f = fixture();
+    const run = await f.runtime.start();
+    let finish!: () => void;
+    mocks.keepLocalConflict.mockImplementationOnce(() => new Promise(resolve => {
+      finish = () => resolve({ state: 'applied' });
+    }));
+    const resolving = run.keepLocalConflict('tasks', 'task_one', '7');
+    await vi.waitFor(() => expect(mocks.keepLocalConflict).toHaveBeenCalledOnce());
+    const stopping = run.stop();
+    const late = run.refreshConflict('tasks', 'task_one');
+    const lateDenied = expect(late).rejects.toThrow('no longer active');
+    expect(mocks.tasksStop).not.toHaveBeenCalled();
+    finish();
+    await resolving;
+    await stopping;
+    await lateDenied;
+    expect(mocks.tasksStop).toHaveBeenCalledOnce();
+    expect(mocks.refreshConflict).not.toHaveBeenCalled();
+  });
+
+  it('refuses a reviewed write after owner replacement or lease revocation', async () => {
+    const f = fixture();
+    const run = await f.runtime.start();
+    f.switchTo(OTHER);
+    await expect(run.keepLocalConflict('tasks', 'task_one', '7')).rejects.toThrow('not verified');
+    expect(mocks.keepLocalConflict).not.toHaveBeenCalled();
+    f.switchTo(OWNER);
+    f.revokeLease();
+    await expect(run.keepLocalConflict('tasks', 'task_one', '7')).rejects.toThrow('no longer active');
+    expect(mocks.keepLocalConflict).not.toHaveBeenCalled();
+    await run.stop();
   });
 
   it('refuses Appwrite writer coexistence without acquiring a Supabase lease', async () => {

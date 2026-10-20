@@ -365,6 +365,110 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
   }
 });
 
+test('lost write acknowledgement: preserve offline draft and review changing cloud state', async ({ browser }) => {
+  test.skip(hosted, 'Requires a separately provisioned disposable conflict fixture');
+  const owner = await account();
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const secondContext = await browser.newContext({ ignoreHTTPSErrors: true });
+  const tokens = [];
+  const responses = {};
+  let stage = 'sign-in';
+  try {
+    const page = await context.newPage();
+    page.on('response', async response => {
+      if (response.url().startsWith(url + '/')) {
+        const label = response.request().method() + ' ' + new URL(response.url()).pathname + ' ' + response.status();
+        responses[label] = (responses[label] ?? 0) + 1;
+      }
+      if (response.url().startsWith(url + '/auth/v1/token?') && response.status() === 200) {
+        const grant = await response.json().catch(() => null);
+        if (grant?.access_token) tokens.push(grant.access_token);
+      }
+    });
+    await signIn(page, owner);
+    await page.getByRole('button', { name: 'Open menu' }).click();
+    await page.getByRole('button', { name: 'Lists & Categories' }).click();
+    await page.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await page.getByLabel('Name', { exact: true }).fill('Conflict review list');
+    await page.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'categories')).length).toBe(1);
+    await page.keyboard.press('Escape');
+    await page.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    let lostAck = false;
+    let allowReads = false;
+    stage = 'lost create acknowledgement';
+    await page.route(url + '/rest/v1/mosaic_candidate_tasks**', async route => {
+      if (route.request().method() === 'POST' && !lostAck) {
+        const response = await route.fetch();
+        lostAck = response.ok();
+        await route.abort('failed'); // The real server committed, browser never received its acknowledgement.
+      } else if (route.request().method() === 'GET' && lostAck && !allowReads) {
+        await route.abort('failed'); // Prevent a pull from supplying the missing acknowledgement.
+      } else await route.continue();
+    });
+    await page.getByRole('button', { name: 'Add a task to Conflict review list', exact: true }).first().click();
+    await page.getByPlaceholder('Add a task to Conflict review list...').first().fill('My preserved draft');
+    await page.getByPlaceholder('Add a task to Conflict review list...').first().press('Enter');
+    await expect.poll(() => lostAck).toBe(true);
+    stage = 'offline edit';
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'Mark complete', exact: true }).first().click();
+    expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
+    await expect(page.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+    allowReads = true;
+    await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    stage = 'pending review';
+    await page.getByRole('button', { name: 'Online', exact: true }).click();
+    const review = page.getByRole('region', { name: 'Changes needing review' });
+    await expect(review).toBeVisible({ timeout: 25_000 });
+    await expect(review.getByRole('row', { name: 'Completed Yes No' })).toBeVisible();
+    expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
+    // Editing while parked must rebuild the comparison from durable current
+    // local state, never apply or acknowledge the old queued snapshot.
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'My preserved draft', exact: true }).first().dblclick();
+    await page.getByLabel('Task title', { exact: true }).fill('My latest draft');
+    await page.getByLabel('Task title', { exact: true }).press('Enter');
+    stage = 'review of newer local draft';
+    await page.getByRole('button', { name: 'Online', exact: true }).click();
+    await review.getByRole('button', { name: 'Refresh comparison' }).click();
+    await expect(review.getByRole('article', { name: 'Review My latest draft' })).toBeVisible();
+    expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'acquire' })).ok).toBe(true);
+    const original = (await rows(owner, 'tasks'))[0];
+    const changed = await api('/rest/v1/rpc/mosaic_candidate_cas_task', owner.token, {
+      p_id: original.id, p_expected_seq: original.change_seq, p_patch: { title: 'Cloud changed again' },
+    });
+    expect(changed.ok).toBe(true);
+    expect((await changed.json()).title).toBe('Cloud changed again');
+    stage = 'stale cloud choice';
+    await review.getByRole('button', { name: 'Keep my version' }).click();
+    await expect(review.getByRole('alert')).toBeVisible();
+    await expect(review.getByRole('cell', { name: 'Cloud changed again', exact: true })).toBeVisible();
+    expect((await rows(owner, 'tasks'))[0].title).toBe('Cloud changed again');
+    stage = 'confirmed choice';
+    await review.getByRole('button', { name: 'Keep my version' }).click();
+    await expect(review).not.toBeVisible({ timeout: 25_000 });
+    await expect.poll(async () => {
+      const task = (await rows(owner, 'tasks'))[0];
+      return task.completed && task.title === 'My latest draft';
+    }).toBe(true);
+    await page.keyboard.press('Escape');
+    stage = 'second-device convergence';
+    const second = await secondContext.newPage();
+    await signIn(second, owner);
+    await second.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await expect(second.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+    await expect(second.getByText('My latest draft', { exact: true }).first()).toBeVisible();
+  } catch (error) {
+    const safe = [owner.password, owner.token, ...tokens].reduce((text, secret) =>
+      secret ? text.replaceAll(secret, '[redacted]') : text, String(error));
+    throw new Error(stage + ': ' + safe + '\nRequest counts: ' + JSON.stringify(responses));
+  } finally {
+    await Promise.allSettled([context.close(), secondContext.close()]);
+  }
+});
+
 test('signed server denies old clients without leases, foreign writes, and released session writes', async () => {
   test.skip(hosted, 'Hosted server guards are exercised by hosted-core.mjs with scoped fixture retirement');
   const owner = await account();

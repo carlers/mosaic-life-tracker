@@ -176,3 +176,18 @@ other device sessions. The original isolated Auth pilot retains its default scop
 The actual-app lab also covers task title editing, movement to Backlogs, offline deletion and second-device tombstone convergence. Task menus omit unsupported sharing, photo and bucket-list actions under the core capability profile. These checks use disposable local Supabase; hosted acceptance remains separate.
 
 Real network-denial verification exposed a shared shell bug: lazy loading the offline banner after losing connectivity crashed the route. The banner is now included with MainLayout, so offline feedback and local editing do not require another JS download. The chat browser regression now disables the browser network rather than only changing navigator.onLine.
+
+## Preserved-draft conflict review candidate
+
+A lost create acknowledgement followed by another local edit can legitimately have
+no acknowledged base for a conditional overwrite. The draft remains in RxDB; it
+must not be treated as synced or silently replaced by the cloud row. The new
+provider-neutral Sync Status review shows both versions and lets the owner keep
+the reviewed device version through the signed conditional-write boundary.
+Cloud revision changes invalidate the choice and refresh the comparison. A newer
+local edit requires Refresh comparison, which restarts the parked native batch
+through the normal verified writer lifecycle. In-flight decisions drain before
+shutdown; account switches clear the UI registry. Missing/protected remote state
+stays blocked and retained. A direct discard-device/use-cloud action is not yet
+implemented. The new lost-acknowledgement browser case must pass against the real
+stack before acceptance; existing expiry tests assume a fully acknowledged base.

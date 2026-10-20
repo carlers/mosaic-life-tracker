@@ -19,6 +19,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { useOfflineReadiness } from '../../hooks/useOfflineReadiness';
 import { requestAppSync } from '../../lib/appSync';
+import { SyncConflictReview } from './SyncConflictReview';
 
 interface SyncStatusSheetProps {
   isOpen: boolean;
@@ -208,6 +209,8 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
             </p>
           </div>
         </div>
+
+        {user && <SyncConflictReview key={user.$id} ownerId={user.$id} />}
 
         {errorCount > 0 && (
           <div className="space-y-2">
