@@ -59,6 +59,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DayCell | [src/components/home/views/DayCell.tsx](../src/components/home/views/DayCell.tsx) |
 | DaySlide | [src/components/home/views/DaySlide.tsx](../src/components/home/views/DaySlide.tsx) |
 | DaySlideContent | [src/components/home/views/DaySlideContent.tsx](../src/components/home/views/DaySlideContent.tsx) |
+| DayViewCategoryReorder | [src/components/home/views/DayViewCategoryReorder.tsx](../src/components/home/views/DayViewCategoryReorder.tsx) |
 | DayViewSheet | [src/components/home/views/DayViewSheet.tsx](../src/components/home/views/DayViewSheet.tsx) |
 | DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
 | DiaryEntrySheet | [src/components/home/views/DiaryEntrySheet.tsx](../src/components/home/views/DiaryEntrySheet.tsx) |
@@ -85,6 +86,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ViewToggle | [src/components/home/views/ViewToggle.tsx](../src/components/home/views/ViewToggle.tsx) |
 | WeekView | [src/components/home/views/WeekView.tsx](../src/components/home/views/WeekView.tsx) |
 | bulkTaskActions | [src/components/home/views/bulkTaskActions.ts](../src/components/home/views/bulkTaskActions.ts) |
+| categoryPillActionContext | [src/components/home/views/categoryPillActionContext.ts](../src/components/home/views/categoryPillActionContext.ts) |
 | dayViewSheetModule | [src/components/home/views/dayViewSheetModule.ts](../src/components/home/views/dayViewSheetModule.ts) |
 | taskReorder | [src/components/home/views/taskReorder.ts](../src/components/home/views/taskReorder.ts) |
 | taskRowRegistrationContext | [src/components/home/views/taskRowRegistrationContext.ts](../src/components/home/views/taskRowRegistrationContext.ts) |
