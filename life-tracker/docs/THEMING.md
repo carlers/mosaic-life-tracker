@@ -101,3 +101,21 @@ The v0.34.4 follow-up adds two **default-off, independently synced** placements:
 The existing default-on `uiColor:icons` role now also covers intentionally marked neutral Home search/open/close, hamburger and menu glyphs, friend preferences and Calendar month arrows. These are scoped with `mosaic-action-icon`; error/success/online status glyphs keep semantic colors. General page text continues to color page-level copy and is not a proxy for every bottom sheet label.
 
 Switching an optional role off preserves the existing theme appearance. Turning off an original global-accent consumer applies neutral theme tokens (not a separate green hue), without changing the single account accent setting. Validate cold-start/cache, account switching, sync, contrast in every appearance, dense Calendar/zoom and native devices before dev promotion.
+
+## Reusable single-choice selects (#1126)
+
+Use `src/components/ui/MosaicSelect.tsx` for ordinary single-choice inputs instead of adding a native browser `<select>` or copying a popup into a page. The default styling is a Mosaic rounded surface; `variant="compact"` provides the Timeline filter treatment, and `variant="category"` preserves category-pill styling. Pass owned state and stable strings; the primitive never persists a value.
+
+```tsx
+<MosaicSelect
+  label="Timeline order"
+  value={timelineDirection}
+  onChange={setTimelineDirection}
+  options={[
+    { value: 'desc', label: 'Newest first' },
+    { value: 'asc', label: 'Oldest first' },
+  ]}
+/>
+```
+
+Category options may add a color dot and contrast-safe `textColor`. The component supplies a viewport-clamped, portaled listbox with keyboard navigation and outside dismissal; do not nest its options inside a separate drag/swipe handler. Keep existing native date, time, file and multi-choice controls native or use their respective specialized components. Confirm keyboard, mobile, sheet nesting, long-list, and contrast behavior when adding a consumer.

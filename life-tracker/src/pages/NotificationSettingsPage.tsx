@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BellRing, ChevronLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SettingsRow } from '../components/ui/SettingsRow';
+import { MosaicSelect } from '../components/ui/MosaicSelect';
 import { ALERTS_CHANNELS_KEY, ALERTS_SOCIAL_PUSH_DETAILS_SETTING_KEY, NOTIFICATION_CHANNELS, resolveNotificationChannels, type NotificationChannels, type NotificationChannelType } from '../lib/notificationChannels';
 import { useSettings } from '../hooks/useSettings';
 import {
@@ -34,17 +35,14 @@ function RetentionChoice({ id, label, hint, value, options, format, onChange }: 
         <label htmlFor={id} className="mosaic-settings-label text-sm font-medium">{label}</label>
         <p className="mosaic-settings-copy text-xs text-gray-400">{hint}</p>
       </div>
-      <select
+      <MosaicSelect
         id={id}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        onPointerDown={(event) => event.stopPropagation()}
-        className="min-w-[7.5rem] shrink-0 rounded-lg border border-[#444444] bg-[#1E1E1E] px-2 py-2 text-sm text-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>{format(option)}</option>
-        ))}
-      </select>
+        label={label}
+        value={String(value)}
+        onChange={next => onChange(Number(next))}
+        options={options.map(option => ({ value: String(option), label: format(option) }))}
+        className="min-w-[7.5rem] max-w-[12rem] shrink-0"
+      />
     </div>
   );
 }

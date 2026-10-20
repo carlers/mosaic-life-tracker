@@ -12,6 +12,7 @@ import { DiaryPhotoGallery } from './DiaryPhotoGallery';
 import type { DiaryDocument } from '../../../db/schema';
 import { diaryMarker } from '../../../lib/diaryMarker';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { MosaicSelect } from '../../ui/MosaicSelect';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 
 const CHOICES = ['😀','🥰','😌','😢','😴','😎','🥳','😤','❤️','🌞','🌙','🌧️','🌸','🍀','⭐','💪','📖','🎉','💭','🏆','🧘','🤍','✨','🫶'];
@@ -151,12 +152,16 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
               )}
               <div className="my-4 flex items-center gap-2">
                 <span className="text-sm text-gray-400">Visibility</span>
-                <select aria-label="Diary visibility" value={visibility} onChange={e => setVisibility(e.target.value as DiaryDocument['visibility'])}
-                  className="rounded-lg bg-surfaceHighlight p-2 text-white">
-                  <option value="private">Private</option>
-                  <option value="followers">Friends</option>
-                  <option value="public">Public</option>
-                </select>
+                <MosaicSelect
+                  label="Diary visibility"
+                  value={visibility}
+                  onChange={value => setVisibility(value as DiaryDocument['visibility'])}
+                  options={[
+                    { value: 'private', label: 'Private' },
+                    { value: 'followers', label: 'Friends' },
+                    { value: 'public', label: 'Public' },
+                  ]}
+                />
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                 aria-label="Choose diary photos" onChange={e => void uploadPhotos(e.target.files)}/>
