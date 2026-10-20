@@ -5,6 +5,12 @@ These are **source modules**, not a React render tree, ownership graph, or proof
 Helpers are intentionally included. Verify current source at the target Git SHA before editing.
 For natural-language entry points use [repository map](REPO_MAP.md); for policy use [docs index](README.md).
 
+## components/auth
+
+| Module | Source |
+|---|---|
+| EmailActionView | [src/components/auth/EmailActionView.tsx](../src/components/auth/EmailActionView.tsx) |
+
 ## components/explore
 
 | Module | Source |

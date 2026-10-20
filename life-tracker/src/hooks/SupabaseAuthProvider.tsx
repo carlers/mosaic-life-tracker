@@ -366,8 +366,8 @@ export default function SupabaseAuthProvider({ config, children }: {
   const value: AuthContextValue = {
     accountNotice: 'Disposable Supabase core preview. Preferences stay on this device. ' +
       (runtime.browser ? 'Previously signed-in personal data is available offline. ' : 'This browser requires sign-in after reload. ') +
-      'Existing-account migration and password recovery are not available yet.',
-    supportsPasswordRecovery: false,
+      'Existing-account migration is not available yet.',
+    supportsPasswordRecovery: true,
     isLocalOwnerCurrent: ownerId => mounted.current && user?.$id === ownerId &&
       (!runtime.browser || runtime.browser.isCurrent()),
     user, isLoading, error, isOffline, pendingSignup: null,
@@ -378,8 +378,8 @@ export default function SupabaseAuthProvider({ config, children }: {
       setLoading(true);
       setError(null);
       try {
-        await runtime.session.signUp(email, password);
-        setError('Account created. Confirm your email if required, then sign in.');
+        await runtime.session.signUp(email, password, window.location.origin + '/auth/confirm');
+        setError('If this address can be registered, a confirmation link has been sent. Confirm your email, then sign in.');
       } catch { setError('Account creation could not be completed.'); }
       finally { busy.current = false; setLoading(false); }
       return false;
@@ -388,7 +388,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       setRecoveryLoading(true);
       setRecoveryError(null);
       try {
-        await runtime.session.requestPasswordRecovery(email);
+        await runtime.session.requestPasswordRecovery(email, window.location.origin + '/reset-password');
         setRecoverySuccess('requested');
         return true;
       } catch { setRecoveryError('Password recovery is temporarily unavailable.'); return false; }

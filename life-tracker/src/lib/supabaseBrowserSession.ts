@@ -184,12 +184,12 @@ export function createSupabaseBrowserSession(options: {
     getOwnerId: () => isCurrent() ? current?.getOwnerId() ?? null : null,
     getExpiresAt: () => isCurrent() ? current?.getExpiresAt() ?? null : null,
     discardMemory,
-    async signUp(email, password) {
+    async signUp(email, password, redirectTo) {
       // Signup does not adopt or replace any shared signed-in browser account.
-      await transactionSession(null).session.signUp(email, password);
+      await transactionSession(null).session.signUp(email, password, redirectTo);
     },
-    requestPasswordRecovery: email =>
-      transactionSession(null).session.requestPasswordRecovery(email),
+    requestPasswordRecovery: (email, redirectTo) =>
+      transactionSession(null).session.requestPasswordRecovery(email, redirectTo),
   };
   return {
     session, storageKey,

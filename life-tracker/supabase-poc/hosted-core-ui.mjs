@@ -12,20 +12,35 @@ import { fileURLToPath } from 'node:url';
 
 function child(command, args, options) {
   return new Promise((resolvePromise, reject) => {
-    const process = spawn(command, args, { ...options, stdio: 'inherit' });
-    process.once('error', () => reject(new Error('Hosted UI child could not start')));
-    process.once('exit', code => code === 0 ? resolvePromise() :
+    const { redactions = [], ...spawnOptions } = options;
+    const childProcess = spawn(command, args, { ...spawnOptions, stdio: ['ignore', 'pipe', 'pipe'] });
+    const redact = text => redactions.reduce((output, secret) => secret
+      ? output.replaceAll(secret, '[redacted]') : output, text);
+    for (const [input, output] of [[childProcess.stdout, process.stdout], [childProcess.stderr, process.stderr]]) {
+      let pending = '';
+      input.setEncoding('utf8');
+      input.on('data', data => {
+        pending += data;
+        const end = pending.lastIndexOf('\n');
+        if (end >= 0) { output.write(redact(pending.slice(0, end + 1))); pending = pending.slice(end + 1); }
+        if (pending.length > 1024 * 1024) { output.write('[oversized diagnostic omitted]\n'); pending = ''; }
+      });
+      input.on('end', () => { if (pending) output.write(redact(pending)); });
+    }
+    childProcess.once('error', () => reject(new Error('Hosted UI child could not start')));
+    childProcess.once('close', code => code === 0 ? resolvePromise() :
       reject(new Error(`Hosted UI child exited ${code}`)));
   });
 }
 
-export async function exerciseHostedUi(client, accounts, origin, preview = null, testName = 'real Mosaic UI') {
+export async function exerciseHostedUi(client, accounts, origin, preview = null, testName = 'real Mosaic UI', emailAction = null) {
   if (origin !== 'https://hcxtiifzxoaflhjgoglb.supabase.co')
     throw new Error('Hosted UI requires isolated mosaic-dev');
   if (preview && (preview.origin !== 'https://mosaic-supabase-core-preview.vercel.app' ||
       !/^[a-f0-9]{40}$/.test(preview.sha ?? '')))
     throw new Error('Hosted Preview requires the isolated alias and exact accepted source SHA');
-  if (!['real Mosaic UI', 'lost write acknowledgement', 'offline cold start'].includes(testName))
+  if (!['real Mosaic UI', 'lost write acknowledgement', 'offline cold start',
+    'signed email confirmation', 'signed email recovery'].includes(testName))
     throw new Error('Unknown hosted core browser contract');
   const keys = await client.requireOk(await client.management('/api-keys'), 'Public build key access');
   const publishableKey = keys.find(k => k.type === 'publishable')?.api_key;
@@ -33,7 +48,7 @@ export async function exerciseHostedUi(client, accounts, origin, preview = null,
   const cwd = fileURLToPath(new URL('../', import.meta.url));
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
-    if (/SUPABASE|MOSAIC_SB|MOSAIC_CORE_HOSTED_FIXTURES|VERCEL_TOKEN/.test(key)) delete env[key];
+    if (/SUPABASE|MOSAIC_SB|MOSAIC_CORE_HOSTED_FIXTURES|MOSAIC_CORE_EMAIL_ACTION|VERCEL_TOKEN/.test(key)) delete env[key];
   }
   Object.assign(env, {
     VITE_MOSAIC_BACKEND: 'supabase-cloud', VITE_MOSAIC_FEATURE_PROFILE: 'core-only',
@@ -69,7 +84,7 @@ export async function exerciseHostedUi(client, accounts, origin, preview = null,
       // trips. Keep the same assertions with a bounded hosted-only deadline.
       testDir: resolve(cwd, 'tests/e2e'), workers: 1, expect: { timeout: 45_000 },
       outputDir: resolve(scratch, 'results'),
-      use: { launchOptions: {
+      use: { trace: 'off', screenshot: 'off', video: 'off', launchOptions: {
         ...(process.env.MOSAIC_E2E_CHROMIUM_PATH ? { executablePath: process.env.MOSAIC_E2E_CHROMIUM_PATH } : {}),
         ...(process.env.HTTPS_PROXY ? {
           proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' },
@@ -79,7 +94,10 @@ export async function exerciseHostedUi(client, accounts, origin, preview = null,
     await writeFile(resolve(scratch, 'config.mjs'), 'export default ' + JSON.stringify(config));
     await child(process.execPath, ['tests/e2e/node_modules/@playwright/test/cli.js', 'test',
       'supabase-core-app.spec.mjs', '--config', resolve(scratch, 'config.mjs'),
-      '--grep', testName, '--reporter=line'], { cwd, env: {
+      '--grep', testName, '--reporter=line'], { cwd,
+      redactions: [...accounts.map(account => account.password), emailAction?.tokenHash,
+        emailAction?.newPassword, process.env.VERCEL_AUTOMATION_BYPASS_SECRET].filter(Boolean),
+      env: {
       ...env, MOSAIC_SB_LOCAL_URL: origin, MOSAIC_SB_LOCAL_PUBLISHABLE_KEY: publishableKey,
       // Playwright 1.58 otherwise appends <-loopback> after explicit bypasses,
       // forcing this process's own static server through the outbound proxy.
@@ -88,6 +106,7 @@ export async function exerciseHostedUi(client, accounts, origin, preview = null,
       MOSAIC_E2E_BASE_URL: preview?.origin ?? `http://127.0.0.1:${server.address().port}`,
       ...(preview ? { MOSAIC_CORE_PREVIEW_SHA: preview.sha } : {}),
       MOSAIC_CORE_HOSTED_FIXTURES: JSON.stringify(accounts.map(({ email, password }) => ({ email, password }))),
+      ...(emailAction ? { MOSAIC_CORE_EMAIL_ACTION: JSON.stringify(emailAction) } : {}),
     } });
   } finally {
     if (server.listening) await new Promise(resolvePromise => server.close(resolvePromise));

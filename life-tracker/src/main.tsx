@@ -23,7 +23,13 @@ import { markStartup } from './lib/startupMetrics';
 import { initializeConnectivity } from './lib/connectivity';
 import { preloadHomePage } from './lib/homePreload';
 import { loadAppDataShell } from './components/layout/routeModuleLoaders';
+import { CORE_BACKEND } from './lib/coreBackendConfig';
+import { captureEmailActionCallback } from './lib/emailActionCallback';
 
+if (CORE_BACKEND.driver === 'supabase') {
+  captureEmailActionCallback(window);
+  window.addEventListener('hashchange', () => captureEmailActionCallback(window));
+}
 markStartup('bootstrap:start');
 initializeConnectivity(window);
 initializeAppearance();
