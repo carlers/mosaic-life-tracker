@@ -12,6 +12,7 @@ Current task: issue #956 — Home Calendar keyboard month snap repair, v0.35.4 c
 - In `useCalendarGridKeyboard`, focus on the newly active date called `Element.scrollIntoView()` during Embla's period slide animation. That API scrolls all ancestors, potentially moving the Embla horizontal viewport independently from its transform/snap. `CalendarZoomViewport` had an additional focus-time scrollIntoView and a duplicate arrow handler, which competed with the new calendar-grid controller in 3/4-day mode.
 - Replace ancestor-wide scrollIntoView with scoped scroll only to the active slide vertical scroller and optional zoom weekday lane horizontal scroller; use focus({preventScroll:true}). Remove obsolete duplicate zoom arrow handler so one calendar-grid controller owns keyboard date moves.
 - Add DOM regression guarding against unscoped implicit scrolling plus Chromium real-browser keyboard month-shift geometry regression using the existing CalendarBody/Embla browser probe, including consecutive PageDown/PageUp changes.
+- First focused gate 39455372765 failed CalendarSemantics standalone MonthView 3-day zoom ArrowRight after removing the viewport's legacy arrow handler. Restore that handler solely when no CalendarBody keyboard owner is present, using scoped scrolling rather than the old ancestor-wide scrollIntoView; preserve standalone accessibility semantics.
 - No backend/schema, visual or swipe changes; preserve Month/Week, 3/4/7-day zoom, pointer/touch behavior and input/modal keys.
 
 ## Shortcut follow-on (design only)

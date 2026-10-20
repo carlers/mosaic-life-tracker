@@ -182,6 +182,32 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
     }
     smoothSnap(node);
   };
+  // Standalone MonthView/WeekView grids historically support arrow navigation
+  // through this zoom lane. Once CalendarBody owns the grid keyboard contract,
+  // leave arrows to its date-aware controller (including period boundaries).
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || event.nativeEvent.isComposing ||
+      event.ctrlKey || event.altKey || event.metaKey || event.shiftKey ||
+      event.currentTarget.closest('[data-calendar-keyboard-owned="true"]')) return;
+    const source = event.target;
+    if (!(source instanceof HTMLButtonElement) ||
+      !source.parentElement?.matches('[role="gridcell"]')) return;
+    const offset = event.key === 'ArrowRight' ? 1 :
+      event.key === 'ArrowLeft' ? -1 :
+      event.key === 'ArrowDown' ? 7 :
+      event.key === 'ArrowUp' ? -7 : 0;
+    if (!offset) return;
+    const days = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>(
+      '[role="gridcell"] > button:not(:disabled)'
+    ));
+    const target = days[days.indexOf(source) + offset];
+    if (!target) return;
+    event.preventDefault();
+    target.focus({ preventScroll: true });
+    const slide = event.currentTarget.closest<HTMLElement>('[data-calendar-slide-index]') ?? event.currentTarget;
+    scrollCalendarDateWithinSlide(target, slide);
+  };
+
   return (
     <div
       ref={viewportRef}
@@ -189,6 +215,7 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
       aria-label="Scrollable calendar weekdays"
       tabIndex={0}
       data-calendar-zoom-lane="true"
+      onKeyDown={handleKeyDown}
       data-zoom-days={zoomDays}
       className="max-w-full overflow-x-auto overscroll-x-contain"
       style={{
