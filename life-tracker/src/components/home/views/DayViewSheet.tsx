@@ -1050,35 +1050,47 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                             </span>
                           ))}
                         </div>
-                        <div className="justify-self-end flex items-center gap-1">
+                        <div className="justify-self-end flex items-center gap-1.5">
                           <button
                             type="button"
                             tabIndex={i === activeIndex ? 0 : -1}
                             disabled={isBackgroundLocked || editingTaskId !== null || isTaskReorderActive}
                             aria-pressed={dayViewMode === 'timeline'}
                             aria-label={dayViewMode === 'timeline' ? 'Switch to categories view' : 'Switch to timeline view'}
+                            title={dayViewMode === 'timeline' ? 'Categories view' : 'Timeline view'}
                             onClick={() => void setSetting(DAY_VIEW_MODE_SETTING_KEY, dayViewMode === 'timeline' ? 'categories' : 'timeline')}
-                            className="rounded-lg px-2 py-1.5 text-xs text-gray-300 hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40"
-                          ><ListOrdered size={16} aria-hidden="true" /><span className="sr-only">Timeline</span></button>
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40 ${dayViewMode === 'timeline'
+                              ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
+                              : 'border-[#444444] bg-surfaceHighlight text-gray-300 hover:bg-[#333333]'}`}
+                          >
+                            <ListOrdered size={16} aria-hidden="true" />
+                          </button>
                           {dayViewMode === 'timeline' && (
-                            <button type="button"
+                            <button
+                              type="button"
                               tabIndex={i === activeIndex ? 0 : -1}
                               aria-label={timelineDirection === 'desc' ? 'Timeline newest first; switch to oldest' : 'Timeline oldest first; switch to newest'}
+                              title={timelineDirection === 'desc' ? 'Newest first' : 'Oldest first'}
                               onClick={() => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, timelineDirection === 'desc' ? 'asc' : 'desc')}
-                              className="rounded-lg px-1.5 py-1.5 text-xs text-gray-300 hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                            >{timelineDirection === 'desc' ? <ArrowDownWideNarrow size={16} /> : <ArrowUpNarrowWide size={16} />}</button>
+                              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full border border-[#444444] bg-surfaceHighlight px-2 text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                            >
+                              {timelineDirection === 'desc' ? <ArrowDownWideNarrow size={16} aria-hidden="true" /> : <ArrowUpNarrowWide size={16} aria-hidden="true" />}
+                              <span className="hidden min-[420px]:inline text-[11px] font-semibold">{timelineDirection === 'desc' ? 'Newest' : 'Oldest'}</span>
+                            </button>
                           )}
-                        <button
-                          type="button"
-                          onClick={handleToggleSelectMode}
-                          tabIndex={i === activeIndex ? 0 : -1}
-                          aria-pressed={isSelectMode}
-                          aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
-                          className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode ? 'bg-emerald-500 text-black' : 'text-gray-300 hover:bg-[#2A2A2A]'}`}
-                        >
-                          <CheckSquare size={16} aria-hidden="true" />
-                          <span>Select</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={handleToggleSelectMode}
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            aria-pressed={isSelectMode}
+                            aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
+                            className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode
+                              ? 'border-transparent bg-emerald-500 text-black'
+                              : 'border-[#444444] bg-surfaceHighlight text-gray-300 hover:bg-[#333333]'}`}
+                          >
+                            <CheckSquare size={16} aria-hidden="true" />
+                            <span>Select</span>
+                          </button>
                         </div>
                       </div>
                     </div>

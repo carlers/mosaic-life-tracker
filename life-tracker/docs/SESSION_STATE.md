@@ -1,26 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #951 — Day View timestamps and chronological Timeline Mode.
+Current task: #951 — Timeline control and quick-add styling refinement.
 
-## Boundary
-- Working branch: `chatgpt/dayview-timeline-951-20261020`, based on `dev@0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0`.
-- Preview candidate `v0.36.0`, distinct from active #956 keyboard Preview `v0.35.0`.
-- Source/UI + owner settings only: no backend/schema changes, no Appwrite production operations, no Preview/dev/main promotion approval.
+## Authority and boundary
+- Source Preview: `feature/dayview-timeline-951-20261020@8d9411b6b9fc91502e00c9e5e38f961200c1b13b` (v0.36.0).
+- Source canonical CI: https://github.com/carlers/mosaic-life-tracker/actions/runs/39444095206 — SUCCESS. Trusted Preview https://github.com/carlers/mosaic-life-tracker/actions/runs/39444406351 — SUCCESS; Vercel immutable deployment READY. Authenticated/device manual validation outstanding.
+- Task branch: `chatgpt/951-timeline-controls-20261020`, branched from the exact accepted stable Preview SHA.
+- Candidate v0.36.1 PATCH (visual refinement after delivered v0.36.0); no backend/schema or task-order changes. Never promote to `dev`/`main` without separate authorization.
 
-## Implementation
-- Add optional created/completed timestamps in ordinary Day View, with account-synced independent visibility and icon-vs-text labels.
-- Add account-synced Categories/Timeline mode and ascending/descending direction, client-only deterministic chronology, category and completion filters, and category-aware quick-add.
-- Reuse TaskItem for checkbox, edit, memo, photo, selection and task actions. Canonical category/manual task order remains unchanged.
-- Diary and shared-task content remains in Categories view; Timeline displays explicit guidance.
-- New pure sorting/formatting tests.
+## Change scope
+- Polish Timeline filter selects as rounded Mosaic surface chips, keeping native select controls for mobile and keyboard operation.
+- Present quick-add category selector as a normal Mosaic category pill, with corresponding category name/color and accessible native category choice.
+- Polish Timeline mode, chronological sort and Select header buttons into coherent focusable rounded controls; refine quick-add input/action and inline tags.
+- Preserve filtering, category assignment, completion, memo/edit/image actions, selection, day swipe, theme semantics, and existing task data.
 
-## Verification
-- Initial focused CI on the task branch SUCCESS: https://github.com/carlers/mosaic-life-tracker/actions/runs/39442947072.
-- Stable Preview squash PR #1109 → `feature/dayview-timeline-951-20261020@8aa8436bed4d9646c5cf7868012a3d7a2c99ec92`.
-- First stable Preview canonical run https://github.com/carlers/mosaic-life-tracker/actions/runs/39443204470: checks, both DOM shards and browser contracts success; build fails on pre-existing `pwaLifecycle.ts` setTimeout type mismatch, not a Timeline source error.
-- Repair only the timer handle type without changing PWA runtime behavior; rerun focused and stable full acceptance.
-- Authenticated browser and physical-device testing remains outstanding.
-
-## Next action
-- Inspect focused CI for this exact task SHA and fix any failures. Then submit to stable Preview for full canonical CI + trusted Vercel READY, obtain owner device acceptance; no automatic dev/main promotion.
+## Verification and handoff
+- Request focused CI with the coherent task commit; squash task PR into the same stable Preview only after green.
+- Run full canonical CI on exact stable Preview SHA, verify trusted Vercel READY for same SHA and publish Preview URL.
+- Manual Scratch login, phone gesture, keyboard, visual contrast in Light/Dark/Black/System and saved-task behavior remain separate from automated verification.
+- No dev/main, production or 1.0 promotion.
