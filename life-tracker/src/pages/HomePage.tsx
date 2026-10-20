@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
+import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
 import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -61,6 +62,7 @@ export const HomePage: React.FC = () => {
   const searchDaySheetOpenRef = useRef(false);
 
   const swiperRef = useRef<SwiperClass | null>(null);
+  const friendCarouselRef = useRef<HTMLDivElement>(null);
   const isProgrammaticMoveRef = useRef(false);
 
   if (persons.length > 0 && !persons.some((p) => p.id === activePersonId)) {
@@ -286,6 +288,24 @@ export const HomePage: React.FC = () => {
     setSearchFocusTaskId(null);
   }, []);
 
+  // F jumps directly to the selected person without switching their calendar.
+  // Left/Right in the carousel moves focus; Enter/Space activates that person.
+  useEffect(() => {
+    if (isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'f' || event.key.length !== 1 ||
+          !canUseKeyboardShortcut(event)) return;
+      const active = friendCarouselRef.current?.querySelector<HTMLButtonElement>(
+        '[data-person-pill][aria-pressed="true"]'
+      );
+      if (!active) return;
+      event.preventDefault();
+      active.focus({ preventScroll: true });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isSearchOpen, isSettingsOpen, searchDaySheetOpen]);
+
   // Home-only search launcher. Keep native typing and all nested sheet
   // keyboard ownership untouched; the existing Search control still handles
   // Escape and focus when the field opens.
@@ -325,6 +345,7 @@ export const HomePage: React.FC = () => {
               persons={persons}
               activePersonId={activePersonId}
               onSelect={handlePillSelect}
+              focusRootRef={friendCarouselRef}
               onOpenSettings={handleOpenSettings}
             />
           </div>

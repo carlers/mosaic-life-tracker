@@ -49,6 +49,7 @@ import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
+import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
 import { useSettings } from '../../../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
@@ -877,6 +878,31 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [exitSelectMode, isBackgroundLocked, isSelectMode, renderMode]);
+  useEffect(() => {
+    if (!isOpen || isBackgroundLocked || isTaskReorderActive || keyboardHelpOpen ||
+        editingTaskId !== null) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 's' || event.key.length !== 1 ||
+          !canUseKeyboardShortcut(event, { allowOpenDialog: true })) return;
+      const root = renderMode === 'sheet' ? sheetContentRef.current :
+        document.querySelector<HTMLElement>(renderMode === 'backlog'
+          ? '[data-testid="backlog-day-view"]' : '[data-testid="inline-day-view"]');
+      if (!root || root.closest('[inert], [aria-hidden="true"]') ||
+          !(event.target instanceof Node) || !root.contains(event.target)) return;
+      const scope = isBacklogView ? root :
+        root.querySelector<HTMLElement>('.swiper-slide:not([aria-hidden="true"])');
+      const select = scope?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Select tasks"], button[aria-label="Exit selection mode"]'
+      );
+      if (!select || select.disabled) return;
+      event.preventDefault();
+      select.focus({ preventScroll: true });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, isBackgroundLocked, isTaskReorderActive, keyboardHelpOpen,
+    editingTaskId, renderMode, isBacklogView]);
+
   // The BottomSheet trap initially focuses the header's Previous button.
   // After its focus setup, start keyboard browsing at the first visible
   // category instead. Only do this once per sheet opening, not on day swipes,
@@ -1004,6 +1030,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         <dt className="font-mono text-gray-100">↑ / ↓</dt><dd>Previous / next task or category</dd>
         <dt className="font-mono text-gray-100">Home / End</dt><dd>First / last visible item</dd>
         {!isBacklogView && <><dt className="font-mono text-gray-100">← / →</dt><dd>Previous / next day outside text editing</dd></>}
+        <dt className="font-mono text-gray-100">S</dt><dd>Focus the Select tasks button</dd>
         <dt className="font-mono text-gray-100">N</dt><dd>New task in the focused category (not in Select mode)</dd>
         <dt className="font-mono text-gray-100">Enter</dt><dd>Edit a task; select it in Select mode</dd>
         <dt className="font-mono text-gray-100">Space</dt><dd>Complete a task; select it in Select mode</dd>

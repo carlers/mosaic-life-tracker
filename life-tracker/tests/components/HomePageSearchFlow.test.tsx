@@ -96,8 +96,14 @@ vi.mock('../../src/components/home/HomeTaskSearch', () => ({
   ),
 }));
 vi.mock('../../src/components/home/PersonCarousel', () => ({
-  PersonCarousel: ({ onOpenSettings }: { onOpenSettings: () => void }) =>
-    <div>Carousel <button type="button" onClick={onOpenSettings}>Friend preferences</button></div>,
+  PersonCarousel: ({ onOpenSettings, focusRootRef }: {
+    onOpenSettings: () => void;
+    focusRootRef?: React.Ref<HTMLDivElement>;
+  }) =>
+    <div ref={focusRootRef}>Carousel
+      <button type="button" data-person-pill="me" aria-pressed="true">Me</button>
+      <button type="button" onClick={onOpenSettings}>Friend preferences</button>
+    </div>,
 }));
 vi.mock('../../src/components/home/PersonPane', () => ({
   PersonPane: () => <div>Pane</div>,
@@ -214,6 +220,30 @@ describe('HomePage task-search wiring', () => {
     fireEvent(window, new PopStateEvent('popstate'));
 
     expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument();
+  });
+
+  it('F focuses the selected person without changing calendar or stealing editor keys', () => {
+    renderHome();
+    const me = screen.getByRole('button', { name: 'Me' });
+    const outside = screen.getByRole('button', { name: 'Open search' });
+    outside.focus();
+    fireEvent.keyDown(outside, { key: 'f' });
+    expect(me).toHaveFocus();
+
+    const input = document.createElement('input');
+    input.setAttribute('aria-label', 'Example task editor');
+    document.body.appendChild(input);
+    try {
+      input.focus();
+      fireEvent.keyDown(input, { key: 'f' });
+      expect(input).toHaveFocus();
+      fireEvent.click(outside);
+      outside.focus();
+      fireEvent.keyDown(outside, { key: 'f' });
+      expect(outside).toHaveFocus();
+    } finally {
+      input.remove();
+    }
   });
 
   it('makes the Home content inert while search is open', () => {
