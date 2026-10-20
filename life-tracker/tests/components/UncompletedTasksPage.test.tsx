@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { TaskDocument } from '../../src/db/schema';
 import { makeRouteParentState } from '../../src/lib/primarySwipeNavigation';
 import { UncompletedTasksPage } from '../../src/pages/UncompletedTasksPage';
@@ -50,6 +50,20 @@ describe('Uncompleted Tasks page', () => {
     </MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: /backlog item/i }));
     expect(screen.getByText('Backlogs page')).toBeInTheDocument();
+  });
+
+  it('opens a dated original task on Home with its exact task and date', () => {
+    fixtures.tasks = [task('scheduled item', '2026-11-11')];
+    const FocusTarget = () => {
+      const { state } = useLocation();
+      return <div>Task focus: {state?.focusTaskId} on {state?.focusTaskDate}</div>;
+    };
+    render(<MemoryRouter initialEntries={['/uncompleted']}>
+      <Routes><Route path="/uncompleted" element={<UncompletedTasksPage />} />
+        <Route path="/home" element={<FocusTarget />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: /scheduled item/i }));
+    expect(screen.getByText('Task focus: scheduled item on 2026-11-11')).toBeInTheDocument();
   });
 
   it('returns to Me with a preserved parent, and Home on direct load', () => {
