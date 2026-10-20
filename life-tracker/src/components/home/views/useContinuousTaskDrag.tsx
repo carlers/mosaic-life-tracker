@@ -82,6 +82,7 @@ export function useContinuousTaskDrag({
   const dwellTimerRef = React.useRef<number | null>(null);
   const cooldownTimerRef = React.useRef<number | null>(null);
   const transitionTimerRef = React.useRef<number | null>(null);
+  const projectionFrameRef = React.useRef<number | null>(null);
   const [carried, setCarried] = React.useState<CarriedTask | null>(null);
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
   const latestRef = React.useRef({ isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished });
@@ -95,6 +96,10 @@ export function useContinuousTaskDrag({
 
   const reset = React.useCallback(() => {
     clearTimers();
+    if (projectionFrameRef.current !== null) {
+      cancelAnimationFrame(projectionFrameRef.current);
+      projectionFrameRef.current = null;
+    }
     sessionRef.current = null;
     setCarried(null);
   }, [clearTimers]);
@@ -110,16 +115,10 @@ export function useContinuousTaskDrag({
   const attachOverlay = React.useCallback((node: HTMLDivElement | null) => {
     overlayRef.current = node;
     const session = sessionRef.current;
-    if (node && session) {
-      positionOverlay(session);
-      // When Swiper disposes the original source, the carried portal survives.
-      // Capture on that stable node as well as relying on body capture. Mobile
-      // browsers differ in how they retarget implicitly captured touch streams.
-      if (session.stage === 'external' && session.pointerId !== null) {
-        try { node.setPointerCapture(session.pointerId); }
-        catch { /* Touch fallback still tracks the same active finger */ }
-      }
-    }
+    if (node && session) positionOverlay(session);
+    // Do NOT recapture touch on the newly mounted overlay. Reassigning a
+    // finger's pointer capture mid-gesture races the native touch pointer
+    // lifecycle on WebKit and can cancel the source drag.
   }, [positionOverlay]);
 
   const projectAtPointer = React.useCallback((session: Session) => {
@@ -172,6 +171,17 @@ export function useContinuousTaskDrag({
         x: pos.x, y: pos.y,
       });
   }, [swiperRef]);
+
+  const queueProjection = React.useCallback((session: Session) => {
+    // Use at most one layout measurement and destination React update per
+    // animation frame. Overlay position itself still follows every touch
+    // synchronously, even if rendering the list takes longer on a phone.
+    if (projectionFrameRef.current !== null) return;
+    projectionFrameRef.current = requestAnimationFrame(() => {
+      projectionFrameRef.current = null;
+      if (sessionRef.current === session && !session.inFlight) projectAtPointer(session);
+    });
+  }, [projectAtPointer]);
 
   const advanceRef = React.useRef<() => void>(() => undefined);
   const scheduleRef = React.useRef<(delay: number) => void>(() => undefined);
@@ -290,8 +300,8 @@ export function useContinuousTaskDrag({
       dwellTimerRef.current = null;
       if (!session.inFlight && next) scheduleRef.current(INITIAL_DWELL_MS);
     }
-    if (session.stage === 'external' && !session.inFlight) projectAtPointer(session);
-  }, [positionOverlay, projectAtPointer, swiperRef]);
+    if (session.stage === 'external' && !session.inFlight) queueProjection(session);
+  }, [positionOverlay, queueProjection, swiperRef]);
 
   const finish = React.useCallback((commit: boolean) => {
     const session = sessionRef.current;
@@ -306,13 +316,11 @@ export function useContinuousTaskDrag({
       swiper.slideTo(session.lastSettledIndex, 0, false);
     }
     if (external && session.pointerId !== null) {
-      for (const element of [overlayRef.current, document.body]) {
-        try {
-          if (element?.hasPointerCapture(session.pointerId)) {
-            element.releasePointerCapture(session.pointerId);
-          }
-        } catch { /* Pointer already released/canceled */ }
-      }
+      try {
+        if (document.body.hasPointerCapture(session.pointerId)) {
+          document.body.releasePointerCapture(session.pointerId);
+        }
+      } catch { /* Pointer already released/canceled */ }
     }
     // Store validated target before resetting the overlay.
     const target = { ...session.target };
@@ -323,7 +331,6 @@ export function useContinuousTaskDrag({
         latestRef.current.isOpen && latestRef.current.categories.some(c =>
           c.id === target.categoryId && c.userId === latestRef.current.currentUserId && !c.isDeleted)) {
       void latestRef.current.onCommit(session.task, date, target.categoryId, target.index)
-        .then(() => latestRef.current.onFeedback('Task moved to ' + date))
         .catch(() => latestRef.current.onFeedback('Could not move task. Please try again.'));
     }
   }, [reset]);
@@ -368,6 +375,10 @@ export function useContinuousTaskDrag({
     const up = (event: PointerEvent) => {
       if (heldRef.current?.id !== event.pointerId) return;
       const s = sessionRef.current;
+      // Active touch drags are finalized by touchend. Pointerup sometimes
+      // precedes touchend and is not a reliable terminal event on WebKit.
+      if (heldRef.current?.pointerType === 'touch' && s?.stage === 'external' &&
+          heldRef.current.touchId !== null) return;
       if (s?.pointerId === event.pointerId) {
         updatePoint(event);
         finish(true);
@@ -376,6 +387,12 @@ export function useContinuousTaskDrag({
     };
     const cancel = (event: PointerEvent) => {
       if (heldRef.current?.id !== event.pointerId) return;
+      // Pointercancel alone is not a complete touch lifecycle. A source
+      // slide disappearing or native pan arbitration can cancel PointerEvents
+      // while the same Touch identifier is still actively moving.
+      if (heldRef.current.pointerType === 'touch' &&
+          sessionRef.current?.stage === 'external' &&
+          heldRef.current.touchId !== null) return;
       heldRef.current = null;
       finish(false);
     };
@@ -412,6 +429,9 @@ export function useContinuousTaskDrag({
       const touch = event.touches[0];
       if (held.touchId !== null && touch.identifier !== held.touchId) return;
       if (held.touchId === null) held.touchId = touch.identifier;
+      // dnd-kit already owns the source before handoff. Only intercept
+      // scrolling once our persistent cross-day overlay owns the touch.
+      if (session.stage !== 'external') return;
       if (event.cancelable) event.preventDefault();
       held.x = touch.clientX;
       held.y = touch.clientY;
@@ -424,7 +444,7 @@ export function useContinuousTaskDrag({
         .some(touch => touch.identifier === held.touchId)) return;
       const last = Array.from(event.changedTouches).find(touch =>
         held.touchId === null || touch.identifier === held.touchId);
-      if (last) {
+      if (last && sessionRef.current?.stage === 'external') {
         held.x = last.clientX;
         held.y = last.clientY;
         updatePoint({pointerId: held.id, clientX: held.x, clientY: held.y} as PointerEvent);
