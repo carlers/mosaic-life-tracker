@@ -1,25 +1,27 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Current task: #955 — Uncompleted Tasks owner-only list (approved implementation, pending CI/Preview).
+Current task: #955 — Uncompleted Tasks owner-only overview, Preview trust-route repair.
 
 ## Boundary
-- Base: `dev@613903cd01b8857f16d4f75fa02e84b1d39e6263` (v0.36.3); active task branch `chatgpt/uncompleted-tasks-955-20261021`.
-- User authorized implementation and Preview testing, not promotion to dev/main or Production.
-- No backend schema, remote provider, auth, or production changes. Received shared-task items are out of scope.
-- Proposed independently testable Preview version v0.37.0 (MINOR); recheck parallel Preview collisions before stable acceptance.
+- Original task base: `dev@613903cd01b8857f16d4f75fa02e84b1d39e6263` (v0.36.3).
+- Stable Preview branch: `feature/uncompleted-tasks-955`; prior nonaccepted candidate `081dec937eb8bb191183ed91325243482deffce5`.
+- Working task branch: `chatgpt/955-trusted-route-compat-20261021`.
+- User authorized implementation and Preview, not dev/main promotion, Production edits, or main-only routing pin rotation.
+- v0.37.0 (MINOR), three synchronized version files. No backend/schema/migration change.
 
-## Work
-- New /uncompleted owner-only aggregation page and pure stable filtering/grouping helper; overdue/today/upcoming/undated and malformed dates.
-- Menu/Me navigation, task count and route fallback; existing task completion and task focus through Home or Backlogs.
-- No new data collection, API request, or task reorder. Backlogs remains unchanged.
-- Focused unit/DOM route, projection, and hamburger assertions authored.
+## Implementation
+- Add the owner-only uncompleted-task aggregation with grouped overdue/today/upcoming/undated dates, existing checkbox operation, original-task focus, and Home/Me menu navigation.
+- Because the protected-main trusted Preview receiver pins the exact legacy 15-route Vercel config/hash, use the existing trusted `/backlog?view=uncompleted` SPA path rather than change its Vercel rewrite/security contract. Render the new view separately via the Backlog route, without changing `/backlog` itself.
+- Received shared tasks are not included; preserve owner isolation and Backlogs behavior.
 
 ## Verification
-- GitHub-connected implementation; remote focused CI and canonical Preview verification remain to be observed.
-- No local npm/browser runner available in this session; do not mark tests or mobile/Scratch login as passed without actual evidence.
-- Manual Light/Dark/Black, small-screen navigation and device acceptance outstanding.
+- Original task focused CI SUCCESS on `2a263a6ff3c0f3dd204b9e2e4de61166e20c0737`.
+- First stable full CI `39462453965` failed on expanded-route preview security allowlist and route registry assertions.
+- Focused repair CI `39462960181` passed on `951f0afb6bc2814723dddbc6171ecc09b623b601`.
+- Second stable full CI `39463302137` rejected new routing evidence against 15-route trusted static-output contract. This is a deliberate gate, not permission to modify Production.
+- New route-compatible candidate, tests, exact-SHA full CI and Vercel Preview are not yet accepted. Manual Scratch/device testing outstanding.
 
 ## Next action
-- Inspect task commit diff and exact-SHA focused workflow result; fix any failures.
-- Upon focused green, squash into stable `feature/uncompleted-tasks-955`, verify canonical CI and Vercel Preview with exact SHA, then request explicit dev-promotion approval.
+- Verify route-compatible task branch focused CI; then squash through a PR into stable `feature/uncompleted-tasks-955`.
+- Confirm exact-SHA canonical CI, Vercel READY and the direct query URL. Keep dev/main untouched until explicit promotion approval.

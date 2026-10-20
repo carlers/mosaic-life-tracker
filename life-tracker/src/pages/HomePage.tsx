@@ -238,7 +238,7 @@ export const HomePage: React.FC = () => {
   }, [navigate]);
 
   const handleOpenUncompleted = useCallback(() => {
-    navigate('/uncompleted', { state: makeRouteParentState('/home') });
+    navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/home') });
   }, [navigate]);
 
   // Open a real dated task from the Bucket List or Uncompleted Tasks.

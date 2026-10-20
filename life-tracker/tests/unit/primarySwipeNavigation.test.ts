@@ -65,7 +65,7 @@ describe('resolvePrimarySwipeDestination', () => {
   });
   it('derives page layout and swipe defaults from the same protected-route entries', () => {
     expect(PROTECTED_ROUTES.map((route) => route.path)).toEqual([
-      '/home', '/bucket-list/:id', '/bucket-list', '/backlog', '/uncompleted', '/explore', '/friends/:friendId', '/notifications',
+      '/home', '/bucket-list/:id', '/bucket-list', '/backlog', '/explore', '/friends/:friendId', '/notifications',
       '/messages', '/messages/:friendId', '/account', '/settings',
       '/settings/releases', '/settings/preferences', '/settings/notifications', '/settings/screen', '/settings/*', '/profile',
     ]);
@@ -80,10 +80,10 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(protectedRouteSwipeMode('/bucket-list')).toBe('full');
     expect(matchProtectedRoute('/backlog')?.id).toBe('backlog');
     expect(resolveRouteParent('/backlog')).toBe('/home');
-    expect(matchProtectedRoute('/uncompleted')?.id).toBe('uncompleted');
-    expect(resolveRouteParent('/uncompleted')).toBe('/home');
-    expect(resolveRouteParent('/uncompleted', { parentPath: '/account' })).toBe('/account');
-    expect(resolveRouteParent('/backlog', { parentPath: '/uncompleted' })).toBe('/uncompleted');
+    // Same-path detail navigation preserves the query-view parent in history.
+    expect(resolveRouteParent('/backlog', { parentPath: '/backlog?view=uncompleted' })).toBe('/backlog?view=uncompleted');
+    expect(resolvePrimarySwipeDestination('/backlog', 'right', { parentPath: '/backlog?view=uncompleted' }))
+      .toBe('/backlog?view=uncompleted');
     expect(protectedRouteSwipeMode('/backlog')).toBe('full');
     expect(protectedRouteSwipeMode('/settings/releases')).toBe('full');
     // Detail routes inherit swipe-back; nested horizontal gesture owners opt into edge-back.

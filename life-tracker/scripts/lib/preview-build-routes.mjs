@@ -13,7 +13,7 @@ const headers = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
 const deepLinks = [
-  '/reset-password', '/login', '/home', '/backlog', '/uncompleted', '/bucket-list',
+  '/reset-password', '/login', '/home', '/backlog', '/bucket-list',
   '/bucket-list/:path*', '/explore', '/friends/:path*', '/notifications',
   '/messages', '/messages/:path*', '/account', '/settings',
   '/settings/:path*', '/profile',

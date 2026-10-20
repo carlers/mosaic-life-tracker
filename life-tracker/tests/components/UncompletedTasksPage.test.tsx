@@ -23,12 +23,18 @@ function task(id: string, date: string): TaskDocument {
     createdAt: '2026-10-21T00:00:00Z', updatedAt: '2026-10-21T00:00:00Z' };
 }
 
+const BacklogSwitch = () => {
+  const { search } = useLocation();
+  return new URLSearchParams(search).get('view') === 'uncompleted'
+    ? <UncompletedTasksPage /> : <div>Backlogs page</div>;
+};
+
 describe('Uncompleted Tasks page', () => {
   it('shows owner tasks and completes through the existing hook', async () => {
     fixtures.tasks = [task('undated task', ''), task('other task', '')];
     fixtures.toggle.mockClear();
-    render(<MemoryRouter initialEntries={['/uncompleted']}>
-      <Routes><Route path="/uncompleted" element={<UncompletedTasksPage />} /></Routes>
+    render(<MemoryRouter initialEntries={['/backlog?view=uncompleted']}>
+      <Routes><Route path="/backlog" element={<UncompletedTasksPage />} /></Routes>
     </MemoryRouter>);
     expect(screen.getByRole('heading', { name: 'Uncompleted Tasks' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'No date · Backlogs' })).toBeInTheDocument();
@@ -40,12 +46,11 @@ describe('Uncompleted Tasks page', () => {
   it('opens an undated original task in Backlogs and can return to Me', () => {
     fixtures.tasks = [task('backlog item', '')];
     render(<MemoryRouter initialEntries={['/account', {
-      pathname: '/uncompleted', state: makeRouteParentState('/account'),
+      pathname: '/backlog', search: '?view=uncompleted', state: makeRouteParentState('/account'),
     }]} initialIndex={1}>
       <Routes>
         <Route path="/account" element={<div>Me page</div>} />
-        <Route path="/uncompleted" element={<UncompletedTasksPage />} />
-        <Route path="/backlog" element={<div>Backlogs page</div>} />
+        <Route path="/backlog" element={<BacklogSwitch />} />
       </Routes>
     </MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: /backlog item/i }));
@@ -58,8 +63,8 @@ describe('Uncompleted Tasks page', () => {
       const { state } = useLocation();
       return <div>Task focus: {state?.focusTaskId} on {state?.focusTaskDate}</div>;
     };
-    render(<MemoryRouter initialEntries={['/uncompleted']}>
-      <Routes><Route path="/uncompleted" element={<UncompletedTasksPage />} />
+    render(<MemoryRouter initialEntries={['/backlog?view=uncompleted']}>
+      <Routes><Route path="/backlog" element={<UncompletedTasksPage />} />
         <Route path="/home" element={<FocusTarget />} /></Routes>
     </MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: /scheduled item/i }));
@@ -69,17 +74,17 @@ describe('Uncompleted Tasks page', () => {
   it('returns to Me with a preserved parent, and Home on direct load', () => {
     fixtures.tasks = [];
     const { unmount } = render(<MemoryRouter initialEntries={['/account', {
-      pathname: '/uncompleted', state: makeRouteParentState('/account'),
+      pathname: '/backlog', search: '?view=uncompleted', state: makeRouteParentState('/account'),
     }]} initialIndex={1}>
       <Routes><Route path="/account" element={<div>Me page</div>} />
-        <Route path="/uncompleted" element={<UncompletedTasksPage />} /></Routes>
+        <Route path="/backlog" element={<UncompletedTasksPage />} /></Routes>
     </MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByText('Me page')).toBeInTheDocument();
     unmount();
-    render(<MemoryRouter initialEntries={['/uncompleted']}>
+    render(<MemoryRouter initialEntries={['/backlog?view=uncompleted']}>
       <Routes><Route path="/home" element={<div>Home page</div>} />
-        <Route path="/uncompleted" element={<UncompletedTasksPage />} /></Routes>
+        <Route path="/backlog" element={<UncompletedTasksPage />} /></Routes>
     </MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByText('Home page')).toBeInTheDocument();
