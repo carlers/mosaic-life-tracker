@@ -49,7 +49,7 @@ export const UncompletedTasksPage: React.FC = () => {
 
   const openTask = (task: TaskDocument) => {
     if (task.date === '') {
-      navigate('/backlog', { state: { ...makeRouteParentState('/backlog'), focusTaskId: task.id } });
+      navigate('/backlog', { state: { ...makeRouteParentState('/backlog?view=uncompleted'), focusTaskId: task.id } });
     } else if (isScheduledDateKey(task.date)) {
       navigate('/home', { state: { focusTaskId: task.id, focusTaskDate: task.date } });
     }
