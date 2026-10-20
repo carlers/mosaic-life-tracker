@@ -1,26 +1,27 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1027 disposable Supabase core app, v0.32.0 candidate.
+Current task: #1027 hosted Supabase core verification, accepted version 0.32.0.
 
-## Scope and baseline
-- Accepted source: `refactor/1027-signed-core-auth-20261020@c36f6be5c381d42eeadd31e07555330c3bb5664a`, PR #1075; canonical #39400581257 and trusted #39400819910 SUCCESS.
-- Work: `codex/1027-supabase-core-app-20261020`, PR #1079 to isolated `refactor/1027-supabase-core-app-20261020`.
-- User authorizes code, tests and isolated Preview. No Production, real-user migration, dev/main promotion or 1.0.
+## Source and boundary
+- Baseline: `refactor/1027-supabase-core-app-20261020@052a4658b55e25bc5b34a416c923fe604f0a3339`, PR #1079. Canonical #39412036803, local Supabase lab #39412036661 and trusted Preview #39412277835 passed. Full evidence: #1027 comment 6289391812.
+- Task `codex/1027-supabase-hosted-20261020`, PR #1096 → `refactor/1027-supabase-hosted-20261020`. Version impact NONE: verification/tooling only.
+- No Production, real-user migration, dev/main promotion or 1.0. Ordinary Preview still selects Appwrite; hosted browser verification uses an explicit core-only build on loopback, not a deployed Supabase Preview.
 
-## Implementation
-- Actual provider-aware root, neutral identity, signed Auth and task/category RxDB integration. Separate Supabase DB and provider-aware refresh; Appwrite startup rejected under Supabase.
-- Fresh-only server-generated canonical identities, private backend authority and session leases enforced on inserts/CAS. Existing users are not enrolled; this does not fence old Appwrite PWAs.
-- Core profile/social/task menus respect capabilities. Default Appwrite behavior retained. Memory-only credentials: reload requires sign-in.
+## Hosted implementation
+- Exact isolated target: healthy `mosaic-dev`, `hcxtiifzxoaflhjgoglb`. Environment token now permits database, keys, advisors and Auth policy readback (200 after user updated permissions). Email confirmation required; refresh rotation enabled, reuse interval 10 seconds, JWT expiry 3600 seconds. Leaked-password protection remains disabled; no Auth policy was changed.
+- Verified the seven-migration empty baseline before transactionally installing accepted protected-fields/fresh-authority SQL as `20261020130000` / `20261020130001`; exact stored statements matched source. Never rerun empty-project rollout or enroll existing users implicitly.
+- `supabase-poc/hosted-core.mjs` defaults to inspection. Explicit probes use signed disposable owners for RLS/CAS/session/epoch/lease denials. Cleanup tombstones rows, freezes authority and bans accounts, with readback. Admin keys are restricted to fixture Auth operations.
+- `hosted-core-ui.mjs` builds the actual app with the public key and runs the expanded browser contract. No management/admin credentials enter build/browser children. Runbook: `supabase-poc/HOSTED_CORE.md`.
 
-## Evidence and current repair
-- `2f2e73f341d751a894f1d674b191088cfbfbf493`: focused #39408795050 and actual Supabase app lab #39408795064 SUCCESS. Real UI category/task creation, offline completion and second-device isolation; signed lease/CAS/owner/revocation negatives.
-- Expanded #39409630007 passed title editing and Backlog propagation, then first-device task control disappeared after going offline. Built-PWA diagnostic #39410719284 identified lazy OfflineBanner import failure after network loss. Reproduced in the existing chat browser test with real network denial. Banner now ships with the shell; actual offline UI is asserted before edits/deletion.
-- Focused #39409630022 exposed lazy friend-module query timing; explicit import settling fixed locally (12 tests). #39410193415 failed checkpoint length; shortened here without relaxing contract.
-- Local TypeScript/build/PWA/blocking bundle budgets and relevant tests pass. Full canonical/trusted delivery remains pending. CI is source of final exact-SHA evidence.
+## Verification
+- Hosted `--ui` run `defe11f80a976cb7fa409fb5` PASSED, including retirement: four verified users, 25 denied writes, two CAS winners/two conflicts, five guard cases, five cleanup tombstones and four retired accounts, no live fixture rows. Browser test passed in 2.2 minutes: tasks/categories, Calendar/Day View, Backlogs, ordering, offline completion/deletion replay, second-device convergence and owner isolation.
+- Prior 15-second hosted category assertion timed out. Bounded 45-second hosted default passed with every assertion preserved; local limits unchanged. Failure diagnostics now include request method/path/status and redact disposable secrets.
+- Playwright proxy loopback uses its supported override. User explicitly approved the proxy CA import; Chromium also needs writable NSS initialization access. Hosted HTTPS verification stayed enabled.
+- After restart, exact interrupted cohort `ec9374be46eb9a23b5749ae4` was recovered; all preceding 22 fixture accounts were frozen/banned, zero live rows. Credential/recovery checkpoint: #1027 comment 6292342917.
+- Head `3c3f9b8e` passed focused #39430295855 and real local-stack lab #39430296005. Final tooling head `51fc6b32` passed hosted browser, four harness unit tests, lint/contracts/discovery; remote focused #39433888135 failed only the checkpoint's 3000-token handoff budget. This repair shortens the checkpoint; detailed history stays on #1027. PR #1096 is not yet merged.
 
-## Next action and blockers
-- No Supabase management credential; secure SUPABASE_ACCESS_TOKEN requirement saved. Network draft adds storage.googleapis.com, public.ecr.aws and results-receiver.actions.githubusercontent.com; not applied. Real stack verification uses disposable GitHub lab.
-- Finish current lab/focused repair, then squash green PR and require canonical/trusted acceptance. Standard Preview still uses Appwrite configuration; no hosted Supabase delivery claim.
-- Remaining: offline cold start/token recovery, conflict review, complete mutation/order coverage, hosted security/recovery, old-Appwrite writer cutoff and reversible migration including offline deltas. Diary #1029 follows core release.
-- Keep #1027/#967 open; record exact SHA/PR/CI/deployment and next executable action in #1027.
+## Next action and remaining gates
+- Finish repaired focused CI + local-stack lab, squash PR #1096 to its named stable branch, then canonical/trusted delivery. Record exact SHAs/runs in #1027; no status-only post-green commit.
+- Complete offline cold-start/expired-token/cross-tab recovery, conflict UI, existing-user Appwrite fencing, three-backend forward/reverse migration preserving pending edits/tombstones, encrypted DR, hosted Preview build-input parity and manual devices.
+- Vercel/Appwrite/Oracle management access is not established; inspect readiness before infrastructure work. Resolve leaked-password protection before release acceptance. Keep #1027/#967 open; Diary #1029 immediately follows the working core release.
