@@ -1,34 +1,44 @@
 import { DEFAULT_ACCENT_COLOR, getContrastRatio, isValidAccentColor, normalizeAccentColor } from '../constants/colors';
 import { getAccentColorTokens } from './accentColor';
 
-/** Independent, owner-synced visual roles; category/task colors remain data. */
+/** One account accent, with independently enabled surfaces and text roles. */
 export const UI_COLOR_ROLES = [
   'calendarGrid', 'profileRing', 'navigationBar', 'navigationActive',
-  'icons', 'text', 'controls', 'holidays',
+  'icons', 'text', 'controls', 'holidays', 'dateHeaders', 'dayHeaders',
+  'settingsText',
 ] as const;
 export type UiColorRole = typeof UI_COLOR_ROLES[number];
-export type UiColorChoice = 'default' | 'app' | string;
-export type UiColorChoices = Record<UiColorRole, UiColorChoice>;
-
+export type UiColorChoices = Record<UiColorRole, boolean>;
 export const UI_COLOR_LABELS: Record<UiColorRole, string> = {
   calendarGrid: 'Calendar grid',
   profileRing: 'Profile picture border',
   navigationBar: 'Navigation bar',
   navigationActive: 'Active navigation',
   icons: 'Action icons',
-  text: 'Accent text',
-  controls: 'Buttons and controls',
-  holidays: 'Holidays',
+  text: 'Accent labels and links',
+  controls: 'Buttons and switches',
+  holidays: 'Holiday labels and dates',
+  dateHeaders: 'Date and month headers',
+  dayHeaders: 'Weekday headers and day numbers',
+  settingsText: 'Settings text',
 };
+export const UI_COLOR_GROUPS: readonly { title: string; roles: readonly UiColorRole[] }[] = [
+  { title: 'Calendar', roles: ['calendarGrid', 'dateHeaders', 'dayHeaders', 'holidays'] },
+  { title: 'Navigation and profile', roles: ['navigationBar', 'navigationActive', 'profileRing'] },
+  { title: 'Text and controls', roles: ['settingsText', 'text', 'icons', 'controls'] },
+];
+// Preserve the existing global-accent styling without requiring a user migration.
+export const DEFAULT_ACCENT_ROLES: readonly UiColorRole[] = ['icons', 'text', 'controls'];
 export const uiColorSettingKey = (role: UiColorRole): string => `uiColor:${role}`;
 export const uiColorCacheKey = (userId: string): string => `mosaic_ui_colors:${userId}`;
+export const defaultUiColors = (): UiColorChoices =>
+  Object.fromEntries(UI_COLOR_ROLES.map(role => [role, DEFAULT_ACCENT_ROLES.includes(role)])) as UiColorChoices;
 
-export function resolveUiColorChoice(value: unknown): UiColorChoice {
-  if (value === 'default' || value === 'app') return value;
-  return isValidAccentColor(value) ? normalizeAccentColor(value) : 'default';
-}
-export function defaultUiColors(): UiColorChoices {
-  return Object.fromEntries(UI_COLOR_ROLES.map(role => [role, 'default'])) as UiColorChoices;
+/** Reads both previous Preview's default/app/palette values and new booleans. */
+export function resolveUiColorChoice(value: unknown, role: UiColorRole): boolean {
+  if (typeof value === 'boolean') return value;
+  if (value === 'app' || isValidAccentColor(value)) return true;
+  return DEFAULT_ACCENT_ROLES.includes(role);
 }
 
 export function readCachedUiColors(
@@ -43,8 +53,8 @@ export function readCachedUiColors(
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return defaults;
     for (const role of UI_COLOR_ROLES)
-      defaults[role] = resolveUiColorChoice((parsed as Record<string, unknown>)[role]);
-  } catch { /* invalid or disabled storage: retain defaults */ }
+      defaults[role] = resolveUiColorChoice((parsed as Record<string, unknown>)[role], role);
+  } catch { /* unavailable storage: keep theme defaults */ }
   return defaults;
 }
 
@@ -55,9 +65,9 @@ export function cacheUiColors(
   if (!userId || !storage) return;
   try {
     const normalized = defaultUiColors();
-    for (const role of UI_COLOR_ROLES) normalized[role] = resolveUiColorChoice(values[role]);
+    for (const role of UI_COLOR_ROLES) normalized[role] = resolveUiColorChoice(values[role], role);
     storage.setItem(uiColorCacheKey(userId), JSON.stringify(normalized));
-  } catch { /* keep the in-memory appearance if storage is unavailable */ }
+  } catch { /* local storage can be disabled; synced settings stay authoritative */ }
 }
 
 function readableAccentOn(color: string, background: string): string {
@@ -76,7 +86,6 @@ function readableAccentOn(color: string, background: string): string {
   return target;
 }
 
-/** Resolve label text against the actual 15%-tinted surface, not bare app chrome. */
 function tintBackground(base: string, accent: string, opacity: number): string {
   const channel = (hex: string, offset: number) => Number.parseInt(hex.slice(offset, offset + 2), 16);
   return '#' + [1, 3, 5].map(offset =>
@@ -84,10 +93,8 @@ function tintBackground(base: string, accent: string, opacity: number): string {
       .toString(16).padStart(2, '0')
   ).join('').toUpperCase();
 }
-
 export function getHolidayLabelTextColors(value: string): { dark: string; light: string } {
   const color = normalizeAccentColor(value);
-  // Choose conservative surfaces for all three themes: Dark/Black and Light.
   return {
     dark: readableAccentOn(color, tintBackground('#1E1E1E', color, 0.15)),
     light: readableAccentOn(color, tintBackground('#F7F7F8', color, 0.15)),
@@ -100,45 +107,46 @@ export function applyUiColors(
   root: HTMLElement | undefined = typeof document === 'undefined' ? undefined : document.documentElement
 ): void {
   if (!root) return;
-  const resolved = {} as Partial<Record<UiColorRole, string>>;
+  const color = normalizeAccentColor(appAccent);
+  const tokens = getAccentColorTokens(color);
   for (const role of UI_COLOR_ROLES) {
-    const choice = resolveUiColorChoice(values[role]);
-    const color = choice === 'default' ? null : choice === 'app' ? normalizeAccentColor(appAccent) : choice;
+    const enabled = resolveUiColorChoice(values[role], role);
+    // Explicit false on original accent consumers disables the original global
+    // class remaps for that group. Optional roles keep their original appearance.
+    const attribute = `data-ui-${role}`;
+    if (enabled) root.setAttribute(attribute, 'true');
+    else if (DEFAULT_ACCENT_ROLES.includes(role)) root.setAttribute(attribute, 'false');
+    else root.removeAttribute(attribute);
     const prefix = `--mosaic-ui-${role}`;
-    const vars = [prefix, `${prefix}-foreground`, `${prefix}-hover`, `${prefix}-soft`,
-      `${prefix}-text-dark`, `${prefix}-text-light`,
-      `${prefix}-border-dark`, `${prefix}-border-light`,
-      `${prefix}-ring-dark`, `${prefix}-ring-light`];
-    if (!color) {
-      root.removeAttribute(`data-ui-${role}`);
-      for (const variable of vars) root.style.removeProperty(variable);
+    const suffixes = ['', '-foreground', '-hover', '-soft', '-text-dark', '-text-light',
+      '-border-dark', '-border-light', '-ring-dark', '-ring-light'];
+    if (!enabled) {
+      for (const suffix of suffixes) root.style.removeProperty(prefix + suffix);
       continue;
     }
-    resolved[role] = color;
-    const tokens = getAccentColorTokens(color);
-    root.setAttribute(`data-ui-${role}`, 'true');
-    root.style.setProperty(prefix, tokens.base);
-    root.style.setProperty(`${prefix}-foreground`, tokens.foreground);
-    root.style.setProperty(`${prefix}-hover`, tokens.hover);
-    root.style.setProperty(`${prefix}-soft`, tokens.soft);
-    root.style.setProperty(`${prefix}-text-dark`, tokens.textDark);
-    root.style.setProperty(`${prefix}-text-light`, tokens.textLight);
-    root.style.setProperty(`${prefix}-border-dark`, tokens.borderDark);
-    root.style.setProperty(`${prefix}-border-light`, tokens.borderLight);
-    root.style.setProperty(`${prefix}-ring-dark`, tokens.ringDark);
-    root.style.setProperty(`${prefix}-ring-light`, tokens.ringLight);
+    const entries: Record<string, string> = {
+      '': tokens.base,
+      '-foreground': tokens.foreground,
+      '-hover': tokens.hover,
+      '-soft': tokens.soft,
+      '-text-dark': tokens.textDark,
+      '-text-light': tokens.textLight,
+      '-border-dark': tokens.borderDark,
+      '-border-light': tokens.borderLight,
+      '-ring-dark': tokens.ringDark,
+      '-ring-light': tokens.ringLight,
+    };
     if (role === 'holidays') {
-      const { dark, light } = getHolidayLabelTextColors(tokens.base);
-      root.style.setProperty(`${prefix}-text-dark`, dark);
-      root.style.setProperty(`${prefix}-text-light`, light);
+      const label = getHolidayLabelTextColors(color);
+      entries['-text-dark'] = label.dark;
+      entries['-text-light'] = label.light;
     }
+    for (const suffix of suffixes) root.style.setProperty(prefix + suffix, entries[suffix]);
   }
-  // Active navigation text is legible on both default palettes or the user's custom bar.
-  const selected = resolved.navigationActive;
-  if (selected) {
-    const customBar = resolved.navigationBar;
-    root.style.setProperty('--mosaic-ui-nav-active-dark', readableAccentOn(selected, customBar ?? '#1E1E1E'));
-    root.style.setProperty('--mosaic-ui-nav-active-light', readableAccentOn(selected, customBar ?? '#FFFFFF'));
+  if (values.navigationActive) {
+    const bar = values.navigationBar ? color : null;
+    root.style.setProperty('--mosaic-ui-nav-active-dark', readableAccentOn(color, bar ?? '#1E1E1E'));
+    root.style.setProperty('--mosaic-ui-nav-active-light', readableAccentOn(color, bar ?? '#FFFFFF'));
   } else {
     root.style.removeProperty('--mosaic-ui-nav-active-dark');
     root.style.removeProperty('--mosaic-ui-nav-active-light');
@@ -154,6 +162,6 @@ export function initializeUiColors(): void {
       if (hint && typeof hint === 'object' && '$id' in hint && typeof hint.$id === 'string')
         userId = hint.$id;
     }
-  } catch { /* signed out or storage unavailable */ }
+  } catch { /* no cached user */ }
   applyUiColors(readCachedUiColors(userId), document.documentElement.dataset.accentColor || DEFAULT_ACCENT_COLOR);
 }

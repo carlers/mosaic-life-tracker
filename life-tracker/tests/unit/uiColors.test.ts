@@ -5,78 +5,88 @@ import {
   getHolidayLabelTextColors, readCachedUiColors, resolveUiColorChoice, uiColorSettingKey,
 } from '../../src/lib/uiColors';
 
-describe('independent UI color roles', () => {
-  it('rejects unknown roles and hex values while accepting curated colors and sentinels', () => {
-    expect(resolveUiColorChoice('app')).toBe('app');
-    expect(resolveUiColorChoice('default')).toBe('default');
-    expect(resolveUiColorChoice('#3b82f6')).toBe('#3B82F6');
-    expect(resolveUiColorChoice('#123456')).toBe('default');
-    expect(resolveUiColorChoice({ color: '#3B82F6' })).toBe('default');
+describe('single accent color placement', () => {
+  it('exposes independent roles with legacy default appearance', () => {
+    const defaults = defaultUiColors();
     expect(new Set(UI_COLOR_ROLES).size).toBe(UI_COLOR_ROLES.length);
+    expect(defaults.controls).toBe(true);
+    expect(defaults.icons).toBe(true);
+    expect(defaults.text).toBe(true);
+    expect(defaults.holidays).toBe(false);
+    expect(defaults.dateHeaders).toBe(false);
+    expect(defaults.dayHeaders).toBe(false);
+    expect(defaults.settingsText).toBe(false);
     expect(uiColorSettingKey('holidays')).toBe('uiColor:holidays');
   });
+  it('reads prior per-role palette settings only as scope toggles', () => {
+    expect(resolveUiColorChoice('app', 'holidays')).toBe(true);
+    expect(resolveUiColorChoice('#3B82F6', 'holidays')).toBe(true);
+    expect(resolveUiColorChoice('default', 'holidays')).toBe(false);
+    expect(resolveUiColorChoice('default', 'controls')).toBe(true);
+    expect(resolveUiColorChoice(false, 'controls')).toBe(false);
+    expect(resolveUiColorChoice('#123456', 'dateHeaders')).toBe(false);
+    expect(resolveUiColorChoice({ color: '#3B82F6' }, 'holidays')).toBe(false);
+  });
 
-  it('caches choices per account, validates malformed cache and preserves reset', () => {
+  it('isolates cached placements by owner and sanitizes old values', () => {
     const storage = new Map<string, string>();
     const cache = { setItem: (key: string, value: string) => storage.set(key, value),
       getItem: (key: string) => storage.get(key) ?? null };
-    const choices = { ...defaultUiColors(), holidays: '#3B82F6', calendarGrid: 'app' };
-    cacheUiColors('one', choices, cache);
-    expect(readCachedUiColors('one', cache)).toEqual(choices);
-    expect(readCachedUiColors('two', cache)).toEqual(defaultUiColors());
-    storage.set('mosaic_ui_colors:one', '{"holidays":"#000000","unknown":"app"}');
-    expect(readCachedUiColors('one', cache)).toEqual(defaultUiColors());
-    cacheUiColors('one', defaultUiColors(), cache);
-    expect(readCachedUiColors('one', cache).holidays).toBe('default');
+    const placements = { ...defaultUiColors(), holidays: true, dateHeaders: true, controls: false };
+    cacheUiColors('owner-a', placements, cache);
+    expect(readCachedUiColors('owner-a', cache)).toEqual(placements);
+    expect(readCachedUiColors('owner-b', cache)).toEqual(defaultUiColors());
+    storage.set('mosaic_ui_colors:owner-a', '{"holidays":"#3B82F6","text":"default","controls":"app"}');
+    expect(readCachedUiColors('owner-a', cache)).toEqual({ ...defaultUiColors(), holidays: true });
+    expect(readCachedUiColors('', cache)).toEqual(defaultUiColors());
+    expect(readCachedUiColors('owner-a', { getItem: () => '{' })).toEqual(defaultUiColors());
   });
 
-  it('sets and clears role-scoped tokens without touching the app accent', () => {
+  it('shares the same accent across enabled roles, clears disabled roles and preserves global accent', () => {
     const props = new Map<string, string>();
     const attrs = new Map<string, string>();
     const root = {
       style: {
-        setProperty: (key: string, value: string) => props.set(key, value),
-        removeProperty: (key: string) => { props.delete(key); },
-        getPropertyValue: (key: string) => props.get(key) ?? '',
+        setProperty: (k: string, v: string) => props.set(k, v),
+        removeProperty: (k: string) => { props.delete(k); },
+        getPropertyValue: (k: string) => props.get(k) ?? '',
       },
-      setAttribute: (key: string, value: string) => attrs.set(key, value),
-      removeAttribute: (key: string) => { attrs.delete(key); },
-      getAttribute: (key: string) => attrs.get(key) ?? null,
-      hasAttribute: (key: string) => attrs.has(key),
+      setAttribute: (k: string, v: string) => attrs.set(k, v),
+      removeAttribute: (k: string) => { attrs.delete(k); },
+      getAttribute: (k: string) => attrs.get(k) ?? null,
+      hasAttribute: (k: string) => attrs.has(k),
     } as unknown as HTMLElement;
     root.style.setProperty('--mosaic-accent', '#10B981');
-    const choices = { ...defaultUiColors(), holidays: '#3B82F6', navigationBar: 'app', navigationActive: '#EC4899' };
+    const choices = { ...defaultUiColors(), holidays: true, dateHeaders: true, navigationBar: true, controls: false };
     applyUiColors(choices, '#8B5CF6', root);
-    expect(root.getAttribute('data-ui-holidays')).toBe('true');
-    expect(root.style.getPropertyValue('--mosaic-ui-holidays')).toBe('#3B82F6');
+    expect(root.style.getPropertyValue('--mosaic-ui-holidays')).toBe('#8B5CF6');
+    expect(root.style.getPropertyValue('--mosaic-ui-dateHeaders')).toBe('#8B5CF6');
     expect(root.style.getPropertyValue('--mosaic-ui-navigationBar')).toBe('#8B5CF6');
-    expect(root.style.getPropertyValue('--mosaic-ui-nav-active-dark')).toMatch(/^#/);
+    expect(root.getAttribute('data-ui-controls')).toBe('false');
+    expect(root.style.getPropertyValue('--mosaic-ui-controls')).toBe('');
     expect(root.style.getPropertyValue('--mosaic-accent')).toBe('#10B981');
-    applyUiColors(defaultUiColors(), '#10B981', root);
+    applyUiColors({ ...defaultUiColors(), holidays: false }, '#EC4899', root);
     expect(root.hasAttribute('data-ui-holidays')).toBe(false);
-    expect(root.style.getPropertyValue('--mosaic-ui-holidays')).toBe('');
-    expect(root.style.getPropertyValue('--mosaic-ui-nav-active-dark')).toBe('');
+    expect(root.style.getPropertyValue('--mosaic-ui-dateHeaders')).toBe('');
+    expect(root.style.getPropertyValue('--mosaic-ui-icons')).toBe('#EC4899');
     expect(root.style.getPropertyValue('--mosaic-accent')).toBe('#10B981');
   });
 
-  it('preserves accessible holiday text after tinted label backgrounds composite', () => {
-    const tint = (base: string, color: string): string =>
-      '#' + [1, 3, 5].map(offset => {
-        const start = Number.parseInt(base.slice(offset, offset + 2), 16);
-        const end = Number.parseInt(color.slice(offset, offset + 2), 16);
-        return Math.round(start * 0.85 + end * 0.15).toString(16).padStart(2, '0');
-      }).join('');
+  it('preserves AA holiday-label contrast for all preset accents', () => {
+    const tint = (base: string, color: string) => '#' + [1, 3, 5].map(i =>
+      Math.round(Number.parseInt(base.slice(i, i + 2), 16) * .85
+        + Number.parseInt(color.slice(i, i + 2), 16) * .15).toString(16).padStart(2, '0')
+    ).join('');
     for (const color of getAllAccentColors()) {
-      const foregrounds = getHolidayLabelTextColors(color);
-      expect(getContrastRatio(foregrounds.dark, tint('#1E1E1E', color))).toBeGreaterThanOrEqual(4.5);
-      expect(getContrastRatio(foregrounds.light, tint('#F7F7F8', color))).toBeGreaterThanOrEqual(4.5);
+      const tokens = getHolidayLabelTextColors(color);
+      expect(getContrastRatio(tokens.dark, tint('#1E1E1E', color))).toBeGreaterThanOrEqual(4.5);
+      expect(getContrastRatio(tokens.light, tint('#F7F7F8', color))).toBeGreaterThanOrEqual(4.5);
     }
   });
 
-  it('ignores unavailable persistence', () => {
+  it('tolerates localStorage failure', () => {
     const setItem = vi.fn(() => { throw new Error('blocked'); });
-    cacheUiColors('one', defaultUiColors(), { setItem });
+    cacheUiColors('owner-a', defaultUiColors(), { setItem });
     expect(setItem).toHaveBeenCalledOnce();
-    expect(readCachedUiColors('one', { getItem: () => '{' })).toEqual(defaultUiColors());
   });
 });

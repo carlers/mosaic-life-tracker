@@ -272,7 +272,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="mosaic-settings-page flex min-h-full flex-col">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-center relative">
         <button
           type="button"

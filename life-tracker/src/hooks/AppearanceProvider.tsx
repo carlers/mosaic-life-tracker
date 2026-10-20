@@ -66,7 +66,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     const choices = { ...cachedUiColors };
     if (!isLoading) {
       for (const role of UI_COLOR_ROLES)
-        choices[role] = resolveUiColorChoice(getSetting(uiColorSettingKey(role), 'default'));
+        choices[role] = resolveUiColorChoice(getSetting(uiColorSettingKey(role), undefined), role);
     }
     return choices;
   }, [cachedUiColors, getSetting, isLoading]);

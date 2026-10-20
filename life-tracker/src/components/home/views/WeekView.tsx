@@ -85,7 +85,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
             key={day.toISOString()}
             role="columnheader"
             aria-label={format(day, 'EEEE')}
-            className="text-center text-[10px] font-medium text-gray-400 py-1"
+            className="mosaic-weekday-header text-center text-[10px] font-medium text-gray-400 py-1"
           >
             {format(day, 'EEE')}
           </div>
