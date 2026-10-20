@@ -54,6 +54,7 @@ import {
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMITS,
   resolveCalendarTaskPreviewLimit,
@@ -249,6 +250,7 @@ export const PreferencesPage: React.FC = () => {
   const shareLabelMode = getSetting(SHARED_LABEL_MODE_SETTING_KEY, 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting(SHOW_PENDING_SHARES_SETTING_KEY, false) === true;
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
+  const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const weekStartsOnSunday =
@@ -461,6 +463,14 @@ export const PreferencesPage: React.FC = () => {
               CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
               resolveCalendarTaskPreviewLimit(value)
             )}
+          />
+          <SettingsRow
+            icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Pinch to change visible days"
+            showChevron={false}
+            isToggle
+            checked={calendarPinchZoom}
+            onClick={() => void setSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, !calendarPinchZoom)}
           />
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}

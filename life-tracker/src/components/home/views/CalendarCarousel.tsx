@@ -1,9 +1,13 @@
-import React, { useCallback, useLayoutEffect, useRef } from 'react';
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useRef } from 'react';
 import { CalendarSlide } from './CalendarSlide';
+import { calendarPinchMorphFrame, playCalendarPinchMorph, useCalendarPinchZoom } from './useCalendarPinchZoom';
+import { nearestZoomSnap } from '../../../lib/calendarZoomPhysics';
+import { AppearanceContext } from '../../../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
-import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
+import type { WeekStartsOn, CalendarZoomDays } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
 
 interface CalendarCarouselProps {
@@ -14,6 +18,8 @@ interface CalendarCarouselProps {
   viewMode: CalendarViewMode;
   zoomDays?: CalendarZoomDays;
   taskPreviewLimit?: CalendarTaskPreviewLimit;
+  pinchEnabled?: boolean;
+  onPinchChange?: (days: CalendarZoomDays) => void;
   stickyWeekdayHeader?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
@@ -37,6 +43,8 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   viewMode,
   zoomDays = 7,
   taskPreviewLimit = 'unlimited',
+  pinchEnabled = false,
+  onPinchChange,
   stickyWeekdayHeader = false,
   activeIndex = 30,
   isZoomTransitioning = false,
@@ -52,6 +60,17 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   holidaysByDate,
 }) => {
   const viewportRef = useRef<HTMLElement | null>(null);
+  const appearance = useContext(AppearanceContext);
+  const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
+  const pendingMorphRef = useRef<{
+    fromDays: CalendarZoomDays;
+    toDays: CalendarZoomDays;
+    anchorWeekday: number;
+    centerFraction: number;
+    activeIndex: number;
+    viewMode: CalendarViewMode;
+  } | null>(null);
+  const morphAnimationRef = useRef<Animation | null>(null);
   // Preserve a logical weekday offset across adjacent months/weeks and 3↔4
   // changes. No React state updates during high-frequency native scrolling.
   const weekdayOffsetRef = useRef(0);
@@ -89,6 +108,78 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
     });
     transitionLockRef.current = false;
   }, [activeIndex, isZoomTransitioning, renderStart, renderEnd, viewMode, zoomDays]);
+
+  const handlePinch = useCallback((days: CalendarZoomDays, centerFraction: number) => {
+    if (days === zoomDays || !onPinchChange) return;
+    const center = Math.max(0, Math.min(1, centerFraction));
+    const anchor = (zoomDays === 7 ? 0 : weekdayOffsetRef.current) + center * zoomDays;
+    // A settled legal daily snap prevents a second horizontal jump after the morph.
+    weekdayOffsetRef.current = nearestZoomSnap(anchor - center * days, days);
+    pendingMorphRef.current = {
+      fromDays: zoomDays, toDays: days, anchorWeekday: anchor,
+      centerFraction: center, activeIndex, viewMode,
+    };
+    onPinchChange(days);
+  }, [activeIndex, onPinchChange, viewMode, zoomDays]);
+
+  // Run only for a completed pinch, not settings hydration, month movement, or resize.
+  // React has already committed the destination grid and its native scroll offset.
+  useLayoutEffect(() => {
+    const pending = pendingMorphRef.current;
+    if (!pending || pending.toDays !== zoomDays) return;
+    pendingMorphRef.current = null;
+    morphAnimationRef.current?.cancel();
+    morphAnimationRef.current = null;
+    if (!pinchEnabled || reduceMotion ||
+      pending.activeIndex !== activeIndex || pending.viewMode !== viewMode) return;
+    const slide = viewportRef.current?.querySelector<HTMLElement>(
+      `[data-calendar-slide-index="${activeIndex}"]`
+    );
+    if (!slide) return;
+    const lane = slide.querySelector<HTMLDivElement>('[data-calendar-zoom-lane]');
+    const track = (lane?.firstElementChild as HTMLElement | null) ??
+      slide.querySelector<HTMLElement>('[role="grid"]');
+    if (!track) return;
+    const frame = calendarPinchMorphFrame({
+      fromDays: pending.fromDays,
+      anchorWeekday: pending.anchorWeekday,
+      centerFraction: pending.centerFraction,
+      viewportWidth: lane?.clientWidth ?? slide.clientWidth,
+      trackWidth: track.getBoundingClientRect().width,
+      scrollLeft: lane?.scrollLeft ?? 0,
+    });
+    if (!frame) return;
+    // Avoid triggering the existing native idle snap during the visual morph.
+    if (lane) lane.dataset.calendarPinchMorph = 'true';
+    const animation = playCalendarPinchMorph(track, frame);
+    if (!animation) {
+      if (lane) delete lane.dataset.calendarPinchMorph;
+      return;
+    }
+    morphAnimationRef.current = animation;
+    const finish = () => {
+      if (lane) delete lane.dataset.calendarPinchMorph;
+      if (morphAnimationRef.current === animation) morphAnimationRef.current = null;
+    };
+    animation.addEventListener('finish', finish, { once: true });
+    animation.addEventListener('cancel', finish, { once: true });
+    // Sticky weekday headings have their own scroll-synced transform.
+    // Fade them in rather than overriding that transform and breaking alignment.
+    slide.querySelector<HTMLElement>('[data-sticky-weekday-header]')?.animate?.(
+      [{ opacity: 0.65 }, { opacity: 1 }],
+      { duration: 180, easing: 'ease-out' }
+    );
+  }, [activeIndex, pinchEnabled, reduceMotion, viewMode, zoomDays]);
+
+  useEffect(() => () => {
+    morphAnimationRef.current?.cancel();
+    morphAnimationRef.current = null;
+    pendingMorphRef.current = null;
+  }, [activeIndex, viewMode]);
+  useCalendarPinchZoom(viewportRef, {
+    enabled: pinchEnabled && Boolean(onPinchChange),
+    activeIndex, zoomDays, locked: isZoomTransitioning, onChange: handlePinch,
+  });
 
   const handleZoomNavigate = useCallback((direction: 'prev' | 'next') => {
     if (transitionLockRef.current || isZoomTransitioning) return;
