@@ -1,22 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #859 owner Day View category reorder — long-press/touch reliability follow-up.
+Current task: #859 cross-device category long-press and drag gesture repair.
 
-## Source boundary
-- Accepted original stable Preview: `feature/dayview-category-gesture-859-20261020@100b50da27a178ae8d648da7144461a62bccf019` (v0.31.0).
-- New scoped task branch: `chatgpt/859-longpress-audit-20261020` (candidate v0.31.1).
-- Only frontend gesture and regression tests; no schema, backend, auth, provider or Production changes. No dev/main promotion approval.
+## Scope and baseline
+- Stable Preview `feature/dayview-category-gesture-859-20261020@eb4e8631f1b2604f990f2bf74658ed76eb202842` (v0.31.1) is READY, but mobile hold-then-drag and desktop long-press Edit failed owner acceptance.
+- Repair `chatgpt/859-crossdevice-hold-drag-20261020`; candidate v0.31.5 (next available PATCH after concurrent dev v0.31.4; avoid recycling v0.31.2–0.31.4 assigned by other features).
+- No backend, migration, service configuration, deployment alias, dev/main or Production changes. Issue remains open pending real-device acceptance.
 
-## Audit and implementation
-- A stationary touch hold previously called Framer Motion dragControls.start at the same instant as opening the Edit popup; possible immediate dismissal and stale React pointer event.
-- Long-press was bound only to the label rather than the full category pill; plus/padding could never show the edit bubble.
-- Revised to open the popup after a stationary hold and start drag only on subsequent deliberate movement from the label using the current pointer event.
-- Suppress the synthetic click following a hold until it is actually consumed, instead of expiring a 100ms timer; cancel pre-hold movement and pointer cancellation.
-- Avoid initiating category gestures during inline category/task editing or add-task input; preserve tap-add, selection mode, owner-only gate and native scroll outside drag label.
-- DOM regressions added for whole-pill hold, move-after-hold, click suppression, swipe/cancel, native context menu cancellation, real category editor and keyboard options.
-- Audit also found and fixed a persistence race: reversing a still-pending reorder had been skipped because the new order matched stale input props. Keep an in-flight write count, queue the reversing commit, and prevent failed older commits from rolling back newer intents.
+## Root cause and correction
+- Touch category drag used `controls.start(pointermove)` after hold, even though Motion PanSession expects `pointerdown` to attach listeners; mobile could open Edit but not drag.
+- Desktop label created a drag session without arming a hold timer, so a stationary mouse hold could not open Edit.
+- Unified hold recognition across mouse, pen and touch: a stationary 500 ms press on the full pill opens contextual Edit; label mouse/pen starts a Motion session from original pointerdown immediately (actual drag only after movement); touch label registers that same original pointerdown at the hold threshold so continued movement starts drag. Motion onDragStart hides Edit and cancels hold listener. Plus/padding can open Edit without dragging. Pre-hold movement cancels long-press, preserving ordinary scrolling, short tap-add and selection behavior.
+- DOM tests verify original pointerdown handed to Motion, stationary holds on desktop/touch, mouse-plus hold, touch cancellation, short taps and click suppression.
+- Added isolated Playwright browser fixture and Chromium interaction contract using **real** Framer Motion Reorder/CategorySection: after a stationary hold, mouse or emulated touch moves a live category drag, with the Edit bubble dismissed. Physical WebKit/Android acceptance still belongs to the owner.
 
-## Verification / next action
-- Initial focused CI #39300133082 had 1919 passing tests and one test timeout from fake-timer leakage, now corrected. Follow-up #39300772803: 120 passing/1 failing selected tests because the mock category did not forward contextmenu even though the real UI does; fixed harness wiring. No production source failure identified in either run. Final task focused CI and stable full acceptance are pending; manual device/hosted revision not yet checked.
-- Commit this coherent task with `[verify:focused]`; after green, squash PR into existing stable Preview; confirm exact-SHA full CI, trusted Vercel Preview, Scratch target/host before owner iOS/Android re-test.
+## Verification and next
+- Initial task focused Quality Gate #39371356515: SUCCESS. Added real browser probe in task follow-up #39371716370: both browser shards SUCCESS (32/32 each), explicitly including mouse and touch category gesture tests; focused check failed only because new fixture needed a named component export for react-refresh. Correcting the fixture export without changing behavior.
+- Run focused check on the final task commit; after green, squash to stable Preview, verify exact-SHA full canonical QA and trusted Vercel READY; give owner new URL for manual iOS/Android/desktop retest. Do not promote to dev/main.

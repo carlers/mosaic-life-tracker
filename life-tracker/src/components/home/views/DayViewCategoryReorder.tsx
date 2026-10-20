@@ -55,25 +55,15 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
     const touch = event.pointerType === 'touch';
     const fromLabel = event.target instanceof Element &&
       Boolean(event.target.closest('[data-category-drag-handle]'));
-    // Mouse dragging is label-only. Touch long-press works across the pill,
-    // while only the label (which disables native pan) may initiate a drag.
-    if (!touch && !fromLabel) return;
+    const originalDown = event.nativeEvent;
+
     pressCleanup.current?.();
     suppressClick.current = false;
     setMenuOpen(false);
 
-    if (!touch) {
-      controls.start(event);
-      return;
-    }
-
     const state = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      held: false,
-      dragging: false,
-      timer: 0,
+      pointerId: event.pointerId, x: event.clientX, y: event.clientY,
+      held: false, timer: 0,
     };
     const cleanup = () => {
       window.clearTimeout(state.timer);
@@ -84,24 +74,11 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
     };
     const move = (next: PointerEvent) => {
       if (next.pointerId !== state.pointerId) return;
-      if (Math.hypot(next.clientX - state.x, next.clientY - state.y) <= TOLERANCE_PX) return;
-      if (!state.held) {
-        // A normal swipe/scroll before the hold is never a category gesture.
+      if (!state.held &&
+          Math.hypot(next.clientX - state.x, next.clientY - state.y) > TOLERANCE_PX) {
+        // On touch this is ordinary page/day scrolling, not category drag.
+        // Desktop label drag has its own already-started Motion session.
         cleanup();
-        return;
-      }
-      if (!fromLabel) {
-        // The rest of the pill is an edit affordance, not a drag surface.
-        cleanup();
-        return;
-      }
-      if (!state.dragging) {
-        state.dragging = true;
-        suppressClick.current = true;
-        setMenuOpen(false);
-        // Starting with the *current* move event avoids a stale React
-        // pointerdown being handed to Framer Motion 500ms after its dispatch.
-        controls.start(next);
       }
     };
     const finish = (next: PointerEvent) => {
@@ -112,21 +89,30 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
     const cancel = (next: PointerEvent) => {
       if (next.pointerId !== state.pointerId) return;
       cleanup();
-      // iOS can dispatch pointercancel after its long-press context menu.
-      // Keep an already opened stationary menu; cancel only an in-flight drag
-      // or a press which never met the hold threshold.
-      if (state.dragging || (!state.held && !suppressClick.current)) setMenuOpen(false);
+      // iOS can cancel the pointer after its native contextmenu event.
+      // Preserve a menu intentionally opened by our hold or contextmenu.
+      if (!state.held && !suppressClick.current) setMenuOpen(false);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', finish);
     window.addEventListener('pointercancel', cancel);
     pressCleanup.current = cleanup;
+
+    if (!touch && fromLabel) {
+      // A desktop pointer-down initiates the session, but only actual movement
+      // starts the drag. A stationary hold can therefore still open Edit.
+      controls.start(originalDown, { distanceThreshold: TOLERANCE_PX });
+    }
     state.timer = window.setTimeout(() => {
-      if (pressCleanup.current !== cleanup) return;
+      if (pressCleanup.current !== cleanup || dragStarted.current) return;
       state.held = true;
       suppressClick.current = true;
-      // Show Edit immediately on a stationary hold. Only a subsequent
-      // deliberate move from the label may transition into a drag.
+      if (touch && fromLabel) {
+        // Framer's PanSession must receive a POINTERDOWN to register the
+        // ongoing touch. Calling controls.start(pointermove) loses the
+        // initial session and makes hold-then-drag impossible on mobile.
+        controls.start(originalDown, { distanceThreshold: TOLERANCE_PX });
+      }
       setMenuOpen(true);
     }, HOLD_MS);
   };
@@ -160,6 +146,7 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
       dragControls={controls}
       className="relative"
       onDragStart={() => {
+        pressCleanup.current?.();
         dragStarted.current = true;
         setMenuOpen(false);
         suppressClick.current = true;

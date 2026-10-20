@@ -16,10 +16,12 @@ vi.mock('framer-motion', async (importOriginal) => {
         {children}
         <button onClick={() => onReorder([...values].reverse())}>Reorder categories</button>
       </div>,
-      Item: ({ children, onDragEnd }: React.PropsWithChildren<{
+      Item: ({ children, onDragStart, onDragEnd }: React.PropsWithChildren<{
+        onDragStart: () => void;
         onDragEnd: () => void;
       }>) => <div>
         {children}
+        <button onClick={onDragStart}>Start category drag</button>
         <button onClick={onDragEnd}>Drop category</button>
       </div>,
     },
@@ -78,53 +80,63 @@ describe('Day View category gesture isolation', () => {
     ]));
   });
 
-  it('starts desktop drag on the label, and opens Edit on touch hold without dragging', () => {
+  it('opens Edit on a stationary desktop hold while keeping its drag session', () => {
     vi.useFakeTimers();
     render(<DayViewCategoryReorder {...createProps()}/>);
     const workLabel = screen.getByText('Work');
-    const homeLabel = screen.getByText('Home');
     fireEvent.pointerDown(workLabel, {
       isPrimary: true, button: 0, pointerId: 1, pointerType: 'mouse', clientX: 10, clientY: 10,
     });
     expect(mocks.startDrag).toHaveBeenCalledTimes(1);
-    fireEvent.pointerDown(homeLabel, {
-      isPrimary: true, button: 0, pointerId: 2, pointerType: 'touch', clientX: 10, clientY: 10,
-    });
+    expect(mocks.startDrag.mock.calls[0][0].type).toBe('pointerdown');
     act(() => { vi.advanceTimersByTime(500); });
-    // Regression: the previous implementation called controls.start() at
-    // the hold deadline, so Framer Motion could immediately dismiss Edit.
-    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    fireEvent.pointerUp(window, { pointerId: 2, pointerType: 'touch' });
-    fireEvent.click(homeLabel.closest('button')!);
+    fireEvent.pointerUp(window, { pointerId: 1, pointerType: 'mouse' });
+    fireEvent.click(workLabel.closest('button')!);
     expect(mocks.addTask).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    fireEvent.pointerDown(homeLabel, {
-      isPrimary: true, button: 0, pointerId: 3, pointerType: 'touch', clientX: 10, clientY: 10,
-    });
-    fireEvent.pointerUp(window, { pointerId: 3, pointerType: 'touch' });
-    fireEvent.click(homeLabel.closest('button')!);
-    expect(mocks.addTask).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Start category drag' })[0]);
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
   });
 
-  it('arms touch drag only on the label when movement follows the long press', () => {
+  it('opens Edit on touch hold and hands Motion the original pointerdown to allow dragging', () => {
     vi.useFakeTimers();
     render(<DayViewCategoryReorder {...createProps()}/>);
-    fireEvent.pointerDown(screen.getByText('Work'), {
+    const homeLabel = screen.getByText('Home');
+    fireEvent.pointerDown(homeLabel, {
       isPrimary: true, button: 0, pointerId: 4, pointerType: 'touch', clientX: 10, clientY: 10,
     });
+    expect(mocks.startDrag).not.toHaveBeenCalled();
     act(() => { vi.advanceTimersByTime(500); });
+    // Motion registers its pointer listeners from the original pointerdown.
+    // The broken version passed a pointermove, which cannot start PanSession.
+    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
+    expect(mocks.startDrag.mock.calls[0][0].type).toBe('pointerdown');
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     fireEvent.pointerMove(window, {
       pointerId: 4, pointerType: 'touch', clientX: 30, clientY: 10,
     });
     expect(mocks.startDrag).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Start category drag' })[1]);
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
-    fireEvent.pointerMove(window, {
-      pointerId: 4, pointerType: 'touch', clientX: 45, clientY: 10,
-    });
-    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
     fireEvent.pointerUp(window, { pointerId: 4, pointerType: 'touch' });
+    fireEvent.click(homeLabel.closest('button')!);
+    expect(mocks.addTask).not.toHaveBeenCalled();
+  });
+
+  it('does not arm a drag when the mouse holds the plus area, but still opens Edit', () => {
+    vi.useFakeTimers();
+    render(<DayViewCategoryReorder {...createProps()}/>);
+    const pill = screen.getByText('Work').closest('button')!;
+    fireEvent.pointerDown(pill, {
+      isPrimary: true, button: 0, pointerId: 3, pointerType: 'mouse', clientX: 10, clientY: 10,
+    });
+    expect(mocks.startDrag).not.toHaveBeenCalled();
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    fireEvent.pointerUp(window, { pointerId: 3, pointerType: 'mouse' });
+    fireEvent.click(pill);
+    expect(mocks.addTask).not.toHaveBeenCalled();
   });
 
   it('allows long press on the full pill but not dragging from its plus affordance', () => {
@@ -143,6 +155,22 @@ describe('Day View category gesture isolation', () => {
     fireEvent.pointerUp(window, { pointerId: 5, pointerType: 'touch' });
     fireEvent.click(pill);
     expect(mocks.addTask).not.toHaveBeenCalled();
+  });
+
+  it('aborts a mouse hold on movement, without opening Edit mid-drag', () => {
+    vi.useFakeTimers();
+    render(<DayViewCategoryReorder {...createProps()}/>);
+    const label = screen.getByText('Work');
+    fireEvent.pointerDown(label, {
+      isPrimary: true, button: 0, pointerId: 15, pointerType: 'mouse', clientX: 5, clientY: 5,
+    });
+    fireEvent.pointerMove(window, {
+      pointerId: 15, pointerType: 'mouse', clientX: 22, clientY: 5,
+    });
+    act(() => { vi.advanceTimersByTime(600); });
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
+    fireEvent.pointerUp(window, { pointerId: 15, pointerType: 'mouse' });
   });
 
   it('cancels a touch hold after a pre-hold swipe or pointer cancellation', () => {
