@@ -27,6 +27,7 @@ import {
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
+import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
 import {
@@ -640,6 +641,7 @@ export const PreferencesPage: React.FC = () => {
             />
           </div>
         </BottomSheet>
+        <UiColorSettings />
         <ChoiceGroup
           label="Content width"
           options={CONTENT_WIDTH_MODES}

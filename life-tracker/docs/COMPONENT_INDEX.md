@@ -176,6 +176,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | SheetErrorBanner | [src/components/ui/SheetErrorBanner.tsx](../src/components/ui/SheetErrorBanner.tsx) |
 | SheetSaveButton | [src/components/ui/SheetSaveButton.tsx](../src/components/ui/SheetSaveButton.tsx) |
 | Spinner | [src/components/ui/Spinner.tsx](../src/components/ui/Spinner.tsx) |
+| UiColorSettings | [src/components/ui/UiColorSettings.tsx](../src/components/ui/UiColorSettings.tsx) |
 
 ## pages
 

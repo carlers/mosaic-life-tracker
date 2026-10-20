@@ -39,7 +39,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   return (
     <nav
       aria-label="Main"
-      className="fixed bottom-0 left-0 right-0 z-30 bg-[#1E1E1E] border-t border-[#333333]"
+      className="mosaic-navigation-bar fixed bottom-0 left-0 right-0 z-30 bg-[#1E1E1E] border-t border-[#333333]"
     >
       <div className="relative flex justify-around items-center h-[calc(4rem+env(safe-area-inset-bottom))] max-w-lg mx-auto pb-[env(safe-area-inset-bottom)]">
         <div
@@ -48,7 +48,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           style={{ transform: `translateX(${activeIndex * 100}%)` }}
           aria-hidden="true"
         >
-          <div className="w-1 h-1 bg-current rounded-full" />
+          <div className="mosaic-navigation-active w-1 h-1 bg-current rounded-full" />
         </div>
 
         {tabs.map((tab) => {
@@ -73,7 +73,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 <Icon
                   size={22}
                   className={`transition-colors duration-200 ${
-                    isActive ? 'text-white' : 'text-gray-400'
+                    isActive ? 'mosaic-navigation-active text-white' : 'mosaic-navigation-inactive text-gray-400'
                   }`}
                   aria-hidden="true"
                 />
@@ -88,7 +88,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               </div>
               <span
                 className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${
-                  isActive ? 'text-white' : 'text-gray-400'
+                  isActive ? 'mosaic-navigation-active text-white' : 'mosaic-navigation-inactive text-gray-400'
                 }`}
                 aria-hidden="true"
               >

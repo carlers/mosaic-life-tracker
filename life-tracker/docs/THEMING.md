@@ -83,3 +83,11 @@ to depth transitions as well as opening and closing animations.
 
 See `docs/ACCESSIBILITY_AUDIT.md` for the separate accessibility protocol
 and `docs/TEST_WORKFLOW.md` for test selection.
+
+## User-selectable individual UI color roles (issue #953)
+
+The existing account-synced App accent remains the simple default. The `uiColor:<role>` values are separately owner-synced and validated against `ACCENT_COLOR_PALETTES` or `default`/`app`. `default` removes scoped tokens and preserves legacy behavior; `app` tracks the main accent. The allowlisted roles are Calendar grid, owner profile ring, nav surface/active, interactive accent icons, accent text, buttons/controls, and holidays.
+
+`src/lib/uiColors.ts` applies CSS variables and explicit `data-ui-*` opt-in attributes; no role props pass into Calendar DayCell. Holiday colors use `mosaic-holiday-label` and `mosaic-holiday-date` for all calendar/todo/day-view variants and do not change holiday identification or category/task colors. Colored navigation surfaces use contrast-computed text instead of the default gray/white labels. Active navigation foreground is adjusted against the chosen navigation surface. Existing Light/Dark/Black rules remain authoritative when a role is unset.
+
+The cache is keyed by authenticated owner and loaded before React on cold start; the synced per-role settings remain authoritative after settings load. All setters validate curated colors; no raw hex input or backend-specific writes. Test default parity, all appearances including OLED, account switch/cold cache, contrast, dense Calendar performance, and iOS/Android device UI before dev promotion.
