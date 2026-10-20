@@ -226,12 +226,25 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       if (source.element && taskById.get(taskId)) {
         props.onCrossDayTaskStart?.(
           taskById.get(taskId)!, source.element.getBoundingClientRect(),
-          (event as { nativeEvent?: Event | null }).nativeEvent,
+          event.nativeEvent,
+          event.operation.position.current,
         );
       }
       onReorderActiveChange?.(true);
     },
     [basePlacement, categoryIds, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement]
+  );
+
+  // Drive cross-day edge navigation directly from the drag sensor. Browser
+  // touch pointer streams are not guaranteed to bubble through window once
+  // the source is captured or Swiper has intercepted native movement.
+  const handleDragMove = React.useCallback(
+    (event: Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragMove']>>[0]) => {
+      const source = event.operation.source;
+      if (!source || !dragSessionRef.current || String(source.id) !== dragSessionRef.current.taskId) return;
+      props.onCrossDayTaskMove?.(event.operation.position.current, event.nativeEvent);
+    },
+    [props.onCrossDayTaskMove]
   );
 
   const handleDragOver = React.useCallback(
@@ -485,6 +498,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         TASK_REORDER_POINTER_SENSOR,
       ]}
       onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >

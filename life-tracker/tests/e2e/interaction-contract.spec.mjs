@@ -1627,6 +1627,52 @@ test('inactive adjacent Day View keeps category spacing when it becomes active',
   expect(Math.abs(spacingAfter - spacingBefore)).toBeLessThanOrEqual(1);
 });
 
+// #856: a held task must advance days instead of merely reordering inside
+// its source day. Pure edge detection tests cannot catch missing sensor wiring.
+test('long-held task at Day View edge advances repeatedly without releasing or showing blank days', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'CDP touch gestures require Chromium');
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View viewport');
+  const title = swiper.locator('.swiper-slide-active').getByRole('button', {
+    name: 'Task 1.1', exact: true,
+  });
+  await expect(title).toBeVisible();
+  const gesture = await startTaskLongPress(page, title);
+  const rightEdge = bounds.x + bounds.width - 6;
+  const leftEdge = bounds.x + 6;
+  const middle = bounds.x + bounds.width / 2;
+  try {
+    await gesture.moveTo(rightEdge, gesture.startY);
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Wednesday, September 16, 2026', { timeout: 6500 },
+    );
+    await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toBeVisible();
+    // Stationary finger must trigger another day after the cooldown.
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Thursday, September 17, 2026', { timeout: 6500 },
+    );
+    await gesture.moveTo(middle, gesture.startY);
+    await page.waitForTimeout(1100);
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Thursday, September 17, 2026',
+    );
+    await gesture.moveTo(leftEdge, gesture.startY);
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Wednesday, September 16, 2026', { timeout: 6500 },
+    );
+    await expect(dialog.locator('.swiper-slide-active [data-task-category-id]')).toHaveCount(5);
+  } finally {
+    await gesture.cancel();
+  }
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
 test('mouse drag over a task title swipes the Day View instead of being trapped by the task control', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
