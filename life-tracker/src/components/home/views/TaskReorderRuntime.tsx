@@ -4,6 +4,7 @@ import { LayoutGroup } from 'framer-motion';
 import {
   PointerActivationConstraints,
   PointerSensor,
+  KeyboardSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
 import { diaryAfterTaskMove, placementFromTaskDrop, type DiaryPlacement } from '../../../lib/diaryPlacement';
