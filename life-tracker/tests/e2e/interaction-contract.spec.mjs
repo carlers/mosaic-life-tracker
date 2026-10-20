@@ -1711,6 +1711,83 @@ test('long-held task at Day View edge advances repeatedly without releasing or s
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
 });
 
+// #856: near-edge release must never leave the floating source alive or
+// let delayed edge timers swipe further. Test both release on the edge and
+// after moving inward into a populated category drop target.
+test('released touch task stops edge navigation and clears the overlay in both drop zones', async ({page, browserName}) => {
+  test.skip(browserName !== 'chromium', 'CDP touch requires Chromium');
+  for (const landing of ['edge', 'category']) {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&crossDayDestinations=1`);
+    await page.getByTestId('open-day-view-sheet').click();
+    const dialog = page.getByRole('dialog');
+    await waitForStableVerticalPosition(dialog);
+    const swiper = dialog.getByTestId('day-swiper');
+    const bounds = await swiper.boundingBox();
+    if (!bounds) throw new Error('Missing Day View geometry');
+    const title = swiper.locator('.swiper-slide-active').getByRole('button', {name:'Task 1.1', exact:true});
+    const gesture = await startTaskLongPress(page, title);
+    const edge = bounds.x + bounds.width - 6;
+    await gesture.moveTo(edge, gesture.startY);
+    await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toBeVisible();
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Wednesday, September 16, 2026', {timeout:6500});
+    if (landing === 'category') {
+      const row = dialog.locator('.swiper-slide-active [data-task-category-id="cat_0"] [data-task-id]').first();
+      const box = await row.boundingBox();
+      if (!box) throw new Error('Missing destination category task');
+      await gesture.moveTo(bounds.x + bounds.width / 2, box.y + box.height / 2);
+      await expect(dialog.locator('.swiper-slide-active [data-cross-day-reorder-slot="true"]')).toHaveCount(1);
+    }
+    await gesture.finish();
+    await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+    // The first release may interrupt an in-flight transition and snap back
+    // to its last settled day. Whichever date wins, it must stay stable.
+    const activeDate = await dialog.locator('.swiper-slide-active [data-date-str]').getAttribute('data-date-str');
+    await page.waitForTimeout(1250);
+    await expect(dialog.locator('.swiper-slide-active [data-date-str]')).toHaveAttribute('data-date-str', activeDate);
+    await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+    // Settled sibling rows must not overlap each other after the neutral
+    // insertion space is traded for the persisted row.
+    const boxes = await dialog.locator('.swiper-slide-active [data-task-category-id="cat_0"] [data-task-id]')
+      .evaluateAll(nodes => nodes.map(node => {
+        const rect = node.getBoundingClientRect();
+        return {top:rect.top,bottom:rect.bottom};
+      }));
+    for (let i = 1; i < boxes.length; i += 1) {
+      expect(boxes[i].top).toBeGreaterThanOrEqual(boxes[i - 1].bottom - 1);
+    }
+  }
+});
+
+// #856: the original touchend can fail to bubble after virtual slide
+// replacement, but the physical pointerup is still a definitive release.
+test('pointerup during held touch clears the cross-day drag even without touchend', async ({page,browserName}) => {
+  test.skip(browserName !== 'chromium', 'CDP touch requires Chromium');
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View geometry');
+  await page.evaluate(() => window.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch') window.__mosaicReleasePointer = event.pointerId;
+  },{capture:true,once:true}));
+  const title = swiper.locator('.swiper-slide-active').getByRole('button',{name:'Task 1.1',exact:true});
+  const gesture = await startTaskLongPress(page,title);
+  await gesture.moveTo(bounds.x + bounds.width - 6,gesture.startY);
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toBeVisible();
+  const id = await page.evaluate(() => window.__mosaicReleasePointer);
+  await page.evaluate(pointerId => window.dispatchEvent(new PointerEvent('pointerup', {
+    pointerId,pointerType:'touch',button:0,buttons:0,isPrimary:true,bubbles:true,
+  })), id);
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+  const activeDate = await dialog.locator('.swiper-slide-active [data-date-str]').getAttribute('data-date-str');
+  await page.waitForTimeout(1150);
+  await expect(dialog.locator('.swiper-slide-active [data-date-str]')).toHaveAttribute('data-date-str', activeDate);
+  await gesture.cancel();
+});
+
 // #856: the destination day must respond to the carried task just like the
 // original day's animated reorder, with a neutral reserved slot and no writes
 // until release. Populate the NEXT day (normal probe days are empty).
