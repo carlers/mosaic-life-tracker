@@ -70,6 +70,9 @@ interface CategorySectionProps {
   activeDragTaskId?: string | null;
   dragGapIndex?: number | null;
   dragGapHeight?: number;
+  externalDraggedTaskId?: string | null;
+  externalGapIndex?: number | null;
+  externalGapHeight?: number;
   categoryActions?: CategoryPillActions;
 }
 
@@ -113,6 +116,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   activeDragTaskId = null,
   dragGapIndex = null,
   dragGapHeight = 0,
+  externalDraggedTaskId = null,
+  externalGapIndex = null,
+  externalGapHeight = 0,
   categoryActions: suppliedCategoryActions,
 }) => {
   const contextualActions = useContext(CategoryPillActionContext);
@@ -525,10 +531,24 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         (canReorder
           ? renderDraggableRows()
           : <>{tasks.map((task, index) => <React.Fragment key={task.id}>
+              {externalGapIndex === index && <div data-cross-day-insertion-gap="true"
+                aria-hidden="true" className="rounded-lg border border-dashed border-emerald-500/60 bg-emerald-500/10"
+                style={{height: Math.max(24, externalGapHeight)}} />}
               {diarySlot && index === Math.min(tasks.length, diarySlotIndex) && diarySlot}
               {diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex) && diaryGhostSlot}
-              <TaskItem {...taskProps(task)} />
-            </React.Fragment>)}{diarySlot && diarySlotIndex >= tasks.length && diarySlot}{diaryGhostSlot && diaryGhostSlotIndex >= tasks.length && diaryGhostSlot}</>)}
+              <div className={task.id === externalDraggedTaskId ? 'invisible' : undefined}>
+                <TaskItem {...taskProps(task)} />
+              </div>
+            </React.Fragment>)}
+              {externalGapIndex !== null && externalGapIndex >= tasks.length &&
+                <div data-cross-day-insertion-gap="true" aria-hidden="true"
+                  className="rounded-lg border border-dashed border-emerald-500/60 bg-emerald-500/10"
+                  style={{height: Math.max(24, externalGapHeight)}} />}
+              {diarySlot && diarySlotIndex >= tasks.length && diarySlot}{diaryGhostSlot && diaryGhostSlotIndex >= tasks.length && diaryGhostSlot}</>)}
+      {categoryCollapsed && externalGapIndex !== null &&
+        <div data-cross-day-insertion-gap="true" aria-hidden="true"
+          className="my-2 rounded-lg border border-dashed border-emerald-500/60"
+          style={{ height: Math.max(24, externalGapHeight) }} />}
       {categoryCollapsed && diarySlot}
       {categoryCollapsed && diaryGhostSlot}
       {!categoryCollapsed && sharedRows}

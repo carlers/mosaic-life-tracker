@@ -223,6 +223,12 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       };
       setSettlingTaskId(null);
       setActiveDrag(next);
+      if (source.element && taskById.get(taskId)) {
+        props.onCrossDayTaskStart?.(
+          taskById.get(taskId)!, source.element.getBoundingClientRect(),
+          (event as { nativeEvent?: Event | null }).nativeEvent,
+        );
+      }
       onReorderActiveChange?.(true);
     },
     [basePlacement, categoryIds, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement]
@@ -305,6 +311,12 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         >
       >[0]
     ) => {
+      if (event.operation.source &&
+          props.onCrossDayNativeEnd?.(String(event.operation.source.id))) {
+        // The carried task is now owned above Swiper. Its final pointer-up is
+        // handled there, never by this stale per-date reorder projection.
+        return;
+      }
       onReorderActiveChange?.(false);
       if (diaryDragRef.current) {
         const key = event.operation.target ? String(event.operation.target.id) : '';
@@ -511,7 +523,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
             </React.Suspense>
           </div>
         )}
-        {overlayTask && (
+        {overlayTask && props.crossDayDragTaskId !== overlayTask.id && (
           <div
             aria-hidden="true"
             data-task-drag-overlay="true"
