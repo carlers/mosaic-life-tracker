@@ -3,6 +3,7 @@ import type { TaskDocument } from '../db/schema';
 
 export type TimestampLabelStyle = 'icons' | 'text';
 export type TimelineDirection = 'asc' | 'desc';
+export type TimelineSortBasis = 'completion' | 'creation';
 export type DayViewMode = 'categories' | 'timeline';
 
 export interface TaskTimestampDisplay {
@@ -20,13 +21,22 @@ export const resolveDayViewMode = (value: unknown): DayViewMode =>
 export const resolveTimelineDirection = (value: unknown): TimelineDirection =>
   value === 'asc' ? 'asc' : 'desc';
 
+export const resolveTimelineSortBasis = (value: unknown): TimelineSortBasis =>
+  value === 'creation' ? 'creation' : 'completion';
+
 export function validTaskTime(value: string | undefined): number | null {
   if (!value || !value.trim()) return null;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function effectiveTaskTimestamp(task: TaskDocument): { kind: 'created' | 'completed'; value: string } | null {
+export function effectiveTaskTimestamp(
+  task: TaskDocument,
+  basis: TimelineSortBasis = 'completion'
+): { kind: 'created' | 'completed'; value: string } | null {
+  if (basis === 'creation' && validTaskTime(task.createdAt) !== null) {
+    return { kind: 'created', value: task.createdAt };
+  }
   if (task.completed && validTaskTime(task.completedAt) !== null) {
     return { kind: 'completed', value: task.completedAt! };
   }
@@ -36,11 +46,15 @@ export function effectiveTaskTimestamp(task: TaskDocument): { kind: 'created' | 
   return null;
 }
 
-export function sortTasksByTimeline(tasks: readonly TaskDocument[], direction: TimelineDirection): TaskDocument[] {
+export function sortTasksByTimeline(
+  tasks: readonly TaskDocument[],
+  direction: TimelineDirection,
+  basis: TimelineSortBasis = 'completion'
+): TaskDocument[] {
   const multiplier = direction === 'asc' ? 1 : -1;
   return [...tasks].sort((a, b) => {
-    const left = effectiveTaskTimestamp(a);
-    const right = effectiveTaskTimestamp(b);
+    const left = effectiveTaskTimestamp(a, basis);
+    const right = effectiveTaskTimestamp(b, basis);
     const lt = left ? validTaskTime(left.value)! : null;
     const rt = right ? validTaskTime(right.value)! : null;
     if (lt === null && rt !== null) return 1;

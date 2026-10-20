@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { ChevronDown, ListFilter, Plus } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { CalendarPlus2, Check, CheckCircle2, ChevronDown, ListFilter, Plus } from 'lucide-react';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import type { DaySlideProps } from './DaySlideContent';
 import { TaskItem } from './TaskItem';
@@ -8,6 +8,7 @@ import {
   sortTasksByTimeline,
   type TaskTimestampDisplay,
   type TimelineDirection,
+  type TimelineSortBasis,
 } from '../../../lib/taskTimeline';
 
 type Props = Pick<DaySlideProps,
@@ -19,8 +20,130 @@ type Props = Pick<DaySlideProps,
   | 'selectedTaskIds' | 'onToggleTaskSelection'
 > & {
   direction: TimelineDirection;
+  sortBasis: TimelineSortBasis;
+  onSortBasisChange: (basis: TimelineSortBasis) => void;
   timestampDisplay: TaskTimestampDisplay;
   showOtherContentNotice?: boolean;
+};
+
+
+type TimelineCategoryMenuProps = {
+  categories: DaySlideProps['categories'];
+  value: string;
+  onChange: (categoryId: string) => void;
+  label: string;
+  includeAll?: boolean;
+  pill?: boolean;
+};
+
+const TimelineCategoryMenu: React.FC<TimelineCategoryMenuProps> = ({
+  categories, value, onChange, label, includeAll = false, pill = false,
+}) => {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuId = React.useId();
+  const selected = categories.find(category => category.id === value);
+  const selectedLabel = selected?.name ?? (includeAll ? 'All categories' : 'Choose category');
+
+  useEffect(() => {
+    if (!open) return;
+    const onOutside = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', onOutside);
+    const frame = requestAnimationFrame(() => {
+      const checked = menuRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]');
+      (checked ?? menuRef.current?.querySelector<HTMLButtonElement>('button'))?.focus();
+    });
+    return () => {
+      document.removeEventListener('pointerdown', onOutside);
+      cancelAnimationFrame(frame);
+    };
+  }, [open]);
+
+  const choose = (next: string) => {
+    onChange(next);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+  const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      triggerRef.current?.focus();
+      return;
+    }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? []);
+    if (!items.length) return;
+    const current = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = event.key === 'Home' ? 0
+      : event.key === 'End' ? items.length - 1
+      : event.key === 'ArrowDown' ? (current + 1) % items.length
+      : (current < 0 ? items.length - 1 : (current + items.length - 1) % items.length);
+    items[next]?.focus();
+  };
+
+  return (
+    <div ref={rootRef} className={pill ? 'relative inline-flex max-w-[85%]' : 'relative inline-flex max-w-[55%]'}
+      onPointerDown={event => event.stopPropagation()}>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-label={`${label}: ${selectedLabel}`}
+        onClick={() => setOpen(current => !current)}
+        className={pill
+          ? 'mosaic-category-pill inline-flex max-w-full items-center gap-2 rounded-full bg-black py-1 pl-3.5 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
+          : 'inline-flex max-w-full items-center gap-2 rounded-full border border-[#444444] bg-surfaceHighlight py-2 pl-3 pr-2 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'}
+      >
+        <span className={pill ? 'min-w-0 truncate text-[0.9375rem] font-bold' : 'min-w-0 truncate'}
+          style={selected ? { color: getCategoryLabelColor(selected.color) } : undefined}>
+          {selectedLabel}
+        </span>
+        <span className={pill
+          ? 'mosaic-category-add-icon inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400'
+          : 'inline-flex shrink-0 items-center justify-center text-gray-400'} aria-hidden="true">
+          <ChevronDown size={pill ? 18 : 14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+      {open && (
+        <div
+          id={menuId}
+          ref={menuRef}
+          role="menu"
+          aria-label={label}
+          onKeyDown={onMenuKeyDown}
+          className={`absolute left-0 z-40 w-max min-w-full max-w-[min(18rem,85vw)] overflow-y-auto overscroll-contain rounded-2xl border border-[#444444] bg-surface p-1.5 shadow-2xl ${pill ? 'bottom-full mb-2 max-h-56' : 'top-full mt-2 max-h-60'}`}
+        >
+          {(includeAll ? [{ id: '', name: 'All categories', color: '' }, ...categories] : categories).map(category => (
+            <button
+              key={category.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={category.id === value}
+              onClick={() => choose(category.id)}
+              className="flex w-full min-w-36 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-white hover:bg-surfaceHighlight focus:bg-surfaceHighlight focus:outline-none"
+            >
+              {category.color
+                ? <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: category.color }} aria-hidden="true" />
+                : <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-[#444444]" aria-hidden="true" />}
+              <span className="min-w-0 flex-1 break-words"
+                style={category.color ? { color: getCategoryLabelColor(category.color) } : undefined}>{category.name}</span>
+              {category.id === value && <Check size={16} className="shrink-0 text-gray-300" aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export const TaskTimelineList: React.FC<Props> = ({
@@ -45,6 +168,8 @@ export const TaskTimelineList: React.FC<Props> = ({
   selectedTaskIds,
   onToggleTaskSelection,
   direction,
+  sortBasis,
+  onSortBasisChange,
   timestampDisplay,
   showOtherContentNotice = false,
 }) => {
@@ -57,14 +182,15 @@ export const TaskTimelineList: React.FC<Props> = ({
     [categories]
   );
   const chosenCategory = categoryMap.has(addCategory) ? addCategory : (categories[0]?.id ?? '');
-  const chosenCategoryDocument = categoryMap.get(chosenCategory);
+
   const filtered = useMemo(() => sortTasksByTimeline(
     tasks.filter(task =>
       (!categoryFilter || task.categoryId === categoryFilter) &&
       (statusFilter === 'all' || (statusFilter === 'complete' ? task.completed : !task.completed))
     ),
-    direction
-  ), [tasks, categoryFilter, statusFilter, direction]);
+    direction,
+    sortBasis
+  ), [tasks, categoryFilter, statusFilter, direction, sortBasis]);
 
   const submitTask = (event: React.FormEvent) => {
     event.preventDefault();
@@ -83,21 +209,13 @@ export const TaskTimelineList: React.FC<Props> = ({
     >
       <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline filters">
         <ListFilter size={16} className="shrink-0 text-gray-400" aria-hidden="true" />
-        <div className="relative flex min-w-0 max-w-[55%] items-center rounded-full border border-[#444444] bg-surfaceHighlight transition-colors focus-within:ring-2 focus-within:ring-emerald-500/60">
-          <label className="sr-only" htmlFor={`timeline-category-${dateStr}`}>Filter timeline by category</label>
-          <select
-            id={`timeline-category-${dateStr}`}
-            value={categoryFilter}
-            onChange={event => setCategoryFilter(event.target.value)}
-            className="min-w-0 max-w-full appearance-none truncate rounded-full bg-transparent py-2 pl-3 pr-8 text-xs font-semibold text-white outline-none"
-          >
-            <option className="bg-surface text-white" value="">All categories</option>
-            {categories.map(category => (
-              <option className="bg-surface text-white" key={category.id} value={category.id}>{category.name}</option>
-            ))}
-          </select>
-          <ChevronDown size={14} className="pointer-events-none absolute right-2.5 text-gray-400" aria-hidden="true" />
-        </div>
+        <TimelineCategoryMenu
+          categories={categories}
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          label="Filter timeline by category"
+          includeAll
+        />
         <div className="relative flex min-w-0 items-center rounded-full border border-[#444444] bg-surfaceHighlight transition-colors focus-within:ring-2 focus-within:ring-emerald-500/60">
           <label className="sr-only" htmlFor={`timeline-status-${dateStr}`}>Filter timeline by completion</label>
           <select
@@ -111,6 +229,25 @@ export const TaskTimelineList: React.FC<Props> = ({
             <option className="bg-surface text-white" value="complete">Completed</option>
           </select>
           <ChevronDown size={14} className="pointer-events-none absolute right-2.5 text-gray-400" aria-hidden="true" />
+        </div>
+      </div>
+      <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline sort basis">
+        <span className="text-xs text-gray-400">Sort by</span>
+        <div className="inline-flex items-center rounded-full border border-[#444444] bg-surfaceHighlight p-0.5">
+          <button type="button"
+            aria-pressed={sortBasis === 'completion'}
+            onClick={() => onSortBasisChange('completion')}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${sortBasis === 'completion' ? 'bg-surface text-white shadow-sm' : 'text-gray-400'}`}
+          >
+            <CheckCircle2 size={13} aria-hidden="true" /> Completion first
+          </button>
+          <button type="button"
+            aria-pressed={sortBasis === 'creation'}
+            onClick={() => onSortBasisChange('creation')}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${sortBasis === 'creation' ? 'bg-surface text-white shadow-sm' : 'text-gray-400'}`}
+          >
+            <CalendarPlus2 size={13} aria-hidden="true" /> Creation first
+          </button>
         </div>
       </div>
       {filtered.length === 0 &&
@@ -141,7 +278,7 @@ export const TaskTimelineList: React.FC<Props> = ({
                 onToggleSelection={() => onToggleTaskSelection?.(task.id)}
               />
               <div className="ml-9 flex flex-wrap items-center gap-x-2 gap-y-1 pb-1">
-                <TaskTimestampMeta task={task} timeline display={timestampDisplay} />
+                <TaskTimestampMeta task={task} timeline sortBasis={sortBasis} display={timestampDisplay} />
                 {category && (
                   <button
                     type="button"
@@ -162,30 +299,13 @@ export const TaskTimelineList: React.FC<Props> = ({
       {!selectionMode && categories.length > 0 && (
         <form onSubmit={submitTask} className="mt-5 rounded-2xl border border-[#333333] bg-surface px-3 py-3" aria-label="Add timeline task">
           <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-            <div className="mosaic-category-pill relative inline-flex max-w-[85%] items-center gap-2 rounded-full bg-black py-1 pl-3.5 pr-1 focus-within:ring-2 focus-within:ring-emerald-500/60">
-              <span
-                className="min-w-0 truncate text-[0.9375rem] font-bold"
-                aria-hidden="true"
-                style={{ color: getCategoryLabelColor(chosenCategoryDocument?.color ?? '#6B7280') }}
-              >
-                {chosenCategoryDocument?.name}
-              </span>
-              <span className="mosaic-category-add-icon inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400" aria-hidden="true">
-                <ChevronDown size={18} />
-              </span>
-              <label className="sr-only" htmlFor={`timeline-add-category-${dateStr}`}>New task category</label>
-              <select
-                id={`timeline-add-category-${dateStr}`}
-                value={chosenCategory}
-                onChange={event => setAddCategory(event.target.value)}
-                aria-label="New task category"
-                className="absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-full opacity-0"
-              >
-                {categories.map(category => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
-              </select>
-            </div>
+            <TimelineCategoryMenu
+              categories={categories}
+              value={chosenCategory}
+              onChange={setAddCategory}
+              label="New task category"
+              pill
+            />
             <span className="shrink-0 text-[11px] text-gray-400" aria-hidden="true">Add task</span>
           </div>
           <div className="flex min-w-0 items-center gap-3">
@@ -195,8 +315,8 @@ export const TaskTimelineList: React.FC<Props> = ({
               onChange={event => setNewTitle(event.target.value)}
               placeholder="New task title"
               aria-label="New timeline task title"
-              className="min-w-0 flex-1 border-b-2 bg-transparent py-2 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-              style={{ borderBottomColor: chosenCategoryDocument?.color ?? '#6B7280' }}
+              className="min-w-0 flex-1 border-b-2 bg-transparent py-2 text-sm text-white outline-none"
+              style={{ borderBottomColor: categoryMap.get(chosenCategory)?.color ?? '#6B7280' }}
             />
             <button
               type="submit"
