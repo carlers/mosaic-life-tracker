@@ -87,6 +87,42 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     await expect(second.getByRole('button', { name: 'Mark incomplete', exact: true }).first())
       .toBeVisible({ timeout: 20_000 });
 
+    // Edit through the existing inline editor, then move the same row to
+    // Backlogs. These are actual domain-hook writes, not direct test fixtures.
+    await first.getByRole('button', { name: 'Private core task', exact: true }).first().dblclick();
+    await first.getByLabel('Task title', { exact: true }).fill('Renamed core task');
+    await first.getByLabel('Task title', { exact: true }).press('Enter');
+    await expect.poll(async () => (await rows(owner, 'tasks')).some(row => row.title === 'Renamed core task'))
+      .toBe(true);
+    await first.getByRole('button', { name: 'Renamed core task', exact: true }).first().click();
+    await expect(first.getByRole('button', { name: 'Share with friends', exact: true })).toHaveCount(0);
+    await expect(first.getByRole('button', { name: 'Add Photo', exact: true })).toHaveCount(0);
+    await first.getByRole('button', { name: 'Move to Backlog', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'tasks')).find(row => row.title === 'Renamed core task')?.task_date)
+      .toBe('');
+    await first.getByRole('button', { name: 'Open menu' }).click();
+    await first.getByRole('button', { name: 'Backlogs', exact: true }).click();
+    await expect(first.getByRole('button', { name: 'Renamed core task', exact: true }).first()).toBeVisible();
+    await second.evaluate(() => window.dispatchEvent(new Event('online')));
+    await second.getByRole('button', { name: 'Open menu' }).click();
+    await second.getByRole('button', { name: 'Backlogs', exact: true }).click();
+    await expect(second.getByRole('button', { name: 'Renamed core task', exact: true }).first())
+      .toBeVisible({ timeout: 20_000 });
+    await contexts[0].setOffline(true);
+    await first.getByRole('button', { name: 'Renamed core task', exact: true }).first().click();
+    await first.getByRole('button', { name: 'Delete', exact: true }).click();
+    await first.getByRole('dialog', { name: 'Delete Task', exact: true })
+      .getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(first.getByRole('button', { name: 'Renamed core task', exact: true })).toHaveCount(0);
+    expect((await rows(owner, 'tasks')).find(row => row.title === 'Renamed core task').is_deleted).toBe(false);
+    await contexts[0].setOffline(false);
+    await first.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect.poll(async () => (await rows(owner, 'tasks')).find(row => row.title === 'Renamed core task')?.is_deleted,
+      { timeout: 25_000 }).toBe(true);
+    await second.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect(second.getByRole('button', { name: 'Renamed core task', exact: true }))
+      .toHaveCount(0, { timeout: 20_000 });
+
     await signIn(foreign, other);
     await foreign.getByRole('tab', { name: 'Todo list', exact: true }).click();
     await expect(foreign.getByText('Private core task', { exact: true })).toHaveCount(0);

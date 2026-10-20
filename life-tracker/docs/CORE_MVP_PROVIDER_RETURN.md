@@ -172,3 +172,5 @@ Home: `useMyProfile` now suppresses reads, retries and mutations when social sup
 is absent. Core profile name/bio remain device-local; public profile, username and
 photo actions are disabled. App logout requests Supabase `scope=local`, preserving
 other device sessions. The original isolated Auth pilot retains its default scope.
+
+The actual-app lab also covers task title editing, movement to Backlogs, offline deletion and second-device tombstone convergence. Task menus omit unsupported sharing, photo and bucket-list actions under the core capability profile. These checks use disposable local Supabase; hosted acceptance remains separate.
