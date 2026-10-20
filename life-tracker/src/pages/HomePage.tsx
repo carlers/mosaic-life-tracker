@@ -286,6 +286,24 @@ export const HomePage: React.FC = () => {
     setSearchFocusTaskId(null);
   }, []);
 
+  // Home-only search launcher. Keep native typing and all nested sheet
+  // keyboard ownership untouched; the existing Search control still handles
+  // Escape and focus when the field opens.
+  useEffect(() => {
+    if (isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
+    const handleSlash = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.defaultPrevented || event.isComposing ||
+        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+        (event.target instanceof Element && event.target.closest(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'
+        )) || document.querySelector('[aria-modal="true"]')) return;
+      event.preventDefault();
+      handleOpenSearch();
+    };
+    window.addEventListener('keydown', handleSlash);
+    return () => window.removeEventListener('keydown', handleSlash);
+  }, [handleOpenSearch, isSearchOpen, isSettingsOpen, searchDaySheetOpen]);
+
   return (
     <>
       <div className="h-full flex flex-col min-h-0">

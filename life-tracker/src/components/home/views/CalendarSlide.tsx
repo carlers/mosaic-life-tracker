@@ -18,6 +18,8 @@ interface CalendarSlideProps {
   onZoomNavigate?: (direction: 'prev' | 'next') => void;
   navigationLocked?: boolean;
   onDayClick: (date: Date) => void;
+  keyboardActive?: boolean;
+  keyboardFocusDay?: string;
   tasksByDate: Map<string, TaskDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
@@ -37,6 +39,8 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
   onZoomNavigate,
   navigationLocked,
   onDayClick,
+  keyboardActive = false,
+  keyboardFocusDay,
   tasksByDate,
   sharedByDay,
   ownedSharedTaskIds,
@@ -56,6 +60,8 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
         onZoomNavigate={onZoomNavigate}
         navigationLocked={navigationLocked}
         onDayClick={onDayClick}
+        keyboardActive={keyboardActive}
+        keyboardFocusDay={keyboardFocusDay}
         tasksByDate={tasksByDate}
         sharedByDay={sharedByDay}
         ownedSharedTaskIds={ownedSharedTaskIds}
@@ -76,6 +82,8 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
       onZoomNavigate={onZoomNavigate}
       navigationLocked={navigationLocked}
       onDayClick={onDayClick}
+      keyboardActive={keyboardActive}
+      keyboardFocusDay={keyboardFocusDay}
       tasksByDate={tasksByDate}
       sharedByDay={sharedByDay}
       ownedSharedTaskIds={ownedSharedTaskIds}
