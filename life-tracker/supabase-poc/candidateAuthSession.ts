@@ -154,6 +154,12 @@ export function createCandidateAuthSession(options: {
     }
     if (response.status === 401 || response.status === 403)
       throw new CandidateSessionDeniedError();
+    if (response.status === 400 && path === '/auth/v1/token?grant_type=refresh_token') {
+      let code: unknown;
+      try { code = (await response.json() as { code?: unknown }).code; } catch { /* ambiguous error */ }
+      if (['refresh_token_not_found', 'refresh_token_already_used', 'session_not_found', 'session_expired']
+        .includes(String(code))) throw new CandidateSessionDeniedError();
+    }
     if (!response.ok) throw new CandidateSessionError('Supabase Auth request denied');
     try { return await response.json() as unknown; }
     catch { throw new CandidateSessionError('Invalid Supabase Auth JSON'); }

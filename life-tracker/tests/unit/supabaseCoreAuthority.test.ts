@@ -66,4 +66,15 @@ describe('fresh core server authority', () => {
     await expect(lease.release()).rejects.toThrow();
     expect(lease.isCurrent()).toBe(true);
   });
+
+  it('never releases a replacement account when an old handle survives a session switch', async () => {
+    const { authority, session, fetcher } = setup();
+    const lease = await authority.guard.acquireExclusiveLease({
+      legacyUserId: canonical, supabaseUserId: owner,
+    });
+    session.getVerifiedSession.mockResolvedValue({ ...signed, userId: '22222222-2222-4222-8222-222222222222' });
+    fetcher.mockClear();
+    await expect(lease.release()).rejects.toThrow('owner changed');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
 });

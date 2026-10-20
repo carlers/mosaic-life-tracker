@@ -250,6 +250,83 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
   }
 });
 
+test('real expired JWT: offline edits survive a failed refresh and signed retry', async ({ browser }) => {
+  test.skip(hosted || process.env.MOSAIC_CORE_SHORT_JWT !== 'true',
+    'Requires disposable local Auth with a real 60-second JWT lifetime');
+  test.setTimeout(180_000);
+  const owner = await account();
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const secondContext = await browser.newContext({ ignoreHTTPSErrors: true });
+  let oldToken;
+  try {
+    const page = await context.newPage();
+    const login = page.waitForResponse(response =>
+      response.url() === url + '/auth/v1/token?grant_type=password' && response.status() === 200);
+    await signIn(page, owner);
+    const grant = await (await login).json();
+    oldToken = grant.access_token;
+    expect(grant.expires_in).toBeLessThanOrEqual(60);
+    expect((await api('/auth/v1/user', oldToken)).status).toBe(200);
+    await page.getByRole('button', { name: 'Open menu' }).click();
+    await page.getByRole('button', { name: 'Lists & Categories' }).click();
+    await page.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await page.getByLabel('Name', { exact: true }).fill('Expiry recovery list');
+    await page.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'categories')).length).toBe(1);
+    await page.keyboard.press('Escape');
+    await page.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await page.getByRole('button', { name: 'Add a task to Expiry recovery list', exact: true }).first().click();
+    await page.getByPlaceholder('Add a task to Expiry recovery list...').first().fill('Preserved offline edit');
+    await page.getByPlaceholder('Add a task to Expiry recovery list...').first().press('Enter');
+    await expect.poll(async () => (await rows(owner, 'tasks')).length).toBe(1);
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'Mark complete', exact: true }).first().click();
+    await expect(page.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+    expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
+    // Actual server time and a previously accepted signed JWT. No fake clock,
+    // synthetic JWT or altered global hosted Auth policy.
+    await expect.poll(async () => (await api('/auth/v1/user', oldToken)).status,
+      { timeout: 90_000, intervals: [1000, 5000] }).toBe(401);
+    const observer = await api('/auth/v1/token?grant_type=password', null,
+      { email: owner.email, password: owner.password });
+    expect(observer.ok).toBe(true);
+    owner.token = (await observer.json()).access_token;
+    let attempts = 0;
+    let refreshed = false;
+    await page.route(url + '/auth/v1/token?grant_type=refresh_token', async route => {
+      attempts++;
+      if (attempts === 1) await route.abort('failed');
+      else await route.continue();
+    });
+    page.on('response', response => {
+      if (response.url() === url + '/auth/v1/token?grant_type=refresh_token' && response.status() === 200)
+        refreshed = true;
+    });
+    await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect.poll(() => attempts).toBe(1);
+    await expect(page.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+    expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
+    await expect.poll(async () => {
+      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      return refreshed;
+    }).toBe(true);
+    await expect.poll(async () => (await rows(owner, 'tasks'))[0].completed,
+      { timeout: 25_000 }).toBe(true);
+    const second = await secondContext.newPage();
+    await signIn(second, owner);
+    await second.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await expect(second.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+    await expect(second.getByText('Preserved offline edit', { exact: true }).first()).toBeVisible();
+  } catch (error) {
+    const redacted = [owner.password, owner.token, oldToken].reduce((text, secret) =>
+      secret ? text.replaceAll(secret, '[redacted]') : text, String(error));
+    throw new Error(redacted);
+  } finally {
+    await Promise.allSettled([context.close(), secondContext.close()]);
+  }
+});
+
 test('signed server denies old clients without leases, foreign writes, and released session writes', async () => {
   test.skip(hosted, 'Hosted server guards are exercised by hosted-core.mjs with scoped fixture retirement');
   const owner = await account();

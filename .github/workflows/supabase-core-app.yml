@@ -7,6 +7,8 @@ on:
       - 'refactor/1027-supabase-core-app-*'
       - 'codex/1027-supabase-hosted-*'
       - 'refactor/1027-supabase-hosted-*'
+      - 'codex/1027-supabase-recovery-*'
+      - 'feature/1027-supabase-recovery-*'
 permissions:
   contents: read
 concurrency:
@@ -51,7 +53,11 @@ jobs:
           pattern = r'(?m)^enable_confirmations\s*=\s*(true|false)\s*$'
           if not re.search(pattern, text):
               raise SystemExit('Missing local confirmation configuration')
-          p.write_text(re.sub(pattern, 'enable_confirmations = false', text))
+          text = re.sub(pattern, 'enable_confirmations = false', text)
+          expiry = r'(?m)^jwt_expiry\s*=\s*\d+\s*$'
+          if not re.search(expiry, text):
+              raise SystemExit('Missing local JWT expiry configuration')
+          p.write_text(re.sub(expiry, 'jwt_expiry = 60', text))
           PY
           supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler
           supabase db reset --local
@@ -70,6 +76,7 @@ jobs:
           export MOSAIC_SB_LOCAL_URL="$VITE_SUPABASE_URL"
           export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
           export MOSAIC_CORE_APP_LAB=true
+          export MOSAIC_CORE_SHORT_JWT=true
           npm run build
           npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > "$RUNNER_TEMP/mosaic-core-vite.log" 2>&1 &
           for attempt in {1..40}; do

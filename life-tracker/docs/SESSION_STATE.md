@@ -1,27 +1,27 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1027 hosted Supabase core verification, accepted version 0.32.0.
+Current task: #1027 Supabase expired-session recovery, candidate v0.32.1.
 
-## Source and boundary
-- Baseline: `refactor/1027-supabase-core-app-20261020@052a4658b55e25bc5b34a416c923fe604f0a3339`, PR #1079. Canonical #39412036803, local Supabase lab #39412036661 and trusted Preview #39412277835 passed. Full evidence: #1027 comment 6289391812.
-- Task `codex/1027-supabase-hosted-20261020`, PR #1096 → `refactor/1027-supabase-hosted-20261020`. Version impact NONE: verification/tooling only.
-- No Production, real-user migration, dev/main promotion or 1.0. Ordinary Preview still selects Appwrite; hosted browser verification uses an explicit core-only build on loopback, not a deployed Supabase Preview.
+## Accepted baseline and scope
+- Accepted `refactor/1027-supabase-hosted-20261020@1bb2521cdde8c94d7880c4f893aecdcbae5a5cd9`, PR #1096. Canonical #39434937928, real local lab #39434939925 and trusted Preview #39435264359 passed. Full resume evidence: #1027 comment 6292548078.
+- Task `codex/1027-supabase-recovery-20261020` → intended stable `feature/1027-supabase-recovery-20261020`. PATCH from Supabase candidate 0.32.0 to 0.32.1. Main is 0.29.1; unrelated dev is 0.34.4. Future promotion needs integration/version reconciliation; none is authorized here.
+- No Production, real-user migration, dev/main promotion or 1.0. Keep #1027/#967 open; Diary #1029 follows core release.
 
-## Hosted implementation
-- Exact isolated target: healthy `mosaic-dev`, `hcxtiifzxoaflhjgoglb`. Environment token now permits database, keys, advisors and Auth policy readback (200 after user updated permissions). Email confirmation required; refresh rotation enabled, reuse interval 10 seconds, JWT expiry 3600 seconds. Leaked-password protection remains disabled; no Auth policy was changed.
-- Verified the seven-migration empty baseline before transactionally installing accepted protected-fields/fresh-authority SQL as `20261020130000` / `20261020130001`; exact stored statements matched source. Never rerun empty-project rollout or enroll existing users implicitly.
-- `supabase-poc/hosted-core.mjs` defaults to inspection. Explicit probes use signed disposable owners for RLS/CAS/session/epoch/lease denials. Cleanup tombstones rows, freezes authority and bans accounts, with readback. Admin keys are restricted to fixture Auth operations.
-- `hosted-core-ui.mjs` builds the actual app with the public key and runs the expanded browser contract. No management/admin credentials enter build/browser children. Runbook: `supabase-poc/HOSTED_CORE.md`.
+## Implementation
+- Expired access tokens previously failed Auth verification before refresh; writer shutdown also required the expired token to release its lease. New local pause cancels both RxDB writers first, retaining server authority. Rotation verifies the same owner, then releases the original lease and re-runs all startup guards.
+- Ambiguous refresh/release failure leaves sync paused, local drafts and credentials intact, with one retry per normal catch-up. Unconfirmed local cancellation prevents refresh/restart; definitive refresh denial clears credentials and blocks uncertain handoff. The UI retains the owner during transient outages; terminal blocked recovery requires reload/sign-in, preserving local rows.
+- Lease release is bound to its original owner. GoTrue's explicit HTTP 400 revoked/expired-refresh codes are distinguished from unclassified errors/outages. Manual sync retry uses the same recovery path.
+- Core lab now uses 60-second JWTs only in its disposable local Supabase stack. New browser test observes an actually expired, previously accepted server JWT while offline, aborts the first refresh, retries, and verifies pending completion reaches the server and a second device. Hosted Auth policy is unchanged.
 
-## Verification
-- Hosted `--ui` run `defe11f80a976cb7fa409fb5` PASSED, including retirement: four verified users, 25 denied writes, two CAS winners/two conflicts, five guard cases, five cleanup tombstones and four retired accounts, no live fixture rows. Browser test passed in 2.2 minutes: tasks/categories, Calendar/Day View, Backlogs, ordering, offline completion/deletion replay, second-device convergence and owner isolation.
-- Prior 15-second hosted category assertion timed out. Bounded 45-second hosted default passed with every assertion preserved; local limits unchanged. Failure diagnostics now include request method/path/status and redact disposable secrets.
-- Playwright proxy loopback uses its supported override. User explicitly approved the proxy CA import; Chromium also needs writable NSS initialization access. Hosted HTTPS verification stayed enabled.
-- After restart, exact interrupted cohort `ec9374be46eb9a23b5749ae4` was recovered; all preceding 22 fixture accounts were frozen/banned, zero live rows. Credential/recovery checkpoint: #1027 comment 6292342917.
-- Head `3c3f9b8e` passed focused #39430295855 and real local-stack lab #39430296005. Final tooling head `51fc6b32` passed hosted browser, four harness unit tests, lint/contracts/discovery; remote focused #39433888135 failed only the checkpoint's 3000-token handoff budget. This repair shortens the checkpoint; detailed history stays on #1027. PR #1096 is not yet merged.
+## Verification and environment
+- Local tests passed: 314 files / 2103 tests, plus 25 targeted runtime/Auth tests after the late-resync race guard. Changed-file lint, contracts/discovery and production build/PWA/blocking sizes passed. Actual expired-token acceptance is pending the new real-stack run; do not claim it from mocks.
+- Hosted baseline `--ui` run `defe11f80a976cb7fa409fb5` passed actual CRUD/order/offline/second-device/owner isolation plus signed security checks and fixture retirement. Runbook: `supabase-poc/HOSTED_CORE.md`.
+- Only Supabase target: `mosaic-dev` / `hcxtiifzxoaflhjgoglb`. Management and Auth-policy readback work. Email confirmation/refresh rotation enabled; leaked-password protection disabled. Existing guarded migrations are installed; never rerun empty-project rollout.
+- User confirms Scratch Appwrite `6a96e82d000d1310b3be` is suspended after free-tier exhaustion; no credentials/console until reset. Oracle VM/endpoint/project are not provisioned. Do not request unavailable Appwrite credentials repeatedly or substitute Production.
+- `VERCEL_TOKEN` is now ready; exact Mosaic project readback returned 200 (`prj_jysOLDbuO9c5rP8x6Q145DVIw0fc`, team `team_UbpudOr8jXyrDA5SdVUxVGOr`). Separate isolated Supabase Preview remains to be built/verified. Standard trusted Preview still selects Appwrite and cannot prove authenticated readiness while Scratch is suspended.
 
-## Next action and remaining gates
-- Finish repaired focused CI + local-stack lab, squash PR #1096 to its named stable branch, then canonical/trusted delivery. Record exact SHAs/runs in #1027; no status-only post-green commit.
-- Complete offline cold-start/expired-token/cross-tab recovery, conflict UI, existing-user Appwrite fencing, three-backend forward/reverse migration preserving pending edits/tombstones, encrypted DR, hosted Preview build-input parity and manual devices.
-- Vercel/Appwrite/Oracle management access is not established; inspect readiness before infrastructure work. Resolve leaked-password protection before release acceptance. Keep #1027/#967 open; Diary #1029 immediately follows the working core release.
+## Next action
+- Complete focused checks and real expiry lab, commit/checkpoint, squash to the named stable branch only after green, then canonical acceptance. Record remote outcomes in #1027; no status-only post-green commit.
+- Prepare a separately verified Supabase Preview using the available scoped Vercel access, preserving ordinary Preview/Production configuration and truthful build-provider evidence.
+- Remaining MVP: persistent offline cold-start/cross-tab recovery, conflict UI, old Appwrite writer fencing/identity mapping, reversible three-backend transfers preserving drafts/tombstones/revisions, encrypted restore and mobile acceptance. Live cross-provider tests await functioning Scratch and Oracle installations.

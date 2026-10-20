@@ -11,6 +11,7 @@
  */
 import {
   createCandidateAuthSession,
+  CandidateSessionDeniedError,
   type CandidateSessionPersistence,
 } from '../../supabase-poc/candidateAuthSession';
 import type { CandidateVerifiedSession } from '../../supabase-poc/candidateHttpTransport';
@@ -26,7 +27,7 @@ import {
 type SessionManager = ReturnType<typeof createCandidateAuthSession>;
 type CoreBootstrap = ReturnType<typeof createAppSupabaseCoreBootstrap>;
 type CoreRun = Awaited<ReturnType<CoreBootstrap['start']>>;
-type Phase = 'signed-out' | 'authenticating' | 'active' | 'stopping' | 'blocked';
+type Phase = 'signed-out' | 'authenticating' | 'active' | 'paused' | 'stopping' | 'blocked';
 
 export interface SupabaseCoreAuthOptions extends Omit<
   AppSupabaseCoreBootstrapOptions,
@@ -173,7 +174,7 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
     if (phase === 'blocked')
       throw new Error('Supabase core writer state is uncertain; cannot permit another provider');
     if (phase === 'signed-out') return session.signOut();
-    if (phase !== 'active' || !active)
+    if ((phase !== 'active' && phase !== 'paused') || !active)
       throw new Error('Supabase core account operation already in progress');
     phase = 'stopping';
     const established = active;
@@ -204,18 +205,39 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
    * A failed cancellation is never followed by token rotation/reacquisition.
    */
   async function refreshAndRestart() {
-    if (phase !== 'active' || !active)
+    if ((phase !== 'active' && phase !== 'paused') || !active)
       throw new Error('Supabase core refresh requires one active account');
     const previous = active;
     phase = 'stopping';
-    active = null;
-    try { await previous.run.stop(); }
+    try { await previous.run.pause(); }
     catch (error) {
+      active = null;
       phase = 'blocked';
       throw new Error('Supabase core writer stop unconfirmed; cannot refresh', { cause: error });
     }
+    let signed: CandidateVerifiedSession;
+    try {
+      signed = await session.refresh();
+      if (signed.userId !== previous.identity.supabaseUserId)
+        throw new CandidateSessionDeniedError();
+      // Rotation has independently verified this SAME owner. The original
+      // session's lease can now be released with a valid access token.
+      await previous.run.stop();
+    } catch (error) {
+      if (error instanceof CandidateSessionDeniedError) {
+        active = null;
+        phase = 'blocked'; // Remote lease release remains unconfirmed.
+        await clearLocalAuth();
+      } else {
+        // A network outage is not revocation. Both writers stay paused,
+        // credentials/local drafts remain available for a bounded retry.
+        phase = 'paused';
+      }
+      throw error;
+    }
+    active = null;
     phase = 'signed-out';
-    return startSigned(() => session.refresh());
+    return startSigned(async () => signed);
   }
 
   async function resync() {

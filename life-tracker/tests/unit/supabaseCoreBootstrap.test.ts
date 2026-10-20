@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createCandidateCoreRuntime: vi.fn(),
   start: vi.fn(),
   stop: vi.fn(async () => {}),
+  pause: vi.fn(async () => {}),
   ready: vi.fn(async () => {}),
   resync: vi.fn(async () => {}),
   conflicts: vi.fn(() => ({ tasks: [], categories: [] })),
@@ -30,6 +31,7 @@ const run = {
   resync: mocks.resync,
   getPendingConflicts: mocks.conflicts,
   stop: mocks.stop,
+  pause: mocks.pause,
 };
 
 function fixture() {
@@ -63,6 +65,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.waitForDatabaseReady.mockResolvedValue(undefined);
   mocks.stop.mockResolvedValue(undefined);
+  mocks.pause.mockResolvedValue(undefined);
   mocks.start.mockResolvedValue(run);
   mocks.createCandidateCoreRuntime.mockReturnValue({ start: mocks.start });
 });
@@ -174,11 +177,26 @@ describe('app-owned Supabase core RxDB bridge (#1027)', () => {
   it('never restarts after a failed stop, and invalidates previously returned handles', async () => {
     const f = fixture();
     const active = await f.controller.start();
-    mocks.stop.mockRejectedValueOnce(Error('RxDB stop unconfirmed'));
+    mocks.pause.mockRejectedValueOnce(Error('RxDB stop unconfirmed'));
     await expect(active.stop()).rejects.toThrow('RxDB stop unconfirmed');
     expect(f.controller.getPhase()).toBe('blocked');
     await expect(active.resync()).rejects.toThrow('no longer owns');
     await expect(f.controller.start()).rejects.toThrow('already running or blocked');
+  });
+
+  it('retains paused ownership across an ambiguous lease-release failure', async () => {
+    const f = fixture();
+    const active = await f.controller.start();
+    await active.pause();
+    expect(mocks.stop).not.toHaveBeenCalled();
+    await expect(active.resync()).rejects.toThrow('no longer owns');
+    await expect(f.controller.start()).rejects.toThrow('already running');
+    mocks.stop.mockRejectedValueOnce(Error('release network outage'));
+    await expect(active.stop()).rejects.toThrow('network outage');
+    expect(f.controller.getPhase()).toBe('paused');
+    await active.stop();
+    expect(mocks.pause).toHaveBeenCalledOnce();
+    expect(f.controller.getPhase()).toBe('idle');
   });
 
   it('releases an established candidate if authentication changes immediately after start', async () => {

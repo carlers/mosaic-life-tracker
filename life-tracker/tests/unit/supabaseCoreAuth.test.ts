@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseCoreAuthCoordinator } from '../../src/lib/supabaseCoreAuth';
+import { CandidateSessionDeniedError } from '../../supabase-poc/candidateAuthSession';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
@@ -25,6 +26,7 @@ function fixture() {
     resync: vi.fn(async () => {}),
     getPendingConflicts: vi.fn(() => ({ tasks: [], categories: [] })),
     stop: vi.fn(async () => { phase = 'idle'; }),
+    pause: vi.fn(async () => {}),
   };
   const bridge = {
     start: vi.fn(async () => { phase = 'active'; return run; }),
@@ -196,6 +198,8 @@ describe('app-owned signed Supabase core Auth+RxDB lifecycle (#1027)', () => {
     await f.coordinator.signIn('owner@example.test', 'pass');
     expect(await f.coordinator.refreshAndRestart()).toEqual(f.identity);
     expect(f.run.stop).toHaveBeenCalledOnce();
+    expect(f.run.pause.mock.invocationCallOrder[0]).toBeLessThan(f.session.refresh.mock.invocationCallOrder[0]);
+    expect(f.session.refresh.mock.invocationCallOrder[0]).toBeLessThan(f.run.stop.mock.invocationCallOrder[0]);
     expect(f.session.refresh).toHaveBeenCalledOnce();
     expect(f.resolveIdentity).toHaveBeenCalledTimes(2);
     expect(mocks.bootstrap).toHaveBeenCalledTimes(2);
@@ -205,10 +209,48 @@ describe('app-owned signed Supabase core Auth+RxDB lifecycle (#1027)', () => {
   it('does not refresh or reacquire if the previous replication cannot stop', async () => {
     const f = fixture();
     await f.coordinator.signIn('owner@example.test', 'pass');
-    f.run.stop.mockRejectedValueOnce(Error('unconfirmed stop'));
+    f.run.pause.mockRejectedValueOnce(Error('unconfirmed stop'));
     await expect(f.coordinator.refreshAndRestart()).rejects.toThrow('cannot refresh');
     expect(f.session.refresh).not.toHaveBeenCalled();
     expect(f.coordinator.getPhase()).toBe('blocked');
+  });
+
+  it('keeps credentials and paused drafts through an outage, then re-verifies and restarts', async () => {
+    const f = fixture();
+    await f.coordinator.signIn('owner@example.test', 'pass');
+    f.session.refresh.mockRejectedValueOnce(Error('temporary outage'));
+    await expect(f.coordinator.refreshAndRestart()).rejects.toThrow('outage');
+    expect(f.coordinator.getPhase()).toBe('paused');
+    expect(f.session.signOut).not.toHaveBeenCalled();
+    expect(f.run.stop).not.toHaveBeenCalled();
+    await expect(f.coordinator.resync()).rejects.toThrow('not authenticated and active');
+    await expect(f.coordinator.signIn('another@example.test', 'pass')).rejects.toThrow('busy or blocked');
+    expect(await f.coordinator.refreshAndRestart()).toEqual(f.identity);
+    expect(f.coordinator.getPhase()).toBe('active');
+    expect(f.resolveIdentity).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not start replacement writers until a retained lease release succeeds', async () => {
+    const f = fixture();
+    await f.coordinator.signIn('owner@example.test', 'pass');
+    f.run.stop.mockRejectedValueOnce(Error('release response lost'));
+    await expect(f.coordinator.refreshAndRestart()).rejects.toThrow('response lost');
+    expect(f.coordinator.getPhase()).toBe('paused');
+    expect(mocks.bootstrap).toHaveBeenCalledOnce();
+    expect(f.session.signOut).not.toHaveBeenCalled();
+    await f.coordinator.refreshAndRestart();
+    expect(mocks.bootstrap).toHaveBeenCalledTimes(2);
+  });
+
+  it('discards rejected refresh credentials and blocks uncertain remote handoff', async () => {
+    const f = fixture();
+    await f.coordinator.signIn('owner@example.test', 'pass');
+    f.session.refresh.mockRejectedValueOnce(new CandidateSessionDeniedError());
+    await expect(f.coordinator.refreshAndRestart()).rejects.toThrow('rejected');
+    expect(f.session.signOut).toHaveBeenCalledOnce();
+    expect(f.coordinator.getPhase()).toBe('blocked');
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+    expect(mocks.bootstrap).toHaveBeenCalledOnce();
   });
 
   it('rejects invalid provider/profile and missing required server or local safeguards', () => {
