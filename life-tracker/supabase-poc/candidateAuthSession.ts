@@ -156,7 +156,12 @@ export function createCandidateAuthSession(options: {
       throw new CandidateSessionDeniedError();
     if (response.status === 400 && path === '/auth/v1/token?grant_type=refresh_token') {
       let code: unknown;
-      try { code = (await response.json() as { code?: unknown }).code; } catch { /* ambiguous error */ }
+      try {
+        const body = await response.json() as { code?: unknown; error_code?: unknown };
+        // GoTrue's HTTP API uses numeric `code` plus string `error_code`;
+        // some compatible responses expose the symbolic value as `code`.
+        code = body.error_code ?? body.code;
+      } catch { /* ambiguous error */ }
       if (['refresh_token_not_found', 'refresh_token_already_used', 'session_not_found', 'session_expired']
         .includes(String(code))) throw new CandidateSessionDeniedError();
     }

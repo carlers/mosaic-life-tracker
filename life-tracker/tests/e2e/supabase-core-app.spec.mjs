@@ -258,8 +258,15 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const secondContext = await browser.newContext({ ignoreHTTPSErrors: true });
   let oldToken;
+  const browserTokens = [];
   try {
     const page = await context.newPage();
+    page.on('response', async response => {
+      if (response.url().startsWith(url + '/auth/v1/token?') && response.status() === 200) {
+        const tokens = await response.json().catch(() => null);
+        if (typeof tokens?.access_token === 'string') browserTokens.push(tokens.access_token);
+      }
+    });
     const login = page.waitForResponse(response =>
       response.url() === url + '/auth/v1/token?grant_type=password' && response.status() === 200);
     await signIn(page, owner);
@@ -285,8 +292,20 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
     expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
     // Actual server time and a previously accepted signed JWT. No fake clock,
     // synthetic JWT or altered global hosted Auth policy.
-    await expect.poll(async () => (await api('/auth/v1/user', oldToken)).status,
-      { timeout: 90_000, intervals: [1000, 5000] }).toBe(401);
+    await expect.poll(async () => {
+      // Include any proactive rotation issued before the tab went offline;
+      // proving only the original password grant expired would be weaker.
+      const expired = await Promise.all([...new Set([oldToken, ...browserTokens])]
+        .map(async token => {
+          const response = await api('/auth/v1/user', token);
+          if (![401, 403].includes(response.status)) return false;
+          const body = await response.json();
+          // GoTrue versions differ on status. Require explicit server expiry,
+          // not merely any rejected request or a client-decoded exp timestamp.
+          return /\bexpired\b/i.test(String(body.msg ?? body.message ?? ''));
+        }));
+      return expired.every(Boolean);
+    }, { timeout: 90_000, intervals: [1000, 5000] }).toBe(true);
     const observer = await api('/auth/v1/token?grant_type=password', null,
       { email: owner.email, password: owner.password });
     expect(observer.ok).toBe(true);
@@ -319,7 +338,7 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
     await expect(second.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
     await expect(second.getByText('Preserved offline edit', { exact: true }).first()).toBeVisible();
   } catch (error) {
-    const redacted = [owner.password, owner.token, oldToken].reduce((text, secret) =>
+    const redacted = [owner.password, owner.token, oldToken, ...browserTokens].reduce((text, secret) =>
       secret ? text.replaceAll(secret, '[redacted]') : text, String(error));
     throw new Error(redacted);
   } finally {

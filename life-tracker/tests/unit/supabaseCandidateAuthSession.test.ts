@@ -174,11 +174,12 @@ describe('candidate Supabase session lifecycle (#1027)', () => {
     expect(await offline.session.getSessionSnapshot()).toEqual(before);
   });
 
-  it.each(['refresh_token_not_found', 'refresh_token_already_used', 'session_not_found', 'session_expired'])(
-    'recognizes GoTrue HTTP 400 %s as definitive refresh rejection', async code => {
+  it.each(['refresh_token_not_found', 'refresh_token_already_used', 'session_not_found', 'session_expired']
+    .flatMap(code => [{ code }, { code: 400, error_code: code }]))(
+    'recognizes GoTrue HTTP 400 %j as definitive refresh rejection', async body => {
       const f = authFixture();
       await f.session.signIn('a@example.org', 'password');
-      f.fetcher.mockImplementationOnce(async () => reply({ code }, 400));
+      f.fetcher.mockImplementationOnce(async () => reply(body, 400));
       await expect(f.session.refresh()).rejects.toThrow('rejected by the server');
       expect(await f.session.getSessionSnapshot()).toBeNull();
     },
@@ -188,7 +189,7 @@ describe('candidate Supabase session lifecycle (#1027)', () => {
     const f = authFixture();
     await f.session.signIn('a@example.org', 'password');
     const before = await f.session.getSessionSnapshot();
-    f.fetcher.mockImplementationOnce(async () => reply({ code: 'unexpected_service_failure' }, 400));
+    f.fetcher.mockImplementationOnce(async () => reply({ code: 400, error_code: 'unexpected_service_failure' }, 400));
     await expect(f.session.refresh()).rejects.toThrow('request denied');
     expect(await f.session.getSessionSnapshot()).toEqual(before);
   });

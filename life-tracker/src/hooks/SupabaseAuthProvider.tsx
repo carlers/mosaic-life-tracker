@@ -65,6 +65,10 @@ export default function SupabaseAuthProvider({ config, children }: {
         if (runtime.coordinator.getPhase() === 'paused' ||
             (runtime.session.getExpiresAt() ?? 0) - Date.now() < 120_000) {
           await runtime.coordinator.refreshAndRestart();
+          if (!mounted.current) {
+            await runtime.coordinator.signOut();
+            return;
+          }
           if (active) setSyncGeneration(generation => generation + 1);
         }
         if (!await runtime.session.getVerifiedSession()) {

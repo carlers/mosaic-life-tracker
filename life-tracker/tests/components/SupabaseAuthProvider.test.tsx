@@ -58,6 +58,26 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Supabase app AuthContext lifecycle', () => {
+  it('stops a refreshed writer if the provider unmounts while recovery is in flight', async () => {
+    const view = render(<SupabaseAuthProvider config={config}><Consumer /></SupabaseAuthProvider>);
+    fireEvent.click(screen.getByText('Sign in'));
+    await screen.findByText('canonical_owner');
+    mock.expiresAt.mockReturnValue(Date.now() - 1);
+    mock.getPhase.mockReturnValue('active');
+    let finish!: () => void;
+    mock.refreshAndRestart.mockImplementationOnce(() => {
+      mock.getPhase.mockReturnValue('stopping');
+      return new Promise<void>(resolve => { finish = resolve; });
+    });
+    act(() => window.dispatchEvent(new Event('online')));
+    await waitFor(() => expect(mock.refreshAndRestart).toHaveBeenCalledOnce());
+    view.unmount();
+    mock.getPhase.mockReturnValue('active');
+    finish();
+    await waitFor(() => expect(mock.signOut).toHaveBeenCalledOnce());
+    expect(mock.resync).not.toHaveBeenCalled();
+  });
+
   it('refreshes expired access before verification and retains the owner through a transient outage', async () => {
     render(<SupabaseAuthProvider config={config}><Consumer /></SupabaseAuthProvider>);
     fireEvent.click(screen.getByText('Sign in'));
