@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current issue: #856 — mobile held-task drag stability, remove cross-day indicators.
+Current task: #856 — mobile held-task drag stability, remove cross-day indicators.
 
 ## Evidence and constraints
 - Owner accepted laptop v0.34.3 but reported on phone: dragged task slips away from finger during day slides, Day View sometimes jumps several days unexpectedly.
