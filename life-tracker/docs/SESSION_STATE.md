@@ -17,6 +17,6 @@ Current task: #1126 — Reusable Mosaic Select and app-wide dropdown migration.
 
 ## Verification and handoff
 - Source edits are assembled through GitHub Git objects; local checkout and local test runner are unavailable in this chat runtime.
-- Focused run #39462200518 for task SHA 969f1e34 completed FAILURE: 2 stale SharedTaskRows tests expected a native select name; 295 other test files passed. Repair updates those tests, deduplicates popup options and improves Tab/typeahead keyboard ownership. Next publish a coherent repair commit with [verify:focused] and rerun focused verification.
+- Focused run #39462200518 for task SHA 969f1e34 completed FAILURE: 2 stale SharedTaskRows tests expected a native select name; 295 other test files passed. Repair updates those tests, deduplicates popup options and improves Tab/typeahead keyboard ownership. Second focused run #39462955525 exposed an isolated Tab-next-field regression in the new select DOM test; 163 other tests passed in its focused subset. The repair uses explicit DOM attributes for native tab stops rather than relying on Happy DOM's tabIndex property. Publish next [verify:focused] candidate, then run stable Preview full gate.
 - Then squash into stable Preview branch for canonical CI + Scratch Vercel acceptance. Real Android/iOS device visual/interaction checks remain manual.
 - Do not claim user acceptance or release based solely on automated CI.

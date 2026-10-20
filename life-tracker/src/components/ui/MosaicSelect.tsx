@@ -147,8 +147,10 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
       const trigger = triggerRef.current;
       const scope = trigger?.closest<HTMLElement>('[role="dialog"]') ?? document.body;
       const focusable = Array.from(scope.querySelectorAll<HTMLElement>(
-        'a[href], button, input, select, textarea, [tabindex]'
-      )).filter(element => element.tabIndex >= 0 && !element.closest('[aria-hidden="true"]'));
+        'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]'
+      )).filter(element => !element.hasAttribute('disabled') &&
+        element.getAttribute('tabindex') !== '-1' &&
+        !element.closest('[aria-hidden="true"]'));
       const currentIndex = trigger ? focusable.indexOf(trigger) : -1;
       const target = focusable[currentIndex + (event.shiftKey ? -1 : 1)] ?? trigger;
       close();
