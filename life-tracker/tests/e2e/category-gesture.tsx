@@ -11,7 +11,7 @@ const original: CategoryDocument[] = ['Work', 'Home', 'Personal'].map((name, ord
   updatedAt: '2026-10-01T00:00:00.000Z',
 }));
 
-function CategoryGestureProbe() {
+export function CategoryGestureProbe() {
   const [categories, setCategories] = useState(original);
   const [dragActive, setDragActive] = useState(false);
   return (

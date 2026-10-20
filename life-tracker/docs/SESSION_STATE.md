@@ -15,5 +15,6 @@ Current task: #859 cross-device category long-press and drag gesture repair.
 - DOM tests verify original pointerdown handed to Motion, stationary holds on desktop/touch, mouse-plus hold, touch cancellation, short taps and click suppression.
 - Added isolated Playwright browser fixture and Chromium interaction contract using **real** Framer Motion Reorder/CategorySection: after a stationary hold, mouse or emulated touch moves a live category drag, with the Edit bubble dismissed. Physical WebKit/Android acceptance still belongs to the owner.
 
-## Next
-- Commit coherent task with `[verify:focused]`, verify CI, squash to stable feature branch, get canonical QA and trusted Vercel READY exact SHA, report new Preview URL for device retest. Do not promote to dev/main.
+## Verification and next
+- Initial task focused Quality Gate #39371356515: SUCCESS. Added real browser probe in task follow-up #39371716370: both browser shards SUCCESS (32/32 each), explicitly including mouse and touch category gesture tests; focused check failed only because new fixture needed a named component export for react-refresh. Correcting the fixture export without changing behavior.
+- Run focused check on the final task commit; after green, squash to stable Preview, verify exact-SHA full canonical QA and trusted Vercel READY; give owner new URL for manual iOS/Android/desktop retest. Do not promote to dev/main.
