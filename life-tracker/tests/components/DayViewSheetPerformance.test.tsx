@@ -254,6 +254,20 @@ describe('DayViewSheet mount scheduling', () => {
     await waitFor(() => expect(help).toHaveFocus());
   });
 
+  it('S focuses the active day Select button without toggling selection, even from a task category', async () => {
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    const category = document.querySelector<HTMLElement>(
+      '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]'
+    );
+    await waitFor(() => expect(category).toHaveFocus());
+    fireEvent.keyDown(category!, { key: 's' });
+    const select = screen.getByRole('button', { name: 'Select tasks' });
+    expect(select).toHaveFocus();
+    expect(select).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(select);
+    expect(screen.getByRole('button', { name: 'Exit selection mode' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('shows the same help in Backlog without suggesting date navigation', () => {
     render(<DayViewSheet isOpen renderMode="backlog" onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
     fireEvent.click(screen.getByRole('button', { name: 'Show keyboard shortcuts' }));
