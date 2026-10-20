@@ -21,3 +21,9 @@ Current task: #953 — Independently customizable UI colors, including holidays.
 ## Verification and next
 - GitHub-only environment has no local project checkout/network; local TypeScript, lint, unit, DOM, browser and physical-device checks are not performed.
 - Next: coherent `[verify:focused]` task commit; inspect exact-SHA CI, fix issues, then squash PR into named stable Preview. Confirm canonical CI + trusted Vercel READY and submit Preview for acceptance. Do not promote without explicit approval.
+
+## Stable Preview candidate and contrast repair
+- Task commit `be433f3f8ff0cb31fcaf64ae2aa58be0a086e110` focused Quality Gate [39418348956](https://github.com/carlers/mosaic-life-tracker/actions/runs/39418348956) SUCCESS.
+- PR #1090 squash-merged task into `feature/ui-custom-colors-953-20261020@3f3b61b802fc6095a14b012c971d4424895ea555`. Canonical Quality Gate [39418567091](https://github.com/carlers/mosaic-life-tracker/actions/runs/39418567091) SUCCESS including build, checks, DOM and browser shards. Exact Vercel Preview not yet independently verified.
+- Additional static contrast audit found `opacity:0.74` on custom-nav inactive labels reduces some palette choices below WCAG 4.5:1, and holiday text validated against an untinted base may lose contrast on its 15% tinted label background.
+- Isolated `chatgpt/953-contrast-repair-20261020` from accepted stable `3f3b61b` to repair both. Keep v0.34.0 (first user-testable stable candidate not yet delivered/accepted), request focused CI, squash into existing stable Preview, rerun canonical and Vercel. No dev/main merge.

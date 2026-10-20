@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import { getAllAccentColors, getContrastRatio } from '../../src/constants/colors';
 import {
   UI_COLOR_ROLES, applyUiColors, cacheUiColors, defaultUiColors,
-  readCachedUiColors, resolveUiColorChoice, uiColorSettingKey,
+  getHolidayLabelTextColors, readCachedUiColors, resolveUiColorChoice, uiColorSettingKey,
 } from '../../src/lib/uiColors';
 
 describe('independent UI color roles', () => {
@@ -56,6 +57,20 @@ describe('independent UI color roles', () => {
     expect(root.style.getPropertyValue('--mosaic-ui-holidays')).toBe('');
     expect(root.style.getPropertyValue('--mosaic-ui-nav-active-dark')).toBe('');
     expect(root.style.getPropertyValue('--mosaic-accent')).toBe('#10B981');
+  });
+
+  it('preserves accessible holiday text after tinted label backgrounds composite', () => {
+    const tint = (base: string, color: string): string =>
+      '#' + [1, 3, 5].map(offset => {
+        const start = Number.parseInt(base.slice(offset, offset + 2), 16);
+        const end = Number.parseInt(color.slice(offset, offset + 2), 16);
+        return Math.round(start * 0.85 + end * 0.15).toString(16).padStart(2, '0');
+      }).join('');
+    for (const color of getAllAccentColors()) {
+      const foregrounds = getHolidayLabelTextColors(color);
+      expect(getContrastRatio(foregrounds.dark, tint('#1E1E1E', color))).toBeGreaterThanOrEqual(4.5);
+      expect(getContrastRatio(foregrounds.light, tint('#F7F7F8', color))).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it('ignores unavailable persistence', () => {

@@ -76,6 +76,24 @@ function readableAccentOn(color: string, background: string): string {
   return target;
 }
 
+/** Resolve label text against the actual 15%-tinted surface, not bare app chrome. */
+function tintBackground(base: string, accent: string, opacity: number): string {
+  const channel = (hex: string, offset: number) => Number.parseInt(hex.slice(offset, offset + 2), 16);
+  return '#' + [1, 3, 5].map(offset =>
+    Math.round(channel(base, offset) * (1 - opacity) + channel(accent, offset) * opacity)
+      .toString(16).padStart(2, '0')
+  ).join('').toUpperCase();
+}
+
+export function getHolidayLabelTextColors(value: string): { dark: string; light: string } {
+  const color = normalizeAccentColor(value);
+  // Choose conservative surfaces for all three themes: Dark/Black and Light.
+  return {
+    dark: readableAccentOn(color, tintBackground('#1E1E1E', color, 0.15)),
+    light: readableAccentOn(color, tintBackground('#F7F7F8', color, 0.15)),
+  };
+}
+
 export function applyUiColors(
   values: UiColorChoices,
   appAccent: string = DEFAULT_ACCENT_COLOR,
@@ -109,6 +127,11 @@ export function applyUiColors(
     root.style.setProperty(`${prefix}-border-light`, tokens.borderLight);
     root.style.setProperty(`${prefix}-ring-dark`, tokens.ringDark);
     root.style.setProperty(`${prefix}-ring-light`, tokens.ringLight);
+    if (role === 'holidays') {
+      const { dark, light } = getHolidayLabelTextColors(tokens.base);
+      root.style.setProperty(`${prefix}-text-dark`, dark);
+      root.style.setProperty(`${prefix}-text-light`, light);
+    }
   }
   // Active navigation text is legible on both default palettes or the user's custom bar.
   const selected = resolved.navigationActive;

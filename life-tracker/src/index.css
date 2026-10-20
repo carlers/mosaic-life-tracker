@@ -365,8 +365,12 @@ html[data-ui-navigationBar='true'] .mosaic-navigation-bar {
   color: var(--mosaic-ui-navigationBar-foreground) !important;
 }
 html[data-ui-navigationBar='true'] .mosaic-navigation-bar .mosaic-navigation-inactive {
+  /* Avoid alpha-compositing readable labels below 4.5:1 on saturated palettes. */
   color: var(--mosaic-ui-navigationBar-foreground) !important;
-  opacity: 0.74;
+  opacity: 1;
+}
+html[data-ui-navigationBar='true'] .mosaic-navigation-bar .mosaic-navigation-active {
+  font-weight: 700;
 }
 html[data-ui-navigationBar='true']:not([data-ui-navigationActive='true']) .mosaic-navigation-bar .mosaic-navigation-active {
   color: var(--mosaic-ui-navigationBar-foreground) !important;
