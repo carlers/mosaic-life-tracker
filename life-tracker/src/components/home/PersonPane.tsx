@@ -19,6 +19,7 @@ import {
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  CALENDAR_PINCH_ZOOM_SETTING_KEY,
   STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
   resolveCalendarZoomDays,
   resolveIncompleteTaskBlockColorMode,
@@ -67,11 +68,12 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const ownedSharedTaskIds = useMemo(
     () => new Set(ownedShares.map(share => share.taskId)), [ownedShares]
   );
-  const { getSetting } = useSettings();
+  const { getSetting, setSetting } = useSettings();
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
+  const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
@@ -166,6 +168,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           categoriesMap={categoriesMap}
           variant="me"
           zoomPreference={calendarZoomDays}
+          pinchGestureEnabled={calendarPinchZoom}
+          onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
           stickyWeekdayHeader={stickyWeekdayHeader}
           activeIndex={calendarState.activeIndex}
           isZoomTransitioning={calendarState.isZoomTransitioning}

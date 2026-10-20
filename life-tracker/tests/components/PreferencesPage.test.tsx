@@ -105,6 +105,10 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('calendarZoomDays', 3);
     fireEvent.change(zoom, { target: { value: '4' } });
     expect(mocks.setSetting).toHaveBeenCalledWith('calendarZoomDays', 4);
+    const pinch = screen.getByRole('switch', { name: 'Pinch to change visible days' });
+    expect(pinch).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(pinch);
+    expect(mocks.setSetting).toHaveBeenCalledWith('calendarPinchZoom', true);
     const sticky = screen.getByRole('switch', { name: 'Keep weekday header visible' });
     expect(sticky).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(sticky);
@@ -154,6 +158,15 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('showHolidays', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayRegion', 'PH');
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
+  });
+
+  it('keeps pinch gestures opt-in even for malformed settings values', () => {
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'calendarPinchZoom' ? 'true' : defaultValue
+    );
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    expect(screen.getByRole('switch', { name: 'Pinch to change visible days' }))
+      .toHaveAttribute('aria-checked', 'false');
   });
 
   it('defaults to confirming task deletion and persists explicit opt-out or opt-in', () => {
