@@ -17,5 +17,5 @@ Current task: #859 integrate owner-accepted mobile category hold/drag v0.31.6 on
 - No backend, auth config, Scratch mutation, Production, main, feature flags, or unrelated files touched.
 
 ## Verification and next
-- Task-focused verification pending on coherent `[verify:focused]` task commit.
+- First focused run #39400446317 rejected only the generated COMPONENT_INDEX ordering, with no app code checks executed; repaired index to generator's sorted inventory convention. Final focused task verification pending on repair commit.
 - After green, squash into stable integration Preview, require exact SHA full canonical acceptance, trusted Vercel READY with Scratch environment. Run read-only build-feature parity, promotion PR preflight, and device/owner reacceptance of new integrated tree before merging to dev. Do not promote an unaccepted integration tree silently. Keep issue #859 open until dev promotion accepted, main untouched.
