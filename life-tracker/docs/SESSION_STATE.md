@@ -1,20 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #859 cross-device category long-press and drag gesture repair.
+Current task: #859 Day View category gesture — mobile text selection / drag recovery.
 
-## Scope and baseline
-- Stable Preview `feature/dayview-category-gesture-859-20261020@eb4e8631f1b2604f990f2bf74658ed76eb202842` (v0.31.1) is READY, but mobile hold-then-drag and desktop long-press Edit failed owner acceptance.
-- Repair `chatgpt/859-crossdevice-hold-drag-20261020`; candidate v0.31.5 (next available PATCH after concurrent dev v0.31.4; avoid recycling v0.31.2–0.31.4 assigned by other features).
-- No backend, migration, service configuration, deployment alias, dev/main or Production changes. Issue remains open pending real-device acceptance.
+## Baseline and scope
+- Stable Preview `feature/dayview-category-gesture-859-20261020@cccd708a44c74f913fbacef2254ea64bdae83cc3` (v0.31.5) passed Chromium mouse/touch drag contract; owner reports on actual phone stationary hold opens Edit but drag does NOT start, and holding selects category text.
+- Scoped task `chatgpt/859-mobile-native-selection-20261020`, candidate PATCH v0.31.6, not dev/main. No backend or Scratch mutations. User has not approved promotion.
+- Development branch remains on issue #859 stable Preview lineage, not unrelated concurrent dev work.
 
-## Root cause and correction
-- Touch category drag used `controls.start(pointermove)` after hold, even though Motion PanSession expects `pointerdown` to attach listeners; mobile could open Edit but not drag.
-- Desktop label created a drag session without arming a hold timer, so a stationary mouse hold could not open Edit.
-- Unified hold recognition across mouse, pen and touch: a stationary 500 ms press on the full pill opens contextual Edit; label mouse/pen starts a Motion session from original pointerdown immediately (actual drag only after movement); touch label registers that same original pointerdown at the hold threshold so continued movement starts drag. Motion onDragStart hides Edit and cancels hold listener. Plus/padding can open Edit without dragging. Pre-hold movement cancels long-press, preserving ordinary scrolling, short tap-add and selection behavior.
-- DOM tests verify original pointerdown handed to Motion, stationary holds on desktop/touch, mouse-plus hold, touch cancellation, short taps and click suppression.
-- Added isolated Playwright browser fixture and Chromium interaction contract using **real** Framer Motion Reorder/CategorySection: after a stationary hold, mouse or emulated touch moves a live category drag, with the Edit bubble dismissed. Physical WebKit/Android acceptance still belongs to the owner.
+## Root cause evidence and changes
+- Category pill and label did not explicitly disable mobile text selection or WebKit long-press callouts (only touch-action:none on label), so native selection could steal the long-press pointer session.
+- Motion touch session was previously started from the retained original pointerdown after a 500 ms timeout. Chromium emulation accepted this, but real browsers can cancel/select that pointer before the timer. On both mouse and touch, register Motion drag controls **synchronously on the original live pointerdown**, using 8 px distance threshold.
+- Before hold completes, a touch move >= threshold first calls controls.cancel() (skipping onDragEnd, preventing unwanted persistence), then cancels the hold timer; pointer-up also cancels an unstarted touch session. After hold, actual drag-start cancels the hold listener and hides Edit. Preserve mouse drag, stationary-hold Edit, options keyboard path, normal tap-add, task drag and owner/read-only/selection restrictions.
+- Scope native selection prevention to interactive category pill and label (CSS user-select and WebkitUserSelect: none, WebkitTouchCallout: none). Avoid globally disabling text selection or affecting inline inputs.
+- DOM and real-browser regressions test immediate touch session arming, cancellation before hold, continued hold-to-drag, synthetic click suppression, and non-selectability of category text.
+- Real physical Android/iOS acceptance remains essential because Chromium touch emulation previously passed while phone failed.
 
-## Verification and next
-- Initial task focused Quality Gate #39371356515: SUCCESS. Added real browser probe in task follow-up #39371716370: both browser shards SUCCESS (32/32 each), explicitly including mouse and touch category gesture tests; focused check failed only because new fixture needed a named component export for react-refresh. Correcting the fixture export without changing behavior.
-- Run focused check on the final task commit; after green, squash to stable Preview, verify exact-SHA full canonical QA and trusted Vercel READY; give owner new URL for manual iOS/Android/desktop retest. Do not promote to dev/main.
+## Next
+- Batch this into one coherent `[verify:browser]` task checkpoint, confirm browser and focused CI, repair any failures; squash to existing stable Preview and verify canonical checks plus protected Vercel Preview READY. Share exact URL, keep issue OPEN until owner phone/manual acceptance. No dev/main/Production promotion.
