@@ -1,23 +1,25 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: Integrate owner-approved #1033 Select-mode completion guard onto latest dev.
+Current task: Promote owner-accepted optional task-delete confirmation (#1034) onto current dev.
 
 ## Boundary
-- Source owner-approved stable Preview: `fix/select-mode-checkbox-1033-20261020@096b48a17e156f99ab85591345ed043d13c6621b` (v0.29.14). Canonical CI #39290228245 SUCCESS; trusted delivery #39290494053 READY; owner acceptance and explicit dev promotion approval recorded.
-- Protected dev baseline: `ec1cb4db12fed5d23a8cb3ae6d1c5c923370e201` (v0.31.2), which already contains category manager reverse and inline editing, plus sticky weekday Calendar headers. Do not overwrite these newer changes.
-- Integration task branch: `chatgpt/1033-checkbox-current-dev-20261020`. Stable integrated Preview: `fix/1033-checkbox-current-dev-20261020`, v0.31.3 (avoids version regression).
-- Scope: Frontend task selection fix, its DOM tests, reference contract and synchronized version; no backend/schema/security/provider change, no main/Production authorization.
+- User approval: owner tested v0.30.2 and explicitly requested merge to `dev` on 2026-10-20.
+- Original accepted stable Preview: `feature/task-delete-confirmation-1034@bfaeb39347ff686f381374b846356b61cb8da85d` (v0.30.2); canonical CI [39297778715] SUCCESS and trusted prebuilt Preview [39298099497] READY.
+- New protected dev baseline: `9cc215d1621ee75b0585ee0a457916e1797f3435` (v0.31.3). It includes category inline editing/reversal, sticky Calendar weekday headers, and Select-mode checkbox suppression. Never overwrite these accepted changes.
+- Task: `chatgpt/1034-delete-confirm-current-dev-20261020`; expected integrated stable Preview `feature/1034-delete-confirm-current-dev-20261020`; next available version v0.31.4 (must avoid version regression/collision).
+- Scope: Individual delete confirmation toggle defaults on, can be disabled per signed-in user. Select-mode bulk deletion **always** asks for confirmation, regardless of toggle. Applies to Day View and Backlog. No backend, schema, account, photo, provider or Production changes.
 
-## Changes
-- Apply exactly the accepted Select-mode completion guard to the current dev `TaskItem.tsx`: completion control is aria-disabled and inert, nested keydown stays isolated; row/title selection unaffected.
-- Apply accepted `TaskItemGestures.test.tsx` regression: completed and incomplete tasks in select mode cannot toggle completion or accidental selection; ordinary toggle restored outside select mode.
-- Update `PROJECT_REFERENCE.md` §2 selection completion contract on current dev; preserve unrelated sections.
-- Version three source-of-truth files consistently from 0.31.2 to 0.31.3.
+## Integration changes
+- Apply previously accepted v0.30.2 behavior and component DOM regressions onto latest dev, preserving unrelated current dev files and user-facing settings.
+- `src/lib/preferences.ts`: `confirmTaskDelete` setting; only exact false opts out.
+- `src/pages/PreferencesPage.tsx`: `Confirm individual task deletion` Tasks switch.
+- `src/components/home/views/DayViewSheet.tsx`: optional single-task confirmation, mandatory bulk confirmation, delete error/partial failure feedback, in-flight guards.
+- `tests/components/PreferencesPage.test.tsx` and `DayViewSheetRegression.test.tsx`: accepted behavior tests.
+- Set version across package.json/package-lock.json/src/lib/appVersion.ts to 0.31.4.
 
-## Verification
-- Prior accepted source verified: focused CI #39289771779, canonical #39290228245, trusted Delivery #39290494053 SUCCESS (old baseline only).
-- This integrated tree is **not yet verified**. Requires task focused CI, stable Preview full canonical gate and trusted delivery; verify live dev head, exact tree and version before promotion.
-
-## Next action
-- Create coherent `[verify:focused]` task commit, squash to integrated stable Preview only after green, verify canonical acceptance and trusted delivery, then create and merge a two-parent promotion PR into dev on the current first-parent baseline with exact-tree/CI evidence. Never promote to main or Production.
+## Verification and delivery
+- No focused CI, integrated canonical CI, or integrated Vercel deployment asserted yet.
+- Existing previous Preview evidence is not evidence for this new integrated tree.
+- Next: one coherent task `[verify:focused]` commit; after passing, squash into new stable Preview, verify full canonical acceptance and trusted Preview READY, then conduct exact-tree protected merge PR into current `dev` under explicit owner approval.
+- Do not modify `main` or publish to Production.

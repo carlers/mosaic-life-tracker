@@ -156,6 +156,33 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
   });
 
+  it('defaults to confirming task deletion and persists explicit opt-out or opt-in', () => {
+    const view = render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    const toggle = screen.getByRole('switch', { name: 'Confirm individual task deletion' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(toggle);
+    expect(mocks.setSetting).toHaveBeenCalledWith('confirmTaskDelete', false);
+    view.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'confirmTaskDelete' ? false : defaultValue
+    );
+    const saved = render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    const disabled = screen.getByRole('switch', { name: 'Confirm individual task deletion' });
+    expect(disabled).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(disabled);
+    expect(mocks.setSetting).toHaveBeenCalledWith('confirmTaskDelete', true);
+    saved.unmount();
+
+    // Unrecognized values fail safe rather than silently disabling confirmation.
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'confirmTaskDelete' ? 'false' : defaultValue
+    );
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    expect(screen.getByRole('switch', { name: 'Confirm individual task deletion' }))
+      .toHaveAttribute('aria-checked', 'true');
+  });
+
   it('persists the selected incomplete calendar task accent and defaults to unchanged appearance', () => {
     const { unmount } = render(
       <MemoryRouter><PreferencesPage /></MemoryRouter>
