@@ -15,6 +15,9 @@ Current task: #856 — repair v0.34.5 physical touch regression, normal reorder 
 - Remove successful cross-day date move toast; retain failures and safety feedback.
 - Browser physical-touch regression now injects pointercancel while the same TouchEvent finger remains held across the first cross-day slide and checks overlay survival. Existing populated destination-slot movement, reverse/repeat, mouseup, and same-day drag tests continue.
 
+## Canonical build repair
+- The first stable Preview squash `7bfe83cb5d6de5863d2c9a43c1948d349c8ae367` passed source-focused testing but **failed** canonical TypeScript build #39441970620: `Element.addEventListener` does not infer typed `TouchEvent` callbacks. Restrict the original touch target to a matching `HTMLElement[data-task-id]` ancestor to retain detached event routing with the correct TypeScript overload. Repair on scoped `chatgpt/856-detached-touch-buildfix-20261020` and rerun canonical CI before deployment.
+
 ## Verification / delivery
 - Run focused and both browser shards on task branch, repair failures. Squash into stable Preview only after focused green; canonical gate and exact-SHA Vercel READY; update issue with checkpoint.
 - Actual iOS Safari/Android touch, smoothness, repeated navigation, release, final drop persistence/offline sync, >87-day rebasing remain physical/manual acceptance. Issue stays open.
