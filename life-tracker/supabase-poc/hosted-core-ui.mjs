@@ -60,7 +60,9 @@ export async function exerciseHostedUi(client, accounts, origin) {
       server.listen(0, '127.0.0.1', resolvePromise);
     });
     const config = {
-      testDir: resolve(cwd, 'tests/e2e'), workers: 1, expect: { timeout: 15_000 },
+      // Hosted Auth verification and replication need multiple network round
+      // trips. Keep the same assertions with a bounded hosted-only deadline.
+      testDir: resolve(cwd, 'tests/e2e'), workers: 1, expect: { timeout: 45_000 },
       outputDir: resolve(scratch, 'results'),
       use: { launchOptions: {
         ...(process.env.MOSAIC_E2E_CHROMIUM_PATH ? { executablePath: process.env.MOSAIC_E2E_CHROMIUM_PATH } : {}),

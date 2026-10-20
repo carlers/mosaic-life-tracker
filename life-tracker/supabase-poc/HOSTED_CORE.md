@@ -22,6 +22,10 @@ Chromium must already trust the environment-provided proxy CA. Do not disable
 certificate verification or silently change the user's persistent trust store.
 If that trust change needs approval, finish the signed API probe and disposable
 local-stack CI separately and leave hosted browser acceptance unresolved.
+Chromium also needs access to initialize its NSS database: a read-only database
+mount can prevent it from loading a CA that `certutil` already lists as trusted.
+Use the environment's approved trust-store access; keep certificate verification
+enabled.
 
 Inspection is the default and makes no writes. It verifies the exact project
 name/ref/health, migration history, row counts, Auth configuration access, and
@@ -71,6 +75,11 @@ offline completion/deletion replay, second-device convergence, owner isolation
 and absent Appwrite requests. The loopback server is for automated validation,
 not a user-facing Preview. Management/admin credentials are removed from the
 build and test subprocess environment. No service/admin key enters a Vite build.
+Hosted assertions have a bounded 45-second default deadline for Auth and sync
+round trips; the local lab retains its own shorter limits. Failure diagnostics
+include bounded request method/path/status counts and network errors, never
+request headers or bodies. Disposable passwords and access tokens are redacted
+from assertion errors.
 
 Finally, the runner tombstones fixture rows through signed CAS, freezes their
 authorities and bans their Auth accounts. It preserves revisions and tombstones;

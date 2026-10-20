@@ -57,6 +57,8 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
   const other = await account();
   const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext({ ignoreHTTPSErrors: !hosted })));
   const boundaryErrors = [];
+  const networkFailures = [];
+  const responses = {};
   try {
     const [first, second, foreign] = await Promise.all(contexts.map(context => context.newPage()));
     const appwriteRequests = [];
@@ -66,6 +68,15 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
       });
       page.on('request', request => {
         if (/appwrite\.(io|invalid)/.test(request.url())) appwriteRequests.push(request.url().split('?')[0]);
+      });
+      page.on('response', response => {
+        if (!response.url().startsWith(url + '/')) return;
+        const label = response.request().method() + ' ' + new URL(response.url()).pathname + ' ' + response.status();
+        responses[label] = (responses[label] ?? 0) + 1;
+      });
+      page.on('requestfailed', request => {
+        if (request.url().startsWith(url + '/') && networkFailures.length < 20)
+          networkFailures.push({ path: new URL(request.url()).pathname, error: request.failure()?.errorText });
       });
     }
     await signIn(first, owner);
@@ -224,7 +235,16 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     const tasks = (await rows(owner, 'tasks')).map(row => ({
       id: row.id, title: row.title, date: row.task_date, deleted: row.is_deleted, completed: row.completed,
     }));
-    throw new Error(String(error) + '\nDisposable UI state: ' + JSON.stringify({ views, tasks, boundaryErrors }));
+    const categories = (await rows(owner, 'categories')).map(row => ({
+      id: row.id, name: row.name, deleted: row.is_deleted, order: row.order_index,
+    }));
+    const diagnostic = String(error) + '\nDisposable UI state: ' +
+      JSON.stringify({ views, tasks, categories, boundaryErrors, responses, networkFailures });
+    // Playwright can include a failed fill's argument in its call log.
+    const redacted = [owner, other].reduce((text, account) =>
+      [account.password, account.token].reduce((value, secret) =>
+        secret ? value.replaceAll(secret, '[redacted]') : value, text), diagnostic);
+    throw new Error(redacted);
   } finally {
     await Promise.allSettled(contexts.map(context => context.close()));
   }
