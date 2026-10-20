@@ -24,6 +24,7 @@ import {
 import { useConnectivity } from "./useConnectivity";
 import { preloadHomePage } from "../lib/homePreload";
 import { scopeAccountWork } from "../lib/accountWorkScope";
+import { hasCapability, MOSAIC_FEATURE_PROFILE } from "../lib/backendCapabilities";
 import {
   isValidUsername,
   normalizeUsername,
@@ -365,6 +366,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // it lazily keeps the relatively large durable offline-queue code out of
   // the initial unauthenticated app shell.
   useEffect(() => {
+    if (!hasCapability("sharedTasks")) return;
     let active = true;
     void import("../lib/taskShareQueue").then(({ scopeSharedTaskQueue }) => {
       if (active) scopeSharedTaskQueue(userId);
@@ -378,7 +380,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [userId]);
 
   useEffect(() => {
-    if (!userId || connectivity.status !== "online") return;
+    if (!hasCapability("sharedTasks") || !userId || connectivity.status !== "online") return;
     let active = true;
     void import("../lib/taskShareQueue").then(async queue => {
       if (!active) return;
@@ -391,6 +393,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [userId, connectivity.status]);
 
   useEffect(() => {
+    if (!hasCapability("alerts")) return;
     let active = true;
     void import("../lib/pushNotifications")
       .then(({ setPushActiveUser }) => {
@@ -432,9 +435,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
   }, [userId]);
 
-  // Sync waits for proven Appwrite reachability, not navigator.onLine.
+  // Until signed Supabase sync replaces Appwrite, core-only must never launch
+  // the eight-domain Appwrite writer. This is NOT a working core cloud sync.
+  // Full Appwrite builds retain their existing reachability-checked startup.
   useEffect(() => {
-    if (isLoading || connectivity.status !== "online" || !userId) {
+    if (MOSAIC_FEATURE_PROFILE !== "full" || isLoading || connectivity.status !== "online" || !userId) {
       return;
     }
     let active = true;
