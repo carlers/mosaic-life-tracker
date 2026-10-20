@@ -237,11 +237,17 @@ export const HomePage: React.FC = () => {
     navigate('/backlog', { state: makeRouteParentState('/home') });
   }, [navigate]);
 
-  // Deep-link a real dated task from its private Bucket List aspiration.
+  const handleOpenUncompleted = useCallback(() => {
+    navigate('/uncompleted', { state: makeRouteParentState('/home') });
+  }, [navigate]);
+
+  // Open a real dated task from the Bucket List or Uncompleted Tasks.
   useEffect(() => {
-    const state = location.state as { bucketLinkedFocusTaskId?: string; bucketLinkedFocusDate?: string } | null;
-    if (!state?.bucketLinkedFocusTaskId || !state.bucketLinkedFocusDate) return;
-    const date = parseISO(state.bucketLinkedFocusDate);
+    const state = location.state as { bucketLinkedFocusTaskId?: string; bucketLinkedFocusDate?: string; focusTaskId?: string; focusTaskDate?: string } | null;
+    const taskId = state?.focusTaskId ?? state?.bucketLinkedFocusTaskId;
+    const taskDate = state?.focusTaskDate ?? state?.bucketLinkedFocusDate;
+    if (!taskId || !taskDate) return;
+    const date = parseISO(taskDate);
     if (!isValid(date)) return;
     // Navigation is an external event. Defer this update to its microtask,
     // not a synchronous state cascade inside the effect.
@@ -249,7 +255,7 @@ export const HomePage: React.FC = () => {
     queueMicrotask(() => {
       if (cancelled) return;
       setSearchSelectedDate(date);
-      setSearchFocusTaskId(state.bucketLinkedFocusTaskId ?? null);
+      setSearchFocusTaskId(taskId);
       setSearchSheetKey(current => current + 1);
       searchDaySheetOpenRef.current = true;
       setSearchDaySheetOpen(true);
@@ -298,7 +304,7 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} />}
+          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} />}
         />
 
         <div inert={isSearchOpen ? true : undefined} className="flex-1 min-h-0 flex flex-col relative">

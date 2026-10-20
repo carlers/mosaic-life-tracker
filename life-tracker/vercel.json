@@ -58,6 +58,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/uncompleted",
+      "destination": "/index.html"
+    },
+    {
       "source": "/bucket-list",
       "destination": "/index.html"
     },
