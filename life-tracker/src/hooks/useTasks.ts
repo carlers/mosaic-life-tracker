@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
@@ -16,6 +16,17 @@ import {
 export function useTasks(enabled = true) {
   const { user } = useAuth();
   const reorderQueue = useRef(Promise.resolve());
+  const activeOwnerRef = useRef(user?.$id);
+  useLayoutEffect(() => {
+    activeOwnerRef.current = user?.$id;
+    return () => { activeOwnerRef.current = undefined; };
+  }, [user?.$id]);
+  const assertActiveOwner = useCallback((expectedOwner: string | undefined) => {
+    // In-flight reads and queued drag callbacks can outlive their account.
+    // Unmount also revokes the local mutation permission.
+    if (!expectedOwner || activeOwnerRef.current !== expectedOwner)
+      throw new Error('[useTasks] Account changed during task mutation');
+  }, []);
 
   const { data: tasks, isLoading } = useRxCollection<TaskDocument>({
     collection: 'tasks',
@@ -51,6 +62,7 @@ export function useTasks(enabled = true) {
           },
         })
         .exec();
+      assertActiveOwner(uid);
       const order = getNewTaskOrder(siblingDocs, position);
       const newTask: TaskDocument = {
         ...task,
@@ -64,18 +76,19 @@ export function useTasks(enabled = true) {
       await db.tasks.insert(newTask);
       return newTask.id;
     },
-    [user?.$id]
+    [user?.$id, assertActiveOwner]
   );
 
   const updateTask = useCallback(
     async (id: string, updates: Partial<TaskDocument>) => {
       const db = getDatabase();
       const doc = await db.tasks.findOne(id).exec();
+      const uid = user?.$id;
+      assertActiveOwner(uid);
       if (doc) {
         // An ID retained by a stale view must never mutate another owner's
         // offline document, even if that document is cached in this RxDB.
-        const uid = user?.$id;
-        if (!uid || doc.userId !== uid)
+        if (doc.userId !== uid)
           throw new Error('[useTasks] Cannot update task for another account');
         if ((updates.userId !== undefined && updates.userId !== uid) ||
             (updates.id !== undefined && updates.id !== id))
@@ -105,7 +118,7 @@ export function useTasks(enabled = true) {
         }
       }
     },
-    [user?.$id]
+    [user?.$id, assertActiveOwner]
   );
 
   const deleteTask = useCallback(
@@ -136,6 +149,7 @@ export function useTasks(enabled = true) {
 
       const applyOrder = async () => {
         if (!uid || snapshot.length === 0) return;
+        assertActiveOwner(uid);
 
         const categoryIds = Array.from(
           new Set(snapshot.map((group) => group.categoryId))
@@ -150,6 +164,7 @@ export function useTasks(enabled = true) {
             db.categories.findOne(categoryId).exec()
           )
         );
+        assertActiveOwner(uid);
         if (
           categoryDocs.some(
             (category) =>
@@ -170,6 +185,7 @@ export function useTasks(enabled = true) {
             },
           })
           .exec();
+        assertActiveOwner(uid);
         const assignments = buildTaskOrderAssignments(
           affectedDayTasks,
           uid,
@@ -203,7 +219,7 @@ export function useTasks(enabled = true) {
       reorderQueue.current = queued.catch(() => undefined);
       return queued;
     },
-    [user?.$id]
+    [user?.$id, assertActiveOwner]
   );
 
   const moveTasksToCategory = useCallback(
@@ -217,6 +233,7 @@ export function useTasks(enabled = true) {
 
       const applyMove = async () => {
         if (!uid || selectedTaskIds.length === 0) return;
+        assertActiveOwner(uid);
 
         const db = getDatabase();
         const categoryDocs = await db.categories
@@ -227,6 +244,7 @@ export function useTasks(enabled = true) {
             },
           })
           .exec();
+        assertActiveOwner(uid);
         const orderedCategories = categoryDocs
           .slice()
           .sort(
@@ -250,6 +268,7 @@ export function useTasks(enabled = true) {
             },
           })
           .exec();
+        assertActiveOwner(uid);
         const groups = buildBulkMoveTaskOrderGroups(
           affectedDayTasks,
           selectedTaskIds,
@@ -291,7 +310,7 @@ export function useTasks(enabled = true) {
       reorderQueue.current = queued.catch(() => undefined);
       return queued;
     },
-    [user?.$id]
+    [user?.$id, assertActiveOwner]
   );
 
   return {

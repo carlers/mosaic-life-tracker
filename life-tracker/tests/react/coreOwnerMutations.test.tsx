@@ -10,6 +10,13 @@ const fixture = vi.hoisted(() => ({
     id: string; userId: string; order: number; name: string; isDeleted: boolean;
     incrementalPatch: (changes: unknown) => Promise<void>;
   }>(),
+  taskLookup: vi.fn(async () => null as null | { id: string; userId: string; patch: (changes: unknown) => Promise<void> }),
+  categoryLookup: vi.fn(async (_id: string) => { void _id; return null as null | {
+    id: string; userId: string; order: number; name: string; isDeleted: boolean;
+    incrementalPatch: (changes: unknown) => Promise<void>;
+  }; }),
+  taskSiblings: vi.fn(async () => []),
+  taskInsert: vi.fn(async () => {}),
   taskPatch: vi.fn(async () => {}),
   categoryPatch: vi.fn(async () => {}),
 }));
@@ -21,8 +28,12 @@ vi.mock('../../src/hooks/useRxCollection', () => ({
 }));
 vi.mock('../../src/db/database', () => ({
   getDatabase: () => ({
-    tasks: { findOne: () => ({ exec: async () => fixture.task }) },
-    categories: { findOne: (id: string) => ({ exec: async () => fixture.categories.get(id) ?? null }) },
+    tasks: {
+      findOne: () => ({ exec: () => fixture.taskLookup() }),
+      find: () => ({ exec: () => fixture.taskSiblings() }),
+      insert: fixture.taskInsert,
+    },
+    categories: { findOne: (id: string) => ({ exec: () => fixture.categoryLookup(id) }) },
   }),
 }));
 
@@ -33,6 +44,8 @@ describe('local RxDB task/category owner mutation fences (#1027)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fixture.currentUserId = 'owner_a';
+    fixture.taskLookup.mockImplementation(async () => fixture.task);
+    fixture.categoryLookup.mockImplementation(async id => fixture.categories.get(id) ?? null);
     fixture.task = { id: 'task_a', userId: 'owner_a', patch: fixture.taskPatch };
     fixture.categories.clear();
     fixture.categories.set('cat_a', {
@@ -125,5 +138,85 @@ describe('local RxDB task/category owner mutation fences (#1027)', () => {
     });
     expect(fixture.taskPatch).not.toHaveBeenCalled();
     expect(fixture.categoryPatch).not.toHaveBeenCalled();
+  });
+  it('cancels a task edit when the owner changes during its awaited lookup', async () => {
+    let release!: () => void;
+    const paused = new Promise<void>(resolve => { release = resolve; });
+    fixture.taskLookup.mockImplementationOnce(async () => {
+      await paused;
+      return fixture.task;
+    });
+    const tasks = renderHook(() => useTasks());
+    const write = tasks.result.current.updateTask('task_a', { title: 'Stale edit' });
+    fixture.currentUserId = 'owner_b';
+    tasks.rerender();
+    await act(async () => {
+      release();
+      await expect(write).rejects.toThrow('Account changed');
+    });
+    expect(fixture.taskPatch).not.toHaveBeenCalled();
+  });
+
+  it('cancels a category edit when the owner changes during its awaited lookup', async () => {
+    let release!: () => void;
+    const paused = new Promise<void>(resolve => { release = resolve; });
+    fixture.categoryLookup.mockImplementationOnce(async id => {
+      await paused;
+      return fixture.categories.get(id) ?? null;
+    });
+    const cats = renderHook(() => useCategories());
+    const write = cats.result.current.updateCategory('cat_a', { name: 'Stale edit' });
+    fixture.currentUserId = 'owner_b';
+    cats.rerender();
+    await act(async () => {
+      release();
+      await expect(write).rejects.toThrow('Account changed');
+    });
+    expect(fixture.categoryPatch).not.toHaveBeenCalled();
+  });
+
+  it('cancels an already-queued category reorder after account switch without partial writes', async () => {
+    let release!: () => void;
+    const paused = new Promise<void>(resolve => { release = resolve; });
+    fixture.categoryLookup.mockImplementationOnce(async id => {
+      await paused;
+      return fixture.categories.get(id) ?? null;
+    });
+    const cats = renderHook(() => useCategories());
+    const write = cats.result.current.reorderCategories([{ id: 'cat_a' }] as never);
+    fixture.currentUserId = 'owner_b';
+    cats.rerender();
+    await act(async () => {
+      release();
+      await expect(write).rejects.toThrow('Account changed');
+    });
+    expect(fixture.categoryPatch).not.toHaveBeenCalled();
+  });
+
+  it('blocks stale task callbacks after unmount and account switch during task creation', async () => {
+    const tasks = renderHook(() => useTasks());
+    const stale = tasks.result.current.updateTask;
+    tasks.unmount();
+    await expect(stale('task_a', { title: 'After unmount' }))
+      .rejects.toThrow('Account changed');
+    expect(fixture.taskPatch).not.toHaveBeenCalled();
+
+    let release!: () => void;
+    const paused = new Promise<void>(resolve => { release = resolve; });
+    fixture.taskSiblings.mockImplementationOnce(async () => {
+      await paused;
+      return [];
+    });
+    const second = renderHook(() => useTasks());
+    const create = second.result.current.addTask({
+      title: 'Never insert', date: '2026-10-20', categoryId: 'cat_a',
+    } as never);
+    fixture.currentUserId = 'owner_b';
+    second.rerender();
+    await act(async () => {
+      release();
+      await expect(create).rejects.toThrow('Account changed');
+    });
+    expect(fixture.taskInsert).not.toHaveBeenCalled();
   });
 });
