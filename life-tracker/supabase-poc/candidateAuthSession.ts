@@ -39,6 +39,8 @@ export class CandidateSessionDeniedError extends CandidateSessionError {
   }
 }
 
+export class CandidateSessionUnavailableError extends CandidateSessionError {}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function parseAuthTokens(payload: unknown, ownerId: string | null = null): Tokens {
   if (!payload || typeof payload !== 'object') throw new CandidateSessionError('Invalid Auth token response');
@@ -150,7 +152,7 @@ export function createCandidateAuthSession(options: {
       });
     } catch {
       // Do not expose network errors containing a token/email/password.
-      throw new CandidateSessionError('Supabase Auth network unavailable');
+      throw new CandidateSessionUnavailableError('Supabase Auth network unavailable');
     }
     if (response.status === 401 || response.status === 403)
       throw new CandidateSessionDeniedError();
@@ -181,7 +183,7 @@ export function createCandidateAuthSession(options: {
         },
       });
     } catch {
-      throw new CandidateSessionError('Cannot verify new Supabase account');
+      throw new CandidateSessionUnavailableError('Cannot verify new Supabase account');
     }
     if (response.status === 401 || response.status === 403)
       throw new CandidateSessionDeniedError();
@@ -346,5 +348,7 @@ export function createCandidateAuthSession(options: {
     getSessionSnapshot: sessions.getSessionSnapshot,
     getOwnerId: () => active?.ownerId ?? null,
     getExpiresAt: () => active?.expiresAt ?? null,
+    /** Detach a view without logging out the browser or revoking its family. */
+    discardMemory: () => { invalidate(); },
   };
 }

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // can mutate a different cached account before the server sees the write.
 const fixture = vi.hoisted(() => ({
   currentUserId: 'owner_a' as string | null,
+  localOwnerCurrent: true,
   task: null as null | { id: string; userId: string; patch: (changes: unknown) => Promise<void> },
   categories: new Map<string, {
     id: string; userId: string; order: number; name: string; isDeleted: boolean;
@@ -21,7 +22,10 @@ const fixture = vi.hoisted(() => ({
   categoryPatch: vi.fn(async () => {}),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
-  useAuth: () => ({ user: fixture.currentUserId ? { $id: fixture.currentUserId } : null }),
+  useAuth: () => ({
+    user: fixture.currentUserId ? { $id: fixture.currentUserId } : null,
+    isLocalOwnerCurrent: () => fixture.localOwnerCurrent,
+  }),
 }));
 vi.mock('../../src/hooks/useRxCollection', () => ({
   useRxCollection: () => ({ data: [], isLoading: false }),
@@ -44,6 +48,7 @@ describe('local RxDB task/category owner mutation fences (#1027)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fixture.currentUserId = 'owner_a';
+    fixture.localOwnerCurrent = true;
     fixture.taskLookup.mockImplementation(async () => fixture.task);
     fixture.categoryLookup.mockImplementation(async id => fixture.categories.get(id) ?? null);
     fixture.task = { id: 'task_a', userId: 'owner_a', patch: fixture.taskPatch };
@@ -59,6 +64,18 @@ describe('local RxDB task/category owner mutation fences (#1027)', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
   afterEach(() => { vi.restoreAllMocks(); });
+
+  it('rejects stale tab mutations before React receives a cross-tab account render', async () => {
+    const tasks = renderHook(() => useTasks());
+    const categories = renderHook(() => useCategories());
+    fixture.localOwnerCurrent = false;
+    // Deliberately no rerender: the provider's durable family fence is read
+    // at mutation time, independently of the rendered owner/ref.
+    await expect(tasks.result.current.updateTask('task_a', { title: 'Stale tab' })).rejects.toThrow('Account changed');
+    await expect(categories.result.current.updateCategory('cat_a', { name: 'Stale tab' })).rejects.toThrow('Account changed');
+    expect(fixture.taskPatch).not.toHaveBeenCalled();
+    expect(fixture.categoryPatch).not.toHaveBeenCalled();
+  });
 
   it('refuses foreign cached task edits, completion and soft deletion', async () => {
     fixture.task = { id: 'task_b', userId: 'owner_b', patch: fixture.taskPatch };

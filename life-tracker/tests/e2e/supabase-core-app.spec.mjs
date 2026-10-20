@@ -260,6 +260,129 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
   }
 });
 
+test('offline cold start: durable edits, simultaneous tab rotation and logout isolation', async ({ browser }) => {
+  const owner = await account();
+  const other = await account();
+  const context = await browser.newContext({ ignoreHTTPSErrors: !hosted });
+  const secondDevice = await browser.newContext({ ignoreHTTPSErrors: !hosted });
+  const refreshStatuses = [];
+  try {
+    const first = await context.newPage();
+    context.on('response', response => {
+      if (response.url().includes('/auth/v1/token?grant_type=refresh_token'))
+        refreshStatuses.push(response.status());
+    });
+    await signIn(first, owner);
+    await first.getByRole('button', { name: 'Open menu' }).click();
+    await first.getByRole('button', { name: 'Lists & Categories' }).click();
+    await first.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await first.getByLabel('Name', { exact: true }).fill('Offline restart list');
+    await first.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'categories')).length).toBe(1);
+    await first.keyboard.press('Escape');
+    await first.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await first.getByRole('button', { name: 'Add a task to Offline restart list', exact: true }).first().click();
+    const input = first.getByPlaceholder('Add a task to Offline restart list...').first();
+    await input.fill('Retained across offline restart');
+    await input.press('Enter');
+    await expect.poll(async () => (await rows(owner, 'tasks')).length).toBe(1);
+    await first.getByRole('button', { name: 'Online', exact: true }).click();
+    await expect(first.getByText('Up to date', { exact: true })).toBeVisible();
+    await first.keyboard.press('Escape');
+    await first.evaluate(() => navigator.serviceWorker.ready);
+    // Mosaic intentionally never force-claims the page that installed its
+    // service worker. A normal online navigation activates the cached shell.
+    await first.reload();
+    await expect.poll(() => first.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+    await expect(first.getByRole('button', { name: 'Online', exact: true })).toBeVisible();
+
+    await context.setOffline(true);
+    await first.reload();
+    await first.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await expect(first.getByRole('button', { name: 'Retained across offline restart', exact: true }).first())
+      .toBeVisible();
+    await first.getByRole('button', { name: 'Mark complete', exact: true }).first().click();
+    await expect(first.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+    await first.reload();
+    await first.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await expect(first.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+    expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
+    await context.setOffline(false);
+    await first.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect.poll(async () => (await rows(owner, 'tasks'))[0]?.completed,
+      { timeout: 45_000 }).toBe(true);
+
+    const remote = await secondDevice.newPage();
+    await signIn(remote, owner);
+    await remote.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await expect(remote.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+
+    // Same-context tabs share localStorage, IndexedDB and a rotating GoTrue
+    // family. Separate contexts above represent independent device sessions.
+    const sibling = await context.newPage();
+    const before = refreshStatuses.length;
+    await Promise.all([first.reload(), sibling.goto(app + '/home')]);
+    for (const page of [first, sibling])
+      await expect(page.getByRole('tab', { name: 'Calendar', exact: true })).toBeVisible();
+    await expect.poll(() => refreshStatuses.length).toBeGreaterThanOrEqual(before + 2);
+    expect(refreshStatuses.every(status => status === 200)).toBe(true);
+    await sibling.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await expect(sibling.getByRole('button', { name: 'Retained across offline restart', exact: true }).first())
+      .toBeVisible();
+    await expect(sibling.getByRole('button', { name: 'Online', exact: true })).toBeVisible();
+    await sibling.getByRole('button', { name: 'Mark incomplete', exact: true }).first().click();
+    await expect.poll(async () => (await rows(owner, 'tasks'))[0]?.completed,
+      { timeout: 45_000 }).toBe(false);
+    await remote.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect(remote.getByRole('button', { name: 'Mark complete', exact: true }).first()).toBeVisible();
+    // Closing the tab that authenticated must not revoke the shared family.
+    await first.close();
+    await sibling.reload();
+    await sibling.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await expect(sibling.getByRole('button', { name: 'Retained across offline restart', exact: true }).first())
+      .toBeVisible();
+
+    const stale = await context.newPage();
+    await stale.goto(app + '/home');
+    await expect(stale.getByRole('tab', { name: 'Calendar', exact: true })).toBeVisible();
+    // Wait for signed recovery, not just the immediately available cached UI.
+    await expect(sibling.getByRole('button', { name: 'Online', exact: true })).toBeVisible();
+    await sibling.getByRole('button', { name: 'Me', exact: true }).click();
+    await sibling.getByRole('button', { name: 'Settings', exact: true }).click();
+    await expect(sibling.getByRole('button', { name: 'Sign Out', exact: true })).toBeVisible();
+    await sibling.getByRole('button', { name: 'Sign Out', exact: true }).click();
+    await expect(sibling.getByLabel('Email Address')).toBeVisible();
+    await expect(stale.getByLabel('Email Address')).toBeVisible();
+    await stale.reload();
+    await expect(stale.getByLabel('Email Address')).toBeVisible();
+    await signIn(sibling, other);
+    await sibling.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await expect(sibling.getByRole('button', { name: 'Retained across offline restart', exact: true })).toHaveCount(0);
+    expect(await rows(other, 'tasks')).toEqual([]);
+    // Browser-family logout must not revoke an independent device's session.
+    await remote.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect(remote.getByRole('button', { name: 'Retained across offline restart', exact: true }).first())
+      .toBeVisible();
+    await remote.getByRole('button', { name: 'Mark complete', exact: true }).first().click();
+    await expect.poll(async () => (await rows(owner, 'tasks'))[0]?.completed,
+      { timeout: 45_000 }).toBe(true);
+    expect(refreshStatuses.every(status => status === 200)).toBe(true);
+  } catch (error) {
+    const views = await Promise.all(context.pages().map(async page => ({
+      path: new URL(page.url()).pathname,
+      text: (await page.locator('body').innerText().catch(() => '')).slice(0, 2000),
+    })));
+    let detail = (error instanceof Error ? error.stack : String(error)) +
+      '\nRefresh statuses: ' + JSON.stringify(refreshStatuses) + '\nViews: ' + JSON.stringify(views);
+    for (const account of [owner, other])
+      for (const secret of [account.password, account.token])
+        if (secret) detail = detail.replaceAll(secret, '[redacted]');
+    throw new Error(detail);
+  } finally {
+    await Promise.allSettled([context.close(), secondDevice.close()]);
+  }
+});
+
 test('real expired JWT: offline edits survive a failed refresh and signed retry', async ({ browser }) => {
   test.skip(hosted || process.env.MOSAIC_CORE_SHORT_JWT !== 'true',
     'Requires disposable local Auth with a real 60-second JWT lifetime');

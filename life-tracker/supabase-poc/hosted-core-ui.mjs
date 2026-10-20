@@ -25,7 +25,7 @@ export async function exerciseHostedUi(client, accounts, origin, preview = null,
   if (preview && (preview.origin !== 'https://mosaic-supabase-core-preview.vercel.app' ||
       !/^[a-f0-9]{40}$/.test(preview.sha ?? '')))
     throw new Error('Hosted Preview requires the isolated alias and exact accepted source SHA');
-  if (!['real Mosaic UI', 'lost write acknowledgement'].includes(testName))
+  if (!['real Mosaic UI', 'lost write acknowledgement', 'offline cold start'].includes(testName))
     throw new Error('Unknown hosted core browser contract');
   const keys = await client.requireOk(await client.management('/api-keys'), 'Public build key access');
   const publishableKey = keys.find(k => k.type === 'publishable')?.api_key;

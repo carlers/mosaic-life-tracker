@@ -13,6 +13,8 @@ export interface AuthContextValue {
   accountNotice?: string;
   supportsPasswordRecovery?: boolean;
   user: MosaicUser | null;
+  /** Optional synchronous fence for delayed local mutations across tab sessions. */
+  isLocalOwnerCurrent?: (ownerId: string) => boolean;
   isLoading: boolean;
   error: string | null;
   recoveryLoading: boolean;

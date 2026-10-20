@@ -891,6 +891,25 @@ prevention of DR resurrection.
 The authoritative state machine, failure matrix, resource policy, limitations, testing, and
 rollout procedure are in [Permanent account erasure](ACCOUNT_ERASURE.md).
 
+### 23.9 Isolated Supabase core browser sessions
+
+The explicitly selected Supabase/core-only candidate uses `SupabaseAuthProvider`;
+the Appwrite provider and its cookie lifecycle remain separate. A cached,
+previously verified canonical owner may open only their on-device core data.
+Remote writers require fresh signed Auth, trusted mapping and server authority.
+Browser refresh-token transactions use Web Locks and the latest backend-scoped
+localStorage record; access tokens are never persisted. Logout/login changes the
+browser family, fencing stale verification replies and task/category mutations
+before React necessarily receives a storage event. Closing a tab pauses its
+writers without logging out sibling tabs; an independent device has its own
+session. Expired access tokens require renewal, while confirmed Auth rejection
+clears the cached family. Unsupported locking/storage remains memory-only.
+
+See [the provider-return contract](CORE_MVP_PROVIDER_RETURN.md#persistent-offline-restart-candidate-v0322)
+for candidate limits and [hosted verification](../supabase-poc/HOSTED_CORE.md)
+for actual browser acceptance. None of this permits existing-account migration
+or removes Appwrite writer-cutoff and reversible-transfer requirements.
+
 ## 24. Test Suite
 
 ### 24.1 Overview

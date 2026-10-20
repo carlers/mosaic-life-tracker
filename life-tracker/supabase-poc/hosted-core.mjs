@@ -381,6 +381,8 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
       check(Number(retired[0]?.users) === fixtures.length && retired[0]?.retired === true &&
         Number(retired[0].live_tasks) === 0 && Number(retired[0].live_categories) === 0,
       'Fixture retirement readback failed');
+      onProgress({ stage: 'retirement-verified', runId, retiredUsers: fixtures.length,
+        liveTasks: 0, liveCategories: 0 });
     }
   }
   if (failure) throw failure;
@@ -391,16 +393,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const mode = process.argv[2] ?? '--inspect';
     check(process.argv.length <= 3 &&
-      ['--inspect', '--apply-empty-project', '--probe', '--ui', '--conflicts'].includes(mode),
-    'Usage: hosted-core.mjs [--inspect|--apply-empty-project|--probe|--ui|--conflicts]');
+      ['--inspect', '--apply-empty-project', '--probe', '--ui', '--conflicts', '--offline'].includes(mode),
+    'Usage: hosted-core.mjs [--inspect|--apply-empty-project|--probe|--ui|--conflicts|--offline]');
     const client = await connect({ token: process.env.SUPABASE_ACCESS_TOKEN });
     const result = mode === '--apply-empty-project' ? await applyEmptyProject(client) :
-      ['--probe', '--ui', '--conflicts'].includes(mode) ? await runHostedProbe(client, {
+      ['--probe', '--ui', '--conflicts', '--offline'].includes(mode) ? await runHostedProbe(client, {
         onProgress: progress => process.stdout.write(JSON.stringify(progress) + '\n'),
-        ...(['--ui', '--conflicts'].includes(mode) ? { exerciseUi: async accounts => {
+        ...(['--ui', '--conflicts', '--offline'].includes(mode) ? { exerciseUi: async accounts => {
           const { exerciseHostedUi } = await import('./hosted-core-ui.mjs');
           await exerciseHostedUi(client, accounts, ORIGIN, null,
-            mode === '--conflicts' ? 'lost write acknowledgement' : 'real Mosaic UI');
+            mode === '--conflicts' ? 'lost write acknowledgement' :
+              mode === '--offline' ? 'offline cold start' : 'real Mosaic UI');
         } } : {}),
       }) : await inspect(client);
     process.stdout.write(JSON.stringify({ ok: true, mode, result }, null, 2) + '\n');

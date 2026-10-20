@@ -1,20 +1,42 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AuthContext, type AuthContextValue, type MosaicUser } from './authContext';
 import type { CoreBackendConfig } from '../lib/coreBackendConfig';
-import { createCandidateAuthSession } from '../../supabase-poc/candidateAuthSession';
+import { createCandidateAuthSession, CandidateSessionUnavailableError } from '../../supabase-poc/candidateAuthSession';
+import { CandidateAuthUnavailableError } from '../../supabase-poc/candidateVerifiedAuth';
 import { createSupabaseCoreAuthCoordinator } from '../lib/supabaseCoreAuth';
 import { createSupabaseCoreAuthority } from '../lib/supabaseCoreAuthority';
 import { scopeAccountWork } from '../lib/accountWorkScope';
 import { publishSyncStatus, scopeSyncStatusToUser } from '../lib/syncStatus';
 import { registerCoreSync } from '../lib/appSync';
-import { reportConnectivityResult } from '../lib/connectivity';
+import { markConnectivityOffline, reportConnectivityResult } from '../lib/connectivity';
 import { registerSyncConflictReview } from '../lib/syncConflictReview';
 import { presentSupabaseConflicts } from '../lib/supabaseConflictReview';
+import { createSupabaseBrowserSession } from '../lib/supabaseBrowserSession';
+import type { CandidateIdentity } from '../../supabase-poc/candidateMapping';
+import { markOfflineDataReady } from '../lib/offlineReadiness';
+
+function reportAuthOutage(error: unknown) {
+  if (error instanceof CandidateSessionUnavailableError ||
+      error instanceof CandidateAuthUnavailableError || error instanceof TypeError)
+    markConnectivityOffline('core-auth-unreachable');
+}
 
 function createRuntime(config: Extract<CoreBackendConfig, { driver: 'supabase' }>) {
-  // Memory-only credentials in this first disposable-account slice: no shared
-  // refresh token can race across tabs. Reload requires fresh authentication.
-  const session = createCandidateAuthSession({ ...config, logoutScope: 'local' });
+  let browser: ReturnType<typeof createSupabaseBrowserSession> | null = null;
+  let cached: ReturnType<ReturnType<typeof createSupabaseBrowserSession>['getCachedIdentity']> = null;
+  // Unsupported/private storage keeps the existing memory-only behavior.
+  // Never share a rotating refresh token without a real browser mutex.
+  try {
+    if (navigator.locks) {
+      localStorage.getItem('mosaic_storage_availability');
+      browser = createSupabaseBrowserSession({
+        ...config, storage: localStorage, randomId: () => crypto.randomUUID(),
+        exclusive: (name, operation) => navigator.locks.request(name, operation),
+      });
+      cached = browser.getCachedIdentity();
+    }
+  } catch { browser = null; }
+  const session = browser?.session ?? createCandidateAuthSession({ ...config, logoutScope: 'local' });
   const authority = createSupabaseCoreAuthority({ ...config, session });
   const coordinator = createSupabaseCoreAuthCoordinator({
     ...config, selectedBackend: 'supabase-cloud', featureProfile: 'core-only',
@@ -24,7 +46,7 @@ function createRuntime(config: Extract<CoreBackendConfig, { driver: 'supabase' }
       await assertAppwriteSyncStoppedForCore();
     },
   });
-  return { session, authority, coordinator };
+  return { session, authority, coordinator, browser, cached };
 }
 
 export default function SupabaseAuthProvider({ config, children }: {
@@ -32,7 +54,9 @@ export default function SupabaseAuthProvider({ config, children }: {
   children: ReactNode;
 }) {
   const [runtime] = useState(() => createRuntime(config));
-  const [user, setUser] = useState<MosaicUser | null>(null);
+  const [user, setUser] = useState<MosaicUser | null>(() => runtime.cached
+    ? { $id: runtime.cached.legacyUserId, email: runtime.cached.email, name: '', prefs: {} } : null);
+  const [isOffline, setOffline] = useState(Boolean(runtime.cached));
   const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncGeneration, setSyncGeneration] = useState(0);
@@ -44,16 +68,89 @@ export default function SupabaseAuthProvider({ config, children }: {
   const retrySync = useRef(async () => {});
   const conflictReview = useRef<ReturnType<typeof registerSyncConflictReview> | null>(null);
 
+  const adoptIdentity = useCallback(async (identity: CandidateIdentity, email?: string) => {
+    try { await runtime.browser?.rememberIdentity(identity, email); }
+    catch (error) {
+      await runtime.coordinator.suspend();
+      throw error;
+    }
+    if (!mounted.current) {
+      await runtime.coordinator.suspend();
+      return false;
+    }
+    scopeAccountWork(identity.legacyUserId);
+    scopeSyncStatusToUser(identity.legacyUserId);
+    setUser({ $id: identity.legacyUserId, email: email ?? runtime.browser?.getCachedIdentity()?.email ?? '',
+      name: '', prefs: {} });
+    setOffline(false);
+    reportConnectivityResult();
+    return true;
+  }, [runtime]);
+
+  const restoreAccount = useCallback(async () => {
+    try {
+      const identity = await runtime.coordinator.restore();
+      if (identity) return await adoptIdentity(identity);
+      if (mounted.current) {
+        scopeAccountWork(null);
+        scopeSyncStatusToUser(null);
+        setUser(null);
+        setOffline(false);
+      }
+    } catch (error) {
+      if (mounted.current) {
+        const cache = runtime.browser?.getCachedIdentity();
+        if (!cache || runtime.coordinator.getPhase() === 'blocked') {
+          scopeAccountWork(null);
+          scopeSyncStatusToUser(null);
+          setUser(null);
+          setOffline(false);
+          setError('Session could not be restored. Reload and sign in again. Local changes are retained.');
+        } else {
+          setOffline(true);
+          reportAuthOutage(error);
+          publishSyncStatus({ errors: ['Core sync unavailable. Local changes are retained.'] });
+        }
+      }
+    }
+    return false;
+  }, [runtime, adoptIdentity]);
+
   useEffect(() => {
     mounted.current = true;
-    return () => {
-      mounted.current = false;
+    let active = true;
+    if (runtime.cached) {
+      scopeAccountWork(runtime.cached.legacyUserId);
+      scopeSyncStatusToUser(runtime.cached.legacyUserId);
+    }
+    // StrictMode's discarded mount must not rotate a durable credential.
+    queueMicrotask(() => {
+      if (!active || !runtime.browser || busy.current || navigator.onLine === false) return;
+      busy.current = true;
+      void restoreAccount().finally(() => { busy.current = false; });
+    });
+    const changed = (event: StorageEvent) => {
+      if (event.key !== null && event.key !== runtime.browser?.storageKey) return;
+      if (!runtime.browser || runtime.browser.isCurrent()) return;
       scopeAccountWork(null);
       scopeSyncStatusToUser(null);
-      if (['active', 'paused'].includes(runtime.coordinator.getPhase()))
-        void runtime.coordinator.signOut().catch(() => {});
+      setUser(null);
+      setOffline(false);
+      setError('Account changed in another tab. Reload to continue. Local changes are retained.');
+      void runtime.coordinator.suspend().catch(() => {});
     };
-  }, [runtime]);
+    window.addEventListener('storage', changed);
+    return () => {
+      active = false;
+      mounted.current = false;
+      window.removeEventListener('storage', changed);
+      scopeAccountWork(null);
+      scopeSyncStatusToUser(null);
+      queueMicrotask(() => {
+        if (!mounted.current) void runtime.coordinator.suspend().catch(() => {});
+      });
+    };
+  }, [runtime, restoreAccount]);
 
   useEffect(() => {
     if (!user) return;
@@ -61,7 +158,7 @@ export default function SupabaseAuthProvider({ config, children }: {
     const restart = async () => {
       await runtime.coordinator.refreshAndRestart();
       if (!mounted.current) {
-        await runtime.coordinator.signOut();
+        await runtime.coordinator.suspend();
         throw new Error('Account closed during review');
       }
       if (active) setSyncGeneration(generation => generation + 1);
@@ -71,6 +168,10 @@ export default function SupabaseAuthProvider({ config, children }: {
         throw new Error('Reconnect and wait for account recovery before reviewing');
       busy.current = true;
       try {
+        if (runtime.coordinator.getPhase() === 'signed-out') {
+          await restoreAccount();
+          return;
+        }
         if (runtime.coordinator.getPhase() === 'paused' ||
             (runtime.session.getExpiresAt() ?? 0) <= Date.now()) {
           await restart();
@@ -105,7 +206,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       registration.unregister();
       if (conflictReview.current === registration) conflictReview.current = null;
     };
-  }, [runtime, user]);
+  }, [runtime, user, restoreAccount]);
 
   useEffect(() => {
     if (!user) return;
@@ -115,13 +216,17 @@ export default function SupabaseAuthProvider({ config, children }: {
       if (busy.current || !active || navigator.onLine === false) return;
       busy.current = true;
       try {
+        if (runtime.coordinator.getPhase() === 'signed-out') {
+          await restoreAccount();
+          return;
+        }
         // An expired access JWT can still have a valid refresh credential.
         // Pause local writers and rotate before asking Auth to verify it.
         if (runtime.coordinator.getPhase() === 'paused' ||
             (runtime.session.getExpiresAt() ?? 0) - Date.now() < 120_000) {
           await runtime.coordinator.refreshAndRestart();
           if (!mounted.current) {
-            await runtime.coordinator.signOut();
+            await runtime.coordinator.suspend();
             return;
           }
           if (active) setSyncGeneration(generation => generation + 1);
@@ -136,7 +241,8 @@ export default function SupabaseAuthProvider({ config, children }: {
         await runtime.authority.renew();
         await runtime.coordinator.resync();
         reportConnectivityResult();
-      } catch {
+        if (active) setOffline(false);
+      } catch (error) {
         // Retain offline local edits. A rejected session never authorizes
         // remote writes; reauthentication is explicit.
         if (active) {
@@ -147,6 +253,7 @@ export default function SupabaseAuthProvider({ config, children }: {
             setUser(null);
             setError('Session recovery could not be confirmed. Reload and sign in again. Local changes are retained.');
           } else if (phase === 'paused') setSyncGeneration(generation => generation + 1);
+          reportAuthOutage(error);
           publishSyncStatus({ errors: ['Core sync unavailable. Reconnect or sign in again.'] });
         }
       } finally { busy.current = false; }
@@ -161,7 +268,11 @@ export default function SupabaseAuthProvider({ config, children }: {
         await state.awaitInitialReplication();
         await state.awaitInSync();
       })).then(() => {
-        if (active) publishSyncStatus({ lastSync: new Date().toISOString(), errors: [] });
+        if (active && runtime.coordinator.getReplicationStates()?.[0] === states[0]) {
+          const completedAt = new Date().toISOString();
+          if (runtime.browser?.isCurrent()) markOfflineDataReady(ownerId, completedAt);
+          publishSyncStatus({ lastSync: completedAt, errors: [] });
+        }
       }).catch(() => {
         if (active) publishSyncStatus({ errors: ['Core sync pending. Local changes are retained.'] });
       }).finally(() => {
@@ -208,7 +319,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       window.removeEventListener('focus', online);
       document.removeEventListener('visibilitychange', visible);
     };
-  }, [runtime, user, syncGeneration]);
+  }, [runtime, user, syncGeneration, restoreAccount]);
 
   async function login(email: string, password: string): Promise<boolean> {
     if (busy.current || user) return false;
@@ -218,15 +329,11 @@ export default function SupabaseAuthProvider({ config, children }: {
     try {
       const identity = await runtime.coordinator.signIn(email, password);
       if (!mounted.current) {
-        if (identity) await runtime.coordinator.signOut();
+        if (identity) await runtime.coordinator.suspend();
         return false;
       }
       if (!identity) return false;
-      scopeAccountWork(identity.legacyUserId);
-      scopeSyncStatusToUser(identity.legacyUserId);
-      setUser({ $id: identity.legacyUserId, email: email.trim(), name: '', prefs: {} });
-      reportConnectivityResult();
-      return true;
+      return await adoptIdentity(identity, email.trim());
     } catch {
       if (mounted.current) setError('Could not start the core account. Check sign-in and server authority.');
       return false;
@@ -244,6 +351,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       scopeAccountWork(null);
       scopeSyncStatusToUser(null);
       setUser(null);
+      setOffline(false);
       return true;
     } catch {
       setError('Writer shutdown could not be confirmed. Account switch is blocked.');
@@ -256,9 +364,13 @@ export default function SupabaseAuthProvider({ config, children }: {
     return false;
   };
   const value: AuthContextValue = {
-    accountNotice: 'Disposable Supabase core preview. Use a new test account. Preferences stay on this device; reload requires sign-in. Existing-account migration and password recovery are not available yet.',
+    accountNotice: 'Disposable Supabase core preview. Preferences stay on this device. ' +
+      (runtime.browser ? 'Previously signed-in personal data is available offline. ' : 'This browser requires sign-in after reload. ') +
+      'Existing-account migration and password recovery are not available yet.',
     supportsPasswordRecovery: false,
-    user, isLoading, error, isOffline: false, pendingSignup: null,
+    isLocalOwnerCurrent: ownerId => mounted.current && user?.$id === ownerId &&
+      (!runtime.browser || runtime.browser.isCurrent()),
+    user, isLoading, error, isOffline, pendingSignup: null,
     recoveryLoading, recoveryError, recoverySuccess, login, logout,
     async signup(email, password) {
       if (busy.current || user || runtime.coordinator.getPhase() !== 'signed-out') return false;

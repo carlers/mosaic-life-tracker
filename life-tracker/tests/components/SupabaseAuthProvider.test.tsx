@@ -11,13 +11,15 @@ const mock = vi.hoisted(() => ({
   refreshAndRestart: vi.fn(), expiresAt: vi.fn(),
   getPendingConflicts: vi.fn(), subscribeConflicts: vi.fn(),
   refreshConflict: vi.fn(), keepLocalConflict: vi.fn(),
+  suspend: vi.fn(),
 }));
 vi.mock('../../src/lib/supabaseCoreAuth', () => ({
   createSupabaseCoreAuthCoordinator: () => ({
     ...mock,
   }),
 }));
-vi.mock('../../supabase-poc/candidateAuthSession', () => ({
+vi.mock('../../supabase-poc/candidateAuthSession', async importOriginal => ({
+  ...await importOriginal<typeof import('../../supabase-poc/candidateAuthSession')>(),
   createCandidateAuthSession: () => ({
     signUp: mock.signUp, getExpiresAt: mock.expiresAt,
     getVerifiedSession: mock.verify,
@@ -51,6 +53,7 @@ beforeEach(() => {
   mock.getReplicationStates.mockReturnValue(null);
   mock.signIn.mockResolvedValue({ legacyUserId: 'canonical_owner', supabaseUserId: 'signed-owner' });
   mock.signOut.mockResolvedValue(true);
+  mock.suspend.mockResolvedValue(undefined);
   mock.verify.mockResolvedValue({ userId: 'signed-owner' });
   mock.renew.mockResolvedValue(undefined);
   mock.resync.mockResolvedValue(undefined);
@@ -78,7 +81,8 @@ describe('Supabase app AuthContext lifecycle', () => {
     view.unmount();
     mock.getPhase.mockReturnValue('active');
     finish();
-    await waitFor(() => expect(mock.signOut).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mock.suspend).toHaveBeenCalled());
+    expect(mock.signOut).not.toHaveBeenCalled();
     expect(mock.resync).not.toHaveBeenCalled();
   });
 
@@ -137,7 +141,8 @@ describe('Supabase app AuthContext lifecycle', () => {
     fireEvent.click(screen.getByText('Sign in'));
     view.unmount();
     finish({ legacyUserId: 'canonical_owner', supabaseUserId: 'signed-owner' });
-    await waitFor(() => expect(mock.signOut).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mock.suspend).toHaveBeenCalled());
+    expect(mock.signOut).not.toHaveBeenCalled();
     expect(mock.scope).not.toHaveBeenCalledWith('canonical_owner');
   });
 
