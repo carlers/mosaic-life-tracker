@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarPlus2, Check, CheckCircle2, ChevronDown, ListFilter, Plus } from 'lucide-react';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import type { DaySlideProps } from './DaySlideContent';
@@ -44,24 +45,64 @@ const TimelineCategoryMenu: React.FC<TimelineCategoryMenuProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuId = React.useId();
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number; left: number; width: number; maxHeight: number;
+  } | null>(null);
   const selected = categories.find(category => category.id === value);
   const selectedLabel = selected?.name ?? (includeAll ? 'All categories' : 'Choose category');
+
+  const openMenu = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // Lift the menu above the scroll-clipped Day View using viewport bounds.
+    const margin = 8;
+    const width = Math.min(288, Math.max(rect.width, 176), window.innerWidth - margin * 2);
+    const left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin));
+    const below = window.innerHeight - rect.bottom - margin * 2;
+    const above = rect.top - margin * 2;
+    const showBelow = below >= 176 || below >= above;
+    const maxHeight = Math.max(0, Math.min(240, showBelow ? below : above));
+    const top = showBelow ? rect.bottom + margin : rect.top - margin - maxHeight;
+    setMenuPosition({ top, left, width, maxHeight });
+    setOpen(true);
+  };
 
   useEffect(() => {
     if (!open) return;
     const onOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setOpen(false);
+      }
     };
+    const onFocusOut = (event: FocusEvent) => {
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+    const onScroll = (event: Event) => {
+      // Scrolling the options themselves should not close their own popup.
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onResize = () => setOpen(false);
     document.addEventListener('pointerdown', onOutside);
+    document.addEventListener('focusin', onFocusOut);
+    document.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
     const frame = requestAnimationFrame(() => {
       const checked = menuRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]');
       (checked ?? menuRef.current?.querySelector<HTMLButtonElement>('button'))?.focus();
     });
     return () => {
       document.removeEventListener('pointerdown', onOutside);
+      document.removeEventListener('focusin', onFocusOut);
+      document.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
       cancelAnimationFrame(frame);
     };
   }, [open]);
+
 
   const choose = (next: string) => {
     onChange(next);
@@ -99,7 +140,14 @@ const TimelineCategoryMenu: React.FC<TimelineCategoryMenuProps> = ({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label={`${label}: ${selectedLabel}`}
-        onClick={() => setOpen(current => !current)}
+        onClick={() => open ? setOpen(false) : openMenu()}
+        onKeyDown={event => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!open) openMenu();
+          }
+        }}
         className={pill
           ? 'mosaic-category-pill inline-flex max-w-full items-center gap-2 rounded-full bg-black py-1 pl-3.5 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
           : 'inline-flex max-w-full items-center gap-2 rounded-full border border-[#444444] bg-surfaceHighlight py-2 pl-3 pr-2 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'}
@@ -114,14 +162,17 @@ const TimelineCategoryMenu: React.FC<TimelineCategoryMenuProps> = ({
           <ChevronDown size={pill ? 18 : 14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
         </span>
       </button>
-      {open && (
+      {open && menuPosition && createPortal(
         <div
           id={menuId}
           ref={menuRef}
           role="menu"
           aria-label={label}
           onKeyDown={onMenuKeyDown}
-          className={`absolute left-0 z-40 w-max min-w-full max-w-[min(18rem,85vw)] overflow-y-auto overscroll-contain rounded-2xl border border-[#444444] bg-surface p-1.5 shadow-2xl ${pill ? 'bottom-full mb-2 max-h-56' : 'top-full mt-2 max-h-60'}`}
+          onPointerDown={event => event.stopPropagation()}
+          style={{ position: 'fixed', zIndex: 1000, top: menuPosition!.top, left: menuPosition!.left,
+            width: menuPosition!.width, maxHeight: menuPosition!.maxHeight }}
+          className="overflow-y-auto overscroll-contain rounded-2xl border border-[#444444] bg-surface p-1.5 shadow-2xl"
         >
           {(includeAll ? [{ id: '', name: 'All categories', color: '' }, ...categories] : categories).map(category => (
             <button
@@ -141,7 +192,7 @@ const TimelineCategoryMenu: React.FC<TimelineCategoryMenuProps> = ({
             </button>
           ))}
         </div>
-      )}
+        , document.body)}
     </div>
   );
 };
