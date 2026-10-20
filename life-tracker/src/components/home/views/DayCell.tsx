@@ -100,7 +100,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     >
       <div className="flex justify-center mb-1">
         <div
-          className={`text-[0.93rem] font-bold flex items-center justify-center w-7 h-7 rounded-full ${dayColor} ${
+          className={`text-[0.93rem] font-bold flex items-center justify-center w-7 h-7 rounded-full ${dayColor} ${holidays.length > 0 ? 'mosaic-holiday-date' : ''} ${
             isTodayDate ? 'border border-blue-500 border-2' : ''
           }`}
           aria-hidden="true"

@@ -43,6 +43,10 @@ vi.mock('../../src/hooks/useAppearance', () => ({
   }),
 }));
 
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { $id: 'test-user' } }),
+}));
+
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({
     getSetting: mocks.getSetting,
@@ -60,6 +64,14 @@ vi.mock('../../src/hooks/useHolidays', () => ({
 import { PreferencesPage } from '../../src/pages/PreferencesPage';
 
 describe('PreferencesPage', () => {
+  it('exposes independent holiday color customization', async () => {
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Customize UI colors' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Customize Holidays' }));
+    fireEvent.click(screen.getByRole('button', { name: 'App accent' }));
+    expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:holidays', 'app');
+  });
+
   // Regression: §2 (Preferences owns display/layout and synced behavior controls).
   it('exposes existing screen choices and the requested behavior preferences', async () => {
     render(

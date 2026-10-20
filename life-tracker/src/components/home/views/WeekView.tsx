@@ -109,7 +109,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
               <div
                 key={dateStr}
                 role="gridcell"
-                className="min-w-0 min-h-0 h-full"
+                className="mosaic-calendar-gridcell min-w-0 min-h-0 h-full"
               >
                 <DayCell
                   date={day}
