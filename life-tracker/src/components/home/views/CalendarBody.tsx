@@ -216,6 +216,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const calendarContent = (content: React.ReactNode) => (
     <div ref={setCalendarHost} className="flex min-h-0 min-w-0 flex-1 flex-col"
+      data-calendar-keyboard-owned="true"
       onKeyDown={handleGridKeyDown}
       onFocusCapture={handleGridFocus}
       onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
