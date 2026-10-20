@@ -1,20 +1,25 @@
 # Session checkpoint
 
-Updated: 2026-10-20 UTC
-Current task: #953, v0.34.4 — friend carousel, utility action icons and shared bottom sheet text accent placements.
+Updated: 2026-10-21 UTC
+Current task: #856 — owner-approved stable Preview → dev promotion (v0.34.8).
 
-## Authority and baseline
-- Owner requests expanding the single App accent roles to friend carousel, search icon, hamburger, bottom sheet text, etc. Existing Preferences > Accent color grouping remains.
-- Current baseline stable Preview `feature/ui-custom-colors-953-20261020@878b763fdef50570e8d28cdab15a3ea30aa7573a` v0.34.3 passed exact SHA full CI + trusted Vercel READY (issue #953 checkpoint); `dev@27c4725e382c8f57b6302c382fc4ece7f30d05b2` unchanged.
-- Task branch `chatgpt/953-carousel-sheet-icons-20261020`, expected patch v0.34.4, no dev/main/Production authorization.
+## Accepted source, regression and approval
+- The owner reports cross-day task dragging, mobile edge release and settling now work well, and explicitly approved final cleanup/polish followed by a merge to dev. Preserve issue #856's cross-day dates, task/category projections, long-held touch safeguards, neutral slot and quiet successful move.
+- Accepted stable Preview `feature/cross-day-drag-856-20261020@6921e154b2e21983acc2975965cb11bddcbd9678` (v0.34.8), [PR #1117](https://github.com/carlers/mosaic-life-tracker/pull/1117). Focused/browser task Gate #39451733357 SUCCESS; full canonical Gate #39452162714 SUCCESS at attempt 3 (earlier unrelated same-day reorder flakes did not repeat on the final run). Exact-SHA Vercel deployment `dpl_4EtDD7rP4Dffur1AvZhDyKq5v8Lj` READY.
+- Live `dev@0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0` is **diverged** from the original cross-day Preview: it separately accepted #953 accent-color placements v0.34.4. Do **not** overwrite that already-approved dev behavior or promote the original divergent preview directly.
+- Merge authorization is for dev only; not main, Production, new backend services or v1.0.
 
-## Scoped implementation
-- New default-off account-sync/cache `uiColor:friendCarousel`: selected pill uses accent background/border and readable contrast foreground; inactive pill labels use theme-aware readable accent text, while avatars, neutral inactive background and carousel interactions remain unchanged.
-- Existing `uiColor:icons` now colors explicitly marked neutral search/open/close, Home hamburger, menu icons, friend-carousel preferences and calendar arrows, but not semantic status icons.
-- New default-off `uiColor:bottomSheetText`: shared portal BottomSheet heading and explicitly marked static menu/placement/category-manager labels. No blanket descendant text or unsafe user-entered/task/category/message changes; contrast chosen for elevated Dark/Light sheets.
-- Keep single App accent palette and other roles, Preferences grouping, category/task colors, sheet dragging/keyboard/focus unchanged. No Appwrite schema/sync changes.
-- Update unit/Preferences DOM tests, theme documentation and package/app version v0.34.4.
+## Integrated Preview preflight
+- Integration task branch `chatgpt/856-integrate-dev-accent-20261021` derives from the accepted feature Preview and reapplies all dev-only #953 theme/pinch-zoom files by their exact approved dev Git blobs.
+- Preserve v0.34.8 version in package.json, package-lock.json and appVersion.ts. Merge the one dev-only `mosaic-date-header` class into the feature's DayViewSheet, and union docs/COMPONENT_INDEX entries for crossDayTaskDrag/useContinuousTaskDrag and dev's useCalendarPinchZoom/UiColorSettings. Keep the feature checkpoint instead of replacing it with stale #953 state.
+- No new task behavior, data schema, Appwrite sync or user-facing redesign. Integration must pass new focused task checks, squash into stable feature Preview, full exact-SHA canonical CI, and new Vercel READY evidence.
+- Before the final approved dev merge, fail-closed preflight: check latest refs, versions, exact canonical status, READY Preview deployment, mergeability and GitHub synthetic merge-tree equality with accepted Preview tree. No production promotion. Capture merge SHA, two parents, dev CI and Vercel when available.
 
-## Delivery to complete
-- Make one coherent task commit [verify:focused] with this checkpoint, repair any CI issues, squash task PR to stable feature Preview, verify canonical Quality Gate and exact-SHA trusted Vercel READY. Manual device contrast/motion/sheet nesting plus Scratch browser-login, offline startup and cross-device sync remain unverified.
-- Do not merge Preview to dev/main or touch Production/1.0. Keep issue #953 open.
+## Dev-ancestor integration and authoritative promotion source
+- Owner approved promotion to dev, but both old accepted feature Preview and dev had diverged. The combined v0.34.8 feature/content tree is `38d1afda648c94d40f71d65187141a1c4fe09afe` (includes accepted dev accents + cross-day drag).
+- The documented exact-tree promotion requires current dev to be an ancestor for conflict-free PR merging of version/checkpoint. Create a fresh **dev-based** stable Preview `feature/cross-day-drag-856-dev-integrated-20261021`, via `chatgpt/856-dev-based-promotion-20261021` task branch based on verified dev `0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0`; reuse all combined source blob contents, changing only this checkpoint.
+- Give this dev-descendant Preview its own full canonical Quality Gate and Vercel exact-SHA READY before approved `dev` merge. Verify GitHub PR merge test tree equals this accepted source tree exactly and use a two-parent merge commit. No surprise main/Production.
+- Prior legacy stable Preview remains a valid v0.34.8 feature history, but **not** the source of the dev promotion because of diverged ancestry.
+
+## Remaining manual acceptance
+- Physical iOS/Android repeated drag and smooth settling, device-specific offline sync, and extreme >87-day virtual rebase remain manual. Issue #856 may remain open through production acceptance; report explicitly.
