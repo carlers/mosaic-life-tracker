@@ -71,6 +71,8 @@ interface CategorySectionProps {
   dragGapIndex?: number | null;
   dragGapHeight?: number;
   externalDraggedTaskId?: string | null;
+  /** Keep task row wrappers mounted while the external slot becomes a saved row. */
+  externalRuntimeActive?: boolean;
   externalGapIndex?: number | null;
   externalGapHeight?: number;
   categoryActions?: CategoryPillActions;
@@ -117,6 +119,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   dragGapIndex = null,
   dragGapHeight = 0,
   externalDraggedTaskId = null,
+  externalRuntimeActive = false,
   externalGapIndex = null,
   externalGapHeight = 0,
   categoryActions: suppliedCategoryActions,
@@ -351,11 +354,18 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       if (slot) rows.push(slot);
       if (diarySlot && index === Math.min(externalVisibleTasks.length, diarySlotIndex)) rows.push(diarySlot);
       if (diaryGhostSlot && index === Math.min(externalVisibleTasks.length, diaryGhostSlotIndex)) rows.push(diaryGhostSlot);
-      rows.push(
-        <motion.div key={task.id} layout={animatePositions ? 'position' : false}
-          transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>
-          <TaskItem {...taskProps(task)} />
-        </motion.div>
+      // Keep the exact same wrapper and draggable child as normal same-day
+      // sorting. Replacing these with a plain motion row during cross-day
+      // carry previously remounted every sibling at release (visible flash).
+      rows.push(externalRuntimeActive
+        ? <TaskRowDropSurface key={task.id} categoryId={categoryId} taskId={task.id}
+            eagerRegister={index < 12} animatePosition={animatePositions}>
+            <DraggableTaskItem {...taskProps(task)} />
+          </TaskRowDropSurface>
+        : <motion.div key={task.id} layout={animatePositions ? 'position' : false}
+            transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>
+            <TaskItem {...taskProps(task)} />
+          </motion.div>
       );
     });
     const trailingSlot = neutralSlot(externalVisibleTasks.length);
