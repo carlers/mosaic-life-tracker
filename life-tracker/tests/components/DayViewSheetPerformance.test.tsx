@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -69,7 +69,8 @@ vi.mock('swiper/react', () => ({
     onSwiper?.(swiper);
     return <div>{children}</div>;
   },
-  SwiperSlide: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SwiperSlide: ({ children, 'aria-hidden': hidden }: { children: ReactNode; 'aria-hidden'?: boolean }) =>
+    <div className="swiper-slide" aria-hidden={hidden}>{children}</div>,
 }));
 vi.mock('swiper/modules', () => ({
   Virtual: {},
@@ -82,7 +83,7 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
     disableTaskLayoutAnimation?: boolean;
   }) => {
     fixture.disableTaskLayoutAnimation = disableTaskLayoutAnimation ?? false;
-    return <div data-testid="day-slide">Day content</div>;
+    return <div data-testid="day-slide"><button type="button" data-day-keyboard-target="category" data-day-keyboard-id="cat_1">Add a task to Work</button></div>;
   },
 }));
 
@@ -219,6 +220,19 @@ describe('DayViewSheet mount scheduling', () => {
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
+  });
+
+  it('focuses the first active category on opening without requiring Tab, only once', async () => {
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    const active = document.querySelector<HTMLElement>(
+      '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]'
+    );
+    expect(active).not.toBeNull();
+    await waitFor(() => expect(active).toHaveFocus());
+    const next = screen.getByRole('button', { name: 'Next day' });
+    next.focus();
+    act(() => fixture.onAnimationComplete?.());
+    expect(next).toHaveFocus();
   });
 
   // Regression: §2 (Day View teardown releases stale Swiper ownership before reopen).

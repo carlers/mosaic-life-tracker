@@ -140,6 +140,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // The React Compiler cannot safely infer dependencies across these state machines.
   'use no memo';
   const isBacklogView = renderMode === 'backlog';
+  const sheetContentRef = useRef<HTMLDivElement>(null);
+  const didInitialCategoryFocusRef = useRef(false);
   const appearance = React.useContext(AppearanceContext);
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const { user } = useAuth();
@@ -842,6 +844,38 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [exitSelectMode, isBackgroundLocked, isSelectMode, renderMode]);
+  // The BottomSheet trap initially focuses the header's Previous button.
+  // After its focus setup, start keyboard browsing at the first visible
+  // category instead. Only do this once per sheet opening, not on day swipes,
+  // changes in task data, drag snap-back or nested sheet restoration.
+  useEffect(() => {
+    if (!isOpen) {
+      didInitialCategoryFocusRef.current = false;
+      return;
+    }
+    if (renderMode !== 'sheet' || focusTaskId || isBackgroundLocked ||
+        didInitialCategoryFocusRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (didInitialCategoryFocusRef.current) return;
+      const root = sheetContentRef.current;
+      if (!root || root.closest('[inert], [aria-hidden="true"]')) return;
+      const target = root.querySelector<HTMLButtonElement>(
+        '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]:not(:disabled)'
+      );
+      if (!target) return; // Categories may still be loading.
+      const focused = document.activeElement;
+      // Never override a task being edited or a target already chosen by user.
+      if (focused instanceof Element && root.contains(focused) &&
+          focused.closest('input, textarea, select, [role="textbox"], [contenteditable], [data-day-keyboard-target]')) {
+        didInitialCategoryFocusRef.current = true;
+        return;
+      }
+      target.focus({ preventScroll: true });
+      didInitialCategoryFocusRef.current = true;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen, renderMode, focusTaskId, isBackgroundLocked, activeIndex, categories]);
+
   // A11Y-33: arrows still change dates outside editable fields. When a
   // keyboard user changes dates, move focus out of the now-hidden Swiper slide.
   const keyboardDateFocusRef = useRef<{ categoryId: string | null } | null>(null);
@@ -1324,6 +1358,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     <div
       data-testid="day-sheet-swipe-surface"
       data-day-view-focus-scope={focusTaskId ? 'true' : undefined}
+      ref={sheetContentRef}
       className="flex h-full min-h-0 flex-col"
     >
       {content}
