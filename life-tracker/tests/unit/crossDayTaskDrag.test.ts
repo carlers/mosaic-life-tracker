@@ -6,11 +6,15 @@ import {
 describe('continuous Day View drag navigation boundaries', () => {
   const viewport = { left: 100, right: 460, top: 60, bottom: 740, width: 360 };
 
-  it('only triggers within the actual Day View viewport', () => {
+  it('only triggers when vertically aligned with Day View, including beyond its horizontal edges', () => {
     expect(dragEdgeDirection(110, 300, viewport)).toBe(-1);
     expect(dragEdgeDirection(445, 300, viewport)).toBe(1);
     expect(dragEdgeDirection(270, 300, viewport)).toBe(0);
-    expect(dragEdgeDirection(8, 300, viewport)).toBe(0);
+    expect(dragEdgeDirection(8, 300, viewport)).toBe(-1);
+    expect(dragEdgeDirection(850, 300, viewport)).toBe(1);
+    expect(dragEdgeDirection(-40, 300, viewport)).toBe(-1);
+    expect(dragEdgeDirection(850, 30, viewport)).toBe(0);
+    expect(dragEdgeDirection(-40, 750, viewport)).toBe(0);
     expect(dragEdgeDirection(450, 800, viewport)).toBe(0);
     expect(dragEdgeDirection(Number.NaN, 300, viewport)).toBe(0);
   });

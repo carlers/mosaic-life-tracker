@@ -1704,11 +1704,22 @@ test('held mouse task drag advances Day View at right edge and ends at mouseup',
   try {
     await page.waitForTimeout(580);
     await expect(page.locator('[data-task-drag-overlay="true"]')).toBeVisible();
-    await page.mouse.move(bounds.x + bounds.width - 8, y, { steps: 9 });
+    // Maintain the hold after leaving the Day View boundary horizontally.
+    // This is still inside the browser viewport so physical pointer events flow.
+    const beyondRight = bounds.x + bounds.width + 30;
+    const beyondLeft = bounds.x - 30;
+    expect(beyondRight).toBeLessThan(1280);
+    expect(beyondLeft).toBeGreaterThan(0);
+    await page.mouse.move(beyondRight, y, { steps: 9 });
     await expect(dialog.locator('.swiper-slide-active')).toContainText(
       'Wednesday, September 16, 2026', { timeout: 6500 },
     );
     await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toBeVisible();
+    // Crossing outside the other side reverses without lifting.
+    await page.mouse.move(beyondLeft, y, { steps: 9 });
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Tuesday, September 15, 2026', { timeout: 6500 },
+    );
     await page.mouse.move(bounds.x + bounds.width * 0.5, y, { steps: 5 });
   } finally {
     await page.mouse.up({ button: 'left' });
@@ -1718,7 +1729,8 @@ test('held mouse task drag advances Day View at right edge and ends at mouseup',
   if (!releasedDay) throw new Error('No settled day after mouse release');
   // Moving to an edge WITHOUT pressing again must not restart any dragged
   // overlay or make the date advance autonomously.
-  await page.mouse.move(bounds.x + 8, y, { steps: 10 });
+  await page.mouse.move(bounds.x + bounds.width + 30, y, { steps: 10 });
+  await page.mouse.move(bounds.x - 30, y, { steps: 10 });
   await page.waitForTimeout(1200);
   await expect(dialog.locator('.swiper-slide-active [data-date-str]').first()).toHaveAttribute('data-date-str', releasedDay);
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);

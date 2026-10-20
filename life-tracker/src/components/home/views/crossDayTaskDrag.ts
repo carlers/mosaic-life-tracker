@@ -1,13 +1,13 @@
 import { addDays, format, parseISO } from 'date-fns';
 
-/** The edge belongs to the Day View viewport, never the whole screen. */
+/** Horizontal exit keeps the same edge armed while the held pointer stays at Day View height. */
 export function dragEdgeDirection(
   x: number,
   y: number,
   rect: Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom' | 'width'>,
 ): -1 | 0 | 1 {
   if (!Number.isFinite(x) || !Number.isFinite(y) ||
-      y < rect.top || y > rect.bottom || x < rect.left || x > rect.right) return 0;
+      y < rect.top || y > rect.bottom) return 0;
   const band = Math.min(56, Math.max(24, rect.width * 0.11));
   if (x <= rect.left + band) return -1;
   if (x >= rect.right - band) return 1;

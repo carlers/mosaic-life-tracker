@@ -6,8 +6,8 @@ import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { TaskItem } from './TaskItem';
 import { adjacentCalendarDate, clampTaskInsertIndex, dragEdgeDirection } from './crossDayTaskDrag';
 
-const INITIAL_DWELL_MS = 410;
-const REPEAT_COOLDOWN_MS = 330;
+const INITIAL_DWELL_MS = 320;
+const REPEAT_COOLDOWN_MS = 230;
 const MIN_TRANSITION_GUARD_MS = 350;
 
 type Point = { x: number; y: number };

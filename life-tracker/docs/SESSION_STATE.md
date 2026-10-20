@@ -1,23 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #856 — fix phantom desktop drag and inert real held cross-day drag.
+Current task: #856 — accepted cross-day drag UX refinement.
 
-## Owner observation
-- Stable Preview v0.34.1, `feature/cross-day-drag-856-20261020@f7c47d671c2ea49e779c66919ec541d0b2c2ca2d`, passed canonical CI and exact Vercel READY, but the owner **still cannot navigate across days with a real held task drag**.
-- On desktop, Day View sometimes follows cursor after left mouse button release. Cross-day behavior seems to track that phantom mouse motion instead of the actual drag gesture.
-- Earlier regression checked a synthetic Chromium touch drag but **not** a held mouse drag or post-release mouse cursor motion. Treat v0.34.1 as rejected; do not merge into dev.
+## Source and owner acceptance
+- Owner confirms v0.34.2 successfully moves tasks between days with real held mouse dragging and no reported phantom cursor drag.
+- Stable Preview starting point: `feature/cross-day-drag-856-20261020@bf1ab0a853cbf288d9f490917ea9835cbf5c81ba`, exact-sha Preview READY, full canonical CI #39424383631 SUCCESS.
+- Current `dev@27c4725e382c8f57b6302c382fc4ece7f30d05b2` is independent v0.33.2. Do not promote/mix branches without explicit authorization.
 
-## Changes for next Preview candidate v0.34.2
-- Base stable `f7c47d6`; task branch `chatgpt/856-real-held-pointer-gate-20261020`. Current dev is `27c4725` v0.33.2 (contains separately accepted pinch feature; do not overwrite).
-- Arm cross-day navigation only after real primary `pointerdown` inside an active task row. Track pointer ID, actual viewport pointer coordinates and held button until release.
-- Discard dnd-kit's translated `operation.position.current` as pointer coordinates. Use only corresponding native PointerEvent or the held pointer position recorded from window-level pointer events.
-- Cancel external drag and stop edge timers on mouse movement with no left button, mouseup/pointerup, pointercancel, Escape, blur, visibility loss, or drag-provider end even if pointerup was not seen. Keep same-day drag/drop unchanged.
-- Add browser regressions for genuine held primary-button mouse navigation and a released ordinary mouse swipe that must not continue following hover. Retain existing Chromium real-touch regression.
-- Version PATCH v0.34.2 after v0.34.1 user-tested failure.
+## Authorized v0.34.3 refinement
+- Scope exactly two owner-requested improvements: shorten initial edge hover dwell from 410 ms to 320 ms, and reduce consecutive cooldown from 330 ms to 230 ms (repeat remains 230+320=550 ms after slide settle); allow cursor/finger X past left/right Day View boundaries to continue edge navigation while Y remains vertically aligned.
+- Safety remains unchanged: physically held task pointer identity/button gate, release/cancel/blur cleanup, no multiple in-flight slide transitions, virtual Swiper active-date guards, and one final drop write. No schema/backend changes.
+- Unit regression covers beyond-left/right X and excluded vertical exit. Real desktop Playwright held-mouse regression moves beyond right to next day, beyond left to previous day, and moves beyond edges post-release to confirm nothing navigates.
+- Task branch `chatgpt/856-faster-outer-edge-20261020`. PATCH Preview candidate 0.34.3.
 
-## Verification plan / outstanding
-- Browser-focused run #39423340879 revealed the first touch edge-swipe works but the second does not: `onNativeEnd` was finishing the stable carry on dnd-kit source unmount mid-swipe. Repair retains carried session while matching physical pointer is held and ends it only on actual pointerup/cancel/mouseup/blur/etc. Focused lint also rejected unused callback args, now removed. Request fresh browser-focused verification for this patch.
-- New desktop Playwright scenario explicitly disables mobile/touch emulation for held mouse and post-release hover checks. After focused success, squash to stable Preview, run canonical full CI and verify exact-SHA Vercel READY.
-- Physical device / actual account retest, persistence/offline sync, high day-count rebase and iOS Safari still unverified. Keep #856 open.
-- No approval to promote `dev` or `main` or alter backend/Production.
+## Verification / next steps
+- Run task-branch focused and browser gate (`[verify:browser]`), repair failures, then squash onto the existing stable Preview branch and obtain full canonical acceptance + exact-SHA READY Preview.
+- User test remains needed for final speed feel and real Android/iOS/safari edge behavior. Extended >87-day rebase, final drop persistence/offline sync remain additional manual acceptance; issue #856 stays open.
+- No `dev`, `main`, Production, or 1.0 release authorized.
