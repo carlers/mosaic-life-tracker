@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument } from '../../src/db/schema';
 
-const mocks = vi.hoisted(() => ({ startDrag: vi.fn(), addTask: vi.fn() }));
+const mocks = vi.hoisted(() => ({ startDrag: vi.fn(), cancelDrag: vi.fn(), addTask: vi.fn() }));
 vi.mock('framer-motion', async (importOriginal) => {
   const actual = await importOriginal<typeof import('framer-motion')>();
   return {
@@ -25,7 +25,7 @@ vi.mock('framer-motion', async (importOriginal) => {
         <button onClick={onDragEnd}>Drop category</button>
       </div>,
     },
-    useDragControls: () => ({ start: mocks.startDrag }),
+    useDragControls: () => ({ start: mocks.startDrag, cancel: mocks.cancelDrag }),
   };
 });
 import { DayViewCategoryReorder } from '../../src/components/home/views/DayViewCategoryReorder';
@@ -64,7 +64,7 @@ const createProps = () => ({
 });
 
 describe('Day View category gesture isolation', () => {
-  beforeEach(() => { mocks.startDrag.mockReset(); mocks.addTask.mockReset(); });
+  beforeEach(() => { mocks.startDrag.mockReset(); mocks.cancelDrag.mockReset(); mocks.addTask.mockReset(); });
   afterEach(() => { vi.useRealTimers(); });
 
   it('persists the final order only on drop', async () => {
@@ -106,12 +106,13 @@ describe('Day View category gesture isolation', () => {
     fireEvent.pointerDown(homeLabel, {
       isPrimary: true, button: 0, pointerId: 4, pointerType: 'touch', clientX: 10, clientY: 10,
     });
-    expect(mocks.startDrag).not.toHaveBeenCalled();
-    act(() => { vi.advanceTimersByTime(500); });
-    // Motion registers its pointer listeners from the original pointerdown.
-    // The broken version passed a pointermove, which cannot start PanSession.
+    // Mobile browsers need Motion to register its pointer listener from the
+    // original *live* touch press. Starting after 500ms lets native text
+    // selection / pointercancel steal the gesture on actual phones.
     expect(mocks.startDrag).toHaveBeenCalledTimes(1);
     expect(mocks.startDrag.mock.calls[0][0].type).toBe('pointerdown');
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     fireEvent.pointerMove(window, {
       pointerId: 4, pointerType: 'touch', clientX: 30, clientY: 10,
@@ -122,6 +123,7 @@ describe('Day View category gesture isolation', () => {
     fireEvent.pointerUp(window, { pointerId: 4, pointerType: 'touch' });
     fireEvent.click(homeLabel.closest('button')!);
     expect(mocks.addTask).not.toHaveBeenCalled();
+    expect(mocks.cancelDrag).not.toHaveBeenCalled();
   });
 
   it('does not arm a drag when the mouse holds the plus area, but still opens Edit', () => {
@@ -171,6 +173,35 @@ describe('Day View category gesture isolation', () => {
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(mocks.startDrag).toHaveBeenCalledTimes(1);
     fireEvent.pointerUp(window, { pointerId: 15, pointerType: 'mouse' });
+  });
+
+  it('cancels an armed touch drag on a swipe before the hold threshold', () => {
+    vi.useFakeTimers();
+    render(<DayViewCategoryReorder {...createProps()}/>);
+    const label = screen.getByText('Work');
+    fireEvent.pointerDown(label, {
+      isPrimary: true, button: 0, pointerId: 18, pointerType: 'touch', clientX: 10, clientY: 10,
+    });
+    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
+    fireEvent.pointerMove(window, {
+      pointerId: 18, pointerType: 'touch', clientX: 12, clientY: 32,
+    });
+    expect(mocks.cancelDrag).toHaveBeenCalledTimes(1);
+    act(() => { vi.advanceTimersByTime(600); });
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    fireEvent.pointerUp(window, { pointerId: 18, pointerType: 'touch' });
+    expect(mocks.cancelDrag).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels an armed but unmoved touch drag on release', () => {
+    render(<DayViewCategoryReorder {...createProps()}/>);
+    fireEvent.pointerDown(screen.getByText('Work'), {
+      isPrimary: true, button: 0, pointerId: 19, pointerType: 'touch', clientX: 10, clientY: 10,
+    });
+    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
+    fireEvent.pointerUp(window, { pointerId: 19, pointerType: 'touch' });
+    expect(mocks.cancelDrag).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
   });
 
   it('cancels a touch hold after a pre-hold swipe or pointer cancellation', () => {
@@ -234,6 +265,7 @@ describe('Day View category gesture isolation', () => {
       button: 0, pointerType: 'mouse',
     });
     expect(mocks.startDrag).not.toHaveBeenCalled();
+    expect(mocks.cancelDrag).not.toHaveBeenCalled();
   });
 });
 
@@ -284,6 +316,16 @@ describe('inline category actions', () => {
     await waitFor(() => expect(props.onUpdate).toHaveBeenCalledWith('work', {
       name: 'Career', visibility: 'public',
     }));
+  });
+
+  it('disables native text selection only on the interactive category pill', () => {
+    renderRealSection();
+    const pill = screen.getByRole('button', { name: 'Add a task to Work' });
+    const handle = pill.querySelector('[data-category-drag-handle]') as HTMLElement;
+    expect(pill.style.userSelect).toBe('none');
+    expect(pill.style.WebkitUserSelect).toBe('none');
+    expect(handle.style.userSelect).toBe('none');
+    expect(handle.style.touchAction).toBe('none');
   });
 
   it('opens the actual category actions from a touch hold anywhere on the pill', () => {

@@ -336,18 +336,24 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         onContextMenu={!editingCategory ? categoryActions?.onContextMenu : undefined}
         onClick={selectionMode ? () => onToggleCategorySelection?.(categoryId) : handleOpen}
         disabled={selectionMode && (!onToggleCategorySelection || tasks.length === 0)}
-        className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        className="mosaic-category-pill select-none inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label={selectionMode
           ? `${allCategoryTasksSelected ? 'Deselect all' : 'Select all'} tasks in ${categoryName}`
           : `Add a task to ${categoryName}`}
         aria-pressed={selectionMode ? allCategoryTasksSelected : undefined}
+        style={categoryActions && !selectionMode
+          ? { WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }
+          : undefined}
       >
         {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
         <span
           className="text-[0.9375rem] font-bold"
           data-category-drag-handle={categoryActions && !editingCategory ? 'true' : undefined}
           style={{ color: getCategoryLabelColor(categoryColor),
-            touchAction: categoryActions && !editingCategory ? 'none' : undefined }}
+            touchAction: categoryActions && !editingCategory ? 'none' : undefined,
+            WebkitUserSelect: categoryActions && !editingCategory ? 'none' : undefined,
+            userSelect: categoryActions && !editingCategory ? 'none' : undefined,
+            WebkitTouchCallout: categoryActions && !editingCategory ? 'none' : undefined }}
         >
           {categoryName}
         </span>

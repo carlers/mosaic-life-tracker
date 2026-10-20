@@ -75,20 +75,24 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
     const move = (next: PointerEvent) => {
       if (next.pointerId !== state.pointerId) return;
       if (!state.held &&
-          Math.hypot(next.clientX - state.x, next.clientY - state.y) > TOLERANCE_PX) {
-        // On touch this is ordinary page/day scrolling, not category drag.
-        // Desktop label drag has its own already-started Motion session.
+          Math.hypot(next.clientX - state.x, next.clientY - state.y) >= TOLERANCE_PX) {
+        // An early swipe belongs to the page, not a category. Cancel
+        // Motion's armed touch PanSession before it sees this movement.
+        // Our move listener was registered before controls.start().
+        if (touch && fromLabel && !dragStarted.current) controls.cancel();
         cleanup();
       }
     };
     const finish = (next: PointerEvent) => {
       if (next.pointerId !== state.pointerId) return;
       cleanup();
+      if (touch && fromLabel && !dragStarted.current) controls.cancel();
       if (state.held) suppressClick.current = true;
     };
     const cancel = (next: PointerEvent) => {
       if (next.pointerId !== state.pointerId) return;
       cleanup();
+      if (touch && fromLabel && !dragStarted.current) controls.cancel();
       // iOS can cancel the pointer after its native contextmenu event.
       // Preserve a menu intentionally opened by our hold or contextmenu.
       if (!state.held && !suppressClick.current) setMenuOpen(false);
@@ -98,21 +102,17 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
     window.addEventListener('pointercancel', cancel);
     pressCleanup.current = cleanup;
 
-    if (!touch && fromLabel) {
-      // A desktop pointer-down initiates the session, but only actual movement
-      // starts the drag. A stationary hold can therefore still open Edit.
+    if (fromLabel) {
+      // Motion must register the *live* pointerdown for both mouse and touch.
+      // Deferring start() until after a long press worked in Chromium emulation,
+      // but iOS/Android can select text or cancel the pointer in the meantime.
+      // An early touch move explicitly cancels the still-unstarted drag above.
       controls.start(originalDown, { distanceThreshold: TOLERANCE_PX });
     }
     state.timer = window.setTimeout(() => {
       if (pressCleanup.current !== cleanup || dragStarted.current) return;
       state.held = true;
       suppressClick.current = true;
-      if (touch && fromLabel) {
-        // Framer's PanSession must receive a POINTERDOWN to register the
-        // ongoing touch. Calling controls.start(pointermove) loses the
-        // initial session and makes hold-then-drag impossible on mobile.
-        controls.start(originalDown, { distanceThreshold: TOLERANCE_PX });
-      }
       setMenuOpen(true);
     }, HOLD_MS);
   };
