@@ -1,20 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #953, v0.34.4 — friend carousel, utility action icons and shared bottom sheet text accent placements.
+Current task: #956 — Day View keyboard navigation Phase 1, proposed v0.35.0.
 
 ## Authority and baseline
-- Owner requests expanding the single App accent roles to friend carousel, search icon, hamburger, bottom sheet text, etc. Existing Preferences > Accent color grouping remains.
-- Current baseline stable Preview `feature/ui-custom-colors-953-20261020@878b763fdef50570e8d28cdab15a3ea30aa7573a` v0.34.3 passed exact SHA full CI + trusted Vercel READY (issue #953 checkpoint); `dev@27c4725e382c8f57b6302c382fc4ece7f30d05b2` unchanged.
-- Task branch `chatgpt/953-carousel-sheet-icons-20261020`, expected patch v0.34.4, no dev/main/Production authorization.
+- User approved implementation of the Phase 1 scope from #956 on 2026-10-20. Phase 2 and app-wide Phase 3 remain unapproved follow-ons. No dev/main/Production promotion.
+- Base `dev@0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0`, v0.34.4. Task branch `chatgpt/956-dayview-keyboard-20261020` from that exact SHA.
+- This branch is the implementation task; stable Preview, canonical CI and Vercel acceptance remain pending. Issue stays open.
 
-## Scoped implementation
-- New default-off account-sync/cache `uiColor:friendCarousel`: selected pill uses accent background/border and readable contrast foreground; inactive pill labels use theme-aware readable accent text, while avatars, neutral inactive background and carousel interactions remain unchanged.
-- Existing `uiColor:icons` now colors explicitly marked neutral search/open/close, Home hamburger, menu icons, friend-carousel preferences and calendar arrows, but not semantic status icons.
-- New default-off `uiColor:bottomSheetText`: shared portal BottomSheet heading and explicitly marked static menu/placement/category-manager labels. No blanket descendant text or unsafe user-entered/task/category/message changes; contrast chosen for elevated Dark/Light sheets.
-- Keep single App accent palette and other roles, Preferences grouping, category/task colors, sheet dragging/keyboard/focus unchanged. No Appwrite schema/sync changes.
-- Update unit/Preferences DOM tests, theme documentation and package/app version v0.34.4.
+## Scoped change
+- Owned Day View, its inline Todo/Diary variant, and Backlog opt in to local keyboard browse across visible category pills and task titles (Up/Down/Home/End) without replacing existing Left/Right date navigation.
+- Task title Enter edits, Space toggles completion (or selection in select mode), and Shift+Enter opens the existing actions. Preserve native Tab/caret/IME, category add/selection, nested sheet, drag and pointer controls.
+- Focus returns to a nearby visible target when a keyboard-focused task disappears; keyboard date navigation moves focus to the new active day. Inactive Swiper slides and blocked sheets are guarded.
+- Regression tests for browse order, focus restoration, text/disabled guards, title actions and select mode; no backend/schema changes.
+- Version 0.35.0 is the proposed initial MINOR user-testable Preview; reconcile against concurrently active Preview branches before stamping a stable release.
 
-## Delivery to complete
-- Make one coherent task commit [verify:focused] with this checkpoint, repair any CI issues, squash task PR to stable feature Preview, verify canonical Quality Gate and exact-SHA trusted Vercel READY. Manual device contrast/motion/sheet nesting plus Scratch browser-login, offline startup and cross-device sync remain unverified.
-- Do not merge Preview to dev/main or touch Production/1.0. Keep issue #953 open.
+## Verification / delivery
+- Make one coherent task commit [verify:focused] and task PR; inspect exact-SHA focused CI and repair failures.
+- After focused green, squash onto stable Preview, run canonical CI and verify trusted Vercel READY before user testing. Manual desktop keyboard, WebKit/physical keyboard, screen-reader and nested-sheet checks are separate unverified acceptance.
+- Do not merge to dev/main automatically or mark #956 complete before follow-on decisions and acceptance.
