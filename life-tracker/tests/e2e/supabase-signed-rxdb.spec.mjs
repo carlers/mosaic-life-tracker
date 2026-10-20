@@ -567,6 +567,38 @@ test('real local browser Supabase Auth lifecycle: password login, rotation, acco
   await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb));
 });
 
+test('signed localhost Supabase Auth: refresh-only browser persistence, reload verification, rotation and erasure', async ({ page }) => {
+  if (!configured) throw new Error('Local signed provider configuration absent');
+  const a = await newSignedUser('persist-a');
+  const dbTag = 'persist' + randomBytes(6).toString('hex');
+  await page.addInitScript(settings => { window.__mosaicSignedRxdbConfig = settings; }, {
+    endpoint: url, publishableKey: key, token: a.token,
+    supabaseId: a.id, legacyId: 'legacy_persist_fixture', dbTag,
+  });
+  const target = BASE_URL + '/tests/e2e/supabase-signed-rxdb.html';
+  const owner = { id: a.id, email: a.email, password: a.password };
+  const execute = async phase => page.evaluate(
+    async ({ phase, owner }) => window.__mosaicSignedRxdb.exerciseSignedPersistedAuth(phase, owner),
+    { phase, owner },
+  );
+  await page.goto(target);
+  await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb));
+  expect(await execute('login')).toEqual({
+    phase: 'login', signedOwner: a.id, savedRefreshOnly: true,
+  });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb));
+  expect(await execute('restore')).toEqual({
+    phase: 'restore', restoredOwner: a.id, rotated: true,
+  });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb));
+  expect(await execute('logout')).toEqual({ phase: 'logout', signedOut: true });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__mosaicSignedRxdb));
+  expect(await execute('empty')).toEqual({ phase: 'empty', empty: true });
+});
+
 test('signed local core domains: native RxDB task create, offline completion and tombstone replay', async ({ page }) => {
   if (!configured) throw new Error('Local signed provider configuration absent');
   const suffix = 'core' + randomBytes(6).toString('hex');
