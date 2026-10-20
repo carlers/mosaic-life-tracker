@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { useOfflineReadiness } from '../../hooks/useOfflineReadiness';
+import { requestAppSync } from '../../lib/appSync';
 
 interface SyncStatusSheetProps {
   isOpen: boolean;
@@ -62,8 +63,7 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
       return;
     }
     setIsManualSyncDisabled(true);
-    void import('../../db/sync')
-      .then(({ syncNow }) => syncNow(userId))
+    void requestAppSync(userId, true)
       .catch((err) => {
         console.error('[SyncStatusSheet] Manual sync failed:', err);
       });

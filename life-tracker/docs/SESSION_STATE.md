@@ -1,24 +1,26 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1027 app-owned signed Supabase core Auth + real RxDB lifecycle coordinator.
+Current task: #1027 disposable Supabase core app, v0.32.0 candidate.
 
-## Baseline and authorization
-- Accepted isolated stable Preview `refactor/1027-app-rxdb-core-bridge-20261020@4e1718132632c55b79d218daa6cbbb006f9b1fce`. PRs #1072/#1073, focused repair CI #39396790705 SUCCESS, full canonical #39396934431 SUCCESS, trusted #39397143268 READY; issue #1027 comment #6287335605.
-- Task branch `chatgpt/1027-signed-core-auth-coordinator-20261020`. Version impact NONE: no app login UI or active cloud provider selection, no dev/main/Production/provider/schema/user data operations.
-- Maintain 3 backend deployments: Appwrite Cloud, Oracle-hosted Appwrite, Supabase Cloud. Old-PWA server cutoff, trustworthy ID mapping, two-provider lease exclusion, DR and reverse-delta migration must precede any real switch.
+## Scope and baseline
+- Accepted source: `refactor/1027-signed-core-auth-20261020@c36f6be5c381d42eeadd31e07555330c3bb5664a`, PR #1075; canonical #39400581257 and trusted #39400819910 SUCCESS.
+- Work: `codex/1027-supabase-core-app-20261020`, PR #1079 to isolated `refactor/1027-supabase-core-app-20261020`.
+- User authorizes code, tests and isolated Preview. No Production, real-user migration, dev/main promotion or 1.0.
 
 ## Implementation
-- `src/lib/supabaseCoreAuth.ts`: app-side signed account orchestration of in-memory Supabase GoTrue sign-in/optional isolated restore, current signed owner verification, separately resolved canonical identity and existing real-RxDB two-domain core startup bridge.
-- Authenticated owner is published only after signed owner and legacy mapping match and the remote writer starts; never trust cached metadata or stored owner hints. No browser refresh token persistence enabled.
-- Explicit stop-before-logout and stop-before-refresh/renewal; retry both mapping and server/local writer safeguards on each refreshed session. Concurrent logins blocked; late owner switches cancel started writers. Unconfirmed stop/start and uncertain local Auth cleanup fail closed.
-- `tests/unit/supabaseCoreAuth.test.ts`: signed activation, no-op restore, mapping mismatch, delayed account switch, late post-start switch, uncertain cleanup and revoked writer, logout order, refresh/reacquire and denied provider/guards.
-- `docs/CORE_MVP_PROVIDER_RETURN.md`: describe this as non-shipped contract and enumerate trusted cloud/app UI gaps.
+- Actual provider-aware root, neutral identity, signed Auth and task/category RxDB integration. Separate Supabase DB and provider-aware refresh; Appwrite startup rejected under Supabase.
+- Fresh-only server-generated canonical identities, private backend authority and session leases enforced on inserts/CAS. Existing users are not enrolled; this does not fence old Appwrite PWAs.
+- Core profile/social/task menus respect capabilities. Default Appwrite behavior retained. Memory-only credentials: reload requires sign-in.
 
-## Verification
-- Coherent task SHA focused verification required. Do not claim tests or deployment passed before CI reports them.
+## Evidence and current repair
+- `2f2e73f341d751a894f1d674b191088cfbfbf493`: focused #39408795050 and actual Supabase app lab #39408795064 SUCCESS. Real UI category/task creation, offline completion and second-device isolation; signed lease/CAS/owner/revocation negatives.
+- Expanded #39409630007 passed title editing and Backlog propagation, then first-device task control disappeared after going offline. Built-PWA diagnostic #39410719284 identified lazy OfflineBanner import failure after network loss. Reproduced in the existing chat browser test with real network denial. Banner now ships with the shell; actual offline UI is asserted before edits/deletion.
+- Focused #39409630022 exposed lazy friend-module query timing; explicit import settling fixed locally (12 tests). #39410193415 failed checkpoint length; shortened here without relaxing contract.
+- Local TypeScript/build/PWA/blocking bundle budgets and relevant tests pass. Full canonical/trusted delivery remains pending. CI is source of final exact-SHA evidence.
 
-## Next action
-- If focused CI fails, batch repair; when green squash into separate isolated stable Preview and require canonical full CI + trusted exact-SHA READY. Do not promote protected branches without user approval.
-- Next bring provider-aware `AuthProvider` to app UI behind genuine server-mapped accounts and old Appwrite writer cutoff + cross-tab Auth credential rotation; no alternate backend startup with test-injected no-op guards. Hosted signed two-owner security, reverse Appwrite/Oracle/Supabase import/DR and multi-device/offline acceptance remain mandatory.
-- Diary #1029 immediately after working core release; #1027/#967/#975/#1026 remain open.
+## Next action and blockers
+- No Supabase management credential; secure SUPABASE_ACCESS_TOKEN requirement saved. Network draft adds storage.googleapis.com, public.ecr.aws and results-receiver.actions.githubusercontent.com; not applied. Real stack verification uses disposable GitHub lab.
+- Finish current lab/focused repair, then squash green PR and require canonical/trusted acceptance. Standard Preview still uses Appwrite configuration; no hosted Supabase delivery claim.
+- Remaining: offline cold start/token recovery, conflict review, complete mutation/order coverage, hosted security/recovery, old-Appwrite writer cutoff and reversible migration including offline deltas. Diary #1029 follows core release.
+- Keep #1027/#967 open; record exact SHA/PR/CI/deployment and next executable action in #1027.

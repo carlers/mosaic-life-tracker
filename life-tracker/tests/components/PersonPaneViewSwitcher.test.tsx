@@ -127,6 +127,8 @@ describe('PersonPane view switcher', () => {
   // Regression: §2 (friends expose the shared Todo List and its date title returns to the current month).
   it('renders Todo List for a friend in friend mode and lets its date header return to today', async () => {
     render(<PersonPane person={friend} isActive />);
+    // Await the actual lazy friend module, separately from the UI assertion.
+    await act(async () => { await vi.dynamicImportSettled(); });
 
     fireEvent.click(await screen.findByLabelText('Todo list'));
 

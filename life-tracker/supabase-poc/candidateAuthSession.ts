@@ -67,6 +67,8 @@ export function createCandidateAuthSession(options: {
   publishableKey: string;
   fetcher?: typeof fetch;
   persistence?: CandidateSessionPersistence;
+  /** App logout can revoke only this device's signed session. */
+  logoutScope?: 'local' | 'global';
 }) {
   const base = new URL(options.baseUrl);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname);
@@ -297,7 +299,8 @@ export function createCandidateAuthSession(options: {
     try { clearSaved(); } catch { cleared = false; }
     if (!token) return cleared;
     try {
-      const response = await fetcher(new URL('/auth/v1/logout', base).toString(), {
+      const logoutPath = options.logoutScope === 'local' ? '/auth/v1/logout?scope=local' : '/auth/v1/logout';
+      const response = await fetcher(new URL(logoutPath, base).toString(), {
         method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error',
         headers: { apikey: options.publishableKey, Authorization: 'Bearer ' + token },
       });

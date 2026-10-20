@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { TaskDateEditor } from './TaskDateEditor';
+import { hasCapability } from '../../../lib/backendCapabilities';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
 import {
@@ -166,7 +167,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
           <span className="text-xs text-gray-400">{visibilityLabel}</span>
         </button>
 
-        {task.date !== '' && <button
+        {hasCapability('sharedTasks') && task.date !== '' && <button
           type="button"
           onClick={() => { onShare(); onClose(); }}
           className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white mb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
@@ -218,7 +219,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-base font-medium">Copy Task Text</span>
           </button>
 
-          {onLinkToBucketList && <button type="button" onClick={() => { onClose(); onLinkToBucketList(); }}
+          {hasCapability('bucketList') && onLinkToBucketList && <button type="button" onClick={() => { onClose(); onLinkToBucketList(); }}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-surfaceHighlight text-foreground focus-visible:ring-2 focus-visible:ring-current">
             <span className="w-8 h-8 rounded-full bg-surfaceHighlight flex items-center justify-center"><Link2 size={16} aria-hidden="true"/></span>
             <span className="text-base font-medium">Link to Bucket List</span>
@@ -242,7 +243,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             </button>
           )}
 
-          {!task.image && (
+          {hasCapability('taskImages') && !task.image && (
             <button
               type="button"
               onClick={() => {
@@ -261,7 +262,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             </button>
           )}
 
-          {task.image && (
+          {hasCapability('taskImages') && task.image && (
             <button
               type="button"
               onClick={() => {
@@ -280,7 +281,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             </button>
           )}
 
-          {task.image && (
+          {hasCapability('taskImages') && task.image && (
             <button
               type="button"
               onClick={() => {

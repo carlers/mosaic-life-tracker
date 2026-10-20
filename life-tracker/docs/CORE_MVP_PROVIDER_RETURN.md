@@ -125,3 +125,54 @@ The coordinator **requires** the bridge's existing explicit `supabase-cloud` + `
 Logout first confirms stopping the RxDB writers, then signs out GoTrue. If writer cancellation is uncertain, the coordinator enters a blocked state and will **not** allow new login, new writer acquisition or migration. A refresh token changes the session epoch; `refreshAndRestart()` therefore stops the old writers **before** rotating and revalidating the account and reacquiring verified writer guards. A lost/changed owner after writer startup forces cancellation; unresolved cleanup blocks the coordinator. A false sign-out result means server revocation was not confirmed, not permission to keep local tokens.
 
 These are application data-layer lifecycle contracts, not a fully usable alternate sign-in UI or cloud cutover. Current Appwrite-only `AuthContextValue`, live provider selection, registered backend origin/Auth policy, cross-tab session protocol, trusted identity registry, old-PWA cutoff/leases, hosted signed RLS/CAS security and reversible import+DR evidence remain required. Continue isolating experimental deployment from real user data.
+
+## Disposable fresh-account application slice (v0.32.0 candidate)
+
+The explicit `VITE_MOSAIC_BACKEND=supabase-cloud` plus `core-only` profile now mounts
+`SupabaseAuthProvider` in the real application. Configure `VITE_SUPABASE_URL` and a
+modern public `VITE_SUPABASE_PUBLISHABLE_KEY`. This candidate accepts only loopback
+or the isolated `mosaic-dev` project; the normal Appwrite build remains the default.
+The UI consumes a provider-neutral `MosaicUser`. Foreground/manual refresh routes
+through `appSync`; the Appwrite coordinator rejects startup in a Supabase build.
+The local database is scoped to the backend installation and preserves the Appwrite
+cache. Existing task/category hooks and Calendar/Todo/Backlogs views are reused.
+
+`20261020_core_fresh_identity_authority.sql` is an additional **disposable-only**
+migration. Only Auth users created after installation receive a server-generated
+fresh canonical identity. Pre-existing users and imported Appwrite identities are
+not automatically enrolled. A private authority ledger and signed-session leases
+protect both direct inserts and CAS updates, including old candidate clients that
+ignore browser guards. Authenticated callers cannot change authority, provenance,
+or epochs; freezing or advancing an authority epoch denies subsequent writes.
+Multiple devices can hold leases for the same authoritative Supabase backend.
+This is exclusive **backend** ownership, not a one-device-only mutex.
+
+Fresh identities have no migrated Appwrite source. This does **not** prove cutoff
+of old Appwrite PWAs for an existing user: existing-user migration remains blocked
+until the source writer fence, identity mapping, verified snapshots and reversible
+deltas are implemented and rehearsed on Appwrite Cloud and Oracle installations.
+No hosted migration or real-user data change is part of this source commit.
+
+Credentials remain memory-only in this slice. An authenticated tab can edit offline
+and retry after reconnect; reload requires sign-in. Persistent offline authentication,
+cross-tab refresh rotation, recovery completion, account erasure and conflict-review
+UI remain outstanding. Unsupported account actions fail explicitly. Preferences
+are device-local; deferred Diary/social/image data is retained and capabilities stay
+disabled. This candidate is not the completed core MVP.
+
+`Supabase Core App Lab` applies the migrations to disposable real GoTrue/PostgREST
+services and runs `supabase-core-app.spec.mjs` against the actual Mosaic UI. It tests
+category/task creation, offline completion replay, second-session convergence,
+foreign-owner isolation, no Appwrite requests, and signed server lease denials.
+The lab must pass before claiming these behaviors work. It is separate from hosted
+RLS/security, mobile-device, migration/rollback and Production acceptance.
+
+The first app integration review also found a legacy profile fetch reachable from
+Home: `useMyProfile` now suppresses reads, retries and mutations when social support
+is absent. Core profile name/bio remain device-local; public profile, username and
+photo actions are disabled. App logout requests Supabase `scope=local`, preserving
+other device sessions. The original isolated Auth pilot retains its default scope.
+
+The actual-app lab also covers task title editing, movement to Backlogs, offline deletion and second-device tombstone convergence. Task menus omit unsupported sharing, photo and bucket-list actions under the core capability profile. These checks use disposable local Supabase; hosted acceptance remains separate.
+
+Real network-denial verification exposed a shared shell bug: lazy loading the offline banner after losing connectivity crashed the route. The banner is now included with MainLayout, so offline feedback and local editing do not require another JS download. The chat browser regression now disables the browser network rather than only changing navigator.onLine.

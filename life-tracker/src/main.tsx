@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { AuthProvider } from './hooks/AuthProvider';
+import { RootAuthProvider as AuthProvider } from './hooks/RootAuthProvider';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { installChunkLoadErrorTracking } from './lib/chunkLoadErrors';
 import {

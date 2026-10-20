@@ -203,7 +203,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
     },
     [user?.$id]
   );
-  const isLoading = !!userId && loadedUserId !== userId;
+  const isLoading = hasCapability('social') && !!userId && loadedUserId !== userId;
   const value = useMemo<UseFriendsReturn>(
     () => ({
       friends: userId && loadedUserId === userId ? friends : [],

@@ -1,8 +1,18 @@
 import { createContext } from "react";
-import type { Models } from "appwrite";
+
+/** Provider-neutral identity consumed by UI and owner-scoped domain hooks. */
+export interface MosaicUser {
+  $id: string;
+  name: string;
+  email: string;
+  prefs: Record<string, unknown>;
+}
 
 export interface AuthContextValue {
-  user: Models.User<Models.Preferences> | null;
+  /** Optional provider limitations; omitted preserves the full Appwrite UI. */
+  accountNotice?: string;
+  supportsPasswordRecovery?: boolean;
+  user: MosaicUser | null;
   isLoading: boolean;
   error: string | null;
   recoveryLoading: boolean;

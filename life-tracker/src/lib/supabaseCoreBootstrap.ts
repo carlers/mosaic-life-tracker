@@ -1,7 +1,7 @@
 /**
  * #1027: app-owned bridge from independently verified Supabase Auth to
  * Mosaic's actual RxDB tasks/categories. This is callable integration code,
- * NOT a shipped provider switch. AuthProvider still owns Appwrite startup.
+ * The opt-in fresh-account provider invokes it; default AuthProvider owns Appwrite startup.
  *
  * The caller must supply server-enforced mapping, old-Appwrite-client fencing,
  * an exclusive cross-device writer lease, AND a verified in-tab Appwrite stop.

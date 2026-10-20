@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { MOSAIC_FEATURE_PROFILE } from '../lib/backendCapabilities';
 import { Waves } from 'lucide-react';
 import {
   ArrowUp,
@@ -580,7 +581,9 @@ export const PreferencesPage: React.FC = () => {
         >
           <div className="pb-4">
             <p className="mb-3 text-sm leading-relaxed text-gray-400">
-              Changes apply immediately and sync with your Mosaic account.
+              {MOSAIC_FEATURE_PROFILE === 'core-only'
+                ? 'Changes apply immediately on this device. Preference sync is not available yet.'
+                : 'Changes apply immediately and sync with your Mosaic account.'}
             </p>
             <ColorPalettePicker
               selectedColor={accentColor}
