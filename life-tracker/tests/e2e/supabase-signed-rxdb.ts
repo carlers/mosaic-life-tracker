@@ -248,10 +248,67 @@ async function exerciseSignedAuthLifecycle(input: {
   };
 }
 
+/**
+ * Synthetic, disposable local GoTrue proof that browser tab storage is not an
+ * Auth identity. The token must be re-exchanged and owner-signed on every
+ * reload; only the refresh credential is present in sessionStorage.
+ * NEVER use this test adapter as Mosaic's shipped multi-tab AuthProvider.
+ */
+async function exerciseSignedPersistedAuth(
+  phase: 'login' | 'restore' | 'logout' | 'empty',
+  owner: { id: string; email: string; password: string },
+) {
+  const auth = createCandidateAuthSession({
+    baseUrl: config.endpoint, publishableKey: config.publishableKey,
+    persistence: window.sessionStorage,
+  });
+  const key = 'mosaic_candidate_supabase_refresh_v1:' + config.endpoint;
+  if (await auth.getSessionSnapshot() !== null || auth.getOwnerId() !== null)
+    throw new Error('Persisted session was implicitly trusted before verification');
+  if (phase === 'login') {
+    const signed = await auth.signIn(owner.email, owner.password);
+    if (signed.userId !== owner.id) throw new Error('Unexpected signed owner at login');
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) throw new Error('No refresh token stored in browser test');
+    const record = JSON.parse(raw) as { ownerId: string; refreshToken: string };
+    if (record.ownerId !== signed.userId || !record.refreshToken ||
+        raw.includes(signed.accessToken) || raw.includes(owner.password) ||
+        raw.includes(owner.email)) {
+      throw new Error('Stored candidate session leaked access or unexpected owner');
+    }
+    return { phase, signedOwner: signed.userId, savedRefreshOnly: true };
+  }
+  if (phase === 'empty') {
+    const saved = await auth.restoreFromPersistence();
+    if (saved !== null || window.sessionStorage.getItem(key) !== null ||
+        await auth.getSessionSnapshot() !== null) {
+      throw new Error('Signed-out session unexpectedly restored after reload');
+    }
+    return { phase, empty: true };
+  }
+  const before = window.sessionStorage.getItem(key);
+  if (!before) throw new Error('Expected prior persisted refresh credential');
+  const verified = await auth.restoreFromPersistence();
+  if (verified?.userId !== owner.id ||
+      (await auth.getVerifiedSession())?.userId !== owner.id)
+    throw new Error('Real restored JWT did not verify original owner');
+  if (before === window.sessionStorage.getItem(key))
+    throw new Error('Restored real refresh token was not rotated');
+  if (phase === 'restore') {
+    return { phase, restoredOwner: verified.userId, rotated: true };
+  }
+  const revoked = await auth.signOut();
+  if (!revoked || window.sessionStorage.getItem(key) !== null ||
+      auth.getOwnerId() !== null || await auth.getVerifiedSession() !== null)
+    throw new Error('Persistent credential was not signed out and cleared');
+  return { phase, signedOut: true };
+}
+
 Object.assign(window, {
   __mosaicSignedRxdb: {
     privateProviderFixtures,
     exerciseSignedAuthLifecycle,
+    exerciseSignedPersistedAuth,
     start, stop, edit, snapshot, createLocalTask, editLocalTask,
     setOffline(value: boolean) { offline = value; },
     resync() { if (!active) throw new Error('No active signed replica'); active.resync(); },

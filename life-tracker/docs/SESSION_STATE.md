@@ -1,22 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1027 isolated refresh-token persistence and signed Supabase Auth restore, following core-only Appwrite background isolation.
+Current task: #1027 signed disposable Chromium/GoTrue reload proof for opt-in candidate refresh persistence.
 
-## Accepted baseline and boundaries
-- Latest accepted isolated Preview: `refactor/1027-core-auth-side-effects-20261020@4ae1db7a249cc762680087ceaaa202f8f0874c6b`, PR #1064, full canonical #39368651838 SUCCESS, signed local Supabase Auth/RxDB #39368651878 SUCCESS, trusted Preview #39368842566 SUCCESS (Vercel READY).
-- Shipped `dev`/`main` remain independent Appwrite; Supabase task/category prototype, in-memory Auth and core-only AuthProvider side-effect suppression are source-only. No hosted Supabase Auth/SQL/data migration, existing-user import, OCI/Appwrite, Production, protected branch promotion or core-only provider switch authorized. Preserve reversible transfer to Appwrite and immutable old PWA writer fences. Diary #1029 follows immediately after a working released core MVP.
+## Baseline and authorization
+- Isolated experimental stable Preview `refactor/1027-persisted-auth-refresh-20261020@e23b73e5117316779d3fa5afa63e8e60f5dfcf1a` through PR #1065; task focused #39369874814 and stable full canonical #39370049668 SUCCESS, trusted delivery #39370218374 SUCCESS and Vercel exact prebuilt READY. No signed local Auth lab ran for the persistence-only branch, so this follow-on specifically tests real signed credentials.
+- Current branch: `chatgpt/1027-core-auth-persist-signed-20261020` based on `e23b73e5117316779d3fa5afa63e8e60f5dfcf1a`. Source-only synthetic browser tests; shipped Mosaic AuthProvider and eight-domain Appwrite backend unchanged; no production/dev/main/provider promotion, hosted Supabase schema/Auth/data, OCI or existing-user migration. Preserve independent DR, symmetric Appwrite return and old-PWA/one-cloud-writer protection.
 
-## Working change
-- Task branch `chatgpt/1027-persisted-auth-refresh-20261020` based on exact stable `4ae1db7a249cc762680087ceaaa202f8f0874c6b`.
-- `supabase-poc/candidateAuthSession.ts`: opt-in injection of a provider-origin-bound refresh-token store; explicit restoration via real refresh and signed /user with owner and session epoch checks; no offline authentication derived from storage. Confirmed 401/403 and invalid owner erase stored token; temporary network failure retains token but grants no identity; rotation save is required before adopting new JWT; signout/account switch remove saved credential.
-- `tests/unit/supabaseCandidateAuthPersistence.test.ts`: seven adversarial/functional persistence, rotation, crash/offline, wrong-owner, stale-response, logout, failed-write cases.
-- `docs/CORE_MVP_PROVIDER_RETURN.md`: states storage is disabled by default, and multi-tab token rotation/exclusive lease and app integration remain blocking; no production Vercel change or feature/version increase.
+## Current change
+- `tests/e2e/supabase-signed-rxdb.ts`: add disposable local-only `exerciseSignedPersistedAuth` fixture with injected browser sessionStorage. Require no implicit session before signed verification; login persists origin-bound refresh credential only; reload must exchange and verify actual signed UUID; token rotates; logout must erase stored credential; subsequent reload returns no identity.
+- `tests/e2e/supabase-signed-rxdb.spec.mjs`: browser test drives login -> page reload -> signed restore -> page reload -> signed restore/logout -> page reload -> no credential. Uses synthetic isolated user, real local Auth/PostgREST and no CI secrets; no changes to canonical browser correctness tests.
+- `docs/CORE_MVP_PROVIDER_RETURN.md`: document genuine local signed acceptance boundary and remaining unsafe multi-tab token single-use races, no real app session yet. Existing unit suite covers malformed and denied state.
 
 ## Verification
-- Task commit requests focused CI; local npm/Playwright not available from this GitHub-connected chat environment. No test result is claimed for this new tree yet.
-- Current hosted `mosaic-dev` 4 synthetic/empty owner-RLS tables and 2 externally callable SECURITY DEFINER RPC warnings remain unremediated pending signed hosted/independent security review. Do not activate provider remotely.
+- Current task commit requests focused CI, and branch matches dedicated `Supabase Signed RxDB Browser Lab` workflow. Need exact-SHA focused and signed lab PASS before stable squash; then fresh full canonical and trusted READY.
+- No hosted Supabase writes or signed acceptance claimed for this new test until exact run succeeds. Local npm unavailable in current GitHub-connected environment.
 
 ## Next action
-- Inspect exact task focused CI and repair failures; then squash into NEW isolated stable Preview only after focused green, require full canonical success plus signed lab and trusted prebuilt READY at exact stable commit.
-- Continue with actual Supabase app AuthProvider+offline cache and signed legacy ID mapping, tab/browser refresh-token ownership fencing, server enforcement against old Appwrite/PWA writers, task/category app RxDB bootstrap, hosted two-owner security tests, tested bidirectional Appwrite data migration and DR restore, and Android/Safari offline acceptance. Keep #967/#1027/#975 open.
+- Review exact task focused and dedicated signed Chromium/GoTrue labs; diagnose/repair real token response or browser reload assertions before stable Preview promotion. After green, squash via PR to isolated `refactor/1027-core-auth-persist-signed-20261020` and require full canonical/signed/trusted green.
+- Next implement actual provider-aware Mosaic Supabase login/session storage, verified legacy Appwrite owner IDs, server-enforced old-PWA and single writer gates, two-domain app sync bootstrap, hosted signed RLS/CAS security review, bidirectional DR/export/replay, offline device acceptance. Diary #1029 immediately after core works. Keep #1027/#967/#975 open.

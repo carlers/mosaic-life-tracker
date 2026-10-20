@@ -56,6 +56,12 @@ This supports a genuine disposable local two-owner Auth+Chromium acceptance flow
 
 Tests exercise reload/rotation, wrong owner, revoked session, malformed stored input, ambiguous outage, stale restore races, failed storage write, and sign-out. **Storage exposure to XSS, cross-tab refresh-token single-use races, old-PWA writers, account identity migration, and durable signed app Auth integration remain UNSOLVED.** Never enable this opt-in persistent store on live users until same-origin tab-exclusive rotation/epoch storage and a verified server-side single writer are implemented; Supabase refresh tokens are rotated and cannot be safely treated as a reusable static credential.
 
+### Disposable signed browser persistence acceptance (2026-10-20)
+
+The dedicated local Supabase CLI/Auth/Chromium test now verifies the same injected persistence path using real signed disposable account credentials and browser `sessionStorage`: login persists **refresh-only**, reload restores only after Auth verification, a second reload rotates the refresh token again, logout clears browser credentials, and another reload refuses authentication. The synthetic test-only storage is destroyed with the browser/local CLI stack; never store real-user secrets in these acceptance fixtures.
+
+This verifies a **single browser-tab test session**, not an app-level persistent Supabase login or safe multi-tab refresh-token rotation. The task branch is eligible for the existing dedicated signed lab pattern `1027-core-auth-*`; canonical CI alone must not be interpreted as real signed Auth acceptance.
+
 ## Experimental two-domain core sync coordinator
 
 `supabase-poc/candidateCoreRuntime.ts` composes the already reviewed task + category native RxDB pilots with one **server-verified Supabase owner** and explicit **legacy identity mapping / old Appwrite writer fence / exclusive writer lease** adapters. Without *all three* independently provided guards it refuses to start. It never silently falls back to Appwrite. Both collections start together; if either fails the other is canceled and the lease released only after confirmed cleanup. If cancellation is unconfirmed, the lease remains held rather than creating a second active writer. Owner switch or expired lease disables explicit resync; retained RxDB drafts are not erased.
