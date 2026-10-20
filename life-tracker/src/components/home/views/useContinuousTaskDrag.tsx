@@ -21,6 +21,7 @@ interface HeldPointer {
   y: number;
   downX: number;
   downY: number;
+  touchId: number | null;
 }
 
 interface Session {
@@ -108,7 +109,17 @@ export function useContinuousTaskDrag({
   }, []);
   const attachOverlay = React.useCallback((node: HTMLDivElement | null) => {
     overlayRef.current = node;
-    if (node && sessionRef.current) positionOverlay(sessionRef.current);
+    const session = sessionRef.current;
+    if (node && session) {
+      positionOverlay(session);
+      // When Swiper disposes the original source, the carried portal survives.
+      // Capture on that stable node as well as relying on body capture. Mobile
+      // browsers differ in how they retarget implicitly captured touch streams.
+      if (session.stage === 'external' && session.pointerId !== null) {
+        try { node.setPointerCapture(session.pointerId); }
+        catch { /* Touch fallback still tracks the same active finger */ }
+      }
+    }
   }, [positionOverlay]);
 
   const projectAtPointer = React.useCallback((session: Session) => {
@@ -122,7 +133,14 @@ export function useContinuousTaskDrag({
         category.userId === latestRef.current.currentUserId && !category.isDeleted)?.id;
     if (!taskCategory) return;
     const pointer = session.point;
-    const hit = pointer ? document.elementFromPoint(pointer.x, pointer.y) : null;
+    // A held finger may rest OUTSIDE the horizontal sheet edge to keep
+    // navigating days. Sample inside the active viewport at that same Y so
+    // vertical category targeting still works without forcing a return inward.
+    const bounds = slide.getBoundingClientRect();
+    const hitX = pointer
+      ? Math.max(bounds.left + 8, Math.min(pointer.x, bounds.right - 8))
+      : 0;
+    const hit = pointer ? document.elementFromPoint(hitX, pointer.y) : null;
     const categoryNode = hit instanceof Element &&
       slide.contains(hit) ? hit.closest<HTMLElement>('[data-task-category-id]') : null;
     const picked = categoryNode?.dataset.taskCategoryId;
@@ -133,7 +151,16 @@ export function useContinuousTaskDrag({
       '[data-task-category-id="' + categoryId + '"]');
     const rows = categoryEl ? Array.from(categoryEl.querySelectorAll<HTMLElement>('[data-task-id]'))
       .filter(row => row.dataset.taskId !== session.task.id) : [];
-    const index = pointer && valid ? rows.filter(row =>
+    // A neutral reserved slot moves its neighboring rows. Without a stable
+    // zone around that slot, each rerender would move the row midpoints and
+    // switch its own insertion index back and forth under a stationary finger.
+    const currentSlot = categoryId === session.target.categoryId
+      ? categoryEl?.querySelector<HTMLElement>('[data-cross-day-reorder-slot]')
+      : null;
+    const slotRect = currentSlot?.getBoundingClientRect();
+    const keepSlot = Boolean(pointer && slotRect &&
+      pointer.y >= slotRect.top - 10 && pointer.y <= slotRect.bottom + 10);
+    const index = keepSlot ? session.target.index : pointer && valid ? rows.filter(row =>
       row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 < pointer.y).length : rows.length;
     session.target = { categoryId, index: clampTaskInsertIndex(index, rows.length) };
     const pos = pointer ?? { x: 0, y: 0 };
@@ -279,11 +306,13 @@ export function useContinuousTaskDrag({
       swiper.slideTo(session.lastSettledIndex, 0, false);
     }
     if (external && session.pointerId !== null) {
-      try {
-        if (document.body.hasPointerCapture(session.pointerId)) {
-          document.body.releasePointerCapture(session.pointerId);
-        }
-      } catch { /* Pointer was already released */ }
+      for (const element of [overlayRef.current, document.body]) {
+        try {
+          if (element?.hasPointerCapture(session.pointerId)) {
+            element.releasePointerCapture(session.pointerId);
+          }
+        } catch { /* Pointer already released/canceled */ }
+      }
     }
     // Store validated target before resetting the overlay.
     const target = { ...session.target };
@@ -319,7 +348,7 @@ export function useContinuousTaskDrag({
       heldRef.current = {
         id: event.pointerId, pointerType: event.pointerType,
         taskId, x: event.clientX, y: event.clientY,
-        downX: event.clientX, downY: event.clientY,
+        downX: event.clientX, downY: event.clientY, touchId: null,
       };
     };
     const move = (event: PointerEvent) => {
@@ -357,6 +386,60 @@ export function useContinuousTaskDrag({
       heldRef.current = null;
       finish(true);
     };
+    // The task title deliberately permits pan-y for *pre*-long-press
+    // scrolling. After dnd-kit lifts the task, that same native pan can
+    // intermittently steal a finger and cancel pointer events on mobile.
+    // Prevent native scrolling only for the active owner drag, not taps or
+    // unactivated touch swipes. Also use TouchEvents as a backup stream if
+    // a virtual slide removes the source/its implicit pointer capture.
+    const touchStart = (event: TouchEvent) => {
+      const held = heldRef.current;
+      if (held?.pointerType !== 'touch') return;
+      if (sessionRef.current && event.touches.length !== 1) {
+        heldRef.current = null;
+        finish(false);
+        return;
+      }
+      if (event.touches.length === 1 && held.touchId === null) {
+        held.touchId = event.touches[0].identifier;
+      }
+    };
+    const touchMove = (event: TouchEvent) => {
+      const held = heldRef.current;
+      const session = sessionRef.current;
+      if (held?.pointerType !== 'touch' || !session ||
+          session.pointerId !== held.id || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      if (held.touchId !== null && touch.identifier !== held.touchId) return;
+      if (held.touchId === null) held.touchId = touch.identifier;
+      if (event.cancelable) event.preventDefault();
+      held.x = touch.clientX;
+      held.y = touch.clientY;
+      updatePoint({pointerId: held.id, clientX: touch.clientX, clientY: touch.clientY} as PointerEvent);
+    };
+    const touchEnd = (event: TouchEvent) => {
+      const held = heldRef.current;
+      if (held?.pointerType !== 'touch' || event.touches.length !== 0) return;
+      if (held.touchId !== null && !Array.from(event.changedTouches)
+        .some(touch => touch.identifier === held.touchId)) return;
+      const last = Array.from(event.changedTouches).find(touch =>
+        held.touchId === null || touch.identifier === held.touchId);
+      if (last) {
+        held.x = last.clientX;
+        held.y = last.clientY;
+        updatePoint({pointerId: held.id, clientX: held.x, clientY: held.y} as PointerEvent);
+      }
+      heldRef.current = null;
+      finish(true);
+    };
+    const touchCancel = (event: TouchEvent) => {
+      const held = heldRef.current;
+      if (held?.pointerType !== 'touch' || !sessionRef.current) return;
+      if (held.touchId !== null && !Array.from(event.changedTouches)
+        .some(touch => touch.identifier === held.touchId)) return;
+      heldRef.current = null;
+      finish(false);
+    };
     const lost = () => {
       heldRef.current = null;
       finish(false);
@@ -373,6 +456,10 @@ export function useContinuousTaskDrag({
     window.addEventListener('pointerup', up, true);
     window.addEventListener('pointercancel', cancel, true);
     window.addEventListener('mouseup', mouseUp, true);
+    window.addEventListener('touchstart', touchStart, true);
+    window.addEventListener('touchmove', touchMove, { capture: true, passive: false });
+    window.addEventListener('touchend', touchEnd, true);
+    window.addEventListener('touchcancel', touchCancel, true);
     window.addEventListener('blur', lost);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('keydown', key, true);
@@ -382,6 +469,10 @@ export function useContinuousTaskDrag({
       window.removeEventListener('pointerup', up, true);
       window.removeEventListener('pointercancel', cancel, true);
       window.removeEventListener('mouseup', mouseUp, true);
+      window.removeEventListener('touchstart', touchStart, true);
+      window.removeEventListener('touchmove', touchMove, true);
+      window.removeEventListener('touchend', touchEnd, true);
+      window.removeEventListener('touchcancel', touchCancel, true);
       window.removeEventListener('blur', lost);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('keydown', key, true);
@@ -436,7 +527,12 @@ export function useContinuousTaskDrag({
     sessionRef.current = {
       task, sourceDate: task.date, settledDate: task.date, stage: 'native',
       point: { x: held.x, y: held.y }, pointerId: held.id,
-      offset: { x: held.downX - rect.left, y: held.downY - rect.top },
+      // Source rect can drift during the 500 ms long press if the page was
+      // still settling. Never anchor an overlay outside its grabbed row.
+      offset: {
+        x: Math.max(0, Math.min(held.downX - rect.left, rect.width)),
+        y: Math.max(0, Math.min(held.downY - rect.top, rect.height)),
+      },
       width: rect.width, height: rect.height,
       direction: 0, inFlight: false, lastSettledIndex: swiperRef.current?.activeIndex ?? 0,
       expectedIndex: null, expectedDate: null,

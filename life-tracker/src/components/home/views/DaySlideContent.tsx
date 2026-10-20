@@ -69,6 +69,7 @@ export interface DaySlideProps {
   onCrossDayTaskMove?: (point: { x: number; y: number }, event?: Event | null) => void;
   onCrossDayNativeEnd?: (taskId: string, canceled: boolean) => boolean;
   crossDayDragTaskId?: string | null;
+  crossDayInsertion?: { categoryId: string; index: number; height: number };
 
   onReorderCategories?: (next: CategoryDocument[]) => Promise<void>;
   onUpdateCategory?: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility'>) => Promise<void>;
@@ -131,6 +132,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   reorderRuntimeActive = false,
   onReorderActiveChange,
   crossDayDragTaskId,
+  crossDayInsertion,
   onReorderCategories,
   onUpdateCategory,
   onCategoryActionError,
@@ -262,7 +264,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
              diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
           diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
              ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
-          animateDragProjection={reorderRuntimeActive}
+          animateDragProjection={reorderRuntimeActive || Boolean(crossDayDragTaskId)}
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
           settlingTaskId={settlingTaskId}
@@ -306,6 +308,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           }
           dragGapHeight={activeDrag?.rowHeight ?? 0}
           externalDraggedTaskId={crossDayDragTaskId}
+          externalGapIndex={crossDayInsertion?.categoryId === category.id ? crossDayInsertion.index : null}
+          externalGapHeight={crossDayInsertion?.height ?? 0}
         />
       )}
       />

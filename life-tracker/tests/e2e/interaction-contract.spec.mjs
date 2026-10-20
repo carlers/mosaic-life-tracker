@@ -1691,6 +1691,59 @@ test('long-held task at Day View edge advances repeatedly without releasing or s
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
 });
 
+// #856: the destination day must respond to the carried task just like the
+// original day's animated reorder, with a neutral reserved slot and no writes
+// until release. Populate the NEXT day (normal probe days are empty).
+test('held touch drag animates insertion through populated next-day rows and categories', async ({page, browserName}) => {
+  test.skip(browserName !== 'chromium', 'CDP touch requires Chromium');
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?crossDayDestinations=1`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View');
+  const title = swiper.locator('.swiper-slide-active').getByRole('button', { name: 'Task 1.1', exact: true });
+  const gesture = await startTaskLongPress(page, title);
+  const middle = bounds.x + bounds.width / 2;
+  const edge = bounds.x + bounds.width - 6;
+  try {
+    await gesture.moveTo(edge, gesture.startY);
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Wednesday, September 16, 2026', { timeout: 6500 });
+    const active = dialog.locator('.swiper-slide-active');
+    const firstCategory = active.locator('[data-task-category-id="cat_0"]');
+    const secondCategory = active.locator('[data-task-category-id="cat_1"]');
+    await expect(firstCategory.locator('[data-task-id]')).toHaveCount(4);
+    const firstRow = await firstCategory.locator('[data-task-id]').first().boundingBox();
+    if (!firstRow) throw new Error('Missing destination rows');
+    const startY = firstRow.y + Math.min(firstRow.height / 4, 8);
+    await gesture.moveTo(middle, startY);
+    const firstSlot = firstCategory.locator('[data-cross-day-reorder-slot="true"]');
+    await expect(firstSlot).toHaveCount(1);
+    const topSlot = await firstSlot.boundingBox();
+    if (!topSlot) throw new Error('Missing reserved insertion slot');
+    // Push siblings down as the held finger crosses their rows.
+    const lastRow = await firstCategory.locator('[data-task-id]').last().boundingBox();
+    if (!lastRow) throw new Error('Missing final destination task');
+    await gesture.moveTo(middle, Math.min(bounds.y + bounds.height - 35, lastRow.y + lastRow.height - 4));
+    await expect.poll(async () => (await firstSlot.boundingBox())?.y ?? topSlot.y)
+      .toBeGreaterThan(topSlot.y + 12);
+    // Move into another category without lifting. Its rows now make room,
+    // and the former category collapses its empty slot.
+    const secondBox = await secondCategory.boundingBox();
+    if (!secondBox) throw new Error('Missing next destination category');
+    await gesture.moveTo(middle, Math.min(bounds.y + bounds.height - 30, secondBox.y + 34));
+    await expect(secondCategory.locator('[data-cross-day-reorder-slot="true"]')).toHaveCount(1);
+    await expect(firstCategory.locator('[data-cross-day-reorder-slot="true"]')).toHaveCount(0);
+    await expect(page.locator('[data-cross-day-insertion-gap="true"]')).toHaveCount(0);
+  } finally {
+    await gesture.cancel();
+  }
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
 test.describe('desktop pointer ownership — no touch emulation', () => {
   test.use({
     isMobile: false,

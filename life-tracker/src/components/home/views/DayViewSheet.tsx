@@ -1132,6 +1132,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       onCrossDayTaskMove={continuousDrag.moveTask}
                       onCrossDayNativeEnd={continuousDrag.onNativeEnd}
                       crossDayDragTaskId={continuousDrag.carried?.task.id}
+                      crossDayInsertion={continuousDrag.carried?.date === dateStr
+                        ? { categoryId: continuousDrag.carried.categoryId,
+                            index: continuousDrag.carried.index, height: continuousDrag.carried.height }
+                        : undefined}
                       onReorderTasks={reorderTasks}
             onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
             onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
