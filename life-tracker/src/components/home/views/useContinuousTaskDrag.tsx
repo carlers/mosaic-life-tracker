@@ -13,6 +13,16 @@ const MIN_TRANSITION_GUARD_MS = 350;
 type Point = { x: number; y: number };
 type Rect = { left: number; top: number; width: number; height: number };
 
+interface HeldPointer {
+  id: number;
+  pointerType: string;
+  taskId: string;
+  x: number;
+  y: number;
+  downX: number;
+  downY: number;
+}
+
 interface Session {
   task: TaskDocument;
   sourceDate: string;
@@ -62,6 +72,9 @@ export function useContinuousTaskDrag({
   isOpen, currentUserId, swiperRef, categories, onCommit, onFeedback, onExternalFinished,
 }: Options) {
   const sessionRef = React.useRef<Session | null>(null);
+  // Only real, primary pointerdown events on the owned task can arm a
+  // cross-day session. dnd-kit drag coordinates alone aren't proof of a hold.
+  const heldRef = React.useRef<HeldPointer | null>(null);
   const suppressedEndRef = React.useRef<string | null>(null);
   const dwellTimerRef = React.useRef<number | null>(null);
   const cooldownTimerRef = React.useRef<number | null>(null);
@@ -126,7 +139,9 @@ export function useContinuousTaskDrag({
     dwellTimerRef.current = null;
     const session = sessionRef.current;
     const swiper = swiperRef.current;
-    if (!session || !session.direction || session.inFlight ||
+    if (!session || !heldRef.current ||
+        heldRef.current.id !== session.pointerId ||
+        !session.direction || session.inFlight ||
         !latestRef.current.isOpen || !swiper || swiper.destroyed || swiper.animating ||
         session.task.userId !== latestRef.current.currentUserId) return;
     // Never navigate into a virtual-window edge. Parent selectedDate rebases
@@ -257,88 +272,162 @@ export function useContinuousTaskDrag({
   }, [reset]);
 
   React.useEffect(() => {
-    if (!isOpen) return;
-    const move = (event: PointerEvent) => updatePoint(event);
-    const up = (event: PointerEvent) => {
-      const s = sessionRef.current;
-      if (!s || (s.pointerId !== null && s.pointerId !== event.pointerId)) return;
+    if (!isOpen) {
+      heldRef.current = null;
+      return;
+    }
+    const down = (event: PointerEvent) => {
+      if (event.button !== 0 || event.isPrimary === false ||
+          ((event.pointerType === 'mouse' || event.pointerType === 'pen') &&
+            (event.buttons & 1) === 0)) return;
+      const target = event.target instanceof Element
+        ? event.target.closest<HTMLElement>('[data-task-id]') : null;
+      const viewport = swiperRef.current?.el;
+      // Exclude category, memo, checkbox, shared cards, and inactive slides.
+      if (!target || !viewport?.contains(target) ||
+          !target.closest('.swiper-slide-active')) return;
+      const taskId = target.dataset.taskId;
+      if (!taskId) return;
+      heldRef.current = {
+        id: event.pointerId, pointerType: event.pointerType,
+        taskId, x: event.clientX, y: event.clientY,
+        downX: event.clientX, downY: event.clientY,
+      };
+    };
+    const move = (event: PointerEvent) => {
+      const held = heldRef.current;
+      if (!held || event.pointerId !== held.id) return;
+      if ((held.pointerType === 'mouse' || held.pointerType === 'pen') &&
+          (event.buttons & 1) === 0) {
+        // Missing pointerup/lost capture: no mouse button means no drag.
+        heldRef.current = null;
+        finish(false);
+        return;
+      }
+      held.x = event.clientX;
+      held.y = event.clientY;
       updatePoint(event);
-      finish(true);
+    };
+    const up = (event: PointerEvent) => {
+      if (heldRef.current?.id !== event.pointerId) return;
+      const s = sessionRef.current;
+      if (s?.pointerId === event.pointerId) {
+        updatePoint(event);
+        finish(true);
+      }
+      heldRef.current = null;
     };
     const cancel = (event: PointerEvent) => {
-      const s = sessionRef.current;
-      if (s && (s.pointerId === null || s.pointerId === event.pointerId)) finish(false);
+      if (heldRef.current?.id !== event.pointerId) return;
+      heldRef.current = null;
+      finish(false);
     };
-    const lost = () => finish(false);
+    // Some desktop drag paths lose pointerup but deliver mouseup. It must
+    // release our hold and stop any pending repeat before the next mousemove.
+    const mouseUp = (event: MouseEvent) => {
+      if (event.button !== 0 || heldRef.current?.pointerType !== 'mouse') return;
+      heldRef.current = null;
+      finish(true);
+    };
+    const lost = () => {
+      heldRef.current = null;
+      finish(false);
+    };
     const onVisibility = () => { if (document.hidden) lost(); };
     const key = (event: KeyboardEvent) => { if (event.key === 'Escape') finish(false); };
+    window.addEventListener('pointerdown', down, true);
     window.addEventListener('pointermove', move, true);
     window.addEventListener('pointerup', up, true);
     window.addEventListener('pointercancel', cancel, true);
+    window.addEventListener('mouseup', mouseUp, true);
     window.addEventListener('blur', lost);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('keydown', key, true);
     return () => {
+      window.removeEventListener('pointerdown', down, true);
       window.removeEventListener('pointermove', move, true);
       window.removeEventListener('pointerup', up, true);
       window.removeEventListener('pointercancel', cancel, true);
+      window.removeEventListener('mouseup', mouseUp, true);
       window.removeEventListener('blur', lost);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('keydown', key, true);
+      heldRef.current = null;
       reset();
     };
-  }, [isOpen, finish, reset, updatePoint]);
+  }, [isOpen, finish, reset, updatePoint, swiperRef]);
 
-  // Native drag-move events can be captured by the sensor instead of window.
-  // Accept the actual native pointer when supplied, otherwise the dnd-kit
-  // operation position as an explicit fallback.
-  const moveTask = React.useCallback((position: Point, event?: Event | null) => {
+  // The dnd-kit operation position is the draggable's position, NOT a
+  // trustworthy cursor/client coordinate. Only feed real pointer movement
+  // associated with the held pointer; stale sensor moves cannot navigate days.
+  const moveTask = React.useCallback((_position: Point, event?: Event | null) => {
     const session = sessionRef.current;
-    if (!session) return;
-    const pointer = event && 'clientX' in event && 'clientY' in event
-      ? { x: Number(event.clientX), y: Number(event.clientY) } : position;
-    if (!Number.isFinite(pointer.x) || !Number.isFinite(pointer.y)) return;
-    updatePoint({ clientX: pointer.x, clientY: pointer.y,
-      pointerId: session.pointerId ?? -1 } as PointerEvent);
-  }, [updatePoint]);
+    const held = heldRef.current;
+    if (!session || !held || session.pointerId !== held.id) return;
+    if (event && 'pointerId' in event && Number(event.pointerId) === held.id &&
+        'clientX' in event && 'clientY' in event) {
+      const pointer = event as PointerEvent;
+      if ((held.pointerType === 'mouse' || held.pointerType === 'pen') &&
+          (pointer.buttons & 1) === 0) {
+        heldRef.current = null;
+        finish(false);
+        return;
+      }
+      held.x = pointer.clientX;
+      held.y = pointer.clientY;
+    }
+    updatePoint({
+      clientX: held.x, clientY: held.y, pointerId: held.id,
+    } as PointerEvent);
+  }, [finish, updatePoint]);
 
-  const startTask = React.useCallback((task: TaskDocument, rect: Rect, event?: Event | null, position?: Point) => {
+  const startTask = React.useCallback((task: TaskDocument, rect: Rect, _event?: Event | null, _position?: Point) => {
+    const held = heldRef.current;
+    if (!held || held.taskId !== task.id ||
+        !latestRef.current.isOpen || task.userId !== latestRef.current.currentUserId ||
+        !task.date) {
+      reset();
+      return;
+    }
     reset();
-    if (!latestRef.current.isOpen || task.userId !== latestRef.current.currentUserId || !task.date) return;
     suppressedEndRef.current = null;
-    const native = event && 'clientX' in event && 'clientY' in event
-      ? { x: Number(event.clientX), y: Number(event.clientY) } : null;
-    const pointer = native ?? (position && Number.isFinite(position.x) && Number.isFinite(position.y)
-      ? position : null);
-    const pointerId = event && 'pointerId' in event ? Number(event.pointerId) : null;
     sessionRef.current = {
       task, sourceDate: task.date, settledDate: task.date, stage: 'native',
-      point: pointer, pointerId, offset: {
-        x: pointer ? pointer.x - rect.left : rect.width / 2,
-        y: pointer ? pointer.y - rect.top : rect.height / 2,
-      }, width: rect.width, height: rect.height,
+      point: { x: held.x, y: held.y }, pointerId: held.id,
+      offset: { x: held.downX - rect.left, y: held.downY - rect.top },
+      width: rect.width, height: rect.height,
       direction: 0, inFlight: false, lastSettledIndex: swiperRef.current?.activeIndex ?? 0,
       target: { categoryId: task.categoryId, index: Number.MAX_SAFE_INTEGER },
     };
-    if (pointer) updatePoint({
-      clientX: pointer.x, clientY: pointer.y,
-      pointerId: pointerId ?? -1,
+    updatePoint({
+      clientX: held.x, clientY: held.y, pointerId: held.id,
     } as PointerEvent);
   }, [reset, updatePoint, swiperRef]);
 
-  const onNativeEnd = React.useCallback((taskId: string) => {
-    if (suppressedEndRef.current === taskId) return true;
+  const onNativeEnd = React.useCallback((taskId: string, canceled = false) => {
+    if (suppressedEndRef.current === taskId) {
+      suppressedEndRef.current = null;
+      return true;
+    }
     const session = sessionRef.current;
     if (!session || session.task.id !== taskId) return false;
-    if (session.stage === 'external') return true;
+    if (session.stage === 'external') {
+      // dnd-kit may terminate without a window-level pointerup (e.g. source
+      // unmount). Never leave a zombie session tracking subsequent hover.
+      finish(!canceled && heldRef.current?.id === session.pointerId);
+      heldRef.current = null;
+      return true;
+    }
+    heldRef.current = null;
     reset();
     return false;
-  }, [reset]);
+  }, [finish, reset]);
 
   const onSettled = React.useCallback((date: string) => onSettledRef.current(date), []);
   const onWindowRebased = React.useCallback(() => {
     const session = sessionRef.current;
-    if (!session || session.stage !== 'external') return;
+    if (!session || session.stage !== 'external' ||
+        heldRef.current?.id !== session.pointerId) return;
     window.requestAnimationFrame(() => {
       if (sessionRef.current === session) {
         projectAtPointer(session);
