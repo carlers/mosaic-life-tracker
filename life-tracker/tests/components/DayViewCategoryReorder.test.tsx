@@ -326,7 +326,6 @@ describe('inline category actions', () => {
     expect(pill.style.WebkitUserSelect).toBe('none');
     expect(handle.style.userSelect).toBe('none');
     expect(handle.style.touchAction).toBe('none');
-    expect(pill.style.getPropertyValue('-webkit-touch-callout')).toBe('none');
   });
 
   it('opens the actual category actions from a touch hold anywhere on the pill', () => {

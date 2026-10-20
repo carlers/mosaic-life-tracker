@@ -16,5 +16,6 @@ Current task: #859 Day View category gesture — mobile text selection / drag re
 - DOM and real-browser regressions test immediate touch session arming, cancellation before hold, continued hold-to-drag, synthetic click suppression, and non-selectability of category text.
 - Real physical Android/iOS acceptance remains essential because Chromium touch emulation previously passed while phone failed.
 
-## Next
-- Batch this into one coherent `[verify:browser]` task checkpoint, confirm browser and focused CI, repair any failures; squash to existing stable Preview and verify canonical checks plus protected Vercel Preview READY. Share exact URL, keep issue OPEN until owner phone/manual acceptance. No dev/main/Production promotion.
+## Verification / next
+- Initial task Quality Gate #39396455840: both browser shards SUCCESS, including live Motion touch drag, pre-hold swipe cancellation and nonselectable label. Focused job: 1926 tests passed, one DOM assertion failed only because Happy DOM doesn't implement WebKit-only CSS property `-webkit-touch-callout`; removed that browser-specific DOM expectation and kept actual browser coverage. No changed functional source.
+- Commit repair with `[verify:focused]`, then squash to stable Preview, run full canonical CI and exact-SHA protected Vercel READY; seek physical phone manual acceptance. Keep issue OPEN. No dev/main/Production promotion.
