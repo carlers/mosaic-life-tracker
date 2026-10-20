@@ -51,16 +51,10 @@ const TimelineCategoryMenu: React.FC<TimelineCategoryMenuProps> = ({
   const selected = categories.find(category => category.id === value);
   const selectedLabel = selected?.name ?? (includeAll ? 'All categories' : 'Choose category');
 
-  useEffect(() => {
-    if (!open) {
-      setMenuPosition(null);
-      return;
-    }
-    const trigger = triggerRef.current;
-    if (!trigger) return;
-    // The Day View slide scrolls in a clipped container. The menu must sit above
-    // it, with its own viewport-aware geometry rather than being cut off.
-    const rect = trigger.getBoundingClientRect();
+  const openMenu = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // Lift the menu above the scroll-clipped Day View using viewport bounds.
     const margin = 8;
     const width = Math.min(288, Math.max(rect.width, 176), window.innerWidth - margin * 2);
     const left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin));
@@ -70,7 +64,11 @@ const TimelineCategoryMenu: React.FC<TimelineCategoryMenuProps> = ({
     const maxHeight = Math.max(0, Math.min(240, showBelow ? below : above));
     const top = showBelow ? rect.bottom + margin : rect.top - margin - maxHeight;
     setMenuPosition({ top, left, width, maxHeight });
+    setOpen(true);
+  };
 
+  useEffect(() => {
+    if (!open) return;
     const onOutside = (event: PointerEvent) => {
       const target = event.target as Node;
       if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
@@ -142,12 +140,12 @@ const TimelineCategoryMenu: React.FC<TimelineCategoryMenuProps> = ({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label={`${label}: ${selectedLabel}`}
-        onClick={() => setOpen(current => !current)}
+        onClick={() => open ? setOpen(false) : openMenu()}
         onKeyDown={event => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();
             event.stopPropagation();
-            setOpen(true);
+            if (!open) openMenu();
           }
         }}
         className={pill
