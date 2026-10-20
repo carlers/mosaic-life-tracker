@@ -17,3 +17,6 @@ Current task: integrate user-approved #692 Calendar pinch / smooth animation int
 ## Gates/next
 - This task commit requests focused CI; **not yet verified**. If green, squash task PR into integrated stable Preview and require exact merged-SHA canonical CI and trusted Vercel READY. Confirm concurrent `dev` SHA unchanged and promotion PR preflight/source/deployment, then **merge to dev** under explicit user approval. No promotion of old 2ffb tree, no blind commit/cherry-pick or source overwrite, no main/Production.
 - User physically accepted the original #692 zoom and Preview animation. Combined tree has no separate device acceptance; automated gates plus user-approved scope required, and report any manual checks still outstanding.
+
+## Integrated Preview repair
+- First integrated stable Preview `caee6a71` canonical build failed because CalendarCarousel used the #954 `CalendarTaskPreviewLimit` type but its import was not included. React/DOM and static checks were green. Repair only that import and rerun focused + exact stable canonical before promotion; do not reduce build/TypeScript gates.
