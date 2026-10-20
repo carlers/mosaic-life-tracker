@@ -13,6 +13,8 @@ describe('hosted core verification safety boundary', () => {
       { origin: 'https://mosaic-supabase-core-preview.vercel.app', sha: '' },
     ]) await expect(exerciseHostedUi(client, [], 'https://' + PROJECT + '.supabase.co', preview))
       .rejects.toThrow('isolated alias and exact accepted source');
+    await expect(exerciseHostedUi(client, [], 'https://' + PROJECT + '.supabase.co', null, '.*'))
+      .rejects.toThrow('Unknown hosted core browser contract');
     expect(client.management).not.toHaveBeenCalled();
   });
   it('accepts typed SQL null conflicts but never partial or mixed row responses', () => {

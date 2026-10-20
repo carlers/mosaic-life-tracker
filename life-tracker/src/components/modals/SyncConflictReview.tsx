@@ -38,7 +38,8 @@ export function SyncConflictReview({ ownerId }: { ownerId: string }) {
     {conflicts.map(conflict => <article key={conflict.domain + ':' + conflict.documentId}
       aria-label={'Review ' + conflict.title} className="rounded-xl bg-surface p-3 space-y-3">
       <h4 className="font-medium text-white break-words">{conflict.title}</h4>
-      <div className="overflow-auto max-h-72">
+      <div role="region" aria-label="Version comparison" tabIndex={0}
+        className="overflow-auto max-h-72 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500">
         <table className="w-full text-sm text-gray-300">
           <caption className="sr-only">Device and cloud changes for {conflict.title}</caption>
           <thead><tr>

@@ -189,5 +189,12 @@ local edit requires Refresh comparison, which restarts the parked native batch
 through the normal verified writer lifecycle. In-flight decisions drain before
 shutdown; account switches clear the UI registry. Missing/protected remote state
 stays blocked and retained. A direct discard-device/use-cloud action is not yet
-implemented. The new lost-acknowledgement browser case must pass against the real
-stack before acceptance; existing expiry tests assume a fully acknowledged base.
+implemented. The real browser case drops a committed create response and changes
+the cloud row from another signed session while the device edits offline.
+Identical lost-response retries may recover safely without review; the divergent
+cloud edit makes the conflict deterministic. Hosted run
+`0c81e95968d43d8d80ef5cde` passed review, newer local draft refresh, stale cloud
+choice rejection and explicit convergence on a second browser, followed by
+verified retirement of all four fixtures. The local stack must also pass the
+same case; expiry tests separately assume a fully acknowledged base and hold a
+refresh outage until draft-retention assertions finish.

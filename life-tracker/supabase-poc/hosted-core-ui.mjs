@@ -19,12 +19,14 @@ function child(command, args, options) {
   });
 }
 
-export async function exerciseHostedUi(client, accounts, origin, preview = null) {
+export async function exerciseHostedUi(client, accounts, origin, preview = null, testName = 'real Mosaic UI') {
   if (origin !== 'https://hcxtiifzxoaflhjgoglb.supabase.co')
     throw new Error('Hosted UI requires isolated mosaic-dev');
   if (preview && (preview.origin !== 'https://mosaic-supabase-core-preview.vercel.app' ||
       !/^[a-f0-9]{40}$/.test(preview.sha ?? '')))
     throw new Error('Hosted Preview requires the isolated alias and exact accepted source SHA');
+  if (!['real Mosaic UI', 'lost write acknowledgement'].includes(testName))
+    throw new Error('Unknown hosted core browser contract');
   const keys = await client.requireOk(await client.management('/api-keys'), 'Public build key access');
   const publishableKey = keys.find(k => k.type === 'publishable')?.api_key;
   if (!publishableKey?.startsWith('sb_publishable_')) throw new Error('Public build key required');
@@ -77,7 +79,7 @@ export async function exerciseHostedUi(client, accounts, origin, preview = null)
     await writeFile(resolve(scratch, 'config.mjs'), 'export default ' + JSON.stringify(config));
     await child(process.execPath, ['tests/e2e/node_modules/@playwright/test/cli.js', 'test',
       'supabase-core-app.spec.mjs', '--config', resolve(scratch, 'config.mjs'),
-      '--grep', 'real Mosaic UI', '--reporter=line'], { cwd, env: {
+      '--grep', testName, '--reporter=line'], { cwd, env: {
       ...env, MOSAIC_SB_LOCAL_URL: origin, MOSAIC_SB_LOCAL_PUBLISHABLE_KEY: publishableKey,
       // Playwright 1.58 otherwise appends <-loopback> after explicit bypasses,
       // forcing this process's own static server through the outbound proxy.

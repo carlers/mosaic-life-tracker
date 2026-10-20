@@ -1,4 +1,6 @@
 import { randomBytes } from 'node:crypto';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 
 const url = process.env.MOSAIC_SB_LOCAL_URL;
@@ -331,9 +333,12 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
     owner.token = (await observer.json()).access_token;
     let attempts = 0;
     let refreshed = false;
+    let allowRefresh = false;
     await page.route(url + '/auth/v1/token?grant_type=refresh_token', async route => {
       attempts++;
-      if (attempts === 1) await route.abort('failed');
+      // Browser online/focus events may overlap the explicit reconnect event.
+      // Keep the outage in force until its retained-draft assertions complete.
+      if (!allowRefresh) await route.abort('failed');
       else await route.continue();
     });
     page.on('response', response => {
@@ -342,9 +347,11 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
     });
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await expect.poll(() => attempts).toBe(1);
+    await expect.poll(() => attempts).toBeGreaterThanOrEqual(1);
     await expect(page.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
     expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
+    expect(refreshed).toBe(false);
+    allowRefresh = true;
     await expect.poll(async () => {
       await page.evaluate(() => window.dispatchEvent(new Event('online')));
       return refreshed;
@@ -366,10 +373,9 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
 });
 
 test('lost write acknowledgement: preserve offline draft and review changing cloud state', async ({ browser }) => {
-  test.skip(hosted, 'Requires a separately provisioned disposable conflict fixture');
   const owner = await account();
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
-  const secondContext = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: !hosted });
+  const secondContext = await browser.newContext({ ignoreHTTPSErrors: !hosted });
   const tokens = [];
   const responses = {};
   let stage = 'sign-in';
@@ -415,6 +421,17 @@ test('lost write acknowledgement: preserve offline draft and review changing clo
     await page.getByRole('button', { name: 'Mark complete', exact: true }).first().click();
     expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
     await expect(page.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
+    // A dropped response alone can recover safely by retrying the identical
+    // create before pushing the newer edit. Make the conflict unambiguous:
+    // another signed session changes the cloud row while this device is offline.
+    expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'acquire' })).ok).toBe(true);
+    const offlineMaster = (await rows(owner, 'tasks'))[0];
+    const offlineChange = await api('/rest/v1/rpc/mosaic_candidate_cas_task', owner.token, {
+      p_id: offlineMaster.id, p_expected_seq: offlineMaster.change_seq,
+      p_patch: { title: 'Cloud draft while offline' },
+    });
+    expect(offlineChange.ok).toBe(true);
+    expect((await offlineChange.json()).title).toBe('Cloud draft while offline');
     allowReads = true;
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
@@ -422,8 +439,28 @@ test('lost write acknowledgement: preserve offline draft and review changing clo
     await page.getByRole('button', { name: 'Online', exact: true }).click();
     const review = page.getByRole('region', { name: 'Changes needing review' });
     await expect(review).toBeVisible({ timeout: 25_000 });
+    // A native retry may still hold the original create snapshot. Refresh must
+    // reconstruct review from the durable offline edit before it can be chosen.
+    await review.getByRole('button', { name: 'Refresh comparison' }).click();
     await expect(review.getByRole('row', { name: 'Completed Yes No' })).toBeVisible();
     expect((await rows(owner, 'tasks'))[0].completed).toBe(false);
+    // Optional operator screenshots contain only this disposable comparison,
+    // never login fields, headers, tokens or a credential-bearing trace.
+    const screenshots = process.env.MOSAIC_CORE_REVIEW_SCREENSHOT_DIR;
+    if (screenshots) {
+      await mkdir(screenshots, { recursive: true });
+      const originalTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+      try {
+        for (const theme of ['light', 'dark', 'black']) {
+          await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+          await review.screenshot({ path: join(screenshots, 'conflict-' + theme + '.png') });
+        }
+      } finally {
+        await page.evaluate(value => value === null
+          ? document.documentElement.removeAttribute('data-theme')
+          : document.documentElement.setAttribute('data-theme', value), originalTheme);
+      }
+    }
     // Editing while parked must rebuild the comparison from durable current
     // local state, never apply or acknowledge the old queued snapshot.
     await page.keyboard.press('Escape');
