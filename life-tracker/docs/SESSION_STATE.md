@@ -15,6 +15,6 @@ Current task: #856 — accepted cross-day drag UX refinement.
 - Task branch `chatgpt/856-faster-outer-edge-20261020`. PATCH Preview candidate 0.34.3.
 
 ## Verification / next steps
-- Run task-branch focused and browser gate (`[verify:browser]`), repair failures, then squash onto the existing stable Preview branch and obtain full canonical acceptance + exact-SHA READY Preview.
+- First focused/browser Gate #39426953082: focused checks and 1 browser shard passed; desktop regression failed its **test fixture setup** because default full-width sheet extends to viewport edge (right=1263 and testing beyondRight=1293 outside 1280 browser). Test now applies the existing compact-sheet geometry before trying both outside edges within browser. Re-run `[verify:browser]` for decisive proof, then squash existing stable Preview branch and obtain full canonical acceptance + exact-SHA READY Preview.
 - User test remains needed for final speed feel and real Android/iOS/safari edge behavior. Extended >87-day rebase, final drop persistence/offline sync remain additional manual acceptance; issue #856 stays open.
 - No `dev`, `main`, Production, or 1.0 release authorized.

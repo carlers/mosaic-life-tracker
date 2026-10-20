@@ -1689,6 +1689,14 @@ test('held mouse task drag advances Day View at right edge and ends at mouseup',
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await waitForStableVerticalPosition(dialog);
+  // Exercise the supported compact-sheet geometry: full-width sheets touch
+  // both browser edges, so a cursor cannot physically move beyond them.
+  await dialog.evaluate((sheet) => {
+    sheet.style.width = 'min(540px, calc(100vw - 2rem))';
+    sheet.style.left = '50%';
+    sheet.style.right = 'auto';
+    sheet.style.translate = '-50% 0';
+  });
   const swiper = dialog.getByTestId('day-swiper');
   const bounds = await swiper.boundingBox();
   if (!bounds) throw new Error('Missing Day View viewport');
