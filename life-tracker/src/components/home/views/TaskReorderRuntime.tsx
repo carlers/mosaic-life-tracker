@@ -223,9 +223,28 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       };
       setSettlingTaskId(null);
       setActiveDrag(next);
+      if (source.element && taskById.get(taskId)) {
+        props.onCrossDayTaskStart?.(
+          taskById.get(taskId)!, source.element.getBoundingClientRect(),
+          event.nativeEvent,
+          event.operation.position.current,
+        );
+      }
       onReorderActiveChange?.(true);
     },
     [basePlacement, categoryIds, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement]
+  );
+
+  // Drive cross-day edge navigation directly from the drag sensor. Browser
+  // touch pointer streams are not guaranteed to bubble through window once
+  // the source is captured or Swiper has intercepted native movement.
+  const handleDragMove = React.useCallback(
+    (event: Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragMove']>>[0]) => {
+      const source = event.operation.source;
+      if (!source || !dragSessionRef.current || String(source.id) !== dragSessionRef.current.taskId) return;
+      props.onCrossDayTaskMove?.(event.operation.position.current, event.nativeEvent);
+    },
+    [props.onCrossDayTaskMove]
   );
 
   const handleDragOver = React.useCallback(
@@ -305,6 +324,12 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         >
       >[0]
     ) => {
+      if (event.operation.source &&
+          props.onCrossDayNativeEnd?.(String(event.operation.source.id), event.canceled)) {
+        // The carried task is now owned above Swiper. Its final pointer-up is
+        // handled there, never by this stale per-date reorder projection.
+        return;
+      }
       onReorderActiveChange?.(false);
       if (diaryDragRef.current) {
         const key = event.operation.target ? String(event.operation.target.id) : '';
@@ -473,6 +498,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         TASK_REORDER_POINTER_SENSOR,
       ]}
       onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
@@ -511,7 +537,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
             </React.Suspense>
           </div>
         )}
-        {overlayTask && (
+        {overlayTask && props.crossDayDragTaskId !== overlayTask.id && (
           <div
             aria-hidden="true"
             data-task-drag-overlay="true"

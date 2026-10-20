@@ -235,6 +235,7 @@ export function InteractionHarness() {
   const performanceCalendarPath = searchParams.get('calendarPath') === '1';
   const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
   const diaryDragProbe = searchParams.get('diaryDrag') === '1';
+  const crossDayDestinations = searchParams.get('crossDayDestinations') === '1';
   const [diaryTestPlacement, setDiaryTestPlacement] = useState<DiaryPlacement>({kind: 'slot', categoryId: 'cat_0', index: 3});
   const diaryTestEntry = React.useMemo<DiaryDocument>(() => ({
     id: 'fixture_diary', userId: 'user_1', date: '2026-09-15',
@@ -272,8 +273,8 @@ export function InteractionHarness() {
     todoCategories.flatMap((category, categoryIndex) =>
       Array.from(
         {
-          length:
-            !performanceHeavy && categoryIndex === 2
+          length: crossDayDestinations ? 3
+            : !performanceHeavy && categoryIndex === 2
               ? 0
               : performanceHeavy
                 ? 10
@@ -285,7 +286,11 @@ export function InteractionHarness() {
           completed: false,
           categoryId: category.id,
           order: rxLikeLegacyTasks ? 0 : taskIndex,
-          date: '2026-09-15',
+          // Controlled browser-only fixture: keep Task 1.1 on the source
+          // day but distribute existing siblings across the next two
+          // categories, with no extra data volume or duplicate IDs.
+          date: crossDayDestinations && (categoryIndex === 1 ||
+            (categoryIndex === 0 && taskIndex > 0)) ? '2026-09-16' : '2026-09-15',
           createdAt: '2026-09-01T00:00:00.000Z',
           completedAt: '',
           updatedAt: '2026-09-01T00:00:00.000Z',

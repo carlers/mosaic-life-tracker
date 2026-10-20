@@ -1,5 +1,5 @@
 import React from 'react';
-import { Reorder, useDragControls } from 'framer-motion';
+import { LayoutGroup, motion, Reorder, useDragControls } from 'framer-motion';
 import type { CategoryDocument } from '../../../db/schema';
 import type { CategoryPillActions } from './CategorySection';
 import { CategoryPillActionContext } from './categoryPillActionContext';
@@ -11,6 +11,8 @@ const TOLERANCE_PX = 8;
 interface ReorderProps {
   categories: CategoryDocument[];
   enabled: boolean;
+  /** Layout-only projection while carrying a task between dates. */
+  animateExternal?: boolean;
   canStartDrag: boolean;
   onCommit: (categories: CategoryDocument[]) => Promise<void>;
   onUpdate: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility'>) => Promise<void>;
@@ -168,7 +170,7 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
  * membership and the existing task/diary drag provider remain untouched.
  */
 export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
-  categories, enabled, canStartDrag, onCommit, onUpdate,
+  categories, enabled, animateExternal = false, canStartDrag, onCommit, onUpdate,
   onDragActiveChange, onError, renderCategory,
 }) => {
   const [orderedIds, setOrderedIds] = React.useState(() => categories.map(c => c.id));
@@ -235,9 +237,27 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
   }, [commit]);
 
   if (!enabled) {
-    return <>{categories.map(category =>
-      <React.Fragment key={category.id}>{renderCategory(category)}</React.Fragment>
-    )}</>;
+    if (!animateExternal) {
+      return <>{categories.map(category =>
+        <React.Fragment key={category.id}>{renderCategory(category)}</React.Fragment>
+      )}</>;
+    }
+    // Normal task sorting uses Reorder.Item around every category. The
+    // cross-day projection used to drop that entire layout layer, leaving
+    // category movement visually abrupt. Keep equivalent position-layout
+    // ownership without enabling category *dragging* during a held task.
+    return (
+      <LayoutGroup>
+        <div>
+          {categories.map(category => (
+            <motion.div key={category.id} layout="position" className="relative"
+              transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>
+              {renderCategory(category)}
+            </motion.div>
+          ))}
+        </div>
+      </LayoutGroup>
+    );
   }
 
   return (

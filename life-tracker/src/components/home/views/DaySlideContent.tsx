@@ -65,6 +65,12 @@ export interface DaySlideProps {
     groups: readonly TaskOrderGroup[]
   ) => Promise<void> | void;
   onReorderActiveChange?: (active: boolean) => void;
+  onCrossDayTaskStart?: (task: TaskDocument, rect: DOMRect, event?: Event | null, point?: { x: number; y: number }) => void;
+  onCrossDayTaskMove?: (point: { x: number; y: number }, event?: Event | null) => void;
+  onCrossDayNativeEnd?: (taskId: string, canceled: boolean) => boolean;
+  crossDayDragTaskId?: string | null;
+  crossDayInsertion?: { categoryId: string; index: number; height: number };
+
   onReorderCategories?: (next: CategoryDocument[]) => Promise<void>;
   onUpdateCategory?: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility'>) => Promise<void>;
   onCategoryActionError?: (message: string) => void;
@@ -125,6 +131,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   reorderEnabled = false,
   reorderRuntimeActive = false,
   onReorderActiveChange,
+  crossDayDragTaskId,
+  crossDayInsertion,
   onReorderCategories,
   onUpdateCategory,
   onCategoryActionError,
@@ -227,6 +235,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           : 'w-full min-w-0 px-4 pb-8'
       }
       data-testid="day-slide"
+      data-date-str={dateStr}
       data-task-reorder-runtime={
         reorderRuntimeActive ? 'true' : undefined
       }
@@ -236,9 +245,12 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
       <DayViewCategoryReorder
         categories={categories}
-        enabled={Boolean(reorderEnabled && onReorderCategories && onUpdateCategory &&
-          !selectionMode && categories.every(category => category.userId === currentUserId))}
-        canStartDrag={!activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling}
+        animateExternal={Boolean(crossDayDragTaskId)}
+        enabled={Boolean((reorderEnabled || (reorderRuntimeActive && crossDayDragTaskId)) &&
+          onReorderCategories && onUpdateCategory && !selectionMode &&
+          categories.every(category => category.userId === currentUserId))}
+        canStartDrag={!crossDayDragTaskId && !activeDrag && !diaryDragging &&
+          !activeSharedDragId && !diarySettling}
         onCommit={onReorderCategories ?? (async () => undefined)}
         onUpdate={onUpdateCategory ?? (async () => undefined)}
         onDragActiveChange={onReorderActiveChange}
@@ -255,7 +267,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
              diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
           diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
              ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
-          animateDragProjection={reorderRuntimeActive}
+          animateDragProjection={reorderRuntimeActive || Boolean(crossDayDragTaskId)}
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
           settlingTaskId={settlingTaskId}
@@ -298,6 +310,10 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
             projectedCategoryId === category.id ? projectedGapIndex : null
           }
           dragGapHeight={activeDrag?.rowHeight ?? 0}
+          externalDraggedTaskId={crossDayDragTaskId}
+          externalRuntimeActive={Boolean(reorderRuntimeActive && crossDayDragTaskId)}
+          externalGapIndex={crossDayInsertion?.categoryId === category.id ? crossDayInsertion.index : null}
+          externalGapHeight={crossDayInsertion?.height ?? 0}
         />
       )}
       />
