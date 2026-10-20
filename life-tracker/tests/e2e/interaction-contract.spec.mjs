@@ -91,6 +91,8 @@ async function startTaskLongPress(page, locator, holdMs = 550) {
   const session = await page.context().newCDPSession(page);
   const startX = box.x + box.width * 0.5;
   const startY = box.y + box.height * 0.5;
+  let currentX = startX;
+  let currentY = startY;
 
   await session.send('Input.dispatchTouchEvent', {
     type: 'touchStart',
@@ -103,15 +105,21 @@ async function startTaskLongPress(page, locator, holdMs = 550) {
     startX,
     startY,
     moveTo: async (x, y) => {
+      // A held finger continues from its LAST location. Restarting every
+      // segment at touchStart made reversals artificially jump across days.
+      const fromX = currentX;
+      const fromY = currentY;
       for (let step = 1; step <= 5; step += 1) {
         await session.send('Input.dispatchTouchEvent', {
           type: 'touchMove',
           touchPoints: [{
-            x: startX + ((x - startX) * step) / 5,
-            y: startY + ((y - startY) * step) / 5,
+            x: fromX + ((x - fromX) * step) / 5,
+            y: fromY + ((y - fromY) * step) / 5,
           }],
         });
       }
+      currentX = x;
+      currentY = y;
     },
     finish: () => session.send('Input.dispatchTouchEvent', {
       type: 'touchEnd',
@@ -1652,17 +1660,27 @@ test('long-held task at Day View edge advances repeatedly without releasing or s
     await expect(dialog.locator('.swiper-slide-active')).toContainText(
       'Wednesday, September 16, 2026', { timeout: 6500 },
     );
-    await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toBeVisible();
+    const carried = page.locator('[data-cross-day-drag-overlay="true"]');
+    await expect(carried).toBeVisible();
+    // The visual task must follow touch movement DURING a Swiper transition.
+    // Previously this position froze until settling, losing the finger.
+    const before = await carried.boundingBox();
+    if (!before) throw new Error('No carried task bounds');
+    await gesture.moveTo(rightEdge - 12, gesture.startY + 38);
+    await expect.poll(async () => (await carried.boundingBox())?.y ?? before.y)
+      .toBeGreaterThan(before.y + 22);
+    await expect(page.locator('[data-cross-day-insertion-gap="true"]')).toHaveCount(0);
+    await expect(page.getByTestId('cross-day-drag-status')).toHaveCount(0);
     // Stationary finger must trigger another day after the cooldown.
     await expect(dialog.locator('.swiper-slide-active')).toContainText(
       'Thursday, September 17, 2026', { timeout: 6500 },
     );
-    await gesture.moveTo(middle, gesture.startY);
+    await gesture.moveTo(middle, gesture.startY + 38);
     await page.waitForTimeout(1100);
     await expect(dialog.locator('.swiper-slide-active')).toContainText(
       'Thursday, September 17, 2026',
     );
-    await gesture.moveTo(leftEdge, gesture.startY);
+    await gesture.moveTo(leftEdge, gesture.startY + 38);
     await expect(dialog.locator('.swiper-slide-active')).toContainText(
       'Wednesday, September 16, 2026', { timeout: 6500 },
     );

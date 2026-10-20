@@ -1,20 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #856 — accepted cross-day drag UX refinement.
+Current task: #856 — mobile held-task drag stability, remove cross-day indicators.
 
-## Source and owner acceptance
-- Owner confirms v0.34.2 successfully moves tasks between days with real held mouse dragging and no reported phantom cursor drag.
-- Stable Preview starting point: `feature/cross-day-drag-856-20261020@bf1ab0a853cbf288d9f490917ea9835cbf5c81ba`, exact-sha Preview READY, full canonical CI #39424383631 SUCCESS.
-- Current `dev@27c4725e382c8f57b6302c382fc4ece7f30d05b2` is independent v0.33.2. Do not promote/mix branches without explicit authorization.
+## Evidence and constraints
+- Owner accepted laptop v0.34.3 but reported on phone: dragged task slips away from finger during day slides, Day View sometimes jumps several days unexpectedly.
+- Owner requested removal of the "Moving task to..." indicator and the colored cross-day insertion-gap area. Preserve the actual destination placement and successful laptop cross-day drag.
+- Baseline stable Preview `feature/cross-day-drag-856-20261020@b6a40b7835a5f832d2247863889db0fe5e8ccf5b` (v0.34.3), canonical Gate #39427937411 success and exact Preview READY; `dev@27c4725e382c8f57b6302c382fc4ece7f30d05b2` remains unrelated.
+- Task branch `chatgpt/856-touch-carry-stability-20261020`; PATCH Preview candidate v0.34.4.
 
-## Authorized v0.34.3 refinement
-- Scope exactly two owner-requested improvements: shorten initial edge hover dwell from 410 ms to 320 ms, and reduce consecutive cooldown from 330 ms to 230 ms (repeat remains 230+320=550 ms after slide settle); allow cursor/finger X past left/right Day View boundaries to continue edge navigation while Y remains vertically aligned.
-- Safety remains unchanged: physically held task pointer identity/button gate, release/cancel/blur cleanup, no multiple in-flight slide transitions, virtual Swiper active-date guards, and one final drop write. No schema/backend changes.
-- Unit regression covers beyond-left/right X and excluded vertical exit. Real desktop Playwright held-mouse regression moves beyond right to next day, beyond left to previous day, and moves beyond edges post-release to confirm nothing navigates.
-- Task branch `chatgpt/856-faster-outer-edge-20261020`. PATCH Preview candidate 0.34.3.
+## Scoped repair
+- Render carried task with a stable fixed compositor transform updated directly on every real pointer move, even while Swiper transitions. Avoid full 181-slide React reconcile on every touch sample; React still updates only for actual date/category/index changes.
+- Guard Swiper navigation while a drag exists: reject extra native touch/swipe changes, and accept a transition finish only for this gesture's exact requested adjacent date and slide index. Stop accepting stale destroyed/rebased Swiper callbacks.
+- Clear Swiper's existing native touch tracking on activation of dnd-kit's long-press drag, so later touchend cannot trigger another native day swipe; when released during an in-flight transition restore last *settled* index before finalizing.
+- Remove status banner and external colored insertion-gap markup/props (still calculate destination category + index and hide source ghost).
+- Browser touch helper now moves progressively from its previous finger coordinates, not teleporting to the original touchStart between segments. Touch regression measures carried overlay following a finger move during repeated day navigation and checks absence of both unwanted indicators.
+- Preserve authenticated pointer ownership, same-day reorder, category/diary/shared gestures, virtual-window guard, source unmount handoff, and final-release-only owner-scoped storage.
 
-## Verification / next steps
-- First focused/browser Gate #39426953082: focused checks and 1 browser shard passed; desktop regression failed its **test fixture setup** because default full-width sheet extends to viewport edge (right=1263 and testing beyondRight=1293 outside 1280 browser). Test now applies the existing compact-sheet geometry before trying both outside edges within browser. Re-run `[verify:browser]` for decisive proof, then squash existing stable Preview branch and obtain full canonical acceptance + exact-SHA READY Preview.
-- User test remains needed for final speed feel and real Android/iOS/safari edge behavior. Extended >87-day rebase, final drop persistence/offline sync remain additional manual acceptance; issue #856 stays open.
-- No `dev`, `main`, Production, or 1.0 release authorized.
+## Verify and deliver
+- Request focused/browser gate, repair any failures, then squash into stable Preview, full canonical CI, Vercel READY exact SHA.
+- Owner mobile Safari/Android and PWA physical retest mandatory to confirm finger tracking and no unintended day jumps; high-volume >87 day rebase and persistence/offline sync remain manual. Leave issue open pending acceptance.
+- No dev/main/Production promotion, backend migration, or schema changes authorized.
