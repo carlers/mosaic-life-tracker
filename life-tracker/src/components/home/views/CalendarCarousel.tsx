@@ -7,7 +7,7 @@ import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
-import type { WeekStartsOn, CalendarZoomDays } from '../../../lib/preferences';
+import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
 
 interface CalendarCarouselProps {
