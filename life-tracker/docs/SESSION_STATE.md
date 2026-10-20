@@ -16,9 +16,11 @@ Current task: #951 — Day View timestamps and chronological Timeline Mode.
 - New pure sorting/formatting tests.
 
 ## Verification
-- Connected GitHub editing environment cannot run local npm/browser tests or authenticated device testing.
-- Focused CI requested by task commit; check its result before claiming verified or preparing stable Preview.
-- Manual cross-device sheet swipes, task editor focus, scroll, selection, quick-add, and visual/a11y acceptance outstanding.
+- Initial focused CI on the task branch SUCCESS: https://github.com/carlers/mosaic-life-tracker/actions/runs/39442947072.
+- Stable Preview squash PR #1109 → `feature/dayview-timeline-951-20261020@8aa8436bed4d9646c5cf7868012a3d7a2c99ec92`.
+- First stable Preview canonical run https://github.com/carlers/mosaic-life-tracker/actions/runs/39443204470: checks, both DOM shards and browser contracts success; build fails on pre-existing `pwaLifecycle.ts` setTimeout type mismatch, not a Timeline source error.
+- Repair only the timer handle type without changing PWA runtime behavior; rerun focused and stable full acceptance.
+- Authenticated browser and physical-device testing remains outstanding.
 
 ## Next action
 - Inspect focused CI for this exact task SHA and fix any failures. Then submit to stable Preview for full canonical CI + trusted Vercel READY, obtain owner device acceptance; no automatic dev/main promotion.

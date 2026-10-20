@@ -248,7 +248,7 @@ function waitForInstallingWorker(
 
   return new Promise((resolve) => {
     let settled = false;
-    let timeout = 0;
+    let timeout: ReturnType<typeof globalThis.setTimeout> | undefined;
     const finish = (result: InstallingWorkerResult) => {
       if (settled) return;
       settled = true;
