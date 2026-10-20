@@ -3,6 +3,7 @@ import {
   CORE_MVP_SYNC_COLLECTIONS,
   assertSafeProviderSwitch,
   assertSingleCloudWriter,
+  driverForBackend,
   hasCapability,
   isPageAvailable,
   requiredCapabilityForPage,
@@ -49,27 +50,77 @@ describe('Mosaic core-only capability boundary (#1026 / #1027)', () => {
   });
 });
 
-describe('provider return invariants (#967 / #975 / #1027)', () => {
-  it('rejects two authoritative providers writing the same owner and domain', () => {
+describe('three backend installations and provider-return invariants (#967 / #975 / #1027)', () => {
+  const appwriteCloud = {
+    target: 'appwrite-cloud' as const,
+    deploymentId: 'appwrite-cloud-project-a',
+  };
+  const appwriteOracle = {
+    target: 'appwrite-oracle' as const,
+    deploymentId: 'oracle-appwrite-project-b',
+  };
+  const supabaseCloud = {
+    target: 'supabase-cloud' as const,
+    deploymentId: 'supabase-project-c',
+  };
+  const writer = (
+    canonicalOwnerId: string,
+    ownerId: string,
+    domain: string,
+    installation = appwriteCloud,
+  ) => ({ ...installation, canonicalOwnerId, ownerId, domain });
+
+  it('routes cloud and self-hosted Appwrite to the same API driver, not same deployment', () => {
+    expect(driverForBackend('appwrite-cloud')).toBe('appwrite');
+    expect(driverForBackend('appwrite-oracle')).toBe('appwrite');
+    expect(driverForBackend('supabase-cloud')).toBe('supabase');
+    expect(() => driverForBackend('unsupported' as never)).toThrow('Unknown backend');
+  });
+
+  it('rejects simultaneous authoritative writers for a canonical owner across three installations', () => {
+    // Different provider-native IDs still belong to the SAME Mosaic owner.
     expect(() => assertSingleCloudWriter([
-      { provider: 'appwrite', ownerId: 'a', domain: 'tasks' },
-      { provider: 'supabase', ownerId: 'a', domain: 'tasks' },
+      writer('mosaic_owner', 'appwrite_native_id', 'tasks'),
+      writer('mosaic_owner', 'supabase_uuid', 'tasks', supabaseCloud),
     ])).toThrow('Two authoritative cloud writers');
+    // Same Appwrite SDK does NOT imply a single cloud authority.
     expect(() => assertSingleCloudWriter([
-      { provider: 'appwrite', ownerId: 'a', domain: 'tasks' },
-      { provider: 'supabase', ownerId: 'b', domain: 'tasks' },
+      writer('mosaic_owner', 'native_id', 'categories'),
+      writer('mosaic_owner', 'native_id', 'categories', appwriteOracle),
+    ])).toThrow('Two authoritative cloud writers');
+    // Two active leases to the very same provider instance are not safe.
+    expect(() => assertSingleCloudWriter([
+      writer('mosaic_owner', 'native_id', 'tasks'),
+      writer('mosaic_owner', 'native_id', 'tasks'),
+    ])).toThrow('Two authoritative cloud writers');
+  });
+
+  it('allows distinct owners/domains but rejects reused remote principals and unverified identity fields', () => {
+    expect(() => assertSingleCloudWriter([
+      writer('owner_a', 'remote_a', 'tasks'),
+      writer('owner_b', 'remote_b', 'tasks'),
+      writer('owner_a', 'remote_a', 'categories', supabaseCloud),
     ])).not.toThrow();
     expect(() => assertSingleCloudWriter([
-      { provider: 'appwrite', ownerId: 'a', domain: 'categories' },
-      { provider: 'appwrite', ownerId: 'a', domain: 'tasks' },
-    ])).not.toThrow();
+      writer('owner_a', 'shared_native', 'tasks'),
+      writer('owner_b', 'shared_native', 'tasks'),
+    ])).toThrow('Remote account is bound');
+    for (const field of ['canonicalOwnerId', 'ownerId', 'domain', 'deploymentId'] as const) {
+      expect(() => assertSingleCloudWriter([
+        { ...writer('owner_a', 'native_a', 'tasks'), [field]: '' },
+      ]), field).toThrow('explicit canonical owner');
+    }
     expect(() => assertSingleCloudWriter([
-      { provider: 'supabase', ownerId: '', domain: 'tasks' },
-    ])).toThrow('explicit owner');
+      { ...writer('owner_a', 'native_a', 'tasks'), target: 'unknown' as never },
+    ])).toThrow('Unknown backend');
   });
 
   const fullyVerified: ProviderReturnGate = {
-    from: 'supabase', to: 'appwrite', phase: 'verified',
+    from: 'supabase-cloud',
+    to: 'appwrite-oracle',
+    fromDeploymentId: 'supabase-project-c',
+    toDeploymentId: 'oracle-appwrite-project-b',
+    phase: 'verified',
     sourceSnapshotVerified: true,
     unsyncedDraftsSettled: true,
     destinationReplayVerified: true,
@@ -78,12 +129,37 @@ describe('provider return invariants (#967 / #975 / #1027)', () => {
     identityMappingVerified: true,
   };
 
-  it('requires a source snapshot, settled drafts and identity/DR proof before return', () => {
+  it('models reversible movement between Supabase Cloud, Appwrite Cloud, and Appwrite on Oracle', () => {
     expect(() => assertSafeProviderSwitch(fullyVerified)).not.toThrow();
+    expect(() => assertSafeProviderSwitch({
+      ...fullyVerified,
+      from: 'appwrite-cloud',
+      to: 'appwrite-oracle',
+      fromDeploymentId: 'appwrite-cloud-project-a',
+    })).not.toThrow();
+    expect(() => assertSafeProviderSwitch({
+      ...fullyVerified, from: 'appwrite-oracle', to: 'supabase-cloud',
+      fromDeploymentId: 'oracle-appwrite-project-b',
+      toDeploymentId: 'supabase-project-c',
+    })).not.toThrow();
+    expect(() => assertSafeProviderSwitch({
+      ...fullyVerified, from: 'appwrite-oracle', to: 'appwrite-oracle',
+      fromDeploymentId: 'oracle-appwrite-project-a',
+      toDeploymentId: 'oracle-appwrite-project-b',
+    })).not.toThrow();
+  });
+
+  it('refuses switching an unchanged backend and fails closed without verified portability prerequisites', () => {
+    expect(() => assertSafeProviderSwitch({
+      ...fullyVerified, from: 'appwrite-oracle', to: 'appwrite-oracle',
+      fromDeploymentId: 'same', toDeploymentId: 'same',
+    })).toThrow('actually change');
     expect(() => assertSafeProviderSwitch({ ...fullyVerified, phase: 'active' }))
       .toThrow('frozen and verified');
-    expect(() => assertSafeProviderSwitch({ ...fullyVerified, to: 'supabase' }))
-      .toThrow('actually change');
+    expect(() => assertSafeProviderSwitch({ ...fullyVerified, fromDeploymentId: '' }))
+      .toThrow('explicit source/destination');
+    expect(() => assertSafeProviderSwitch({ ...fullyVerified, toDeploymentId: '' }))
+      .toThrow('explicit source/destination');
     for (const field of ['sourceSnapshotVerified', 'unsyncedDraftsSettled',
       'destinationReplayVerified', 'destinationRestoreVerified',
       'oldClientWritersFenced', 'identityMappingVerified'] as const) {
@@ -91,7 +167,7 @@ describe('provider return invariants (#967 / #975 / #1027)', () => {
         field).toThrow('prerequisites incomplete');
     }
     expect(() => assertSafeProviderSwitch({
-      ...fullyVerified, from: 'appwrite', to: 'supabase',
-    })).not.toThrow();
+      ...fullyVerified, to: 'unrecognized' as never,
+    })).toThrow('Unknown backend');
   });
 });

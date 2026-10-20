@@ -60,33 +60,74 @@ export function isPageAvailable(
 }
 
 /**
- * One owner/domain -> one cloud authority. Offline cache is not a second
- * authority. Switching backend requires *settling and verifying* pending
- * writes; selecting another provider in the UI is never enough.
+ * The driver describes an API implementation, while the target identifies
+ * the actual deployment option. Appwrite Cloud and Oracle-hosted Appwrite
+ * share a driver but are different data authorities.
+ * This is a source-only contract, NOT a runtime provider selector.
  */
 export type CloudProvider = 'appwrite' | 'supabase';
+export type BackendTarget = 'appwrite-cloud' | 'appwrite-oracle' | 'supabase-cloud';
+
+export function driverForBackend(target: BackendTarget): CloudProvider {
+  switch (target) {
+    case 'appwrite-cloud':
+    case 'appwrite-oracle':
+      return 'appwrite';
+    case 'supabase-cloud':
+      return 'supabase';
+    default:
+      throw new Error('Unknown backend target: refuse provider selection');
+  }
+}
+
+/**
+ * canonicalOwnerId is the SAME signed-and-verified Mosaic owner across
+ * installations, not the provider-local Auth user ID. deploymentId must
+ * uniquely identify the installation/project (not merely its driver).
+ *
+ * This checks a proposed writer set; it CANNOT acquire or enforce an actual
+ * cross-device/server lock, or verify an untrusted identity mapping.
+ */
 export interface DomainWriter {
   domain: string;
+  canonicalOwnerId: string;
+  /** Auth user ID native to the target deployment. */
   ownerId: string;
-  provider: CloudProvider;
+  target: BackendTarget;
+  deploymentId: string;
 }
 export function assertSingleCloudWriter(writers: readonly DomainWriter[]): void {
-  const seen = new Map<string, CloudProvider>();
+  const canonicalClaims = new Set<string>();
+  const remoteClaims = new Map<string, string>();
   for (const writer of writers) {
-    if (!writer.ownerId || !writer.domain)
-      throw new Error('Cloud writer must have an explicit owner and domain');
-    const key = JSON.stringify([writer.ownerId, writer.domain]);
-    const previous = seen.get(key);
-    if (previous && previous !== writer.provider)
+    driverForBackend(writer.target);
+    if (![writer.canonicalOwnerId, writer.ownerId, writer.domain, writer.deploymentId]
+      .every(value => typeof value === 'string' && value.trim().length > 0)) {
+      throw new Error('Cloud writer must have explicit canonical owner, remote owner, domain and deployment');
+    }
+    const canonicalKey = JSON.stringify([writer.canonicalOwnerId, writer.domain]);
+    if (canonicalClaims.has(canonicalKey))
       throw new Error('Two authoritative cloud writers for the same owner/domain');
-    seen.set(key, writer.provider);
+    canonicalClaims.add(canonicalKey);
+
+    // A provider-local principal cannot represent different canonical owners.
+    const remoteKey = JSON.stringify([
+      writer.target, writer.deploymentId, writer.ownerId, writer.domain,
+    ]);
+    const priorOwner = remoteClaims.get(remoteKey);
+    if (priorOwner && priorOwner !== writer.canonicalOwnerId)
+      throw new Error('Remote account is bound to more than one canonical owner');
+    remoteClaims.set(remoteKey, writer.canonicalOwnerId);
   }
 }
 
 export type CutoverPhase = 'planning' | 'frozen' | 'verified' | 'active';
 export interface ProviderReturnGate {
-  from: CloudProvider;
-  to: CloudProvider;
+  from: BackendTarget;
+  to: BackendTarget;
+  /** Stable identifiers for source and destination backend installations. */
+  fromDeploymentId: string;
+  toDeploymentId: string;
   phase: CutoverPhase;
   sourceSnapshotVerified: boolean;
   unsyncedDraftsSettled: boolean;
@@ -96,7 +137,12 @@ export interface ProviderReturnGate {
   identityMappingVerified: boolean;
 }
 export function assertSafeProviderSwitch(gate: ProviderReturnGate): void {
-  if (gate.from === gate.to) throw new Error('Provider must actually change');
+  driverForBackend(gate.from);
+  driverForBackend(gate.to);
+  if (!gate.fromDeploymentId?.trim() || !gate.toDeploymentId?.trim())
+    throw new Error('Cutover requires explicit source/destination backend installations');
+  if (gate.from === gate.to && gate.fromDeploymentId === gate.toDeploymentId)
+    throw new Error('Provider installation must actually change');
   if (gate.phase !== 'verified')
     throw new Error('Cutover requires a frozen and verified source, not a direct toggle');
   if (!gate.sourceSnapshotVerified ||
