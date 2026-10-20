@@ -8,18 +8,19 @@ import { toCandidateCategoryWrite, toCandidateTaskWrite } from '../../supabase-p
 import { addRxPlugin, createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
-import { categoriesSchema, type CategoryDocument } from '../../src/db/schema';
-import { categoriesMigrationStrategies } from '../../src/db/migrations';
+import { categoriesSchema, tasksSchema, type CategoryDocument, type TaskDocument } from '../../src/db/schema';
+import { categoriesMigrationStrategies, tasksMigrationStrategies } from '../../src/db/migrations';
 import { createCandidateHttpTransport, type CandidateVerifiedSession } from '../../supabase-poc/candidateHttpTransport';
 import { createCandidateCreateTransport } from '../../supabase-poc/candidateCreateTransport';
 import { createCandidateCasTransport } from '../../supabase-poc/candidateCasTransport';
 import { createCandidateRxdbPilot } from '../../supabase-poc/candidateRxdbPilot';
+import { createCandidateAuthSession } from '../../supabase-poc/candidateAuthSession';
 
 type LocalConfiguration = {
   endpoint: string; publishableKey: string; token: string;
   supabaseId: string; legacyId: string; dbTag: string;
 };
-type Collections = { categories: RxCollection<CategoryDocument> };
+type Collections = { categories: RxCollection<CategoryDocument>; tasks: RxCollection<TaskDocument> };
 type Db = RxDatabase<Collections>;
 const config = (window as unknown as { __mosaicSignedRxdbConfig?: LocalConfiguration })
   .__mosaicSignedRxdbConfig;
@@ -33,6 +34,7 @@ addRxPlugin(RxDBMigrationSchemaPlugin);
 let database: Db | null = null;
 let active: ReturnType<ReturnType<typeof createCandidateRxdbPilot<CategoryDocument>>['start']> | null = null;
 let conflictPilot: ReturnType<typeof createCandidateRxdbPilot<CategoryDocument>> | null = null;
+let taskActive: ReturnType<ReturnType<typeof createCandidateRxdbPilot<TaskDocument>>['start']> | null = null;
 let offline = false;
 let failures = 0;
 let remoteReads = 0;
@@ -78,7 +80,7 @@ const changes = {
   async listChanges<R>(request: {
     domain: 'tasks' | 'categories'; ownerId: string; afterExclusive: string; batchSize: number;
   }): Promise<R[]> {
-    cursors.push(request.afterExclusive);
+    if (request.domain === 'categories') cursors.push(request.afterExclusive);
     return changeTransport.listChanges<R>(request);
   },
 };
@@ -99,6 +101,7 @@ async function start() {
   });
   await database.addCollections({
     categories: { schema: categoriesSchema, migrationStrategies: categoriesMigrationStrategies },
+    tasks: { schema: tasksSchema, migrationStrategies: tasksMigrationStrategies },
   });
   const pilot = createCandidateRxdbPilot<CategoryDocument>({
     domain: 'categories',
@@ -107,14 +110,24 @@ async function start() {
   });
   conflictPilot = pilot;
   active = pilot.start();
+  const taskPilot = createCandidateRxdbPilot<TaskDocument>({
+    domain: 'tasks',
+    identity: { legacyUserId: config.legacyId, supabaseUserId: config.supabaseId },
+    session, changes, writer, cas, collection: database.tasks,
+  });
+  taskActive = taskPilot.start();
   active.state.error$.subscribe((error: unknown) => {
     const rendered = String(error);
     if (rendered.includes('conflict') || rendered.includes('CONFLICT'))
       conflictErrors++;
   });
-  await active.state.awaitInitialReplication();
+  await Promise.all([
+    active.state.awaitInitialReplication(), taskActive.state.awaitInitialReplication(),
+  ]);
 }
 async function stop() {
+  if (taskActive) await taskActive.stop();
+  taskActive = null;
   if (active) await active.stop();
   active = null;
   conflictPilot = null;
@@ -127,9 +140,34 @@ async function edit(id: string, name: string) {
   if (!document) throw new Error('Cannot edit missing local category');
   await document.incrementalPatch({ name, updatedAt: '2026-10-20T00:00:00.000Z' });
 }
+async function createLocalTask(input: { id: string; categoryId: string; title: string }) {
+  if (!database) throw new Error('Core task RxDB fixture not started');
+  if (!/^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/.test(input.id))
+    throw new Error('Invalid test task id');
+  const createdAt = '2026-10-19T00:00:00.000Z';
+  await database.tasks.insert({
+    id: input.id, title: input.title, completed: false,
+    categoryId: input.categoryId, order: 0, date: '2026-10-19',
+    createdAt, updatedAt: createdAt, userId: config.legacyId,
+    isDeleted: false, visibility: 'private',
+  });
+}
+async function editLocalTask(id: string, change: 'complete' | 'delete') {
+  if (!database) throw new Error('Core task RxDB fixture not started');
+  const task = await database.tasks.findOne(id).exec();
+  if (!task) throw new Error('Task missing from owner-scoped local cache');
+  await task.incrementalPatch({
+    ...(change === 'complete' ? { completed: true, completedAt: '2026-10-20T00:00:00.000Z' }
+      : { isDeleted: true }),
+    updatedAt: '2026-10-20T00:00:00.000Z',
+  });
+}
 async function snapshot() {
   const docs = database ? await database.categories.find().exec() : [];
+  const tasks = database ? await database.tasks.find().exec() : [];
   return {
+    localTasks: tasks.map(doc => ({ id: doc.id, title: doc.title,
+      completed: doc.completed, date: doc.date, userId: doc.userId, isDeleted: doc.isDeleted })),
     local: docs.map(doc => ({
       id: doc.id, name: doc.name, userId: doc.userId, isDeleted: doc.isDeleted,
     })),
@@ -162,10 +200,59 @@ function privateProviderFixtures(principals: { a: string; b: string }) {
   return records;
 }
 
+/**
+ * Only callable by the throwaway localhost CI browser fixture.
+ * Return non-secret metadata. No real account credentials or tokens persist.
+ */
+async function exerciseSignedAuthLifecycle(input: {
+  a: { email: string; password: string; id: string };
+  b: { email: string; password: string; id: string };
+}) {
+  const auth = createCandidateAuthSession({
+    baseUrl: config.endpoint, publishableKey: config.publishableKey,
+  });
+  if (await auth.getVerifiedSession() !== null) throw new Error('New Auth adapter was not empty');
+  const first = await auth.signIn(input.a.email, input.a.password);
+  if (first.userId !== input.a.id || (await auth.getVerifiedSession())?.userId !== input.a.id)
+    throw new Error('First real JWT owner check failed');
+  const refreshed = await auth.refresh();
+  if (refreshed.userId !== first.userId || refreshed.sessionEpoch <= first.sessionEpoch ||
+      (await auth.getVerifiedSession())?.userId !== input.a.id)
+    throw new Error('Refreshed Supabase session was not verified');
+  const second = await auth.signIn(input.b.email, input.b.password);
+  if (second.userId !== input.b.id || second.sessionEpoch <= refreshed.sessionEpoch ||
+      (await auth.getVerifiedSession())?.userId !== input.b.id)
+    throw new Error('Login switch did not fence old owner');
+  const oldUserChanges = createCandidateHttpTransport({
+    baseUrl: config.endpoint, publishableKey: config.publishableKey, session: auth,
+  });
+  let deniedPreviousOwner = false;
+  try {
+    await oldUserChanges.listChanges({
+      domain: 'tasks', ownerId: input.a.id, afterExclusive: '0', batchSize: 5,
+    });
+  } catch {
+    deniedPreviousOwner = true;
+  }
+  if (!deniedPreviousOwner) throw new Error('Old account could still pull after switch');
+  const revoked = await auth.signOut();
+  if (await auth.getSessionSnapshot() !== null ||
+      await auth.getVerifiedSession() !== null) {
+    throw new Error('Signed-out account still has local session');
+  }
+  return {
+    firstOwner: first.userId, refreshedOwner: refreshed.userId,
+    switchedOwner: second.userId, refreshEpochAdvanced: true,
+    previousOwnerDenied: deniedPreviousOwner, remoteRevocationConfirmed: revoked,
+    localSessionCleared: true,
+  };
+}
+
 Object.assign(window, {
   __mosaicSignedRxdb: {
     privateProviderFixtures,
-    start, stop, edit, snapshot,
+    exerciseSignedAuthLifecycle,
+    start, stop, edit, snapshot, createLocalTask, editLocalTask,
     setOffline(value: boolean) { offline = value; },
     resync() { if (!active) throw new Error('No active signed replica'); active.resync(); },
     async awaitSynced() {

@@ -36,6 +36,20 @@ The core-only profile must **not** expose cached shared-task invitations or peer
 
 Remaining work: social outbox/sync coordinator and backend-specific Auth still need full suppression before enabling the core-only build for any real users; this hook-level hardening is not equivalent to cloud-provider switching.
 
+## Source-only Supabase Auth lifecycle pilot
+
+`supabase-poc/candidateAuthSession.ts` adds an **experimental non-persistent in-memory session manager** around Supabase GoTrue password/refresh/logout/signup/recover endpoints, layered over the existing server-verified `/auth/v1/user` boundary. Every login and refresh resolves the identity from the live Auth endpoint before acknowledging ownership, increases account epoch on token replacement and refuses stale in-flight replies. Switching account invalidates the old session **before** network sign-in. A failed server logout still clears the local token and reports revocation as unconfirmed; JWTs already issued may remain usable until expiration. No credentials/tokens are logged or written to storage.
+
+A definitive 401/403 refresh denial now clears the in-memory session immediately; an ambiguous network outage preserves the previous token only for later independent server verification. Unit tests distinguish these cases and successful HTTP 204 logout. The signed RxDB test fixture preserves category-only checkpoint probes while the independent task stream is exercised. All this remains unverified until runner CI executes.
+
+This supports a genuine disposable local two-owner Auth+Chromium acceptance flow with password grant, refresh-token rotation, owner switch and local sign-out. It does **not** persist sessions across reload, reconnect Appwrite account IDs, configure hosted email confirmation/recovery redirects, perform MFA, or replace `src/hooks/AuthProvider.tsx`. Passwords from Appwrite **cannot** be silently re-used or migrated without user reauthentication/reset. The long-term auth design must maintain offline account cache and server-verification distinction and link identity mapping to imported data before any customer-facing release.
+
+## Experimental two-domain core sync coordinator
+
+`supabase-poc/candidateCoreRuntime.ts` composes the already reviewed task + category native RxDB pilots with one **server-verified Supabase owner** and explicit **legacy identity mapping / old Appwrite writer fence / exclusive writer lease** adapters. Without *all three* independently provided guards it refuses to start. It never silently falls back to Appwrite. Both collections start together; if either fails the other is canceled and the lease released only after confirmed cleanup. If cancellation is unconfirmed, the lease remains held rather than creating a second active writer. Owner switch or expired lease disables explicit resync; retained RxDB drafts are not erased.
+
+The standalone real signed local Chromium test now starts both native RxDB collections and covers task creation, offline completion, restart/return sync, tombstone propagation and owner isolation in addition to the earlier category conflict tests. This is **not** a replacement for hosted two-device acceptance, and the migration guard implementations remain fake/injected for unit testing: the existing shipped `src/db/sync.ts` still exclusively owns Appwrite subscriptions and the actual cross-tab/old-PWA writer lease and Appwrite-ID registry do not yet exist. No implementation may call the coordinator with a no-op lease in a user deployment.
+
 ## Must pass before any core MVP release
 
 - Signed, real Supabase Auth signup/login/logout/recovery and validated account mapping, hosted RLS and privileged RPC review, two-owner negative tests, local offline boot and cross-device convergence.
