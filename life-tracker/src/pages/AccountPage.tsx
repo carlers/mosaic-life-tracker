@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
-import { Settings, LogOut, BarChart3, Sticker, ListTodo, Star } from 'lucide-react';
+import { Settings, LogOut, BarChart3, Sticker, ListTodo, Star, ListChecks } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
@@ -50,6 +50,7 @@ export const AccountPage: React.FC = () => {
   };
 
   const backlogCount = tasks.filter((t) => t.date === '' && !t.isDeleted && !t.completed).length;
+  const uncompletedCount = tasks.filter((t) => t.userId === user?.$id && !t.isDeleted && !t.completed).length;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -107,6 +108,14 @@ export const AccountPage: React.FC = () => {
             <p className="text-sm text-gray-400">{backlogCount} tasks</p>
           </div>
           <ListTodo size={24} className="text-gray-400" aria-hidden="true" />
+        </button>
+        <button type="button" onClick={() => navigate('/uncompleted', { state: makeRouteParentState('/account') })}
+          className="w-full bg-surface border border-border rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-accent">
+          <div>
+            <h3 className="mosaic-general-text text-base font-bold text-white">Uncompleted Tasks</h3>
+            <p className="text-sm text-gray-400">{uncompletedCount} tasks</p>
+          </div>
+          <ListChecks size={24} className="text-gray-400" aria-hidden="true" />
         </button>
         <button
           type="button"

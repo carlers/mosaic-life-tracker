@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
-import { Menu, List, RefreshCw, Bell, Archive, Star } from 'lucide-react';
+import { Menu, List, RefreshCw, Bell, Archive, Star, ListChecks } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 const { Component: LazyBottomSheet, preload: preloadMenuBottomSheet } =
@@ -8,7 +8,7 @@ const { Component: LazyBottomSheet, preload: preloadMenuBottomSheet } =
 const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
   createPreloadedLazy(() => import('../modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 
-export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketList: () => void }> = ({ onOpenBacklog, onOpenBucketList }) => {
+export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketList: () => void; onOpenUncompleted: () => void }> = ({ onOpenBacklog, onOpenBucketList, onOpenUncompleted }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuSheetMounted, setMenuSheetMounted] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
@@ -30,6 +30,7 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
   const menuItems = [
     { label: 'Bucket List', icon: Star, action: () => { setIsMenuOpen(false); onOpenBucketList(); } },
     { label: 'Backlogs', icon: Archive, action: () => { setIsMenuOpen(false); onOpenBacklog(); } },
+    { label: 'Uncompleted Tasks', icon: ListChecks, action: () => { setIsMenuOpen(false); onOpenUncompleted(); } },
     {
       label: 'Lists & Categories',
       icon: List,

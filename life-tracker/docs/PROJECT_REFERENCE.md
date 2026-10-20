@@ -39,6 +39,8 @@ semantically complete or that implementation behavior matches every contract.
 
 **Backlogs (#407):** `/backlog` is a date-free owner Day View, not a calendar day or separate task entity. It reuses normal category sections, task gestures/actions and reorder ownership. Both Home hamburger and Me link to it; undated Home search focuses a task on the Backlogs page. Calendar ⇄ Backlogs updates the same task's `date`, with empty string (`date: ''`) meaning unscheduled. Unscheduled tasks are not shown through friend calendars, notifications, or shared-task projections, even when a previously shared scheduled task moves to Backlogs. No new backend/schema collection is introduced. Release to main requires separate authorization.
 
+**Uncompleted Tasks (#955):** `/uncompleted` is a read-only aggregation of the signed-in owner's nondeleted, unfinished tasks across overdue/today/upcoming/undated dates. It does not create or reschedule records, and Backlogs remains the date-free workspace. Completing a row uses the existing owner completion operation, and clicking a row opens its original Day View or Backlogs. The page must never project other users' rows or leak stale account data. Received shared-task projections are not part of this owner-only view; those require separate privacy and feature-flag acceptance. 
+
 ## 1. The Vision
 - An offline-first, local-first, self-hostable "Life Tracker" PWA
 - **Phase 1:** A pixel-perfect, highly polished clone of "Todo Mate" (tasks, categories, social calendar, diary) to replace an ad-filled app
