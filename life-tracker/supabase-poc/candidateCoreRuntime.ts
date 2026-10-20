@@ -154,7 +154,7 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
       // If either replication cannot be stopped, deliberately retain the
       // writer lease so another backend can NEVER take over prematurely.
       if (cleanup.some(result => result.status === 'rejected'))
-        throw new Error('Candidate core shutdown unconfirmed; writer lease retained');
+        throw new Error('Candidate core shutdown unconfirmed; writer lease retained', { cause: error });
       if (lease) await lease.release();
       active = null;
       throw error;
