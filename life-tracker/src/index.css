@@ -462,6 +462,37 @@ html[data-ui-generalText='true'] .mosaic-general-text {
 html[data-theme='light'][data-ui-generalText='true'] .mosaic-general-text {
   color: var(--mosaic-ui-generalText-text-light) !important;
 }
+/* Additional opt-in action glyphs: neutral search, menu, carousel and date
+   arrows join Action icons without recoloring any semantic status indicator. */
+html[data-ui-icons='true'] :is(.mosaic-action-icon svg, svg.mosaic-action-icon) {
+  color: var(--mosaic-ui-icons-text-dark) !important;
+}
+html[data-theme='light'][data-ui-icons='true'] :is(.mosaic-action-icon svg, svg.mosaic-action-icon) {
+  color: var(--mosaic-ui-icons-text-light) !important;
+}
+/* Selected carousel pill has an accessible accent fill/foreground pair.
+   An inactive pill retains the original surface, border, and avatar. */
+html[data-ui-friendCarousel='true'] .mosaic-person-pill.mosaic-person-active {
+  background-color: var(--mosaic-ui-friendCarousel) !important;
+  border-color: var(--mosaic-ui-friendCarousel) !important;
+}
+html[data-ui-friendCarousel='true'] .mosaic-person-active .mosaic-person-label {
+  color: var(--mosaic-ui-friendCarousel-foreground) !important;
+}
+html[data-ui-friendCarousel='true'] .mosaic-person-inactive .mosaic-person-label {
+  color: var(--mosaic-ui-carousel-inactive-dark) !important;
+}
+html[data-theme='light'][data-ui-friendCarousel='true'] .mosaic-person-inactive .mosaic-person-label {
+  color: var(--mosaic-ui-carousel-inactive-light) !important;
+}
+/* Shared BottomSheet owns only its chrome. Sheet body contents must opt in
+   explicitly; user-authored data and semantic warning/destructive copy do not. */
+html[data-ui-bottomSheetText='true'] .mosaic-bottom-sheet :is(.mosaic-sheet-heading, .mosaic-sheet-text) {
+  color: var(--mosaic-ui-sheet-label-dark) !important;
+}
+html[data-theme='light'][data-ui-bottomSheetText='true'] .mosaic-bottom-sheet :is(.mosaic-sheet-heading, .mosaic-sheet-text) {
+  color: var(--mosaic-ui-sheet-label-light) !important;
+}
 /* Disabled placements return to neutral theme roles, not a second green accent. */
 html[data-ui-icons='false'] svg:is([class~='text-emerald-400'], [class~='text-emerald-500']):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
   color: var(--mosaic-text-muted) !important;

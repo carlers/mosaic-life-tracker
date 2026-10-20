@@ -77,11 +77,11 @@ export const UiColorSettings: React.FC = () => {
           <div className="mb-3 flex items-center gap-3 rounded-lg bg-surfaceHighlight p-3">
             <span className="h-8 w-8 shrink-0 rounded-full border border-white/20"
               style={{ backgroundColor: accentColor }} aria-hidden="true" />
-            <p className="text-sm text-gray-300">All switches use your single App accent color.</p>
+            <p className="mosaic-sheet-text text-sm text-gray-300">All switches use your single App accent color.</p>
           </div>
           {UI_COLOR_GROUPS.map(group => (
             <section key={group.title} aria-label={group.title} className="mb-4">
-              <h3 className="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <h3 className="mosaic-sheet-text mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
                 {group.title}
               </h3>
               {group.roles.map(role => (
@@ -91,7 +91,7 @@ export const UiColorSettings: React.FC = () => {
                   disabled={!uid || saving}
                   onClick={() => void update({ [role]: !choices[role] })}
                   className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-surfaceHighlight focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-50">
-                  <span>{UI_COLOR_LABELS[role]}</span>
+                  <span className="mosaic-sheet-text">{UI_COLOR_LABELS[role]}</span>
                   <span aria-hidden="true" className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${choices[role] ? 'bg-emerald-500' : 'bg-[#444444]'}`}>
                     <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${choices[role] ? 'translate-x-5' : ''}`}/>
                   </span>
@@ -102,7 +102,7 @@ export const UiColorSettings: React.FC = () => {
           <button type="button" disabled={!uid || saving || isDefault}
             onClick={() => void update(defaults)}
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-300 focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-50">
-            <RotateCcw size={15} aria-hidden="true" /> Restore default placements
+            <RotateCcw size={15} aria-hidden="true" /> <span className="mosaic-sheet-text">Restore default placements</span>
           </button>
           {saving && <p role="status" className="mt-2 text-xs text-gray-400">Saving…</p>}
         </div>

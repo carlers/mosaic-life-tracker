@@ -18,6 +18,9 @@ describe('single accent color placement', () => {
     expect(defaults.settingsText).toBe(false);
     expect(defaults.settingsIcons).toBe(false);
     expect(defaults.generalText).toBe(false);
+    expect(defaults.friendCarousel).toBe(false);
+    expect(defaults.bottomSheetText).toBe(false);
+    expect(uiColorSettingKey('friendCarousel')).toBe('uiColor:friendCarousel');
     expect(defaults.navigationBar).toBe(false);
     expect(uiColorSettingKey('holidays')).toBe('uiColor:holidays');
   });
@@ -60,12 +63,19 @@ describe('single accent color placement', () => {
       hasAttribute: (k: string) => attrs.has(k),
     } as unknown as HTMLElement;
     root.style.setProperty('--mosaic-accent', '#10B981');
-    const choices = { ...defaultUiColors(), holidays: true, dateHeaders: true, navigationBar: true, settingsIcons: true, generalText: true, controls: false };
+    const choices = { ...defaultUiColors(), holidays: true, dateHeaders: true, navigationBar: true, settingsIcons: true, generalText: true, friendCarousel: true, bottomSheetText: true, controls: false };
     applyUiColors(choices, '#8B5CF6', root);
     expect(root.style.getPropertyValue('--mosaic-ui-holidays')).toBe('#8B5CF6');
     expect(root.style.getPropertyValue('--mosaic-ui-dateHeaders')).toBe('#8B5CF6');
     expect(root.style.getPropertyValue('--mosaic-ui-navigationBar')).toBe('#8B5CF6');
     expect(root.style.getPropertyValue('--mosaic-ui-settingsIcons')).toBe('#8B5CF6');
+    expect(root.style.getPropertyValue('--mosaic-ui-friendCarousel')).toBe('#8B5CF6');
+    expect(root.style.getPropertyValue('--mosaic-ui-bottomSheetText')).toBe('#8B5CF6');
+    expect(getContrastRatio(root.style.getPropertyValue('--mosaic-ui-friendCarousel-foreground'), '#8B5CF6')).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(root.style.getPropertyValue('--mosaic-ui-carousel-inactive-dark'), '#1E1E1E')).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(root.style.getPropertyValue('--mosaic-ui-carousel-inactive-light'), '#F7F7F8')).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(root.style.getPropertyValue('--mosaic-ui-sheet-label-dark'), '#2A2A2A')).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(root.style.getPropertyValue('--mosaic-ui-sheet-label-light'), '#F0F1F3')).toBeGreaterThanOrEqual(4.5);
     expect(getContrastRatio(root.style.getPropertyValue('--mosaic-ui-generalText-text-dark'), '#111111')).toBeGreaterThanOrEqual(4.5);
     expect(getContrastRatio(root.style.getPropertyValue('--mosaic-ui-generalText-text-light'), '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
     expect(getContrastRatio(root.style.getPropertyValue('--mosaic-ui-nav-label-dark'), '#1E1E1E')).toBeGreaterThanOrEqual(4.5);
@@ -81,8 +91,21 @@ describe('single accent color placement', () => {
     expect(root.style.getPropertyValue('--mosaic-ui-nav-label-dark')).toBe('');
     expect(root.style.getPropertyValue('--mosaic-ui-settingsIcons')).toBe('');
     expect(root.style.getPropertyValue('--mosaic-ui-generalText')).toBe('');
+    expect(root.style.getPropertyValue('--mosaic-ui-friendCarousel')).toBe('');
+    expect(root.style.getPropertyValue('--mosaic-ui-bottomSheetText')).toBe('');
+    expect(root.style.getPropertyValue('--mosaic-ui-carousel-inactive-dark')).toBe('');
+    expect(root.style.getPropertyValue('--mosaic-ui-sheet-label-dark')).toBe('');
     expect(root.style.getPropertyValue('--mosaic-ui-icons')).toBe('#EC4899');
     expect(root.style.getPropertyValue('--mosaic-accent')).toBe('#10B981');
+  });
+
+  it('supports cached friend carousel and bottom sheet placements without leaking across accounts', () => {
+    const values = { ...defaultUiColors(), friendCarousel: true, bottomSheetText: true };
+    const stored = new Map<string, string>();
+    const storage = { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => { stored.set(key, value); } };
+    cacheUiColors('owner-a', values, storage);
+    expect(readCachedUiColors('owner-a', storage)).toEqual(values);
+    expect(readCachedUiColors('owner-b', storage)).toEqual(defaultUiColors());
   });
 
   it('preserves AA holiday-label contrast for all preset accents', () => {
