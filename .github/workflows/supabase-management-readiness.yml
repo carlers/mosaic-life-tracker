@@ -1,0 +1,64 @@
+name: Supabase Management Readiness
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'codex/1027-supabase-access-*'
+      - 'refactor/1027-supabase-access-*'
+    paths:
+      - '.github/workflows/supabase-management-readiness.yml'
+permissions:
+  contents: read
+jobs:
+  project-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      # No checkout or candidate script runs with this credential.
+      - name: Verify repository credential with read-only project lookup
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          token = os.environ.get('SUPABASE_ACCESS_TOKEN', '')
+          if not token:
+              raise SystemExit('::error::SUPABASE_ACCESS_TOKEN is unavailable to this workflow')
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          request = urllib.request.Request(
+              'https://api.supabase.com/v1/projects',
+              headers={'Authorization': 'Bearer ' + token, 'Accept': 'application/json'},
+          )
+          try:
+              with urllib.request.build_opener(NoRedirect()).open(request, timeout=25) as response:
+                  raw = response.read(2_000_001)
+                  if len(raw) > 2_000_000:
+                      raise ValueError('Oversized response')
+                  projects = json.loads(raw)
+              if not isinstance(projects, list):
+                  raise ValueError('Invalid project response')
+              target = next((p for p in projects if isinstance(p, dict) and
+                             p.get('id') == 'hcxtiifzxoaflhjgoglb'), None)
+              if target is None:
+                  raise SystemExit('::error::Token accepted but isolated development project is not accessible')
+              print('::notice::Supabase token accepted; isolated development project is accessible')
+          except urllib.error.HTTPError as error:
+              detail = ''
+              try:
+                  message = json.loads(error.read(4096)).get('message', '')
+                  if isinstance(message, str):
+                      detail = message.replace(token, '[redacted]').replace('\n', ' ').replace('\r', ' ')[:300]
+              except (ValueError, AttributeError):
+                  pass
+              raise SystemExit(f'::error::Supabase HTTP {error.code}: {detail}')
+          except (urllib.error.URLError, TimeoutError, ValueError):
+              raise SystemExit('::error::Supabase project lookup failed; response and credentials withheld')
+          PY

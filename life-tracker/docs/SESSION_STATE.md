@@ -1,26 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1027 disposable Supabase core app, v0.32.0 candidate.
+Current task: #1027 verify GitHub repository Supabase credential after cloud environment editor failures.
 
-## Scope and baseline
-- Accepted source: `refactor/1027-signed-core-auth-20261020@c36f6be5c381d42eeadd31e07555330c3bb5664a`, PR #1075; canonical #39400581257 and trusted #39400819910 SUCCESS.
-- Work: `codex/1027-supabase-core-app-20261020`, PR #1079 to isolated `refactor/1027-supabase-core-app-20261020`.
-- User authorizes code, tests and isolated Preview. No Production, real-user migration, dev/main promotion or 1.0.
+## Accepted implementation
+- Core app v0.32.0: `refactor/1027-supabase-core-app-20261020@052a4658b55e25bc5b34a416c923fe604f0a3339`, merged PR #1079.
+- Canonical #39412036803, real Supabase UI/security lab #39412036661 and trusted frontend Preview #39412277835 SUCCESS. Exact evidence and remaining MVP work: issue #1027 checkpoint 6289391812.
+- Actual UI fresh-account Auth, task/category replication, offline completion/deletion replay and multi-device isolation work in the disposable real-server lab. Hosted Preview still selects Appwrite. Existing-user migration, old-PWA cutoff, offline reload/token recovery, conflict UI and hosted security/DR remain unfinished.
 
-## Implementation
-- Actual provider-aware root, neutral identity, signed Auth and task/category RxDB integration. Separate Supabase DB and provider-aware refresh; Appwrite startup rejected under Supabase.
-- Fresh-only server-generated canonical identities, private backend authority and session leases enforced on inserts/CAS. Existing users are not enrolled; this does not fence old Appwrite PWAs.
-- Core profile/social/task menus respect capabilities. Default Appwrite behavior retained. Memory-only credentials: reload requires sign-in.
+## Current verification
+- User supplied SUPABASE_ACCESS_TOKEN through GitHub repository Secrets as a workaround. Cloud token previously reached Supabase but lacked projects_read; later environment-editor saves failed. Never print or copy credential values.
+- GitHub secret metadata listing returns 403 for this integration; this does not establish secret absence.
+- New Supabase Management Readiness workflow runs without checkout, exposes the repository token to one inline step only, refuses redirects and performs only GET api.supabase.com/v1/projects. Reports whether the isolated development project is accessible. No SQL, Auth policy or user-data writes.
+- Task `codex/1027-supabase-access-20261020`, based on the accepted app source. Version impact NONE: credential diagnostic only.
 
-## Evidence and current repair
-- `2f2e73f341d751a894f1d674b191088cfbfbf493`: focused #39408795050 and actual Supabase app lab #39408795064 SUCCESS. Real UI category/task creation, offline completion and second-device isolation; signed lease/CAS/owner/revocation negatives.
-- Expanded #39409630007 passed title editing and Backlog propagation, then first-device task control disappeared after going offline. Built-PWA diagnostic #39410719284 identified lazy OfflineBanner import failure after network loss. Reproduced in the existing chat browser test with real network denial. Banner now ships with the shell; actual offline UI is asserted before edits/deletion.
-- Focused #39409630022 exposed lazy friend-module query timing; explicit import settling fixed locally (12 tests). #39410193415 failed checkpoint length; shortened here without relaxing contract.
-- Local TypeScript/build/PWA/blocking bundle budgets and relevant tests pass. Full canonical/trusted delivery remains pending. CI is source of final exact-SHA evidence.
-
-## Next action and blockers
-- No Supabase management credential; secure SUPABASE_ACCESS_TOKEN requirement saved. Network draft adds storage.googleapis.com, public.ecr.aws and results-receiver.actions.githubusercontent.com; not applied. Real stack verification uses disposable GitHub lab.
-- Finish current lab/focused repair, then squash green PR and require canonical/trusted acceptance. Standard Preview still uses Appwrite configuration; no hosted Supabase delivery claim.
-- Remaining: offline cold start/token recovery, conflict review, complete mutation/order coverage, hosted security/recovery, old-Appwrite writer cutoff and reversible migration including offline deltas. Diary #1029 follows core release.
-- Keep #1027/#967 open; record exact SHA/PR/CI/deployment and next executable action in #1027.
+## Next action
+- Inspect the exact task readiness and focused runs. If access passes, record it in #1027 and continue scoped hosted development-project inspection. Deliver tooling through the normal isolated stable Preview path after focused acceptance.
+- No Production, real-user migration, dev/main promotion or 1.0. Preserve the accepted app source and existing disabled capabilities. Diary #1029 follows the working core release.
