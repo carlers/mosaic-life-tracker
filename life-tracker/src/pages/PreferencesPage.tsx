@@ -13,6 +13,7 @@ import {
   Palette,
   Tag,
   Sticker,
+  Trash2,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppearance } from '../hooks/useAppearance';
@@ -30,6 +31,8 @@ import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
+  CONFIRM_TASK_DELETE_SETTING_KEY,
+  shouldConfirmTaskDelete,
   GIPHY_AUTOPLAY_SETTING_KEY,
   TASK_COMPLETION_SORT_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
@@ -233,6 +236,7 @@ export const PreferencesPage: React.FC = () => {
   const giphyAutoplay = getSetting(GIPHY_AUTOPLAY_SETTING_KEY, false) === true;
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
+  const confirmTaskDelete = shouldConfirmTaskDelete(getSetting(CONFIRM_TASK_DELETE_SETTING_KEY));
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
@@ -347,6 +351,14 @@ export const PreferencesPage: React.FC = () => {
                 !addTasksToTop
               )
             }
+          />
+          <SettingsRow
+            icon={<Trash2 size={18} className="text-red-400" aria-hidden="true" />}
+            label="Confirm individual task deletion"
+            showChevron={false}
+            isToggle
+            checked={confirmTaskDelete}
+            onClick={() => void setSetting(CONFIRM_TASK_DELETE_SETTING_KEY, !confirmTaskDelete)}
           />
           <SelectSettingRow
             id="task-completion-sort"

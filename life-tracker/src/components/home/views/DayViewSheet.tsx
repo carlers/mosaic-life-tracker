@@ -52,6 +52,8 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import { useSettings } from '../../../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
+  CONFIRM_TASK_DELETE_SETTING_KEY,
+  shouldConfirmTaskDelete,
   TASK_COMPLETION_SORT_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
@@ -161,6 +163,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
+  const confirmTaskDelete = shouldConfirmTaskDelete(getSetting(CONFIRM_TASK_DELETE_SETTING_KEY));
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
@@ -251,6 +254,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const [memoInitialMode, setMemoInitialMode] = useState<'view' | 'edit'>('edit');
   const [isVisibilityOpen, setIsVisibilityOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleteProcessing, setIsDeleteProcessing] = useState(false);
+  const deletePendingRef = useRef(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [deletePhotoConfirmOpen, setDeletePhotoConfirmOpen] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -259,6 +264,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const [isBulkCategoryOpen, setIsBulkCategoryOpen] = useState(false);
   const [isBulkVisibilityOpen, setIsBulkVisibilityOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const bulkDeletePendingRef = useRef(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const copyPendingRef = useRef(false);
@@ -568,17 +574,22 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleBulkDelete = useCallback(async () => {
     const snapshot = selectedTasks;
-    if (snapshot.length === 0 || isBulkWorking) return;
+    if (snapshot.length === 0 || isBulkWorking || bulkDeletePendingRef.current) return;
+    bulkDeletePendingRef.current = true;
     setIsBulkWorking(true);
-    const failedIds = await runBulkTaskActions(snapshot, (task) => deleteTask(task.id));
-    setIsBulkWorking(false);
-    if (failedIds.size > 0) {
-      setSelectedTaskIds(failedIds);
-      setIsBulkDeleteOpen(false);
-      showFeedback(`${failedIds.size} ${failedIds.size === 1 ? 'task' : 'tasks'} could not be deleted`);
-      return;
+    try {
+      const failedIds = await runBulkTaskActions(snapshot, (task) => deleteTask(task.id));
+      if (failedIds.size > 0) {
+        setSelectedTaskIds(failedIds);
+        setIsBulkDeleteOpen(false);
+        showFeedback(`${failedIds.size} ${failedIds.size === 1 ? 'task' : 'tasks'} could not be deleted`);
+        return;
+      }
+      exitSelectMode();
+    } finally {
+      bulkDeletePendingRef.current = false;
+      setIsBulkWorking(false);
     }
-    exitSelectMode();
   }, [deleteTask, exitSelectMode, isBulkWorking, selectedTasks, showFeedback]);
 
   const handleAddTask = useCallback(
@@ -665,11 +676,21 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // useCallback keeps prop identities stable for any downstream memoized
   // children. No behavior change with current consumers.
   const handleDelete = useCallback(async () => {
-    if (!activeTask) return;
-    await deleteTask(activeTask.id);
-    setIsDeleteConfirmOpen(false);
-    setActiveTaskId(null);
-  }, [activeTask, deleteTask]);
+    if (!activeTask || deletePendingRef.current) return;
+    const taskId = activeTask.id;
+    deletePendingRef.current = true;
+    setIsDeleteProcessing(true);
+    try {
+      await deleteTask(taskId);
+      setIsDeleteConfirmOpen(false);
+      setActiveTaskId(current => current === taskId ? null : current);
+    } catch {
+      showFeedback('Task could not be deleted');
+    } finally {
+      deletePendingRef.current = false;
+      setIsDeleteProcessing(false);
+    }
+  }, [activeTask, deleteTask, showFeedback]);
 
   const handleMemoSave = useCallback(
     async (
@@ -773,9 +794,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, []);
 
   const handleOpenDeleteConfirm = useCallback(() => {
-    setIsDeleteConfirmOpen(true);
     setIsActionSheetOpen(false);
-  }, []);
+    if (confirmTaskDelete) setIsDeleteConfirmOpen(true);
+    else void handleDelete();
+  }, [confirmTaskDelete, handleDelete]);
 
   const handleOpenImageViewer = useCallback(() => {
     if (!activeTask) return;
@@ -1198,6 +1220,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         message="This task will be permanently removed."
         confirmLabel="Delete"
         destructive
+        isProcessing={isDeleteProcessing}
+        processingLabel="Deleting…"
         onConfirm={handleDelete}
       />
       <ConfirmSheet

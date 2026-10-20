@@ -3,6 +3,12 @@ export const GIPHY_AUTOPLAY_SETTING_KEY = 'giphyStickerAutoplay';
 export const ESCAPE_AS_BACK_SETTING_KEY = 'escapeAsBack';
 export const CONTINUE_ADDING_TASKS_SETTING_KEY = 'continueAddingTasks';
 export const ADD_TASKS_TO_TOP_SETTING_KEY = 'addTasksToTop';
+export const CONFIRM_TASK_DELETE_SETTING_KEY = 'confirmTaskDelete';
+
+/** Only an explicit false opts out of individual task-deletion confirmation. */
+export function shouldConfirmTaskDelete(value: unknown): boolean {
+  return value !== false;
+}
 export const TASK_COMPLETION_SORT_SETTING_KEY = 'taskCompletionSort';
 export const INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY = 'incompleteTaskBlockColor';
 
