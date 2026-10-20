@@ -92,6 +92,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | taskReorder | [src/components/home/views/taskReorder.ts](../src/components/home/views/taskReorder.ts) |
 | taskRowRegistrationContext | [src/components/home/views/taskRowRegistrationContext.ts](../src/components/home/views/taskRowRegistrationContext.ts) |
 | todoListViewModule | [src/components/home/views/todoListViewModule.ts](../src/components/home/views/todoListViewModule.ts) |
+| useCalendarGridKeyboard | [src/components/home/views/useCalendarGridKeyboard.ts](../src/components/home/views/useCalendarGridKeyboard.ts) |
 | useCalendarPinchZoom | [src/components/home/views/useCalendarPinchZoom.ts](../src/components/home/views/useCalendarPinchZoom.ts) |
 | useCalendarState | [src/components/home/views/useCalendarState.ts](../src/components/home/views/useCalendarState.ts) |
 | useDayViewKeyboardNavigation | [src/components/home/views/useDayViewKeyboardNavigation.ts](../src/components/home/views/useDayViewKeyboardNavigation.ts) |
