@@ -85,6 +85,20 @@ describe('PreferencesPage', () => {
     expect(mocks.setAccentColor).not.toHaveBeenCalled();
   });
 
+  it('groups accent placement under Accent color and toggles general interface text independently', () => {
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    const accentSection = screen.getByRole('region', { name: 'Accent color' });
+    expect(accentSection).toContainElement(screen.getByRole('button', { name: 'Choose accent color' }));
+    const placementButton = screen.getByRole('button', { name: 'Choose where accent color appears' });
+    expect(accentSection).toContainElement(placementButton);
+    fireEvent.click(placementButton);
+    const generalText = screen.getByRole('switch', { name: 'General page text' });
+    expect(generalText).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(generalText);
+    expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:generalText', true);
+    expect(mocks.setAccentColor).not.toHaveBeenCalled();
+  });
+
   // Regression: §2 (Preferences owns display/layout and synced behavior controls).
   it('exposes existing screen choices and the requested behavior preferences', async () => {
     render(

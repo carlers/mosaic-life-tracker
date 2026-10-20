@@ -454,6 +454,14 @@ html[data-ui-settingsIcons='true'] .mosaic-settings-page :is(.mosaic-settings-ic
 html[data-theme='light'][data-ui-settingsIcons='true'] .mosaic-settings-page :is(.mosaic-settings-icon svg, svg.mosaic-settings-icon):not([class*='text-red-']):not([class*='text-amber-']):not([class*='text-yellow-']) {
   color: var(--mosaic-ui-settingsIcons-text-light) !important;
 }
+/* General page text is opt-in on authored UI labels/headings, never raw user
+   content (task titles, chat messages, activity bodies or colored semantic text). */
+html[data-ui-generalText='true'] .mosaic-general-text {
+  color: var(--mosaic-ui-generalText-text-dark) !important;
+}
+html[data-theme='light'][data-ui-generalText='true'] .mosaic-general-text {
+  color: var(--mosaic-ui-generalText-text-light) !important;
+}
 /* Disabled placements return to neutral theme roles, not a second green accent. */
 html[data-ui-icons='false'] svg:is([class~='text-emerald-400'], [class~='text-emerald-500']):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
   color: var(--mosaic-text-muted) !important;

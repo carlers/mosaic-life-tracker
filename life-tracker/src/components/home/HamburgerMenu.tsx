@@ -75,7 +75,7 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
                     onClick={item.action}
                   >
                     <Icon size={18} className="text-gray-400" aria-hidden="true" />
-                    <span>{item.label}</span>
+                    <span className="mosaic-general-text">{item.label}</span>
                   </Button>
                 );
               })}
