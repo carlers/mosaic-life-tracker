@@ -158,6 +158,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
 
     // Category edits, pointer reordering and tombstones use the same domain
     // hooks as task edits and must converge on the second device too.
+    await first.getByRole('button', { name: 'Home', exact: true }).click();
     await first.getByRole('button', { name: 'Open menu' }).click();
     await first.getByRole('button', { name: 'Lists & Categories' }).click();
     await first.getByRole('button', { name: 'Add Category', exact: true }).click();
@@ -181,6 +182,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
         categories.find(row => row.name === 'Core private list').order_index;
     }).toBe(true);
     await second.evaluate(() => window.dispatchEvent(new Event('online')));
+    await second.getByRole('button', { name: 'Home', exact: true }).click();
     await second.getByRole('button', { name: 'Open menu' }).click();
     await second.getByRole('button', { name: 'Lists & Categories' }).click();
     await expect(second.getByRole('listitem').filter({ hasText: 'Second core list' }))
