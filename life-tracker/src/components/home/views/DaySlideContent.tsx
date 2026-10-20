@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
+import { useDayViewKeyboardNavigation } from './useDayViewKeyboardNavigation';
 import { DayViewCategoryReorder } from './DayViewCategoryReorder';
 import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
@@ -54,6 +55,7 @@ export interface DaySlideProps {
   continueAddingTasks?: boolean;
   showCategoryCollapseButton?: boolean;
   selectionMode?: boolean;
+  keyboardNavigationEnabled?: boolean;
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
   onToggleCategorySelection?: (categoryId: string) => void;
@@ -119,6 +121,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   continueAddingTasks = false,
   showCategoryCollapseButton = false,
   selectionMode = false,
+  keyboardNavigationEnabled = false,
   selectedTaskIds = EMPTY_SELECTED_TASK_IDS,
   onToggleTaskSelection,
   onToggleCategorySelection,
@@ -142,6 +145,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   diaryProjectedPlacement = null,
   diaryDragHeight = 48,
 }) => {
+  const keyboardNavigation = useDayViewKeyboardNavigation(
+    keyboardNavigationEnabled && !activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling
+  );
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
     : null;
@@ -220,6 +226,12 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
 
   return (
     <motion.div
+      ref={keyboardNavigation.rootRef}
+      onFocusCapture={keyboardNavigation.onFocusCapture}
+      onBlurCapture={keyboardNavigation.onBlurCapture}
+      onKeyDown={keyboardNavigation.onKeyDown}
+      tabIndex={-1}
+      aria-label="Day tasks"
       layoutScroll={scrollMode === 'contained' && reorderRuntimeActive}
       className={
         scrollMode === 'contained'

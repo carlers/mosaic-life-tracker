@@ -842,13 +842,38 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [exitSelectMode, isBackgroundLocked, isSelectMode, renderMode]);
-  // A11Y-33: keyboard arrows mirror the existing swipe/chevron day navigation.
-  // Nested sheets and text editing retain their own keyboard behavior.
+  // A11Y-33: arrows still change dates outside editable fields. When a
+  // keyboard user changes dates, move focus out of the now-hidden Swiper slide.
+  const keyboardDateFocusRef = useRef<{ categoryId: string | null } | null>(null);
+  const navigateDateByKeyboard = (direction: 'left' | 'right') => {
+    keyboardDateFocusRef.current = {
+      categoryId: document.activeElement instanceof Element
+        ? document.activeElement.closest('[data-task-category-id]')?.getAttribute('data-task-category-id') ?? null
+        : null,
+    };
+    if (direction === 'left') handlePrevDayFromUi();
+    else handleNextDayFromUi();
+  };
   useHorizontalArrowNavigation({
     enabled: isOpen && !isBacklogView && !isBackgroundLocked && !isTaskReorderActive,
-    onLeft: handlePrevDayFromUi,
-    onRight: handleNextDayFromUi,
+    onLeft: () => navigateDateByKeyboard('left'),
+    onRight: () => navigateDateByKeyboard('right'),
   });
+  useEffect(() => {
+    const pending = keyboardDateFocusRef.current;
+    if (!pending || !isOpen || isBackgroundLocked) return;
+    const slide = swiperRef.current?.el?.querySelector('.swiper-slide:not([aria-hidden="true"])');
+    if (!slide) return;
+    keyboardDateFocusRef.current = null;
+    const category = pending.categoryId
+      ? Array.from(slide.querySelectorAll<HTMLButtonElement>('[data-day-keyboard-target="category"]'))
+        .find(button => button.dataset.dayKeyboardId === pending.categoryId && !button.disabled)
+      : null;
+    const target = category ??
+      slide.querySelector<HTMLButtonElement>('[data-day-keyboard-target="category"]:not(:disabled)') ??
+      slide.querySelector<HTMLButtonElement>('[data-day-view-navigation="true"] button');
+    target?.focus({ preventScroll: true });
+  }, [activeIndex, isBackgroundLocked, isOpen]);
 
   const handleTransientDismiss = useCallback(() => {
     if (!isSelectMode || isBackgroundLocked) return false;
@@ -919,6 +944,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             showCategoryCollapseButton={showCategoryCollapseButton}
             taskSortMode={taskSortMode}
             selectionMode={isSelectMode}
+            keyboardNavigationEnabled={isOpen && !isBackgroundLocked && !isTaskReorderActive}
             selectedTaskIds={selectedTaskIds}
             onToggleTaskSelection={handleToggleTaskSelection}
             reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
@@ -1095,6 +1121,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       showCategoryCollapseButton={showCategoryCollapseButton}
                       taskSortMode={taskSortMode}
                       selectionMode={isSelectMode && i === activeIndex}
+                      keyboardNavigationEnabled={isOpen && i === activeIndex && !isBackgroundLocked && !isTaskReorderActive}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
                       onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
