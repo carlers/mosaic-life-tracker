@@ -6,7 +6,7 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
-import type { WeekStartsOn, CalendarZoomDays } from '../../../lib/preferences';
+import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import {
@@ -32,6 +32,7 @@ interface CalendarBodyProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
   zoomPreference?: CalendarZoomDays;
+  taskPreviewLimit?: CalendarTaskPreviewLimit;
   stickyWeekdayHeader?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
@@ -61,6 +62,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   categoriesMap,
   variant,
   zoomPreference = 7,
+  taskPreviewLimit = 'unlimited',
   stickyWeekdayHeader = false,
   activeIndex,
   isZoomTransitioning,
@@ -166,6 +168,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       emblaRef={emblaRef}
       viewMode={viewMode}
       zoomDays={zoomDays}
+      taskPreviewLimit={taskPreviewLimit}
       stickyWeekdayHeader={stickyWeekdayHeader}
       activeIndex={activeIndex}
       isZoomTransitioning={isZoomTransitioning}
