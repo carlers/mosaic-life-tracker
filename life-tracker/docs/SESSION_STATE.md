@@ -14,6 +14,8 @@ Current task: #1027 owner-scoped local RxDB task/category mutations before real 
 - Update existing `useCategoriesErrorPropagation.test.tsx` fixture to include the current owner as the real RxDB schema requires. Document the owner boundary in `docs/CORE_MVP_PROVIDER_RETURN.md`.
 
 ## Verification
+- First task `97e930e83594131f625392de75aa0639e612bd4f`: focused Quality Gate #39371801068 FAILED in ESLint on React Compiler useCallback dependency inference in useCategories and three unused mock parameters. No tests were executed after lint stopped.
+- Reviewed correction derives an explicit stable `ownerId` local value in useCategories and uses `[ownerId]` callback dependencies, with no additional account-changing behavior; removes unused test-only mock arguments. Requires a new focused CI run on the corrected SHA.
 - Source task commit requests focused CI. No new local test/Preview full or deployment success claimed yet in this branch; GitHub-connected environment lacks local repository checkout/npm network.
 - Existing signed prototype only provides task/category owner RLS/CAS and persistent experimental Auth, not full provider-aware shipped app.
 

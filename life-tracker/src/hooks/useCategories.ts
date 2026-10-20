@@ -7,6 +7,7 @@ import type { CategoryDocument } from '../db/schema';
 export function useCategories(enabled = true) {
   const { user } = useAuth();
   const reorderQueue = useRef(Promise.resolve());
+  const ownerId = user?.$id;
 
   const { data: categories, isLoading } = useRxCollection<CategoryDocument>({
     collection: 'categories',
@@ -24,7 +25,7 @@ export function useCategories(enabled = true) {
         'id' | 'userId' | 'isDeleted' | 'updatedAt'
       >
     ) => {
-      const uid = user?.$id;
+      const uid = ownerId;
       if (!uid) {
         console.error(
           '[useCategories] Cannot add category: User not authenticated'
@@ -46,7 +47,7 @@ export function useCategories(enabled = true) {
         throw error;
       }
     },
-    [user?.$id]
+    [ownerId]
   );
 
   const updateCategory = useCallback(
@@ -55,9 +56,9 @@ export function useCategories(enabled = true) {
       try {
         const doc = await db.categories.findOne(id).exec();
         if (!doc) throw new Error('Category no longer exists');
-        if (!user?.$id || doc.userId !== user.$id)
+        if (!ownerId || doc.userId !== ownerId)
           throw new Error('[useCategories] Cannot update category for another account');
-        if ((updates.userId !== undefined && updates.userId !== user.$id) ||
+        if ((updates.userId !== undefined && updates.userId !== ownerId) ||
             (updates.id !== undefined && updates.id !== id))
           throw new Error('[useCategories] Cannot reassign category identity');
         let changed = false;
@@ -80,7 +81,7 @@ export function useCategories(enabled = true) {
         throw err;
       }
     },
-    [user?.$id]
+    [ownerId]
   );
 
   const deleteCategory = useCallback(
@@ -94,7 +95,7 @@ export function useCategories(enabled = true) {
     (newOrder: CategoryDocument[]) => {
       const order = [...newOrder];
       const applyOrder = async () => {
-        const uid = user?.$id;
+        const uid = ownerId;
         if (!uid) throw new Error('[useCategories] Cannot reorder without an account');
         const db = getDatabase();
         // Read and owner-check every entry before applying the first update.
@@ -125,7 +126,7 @@ export function useCategories(enabled = true) {
       reorderQueue.current = queued.catch(() => undefined);
       return queued;
     },
-    [user?.$id]
+    [ownerId]
   );
 
   return {

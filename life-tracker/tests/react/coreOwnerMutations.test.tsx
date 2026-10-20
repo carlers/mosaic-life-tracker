@@ -10,8 +10,8 @@ const fixture = vi.hoisted(() => ({
     id: string; userId: string; order: number; name: string; isDeleted: boolean;
     incrementalPatch: (changes: unknown) => Promise<void>;
   }>(),
-  taskPatch: vi.fn(async (_changes: unknown) => {}),
-  categoryPatch: vi.fn(async (_changes: unknown) => {}),
+  taskPatch: vi.fn(async () => {}),
+  categoryPatch: vi.fn(async () => {}),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: fixture.currentUserId ? { $id: fixture.currentUserId } : null }),
@@ -21,7 +21,7 @@ vi.mock('../../src/hooks/useRxCollection', () => ({
 }));
 vi.mock('../../src/db/database', () => ({
   getDatabase: () => ({
-    tasks: { findOne: (_id: string) => ({ exec: async () => fixture.task }) },
+    tasks: { findOne: () => ({ exec: async () => fixture.task }) },
     categories: { findOne: (id: string) => ({ exec: async () => fixture.categories.get(id) ?? null }) },
   }),
 }));
