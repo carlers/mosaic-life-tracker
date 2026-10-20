@@ -8,6 +8,48 @@ export function nextCalendarPinchMode(current: CalendarZoomDays, scale: number):
   return current;
 }
 
+
+/** First frame for the destination grid, anchored to the pinch's weekday. */
+export function calendarPinchMorphFrame(input: {
+  fromDays: CalendarZoomDays;
+  anchorWeekday: number;
+  centerFraction: number;
+  viewportWidth: number;
+  trackWidth: number;
+  scrollLeft: number;
+}): { scaleX: number; originX: number; translateX: number } | null {
+  const { fromDays, anchorWeekday, centerFraction, viewportWidth, trackWidth, scrollLeft } = input;
+  if (![anchorWeekday, centerFraction, viewportWidth, trackWidth, scrollLeft].every(Number.isFinite) ||
+    viewportWidth <= 0 || trackWidth <= 0) return null;
+  const originX = Math.max(0, Math.min(7, anchorWeekday)) * trackWidth / 7;
+  return {
+    scaleX: (viewportWidth / fromDays) / (trackWidth / 7),
+    originX,
+    translateX: Math.max(0, Math.min(1, centerFraction)) * viewportWidth -
+      (originX - scrollLeft),
+  };
+}
+
+/** Purely visual, compositor-driven; no scroll writes on animation frames. */
+export function playCalendarPinchMorph(
+  target: HTMLElement,
+  frame: NonNullable<ReturnType<typeof calendarPinchMorphFrame>>,
+): Animation | null {
+  if (typeof target.animate !== 'function') return null;
+  return target.animate([
+    {
+      transformOrigin: `${frame.originX}px 50%`,
+      transform: `translateX(${frame.translateX}px) scaleX(${frame.scaleX})`,
+      opacity: 0.92,
+    },
+    {
+      transformOrigin: `${frame.originX}px 50%`,
+      transform: 'translateX(0px) scaleX(1)',
+      opacity: 1,
+    },
+  ], { duration: 240, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+}
+
 interface Options {
   enabled: boolean;
   activeIndex: number;
