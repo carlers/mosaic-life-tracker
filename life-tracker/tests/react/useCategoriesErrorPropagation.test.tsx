@@ -22,6 +22,7 @@ vi.mock('../../src/db/database', () => ({
       findOne: () => ({
         exec: async () => ({
           id: 'cat_1',
+          userId: fixture.userId,
           name: 'Original',
           visibility: 'private',
           isDeleted: false,
