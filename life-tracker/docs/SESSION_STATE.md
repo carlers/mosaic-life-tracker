@@ -1,20 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #954 — Calendar per-day task preview limit.
+Current task: integrate user-approved #692 Calendar pinch / smooth animation into current dev while preserving #954.
 
-## Authorization / boundary
-- Owner authorized implementation with exactly 3, 5, 8, 10, 15, 20, Unlimited; Unlimited is backward-compatible default.
-- Read `dev@a14c270309e1c80c04071cf3c74d57a6998c51ec` (v0.31.7), applicable AGENTS/docs and live issue #954. No prior PR for #954.
-- Isolated task branch `chatgpt/954-calendar-task-limit-20261020` and stable Preview target `feature/calendar-task-limit-954-20261020`, both based on that exact dev SHA.
-- Proposed initial feature Preview v0.32.0, after checking active branches/PRs for that version. No dev/main merge, Production change, provider/schema mutation or 1.0 release authorized.
+## Authorization and exact sources
+- Owner accepted live pinch behavior and 240-ms animation Preview, then explicitly requested merge to dev; **no main/Production approval**.
+- Latest dev integration baseline `c8310550c81e140c98c8dc1003880fa2afe49554` (v0.32.0, accepted #954 3/5/8/10/15/20/unlimited Calendar task-preview limit).
+- #692 owner-accepted source `feature/calendar-pinch-692-20261020@2ffb4c74b32d6cab68b1faebe190236fd962f3a0` (v0.33.1), full canonical Quality Gate #39412126255 SUCCESS, trusted Preview Delivery #39412350130 SUCCESS, matching Vercel READY.
+- Source branches diverged from `a14c270`; a direct source-PR merge would not reproduce both accepted feature trees. Prepare new integrated feature Preview `feature/692-pinch-954-integration-20261020` from current dev, task branch `chatgpt/692-pinch-954-integration-20261020` and **unique v0.33.2** for materially different combined tree.
 
-## Implementation
-- Preference in Calendar settings, validated values and owner-scoped `useSettings` persistence.
-- Propagate viewer preference through owner/friend Calendar, slides, Month/Week grids and memoized DayCell.
-- Cap owned and received shared previews per cell after existing completed-first ordering; holidays do not consume slots. Render `+N more tasks` for hidden previews, preserve full accessible task count and date activation. Unlimited renders all previews.
-- Focused unit/DOM regressions for validation, all caps, default, completion-first, shared/holiday, memo updates, Month/Week/mobile zoom.
+## Integration scope
+- Preserve every #954 owner/friend Calendar task-preview limit setting/prop and DayCell/MonthView/WeekView changes and associated existing tests.
+- Port #692 disabled-by-default `calendarPinchZoom` preference, owner/friend synced day-count changes and active narrow viewport recognizer, 7/4/3 gestures, 240ms pinch-centered morph respecting effective reduced-motion, scroll/sticky weekday and snap guards, and tests.
+- Combined CalendarBody and CalendarCarousel now propagate both `taskPreviewLimit` and pinch-zoom options. No backend, auth, schema or other branch mutations.
 
-## Verification / next
-- GitHub-connected edit environment has no local repository/network, so local npm/TypeScript/DOM execution and device checks have not been performed.
-- Next: publish coherent task commit with `[verify:focused]`; inspect exact-SHA focused CI. If green, squash into stable Preview and verify canonical CI + trusted Vercel deployment. Do not promote without further owner approval.
+## Gates/next
+- This task commit requests focused CI; **not yet verified**. If green, squash task PR into integrated stable Preview and require exact merged-SHA canonical CI and trusted Vercel READY. Confirm concurrent `dev` SHA unchanged and promotion PR preflight/source/deployment, then **merge to dev** under explicit user approval. No promotion of old 2ffb tree, no blind commit/cherry-pick or source overwrite, no main/Production.
+- User physically accepted the original #692 zoom and Preview animation. Combined tree has no separate device acceptance; automated gates plus user-approved scope required, and report any manual checks still outstanding.
