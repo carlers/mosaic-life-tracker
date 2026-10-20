@@ -4,10 +4,14 @@ Updated: 2026-10-20 UTC
 Current task: #692 — opt-in two-finger Calendar zoom.
 
 ## Scope
-- Implementation approved, not dev/main promotion. Source `dev@a14c270309e1c80c04071cf3c74d57a6998c51ec` (v0.31.7); task `chatgpt/692-calendar-pinch-20261020`, candidate v0.32.0.
+- Implementation approved, not dev/main promotion. Source `dev@a14c270309e1c80c04071cf3c74d57a6998c51ec` (v0.31.7); task `chatgpt/692-calendar-pinch-20261020`, candidate v0.33.0.
 - Preserve shipped 7/4/3 Calendar lanes. Add disabled-by-default, synced `calendarPinchZoom` preference; qualified two-finger spread/pinch changes one visible-day step and persists through existing `calendarZoomDays`. Applies only to narrow active month/week Calendar including viewer-owned friend views.
 - Gesture handlers intercept browser multi-touch only inside opted-in active grid, preserve one-finger scrolling and browser zoom elsewhere. No backend migrations, provider or Production changes.
 
 ## Verification / next
 - Task source focused CI #39408151934 SUCCESS. First stable Preview `0cce8ae7` canonical checks failed only on `react-hooks/set-state-in-effect` in CalendarBody; build and DOM both passed; this repair removes the optimistic effect and relies on account-synced settings as source of truth. Full canonical/Preview and physical device checks pending.
 - After focused green, squash task into stable Preview and verify canonical, size/PWA, deployment. Physical iOS Safari/PWA and Android Chrome pinch/browser zoom, navigation and dense-calendar scrolling remain a manual gate. No automatic dev/main merge.
+
+## Preview version collision review
+- Initial stable v0.32.0 candidate at `e1e1add4` achieved canonical Quality Gate #39408836643 SUCCESS and exact Scratch Vercel READY, but active independent #954 Calendar task-limit Preview was separately published as v0.32.0. Distinct feature trees cannot share a published Preview version.
+- Reserve collision-free v0.33.0 for #692. This is **version metadata only**; application feature/gesture implementation remains unchanged. Re-run focused and canonical gates and confirm exact Vercel READY before user acceptance.
