@@ -1704,7 +1704,7 @@ test('interaction harness has no detectable non-visual WCAG A/AA axe violations'
 // through Element.scrollIntoView while focus moves to an incoming period.
 test('Calendar keyboard period changes snap to a full-width slide', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?calendarPath=1`);
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&calendarPath=1`);
   const host = page.getByTestId('real-calendar-cold-probe');
   const start = host.locator('[data-calendar-slide-index="30"] button[data-calendar-day="2026-09-15"]');
   await expect(start).toHaveCount(1);
