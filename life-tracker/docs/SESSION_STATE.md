@@ -13,7 +13,9 @@ Current task: #1027 core-only Supabase MVP — async task/category owner-change 
 - `tests/react/coreOwnerMutations.test.tsx`: paused-read owner-switch negative regressions for task/category edit, queued category drag, post-unmount callback and task creation; preserved existing same-owner/foreign owner checks.
 - `docs/CORE_MVP_PROVIDER_RETURN.md` documents bounded protection and limits.
 
-## Verification and next
+## Verification
 - Await exact task-SHA focused CI after coherent `[verify:focused]` commit; no tests, canonical Preview, Vercel deployment or signed-hosted acceptance claimed in this task yet.
+
+## Next action
 - If focused checks fail, batch corrections. If green, squash into new isolated stable Preview; require exact-tree canonical full, trusted prebuilt READY before calling it accepted.
 - Next critical work: app-owned Supabase Auth/session and legacy Appwrite identity mapping, server-side old-PWA/single-writer fencing, real task/category app bootstrap, hosted signed two-owner tests, audited backup + forward/reverse Appwrite import and multi-device offline acceptance. Diary #1029 immediately after working core release; #967/#975 remain open.
