@@ -11,10 +11,10 @@ const fixture = vi.hoisted(() => ({
     incrementalPatch: (changes: unknown) => Promise<void>;
   }>(),
   taskLookup: vi.fn(async () => null as null | { id: string; userId: string; patch: (changes: unknown) => Promise<void> }),
-  categoryLookup: vi.fn(async (_id: string) => null as null | {
+  categoryLookup: vi.fn(async (_id: string) => { void _id; return null as null | {
     id: string; userId: string; order: number; name: string; isDeleted: boolean;
     incrementalPatch: (changes: unknown) => Promise<void>;
-  }),
+  }; }),
   taskSiblings: vi.fn(async () => []),
   taskInsert: vi.fn(async () => {}),
   taskPatch: vi.fn(async () => {}),
