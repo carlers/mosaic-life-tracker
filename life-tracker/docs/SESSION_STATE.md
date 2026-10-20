@@ -14,9 +14,11 @@ Current task: #1027 app-owned Supabase task/category RxDB startup bridge.
 - `docs/CORE_MVP_PROVIDER_RETURN.md` distinguishes this app-side data-layer seam from still-missing released provider switching and real backend security controls.
 
 ## Verification
-- Focused gate at task commit required before stable Preview squash; no test or hosted cloud success asserted in this task yet.
+- First task `122fb561`: focused Quality Gate #39396292086 SUCCESS; PR #1072 squash-merged to isolated stable `41a1b8be`.
+- Stable full Quality Gate #39396471524 **FAILED** in production build: the newly imported Supabase candidate source lacked app-wide strict TypeScript eligibility (erasable class parameter properties, untyped transport destructuring and generic RxDB snapshot casts). Other job results require separate verification.
+- Follow-up fix task `chatgpt/1027-rxdb-poc-build-types-20261020` converts those types without disabling compiler checks or changing candidate network semantics. Focused/full re-acceptance pending.
 
 ## Next action
-- If focused tests fail, repair in one batch, then squash the tested task into new isolated stable Preview and require full canonical CI and trusted Vercel READY for exact stable SHA.
+- Run focused checks for the TypeScript repair, squash through a follow-on PR to the same isolated stable Preview, then require a successful exact-tree canonical full CI and trusted Vercel READY. Do not claim the first failed stable gate as acceptance.
 - Next functional gate: actual provider-aware Supabase Auth/context and login/bootstrap activation with *real server-signed* Appwrite owner registry, non-noop local Appwrite stop/old-PWA cutoff, server-enforced single-writer leases, hosted signed security and safe provider-scoped local cursors. Until then no Supabase production provider switch, no stored-user conversion, no dual cloud writers.
 - Verify independent forward-and-reverse Appwrite/Oracle/Supabase data replay/DR and multi-device offline convergence. Diary #1029 immediately after usable core release; #1027/#967/#975 open. No dev/main/Production promotion without explicit approval.

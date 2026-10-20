@@ -1,5 +1,6 @@
 /**
- * Isolated candidate REST transport; NOT imported by Mosaic runtime.
+ * Signed candidate transport, also used by the gated app-owned core bridge.
+ * Never invoked by the shipped Appwrite AuthProvider.
  * This does not verify JWT signatures. Its session provider MUST obtain a
  * server-verified Supabase Auth user and a matching access token. Never pass
  * service-role/secret keys to client code. Every request rechecks account epoch.
@@ -26,8 +27,10 @@ export class CandidateAuthError extends Error {
 }
 
 export class CandidateHttpError extends Error {
-  constructor(readonly status: number) {
+  readonly status: number;
+  constructor(status: number) {
     super('Candidate Supabase HTTP request failed with status ' + status);
+    this.status = status;
     this.name = 'CandidateHttpError';
   }
 }
@@ -63,7 +66,14 @@ export function createCandidateHttpTransport(options: {
   }
 
   return {
-    async listChanges<Row>({ domain, ownerId, afterExclusive, batchSize }): Promise<Row[]> {
+    async listChanges<Row>({
+      domain, ownerId, afterExclusive, batchSize,
+    }: {
+      domain: CandidateDomain;
+      ownerId: string;
+      afterExclusive: string;
+      batchSize: number;
+    }): Promise<Row[]> {
       const session = await checkedSession(ownerId);
       if (!Object.prototype.hasOwnProperty.call(tables, domain) ||
         !Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 100
