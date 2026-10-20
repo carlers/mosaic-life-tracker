@@ -2,8 +2,10 @@
  * #1027: experimental browser Supabase Auth lifecycle for core-owner pilots.
  *
  * Isolated candidate only. Never imported by the Appwrite AuthProvider.
- * Tokens live in memory, are never logged, persisted or decoded for ownership.
- * Full durable/offline session integration and password migration are OPEN.
+ * In-memory by default. Optional injected persistence stores refresh token +
+ * owner hint, never an authenticated offline identity. Re-entry requires a
+ * signed token exchange and GET /user. Cross-tab locking and app integration
+ * remain mandatory before any live rollout.
  */
 import {
   createCandidateVerifiedAuthProvider,
@@ -11,6 +13,12 @@ import {
 } from './candidateVerifiedAuth';
 import type { CandidateVerifiedSession } from './candidateHttpTransport';
 
+export interface CandidateSessionPersistence {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+type StoredSession = { version: 1; origin: string; ownerId: string; refreshToken: string };
 type Tokens = {
   accessToken: string;
   refreshToken: string;
@@ -58,6 +66,7 @@ export function createCandidateAuthSession(options: {
   baseUrl: string;
   publishableKey: string;
   fetcher?: typeof fetch;
+  persistence?: CandidateSessionPersistence;
 }) {
   const base = new URL(options.baseUrl);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(base.hostname);
@@ -72,6 +81,42 @@ export function createCandidateAuthSession(options: {
     throw new Error('Candidate Auth requires a modern publishable key');
   }
   const fetcher = options.fetcher ?? fetch;
+  const storageKey = 'mosaic_candidate_supabase_refresh_v1:' + base.origin;
+  const clearSaved = () => {
+    if (!options.persistence) return;
+    try { options.persistence.removeItem(storageKey); }
+    catch { throw new CandidateSessionError('Cannot clear stored Supabase session'); }
+  };
+  const save = (tokens: Tokens) => {
+    if (!options.persistence) return;
+    const record: StoredSession = {
+      version: 1, origin: base.origin, ownerId: tokens.ownerId,
+      refreshToken: tokens.refreshToken,
+    };
+    try { options.persistence.setItem(storageKey, JSON.stringify(record)); }
+    catch { throw new CandidateSessionError('Cannot save stored Supabase session'); }
+  };
+  const read = (): StoredSession | null => {
+    if (!options.persistence) return null;
+    let raw: string | null;
+    try { raw = options.persistence.getItem(storageKey); }
+    catch { throw new CandidateSessionError('Cannot read stored Supabase session'); }
+    if (raw === null) return null;
+    try {
+      const obj: unknown = JSON.parse(raw);
+      if (!obj || typeof obj !== 'object') throw Error();
+      const saved = obj as Partial<StoredSession>;
+      if (saved.version !== 1 || saved.origin !== base.origin ||
+          typeof saved.ownerId !== 'string' || !UUID.test(saved.ownerId) ||
+          typeof saved.refreshToken !== 'string' ||
+          saved.refreshToken.length < 12 || /\s/.test(saved.refreshToken))
+        throw Error();
+      return saved as StoredSession;
+    } catch {
+      clearSaved();
+      throw new CandidateSessionError('Invalid stored Supabase session');
+    }
+  };
   let active: Tokens | null = null;
   let epoch = 0;
   let refreshInFlight: Promise<CandidateVerifiedSession> | null = null;
@@ -125,6 +170,8 @@ export function createCandidateAuthSession(options: {
     } catch {
       throw new CandidateSessionError('Cannot verify new Supabase account');
     }
+    if (response.status === 401 || response.status === 403)
+      throw new CandidateSessionDeniedError();
     if (!response.ok) throw new CandidateSessionError('Supabase Auth session denied');
     let user: unknown;
     try { user = await response.json(); }
@@ -149,6 +196,7 @@ export function createCandidateAuthSession(options: {
     if (!email?.includes('@') || !password)
       throw new CandidateSessionError('Email/password required');
     const generation = invalidate();
+    clearSaved();
     const response = await post('/auth/v1/token?grant_type=password', {
       email: email.trim().toLowerCase(), password,
     });
@@ -156,8 +204,44 @@ export function createCandidateAuthSession(options: {
     const verified = await serverOwner(tokens.accessToken);
     if (verified !== tokens.ownerId || generation !== epoch)
       throw new CandidateSessionError('Supabase account changed during login');
+    save(tokens);
     active = tokens;
     return { userId: verified, accessToken: tokens.accessToken, sessionEpoch: epoch };
+  }
+
+  /** A restored refresh token is untrusted until Supabase verifies the owner.
+   * Definitive denial clears storage; outage retains it without local trust. */
+  async function restoreFromPersistence(): Promise<CandidateVerifiedSession | null> {
+    if (active) throw new CandidateSessionError('Candidate session already active');
+    const generation = invalidate();
+    const saved = read();
+    if (!saved) return null;
+    try {
+      const response = await post('/auth/v1/token?grant_type=refresh_token', {
+        refresh_token: saved.refreshToken,
+      });
+      let tokens: Tokens;
+      try { tokens = parseAuthTokens(response, saved.ownerId); }
+      catch { throw new CandidateSessionDeniedError(); }
+      const verified = await serverOwner(tokens.accessToken);
+      if (generation !== epoch)
+        throw new CandidateSessionError('Supabase account changed during restore');
+      if (verified !== saved.ownerId) throw new CandidateSessionDeniedError();
+      try { save(tokens); }
+      catch (error) {
+        clearSaved();
+        throw error;
+      }
+      epoch++;
+      active = tokens;
+      return { userId: verified, accessToken: tokens.accessToken, sessionEpoch: epoch };
+    } catch (error) {
+      if (generation === epoch) {
+        invalidate();
+        if (error instanceof CandidateSessionDeniedError) clearSaved();
+      }
+      throw error;
+    }
   }
 
   async function doRefresh(): Promise<CandidateVerifiedSession> {
@@ -173,13 +257,23 @@ export function createCandidateAuthSession(options: {
       // Only a definitive Auth denial revokes local trust. Offline/network
       // uncertainty is NOT a confirmed 401 and must be handled separately.
       if (error instanceof CandidateSessionDeniedError &&
-          active === before && epoch === generation) invalidate();
+          active === before && epoch === generation) {
+        invalidate();
+        clearSaved();
+      }
       throw error;
     }
     const tokens = parseAuthTokens(response, before.ownerId);
     const verified = await serverOwner(tokens.accessToken);
     if (verified !== before.ownerId || active !== before || epoch !== generation)
       throw new CandidateSessionError('Supabase account changed during refresh');
+    try { save(tokens); }
+    catch (error) {
+      // A rotated refresh token cannot be acknowledged without durable save.
+      invalidate();
+      clearSaved();
+      throw error;
+    }
     epoch++;
     active = tokens;
     return { userId: verified, accessToken: tokens.accessToken, sessionEpoch: epoch };
@@ -199,7 +293,9 @@ export function createCandidateAuthSession(options: {
   async function signOut(): Promise<boolean> {
     const token = active?.accessToken;
     invalidate();
-    if (!token) return true;
+    let cleared = true;
+    try { clearSaved(); } catch { cleared = false; }
+    if (!token) return cleared;
     try {
       const response = await fetcher(new URL('/auth/v1/logout', base).toString(), {
         method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error',
@@ -207,7 +303,7 @@ export function createCandidateAuthSession(options: {
       });
       // A 401 means the old session is already invalid; network failure or a
       // 5xx leaves server revocation uncertain, but local tokens stay cleared.
-      return response.ok || response.status === 401;
+      return cleared && (response.ok || response.status === 401);
     } catch {
       return false;
     }
@@ -217,6 +313,7 @@ export function createCandidateAuthSession(options: {
     if (!email?.includes('@') || !password || password.length < 8)
       throw new CandidateSessionError('Valid email and password required');
     invalidate();
+    clearSaved();
     // Email confirmation may be mandatory in hosted projects. Never assume
     // that a user field returned by signup is a verified active identity.
     await post('/auth/v1/signup', { email: email.trim().toLowerCase(), password });
@@ -230,7 +327,7 @@ export function createCandidateAuthSession(options: {
   }
 
   return {
-    signIn, signOut, signUp, refresh, requestPasswordRecovery,
+    signIn, signOut, signUp, refresh, restoreFromPersistence, requestPasswordRecovery,
     getVerifiedSession: () => verifier.getVerifiedSession(),
     getSessionSnapshot: sessions.getSessionSnapshot,
     getOwnerId: () => active?.ownerId ?? null,
