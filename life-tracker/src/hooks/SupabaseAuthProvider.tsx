@@ -12,7 +12,7 @@ import { reportConnectivityResult } from '../lib/connectivity';
 function createRuntime(config: Extract<CoreBackendConfig, { driver: 'supabase' }>) {
   // Memory-only credentials in this first disposable-account slice: no shared
   // refresh token can race across tabs. Reload requires fresh authentication.
-  const session = createCandidateAuthSession(config);
+  const session = createCandidateAuthSession({ ...config, logoutScope: 'local' });
   const authority = createSupabaseCoreAuthority({ ...config, session });
   const coordinator = createSupabaseCoreAuthCoordinator({
     ...config, selectedBackend: 'supabase-cloud', featureProfile: 'core-only',

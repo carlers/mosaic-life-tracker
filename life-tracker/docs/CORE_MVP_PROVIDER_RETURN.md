@@ -166,3 +166,9 @@ category/task creation, offline completion replay, second-session convergence,
 foreign-owner isolation, no Appwrite requests, and signed server lease denials.
 The lab must pass before claiming these behaviors work. It is separate from hosted
 RLS/security, mobile-device, migration/rollback and Production acceptance.
+
+The first app integration review also found a legacy profile fetch reachable from
+Home: `useMyProfile` now suppresses reads, retries and mutations when social support
+is absent. Core profile name/bio remain device-local; public profile, username and
+photo actions are disabled. App logout requests Supabase `scope=local`, preserving
+other device sessions. The original isolated Auth pilot retains its default scope.

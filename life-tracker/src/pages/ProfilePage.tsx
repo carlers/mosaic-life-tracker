@@ -10,6 +10,7 @@ import { useProfile } from '../hooks/useProfile';
 import { useMyProfile } from '../hooks/useMyProfile';
 import { buildProfileShareData, shareProfile } from '../lib/profileShare';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
+import { hasCapability } from '../lib/backendCapabilities';
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -67,6 +68,7 @@ export const ProfilePage: React.FC = () => {
           <h1 className="text-lg font-bold text-white flex-1">Profile</h1>
           <button
             type="button"
+            disabled={!hasCapability('social')}
             onClick={handleShare}
             onPointerDown={(e) => e.stopPropagation()}
             className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
@@ -78,9 +80,13 @@ export const ProfilePage: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto pb-24 px-4 py-6">
+        {!hasCapability('social') && <p role="note" className="mb-4 text-sm text-gray-400">
+          Name and bio stay on this device. Public profiles, usernames and photos are not available yet.
+        </p>}
         <div className="flex flex-col items-center mb-8">
           <button
             onClick={() => setIsEditingImage(true)}
+            disabled={!hasCapability('taskImages')}
             className="relative group"
             aria-label="Change profile image"
           >
@@ -131,6 +137,7 @@ export const ProfilePage: React.FC = () => {
 
           <button
             onClick={() => setIsEditingUsername(true)}
+            disabled={!hasCapability('social')}
             onPointerDown={(e) => e.stopPropagation()}
             className="w-full flex items-center justify-between p-4 bg-[#1E1E1E] border border-[#333333] rounded-xl hover:bg-[#252525] transition-colors"
           >

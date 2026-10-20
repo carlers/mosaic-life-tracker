@@ -1,13 +1,13 @@
 /**
  * #1027 - app-owned signed Supabase core account lifecycle.
  *
- * This is a callable, NOT auto-mounted, companion to Mosaic's existing
- * Appwrite AuthProvider. It joins verified GoTrue Auth to the real RxDB core
+ * The opt-in fresh-account SupabaseAuthProvider uses this companion to
+ * Mosaic's Appwrite provider. It joins verified GoTrue Auth to the real RxDB core
  * bridge without presenting an untrusted stored owner as logged in.
  *
- * A working browser provider switch is NOT authorized here: old Appwrite PWA
- * writers, legacy mapping and cross-device writer leases still require
- * separately reviewed server implementations before this can be mounted.
+ * Existing-user provider migration remains gated on source writer cutoff,
+ * trusted mapping and verified reverse transfers. The fresh-account adapter
+ * may not be used as proof of those migration requirements.
  */
 import {
   createCandidateAuthSession,

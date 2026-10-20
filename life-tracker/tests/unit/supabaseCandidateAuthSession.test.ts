@@ -147,6 +147,18 @@ describe('candidate Supabase session lifecycle (#1027)', () => {
     expect(f.requests.some(x => x.url.endsWith('/auth/v1/logout'))).toBe(true);
   });
 
+  it('supports app logout limited to the current device session', async () => {
+    const f = authFixture();
+    const session = createCandidateAuthSession({
+      baseUrl: URL, publishableKey: KEY, logoutScope: 'local',
+      fetcher: async (input, init) => String(input).endsWith('/auth/v1/logout?scope=local')
+        ? new Response(null, { status: 204 }) : f.fetcher(input, init),
+    });
+    await session.signIn('a@example.org', 'synthetic-password');
+    await expect(session.signOut()).resolves.toBe(true);
+    expect(session.getOwnerId()).toBeNull();
+  });
+
   it('clears old login after a definitive refresh denial but not after an outage', async () => {
     const denied = authFixture();
     await denied.session.signIn('a@example.org', 'password');

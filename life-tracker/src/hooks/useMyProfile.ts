@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
 import { useConnectivity } from './useConnectivity';
+import { hasCapability } from '../lib/backendCapabilities';
 import {
   fetchMyProfile,
   createOrUpdateProfile,
@@ -28,7 +29,7 @@ export interface UseMyProfileReturn {
 export function useMyProfile(): UseMyProfileReturn {
   const { user, isOffline } = useAuth();
   const connectivity = useConnectivity();
-  const canUseNetwork = connectivity.status === 'online' && !isOffline;
+  const canUseNetwork = hasCapability('social') && connectivity.status === 'online' && !isOffline;
   const userId = user?.$id;
   const cachedProfile = useMemo(
     () => (userId ? readCachedOwnProfile(userId) : null),
@@ -43,7 +44,7 @@ export function useMyProfile(): UseMyProfileReturn {
   );
   const [error, setError] = useState<string | null>(null);
 
-  const visibleProfile =
+  const visibleProfile = !hasCapability('social') ? null :
     userId && resolved?.userId === userId
       ? resolved.profile
       : userId
@@ -95,6 +96,7 @@ export function useMyProfile(): UseMyProfileReturn {
 
   const createProfile = useCallback(
     async (input: Omit<MyProfileInput, 'userId'>) => {
+      if (!hasCapability('social')) throw new Error('Profile sync is unavailable for this backend');
       if (!userId) {
         console.error('[useMyProfile] Cannot create profile: Not authenticated');
         return null;

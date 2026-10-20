@@ -15,7 +15,8 @@ Current task: #1027 disposable Supabase core application vertical slice, v0.32.0
 - Disposable real Supabase/UI browser workflow and negative lease/owner tests. Memory-only credentials; online sign-in required after reload. Recovery completion, conflict review UI, migration/reverse deltas and full MVP remain unfinished.
 
 ## Verification and blockers
-- Local focused lifecycle/configuration/authority/router/owner/UI tests and TypeScript/production build passed before final checkpoint. Final focused CI and real signed UI lab still required; do not infer results from this file.
+- Initial task 8775781b: local 57 focused tests and build passed. Remote focused #39407272607 failed only the SyncStatusSheet async dispatch assertion; corrected provider-router import preserves the assertion and all 9 sheet tests pass. Real stack lab #39407272652 failed; detailed log download is blocked by results-receiver.actions.githubusercontent.com. Added GitHub browser annotations for actionable diagnostics in the next run.
+- Repair also fences the legacy Home/profile network path, disables unsupported public profile actions, labels local preferences and limits app logout to its own device. Local 31 repair tests passed. Final remote focused and real signed UI lab acceptance still required.
 - This runtime lacks Supabase management credentials. Added a secure SUPABASE_ACCESS_TOKEN requirement for api.supabase.com to the environment draft.
 - Chromium CDN redirects to blocked storage.googleapis.com; local Supabase images require blocked public.ecr.aws. Draft additions saved; not runtime-applied. System Chromium is present. Dedicated GitHub disposable lab is the independent real-stack verification route.
 - No hosted SQL/Auth/user-data mutation, protected promotion or deployment configuration write performed.

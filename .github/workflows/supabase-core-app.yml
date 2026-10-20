@@ -73,7 +73,7 @@ jobs:
             if [ -f node_modules/.vite/basic-ssl/_cert.pem ] && curl --cacert node_modules/.vite/basic-ssl/_cert.pem -fsS https://127.0.0.1:4173/ >/dev/null; then break; fi
             sleep 1
           done
-          tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --workers=1 --reporter=line
+          tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --workers=1 --reporter=line,github
       - name: Destroy disposable data
         if: always()
         run: supabase stop --no-backup || true
