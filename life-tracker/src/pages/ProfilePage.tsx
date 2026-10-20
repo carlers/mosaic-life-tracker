@@ -53,13 +53,13 @@ export const ProfilePage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
+    <div className="mosaic-settings-page flex flex-col h-full animate-in fade-in duration-300">
       <div className="sticky top-0 z-20 bg-[#111111] border-b border-[#333333]">
         <div className="px-4 py-3 flex items-center gap-3">
           <button
             onClick={handleBack}
             onPointerDown={(e) => e.stopPropagation()}
-            className="p-2 -ml-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
+            className="mosaic-settings-icon p-2 -ml-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors flex-shrink-0"
             aria-label="Back"
           >
             <ChevronLeft size={20} />
@@ -69,7 +69,7 @@ export const ProfilePage: React.FC = () => {
             type="button"
             onClick={handleShare}
             onPointerDown={(e) => e.stopPropagation()}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+            className="mosaic-settings-icon p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
             aria-label="Share profile"
           >
             <Share2 size={18} />
@@ -108,10 +108,10 @@ export const ProfilePage: React.FC = () => {
             onPointerDown={(e) => e.stopPropagation()}
             className="w-full flex items-center justify-between p-4 bg-[#1E1E1E] border border-[#333333] rounded-xl hover:bg-[#252525] transition-colors"
           >
-            <span className="text-sm text-gray-400">Display Name</span>
+            <span className="mosaic-settings-label text-sm text-gray-400">Display Name</span>
             <div className="flex items-center gap-2">
               <span className="text-sm text-white">{resolvedDisplayName || 'Not set'}</span>
-              <ChevronRight size={16} className="text-gray-400" />
+              <ChevronRight size={16} className="mosaic-settings-icon text-gray-400" />
             </div>
           </button>
 
@@ -120,7 +120,7 @@ export const ProfilePage: React.FC = () => {
             onPointerDown={(e) => e.stopPropagation()}
             className="w-full flex items-center justify-between p-4 bg-[#1E1E1E] border border-[#333333] rounded-xl hover:bg-[#252525] transition-colors"
           >
-            <span className="text-sm text-gray-400">Bio</span>
+            <span className="mosaic-settings-label text-sm text-gray-400">Bio</span>
             <div className="flex items-center gap-2">
               <span className="text-sm text-white truncate max-w-[160px]">
                 {description || 'Not set'}
@@ -134,12 +134,12 @@ export const ProfilePage: React.FC = () => {
             onPointerDown={(e) => e.stopPropagation()}
             className="w-full flex items-center justify-between p-4 bg-[#1E1E1E] border border-[#333333] rounded-xl hover:bg-[#252525] transition-colors"
           >
-            <span className="text-sm text-gray-400">Username</span>
+            <span className="mosaic-settings-label text-sm text-gray-400">Username</span>
             <div className="flex items-center gap-2">
               <span className="text-sm text-white">
                 {profile?.username ? `@${profile.username}` : 'Not set'}
               </span>
-              <AtSign size={14} className="text-gray-400" />
+              <AtSign size={14} className="mosaic-settings-icon text-gray-400" />
             </div>
           </button>
         </div>

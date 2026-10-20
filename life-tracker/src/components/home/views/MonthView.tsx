@@ -116,7 +116,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
             key={shortLabel}
             role="columnheader"
             aria-label={fullLabel}
-            className="text-center text-[10px] font-medium text-gray-400 py-1"
+            className="mosaic-weekday-header text-center text-[10px] font-medium text-gray-400 py-1"
           >
             {shortLabel}
           </div>
@@ -145,7 +145,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                 <div
                   key={dateStr}
                   role="gridcell"
-                  className="min-w-0 min-h-0 h-full"
+                  className="mosaic-calendar-gridcell min-w-0 min-h-0 h-full"
                 >
                   <DayCell
                     date={day}

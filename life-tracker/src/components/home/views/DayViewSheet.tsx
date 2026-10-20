@@ -1024,7 +1024,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           <ChevronLeft size={20} />
                         </button>
                         <h3
-                          className="min-w-0 text-center text-base font-semibold text-white"
+                          className="mosaic-date-header min-w-0 text-center text-base font-semibold text-white"
                           aria-live={i === activeIndex ? 'polite' : undefined}
                         >
                           <span className="block truncate">{slideDateLabels.get(i)}</span>

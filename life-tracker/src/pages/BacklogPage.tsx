@@ -26,7 +26,7 @@ export const BacklogPage: React.FC = () => {
           className="-ml-2 rounded-lg p-2 text-gray-400 hover:text-white focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <ChevronLeft size={20} aria-hidden="true" />
         </button>
-        <h1 className="text-lg font-bold text-white">Backlogs</h1>
+        <h1 className="mosaic-general-text text-lg font-bold text-white">Backlogs</h1>
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto pb-24" aria-label="Backlog tasks">
         <DayViewSheet
