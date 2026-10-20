@@ -1,15 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { BehaviorSubject, Subject } from 'rxjs';
 import SupabaseAuthProvider from '../../src/hooks/SupabaseAuthProvider';
 import { useAuth } from '../../src/hooks/useAuth';
 
 const mock = vi.hoisted(() => ({
   signIn: vi.fn(), signOut: vi.fn(), resync: vi.fn(), signUp: vi.fn(),
   getPhase: vi.fn(), scope: vi.fn(), verify: vi.fn(), renew: vi.fn(),
+  getReplicationStates: vi.fn(), publishStatus: vi.fn(),
 }));
 vi.mock('../../src/lib/supabaseCoreAuth', () => ({
   createSupabaseCoreAuthCoordinator: () => ({
-    ...mock, getReplicationStates: () => null, refreshAndRestart: vi.fn(),
+    ...mock, refreshAndRestart: vi.fn(),
   }),
 }));
 vi.mock('../../supabase-poc/candidateAuthSession', () => ({
@@ -23,7 +25,7 @@ vi.mock('../../src/lib/supabaseCoreAuthority', () => ({
 }));
 vi.mock('../../src/lib/accountWorkScope', () => ({ scopeAccountWork: mock.scope }));
 vi.mock('../../src/lib/syncStatus', () => ({
-  publishSyncStatus: vi.fn(), scopeSyncStatusToUser: vi.fn(),
+  publishSyncStatus: mock.publishStatus, scopeSyncStatusToUser: vi.fn(),
 }));
 vi.mock('../../src/lib/appSync', () => ({ registerCoreSync: () => vi.fn() }));
 
@@ -43,6 +45,7 @@ const config = {
 beforeEach(() => {
   vi.clearAllMocks();
   mock.getPhase.mockReturnValue('signed-out');
+  mock.getReplicationStates.mockReturnValue(null);
   mock.signIn.mockResolvedValue({ legacyUserId: 'canonical_owner', supabaseUserId: 'signed-owner' });
   mock.signOut.mockResolvedValue(true);
   mock.verify.mockResolvedValue({ userId: 'signed-owner' });
@@ -84,5 +87,30 @@ describe('Supabase app AuthContext lifecycle', () => {
     finish({ legacyUserId: 'canonical_owner', supabaseUserId: 'signed-owner' });
     await waitFor(() => expect(mock.signOut).toHaveBeenCalledTimes(1));
     expect(mock.scope).not.toHaveBeenCalledWith('canonical_owner');
+  });
+
+  it('clears pending sync errors only after replication settles again', async () => {
+    const state = {
+      active$: new BehaviorSubject(false), error$: new Subject(),
+      awaitInitialReplication: vi.fn().mockResolvedValue(undefined),
+      awaitInSync: vi.fn().mockResolvedValue(undefined),
+    };
+    mock.getReplicationStates.mockReturnValue([state]);
+    render(<SupabaseAuthProvider config={config}><Consumer /></SupabaseAuthProvider>);
+    fireEvent.click(screen.getByText('Sign in'));
+    await screen.findByText('canonical_owner');
+    await waitFor(() => expect(mock.publishStatus).toHaveBeenCalledWith({
+      lastSync: expect.any(String), errors: [],
+    }));
+    mock.publishStatus.mockClear();
+    act(() => { state.error$.next(new Error('offline')); state.active$.next(true); });
+    expect(mock.publishStatus).toHaveBeenCalledWith({
+      errors: ['Core sync pending. Local changes are retained.'],
+    });
+    expect(mock.publishStatus).not.toHaveBeenCalledWith({ lastSync: expect.any(String), errors: [] });
+    act(() => state.active$.next(false));
+    await waitFor(() => expect(mock.publishStatus).toHaveBeenCalledWith({
+      lastSync: expect.any(String), errors: [],
+    }));
   });
 });

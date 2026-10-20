@@ -81,22 +81,27 @@ export default function SupabaseAuthProvider({ config, children }: {
     };
     const unregister = registerCoreSync(ownerId, catchUp);
     const states = runtime.coordinator.getReplicationStates();
-    if (states) {
-      void Promise.all(states.map(async state => {
+    let settling: Promise<void> | null = null;
+    const recordSettled = () => {
+      if (!states || settling || !active) return;
+      settling = Promise.all(states.map(async state => {
         await state.awaitInitialReplication();
         await state.awaitInSync();
       })).then(() => {
         if (active) publishSyncStatus({ lastSync: new Date().toISOString(), errors: [] });
       }).catch(() => {
         if (active) publishSyncStatus({ errors: ['Core sync pending. Local changes are retained.'] });
+      }).finally(() => {
+        settling = null;
       });
-    }
+    };
     const activity = [false, false];
     const subscriptions = states?.flatMap((state, index) => [
       state.active$.subscribe(value => {
         if (!active) return;
         activity[index] = value;
         publishSyncStatus({ isSyncing: activity.some(Boolean) });
+        if (!activity.some(Boolean)) recordSettled();
       }),
       state.error$.subscribe(() => {
         if (active) publishSyncStatus({ errors: ['Core sync pending. Local changes are retained.'] });

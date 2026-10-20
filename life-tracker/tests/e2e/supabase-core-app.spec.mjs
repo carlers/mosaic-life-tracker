@@ -6,14 +6,15 @@ const key = process.env.MOSAIC_SB_LOCAL_PUBLISHABLE_KEY;
 const configured = url === 'http://127.0.0.1:54321' && key?.startsWith('sb_publishable_') &&
   process.env.MOSAIC_CORE_APP_LAB === 'true';
 test.skip(!configured, 'Requires the disposable real Supabase core-app lab');
-test.use({ ignoreHTTPSErrors: true });
+test.use({ ignoreHTTPSErrors: true, actionTimeout: 15_000, navigationTimeout: 30_000 });
 test.setTimeout(120_000);
 const app = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
-async function api(path, token, body) {
+async function api(path, token, body, method = body === undefined ? 'GET' : 'POST') {
   if (!configured) throw new Error('Disposable loopback lab required');
   return fetch(url + path, {
-    method: body === undefined ? 'GET' : 'POST', redirect: 'error',
+    method, redirect: 'error',
+    signal: AbortSignal.timeout(15_000),
     headers: {
       apikey: key, ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'Content-Type': 'application/json', Prefer: 'return=representation',
@@ -64,6 +65,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
       .toBe(true);
     await first.keyboard.press('Escape');
     await first.getByRole('tab', { name: 'Todo list', exact: true }).click();
+    await first.getByRole('button', { name: 'Add a task to Core private list', exact: true }).first().click();
     const input = first.getByPlaceholder('Add a task to Core private list...').first();
     await input.fill('Private core task');
     await input.press('Enter');
@@ -94,7 +96,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     expect(await crossOwner.json()).toEqual([]);
     expect(appwriteRequests).toEqual([]);
   } finally {
-    await Promise.all(contexts.map(context => context.close()));
+    await Promise.allSettled(contexts.map(context => context.close()));
   }
 });
 
@@ -112,12 +114,35 @@ test('signed server denies old clients without leases, foreign writes, and relea
   expect(identity.canonicalOwnerId).toBe('sb_' + owner.id.replaceAll('-', ''));
   expect((await api('/rest/v1/mosaic_candidate_categories', owner.token, document)).ok).toBe(true);
   expect((await api('/rest/v1/mosaic_candidate_categories', other.token, document)).status).toBe(403);
+  expect((await api('/rest/v1/mosaic_candidate_categories', null)).ok).toBe(false);
+  expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'change_backend' })).ok).toBe(false);
+  expect((await api(`/rest/v1/mosaic_candidate_categories?id=eq.${document.id}`,
+    owner.token, { name: 'Bypass CAS' }, 'PATCH')).status).toBe(403);
+  const original = (await rows(owner, 'categories'))[0];
+  const foreignCas = await api('/rest/v1/rpc/mosaic_candidate_cas_category', other.token, {
+    p_id: document.id, p_expected_seq: original.change_seq, p_patch: { name: 'Foreign mutation' },
+  });
+  expect(foreignCas.ok).toBe(true);
+  expect((await foreignCas.json())?.owner_id ?? null).toBeNull();
+  const accepted = await api('/rest/v1/rpc/mosaic_candidate_cas_category', owner.token, {
+    p_id: document.id, p_expected_seq: original.change_seq, p_patch: { name: 'Accepted CAS' },
+  });
+  expect(accepted.ok).toBe(true);
+  const updated = await accepted.json();
+  expect(BigInt(updated.change_seq)).toBeGreaterThan(BigInt(original.change_seq));
+  const stale = await api('/rest/v1/rpc/mosaic_candidate_cas_category', owner.token, {
+    p_id: document.id, p_expected_seq: original.change_seq, p_patch: { name: 'Stale CAS' },
+  });
+  expect(stale.ok).toBe(true);
+  expect((await stale.json())?.owner_id ?? null).toBeNull();
   expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'release' })).ok).toBe(true);
   const stored = (await rows(owner, 'categories'))[0];
   const cas = await api('/rest/v1/rpc/mosaic_candidate_cas_category', owner.token, {
     p_id: document.id, p_expected_seq: stored.change_seq, p_patch: { name: 'Stale write' },
   });
   expect(cas.status).toBe(403);
-  expect((await rows(owner, 'categories'))[0].name).toBe('Private');
+  expect((await rows(owner, 'categories'))[0].name).toBe('Accepted CAS');
   expect((await api('/rest/v1/rpc/mosaic_core_session', null, { p_action: 'acquire' })).ok).toBe(false);
+  expect((await api('/auth/v1/logout?scope=local', owner.token, {})).ok).toBe(true);
+  expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'acquire' })).status).toBe(403);
 });
