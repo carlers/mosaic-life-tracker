@@ -1,0 +1,248 @@
+/**
+ * #1027 - app-owned signed Supabase core account lifecycle.
+ *
+ * This is a callable, NOT auto-mounted, companion to Mosaic's existing
+ * Appwrite AuthProvider. It joins verified GoTrue Auth to the real RxDB core
+ * bridge without presenting an untrusted stored owner as logged in.
+ *
+ * A working browser provider switch is NOT authorized here: old Appwrite PWA
+ * writers, legacy mapping and cross-device writer leases still require
+ * separately reviewed server implementations before this can be mounted.
+ */
+import {
+  createCandidateAuthSession,
+  type CandidateSessionPersistence,
+} from '../../supabase-poc/candidateAuthSession';
+import type { CandidateVerifiedSession } from '../../supabase-poc/candidateHttpTransport';
+import {
+  validateCandidateIdentity,
+  type CandidateIdentity,
+} from '../../supabase-poc/candidateMapping';
+import {
+  createAppSupabaseCoreBootstrap,
+  type AppSupabaseCoreBootstrapOptions,
+} from './supabaseCoreBootstrap';
+
+type SessionManager = ReturnType<typeof createCandidateAuthSession>;
+type CoreBootstrap = ReturnType<typeof createAppSupabaseCoreBootstrap>;
+type CoreRun = Awaited<ReturnType<CoreBootstrap['start']>>;
+type Phase = 'signed-out' | 'authenticating' | 'active' | 'stopping' | 'blocked';
+
+export interface SupabaseCoreAuthOptions extends Omit<
+  AppSupabaseCoreBootstrapOptions,
+  'identity' | 'session'
+> {
+  /**
+   * Must return a server-verified, canonical Mosaic owner mapping. A decoded
+   * JWT, email, localStorage hint or user_metadata is NOT sufficient.
+   */
+  resolveIdentity(signed: CandidateVerifiedSession): Promise<CandidateIdentity>;
+  /**
+   * Auth defaults to memory-only. Refresh-token persistence is deliberately
+   * NOT a public option until cross-tab rotation has a verified exclusive lock.
+   * Unit and signed-lab tests may inject an explicitly provisioned session.
+   */
+  session?: SessionManager;
+}
+
+interface ActiveOwner {
+  identity: CandidateIdentity;
+  signed: CandidateVerifiedSession;
+  bootstrap: CoreBootstrap;
+  run: CoreRun;
+}
+
+function sameSession(
+  left: CandidateVerifiedSession,
+  right: CandidateVerifiedSession | null,
+): boolean {
+  return Boolean(right &&
+    left.userId === right.userId &&
+    left.accessToken === right.accessToken &&
+    left.sessionEpoch === right.sessionEpoch);
+}
+
+export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptions) {
+  if (options.selectedBackend !== 'supabase-cloud' || options.featureProfile !== 'core-only')
+    throw new Error('Signed Supabase core requires explicit Supabase core-only selection');
+  if (typeof options.resolveIdentity !== 'function')
+    throw new Error('Signed Supabase core requires a trusted legacy identity resolver');
+  if (typeof options.assertLocalAppwriteStopped !== 'function' ||
+      !options.guard ||
+      typeof options.guard.verifyLegacyMapping !== 'function' ||
+      typeof options.guard.assertAppwriteWritersFenced !== 'function' ||
+      typeof options.guard.acquireExclusiveLease !== 'function') {
+    throw new Error('Signed Supabase core requires all server and local writer guards');
+  }
+
+  // No persisted credential is enabled here. A future browser adapter may
+  // enable it only with audited cross-tab locking and origin/account fencing.
+  const session = options.session ?? createCandidateAuthSession({
+    baseUrl: options.baseUrl,
+    publishableKey: options.publishableKey,
+    fetcher: options.fetcher,
+  });
+  let phase: Phase = 'signed-out';
+  let active: ActiveOwner | null = null;
+  let pendingBootstrap: CoreBootstrap | null = null;
+
+  async function verified(signed: CandidateVerifiedSession) {
+    const current = await session.getVerifiedSession();
+    if (!sameSession(signed, current))
+      throw new Error('Supabase core signed account changed during authentication');
+  }
+
+  async function activate(signed: CandidateVerifiedSession): Promise<ActiveOwner> {
+    await verified(signed);
+    const identity = await options.resolveIdentity(signed);
+    validateCandidateIdentity(identity);
+    if (identity.supabaseUserId !== signed.userId)
+      throw new Error('Supabase core server identity mapping has a different signed owner');
+    await verified(signed);
+    const bootstrap = createAppSupabaseCoreBootstrap({
+      selectedBackend: options.selectedBackend,
+      featureProfile: options.featureProfile,
+      baseUrl: options.baseUrl,
+      publishableKey: options.publishableKey,
+      fetcher: options.fetcher,
+      identity,
+      session,
+      guard: options.guard,
+      assertLocalAppwriteStopped: options.assertLocalAppwriteStopped,
+    });
+    pendingBootstrap = bootstrap;
+    const run = await bootstrap.start();
+    try {
+      await verified(signed);
+    } catch (error) {
+      // A late account switch must never leave the acquired writer running.
+      try { await run.stop(); }
+      catch {
+        throw new Error('Supabase core authentication cleanup unconfirmed; writer lease retained', { cause: error });
+      }
+      throw error;
+    }
+    pendingBootstrap = null;
+    return { signed, identity, bootstrap, run };
+  }
+
+  async function clearLocalAuth(): Promise<void> {
+    // A failed remote revocation is still a locally cleared session; the
+    // underlying session manager must not keep access/refresh tokens active.
+    await session.signOut();
+  }
+
+  async function startSigned(action: () => Promise<CandidateVerifiedSession | null>) {
+    if (phase !== 'signed-out')
+      throw new Error('Supabase core session is active, busy or blocked');
+    phase = 'authenticating';
+    try {
+      const signed = await action();
+      if (!signed) {
+        phase = 'signed-out';
+        return null;
+      }
+      const established = await activate(signed);
+      active = established;
+      phase = 'active';
+      return { ...established.identity };
+    } catch (error) {
+      const blocked = pendingBootstrap?.getPhase() === 'blocked' ||
+        (error instanceof Error && /cleanup unconfirmed|writer lease retained/.test(error.message));
+      active = null;
+      // Even when a writer is blocked, discard local Auth credentials. Never
+      // expose an owner just because refresh tokens or a cache hint exist.
+      try { await clearLocalAuth(); }
+      catch { /* local Auth cleanup failure is also a hard block */ phase = 'blocked'; throw error; }
+      phase = blocked ? 'blocked' : 'signed-out';
+      throw error;
+    } finally {
+      pendingBootstrap = null;
+    }
+  }
+
+  async function signIn(email: string, password: string) {
+    return startSigned(() => session.signIn(email, password));
+  }
+
+  async function restore() {
+    return startSigned(() => session.restoreFromPersistence());
+  }
+
+  async function signOut(): Promise<boolean> {
+    if (phase === 'blocked')
+      throw new Error('Supabase core writer state is uncertain; cannot permit another provider');
+    if (phase === 'signed-out') return session.signOut();
+    if (phase !== 'active' || !active)
+      throw new Error('Supabase core account operation already in progress');
+    phase = 'stopping';
+    const established = active;
+    active = null;
+    try {
+      await established.run.stop();
+    } catch (error) {
+      phase = 'blocked';
+      throw new Error('Supabase core writer stop unconfirmed; account switch blocked', { cause: error });
+    }
+    try {
+      const revoked = await session.signOut();
+      // False means remote revocation is uncertain; local credentials were
+      // cleared by the candidate manager.
+      phase = 'signed-out';
+      return revoked;
+    } catch (error) {
+      // An exception may mean local credential storage could not be cleared.
+      phase = 'blocked';
+      throw error;
+    }
+  }
+
+  /**
+   * Refresh-token rotation invalidates the previous RxDB session epoch.
+   * Stop BOTH writers before refreshing, then re-run trusted identity +
+   * Appwrite cutoff + exclusive lease checks before resuming replication.
+   * A failed cancellation is never followed by token rotation/reacquisition.
+   */
+  async function refreshAndRestart() {
+    if (phase !== 'active' || !active)
+      throw new Error('Supabase core refresh requires one active account');
+    const previous = active;
+    phase = 'stopping';
+    active = null;
+    try { await previous.run.stop(); }
+    catch (error) {
+      phase = 'blocked';
+      throw new Error('Supabase core writer stop unconfirmed; cannot refresh', { cause: error });
+    }
+    phase = 'signed-out';
+    return startSigned(() => session.refresh());
+  }
+
+  async function resync() {
+    if (phase !== 'active' || !active)
+      throw new Error('Supabase core is not authenticated and active');
+    const established = active;
+    await verified(established.signed);
+    if (active !== established || phase !== 'active')
+      throw new Error('Supabase core account changed before resync');
+    await established.run.resync();
+    if (active !== established || phase !== 'active')
+      throw new Error('Supabase core account changed during resync');
+  }
+
+  return {
+    signIn,
+    restore,
+    signOut,
+    refreshAndRestart,
+    resync,
+    getPhase: () => phase,
+    /** No access token or Supabase refresh credential escapes this snapshot. */
+    getAuthenticatedOwner: () => phase === 'active' && active
+      ? { ...active.identity } : null,
+  };
+}
+
+// Retained type export for disposable signed tests only; browser persistence
+// deliberately has no direct wiring or automatic credential selection here.
+export type { CandidateSessionPersistence };

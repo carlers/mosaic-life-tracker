@@ -1,24 +1,24 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1027 app-owned Supabase task/category RxDB startup bridge.
+Current task: #1027 app-owned signed Supabase core Auth + real RxDB lifecycle coordinator.
 
-## Accepted baseline
-- Isolated stable Preview `refactor/1027-three-backend-portability-20261020@8fad9565e72460ed3d1e1da6f488c10e35529ea3`: PR #1071, focused #39394439643 SUCCESS, full #39394632640 SUCCESS, trusted Preview #39394890425 READY at exact SHA; GitHub issue #1027 checkpoint #6286997461.
-- Task branch `chatgpt/1027-real-rxdb-core-bootstrap-20261020` is based on accepted baseline; version impact NONE. Existing Appwrite production, Oracle, hosted Supabase, dev/main and user data unchanged.
+## Baseline and authorization
+- Accepted isolated stable Preview `refactor/1027-app-rxdb-core-bridge-20261020@4e1718132632c55b79d218daa6cbbb006f9b1fce`. PRs #1072/#1073, focused repair CI #39396790705 SUCCESS, full canonical #39396934431 SUCCESS, trusted #39397143268 READY; issue #1027 comment #6287335605.
+- Task branch `chatgpt/1027-signed-core-auth-coordinator-20261020`. Version impact NONE: no app login UI or active cloud provider selection, no dev/main/Production/provider/schema/user data operations.
+- Maintain 3 backend deployments: Appwrite Cloud, Oracle-hosted Appwrite, Supabase Cloud. Old-PWA server cutoff, trustworthy ID mapping, two-provider lease exclusion, DR and reverse-delta migration must precede any real switch.
 
-## Implemented
-- `src/lib/supabaseCoreBootstrap.ts` binds the already signed and leased candidate two-domain replication runner to the **actual Mosaic RxDB** database after explicit target/profile, signed owner, local Appwrite writer-stopped callback and server-fence/identity/lease guard prerequisites. Never starts on import and is not called from current Appwrite startup.
-- Validates session/credential epoch before and after database bootstrap and after candidate writer start. Rechecks local Appwrite writer suspension after DB ready. On late auth change, cancels begun replication; unconfirmed start/stop blocks the controller from ever silently re-starting.
-- `tests/unit/supabaseCoreBootstrap.test.ts` covers the full guarded positive wiring path, unsigned/foreign owner, required local writer stop, mid-bootstrap credential rotation, revived Appwrite writer, concurrent starts, uncertain replication startup/stop, stale handles and post-start auth change cleanup.
-- `docs/CORE_MVP_PROVIDER_RETURN.md` distinguishes this app-side data-layer seam from still-missing released provider switching and real backend security controls.
+## Implementation
+- `src/lib/supabaseCoreAuth.ts`: app-side signed account orchestration of in-memory Supabase GoTrue sign-in/optional isolated restore, current signed owner verification, separately resolved canonical identity and existing real-RxDB two-domain core startup bridge.
+- Authenticated owner is published only after signed owner and legacy mapping match and the remote writer starts; never trust cached metadata or stored owner hints. No browser refresh token persistence enabled.
+- Explicit stop-before-logout and stop-before-refresh/renewal; retry both mapping and server/local writer safeguards on each refreshed session. Concurrent logins blocked; late owner switches cancel started writers. Unconfirmed stop/start and uncertain local Auth cleanup fail closed.
+- `tests/unit/supabaseCoreAuth.test.ts`: signed activation, no-op restore, mapping mismatch, delayed account switch, late post-start switch, uncertain cleanup and revoked writer, logout order, refresh/reacquire and denied provider/guards.
+- `docs/CORE_MVP_PROVIDER_RETURN.md`: describe this as non-shipped contract and enumerate trusted cloud/app UI gaps.
 
 ## Verification
-- First task `122fb561`: focused Quality Gate #39396292086 SUCCESS; PR #1072 squash-merged to isolated stable `41a1b8be`.
-- Stable full Quality Gate #39396471524 **FAILED** in production build: the newly imported Supabase candidate source lacked app-wide strict TypeScript eligibility (erasable class parameter properties, untyped transport destructuring and generic RxDB snapshot casts). Other job results require separate verification.
-- Follow-up fix task `chatgpt/1027-rxdb-poc-build-types-20261020` converts those types without disabling compiler checks or changing candidate network semantics. Focused/full re-acceptance pending.
+- Coherent task SHA focused verification required. Do not claim tests or deployment passed before CI reports them.
 
 ## Next action
-- Run focused checks for the TypeScript repair, squash through a follow-on PR to the same isolated stable Preview, then require a successful exact-tree canonical full CI and trusted Vercel READY. Do not claim the first failed stable gate as acceptance.
-- Next functional gate: actual provider-aware Supabase Auth/context and login/bootstrap activation with *real server-signed* Appwrite owner registry, non-noop local Appwrite stop/old-PWA cutoff, server-enforced single-writer leases, hosted signed security and safe provider-scoped local cursors. Until then no Supabase production provider switch, no stored-user conversion, no dual cloud writers.
-- Verify independent forward-and-reverse Appwrite/Oracle/Supabase data replay/DR and multi-device offline convergence. Diary #1029 immediately after usable core release; #1027/#967/#975 open. No dev/main/Production promotion without explicit approval.
+- If focused CI fails, batch repair; when green squash into separate isolated stable Preview and require canonical full CI + trusted exact-SHA READY. Do not promote protected branches without user approval.
+- Next bring provider-aware `AuthProvider` to app UI behind genuine server-mapped accounts and old Appwrite writer cutoff + cross-tab Auth credential rotation; no alternate backend startup with test-injected no-op guards. Hosted signed two-owner security, reverse Appwrite/Oracle/Supabase import/DR and multi-device/offline acceptance remain mandatory.
+- Diary #1029 immediately after working core release; #1027/#967/#975/#1026 remain open.
