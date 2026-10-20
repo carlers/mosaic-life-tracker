@@ -6,6 +6,7 @@ import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
+import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
 const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
@@ -60,6 +61,7 @@ export interface DaySlideProps {
   reorderEnabled?: boolean;
   reorderRuntimeActive?: boolean;
   taskSortMode?: TaskCompletionSortMode;
+  timestampDisplay?: TaskTimestampDisplay;
   onReorderTasks?: (
     dateStr: string,
     groups: readonly TaskOrderGroup[]
@@ -99,6 +101,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   currentUserId,
   sharedItems = [],
   ownerLabels,
+  timestampDisplay,
   sharedCategoryFor,
   onAssignSharedCategory,
   onCopySharedTask,
@@ -277,6 +280,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           currentUserId={currentUserId}
           tasks={tasksByCategory.get(category.id) ?? []}
           ownerLabels={ownerLabels}
+          timestampDisplay={timestampDisplay}
           sharedRows={!selectionMode && onSharedCompletion && sharedPendingFor && currentShares.some(item => sharedCategoryFor?.(item) === category.id) && (
             <SharedTaskRows items={currentShares.filter(item =>
               sharedCategoryFor?.(item) === category.id)}
