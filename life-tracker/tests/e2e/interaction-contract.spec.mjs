@@ -1651,6 +1651,11 @@ test('long-held task at Day View edge advances repeatedly without releasing or s
     name: 'Task 1.1', exact: true,
   });
   await expect(title).toBeVisible();
+  await page.evaluate(() => {
+    window.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'touch') (window).__mosaicHeldTouchPointerId = event.pointerId;
+    }, { once: true, capture: true });
+  });
   const gesture = await startTaskLongPress(page, title);
   const rightEdge = bounds.x + bounds.width - 6;
   const leftEdge = bounds.x + 6;
@@ -1662,6 +1667,21 @@ test('long-held task at Day View edge advances repeatedly without releasing or s
     );
     const carried = page.locator('[data-cross-day-drag-overlay="true"]');
     await expect(carried).toBeVisible();
+    // Some phones cancel the PointerEvent stream when Swiper replaces the
+    // original touched row. The same Touch identifier remains physically held
+    // and must keep the carried task alive through that pointercancel.
+    const liveTouchId = await page.evaluate(() => {
+      const touch = (window).__mosaicHeldTouchPointerId;
+      return typeof touch === 'number' ? touch : null;
+    });
+    if (liveTouchId !== null) {
+      await page.evaluate(id => {
+        window.dispatchEvent(new PointerEvent('pointercancel', {
+          pointerId: id, pointerType: 'touch', isPrimary: true, bubbles: true,
+        }));
+      }, liveTouchId);
+      await expect(carried).toBeVisible();
+    }
     // The visual task must follow touch movement DURING a Swiper transition.
     // Previously this position froze until settling, losing the finger.
     const before = await carried.boundingBox();

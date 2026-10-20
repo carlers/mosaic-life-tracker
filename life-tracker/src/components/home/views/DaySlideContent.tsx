@@ -245,6 +245,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
       <DayViewCategoryReorder
         categories={categories}
+        animateExternal={Boolean(crossDayDragTaskId)}
         enabled={Boolean(reorderEnabled && onReorderCategories && onUpdateCategory &&
           !selectionMode && categories.every(category => category.userId === currentUserId))}
         canStartDrag={!activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling}
