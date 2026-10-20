@@ -107,6 +107,27 @@ describe('Home calendar keyboard navigation', () => {
     expect(openDay.mock.calls[0][0].getDate()).toBe(15);
   });
 
+  it('avoids implicit ancestor scrolling while moving focus across calendar periods', async () => {
+    const scrollSpy = vi.fn();
+    const prior = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true, value: scrollSpy,
+    });
+    try {
+      render(<Harness />);
+      const first = day('2026-10-15');
+      first.focus();
+      fireEvent.keyDown(first, { key: 'PageDown' });
+      await waitFor(() => expect(day('2026-11-15')).toHaveFocus());
+      fireEvent.keyDown(day('2026-11-15'), { key: 'ArrowDown' });
+      expect(day('2026-11-22')).toHaveFocus();
+      expect(scrollSpy).not.toHaveBeenCalled();
+    } finally {
+      if (prior) Object.defineProperty(Element.prototype, 'scrollIntoView', prior);
+      else Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+    }
+  });
+
   it('supports G to focus the active grid but not from an editor or disabled pane', async () => {
     const { rerender } = render(<Harness />);
     const outside = screen.getByRole('button', { name: 'Outside grid' });

@@ -1700,6 +1700,39 @@ test('interaction harness has no detectable non-visual WCAG A/AA axe violations'
 });
 
 
+// #956: keyboard-driven month changes must never scroll the Embla viewport
+// through Element.scrollIntoView while focus moves to an incoming period.
+test('Calendar keyboard period changes snap to a full-width slide', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?calendarPath=1`);
+  const host = page.getByTestId('real-calendar-cold-probe');
+  const start = host.locator('[data-calendar-slide-index="30"] button[data-calendar-day="2026-09-15"]');
+  await expect(start).toHaveCount(1);
+  await start.evaluate(node => node.focus({ preventScroll: true }));
+
+  // Exercise successive keyboard changes while the carousel is animating.
+  for (const [key, index, date] of [
+    ['PageDown', 31, '2026-10-15'],
+    ['PageDown', 32, '2026-11-15'],
+    ['PageUp', 31, '2026-10-15'],
+    ['PageUp', 30, '2026-09-15'],
+  ]) {
+    await page.keyboard.press(key);
+    await expect(host.locator(`[data-calendar-slide-index="${index}"] button[data-calendar-day="${date}"]`))
+      .toBeFocused();
+    await expect.poll(async () => host.evaluate((selected) => {
+      const viewport = document.querySelector(
+        '[data-testid="real-calendar-cold-probe"] [data-route-swipe-horizontal-owner]'
+      );
+      const slide = document.querySelector(
+        `[data-testid="real-calendar-cold-probe"] [data-calendar-slide-index="${selected}"]`
+      );
+      if (!(viewport instanceof HTMLElement) || !(slide instanceof HTMLElement)) return 10000;
+      return Math.abs(slide.getBoundingClientRect().left - viewport.getBoundingClientRect().left);
+    }, index), { timeout: 3500, intervals: [70, 100, 130, 170, 250] }).toBeLessThan(2);
+  }
+});
+
 // #640: actual CalendarBody/DayCell first tap must paint the sheet shell
 // before running the expensive DayViewSheet subtree. This is an ordering
 // contract, not a machine-dependent millisecond performance budget.

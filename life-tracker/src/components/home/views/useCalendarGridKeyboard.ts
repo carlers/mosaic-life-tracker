@@ -27,6 +27,34 @@ const dateKey = (date: Date) => format(date, 'yyyy-MM-dd');
 const daySelector = (key: string) => `button[data-calendar-day="${key}"]`;
 const editableSelector = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]';
 
+/**
+ * A date may acquire focus while Embla is still animating its month/weekly
+ * slide into place. Element.scrollIntoView() also scrolls *horizontal
+ * ancestors*, including Embla's viewport, which competes with Embla's own
+ * transform and can leave the calendar between snaps.
+ *
+ * Only adjust the explicit scroll owners inside this selected slide:
+ * the optional 3/4-day weekday lane (horizontal), and the period slide
+ * itself (vertical). Never scroll Embla or the page.
+ */
+export function scrollCalendarDateWithinSlide(day: HTMLElement, slide: HTMLElement): void {
+  const lane = day.closest<HTMLElement>('[data-calendar-zoom-lane]');
+  const dayRect = day.getBoundingClientRect();
+
+  if (lane && slide.contains(lane)) {
+    const laneRect = lane.getBoundingClientRect();
+    const delta = dayRect.left < laneRect.left ? dayRect.left - laneRect.left
+      : dayRect.right > laneRect.right ? dayRect.right - laneRect.right : 0;
+    if (Math.abs(delta) > 1) lane.scrollLeft += delta;
+  }
+
+  const slideRect = slide.getBoundingClientRect();
+  const deltaY = dayRect.top < slideRect.top ? dayRect.top - slideRect.top
+    : dayRect.bottom > slideRect.bottom ? dayRect.bottom - slideRect.bottom : 0;
+  if (Math.abs(deltaY) > 1) slide.scrollTop += deltaY;
+}
+
+
 export function useCalendarGridKeyboard({
   enabled, slides, activeIndex, viewMode, weekStartsOn, onPrev, onNext,
 }: CalendarGridKeyboardOptions) {
@@ -57,7 +85,8 @@ export function useCalendarGridKeyboard({
     if (!target || target.disabled) return false;
     setFocusedKey(key);
     target.focus({ preventScroll: true });
-    target.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    const slide = activeSlide();
+    if (slide) scrollCalendarDateWithinSlide(target, slide);
     return true;
   }, [activeSlide]);
 
