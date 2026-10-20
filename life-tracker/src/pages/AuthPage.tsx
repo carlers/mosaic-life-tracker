@@ -31,6 +31,8 @@ export const AuthPage: React.FC = () => {
     recoveryError,
     recoverySuccess,
     pendingSignup,
+    accountNotice,
+    supportsPasswordRecovery,
   } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -166,6 +168,7 @@ export const AuthPage: React.FC = () => {
             Sign Up
           </button>
         </div>
+        {accountNotice && <p role="note" className="text-sm text-gray-400 mb-4">{accountNotice}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <>
@@ -258,7 +261,7 @@ export const AuthPage: React.FC = () => {
               </button>
             </div>
           </div>
-          {isLogin && (
+          {isLogin && supportsPasswordRecovery !== false && (
             <button
               type="button"
               onClick={() => setShowRecovery(true)}

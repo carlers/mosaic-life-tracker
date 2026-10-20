@@ -14,6 +14,7 @@ import {
 } from './bucketListReplicationPilot';
 import { syncFriendships } from '../lib/friendshipSync';
 import { getDatabase } from './database';
+import { CORE_BACKEND } from '../lib/coreBackendConfig';
 import { Query } from 'appwrite';
 import { isUnauthorizedError } from '../lib/authEvents';
 import { guardedTablesDB } from '../lib/sdk';
@@ -431,6 +432,13 @@ export async function suspendSyncOwner(userId?: string): Promise<void> {
   await stopAllReplicationPilots(userId);
 }
 
+export async function assertAppwriteSyncStoppedForCore(): Promise<void> {
+  if (CORE_BACKEND.driver !== 'supabase')
+    throw new Error('Appwrite writer suspension requires explicit Supabase selection');
+  await suspendSyncOwner();
+  await waitForSyncCoordinatorIdle();
+}
+
 async function waitForSyncCoordinatorIdle(
   timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS
 ): Promise<void> {
@@ -512,6 +520,7 @@ export async function refreshSync(
   timeoutMs = SYNC_COORDINATOR_IDLE_TIMEOUT_MS,
   options: FreshSyncOptions = {}
 ): Promise<FreshSyncResult> {
+  if (CORE_BACKEND.driver !== 'appwrite') throw new Error('Appwrite sync is disabled for this backend');
   const generation = captureAccountWorkGeneration(userId);
   if (generation === null) {
     throw new Error('Fresh sync requires the currently authenticated account.');
@@ -813,6 +822,7 @@ export async function initializeSync(
   userId: string,
   options: { deadline?: number } = {}
 ): Promise<void> {
+  if (CORE_BACKEND.driver !== 'appwrite') throw new Error('Appwrite sync is disabled for this backend');
   if (!userId) return;
   const generation = captureAccountWorkGeneration(userId);
   if (generation === null) return;

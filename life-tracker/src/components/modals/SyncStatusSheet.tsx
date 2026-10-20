@@ -62,8 +62,8 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
       return;
     }
     setIsManualSyncDisabled(true);
-    void import('../../db/sync')
-      .then(({ syncNow }) => syncNow(userId))
+    void import('../../lib/appSync')
+      .then(({ requestAppSync }) => requestAppSync(userId, true))
       .catch((err) => {
         console.error('[SyncStatusSheet] Manual sync failed:', err);
       });

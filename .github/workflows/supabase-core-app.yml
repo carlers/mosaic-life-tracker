@@ -1,0 +1,79 @@
+name: Supabase Core App Lab
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'codex/1027-supabase-core-app-*'
+      - 'refactor/1027-supabase-core-app-*'
+permissions:
+  contents: read
+concurrency:
+  group: supabase-core-app-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  core-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Install app and browser dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm run test:browser:prepare
+          tests/e2e/node_modules/.bin/playwright install chromium
+      - name: Configure disposable Supabase with core authority
+        run: |
+          supabase init --yes
+          mkdir -p supabase/migrations
+          cp supabase-poc/migrations/20261018_candidate_task_category_owner_schema.sql supabase/migrations/20261018000000_schema.sql
+          cp supabase-poc/migrations/20261018_candidate_revoke_default_delete.sql supabase/migrations/20261018000001_privileges.sql
+          cp supabase-poc/migrations/20261019_candidate_atomic_cas_rpc.sql supabase/migrations/20261019000000_cas.sql
+          cp supabase-poc/migrations/20261020_candidate_task_protected_fields.sql supabase/migrations/20261020000000_protected.sql
+          cp supabase-poc/migrations/20261020_core_fresh_identity_authority.sql supabase/migrations/20261020000001_authority.sql
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('supabase/config.toml')
+          text = p.read_text()
+          pattern = r'(?m)^enable_confirmations\s*=\s*(true|false)\s*$'
+          if not re.search(pattern, text):
+              raise SystemExit('Missing local confirmation configuration')
+          p.write_text(re.sub(pattern, 'enable_confirmations = false', text))
+          PY
+          supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler
+          supabase db reset --local
+      - name: Exercise signed real UI and server authority
+        run: |
+          set -euo pipefail
+          supabase status -o env > "$RUNNER_TEMP/mosaic-core-local.env"
+          set -a
+          source "$RUNNER_TEMP/mosaic-core-local.env"
+          set +a
+          : "${PUBLISHABLE_KEY:?Local publishable key required}"
+          export VITE_MOSAIC_BACKEND=supabase-cloud
+          export VITE_MOSAIC_FEATURE_PROFILE=core-only
+          export VITE_SUPABASE_URL=http://127.0.0.1:54321
+          export VITE_SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
+          export MOSAIC_SB_LOCAL_URL="$VITE_SUPABASE_URL"
+          export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
+          export MOSAIC_CORE_APP_LAB=true
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > "$RUNNER_TEMP/mosaic-core-vite.log" 2>&1 &
+          for attempt in {1..40}; do
+            if [ -f node_modules/.vite/basic-ssl/_cert.pem ] && curl --cacert node_modules/.vite/basic-ssl/_cert.pem -fsS https://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --workers=1 --reporter=line
+      - name: Destroy disposable data
+        if: always()
+        run: supabase stop --no-backup || true

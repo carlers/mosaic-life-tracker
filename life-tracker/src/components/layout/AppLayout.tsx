@@ -229,8 +229,8 @@ export const AppLayout: React.FC = () => {
       if (timer !== null) window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         timer = null;
-        void import('../../db/sync')
-          .then(({ forceSync }) => forceSync(uid))
+        void import('../../lib/appSync')
+          .then(({ requestAppSync }) => requestAppSync(uid))
           .catch(() => {});
       }, 250);
     };

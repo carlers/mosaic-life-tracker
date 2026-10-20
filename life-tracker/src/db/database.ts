@@ -28,6 +28,7 @@ import {
   type SyncMetaDocument,
 } from './schema';
 import { markStartup } from '../lib/startupMetrics';
+import { coreDatabaseName } from '../lib/coreBackendConfig';
 import {
   tasksMigrationStrategies,
   friendshipsMigrationStrategies,
@@ -51,7 +52,7 @@ async function ensureDevModePlugin(): Promise<void> {
   );
   await devModePluginPromise;
 }
-const DB_NAME = 'life_tracker_db';
+const DB_NAME = coreDatabaseName();
 const DEBUG = import.meta.env.DEV;
 export interface AppDatabaseCollections {
   tasks: RxCollection<TaskDocument>;

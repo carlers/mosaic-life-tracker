@@ -237,6 +237,8 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
     refreshAndRestart,
     resync,
     getPhase: () => phase,
+    getReplicationStates: () => phase === 'active' && active
+      ? [active.run.taskState, active.run.categoryState] : null,
     /** No access token or Supabase refresh credential escapes this snapshot. */
     getAuthenticatedOwner: () => phase === 'active' && active
       ? { ...active.identity } : null,
