@@ -180,7 +180,9 @@ test('loading, short conversations, late growth and viewport resize', async ({ p
   await page.locator('[id^="msg-"]').last().evaluate(el => { el.style.minHeight = '700px'; });
   await page.setViewportSize({ width: 412, height: 650 });
   await expect.poll(() => scroller(page).evaluate(el => el.scrollTop)).toBeCloseTo(before, 0);
-  await page.evaluate(() => { Object.defineProperty(navigator, 'onLine', { configurable: true, value: false }); window.dispatchEvent(new Event('offline')); });
+  // The offline UI must work when loading another JS chunk is impossible.
+  await page.context().setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
   await expect(page.getByText('You are offline. Changes will sync later.')).toBeVisible();
   expect(await scroller(page).evaluate(el => el.scrollTop)).toBeCloseTo(before, 0);
 });

@@ -15,7 +15,7 @@ Current task: #1027 disposable Supabase core app, v0.32.0 candidate.
 
 ## Evidence and current repair
 - `2f2e73f341d751a894f1d674b191088cfbfbf493`: focused #39408795050 and actual Supabase app lab #39408795064 SUCCESS. Real UI category/task creation, offline completion and second-device isolation; signed lease/CAS/owner/revocation negatives.
-- Expanded #39409630007 passed title editing and Backlog propagation, then first-device task control disappeared after going offline. Diagnostic #39410193248 showed a route ErrorBoundary while the remote row and second device remained intact. Lab now uses the built PWA and waits for the actual Backlogs main region before going offline; boundary diagnostics retained.
+- Expanded #39409630007 passed title editing and Backlog propagation, then first-device task control disappeared after going offline. Built-PWA diagnostic #39410719284 identified lazy OfflineBanner import failure after network loss. Reproduced in the existing chat browser test with real network denial. Banner now ships with the shell; actual offline UI is asserted before edits/deletion.
 - Focused #39409630022 exposed lazy friend-module query timing; explicit import settling fixed locally (12 tests). #39410193415 failed checkpoint length; shortened here without relaxing contract.
 - Local TypeScript/build/PWA/blocking bundle budgets and relevant tests pass. Full canonical/trusted delivery remains pending. CI is source of final exact-SHA evidence.
 

@@ -174,3 +174,5 @@ photo actions are disabled. App logout requests Supabase `scope=local`, preservi
 other device sessions. The original isolated Auth pilot retains its default scope.
 
 The actual-app lab also covers task title editing, movement to Backlogs, offline deletion and second-device tombstone convergence. Task menus omit unsupported sharing, photo and bucket-list actions under the core capability profile. These checks use disposable local Supabase; hosted acceptance remains separate.
+
+Real network-denial verification exposed a shared shell bug: lazy loading the offline banner after losing connectivity crashed the route. The banner is now included with MainLayout, so offline feedback and local editing do not require another JS download. The chat browser regression now disables the browser network rather than only changing navigator.onLine.

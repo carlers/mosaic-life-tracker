@@ -81,6 +81,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     await second.getByRole('tab', { name: 'Todo list', exact: true }).click();
     await expect(second.getByText('Private core task', { exact: true }).first()).toBeVisible();
     await contexts[0].setOffline(true);
+    await expect(first.getByText('You are offline. Changes will sync later.', { exact: true })).toBeVisible();
     await first.getByRole('button', { name: 'Mark complete', exact: true }).first().click();
     await expect(first.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
     expect((await rows(owner, 'tasks')).find(row => row.title === 'Private core task').completed).toBe(false);
@@ -117,6 +118,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
       .getByRole('button', { name: 'Renamed core task', exact: true }))
       .toBeVisible({ timeout: 20_000 });
     await contexts[0].setOffline(true);
+    await expect(first.getByText('You are offline. Changes will sync later.', { exact: true })).toBeVisible();
     await first.getByRole('button', { name: 'Renamed core task', exact: true }).first().click();
     await first.getByRole('button', { name: 'Delete', exact: true }).click();
     await first.getByRole('dialog', { name: 'Delete Task', exact: true })
