@@ -1,17 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #692 — opt-in two-finger Calendar zoom.
+Current task: #692 — Calendar pinch-to-zoom smooth transition refinement.
 
-## Scope
-- Implementation approved, not dev/main promotion. Source `dev@a14c270309e1c80c04071cf3c74d57a6998c51ec` (v0.31.7); task `chatgpt/692-calendar-pinch-20261020`, candidate v0.33.0.
-- Preserve shipped 7/4/3 Calendar lanes. Add disabled-by-default, synced `calendarPinchZoom` preference; qualified two-finger spread/pinch changes one visible-day step and persists through existing `calendarZoomDays`. Applies only to narrow active month/week Calendar including viewer-owned friend views.
-- Gesture handlers intercept browser multi-touch only inside opted-in active grid, preserve one-finger scrolling and browser zoom elsewhere. No backend migrations, provider or Production changes.
+## Authorization and baseline
+- User device-accepted working pinch behavior and requested a smooth animation; no dev/main/Production promotion authorized.
+- Start from previously accepted stable `feature/calendar-pinch-692-20261020@97ec34df3a9c3117c536bab0be623aeffda75920` (v0.33.0); task `chatgpt/692-calendar-pinch-morph-20261020`, PATCH Preview candidate v0.33.1.
+- Concurrent dev has since advanced to `c8310550` v0.32.0 with independent #954 Calendar task-preview limit; any eventual dev integration must reconcile that source and reverify, not overwrite it.
 
-## Verification / next
-- Task source focused CI #39408151934 SUCCESS. First stable Preview `0cce8ae7` canonical checks failed only on `react-hooks/set-state-in-effect` in CalendarBody; build and DOM both passed; this repair removes the optimistic effect and relies on account-synced settings as source of truth. Full canonical/Preview and physical device checks pending.
-- After focused green, squash task into stable Preview and verify canonical, size/PWA, deployment. Physical iOS Safari/PWA and Android Chrome pinch/browser zoom, navigation and dense-calendar scrolling remain a manual gate. No automatic dev/main merge.
+## Changes
+- Pinch-only 240 ms compositor animation scales the newly rendered seven-weekday track from the prior day width to the next day width, anchored near the pinch center. New layout is mounted and native x-offset aligned before animation; no scrollLeft writes on animation frames.
+- Keep one step per completed pinch, optional preference, owner/friend and month/week parity, separate horizontal/vertical/Embla gesture ownership, and sticky heading scroll transform. Sticky heading cross-fades rather than overriding its transform.
+- Snap logical offset to nearest legal weekday before animating; suspend the nested lane's idle snap during the morph to avoid competing movement.
+- Honor effective app/system reduced motion and browsers lacking the Web Animations API by switching immediately. Cancel transient animation on carousel context change/unmount.
+- Tests cover zoom morph anchor geometry, short Web Animations effect and existing pinch gesture contracts. No schema, backend or authentication change.
 
-## Preview version collision review
-- Initial stable v0.32.0 candidate at `e1e1add4` achieved canonical Quality Gate #39408836643 SUCCESS and exact Scratch Vercel READY, but active independent #954 Calendar task-limit Preview was separately published as v0.32.0. Distinct feature trees cannot share a published Preview version.
-- Reserve collision-free v0.33.0 for #692. This is **version metadata only**; application feature/gesture implementation remains unchanged. Re-run focused and canonical gates and confirm exact Vercel READY before user acceptance.
+## Acceptance status / next
+- This task commit requests [verify:focused]; no CI/deployment/device check is claimed until evidence exists.
+- On task focused success, squash into existing stable Preview, require full exact-SHA canonical Quality Gate and trusted Scratch Preview READY, then user test real Android Chrome and iOS Safari/PWA for smoothness/interruptions, sticky header, dense month vertical scroll and reduced-motion bypass.
+- Keep #692 open; no dev/main promotion without explicit approval.

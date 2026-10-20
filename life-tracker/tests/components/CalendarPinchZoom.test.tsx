@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CalendarZoomDays } from '../../src/lib/preferences';
-import { nextCalendarPinchMode, useCalendarPinchZoom } from '../../src/components/home/views/useCalendarPinchZoom';
+import { calendarPinchMorphFrame, nextCalendarPinchMode, playCalendarPinchMorph, useCalendarPinchZoom } from '../../src/components/home/views/useCalendarPinchZoom';
 
 interface Props {
   enabled?: boolean;
@@ -42,6 +42,44 @@ function layout() {
 }
 
 describe('opt-in Calendar pinch', () => {
+
+  it('anchors both zoom directions to the pinch location', () => {
+    const intoFour = calendarPinchMorphFrame({
+      fromDays: 7, anchorWeekday: 3.5, centerFraction: 0.5,
+      viewportWidth: 350, trackWidth: 612.5, scrollLeft: 175,
+    });
+    expect(intoFour!.scaleX).toBeCloseTo(4 / 7);
+    expect(intoFour!.originX - 175 + intoFour!.translateX).toBeCloseTo(175);
+
+    const intoSeven = calendarPinchMorphFrame({
+      fromDays: 4, anchorWeekday: 4, centerFraction: 0.5,
+      viewportWidth: 350, trackWidth: 350, scrollLeft: 0,
+    });
+    expect(intoSeven!.scaleX).toBeCloseTo(7 / 4);
+    expect(intoSeven!.originX + intoSeven!.translateX).toBeCloseTo(175);
+    expect(calendarPinchMorphFrame({
+      fromDays: 7, anchorWeekday: 3, centerFraction: 0.5,
+      viewportWidth: 0, trackWidth: 350, scrollLeft: 0,
+    })).toBeNull();
+  });
+
+  it('creates a short compositor animation without writing horizontal scroll offsets', () => {
+    const node = document.createElement('div');
+    const finish = { cancel: vi.fn() } as unknown as Animation;
+    const animate = vi.fn().mockReturnValue(finish);
+    Object.defineProperty(node, 'animate', { configurable: true, value: animate });
+    const frame = { scaleX: 4 / 7, originX: 200, translateX: 25 };
+    expect(playCalendarPinchMorph(node, frame)).toBe(finish);
+    expect(animate).toHaveBeenCalledTimes(1);
+    const [frames, options] = animate.mock.calls[0];
+    expect(frames[0].transform).toContain('scaleX(0.571428');
+    expect(frames[1].transform).toBe('translateX(0px) scaleX(1)');
+    expect(options.duration).toBeGreaterThan(0);
+    expect(options.duration).toBeLessThanOrEqual(300);
+    Object.defineProperty(node, 'animate', { configurable: true, value: undefined });
+    expect(playCalendarPinchMorph(node, frame)).toBeNull();
+  });
+
   it('maps directional thresholds to one 7/4/3-day step, clamping boundaries', () => {
     expect(nextCalendarPinchMode(7, 1.3)).toBe(4);
     expect(nextCalendarPinchMode(4, 1.3)).toBe(3);
