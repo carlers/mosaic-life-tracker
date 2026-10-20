@@ -132,6 +132,18 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     const crossOwner = await api(`/rest/v1/mosaic_candidate_tasks?owner_id=eq.${owner.id}`, other.token);
     expect(await crossOwner.json()).toEqual([]);
     expect(appwriteRequests).toEqual([]);
+  } catch (error) {
+    // Real disposable UI diagnostics remain in GitHub annotations even when
+    // the environment cannot download the Actions log archive. No credentials.
+    const views = await Promise.all(contexts.map(async (context, index) => {
+      const page = context.pages()[0];
+      return { device: index, path: page ? new URL(page.url()).pathname : 'closed',
+        visibleText: page ? (await page.locator('body').innerText().catch(() => '')).slice(0, 3000) : '' };
+    }));
+    const tasks = (await rows(owner, 'tasks')).map(row => ({
+      id: row.id, title: row.title, date: row.task_date, deleted: row.is_deleted, completed: row.completed,
+    }));
+    throw new Error(String(error) + '\nDisposable UI state: ' + JSON.stringify({ views, tasks }));
   } finally {
     await Promise.allSettled(contexts.map(context => context.close()));
   }
