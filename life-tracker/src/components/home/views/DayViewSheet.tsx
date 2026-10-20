@@ -12,12 +12,14 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Virtual } from 'swiper/modules';
 import 'swiper/css/virtual';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckSquare, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2 } from 'lucide-react';
+import { CheckSquare, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
+import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
+const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { TaskActionSheet } from './TaskActionSheet';
@@ -56,6 +58,12 @@ import {
   CONFIRM_TASK_DELETE_SETTING_KEY,
   shouldConfirmTaskDelete,
   TASK_COMPLETION_SORT_SETTING_KEY,
+  SHOW_TASK_CREATED_TIME_SETTING_KEY,
+  SHOW_TASK_COMPLETED_TIME_SETTING_KEY,
+  TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY,
+  DAY_VIEW_MODE_SETTING_KEY,
+  TIMELINE_DIRECTION_SETTING_KEY,
+  TIMELINE_SORT_BASIS_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
@@ -166,6 +174,14 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
   const confirmTaskDelete = shouldConfirmTaskDelete(getSetting(CONFIRM_TASK_DELETE_SETTING_KEY));
+  const timestampDisplay = {
+    showCreated: getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true,
+    showCompleted: getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true,
+    labelStyle: resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons')),
+  };
+  const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
+  const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
+  const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
@@ -920,6 +936,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           <DaySlide
             date={selectedDate}
             dateStr=""
+            timestampDisplay={timestampDisplay}
             scrollMode="page"
             tasks={backlogTasks}
             categories={categories}
@@ -1056,17 +1073,48 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                             </span>
                           ))}
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleToggleSelectMode}
-                          tabIndex={i === activeIndex ? 0 : -1}
-                          aria-pressed={isSelectMode}
-                          aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
-                          className={`justify-self-end flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode ? 'bg-emerald-500 text-black' : 'text-gray-300 hover:bg-[#2A2A2A]'}`}
-                        >
-                          <CheckSquare size={16} aria-hidden="true" />
-                          <span>Select</span>
-                        </button>
+                        <div className="justify-self-end flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            disabled={isBackgroundLocked || editingTaskId !== null || isTaskReorderActive || Boolean(continuousDrag.carried)}
+                            aria-pressed={dayViewMode === 'timeline'}
+                            aria-label={dayViewMode === 'timeline' ? 'Switch to categories view' : 'Switch to timeline view'}
+                            title={dayViewMode === 'timeline' ? 'Categories view' : 'Timeline view'}
+                            onClick={() => void setSetting(DAY_VIEW_MODE_SETTING_KEY, dayViewMode === 'timeline' ? 'categories' : 'timeline')}
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40 ${dayViewMode === 'timeline'
+                              ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
+                              : 'border-[#444444] bg-surfaceHighlight text-gray-300 hover:bg-[#333333]'}`}
+                          >
+                            <ListOrdered size={16} aria-hidden="true" />
+                          </button>
+                          {dayViewMode === 'timeline' && (
+                            <button
+                              type="button"
+                              tabIndex={i === activeIndex ? 0 : -1}
+                              aria-label={timelineDirection === 'desc' ? 'Timeline newest first; switch to oldest' : 'Timeline oldest first; switch to newest'}
+                              title={timelineDirection === 'desc' ? 'Newest first' : 'Oldest first'}
+                              onClick={() => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, timelineDirection === 'desc' ? 'asc' : 'desc')}
+                              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full border border-[#444444] bg-surfaceHighlight px-2 text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                            >
+                              {timelineDirection === 'desc' ? <ArrowDownWideNarrow size={16} aria-hidden="true" /> : <ArrowUpNarrowWide size={16} aria-hidden="true" />}
+                              <span className="hidden min-[420px]:inline text-[11px] font-semibold">{timelineDirection === 'desc' ? 'Newest' : 'Oldest'}</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleToggleSelectMode}
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            aria-pressed={isSelectMode}
+                            aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
+                            className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode
+                              ? 'border-transparent bg-emerald-500 text-black'
+                              : 'border-[#444444] bg-surfaceHighlight text-gray-300 hover:bg-[#333333]'}`}
+                          >
+                            <CheckSquare size={16} aria-hidden="true" />
+                            <span>Select</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                     {dayTasks.some(task => pendingOwnedTaskIds.has(task.id)) && (
@@ -1075,6 +1123,38 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       </p>
                     )}
 
+                    {dayViewMode === 'timeline' ? (
+                      <Suspense fallback={<div className="px-4 py-4 text-xs text-gray-400">Loading timeline…</div>}>
+                        <LazyTaskTimelineList
+                          dateStr={dateStr}
+                          scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
+                          tasks={dayTasks}
+                          categories={categories}
+                          currentUserId={currentUserId}
+                          ownerLabels={ownerLabels}
+                          editingTaskId={editingTaskId}
+                          editValue={editValue}
+                          onToggleTask={handleToggleTask}
+                          onAddTask={handleAddTask}
+                          onOpenActions={handleOpenActions}
+                          onOpenMemo={handleOpenMemo}
+                          onEditTask={handleEditTask}
+                          onViewImage={handleViewImage}
+                          onEditChange={handleEditChange}
+                          onEditSave={handleEditSave}
+                          onEditCancel={handleEditCancel}
+                          selectionMode={isSelectMode && i === activeIndex}
+                          selectedTaskIds={selectedTaskIds}
+                          onToggleTaskSelection={handleToggleTaskSelection}
+                          direction={timelineDirection}
+                          sortBasis={timelineSortBasis}
+                          onSortBasisChange={basis => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, basis)}
+                          timestampDisplay={timestampDisplay}
+                          showOtherContentNotice={showDiaryInDayView ||
+                            sharedTasks.activeItems.some(item => item.status === 'accepted' && item.date === dateStr)}
+                        />
+                      </Suspense>
+                    ) : (
                     <DaySlide
                       date={date}
                       dateStr={dateStr}
@@ -1115,6 +1195,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       continueAddingTasks={continueAddingTasks}
                       showCategoryCollapseButton={showCategoryCollapseButton}
                       taskSortMode={taskSortMode}
+                      timestampDisplay={timestampDisplay}
                       selectionMode={isSelectMode && i === activeIndex}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
@@ -1145,6 +1226,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
                       onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
                     />
+                    )}
 
                   </>
                 )}
