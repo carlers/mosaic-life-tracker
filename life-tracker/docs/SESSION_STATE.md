@@ -15,6 +15,6 @@ Current task: #856 — final touch release near edge + cross-day settling overla
 - No backend/schema/service changes. Failure feedback stays, success toast remains removed.
 
 ## Verification and delivery
-- Run task browser-focused gate, repair if red, squash to stable Preview, run canonical all-shards build gate, then exact-SHA registered Vercel Preview READY. Publish per-issue checkpoint.
+- First task Gate #39448103200: both browser shards passed including pointerup-without-touchend and edge/in-category touch release; focused lint failed only on synchronous setSettling(null) in a closing effect. Repair: defer cleanup to the next animation frame with cancellation on re-open, then rerun focused verification. After focused green, squash stable Preview, canonical all-shards build gate, exact-SHA registered Vercel Preview READY and issue checkpoint.
 - Owner Android/iOS physical device acceptance, extreme >87-day Swiper rebase, offline storage/sync and actual save/settling smoothness remain manual checks. Keep issue open.
 - Do not merge to dev/main/production without explicit owner approval.

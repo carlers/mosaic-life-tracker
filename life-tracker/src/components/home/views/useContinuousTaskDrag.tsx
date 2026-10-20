@@ -366,8 +366,9 @@ export function useContinuousTaskDrag({
     if (!isOpen) {
       heldRef.current = null;
       settleRevisionRef.current += 1;
-      setSettling(null);
-      return;
+      // Avoid a synchronous state cascade during sheet-close effects.
+      const frame = window.requestAnimationFrame(() => setSettling(null));
+      return () => window.cancelAnimationFrame(frame);
     }
     const down = (event: PointerEvent) => {
       if (event.button !== 0 || event.isPrimary === false ||
