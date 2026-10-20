@@ -56,6 +56,7 @@ export interface DaySlideProps {
   showCategoryCollapseButton?: boolean;
   selectionMode?: boolean;
   keyboardNavigationEnabled?: boolean;
+  onShowKeyboardHelp?: () => void;
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
   onToggleCategorySelection?: (categoryId: string) => void;
@@ -122,6 +123,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   showCategoryCollapseButton = false,
   selectionMode = false,
   keyboardNavigationEnabled = false,
+  onShowKeyboardHelp,
   selectedTaskIds = EMPTY_SELECTED_TASK_IDS,
   onToggleTaskSelection,
   onToggleCategorySelection,
@@ -148,7 +150,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   const { rootRef: keyboardRootRef, onKeyDown: handleBrowseKeyDown,
     onFocusCapture: handleBrowseFocus, onBlurCapture: handleBrowseBlur } =
     useDayViewKeyboardNavigation(
-      keyboardNavigationEnabled && !activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling
+      keyboardNavigationEnabled && !activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling,
+      onShowKeyboardHelp,
+      !selectionMode && editingTaskId === null
     );
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)

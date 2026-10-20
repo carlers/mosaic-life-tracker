@@ -18,7 +18,11 @@ function browseTargets(root: HTMLElement): BrowseTarget[] {
 
 type Anchor = { kind: BrowseKind; id: string; index: number };
 
-export function useDayViewKeyboardNavigation(enabled: boolean) {
+export function useDayViewKeyboardNavigation(
+  enabled: boolean,
+  onShowHelp?: () => void,
+  allowAdd = true
+) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const anchorRef = React.useRef<Anchor | null>(null);
   const keyboardUsedRef = React.useRef(false);
@@ -44,8 +48,7 @@ export function useDayViewKeyboardNavigation(enabled: boolean) {
 
   const onKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!enabled || event.defaultPrevented || event.nativeEvent.isComposing ||
-        event.altKey || event.shiftKey ||
-        (event.ctrlKey || event.metaKey)) return;
+        event.altKey || event.ctrlKey || event.metaKey) return;
     const root = rootRef.current;
     if (!root || root.closest('[inert], [aria-hidden="true"]')) return;
     const source = event.target instanceof Element
@@ -55,6 +58,26 @@ export function useDayViewKeyboardNavigation(enabled: boolean) {
     const buttons = browseTargets(root);
     const index = buttons.indexOf(source);
     if (index < 0) return;
+    // '?' is Shift+/ on most keyboards. It is intentionally the only
+    // shifted browse shortcut, and only when this workspace owns focus.
+    if (event.key === '?' && onShowHelp) {
+      event.preventDefault();
+      event.stopPropagation();
+      onShowHelp();
+      return;
+    }
+    if (event.shiftKey) return;
+    // Reuse the category's existing add-task pathway. N from a task targets
+    // the closest preceding category in *rendered* order, never another day.
+    if (event.key.toLowerCase() === 'n' && allowAdd) {
+      const category = buttons.slice(0, index + 1).reverse().find(button =>
+        button.dataset.dayKeyboardTarget === 'category');
+      if (!category) return;
+      event.preventDefault();
+      event.stopPropagation();
+      category.click();
+      return;
+    }
     let destination: number;
     switch (event.key) {
       case 'ArrowDown': destination = Math.min(index + 1, buttons.length - 1); break;
@@ -69,7 +92,7 @@ export function useDayViewKeyboardNavigation(enabled: boolean) {
     const target = buttons[destination];
     target.focus({ preventScroll: true });
     target.scrollIntoView?.({ block: 'nearest', behavior: 'auto' });
-  }, [enabled]);
+  }, [enabled, onShowHelp, allowAdd]);
 
   React.useEffect(() => {
     if (!enabled) return;

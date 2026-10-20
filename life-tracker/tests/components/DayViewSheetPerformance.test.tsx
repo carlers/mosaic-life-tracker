@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -233,6 +233,28 @@ describe('DayViewSheet mount scheduling', () => {
     next.focus();
     act(() => fixture.onAnimationComplete?.());
     expect(next).toHaveFocus();
+  });
+
+  it('exposes keyboard help through a focusable button and returns focus on Escape', async () => {
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    const help = screen.getByRole('button', { name: 'Show keyboard shortcuts' });
+    help.focus();
+    fireEvent.click(help);
+    const panel = screen.getByRole('region', { name: 'Day View keyboard shortcuts' });
+    expect(panel).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus();
+    expect(panel).toHaveTextContent('New task in the focused category');
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Close' }), { key: 'Escape' });
+    expect(panel).not.toBeInTheDocument();
+    await waitFor(() => expect(help).toHaveFocus());
+  });
+
+  it('shows the same help in Backlog without suggesting date navigation', () => {
+    render(<DayViewSheet isOpen renderMode="backlog" onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Show keyboard shortcuts' }));
+    const panel = screen.getByRole('region', { name: 'Day View keyboard shortcuts' });
+    expect(panel).toBeInTheDocument();
+    expect(panel).not.toHaveTextContent('Previous / next day');
   });
 
   // Regression: §2 (Day View teardown releases stale Swiper ownership before reopen).

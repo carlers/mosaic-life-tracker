@@ -3,14 +3,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { isTaskTitleKeyboardTarget, useDayViewKeyboardNavigation } from '../../src/components/home/views/useDayViewKeyboardNavigation';
 
-function Harness({ enabled = true, hideLast = false }: { enabled?: boolean; hideLast?: boolean }) {
-  const { rootRef, onKeyDown, onFocusCapture, onBlurCapture } = useDayViewKeyboardNavigation(enabled);
+function Harness({ enabled = true, hideLast = false, selectionMode = false, onHelp }: { enabled?: boolean; hideLast?: boolean; selectionMode?: boolean; onHelp?: () => void }) {
+  const { rootRef, onKeyDown, onFocusCapture, onBlurCapture } = useDayViewKeyboardNavigation(enabled, onHelp, !selectionMode);
   return <div ref={rootRef} onKeyDown={onKeyDown}
     onFocusCapture={onFocusCapture} onBlurCapture={onBlurCapture} tabIndex={-1}>
-    <button data-day-keyboard-target="category" data-day-keyboard-id="work">Work</button>
+    <button data-day-keyboard-target="category" data-day-keyboard-id="work" onClick={() => { const input = document.querySelector<HTMLInputElement>('[aria-label="Add-task editor"]'); input?.focus(); }}>Work</button>
     <button data-day-keyboard-target="task" data-day-keyboard-id="one">First task</button>
     {!hideLast && <button data-day-keyboard-target="task" data-day-keyboard-id="two">Second task</button>}
     <input aria-label="Edit task" />
+    <input aria-label="Add-task editor" />
     <button>Other action</button>
   </div>;
 }
@@ -69,6 +70,46 @@ describe('Day View keyboard browse', () => {
     expect(second).toHaveFocus();
     rerender(<Harness hideLast />);
     await waitFor(() => expect(first).toHaveFocus());
+  });
+
+  it('opens the correct rendered category input with N from a task or category, while leaving editors alone', () => {
+    render(<Harness />);
+    const task = screen.getByRole('button', { name: 'Second task' });
+    const add = screen.getByRole('textbox', { name: 'Add-task editor' });
+    task.focus();
+    expect(fireEvent.keyDown(task, { key: 'n' })).toBe(false);
+    expect(add).toHaveFocus();
+    const work = screen.getByRole('button', { name: 'Work' });
+    work.focus();
+    fireEvent.keyDown(work, { key: 'N', shiftKey: true });
+    expect(work).toHaveFocus();
+    fireEvent.keyDown(work, { key: 'n' });
+    expect(add).toHaveFocus();
+    fireEvent.keyDown(add, { key: 'n' });
+    expect(add).toHaveFocus();
+  });
+
+  it('does not add in selection mode or while navigation is disabled', () => {
+    const { rerender } = render(<Harness selectionMode />);
+    const task = screen.getByRole('button', { name: 'First task' });
+    task.focus();
+    fireEvent.keyDown(task, { key: 'n' });
+    expect(task).toHaveFocus();
+    rerender(<Harness enabled={false} />);
+    fireEvent.keyDown(task, { key: 'n' });
+    expect(task).toHaveFocus();
+  });
+
+  it('opens shortcut help with ? only while browsing, preserving ordinary modified shortcuts', () => {
+    const onHelp = vi.fn();
+    render(<Harness onHelp={onHelp} />);
+    const task = screen.getByRole('button', { name: 'First task' });
+    task.focus();
+    expect(fireEvent.keyDown(task, { key: '?', shiftKey: true })).toBe(false);
+    expect(onHelp).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(task, { key: '?', ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Edit task' }), { key: '?', shiftKey: true });
+    expect(onHelp).toHaveBeenCalledTimes(1);
   });
 
   it('does not intercept events originating from other controls', () => {
