@@ -296,7 +296,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 event.preventDefault();
                 event.stopPropagation();
                 if (selectionMode) onToggleSelection?.();
-                else onToggle();
+                else onToggle(task.id);
               }
             }}
             className="w-full touch-pan-y text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
