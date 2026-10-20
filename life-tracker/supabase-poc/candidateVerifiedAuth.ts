@@ -25,6 +25,8 @@ export class CandidateAuthVerificationError extends Error {
   }
 }
 
+export class CandidateAuthUnavailableError extends CandidateAuthVerificationError {}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function checkedSnapshot(snapshot: CandidateAuthSnapshot | null): CandidateAuthSnapshot | null {
@@ -78,7 +80,7 @@ export function createCandidateVerifiedAuthProvider(options: {
       } catch {
         // Not an authenticated session when Supabase Auth cannot be reached.
         // Never assume cached claims remain verified while offline.
-        throw new CandidateAuthVerificationError('Cannot verify Supabase Auth session');
+        throw new CandidateAuthUnavailableError('Cannot verify Supabase Auth session');
       }
       if (response.status === 401 || response.status === 403) return null;
       if (!response.ok) {

@@ -46,6 +46,7 @@ function fixture() {
       return signed;
     }),
     signOut: vi.fn(async () => { signed = null; return true; }),
+    discardMemory: vi.fn(() => { signed = null; }),
     getVerifiedSession: vi.fn(async () => signed),
   };
   const identity = { legacyUserId: 'mosaic_existing_owner', supabaseUserId: OWNER };
@@ -116,6 +117,29 @@ describe('app-owned signed Supabase core Auth+RxDB lifecycle (#1027)', () => {
     expect(f.coordinator.getPhase()).toBe('signed-out');
     expect(mocks.bootstrap).not.toHaveBeenCalled();
     expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+  });
+
+  it('retains durable credentials on restore outage without exposing remote authority', async () => {
+    const f = fixture();
+    f.session.restoreFromPersistence.mockRejectedValueOnce(new Error('network unavailable'));
+    await expect(f.coordinator.restore()).rejects.toThrow('network unavailable');
+    expect(f.session.signOut).not.toHaveBeenCalled();
+    expect(f.session.discardMemory).toHaveBeenCalledOnce();
+    expect(f.coordinator.getPhase()).toBe('signed-out');
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+    expect(mocks.bootstrap).not.toHaveBeenCalled();
+    expect(await f.coordinator.restore()).toEqual(f.identity);
+  });
+
+  it('suspends a view without logging out other tabs or permitting a new account', async () => {
+    const f = fixture();
+    await f.coordinator.signIn('owner@example.test', 'password');
+    await f.coordinator.suspend();
+    expect(f.run.pause).toHaveBeenCalledOnce();
+    expect(f.run.stop).not.toHaveBeenCalled();
+    expect(f.session.signOut).not.toHaveBeenCalled();
+    expect(f.coordinator.getPhase()).toBe('paused');
+    await expect(f.coordinator.signIn('other@example.test', 'password')).rejects.toThrow();
   });
 
   it('refuses missing/mismatched legacy mapping and clears session before data access', async () => {

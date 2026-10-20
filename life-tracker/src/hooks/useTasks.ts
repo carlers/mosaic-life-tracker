@@ -14,7 +14,7 @@ import {
 } from '../lib/taskOrder';
 
 export function useTasks(enabled = true) {
-  const { user } = useAuth();
+  const { user, isLocalOwnerCurrent } = useAuth();
   const reorderQueue = useRef(Promise.resolve());
   const activeOwnerRef = useRef(user?.$id);
   useLayoutEffect(() => {
@@ -24,9 +24,10 @@ export function useTasks(enabled = true) {
   const assertActiveOwner = useCallback((expectedOwner: string | undefined) => {
     // In-flight reads and queued drag callbacks can outlive their account.
     // Unmount also revokes the local mutation permission.
-    if (!expectedOwner || activeOwnerRef.current !== expectedOwner)
+    if (!expectedOwner || activeOwnerRef.current !== expectedOwner ||
+        (isLocalOwnerCurrent && !isLocalOwnerCurrent(expectedOwner)))
       throw new Error('[useTasks] Account changed during task mutation');
-  }, []);
+  }, [isLocalOwnerCurrent]);
 
   const { data: tasks, isLoading } = useRxCollection<TaskDocument>({
     collection: 'tasks',

@@ -198,3 +198,33 @@ choice rejection and explicit convergence on a second browser, followed by
 verified retirement of all four fixtures. The local stack must also pass the
 same case; expiry tests separately assume a fully acknowledged base and hold a
 refresh outage until draft-retention assertions finish.
+
+## Persistent offline restart candidate (v0.32.2)
+
+The isolated Supabase provider now injects a browser session adapter when Web Locks
+and localStorage are available. It stores a refresh credential and a separately
+verified canonical-owner cache, scoped to the backend origin. Access JWTs and
+passwords remain in memory. Each login, restore, rotation and logout holds an
+exclusive Web Lock and reads the newest durable refresh token. A random browser
+family changes on login/logout; stale tabs cannot overwrite or clear its replacement.
+Cached identity permits only owner-scoped local data access. Signed Auth, canonical
+mapping and server writer guards are still required before remote replication.
+
+The cached owner renders immediately during a real outage or initial connection
+check. Reload can open the precached shell and existing RxDB data offline. Restore
+outages retain credentials and local edits; confirmed Auth rejection clears the
+family. Access-JWT expiry requires renewal rather than being interpreted as refresh
+revocation. Closing/unmounting a view pauses writers without signing out other tabs.
+Explicit logout still follows the guarded shutdown path. Cross-tab changes clear
+the visible owner; pending task/category writes also consult a synchronous,
+provider-neutral account fence before dispatch, independently of React rendering.
+After a cross-tab account replacement, reload explicitly adopts the new account.
+
+Unsupported browser locking/storage retains the memory-only behavior and says so.
+Stored refresh credentials remain accessible to same-origin scripts; this is not
+protection against XSS or browser storage eviction. No existing-user migration,
+Appwrite source fence or real-user rollout is enabled. Real browser acceptance for
+offline reload, shared-family rotation and separate-device isolation is part of
+`supabase-core-app.spec.mjs`; `hosted-core.mjs --offline` runs it against mosaic-dev
+and verifies fixture retirement even on failure. Exact passing run evidence belongs
+in #1027, not an inference from this implementation description.

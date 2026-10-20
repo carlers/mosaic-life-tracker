@@ -96,7 +96,7 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
               {isOnline
-                ? 'Mosaic has confirmed Appwrite is reachable.'
+                ? 'Mosaic has confirmed the sync service is reachable.'
                 : isOffline
                   ? 'Personal data stays available locally. Sync resumes when Mosaic can reach Appwrite again.'
                   : 'Mosaic is verifying sync reachability in the background.'}

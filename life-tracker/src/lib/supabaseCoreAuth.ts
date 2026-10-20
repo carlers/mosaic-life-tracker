@@ -39,8 +39,8 @@ export interface SupabaseCoreAuthOptions extends Omit<
    */
   resolveIdentity(signed: CandidateVerifiedSession): Promise<CandidateIdentity>;
   /**
-   * Auth defaults to memory-only. Refresh-token persistence is deliberately
-   * NOT a public option until cross-tab rotation has a verified exclusive lock.
+   * Auth defaults to memory-only. The browser provider injects a session with
+   * exclusive Web Lock transactions and durable browser-family fences.
    * Unit and signed-lab tests may inject an explicitly provisioned session.
    */
   session?: SessionManager;
@@ -76,8 +76,7 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
     throw new Error('Signed Supabase core requires all server and local writer guards');
   }
 
-  // No persisted credential is enabled here. A future browser adapter may
-  // enable it only with audited cross-tab locking and origin/account fencing.
+  // Persistence belongs to the injected browser adapter, never this coordinator.
   const session = options.session ?? createCandidateAuthSession({
     baseUrl: options.baseUrl,
     publishableKey: options.publishableKey,
@@ -133,7 +132,10 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
     await session.signOut();
   }
 
-  async function startSigned(action: () => Promise<CandidateVerifiedSession | null>) {
+  async function startSigned(
+    action: () => Promise<CandidateVerifiedSession | null>,
+    retainOnOutage = false,
+  ) {
     if (phase !== 'signed-out')
       throw new Error('Supabase core session is active, busy or blocked');
     phase = 'authenticating';
@@ -151,9 +153,13 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
       const blocked = pendingBootstrap?.getPhase() === 'blocked' ||
         (error instanceof Error && /cleanup unconfirmed|writer lease retained/.test(error.message));
       active = null;
-      // Even when a writer is blocked, discard local Auth credentials. Never
-      // expose an owner just because refresh tokens or a cache hint exist.
-      try { await clearLocalAuth(); }
+      // A restore outage does not revoke the durable refresh family or its
+      // previously verified local-data hint. No writer/remote owner is exposed.
+      try {
+        if (retainOnOutage && !blocked && !(error instanceof CandidateSessionDeniedError))
+          session.discardMemory();
+        else await clearLocalAuth();
+      }
       catch { /* local Auth cleanup failure is also a hard block */ phase = 'blocked'; throw error; }
       phase = blocked ? 'blocked' : 'signed-out';
       throw error;
@@ -167,7 +173,22 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
   }
 
   async function restore() {
-    return startSigned(() => session.restoreFromPersistence());
+    return startSigned(() => session.restoreFromPersistence(), true);
+  }
+
+  /** View teardown stops local writers without signing out other browser tabs.
+   * Keep the lease/owner so this lifecycle cannot silently switch accounts. */
+  async function suspend() {
+    if ((phase !== 'active' && phase !== 'paused') || !active) return;
+    const established = active;
+    phase = 'stopping';
+    try {
+      await established.run.pause();
+      phase = 'paused';
+    } catch (error) {
+      phase = 'blocked';
+      throw error;
+    }
   }
 
   async function signOut(): Promise<boolean> {
@@ -255,6 +276,7 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
   return {
     signIn,
     restore,
+    suspend,
     signOut,
     refreshAndRestart,
     resync,
@@ -281,6 +303,6 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
   };
 }
 
-// Retained type export for disposable signed tests only; browser persistence
-// deliberately has no direct wiring or automatic credential selection here.
+// The browser adapter owns persistence; this coordinator grants no authority
+// from an injected persistence record or cached identity.
 export type { CandidateSessionPersistence };

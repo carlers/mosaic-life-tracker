@@ -12,6 +12,7 @@ node supabase-poc/hosted-core.mjs --inspect
 node supabase-poc/hosted-core.mjs --probe
 node supabase-poc/hosted-core.mjs --ui
 node supabase-poc/hosted-core.mjs --conflicts
+node supabase-poc/hosted-core.mjs --offline
 ```
 
 In a managed environment where Node must use the configured HTTP proxy, set
@@ -92,6 +93,15 @@ captures only the disposable comparison in Light, Dark and Black. It never captu
 login fields or credential-bearing traces. These are browser screenshots, not
 physical-device acceptance.
 
+`--offline` exercises the installed service-worker shell and real browser
+storage: reopen the previously verified owner offline, acknowledge a local task
+edit, reload again, reconnect and verify another device. It also restores
+simultaneous tabs sharing one refresh family, closes an authenticated tab without
+logging out the others, and checks browser-wide logout/account isolation while an
+independent device remains signed in. Service-worker installation requires a
+normal subsequent navigation; the app still never forces activation or claim.
+The same case runs against the disposable local stack in the core app lab.
+
 Finally, the runner tombstones fixture rows through signed CAS, freezes their
 authorities and bans their Auth accounts. It preserves revisions and tombstones;
 there is no hard deletion. Retirement is attempted even when assertions fail,
@@ -102,8 +112,10 @@ The command never resumes or cleans up arbitrary users.
 Intentional advisor warnings for authenticated `SECURITY DEFINER` CAS/session
 RPCs are reviewed against the signed negative tests; they are not silently
 suppressed. New warnings/errors need investigation. This evidence does not replace
-offline cold-start/refresh rotation, existing-user Appwrite fencing, reversible
-migration, encrypted restore, manual-device or hosted Preview acceptance.
+existing-user Appwrite fencing, reversible migration, encrypted restore,
+manual-device or hosted Preview acceptance. The offline case proves only the
+browser behavior actually exercised; it does not prove storage survives OS
+eviction or installed mobile PWA lifecycle changes.
 # Isolated Vercel core Preview
 
 The #1027 Preview uses only `https://hcxtiifzxoaflhjgoglb.supabase.co` and the
