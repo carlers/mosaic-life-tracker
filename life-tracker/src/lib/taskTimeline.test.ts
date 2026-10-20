@@ -5,6 +5,7 @@ import {
   formatTaskTimestamp,
   resolveDayViewMode,
   resolveTimelineDirection,
+  resolveTimelineSortBasis,
   resolveTimestampLabelStyle,
   sortTasksByTimeline,
 } from './taskTimeline';
@@ -23,6 +24,20 @@ describe('Day View timeline projection', () => {
     expect(sortTasksByTimeline(original, 'desc').map(t => t.id)).toEqual(['b', 'c', 'd', 'a', 'e']);
     expect(sortTasksByTimeline(original, 'asc').map(t => t.id)).toEqual(['a', 'd', 'c', 'b', 'e']);
     expect(original.map(t => t.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
+  });
+  it('can prioritize creation timestamps without mutating the saved task order', () => {
+    const original = [older, completed, newer, legacy, invalid];
+    expect(sortTasksByTimeline(original, 'desc', 'creation').map(t => t.id))
+      .toEqual(['c', 'd', 'a', 'b', 'e']);
+    expect(sortTasksByTimeline(original, 'asc', 'creation').map(t => t.id))
+      .toEqual(['b', 'a', 'd', 'c', 'e']);
+    expect(original.map(t => t.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(effectiveTaskTimestamp(completed, 'creation')).toEqual({
+      kind: 'created', value: completed.createdAt
+    });
+    expect(effectiveTaskTimestamp(task('no-created', 'bad', true, '2026-10-20T12:00:00Z'), 'creation')).toEqual({
+      kind: 'completed', value: '2026-10-20T12:00:00Z'
+    });
   });
   it('falls back to creation and never manufactures completion timestamps', () => {
     expect(effectiveTaskTimestamp(legacy)).toEqual({ kind: 'created', value: legacy.createdAt });
@@ -44,5 +59,7 @@ describe('Day View timeline projection', () => {
     expect(resolveTimestampLabelStyle('text')).toBe('text');
     expect(resolveDayViewMode('unexpected')).toBe('categories');
     expect(resolveTimelineDirection('unexpected')).toBe('desc');
+    expect(resolveTimelineSortBasis('unexpected')).toBe('completion');
+    expect(resolveTimelineSortBasis('creation')).toBe('creation');
   });
 });

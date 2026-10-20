@@ -45,6 +45,7 @@ import {
   TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY,
   DAY_VIEW_MODE_SETTING_KEY,
   TIMELINE_DIRECTION_SETTING_KEY,
+  TIMELINE_SORT_BASIS_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
   resolveIncompleteTaskBlockColorMode,
   SHARED_LABEL_MODE_SETTING_KEY,
@@ -80,7 +81,7 @@ import {
 import { useHolidayCountries } from '../hooks/useHolidays';
 import { resolveTaskCompletionSortMode, type TaskCompletionSortMode } from '../lib/taskOrder';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
-import { resolveDayViewMode, resolveTimelineDirection, resolveTimestampLabelStyle } from '../lib/taskTimeline';
+import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../lib/taskTimeline';
 interface ChoiceCopy {
   label: string;
   description: string;
@@ -260,6 +261,7 @@ export const PreferencesPage: React.FC = () => {
   const timestampLabelStyle = resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons'));
   const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
+  const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
@@ -413,6 +415,14 @@ export const PreferencesPage: React.FC = () => {
             value={dayViewMode}
             options={[{ value: 'categories', label: 'Categories' }, { value: 'timeline', label: 'Timeline' }]}
             onChange={value => void setSetting(DAY_VIEW_MODE_SETTING_KEY, resolveDayViewMode(value))}
+          />
+          <SelectSettingRow
+            id="day-view-timeline-sort-basis"
+            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Timeline sort by"
+            value={timelineSortBasis}
+            options={[{ value: 'completion', label: 'Completion first' }, { value: 'creation', label: 'Creation first' }]}
+            onChange={value => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, resolveTimelineSortBasis(value))}
           />
           <SelectSettingRow
             id="day-view-timeline-direction"

@@ -5,18 +5,20 @@ import {
   effectiveTaskTimestamp,
   formatTaskTimestamp,
   type TaskTimestampDisplay,
+  type TimelineSortBasis,
 } from '../../../lib/taskTimeline';
 
 interface Props {
   task: TaskDocument;
   display: TaskTimestampDisplay;
   timeline?: boolean;
+  sortBasis?: TimelineSortBasis;
 }
 
-export const TaskTimestampMeta: React.FC<Props> = ({ task, display, timeline = false }) => {
+export const TaskTimestampMeta: React.FC<Props> = ({ task, display, timeline = false, sortBasis = 'completion' }) => {
   const events: { kind: 'created' | 'completed'; value: string }[] = [];
   if (timeline) {
-    const event = effectiveTaskTimestamp(task);
+    const event = effectiveTaskTimestamp(task, sortBasis);
     if (event) events.push(event);
   } else {
     if (display.showCreated) events.push({ kind: 'created', value: task.createdAt });

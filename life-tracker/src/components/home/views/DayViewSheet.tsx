@@ -18,7 +18,7 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
-import { resolveDayViewMode, resolveTimelineDirection, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
+import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
 const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { TaskActionSheet } from './TaskActionSheet';
@@ -62,6 +62,7 @@ import {
   TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY,
   DAY_VIEW_MODE_SETTING_KEY,
   TIMELINE_DIRECTION_SETTING_KEY,
+  TIMELINE_SORT_BASIS_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
@@ -178,6 +179,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   };
   const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
+  const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
@@ -1124,6 +1126,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           selectedTaskIds={selectedTaskIds}
                           onToggleTaskSelection={handleToggleTaskSelection}
                           direction={timelineDirection}
+                          sortBasis={timelineSortBasis}
+                          onSortBasisChange={basis => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, basis)}
                           timestampDisplay={timestampDisplay}
                           showOtherContentNotice={showDiaryInDayView ||
                             sharedTasks.activeItems.some(item => item.status === 'accepted' && item.date === dateStr)}

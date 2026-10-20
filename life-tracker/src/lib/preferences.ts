@@ -67,3 +67,4 @@ export const SHOW_TASK_COMPLETED_TIME_SETTING_KEY = 'showTaskCompletedTime';
 export const TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY = 'taskTimestampLabelStyle';
 export const DAY_VIEW_MODE_SETTING_KEY = 'dayViewMode';
 export const TIMELINE_DIRECTION_SETTING_KEY = 'dayTimelineDirection';
+export const TIMELINE_SORT_BASIS_SETTING_KEY = 'dayTimelineSortBasis';
