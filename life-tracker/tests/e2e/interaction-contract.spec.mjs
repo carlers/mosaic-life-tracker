@@ -1673,6 +1673,14 @@ test('long-held task at Day View edge advances repeatedly without releasing or s
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
 });
 
+test.describe('desktop pointer ownership — no touch emulation', () => {
+  test.use({
+    isMobile: false,
+    hasTouch: false,
+    viewport: { width: 1280, height: 840 },
+    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+  });
+
 // #856: genuine held primary-mouse dragging is distinct from Swiper's
 // ordinary mouse swipe. The old touch-only regression missed this failure.
 test('held mouse task drag advances Day View at right edge and ends at mouseup', async ({ page }) => {
@@ -1735,6 +1743,8 @@ test('ordinary mouse Day View swipe stops following cursor when button is releas
   await expect(dialog.locator('.swiper-slide-active')).toContainText('Wednesday, September 16, 2026');
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
 });
+
+}); // desktop pointer ownership
 
 test('mouse drag over a task title swipes the Day View instead of being trapped by the task control', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);

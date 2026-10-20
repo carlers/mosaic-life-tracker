@@ -17,6 +17,7 @@ Current task: #856 — fix phantom desktop drag and inert real held cross-day dr
 - Version PATCH v0.34.2 after v0.34.1 user-tested failure.
 
 ## Verification plan / outstanding
-- Run focused browser gate on task branch, repair any failures, then squash into stable Preview and obtain canonical full CI plus exact-SHA Vercel READY.
+- Browser-focused run #39423340879 revealed the first touch edge-swipe works but the second does not: `onNativeEnd` was finishing the stable carry on dnd-kit source unmount mid-swipe. Repair retains carried session while matching physical pointer is held and ends it only on actual pointerup/cancel/mouseup/blur/etc. Focused lint also rejected unused callback args, now removed. Request fresh browser-focused verification for this patch.
+- New desktop Playwright scenario explicitly disables mobile/touch emulation for held mouse and post-release hover checks. After focused success, squash to stable Preview, run canonical full CI and verify exact-SHA Vercel READY.
 - Physical device / actual account retest, persistence/offline sync, high day-count rebase and iOS Safari still unverified. Keep #856 open.
 - No approval to promote `dev` or `main` or alter backend/Production.

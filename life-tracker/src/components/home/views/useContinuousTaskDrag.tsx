@@ -334,7 +334,12 @@ export function useContinuousTaskDrag({
       finish(false);
     };
     const onVisibility = () => { if (document.hidden) lost(); };
-    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') finish(false); };
+    const key = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        heldRef.current = null;
+        finish(false);
+      }
+    };
     window.addEventListener('pointerdown', down, true);
     window.addEventListener('pointermove', move, true);
     window.addEventListener('pointerup', up, true);
@@ -381,7 +386,7 @@ export function useContinuousTaskDrag({
     } as PointerEvent);
   }, [finish, updatePoint]);
 
-  const startTask = React.useCallback((task: TaskDocument, rect: Rect, _event?: Event | null, _position?: Point) => {
+  const startTask = React.useCallback((task: TaskDocument, rect: Rect) => {
     const held = heldRef.current;
     if (!held || held.taskId !== task.id ||
         !latestRef.current.isOpen || task.userId !== latestRef.current.currentUserId ||
@@ -404,7 +409,7 @@ export function useContinuousTaskDrag({
     } as PointerEvent);
   }, [reset, updatePoint, swiperRef]);
 
-  const onNativeEnd = React.useCallback((taskId: string, canceled = false) => {
+  const onNativeEnd = React.useCallback((taskId: string) => {
     if (suppressedEndRef.current === taskId) {
       suppressedEndRef.current = null;
       return true;
@@ -412,10 +417,12 @@ export function useContinuousTaskDrag({
     const session = sessionRef.current;
     if (!session || session.task.id !== taskId) return false;
     if (session.stage === 'external') {
-      // dnd-kit may terminate without a window-level pointerup (e.g. source
-      // unmount). Never leave a zombie session tracking subsequent hover.
-      finish(!canceled && heldRef.current?.id === session.pointerId);
-      heldRef.current = null;
+      // Swiper replaces the native draggable source when advancing days.
+      // dnd-kit consequently reports a canceled local drag *while the
+      // physical pointer is still down*. That is a handoff, not a release.
+      // The stable window pointerup/cancel/mouseup listeners own final commit.
+      if (heldRef.current?.id === session.pointerId) return true;
+      finish(false);
       return true;
     }
     heldRef.current = null;
