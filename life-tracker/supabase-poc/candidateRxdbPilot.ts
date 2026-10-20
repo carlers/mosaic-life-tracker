@@ -1,7 +1,8 @@
 /**
  * Isolated #967 RxDB replication pilot: tasks/categories only.
  *
- * NOT imported by Mosaic's shipped Appwrite replication or database bootstrap.
+ * Imported by the gated app-owned core bridge, not by Mosaic's shipped
+ * Appwrite replication or automatic database bootstrap.
  * RxDB owns its native durable pull/push checkpoints. Do not add a second
  * checkpoint store or start this alongside the Appwrite pilot on shared data.
  *
@@ -59,8 +60,12 @@ export type CandidateConflictReviewEvent<D extends Document> =
   | { type: 'cleared'; documentId: string };
 
 export class CandidatePendingConflictError extends Error {
-  constructor(readonly domain: CandidateDomain, readonly documentId: string) {
+  readonly domain: CandidateDomain;
+  readonly documentId: string;
+  constructor(domain: CandidateDomain, documentId: string) {
     super('Supabase candidate remote conflict requires explicit local-edit resolution');
+    this.domain = domain;
+    this.documentId = documentId;
     this.name = 'CandidatePendingConflictError';
   }
 }
@@ -207,7 +212,9 @@ export function createCandidateRxdbPilot<D extends Document>(
       throw new CandidateAuthError('Candidate RxDB account changed during pull');
     }
     return {
-      documents: result.documents as Replicated<D>[],
+      // The selected domain fixes D at runtime; TS cannot narrow the generic
+      // from the runtime domain union. Owner/schema validation happens in pull.
+      documents: result.documents as unknown as Replicated<D>[],
       checkpoint: result.checkpoint,
     };
   }
@@ -373,7 +380,9 @@ export function createCandidateRxdbPilot<D extends Document>(
     await fence();
     if (!document)
       return { state: 'local-changed', revision: review.remoteRevision };
-    const local = document.toJSON() as Replicated<D>;
+    // RxDB returns deeply readonly snapshots; the replication wrapper is
+    // structurally compatible here and must remain immutable.
+    const local = document.toJSON() as unknown as Replicated<D>;
     if (local.userId !== identity.legacyUserId) {
       clearAllReviews();
       throw new CandidateAuthError('Candidate conflict refresh owner mismatch');
@@ -418,7 +427,9 @@ export function createCandidateRxdbPilot<D extends Document>(
     const document = await options.collection.findOne(documentId).exec();
     await fence();
     if (!document) throw new CandidatePendingConflictError(domain, documentId);
-    const local = document.toJSON() as Replicated<D>;
+    // RxDB returns deeply readonly snapshots; the replication wrapper is
+    // structurally compatible here and must remain immutable.
+    const local = document.toJSON() as unknown as Replicated<D>;
     if (local.userId !== identity.legacyUserId ||
       canonical(domain, local, identity) !== canonical(domain, review.local, identity))
       throw new CandidatePendingConflictError(domain, documentId);
