@@ -88,7 +88,11 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
   function checkedWriter(owner: CandidateVerifiedSession, lease: CandidateCoreWriterLease): void {
     if (!lease.isCurrent()) throw new Error('Candidate core writer lease was revoked');
     const writers: DomainWriter[] = ['tasks', 'categories'].map(domain => ({
-      domain, ownerId: owner.userId, provider: 'supabase',
+      domain,
+      canonicalOwnerId: options.identity.legacyUserId,
+      ownerId: owner.userId,
+      target: 'supabase-cloud',
+      deploymentId: new URL(options.baseUrl).origin,
     }));
     assertSingleCloudWriter(writers);
   }

@@ -17,6 +17,14 @@ The profile can be read from the build-only `VITE_MOSAIC_FEATURE_PROFILE`. This 
 
 PostHog already supports remote feature flags; eventual rollout may further **disable** supported features. An offline/outage response may never prevent access to previously authorized local core data, and remote toggles never permit unsupported RPCs or cross-account reads.
 
+## Three backend installations and canonical owner identity (2026-10-20)
+
+The provider abstraction now identifies **three distinct backend targets**: `appwrite-cloud`, `appwrite-oracle` and `supabase-cloud`. Both Appwrite installations share one Appwrite API driver; they are nevertheless **different authoritative deployments** with different operational failure, account, quota and backup boundaries. A switch between those two is a real data migration, not a no-op.
+
+`DomainWriter` now requires `canonicalOwnerId` (the independently proven stable Mosaic account identity), `ownerId` (the identity issued by the selected backend), `target`, `deploymentId` and `domain`. `assertSingleCloudWriter` refuses multiple proposed writers to a canonical account/domain **even when backend-native IDs differ or the same Appwrite driver is involved**; it also refuses binding one backend-native owner to two canonical owners on a domain. `ProviderReturnGate` now names both exact source and destination installations, enabling the same reversible checks for Appwrite Cloud ↔ Oracle, either Appwrite ↔ Supabase Cloud, and moves to a different instance of a given target.
+
+These are **in-process contract assertions**, not trusted identity verification, a production-ready backend setting, a distributed mutex, old-PWA fencing, signed account migration or a real import/export pipeline. A malicious/stale client can ignore them; the server-controlled ownership ledger and writer cutoff are still required. The candidate's legacy identity must pass its existing separately injected trusted mapping/fencing guard before starting task/category replication. No provider selection or hosted backend mutation occurs in this source-only work.
+
 ## How to return to Appwrite without losing writes
 
 The goal is **repeatable tested migration in either direction**, not one-click flipping of a URL after users have edited their Supabase task rows. Returning to Appwrite is safe only after source and destination reconciliation. Both services MUST NEVER be simultaneous authoritative writers for one owner/domain.
