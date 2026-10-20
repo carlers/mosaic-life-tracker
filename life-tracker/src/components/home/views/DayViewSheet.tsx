@@ -18,6 +18,7 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
+import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { TaskActionSheet } from './TaskActionSheet';
 const { Component: LazyLinkTaskToBucketSheet, preload: preloadLinkTaskToBucketSheet } =
@@ -153,6 +154,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     deleteTask,
     reorderTasks,
     moveTasksToCategory,
+    moveTaskAcrossDays,
   } = taskStore;
   const { categories: hookCategories = [], reorderCategories, updateCategory } = useCategories(
     categoriesOverride === undefined
@@ -351,6 +353,20 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
 
   const activeDateStr = isBacklogView ? '' : (slideDateStrs[activeIndex] ?? format(selectedDate, 'yyyy-MM-dd'));
+  const continuousDrag = useContinuousTaskDrag({
+    isOpen: isOpen && !isBacklogView,
+    currentUserId,
+    swiperRef,
+    categories,
+    onCommit: (task, date, categoryId, index) =>
+      moveTaskAcrossDays(task.id, task.date, date, categoryId, index),
+    onFeedback: showFeedback,
+    onExternalFinished: () => setIsTaskReorderActive(false),
+  });
+  useEffect(() => {
+    continuousDrag.onWindowRebased();
+  }, [anchorKey, continuousDrag.onWindowRebased]);
+
   const previousActiveDateStrRef = useRef(activeDateStr);
   const selectedTasks = useMemo(
     () =>
@@ -397,12 +413,13 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     renderMode === 'inline' ? renderWindow : deferredRenderWindow;
 
   const handleSheetClose = useCallback(() => {
+    continuousDrag.cancel();
     setDeferredRenderWindow(0);
     setIsTaskReorderActive(false);
     setIsSelectMode(false);
     setSelectedTaskIds(new Set());
     onClose();
-  }, [onClose]);
+  }, [continuousDrag.cancel, onClose]);
 
   useEffect(() => {
     if (!isOpen || (renderMode !== 'sheet' && !isBacklogView) || !focusTaskId) return;
@@ -463,13 +480,16 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [exitSelectMode, handleNextDay, isSelectMode]);
 
   const handleSlideChangeFromUi = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
+    if (!continuousDrag.onSlideChanged(swiper)) return;
     if (isSelectMode) exitSelectMode();
     handleSlideChange(swiper);
-  }, [exitSelectMode, handleSlideChange, isSelectMode]);
+  }, [continuousDrag.onSlideChanged, exitSelectMode, handleSlideChange, isSelectMode]);
 
   const handleSwipeSettledFromUi = useCallback((swiper: Parameters<typeof handleSwipeSettled>[0]) => {
+    const settled = slideDateStrs[swiper.activeIndex];
+    if (!settled || !continuousDrag.onSettled(settled, swiper)) return;
     handleSwipeSettled(swiper);
-  }, [handleSwipeSettled]);
+  }, [continuousDrag.onSettled, handleSwipeSettled, slideDateStrs]);
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) => {
@@ -938,7 +958,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         modules={renderMode === 'sheet' ? [Virtual] : undefined}
         virtual={renderMode === 'sheet' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
         nested={renderMode === 'inline'}
-        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen}
+        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen && !continuousDrag.projection}
         noSwiping={renderMode === 'sheet'}
         focusableElements={DAY_SWIPER_FOCUSABLE_ELEMENTS}
         touchStartPreventDefault={false}
@@ -946,6 +966,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         autoHeight={renderMode === 'inline'}
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
+          continuousDrag.onWindowRebased();
         }}
         onBeforeDestroy={(swiper) => {
           if (swiperRef.current === swiper) {
@@ -1103,14 +1124,23 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         i === activeIndex &&
                         !isSelectMode &&
                         !isBackgroundLocked &&
+                        !continuousDrag.projection &&
                         editingTaskId === null
                       }
                       reorderRuntimeActive={isOpen && i === activeIndex}
+                      onCrossDayTaskStart={continuousDrag.startTask}
+                      onCrossDayTaskMove={continuousDrag.moveTask}
+                      onCrossDayNativeEnd={continuousDrag.onNativeEnd}
+                      crossDayDragTaskId={continuousDrag.projection?.task.id}
+                      crossDayInsertion={continuousDrag.projection?.date === dateStr
+                        ? { categoryId: continuousDrag.projection.categoryId,
+                            index: continuousDrag.projection.index, height: continuousDrag.projection.height }
+                        : undefined}
                       onReorderTasks={reorderTasks}
             onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
             onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
             onCategoryActionError={showFeedback}
-                      onReorderActiveChange={setIsTaskReorderActive}
+                      onReorderActiveChange={(active) => setIsTaskReorderActive(active || Boolean(continuousDrag.carried))}
                       diaryEnabled={showDiaryInDayView && !isSelectMode}
                       diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
                       onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
@@ -1124,6 +1154,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         })}
       </Swiper>
       )}
+      {continuousDrag.overlay}
       <AnimatePresence initial={false}>
         {isSelectMode && (
           <motion.div

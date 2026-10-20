@@ -70,6 +70,11 @@ interface CategorySectionProps {
   activeDragTaskId?: string | null;
   dragGapIndex?: number | null;
   dragGapHeight?: number;
+  externalDraggedTaskId?: string | null;
+  /** Keep task row wrappers mounted while the external slot becomes a saved row. */
+  externalRuntimeActive?: boolean;
+  externalGapIndex?: number | null;
+  externalGapHeight?: number;
   categoryActions?: CategoryPillActions;
 }
 
@@ -113,6 +118,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   activeDragTaskId = null,
   dragGapIndex = null,
   dragGapHeight = 0,
+  externalDraggedTaskId = null,
+  externalRuntimeActive = false,
+  externalGapIndex = null,
+  externalGapHeight = 0,
   categoryActions: suppliedCategoryActions,
 }) => {
   const contextualActions = useContext(CategoryPillActionContext);
@@ -219,6 +228,19 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const categoryCollapsed = showCollapseButton && isCollapsed;
+  // During cross-day carry, the native source is outside this day's list.
+  // Keep a single neutral slot that pushes other rows (and entire categories)
+  // aside, matching the ordinary same-day task reorder projection.
+  const externalVisibleTasks = externalDraggedTaskId
+    ? tasks.filter(task => task.id !== externalDraggedTaskId) : tasks;
+  const externalSlotIndex = externalGapIndex === null ? null
+    : Math.max(0, Math.min(externalGapIndex, externalVisibleTasks.length));
+  const neutralSlot = (index: number) => externalSlotIndex === index
+    ? <motion.div key="cross-day-slot" layout="position"
+        data-cross-day-reorder-slot="true" aria-hidden="true"
+        transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
+        style={{ height: Math.max(1, externalGapHeight), pointerEvents: 'none' }} />
+    : null;
   const allCategoryTasksSelected = tasks.length > 0 &&
     tasks.every(task => selectedTaskIds.has(task.id));
   const canReorder =
@@ -322,6 +344,34 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     }
     if (diarySlot && diarySlotIndex >= tasks.length) rows.push(renderDiary(Math.min(tasks.length, diarySlotIndex)));
     if (diaryGhostSlot && diaryGhostSlotIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
+    return rows;
+  };
+
+  const renderExternalRows = () => {
+    const rows: React.ReactNode[] = [];
+    externalVisibleTasks.forEach((task, index) => {
+      const slot = neutralSlot(index);
+      if (slot) rows.push(slot);
+      if (diarySlot && index === Math.min(externalVisibleTasks.length, diarySlotIndex)) rows.push(diarySlot);
+      if (diaryGhostSlot && index === Math.min(externalVisibleTasks.length, diaryGhostSlotIndex)) rows.push(diaryGhostSlot);
+      // Keep the exact same wrapper and draggable child as normal same-day
+      // sorting. Replacing these with a plain motion row during cross-day
+      // carry previously remounted every sibling at release (visible flash).
+      rows.push(externalRuntimeActive
+        ? <TaskRowDropSurface key={task.id} categoryId={categoryId} taskId={task.id}
+            eagerRegister={index < 12} animatePosition={animatePositions}>
+            <DraggableTaskItem {...taskProps(task)} />
+          </TaskRowDropSurface>
+        : <motion.div key={task.id} layout={animatePositions ? 'position' : false}
+            transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>
+            <TaskItem {...taskProps(task)} />
+          </motion.div>
+      );
+    });
+    const trailingSlot = neutralSlot(externalVisibleTasks.length);
+    if (trailingSlot) rows.push(trailingSlot);
+    if (diarySlot && diarySlotIndex >= externalVisibleTasks.length) rows.push(diarySlot);
+    if (diaryGhostSlot && diaryGhostSlotIndex >= externalVisibleTasks.length) rows.push(diaryGhostSlot);
     return rows;
   };
 
@@ -524,11 +574,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       {!categoryCollapsed &&
         (canReorder
           ? renderDraggableRows()
-          : <>{tasks.map((task, index) => <React.Fragment key={task.id}>
-              {diarySlot && index === Math.min(tasks.length, diarySlotIndex) && diarySlot}
-              {diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex) && diaryGhostSlot}
-              <TaskItem {...taskProps(task)} />
-            </React.Fragment>)}{diarySlot && diarySlotIndex >= tasks.length && diarySlot}{diaryGhostSlot && diaryGhostSlotIndex >= tasks.length && diaryGhostSlot}</>)}
+          : renderExternalRows())}
+      {categoryCollapsed && externalSlotIndex !== null && neutralSlot(externalSlotIndex)}
       {categoryCollapsed && diarySlot}
       {categoryCollapsed && diaryGhostSlot}
       {!categoryCollapsed && sharedRows}
