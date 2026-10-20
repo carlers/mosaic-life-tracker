@@ -14,6 +14,10 @@ import {
   Tag,
   Sticker,
   Trash2,
+  Clock3,
+  CalendarPlus2,
+  CheckCircle2,
+  ListOrdered,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppearance } from '../hooks/useAppearance';
@@ -36,6 +40,11 @@ import {
   shouldConfirmTaskDelete,
   GIPHY_AUTOPLAY_SETTING_KEY,
   TASK_COMPLETION_SORT_SETTING_KEY,
+  SHOW_TASK_CREATED_TIME_SETTING_KEY,
+  SHOW_TASK_COMPLETED_TIME_SETTING_KEY,
+  TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY,
+  DAY_VIEW_MODE_SETTING_KEY,
+  TIMELINE_DIRECTION_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
   resolveIncompleteTaskBlockColorMode,
   SHARED_LABEL_MODE_SETTING_KEY,
@@ -71,6 +80,7 @@ import {
 import { useHolidayCountries } from '../hooks/useHolidays';
 import { resolveTaskCompletionSortMode, type TaskCompletionSortMode } from '../lib/taskOrder';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
+import { resolveDayViewMode, resolveTimelineDirection, resolveTimestampLabelStyle } from '../lib/taskTimeline';
 interface ChoiceCopy {
   label: string;
   description: string;
@@ -245,6 +255,11 @@ export const PreferencesPage: React.FC = () => {
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
+  const showTaskCreatedTime = getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
+  const showTaskCompletedTime = getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
+  const timestampLabelStyle = resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons'));
+  const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
+  const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
@@ -366,6 +381,46 @@ export const PreferencesPage: React.FC = () => {
             isToggle
             checked={confirmTaskDelete}
             onClick={() => void setSetting(CONFIRM_TASK_DELETE_SETTING_KEY, !confirmTaskDelete)}
+          />
+          <SettingsRow
+            icon={<CalendarPlus2 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show task creation time"
+            showChevron={false}
+            isToggle
+            checked={showTaskCreatedTime}
+            onClick={() => void setSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, !showTaskCreatedTime)}
+          />
+          <SettingsRow
+            icon={<CheckCircle2 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show task completion time"
+            showChevron={false}
+            isToggle
+            checked={showTaskCompletedTime}
+            onClick={() => void setSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, !showTaskCompletedTime)}
+          />
+          <SelectSettingRow
+            id="task-timestamp-label-style"
+            icon={<Clock3 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Timestamp labels"
+            value={timestampLabelStyle}
+            options={[{ value: 'icons', label: 'Icons' }, { value: 'text', label: 'Text' }]}
+            onChange={value => void setSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, resolveTimestampLabelStyle(value))}
+          />
+          <SelectSettingRow
+            id="day-view-default-mode"
+            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Day View display"
+            value={dayViewMode}
+            options={[{ value: 'categories', label: 'Categories' }, { value: 'timeline', label: 'Timeline' }]}
+            onChange={value => void setSetting(DAY_VIEW_MODE_SETTING_KEY, resolveDayViewMode(value))}
+          />
+          <SelectSettingRow
+            id="day-view-timeline-direction"
+            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Timeline order"
+            value={timelineDirection}
+            options={[{ value: 'desc', label: 'Newest first' }, { value: 'asc', label: 'Oldest first' }]}
+            onChange={value => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, resolveTimelineDirection(value))}
           />
           <SelectSettingRow
             id="task-completion-sort"

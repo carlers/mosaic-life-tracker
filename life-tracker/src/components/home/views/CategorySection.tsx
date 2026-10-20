@@ -13,6 +13,7 @@ import {
 import { visibilityIcon } from '../../../lib/visibility';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 
 type Visibility = 'private' | 'followers' | 'public';
 
@@ -38,6 +39,7 @@ interface CategorySectionProps {
   currentUserId: string;
   tasks: TaskDocument[];
   ownerLabels?: ReadonlyMap<string, string>;
+  timestampDisplay?: TaskTimestampDisplay;
   sharedRows?: React.ReactNode;
   diarySlot?: React.ReactNode;
   diarySlotIndex?: number;
@@ -81,6 +83,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   currentUserId,
   tasks,
   ownerLabels,
+  timestampDisplay,
   sharedRows,
   diarySlot,
   diarySlotIndex = 0,
@@ -231,6 +234,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const taskProps = (task: TaskDocument) => ({
     task,
     shareLabel: ownerLabels?.get(task.id),
+    timestampDisplay,
     categoryColor,
     currentUserId,
     onToggle: () => onToggleTask(task.id, task.completed),

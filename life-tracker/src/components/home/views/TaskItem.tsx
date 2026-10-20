@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, UsersRound } from 'lucide-react';
+import { TaskTimestampMeta } from './TaskTimestampMeta';
+import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
@@ -15,6 +17,7 @@ export interface TaskItemProps {
   task: TaskDocument;
   categoryColor: string;
   shareLabel?: string;
+  timestampDisplay?: TaskTimestampDisplay;
   currentUserId: string;
   onToggle: (taskId: string) => void;
   onOpenActions: (task: TaskDocument) => void;
@@ -136,6 +139,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   task,
   categoryColor,
   shareLabel,
+  timestampDisplay,
   currentUserId,
   onToggle,
   onOpenActions,
@@ -294,6 +298,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             <UsersRound size={12} className="shrink-0" aria-hidden="true" />
             <span className="min-w-0 truncate">{shareLabel}</span>
           </p>
+        )}
+        {timestampDisplay && (timestampDisplay.showCreated || timestampDisplay.showCompleted) && (
+          <TaskTimestampMeta task={task} display={timestampDisplay} />
         )}
         {task.memo && (
           <TaskMemo task={task} onOpenMemo={onOpenMemo} selectionMode={selectionMode} onSelect={onToggleSelection} />
