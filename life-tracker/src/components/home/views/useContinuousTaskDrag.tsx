@@ -129,7 +129,7 @@ export function useContinuousTaskDrag({
         session.task.userId !== latestRef.current.currentUserId) return;
     // Never navigate into a virtual-window edge. Parent selectedDate rebases
     // the 181-slide window near ±87; retry only after Swiper is recentered.
-    if (swiper.activeIndex <= 4 || swiper.activeIndex >= TOTAL_SLIDES - 5) {
+    if (swiper.activeIndex <= 2 || swiper.activeIndex >= TOTAL_SLIDES - 3) {
       setEdgeHint(session.direction);
       return;
     }
