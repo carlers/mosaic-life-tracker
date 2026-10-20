@@ -140,11 +140,16 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // The React Compiler cannot safely infer dependencies across these state machines.
   'use no memo';
   const isBacklogView = renderMode === 'backlog';
+  const sheetContentRef = useRef<HTMLDivElement>(null);
+  const didInitialCategoryFocusRef = useRef(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const keyboardHelpCloseRef = useRef<HTMLButtonElement>(null);
   const keyboardHelpTriggerRef = useRef<HTMLButtonElement>(null);
   const keyboardHelpReturnRef = useRef<HTMLElement | null>(null);
   const showKeyboardHelp = useCallback(() => {
+    // Opening help is an explicit focus choice; do not let Day View's
+    // initial-autofocus frame move focus away from the help Close button.
+    didInitialCategoryFocusRef.current = true;
     keyboardHelpReturnRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setKeyboardHelpOpen(true);
@@ -170,8 +175,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   useEffect(() => {
     if (keyboardHelpOpen) keyboardHelpCloseRef.current?.focus({ preventScroll: true });
   }, [keyboardHelpOpen]);
-  const sheetContentRef = useRef<HTMLDivElement>(null);
-  const didInitialCategoryFocusRef = useRef(false);
   const appearance = React.useContext(AppearanceContext);
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const { user } = useAuth();

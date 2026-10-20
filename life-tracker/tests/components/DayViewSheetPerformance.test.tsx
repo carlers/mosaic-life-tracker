@@ -237,6 +237,11 @@ describe('DayViewSheet mount scheduling', () => {
 
   it('exposes keyboard help through a focusable button and returns focus on Escape', async () => {
     render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    // The opening sheet intentionally focuses its first category first.
+    const firstCategory = document.querySelector<HTMLElement>(
+      '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]'
+    );
+    await waitFor(() => expect(firstCategory).toHaveFocus());
     const help = screen.getByRole('button', { name: 'Show keyboard shortcuts' });
     help.focus();
     fireEvent.click(help);

@@ -12,7 +12,8 @@ Current task: #956, Stage 2 Day View keyboard productivity, v0.35.2 candidate.
 - From a focused owned Day View/inline Todo/Diary/Backlog category pill or task title, `N` opens that category's existing task-add input; respects keep-adding preference, selection/reorder and editor ownership.
 - `?` while browsing opens a discoverable in-view keyboard shortcut reference. An accessible header help button opens the same panel. Panel has close button, Escape, focus return and no global keyboard listener. Hidden/inactive slides excluded, day arrows suppressed while reference is showing.
 - Initial arrow browse, task Enter/Space/Shift+Enter and dnd-kit keyboard pickup guard remain unchanged. Friend Day View is separately implemented and read-only: no owner edit/add/completion shortcuts are added there. Diary previews/shared items remain independent controls; not silently included in owner browse list.
-- Updated controlled hook/DaySlide props, header/backlog panel and tests for keyboard N/? and help accessibility; no backend/schema changes. No immediate Delete/Backspace or untested category-jump modifiers.
+- Updated controlled hook/DaySlide props, header/backlog panel and tests for keyboard N/? and help accessibility; no backend/schema changes.
+- First focused verification caught setState-in-effect lint; deferred close reset. Second exposed a mount-focus versus help-panel focus timing test; mark help invocation as user focus ownership and assert initial focus before help acceptance. Repair requires another [verify:focused] run. No immediate Delete/Backspace or untested category-jump modifiers.
 - Relevant regression checks: focused task gate on commit, stable Preview canonical (static, DOM, build, browser contracts), trusted Vercel READY. Manual keyboard/screen-reader/device checks remain unperformed.
 
 ## Delivery
