@@ -19,6 +19,7 @@ export function resolveIncompleteTaskBlockColorMode(value: unknown): IncompleteT
 }
 export const STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY = 'stickyCalendarWeekdayHeader';
 export const CALENDAR_ZOOM_DAYS_SETTING_KEY = 'calendarZoomDays';
+export const CALENDAR_PINCH_ZOOM_SETTING_KEY = 'calendarPinchZoom';
 export type CalendarZoomDays = 3 | 4 | 7;
 export function resolveCalendarZoomDays(value: unknown): CalendarZoomDays {
   return value === 3 || value === '3' ? 3 : value === 4 || value === '4' ? 4 : 7;

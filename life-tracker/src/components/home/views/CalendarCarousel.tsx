@@ -1,5 +1,6 @@
 import React, { useCallback, useLayoutEffect, useRef } from 'react';
 import { CalendarSlide } from './CalendarSlide';
+import { useCalendarPinchZoom } from './useCalendarPinchZoom';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
@@ -13,6 +14,8 @@ interface CalendarCarouselProps {
   emblaRef: (node: HTMLElement | null) => void;
   viewMode: CalendarViewMode;
   zoomDays?: CalendarZoomDays;
+  pinchEnabled?: boolean;
+  onPinchChange?: (days: CalendarZoomDays) => void;
   stickyWeekdayHeader?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
@@ -35,6 +38,8 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   emblaRef,
   viewMode,
   zoomDays = 7,
+  pinchEnabled = false,
+  onPinchChange,
   stickyWeekdayHeader = false,
   activeIndex = 30,
   isZoomTransitioning = false,
@@ -87,6 +92,17 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
     });
     transitionLockRef.current = false;
   }, [activeIndex, isZoomTransitioning, renderStart, renderEnd, viewMode, zoomDays]);
+
+  const handlePinch = useCallback((days: CalendarZoomDays, centerFraction: number) => {
+    const center = Math.max(0, Math.min(1, centerFraction));
+    const anchor = (zoomDays === 7 ? 0 : weekdayOffsetRef.current) + center * zoomDays;
+    weekdayOffsetRef.current = Math.max(0, Math.min(7 - days, anchor - center * days));
+    onPinchChange?.(days);
+  }, [onPinchChange, zoomDays]);
+  useCalendarPinchZoom(viewportRef, {
+    enabled: pinchEnabled && Boolean(onPinchChange),
+    activeIndex, zoomDays, locked: isZoomTransitioning, onChange: handlePinch,
+  });
 
   const handleZoomNavigate = useCallback((direction: 'prev' | 'next') => {
     if (transitionLockRef.current || isZoomTransitioning) return;
