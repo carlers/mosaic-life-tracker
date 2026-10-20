@@ -11,7 +11,7 @@ Current task: #953 — simplify customizable accents to a single palette color w
 ## Implementation
 - Remove per-component palette pickers; one existing App accent picker plus grouped placement switches.
 - Enable/disable UI roles through existing per-role synced settings keys `uiColor:<role>` storing boolean. Legacy cache and rows with `default`/`app`/curated color values safely migrate at read time. No extra backend schema.
-- Default enabled for formerly global-accent icons, labels and controls; other roles initially disabled. Explicit off restores original emerald classes rather than following the global accent.
+- Default enabled for formerly global-accent icons, labels and controls; other roles initially disabled. Explicit off changes existing accent-consumer classes to neutral theme surfaces/text, not an unrelated hard-coded accent.
 - New text roles: Calendar month/date header, Day View date, weekday headers/day numbers, main Settings/Preferences headings, row labels/descriptions. Preserve semantic category/task, holiday defaults, destructive text, selected day text contrast.
 - Continue CSS-scoped variables and existing color/contrast normalization; no per-cell React prop churn. Tests updated for one-accent semantics, legacy migration, account cache isolation, and switch behavior.
 

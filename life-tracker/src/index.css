@@ -451,20 +451,26 @@ html[data-theme='light'][data-ui-dayHeaders='true'] :is(.mosaic-weekday-header, 
 html[data-theme='light'][data-ui-settingsText='true'] .mosaic-settings-page :is(h1, h2, h3, .mosaic-settings-label, .mosaic-settings-detail, .mosaic-settings-copy) {
   color: var(--mosaic-ui-settingsText-text-light) !important;
 }
-/* Turn off the inherited emerald-to-accent remaps only for selected roles. */
-html[data-ui-icons='false'] svg:is([class~='text-emerald-400'], [class~='text-emerald-500']):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500),
-html[data-ui-text='false'] :is([class~='text-emerald-400'], [class~='text-emerald-500']):not(svg):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
-  color: #10b981 !important;
+/* Disabled placements return to neutral theme roles, not a second green accent. */
+html[data-ui-icons='false'] svg:is([class~='text-emerald-400'], [class~='text-emerald-500']):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-text-muted) !important;
 }
-html[data-theme='light'][data-ui-icons='false'] svg:is([class~='text-emerald-400'], [class~='text-emerald-500']):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500),
-html[data-theme='light'][data-ui-text='false'] :is([class~='text-emerald-400'], [class~='text-emerald-500']):not(svg):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
-  color: #0b825a !important;
+html[data-ui-text='false'] :is([class~='text-emerald-400'], [class~='text-emerald-500']):not(svg):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-text) !important;
 }
 html[data-ui-controls='false'] [class~='bg-emerald-500'] {
-  background-color: #10b981 !important;
-  color: #000000 !important;
+  background-color: var(--mosaic-surface-pressed) !important;
+  color: var(--mosaic-text) !important;
 }
-html[data-ui-controls='false'] [class~='hover:bg-emerald-600']:hover { background-color: #0e9f71 !important; }
-html[data-ui-controls='false'] [class~='bg-emerald-500/15'] { background-color: rgba(16, 185, 129, 0.15) !important; }
-html[data-ui-controls='false'] :is([class~='border-emerald-500'], [class~='border-emerald-500/50']) { border-color: rgba(16, 185, 129, 0.55) !important; }
-html[data-ui-controls='false'] [class*='ring-emerald-'] { --tw-ring-color: rgba(16, 185, 129, 0.7) !important; }
+html[data-ui-controls='false'] [class~='hover:bg-emerald-600']:hover {
+  background-color: var(--mosaic-surface-elevated) !important;
+}
+html[data-ui-controls='false'] [class~='bg-emerald-500/15'] {
+  background-color: var(--mosaic-hover-wash) !important;
+}
+html[data-ui-controls='false'] :is([class~='border-emerald-500'], [class~='border-emerald-500/50']) {
+  border-color: var(--mosaic-border-strong) !important;
+}
+html[data-ui-controls='false'] [class*='ring-emerald-'] {
+  --tw-ring-color: var(--mosaic-text-muted) !important;
+}
