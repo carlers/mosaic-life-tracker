@@ -80,6 +80,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | TaskItem | [src/components/home/views/TaskItem.tsx](../src/components/home/views/TaskItem.tsx) |
 | TaskReorderRuntime | [src/components/home/views/TaskReorderRuntime.tsx](../src/components/home/views/TaskReorderRuntime.tsx) |
 | TaskReorderSurfaces | [src/components/home/views/TaskReorderSurfaces.tsx](../src/components/home/views/TaskReorderSurfaces.tsx) |
+| TaskTimelineList | [src/components/home/views/TaskTimelineList.tsx](../src/components/home/views/TaskTimelineList.tsx) |
+| TaskTimestampMeta | [src/components/home/views/TaskTimestampMeta.tsx](../src/components/home/views/TaskTimestampMeta.tsx) |
 | TaskVisibilitySheet | [src/components/home/views/TaskVisibilitySheet.tsx](../src/components/home/views/TaskVisibilitySheet.tsx) |
 | TodoCalendarGrid | [src/components/home/views/TodoCalendarGrid.tsx](../src/components/home/views/TodoCalendarGrid.tsx) |
 | TodoListView | [src/components/home/views/TodoListView.tsx](../src/components/home/views/TodoListView.tsx) |
