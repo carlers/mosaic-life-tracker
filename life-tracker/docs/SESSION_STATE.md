@@ -9,5 +9,5 @@ Current task: #692 — opt-in two-finger Calendar zoom.
 - Gesture handlers intercept browser multi-touch only inside opted-in active grid, preserve one-finger scrolling and browser zoom elsewhere. No backend migrations, provider or Production changes.
 
 ## Verification / next
-- Task implementation committed with `[verify:focused]`; focused CI, canonical gate, Vercel READY and physical iOS/Android are pending and must not be claimed.
+- Task source focused CI #39408151934 SUCCESS. First stable Preview `0cce8ae7` canonical checks failed only on `react-hooks/set-state-in-effect` in CalendarBody; build and DOM both passed; this repair removes the optimistic effect and relies on account-synced settings as source of truth. Full canonical/Preview and physical device checks pending.
 - After focused green, squash task into stable Preview and verify canonical, size/PWA, deployment. Physical iOS Safari/PWA and Android Chrome pinch/browser zoom, navigation and dense-calendar scrolling remain a manual gate. No automatic dev/main merge.
