@@ -4,6 +4,7 @@ import { LayoutGroup } from 'framer-motion';
 import {
   PointerActivationConstraints,
   PointerSensor,
+  KeyboardSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
 import { diaryAfterTaskMove, placementFromTaskDrop, type DiaryPlacement } from '../../../lib/diaryPlacement';
@@ -11,6 +12,7 @@ import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
+import { isTaskTitleKeyboardTarget } from './useDayViewKeyboardNavigation';
 import {
   isTaskPlacementCompatible,
   sortTaskPlacementByCompletion,
@@ -35,6 +37,12 @@ const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
       tolerance: 8,
     }),
   ],
+});
+
+// Preserve keyboard drag for other surfaces, but never steal task-title
+// Enter/Space from edit/complete. Pointer hold-drag behavior is unchanged.
+export const TASK_REORDER_KEYBOARD_SENSOR = KeyboardSensor.configure({
+  preventActivation: (event) => isTaskTitleKeyboardTarget(event.target),
 });
 
 // This is the SAME presentation used by the owner Diary Day View; the lazy
@@ -469,8 +477,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   return (
     <DragDropProvider
       sensors={(defaults) => [
-        ...defaults.filter((sensor) => sensor !== PointerSensor),
+        ...defaults.filter((sensor) => sensor !== PointerSensor && sensor !== KeyboardSensor),
         TASK_REORDER_POINTER_SENSOR,
+        TASK_REORDER_KEYBOARD_SENSOR,
       ]}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}

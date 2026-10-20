@@ -5,6 +5,11 @@ type BrowseTarget = HTMLButtonElement & { dataset: DOMStringMap };
 
 const BROWSE_SELECTOR = 'button[data-day-keyboard-target][data-day-keyboard-id]';
 
+/** Task-title Enter/Space belong to editing and completion, never drag pickup. */
+export function isTaskTitleKeyboardTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('[data-day-keyboard-target="task"]'));
+}
+
 function browseTargets(root: HTMLElement): BrowseTarget[] {
   return Array.from(root.querySelectorAll<BrowseTarget>(BROWSE_SELECTOR)).filter(button =>
     !button.disabled && !button.closest('[hidden], [inert], [aria-hidden="true"]')

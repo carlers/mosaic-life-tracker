@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { useDayViewKeyboardNavigation } from '../../src/components/home/views/useDayViewKeyboardNavigation';
+import { isTaskTitleKeyboardTarget, useDayViewKeyboardNavigation } from '../../src/components/home/views/useDayViewKeyboardNavigation';
 
 function Harness({ enabled = true, hideLast = false }: { enabled?: boolean; hideLast?: boolean }) {
   const { rootRef, onKeyDown, onFocusCapture, onBlurCapture } = useDayViewKeyboardNavigation(enabled);
@@ -16,6 +16,19 @@ function Harness({ enabled = true, hideLast = false }: { enabled?: boolean; hide
 }
 
 describe('Day View keyboard browse', () => {
+  it('recognizes task-title keyboard activation while preserving other controls', () => {
+    const wrapper = document.createElement('div');
+    const title = document.createElement('button');
+    title.dataset.dayKeyboardTarget = 'task';
+    const label = document.createElement('span');
+    title.append(label);
+    wrapper.append(title);
+    expect(isTaskTitleKeyboardTarget(title)).toBe(true);
+    expect(isTaskTitleKeyboardTarget(label)).toBe(true);
+    expect(isTaskTitleKeyboardTarget(wrapper)).toBe(false);
+    expect(isTaskTitleKeyboardTarget(null)).toBe(false);
+  });
+
   it('traverses only the designated category and task targets in rendered order', () => {
     render(<Harness />);
     const category = screen.getByRole('button', { name: 'Work' });
