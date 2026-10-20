@@ -13,7 +13,7 @@ import {
   planAcceptedPreview, addUniquePrebuiltDeploymentId, prebuiltCliArguments,
   assessKnownPrebuiltDeployments, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
   createTrustedCliProjectRoot, isKnownPrebuiltHistoryCandidate,
-  providerDeploymentId, verifyPrebuiltHistoryDetail,
+  providerDeploymentId, verifyPrebuiltHistoryDetail, verifiedPrebuiltGitMetadata,
 } from './lib/prebuilt-provider-contract.mjs';
 
 const token = process.env.VERCEL_TOKEN ?? '';
@@ -77,7 +77,7 @@ function inspectCliURL(output) {
   return url.hostname;
 }
 
-async function assertProviderReady(host, plan) {
+async function assertProviderReady(host, plan, gitMetadata) {
   const d = await vercelGet('/v13/deployments/' +
     encodeURIComponent(host) + '?teamId=' + encodeURIComponent(plan.teamId));
   if (d.projectId !== plan.projectId ||
@@ -87,7 +87,8 @@ async function assertProviderReady(host, plan) {
       d.meta?.mosaicPrebuiltSha !== plan.sha ||
       d.meta?.mosaicPrebuiltBranch !== plan.branch ||
       d.meta?.mosaicPrebuiltRoute !== plan.meta.mosaicPrebuiltRoute ||
-      d.url !== host || !shaRegex.test(plan.sha)) {
+      d.url !== host || !shaRegex.test(plan.sha) ||
+      Object.entries(gitMetadata).some(([key, value]) => d.meta?.[key] !== value)) {
     throw new Error('Prebuilt deployment failed READY / identity / Preview readback');
   }
   return d;
@@ -120,6 +121,7 @@ async function main() {
   });
   if (!gh.ok) throw new Error('Cannot establish source commit history window');
   const commit = await gh.json();
+  const gitMetadata = verifiedPrebuiltGitMetadata(commit, plan);
   const timestamp = Date.parse(commit.commit?.committer?.date ?? '');
   if (!Number.isFinite(timestamp)) throw new Error('Missing trusted Git commit date');
   const since = timestamp - 24 * 60 * 60 * 1000;
@@ -176,7 +178,7 @@ async function main() {
 
     // Pin the Vercel binary at workflow-install time without provider secrets.
     // The child may upload verified static bytes only, never build app sources.
-    const result = execFileSync('vercel', prebuiltCliArguments(plan), {
+    const result = execFileSync('vercel', prebuiltCliArguments(plan, gitMetadata), {
       cwd: root,
       env: process.env,
       encoding: 'utf8',
@@ -185,7 +187,7 @@ async function main() {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     const host = inspectCliURL(result);
-    await assertProviderReady(host, plan);
+    await assertProviderReady(host, plan, gitMetadata);
     console.log('Verified CI-first prebuilt READY for accepted SHA ' + plan.sha +
       ', run ' + plan.runId + ', deploymentId ' + plan.deploymentId + '.');
     console.log('No Vercel build, candidate script execution or alias mutation.');
