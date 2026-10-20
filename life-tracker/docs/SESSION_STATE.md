@@ -1,20 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: issue #956 — Day View first-category focus and task keyboard drag collision (v0.35.1).
+Current task: #956, Stage 2 Day View keyboard productivity, v0.35.2 candidate.
 
 ## Authority and baseline
-- Owner tested v0.35.0 Preview, then reported two keyboard regressions: opening Day View requires several Tabs before Up/Down, and Enter/Space on a task title starts a drag instead of editing/toggling completion.
-- Stable Preview `feature/dayview-keyboard-956-20261020@d28af4390b5cfb5d371acdf9a7460fb2d3fae97e` has exact-SHA canonical CI SUCCESS (39440461373) and Vercel READY (trusted delivery 39440788826). `dev@0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0` unchanged at task start.
-- Scoped task branch `chatgpt/956-focus-dnd-keyboard-20261020` based on accepted Preview. Next user-testable PATCH version v0.35.1. No dev/main/Production authorization.
+- Owner manually confirmed v0.35.1 Preview keyboard navigation works ("ok nice it works, move on") and authorized moving forward with Stage 2.
+- Stable Preview: `feature/dayview-keyboard-956-20261020@49a53831b6452f4a9f8f15027f85ae937e9791c0`, canonical CI 39443597664 SUCCESS, trusted Preview delivery 39443973227 SUCCESS with exact-SHA READY. `dev@0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0`; no separate permission to promote to dev/main.
+- Stage 2 is an independently user-testable refinement: proposed PATCH v0.35.2. Task branch `chatgpt/956-dayview-keyboard-phase2-20261020` from accepted Preview.
 
-## Scoped repair
-- DayView sheet auto-focuses first accessible category in the active slide after the modal focus trap mounts; once per opening, not on day changes, snap-backs, nested sheets or while editing/search focus is active.
-- Keep task Enter/Space action handling; dnd-kit KeyboardSensor declines task-title activation while retaining pointer delay/drag and keyboard drag on unrelated surfaces.
-- Add targeted DOM regression for opening focus and sensor target guard; preserve existing gesture, selection and shortcut tests.
-- First focused task gate (39442771122) stopped at react-refresh/only-export-components because the configured sensor was exported from a component module; corrected by moving that sensor to a non-component module, updating its regression import and generated component inventory. Recheck focused CI on the repair commit before Preview squash.
-- Bump package, package-lock and appVersion to v0.35.1; no backend/schema changes.
+## Scoped feature
+- From a focused owned Day View/inline Todo/Diary/Backlog category pill or task title, `N` opens that category's existing task-add input; respects keep-adding preference, selection/reorder and editor ownership.
+- `?` while browsing opens a discoverable in-view keyboard shortcut reference. An accessible header help button opens the same panel. Panel has close button, Escape, focus return and no global keyboard listener. Hidden/inactive slides excluded, day arrows suppressed while reference is showing.
+- Initial arrow browse, task Enter/Space/Shift+Enter and dnd-kit keyboard pickup guard remain unchanged. Friend Day View is separately implemented and read-only: no owner edit/add/completion shortcuts are added there. Diary previews/shared items remain independent controls; not silently included in owner browse list.
+- Updated controlled hook/DaySlide props, header/backlog panel and tests for keyboard N/? and help accessibility; no backend/schema changes.
+- First focused verification caught setState-in-effect lint; deferred close reset. Second exposed a mount-focus versus help-panel focus timing test; mark help invocation as user focus ownership and assert initial focus before help acceptance. Repair requires another [verify:focused] run. No immediate Delete/Backspace or untested category-jump modifiers.
+- Relevant regression checks: focused task gate on commit, stable Preview canonical (static, DOM, build, browser contracts), trusted Vercel READY. Manual keyboard/screen-reader/device checks remain unperformed.
 
 ## Delivery
-- Make one task commit [verify:focused], repair failures, squash to stable Preview, confirm full canonical CI and exact-SHA trusted Vercel READY.
-- Manual keyboard/device, physical WebKit and screen-reader acceptance not performed; user acceptance required before explicit dev promotion. Issue remains open; phases 2–3 deferred.
+- Make task PR to same stable Preview; focused green before squash, canonical SUCCESS and trusted Vercel exact-SHA READY before requesting user testing.
+- Never merge to `dev`/`main` or Production without separate explicit instruction. Keep issue open for Stage 3 and physical-device/AT acceptance.

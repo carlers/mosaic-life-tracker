@@ -12,7 +12,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Virtual } from 'swiper/modules';
 import 'swiper/css/virtual';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckSquare, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2 } from 'lucide-react';
+import { CheckSquare, ChevronLeft, ChevronRight, CircleHelp, Copy, MoreHorizontal, Trash2 } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
@@ -142,6 +142,39 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const isBacklogView = renderMode === 'backlog';
   const sheetContentRef = useRef<HTMLDivElement>(null);
   const didInitialCategoryFocusRef = useRef(false);
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
+  const keyboardHelpCloseRef = useRef<HTMLButtonElement>(null);
+  const keyboardHelpTriggerRef = useRef<HTMLButtonElement>(null);
+  const keyboardHelpReturnRef = useRef<HTMLElement | null>(null);
+  const showKeyboardHelp = useCallback(() => {
+    // Opening help is an explicit focus choice; do not let Day View's
+    // initial-autofocus frame move focus away from the help Close button.
+    didInitialCategoryFocusRef.current = true;
+    keyboardHelpReturnRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setKeyboardHelpOpen(true);
+  }, []);
+  const hideKeyboardHelp = useCallback(() => {
+    setKeyboardHelpOpen(false);
+    const former = keyboardHelpReturnRef.current;
+    window.requestAnimationFrame(() => {
+      if (former?.isConnected && !former.closest('[aria-hidden="true"], [inert]')) {
+        former.focus({ preventScroll: true });
+      } else {
+        keyboardHelpTriggerRef.current?.focus({ preventScroll: true });
+      }
+    });
+  }, []);
+  useEffect(() => {
+    if (isOpen) return;
+    // Closing may retain the mounted Day View for its exit animation. Reset
+    // after paint rather than synchronously cascading a render from an effect.
+    const frame = window.requestAnimationFrame(() => setKeyboardHelpOpen(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen]);
+  useEffect(() => {
+    if (keyboardHelpOpen) keyboardHelpCloseRef.current?.focus({ preventScroll: true });
+  }, [keyboardHelpOpen]);
   const appearance = React.useContext(AppearanceContext);
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const { user } = useAuth();
@@ -889,7 +922,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     else handleNextDayFromUi();
   };
   useHorizontalArrowNavigation({
-    enabled: isOpen && !isBacklogView && !isBackgroundLocked && !isTaskReorderActive,
+    enabled: isOpen && !isBacklogView && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen,
     onLeft: () => navigateDateByKeyboard('left'),
     onRight: () => navigateDateByKeyboard('right'),
   });
@@ -945,17 +978,59 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     </div>
   );
 
+  const keyboardHelpPanel = keyboardHelpOpen ? (
+    <div
+      role="region"
+      aria-label="Day View keyboard shortcuts"
+      className="mx-4 mb-2 rounded-xl border border-white/10 bg-[#222222] px-4 py-3 text-gray-200 shadow-lg"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          hideKeyboardHelp();
+        }
+      }}
+    >
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-semibold text-sm text-white">Keyboard shortcuts</p>
+        <button
+          ref={keyboardHelpCloseRef}
+          type="button"
+          onClick={hideKeyboardHelp}
+          className="rounded-lg px-2 py-1 text-xs text-gray-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+        >Close</button>
+      </div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+        <dt className="font-mono text-gray-100">↑ / ↓</dt><dd>Previous / next task or category</dd>
+        <dt className="font-mono text-gray-100">Home / End</dt><dd>First / last visible item</dd>
+        {!isBacklogView && <><dt className="font-mono text-gray-100">← / →</dt><dd>Previous / next day outside text editing</dd></>}
+        <dt className="font-mono text-gray-100">N</dt><dd>New task in the focused category (not in Select mode)</dd>
+        <dt className="font-mono text-gray-100">Enter</dt><dd>Edit a task; select it in Select mode</dd>
+        <dt className="font-mono text-gray-100">Space</dt><dd>Complete a task; select it in Select mode</dd>
+        <dt className="font-mono text-gray-100">Shift+Enter</dt><dd>Task actions (outside Select mode)</dd>
+        <dt className="font-mono text-gray-100">?</dt><dd>Show this help from a task or category</dd>
+        <dt className="font-mono text-gray-100">Tab</dt><dd>Move through other controls</dd>
+        <dt className="font-mono text-gray-100">Esc</dt><dd>Cancel editing or close the active overlay</dd>
+      </dl>
+    </div>
+  ) : null;
+
   const content = (
     <>
       {isBacklogView ? (
         <>
-          <div className="flex justify-end px-4 py-2">
+          <div className="flex justify-end gap-2 px-4 py-2">
+            <button type="button" ref={keyboardHelpTriggerRef} onClick={showKeyboardHelp}
+              aria-label="Show keyboard shortcuts" aria-expanded={keyboardHelpOpen}
+              className="rounded-lg px-2.5 py-1.5 text-gray-300 hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            ><CircleHelp size={17} aria-hidden="true" /></button>
             <button type="button" onClick={handleToggleSelectMode}
               aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
               aria-pressed={isSelectMode}
               className="rounded-lg px-3 py-1.5 text-sm text-gray-300 focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >{isSelectMode ? 'Done' : 'Select'}</button>
           </div>
+          {keyboardHelpPanel}
           <DaySlide
             date={selectedDate}
             dateStr=""
@@ -978,7 +1053,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             showCategoryCollapseButton={showCategoryCollapseButton}
             taskSortMode={taskSortMode}
             selectionMode={isSelectMode}
-            keyboardNavigationEnabled={isOpen && !isBackgroundLocked && !isTaskReorderActive}
+            keyboardNavigationEnabled={isOpen && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen}
+            onShowKeyboardHelp={showKeyboardHelp}
             selectedTaskIds={selectedTaskIds}
             onToggleTaskSelection={handleToggleTaskSelection}
             reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
@@ -1095,19 +1171,31 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                             </span>
                           ))}
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleToggleSelectMode}
-                          tabIndex={i === activeIndex ? 0 : -1}
-                          aria-pressed={isSelectMode}
-                          aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
-                          className={`justify-self-end flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode ? 'bg-emerald-500 text-black' : 'text-gray-300 hover:bg-[#2A2A2A]'}`}
-                        >
-                          <CheckSquare size={16} aria-hidden="true" />
-                          <span>Select</span>
-                        </button>
+                        <div className="justify-self-end flex items-center gap-1">
+                          <button
+                            type="button"
+                            ref={i === activeIndex ? keyboardHelpTriggerRef : undefined}
+                            onClick={showKeyboardHelp}
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            aria-label="Show keyboard shortcuts"
+                            aria-expanded={i === activeIndex ? keyboardHelpOpen : false}
+                            className="rounded-lg p-1.5 text-gray-300 hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                          ><CircleHelp size={16} aria-hidden="true" /></button>
+                          <button
+                            type="button"
+                            onClick={handleToggleSelectMode}
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            aria-pressed={isSelectMode}
+                            aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
+                            className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode ? 'bg-emerald-500 text-black' : 'text-gray-300 hover:bg-[#2A2A2A]'}`}
+                          >
+                            <CheckSquare size={16} aria-hidden="true" />
+                            <span>Select</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
+                    {i === activeIndex && keyboardHelpPanel}
                     {dayTasks.some(task => pendingOwnedTaskIds.has(task.id)) && (
                       <p role="status" className="px-4 pb-1 text-xs text-amber-400">
                         Shared completion pending sync
@@ -1155,7 +1243,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       showCategoryCollapseButton={showCategoryCollapseButton}
                       taskSortMode={taskSortMode}
                       selectionMode={isSelectMode && i === activeIndex}
-                      keyboardNavigationEnabled={isOpen && i === activeIndex && !isBackgroundLocked && !isTaskReorderActive}
+                      keyboardNavigationEnabled={isOpen && i === activeIndex && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen}
+                      onShowKeyboardHelp={i === activeIndex ? showKeyboardHelp : undefined}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
                       onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
