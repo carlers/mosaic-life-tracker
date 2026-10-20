@@ -286,7 +286,11 @@ export function InteractionHarness() {
           completed: false,
           categoryId: category.id,
           order: rxLikeLegacyTasks ? 0 : taskIndex,
-          date: '2026-09-15',
+          // Controlled browser-only fixture: keep Task 1.1 on the source
+          // day but distribute existing siblings across the next two
+          // categories, with no extra data volume or duplicate IDs.
+          date: crossDayDestinations && (categoryIndex === 1 ||
+            (categoryIndex === 0 && taskIndex > 0)) ? '2026-09-16' : '2026-09-15',
           createdAt: '2026-09-01T00:00:00.000Z',
           completedAt: '',
           updatedAt: '2026-09-01T00:00:00.000Z',
@@ -298,23 +302,7 @@ export function InteractionHarness() {
               ? 'Browser memo content'
               : '',
         }))
-    ).concat(crossDayDestinations ? todoCategories.flatMap((category, categoryIndex) =>
-      Array.from({ length: 4 }, (_, taskIndex): TaskDocument => ({
-        id: `destination_${categoryIndex}_${taskIndex}`,
-        title: `Next task ${categoryIndex + 1}.${taskIndex + 1}`,
-        completed: false,
-        categoryId: category.id,
-        order: taskIndex,
-        date: '2026-09-16',
-        createdAt: '2026-09-01T00:00:00.000Z',
-        completedAt: '',
-        updatedAt: '2026-09-01T00:00:00.000Z',
-        userId: 'user_1',
-        isDeleted: false,
-        visibility: 'private',
-        memo: '',
-      }))
-    ) : [])
+    )
   );
   const renderedTodoTasks = React.useMemo(
     () =>

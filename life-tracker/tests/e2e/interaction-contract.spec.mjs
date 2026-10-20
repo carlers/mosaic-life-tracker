@@ -1697,6 +1697,7 @@ test('long-held task at Day View edge advances repeatedly without releasing or s
 test('held touch drag animates insertion through populated next-day rows and categories', async ({page, browserName}) => {
   test.skip(browserName !== 'chromium', 'CDP touch requires Chromium');
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?crossDayDestinations=1`);
+  await expect(page.getByTestId('open-day-view-sheet')).toBeVisible({timeout:12000});
   await page.getByTestId('open-day-view-sheet').click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
@@ -1715,7 +1716,8 @@ test('held touch drag animates insertion through populated next-day rows and cat
     const active = dialog.locator('.swiper-slide-active');
     const firstCategory = active.locator('[data-task-category-id="cat_0"]');
     const secondCategory = active.locator('[data-task-category-id="cat_1"]');
-    await expect(firstCategory.locator('[data-task-id]')).toHaveCount(4);
+    await expect(firstCategory.locator('[data-task-id]')).toHaveCount(2);
+    await expect(secondCategory.locator('[data-task-id]')).toHaveCount(3);
     const firstRow = await firstCategory.locator('[data-task-id]').first().boundingBox();
     if (!firstRow) throw new Error('Missing destination rows');
     const startY = firstRow.y + Math.min(firstRow.height / 4, 8);
