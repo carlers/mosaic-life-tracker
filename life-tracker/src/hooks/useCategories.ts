@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
@@ -8,6 +8,15 @@ export function useCategories(enabled = true) {
   const { user } = useAuth();
   const reorderQueue = useRef(Promise.resolve());
   const ownerId = user?.$id;
+  const activeOwnerRef = useRef(ownerId);
+  useLayoutEffect(() => {
+    activeOwnerRef.current = ownerId;
+    return () => { activeOwnerRef.current = undefined; };
+  }, [ownerId]);
+  const assertActiveOwner = useCallback((expectedOwner: string | undefined) => {
+    if (!expectedOwner || activeOwnerRef.current !== expectedOwner)
+      throw new Error('[useCategories] Account changed during category mutation');
+  }, []);
 
   const { data: categories, isLoading } = useRxCollection<CategoryDocument>({
     collection: 'categories',
@@ -32,6 +41,7 @@ export function useCategories(enabled = true) {
         );
         throw new Error('Cannot add category: not authenticated');
       }
+      assertActiveOwner(uid);
       const db = getDatabase();
       const newCat: CategoryDocument = {
         ...cat,
@@ -47,7 +57,7 @@ export function useCategories(enabled = true) {
         throw error;
       }
     },
-    [ownerId]
+    [ownerId, assertActiveOwner]
   );
 
   const updateCategory = useCallback(
@@ -55,6 +65,7 @@ export function useCategories(enabled = true) {
       const db = getDatabase();
       try {
         const doc = await db.categories.findOne(id).exec();
+        assertActiveOwner(ownerId);
         if (!doc) throw new Error('Category no longer exists');
         if (!ownerId || doc.userId !== ownerId)
           throw new Error('[useCategories] Cannot update category for another account');
@@ -81,7 +92,7 @@ export function useCategories(enabled = true) {
         throw err;
       }
     },
-    [ownerId]
+    [ownerId, assertActiveOwner]
   );
 
   const deleteCategory = useCallback(
@@ -97,6 +108,7 @@ export function useCategories(enabled = true) {
       const applyOrder = async () => {
         const uid = ownerId;
         if (!uid) throw new Error('[useCategories] Cannot reorder without an account');
+        assertActiveOwner(uid);
         const db = getDatabase();
         // Read and owner-check every entry before applying the first update.
         // Stale category reorder arrays may retain another account's IDs.
@@ -107,11 +119,13 @@ export function useCategories(enabled = true) {
             return null;
           }
         }));
+        assertActiveOwner(uid);
         if (docs.some(doc => doc && doc.userId !== uid))
           throw new Error('[useCategories] Cannot reorder category for another account');
         for (let i = 0; i < docs.length; i++) {
           const doc = docs[i];
           if (!doc || doc.order === i) continue;
+          assertActiveOwner(uid);
           try {
             await doc.incrementalPatch({ order: i, updatedAt: new Date().toISOString() });
           } catch (err) {
@@ -126,7 +140,7 @@ export function useCategories(enabled = true) {
       reorderQueue.current = queued.catch(() => undefined);
       return queued;
     },
-    [ownerId]
+    [ownerId, assertActiveOwner]
   );
 
   return {

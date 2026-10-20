@@ -89,3 +89,7 @@ The standalone real signed local Chromium test now starts both native RxDB colle
 4. After a functioning approved core MVP release, **Diary immediately next**. Then synced personal settings/storage and Bucket List, then social only as independently verified capabilities.
 
 Issues: [#1027](https://github.com/carlers/mosaic-life-tracker/issues/1027), [#1026](https://github.com/carlers/mosaic-life-tracker/issues/1026), [#967](https://github.com/carlers/mosaic-life-tracker/issues/967), [#975](https://github.com/carlers/mosaic-life-tracker/issues/975), [#914](https://github.com/carlers/mosaic-life-tracker/issues/914).
+
+### Owner-switch asynchronous local mutation fence (2026-10-20)
+
+A further isolated hook guard tracks the **currently committed owner** and invalidates it on unmount. Task/category ID edits re-check after awaited lookups; task creation checks after its sibling lookup; queued task moves/reorders and category drags re-check after asynchronous reads and before dispatching new patches. Old callbacks cannot initiate a new write after account switch/unmount. React negative tests pause lookups, switch the authenticated owner, release the lookups and assert **no local patch or insert**. This remains defense in depth: a write already dispatched before a switch cannot be retracted by the hook; cross-tab writer exclusion, Auth session-epoch fences, server-side authoritative provider cutoff and RLS must still be verified before a real Supabase switch.

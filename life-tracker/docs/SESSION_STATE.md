@@ -1,24 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #1027 owner-scoped local RxDB task/category mutations before real Supabase core app integration.
+Current task: #1027 core-only Supabase MVP — async task/category owner-change local mutation fences.
 
-## Exact accepted baseline and safety
-- Latest accepted isolated source milestone: `refactor/1027-core-auth-persist-signed-20261020@b22ea554494aa0278a4534d3181e72734bf12b67`; full canonical Quality Gate #39370880351 SUCCESS, signed local Supabase/Chromium #39370880333 SUCCESS, trusted prebuilt #39371056886 SUCCESS and Vercel READY. No shipped app backend/provider migration.
-- Task branch `chatgpt/1027-core-owner-mutation-20261020` originates from exact accepted stable `b22ea554494aa0278a4534d3181e72734bf12b67`. Version impact NONE for defensive bugfix. No hosted Supabase/Production/OCI/Appwrite data/schema writes or `dev`/`main` promotion. No user-data migration or PWA backfill. Keep legacy Appwrite fallback and independent DR intact.
+## Baseline and authorization
+- Start from accepted isolated Preview `refactor/1027-core-owner-mutation-20261020@7461153db31fc91835e2a88d202d6892082a6e1b`; PR #1068 merged; full CI #39372122960 and trusted prebuilt #39372284658 recorded SUCCESS/READY in #1027.
+- Task branch: `chatgpt/1027-core-async-owner-fence-20261020`. Source-only local ownership defenses; version impact NONE. Appwrite remains shipped; hosted Supabase, user data, OCI, Vercel Production, `dev` and `main` unchanged.
+- Do not promote protected branches or enable core-only backend without separate approval. Preserve symmetric Appwrite reverse migration, one-cloud-writer ownership, signed-hosted RLS/CAS and independent DR.
 
-## Changes
-- `src/hooks/useTasks.ts`: block ID-addressed patch/completion/tombstones when local document userId does not equal current auth user; block attempts to modify task owner or primary ID.
-- `src/hooks/useCategories.ts`: same owner/immutable identity checks for category edits/deletes; category drag order reads all targets and denies any mixed-account snapshot **before** applying a single write. Preserve ordinary same-owner updates and bounded queue.
-- `tests/react/coreOwnerMutations.test.tsx`: six React regressions for same-account behavior, foreign cached document edits and deletion, category mixed-owner reordering without partial writes, identity reassignment and account-switch rerender.
-- Update existing `useCategoriesErrorPropagation.test.tsx` fixture to include the current owner as the real RxDB schema requires. Document the owner boundary in `docs/CORE_MVP_PROVIDER_RETURN.md`.
+## Change in this task
+- `src/hooks/useTasks.ts` and `useCategories.ts` track the currently committed authenticated owner; revoke on unmount. Re-check owner after async reads and before new local patches/inserts in edit, create, move and reorder flows. Old closures and queued drag promises may not mutate after an owner switch.
+- `tests/react/coreOwnerMutations.test.tsx`: paused-read owner-switch negative regressions for task/category edit, queued category drag, post-unmount callback and task creation; preserved existing same-owner/foreign owner checks.
+- `docs/CORE_MVP_PROVIDER_RETURN.md` documents bounded protection and limits.
 
-## Verification
-- First task `97e930e83594131f625392de75aa0639e612bd4f`: focused Quality Gate #39371801068 FAILED in ESLint on React Compiler useCallback dependency inference in useCategories and three unused mock parameters. No tests were executed after lint stopped.
-- Reviewed correction derives an explicit stable `ownerId` local value in useCategories and uses `[ownerId]` callback dependencies, with no additional account-changing behavior; removes unused test-only mock arguments. Requires a new focused CI run on the corrected SHA.
-- Source task commit requests focused CI. No new local test/Preview full or deployment success claimed yet in this branch; GitHub-connected environment lacks local repository checkout/npm network.
-- Existing signed prototype only provides task/category owner RLS/CAS and persistent experimental Auth, not full provider-aware shipped app.
-
-## Next action
-- Review focused CI, repair mock/TypeScript/behavior regressions; after green squash into a NEW isolated stable Preview, require fresh canonical full and trusted prebuilt READY. Keep `dev`/`main` unchanged.
-- Next implement actual Supabase app authentication, server-verified legacy identity mapping, single-cloud-writer/old-PWA cutoff, real task/category RxDB app bootstrap; follow with hosted signed-user privileged RPC/RLS audit, reversible data import/restore and multi-device testing. Diary #1029 immediately after usable core launch, ahead of social. Keep #967/#1027/#975 open.
+## Verification and next
+- Await exact task-SHA focused CI after coherent `[verify:focused]` commit; no tests, canonical Preview, Vercel deployment or signed-hosted acceptance claimed in this task yet.
+- If focused checks fail, batch corrections. If green, squash into new isolated stable Preview; require exact-tree canonical full, trusted prebuilt READY before calling it accepted.
+- Next critical work: app-owned Supabase Auth/session and legacy Appwrite identity mapping, server-side old-PWA/single-writer fencing, real task/category app bootstrap, hosted signed two-owner tests, audited backup + forward/reverse Appwrite import and multi-device offline acceptance. Diary #1029 immediately after working core release; #967/#975 remain open.
