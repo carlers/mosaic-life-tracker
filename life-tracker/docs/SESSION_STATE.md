@@ -1,24 +1,20 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #856 — repair v0.34.5 physical touch regression, normal reorder animation parity, remove success toast.
+Current task: #856 — final touch release near edge + cross-day settling overlap.
 
-## Live state / owner feedback
-- Owner confirms laptop v0.34.5 drag works but says mobile touch is even less reliable than v0.34.4; category/task movement still feels abrupt compared with same-day reorder. Also explicitly requests removing success toast "Task moved to [date]".
-- Baseline stable Preview `feature/cross-day-drag-856-20261020@05bf90be028b21add152924a786c84319391477c` (v0.34.5), canonical Gate #39437963039 SUCCESS and Vercel READY. Current separate `dev@0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0`, no promotions authorized.
-- Issue #856 open; task branch `chatgpt/856-mobile-gesture-motion-20261020`. PATCH candidate v0.34.6.
+## Owner feedback and live state
+- v0.34.6 Preview generally works, but on physical phone releasing near edges (or even inside a category) can occasionally leave the task overlay floating while edge timers continue swiping; cross-day settling visually overlaps existing target-day rows rather than matching native same-day reorder.
+- Source baseline: stable Preview `feature/cross-day-drag-856-20261020@b4df879cb66ee630d572c4df39b95841fcab7fe8` v0.34.6, full canonical #39442591604 success, exact-sha Vercel ready. `dev@0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0` separate. Issue #856 open, no dev/main/production approval.
+- Proposed v0.34.7 PATCH. Task branch `chatgpt/856-touch-release-settle-20261020`.
 
-## Findings and repair
-- On first cross-day swipe v0.34.5 captured an active touch again on a newly mounted carried-task portal while body already captured it; on mobile touch WebKit this is an unsafe extra capture transition and may lose the stream. Remove this overlay capture; retain the stable session and body handoff.
-- V0.34.5 listens to BOTH touchmove and pointermove and used capture-phase preventDefault in native task-dnd phase. Limit native-scroll interception to external cross-day ownership, update visual overlay synchronously but coalesce category/index hit-testing/rendering into one requestAnimationFrame. Pointercancel can be generated when the source slide disappears even while the physical TouchEvent identifier is still active; do not mistake it for touchend after external handoff. Touch end/cancel is targeted at the original touched title even when Swiper detaches it and may no longer bubble through window. Retain direct touchmove/end/cancel listeners on that original element until the gesture terminates, then detach. Never allow a released/canceled touch to leave an orphan overlay; mouse still ends on physical release.
-- Category projection lost the normal `Reorder.Item` outer motion layout when `DayViewCategoryReorder.enabled=false` during cross-day carry. Add a layout-only Motion/Framer LayoutGroup around categories for external carry (without enabling native category dragging), keeping same-day reorder unchanged. Existing stable neutral insertion slot and row layout transitions remain, no colored drop visuals.
-- Remove successful cross-day date move toast; retain failures and safety feedback.
-- Browser physical-touch regression now injects pointercancel while the same TouchEvent finger remains held across the first cross-day slide and checks overlay survival. Existing populated destination-slot movement, reverse/repeat, mouseup, and same-day drag tests continue.
+## Root cause and scoped fix
+- Previous hook explicitly ignored `pointerup` on physically held touch once a touch identifier existed. If mobile WebKit's final `touchend` never bubbles to the window and detached touched task doesn't receive it reliably after Swiper virtualized/unmounted it, no terminal event clears the carried overlay or repeat swipe dwell/cooldown timers. Treat exact matching `pointerup` as a definitive release for touch **and** mouse, even when touchend is unavailable; the existing original touch target/window touchend remains the fallback. Stop timers, remove overlay, ignore subsequent duplicate touch terminal callbacks.
+- Old `finish()` removed both dragged overlay and neutral destination insertion space *before* awaiting the persisted task move. This caused the incoming destination task to FLIP/interpolate over siblings while gap/categorical projection collapsed in a separate frame. Preserve a `settling` destination projection (source task masked, neutral slot reserved) after hiding the floating overlay; clear only after async commit and two render frames, with 2.5-second safety fallback, revision token and cleanup on close/new drag. Native DnD and Swiper interaction remain disabled during that short gap handoff, then resume. Preserve no colored gap or success toast.
+- Test real browser/CDP touch releases at right edge and inside populated destination category; verify no ghost overlay, no further day advancement after 1.2s, non-overlapping settled rows, and separately emulate matching pointerup without touchend. Existing cancellation, repeated swipes, browser mouse, live category motion and same-day reordering remain covered.
+- No backend/schema/service changes. Failure feedback stays, success toast remains removed.
 
-## Canonical build repair
-- The first stable Preview squash `7bfe83cb5d6de5863d2c9a43c1948d349c8ae367` passed source-focused testing but **failed** canonical TypeScript build #39441970620: `Element.addEventListener` does not infer typed `TouchEvent` callbacks. Restrict the original touch target to a matching `HTMLElement[data-task-id]` ancestor to retain detached event routing with the correct TypeScript overload. Repair on scoped `chatgpt/856-detached-touch-buildfix-20261020` and rerun canonical CI before deployment.
-
-## Verification / delivery
-- Run focused and both browser shards on task branch, repair failures. Squash into stable Preview only after focused green; canonical gate and exact-SHA Vercel READY; update issue with checkpoint.
-- Actual iOS Safari/Android touch, smoothness, repeated navigation, release, final drop persistence/offline sync, >87-day rebasing remain physical/manual acceptance. Issue stays open.
-- No dev, main, Production, backend, schema or 1.0 changes authorized.
+## Verification and delivery
+- Run task browser-focused gate, repair if red, squash to stable Preview, run canonical all-shards build gate, then exact-SHA registered Vercel Preview READY. Publish per-issue checkpoint.
+- Owner Android/iOS physical device acceptance, extreme >87-day Swiper rebase, offline storage/sync and actual save/settling smoothness remain manual checks. Keep issue open.
+- Do not merge to dev/main/production without explicit owner approval.

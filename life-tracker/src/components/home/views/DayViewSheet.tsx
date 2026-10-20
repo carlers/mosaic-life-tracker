@@ -958,7 +958,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         modules={renderMode === 'sheet' ? [Virtual] : undefined}
         virtual={renderMode === 'sheet' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
         nested={renderMode === 'inline'}
-        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen && !continuousDrag.carried}
+        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen && !continuousDrag.projection}
         noSwiping={renderMode === 'sheet'}
         focusableElements={DAY_SWIPER_FOCUSABLE_ELEMENTS}
         touchStartPreventDefault={false}
@@ -1124,17 +1124,17 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         i === activeIndex &&
                         !isSelectMode &&
                         !isBackgroundLocked &&
-                        !continuousDrag.carried &&
+                        !continuousDrag.projection &&
                         editingTaskId === null
                       }
-                      reorderRuntimeActive={isOpen && i === activeIndex && !continuousDrag.carried}
+                      reorderRuntimeActive={isOpen && i === activeIndex && !continuousDrag.projection}
                       onCrossDayTaskStart={continuousDrag.startTask}
                       onCrossDayTaskMove={continuousDrag.moveTask}
                       onCrossDayNativeEnd={continuousDrag.onNativeEnd}
-                      crossDayDragTaskId={continuousDrag.carried?.task.id}
-                      crossDayInsertion={continuousDrag.carried?.date === dateStr
-                        ? { categoryId: continuousDrag.carried.categoryId,
-                            index: continuousDrag.carried.index, height: continuousDrag.carried.height }
+                      crossDayDragTaskId={continuousDrag.projection?.task.id}
+                      crossDayInsertion={continuousDrag.projection?.date === dateStr
+                        ? { categoryId: continuousDrag.projection.categoryId,
+                            index: continuousDrag.projection.index, height: continuousDrag.projection.height }
                         : undefined}
                       onReorderTasks={reorderTasks}
             onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}

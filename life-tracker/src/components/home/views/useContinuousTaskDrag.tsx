@@ -84,6 +84,10 @@ export function useContinuousTaskDrag({
   const transitionTimerRef = React.useRef<number | null>(null);
   const projectionFrameRef = React.useRef<number | null>(null);
   const [carried, setCarried] = React.useState<CarriedTask | null>(null);
+  // Hold the neutral insertion slot until the persisted row can replace it.
+  // The overlay itself is removed immediately on release.
+  const [settling, setSettling] = React.useState<CarriedTask | null>(null);
+  const settleRevisionRef = React.useRef(0);
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
   const latestRef = React.useRef({ isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished });
 
@@ -325,19 +329,44 @@ export function useContinuousTaskDrag({
     // Store validated target before resetting the overlay.
     const target = { ...session.target };
     const date = session.settledDate;
+    const accepted = external && commit && session.task.userId === latestRef.current.currentUserId &&
+      latestRef.current.isOpen && latestRef.current.categories.some(c =>
+        c.id === target.categoryId && c.userId === latestRef.current.currentUserId && !c.isDeleted);
+    const revision = ++settleRevisionRef.current;
+    // End all edge timers and release the floating overlay synchronously
+    // with the physical pointer release, never after an async data write.
     reset();
+    if (accepted) {
+      const point = session.point ?? { x: 0, y: 0 };
+      setSettling({ task: session.task, date, ...target, height: session.height,
+        width: session.width, offset: session.offset, x: point.x, y: point.y });
+    }
     if (external) latestRef.current.onExternalFinished();
-    if (external && commit && session.task.userId === latestRef.current.currentUserId &&
-        latestRef.current.isOpen && latestRef.current.categories.some(c =>
-          c.id === target.categoryId && c.userId === latestRef.current.currentUserId && !c.isDeleted)) {
-      void latestRef.current.onCommit(session.task, date, target.categoryId, target.index)
-        .catch(() => latestRef.current.onFeedback('Could not move task. Please try again.'));
+    if (accepted) {
+      const clearSettling = () => {
+        if (settleRevisionRef.current === revision) setSettling(null);
+      };
+      // An unresponsive storage write must not leave a permanent slot.
+      const safetyTimeout = window.setTimeout(clearSettling, 2500);
+      void Promise.resolve().then(() =>
+        latestRef.current.onCommit(session.task, date, target.categoryId, target.index)
+      ).catch(() => latestRef.current.onFeedback('Could not move task. Please try again.'))
+        .finally(() => {
+          // The database view needs a render frame to replace the neutral
+          // slot with the destination row. Don't animate both at once.
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            window.clearTimeout(safetyTimeout);
+            clearSettling();
+          }));
+        });
     }
   }, [reset]);
 
   React.useEffect(() => {
     if (!isOpen) {
       heldRef.current = null;
+      settleRevisionRef.current += 1;
+      setSettling(null);
       return;
     }
     const down = (event: PointerEvent) => {
@@ -375,15 +404,17 @@ export function useContinuousTaskDrag({
     const up = (event: PointerEvent) => {
       if (heldRef.current?.id !== event.pointerId) return;
       const s = sessionRef.current;
-      // Active touch drags are finalized by touchend. Pointerup sometimes
-      // precedes touchend and is not a reliable terminal event on WebKit.
-      if (heldRef.current?.pointerType === 'touch' && s?.stage === 'external' &&
-          heldRef.current.touchId !== null) return;
+      // Pointerup means the finger is physically lifted. Never ignore it
+      // while waiting for touchend: WebKit may dispatch the latter only to
+      // a detached source subtree after an edge swipe.
       if (s?.pointerId === event.pointerId) {
-        updatePoint(event);
+        if (s.stage === 'external') updatePoint(event);
+        heldRef.current = null;
         finish(true);
+      } else {
+        heldRef.current = null;
       }
-      heldRef.current = null;
+      detachSourceTouch();
     };
     const cancel = (event: PointerEvent) => {
       if (heldRef.current?.id !== event.pointerId) return;
@@ -492,6 +523,7 @@ export function useContinuousTaskDrag({
     const key = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         heldRef.current = null;
+        detachSourceTouch();
         finish(false);
       }
     };
@@ -559,6 +591,8 @@ export function useContinuousTaskDrag({
       return;
     }
     reset();
+    settleRevisionRef.current += 1;
+    setSettling(null);
     suppressedEndRef.current = null;
     // Swiper may have started its own gesture on the original pointerdown,
     // before dnd-kit's long-press sensor activated. Retire only that native
@@ -662,7 +696,7 @@ export function useContinuousTaskDrag({
     </div>, document.body);
 
   return {
-    carried, overlay, startTask, moveTask, onNativeEnd, onSettled,
+    carried, projection: carried ?? settling, overlay, startTask, moveTask, onNativeEnd, onSettled,
     onSlideChanged, onWindowRebased, cancel: reset,
   };
 }
