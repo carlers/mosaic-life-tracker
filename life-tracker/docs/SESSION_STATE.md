@@ -1,20 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-20 UTC
-Current task: #856 — final touch release near edge + cross-day settling overlap.
+Current task: #856 — remove subtle flicker at cross-day task drop.
 
-## Owner feedback and live state
-- v0.34.6 Preview generally works, but on physical phone releasing near edges (or even inside a category) can occasionally leave the task overlay floating while edge timers continue swiping; cross-day settling visually overlaps existing target-day rows rather than matching native same-day reorder.
-- Source baseline: stable Preview `feature/cross-day-drag-856-20261020@b4df879cb66ee630d572c4df39b95841fcab7fe8` v0.34.6, full canonical #39442591604 success, exact-sha Vercel ready. `dev@0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0` separate. Issue #856 open, no dev/main/production approval.
-- Proposed v0.34.7 PATCH. Task branch `chatgpt/856-touch-release-settle-20261020`.
+## Live baseline and owner feedback
+- Owner confirms previous v0.34.7 edge-release and no-overlap fixes work, but cross-day drop has a brief flash when settling; same-day reorder settles smoothly. Preserve touch release, timers, destination gap, saving and unrelated gestures.
+- Stable Preview `feature/cross-day-drag-856-20261020@ad52a93f8c5d6d77d89a68b5dbe508b8e5a7a7c4`, v0.34.7, canonical Gate #39448892769 success on attempt 2, Vercel exact-SHA READY. Separate dev `0606ff3aebf565cd47f1fe9bc4e53cf64a1499a0`; no approval to promote. Issue #856 remains open.
+- Task branch `chatgpt/856-smooth-cross-day-settle-20261020`; PATCH candidate v0.34.8.
 
-## Root cause and scoped fix
-- Previous hook explicitly ignored `pointerup` on physically held touch once a touch identifier existed. If mobile WebKit's final `touchend` never bubbles to the window and detached touched task doesn't receive it reliably after Swiper virtualized/unmounted it, no terminal event clears the carried overlay or repeat swipe dwell/cooldown timers. Treat exact matching `pointerup` as a definitive release for touch **and** mouse, even when touchend is unavailable; the existing original touch target/window touchend remains the fallback. Stop timers, remove overlay, ignore subsequent duplicate touch terminal callbacks.
-- Old `finish()` removed both dragged overlay and neutral destination insertion space *before* awaiting the persisted task move. This caused the incoming destination task to FLIP/interpolate over siblings while gap/categorical projection collapsed in a separate frame. Preserve a `settling` destination projection (source task masked, neutral slot reserved) after hiding the floating overlay; clear only after async commit and two render frames, with 2.5-second safety fallback, revision token and cleanup on close/new drag. Native DnD and Swiper interaction remain disabled during that short gap handoff, then resume. Preserve no colored gap or success toast.
-- Test real browser/CDP touch releases at right edge and inside populated destination category; verify no ghost overlay, no further day advancement after 1.2s, non-overlapping settled rows, and separately emulate matching pointerup without touchend. Existing cancellation, repeated swipes, browser mouse, live category motion and same-day reordering remain covered.
-- No backend/schema/service changes. Failure feedback stays, success toast remains removed.
+## Cause and narrow repair
+- Before v0.34.8 the active destination `DaySlide` switched `ReadOnlySlide` → `TaskReorderRuntime` as soon as the temporary `continuousDrag.projection` cleared. That unmounted/remounted the **entire task list** while the gap became a saved row, visually flashing despite non-overlapping bounds.
+- Keep the already-active day in `TaskReorderRuntime` during carried drag, settling and normal mode. Native task sorting remains disabled while a held/settling projection exists.
+- Keep `DayViewCategoryReorder` in its usual `Reorder.Group` / `Reorder.Item` structure during external carry on the active day, with `canStartDrag=false` until release. This prevents swapping layout wrappers from `LayoutGroup` → `Reorder.Group` when settling clears.
+- While carried externally and the active runtime is mounted, render destination siblings as the exact same `TaskRowDropSurface` and `DraggableTaskItem` component tree used by native same-day reorder. Their stable keyed DOM/task content no longer remounts at drop. Non-active/read-only slides retain cheap normal rendering; do not add providers to all virtual slides.
+- Keep v0.34.7's overlay removal + reserved neutral gap through commit and two frames; no extra colored UI or toast.
+- Extend existing CDP browser edge/category release regression: record stable task+category DOM elements before releasing in a populated next-day category and assert those same actual elements remain connected/active after settling, in addition to no overlapping rows and stable date.
 
-## Verification and delivery
-- First task Gate #39448103200: both browser shards passed including pointerup-without-touchend and edge/in-category touch release; focused lint failed only on synchronous setSettling(null) in a closing effect. Repair: defer cleanup to the next animation frame with cancellation on re-open, then rerun focused verification. After focused green, squash stable Preview, canonical all-shards build gate, exact-SHA registered Vercel Preview READY and issue checkpoint.
-- Owner Android/iOS physical device acceptance, extreme >87-day Swiper rebase, offline storage/sync and actual save/settling smoothness remain manual checks. Keep issue open.
-- Do not merge to dev/main/production without explicit owner approval.
+## Delivery
+- Verify task focused/browser gate, repair any test/build failures, squash to stable Preview, run full canonical CI, then deploy exact-SHA Vercel Preview READY and checkpoint issue.
+- Owner phone visual smoothness still requires physical Android/iOS acceptance; persistence/offline sync and >87-day rebases remain manual.
+- Do not promote dev/main, deploy Production, or change backend/schema.

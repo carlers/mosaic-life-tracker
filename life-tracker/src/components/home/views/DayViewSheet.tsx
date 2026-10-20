@@ -1127,7 +1127,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         !continuousDrag.projection &&
                         editingTaskId === null
                       }
-                      reorderRuntimeActive={isOpen && i === activeIndex && !continuousDrag.projection}
+                      reorderRuntimeActive={isOpen && i === activeIndex}
                       onCrossDayTaskStart={continuousDrag.startTask}
                       onCrossDayTaskMove={continuousDrag.moveTask}
                       onCrossDayNativeEnd={continuousDrag.onNativeEnd}

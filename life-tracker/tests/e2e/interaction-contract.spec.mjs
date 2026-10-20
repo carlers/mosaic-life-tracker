@@ -1737,6 +1737,16 @@ test('released touch task stops edge navigation and clears the overlay in both d
       if (!box) throw new Error('Missing destination category task');
       await gesture.moveTo(bounds.x + bounds.width / 2, box.y + box.height / 2);
       await expect(dialog.locator('.swiper-slide-active [data-cross-day-reorder-slot="true"]')).toHaveCount(1);
+      // Keep the DOM nodes of existing destination rows and categories
+      // through the handoff. Remounting them creates the visible flicker
+      // even when final row geometry does not overlap.
+      await page.evaluate(() => {
+        const active = document.querySelector('.swiper-slide-active');
+        window.__crossDayDropStableNodes = {
+          category: active?.querySelector('[data-task-category-id="cat_0"]'),
+          task: active?.querySelector('[data-task-category-id="cat_0"] [data-task-id]'),
+        };
+      });
     }
     await gesture.finish();
     await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
@@ -1746,6 +1756,16 @@ test('released touch task stops edge navigation and clears the overlay in both d
     await page.waitForTimeout(1250);
     await expect(dialog.locator('.swiper-slide-active [data-date-str]')).toHaveAttribute('data-date-str', activeDate);
     await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+    if (landing === 'category') {
+      await expect.poll(() => page.evaluate(() => {
+        const nodes = window.__crossDayDropStableNodes;
+        const active = document.querySelector('.swiper-slide-active');
+        return Boolean(nodes?.category && nodes?.task && nodes.category.isConnected &&
+          nodes.task.isConnected &&
+          nodes.category === active?.querySelector('[data-task-category-id="cat_0"]') &&
+          nodes.task === active?.querySelector('[data-task-category-id="cat_0"] [data-task-id]'));
+      })).toBe(true);
+    }
     // Settled sibling rows must not overlap each other after the neutral
     // insertion space is traded for the persisted row.
     const boxes = await dialog.locator('.swiper-slide-active [data-task-category-id="cat_0"] [data-task-id]')

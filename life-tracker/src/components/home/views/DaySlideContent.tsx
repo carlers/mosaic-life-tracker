@@ -246,9 +246,11 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       <DayViewCategoryReorder
         categories={categories}
         animateExternal={Boolean(crossDayDragTaskId)}
-        enabled={Boolean(reorderEnabled && onReorderCategories && onUpdateCategory &&
-          !selectionMode && categories.every(category => category.userId === currentUserId))}
-        canStartDrag={!activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling}
+        enabled={Boolean((reorderEnabled || (reorderRuntimeActive && crossDayDragTaskId)) &&
+          onReorderCategories && onUpdateCategory && !selectionMode &&
+          categories.every(category => category.userId === currentUserId))}
+        canStartDrag={!crossDayDragTaskId && !activeDrag && !diaryDragging &&
+          !activeSharedDragId && !diarySettling}
         onCommit={onReorderCategories ?? (async () => undefined)}
         onUpdate={onUpdateCategory ?? (async () => undefined)}
         onDragActiveChange={onReorderActiveChange}
@@ -309,6 +311,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           }
           dragGapHeight={activeDrag?.rowHeight ?? 0}
           externalDraggedTaskId={crossDayDragTaskId}
+          externalRuntimeActive={Boolean(reorderRuntimeActive && crossDayDragTaskId)}
           externalGapIndex={crossDayInsertion?.categoryId === category.id ? crossDayInsertion.index : null}
           externalGapHeight={crossDayInsertion?.height ?? 0}
         />
