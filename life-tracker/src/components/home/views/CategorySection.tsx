@@ -1,6 +1,7 @@
-import React, { useId, useState } from 'react';
+import React, { useContext, useEffect, useId, useRef, useState } from 'react';
+import { CategoryPillActionContext } from './categoryPillActionContext';
 import { motion, useReducedMotion } from 'framer-motion';
-import { CheckSquare, ChevronDown, Plus, Square } from 'lucide-react';
+import { CheckSquare, ChevronDown, MoreHorizontal, Plus, Square } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
 import { TaskItem } from './TaskItem';
 import {
@@ -11,9 +12,21 @@ import {
 } from './TaskReorderSurfaces';
 import { visibilityIcon } from '../../../lib/visibility';
 import { getCategoryLabelColor } from '../../../constants/colors';
-import type { TaskDocument } from '../../../db/schema';
+import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 
 type Visibility = 'private' | 'followers' | 'public';
+
+
+export interface CategoryPillActions {
+  onPointerDown: React.PointerEventHandler<HTMLElement>;
+  consumeClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onContextMenu: React.MouseEventHandler<HTMLElement>;
+  menuOpen: boolean;
+  setMenuOpen: (open: boolean) => void;
+  moveUp?: () => void;
+  moveDown?: () => void;
+  update: (changes: Pick<CategoryDocument, 'name' | 'visibility'>) => Promise<void>;
+}
 
 const EMPTY_SELECTED_TASK_IDS: ReadonlySet<string> = new Set();
 
@@ -57,6 +70,7 @@ interface CategorySectionProps {
   activeDragTaskId?: string | null;
   dragGapIndex?: number | null;
   dragGapHeight?: number;
+  categoryActions?: CategoryPillActions;
 }
 
 export const CategorySection: React.FC<CategorySectionProps> = ({
@@ -99,12 +113,68 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   activeDragTaskId = null,
   dragGapIndex = null,
   dragGapHeight = 0,
+  categoryActions: suppliedCategoryActions,
 }) => {
+  const contextualActions = useContext(CategoryPillActionContext);
+  const categoryActions = suppliedCategoryActions ?? contextualActions;
   const prefersReducedMotion = useReducedMotion();
   const animatePositions = animateDragProjection && !prefersReducedMotion;
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [editingCategory, setEditingCategory] = useState(false);
+  const [editName, setEditName] = useState(categoryName);
+  const [editVisibility, setEditVisibility] = useState<Visibility>(visibility ?? 'private');
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [categoryError, setCategoryError] = useState('');
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+  const categoryPillRef = useRef<HTMLButtonElement>(null);
+  const optionsButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!categoryActions?.menuOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      if (actionMenuRef.current?.contains(event.target as Node) ||
+          categoryPillRef.current?.contains(event.target as Node) ||
+          optionsButtonRef.current?.contains(event.target as Node)) return;
+      categoryActions.setMenuOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      categoryActions.setMenuOpen(false);
+      optionsButtonRef.current?.focus();
+    };
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', escape, true);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss);
+      document.removeEventListener('keydown', escape, true);
+    };
+  }, [categoryActions]);
+
+  const startCategoryEdit = () => {
+    setEditName(categoryName);
+    setEditVisibility(visibility ?? 'private');
+    setCategoryError('');
+    categoryActions?.setMenuOpen(false);
+    setEditingCategory(true);
+  };
+  const saveCategoryEdit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!categoryActions || !editName.trim() || savingCategory) return;
+    setSavingCategory(true);
+    setCategoryError('');
+    try {
+      await categoryActions.update({ name: editName.trim(), visibility: editVisibility });
+      setEditingCategory(false);
+      optionsButtonRef.current?.focus();
+    } catch (error) {
+      setCategoryError(error instanceof Error ? error.message : 'Could not update category');
+    } finally {
+      setSavingCategory(false);
+    }
+  };
   const inputId = useId();
 
   const setInputRef = (node: HTMLInputElement | null) => {
@@ -155,6 +225,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     reorderEnabled &&
     !selectionMode &&
     !isAdding &&
+    !editingCategory &&
     editingTaskId === null;
 
   const taskProps = (task: TaskDocument) => ({
@@ -255,21 +326,34 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const categoryHeaderControls = (
-    <>
+    <div className="relative inline-flex max-w-full items-center gap-1">
       <button
         type="button"
+        ref={categoryPillRef}
+        onClickCapture={categoryActions?.consumeClick}
+        onPointerDown={!editingCategory && !isAdding && editingTaskId === null
+          ? categoryActions?.onPointerDown : undefined}
+        onContextMenu={!editingCategory ? categoryActions?.onContextMenu : undefined}
         onClick={selectionMode ? () => onToggleCategorySelection?.(categoryId) : handleOpen}
         disabled={selectionMode && (!onToggleCategorySelection || tasks.length === 0)}
-        className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        className="mosaic-category-pill select-none inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label={selectionMode
           ? `${allCategoryTasksSelected ? 'Deselect all' : 'Select all'} tasks in ${categoryName}`
           : `Add a task to ${categoryName}`}
         aria-pressed={selectionMode ? allCategoryTasksSelected : undefined}
+        style={categoryActions && !selectionMode
+          ? { WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }
+          : undefined}
       >
         {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
         <span
           className="text-[0.9375rem] font-bold"
-          style={{ color: getCategoryLabelColor(categoryColor) }}
+          data-category-drag-handle={categoryActions && !editingCategory ? 'true' : undefined}
+          style={{ color: getCategoryLabelColor(categoryColor),
+            touchAction: categoryActions && !editingCategory ? 'none' : undefined,
+            WebkitUserSelect: categoryActions && !editingCategory ? 'none' : undefined,
+            userSelect: categoryActions && !editingCategory ? 'none' : undefined,
+            WebkitTouchCallout: categoryActions && !editingCategory ? 'none' : undefined }}
         >
           {categoryName}
         </span>
@@ -302,7 +386,42 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           />
         </button>
       )}
-    </>
+      {categoryActions && !selectionMode && (
+        <>
+          <button
+            type="button"
+            ref={optionsButtonRef}
+            aria-label={'Category options for ' + categoryName}
+            aria-expanded={categoryActions.menuOpen}
+            onClick={() => categoryActions.setMenuOpen(!categoryActions.menuOpen)}
+            className="rounded-full p-1.5 text-gray-400 hover:bg-surfaceHighlight focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          >
+            <MoreHorizontal size={18} />
+          </button>
+          {categoryActions.menuOpen && (
+            <div ref={actionMenuRef} role="group"
+              aria-label={'Category actions for ' + categoryName}
+              className="absolute right-0 top-full z-30 mt-1 flex flex-col gap-0.5 rounded-xl border border-[#333333] bg-surface p-1 shadow-xl"
+            >
+              <button type="button" onClick={startCategoryEdit}
+                className="rounded-lg px-4 py-2 text-left text-sm text-white hover:bg-surfaceHighlight">
+                Edit
+              </button>
+              <button type="button" disabled={!categoryActions.moveUp}
+                onClick={() => { categoryActions.moveUp?.(); categoryActions.setMenuOpen(false); }}
+                className="rounded-lg px-4 py-2 text-left text-sm text-white hover:bg-surfaceHighlight disabled:opacity-40">
+                Move up
+              </button>
+              <button type="button" disabled={!categoryActions.moveDown}
+                onClick={() => { categoryActions.moveDown?.(); categoryActions.setMenuOpen(false); }}
+                className="rounded-lg px-4 py-2 text-left text-sm text-white hover:bg-surfaceHighlight disabled:opacity-40">
+                Move down
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 
   const contents = (
@@ -315,6 +434,48 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         <CategoryHeaderFrame>
           {categoryHeaderControls}
         </CategoryHeaderFrame>
+      )}
+
+      {editingCategory && categoryActions && !selectionMode && (
+        <form onSubmit={(event) => { void saveCategoryEdit(event); }}
+          aria-label={'Edit ' + categoryName}
+          className="my-2 max-w-sm space-y-2 rounded-xl border border-[#333333] bg-surface p-3"
+          onKeyDown={event => {
+            if (event.key === 'Escape' && !savingCategory) {
+              event.stopPropagation();
+              setEditingCategory(false);
+              optionsButtonRef.current?.focus();
+            }
+          }}
+        >
+          <label className="block text-sm text-gray-300">
+            Category name
+            <input autoFocus type="text" value={editName}
+              onChange={event => setEditName(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-[#444444] bg-background p-2 text-white"
+            />
+          </label>
+          <label className="block text-sm text-gray-300">
+            Visibility
+            <select value={editVisibility}
+              onChange={event => setEditVisibility(event.target.value as Visibility)}
+              className="mt-1 w-full rounded-lg border border-[#444444] bg-background p-2 text-white">
+              <option value="private">Private</option>
+              <option value="followers">Friends</option>
+              <option value="public">Public</option>
+            </select>
+          </label>
+          {categoryError && <p role="alert" className="text-sm text-red-400">{categoryError}</p>}
+          <div className="flex gap-2">
+            <button type="submit" disabled={savingCategory || !editName.trim()}
+              className="rounded-lg bg-surfaceHighlight px-3 py-2 text-sm text-white disabled:opacity-40">
+              Save
+            </button>
+            <button type="button" disabled={savingCategory}
+              onClick={() => { setEditingCategory(false); optionsButtonRef.current?.focus(); }}
+              className="rounded-lg px-3 py-2 text-sm text-gray-300">Cancel</button>
+          </div>
+        </form>
       )}
 
       {!categoryCollapsed && isAdding && (
