@@ -161,7 +161,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     });
   }, []);
   useEffect(() => {
-    if (!isOpen) setKeyboardHelpOpen(false);
+    if (isOpen) return;
+    // Closing may retain the mounted Day View for its exit animation. Reset
+    // after paint rather than synchronously cascading a render from an effect.
+    const frame = window.requestAnimationFrame(() => setKeyboardHelpOpen(false));
+    return () => window.cancelAnimationFrame(frame);
   }, [isOpen]);
   useEffect(() => {
     if (keyboardHelpOpen) keyboardHelpCloseRef.current?.focus({ preventScroll: true });
