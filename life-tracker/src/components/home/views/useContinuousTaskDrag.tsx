@@ -407,7 +407,7 @@ export function useContinuousTaskDrag({
     // Swiper may detach that row during a cross-day handoff; events no longer
     // bubble through window then. Retain direct listeners on that source
     // element until this single-finger gesture actually terminates.
-    let sourceTouchTarget: Element | null = null;
+    let sourceTouchTarget: HTMLElement | null = null;
     const detachSourceTouch = () => {
       if (!sourceTouchTarget) return;
       sourceTouchTarget.removeEventListener('touchmove', touchMove, true);
@@ -433,10 +433,13 @@ export function useContinuousTaskDrag({
         held.touchId = event.touches[0].identifier;
       }
       if (!sourceTouchTarget && event.target instanceof Element) {
-        sourceTouchTarget = event.target;
-        sourceTouchTarget.addEventListener('touchmove', touchMove, { capture: true, passive: false });
-        sourceTouchTarget.addEventListener('touchend', touchEnd, true);
-        sourceTouchTarget.addEventListener('touchcancel', touchCancel, true);
+        // Touch target may be a nested SVG or span. Attach to its stable
+        // HTML task ancestor so TouchEvent overloads and detached bubbling
+        // both work when Swiper unmounts the source slide.
+        sourceTouchTarget = event.target.closest<HTMLElement>('[data-task-id]');
+        sourceTouchTarget?.addEventListener('touchmove', touchMove, { capture: true, passive: false });
+        sourceTouchTarget?.addEventListener('touchend', touchEnd, true);
+        sourceTouchTarget?.addEventListener('touchcancel', touchCancel, true);
       }
     };
     const touchMove = (event: TouchEvent) => {
