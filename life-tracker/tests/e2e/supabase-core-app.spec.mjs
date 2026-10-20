@@ -95,6 +95,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     await expect.poll(async () => (await rows(owner, 'tasks')).some(row => row.title === 'Renamed core task'))
       .toBe(true);
     await first.getByRole('button', { name: 'Renamed core task', exact: true }).first().click();
+    await expect(first.getByRole('button', { name: 'Move to Backlog', exact: true })).toBeVisible();
     await expect(first.getByRole('button', { name: 'Share with friends', exact: true })).toHaveCount(0);
     await expect(first.getByRole('button', { name: 'Add Photo', exact: true })).toHaveCount(0);
     await first.getByRole('button', { name: 'Move to Backlog', exact: true }).click();
