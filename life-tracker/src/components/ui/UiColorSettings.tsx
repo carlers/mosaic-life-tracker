@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Palette, RotateCcw } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppearance } from '../../hooks/useAppearance';
@@ -23,17 +23,16 @@ export const UiColorSettings: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<{ uid: string; role: UiColorRole; choice: UiColorChoice } | null>(null);
   const cached = React.useMemo(() => readCachedUiColors(uid), [uid]);
+  // Derive the transient optimistic choice instead of clearing it in an effect.
+  // Once the synced row catches up, the draft stops shadowing later device changes.
+  const pendingDraft = draft?.uid === uid && (isLoading ||
+    resolveUiColorChoice(getSetting(uiColorSettingKey(draft.role), 'default')) !== draft.choice)
+    ? draft : null;
   const choices = defaultUiColors();
   for (const role of UI_COLOR_ROLES) {
     const value = isLoading ? cached[role] : resolveUiColorChoice(getSetting(uiColorSettingKey(role), 'default'));
-    choices[role] = draft?.uid === uid && draft.role === role ? draft.choice : value;
+    choices[role] = pendingDraft?.role === role ? pendingDraft.choice : value;
   }
-  useEffect(() => {
-    if (draft && (draft.uid !== uid ||
-      (!isLoading && resolveUiColorChoice(getSetting(uiColorSettingKey(draft.role))) === draft.choice))) {
-      setDraft(null);
-    }
-  }, [draft, getSetting, isLoading, uid]);
 
   async function change(role: UiColorRole, next: UiColorChoice) {
     if (!uid || saving) return;
