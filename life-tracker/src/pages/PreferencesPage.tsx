@@ -623,6 +623,9 @@ export const PreferencesPage: React.FC = () => {
               aria-hidden="true"
             />
           </button>
+          <div className="mt-2 border-t border-[#333333] pt-2">
+            <UiColorSettings />
+          </div>
         </section>
         <BottomSheet
           isOpen={isAccentPickerOpen}
@@ -641,7 +644,6 @@ export const PreferencesPage: React.FC = () => {
             />
           </div>
         </BottomSheet>
-        <UiColorSettings />
         <ChoiceGroup
           label="Content width"
           options={CONTENT_WIDTH_MODES}
