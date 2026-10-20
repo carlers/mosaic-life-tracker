@@ -93,3 +93,38 @@ RPCs are reviewed against the signed negative tests; they are not silently
 suppressed. New warnings/errors need investigation. This evidence does not replace
 offline cold-start/refresh rotation, existing-user Appwrite fencing, reversible
 migration, encrypted restore, manual-device or hosted Preview acceptance.
+# Isolated Vercel core Preview
+
+The #1027 Preview uses only `https://hcxtiifzxoaflhjgoglb.supabase.co` and the
+`core-only` profile, at `https://mosaic-supabase-core-preview.vercel.app`.
+This hostname is a planned destination until deployment evidence is recorded;
+this document does not claim it is live.
+
+`core-preview-public.json` contains the browser publishable key, never a service
+role, management or deployment credential. `scripts/build-supabase-core-preview.mjs`
+passes only public inputs and an allowlist of process infrastructure variables
+to the build. No shared Vercel environment is pulled. The separate
+`mosaic-supabase-core-<sha>-<run>-<attempt>` CI artifact is produced only after the
+real local lab passes. Its profile records Supabase, core-only, exact origin and
+public-key digest, with `appwriteBackend: none`; the ordinary trusted Appwrite
+receiver continues to reject it.
+
+An authorized operator must verify the stable source SHA's canonical acceptance
+and successful Supabase lab/artifact job, download that exact run's artifact,
+check the archive digest/inventory and recompute routing from the accepted
+`vercel.json` using `assembleVerifiedStaticOutput`. Deploy only those static bytes
+to Mosaic project `prj_jysOLDbuO9c5rP8x6Q145DVIw0fc`, team
+`team_UbpudOr8jXyrDA5SdVUxVGOr`, with pinned CLI 62.7.0 and Preview target.
+Use a distinct deterministic deployment ID incorporating the Supabase profile,
+source SHA and artifact digest. Check existing deployment history before retries.
+Do not change shared project variables, protection settings or ordinary aliases.
+Assign only the isolated hostname after READY and exact metadata readback.
+
+Before sending fixture credentials, read back that alias's project/deployment,
+Preview target, source SHA and Supabase profile. Use `runHostedProbe` with
+`exerciseHostedUi(client, accounts, origin, { origin: <isolated alias>, sha })`
+to test the actual deployed bytes without rebuilding. The browser checks the
+embedded source SHA, Preview channel and provider before login. HTTPS validation
+stays enabled; fixture provisioning and retirement follow the existing runner.
+Record the resulting disposable-account evidence separately from provider READY.
+Email-confirmation signup/recovery and mobile/manual acceptance remain separate.

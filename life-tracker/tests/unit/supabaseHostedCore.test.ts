@@ -1,10 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import { assertProject, connect, inspect, isCasConflict, PROJECT } from '../../supabase-poc/hosted-core.mjs';
+import { exerciseHostedUi } from '../../supabase-poc/hosted-core-ui.mjs';
 
 const project = { id: PROJECT, name: 'mosaic-dev', status: 'ACTIVE_HEALTHY' };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 
 describe('hosted core verification safety boundary', () => {
+  it('refuses an unbound Preview before retrieving keys or launching credential-bearing browsers', async () => {
+    const client = { management: vi.fn() };
+    for (const preview of [
+      { origin: 'https://other.vercel.app', sha: 'a'.repeat(40) },
+      { origin: 'https://mosaic-supabase-core-preview.vercel.app', sha: '' },
+    ]) await expect(exerciseHostedUi(client, [], 'https://' + PROJECT + '.supabase.co', preview))
+      .rejects.toThrow('isolated alias and exact accepted source');
+    expect(client.management).not.toHaveBeenCalled();
+  });
   it('accepts typed SQL null conflicts but never partial or mixed row responses', () => {
     const typedNull = { owner_id: null, id: null, change_seq: null, is_deleted: null, title: null };
     expect(isCasConflict(null)).toBe(true);

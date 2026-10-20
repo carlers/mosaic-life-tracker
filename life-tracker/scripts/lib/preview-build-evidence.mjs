@@ -66,7 +66,12 @@ export async function createBuildEvidence({ directory, sha, ref, profile }) {
       giphy: profile?.giphy === true ? 'enabled' : 'disabled',
       posthog: profile?.posthog === true ? 'enabled' : 'disabled',
       vercelEnvironment: profile?.vercelEnvironment === 'preview' ? 'preview' : 'production',
-      appwriteBackend: profile?.appwriteBackend === 'scratch' ? 'scratch' : 'production',
+      appwriteBackend: profile?.backend === 'supabase-cloud' ? 'none' :
+        profile?.appwriteBackend === 'scratch' ? 'scratch' : 'production',
+      ...(profile?.backend === 'supabase-cloud' ? {
+        backend: profile.backend, featureProfile: profile.featureProfile,
+        supabaseOrigin: profile.supabaseOrigin, publishableKeySha256: profile.publishableKeySha256,
+      } : {}),
     },
     inventory: { digest: inventory.digest, count: inventory.files.length },
     jsCssFingerprint: fingerprint.digest,

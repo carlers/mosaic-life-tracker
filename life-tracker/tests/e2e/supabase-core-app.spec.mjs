@@ -41,6 +41,14 @@ async function account() {
 }
 async function signIn(page, owner) {
   await page.goto(app + '/login');
+  if (process.env.MOSAIC_CORE_PREVIEW_SHA) {
+    expect(new URL(page.url()).origin).toBe('https://mosaic-supabase-core-preview.vercel.app');
+    const identity = JSON.parse(await page.locator('meta[name="mosaic-build-info"]').getAttribute('content'));
+    expect(identity.commit).toBe(process.env.MOSAIC_CORE_PREVIEW_SHA);
+    expect(identity.channel).toBe('Preview');
+    expect(identity.backend).toBe('supabase-cloud');
+    expect(identity.featureProfile).toBe('core-only');
+  }
   await page.getByLabel('Email Address').fill(owner.email);
   await page.getByLabel('Password', { exact: true }).fill(owner.password);
   await page.getByRole('button', { name: 'Sign In', exact: true }).click();

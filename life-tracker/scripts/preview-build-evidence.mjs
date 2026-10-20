@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
 import { createBuildEvidence, verifyBuildEvidence } from './lib/preview-build-evidence.mjs';
 
 // Produce and verify evidence only. No Vercel credentials, provider API,
@@ -19,6 +20,13 @@ try {
         posthog: Boolean(process.env.VITE_POSTHOG_TOKEN?.trim() && process.env.VITE_POSTHOG_HOST?.trim()),
         vercelEnvironment: process.env.VERCEL_ENV,
         appwriteBackend: process.env.VERCEL_ENV === 'preview' ? 'scratch' : 'production',
+        ...(process.env.VITE_MOSAIC_BACKEND === 'supabase-cloud' ? {
+          backend: 'supabase-cloud',
+          featureProfile: process.env.VITE_MOSAIC_FEATURE_PROFILE,
+          supabaseOrigin: process.env.VITE_SUPABASE_URL,
+          publishableKeySha256: createHash('sha256')
+            .update(process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '').digest('hex'),
+        } : {}),
       },
     });
     await mkdir(output, { recursive: true });

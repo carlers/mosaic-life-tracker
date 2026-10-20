@@ -87,3 +87,30 @@ jobs:
       - name: Destroy disposable data
         if: always()
         run: supabase stop --no-backup || true
+  hosted-preview-artifact:
+    needs: core-app
+    if: startsWith(github.ref, 'refs/heads/codex/1027-supabase-recovery-') || startsWith(github.ref, 'refs/heads/feature/1027-supabase-recovery-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - run: npm ci --prefer-offline --no-audit
+      - name: Build isolated mosaic-dev bytes with public inputs only
+        run: node scripts/build-supabase-core-preview.mjs
+      # This is deliberately a different artifact from the Appwrite receiver's.
+      # Exact source canonical acceptance and lab success are required before
+      # a separately authorized operator deploys these verified static bytes.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mosaic-supabase-core-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: life-tracker/.mosaic/supabase-core-preview/*
+          if-no-files-found: error
+          retention-days: 7
