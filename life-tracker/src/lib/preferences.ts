@@ -18,6 +18,21 @@ export function resolveIncompleteTaskBlockColorMode(value: unknown): IncompleteT
   return value === 'text' || value === 'border' ? value : 'default';
 }
 export const STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY = 'stickyCalendarWeekdayHeader';
+export const CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY = 'calendarTaskPreviewLimit';
+export const CALENDAR_TASK_PREVIEW_LIMITS = [3, 5, 8, 10, 15, 20] as const;
+export type CalendarTaskPreviewLimit = (typeof CALENDAR_TASK_PREVIEW_LIMITS)[number] | 'unlimited';
+/** Invalid, legacy or absent preferences retain the full Calendar preview. */
+export function resolveCalendarTaskPreviewLimit(value: unknown): CalendarTaskPreviewLimit {
+  switch (value) {
+    case 3: case '3': return 3;
+    case 5: case '5': return 5;
+    case 8: case '8': return 8;
+    case 10: case '10': return 10;
+    case 15: case '15': return 15;
+    case 20: case '20': return 20;
+    default: return 'unlimited';
+  }
+}
 export const CALENDAR_ZOOM_DAYS_SETTING_KEY = 'calendarZoomDays';
 export type CalendarZoomDays = 3 | 4 | 7;
 export function resolveCalendarZoomDays(value: unknown): CalendarZoomDays {

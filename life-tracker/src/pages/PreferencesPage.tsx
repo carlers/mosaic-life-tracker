@@ -54,6 +54,9 @@ import {
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
+  CALENDAR_TASK_PREVIEW_LIMITS,
+  resolveCalendarTaskPreviewLimit,
   STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
   resolveCalendarZoomDays,
 } from '../lib/preferences';
@@ -246,6 +249,7 @@ export const PreferencesPage: React.FC = () => {
   const shareLabelMode = getSetting(SHARED_LABEL_MODE_SETTING_KEY, 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting(SHOW_PENDING_SHARES_SETTING_KEY, false) === true;
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
+  const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
@@ -442,6 +446,20 @@ export const PreferencesPage: React.FC = () => {
             onChange={(value) => void setSetting(
               CALENDAR_ZOOM_DAYS_SETTING_KEY,
               resolveCalendarZoomDays(value)
+            )}
+          />
+          <SelectSettingRow
+            id="calendar-task-preview-limit"
+            icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Maximum visible tasks per day"
+            value={String(calendarTaskPreviewLimit)}
+            options={[
+              ...CALENDAR_TASK_PREVIEW_LIMITS.map(limit => ({ value: String(limit), label: String(limit) })),
+              { value: 'unlimited', label: 'Unlimited (default)' },
+            ]}
+            onChange={value => void setSetting(
+              CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
+              resolveCalendarTaskPreviewLimit(value)
             )}
           />
           <SettingsRow
