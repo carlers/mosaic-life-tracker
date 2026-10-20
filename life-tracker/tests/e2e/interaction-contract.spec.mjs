@@ -1720,13 +1720,9 @@ test('Calendar keyboard period changes snap to a full-width slide', async ({ pag
     await page.keyboard.press(key);
     await expect(host.locator(`[data-calendar-slide-index="${index}"] button[data-calendar-day="${date}"]`))
       .toBeFocused();
-    await expect.poll(async () => host.evaluate((selected) => {
-      const viewport = document.querySelector(
-        '[data-testid="real-calendar-cold-probe"] [data-route-swipe-horizontal-owner]'
-      );
-      const slide = document.querySelector(
-        `[data-testid="real-calendar-cold-probe"] [data-calendar-slide-index="${selected}"]`
-      );
+    await expect.poll(async () => host.evaluate((root, selected) => {
+      const viewport = root.querySelector('[data-route-swipe-horizontal-owner]');
+      const slide = root.querySelector(`[data-calendar-slide-index="${selected}"]`);
       if (!(viewport instanceof HTMLElement) || !(slide instanceof HTMLElement)) return 10000;
       return Math.abs(slide.getBoundingClientRect().left - viewport.getBoundingClientRect().left);
     }, index), { timeout: 3500, intervals: [70, 100, 130, 170, 250] }).toBeLessThan(2);
