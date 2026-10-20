@@ -3,15 +3,18 @@ import { expect, test } from '@playwright/test';
 
 const url = process.env.MOSAIC_SB_LOCAL_URL;
 const key = process.env.MOSAIC_SB_LOCAL_PUBLISHABLE_KEY;
-const configured = url === 'http://127.0.0.1:54321' && key?.startsWith('sb_publishable_') &&
+const hosted = url === 'https://hcxtiifzxoaflhjgoglb.supabase.co' &&
+  process.env.MOSAIC_CORE_HOSTED_LAB === 'true';
+const configured = (url === 'http://127.0.0.1:54321' || hosted) && key?.startsWith('sb_publishable_') &&
   process.env.MOSAIC_CORE_APP_LAB === 'true';
 test.skip(!configured, 'Requires the disposable real Supabase core-app lab');
-test.use({ ignoreHTTPSErrors: true, actionTimeout: 15_000, navigationTimeout: 30_000 });
-test.setTimeout(120_000);
+test.use({ ignoreHTTPSErrors: !hosted, actionTimeout: 15_000, navigationTimeout: 30_000 });
+test.setTimeout(hosted ? 240_000 : 120_000);
 const app = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
+const hostedAccounts = hosted ? JSON.parse(process.env.MOSAIC_CORE_HOSTED_FIXTURES ?? '[]') : [];
 
 async function api(path, token, body, method = body === undefined ? 'GET' : 'POST') {
-  if (!configured) throw new Error('Disposable loopback lab required');
+  if (!configured) throw new Error('Explicit disposable Supabase lab required');
   return fetch(url + path, {
     method, redirect: 'error',
     signal: AbortSignal.timeout(15_000),
@@ -23,9 +26,14 @@ async function api(path, token, body, method = body === undefined ? 'GET' : 'POS
   });
 }
 async function account() {
-  const email = `mosaic-core-${randomBytes(12).toString('hex')}@example.org`;
-  const password = 'Aa!9' + randomBytes(24).toString('hex');
-  expect((await api('/auth/v1/signup', null, { email, password })).ok).toBe(true);
+  const fixture = hosted ? hostedAccounts.shift() : {
+    email: `mosaic-core-${randomBytes(12).toString('hex')}@example.org`,
+    password: 'Aa!9' + randomBytes(24).toString('hex'),
+  };
+  if (!fixture || (hosted && !/^mosaic-hosted-[0-9a-f]{24}-ui-[ab]@example\.org$/.test(fixture.email)))
+    throw new Error('Hosted UI requires runner-owned disposable accounts');
+  const { email, password } = fixture;
+  if (!hosted) expect((await api('/auth/v1/signup', null, { email, password })).ok).toBe(true);
   const grant = await api('/auth/v1/token?grant_type=password', null, { email, password });
   expect(grant.ok).toBe(true);
   const signed = await grant.json();
@@ -47,7 +55,7 @@ async function rows(owner, domain) {
 test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and second-device isolation', async ({ browser }) => {
   const owner = await account();
   const other = await account();
-  const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext({ ignoreHTTPSErrors: true })));
+  const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext({ ignoreHTTPSErrors: !hosted })));
   const boundaryErrors = [];
   try {
     const [first, second, foreign] = await Promise.all(contexts.map(context => context.newPage()));
@@ -64,18 +72,33 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     await first.getByRole('button', { name: 'Open menu' }).click();
     await first.getByRole('button', { name: 'Lists & Categories' }).click();
     await first.getByRole('button', { name: 'Add Category', exact: true }).click();
-    await first.getByLabel('Name', { exact: true }).fill('Core private list');
+    await first.getByLabel('Name', { exact: true }).fill('Initial core list');
     await first.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'categories')).some(row => row.name === 'Initial core list'))
+      .toBe(true);
+    await first.getByRole('listitem').filter({ hasText: 'Initial core list' })
+      .getByRole('button', { name: 'Edit category', exact: true }).click();
+    await first.getByLabel('Name', { exact: true }).fill('Core private list');
+    await first.getByRole('button', { name: 'Save Changes', exact: true }).click();
     await expect.poll(async () => (await rows(owner, 'categories')).some(row => row.name === 'Core private list'))
       .toBe(true);
     await first.keyboard.press('Escape');
     await first.getByRole('tab', { name: 'Todo list', exact: true }).click();
     await first.getByRole('button', { name: 'Add a task to Core private list', exact: true }).first().click();
     const input = first.getByPlaceholder('Add a task to Core private list...').first();
-    await input.fill('Private core task');
+    await input.fill('Initial core task');
     await input.press('Enter');
+    await expect.poll(async () => (await rows(owner, 'tasks')).some(row => row.title === 'Initial core task'))
+      .toBe(true);
+    await first.getByRole('tab', { name: 'Calendar', exact: true }).click();
+    await first.getByRole('button', { name: /, today,.*1 task/ }).first().click();
+    await first.getByRole('dialog').getByRole('button', { name: 'Initial core task', exact: true }).first().dblclick();
+    await first.getByLabel('Task title', { exact: true }).fill('Private core task');
+    await first.getByLabel('Task title', { exact: true }).press('Enter');
     await expect.poll(async () => (await rows(owner, 'tasks')).some(row => row.title === 'Private core task'))
       .toBe(true);
+    await first.keyboard.press('Escape');
+    await first.getByRole('tab', { name: 'Todo list', exact: true }).click();
 
     await signIn(second, owner);
     await second.getByRole('tab', { name: 'Todo list', exact: true }).click();
@@ -133,6 +156,53 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     await expect(second.getByRole('button', { name: 'Renamed core task', exact: true }))
       .toHaveCount(0, { timeout: 20_000 });
 
+    // Category edits, pointer reordering and tombstones use the same domain
+    // hooks as task edits and must converge on the second device too.
+    await first.getByRole('button', { name: 'Open menu' }).click();
+    await first.getByRole('button', { name: 'Lists & Categories' }).click();
+    await first.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await first.getByLabel('Name', { exact: true }).fill('Second core list');
+    await first.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'categories')).some(row => row.name === 'Second core list'))
+      .toBe(true);
+    const originalCategory = first.getByRole('listitem').filter({ hasText: 'Core private list' });
+    const nextCategory = first.getByRole('listitem').filter({ hasText: 'Second core list' });
+    const handle = await nextCategory.getByRole('button', { name: 'Drag to reorder' }).boundingBox();
+    const target = await originalCategory.boundingBox();
+    expect(handle).not.toBeNull();
+    expect(target).not.toBeNull();
+    await first.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await first.mouse.down();
+    await first.mouse.move(handle.x + handle.width / 2, target.y + target.height / 4, { steps: 15 });
+    await first.mouse.up();
+    await expect.poll(async () => {
+      const categories = await rows(owner, 'categories');
+      return categories.find(row => row.name === 'Second core list').order_index <
+        categories.find(row => row.name === 'Core private list').order_index;
+    }).toBe(true);
+    await second.evaluate(() => window.dispatchEvent(new Event('online')));
+    await second.getByRole('button', { name: 'Open menu' }).click();
+    await second.getByRole('button', { name: 'Lists & Categories' }).click();
+    await expect(second.getByRole('listitem').filter({ hasText: 'Second core list' }))
+      .toBeVisible({ timeout: 20_000 });
+    await expect.poll(async () => {
+      const labels = await second.getByRole('listitem').allTextContents();
+      return labels.findIndex(text => text.includes('Second core list')) <
+        labels.findIndex(text => text.includes('Core private list'));
+    }, { timeout: 20_000 }).toBe(true);
+    await contexts[0].setOffline(true);
+    await originalCategory.getByRole('button', { name: 'Delete category', exact: true }).click();
+    await first.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(originalCategory).toHaveCount(0);
+    expect((await rows(owner, 'categories')).find(row => row.name === 'Core private list').is_deleted).toBe(false);
+    await contexts[0].setOffline(false);
+    await first.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect.poll(async () => (await rows(owner, 'categories')).find(row => row.name === 'Core private list').is_deleted,
+      { timeout: 25_000 }).toBe(true);
+    await second.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect(second.getByRole('listitem').filter({ hasText: 'Core private list' }))
+      .toHaveCount(0, { timeout: 20_000 });
+
     await signIn(foreign, other);
     await foreign.getByRole('tab', { name: 'Todo list', exact: true }).click();
     await expect(foreign.getByText('Private core task', { exact: true })).toHaveCount(0);
@@ -159,6 +229,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
 });
 
 test('signed server denies old clients without leases, foreign writes, and released session writes', async () => {
+  test.skip(hosted, 'Hosted server guards are exercised by hosted-core.mjs with scoped fixture retirement');
   const owner = await account();
   const other = await account();
   const document = {

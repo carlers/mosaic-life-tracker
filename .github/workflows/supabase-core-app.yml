@@ -5,6 +5,8 @@ on:
     branches:
       - 'codex/1027-supabase-core-app-*'
       - 'refactor/1027-supabase-core-app-*'
+      - 'codex/1027-supabase-hosted-*'
+      - 'refactor/1027-supabase-hosted-*'
 permissions:
   contents: read
 concurrency:
