@@ -150,8 +150,8 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
   };
   const queueNativeSnap = (node: HTMLDivElement, delay = 160) => {
     clearNativeIdle();
-    if (navigationLocked || mouseStartRef.current || touchStartRef.current ||
-      pendingMouseSnapRef.current) return;
+    if (navigationLocked || node.dataset.calendarPinchMorph === 'true' ||
+      mouseStartRef.current || touchStartRef.current || pendingMouseSnapRef.current) return;
     nativeIdleTimerRef.current = window.setTimeout(() => {
       nativeIdleTimerRef.current = null;
       smoothSnap(node);
@@ -161,7 +161,8 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
     const node = viewportRef.current;
     if (!node) return;
     const onNativeScrollEnd = () => {
-      if (!navigationLocked && !pendingMouseSnapRef.current) smoothSnap(node);
+      if (!navigationLocked && node.dataset.calendarPinchMorph !== 'true' &&
+        !pendingMouseSnapRef.current) smoothSnap(node);
     };
     node.addEventListener('scrollend', onNativeScrollEnd);
     return () => node.removeEventListener('scrollend', onNativeScrollEnd);
