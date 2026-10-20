@@ -267,9 +267,14 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
   const secondContext = await browser.newContext({ ignoreHTTPSErrors: true });
   let oldToken;
   const browserTokens = [];
+  const responses = {};
   try {
     const page = await context.newPage();
     page.on('response', async response => {
+      if (response.url().startsWith(url + '/')) {
+        const label = response.request().method() + ' ' + new URL(response.url()).pathname + ' ' + response.status();
+        responses[label] = (responses[label] ?? 0) + 1;
+      }
       if (response.url().startsWith(url + '/auth/v1/token?') && response.status() === 200) {
         const tokens = await response.json().catch(() => null);
         if (typeof tokens?.access_token === 'string') browserTokens.push(tokens.access_token);
@@ -294,6 +299,12 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
     await page.getByPlaceholder('Add a task to Expiry recovery list...').first().fill('Preserved offline edit');
     await page.getByPlaceholder('Add a task to Expiry recovery list...').first().press('Enter');
     await expect.poll(async () => (await rows(owner, 'tasks')).length).toBe(1);
+    // Establish a fully acknowledged record before testing JWT recovery.
+    // Seeing the server insert alone can race its final local push ack and
+    // instead exercise an ambiguous create-response conflict.
+    await page.getByRole('button', { name: 'Online', exact: true }).click();
+    await expect(page.getByText('Up to date', { exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
     await context.setOffline(true);
     await page.getByRole('button', { name: 'Mark complete', exact: true }).first().click();
     await expect(page.getByRole('button', { name: 'Mark incomplete', exact: true }).first()).toBeVisible();
@@ -348,7 +359,7 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
   } catch (error) {
     const redacted = [owner.password, owner.token, oldToken, ...browserTokens].reduce((text, secret) =>
       secret ? text.replaceAll(secret, '[redacted]') : text, String(error));
-    throw new Error(redacted);
+    throw new Error(redacted + '\nSupabase request counts: ' + JSON.stringify(responses));
   } finally {
     await Promise.allSettled([context.close(), secondContext.close()]);
   }
