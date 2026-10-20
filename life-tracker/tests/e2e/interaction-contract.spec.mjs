@@ -1696,7 +1696,17 @@ test('long-held task at Day View edge advances repeatedly without releasing or s
 // until release. Populate the NEXT day (normal probe days are empty).
 test('held touch drag animates insertion through populated next-day rows and categories', async ({page, browserName}) => {
   test.skip(browserName !== 'chromium', 'CDP touch requires Chromium');
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?crossDayDestinations=1`);
+  const fixtureErrors = [];
+  page.on('pageerror', error => fixtureErrors.push(error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') fixtureErrors.push(message.text());
+  });
+  const loaded = await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?crossDayDestinations=1`);
+  await page.waitForTimeout(750);
+  console.log('CROSS_DAY_FIXTURE_DIAGNOSTICS', JSON.stringify({
+    status: loaded?.status(), url: page.url(), errors: fixtureErrors.slice(0, 8),
+    text: (await page.locator('body').innerText().catch(() => 'NO BODY')).slice(0, 350),
+  }));
   await expect(page.getByTestId('open-day-view-sheet')).toBeVisible({timeout:12000});
   await page.getByTestId('open-day-view-sheet').click();
   const dialog = page.getByRole('dialog');
