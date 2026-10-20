@@ -360,20 +360,15 @@ html[data-theme='light'][data-ui-calendarGrid='true'] .mosaic-calendar-gridcell 
 html[data-ui-profileRing='true'] .mosaic-profile-avatar {
   border-color: var(--mosaic-ui-profileRing) !important;
 }
-html[data-ui-navigationBar='true'] .mosaic-navigation-bar {
-  background-color: var(--mosaic-ui-navigationBar) !important;
-  color: var(--mosaic-ui-navigationBar-foreground) !important;
+/* The navbar placement styles icons and labels only, never the bar surface. */
+html[data-ui-navigationBar='true'] .mosaic-navigation-bar :is(.mosaic-navigation-inactive, .mosaic-navigation-active) {
+  color: var(--mosaic-ui-nav-label-dark) !important;
 }
-html[data-ui-navigationBar='true'] .mosaic-navigation-bar .mosaic-navigation-inactive {
-  /* Avoid alpha-compositing readable labels below 4.5:1 on saturated palettes. */
-  color: var(--mosaic-ui-navigationBar-foreground) !important;
-  opacity: 1;
+html[data-theme='light'][data-ui-navigationBar='true'] .mosaic-navigation-bar :is(.mosaic-navigation-inactive, .mosaic-navigation-active) {
+  color: var(--mosaic-ui-nav-label-light) !important;
 }
 html[data-ui-navigationBar='true'] .mosaic-navigation-bar .mosaic-navigation-active {
   font-weight: 700;
-}
-html[data-ui-navigationBar='true']:not([data-ui-navigationActive='true']) .mosaic-navigation-bar .mosaic-navigation-active {
-  color: var(--mosaic-ui-navigationBar-foreground) !important;
 }
 html[data-ui-navigationActive='true'] .mosaic-navigation-bar .mosaic-navigation-active {
   color: var(--mosaic-ui-nav-active-dark) !important;
@@ -450,6 +445,14 @@ html[data-theme='light'][data-ui-dayHeaders='true'] :is(.mosaic-weekday-header, 
 }
 html[data-theme='light'][data-ui-settingsText='true'] .mosaic-settings-page :is(h1, h2, h3, .mosaic-settings-label, .mosaic-settings-detail, .mosaic-settings-copy) {
   color: var(--mosaic-ui-settingsText-text-light) !important;
+}
+/* Explicitly marked settings icons, across Settings and its subroutes.
+   Destructive/warning icons retain their semantic colors. */
+html[data-ui-settingsIcons='true'] .mosaic-settings-page :is(.mosaic-settings-icon svg, svg.mosaic-settings-icon):not([class*='text-red-']):not([class*='text-amber-']):not([class*='text-yellow-']) {
+  color: var(--mosaic-ui-settingsIcons-text-dark) !important;
+}
+html[data-theme='light'][data-ui-settingsIcons='true'] .mosaic-settings-page :is(.mosaic-settings-icon svg, svg.mosaic-settings-icon):not([class*='text-red-']):not([class*='text-amber-']):not([class*='text-yellow-']) {
+  color: var(--mosaic-ui-settingsIcons-text-light) !important;
 }
 /* Disabled placements return to neutral theme roles, not a second green accent. */
 html[data-ui-icons='false'] svg:is([class~='text-emerald-400'], [class~='text-emerald-500']):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {

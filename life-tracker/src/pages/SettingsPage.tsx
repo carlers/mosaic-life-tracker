@@ -278,7 +278,7 @@ export const SettingsPage: React.FC = () => {
           type="button"
           onClick={handleBack}
           onPointerDown={(e) => e.stopPropagation()}
-          className="absolute left-4 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          className="mosaic-settings-icon absolute left-4 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Back"
         >
           <ChevronLeft size={20} aria-hidden="true" />

@@ -5,14 +5,14 @@ import { getAccentColorTokens } from './accentColor';
 export const UI_COLOR_ROLES = [
   'calendarGrid', 'profileRing', 'navigationBar', 'navigationActive',
   'icons', 'text', 'controls', 'holidays', 'dateHeaders', 'dayHeaders',
-  'settingsText',
+  'settingsText', 'settingsIcons',
 ] as const;
 export type UiColorRole = typeof UI_COLOR_ROLES[number];
 export type UiColorChoices = Record<UiColorRole, boolean>;
 export const UI_COLOR_LABELS: Record<UiColorRole, string> = {
   calendarGrid: 'Calendar grid',
   profileRing: 'Profile picture border',
-  navigationBar: 'Navigation bar',
+  navigationBar: 'Navigation icons and labels',
   navigationActive: 'Active navigation',
   icons: 'Action icons',
   text: 'Accent labels and links',
@@ -20,12 +20,14 @@ export const UI_COLOR_LABELS: Record<UiColorRole, string> = {
   holidays: 'Holiday labels and dates',
   dateHeaders: 'Date and month headers',
   dayHeaders: 'Weekday headers and day numbers',
-  settingsText: 'Settings text',
+  settingsText: 'Settings and subpage text',
+  settingsIcons: 'Settings and subpage icons',
 };
 export const UI_COLOR_GROUPS: readonly { title: string; roles: readonly UiColorRole[] }[] = [
   { title: 'Calendar', roles: ['calendarGrid', 'dateHeaders', 'dayHeaders', 'holidays'] },
   { title: 'Navigation and profile', roles: ['navigationBar', 'navigationActive', 'profileRing'] },
-  { title: 'Text and controls', roles: ['settingsText', 'text', 'icons', 'controls'] },
+  { title: 'Settings', roles: ['settingsText', 'settingsIcons'] },
+  { title: 'Elsewhere', roles: ['text', 'icons', 'controls'] },
 ];
 // Preserve the existing global-accent styling without requiring a user migration.
 export const DEFAULT_ACCENT_ROLES: readonly UiColorRole[] = ['icons', 'text', 'controls'];
@@ -143,10 +145,17 @@ export function applyUiColors(
     }
     for (const suffix of suffixes) root.style.setProperty(prefix + suffix, entries[suffix]);
   }
+  // The navbar background remains unchanged; foregrounds depend on that surface.
+  if (values.navigationBar) {
+    root.style.setProperty('--mosaic-ui-nav-label-dark', readableAccentOn(color, '#1E1E1E'));
+    root.style.setProperty('--mosaic-ui-nav-label-light', readableAccentOn(color, '#FFFFFF'));
+  } else {
+    root.style.removeProperty('--mosaic-ui-nav-label-dark');
+    root.style.removeProperty('--mosaic-ui-nav-label-light');
+  }
   if (values.navigationActive) {
-    const bar = values.navigationBar ? color : null;
-    root.style.setProperty('--mosaic-ui-nav-active-dark', readableAccentOn(color, bar ?? '#1E1E1E'));
-    root.style.setProperty('--mosaic-ui-nav-active-light', readableAccentOn(color, bar ?? '#FFFFFF'));
+    root.style.setProperty('--mosaic-ui-nav-active-dark', readableAccentOn(color, '#1E1E1E'));
+    root.style.setProperty('--mosaic-ui-nav-active-light', readableAccentOn(color, '#FFFFFF'));
   } else {
     root.style.removeProperty('--mosaic-ui-nav-active-dark');
     root.style.removeProperty('--mosaic-ui-nav-active-light');

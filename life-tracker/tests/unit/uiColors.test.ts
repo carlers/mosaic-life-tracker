@@ -16,6 +16,8 @@ describe('single accent color placement', () => {
     expect(defaults.dateHeaders).toBe(false);
     expect(defaults.dayHeaders).toBe(false);
     expect(defaults.settingsText).toBe(false);
+    expect(defaults.settingsIcons).toBe(false);
+    expect(defaults.navigationBar).toBe(false);
     expect(uiColorSettingKey('holidays')).toBe('uiColor:holidays');
   });
   it('reads prior per-role palette settings only as scope toggles', () => {
@@ -57,17 +59,24 @@ describe('single accent color placement', () => {
       hasAttribute: (k: string) => attrs.has(k),
     } as unknown as HTMLElement;
     root.style.setProperty('--mosaic-accent', '#10B981');
-    const choices = { ...defaultUiColors(), holidays: true, dateHeaders: true, navigationBar: true, controls: false };
+    const choices = { ...defaultUiColors(), holidays: true, dateHeaders: true, navigationBar: true, settingsIcons: true, controls: false };
     applyUiColors(choices, '#8B5CF6', root);
     expect(root.style.getPropertyValue('--mosaic-ui-holidays')).toBe('#8B5CF6');
     expect(root.style.getPropertyValue('--mosaic-ui-dateHeaders')).toBe('#8B5CF6');
     expect(root.style.getPropertyValue('--mosaic-ui-navigationBar')).toBe('#8B5CF6');
+    expect(root.style.getPropertyValue('--mosaic-ui-settingsIcons')).toBe('#8B5CF6');
+    expect(getContrastRatio(root.style.getPropertyValue('--mosaic-ui-nav-label-dark'), '#1E1E1E')).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(root.style.getPropertyValue('--mosaic-ui-nav-label-light'), '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
+    expect(root.style.getPropertyValue('--mosaic-ui-nav-active-dark')).toBe('');
+
     expect(root.getAttribute('data-ui-controls')).toBe('false');
     expect(root.style.getPropertyValue('--mosaic-ui-controls')).toBe('');
     expect(root.style.getPropertyValue('--mosaic-accent')).toBe('#10B981');
     applyUiColors({ ...defaultUiColors(), holidays: false }, '#EC4899', root);
     expect(root.hasAttribute('data-ui-holidays')).toBe(false);
     expect(root.style.getPropertyValue('--mosaic-ui-dateHeaders')).toBe('');
+    expect(root.style.getPropertyValue('--mosaic-ui-nav-label-dark')).toBe('');
+    expect(root.style.getPropertyValue('--mosaic-ui-settingsIcons')).toBe('');
     expect(root.style.getPropertyValue('--mosaic-ui-icons')).toBe('#EC4899');
     expect(root.style.getPropertyValue('--mosaic-accent')).toBe('#10B981');
   });

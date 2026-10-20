@@ -73,6 +73,18 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:holidays', true);
   });
 
+  it('offers separate placement switches for Settings icons and navbar glyphs without changing the app color', () => {
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Choose where accent color appears' }));
+    expect(screen.getByRole('switch', { name: 'Navigation icons and labels' })).toHaveAttribute('aria-checked', 'false');
+    const settingsIcons = screen.getByRole('switch', { name: 'Settings and subpage icons' });
+    expect(settingsIcons).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('switch', { name: 'Settings and subpage text' })).toBeInTheDocument();
+    fireEvent.click(settingsIcons);
+    expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:settingsIcons', true);
+    expect(mocks.setAccentColor).not.toHaveBeenCalled();
+  });
+
   // Regression: §2 (Preferences owns display/layout and synced behavior controls).
   it('exposes existing screen choices and the requested behavior preferences', async () => {
     render(
