@@ -146,4 +146,45 @@ describe('CalendarBody behavior', () => {
       else vi.stubGlobal('ResizeObserver', original);
     }
   });
+
+  it('portals screen-height day details beside the Home workspace without moving its headers', async () => {
+    const frame = document.createElement('div');
+    const host = document.createElement('div');
+    document.body.append(frame, host);
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(() => ({
+      width: 1400, height: 800, left: 0, right: 1400, top: 0, bottom: 800, x: 0, y: 0, toJSON: () => ({}),
+    }));
+    class TestObserver { observe() {} disconnect() {} }
+    vi.stubGlobal('ResizeObserver', TestObserver);
+    const onScreenPanelChange = vi.fn();
+    try {
+      const { getByTestId, findByRole, unmount } = render(
+        <CalendarBody viewMode="month" slides={[new Date('2026-10-01')]}
+          renderStart={0} renderEnd={0} emblaRef={vi.fn()}
+          tasks={[]} categoriesMap={{}} variant="me" isActive currentUserId="user_1"
+          dayDetailPresentation="panel" dayPanelSide="left" dayPanelHeight="screen"
+          screenPanelHost={host} screenFrameRef={{ current: frame }}
+          onScreenPanelChange={onScreenPanelChange}
+          onPrev={vi.fn()} onNext={vi.fn()}
+        />
+      );
+      fireEvent.click(getByTestId('calendar-day'));
+      expect(await findByRole('complementary', { name: 'Day details' })).toBeInTheDocument();
+      await waitFor(() => expect(onScreenPanelChange).toHaveBeenCalledWith('left'));
+      expect(host.querySelector('[data-testid="calendar-day-side-panel"]')).not.toBeNull();
+      expect(getByTestId('calendar-carousel')).toBeInTheDocument();
+      const motionHost = host.querySelector<HTMLElement>('[data-testid="day-panel-motion-host"]');
+      expect(motionHost?.style.height).toBe('100%');
+      expect(motionHost?.style.width).not.toBe('0px');
+      expect(motionHost?.style.transition).not.toContain('width');
+      fireEvent.click(await findByRole('button', { name: 'Close day details' }));
+      await waitFor(() => expect(onScreenPanelChange).toHaveBeenLastCalledWith(null));
+      unmount();
+    } finally {
+      rect.mockRestore();
+      vi.unstubAllGlobals();
+      frame.remove();
+      host.remove();
+    }
+  });
 });

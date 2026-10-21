@@ -20,6 +20,7 @@ import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
+import type { DayPanelSide } from '../lib/dayPanelLayout';
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -48,6 +49,9 @@ export const HomePage: React.FC = () => {
   } = useCategories();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
+  const [screenSplitSide, setScreenSplitSide] = useState<DayPanelSide | null>(null);
+  const [screenPanelHost, setScreenPanelHost] = useState<HTMLDivElement | null>(null);
+  const screenFrameRef = useRef<HTMLDivElement>(null);
   const [renderWindow, setRenderWindow] = useState(INITIAL_RENDER_WINDOW);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
@@ -360,7 +364,13 @@ export const HomePage: React.FC = () => {
 
   return (
     <>
-      <div className="h-full flex flex-col min-h-0">
+      <div
+        ref={screenFrameRef}
+        data-testid="home-workspace-split"
+        data-split-side={screenSplitSide ?? undefined}
+        className={`flex h-full min-h-0 min-w-0 ${screenSplitSide === 'left' ? 'flex-row-reverse' : ''}`}
+      >
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <HomeTaskSearch
           isOpen={isSearchOpen}
           tasks={ownerTasks}
@@ -419,6 +429,9 @@ export const HomePage: React.FC = () => {
                     isActive={i === activeIndex}
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
+                    screenFrameRef={screenFrameRef}
+                    screenPanelHost={screenPanelHost}
+                    onScreenPanelChange={setScreenSplitSide}
                   />
                 ) : null}
               </SwiperSlide>
@@ -426,6 +439,13 @@ export const HomePage: React.FC = () => {
           </Swiper>
           </div>
         </div>
+        </div>
+        <div
+          ref={setScreenPanelHost}
+          inert={isSearchOpen ? true : undefined}
+          data-testid="home-screen-panel-slot"
+          className="flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
+        />
       </div>
 
       {settingsSheetMounted && (
