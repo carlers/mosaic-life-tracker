@@ -348,3 +348,33 @@ tester access planning, a tightly scoped private invitation list, a new
 management Auth config readback, controlled rollback, and a verified policy for
 future hosted fixture users. Neither the existing immutable Preview nor any
 Appwrite deployment is changed by the local lab.
+
+## Owner-filtered Realtime wake (issue #1187; staged, not deployed)
+
+Core-only beta uses RxDB signed incremental pull for authoritative state. The
+optional `src/lib/supabaseRealtimeWake.ts` connects a single authenticated
+Phoenix v1 channel to INSERT/UPDATE Postgres Changes for both candidate tables,
+with `owner_id=eq.<signed Supabase owner UUID>` filters. It rejects unmatched
+subscription acknowledgements and foreign-owner events, validates the current
+signed session/epoch before any wake, debounces bursts and tears down on Auth
+switch or view cleanup. No event payload is written to RxDB, no DELETE
+subscription is used (Postgres Changes DELETE lacks RLS filtering), and normal
+60-second/foreground/reconnect sync remains when websocket delivery fails.
+
+`supabase-poc/migrations/20261021_core_realtime_publication.sql` requires
+candidate tables to have verified owner-scoped SELECT RLS, no anonymous SELECT
+or direct authenticated UPDATE grants, and an existing `supabase_realtime`
+publication; it adds **only** the two candidate tables, idempotently. Do not
+apply in Production/Appwrite or enable wildcard schemas/tables. In the
+disposable lab, the schema and publication assertions run before the browser
+test; network Realtime service may be excluded, so that job by itself does not
+prove a working hosted websocket.
+
+Before claiming low latency: run two real signed accounts against the deployed
+Preview, confirm own updates wake remote device automatically without manual
+sync, prove no foreign-owner notifications/rows, and exercise tab suspension,
+JWT rotation, offline and websocket-denied fallback. Measure event rate and
+simultaneous connection load against Supabase Free allowances. Publishing the
+SQL is a separately verified hosted migration, not a license to open Vercel
+protection or modify Auth SMTP settings. Roll back only by removing these two
+tables from the `supabase_realtime` publication; never drop user data.

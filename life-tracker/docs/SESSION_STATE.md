@@ -1,21 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Current task: #1186 category deletion must preserve tasks in Calendar, Day View and Todo; related #1027 Supabase beta and #1187 fast sync.
+Current task: #1187 Supabase core Realtime wake-up; related #1027 isolated beta, #1186 category orphan fix.
 
 ## Baseline and safety
-- Task branch `chatgpt/1186-category-delete-preserve-tasks` starts from isolated `feature/1027-supabase-recovery-20261020@958f14981c52d7d5396b18ada0f3f2f97ad0e054`. Source v0.32.4, proposed next beta PATCH v0.32.5. Dev is already on a distinct v0.39.0 release line: do not merge this old beta tree directly into dev/main.
-- Prior Quality Gate #39580972604 and signed local Supabase Core App Lab #39580972588 succeeded on the base commit; task-specific changes remain unverified until focused and stable canonical CI.
-- Owner confirmed real invited Gmail signup/confirmation/sign-in, uninvited 403, two-device core CRUD/reorder/completion and offline/reconnect scenarios, Android PWA; one task was intentionally checked then unchecked. iPhone Safari, app-update refresh and independent DR/restore still pending.
-- `mosaic-dev` isolated Supabase Free invite hook active; 2 private invitations recorded, no public alias. Protected immutable v0.32.4 Preview `dpl_8wEHnC6mxEnie9wrrg9TWkHDjSvg` READY; not this task branch. Do not expose bearer share links in GitHub.
-- Production/Appwrite, dev/main and existing users remain untouched; no direct provider cutover or release authorization. Do not incur paid costs.
+- Task branch `chatgpt/1187-supabase-realtime-wake` starts at isolated core beta `feature/1027-supabase-recovery-20261020@de2556404fb3b9e957578a07f85704f1432d3f30`. Dev and main are separate Appwrite histories; current dev app version exceeds the beta's v0.32.5. Never merge this old beta tree to dev/main or change Production.
+- #1186 task-preserving category deletion + inherited visibility fix at `de255640`; exact-source Quality Gate #39632216908 SUCCESS; Supabase Lab #39632216759 was still running when #1187 started. v0.32.5 not deployed, so no Preview version bump during this unreleased candidate refinement.
+- Owner verified invited Gmail signup/confirmation/password recovery, uninvited HTTP 403, two-device CRUD, reorder, offline/restart/reconnect and Android PWA; iPhone Safari and post-update PWA refresh manual gate still pending.
+- Hosted Free mosaic-dev `hcxtiifzxoaflhjgoglb` uses invitation-only Auth hook; Supabase Realtime publication exists but does not yet include candidate tasks/categories. Protected immutable v0.32.4 Vercel Preview remains on older code and aliases/SSO must remain untouched until independently authorized.
+- Hosted read-only orphan audit: 2 live tasks under the owner's confirmed Gmail account still reference deleted category rows; task data untouched. No direct repair without signed, reversible verification.
 
-## Current implementation scope
-- #1186 reproduces in both Appwrite and Supabase: category tombstoned while live tasks retain its ID, Day View hides them and Calendar still draws TaskBlocks. Category Manager incorrectly promises to move tasks.
-- Implemented transfer to first remaining owner category before tombstoning, with owner checks, checked partial failure/retry and refusal when it would strand last-category tasks. Updated confirmation to name actual destination; behavior-first DOM hook regressions. **Privacy follow-up required:** inherited private/friends/public tasks retain their original effective visibility when transferred into a category with different visibility, so moving a task never silently exposes it. Preserve prior orphaned task records for a future explicit recovery path; do not silently purge user content.
-- #1187 investigates scoped Supabase Realtime wake-only resync. Existing candidate RxDB pilot intentionally has no realtime event subscription; never add unbounded polling or a client-authorized payload channel as an expedient fix.
+## Current implementation
+- #1187 implements owner-scoped Supabase Phoenix v1 websocket subscription for only `INSERT`/`UPDATE` of candidate tasks/categories, sends JWT only in channel join, checks signed owner ID + session epoch + token before waking existing authenticated RxDB replication; no event payload applies data and no DELETE subscription because DELETE bypasses Realtime RLS.
+- Adds debounced wake-up, rejoin/missed-event fallback, 20-second heartbeat with idle timeout, explicit teardown on account switch and provider pause, plus unit protocol tests. Existing 60-second/online/focus catch-up remains.
+- Adds isolated-only, idempotent `20261021_core_realtime_publication.sql` guard migration refusing absent owner RLS, unsafe grants or publication; CI disposable database installs and verifies migration. **Not yet applied to hosted** while source/CI/security tests are pending.
+- No new paid plan, service key, project alias, Appwrite, Production, dev/main, general beta release, or live user data change.
 
 ## Next action
-- Original #1186 focused Quality Gate #39626163286 and stable Quality Gate #39626525745, Supabase Core App Lab #39626525511 all SUCCESS at v0.32.5 commit `f1f932c`. Current privacy follow-up branch must pass focused + stable CI before deployment; do not reuse prior successful CI as acceptance for changed code.
-- Squash accepted #1186 task PR into isolated stable #1027 Preview only; require same-SHA canonical Quality Gate + Supabase lab and exact artifact deployment acceptance before owner tests. Preserve shared production path for later deliberate forward-port from current dev baseline, with its distinct version line.
-- Run direct deployed Preview/browser verification, security/invite revocation and restore drills; establish safe stable tester URL and Free quotas before limited beta invitation. Keep #1027, #1186, #1187 open until independently accepted; Diary #1029 immediately after core beta.
+- Focused Quality Gate, repair TS/DOM/SQL failures, then squash into isolated beta branch and run same-SHA canonical Quality Gate + Supabase Core App Lab with artifact.
+- After security review and green evidence, apply only the reviewed publication migration to isolated mosaic-dev; verify effective owner RLS with 2 actual signed users, authenticated websocket delivery, missed-event/reconnect fallback and Free quotas. Do not claim near-instant sync before real cross-device device test.
+- Separately design signed, idempotent recovery for 2 existing orphan tasks; do not overwrite real beta user's tasks with privileged direct SQL. Use exact CI artifact prebuilt Vercel deployment only and verify before offering beta URL.
+- Keep #1027/#1186/#1187 open pending deployed/manual/DR checks; Diary #1029 follows accepted core beta.

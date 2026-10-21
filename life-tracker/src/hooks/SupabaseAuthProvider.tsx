@@ -14,6 +14,7 @@ import { presentSupabaseConflicts } from '../lib/supabaseConflictReview';
 import { createSupabaseBrowserSession } from '../lib/supabaseBrowserSession';
 import type { CandidateIdentity } from '../../supabase-poc/candidateMapping';
 import { markOfflineDataReady } from '../lib/offlineReadiness';
+import { startCoreRealtimeWake } from '../lib/supabaseRealtimeWake';
 
 function reportAuthOutage(error: unknown) {
   if (error instanceof CandidateSessionUnavailableError ||
@@ -302,6 +303,19 @@ export default function SupabaseAuthProvider({ config, children }: {
         if (active) publishSyncStatus({ errors: ['Core sync pending. Local changes are retained.'] });
       }),
     ]) ?? [];
+    // Postgres changes only wake the signed incremental RxDB pull. Never
+    // apply event contents directly or subscribe for DELETE (RLS does not
+    // restrict postgres_changes DELETE).
+    const stopRealtime = startCoreRealtimeWake({
+      baseUrl: config.baseUrl,
+      publishableKey: config.publishableKey,
+      session: runtime.session,
+      isActive: () => active && mounted.current &&
+        runtime.coordinator.getPhase() === 'active' &&
+        (runtime.session.getExpiresAt() ?? 0) - Date.now() >= 120_000 &&
+        (!runtime.browser || runtime.browser.isCurrent()),
+      onWake: catchUp,
+    });
     const online = () => { void catchUp(); };
     const visible = () => { if (document.visibilityState === 'visible') online(); };
     const timer = window.setInterval(online, 60_000);
@@ -312,6 +326,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       active = false;
       retrySync.current = async () => {};
       unregister();
+      stopRealtime();
       unsubscribeConflicts();
       subscriptions.forEach(subscription => subscription.unsubscribe());
       window.clearInterval(timer);
@@ -319,7 +334,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       window.removeEventListener('focus', online);
       document.removeEventListener('visibilitychange', visible);
     };
-  }, [runtime, user, syncGeneration, restoreAccount]);
+  }, [config, runtime, user, syncGeneration, restoreAccount]);
 
   async function login(email: string, password: string): Promise<boolean> {
     if (busy.current || user) return false;
