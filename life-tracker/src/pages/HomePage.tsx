@@ -387,16 +387,10 @@ export const HomePage: React.FC = () => {
             noSwipingClass="swiper-no-swiping"
             allowTouchMove={!isSettingsOpen && !isSearchOpen}
             onSlideChange={handleSlideChange}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
+            className="absolute inset-0"
           >
             {persons.map((p, i) => (
-              <SwiperSlide key={p.id} style={{ height: '100%' }}>
+              <SwiperSlide key={p.id} className="h-full">
                 {Math.abs(i - activeIndex) <= renderWindow ? (
                   <PersonPane
                     person={p}

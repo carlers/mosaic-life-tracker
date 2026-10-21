@@ -52,3 +52,7 @@ Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and 
 ## Eighth task: consolidate Home keyboard handlers
 - Stable `c95ac81f840c02539811b2f6e53f07dcec6dbe10` full Quality Gate [39562065202](https://github.com/carlers/mosaic-life-tracker/actions/runs/39562065202) passed checks, DOM, both browser shards and dependency audit; only Home closure `381049/381000` (+49 gzip bytes) failed. No gate changes.
 - Merge the two existing Home keyboard listeners for friend-carousel focus (F) and Home accelerators (Shift+H, s, b). Both have identical enablement guards and canUseKeyboardShortcut contract. Keep slash-search separate because of its native-typing exclusions. No split UX changes; v0.40.2 unchanged. Task `chatgpt/404-home-shortcuts-budget-20261021` pending focused and full acceptance then trusted Vercel READY.
+
+## Ninth task: Home carousel style deduplication
+- Stable Preview `5970997794f5431ceabcffc99e10a6eeb8ec8ae8`, full Quality Gate [39562812727](https://github.com/carlers/mosaic-life-tracker/actions/runs/39562812727) passed checks/DOM/browser/audit, blocked only Home closure `381029/381000` (+29 gzip bytes). No limits weakened.
+- Use existing Tailwind `absolute inset-0` instead of equivalent Swiper inline position edges, and `h-full` instead of the equivalent SwiperSlide inline height. No layout or behavior changes; current branch `chatgpt/404-home-swiper-budget-20261021`; require focused gate then full and trusted Vercel READY.
