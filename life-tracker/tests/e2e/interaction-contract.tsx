@@ -187,6 +187,37 @@ function ColdDayViewProbe({ tasks, categories, emptyDayTasks }: {
   );
 }
 
+/** Desktop split regression: real Embla, flex geometry, and lazy Day View
+ * without authentication or network. This catches half-scrolled adjacent
+ * months that a mocked DOM test cannot detect. */
+function SplitPanelLayoutProbe() {
+  const calendar = useCalendarState({ weekStartsOn: 0 });
+  const mode = new URLSearchParams(window.location.search).get('splitPanelProbe') === 'screen' ? 'screen' : 'grid';
+  const side = new URLSearchParams(window.location.search).get('side') === 'right' ? 'right' : 'left';
+  return (
+    <div data-testid="split-workspace" className="mosaic-home-workspace flex h-[750px] w-full min-w-0 bg-[#111111]">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header data-testid="split-header" className="shrink-0 p-3">Search · Menu · Profile</header>
+        <div className="shrink-0 px-3">{calendar.title}</div>
+        <div data-testid="split-calendar-frame" className="flex min-h-0 flex-1 flex-col">
+          <CalendarBody viewMode={calendar.viewMode}
+            slides={calendar.slides} renderStart={calendar.renderStart} renderEnd={calendar.renderEnd}
+            emblaRef={calendar.emblaRef} activeIndex={calendar.activeIndex}
+            isZoomTransitioning={calendar.isZoomTransitioning}
+            onZoomNavigate={calendar.handleZoomNavigate}
+            onCalendarLayoutChange={calendar.resnapAfterResize}
+            tasks={[]} categories={[]} categoriesMap={{}} variant="me" isActive
+            currentUserId="user_1" dayDetailPresentation="panel"
+            dayPanelSide={side} dayPanelHeight={mode}
+            onPrev={calendar.handlePrev} onNext={calendar.handleNext} />
+        </div>
+      </div>
+      <div data-home-panel-slot="true"
+        className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden" />
+    </div>
+  );
+}
+
 /** The actual CalendarBody / DayCell / lazy DayViewSheet entry path, rather than an isolated open button. */
 function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; categories: CategoryDocument[] }) {
   const calendar = useCalendarState();
@@ -924,7 +955,9 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('chatMotion')
+      {new URLSearchParams(window.location.search).has('splitPanelProbe')
+        ? <SplitPanelLayoutProbe />
+        : new URLSearchParams(window.location.search).has('chatMotion')
         ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
         : new URLSearchParams(window.location.search).has('categoryMotion')
           ? <CategoryEditorMotionProbe />

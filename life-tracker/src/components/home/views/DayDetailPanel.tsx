@@ -69,6 +69,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const [heightMode] = useState(initialHeightMode);
   const [entered, setEntered] = useState(false);
   const [frameWidth, setFrameWidth] = useState(initialFrameWidth);
+  const [frameHeight, setFrameHeight] = useState(0);
   const [screenPortal, setScreenPortal] = useState<{ node: HTMLDivElement | null } | null>(null);
   useLayoutEffect(() => {
     const home = frameRef.current?.closest('.mosaic-home-workspace');
@@ -76,7 +77,11 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     if (!frame) return;
     setScreenPortal({ node: heightMode === 'screen'
       ? home?.querySelector<HTMLDivElement>('[data-home-panel-slot]') ?? null : null });
-    const measure = () => setFrameWidth(frame.getBoundingClientRect().width);
+    const measure = () => {
+      const rect = frame.getBoundingClientRect();
+      setFrameWidth(rect.width);
+      setFrameHeight(rect.height);
+    };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
@@ -99,7 +104,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setEntered(isPresented));
     if (isPresented) return () => window.cancelAnimationFrame(frame);
-    const timeout = window.setTimeout(() => exitedRef.current(), reduceMotion ? 0 : 260);
+    const timeout = window.setTimeout(() => exitedRef.current(), reduceMotion ? 0 : 320);
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
@@ -188,32 +193,21 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       aria-hidden={!isPresented}
       inert={!isPresented}
       className={isSplit
-        ? 'swiper-no-swiping relative z-10 h-full min-h-0 shrink-0 overflow-hidden'
+        ? 'swiper-no-swiping relative z-10 min-h-0 shrink-0 overflow-hidden'
         : `swiper-no-swiping absolute inset-y-0 ${side === 'left' ? 'left-0' : 'right-0'} z-20 max-w-full overflow-hidden bg-surface`}
-      style={isSplit
-        ? {
-            width: targetWidth,
-            height: '100%',
-            opacity: entered ? 1 : 0,
-            transform: entered ? 'translateX(0)' : side === 'left' ? 'translateX(-18px)' : 'translateX(18px)',
-            pointerEvents: isPresented ? 'auto' : 'none',
-            transition: reduceMotion ? 'none' : 'transform 240ms ease-out, opacity 240ms ease-out',
-          }
-        : {
-            width: 'min(100%, 440px)',
-            height: '100%',
-            opacity: entered ? 1 : 0,
-            transform: entered ? 'translateX(0)' : side === 'left' ? 'translateX(-24px)' : 'translateX(24px)',
-            pointerEvents: isPresented ? 'auto' : 'none',
-            transition: reduceMotion ? 'none' : 'transform 240ms ease-out, opacity 240ms ease-out',
-          }}
+      style={{
+        width: entered ? (isSplit ? targetWidth : 'min(100%, 440px)') : 0,
+        height: frameHeight || '100%',
+        pointerEvents: isPresented ? 'auto' : 'none',
+        transition: reduceMotion ? 'none' : 'width 300ms cubic-bezier(0.22, 1, 0.36, 1)',
+      }}
       onTransitionEnd={event => {
         if (event.target === event.currentTarget)
           realignRef.current?.();
       }}
     >
       <div className={`flex h-full min-h-0 ${side === 'left' ? 'flex-row-reverse' : ''}`}
-        style={isSplit ? { width: targetWidth } : { width: '100%' }}>
+        style={{ width: isSplit ? targetWidth : 'min(100%, 440px)' }}>
         {isSplit && (
           <DayPanelResizeHandle
             side={side} width={effectivePanelWidth} frameWidth={frameWidth} frameRef={frameRef}
@@ -224,7 +218,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
           />
         )}
         <div className="h-full min-h-0 shrink-0 p-2"
-          style={{ width: isSplit ? effectivePanelWidth : '100%' }}>
+          style={{ width: isSplit ? effectivePanelWidth : 'min(100%, 440px)' }}>
     <aside
       aria-label="Day details"
       className="swiper-no-swiping flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"

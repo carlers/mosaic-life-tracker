@@ -123,7 +123,7 @@ describe('CalendarBody behavior', () => {
       const divider = await findByRole('separator', { name: 'Resize day details panel' });
       expect(divider).toHaveAttribute('aria-valuemin', '320');
       const motionHost = getByTestId('day-panel-motion-host');
-      expect(motionHost.style.height).toBe('100%');
+      expect(motionHost.style.height).toBe('700px');
       fireEvent.transitionEnd(motionHost, { propertyName: 'width' });
       expect(realignCalendar).toHaveBeenCalled();
       expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
@@ -176,9 +176,9 @@ describe('CalendarBody behavior', () => {
       expect(host.querySelector('[data-testid="calendar-day-side-panel"]')).not.toBeNull();
       expect(getByTestId('calendar-carousel')).toBeInTheDocument();
       const motionHost = host.querySelector<HTMLElement>('[data-testid="day-panel-motion-host"]');
-      expect(motionHost?.style.height).toBe('100%');
-      expect(motionHost?.style.width).not.toBe('0px');
-      expect(motionHost?.style.transition).not.toContain('width');
+      expect(motionHost?.style.height).toBe('800px');
+      await waitFor(() => expect(motionHost?.style.width).not.toBe('0px'));
+      expect(motionHost?.style.transition).toContain('width');
       fireEvent.click(await findByRole('button', { name: 'Close day details' }));
       await waitFor(() => expect(host.querySelector('[data-day-panel-side]')).toBeNull());
       unmount();

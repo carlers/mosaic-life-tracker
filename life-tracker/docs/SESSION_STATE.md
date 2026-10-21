@@ -1,58 +1,38 @@
 # Session checkpoint
-
 Updated: 2026-10-21 UTC
-Current task: #404 Preview v0.40.2 — canonical Home bundle-size repair
-Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and calm transitions.
+Current task: #404 v0.40.3 — left panel alignment, full height and expand/collapse
 
-## Baseline and authority
-- Exact stable Preview base: `feature/split-day-panel-dev-404-20261021@5249f72df87f54bcd10bac9c8d8fece3662a7210` (v0.40.1), canonical CI 39553606512 success and trusted READY Vercel deployment dpl_ARSc4xJLkBxWMvrivuVSeFo9hXxT. No `dev` or `main` promotion approval; `dev@e1c90b387ecfb4e29d64c88b6557703dd23ca207`.
-- User-provided screenshot of left side panel showing month columns clipped/partially scrolled, jitter on settling, and clarification: Grid height must match pre-v0.40.1 default, while Screen height means full Home workspace split, including search/hamburger, person and date headers on the opposite/calendar side. Bottom nav remains in shared application chrome.
+## Authority and scope
+- Source: stable Preview `feature/split-day-panel-dev-404-20261021@299e52e4faa3fad84128d09291e3ec2236c0fd7f` (v0.40.2), canonical gate 39563186794 SUCCESS; trusted Vercel READY dpl_4Guk7JPFBJo1DZPyrLwqZxdaiodq. `dev` remains `e1c90b387ecfb4e29d64c88b6557703dd23ca207`. Issue #404 remains open.
+- User screenshot from this exact Preview confirms persistent left-side month viewport/weekday misalignment, inspector ending halfway up the month grid instead of filling its allocated height, and fade-in animation instead of requested expansion.
+- Requirement: restore focused month snap even if Embla's transient selected snap differs; panel height fills actual Calendar workspace (grid) or complete Home workspace down to shared nav (screen); smooth width expansion and collapse while retaining edit state and accessible resize controls, and no visual fading. Preserve default BottomSheet, owner/friend behavior and account preferences.
 
-## Scoped implementation
-- Move optional full-height inspector to a Home-level portal sibling rather than a child under the date header. Home root flexes calendar entire shell and inspector; left or right side preference controls overall order. Active person changes and panel close clean up the portal layout. No backend or settings schema changes.
-- Grid height retains old v0.40.0 height: entire CalendarBody available height, not measured week rows.
-- Eliminate split width animation causing Embla repeatedly re-measure during opening/closing; reserve bounded panel width immediately while panel itself transitions opacity/translate (motion-aware). Keep mounted editor until exit is complete, and release width only after exit.
-- Keep explicit viewport ResizeObserver reinit and logical Embla snap on width changes and divider releases. Preserve calendar full 7-column grid, current pinch, keyboard, task editing, friend panel, history layering, and narrow sheet fallback.
-- Bump one PATCH version to v0.40.2, including package and lock.
+## Implementation / verification target
+- `useCalendarState` uses focused month index on post-layout reInit rather than Embla's potentially stale selected index. Reuse focusIndex in jump effect, add unit regression forcing stale index 29 while correct focus is 30.
+- Lazy inspector measures the actual frame's width and **height** through ResizeObserver and applies explicit height instead of relying on percentage height in nested flex children; Home portal slot is positioned. Expand/collapse wrapper width over 300 ms with cubic easing and fixed-width inner inspector content; no opacity changes. Preserve drag and keyboard splitter, reduced motion, closing inert state and history, and resnap after close completes.
+- Add real-browser viewport/snap/height and transition regression in the existing interaction harness; PATCH version 0.40.3.
+- Task branch `chatgpt/404-left-snap-expand-height-20261021`; focused then squash into stable Preview, full canonical gate and trusted exact SHA READY Vercel. Do not relax Home bundle or CI thresholds, promote to dev/main or touch Production. Manual device visual acceptance still required.
 
-## Verification and handoff
-- Task branch `chatgpt/404-true-workspace-split-20261021`; request focused CI in task commit, repair failures, squash to stable Preview, require canonical acceptance and trusted exact-SHA READY Vercel before sharing new link.
-- Manual wide-window tests still required: first/last weekday columns visible after opening left, switch month and resize divider; smooth close/open and side switching; full-screen shell correctly relocates search/hamburger and date header; reduced motion, owner/friend, browser Back, narrow fallback and offline draft retention.
-- Never promote dev/main or Production without explicit approval.
+## Browser-discovered root cause and repair
+- Task run [39565613745](https://github.com/carlers/mosaic-life-tracker/actions/runs/39565613745) included first real desktop Playwright split-panel tests. **Screen-height left** passed; **grid-height left** failed, exactly **412 CSS pixels** misalignment after inspector opened — the 400px default panel plus 12px divider. This repro proves the prior re-snap-only attempts did not fix grid flex-reversal geometry.
+- Replace grid-height `flex-direction:row-reverse`/:has placement with genuine DOM panel-first order for left (and panel-last for right), keeping the calendar viewport's own track in normal LTR flex flow. Retain Home-level screen portal CSS, the focused-month reinitialization and explicit measured panel height. Old mocked DOM style tests updated for pixel height and width-expansion semantics (not loosened browser alignment tests).
+- Rerun focused/browser task gate at repaired SHA before canonical Preview promotion.
 
-## Latest gate repair
-- Stable v0.40.2 candidate `8bed5b2f304503d4a528de7b085461897a4881dc`: full CI [39556385411](https://github.com/carlers/mosaic-life-tracker/actions/runs/39556385411) passed checks, DOM, browser, audit, but blocking Home closure 381,293 / 381,000 bytes. No Vercel delivery.
-- Scoped repair moves left/right arrangement from Home useState and three-layer callbacks into portal-derived CSS :has rule, retaining same full-shell layout without extra startup state. Embla reInit then immediate explicit snap after actual resize. Update DOM portal test accordingly; no version increment or release limits changed.
-- Task branch `chatgpt/404-screen-split-budget-20261021`: focused gate, then squash to stable Preview, full canonical gate and trusted READY exact SHA required. Manual wide-screen left/right validation and animation/device checks not yet performed. Do not promote dev/main.
+## Divider browser regression and repair
+- Browser [39566297902](https://github.com/carlers/mosaic-life-tracker/actions/runs/39566297902): **both initial opening modes aligned** with actual DOM-order correction. Grid-height left failed only *after dragging divider*, exactly 412px offset; screen-height left passed. Mock DOM test still assumed a synthetic TransitionEvent propertyName; update same-host handler for single width transition.
+- Root cause is duplicate manual `emblaApi.reInit()` after native Embla watchResize has already recalculated viewport geometry, causing an extra track translation on left dragging. Preserve focusDate-based scrollTo but remove redundant reInit. Keep unit assertion that stale selected index cannot override focused month and that manual reinitialization is not issued. Keep strict real-browser alignment-after-drag assertion.
 
-## Follow-up canonical repair
-- Stable Preview `54813673401736d04b5dc8ab97dc59fc1d11db45` CI 39558353190 passed DOM/checks/browser/audit but Home closure was +273 bytes. No gates changed.
-- The active Calendar now measures its nearest Home workspace and resolves its sibling screen portal on actual day selection, reducing Home and owner/friend startup props. Lazy resize handle computes workspace bounds on pointer drag. DOM test validates portal without injected refs. Version remains v0.40.2. Pending focused/full/READY gates.
+## Third browser investigation
+- Browser [39566839309](https://github.com/carlers/mosaic-life-tracker/actions/runs/39566839309) still revealed +402px grid offset on initial open and +10px in screen mode after divider drag without redundant reinit. To distinguish snap-list caching from CSS geometry, force one Embla reInit with explicit focused-month `startIndex` at settled layout; add compact viewport/track/slide rectangle and transform diagnostics to browser case. Do not weaken assertion on exact selected month edges.
 
-## Third size-gate fix (structural)
-- Canonical Preview `566d97d613eaaf5d8df5c17645ca912b9d6ee280` failed strict Home closure by 249 bytes in run 39559047358, while other suites passed. No size limit changes.
-- Refactor moves frame ResizeObserver, screen portal resolution and responsive split state into the already lazy-loaded DayDetailPanel. CalendarBody only measures width on a day-selection event to decide sheet/panel and passes the initial width. Grid left placement is derived from the mounted inspector's data attributes; screen placement remains from Home-level portal CSS. Preserves active-panel resize and nested editor history, without increasing default Home code. Keep v0.40.2 and require full acceptance and exact-SHA READY.
+## Geometry diagnosis from real browser
+- Run [39567471481](https://github.com/carlers/mosaic-life-tracker/actions/runs/39567471481) measured **after grid-height left drag**: viewport x=402, width=1198, selected slide x=804, track translate `-35538px`. Correct translate is `-35940px` (30 slides × 1198px), a difference of exactly 402px (panel+divider). Screen-height drag aligned. This is stale previous track transform contaminating Embla reInit's new snap measurements, not invalid weekday/date data or the panel's outer width.
+- Reset `emblaApi.containerNode().style.transform` to none *synchronously before* `reInit({startIndex:focusIndex})`. Embla owns the resulting new transform; no React subtree remount or visible CSS compensation needed. Maintain strict real-browser grid/screen post-drag and close alignment assertions, plus unit evidence that transform was cleared before reInit.
 
-## Fourth size-gate repair: lazy stylesheet
-- Stable candidate `496a6f7b0c6ba15fd67541caafbe28b3962d452a` run 39559807501 Home static closure 381,173/381,000 bytes (+173); full build-size gate blocks Preview. Other checks remained green.
-- Move two split-only CSS :has placement rules out of global startup stylesheet into `src/components/home/views/dayDetailPanel.css`, imported only by lazy DayDetailPanel chunk. Move height preference snapshot into that lazy component, keeping editing mode stable across preference sync, and remove eager manual preload from CalendarBody (lazy mount still imports on first day selection with its existing local Suspense fallback). No budget changes, v0.40.2 retained.
-- Next: task focused CI, stable squash, full canonical, trusted exact READY Vercel then user acceptance. No dev/main promotion.
+## Settled resize correction (task-only; not yet accepted)
+- Real-browser runs [39568070386](https://github.com/carlers/mosaic-life-tracker/actions/runs/39568070386) and [39568202205](https://github.com/carlers/mosaic-life-tracker/actions/runs/39568202205) continued to fail left-grid alignment after opening despite synchronous transform reset and focused-index reInit. Reseting while the inspector grows can leave a transform calculated for the pre-split 1600px viewport.
+- New repair overrides Embla `watchResize` with a stable callback that suppresses synchronous reinit and debounces a single focused-index reInit until 130ms after resize activity stops. Preserve after-divider and after-close resnap, owner/friend state and 300ms width-only transition. Browser must prove first/last day columns after opening and divider drag before stable Preview promotion. Do not weaken any quality/size gate.
 
-## Fifth canonical optimization
-- Stable v0.40.2 `8fd111c7b88c612d816e8e1d18ad25e2fd7215d1` full Quality Gate run 39560449743 still above Home closure by 75 gzip bytes (381075/381000). No budget change.
-- Split-only styles and height state now lazy. Replace unused createPreloadedLazy helper (no longer manually prewarmed) with React.lazy plus a panel-local Suspense boundary, keeping the Calendar mounted while the panel import resolves. No markup/layout/data behavior change. Full acceptance and exact Vercel still required.
-
-## Sixth candidate: preserve retryable lazy mount + remove redundant warmup
-- Stable `368e615b04095409896518bb62a2fbfc863b6f92` full run 39560948733 failed only Home startup closure +80 gzip bytes. Revert native React.lazy to repository-standard retryable createPreloadedLazy (internal local Suspense), remove duplicate friend preload from day click (pointer and lazy paths remain), and remove unused Home test IDs while retaining semantic slot attribute. Strict limits and v0.40.2 unchanged. Pending focused → canonical → trusted READY.
-
-## Seventh CI-budget task
-- Preview `6a96fecf8bbb19e6e526593c299ecda148ab2095` Quality Gate 39561559937 blocking Home closure 381047/381000 bytes (+47). No gate weakening.
-- Deduplicate three preexisting Home idle schedulers behind a small helper; preserve exact idle timeouts 1800/1200/1200 ms, fallback timers 700/900/400 ms and cleanup. Scope is start-up behavior required for Home split's strict bundle-budget acceptance, no user-facing change. Focused → stable full canonical → Vercel exact READY next. 
-
-## Eighth task: consolidate Home keyboard handlers
-- Stable `c95ac81f840c02539811b2f6e53f07dcec6dbe10` full Quality Gate [39562065202](https://github.com/carlers/mosaic-life-tracker/actions/runs/39562065202) passed checks, DOM, both browser shards and dependency audit; only Home closure `381049/381000` (+49 gzip bytes) failed. No gate changes.
-- Merge the two existing Home keyboard listeners for friend-carousel focus (F) and Home accelerators (Shift+H, s, b). Both have identical enablement guards and canUseKeyboardShortcut contract. Keep slash-search separate because of its native-typing exclusions. No split UX changes; v0.40.2 unchanged. Task `chatgpt/404-home-shortcuts-budget-20261021` pending focused and full acceptance then trusted Vercel READY.
-
-## Ninth task: Home carousel style deduplication
-- Stable Preview `5970997794f5431ceabcffc99e10a6eeb8ec8ae8`, full Quality Gate [39562812727](https://github.com/carlers/mosaic-life-tracker/actions/runs/39562812727) passed checks/DOM/browser/audit, blocked only Home closure `381029/381000` (+29 gzip bytes). No limits weakened.
-- Use existing Tailwind `absolute inset-0` instead of equivalent Swiper inline position edges, and `h-full` instead of the equivalent SwiperSlide inline height. No layout or behavior changes; current branch `chatgpt/404-home-swiper-budget-20261021`; require focused gate then full and trusted Vercel READY.
+## Geometry correction targeted to left-resize completion
+- Debounced watchResize run [39569053753](https://github.com/carlers/mosaic-life-tracker/actions/runs/39569053753) failed original mobile calendar swipe contract and still showed 412px left-grid drift. Reverted global watchResize override entirely; preserve default native Embla handling for all calendars.
+- Post-inspector-layout callback now reInit at canonical focus month, compares actual selected slide and viewport left edges, and, only if the offset is greater than 1 CSS px, synchronizes Embla's current internal location/target/translate to remove exactly that observed delta. This is restricted to explicit panel resize/closing callbacks; there is no eager monthly observer override or calendar DOM remount. Real-browser geometry regression must pass on open/drag/close before any Preview promotion.

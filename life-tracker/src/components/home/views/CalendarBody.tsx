@@ -256,17 +256,14 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const isFriend = variant === 'friend' && Boolean(friendName && friendUserId);
   const panelOpen = panelMounted && openPresentation === 'panel' && isActive;
 
-  const calendarAndPanel = (
-    <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="mosaic-calendar-split flex h-full min-h-0 min-w-0 w-full">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {calendarContent(carousel)}
-        </div>
-        {panelOpen && (
+  const detailPanel = panelOpen && (
           <LazyDayDetailPanel
             side={dayPanelSide}
             isPresented={daySheetOpen}
-            onExited={() => setPanelMounted(false)}
+            onExited={() => {
+              setPanelMounted(false);
+              requestAnimationFrame(() => onCalendarLayoutChange?.());
+            }}
             initialHeightMode={dayPanelHeight}
             onCalendarLayoutChange={onCalendarLayoutChange}
             initialFrameWidth={openedFrameWidth}
@@ -284,7 +281,15 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             onReactToTask={onReactToTask}
             holidayConfig={holidayConfig}
           />
-        )}
+  );
+  const calendarAndPanel = (
+    <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="mosaic-calendar-split flex h-full min-h-0 min-w-0 w-full">
+        {dayPanelSide === 'left' && detailPanel}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {calendarContent(carousel)}
+        </div>
+        {dayPanelSide === 'right' && detailPanel}
       </div>
     </div>
   );
