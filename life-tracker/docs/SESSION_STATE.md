@@ -1,24 +1,22 @@
 # Session checkpoint
 
-Updated: 2026-10-20 UTC
-Current task: #951 — Final Timeline audit, cross-feature integration, approved dev promotion.
+Updated: 2026-10-21 UTC
+Current task: #1126 — Reusable Mosaic Select and app-wide dropdown migration.
 
-## User authorization and exact sources
-- User expressly approved clean/polish/double-check then Preview → `dev`, not `dev` → `main` or Production.
-- Final Timeline accepted source `feature/dayview-timeline-951-20261020@64ddc391c0e00b857631195ccf26685fdd0773f2`, v0.36.3: canonical CI #39456831670 SUCCESS and trusted Vercel delivery #39457177250 SUCCESS; exact SHA deployment `dpl_HWsVF56FYTRvAgksvQ34ioDpcM25` READY.
-- Before promoting, current dev moved from `0606ff3a` to `79e2d69855c880d654de2b6d46307112fba9c970` by independently approved #856 cross-day dragging v0.34.8. Do NOT overwrite or discard #856.
-- Current integration task branch `chatgpt/951-dev-integrate-20261020` and new stable Preview `feature/dayview-timeline-951-dev-integrated-20261020` both branched from `dev@79e2d698` before edits.
-- Keep v0.36.3 (feature candidate version), preserve dev #856 behavior and all prior integrated work. No Appwrite schema/provider/backend changes.
+## Authority and exact source
+- User authorized implementation of https://github.com/carlers/mosaic-life-tracker/issues/1126 (formerly planning-only).
+- Base is dev@613903cd01b8857f16d4f75fa02e84b1d39e6263, v0.36.3.
+- Working branch: chatgpt/1126-mosaic-select-20261021. Proposed user-testable version v0.37.0.
+- Preview acceptance and dev/main/Production promotion are **not** approved. Do not merge to dev/main without further explicit approval.
 
-## Integration scope
-- Graft the accepted Timeline-only UI, sorting/tests, optional timestamps, preferences/settings, PWA timer typing onto new dev as exact accepted blobs.
-- Three intersecting Day View components need intentional merge: `DayViewSheet.tsx` retains cross-day continuous drag, overlay, gesture callbacks and adds Timeline mode/header/settings; `DaySlideContent.tsx` and `CategorySection.tsx` add timestamp presentation while retaining new #856 drag projection/settling logic.
-- Update `docs/COMPONENT_INDEX.md` by union of dev's cross-day/pinch zoom modules with Timeline's modules; do not overwrite indexes.
-- Package+lock from Timeline source differ from current dev only by app version (confirmed after normalization). New timeline DOM test confirms accessible category picker/filter/quick-add/keyboard and independent sorting.
-- Latest Timeline popup is portaled and viewport clamped, bypassing scroll clipping without changing task CRUD or backend writes.
+## Scope
+- Shared `MosaicSelect` supports controlled values, variants for standard / compact / category, viewport-clamped portaled listbox, keyboard navigation, focus restoration, disabled options, and dismissals.
+- Migrate Timeline category and status controls, Preferences, Notification Settings, Diary visibility, shared task category picker, Bucket List task creation.
+- Keep category colors, existing setting keys and defaults, account sync, domain callbacks and backend untouched.
+- Update DOM regressions, component index, theme usage instructions and three consistent version files.
 
-## Acceptance and promotion
-- This combined source differs from the individually accepted older Timeline and #856 Previews, so it needs fresh focused task verification and canonical CI/Vercel READY on integrated stable Preview tree.
-- After exact integrated acceptance, open reviewed `feature/dayview-timeline-951-dev-integrated-20261020` → `dev` PR, inspect promotion preflight and confirm unchanged parent/tree before regular merge (not squash).
-- Recheck live dev SHA before promotion; fail closed and reconcile again if independent PR lands first. No force update. Report dev push CI result.
-- Physical mobile/device gestures, Scratch authenticated Preview login and cross-device sync are outstanding manual tests, not automated evidence.
+## Verification and handoff
+- Source edits are assembled through GitHub Git objects; local checkout and local test runner are unavailable in this chat runtime.
+- Focused run #39462200518 for task SHA 969f1e34 completed FAILURE: 2 stale SharedTaskRows tests expected a native select name; 295 other test files passed. Repair updates those tests, deduplicates popup options and improves Tab/typeahead keyboard ownership. Second focused run #39462955525 exposed an isolated Tab-next-field regression in the new select DOM test; 163 other tests passed in its focused subset. The repair uses explicit DOM attributes for native tab stops rather than relying on Happy DOM's tabIndex property. Publish next [verify:focused] candidate, then run stable Preview full gate.
+- Then squash into stable Preview branch for canonical CI + Scratch Vercel acceptance. Real Android/iOS device visual/interaction checks remain manual.
+- Do not claim user acceptance or release based solely on automated CI.

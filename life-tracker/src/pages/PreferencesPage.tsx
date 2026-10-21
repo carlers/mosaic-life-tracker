@@ -29,6 +29,7 @@ import {
   type SheetWidthMode,
 } from '../lib/screenLayout';
 import { SettingsRow } from '../components/ui/SettingsRow';
+import { MosaicSelect } from '../components/ui/MosaicSelect';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
@@ -152,19 +153,15 @@ function SelectSettingRow({
         </div>
         <label htmlFor={id} className="mosaic-settings-label text-base font-medium text-white">{label}</label>
       </div>
-      <select
+      <MosaicSelect
         id={id}
-        aria-label={label}
+        label={label}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onPointerDown={(event) => event.stopPropagation()}
-        className="min-w-0 max-w-[12rem] rounded-lg border border-[#444444] bg-[#1E1E1E] px-2 py-1.5 text-sm text-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-      >
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>{option.label}</option>
-        ))}
-      </select>
+        onChange={onChange}
+        placeholder={placeholder}
+        options={placeholder ? [{ value: '', label: placeholder }, ...options] : options}
+        className="max-w-[12rem]"
+      />
     </div>
   );
 }

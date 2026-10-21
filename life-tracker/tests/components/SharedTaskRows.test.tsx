@@ -37,8 +37,8 @@ describe('received shared task interactions', () => {
     expect(screen.queryByRole('button', { name: /drag shared task/i })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Shared presentation' }));
     expect(screen.getByRole('dialog')).toBeTruthy();
-    fireEvent.change(screen.getByRole('combobox', { name: 'Assign shared task to my category' }),
-      { target: { value: 'cat_B' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /^Assign shared task to my category:/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Personal planning' }));
     await waitFor(() => expect(assign).toHaveBeenCalledWith(row, 'cat_B'));
     fireEvent.click(screen.getByRole('button', { name: 'Duplicate' }));
     await waitFor(() => expect(copy).toHaveBeenCalledWith(row, 'cat_B'));
@@ -107,8 +107,8 @@ describe('received shared task interactions', () => {
     };
     render(<Fixture />);
     fireEvent.click(screen.getByRole('button', { name: 'Shared presentation' }));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Assign shared task to my category' }),
-      { target: { value: 'cat_B' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /^Assign shared task to my category:/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Personal planning' }));
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
     expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy();
   });
