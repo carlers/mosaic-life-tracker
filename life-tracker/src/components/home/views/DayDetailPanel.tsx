@@ -1,10 +1,11 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { isSheetVisible } from '../../../lib/sheetVisibility';
 import { DayPanelResizeHandle } from './DayPanelResizeHandle';
 import { clampDayPanelWidth, DAY_PANEL_DIVIDER_WIDTH, readDayPanelWidth, saveDayPanelWidth, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import type { DayPanelHeight } from '../../../lib/preferences';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
+import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import { LazyFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
@@ -68,15 +69,16 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const [entered, setEntered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [gridHeight, setGridHeight] = useState<number | null>(null);
-  const reduceMotion = systemRequestsReducedMotion();
+  const appearance = useContext(AppearanceContext);
+  const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const effectivePanelWidth = clampDayPanelWidth(panelWidth, frameWidth);
   const targetWidth = effectivePanelWidth + DAY_PANEL_DIVIDER_WIDTH;
   const effectiveHeight = heightMode === 'screen' || gridHeight === null
     ? '100%' : `min(100%, ${gridHeight}px)`;
   const exitedRef = useRef(onExited);
-  exitedRef.current = onExited;
   const realignRef = useRef(onCalendarLayoutChange);
-  realignRef.current = onCalendarLayoutChange;
+  useEffect(() => { exitedRef.current = onExited; }, [onExited]);
+  useEffect(() => { realignRef.current = onCalendarLayoutChange; }, [onCalendarLayoutChange]);
 
   // Keep the mounted Day View and its editing state alive through exit.
   // Reverse an in-flight close without tearing down the same inspector.
