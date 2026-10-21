@@ -5,7 +5,7 @@ Current task: #1027 reconstruct protected Preview email-code repair from Codex t
 
 ## Source and safety
 - Accepted isolated branch baseline `feature/1027-supabase-recovery-20261020@9391e99038276c897235732d0a07cd0e574442b6`, v0.32.3. Prior canonical #39474239790 and hosted core lab #39474239853 green **for unsafe fragment-template baseline only**. These do not certify this reconstruction.
-- The original Codex Cloud `codex/1027-supabase-recovery-email-codes-20261020` workspace was uncommitted and unavailable through GitHub when Codex usage expired. User preserved the 36,657-line Markdown transcript; the transcript has exact behavior, tests/commands and run logs, but not full edited file contents. This new task branch `chatgpt/1027-recover-email-code-entry-20261021` independently reimplements only that internal repair. It is **not** a byte-for-byte restoration.
+- Original Codex repair was uncommitted and its VM expired. The archived transcript supported an independent reimplementation; it was not a byte-for-byte restoration.
 - Real deployed isolated Preview remains protected v0.32.1 `mosaic-supabase-core-preview.vercel.app` / `dpl_CSBQtqBXqz2naXLx3bS73rE4UTAR` unless separately verified. Do NOT deploy unsafe `9391e990` email templates, promote dev/main/Production, migrate user data, alter SSO, or release 1.0. Appwrite Scratch suspended; Oracle unprovisioned. Keep #1027/#967 open, Diary #1029 next after a usable core release.
 
 ## Implemented in this task
