@@ -80,6 +80,8 @@ for (const height of ['grid', 'screen']) {
       await page.getByTestId('split-next-month').click();
       await expect(page.getByTestId('split-focused-title')).not.toHaveText(initialTitle ?? '');
       await expect.poll(() => alignment(page, 31)).toBeLessThan(2);
+      // Native viewport scrolling must remain impossible even after resizing stops.
+      await expect(viewport).toHaveJSProperty('scrollLeft', 0);
 
       const first = page.locator('[data-calendar-slide-index="31"] [data-calendar-day]').first();
       await startFrameCapture(page, 31);
@@ -92,6 +94,8 @@ for (const height of ['grid', 'screen']) {
       expect(opening.some(frame => frame.panelWidth > 25 && frame.panelWidth < 350),
         'panel must expand through intermediate widths').toBe(true);
       await expect.poll(() => alignment(page, 31)).toBeLessThan(2);
+      // Native viewport scrolling must remain impossible even after resizing stops.
+      await expect(viewport).toHaveJSProperty('scrollLeft', 0);
 
       const bounds = await page.evaluate((mode) => {
         const host = document.querySelector('[data-testid="day-panel-motion-host"]');
@@ -135,6 +139,8 @@ for (const height of ['grid', 'screen']) {
       const resizeWidths = dragging.map(frame => frame.panelWidth);
       expect(Math.max(...resizeWidths) - Math.min(...resizeWidths)).toBeGreaterThan(35);
       await expect.poll(() => alignment(page, 31)).toBeLessThan(2);
+      // Native viewport scrolling must remain impossible even after resizing stops.
+      await expect(viewport).toHaveJSProperty('scrollLeft', 0);
 
       await startFrameCapture(page, 31);
       await page.getByRole('button', { name: 'Close day details' }).click();
@@ -142,6 +148,8 @@ for (const height of ['grid', 'screen']) {
       const closing = await endFrameCapture(page);
       assertNoShaking(closing, 'close ' + height + ' ' + side);
       await expect.poll(() => alignment(page, 31)).toBeLessThan(2);
+      // Native viewport scrolling must remain impossible even after resizing stops.
+      await expect(viewport).toHaveJSProperty('scrollLeft', 0);
     });
   }
 }
