@@ -110,6 +110,34 @@ jobs:
       - run: npm ci --prefer-offline --no-audit
       - name: Build isolated mosaic-dev bytes with public inputs only
         run: node scripts/build-supabase-core-preview.mjs
+      # Run the real ZIP-to-prebuilt stage from exact disposable CI bytes.
+      # No Vercel/API secrets, rebuild, provider writes, or alias operations.
+      # This runner-local digest tests staging behavior, NOT signed GitHub
+      # artifact provenance; the trusted external operator checks that later.
+      - name: Stage and reject tampering of isolated Supabase CI artifact
+        run: |
+          set -euo pipefail
+          source_dir=".mosaic/supabase-core-preview"
+          stage_zip="$RUNNER_TEMP/mosaic-stage-test.zip"
+          zip -q -X -j "$stage_zip" "$source_dir/config.json" "$source_dir/dist.tar.gz" "$source_dir/dist.tar.gz.sha256" "$source_dir/evidence.json" "$source_dir/inventory.json" "$source_dir/routing-evidence.json"
+          zip_sha="$(sha256sum "$stage_zip" | cut -d' ' -f1)"
+          staged="$RUNNER_TEMP/mosaic-supabase-staged"
+          node scripts/stage-supabase-core-artifact.mjs "$stage_zip" "$GITHUB_SHA" "$zip_sha" "$staged"
+          test -s "$staged/.vercel/output/config.json"
+          test -s "$staged/.vercel/output/static/index.html"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const x = JSON.parse(readFileSync(process.argv[1] + "/.mosaic-staged-evidence.json"));
+            if (x.status !== "STAGED_NOT_DEPLOYED" || x.deploymentAuthorized !== false ||
+                x.acceptedSha !== process.env.GITHUB_SHA || x.files < 1 ||
+                x.target !== "preview" || x.backend !== "supabase-cloud") process.exit(1);
+          ' "$staged"
+          if node scripts/stage-supabase-core-artifact.mjs "$stage_zip" "$GITHUB_SHA" "$(printf '%064d' 0)" "$RUNNER_TEMP/tampered-stage"; then
+            echo "Tampered ZIP digest accepted" >&2; exit 1
+          fi
+          if node scripts/stage-supabase-core-artifact.mjs "$stage_zip" "$GITHUB_SHA" "$zip_sha" "$staged"; then
+            echo "Existing stage destination overwritten" >&2; exit 1
+          fi
       # This is deliberately a different artifact from the Appwrite receiver's.
       # Exact source canonical acceptance and lab success are required before
       # a separately authorized operator deploys these verified static bytes.
