@@ -309,3 +309,19 @@ providing any publicly accessible beta hostname. Record original hook state,
 tested disable/rollback, sender and user rate limits. Nothing in this source
 change installs or activates a hook or changes Vercel protection, old Appwrite
 accounts, dev/main or Production.
+
+### Disposable SQL verification in the signed core lab
+
+The Supabase Core App Lab verifies the **staged but inactive** invitation
+function in its isolated Supabase CLI PostgreSQL container, after existing
+baseline migrations and before the signed UI tests. It uses local Docker
+`psql -v ON_ERROR_STOP=1`, applies the candidate *only* in this disposable
+database, then runs the transaction-rollback synthetic invitation probe.
+The probe checks positive, rejected, revoked and expired invites, malformed
+hook events, actual execution as `supabase_auth_admin`, and the absence of
+invitation table access / direct function execution by client roles.
+
+This is **not** GoTrue hook activation, live tester admission, hosted SQL,
+real mail delivery, or proof that existing admin-created test fixtures still
+work with the hook enabled. Test the actual local GoTrue dispatch, fixture
+provisioning, and rollback before any separately approved hosted activation.

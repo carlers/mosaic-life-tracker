@@ -32,5 +32,35 @@ begin
   if actual #>> '{error,http_code}' <> '403' then
     raise exception 'invalid hook event accepted';
   end if;
+  if not has_function_privilege('supabase_auth_admin',
+      'mosaic_candidate_private.beta_before_user_created(jsonb)', 'EXECUTE') then
+    raise exception 'Auth administrator cannot execute invitation hook';
+  end if;
+  if has_table_privilege('supabase_auth_admin',
+      'mosaic_candidate_private.beta_signup_invitations', 'SELECT') then
+    raise exception 'Auth administrator can read private invitation table';
+  end if;
+  if has_function_privilege('anon',
+      'mosaic_candidate_private.beta_before_user_created(jsonb)', 'EXECUTE')
+    or has_function_privilege('authenticated',
+      'mosaic_candidate_private.beta_before_user_created(jsonb)', 'EXECUTE') then
+    raise exception 'Client roles can directly execute invitation hook';
+  end if;
 end $test$;
+-- Exercise the hook with the actual local Auth database role, not only postgres.
+set local role supabase_auth_admin;
+do $role_test$
+begin
+  if mosaic_candidate_private.beta_before_user_created(
+      '{"metadata":{"name":"before-user-created"},"user":{"email":"ALLOWED@example.invalid"}}'::jsonb)
+        <> '{}'::jsonb then
+    raise exception 'Auth role could not access approved invitation';
+  end if;
+  if mosaic_candidate_private.beta_before_user_created(
+      '{"metadata":{"name":"before-user-created"},"user":{"email":"outsider@example.invalid"}}'::jsonb)
+        #>> '{error,http_code}' <> '403' then
+    raise exception 'Auth role admitted uninvited account';
+  end if;
+end $role_test$;
+reset role;
 rollback;

@@ -61,6 +61,19 @@ jobs:
           PY
           supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler
           supabase db reset --local
+      - name: Validate inactive invite-only hook in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          # Bind only to the local Supabase CLI database container.
+          # Never connect to any hosted project or install GoTrue Auth hooks.
+          mapfile -t local_db < <(docker ps --filter name=supabase_db_ --format '{{.ID}}')
+          test "${#local_db[@]}" -eq 1
+          test -n "${local_db[0]}"
+          docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres \
+            < supabase-poc/migrations/20261021_beta_signup_invite_gate.sql
+          docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres \
+            < supabase-poc/validation/20261021_beta_signup_invite_probe.sql
+          # The migration is local-test-only and GoTrue hook activation remains off.
       - name: Exercise signed real UI and server authority
         run: |
           set -euo pipefail
