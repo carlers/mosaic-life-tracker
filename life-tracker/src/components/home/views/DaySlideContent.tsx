@@ -78,7 +78,7 @@ export interface DaySlideProps {
   crossDayInsertion?: { categoryId: string; index: number; height: number };
 
   onReorderCategories?: (next: CategoryDocument[]) => Promise<void>;
-  onUpdateCategory?: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility'>) => Promise<void>;
+  onUpdateCategory?: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility' | 'color'>) => Promise<void>;
   onCategoryActionError?: (message: string) => void;
   diaryEnabled?: boolean;
   diaryEntryOverride?: DiaryDocument;
