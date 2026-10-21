@@ -41,3 +41,6 @@ Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and 
 ## Fifth canonical optimization
 - Stable v0.40.2 `8fd111c7b88c612d816e8e1d18ad25e2fd7215d1` full Quality Gate run 39560449743 still above Home closure by 75 gzip bytes (381075/381000). No budget change.
 - Split-only styles and height state now lazy. Replace unused createPreloadedLazy helper (no longer manually prewarmed) with React.lazy plus a panel-local Suspense boundary, keeping the Calendar mounted while the panel import resolves. No markup/layout/data behavior change. Full acceptance and exact Vercel still required.
+
+## Sixth candidate: preserve retryable lazy mount + remove redundant warmup
+- Stable `368e615b04095409896518bb62a2fbfc863b6f92` full run 39560948733 failed only Home startup closure +80 gzip bytes. Revert native React.lazy to repository-standard retryable createPreloadedLazy (internal local Suspense), remove duplicate friend preload from day click (pointer and lazy paths remain), and remove unused Home test IDs while retaining semantic slot attribute. Strict limits and v0.40.2 unchanged. Pending focused → canonical → trusted READY.

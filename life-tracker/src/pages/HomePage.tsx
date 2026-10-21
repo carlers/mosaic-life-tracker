@@ -361,7 +361,6 @@ export const HomePage: React.FC = () => {
   return (
     <>
       <div
-        data-testid="home-workspace-split"
         className="mosaic-home-workspace flex h-full min-h-0 min-w-0"
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -434,7 +433,6 @@ export const HomePage: React.FC = () => {
         <div
           inert={isSearchOpen ? true : undefined}
           data-home-panel-slot="true"
-          data-testid="home-screen-panel-slot"
           className="flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
         />
       </div>
