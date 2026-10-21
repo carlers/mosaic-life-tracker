@@ -356,16 +356,11 @@ export const HomePage: React.FC = () => {
             onSwiper={(s) => {
               swiperRef.current = s;
             }}
-            slidesPerView={1}
-            spaceBetween={0}
             speed={280}
             resistanceRatio={0.85}
             threshold={5}
-            followFinger
-            longSwipes
             longSwipesRatio={0.25}
             longSwipesMs={250}
-            shortSwipes
             noSwiping
             noSwipingClass="swiper-no-swiping"
             allowTouchMove={!isSettingsOpen && !isSearchOpen}
