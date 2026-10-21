@@ -33,6 +33,27 @@ afterEach(() => {
 });
 
 describe('provider-neutral email recovery route', () => {
+  it('accepts email/code after clean navigation without mounting any account writer', async () => {
+    window.history.replaceState(null, '', '/reset-password');
+    captureEmailActionCallback(window);
+    render(<RootAuthProvider><p>Ordinary account application</p></RootAuthProvider>);
+    expect(await screen.findByLabelText('Email address', { exact: true })).toBeVisible();
+    expect(screen.getByLabelText('Email code', { exact: true })).toBeVisible();
+    expect(window.location.hash).toBe('');
+    fireEvent.change(screen.getByLabelText('Email address', { exact: true }),
+      { target: { value: user.email } });
+    fireEvent.change(screen.getByLabelText('Email code', { exact: true }),
+      { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify email code' }));
+    expect(await screen.findByRole('status')).toHaveTextContent(user.email);
+    expect(fetcher.mock.calls[0][1].body).toBe(JSON.stringify({
+      email: user.email, token: '123456', type: 'recovery',
+    }));
+    expect(providers.appwrite).not.toHaveBeenCalled();
+    expect(providers.supabase).not.toHaveBeenCalled();
+    expect(localStorage.getItem('existing-account')).toBe('untouched account data');
+  });
+
   it('does not clear a replacement link when the previous verification finishes late', async () => {
     let finish!: (response: Response) => void;
     fetcher.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));

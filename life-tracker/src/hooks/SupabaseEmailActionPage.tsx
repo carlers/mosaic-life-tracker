@@ -8,12 +8,16 @@ import { createSupabaseEmailActions, parseEmailAction } from '../lib/supabaseEma
 export default function SupabaseEmailActionPage({ config }: {
   config: Extract<CoreBackendConfig, { driver: 'supabase' }>;
 }) {
-  const [callback] = useState(() => {
+  const [initial] = useState(() => {
     const input = readEmailActionCallback();
-    return input ? parseEmailAction(input.pathname, input.hash) : null;
+    const hash = input?.pathname === window.location.pathname ? input.hash : window.location.hash;
+    return { callback: hash ? parseEmailAction(window.location.pathname, hash) : null,
+      codeEntry: !hash };
   });
-  const [actions] = useState(() => createSupabaseEmailActions({ ...config, callback }));
-  const [stage, setStage] = useState<EmailActionViewProps['stage']>(callback ? 'ready' : 'invalid');
+  const { callback, codeEntry } = initial;
+  const kind = callback?.kind ?? (window.location.pathname === '/auth/confirm' ? 'signup' : 'recovery');
+  const [actions] = useState(() => createSupabaseEmailActions({ ...config, callback, kind }));
+  const [stage, setStage] = useState<EmailActionViewProps['stage']>(callback || codeEntry ? 'ready' : 'invalid');
   const [email, setEmail] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +28,6 @@ export default function SupabaseEmailActionPage({ config }: {
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
-  const kind = callback?.kind ?? (window.location.pathname === '/auth/confirm' ? 'signup' : 'recovery');
   async function perform(action: () => Promise<void>) {
     if (!mounted.current || inFlight.current) return;
     inFlight.current = true;
@@ -35,9 +38,9 @@ export default function SupabaseEmailActionPage({ config }: {
       if (mounted.current) setError('This action could not be confirmed. Retry, or request a new email link. If a password change was interrupted, try signing in with the new password.');
     } finally { inFlight.current = false; if (mounted.current) setBusy(false); }
   }
-  return <EmailActionView {...{ kind, stage, email, busy, error, notice }}
-    verify={() => perform(async () => {
-      const verified = await actions.verify();
+  return <EmailActionView {...{ kind, stage, email, busy, error, notice, codeEntry }}
+    verify={(address, code) => perform(async () => {
+      const verified = codeEntry ? await actions.verifyCode(address ?? '', code ?? '') : await actions.verify();
       if (!mounted.current) return;
       setEmail(verified.email);
       setStage('verified');

@@ -20,6 +20,28 @@ function fixture() {
 }
 
 describe('isolated email verification and password recovery', () => {
+  it('verifies a clean-route email code only in a POST body, without exposing it in navigation', async () => {
+    const { requests, fetcher } = fixture();
+    const actions = createSupabaseEmailActions({ ...config, kind: 'recovery', callback: null, fetcher });
+    await expect(actions.verifyCode(user.email, '123456')).resolves.toEqual({ kind: 'recovery', email: user.email });
+    expect(requests[0].init?.body).toBe(JSON.stringify({
+      email: user.email, token: '123456', type: 'recovery',
+    }));
+    expect(requests.every(request => !request.url.includes('123456') &&
+      !request.url.includes(user.email) && !request.url.includes(callback.tokenHash))).toBe(true);
+    await expect(actions.resetPassword('new secure password')).resolves.toEqual({ revoked: true });
+    await expect(actions.verifyCode(user.email, '123456')).rejects.toThrow('completed');
+  });
+
+  it('rejects malformed codes and mismatched verified email accounts', async () => {
+    const { fetcher } = fixture();
+    const actions = createSupabaseEmailActions({ ...config, kind: 'signup', callback: null, fetcher });
+    await expect(actions.verifyCode(user.email, '12345x')).rejects.toThrow('valid email address and code');
+    expect(fetcher).not.toHaveBeenCalled();
+    await expect(actions.verifyCode('other@example.org', '123456')).rejects.toThrow('could not be verified');
+    await expect(actions.finishConfirmation()).rejects.toThrow('Verify');
+  });
+
   it('accepts only the expected fragment, route and single-use email action type', () => {
     expect(parseEmailAction('/reset-password', '#type=recovery&token_hash=' + callback.tokenHash)).toEqual(callback);
     expect(parseEmailAction('/auth/confirm', '#type=signup&token_hash=' + callback.tokenHash)).toEqual({ ...callback, kind: 'signup' });

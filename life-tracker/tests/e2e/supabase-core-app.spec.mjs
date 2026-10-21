@@ -685,6 +685,7 @@ for (const kind of ['signup', 'recovery']) {
     test.skip(!hosted || !action || action.kind !== kind, 'Requires runner-owned one-time email grant');
     const [active, target] = hostedAccounts;
     if (!active || !target || !/^[a-f0-9]{32,128}$/i.test(action.tokenHash ?? '') ||
+        !/^\d{6,10}$/.test(action.code ?? '') ||
         !/^mosaic-hosted-[0-9a-f]{24}-email-a@example\.org$/.test(active.email) ||
         target.email !== active.email.replace('-email-a@', '-email-b@'))
       throw Error('Invalid disposable email fixtures');
@@ -703,15 +704,19 @@ for (const kind of ['signup', 'recovery']) {
       let leaked = false;
       let writerRequest = false;
       emailPage.on('request', request => {
-        if (request.url().includes(action.tokenHash) || (request.headers().referer ?? '').includes(action.tokenHash)) leaked = true;
-        if (request.url().startsWith(url + '/rest/')) writerRequest = true;
+        const address = new URL(request.url());
+        if (request.url().includes(action.tokenHash) || (request.headers().referer ?? '').includes(action.tokenHash) ||
+            [...address.searchParams.values()].some(value => value === action.code)) leaked = true;
+        if (request.url().startsWith(url + '/rest/') || /appwrite\.(io|invalid)/.test(request.url())) writerRequest = true;
       });
-      emailPage.on('console', message => { if (message.text().includes(action.tokenHash)) leaked = true; });
+      emailPage.on('console', message => { if (message.text().includes(action.tokenHash) || message.text().includes(action.code)) leaked = true; });
       const route = kind === 'signup' ? '/auth/confirm' : '/reset-password';
-      await emailPage.goto(app + route + '#type=' + kind + '&token_hash=' + action.tokenHash);
-      await expect(emailPage.getByRole('button', { name: 'Verify email link' })).toBeVisible();
+      await emailPage.goto(app + route);
+      await emailPage.getByLabel('Email address', { exact: true }).fill(target.email);
+      await emailPage.getByLabel('Email code', { exact: true }).fill(action.code);
       expect(new URL(emailPage.url()).hash === '').toBe(true);
-      await emailPage.getByRole('button', { name: 'Verify email link' }).click();
+      expect(new URL(emailPage.url()).search === '').toBe(true);
+      await emailPage.getByRole('button', { name: 'Verify email code' }).click();
       await expect(emailPage.getByRole('status')).toContainText(target.email);
       if (kind === 'recovery') {
         await emailPage.getByLabel('New password', { exact: true }).fill(action.newPassword);
@@ -732,8 +737,10 @@ for (const kind of ['signup', 'recovery']) {
       expect((await browserFamily())?.owner).toBe(before.owner);
       const recovered = await separate.newPage();
       await signIn(recovered, { ...target, password: kind === 'recovery' ? action.newPassword : target.password });
-      await emailPage.goto(app + route + '#type=' + kind + '&token_hash=' + action.tokenHash);
-      await emailPage.getByRole('button', { name: 'Verify email link' }).click();
+      await emailPage.goto(app + route);
+      await emailPage.getByLabel('Email address', { exact: true }).fill(target.email);
+      await emailPage.getByLabel('Email code', { exact: true }).fill(action.code);
+      await emailPage.getByRole('button', { name: 'Verify email code' }).click();
       await expect(emailPage.getByRole('alert')).toContainText('could not be confirmed');
       expect(writerRequest).toBe(false);
     } finally {

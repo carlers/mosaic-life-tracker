@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { assertProject, connect, inspect, isCasConflict, PROJECT } from '../../supabase-poc/hosted-core.mjs';
 import { exerciseHostedUi } from '../../supabase-poc/hosted-core-ui.mjs';
-import { inspectEmailPolicy, previewEmailPolicy, EMAIL_ROUTES } from '../../supabase-poc/email-policy.mjs';
+import { assertCredentialFreeEmailTemplates, inspectEmailPolicy, previewEmailPolicy, EMAIL_ROUTES, EMAIL_TEMPLATES } from '../../supabase-poc/email-policy.mjs';
 
 const project = { id: PROJECT, name: 'mosaic-dev', status: 'ACTIVE_HEALTHY' };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
@@ -14,10 +14,29 @@ describe('hosted core verification safety boundary', () => {
     expect(Object.keys(patch).sort()).toEqual(['mailer_templates_confirmation_content',
       'mailer_templates_recovery_content', 'site_url', 'uri_allow_list']);
     expect(patch.uri_allow_list.split(',')).toEqual([current.uri_allow_list, ...EMAIL_ROUTES]);
+    for (const template of [patch.mailer_templates_confirmation_content, patch.mailer_templates_recovery_content]) {
+      expect(template).toContain('{{ .Token }}');
+      expect(template).not.toContain('TokenHash');
+      const links = [...template.matchAll(/href="([^"]+)"/g)].map(match => new URL(match[1]));
+      expect(links).toHaveLength(1);
+      expect(links[0].search).toBe('');
+      expect(links[0].hash).toBe('');
+    }
     expect(inspectEmailPolicy({ ...current, ...patch })).toMatchObject({
       confirmationRequired: true, siteReady: true, redirectsReady: true, templatesReady: true,
     });
     expect(JSON.stringify(inspectEmailPolicy(current))).not.toContain('never-display');
+    expect(assertCredentialFreeEmailTemplates()).toBe(true);
+    expect(() => assertCredentialFreeEmailTemplates({
+      ...EMAIL_TEMPLATES,
+      mailer_templates_confirmation_content: EMAIL_TEMPLATES.mailer_templates_confirmation_content
+        .replace('/auth/confirm"', '/auth/confirm#token_hash=secret"'),
+    })).toThrow('credential-free exact routes');
+    expect(() => assertCredentialFreeEmailTemplates({
+      ...EMAIL_TEMPLATES,
+      mailer_templates_recovery_content: EMAIL_TEMPLATES.mailer_templates_recovery_content
+        .replace('{{ .Token }}', '{{ .TokenHash }}'),
+    })).toThrow('must use a code');
     for (const change of [{ mailer_autoconfirm: true }, { site_url: 'https://production.example' }])
       expect(() => previewEmailPolicy({ ...current, ...change })).toThrow('Unexpected isolated');
   });
@@ -33,12 +52,12 @@ describe('hosted core verification safety boundary', () => {
         { type: 'secret', api_key: 'sb_secret_fixture' },
       ]);
       if (url.endsWith('/admin/users/' + id)) return json(user);
-      if (url.endsWith('/admin/generate_link')) return json({ id, hashed_token: 'b'.repeat(64) });
+      if (url.endsWith('/admin/generate_link')) return json({ id, hashed_token: 'b'.repeat(64), email_otp: '123456' });
       throw Error('Unexpected operation');
     });
     const client = await connect({ token: 'test-management-credential', fetcher });
     await expect(client.fixtureEmailLink({ id, runId, type: 'signup', password: 'synthetic disposable password' }))
-      .resolves.toEqual({ tokenHash: 'b'.repeat(64) });
+      .resolves.toEqual({ tokenHash: 'b'.repeat(64), code: '123456' });
     user.app_metadata.mosaic_disposable_run = 'different-run';
     fetcher.mockClear();
     await expect(client.fixtureEmailLink({ id, runId, type: 'recovery' }))

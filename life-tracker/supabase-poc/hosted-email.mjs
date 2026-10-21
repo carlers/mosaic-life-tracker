@@ -78,7 +78,7 @@ export async function runHostedEmailProbe(client, { exercise = exerciseHostedUi,
   }
   if (failure) throw failure;
   return { runId, confirmation: true, recovery: true, retiredUsers: fixtures.length,
-    emailDelivery: 'not-tested-generated-links' };
+    emailDelivery: 'not-tested-generated-codes' };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
