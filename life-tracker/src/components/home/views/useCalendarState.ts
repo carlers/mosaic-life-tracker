@@ -24,6 +24,7 @@ const CENTER_INDEX = SLIDES_EACH_SIDE;
 // every child it receives; without this cap the 61-slide carousel mounts
 // 61 full month grids on cold load (~2.5k DayCells).
 const RENDER_WINDOW = 1;
+let cachedPanelSnap: typeof import('./calendarPanelSnap').updateFocusedCalendarSlide | undefined;
 
 export interface CalendarState {
   viewMode: CalendarViewMode;
@@ -35,7 +36,7 @@ export interface CalendarState {
   isZoomTransitioning: boolean;
   handleZoomNavigate: (direction: 'prev' | 'next') => boolean;
   emblaRef: (node: HTMLElement | null) => void;
-  resnapAfterResize: (live?: boolean) => Promise<void>;
+  resnapAfterResize: (live?: boolean) => void | Promise<void>;
   title: string;
   handlePrev: () => void;
   handleNext: () => void;
@@ -98,11 +99,12 @@ export function useCalendarState(
   // exactly equal to the space taken by the inspector even when the selected
   // snap index is correct. Align the existing engine's location with the real
   // focused slide rather than remounting a 61-slide calendar.
-  const resnapAfterResize = useCallback((live = false): Promise<void> => {
-    if (!emblaApi) return Promise.resolve();
-    return import('./calendarPanelSnap').then(({ updateFocusedCalendarSlide }) =>
-      updateFocusedCalendarSlide(emblaApi, focusIndex, live)
-    );
+  const resnapAfterResize = useCallback((live = false) => {
+    if (!emblaApi) return;
+    return cachedPanelSnap
+      ? cachedPanelSnap(emblaApi, focusIndex, live)
+      : import('./calendarPanelSnap').then(m =>
+        (cachedPanelSnap = m.updateFocusedCalendarSlide)(emblaApi, focusIndex, live));
   }, [emblaApi, focusIndex]);
 
   // Selection makes the destination slide ready; waiting for Embla's

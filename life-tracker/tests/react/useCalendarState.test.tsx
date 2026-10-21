@@ -126,5 +126,11 @@ describe('useCalendarState render window', () => {
     expect(emblaFixture.engine.location.set).toHaveBeenCalledWith(-48412);
     expect(emblaFixture.engine.target.set).toHaveBeenCalledWith(-48412);
     expect(emblaFixture.engine.translate.to).toHaveBeenCalledWith(-48412);
+    // Once the optional module has loaded, every resize correction must run
+    // synchronously in ResizeObserver before the next paint. An import().then()
+    // on each frame applied stale widths and made the month visibly jump.
+    emblaFixture.setSlideOffset(90);
+    act(() => { void result.current.resnapAfterResize(true); });
+    expect(emblaFixture.engine.translate.to).toHaveBeenLastCalledWith(-48090);
   });
 });

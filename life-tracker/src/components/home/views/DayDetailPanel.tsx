@@ -42,7 +42,7 @@ interface DayDetailPanelProps {
   isPresented: boolean;
   onExited: () => void;
   initialHeightMode: DayPanelHeight;
-  onCalendarLayoutChange?: (live?: boolean) => Promise<void>;
+  onCalendarLayoutChange?: (live?: boolean) => void | Promise<void>;
   initialFrameWidth: number;
   frameRef: React.RefObject<HTMLDivElement | null>;
   onClose: () => void;
