@@ -24,6 +24,7 @@ const CENTER_INDEX = SLIDES_EACH_SIDE;
 // every child it receives; without this cap the 61-slide carousel mounts
 // 61 full month grids on cold load (~2.5k DayCells).
 const RENDER_WINDOW = 1;
+let cachedPanelSnap: typeof import('./calendarPanelSnap').updateFocusedCalendarSlide | undefined;
 
 export interface CalendarState {
   viewMode: CalendarViewMode;
@@ -35,7 +36,7 @@ export interface CalendarState {
   isZoomTransitioning: boolean;
   handleZoomNavigate: (direction: 'prev' | 'next') => boolean;
   emblaRef: (node: HTMLElement | null) => void;
-  resnapAfterResize: () => void;
+  resnapAfterResize: (live?: boolean) => void | Promise<void>;
   title: string;
   handlePrev: () => void;
   handleNext: () => void;
@@ -76,6 +77,9 @@ export function useCalendarState(
     startIndex: CENTER_INDEX,
     duration: reduceMotion ? 0 : 22,
     watchDrag: (_api, event) => !(event.target instanceof Element && event.target.closest('[data-calendar-zoom-lane]')),
+    // The inspector projects the focused month during its own width animation.
+    // Embla's default ResizeObserver reInit on every width frame would fight it.
+    watchResize: api => !api.rootNode().dataset.panelMotion,
   });
 
   useEmblaTrackpadNavigation(emblaApi);
@@ -95,11 +99,12 @@ export function useCalendarState(
   // exactly equal to the space taken by the inspector even when the selected
   // snap index is correct. Align the existing engine's location with the real
   // focused slide rather than remounting a 61-slide calendar.
-  const resnapAfterResize = useCallback(() => {
+  const resnapAfterResize = useCallback((live = false) => {
     if (!emblaApi) return;
-    void import('./calendarPanelSnap').then(({ alignFocusedCalendarSlide }) =>
-      alignFocusedCalendarSlide(emblaApi, focusIndex)
-    );
+    return cachedPanelSnap
+      ? cachedPanelSnap(emblaApi, focusIndex, live)
+      : import('./calendarPanelSnap').then(m =>
+        (cachedPanelSnap = m.updateFocusedCalendarSlide)(emblaApi, focusIndex, live));
   }, [emblaApi, focusIndex]);
 
   // Selection makes the destination slide ready; waiting for Embla's
@@ -154,7 +159,7 @@ export function useCalendarState(
     if (!emblaApi) return;
     const syncSelectedIndex = () => {
       const index = emblaApi.selectedScrollSnap();
-      setEmblaActiveIndex((prev) => (prev === index ? prev : index));
+      setEmblaActiveIndex(index);
     };
     syncSelectedIndex();
     emblaApi.on('select', syncSelectedIndex);
@@ -220,13 +225,11 @@ export function useCalendarState(
     setBaseDate(today);
   }, []);
 
-  const weekStart = startOfWeek(focusDate, { weekStartsOn });
-  const weekEnd = endOfWeek(focusDate, { weekStartsOn });
-  const title = useMemo(() => {
-    return viewMode === 'month'
-      ? format(focusDate, 'MMMM yyyy')
-      : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
-  }, [viewMode, focusDate, weekStart, weekEnd]);
+  // Week boundaries only matter in week view. A month render need not
+  // recalculate or memoize dates that its heading does not display.
+  const title = viewMode === 'month'
+    ? format(focusDate, 'MMMM yyyy')
+    : `${format(startOfWeek(focusDate, { weekStartsOn }), 'MMM d')} - ${format(endOfWeek(focusDate, { weekStartsOn }), 'MMM d, yyyy')}`;
 
   // The index that focusDate maps to. Combined with Embla's active index
   // below, this covers both the currently-animating slide and any

@@ -195,11 +195,15 @@ function SplitPanelLayoutProbe() {
   const mode = new URLSearchParams(window.location.search).get('splitPanelProbe') === 'screen' ? 'screen' : 'grid';
   const side = new URLSearchParams(window.location.search).get('side') === 'right' ? 'right' : 'left';
   return (
-    <div data-testid="split-workspace" className="mosaic-home-workspace flex h-[750px] w-full min-w-0 bg-[#111111]">
+    <div data-testid="split-workspace" className="mosaic-home-workspace flex w-full min-w-0 bg-[#111111]" style={{ height: 750 }}>
       <div className="flex min-w-0 flex-1 flex-col">
         <header data-testid="split-header" className="shrink-0 p-3">Search · Menu · Profile</header>
-        <div className="shrink-0 px-3">{calendar.title}</div>
-        <div data-testid="split-calendar-frame" className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 px-3">
+          <span data-testid="split-focused-title">{calendar.title}</span>
+          <button type="button" data-testid="split-next-month" onClick={calendar.handleNext}>Next month</button>
+        </div>
+        {/* Reproduce a shorter month grid with remaining space above the app nav. */}
+        <div data-testid="split-calendar-frame" className="flex min-h-0 shrink-0 flex-col" style={{ height: 470 }}>
           <CalendarBody viewMode={calendar.viewMode}
             slides={calendar.slides} renderStart={calendar.renderStart} renderEnd={calendar.renderEnd}
             emblaRef={calendar.emblaRef} activeIndex={calendar.activeIndex}

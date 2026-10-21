@@ -24,8 +24,6 @@ import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/day
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
-const RENDER_WINDOW = 1;
-const INITIAL_RENDER_WINDOW = 0;
 
 // Keep Home preloads after first usable paint, with the same idle and Safari
 // fallback deadlines for settings, task views and neighbor person slides.
@@ -59,7 +57,7 @@ export const HomePage: React.FC = () => {
   } = useCategories();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
-  const [renderWindow, setRenderWindow] = useState(INITIAL_RENDER_WINDOW);
+  const [renderWindow, setRenderWindow] = useState(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -78,11 +76,10 @@ export const HomePage: React.FC = () => {
   const friendCarouselRef = useRef<HTMLDivElement>(null);
   const isProgrammaticMoveRef = useRef(false);
 
-  if (persons.length > 0 && !persons.some((p) => p.id === activePersonId)) {
-    setActivePersonId('me');
-  }
+  const personIndex = persons.findIndex(p => p.id === activePersonId);
+  if (persons.length > 0 && personIndex < 0) setActivePersonId('me');
 
-  const activeIndex = Math.max(0, persons.findIndex((p) => p.id === activePersonId));
+  const activeIndex = Math.max(0, personIndex);
 
   useEffect(() => {
     markStartup('home:mounted');
@@ -129,16 +126,14 @@ export const HomePage: React.FC = () => {
     return whenHomeIdle(warm, 1200, 900);
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
-  useEffect(() => whenHomeIdle(() => setRenderWindow(RENDER_WINDOW), 1200, 400), []);
+  useEffect(() => whenHomeIdle(() => setRenderWindow(1), 1200, 400), []);
 
   useEffect(() => {
     const s = swiperRef.current;
     if (!s) return;
-    const idx = persons.findIndex((p) => p.id === activePersonId);
-    if (idx < 0) return;
-    if (s.activeIndex === idx) return;
+    if (personIndex < 0 || s.activeIndex === personIndex) return;
     isProgrammaticMoveRef.current = true;
-    s.slideTo(idx, 280);
+    s.slideTo(personIndex, 280);
     const raf = requestAnimationFrame(() => {
       isProgrammaticMoveRef.current = false;
     });
@@ -150,10 +145,8 @@ export const HomePage: React.FC = () => {
     if (!s) return;
     const raf = requestAnimationFrame(() => {
       s.update();
-      const idx = persons.findIndex((p) => p.id === activePersonId);
-      if (idx >= 0 && s.activeIndex !== idx) {
-        s.slideTo(idx, 0);
-      }
+      if (personIndex >= 0 && s.activeIndex !== personIndex)
+        s.slideTo(personIndex, 0);
     });
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,10 +161,6 @@ export const HomePage: React.FC = () => {
     },
     [persons, activePersonId]
   );
-
-  const handlePillSelect = useCallback((personId: string) => {
-    setActivePersonId((current) => (current === personId ? current : personId));
-  }, []);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsSheetMounted(true);
@@ -228,6 +217,14 @@ export const HomePage: React.FC = () => {
     navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/home') });
   }, [navigate]);
 
+  const openDatedTask = useCallback((date: Date, id: string) => {
+    setSearchSelectedDate(date);
+    setSearchFocusTaskId(id);
+    setSearchSheetKey(current => current + 1);
+    searchDaySheetOpenRef.current = true;
+    setSearchDaySheetOpen(true);
+  }, []);
+
   // Open a real dated task from the Bucket List or Uncompleted Tasks.
   useEffect(() => {
     const state = location.state as { bucketLinkedFocusTaskId?: string; bucketLinkedFocusDate?: string; focusTaskId?: string; focusTaskDate?: string } | null;
@@ -241,16 +238,12 @@ export const HomePage: React.FC = () => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      setSearchSelectedDate(date);
-      setSearchFocusTaskId(taskId);
-      setSearchSheetKey(current => current + 1);
-      searchDaySheetOpenRef.current = true;
-      setSearchDaySheetOpen(true);
+      openDatedTask(date, taskId);
       // Consume the route intent exactly once, including on Android Back.
       navigate('/home', { replace: true, state: null });
     });
     return () => { cancelled = true; };
-  }, [location.key, location.state, navigate]);
+  }, [location.key, location.state, navigate, openDatedTask]);
 
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
     if (task.date === '') {
@@ -261,12 +254,8 @@ export const HomePage: React.FC = () => {
     }
     const date = parseISO(task.date);
     if (!isValid(date)) return;
-    setSearchSelectedDate(date);
-    setSearchFocusTaskId(task.id);
-    setSearchSheetKey((current) => current + 1);
-    searchDaySheetOpenRef.current = true;
-    setSearchDaySheetOpen(true);
-  }, [navigate]);
+    openDatedTask(date, task.id);
+  }, [navigate, openDatedTask]);
 
   const handleCloseSearchDaySheet = useCallback(() => {
     searchDaySheetOpenRef.current = false;
@@ -345,7 +334,7 @@ export const HomePage: React.FC = () => {
             <PersonCarousel
               persons={persons}
               activePersonId={activePersonId}
-              onSelect={handlePillSelect}
+              onSelect={setActivePersonId}
               focusRootRef={friendCarouselRef}
               onOpenSettings={handleOpenSettings}
             />
