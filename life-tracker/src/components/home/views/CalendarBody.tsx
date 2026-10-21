@@ -150,17 +150,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const allowPinch = pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
-  // Warm only code after Home becomes interactive; hooks mount on selection.
-  useEffect(() => {
-    if (!isActive) return;
-    const timer = window.setTimeout(() => {
-      if (document.hidden) return;
-      if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
-      if (dayDetailPresentation === 'panel') void preloadDayDetailPanel().catch(() => {});
-    }, 800);
-    return () => window.clearTimeout(timer);
-  }, [variant, dayDetailPresentation, isActive]);
-
   const tasksByDate = useTasksByDate(tasks);
   const holidayYears = useMemo(() => {
     const years = new Set<number>();
@@ -186,6 +175,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const handleDayClick = useCallback((date: Date) => {
     if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
+    if (dayDetailPresentation === 'panel') void preloadDayDetailPanel().catch(() => {});
     if (document.activeElement instanceof HTMLElement) calendarTriggerRef.current = document.activeElement;
     if (!daySheetOpen) {
       const presentation = dayDetailPresentation === 'panel' && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH ? 'panel' : 'sheet';
