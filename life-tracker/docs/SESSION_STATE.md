@@ -45,3 +45,6 @@ Current task: #404 v0.40.3 — left panel alignment, full height and expand/coll
 ## Task lint repair
 - Focused CI [39570843503](https://github.com/carlers/mosaic-life-tracker/actions/runs/39570843503) failed `react-refresh/only-export-components`: the lazy React `DayDetailPanel.tsx` component file cannot export the geometry helper.
 - Moved the **unchanged** `alignFocusedCalendarSlide` implementation into `calendarPanelSnap.ts`, dynamically imported only by the existing `resnapAfterResize` callback. The DayDetailPanel component exports only the component; no lint disable, size-gate exception, or altered behavior. Keep version 0.40.3. Focused and canonical acceptance pending.
+
+## Generated component inventory
+- Focused [39571081790](https://github.com/carlers/mosaic-life-tracker/actions/runs/39571081790) stopped on generated docs freshness because new pure helper `calendarPanelSnap.ts` needed a source inventory entry. Updated `docs/COMPONENT_INDEX.md` using the generator's sorted path and template contract. No functional change or gate adjustment; rerun focused.
