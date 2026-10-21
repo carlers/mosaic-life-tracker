@@ -1,25 +1,18 @@
 # Session checkpoint
-Updated: 2026-10-22, Asia/Manila
-Current task: Issue #404, left-panel month-swipe misalignment; next Preview v0.40.5.
+Updated: 2026-10-22 Asia/Manila
 
-## Branch, gate and approval
-- Exact accepted v0.40.4 stable Preview: `feature/split-day-panel-dev-404-20261021@ea5a6ad583b0586288b01e288f59fc88a5c5226d` with canonical [Quality Gate 39627958057](https://github.com/carlers/mosaic-life-tracker/actions/runs/39627958057) SUCCESS and [trusted Preview 39628447154](https://github.com/carlers/mosaic-life-tracker/actions/runs/39628447154) SUCCESS; immutable URL `https://mosaic-life-tracker-g5z9n630f-carls-projects-72516fde.vercel.app/home`.
-- New task branch `chatgpt/404-left-month-swipe-20261022` from the accepted stable SHA. v0.40.5 is a PATCH refinement after user testing. No merge to `dev`, `main`, or Production authorized.
-- Issue #404 remains open; old PR #1184 is already merged into stable Preview. Create a new PR against that stable branch for this fix.
+## Current task and evidence
+- Issue #404 v0.40.5 large-screen Calendar split accepted by owner as fully working. PR #1191 promoted accepted stable Preview `feature/split-day-panel-dev-404-20261021@1e73d7bce6014475905342b2b5b7751145720846` to `dev@5e18064e516663aca71a930ffc6687cc0f2c46e7` with an identical Git tree. Promotion [Quality Gate 39639072325](https://github.com/carlers/mosaic-life-tracker/actions/runs/39639072325) SUCCESS.
+- Official Vercel Git `dev` deployment `dpl_3iqzbAgPwkZ2Zt2q19TWUww35JgB` ERROR: same source and unchanged Home blocking gzip budget 381,000 B, Vercel computed 381,008 B (8 B over), despite stable canonical CI 380,987 B. Provider environment/compiled constants account for difference. Existing accepted stable Preview v0.40.5 is READY. Do not claim new dev deployment READY.
+- Owner explicitly authorized **repair dev first**, then **implement proposed #404 improvements**: extend large-screen left/right panels to Todo List and Diary, and provide an in-view position/height switcher. Do not automatically promote that later feature from its Preview to dev/main.
+- Issue #404 remains OPEN by explicit owner request.
 
-## Exact browser reproduction and cause
-- User: left-side panel remains aligned after opening or divider resizing, but calendar horizontal month swipes move the grid off-width again.
-- Real Chromium with 1,600px desktop viewport and 412px left inspector, both short-grid and screen-height layouts: after opening on month slide 31 the focused slide was aligned, then dragging to slide 32 left the slide offset **+412px**; same for horizontal trackpad and next-month click. Right panel stayed aligned.
-- Instrumented Embla after left-panel open: `containerRect.left=412` (offset of viewport against ancestor) while slide rectangles started at left=0 (against translated track). Embla consequently computed slide-32 scroll snap `-37604` instead of `-38016`. Existing manual re-snap after divider corrected track position without fixing Embla's *stored* snap coordinates.
-- Minimal source fix: make the immediate `CalendarCarousel` wrapper position-relative, so viewport and slides share a local positioning origin; Embla then reported `containerRect.left=0`, slide-32 snap `-38016`, and correct horizontal swipes. No changes to panel animation logic, backend, gesture ownership or bundle budgets.
+## Dev provider size repair (internal version impact NONE)
+- Task branch `chatgpt/404-dev-home-size-20261022` based on `5e18064e516663aca71a930ffc6687cc0f2c46e7`. Safe HomePage simplifications: coalesce idempotent (Set-backed) startup timing marks while retaining exact conditions; preserve both successful and failed Day View preload paths without redundant promise closures; let React's same-value state update bailout handle selected-person id, removing duplicate condition/dependency.
+- Local sandbox with public Preview config built Home at 380,876/381,000 gzip after changes (baseline 380,888). This offers narrow headroom but **Vercel env remains authoritative**; verify exact stable provider build and repair if needed. No limit changes, auth/backend/UI changes or version bump. Unit/lint and GitHub focused/full gate remain to be verified; do not claim them green preemptively.
+- Delivery route: task focused → new `fix/404-dev-home-size-20261022` stable Preview branch canonical and trusted Preview READY → explicit approval already granted for `dev` repair; promote its exact accepted tree through merge PR, verify dev promotion gate and Vercel READY. No Production.
+- After dev READY, start next feature in separate v0.41.0 candidate and implement approved plan, with Todo/Diary shared Day View and mode controls, preserving existing defaults and gestures; verify normal gates and user-facing Preview, without dev promotion.
 
-## Regression evidence and local verification
-- Expanded `tests/e2e/split-panel-layout.spec.mjs`: real pointer drag to next/previous month **with the panel already open**, repeat after divider resize, then horizontal wheel next/previous. Existing open/close sampled-paint, full-width, panel-bottom and scrollLeft=0 assertions remain.
-- **Red evidence:** accepted v0.40.4 source with added new test failed left/grid after actual swipe with Received **412**, Expected <2px. No fabricated failure.
-- **Green evidence:** v0.40.5 source passed 8/8 repeated left/right × grid/screen browser cases with pointer drag; extended pointer+trackpad version passed 4/4.
-- `npm run build` passed with publicly available CI Preview config (Home closure **380,888/381,000 gzip bytes**), `npm run version:check` and `git diff --check` PASS. `npm run lint` PASS (0 errors, 19 warnings); unit tests **1,204/1,204**; DOM tests **655/655**.
-- Full exact-SHA GitHub focused/browser verification and canonical stable Preview acceptance / Vercel READY **not yet performed** for v0.40.5. Size headroom is very narrow with CI secrets; do not relax gates or claim readiness until remote build passes.
-- Manual authenticated large-screen/mobile touch, owner/friend, pinch-zoom and reduced motion acceptance still pending.
-
-## Next
-Commit code, v0.40.5 version files, regression and this checkpoint together on task branch with `[verify:browser]`; inspect exact-head CI. If green, squash PR to existing stable Preview, run full canonical Quality Gate, and verify trusted exact-SHA READY Preview URL. Preserve existing stable link until acceptance and never promote to dev/main/Production without explicit approval.
+## Safeguards
+- No budget bypass or CI weakening. Account/diary privacy unchanged.
+- Preserve existing 0.40.5 Calendar snap/drag behavior; no unsupervised main/Production changes. Record actual QA and deployment evidence on issue #404.
