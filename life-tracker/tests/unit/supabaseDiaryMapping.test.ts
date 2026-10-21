@@ -34,7 +34,7 @@ describe('isolated private Supabase Diary transport mapping (#1029)', () => {
     expect(() => fromCandidateDiaryRow({ ...remote(), owner_id: '22222222-2222-4222-8222-222222222222' }, identity))
       .toThrow(/unexpected owner/);
     expect(() => fromCandidateDiaryRow({ ...remote(), visibility: 'followers' as 'private' }, identity))
-      .toThrow(/unapproved Supabase Diary/);
+      .toThrow(/Supabase Diary visibility/);
   });
   it('rejects invalid diary dates and never fabricates rows', () => {
     expect(() => toCandidateDiaryWrite({ ...doc, date: '2026-02-30' }, identity)).toThrow(/calendar date/);
