@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { ViewType } from '../components/home/ViewSwitcher';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
-import { useKeyboardShortcuts } from './KeyboardShortcutsProvider';
+import { useKeyboardShortcuts } from './keyboardShortcutsContext';
 
 /** Only the currently visible Home person may handle view shortcuts.
  * Reuse the same asynchronous ViewSwitcher action for pointer and keyboard. */

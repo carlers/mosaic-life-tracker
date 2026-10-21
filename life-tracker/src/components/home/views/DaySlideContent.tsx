@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
 import { useDayViewKeyboardNavigation } from './useDayViewKeyboardNavigation';
-import { useKeyboardShortcuts } from '../../../hooks/KeyboardShortcutsProvider';
+import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { DayViewCategoryReorder } from './DayViewCategoryReorder';
 import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';

@@ -17,5 +17,6 @@ Current scope: issue #956 — keyboard shortcut guide, preference and scoped Hom
 
 ## Verification / handoff
 - Task scope includes React components/hooks, generated COMPONENT_INDEX for guide sheet, focused DOM tests for routing Shift+H, active views, preference and guide.
-- Submit one coherent [verify:focused] task commit. Fix failures on task branch; after focused SUCCESS squash to stable Preview; perform one canonical full gate and trusted exact-SHA Vercel READY. User device/visual/AT acceptance remains manual and unperformed.
+- First focused run 39533818696 failed only the React Fast Refresh lint rule: provider file exported both its component and hook/context. Moved context/hook into a separate non-component module and adjusted consumers, retaining the provider's single component export. Reverify focused before Preview squash.
+- Submit a coherent [verify:focused] task repair commit. Fix failures on task branch; after focused SUCCESS squash to stable Preview; perform one canonical full gate and trusted exact-SHA Vercel READY. User device/visual/AT acceptance remains manual and unperformed.
 - Keep issue #956 open; never promote to dev, main, or Production without user approval.

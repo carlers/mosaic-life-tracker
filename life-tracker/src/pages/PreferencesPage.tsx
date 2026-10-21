@@ -32,7 +32,7 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
-import { useKeyboardShortcuts } from '../hooks/KeyboardShortcutsProvider';
+import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
   CONFIRM_TASK_DELETE_SETTING_KEY,

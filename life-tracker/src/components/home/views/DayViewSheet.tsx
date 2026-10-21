@@ -50,7 +50,7 @@ import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
-import { useKeyboardShortcuts } from '../../../hooks/KeyboardShortcutsProvider';
+import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,

@@ -2,7 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { KeyboardShortcutsProvider, useKeyboardShortcuts } from '../../src/hooks/KeyboardShortcutsProvider';
+import { KeyboardShortcutsProvider } from '../../src/hooks/KeyboardShortcutsProvider';
+import { useKeyboardShortcuts } from '../../src/hooks/keyboardShortcutsContext';
 
 const mockSettings = vi.hoisted(() => ({ enabled: true, isLoading: false }));
 vi.mock('../../src/hooks/useSettings', () => ({

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
-import { useKeyboardShortcuts } from '../hooks/KeyboardShortcutsProvider';
+import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
 import { Settings, LogOut, BarChart3, Sticker, ListTodo, Star } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';

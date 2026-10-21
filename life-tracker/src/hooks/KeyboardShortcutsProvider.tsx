@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { KeyboardShortcutsContext } from './keyboardShortcutsContext';
 import { useSettings } from './useSettings';
 import { usePrimaryNavigationShortcuts } from './usePrimaryNavigationShortcuts';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
@@ -9,19 +10,6 @@ const LazyKeyboardShortcutsSheet = React.lazy(() =>
     default: module.KeyboardShortcutsSheet,
   }))
 );
-
-interface KeyboardShortcutState {
-  enabled: boolean;
-  openGuide: () => void;
-}
-const KeyboardShortcutsContext = createContext<KeyboardShortcutState>({
-  enabled: true,
-  openGuide: () => {},
-});
-
-export function useKeyboardShortcuts() {
-  return useContext(KeyboardShortcutsContext);
-}
 
 /** Mounted only inside the authenticated, initialized app data shell.
  * The account-scoped settings stream immediately updates all shortcut owners. */
