@@ -211,7 +211,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
             transition: reduceMotion ? 'none' : 'transform 280ms ease, opacity 280ms ease',
           }}
       onTransitionEnd={event => {
-        if (event.target === event.currentTarget && event.propertyName === 'width')
+        if (event.target === event.currentTarget)
           realignRef.current?.();
       }}
     >
