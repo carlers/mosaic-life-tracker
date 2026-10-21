@@ -132,10 +132,7 @@ export const HomePage: React.FC = () => {
     return whenHomeIdle(warm, 1200, 900);
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
-  useEffect(() => {
-    const schedule = () => setRenderWindow(RENDER_WINDOW);
-    return whenHomeIdle(schedule, 1200, 400);
-  }, []);
+  useEffect(() => whenHomeIdle(() => setRenderWindow(RENDER_WINDOW), 1200, 400), []);
 
   useEffect(() => {
     const s = swiperRef.current;
@@ -314,16 +311,13 @@ export const HomePage: React.FC = () => {
           event.preventDefault();
           active.focus({ preventScroll: true });
         }
-      } else if (homeMenuShortcut) {
-        const menu = document.querySelector<HTMLButtonElement>('[data-home-menu-trigger="true"]');
-        if (!menu) return;
+      } else if (homeMenuShortcut || event.key === 's') {
+        const trigger = document.querySelector<HTMLButtonElement>(
+          homeMenuShortcut ? '[data-home-menu-trigger="true"]' : '[data-home-sync-trigger="true"]'
+        );
+        if (!trigger) return;
         event.preventDefault();
-        menu.click();
-      } else if (event.key === 's') {
-        const sync = document.querySelector<HTMLButtonElement>('[data-home-sync-trigger="true"]');
-        if (!sync) return;
-        event.preventDefault();
-        sync.click();
+        trigger.click();
       } else if (event.key === 'b') {
         event.preventDefault();
         handleOpenBacklog();
@@ -351,7 +345,7 @@ export const HomePage: React.FC = () => {
           trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} />}
         />
 
-        <div inert={isSearchOpen ? true : undefined} className="flex-1 min-h-0 flex flex-col relative">
+        <div inert={isSearchOpen} className="flex-1 min-h-0 flex flex-col relative">
           <div className="flex-shrink-0">
             <PersonCarousel
               persons={persons}
@@ -400,7 +394,7 @@ export const HomePage: React.FC = () => {
         </div>
         </div>
         <div
-          inert={isSearchOpen ? true : undefined}
+          inert={isSearchOpen}
           data-home-panel-slot="true"
           className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
         />
