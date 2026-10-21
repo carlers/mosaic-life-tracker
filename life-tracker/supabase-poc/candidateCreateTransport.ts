@@ -3,24 +3,26 @@
  * No upsert and no blind retry: 409 requires a fresh owner-scoped master read.
  * Not wired to Mosaic's shipped RxDB or Appwrite sync.
  */
-import type { CategoryDocument, TaskDocument } from '../src/db/schema';
+import type { CategoryDocument, TaskDocument, DiaryDocument } from '../src/db/schema';
 import {
   parseCandidateRevision, toCandidateTaskWrite, toCandidateCategoryWrite,
+  toCandidateDiaryWrite,
   validateCandidateIdentity, type CandidateIdentity,
-  type CandidateTaskRow, type CandidateCategoryRow,
-  type CandidateTaskWrite, type CandidateCategoryWrite,
+  type CandidateTaskRow, type CandidateCategoryRow, type CandidateDiaryRow,
+  type CandidateTaskWrite, type CandidateCategoryWrite, type CandidateDiaryWrite,
 } from './candidateMapping';
 import {
   CandidateAuthError, CandidateHttpError,
   type CandidateSessionProvider, type CandidateVerifiedSession,
 } from './candidateHttpTransport';
 
-type Domain = 'tasks' | 'categories';
-type Row = CandidateTaskRow | CandidateCategoryRow;
-type Write = CandidateTaskWrite | CandidateCategoryWrite;
+type Domain = 'tasks' | 'categories' | 'diary';
+type Row = CandidateTaskRow | CandidateCategoryRow | CandidateDiaryRow;
+type Write = CandidateTaskWrite | CandidateCategoryWrite | CandidateDiaryWrite;
 const TABLE: Record<Domain, string> = {
   tasks: 'mosaic_candidate_tasks',
   categories: 'mosaic_candidate_categories',
+  diary: 'mosaic_candidate_diary',
 };
 const ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -183,5 +185,9 @@ export function createCandidateCreateTransport(options: {
       create('tasks', toCandidateTaskWrite(doc, identity), identity) as Promise<CandidateCreateOutcome<CandidateTaskRow>>,
     createCategory: async (doc: CategoryDocument, identity: CandidateIdentity) =>
       create('categories', toCandidateCategoryWrite(doc, identity), identity) as Promise<CandidateCreateOutcome<CandidateCategoryRow>>,
+    readDiaryMaster: (id: string, identity: CandidateIdentity) =>
+      master('diary', id, identity) as Promise<CandidateDiaryRow | null>,
+    createDiary: async (doc: DiaryDocument, identity: CandidateIdentity) =>
+      create('diary', toCandidateDiaryWrite(doc, identity), identity) as Promise<CandidateCreateOutcome<CandidateDiaryRow>>,
   };
 }

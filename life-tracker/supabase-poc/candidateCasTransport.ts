@@ -34,10 +34,12 @@ const ALLOWED: Record<CandidateDomain, readonly string[]> = {
   categories: [
     'name', 'color', 'order_index', 'visibility', 'icon', 'updated_at', 'is_deleted',
   ],
+  diary: ['content', 'emoji', 'updated_at', 'is_deleted'],
 };
 const RPC: Record<CandidateDomain, string> = {
   tasks: 'mosaic_candidate_cas_task',
   categories: 'mosaic_candidate_cas_category',
+  diary: 'mosaic_candidate_cas_diary',
 };
 
 function validatePatch(domain: CandidateDomain, patch: CandidatePatch): void {

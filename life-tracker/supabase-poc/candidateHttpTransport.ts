@@ -54,6 +54,7 @@ export function createCandidateHttpTransport(options: {
   const tables: Record<CandidateDomain, string> = {
     tasks: 'mosaic_candidate_tasks',
     categories: 'mosaic_candidate_categories',
+    diary: 'mosaic_candidate_diary',
   };
 
   async function checkedSession(ownerId: string): Promise<CandidateVerifiedSession> {

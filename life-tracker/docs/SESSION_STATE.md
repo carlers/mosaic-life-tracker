@@ -1,21 +1,22 @@
 # Session checkpoint
 
-Updated: 2026-10-22 local (2026-10-21 UTC)
-Current task: #1029 Supabase Diary domain, revised public core+Diary release #1027, category lifecycle #857.
+Updated: 2026-10-21 UTC
+Current task: #1029 private Diary signed transport, coordinated with public core+Diary #1027 and category retirement #857.
 
-## Live state and release safety
-- Isolated Supabase core candidate branch `feature/1027-supabase-recovery-20261020@7ca47047ab5eab74b90656dc05e14f133391d112` passed exact-SHA Quality Gate #39639293585 and signed Supabase Core App Lab #39639293771. Public hosted mosaic-dev has owner-filtered task/category Realtime publication and remains invitation-only. The owner reports near-instant two-device task sync now works on protected immutable v0.32.5 Preview. Full public release, `dev`/`main` promotion, Production/other Appwrite account cutover and 1.0 remain unperformed.
-- Owner explicitly revised release scope on 2026-10-21: **public core tasks/categories/calendar/backlogs PLUS owner-private Diary**, social/chat/alerts/shared/media postponed. No invitation-only beta as permanent product. Remove invitation gate only after safe public Auth/abuse checks, Diary end-to-end, backups/provider return, device/PWA and exact release verification.
-- #857 supersedes evolving category names: preserve historical tasks and category identity when **retired at an effective day**, expose separate explicit **Delete category and all tasks** with confirm and soft tombstones, never implicit reassignment. Existing #1186 automatic rehome is interim and must be replaced after migration and tests. Two preexisting orphaned task rows in isolated hosted owner account remain untouched.
-- Current `dev` and `main` are significantly divergent with newer app features; never merge this old Supabase beta tree directly into them or alter Production without explicit accepted reconciliation and release approvals.
+## Baseline and safety
+- Isolated stable `feature/1027-supabase-recovery-20261020@4479983878e4129a46936683352270752c503603` has the SQL-only Diary table, owner SELECT/INSERT RLS, signed authority trigger, exact-revision CAS, validation and disposable lab acceptance. Same-SHA full Quality Gate #39650558703 and signed Core App Lab #39650558595 succeeded. **No hosted Diary SQL, Diary sync or public signup enabled**.
+- Tasks/categories core v0.32.5 protected Preview is verified; owner reports realtime sync works. Two older orphaned beta tasks remain untouched.
+- User explicitly wants owner-private Diary AND category retirement/destructive deletion as prerequisites to future PUBLIC signup launch; no social/image support; current dev/main are newer unrelated Appwrite release lines and must not be overwritten.
 
-## This task branch
-- `chatgpt/1029-private-diary-supabase-foundation` starts from `7ca47047ab5eab74b90656dc05e14f133391d112`. Scope: additive, **disposable-only** owner-private Diary SQL baseline, no UI flag or runtime writer/hosted migration. No version bump (not user-testable).
-- New `20261022_candidate_private_diary_domain.sql`: owner/date-unique text/emoji Diary with legacy photos references preserved, private-only visibility, strong RLS, SELECT+INSERT authenticated only, revision and signed core authority triggers, exact-revision owner-only CAS with content/emoji/deleted allowlist; no anonymous/foreign reads or direct UPDATE/DELETE; not yet published via Realtime.
-- Disposable Supabase Core App Lab copies this migration after core authority and verifies catalog contracts using `20261022_private_diary_contract.sql` before signed UI tests.
-- Must not apply to hosted until task branch focused, stable exact-SHA signed tests and Diary transport/owner negative tests pass. No DB/app user data changes here.
+## Current task branch
+- `chatgpt/1029-diary-signed-transports` starts at stable `44799838...`. No end-user version bump or UI activation.
+- Extends isolated signed candidate mapping to Diary rows, preserving dates, text, emoji, legacy attachment references, timestamps, owner, tombstones; refuses non-private Diary and incorrect account. Adds owner-only change cursor query, allowlisted CAS RPC and authenticated create/master methods for Diary, alongside task/category behavior. Adds synthetic mapping and negative tests.
+- **The RxDB pilot still refuses Diary domain** until the third owner-fenced collection is implemented and tested, and the core runtime currently starts only task/category writers. No false claim of working offline Diary yet. No hosted data migration or public Auth change.
+- Next: focused CI, fix failures; if accepted, squash to isolated stable followed by same-SHA canonical checks. Then create Diary RxDB pilot with strict private fields and owner leases, connect app boot + realtime wake and signed 2-owner/offline conflict tests; finally enable Diary capability with appropriate Preview version.
 
 ## Next action
-- Run task-focused GitHub Quality Gate; fix SQL/test failures, then only after acceptance squash into stable isolated core branch and rerun canonical labs. Implement Diary mapping, authenticated create/CAS/pull, RxDB replication start/stop and foreground/realtime wake with signed two-owner negative + offline/concurrent/erase tests before capability activation.
-- In parallel, implement #857 category retirement metadata with RxDB migration and Supabase signed CAS plus Day/Calendar/Backlog rules; explicit cascade tombstones and recovery/undo; test on both providers independently.
-- Reconcile current `dev` app line and exact prebuilt Preview before launching public domain, disable invite gate only with public Auth abuse controls, independent backup/restore/provider-return and explicit Release approval. Keep #1027, #1029, #857, #1186 open until verified.
+- Run focused Diary transport checks before connecting a third RxDB writer and enabling UI.
+
+## Release blockers
+- Category #857 versioned v0.33.0 task on separate `chatgpt/857-category-retirement-contract-current`; CI repairs in flight, not merged. Need server-side atomic cascade race guarantees and migration acceptance before sending to users.
+- Missing independent DR restore, current dev/main reconciliation, old PWA update/return, public Auth abuse controls and anti-enumeration, hosted two-owner signed Diary test, and owner-approved release target. No changes to Production, dev/main or Appwrite authority.

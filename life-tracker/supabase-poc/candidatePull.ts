@@ -6,18 +6,20 @@
  * change_seq > after, ORDER BY change_seq ASC, LIMIT batchSize.
  * Even then, validate all remote rows before returning an advanced checkpoint.
  */
-import type { TaskDocument, CategoryDocument } from '../src/db/schema';
+import type { TaskDocument, CategoryDocument, DiaryDocument } from '../src/db/schema';
 import {
   fromCandidateCategoryRow,
   fromCandidateTaskRow,
+  fromCandidateDiaryRow,
   parseCandidateRevision,
   validateCandidateIdentity,
   type CandidateCategoryRow,
   type CandidateTaskRow,
+  type CandidateDiaryRow,
   type CandidateIdentity,
 } from './candidateMapping';
 
-export type CandidateDomain = 'tasks' | 'categories';
+export type CandidateDomain = 'tasks' | 'categories' | 'diary';
 export type CandidateCheckpoint = { changeSeq: string };
 
 export interface CandidateChangeTransport {
@@ -98,5 +100,16 @@ export function pullCandidateCategories(options: {
 }): Promise<{ documents: Array<CategoryDocument & { _deleted: false }>; checkpoint: CandidateCheckpoint | undefined }> {
   return pullCandidateChanges<CandidateCategoryRow, CategoryDocument>({
     ...options, domain: 'categories', convert: fromCandidateCategoryRow,
+  });
+}
+
+export function pullCandidateDiary(options: {
+  transport: CandidateChangeTransport;
+  identity: CandidateIdentity;
+  checkpoint?: CandidateCheckpoint;
+  batchSize: number;
+}): Promise<{ documents: Array<DiaryDocument & { _deleted: false }>; checkpoint: CandidateCheckpoint | undefined }> {
+  return pullCandidateChanges<CandidateDiaryRow, DiaryDocument>({
+    ...options, domain: 'diary', convert: fromCandidateDiaryRow,
   });
 }
