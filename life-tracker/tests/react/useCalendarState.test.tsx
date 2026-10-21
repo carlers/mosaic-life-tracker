@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const emblaFixture = vi.hoisted(() => {
   const handlers = new Map<string, Set<() => void>>();
+  const container = document.createElement('div');
   let selectedIndex = 30;
   let progress = 0.5;
 
@@ -23,7 +24,7 @@ const emblaFixture = vi.hoisted(() => {
     selectedScrollSnap: vi.fn(() => selectedIndex),
     scrollTo: vi.fn(),
     reInit: vi.fn(),
-    containerNode: vi.fn(() => document.createElement('div')),
+    containerNode: vi.fn(() => container),
     scrollPrev: vi.fn(),
     scrollNext: vi.fn(),
   };
