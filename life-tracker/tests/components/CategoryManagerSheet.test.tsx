@@ -301,7 +301,7 @@ describe('CategoryManagerSheet', () => {
   it('states the actual destination before deleting a populated category', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     fireEvent.click(screen.getAllByRole('button', { name: 'Delete category' })[0]);
-    expect(screen.getByText('Tasks in this category will be moved to Second.')).toBeInTheDocument();
+    expect(screen.getByText('Tasks will move to Second without changing their visibility.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
   });
 

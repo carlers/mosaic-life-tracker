@@ -7,6 +7,7 @@ interface Row {
   isDeleted: boolean;
   categoryId?: string;
   order?: number;
+  visibility?: 'private' | 'public' | 'followers' | '';
   updatedAt: string;
   incrementalPatch: ReturnType<typeof vi.fn>;
 }
@@ -63,9 +64,9 @@ describe('deleting categories keeps owner tasks visible', () => {
   beforeEach(() => {
     fixtures.owner = 'owner_a';
     fixtures.categories = [
-      row('old', 'owner_a', { order: 0 }),
-      row('next', 'owner_a', { order: 1 }),
-      row('other_owner', 'owner_b', { order: 0 }),
+      row('old', 'owner_a', { order: 0, visibility: 'private' }),
+      row('next', 'owner_a', { order: 1, visibility: 'public' }),
+      row('other_owner', 'owner_b', { order: 0, visibility: 'private' }),
     ];
     fixtures.tasks = [
       row('task_1', 'owner_a', { categoryId: 'old' }),
@@ -83,6 +84,27 @@ describe('deleting categories keeps owner tasks visible', () => {
     expect(fixtures.categories[0].isDeleted).toBe(true);
     expect(fixtures.tasks[2].categoryId).toBe('old');
     expect(fixtures.events).toEqual(['task_1', 'task_2', 'old']);
+  });
+
+  it('preserves inherited private visibility when destination category is public', async () => {
+    fixtures.tasks[0].visibility = '';
+    fixtures.tasks[1].visibility = 'followers';
+    const { result } = renderHook(() => useCategories());
+    await act(async () => result.current.deleteCategory('old'));
+    expect(fixtures.tasks[0].categoryId).toBe('next');
+    expect(fixtures.tasks[0].visibility).toBe('private');
+    expect(fixtures.tasks[1].visibility).toBe('followers');
+    expect(fixtures.categories[0].isDeleted).toBe(true);
+  });
+
+  it('preserves inherited public visibility when destination is private', async () => {
+    fixtures.categories[0].visibility = 'public';
+    fixtures.categories[1].visibility = 'private';
+    fixtures.tasks[0].visibility = '';
+    const { result } = renderHook(() => useCategories());
+    await act(async () => result.current.deleteCategory('old'));
+    expect(fixtures.tasks[0].categoryId).toBe('next');
+    expect(fixtures.tasks[0].visibility).toBe('public');
   });
 
   it('can delete an empty last category, but does not strand tasks in it', async () => {

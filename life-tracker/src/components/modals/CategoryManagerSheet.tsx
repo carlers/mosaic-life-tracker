@@ -365,7 +365,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             <p className="text-white">Delete this category?</p>
             <p className="text-sm text-gray-400">
               {deleteDestination
-                ? `Tasks in this category will be moved to ${deleteDestination.name}.`
+                ? `Tasks will move to ${deleteDestination.name} without changing their visibility.`
                 : deleteHasTasks
                   ? 'Create another category first so these tasks are not lost.'
                   : 'This empty category will be removed.'}
