@@ -19,6 +19,9 @@ vi.mock('../../src/db/database', () => ({
   getDatabase: () => ({
     categories: {
       insert: fixture.insert,
+      find: () => ({ exec: async () => [
+        { id: 'cat_1', userId: fixture.userId, isDeleted: false, order: 0 },
+      ] }),
       findOne: () => ({
         exec: async () => ({
           id: 'cat_1',
@@ -29,6 +32,9 @@ vi.mock('../../src/db/database', () => ({
           incrementalPatch: fixture.incrementalPatch,
         }),
       }),
+    },
+    tasks: {
+      find: () => ({ exec: async () => [] }),
     },
   }),
 }));

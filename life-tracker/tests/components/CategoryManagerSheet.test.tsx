@@ -298,6 +298,13 @@ describe('CategoryManagerSheet', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Save Changes' })).toBeNull());
   });
 
+  it('states the actual destination before deleting a populated category', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete category' })[0]);
+    expect(screen.getByText('Tasks in this category will be moved to Second.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+  });
+
   it('retains the delete confirmation when deletion rejects and allows retry', async () => {
     mocks.deleteCategory.mockRejectedValueOnce(new Error('write failed'));
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
