@@ -150,20 +150,15 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const allowPinch = pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
-  // Warm code, not hooks: retain idle scheduling for friend and optional panel.
+  // Warm only code after Home becomes interactive; hooks mount on selection.
   useEffect(() => {
-    if (!isActive || (variant !== 'friend' && dayDetailPresentation !== 'panel')) return;
-    const warm = () => {
+    if (!isActive) return;
+    const timer = window.setTimeout(() => {
       if (document.hidden) return;
       if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
       if (dayDetailPresentation === 'panel') void preloadDayDetailPanel().catch(() => {});
-    };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1800 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = setTimeout(warm, 700);
-    return () => clearTimeout(id);
+    }, 800);
+    return () => window.clearTimeout(timer);
   }, [variant, dayDetailPresentation, isActive]);
 
   const tasksByDate = useTasksByDate(tasks);
