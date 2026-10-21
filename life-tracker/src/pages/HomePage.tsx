@@ -287,24 +287,6 @@ export const HomePage: React.FC = () => {
     setSearchFocusTaskId(null);
   }, []);
 
-  // F jumps directly to the selected person without switching their calendar.
-  // Left/Right in the carousel moves focus; Enter/Space activates that person.
-  useEffect(() => {
-    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'f' || event.key.length !== 1 ||
-          !canUseKeyboardShortcut(event)) return;
-      const active = friendCarouselRef.current?.querySelector<HTMLButtonElement>(
-        '[data-person-pill][aria-pressed="true"]'
-      );
-      if (!active) return;
-      event.preventDefault();
-      active.focus({ preventScroll: true });
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [shortcutsEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen]);
-
   // Home-only search launcher. Keep native typing and all nested sheet
   // keyboard ownership untouched; the existing Search control still handles
   // Escape and focus when the field opens.
@@ -330,7 +312,15 @@ export const HomePage: React.FC = () => {
     const onKeyDown = (event: KeyboardEvent) => {
       const homeMenuShortcut = event.key === 'H' && event.shiftKey;
       if (!canUseKeyboardShortcut(event, { allowShift: homeMenuShortcut })) return;
-      if (homeMenuShortcut) {
+      if (event.key === 'f') {
+        const active = friendCarouselRef.current?.querySelector<HTMLButtonElement>(
+          '[data-person-pill][aria-pressed="true"]'
+        );
+        if (active) {
+          event.preventDefault();
+          active.focus({ preventScroll: true });
+        }
+      } else if (homeMenuShortcut) {
         const menu = document.querySelector<HTMLButtonElement>('[data-home-menu-trigger="true"]');
         if (!menu) return;
         event.preventDefault();
