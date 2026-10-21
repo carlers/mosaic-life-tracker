@@ -327,3 +327,24 @@ This is **not** GoTrue hook activation, live tester admission, hosted SQL,
 real mail delivery, or proof that existing admin-created test fixtures still
 work with the hook enabled. Test the actual local GoTrue dispatch, fixture
 provisioning, and rollback before any separately approved hosted activation.
+
+### Actual GoTrue hook acceptance (local CI only; never hosted)
+
+After the existing signed browser core checks, the same disposable Supabase Core
+App Lab destroys its first local CLI stack, enables Before User Created **only
+in a fresh local config.toml**, adds the staged invitation migration to local
+CLI migrations and resets the brand-new local database. It seeds synthetic
+`example.org` invitations using only the local Docker PostgreSQL connection.
+`supabase-poc/tests/beta-invite-gotrue-local.mjs` then sends ordinary
+`/auth/v1/signup` requests over **localhost** to prove an invited address is
+admitted while unlisted/revoked/expired requests are rejected, and checks an
+explicitly invited admin-created disposable fixture. It finally counts the
+resulting Auth identities. Signup confirmation is disabled in this ephemeral
+stack; this test sends **no real Brevo or external email**.
+
+This cannot directly authorize hosted `mosaic-dev` hook enablement. The
+operational change requires explicit user approval, real inbox delivery and
+tester access planning, a tightly scoped private invitation list, a new
+management Auth config readback, controlled rollback, and a verified policy for
+future hosted fixture users. Neither the existing immutable Preview nor any
+Appwrite deployment is changed by the local lab.
