@@ -318,8 +318,10 @@ baseline migrations and before the signed UI tests. It uses local Docker
 `psql -v ON_ERROR_STOP=1`, applies the candidate *only* in this disposable
 database, then runs the transaction-rollback synthetic invitation probe.
 The probe checks positive, rejected, revoked and expired invites, malformed
-hook events, actual execution as `supabase_auth_admin`, and the absence of
-invitation table access / direct function execution by client roles.
+hook events, catalog-confirmed EXECUTE permission for `supabase_auth_admin`,
+and the absence of invitation table access / client role execution grants.
+The local migration owner cannot SET ROLE to the Auth administrator; actual
+GoTrue role execution is **not** established by this SQL probe.
 
 This is **not** GoTrue hook activation, live tester admission, hosted SQL,
 real mail delivery, or proof that existing admin-created test fixtures still
