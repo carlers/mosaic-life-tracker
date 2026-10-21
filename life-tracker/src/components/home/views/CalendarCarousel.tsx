@@ -27,6 +27,8 @@ interface CalendarCarouselProps {
   onPrev?: () => void;
   onNext?: () => void;
   onDayClick: (date: Date) => void;
+  keyboardFocusDay?: string;
+  keyboardEnabled?: boolean;
   tasksByDate: Map<string, TaskDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
@@ -52,6 +54,8 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   onPrev,
   onNext,
   onDayClick,
+  keyboardFocusDay,
+  keyboardEnabled = false,
   tasksByDate,
   sharedByDay,
   ownedSharedTaskIds,
@@ -241,6 +245,8 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                     onZoomNavigate={handleZoomNavigate}
                     navigationLocked={isZoomTransitioning}
                     onDayClick={onDayClick}
+                    keyboardActive={keyboardEnabled && i === activeIndex}
+                    keyboardFocusDay={keyboardFocusDay}
                     tasksByDate={tasksByDate}
                     sharedByDay={sharedByDay}
                     ownedSharedTaskIds={ownedSharedTaskIds}

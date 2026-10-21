@@ -26,6 +26,8 @@ interface MonthViewProps {
   onZoomNavigate?: (direction: 'prev' | 'next') => void;
   navigationLocked?: boolean;
   onDayClick?: (date: Date) => void;
+  keyboardActive?: boolean;
+  keyboardFocusDay?: string;
   tasksByDate: Map<string, TaskDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
@@ -54,6 +56,8 @@ export const MonthView: React.FC<MonthViewProps> = ({
   onZoomNavigate,
   navigationLocked,
   onDayClick,
+  keyboardActive = false,
+  keyboardFocusDay,
   tasksByDate,
   sharedByDay,
   ownedSharedTaskIds,
@@ -157,6 +161,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                     holidays={holidaysByDate?.get(dateStr)}
                     isCurrentMonth={isSameMonth(day, focusDate)}
                     onDayClick={onDayClick}
+                    keyboardTabIndex={keyboardActive && keyboardFocusDay === dateStr ? 0 : -1}
                   />
                 </div>
               );
@@ -166,7 +171,8 @@ export const MonthView: React.FC<MonthViewProps> = ({
       </div>
   );
   const grid = (
-    <div className="flex flex-col min-h-full" role="grid" aria-label={`${format(focusDate, 'MMMM yyyy')} calendar`}>
+    <div className="flex flex-col min-h-full" role="grid" aria-label={`${format(focusDate, 'MMMM yyyy')} calendar`}
+      aria-description="Use arrow keys to move between dates, Home and End for week edges, Page Up and Down for months, and Enter to open a day.">
       {pinnedHeader}
       {stickyWeekdayHeader && zoomDays !== 7 ? (
         <CalendarZoomViewport zoomDays={zoomDays}

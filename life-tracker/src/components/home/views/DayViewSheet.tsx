@@ -12,7 +12,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Virtual } from 'swiper/modules';
 import 'swiper/css/virtual';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckSquare, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
+import { CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
@@ -52,6 +52,8 @@ import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
+import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
+import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
@@ -149,6 +151,41 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // The React Compiler cannot safely infer dependencies across these state machines.
   'use no memo';
   const isBacklogView = renderMode === 'backlog';
+  const sheetContentRef = useRef<HTMLDivElement>(null);
+  const didInitialCategoryFocusRef = useRef(false);
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
+  const keyboardHelpCloseRef = useRef<HTMLButtonElement>(null);
+  const keyboardHelpTriggerRef = useRef<HTMLButtonElement>(null);
+  const keyboardHelpReturnRef = useRef<HTMLElement | null>(null);
+  const showKeyboardHelp = useCallback(() => {
+    // Opening help is an explicit focus choice; do not let Day View's
+    // initial-autofocus frame move focus away from the help Close button.
+    didInitialCategoryFocusRef.current = true;
+    keyboardHelpReturnRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setKeyboardHelpOpen(true);
+  }, []);
+  const hideKeyboardHelp = useCallback(() => {
+    setKeyboardHelpOpen(false);
+    const former = keyboardHelpReturnRef.current;
+    window.requestAnimationFrame(() => {
+      if (former?.isConnected && !former.closest('[aria-hidden="true"], [inert]')) {
+        former.focus({ preventScroll: true });
+      } else {
+        keyboardHelpTriggerRef.current?.focus({ preventScroll: true });
+      }
+    });
+  }, []);
+  useEffect(() => {
+    if (isOpen) return;
+    // Closing may retain the mounted Day View for its exit animation. Reset
+    // after paint rather than synchronously cascading a render from an effect.
+    const frame = window.requestAnimationFrame(() => setKeyboardHelpOpen(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen]);
+  useEffect(() => {
+    if (keyboardHelpOpen) keyboardHelpCloseRef.current?.focus({ preventScroll: true });
+  }, [keyboardHelpOpen]);
   const appearance = React.useContext(AppearanceContext);
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const { user } = useAuth();
@@ -169,6 +206,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   );
   const { message: deleteFeedback, show: showFeedback } = useFeedback();
   const { getSetting, setSetting, settings } = useSettings();
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =
@@ -878,13 +916,95 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [exitSelectMode, isBackgroundLocked, isSelectMode, renderMode]);
-  // A11Y-33: keyboard arrows mirror the existing swipe/chevron day navigation.
-  // Nested sheets and text editing retain their own keyboard behavior.
+  useEffect(() => {
+    if (!shortcutsEnabled || !isOpen || isBackgroundLocked || isTaskReorderActive || keyboardHelpOpen ||
+        editingTaskId !== null) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 's' || event.key.length !== 1 ||
+          !canUseKeyboardShortcut(event, { allowOpenDialog: true })) return;
+      const root = renderMode === 'sheet' ? sheetContentRef.current :
+        document.querySelector<HTMLElement>(renderMode === 'backlog'
+          ? '[data-testid="backlog-day-view"]' : '[data-testid="inline-day-view"]');
+      if (!root || root.closest('[inert], [aria-hidden="true"]') ||
+          !(event.target instanceof Node) || !root.contains(event.target)) return;
+      const scope = isBacklogView ? root :
+        root.querySelector<HTMLElement>('.swiper-slide:not([aria-hidden="true"])');
+      const select = scope?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Select tasks"], button[aria-label="Exit selection mode"]'
+      );
+      if (!select || select.disabled) return;
+      event.preventDefault();
+      select.focus({ preventScroll: true });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [shortcutsEnabled, isOpen, isBackgroundLocked, isTaskReorderActive, keyboardHelpOpen,
+    editingTaskId, renderMode, isBacklogView]);
+
+  // The BottomSheet trap initially focuses the header's Previous button.
+  // After its focus setup, start keyboard browsing at the first visible
+  // category instead. Only do this once per sheet opening, not on day swipes,
+  // changes in task data, drag snap-back or nested sheet restoration.
+  useEffect(() => {
+    if (!isOpen) {
+      didInitialCategoryFocusRef.current = false;
+      return;
+    }
+    if (renderMode !== 'sheet' || focusTaskId || isBackgroundLocked ||
+        didInitialCategoryFocusRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (didInitialCategoryFocusRef.current) return;
+      const root = sheetContentRef.current;
+      if (!root || root.closest('[inert], [aria-hidden="true"]')) return;
+      const target = root.querySelector<HTMLButtonElement>(
+        '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]:not(:disabled)'
+      );
+      if (!target) return; // Categories may still be loading.
+      const focused = document.activeElement;
+      // Never override a task being edited or a target already chosen by user.
+      if (focused instanceof Element && root.contains(focused) &&
+          focused.closest('input, textarea, select, [role="textbox"], [contenteditable], [data-day-keyboard-target]')) {
+        didInitialCategoryFocusRef.current = true;
+        return;
+      }
+      target.focus({ preventScroll: true });
+      didInitialCategoryFocusRef.current = true;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen, renderMode, focusTaskId, isBackgroundLocked, activeIndex, categories]);
+
+  // A11Y-33: arrows still change dates outside editable fields. When a
+  // keyboard user changes dates, move focus out of the now-hidden Swiper slide.
+  const keyboardDateFocusRef = useRef<{ categoryId: string | null } | null>(null);
+  const navigateDateByKeyboard = (direction: 'left' | 'right') => {
+    keyboardDateFocusRef.current = {
+      categoryId: document.activeElement instanceof Element
+        ? document.activeElement.closest('[data-task-category-id]')?.getAttribute('data-task-category-id') ?? null
+        : null,
+    };
+    if (direction === 'left') handlePrevDayFromUi();
+    else handleNextDayFromUi();
+  };
   useHorizontalArrowNavigation({
-    enabled: isOpen && !isBacklogView && !isBackgroundLocked && !isTaskReorderActive,
-    onLeft: handlePrevDayFromUi,
-    onRight: handleNextDayFromUi,
+    enabled: isOpen && !isBacklogView && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen,
+    onLeft: () => navigateDateByKeyboard('left'),
+    onRight: () => navigateDateByKeyboard('right'),
   });
+  useEffect(() => {
+    const pending = keyboardDateFocusRef.current;
+    if (!pending || !isOpen || isBackgroundLocked) return;
+    const slide = swiperRef.current?.el?.querySelector('.swiper-slide:not([aria-hidden="true"])');
+    if (!slide) return;
+    keyboardDateFocusRef.current = null;
+    const category = pending.categoryId
+      ? Array.from(slide.querySelectorAll<HTMLButtonElement>('[data-day-keyboard-target="category"]'))
+        .find(button => button.dataset.dayKeyboardId === pending.categoryId && !button.disabled)
+      : null;
+    const target = category ??
+      slide.querySelector<HTMLButtonElement>('[data-day-keyboard-target="category"]:not(:disabled)') ??
+      slide.querySelector<HTMLButtonElement>('[data-day-view-navigation="true"] button');
+    target?.focus({ preventScroll: true });
+  }, [activeIndex, isBackgroundLocked, isOpen]);
 
   const handleTransientDismiss = useCallback(() => {
     if (!isSelectMode || isBackgroundLocked) return false;
@@ -922,17 +1042,60 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     </div>
   );
 
+  const keyboardHelpPanel = keyboardHelpOpen ? (
+    <div
+      role="region"
+      aria-label="Day View keyboard shortcuts"
+      className="mx-4 mb-2 rounded-xl border border-white/10 bg-[#222222] px-4 py-3 text-gray-200 shadow-lg"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          hideKeyboardHelp();
+        }
+      }}
+    >
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-semibold text-sm text-white">Keyboard shortcuts</p>
+        <button
+          ref={keyboardHelpCloseRef}
+          type="button"
+          onClick={hideKeyboardHelp}
+          className="rounded-lg px-2 py-1 text-xs text-gray-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+        >Close</button>
+      </div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+        <dt className="font-mono text-gray-100">↑ / ↓</dt><dd>Previous / next task or category</dd>
+        <dt className="font-mono text-gray-100">Home / End</dt><dd>First / last visible item</dd>
+        {!isBacklogView && <><dt className="font-mono text-gray-100">← / →</dt><dd>Previous / next day outside text editing</dd></>}
+        <dt className="font-mono text-gray-100">S</dt><dd>Focus the Select tasks button</dd>
+        <dt className="font-mono text-gray-100">N</dt><dd>New task in the focused category (not in Select mode)</dd>
+        <dt className="font-mono text-gray-100">Enter</dt><dd>Edit a task; select it in Select mode</dd>
+        <dt className="font-mono text-gray-100">Space</dt><dd>Complete a task; select it in Select mode</dd>
+        <dt className="font-mono text-gray-100">Shift+Enter</dt><dd>Task actions (outside Select mode)</dd>
+        <dt className="font-mono text-gray-100">?</dt><dd>Show this help from a task or category</dd>
+        <dt className="font-mono text-gray-100">Tab</dt><dd>Move through other controls</dd>
+        <dt className="font-mono text-gray-100">Esc</dt><dd>Cancel editing or close the active overlay</dd>
+      </dl>
+    </div>
+  ) : null;
+
   const content = (
     <>
       {isBacklogView ? (
         <>
-          <div className="flex justify-end px-4 py-2">
+          <div className="flex justify-end gap-2 px-4 py-2">
+            <button type="button" ref={keyboardHelpTriggerRef} onClick={showKeyboardHelp}
+              aria-label="Show keyboard shortcuts" aria-expanded={keyboardHelpOpen}
+              className="rounded-lg px-2.5 py-1.5 text-gray-300 hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            ><CircleHelp size={17} aria-hidden="true" /></button>
             <button type="button" onClick={handleToggleSelectMode}
               aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
               aria-pressed={isSelectMode}
               className="rounded-lg px-3 py-1.5 text-sm text-gray-300 focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >{isSelectMode ? 'Done' : 'Select'}</button>
           </div>
+          {keyboardHelpPanel}
           <DaySlide
             date={selectedDate}
             dateStr=""
@@ -956,6 +1119,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             showCategoryCollapseButton={showCategoryCollapseButton}
             taskSortMode={taskSortMode}
             selectionMode={isSelectMode}
+            keyboardNavigationEnabled={isOpen && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen}
+            onShowKeyboardHelp={showKeyboardHelp}
             selectedTaskIds={selectedTaskIds}
             onToggleTaskSelection={handleToggleTaskSelection}
             reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
@@ -1076,6 +1241,15 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         <div className="justify-self-end flex items-center gap-1.5">
                           <button
                             type="button"
+                            ref={i === activeIndex ? keyboardHelpTriggerRef : undefined}
+                            onClick={showKeyboardHelp}
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            aria-label="Show keyboard shortcuts"
+                            aria-expanded={i === activeIndex ? keyboardHelpOpen : false}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#444444] bg-surfaceHighlight text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                          ><CircleHelp size={16} aria-hidden="true" /></button>
+                          <button
+                            type="button"
                             tabIndex={i === activeIndex ? 0 : -1}
                             disabled={isBackgroundLocked || editingTaskId !== null || isTaskReorderActive || Boolean(continuousDrag.carried)}
                             aria-pressed={dayViewMode === 'timeline'}
@@ -1117,6 +1291,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         </div>
                       </div>
                     </div>
+                    {i === activeIndex && keyboardHelpPanel}
                     {dayTasks.some(task => pendingOwnedTaskIds.has(task.id)) && (
                       <p role="status" className="px-4 pb-1 text-xs text-amber-400">
                         Shared completion pending sync
@@ -1197,6 +1372,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       taskSortMode={taskSortMode}
                       timestampDisplay={timestampDisplay}
                       selectionMode={isSelectMode && i === activeIndex}
+                      keyboardNavigationEnabled={isOpen && i === activeIndex && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen}
+                      onShowKeyboardHelp={i === activeIndex ? showKeyboardHelp : undefined}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
                       onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
@@ -1410,6 +1587,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     <div
       data-testid="day-sheet-swipe-surface"
       data-day-view-focus-scope={focusTaskId ? 'true' : undefined}
+      ref={sheetContentRef}
       className="flex h-full min-h-0 flex-col"
     >
       {content}

@@ -384,6 +384,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       <button
         type="button"
         ref={categoryPillRef}
+        data-day-keyboard-target="category"
+        data-day-keyboard-id={categoryId || categoryName}
         onClickCapture={categoryActions?.consumeClick}
         onPointerDown={!editingCategory && !isAdding && editingTaskId === null
           ? categoryActions?.onPointerDown : undefined}

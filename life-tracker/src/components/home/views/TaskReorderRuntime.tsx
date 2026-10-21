@@ -4,6 +4,7 @@ import { LayoutGroup } from 'framer-motion';
 import {
   PointerActivationConstraints,
   PointerSensor,
+  KeyboardSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
 import { diaryAfterTaskMove, placementFromTaskDrop, type DiaryPlacement } from '../../../lib/diaryPlacement';
@@ -11,6 +12,7 @@ import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
+import { TASK_REORDER_KEYBOARD_SENSOR } from './taskKeyboardSensor';
 import {
   isTaskPlacementCompatible,
   sortTaskPlacementByCompletion,
@@ -494,8 +496,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   return (
     <DragDropProvider
       sensors={(defaults) => [
-        ...defaults.filter((sensor) => sensor !== PointerSensor),
+        ...defaults.filter((sensor) => sensor !== PointerSensor && sensor !== KeyboardSensor),
         TASK_REORDER_POINTER_SENSOR,
+        TASK_REORDER_KEYBOARD_SENSOR,
       ]}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}

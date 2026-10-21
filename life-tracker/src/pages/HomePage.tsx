@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
+import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
+import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
 import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -27,6 +29,7 @@ const INITIAL_RENDER_WINDOW = 0;
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const location = useLocation();
   const {
     persons,
@@ -61,6 +64,7 @@ export const HomePage: React.FC = () => {
   const searchDaySheetOpenRef = useRef(false);
 
   const swiperRef = useRef<SwiperClass | null>(null);
+  const friendCarouselRef = useRef<HTMLDivElement>(null);
   const isProgrammaticMoveRef = useRef(false);
 
   if (persons.length > 0 && !persons.some((p) => p.id === activePersonId)) {
@@ -292,6 +296,68 @@ export const HomePage: React.FC = () => {
     setSearchFocusTaskId(null);
   }, []);
 
+  // F jumps directly to the selected person without switching their calendar.
+  // Left/Right in the carousel moves focus; Enter/Space activates that person.
+  useEffect(() => {
+    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'f' || event.key.length !== 1 ||
+          !canUseKeyboardShortcut(event)) return;
+      const active = friendCarouselRef.current?.querySelector<HTMLButtonElement>(
+        '[data-person-pill][aria-pressed="true"]'
+      );
+      if (!active) return;
+      event.preventDefault();
+      active.focus({ preventScroll: true });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [shortcutsEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen]);
+
+  // Home-only search launcher. Keep native typing and all nested sheet
+  // keyboard ownership untouched; the existing Search control still handles
+  // Escape and focus when the field opens.
+  useEffect(() => {
+    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
+    const handleSlash = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.defaultPrevented || event.isComposing ||
+        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+        (event.target instanceof Element && event.target.closest(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'
+        )) || document.querySelector('[aria-modal="true"]')) return;
+      event.preventDefault();
+      handleOpenSearch();
+    };
+    window.addEventListener('keydown', handleSlash);
+    return () => window.removeEventListener('keydown', handleSlash);
+  }, [shortcutsEnabled, handleOpenSearch, isSearchOpen, isSettingsOpen, searchDaySheetOpen]);
+
+  // Home accelerators reuse the exact existing controls/actions so that Sync
+  // opens its status sheet, rather than silently initiating a network write.
+  useEffect(() => {
+    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const homeMenuShortcut = event.key === 'H' && event.shiftKey;
+      if (!canUseKeyboardShortcut(event, { allowShift: homeMenuShortcut })) return;
+      if (homeMenuShortcut) {
+        const menu = document.querySelector<HTMLButtonElement>('[data-home-menu-trigger="true"]');
+        if (!menu) return;
+        event.preventDefault();
+        menu.click();
+      } else if (event.key === 's') {
+        const sync = document.querySelector<HTMLButtonElement>('[data-home-sync-trigger="true"]');
+        if (!sync) return;
+        event.preventDefault();
+        sync.click();
+      } else if (event.key === 'b') {
+        event.preventDefault();
+        handleOpenBacklog();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [shortcutsEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog]);
+
   return (
     <>
       <div className="h-full flex flex-col min-h-0">
@@ -313,6 +379,7 @@ export const HomePage: React.FC = () => {
               persons={persons}
               activePersonId={activePersonId}
               onSelect={handlePillSelect}
+              focusRootRef={friendCarouselRef}
               onOpenSettings={handleOpenSettings}
             />
           </div>

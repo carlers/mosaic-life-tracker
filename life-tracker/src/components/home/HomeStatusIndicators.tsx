@@ -100,6 +100,7 @@ export const HomeStatusIndicators: React.FC = () => {
         <button
           type="button"
           onClick={openStatus}
+          data-home-sync-trigger="true"
           aria-label={syncLabel}
           title={syncLabel}
           className={

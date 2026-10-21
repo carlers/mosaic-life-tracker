@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
+import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
+import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
 import { Settings, LogOut, BarChart3, Sticker, ListTodo, Star, ListChecks } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
@@ -20,6 +22,7 @@ export const AccountPage: React.FC = () => {
   const { categories } = useCategories();
   const { friends } = useFriends();
   const navigate = useNavigate();
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
@@ -34,6 +37,17 @@ export const AccountPage: React.FC = () => {
     const id = window.setTimeout(warm, 700);
     return () => window.clearTimeout(id);
   }, []);
+
+  useEffect(() => {
+    if (!shortcutsEnabled) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 's' || !canUseKeyboardShortcut(event)) return;
+      event.preventDefault();
+      document.querySelector<HTMLButtonElement>('[data-account-settings-trigger="true"]')?.click();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [shortcutsEnabled]);
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
@@ -62,6 +76,7 @@ export const AccountPage: React.FC = () => {
           onPointerDown={(e) => e.stopPropagation()}
           className="p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Settings"
+          data-account-settings-trigger="true"
         >
           <Settings size={20} aria-hidden="true" />
         </button>

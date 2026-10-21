@@ -3,6 +3,8 @@ import { CalendarCarousel } from './CalendarCarousel';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
+import { useCalendarGridKeyboard } from './useCalendarGridKeyboard';
+import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
@@ -164,6 +166,22 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     setSelectedDate(date);
   }, []);
 
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
+  const {
+    rootRef: keyboardRootRef,
+    onKeyDown: handleGridKeyDown,
+    onFocusCapture: handleGridFocus,
+    activeKey: keyboardActiveKey,
+  } = useCalendarGridKeyboard({
+    enabled: isActive && !daySheetOpen && !replyTask,
+    singleKeyShortcutsEnabled: shortcutsEnabled,
+    slides, activeIndex: activeIndex ?? 30, viewMode, weekStartsOn, onPrev, onNext,
+  });
+  const setCalendarHost = useCallback((node: HTMLDivElement | null) => {
+    calendarHostRef.current = node;
+    keyboardRootRef.current = node;
+  }, [keyboardRootRef]);
+
   useHorizontalArrowNavigation({
     enabled: isActive && !daySheetOpen && !replyTask,
     onLeft: onPrev,
@@ -188,6 +206,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       onPrev={onPrev}
       onNext={onNext}
       onDayClick={handleDayClick}
+      keyboardEnabled={isActive && !daySheetOpen && !replyTask}
+      keyboardFocusDay={keyboardActiveKey}
       tasksByDate={tasksByDate}
       sharedByDay={variant === 'me' ? sharedByDay : undefined}
       ownedSharedTaskIds={variant === 'me' ? ownedSharedTaskIds : undefined}
@@ -198,7 +218,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   );
 
   const calendarContent = (content: React.ReactNode) => (
-    <div ref={calendarHostRef} className="flex min-h-0 min-w-0 flex-1 flex-col"
+    <div ref={setCalendarHost} className="flex min-h-0 min-w-0 flex-1 flex-col"
+      data-calendar-keyboard-owned="true"
+      onKeyDown={handleGridKeyDown}
+      onFocusCapture={handleGridFocus}
       onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
       {content}
     </div>
