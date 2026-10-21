@@ -16,6 +16,7 @@ import { useCalendarState } from './views/useCalendarState';
 import { useMessageActions } from '../../hooks/useMessageActions';
 import { useAuth } from '../../hooks/useAuth';
 import { useSettings } from '../../hooks/useSettings';
+import { useHomeViewKeyboardShortcuts } from '../../hooks/useHomeViewKeyboardShortcuts';
 import { useFriendCalendar } from '../../lib/useFriendCalendar';
 import {
   HOLIDAY_REGION_SETTING_KEY,
@@ -122,6 +123,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
       () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
     );
   }, []);
+  useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const openDiary = (date: Date) => {
     const key = format(date, 'yyyy-MM-dd');
     if (diaryEntries.some(entry => entry.date === key)) setDiaryDate(key);

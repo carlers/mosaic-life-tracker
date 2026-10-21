@@ -21,7 +21,8 @@ type Anchor = { kind: BrowseKind; id: string; index: number };
 export function useDayViewKeyboardNavigation(
   enabled: boolean,
   onShowHelp?: () => void,
-  allowAdd = true
+  allowAdd = true,
+  singleKeyShortcutsEnabled = true
 ) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const anchorRef = React.useRef<Anchor | null>(null);
@@ -60,7 +61,7 @@ export function useDayViewKeyboardNavigation(
     if (index < 0) return;
     // '?' is Shift+/ on most keyboards. It is intentionally the only
     // shifted browse shortcut, and only when this workspace owns focus.
-    if (event.key === '?' && onShowHelp) {
+    if (singleKeyShortcutsEnabled && event.key === '?' && onShowHelp) {
       event.preventDefault();
       event.stopPropagation();
       onShowHelp();
@@ -69,7 +70,7 @@ export function useDayViewKeyboardNavigation(
     if (event.shiftKey) return;
     // Reuse the category's existing add-task pathway. N from a task targets
     // the closest preceding category in *rendered* order, never another day.
-    if (event.key.toLowerCase() === 'n' && allowAdd) {
+    if (singleKeyShortcutsEnabled && event.key.toLowerCase() === 'n' && allowAdd) {
       const category = buttons.slice(0, index + 1).reverse().find(button =>
         button.dataset.dayKeyboardTarget === 'category');
       if (!category) return;
@@ -92,7 +93,7 @@ export function useDayViewKeyboardNavigation(
     const target = buttons[destination];
     target.focus({ preventScroll: true });
     target.scrollIntoView?.({ block: 'nearest', behavior: 'auto' });
-  }, [enabled, onShowHelp, allowAdd]);
+  }, [enabled, onShowHelp, allowAdd, singleKeyShortcutsEnabled]);
 
   React.useEffect(() => {
     if (!enabled) return;

@@ -15,6 +15,7 @@ import type { WeekStartsOn } from '../../../lib/preferences';
 
 interface CalendarGridKeyboardOptions {
   enabled: boolean;
+  singleKeyShortcutsEnabled?: boolean;
   slides: Date[];
   activeIndex: number;
   viewMode: CalendarViewMode;
@@ -56,7 +57,7 @@ export function scrollCalendarDateWithinSlide(day: HTMLElement, slide: HTMLEleme
 
 
 export function useCalendarGridKeyboard({
-  enabled, slides, activeIndex, viewMode, weekStartsOn, onPrev, onNext,
+  enabled, singleKeyShortcutsEnabled = true, slides, activeIndex, viewMode, weekStartsOn, onPrev, onNext,
 }: CalendarGridKeyboardOptions) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
@@ -173,7 +174,7 @@ export function useCalendarGridKeyboard({
     };
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
-  }, [enabled, focusGrid]);
+  }, [enabled, focusGrid, singleKeyShortcutsEnabled]);
 
   return { rootRef, onFocusCapture, onKeyDown, activeKey, focusGrid };
 }

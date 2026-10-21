@@ -55,6 +55,7 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
         }}
         className="mosaic-action-icon p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label="Open menu"
+        data-home-menu-trigger="true"
         onPointerDown={() => { void preloadMenuBottomSheet().catch(() => {}); }}
         onMouseEnter={() => { void preloadMenuBottomSheet().catch(() => {}); }}
         onFocus={() => { void preloadMenuBottomSheet().catch(() => {}); }}

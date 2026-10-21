@@ -17,6 +17,12 @@ export function usePrimaryNavigationShortcuts(enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'H' && event.shiftKey) {
+        if (!canUseKeyboardShortcut(event, { allowShift: true }) || pathname === '/home') return;
+        event.preventDefault();
+        navigate('/home');
+        return;
+      }
       if (!canUseKeyboardShortcut(event)) return;
       const destination = PRIMARY_KEYBOARD_DESTINATIONS[event.key.toLowerCase()];
       if (!destination || event.key.length !== 1 || pathname === destination) return;

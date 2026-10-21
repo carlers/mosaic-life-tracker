@@ -1,21 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Current task: #956 Stage 3 keyboard navigation shortcuts, Preview v0.35.5 candidate.
+Current scope: issue #956 — keyboard shortcut guide, preference and scoped Home actions; v0.35.6 Preview candidate.
 
-## Authority, baseline and status
-- User accepted v0.35.4 calendar keyboard month-snap fix and explicitly said "working, keep going." Latest stable Preview before task: `feature/dayview-keyboard-956-20261020@0f6dee895cc3a8408d268991960966c0b9f98938`, exact-SHA READY Vercel, canonical Quality Gate 39458942658 SUCCESS, trusted Preview Delivery 39459220325 SUCCESS.
-- Current `dev@79e2d69855c880d654de2b6d46307112fba9c970`, `main@c938c825370f8270b46f19119b06a1f74d35842b` at task start. Work must not promote automatically. Working branch `chatgpt/956-keyboard-navigation-shortcuts-20261021`, based on exact stable Preview commit.
-- v0.35.5 is a PATCH revision to accepted v0.35 keyboard feature (no unrelated release/main bump).
+## Authority and baseline
+- User accepted keyboard navigation v0.35.5 and approved further shortcut expansion: H/Shift+H, /, S by page, T/D views, shortcut guide, setting in Preferences. Add V Calendar and B Backlogs as complementary Home actions.
+- Stable Preview branch `feature/dayview-keyboard-956-20261020@dffe87f6466179fa7193cd35626c01281ad2c6d7`, v0.35.5, full canonical 39461332092 SUCCESS, trusted delivery 39461691694 SUCCESS with exact-SHA Vercel READY.
+- At task start dev `7b7c3a2f6944e5a855a81a9c81f14382a064307c`; main `c938c825370f8270b46f19119b06a1f74d35842b`. Task branch `chatgpt/956-shortcut-guide-preference-20261021` from stable Preview; no dev/main authorization.
+- Continued accepted keyboard feature, so PATCH v0.35.6 rather than new minor version; no database/schema changes.
 
-## Implemented scope
-- Protected authenticated Mosaic shell owns E→Explore (/explore), A→Alerts (/notifications), C→Chat (/messages), M→Me (/account), using React Router and shared single-key guard. Disabled during unauthenticated/database startup, focused text input/contenteditable/combobox, IME/modifiers/repeats, open modal dialog/menu/listbox, inert/hidden content. No browser/system modifier hijacking.
-- Home F focuses the selected person pill in friend carousel, without switching calendars. From focused pill, ArrowLeft/Right/Home/End move focus only; Enter/Space keep existing native button activation; selected person is single Tab stop. Home search and friend preferences/modal ownership preserved.
-- Day View S focuses the active day or Backlog Select button, without toggling it. Handles normal sheet and inline/backlog Day View, but not while editing tasks, dragging/reordering, keyboard help, or nested locked action sheets; does not capture keys from outside its mounted scope.
-- Explicitly preserve Shift+Enter for task actions and PageUp/PageDown for calendar periods; do not overload Shift+Enter for month/friend switching.
-- No backend/schema or unrelated UI changes; add short help entry in Day View and DOM regression tests. User preference for disabling all shortcuts remains potential follow-up, not part of this revision.
+## Implemented
+- `Shift+H` from any primary/detail page returns Home; plain `H` on Home opens existing hamburger menu. Avoid conflict through shift guard. `S` on Home opens existing Sync Status sheet (not auto manual-sync), while `S` on Me activates Settings and `S` inside Day View focuses Select (previous behavior). `/` retained for Home task search; `F` existing friend focus, `G` grid focus; `B` opens Home Backlogs. `T` Todo, `D` Diary, `V` Calendar through same asynchronous ViewSwitcher action on selected owner/friend pane.
+- Single-key preference `keyboardShortcutsEnabled` in Preferences → Navigation, default true, account-synced via existing settings hook. Context gate encompasses new and existing single-character accelerators including E/A/C/M, F, S, H, B, T/D/V, /, G, N, and ?; ordinary arrows, Tab, Enter and Space continue to work when off.
+- Shared provider inside authenticated AppDataShell houses router shortcuts and global `?` keyboard guide, opens lazily, with a Preferences row to open the guide even when accelerators are disabled. Guide grouped by Anywhere/Home/Day View/Me. Day View's original ? and N guard honors setting while its existing help button stays accessible.
+- Continue respecting editors, IME, modifiers, repeats, modal/menu/hidden/inert surfaces, and active person ownership. Keep Shift+Enter task actions and PageUp/PageDown calendar periods. No new settings schema or backend side effect.
 
-## Verification and handoff
-- Task branch contains source + shared guard, tests for route navigation guards, person focus/selection and S. Request [verify:focused] once coherent task commit is staged.
-- After focused green, squash into stable keyboard Preview, run full canonical + browser-contract CI, trusted exact-SHA Vercel READY; user to test physical keyboard, screen reader and mobile/WebKit separately.
-- No dev/main/Production promotion, no automatic closure #956; follow-on improvements such as globally discoverable help and optional shortcut preference can be a separate iteration if user wants.
+## Verification / handoff
+- Task scope includes React components/hooks, generated COMPONENT_INDEX for guide sheet, focused DOM tests for routing Shift+H, active views, preference and guide.
+- Submit one coherent [verify:focused] task commit. Fix failures on task branch; after focused SUCCESS squash to stable Preview; perform one canonical full gate and trusted exact-SHA Vercel READY. User device/visual/AT acceptance remains manual and unperformed.
+- Keep issue #956 open; never promote to dev, main, or Production without user approval.

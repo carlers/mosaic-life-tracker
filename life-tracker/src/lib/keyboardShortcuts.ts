@@ -4,10 +4,10 @@
  */
 export function canUseKeyboardShortcut(
   event: KeyboardEvent,
-  options: { allowOpenDialog?: boolean } = {},
+  options: { allowOpenDialog?: boolean; allowShift?: boolean } = {},
 ): boolean {
   if (event.defaultPrevented || event.repeat || event.isComposing ||
-      event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return false;
+      event.ctrlKey || event.altKey || event.metaKey || (event.shiftKey && !options.allowShift)) return false;
   const target = event.target;
   if (target instanceof Element && target.closest(
     'input, textarea, select, [contenteditable]:not([contenteditable="false"]), ' +

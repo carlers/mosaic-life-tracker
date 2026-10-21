@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
 import { useDayViewKeyboardNavigation } from './useDayViewKeyboardNavigation';
+import { useKeyboardShortcuts } from '../../../hooks/KeyboardShortcutsProvider';
 import { DayViewCategoryReorder } from './DayViewCategoryReorder';
 import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
@@ -147,12 +148,14 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   diaryProjectedPlacement = null,
   diaryDragHeight = 48,
 }) => {
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const { rootRef: keyboardRootRef, onKeyDown: handleBrowseKeyDown,
     onFocusCapture: handleBrowseFocus, onBlurCapture: handleBrowseBlur } =
     useDayViewKeyboardNavigation(
       keyboardNavigationEnabled && !activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling,
       onShowKeyboardHelp,
-      !selectionMode && editingTaskId === null
+      !selectionMode && editingTaskId === null,
+      shortcutsEnabled
     );
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)

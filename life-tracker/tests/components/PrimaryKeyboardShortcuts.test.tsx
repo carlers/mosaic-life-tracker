@@ -35,6 +35,18 @@ describe('Primary Mosaic keyboard shortcuts', () => {
     expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent('/account');
   });
 
+  it('uses Shift+H for Home without overriding plain H or browser modifiers', () => {
+    mount();
+    press('e');
+    expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent('/explore');
+    press('h');
+    expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent('/explore');
+    press('H', { shiftKey: true, ctrlKey: true });
+    expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent('/explore');
+    press('H', { shiftKey: true });
+    expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent('/home');
+  });
+
   it('leaves editor keys, browser modifiers, IME and repeated keys alone', () => {
     mount();
     const input = screen.getByRole('textbox', { name: 'Task editor' });

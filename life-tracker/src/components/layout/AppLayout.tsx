@@ -17,7 +17,6 @@ import {
   preloadPrimaryRoute,
 } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
-import { usePrimaryNavigationShortcuts } from '../../hooks/usePrimaryNavigationShortcuts';
 import { matchProtectedRoute, protectedRouteSwipeMode, protectedRouteHidesBottomNav } from '../../lib/protectedRoutes';
 import {
   hasExpectedRouteParent,
@@ -279,8 +278,6 @@ export const AppLayout: React.FC = () => {
     const timer = window.setTimeout(preload, 180);
     return () => window.clearTimeout(timer);
   }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, user?.$id]);
-
-  usePrimaryNavigationShortcuts(Boolean(user && database.state === 'ready'));
 
   if (!user && isOffline) {
     const headline =
