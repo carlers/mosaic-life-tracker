@@ -88,7 +88,8 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     if (tasksLoading || categoriesLoading) return;
     markStartup('home:owner-data-ready');
-  }, [categoriesLoading, tasksLoading]);
+    if (!carouselLoading) markStartup('home:local-data-ready');
+  }, [carouselLoading, categoriesLoading, tasksLoading]);
 
   useEffect(() => {
     if (carouselLoading) return;
@@ -97,11 +98,6 @@ export const HomePage: React.FC = () => {
     const warm = () => { if (!document.hidden) void preloadFriendSettings().catch(() => {}); };
     return whenHomeIdle(warm, 1800, 700);
   }, [carouselLoading]);
-
-  useEffect(() => {
-    if (tasksLoading || categoriesLoading || carouselLoading) return;
-    markStartup('home:local-data-ready');
-  }, [carouselLoading, categoriesLoading, tasksLoading]);
 
   // Warm the code after first usable local Home data, never in the startup graph.
   // This does not mount the sheet or start its data hooks. Early taps still load
@@ -116,11 +112,9 @@ export const HomePage: React.FC = () => {
         // After Calendar is usable, warm the shared Todo/Diary module too.
         // Delay its JS evaluation until after the critical Calendar path;
         // no task view, provider or offscreen DOM is mounted by this work.
-        void loadDayViewSheet().catch(() => {}).then(() =>
-          preloadTodoListView().catch(() => {
-            // On-demand navigation will retry a failed module import.
-          })
-        );
+        void loadDayViewSheet()
+          .then(preloadTodoListView, preloadTodoListView)
+          .catch(() => { /* On-demand navigation retries failed imports. */ });
       }
     };
     return whenHomeIdle(warm, 1200, 900);
@@ -157,9 +151,9 @@ export const HomePage: React.FC = () => {
       if (isProgrammaticMoveRef.current) return;
       const person = persons[s.activeIndex];
       if (!person) return;
-      if (person.id !== activePersonId) setActivePersonId(person.id);
+      setActivePersonId(person.id);
     },
-    [persons, activePersonId]
+    [persons]
   );
 
   const handleOpenSettings = useCallback(() => {
