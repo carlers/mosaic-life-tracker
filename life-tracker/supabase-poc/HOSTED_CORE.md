@@ -309,3 +309,11 @@ providing any publicly accessible beta hostname. Record original hook state,
 tested disable/rollback, sender and user rate limits. Nothing in this source
 change installs or activates a hook or changes Vercel protection, old Appwrite
 accounts, dev/main or Production.
+
+The disposable GitHub `Supabase Core App Lab` now installs this candidate SQL
+**only inside its locally disposable Supabase Docker Postgres** and executes the
+rollback-only probe as a mandatory step before its signed browser tests. The
+GoTrue hook itself is deliberately disabled for the fixture run; a passing
+probe validates SQL/role decisions but **not** actual GoTrue hook dispatch or
+uninvited HTTP signup denial. Do not copy the CI local migration into any
+hosted database automatically.

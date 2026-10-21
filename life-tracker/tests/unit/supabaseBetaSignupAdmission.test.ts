@@ -27,5 +27,7 @@ describe('unapplied Supabase invite-only beta gate (#1027)', () => {
       'revoked@example.invalid', 'expired@example.invalid', 'unknown-hook'])
       expect(probe).toContain(value);
     expect(probe).toContain('beta_before_user_created');
+    expect(probe).toContain('set local role supabase_auth_admin');
+    expect(probe).toContain('has_table_privilege');
   });
 });

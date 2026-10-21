@@ -45,6 +45,8 @@ jobs:
           cp supabase-poc/migrations/20261019_candidate_atomic_cas_rpc.sql supabase/migrations/20261019000000_cas.sql
           cp supabase-poc/migrations/20261020_candidate_task_protected_fields.sql supabase/migrations/20261020000000_protected.sql
           cp supabase-poc/migrations/20261020_core_fresh_identity_authority.sql supabase/migrations/20261020000001_authority.sql
+          # Install staged hook SQL in LOCAL disposable Postgres only, not in mosaic-dev.
+          cp supabase-poc/migrations/20261021_beta_signup_invite_gate.sql supabase/migrations/20261021000000_beta_invite.sql
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -61,6 +63,19 @@ jobs:
           PY
           supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler
           supabase db reset --local
+      - name: Verify staged invite admission against disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          # GoTrue hook remains DISABLED so synthetic admin fixtures still work.
+          mapfile -t db_containers < <(docker ps --filter name=supabase_db_ --format '{{.Names}}')
+          if [[ "${#db_containers[@]}" -ne 1 ]]; then
+            echo "Expected one disposable Supabase database container" >&2; exit 1
+          fi
+          docker exec -i "${db_containers[0]}" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d postgres \
+            < supabase-poc/validation/20261021_beta_signup_invite_probe.sql \
+            > "$RUNNER_TEMP/mosaic-beta-invite-probe.log"
+          grep -qx 'ROLLBACK' "$RUNNER_TEMP/mosaic-beta-invite-probe.log"
       - name: Exercise signed real UI and server authority
         run: |
           set -euo pipefail

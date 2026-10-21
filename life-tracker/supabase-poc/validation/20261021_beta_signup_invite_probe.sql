@@ -33,4 +33,39 @@ begin
     raise exception 'invalid hook event accepted';
   end if;
 end $test$;
+do $privileges$
+begin
+  if not has_schema_privilege('supabase_auth_admin',
+      'mosaic_candidate_private', 'USAGE')
+    or not has_function_privilege('supabase_auth_admin',
+      'mosaic_candidate_private.beta_before_user_created(jsonb)', 'EXECUTE')
+    or has_function_privilege('anon',
+      'mosaic_candidate_private.beta_before_user_created(jsonb)', 'EXECUTE')
+    or has_function_privilege('authenticated',
+      'mosaic_candidate_private.beta_before_user_created(jsonb)', 'EXECUTE')
+    or has_table_privilege('supabase_auth_admin',
+      'mosaic_candidate_private.beta_signup_invitations', 'SELECT')
+    or has_table_privilege('authenticated',
+      'mosaic_candidate_private.beta_signup_invitations', 'SELECT')
+  then
+    raise exception 'Invitation table or auth-hook role grants violated';
+  end if;
+end $privileges$;
+
+-- Prove the real restricted Auth role can only call the narrow decision.
+set local role supabase_auth_admin;
+do $restricted$
+begin
+  if mosaic_candidate_private.beta_before_user_created(
+    '{"metadata":{"name":"before-user-created"},"user":{"email":"allowed@example.invalid"}}'::jsonb
+    ) <> '{}'::jsonb then
+    raise exception 'Auth admin cannot validate a legitimate invite';
+  end if;
+  if (mosaic_candidate_private.beta_before_user_created(
+    '{"metadata":{"name":"before-user-created"},"user":{"email":"outsider@example.invalid"}}'::jsonb
+    ) #>> '{error,http_code}') <> '403' then
+    raise exception 'Auth admin did not reject an outsider';
+  end if;
+end $restricted$;
+reset role;
 rollback;
