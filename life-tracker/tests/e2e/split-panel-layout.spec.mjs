@@ -12,6 +12,25 @@ async function alignment(page) {
   });
 }
 
+async function inspectGeometry(page, stage) {
+  const snapshot = await page.evaluate(() => {
+    const viewport = document.querySelector('[data-route-swipe-horizontal-owner="true"]');
+    const slide = document.querySelector('[data-calendar-slide-index="30"]');
+    const track = viewport?.firstElementChild;
+    const panel = document.querySelector('[data-testid="day-panel-motion-host"]');
+    const frame = document.querySelector('.mosaic-calendar-split');
+    const rect = (node) => node instanceof Element ? {
+      x: Math.round(node.getBoundingClientRect().x),
+      width: Math.round(node.getBoundingClientRect().width),
+    } : null;
+    return { viewport: rect(viewport), slide: rect(slide), track: rect(track),
+      panel: rect(panel), frame: rect(frame),
+      transform: track instanceof HTMLElement ? getComputedStyle(track).transform : null,
+      direction: frame instanceof HTMLElement ? getComputedStyle(frame).flexDirection : null };
+  });
+  console.log('MOSAIC_SPLIT_GEOMETRY ' + JSON.stringify({ stage, ...snapshot }));
+}
+
 for (const height of ['grid', 'screen']) {
   test('left inspector keeps the focused month aligned and fills the ' + height + ' workspace', async ({ page }) => {
     await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?splitPanelProbe=${height}&side=left`);
@@ -22,6 +41,7 @@ for (const height of ['grid', 'screen']) {
     await first.click();
     const inspector = page.getByRole('complementary', { name: 'Day details' });
     await expect(inspector).toBeVisible();
+    await inspectGeometry(page, 'after-open-' + height);
     await expect.poll(() => alignment(page), { timeout: 5000 }).toBeLessThan(2);
     // Both the first and last weekday columns must belong to the selected
     // month, not the neighboring slide whose pixels could remain exposed.
@@ -50,6 +70,7 @@ for (const height of ['grid', 'screen']) {
     await page.mouse.down();
     await page.mouse.move(box.x + box.width / 2 - 55, box.y + 50, { steps: 5 });
     await page.mouse.up();
+    await inspectGeometry(page, 'after-drag-' + height);
     await expect.poll(() => alignment(page), { timeout: 5000 }).toBeLessThan(2);
     await page.getByRole('button', { name: 'Close day details' }).click();
     await expect(motion).toHaveCount(0);

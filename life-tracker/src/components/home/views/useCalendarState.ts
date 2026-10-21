@@ -91,11 +91,11 @@ export function useCalendarState(
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
   }, [focusDate, baseDate, viewMode, weekStartsOn]);
 
-  // Embla's own ResizeObserver already reinitializes slide geometry.
-  // Calling reInit a second time during a divider drag shifts the track by
-  // the inspector width. Only restore the focused logical month.
+  // Rebuild the snap list *from the focused month* after the split settles.
+  // Without an explicit startIndex, Embla may preserve a translated position
+  // from the old frame (exactly the width of the left-side panel).
   const resnapAfterResize = useCallback(() => {
-    emblaApi?.scrollTo(focusIndex, true);
+    emblaApi?.reInit({ startIndex: focusIndex });
   }, [emblaApi, focusIndex]);
 
   // Selection makes the destination slide ready; waiting for Embla's
