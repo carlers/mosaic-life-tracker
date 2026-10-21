@@ -83,7 +83,7 @@ describe('useCalendarState render window', () => {
     // still correctly shows the focused month. Never use that stale snap.
     emblaFixture.setSelectedIndex(29);
     act(() => result.current.resnapAfterResize());
-    expect(emblaFixture.api.reInit).toHaveBeenCalledTimes(1);
+    expect(emblaFixture.api.reInit).not.toHaveBeenCalled();
     expect(emblaFixture.api.scrollTo).toHaveBeenLastCalledWith(30, true);
   });
 });

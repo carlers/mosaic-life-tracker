@@ -91,13 +91,11 @@ export function useCalendarState(
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
   }, [focusDate, baseDate, viewMode, weekStartsOn]);
 
-  // A left-side inspector shifts the Embla viewport as well as narrowing it.
-  // Re-initialize against the *settled* viewport and restore the logical snap,
-  // never its stale pixel transform.
+  // Embla's own ResizeObserver already reinitializes slide geometry.
+  // Calling reInit a second time during a divider drag shifts the track by
+  // the inspector width. Only restore the focused logical month.
   const resnapAfterResize = useCallback(() => {
-    if (!emblaApi) return;
-    emblaApi.reInit();
-    emblaApi.scrollTo(focusIndex, true);
+    emblaApi?.scrollTo(focusIndex, true);
   }, [emblaApi, focusIndex]);
 
   // Selection makes the destination slide ready; waiting for Embla's

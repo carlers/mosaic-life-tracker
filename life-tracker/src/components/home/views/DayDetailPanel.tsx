@@ -202,7 +202,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         transition: reduceMotion ? 'none' : 'width 300ms cubic-bezier(0.22, 1, 0.36, 1)',
       }}
       onTransitionEnd={event => {
-        if (event.target === event.currentTarget && event.propertyName === 'width')
+        if (event.target === event.currentTarget)
           realignRef.current?.();
       }}
     >
