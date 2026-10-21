@@ -18,6 +18,10 @@ export function presentSupabaseConflicts(input: {
   categories: CandidateConflictReview<CategoryDocument>[];
 }): SyncConflict[] {
   return [...input.tasks, ...input.categories].map(review => {
+    // The visible conflict dialog supports task/category domains only.
+    // Diary stays separately feature-gated until its RxDB pilot is accepted.
+    if (review.domain !== 'tasks' && review.domain !== 'categories')
+      throw new Error('Unrecognized Supabase core conflict domain');
     const local = review.local as unknown as Record<string, unknown>;
     const remote = review.remote as unknown as Record<string, unknown> | null;
     return {
