@@ -1,22 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Current task: #1029 private Diary signed transport, coordinated with public core+Diary #1027 and category retirement #857.
+Current task: #857 category retirement and explicit task deletion; #1029 Diary transports; #1027 public core+Diary release.
 
-## Baseline and safety
-- Isolated stable `feature/1027-supabase-recovery-20261020@4479983878e4129a46936683352270752c503603` has the SQL-only Diary table, owner SELECT/INSERT RLS, signed authority trigger, exact-revision CAS, validation and disposable lab acceptance. Same-SHA full Quality Gate #39650558703 and signed Core App Lab #39650558595 succeeded. **No hosted Diary SQL, Diary sync or public signup enabled**.
-- Tasks/categories core v0.32.5 protected Preview is verified; owner reports realtime sync works. Two older orphaned beta tasks remain untouched.
-- User explicitly wants owner-private Diary AND category retirement/destructive deletion as prerequisites to future PUBLIC signup launch; no social/image support; current dev/main are newer unrelated Appwrite release lines and must not be overwritten.
+## Source baseline / safety
+- Reconciled branch `chatgpt/857-category-retirement-reconciled` starts from isolated stable Supabase beta `feature/1027-supabase-recovery-20261020@19e7bedd8fa1b2a363fe9050e26f49ae7116ceff`, which includes SQL-only Diary foundation and signed Diary transport primitives; Dia​​ry RxDB runtime/UI remain disabled. Task branch #857 `6d0eff05c530f64271c428a47be5b2b5808b55f1` passed focused Quality Gate #39653618727 but conflicted with concurrent Diary mapping; this branch reconciles rather than overwriting Diary fields.
+- Current protected v0.32.5 Supabase task/category Preview exists; owner reports near-instant cross-device updates. Isolated Auth is still invitation-only; no public signup, hosted Diary schema, category retirement schema, Appwrite Production or newer dev/main changes.
+- Scope: owner wants public personal tasks/categories/Diary release, retired historical categories, explicit destructive all-task category deletion, social/images postponed. Existing two orphaned beta tasks remain unmodified.
 
-## Current task branch
-- `chatgpt/1029-diary-signed-transports` starts at stable `44799838...`. No end-user version bump or UI activation.
-- Extends isolated signed candidate mapping to Diary rows, preserving dates, text, emoji, legacy attachment references, timestamps, owner, tombstones; refuses non-private Diary and incorrect account. Adds owner-only change cursor query, allowlisted CAS RPC and authenticated create/master methods for Diary, alongside task/category behavior. Adds synthetic mapping and negative tests.
-- **The RxDB pilot still refuses Diary domain** until the third owner-fenced collection is implemented and tested, and the core runtime currently starts only task/category writers. No false claim of working offline Diary yet. No hosted data migration or public Auth change.
-- Next: focused CI, fix failures; if accepted, squash to isolated stable followed by same-SHA canonical checks. Then create Diary RxDB pilot with strict private fields and owner leases, connect app boot + realtime wake and signed 2-owner/offline conflict tests; finally enable Diary capability with appropriate Preview version.
+## This isolated Preview candidate
+- v0.33.0 category lifecycle: RxDB categories v2 `retiredOn` migration, owner-local effective date, historical Day View, future/Backlogs task preservation, restore, separate typed category+tasks tombstone action, UI/behavior regressions. Signed Supabase category CAS `retired_on` additive migration staged for disposable CI only.
+- Combined candidate mapping retains BOTH Diary signed transport and new categories retirement field; CAS preserves diary RPC allowlist and adds category `retired_on`. Appwrite rows default active; **Appwrite backend parity is not ready** for this feature. No hosted migration applied.
+- IMPORTANT: destructive all-task deletion still has a multi-device race until server-side transactional owner-scoped cascade/guard is proven. Do not release publicly or deploy to live accounts without repair.
 
 ## Next action
-- Run focused Diary transport checks before connecting a third RxDB writer and enabling UI.
-
-## Release blockers
-- Category #857 versioned v0.33.0 task on separate `chatgpt/857-category-retirement-contract-current`; CI repairs in flight, not merged. Need server-side atomic cascade race guarantees and migration acceptance before sending to users.
-- Missing independent DR restore, current dev/main reconciliation, old PWA update/return, public Auth abuse controls and anti-enumeration, hosted two-owner signed Diary test, and owner-approved release target. No changes to Production, dev/main or Appwrite authority.
+- Run focused CI on reconciled branch, fix tests, then squash only to isolated stable followed by same-SHA full canonical and signed Core App Lab. Independently finish server-side task deletion atomicity and safe recovery of old orphans.
+- Build third signed RxDB Diary writer, connect app and owner-fenced realtime, verify offline/concurrent/auth negatives before enabling UI. Perform backup/restore/provider return, client compatibility and public Auth abuse protection before any Production or signup gating change.

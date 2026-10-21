@@ -47,6 +47,7 @@ jobs:
           cp supabase-poc/migrations/20261020_core_fresh_identity_authority.sql supabase/migrations/20261020000001_authority.sql
           cp supabase-poc/migrations/20261021_core_realtime_publication.sql supabase/migrations/20261020000002_realtime.sql
           cp supabase-poc/migrations/20261022_candidate_private_diary_domain.sql supabase/migrations/20261020000003_private_diary.sql
+          cp supabase-poc/migrations/20261022_candidate_category_retirement.sql supabase/migrations/20261020000004_retirement.sql
           python3 - <<'PY'
           from pathlib import Path
           import re

@@ -40,6 +40,12 @@ export const categoriesMigrationStrategies = {
     ...oldDoc,
     updatedAt: '',
   }),
+  // Historical records stay in their original categories. Existing rows
+  // are active until explicitly retired by the owner.
+  2: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc,
+    retiredOn: '',
+  }),
 };
 export const diaryMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, emoji: '' }),
