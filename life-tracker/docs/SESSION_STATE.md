@@ -18,7 +18,7 @@ Current task: #1027 zero-cost fresh-account beta admission preparation, Brevo co
 
 ## Current scoped follow-up
 - Stable branch before this task: `feature/1027-supabase-recovery-20261020@ae3336f50bbf2cccca2b4e14c60608aeecf36e73`.
-- Extend its Supabase Core App Lab with a real SQL execution step against the uniquely identified disposable Supabase CLI Docker PostgreSQL container. Probe tests invited/revoked/expired/unlisted addresses and `supabase_auth_admin` execution and private table/role privilege denials. New step is still unverified until CI completes.
+- Extend its Supabase Core App Lab with a real SQL execution step against the uniquely identified disposable Supabase CLI Docker PostgreSQL container. Probe tests invited/revoked/expired/unlisted addresses and catalogs `supabase_auth_admin` EXECUTE and client/table denials; actual execution as the Auth role is reserved for a real local GoTrue integration. Initial lab #39576869327 failed only because the disposable migration owner was not permitted to SET ROLE `supabase_auth_admin`; no privilege grants or hosted writes will be added as a workaround. A focused follow-up is under verification.
 - The GoTrue Before User Created hook stays inactive and uninstalled on hosted `mosaic-dev`. No public access, real invitations, production or Appwrite change.
 
 ## Next action
