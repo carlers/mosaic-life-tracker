@@ -6,7 +6,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { inspectEmailPolicy, previewEmailPolicy } from './email-policy.mjs';
+import { inspectEmailPolicy, previewEmailPolicy, EMAIL_PREVIEW, EMAIL_PREVIEW_SHA, requireDeployedPreviewAccess } from './email-policy.mjs';
 
 export const PROJECT = 'hcxtiifzxoaflhjgoglb';
 export const ORIGIN = `https://${PROJECT}.supabase.co`;
@@ -426,15 +426,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const mode = process.argv[2] ?? '--inspect';
     check(process.argv.length <= 3 &&
-      ['--inspect', '--apply-empty-project', '--probe', '--ui', '--conflicts', '--offline'].includes(mode),
-    'Usage: hosted-core.mjs [--inspect|--apply-empty-project|--probe|--ui|--conflicts|--offline]');
+      ['--inspect', '--apply-empty-project', '--probe', '--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode),
+    'Usage: hosted-core.mjs [--inspect|--apply-empty-project|--probe|--ui|--conflicts|--offline|--ui-preview]');
+    const preview = mode === '--ui-preview' ? { origin: EMAIL_PREVIEW, sha: EMAIL_PREVIEW_SHA } : null;
+    if (preview) requireDeployedPreviewAccess(preview, process.env.MOSAIC_CORE_PREVIEW_SHARE_URL);
     const client = await connect({ token: process.env.SUPABASE_ACCESS_TOKEN });
     const result = mode === '--apply-empty-project' ? await applyEmptyProject(client) :
-      ['--probe', '--ui', '--conflicts', '--offline'].includes(mode) ? await runHostedProbe(client, {
+      ['--probe', '--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode) ? await runHostedProbe(client, {
         onProgress: progress => process.stdout.write(JSON.stringify(progress) + '\n'),
-        ...(['--ui', '--conflicts', '--offline'].includes(mode) ? { exerciseUi: async accounts => {
+        ...(['--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode) ? { exerciseUi: async accounts => {
           const { exerciseHostedUi } = await import('./hosted-core-ui.mjs');
-          await exerciseHostedUi(client, accounts, ORIGIN, null,
+          await exerciseHostedUi(client, accounts, ORIGIN, preview,
             mode === '--conflicts' ? 'lost write acknowledgement' :
               mode === '--offline' ? 'offline cold start' : 'real Mosaic UI');
         } } : {}),

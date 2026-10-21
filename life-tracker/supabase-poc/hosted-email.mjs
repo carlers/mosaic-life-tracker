@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { connect, ORIGIN } from './hosted-core.mjs';
 import { exerciseHostedUi } from './hosted-core-ui.mjs';
-import { inspectEmailPolicy } from './email-policy.mjs';
+import { inspectEmailPolicy, EMAIL_PREVIEW, EMAIL_PREVIEW_SHA, requireDeployedPreviewAccess } from './email-policy.mjs';
 
 const check = (condition, message) => { if (!condition) throw Error(message); };
 const quote = value => "'" + value.replaceAll("'", "''") + "'";
@@ -84,13 +84,15 @@ export async function runHostedEmailProbe(client, { exercise = exerciseHostedUi,
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const mode = process.argv[2] ?? '--inspect-policy';
-    check(process.argv.length <= 3 && ['--ui', '--inspect-policy', '--configure-preview-email'].includes(mode),
-      'Usage: hosted-email.mjs [--ui|--inspect-policy|--configure-preview-email]');
+    check(process.argv.length <= 3 && ['--ui', '--ui-preview', '--inspect-policy', '--configure-preview-email'].includes(mode),
+      'Usage: hosted-email.mjs [--ui|--ui-preview|--inspect-policy|--configure-preview-email]');
+    const preview = mode === '--ui-preview' ? { origin: EMAIL_PREVIEW, sha: EMAIL_PREVIEW_SHA } : null;
+    if (preview) requireDeployedPreviewAccess(preview, process.env.MOSAIC_CORE_PREVIEW_SHARE_URL);
     const client = await connect({ token: process.env.SUPABASE_ACCESS_TOKEN });
     const result = mode === '--configure-preview-email' ? await client.configurePreviewEmailPolicy() :
       mode === '--inspect-policy' ? inspectEmailPolicy(await client.requireOk(await client.management('/config/auth'), 'Auth email policy inspection')) :
         await runHostedEmailProbe(client, {
-          onProgress: progress => process.stdout.write(JSON.stringify(progress) + '\n'),
+          preview, onProgress: progress => process.stdout.write(JSON.stringify(progress) + '\n'),
         });
     process.stdout.write(JSON.stringify({ ok: true, result }) + '\n');
   } catch (error) {

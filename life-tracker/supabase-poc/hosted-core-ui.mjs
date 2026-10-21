@@ -4,6 +4,7 @@
  * stays enabled. The build/test children never receive management/admin credentials.
  */
 import { spawn } from 'node:child_process';
+import { requireDeployedPreviewAccess } from './email-policy.mjs';
 import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -36,9 +37,8 @@ function child(command, args, options) {
 export async function exerciseHostedUi(client, accounts, origin, preview = null, testName = 'real Mosaic UI', emailAction = null) {
   if (origin !== 'https://hcxtiifzxoaflhjgoglb.supabase.co')
     throw new Error('Hosted UI requires isolated mosaic-dev');
-  if (preview && (preview.origin !== 'https://mosaic-supabase-core-preview.vercel.app' ||
-      !/^[a-f0-9]{40}$/.test(preview.sha ?? '')))
-    throw new Error('Hosted Preview requires the isolated alias and exact accepted source SHA');
+  const previewAccess = preview ? requireDeployedPreviewAccess(preview,
+    process.env.MOSAIC_CORE_PREVIEW_SHARE_URL) : null;
   if (!['real Mosaic UI', 'lost write acknowledgement', 'offline cold start',
     'signed email confirmation', 'signed email recovery'].includes(testName))
     throw new Error('Unknown hosted core browser contract');
@@ -48,7 +48,7 @@ export async function exerciseHostedUi(client, accounts, origin, preview = null,
   const cwd = fileURLToPath(new URL('../', import.meta.url));
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
-    if (/SUPABASE|MOSAIC_SB|MOSAIC_CORE_HOSTED_FIXTURES|MOSAIC_CORE_EMAIL_ACTION|VERCEL_TOKEN/.test(key)) delete env[key];
+    if (/SUPABASE|MOSAIC_SB|MOSAIC_CORE_HOSTED_FIXTURES|MOSAIC_CORE_EMAIL_ACTION|MOSAIC_CORE_PREVIEW_SHARE_URL|VERCEL_TOKEN/.test(key)) delete env[key];
   }
   Object.assign(env, {
     VITE_MOSAIC_BACKEND: 'supabase-cloud', VITE_MOSAIC_FEATURE_PROFILE: 'core-only',
@@ -96,7 +96,7 @@ export async function exerciseHostedUi(client, accounts, origin, preview = null,
       'supabase-core-app.spec.mjs', '--config', resolve(scratch, 'config.mjs'),
       '--grep', testName, '--reporter=line'], { cwd,
       redactions: [...accounts.map(account => account.password), emailAction?.tokenHash,
-        emailAction?.code, emailAction?.newPassword, process.env.VERCEL_AUTOMATION_BYPASS_SECRET].filter(Boolean),
+        emailAction?.code, emailAction?.newPassword, previewAccess, process.env.VERCEL_AUTOMATION_BYPASS_SECRET].filter(Boolean),
       env: {
       ...env, MOSAIC_SB_LOCAL_URL: origin, MOSAIC_SB_LOCAL_PUBLISHABLE_KEY: publishableKey,
       // Playwright 1.58 otherwise appends <-loopback> after explicit bypasses,
@@ -104,7 +104,8 @@ export async function exerciseHostedUi(client, accounts, origin, preview = null,
       PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK: '1',
       MOSAIC_CORE_APP_LAB: 'true', MOSAIC_CORE_HOSTED_LAB: 'true',
       MOSAIC_E2E_BASE_URL: preview?.origin ?? `http://127.0.0.1:${server.address().port}`,
-      ...(preview ? { MOSAIC_CORE_PREVIEW_SHA: preview.sha } : {}),
+      ...(preview ? { MOSAIC_CORE_PREVIEW_SHA: preview.sha,
+        MOSAIC_CORE_PREVIEW_SHARE_URL: previewAccess } : {}),
       MOSAIC_CORE_HOSTED_FIXTURES: JSON.stringify(accounts.map(({ email, password }) => ({ email, password }))),
       ...(emailAction ? { MOSAIC_CORE_EMAIL_ACTION: JSON.stringify(emailAction) } : {}),
     } });

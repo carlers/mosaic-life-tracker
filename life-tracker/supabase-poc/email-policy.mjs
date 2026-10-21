@@ -1,6 +1,7 @@
 // Immutable v0.32.4 deployment; the old protected alias still points to an earlier build.
 // Only advance this exact origin after new signed/hosted acceptance and operator review.
 export const EMAIL_PREVIEW = 'https://mosaic-life-tracker-6luuatyml-carls-projects-72516fde.vercel.app';
+export const EMAIL_PREVIEW_SHA = '70d7485b06c0004769f03b0ad96189669777f05a';
 export const EMAIL_ROUTES = [EMAIL_PREVIEW + '/auth/confirm', EMAIL_PREVIEW + '/reset-password'];
 export const EMAIL_TEMPLATES = {
   mailer_templates_confirmation_content:
@@ -50,4 +51,19 @@ export function inspectEmailPolicy(current) {
     smtpSenderConfigured: Boolean(current.smtp_admin_email),
     emailRateLimit: current.rate_limit_email_sent ?? null,
   };
+}
+
+/** Fail closed before hosted fixtures: only the verified immutable build and a
+ * temporary share URL with no credential-bearing callback parameters are valid. */
+export function requireDeployedPreviewAccess(preview, shareUrl) {
+  if (preview?.origin !== EMAIL_PREVIEW || preview.sha !== EMAIL_PREVIEW_SHA)
+    throw Error('Hosted Preview requires the reviewed immutable origin and exact deployed SHA');
+  let url;
+  try { url = new URL(shareUrl); } catch { throw Error('Hosted Preview requires a scoped temporary share URL'); }
+  const token = url.searchParams.get('_vercel_share');
+  if (typeof shareUrl !== 'string' || shareUrl.length > 2048 || url.origin !== EMAIL_PREVIEW ||
+      url.pathname !== '/' || url.hash || url.searchParams.size !== 1 ||
+      !/^[a-zA-Z0-9_-]{16,}$/.test(token ?? ''))
+    throw Error('Hosted Preview requires a scoped temporary share URL');
+  return shareUrl;
 }
