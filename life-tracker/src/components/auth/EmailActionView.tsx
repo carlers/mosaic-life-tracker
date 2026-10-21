@@ -9,12 +9,17 @@ export interface EmailActionViewProps {
   busy: boolean;
   error: string | null;
   notice: string | null;
-  verify(): Promise<void>;
+  codeEntry?: boolean;
+  verify(email?: string, code?: string): Promise<void>;
   complete(password?: string): Promise<void>;
 }
 
 /** Provider-neutral email actions never receive a bearer or callback credential. */
 export function EmailActionView(props: EmailActionViewProps) {
+  const [actionEmail, setActionEmail] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const emailId = useId();
+  const codeId = useId();
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -30,12 +35,32 @@ export function EmailActionView(props: EmailActionViewProps) {
       {props.stage === 'invalid' && <p role="alert">
         This link is invalid or incomplete. Request a new link from the login page.
       </p>}
-      {props.stage === 'ready' && <>
+      {props.stage === 'ready' && (props.codeEntry ? <form className="space-y-4"
+        aria-busy={props.busy} onSubmit={event => {
+          event.preventDefault();
+          if (!props.busy) void props.verify(actionEmail, emailCode);
+        }}>
+        <p>Enter the one-time code from your Mosaic email. The link contains no credentials.</p>
+        <div>
+          <label htmlFor={emailId}>Email address</label>
+          <input id={emailId} type="email" autoComplete="email" required
+            value={actionEmail} onChange={event => setActionEmail(event.target.value)}
+            className="w-full bg-background border border-gray-500 rounded-lg p-2 focus-visible:outline" />
+        </div>
+        <div>
+          <label htmlFor={codeId}>Email code</label>
+          <input id={codeId} type="text" inputMode="numeric" autoComplete="one-time-code"
+            pattern="[0-9]{6,10}" minLength={6} maxLength={10} required
+            value={emailCode} onChange={event => setEmailCode(event.target.value)}
+            className="w-full bg-background border border-gray-500 rounded-lg p-2 focus-visible:outline" />
+        </div>
+        <Button disabled={props.busy}>{props.busy ? 'Verifying…' : 'Verify email code'}</Button>
+      </form> : <>
         <p className="mb-4">Continue to verify the account for this email link.</p>
         <Button disabled={props.busy} onClick={() => void props.verify()}>
           {props.busy ? 'Verifying…' : 'Verify email link'}
         </Button>
-      </>}
+      </>)}
       {props.stage === 'verified' && <>
         <p role="status" className="mb-4">Verified account: {props.email}</p>
         {recovery ? <form className="space-y-4" aria-busy={props.busy}

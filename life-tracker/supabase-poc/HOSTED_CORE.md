@@ -154,31 +154,32 @@ Email-confirmation signup/recovery and mobile/manual acceptance remain separate.
 
 ## Email confirmation and recovery
 
-The v0.32.3 candidate adds isolated `/auth/confirm` and `/reset-password`
-routes. Link fragments are removed before startup and on same-document
-navigation; these pages never mount the ordinary Auth provider or core writers.
-The signed user is verified before showing the target email or changing a
-password. Completing the action closes only its temporary link session.
+The isolated v0.32.3 candidate uses clean `/auth/confirm` and `/reset-password`
+URLs. The email contains a **one-time code** in the message body; users enter
+their email and code after Vercel protection/SSO. Vercel's login redirect has
+been observed retaining synthetic fragments: **never email `token_hash` links**.
+The GoTrue OTP is sent in a POST body, and the signed owner/email is verified
+independently before confirmation or password update. These routes never mount
+ordinary Auth or core writers. Already-issued legacy hash callbacks are
+cleaned immediately and are not part of the new policy.
 
 `NODE_USE_ENV_PROXY=1 node supabase-poc/hosted-email.mjs --ui` exercises real
-mosaic-dev confirmation and recovery with admin-prepared, server-marked
-disposable accounts and generated one-time links. It proves active-account
-isolation, successful password login, old-password rejection and link replay
-rejection. The runner bans/freezes fixtures and verifies no live rows even
-after failure. It never sends email. The two email cases require these hosted
-fixtures; the ordinary local CLI lab skips them and still runs its five core
-cases. Do not describe generated links as actual signup/email delivery proof.
+mosaic-dev confirmation/recovery using server-marked disposable accounts and
+generated OTPs. It checks active-account isolation, password login,
+old-password and code-replay rejection, and fixture retirement/frozen owner
+readback even after failure. It does **not** send mail. Ordinary local CI
+skips these two hosted-only cases while covering the five core cases.
 
 Read policy with `node supabase-poc/hosted-email.mjs --inspect-policy`.
-For delivery of this accepted candidate, the explicitly selected
-`--configure-preview-email` command changes only mosaic-dev's Preview site URL,
-adds its two exact redirects while preserving existing entries, and installs
-the two static token-hash templates. It preserves required confirmation and
-all SMTP/security settings, refuses an unexpected current site, and verifies
-readback. Apply this only when delivering the matching email-capable Preview;
-do not point email links at the older app. The management token needs permission
-to update Auth configuration. Verify readback before offering hosted email
-actions to testers.
+The explicit `--configure-preview-email` mode is permitted only after
+a **new verified accepted** exact-SHA Preview artifact and clean-template
+preflight. It preserves unrelated redirects, SMTP and security settings,
+requires confirmations, and verifies readback. The preview helper must reject
+credential-bearing templates *before* any artifact download, provider
+mutation, or alias reassignment. The Codex external operator helper is not
+tracked in this repository; reconstruct/audit it independently. Keep the old
+protected alias intact on any failure. Do not use previous `9391e990`
+or `d3610222` artifacts or their unsafe templates.
 
 Actual controlled-mailbox signup/recovery delivery and physical mobile remain
 mandatory acceptance. Default hosted SMTP restrictions and the two-email/hour

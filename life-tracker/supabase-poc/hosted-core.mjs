@@ -136,9 +136,10 @@ export async function connect({ token, fetcher = fetch } = {}) {
       body: { type, email: user.email, ...(type === 'signup' ? { password } : {}) },
       headers: { apikey: adminKey, Authorization: 'Bearer ' + adminKey },
     }), 'Disposable email link generation');
-    check(result.id === id && /^[a-f0-9]{32,128}$/i.test(result.hashed_token ?? ''),
-      'Generated email link owner or token mismatch');
-    return { tokenHash: result.hashed_token };
+    check(result.id === id && /^[a-f0-9]{32,128}$/i.test(result.hashed_token ?? '') &&
+      /^\d{6,10}$/.test(result.email_otp ?? ''),
+      'Generated email code owner or token mismatch');
+    return { tokenHash: result.hashed_token, code: result.email_otp };
   }
   async function configurePreviewEmailPolicy() {
     const before = await requireOk(await management('/config/auth'), 'Auth email policy inspection');

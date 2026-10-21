@@ -24,6 +24,8 @@ export function createSupabaseEmailActions(options: {
   baseUrl: string;
   publishableKey: string;
   callback: EmailAction | null;
+  /** Clean-route one-time-code mode; legacy hash callbacks remain supported. */
+  kind?: EmailAction['kind'];
   fetcher?: typeof fetch;
 }) {
   const base = new URL(options.baseUrl);
@@ -34,6 +36,8 @@ export function createSupabaseEmailActions(options: {
     throw Error('Invalid email action service configuration');
   const fetcher = options.fetcher ?? fetch;
   let callback = options.callback;
+  const kind = callback?.kind ?? options.kind;
+  let consumed = false;
   let grant: Grant | null = null;
   let verifying: Promise<VerifiedEmailAction> | null = null;
   let completing = false;
@@ -75,7 +79,7 @@ export function createSupabaseEmailActions(options: {
   }
 
   async function verify(): Promise<VerifiedEmailAction> {
-    if (!callback) throw Error('Invalid or completed email link. Request a new link.');
+    if (consumed || !callback) throw Error('Invalid or completed email link. Request a new link.');
     if (grant) return { kind: callback.kind, email: grant.email };
     if (!verifying) {
       const current = callback;
@@ -97,10 +101,45 @@ export function createSupabaseEmailActions(options: {
     finally { if (verifying === pending) verifying = null; }
   }
 
+  async function verifyCode(email: string, code: string): Promise<VerifiedEmailAction> {
+    // A credential must never travel in an email link, navigation or query.
+    // Require an explicit clean-route action and an email supplied in the form.
+    if (consumed || callback || (kind !== 'signup' && kind !== 'recovery'))
+      throw Error('Invalid or completed email action. Request a new code.');
+    const normalized = email.trim().toLowerCase();
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized) ||
+        !/^\\d{6,10}$/.test(code))
+      throw Error('Enter a valid email address and code.');
+    if (grant) {
+      if (grant.email.trim().toLowerCase() !== normalized)
+        throw Error('The email account could not be verified.');
+      return { kind, email: grant.email };
+    }
+    if (verifying) throw Error('Email verification is already in progress.');
+    const pending = (async () => {
+      const result = await request('/auth/v1/verify', 'POST', {
+        email: normalized, token: code, type: kind,
+      });
+      const user = result?.user as { id?: unknown } | undefined;
+      if (typeof result?.access_token !== 'string' || result.access_token.length < 12 ||
+          typeof user?.id !== 'string' || !UUID.test(user.id))
+        throw Error('The email account could not be verified.');
+      const verified = await verifyOwner(result.access_token, user.id);
+      if (verified.email.trim().toLowerCase() !== normalized)
+        throw Error('The email account could not be verified.');
+      grant = verified;
+      return { kind, email: verified.email };
+    })();
+    verifying = pending;
+    try { return await pending; }
+    finally { if (verifying === pending) verifying = null; }
+  }
+
   async function revoke(current: Grant): Promise<{ revoked: boolean }> {
     // Drop all local credentials even when remote revocation cannot be confirmed.
     grant = null;
     callback = null;
+    consumed = true;
     try {
       await request('/auth/v1/logout?scope=local', 'POST', undefined, current.token);
       return { revoked: true };
@@ -108,8 +147,8 @@ export function createSupabaseEmailActions(options: {
   }
 
   async function resetPassword(password: string) {
-    if (!grant || !callback) throw Error('Verify the email link before choosing a password.');
-    if (callback.kind !== 'recovery') throw Error('A password recovery link is required.');
+    if (!grant || consumed) throw Error('Verify the email code or link before choosing a password.');
+    if (kind !== 'recovery') throw Error('A password recovery link is required.');
     if (password.length < 8) throw Error('Use at least 8 characters for your password.');
     if (completing) throw Error('Password change is already in progress.');
     completing = true;
@@ -123,9 +162,9 @@ export function createSupabaseEmailActions(options: {
   }
 
   async function finishConfirmation() {
-    if (!grant || callback?.kind !== 'signup') throw Error('Verify the confirmation link first.');
+    if (!grant || consumed || kind !== 'signup') throw Error('Verify the confirmation code or link first.');
     return revoke(grant);
   }
 
-  return { verify, resetPassword, finishConfirmation };
+  return { verify, verifyCode, resetPassword, finishConfirmation };
 }

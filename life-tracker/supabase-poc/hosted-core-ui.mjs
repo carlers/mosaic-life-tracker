@@ -96,7 +96,7 @@ export async function exerciseHostedUi(client, accounts, origin, preview = null,
       'supabase-core-app.spec.mjs', '--config', resolve(scratch, 'config.mjs'),
       '--grep', testName, '--reporter=line'], { cwd,
       redactions: [...accounts.map(account => account.password), emailAction?.tokenHash,
-        emailAction?.newPassword, process.env.VERCEL_AUTOMATION_BYPASS_SECRET].filter(Boolean),
+        emailAction?.code, emailAction?.newPassword, process.env.VERCEL_AUTOMATION_BYPASS_SECRET].filter(Boolean),
       env: {
       ...env, MOSAIC_SB_LOCAL_URL: origin, MOSAIC_SB_LOCAL_PUBLISHABLE_KEY: publishableKey,
       // Playwright 1.58 otherwise appends <-loopback> after explicit bypasses,
