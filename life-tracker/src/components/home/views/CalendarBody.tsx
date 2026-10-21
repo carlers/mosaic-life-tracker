@@ -122,13 +122,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     const timer = window.setTimeout(() => setDaySheetOpen(false), 0);
     return () => window.clearTimeout(timer);
   }, [isActive]);
-  useEffect(() => {
-    if (dayDetailPresentation !== 'panel' || !isActive) return;
-    const timer = window.setTimeout(() => {
-      if (!document.hidden) void preloadDayDetailPanel().catch(() => {});
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [dayDetailPresentation, isActive]);
   const [calendarWidth, setCalendarWidth] = useState(0);
   const handlePinchChange = useCallback((days: CalendarZoomDays) => {
     // The account-synced setting is the single source of truth.
@@ -153,12 +146,13 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const allowPinch = pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
-  // Match owner Day View: warm a resolved component after the friend Calendar
-  // becomes usable. No friend hooks or sheets are mounted by this preload.
+  // Warm code, not hooks: retain idle scheduling for friend and optional panel.
   useEffect(() => {
-    if (variant !== 'friend' || !isActive) return;
+    if (!isActive || (variant !== 'friend' && dayDetailPresentation !== 'panel')) return;
     const warm = () => {
-      if (!document.hidden) void preloadFriendDayViewSheet().catch(() => {});
+      if (document.hidden) return;
+      if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
+      if (dayDetailPresentation === 'panel') void preloadDayDetailPanel().catch(() => {});
     };
     if (window.requestIdleCallback) {
       const id = window.requestIdleCallback(warm, { timeout: 1800 });
@@ -166,7 +160,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     }
     const id = setTimeout(warm, 700);
     return () => clearTimeout(id);
-  }, [variant, isActive]);
+  }, [variant, dayDetailPresentation, isActive]);
 
   const tasksByDate = useTasksByDate(tasks);
   const holidayYears = useMemo(() => {
