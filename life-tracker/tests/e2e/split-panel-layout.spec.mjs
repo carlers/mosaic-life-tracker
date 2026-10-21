@@ -27,6 +27,7 @@ async function startFrameCapture(page, focusIndex) {
       window.__splitFrames.push({
         offset: Math.abs(selected.getBoundingClientRect().left - viewport.getBoundingClientRect().left),
         viewportWidth: viewport.getBoundingClientRect().width,
+        slideWidth: selected.getBoundingClientRect().width,
         panelWidth: panel instanceof HTMLElement ? panel.getBoundingClientRect().width : 0,
       });
     };
@@ -56,6 +57,10 @@ function assertNoShaking(frames, phase) {
   expect(max, phase + ': maximum focused-month offset across paints; samples=' +
     JSON.stringify(frames.filter((_, index) => index % 4 === 0).slice(0, 14)))
     .toBeLessThan(12);
+  // No amount of left-edge resnapping compensates for a clipped or stretched
+  // month: require the selected full seven-column slide to fit every frame.
+  expect(Math.max(...frames.map(frame => Math.abs(frame.slideWidth - frame.viewportWidth))),
+    phase + ': month slide width must match visible grid width').toBeLessThan(2);
 }
 
 for (const height of ['grid', 'screen']) {
