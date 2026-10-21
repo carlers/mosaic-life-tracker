@@ -1,20 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Current task: integrate keyboard navigation and shortcut preferences (issue #956) into current dev, with Home shortcut changed to plain H.
+Current task: issue #404 split Day View panel reconciliation and adjustable left/right panel Preview.
 
-## Authority and baseline
-- User approved: "make home page just h not shift h then merge to dev." Plain H now returns Home from other protected pages; on Home, Shift+H opens the hamburger. Previously published keyboard Preview v0.35.6 is READY: `feature/dayview-keyboard-956-20261020@5b2965083bb97cb12afbd83d1994e6c2fdf4c5e8`, canonical CI 39534317656 SUCCESS, trusted delivery 39534534824 SUCCESS.
-- At integration start dev had advanced to `65a68821865e16d4b580fde0afce282cb2eebc51` (v0.38.0, Uncompleted Tasks + Timeline/cross-day drag + standardized dropdowns), diverging from v0.35.6 keyboard Preview. Main at earlier check `c938c825370f8270b46f19119b06a1f74d35842b`. Direct merge is not safe: version regression and conflicting Day View changes. No main/Production approval.
-- Integration task branch `chatgpt/956-keyboard-dev-integrated-20261021` and stable integrated Preview `feature/keyboard-dev-integrated-956-20261021` both start from exact dev 65a6882. New user-facing feature relative to dev v0.38.0 => Preview v0.39.0 (new MINOR, retains accepted keyboard behavior).
+## Baseline and authority
+- User authorized: reconcile prior #404 Preview with dev and provide a fresh Preview with side placement and resizable split. No dev/main promotion approval.
+- Task base dev e1c90b387ecfb4e29d64c88b6557703dd23ca207 v0.39.0. Prior split Preview feature/split-day-panel-404-20261012@59b64a8e4630d740c1ba906c2797b6ef627b7a44 (v0.21.0), not incorporated in dev.
+- New user-facing Preview candidate v0.40.0. Task branch chatgpt/404-split-layout-dev-20261021.
+- Current dev Calendar pinch zoom, keyboard grid and H Home navigation, task previews, Timeline mode, cross-day drag, friend calendar state and all unrelated settings must remain intact.
 
-## Scope and merge strategy
-- Layer all nine previously accepted keyboard commits / 49 changed paths onto latest dev with granular source patch integration. Preserve existing dev Timeline sorting, Day View selection layout, cross-day task drag, Uncompleted Tasks and account shortcuts, standard MosaicSelect dropdowns, sync isolation and page behavior.
-- H route shortcut is unmodified `h`; `Shift+H` opens Home hamburger (never ambiguously navigates). Keyboard shortcut guide and targeted route/Home tests reflect these bindings. Keep existing Home S (Sync Status, manual trigger inside), Me S (Settings), Day View S (Select), F friends, G calendar, T/D/V views, B Backlogs, / search, E/A/C/M routes and original task keyboard behavior.
-- Account-synced default-on `keyboardShortcutsEnabled` controls single-key accelerators including ?/N while preserving normal keyboard accessibility. Shared provider scoped to authenticated app; no new backend/schema changes.
-- Day View integration uses latest dev as base and applies all feature-specific keyboard hunks except conflicting import/toolbar blocks, which are adapted into latest Timeline toolbar with a keyboard-help button and panel. Restore source-generated component inventory with new shortcut components. Update version in package.json, lockfile and src/lib/appVersion.ts.
+## Implemented task scope
+- Account-synced optional Home owner/friend Day View side panel; default retains bottom sheet. Account-synced side choice defaults right, can choose left; mobile/narrow new opens use bottom sheet.
+- Calendar and panel remain interactive at sufficient Home frame width (1040 CSS px). When an existing panel's frame shrinks, keep content mounted in an overlaid inspector to avoid draft loss.
+- Pointer-draggable and keyboard-operable separator moves border, 320–720px panel with 560px calendar reserve, device-local saved width; no global modal rewrite. Both Day Views use existing virtualized inline/panel renderer, modal children unchanged.
+- Reconciled with current dev rather than overwriting current CalendarBody / DayViewSheet / FriendDayViewSheet. Added preference and sizing tests.
 
 ## Verification and next action
-- Commit all integration changes plus this checkpoint to task branch with `[verify:focused]` and validate. Fix focused failures without weakening checks.
-- After focused SUCCESS squash PR into stable `feature/keyboard-dev-integrated-956-20261021`, confirm full canonical CI and trusted exact-SHA READY Preview, then create stable Preview → dev promotion PR. Confirm latest dev SHA and automatic exact-tree promotion eligibility; if dev advances, recompute integrated Preview, revalidate rather than merge with conflicts/version regression.
-- User explicitly authorized dev only; never merge to main/Production. Manual device/AT theme acceptance remains unperformed. Issue #956 stays open.
+- Task commit requests [verify:focused]; inspect CI/TypeScript/lint/unit/DOM, repair any failures, then squash into stable feature Preview and verify canonical quality gate and trusted Vercel READY exact SHA before sharing updated link.
+- Responsive layout, pointer drag, keyboard, browser Back, owner/friend privacy and real-device/zoom manual acceptance remain unperformed until evidence. No Appwrite schema or Function changes.
+- Do not merge dev/main or modify Production without explicit permission.
