@@ -5,7 +5,7 @@ Current task: #1027 reconstruct protected Preview email-code repair from Codex t
 
 ## Source and safety
 - Accepted isolated branch baseline `feature/1027-supabase-recovery-20261020@9391e99038276c897235732d0a07cd0e574442b6`, v0.32.3. Prior canonical #39474239790 and hosted core lab #39474239853 green **for unsafe fragment-template baseline only**. These do not certify this reconstruction.
-- The original Codex Cloud `codex/1027-supabase-recovery-email-codes-20261020` workspace was uncommitted and unavailable through GitHub when Codex usage expired. User preserved the 36,657-line Markdown transcript; the transcript has exact behavior, tests/commands and run logs, but not full edited file contents. This new task branch `chatgpt/1027-recover-email-code-entry-20261021` independently reimplements only that internal repair. It is **not** a byte-for-byte restoration.
+- Original Codex repair was uncommitted and its VM expired. The archived transcript supported an independent reimplementation; it was not a byte-for-byte restoration.
 - Real deployed isolated Preview remains protected v0.32.1 `mosaic-supabase-core-preview.vercel.app` / `dpl_CSBQtqBXqz2naXLx3bS73rE4UTAR` unless separately verified. Do NOT deploy unsafe `9391e990` email templates, promote dev/main/Production, migrate user data, alter SSO, or release 1.0. Appwrite Scratch suspended; Oracle unprovisioned. Keep #1027/#967 open, Diary #1029 next after a usable core release.
 
 ## Implemented in this task
@@ -19,6 +19,8 @@ Current task: #1027 reconstruct protected Preview email-code repair from Codex t
 - First focused Quality Gate #39538463774 failed on the checkpoint heading contract; this repair restores the required heading without changing the check.
 
 ## Next action
+- Task `chatgpt/1027-prebuilt-artifact-staging-20261021`: offline-only exact GitHub artifact→Vercel v3 stage, never deploy/alias/policy. First focused #39541175235 failed on checkpoint length; reduce it without weakening tests. Prior source `846145a4` passed canonical #39539940796 and Supabase lab #39539940657; artifact #12319471470. New source SHA needs new acceptance.
+
 - PR #1141 reconstructed the lost Codex repair and merged at `c0b4ddb2`. Focused #39538614099 passed; canonical #39538736836 exposed double-escaped email/OTP regex literals. PR #1142 fixed these at stable `48d6acfb`; focused #39539012299 passed. Canonical #39539139399 caught a new *test assertion* expecting exact-route rejection for `token_hash`, which correctly triggers the earlier code-only guard. This task instead tests a generic URL fragment plus explicit `token_hash` and `TokenHash` rejection. Re-run focused, then squash this task into isolated stable Preview; require new full canonical and Supabase lab success at exact SHA.
 - Historical Codex hosted run `ff73923158367002a1923739` is **not** evidence for reconstructed source. Deploy only new accepted CI artifact and verify credential-free email policy/readback, old alias safety, disposable real UI/email tests, and revocation. External Codex operator script was not recovered; do not bypass its expected SSO/template checks. No hosted Auth or alias change yet.
 - Remaining beyond this repair: public email delivery/signup, phone PWA, trusted Appwrite old-client cutoff, reversible three-backend transfer with offline tombstones and tested DR. Never promote dev/main/Production or migrate real users without separate approval.

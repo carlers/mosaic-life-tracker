@@ -185,3 +185,29 @@ Actual controlled-mailbox signup/recovery delivery and physical mobile remain
 mandatory acceptance. Default hosted SMTP restrictions and the two-email/hour
 limit are not resolved by generated links. No existing-user migration or
 Production work is authorized by this runbook.
+
+## Read-only CI artifact to Vercel prebuilt staging
+
+`scripts/stage-supabase-core-artifact.mjs` accepts exactly four positional
+arguments: downloaded GitHub Actions artifact ZIP path, **separately approved**
+40-character source SHA, the GitHub-reported ZIP SHA256 digest, and a
+**non-existing** output directory. Run it from a clean checkout of the accepted
+`feature/1027-supabase-recovery-20261020` commit. It rejects mismatched
+ZIP digest/member sets, branch/commit, provider profile, or CI archive checksum,
+then delegates every tar-entry digest, symlink/path safety, build evidence and
+routing reconstruction to `assembleVerifiedStaticOutput`. It writes exactly
+those CI-built static bytes into `.vercel/output/static`, the pre-reviewed
+routing v3 `.vercel/output/config.json`, and fixed Mosaic Preview
+`.vercel/project.json`. It does **not** read credentials, rebuild, contact a
+provider, deploy, assign an alias or approve a release. Its stage evidence is
+explicitly `deploymentAuthorized: false`.
+
+This is only a *prerequisite* for the external trusted operator: verify BOTH
+canonical Quality Gate and Supabase Core App Lab at the same accepted SHA,
+GitHub artifact ID/digest, immutable Preview target and exact project, code-only
+email templates and old-alias/SSO state. Only then may the separate approved
+operator use the staged directory for `vercel deploy --prebuilt`, verify its
+actual READY metadata, safely update the isolated Auth email policy and alias,
+exercise the deployed 3 core + 2 email disposable browser scenarios, and
+revoke temporary credentials. Never use staging output as proof of deployed
+acceptance or as permission to touch the existing Appwrite/Production paths.
