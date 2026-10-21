@@ -1,22 +1,23 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Current task: #1027 protected immutable Supabase fresh-account browser acceptance automation.
+Current task: #1027 zero-cost fresh-account beta admission preparation, Brevo connected.
 
-## Baseline and constraints
-- Stable isolated feature source before this task: `feature/1027-supabase-recovery-20261020@69d20eff3ec34a3de0039a44c272ce5014400a1b`, v0.32.4. Full canonical #39560877421 and signed local-stack Supabase Core App Lab #39560877431 successful. No open #1027 PRs at task start.
-- Existing protected immutable Preview remains READY at `https://mosaic-life-tracker-6luuatyml-carls-projects-72516fde.vercel.app`, deployed exact `70d7485b06c0004769f03b0ad96189669777f05a`. Read-only SSO-bypass fetch independently confirmed 200 at /login, /auth/confirm, /reset-password; unknown path 404; embedded build identity exactly matches Preview, supabase-cloud, core-only and SHA.
-- `mosaic-dev` is Supabase Free. Brevo Free account activation reported by user but Supabase SMTP connection, actual email delivery and Auth policy still unverified. $0-only; no paid domain, Production, dev/main, Appwrite/real-user migration or 1.0 authorization.
+## Accepted baseline
+- Stable isolated Supabase feature `feature/1027-supabase-recovery-20261020@4232523eb809e482663b8746a2ebc5c8a8368324`, v0.32.4. Full canonical #39563102384 and signed local-stack Supabase Core App Lab #39563102461 passed.
+- Protected immutable Vercel Preview `dpl_8wEHnC6mxEnie9wrrg9TWkHDjSvg` serves exact accepted built source `70d7485b06c0004769f03b0ad96189669777f05a`; no public alias/exception approved.
+- User-approved isolated `mosaic-dev` Auth SMTP and OTP code-only site/redirect/template policy applied, two sanitized inspections passed all 7 checks. User confirmed **Gmail** real confirmation, sign-in and password recovery; read-only Auth aggregate found one recent confirmed/signed-in account. Proton messages remain missing after Brevo reports Delivered; do not generalize Gmail deliverability.
+- Newly connected Brevo readback: transactional relay enabled, active Mosaic sender, account on Free plan, 295 reported send credits at observation. Connector does not expose transaction logs, SMTP IP allowlist changes or DKIM/DMARC verification. No paid plan or sender changes.
+- Supabase project `hcxtiifzxoaflhjgoglb` healthy Free; public signup currently permitted at Auth layer. Vercel project has SSO deployment protection. Isolated app builds are NOT a Production migration.
 
-## Implementation
-- Add pinned deployed build identity and strict scope-specific `_vercel_share` URL validator; reject arbitrary hosts, hashes, callback tokens, query params and stale alias **before** hosted browser fixtures are created.
-- Extend signed hosted core and email OTP runner CLI with `--ui-preview` to exercise the accepted immutable deployment (not a rebuild). Use each Playwright BrowserContext's shared request cookie jar to exchange temporary share access privately, then navigate clean app paths; redact share URL diagnostics. Retain provider isolation, tombstone/ban fixture retirement, generated OTPs and other offline/local tests.
-- Unit test the strict preview identity/share-link preflight; document operator-only commands. No publishable runtime change, Vercel alias/protection, hosted Auth policy, Brevo SMTP, Production or real-user mutation.
+## Source-only work for this task
+- New **unapplied** candidate migration `supabase-poc/migrations/20261021_beta_signup_invite_gate.sql`: private normalized-email, max-30-day expiring/revocable allowlist, server-only fail-closed GoTrue Before User Created decision. No metadata/header/admin bypass, function fixed search_path, no table API grants.
+- Synthetic transaction-rollback probe in `supabase-poc/validation/20261021_beta_signup_invite_probe.sql`, source-level security assertions in `tests/unit/supabaseBetaSignupAdmission.test.ts`, operator guide in `supabase-poc/HOSTED_CORE.md`.
+- No live schema migration, hook activation, invitations, email sends, Auth write, Vercel public exposure, old Appwrite user migration or dev/main/Production mutation.
+- Focused task CI and stable canonical/lab acceptance **pending** until this task branch is committed/merged; scratch SQL execution/real GoTrue behavior UNVERIFIED.
 
-## Verification
-- Pending focused Quality Gate and stable feature canonical acceptance on the new task commit. Prior stable v0.32.4 deployment acceptance remains independent; **new deployed-browser modes are not yet executed** and may need refinements when a real scoped share link and operator-held Supabase Management token are provided.
-
-## Next action
-- Run focused quality at exact task SHA, repair and squash into isolated feature branch, obtain full canonical/lab acceptance. Keep deployed v0.32.4 artifact intact; operator uses a private ephemeral Vercel share URL plus local Supabase PAT to run deployed real signed core and generated-OTP confirmation/recovery on the exact app.
-- Configure private Brevo SMTP only in `mosaic-dev` Auth dashboard, inspect sanitized policy, review approved OTP-only templates/site/redirect, then controlled real-mailbox signup/recovery/delivery. Free public beta access needs a scoped, explicitly approved permanent Preview exception/alias after risk review; do not expose shared project or old Appwrite users automatically.
-- Complete physical Android/iOS PWA, offline/return and quota/risk reviews; #1027/#967 stay open, Diary #1029 next after usable core.
+## Release blockers and next
+- Execute SQL probe in an actual disposable Supabase/Postgres environment and test positive/negative GoTrue hook plus `supabase_auth_admin` privileges. The current disposable admin fixture lab may be blocked by hook: design safe temporary fixture invitations before production-like hook activation. Staged schema/hook enablement need separate explicit approval.
+- Run signed immutable deployed `--ui-preview` core/OTP and physical Android/iOS offline/restart tests; verify task/category sync, two owner isolation and stable fresh signup. Protected Preview share link and operator-held Supabase Management token remain private.
+- Review Free quota, Brevo sender authentication for Proton, PWA service worker, rollback/DR and abuse controls. A scoped stable Preview alias and any public Vercel exception require explicit approval and enforceable server invitation gate first.
+- Keep #1027/#967 open. Diary #1029 follows accepted core beta. No paid services, dev/main, Production, 1.0 or existing-user cutover approved.
