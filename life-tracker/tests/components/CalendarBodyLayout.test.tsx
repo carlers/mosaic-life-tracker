@@ -149,8 +149,11 @@ describe('CalendarBody behavior', () => {
 
   it('portals screen-height day details beside the Home workspace without moving its headers', async () => {
     const frame = document.createElement('div');
+    frame.className = 'mosaic-home-workspace';
     const host = document.createElement('div');
-    document.body.append(frame, host);
+    host.dataset.homePanelSlot = 'true';
+    frame.append(host);
+    document.body.append(frame);
     const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(() => ({
       width: 1400, height: 800, left: 0, right: 1400, top: 0, bottom: 800, x: 0, y: 0, toJSON: () => ({}),
     }));
@@ -162,10 +165,11 @@ describe('CalendarBody behavior', () => {
           renderStart={0} renderEnd={0} emblaRef={vi.fn()}
           tasks={[]} categoriesMap={{}} variant="me" isActive currentUserId="user_1"
           dayDetailPresentation="panel" dayPanelSide="left" dayPanelHeight="screen"
-          screenPanelHost={host} screenFrameRef={{ current: frame }}
           onPrev={vi.fn()} onNext={vi.fn()}
-        />
+        />,
+        { container: frame }
       );
+      frame.append(host);
       fireEvent.click(getByTestId('calendar-day'));
       expect(await findByRole('complementary', { name: 'Day details' })).toBeInTheDocument();
       await waitFor(() => expect(host.querySelector('[data-day-panel-side="left"]')).not.toBeNull());
@@ -182,7 +186,6 @@ describe('CalendarBody behavior', () => {
       rect.mockRestore();
       vi.unstubAllGlobals();
       frame.remove();
-      host.remove();
     }
   });
 });

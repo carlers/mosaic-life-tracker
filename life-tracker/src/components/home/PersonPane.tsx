@@ -49,8 +49,6 @@ const LazyFriendPersonPane = React.lazy(() =>
 interface PersonPaneProps {
   person: CarouselPerson;
   isActive: boolean;
-  screenFrameRef?: React.RefObject<HTMLDivElement | null>;
-  screenPanelHost?: HTMLDivElement | null;
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
 }
@@ -67,8 +65,6 @@ function readHomeView(): ViewType {
 const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   person,
   isActive,
-  screenFrameRef,
-  screenPanelHost,
   ownerTasks = [],
   ownerCategories = [],
 }) => {
@@ -188,8 +184,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           dayDetailPresentation={dayDetailPresentation}
           dayPanelSide={dayPanelSide}
           dayPanelHeight={dayPanelHeight}
-          screenFrameRef={screenFrameRef}
-          screenPanelHost={screenPanelHost}
           zoomPreference={calendarZoomDays}
           pinchGestureEnabled={calendarPinchZoom}
           onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
@@ -247,8 +241,6 @@ export const PersonPane: React.FC<PersonPaneProps> = (props) => {
         <LazyFriendPersonPane
           person={props.person}
           isActive={props.isActive}
-          screenFrameRef={props.screenFrameRef}
-          screenPanelHost={props.screenPanelHost}
         />
       </React.Suspense>
     );

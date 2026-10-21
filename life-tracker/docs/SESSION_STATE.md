@@ -24,3 +24,7 @@ Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and 
 - Stable v0.40.2 candidate `8bed5b2f304503d4a528de7b085461897a4881dc`: full CI [39556385411](https://github.com/carlers/mosaic-life-tracker/actions/runs/39556385411) passed checks, DOM, browser, audit, but blocking Home closure 381,293 / 381,000 bytes. No Vercel delivery.
 - Scoped repair moves left/right arrangement from Home useState and three-layer callbacks into portal-derived CSS :has rule, retaining same full-shell layout without extra startup state. Embla reInit then immediate explicit snap after actual resize. Update DOM portal test accordingly; no version increment or release limits changed.
 - Task branch `chatgpt/404-screen-split-budget-20261021`: focused gate, then squash to stable Preview, full canonical gate and trusted READY exact SHA required. Manual wide-screen left/right validation and animation/device checks not yet performed. Do not promote dev/main.
+
+## Follow-up canonical repair
+- Stable Preview `54813673401736d04b5dc8ab97dc59fc1d11db45` CI 39558353190 passed DOM/checks/browser/audit but Home closure was +273 bytes. No gates changed.
+- The active Calendar now measures its nearest Home workspace and resolves its sibling screen portal on actual day selection, reducing Home and owner/friend startup props. Lazy resize handle computes workspace bounds on pointer drag. DOM test validates portal without injected refs. Version remains v0.40.2. Pending focused/full/READY gates.

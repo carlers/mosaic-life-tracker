@@ -6,13 +6,14 @@ interface Props {
   width: number;
   frameWidth: number;
   frameRef: React.RefObject<HTMLDivElement | null>;
+  screenHeight?: boolean;
   onResize: (width: number) => void;
   onResizeStart?: () => void;
   onResizeEnd?: () => void;
   onCommit: (width: number) => void;
 }
 
-export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth, frameRef, onResize, onCommit, onResizeStart, onResizeEnd }) => {
+export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth, frameRef, screenHeight, onResize, onCommit, onResizeStart, onResizeEnd }) => {
   const dragging = useRef<number | null>(null);
   const lastWidth = useRef(width);
   const resize = (value: number) => {
@@ -39,7 +40,9 @@ export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth,
         if (dragging.current !== event.pointerId) return;
         event.preventDefault();
         event.stopPropagation();
-        const rect = frameRef.current?.getBoundingClientRect();
+        const rect = (screenHeight
+          ? frameRef.current?.closest('.mosaic-home-workspace') : frameRef.current
+        )?.getBoundingClientRect();
         if (!rect) return;
         resize(side === 'left' ? event.clientX - rect.left : rect.right - event.clientX);
       }}

@@ -48,8 +48,6 @@ export const HomePage: React.FC = () => {
   } = useCategories();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
-  const [screenPanelHost, setScreenPanelHost] = useState<HTMLDivElement | null>(null);
-  const screenFrameRef = useRef<HTMLDivElement>(null);
   const [renderWindow, setRenderWindow] = useState(INITIAL_RENDER_WINDOW);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
@@ -363,7 +361,6 @@ export const HomePage: React.FC = () => {
   return (
     <>
       <div
-        ref={screenFrameRef}
         data-testid="home-workspace-split"
         className="mosaic-home-workspace flex h-full min-h-0 min-w-0"
       >
@@ -426,8 +423,6 @@ export const HomePage: React.FC = () => {
                     isActive={i === activeIndex}
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
-                    screenFrameRef={screenFrameRef}
-                    screenPanelHost={screenPanelHost}
                   />
                 ) : null}
               </SwiperSlide>
@@ -437,7 +432,6 @@ export const HomePage: React.FC = () => {
         </div>
         </div>
         <div
-          ref={setScreenPanelHost}
           inert={isSearchOpen ? true : undefined}
           data-home-panel-slot="true"
           data-testid="home-screen-panel-slot"
