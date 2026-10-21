@@ -5,7 +5,7 @@
  * IDs or assuming Appwrite user IDs are Supabase Auth UUIDs. The identity
  * mapping must be established and verified separately.
  */
-import type { CategoryDocument, TaskDocument } from '../src/db/schema';
+import type { CategoryDocument, TaskDocument, DiaryDocument } from '../src/db/schema';
 
 export interface CandidateIdentity {
   /** Verified current Appwrite/RxDB user ID, not necessarily a UUID. */
@@ -47,6 +47,23 @@ export interface CandidateCategoryWrite {
   updated_at: string;
   is_deleted: boolean;
 }
+
+export interface CandidateDiaryWrite {
+  owner_id: string;
+  id: string;
+  entry_date: string;
+  content: string;
+  emoji: string;
+  photos: string;
+  visibility: 'private';
+  created_at: string;
+  updated_at: string;
+  is_deleted: boolean;
+}
+export type CandidateDiaryRow = CandidateDiaryWrite & {
+  change_seq: string | number;
+  server_updated_at: string;
+};
 
 export type CandidateTaskRow = CandidateTaskWrite & {
   change_seq: string | number;
@@ -171,6 +188,51 @@ export function fromCandidateCategoryRow(
     icon: row.icon ?? undefined,
     updatedAt: row.updated_at,
     userId: identity.legacyUserId,
+    isDeleted: row.is_deleted,
+  };
+}
+
+/** Private Diary has no social reader or newly supported remote image uploads. */
+function checkDiaryDate(value: string) {
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value) ||
+      !Number.isFinite(new Date(value + 'T00:00:00Z').valueOf()) ||
+      new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) !== value)
+    throw new Error('Invalid candidate Diary calendar date');
+}
+
+export function toCandidateDiaryWrite(
+  doc: DiaryDocument, identity: CandidateIdentity,
+): CandidateDiaryWrite {
+  assertLocalOwner(doc.userId, identity);
+  checkDiaryDate(doc.date);
+  if (doc.visibility !== 'private')
+    throw new Error('Supabase core Diary cannot publish followers/public entries');
+  if (typeof doc.content !== 'string' && doc.content !== undefined ||
+      typeof doc.emoji !== 'string' && doc.emoji !== undefined ||
+      typeof doc.photos !== 'string' && doc.photos !== undefined)
+    throw new Error('Invalid candidate Diary fields');
+  return {
+    owner_id: identity.supabaseUserId, id: doc.id, entry_date: doc.date,
+    content: doc.content ?? '', emoji: doc.emoji ?? '',
+    photos: doc.photos ?? '[]', visibility: 'private',
+    created_at: doc.createdAt, updated_at: doc.updatedAt,
+    is_deleted: doc.isDeleted,
+  };
+}
+
+export function fromCandidateDiaryRow(
+  row: CandidateDiaryRow, identity: CandidateIdentity,
+): DiaryDocument {
+  assertRemoteOwner(row.owner_id, identity);
+  checkDiaryDate(row.entry_date);
+  if (row.visibility !== 'private' || typeof row.content !== 'string' ||
+      typeof row.emoji !== 'string' || typeof row.photos !== 'string')
+    throw new Error('Unapproved Supabase Diary visibility/fields');
+  return {
+    id: row.id, date: row.entry_date,
+    content: row.content, emoji: row.emoji, photos: row.photos,
+    visibility: 'private', userId: identity.legacyUserId,
+    createdAt: row.created_at, updatedAt: row.updated_at,
     isDeleted: row.is_deleted,
   };
 }
