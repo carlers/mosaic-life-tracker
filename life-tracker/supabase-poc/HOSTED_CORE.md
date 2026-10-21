@@ -274,3 +274,38 @@ and cannot verify Brevo delivery. Real public signups, browser privacy/clean
 incognito access, installed Android/iOS PWA and live user email delivery are
 separate release gates. The `--ui-preview` mode never changes Auth policy,
 Vercel alias/protection, published assets or real user content.
+
+## Staged invite-only admission (2026-10-21; **not enabled**)
+
+A protected Vercel URL is not an Auth-side registration gate: a publishable
+Supabase key is public. Before allowing general beta access, enforce invitations
+server-side. `migrations/20261021_beta_signup_invite_gate.sql` is a proposed,
+**unapplied** extra migration, deliberately excluded from the one-time
+zero-user hosted bootstrap. It creates a private exact-email allowlist with a
+30-day maximum invite lifetime and explicit revocation, plus a fail-closed
+GoTrue Before User Created Postgres function. Only `supabase_auth_admin` may
+execute it. App clients, general authenticated users and even the Auth role
+cannot read or write invitation rows. Use an operator-private database channel
+to add invited addresses; never commit real emails or include them in CI logs.
+No user metadata, domain wildcard or fixture/admin bypass is trusted.
+
+`validation/20261021_beta_signup_invite_probe.sql` exercises the function in
+an explicitly disposable database after installing the candidate migration,
+with synthetic `example.invalid` addresses and unconditional ROLLBACK. It
+covers invited, revoked, expired, uninvited, malformed and wrong-hook inputs.
+These are **not yet runtime verified**. A real GoTrue negative/positive and
+role/privilege acceptance is still mandatory; structural unit assertions are
+not substitutes. The hook may run for Admin-created disposable fixtures, so
+the current hosted lab **could fail** if enabled. Before any activation, use
+safely provisioned short-lived fixture invites or isolate the candidate test
+project; do not add a client-controllable bypass to get green tests.
+
+Rollout requires separate explicit permissions for: (1) diff-reviewed isolated
+schema installation and database role review, (2) private invite seeding and
+enabling `pg-functions://postgres/mosaic_candidate_private/beta_before_user_created`
+under Authentication → Hooks → Before User Created. Read back the exact
+configuration and check successful invited and failed outsider signup before
+providing any publicly accessible beta hostname. Record original hook state,
+tested disable/rollback, sender and user rate limits. Nothing in this source
+change installs or activates a hook or changes Vercel protection, old Appwrite
+accounts, dev/main or Production.
