@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { assertProject, connect, inspect, isCasConflict, PROJECT } from '../../supabase-poc/hosted-core.mjs';
 import { exerciseHostedUi } from '../../supabase-poc/hosted-core-ui.mjs';
-import { assertCredentialFreeEmailTemplates, inspectEmailPolicy, previewEmailPolicy, EMAIL_ROUTES, EMAIL_TEMPLATES } from '../../supabase-poc/email-policy.mjs';
+import { assertCredentialFreeEmailTemplates, inspectEmailPolicy, previewEmailPolicy, EMAIL_ROUTES, EMAIL_TEMPLATES, EMAIL_PREVIEW, EMAIL_PREVIEW_SHA, requireDeployedPreviewAccess } from '../../supabase-poc/email-policy.mjs';
 
 const project = { id: PROJECT, name: 'mosaic-dev', status: 'ACTIVE_HEALTHY' };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
@@ -59,6 +59,19 @@ describe('hosted core verification safety boundary', () => {
       { site_url: 'https://mosaic-supabase-core-preview.vercel.app' }])
       expect(() => previewEmailPolicy({ ...current, ...change })).toThrow('Unexpected isolated');
   });
+  it('requires a scoped temporary share link and exact deployment before hosted browser activity', () => {
+    const preview = { origin: EMAIL_PREVIEW, sha: EMAIL_PREVIEW_SHA };
+    const share = EMAIL_PREVIEW + '/?_vercel_share=' + 'a'.repeat(32);
+    expect(requireDeployedPreviewAccess(preview, share)).toBe(share);
+    for (const bad of [undefined, 'https://mosaic-supabase-core-preview.vercel.app/?_vercel_share=' + 'a'.repeat(32),
+      EMAIL_PREVIEW + '/login?_vercel_share=' + 'a'.repeat(32), share + '&next=other',
+      share + '#type=recovery', EMAIL_PREVIEW + '/?token_hash=' + 'a'.repeat(32)])
+      expect(() => requireDeployedPreviewAccess(preview, bad)).toThrow('scoped temporary share URL');
+    expect(() => requireDeployedPreviewAccess({ ...preview, sha: 'a'.repeat(40) }, share))
+      .toThrow('reviewed immutable origin');
+    expect(() => requireDeployedPreviewAccess({ ...preview, origin: 'https://production.example' }, share))
+      .toThrow('reviewed immutable origin');
+  });
   it('generates email grants only for the exact server-marked disposable account', async () => {
     const id = '11111111-1111-4111-8111-111111111111';
     const runId = 'a'.repeat(24);
@@ -91,7 +104,7 @@ describe('hosted core verification safety boundary', () => {
       { origin: 'https://other.vercel.app', sha: 'a'.repeat(40) },
       { origin: 'https://mosaic-supabase-core-preview.vercel.app', sha: '' },
     ]) await expect(exerciseHostedUi(client, [], 'https://' + PROJECT + '.supabase.co', preview))
-      .rejects.toThrow('isolated alias and exact accepted source');
+      .rejects.toThrow('reviewed immutable origin');
     await expect(exerciseHostedUi(client, [], 'https://' + PROJECT + '.supabase.co', null, '.*'))
       .rejects.toThrow('Unknown hosted core browser contract');
     expect(client.management).not.toHaveBeenCalled();

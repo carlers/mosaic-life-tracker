@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { EMAIL_PREVIEW, EMAIL_PREVIEW_SHA } from '../../supabase-poc/email-policy.mjs';
 
 const url = process.env.MOSAIC_SB_LOCAL_URL;
 const key = process.env.MOSAIC_SB_LOCAL_PUBLISHABLE_KEY;
@@ -41,10 +42,28 @@ async function account() {
   const signed = await grant.json();
   return { email, password, id: signed.user.id, token: signed.access_token };
 }
+// This API request shares the browser context's cookie jar. The temporary
+// share token stays out of navigations, screenshots, traces and diagnostics.
+async function newBrowserContext(browser, options) {
+  const context = await browser.newContext(options);
+  if (process.env.MOSAIC_CORE_PREVIEW_SHA) {
+    try {
+      const response = await context.request.get(process.env.MOSAIC_CORE_PREVIEW_SHARE_URL,
+        { timeout: 20_000, maxRedirects: 5 });
+      if (!response.ok() || !(await context.cookies(EMAIL_PREVIEW)).length)
+        throw new Error('Preview access denied');
+    } catch {
+      await context.close();
+      throw new Error('Protected immutable Preview access failed before browser login');
+    }
+  }
+  return context;
+}
 async function signIn(page, owner) {
   await page.goto(app + '/login');
   if (process.env.MOSAIC_CORE_PREVIEW_SHA) {
-    expect(new URL(page.url()).origin).toBe('https://mosaic-supabase-core-preview.vercel.app');
+    expect(new URL(page.url()).origin).toBe(EMAIL_PREVIEW);
+    expect(process.env.MOSAIC_CORE_PREVIEW_SHA).toBe(EMAIL_PREVIEW_SHA);
     const identity = JSON.parse(await page.locator('meta[name="mosaic-build-info"]').getAttribute('content'));
     expect(identity.commit).toBe(process.env.MOSAIC_CORE_PREVIEW_SHA);
     expect(identity.channel).toBe('Preview');
@@ -65,7 +84,7 @@ async function rows(owner, domain) {
 test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and second-device isolation', async ({ browser }) => {
   const owner = await account();
   const other = await account();
-  const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext({ ignoreHTTPSErrors: !hosted })));
+  const contexts = await Promise.all([0, 1, 2].map(() => newBrowserContext(browser, { ignoreHTTPSErrors: !hosted })));
   const boundaryErrors = [];
   const networkFailures = [];
   const responses = {};
@@ -263,8 +282,8 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
 test('offline cold start: durable edits, simultaneous tab rotation and logout isolation', async ({ browser }) => {
   const owner = await account();
   const other = await account();
-  const context = await browser.newContext({ ignoreHTTPSErrors: !hosted });
-  const secondDevice = await browser.newContext({ ignoreHTTPSErrors: !hosted });
+  const context = await newBrowserContext(browser, { ignoreHTTPSErrors: !hosted });
+  const secondDevice = await newBrowserContext(browser, { ignoreHTTPSErrors: !hosted });
   const refreshStatuses = [];
   try {
     const first = await context.newPage();
@@ -388,8 +407,8 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
     'Requires disposable local Auth with a real 60-second JWT lifetime');
   test.setTimeout(180_000);
   const owner = await account();
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
-  const secondContext = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await newBrowserContext(browser, { ignoreHTTPSErrors: true });
+  const secondContext = await newBrowserContext(browser, { ignoreHTTPSErrors: true });
   let oldToken;
   const browserTokens = [];
   const responses = {};
@@ -497,8 +516,8 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
 
 test('lost write acknowledgement: preserve offline draft and review changing cloud state', async ({ browser }) => {
   const owner = await account();
-  const context = await browser.newContext({ ignoreHTTPSErrors: !hosted });
-  const secondContext = await browser.newContext({ ignoreHTTPSErrors: !hosted });
+  const context = await newBrowserContext(browser, { ignoreHTTPSErrors: !hosted });
+  const secondContext = await newBrowserContext(browser, { ignoreHTTPSErrors: !hosted });
   const tokens = [];
   const responses = {};
   let stage = 'sign-in';
@@ -689,8 +708,8 @@ for (const kind of ['signup', 'recovery']) {
         !/^mosaic-hosted-[0-9a-f]{24}-email-a@example\.org$/.test(active.email) ||
         target.email !== active.email.replace('-email-a@', '-email-b@'))
       throw Error('Invalid disposable email fixtures');
-    const context = await browser.newContext({ ignoreHTTPSErrors: false });
-    const separate = await browser.newContext({ ignoreHTTPSErrors: false });
+    const context = await newBrowserContext(browser, { ignoreHTTPSErrors: false });
+    const separate = await newBrowserContext(browser, { ignoreHTTPSErrors: false });
     try {
       const appPage = await context.newPage();
       await signIn(appPage, active);

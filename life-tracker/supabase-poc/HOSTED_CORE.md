@@ -238,3 +238,39 @@ and obtaining an explicit authorization for the **isolated** Auth policy write.
 Do not change shared Vercel aliases or Production/dev/main. The auth policy
 patch preserves SMTP values and unrelated redirect entries; it does not
 configure SMTP, suppress leaked-password warnings or approve public signup.
+
+## Bound immutable-Preview browser exercise (2026-10-21)
+
+The local, signed `--ui` and email `--ui` probes remain unchanged; they build
+and test a localhost-served frontend. To exercise the **already vetted deployed
+v0.32.4 bytes** instead, the operator uses the new `--ui-preview` mode in
+`hosted-core.mjs` and `hosted-email.mjs`. Both commands are pinned to
+`https://mosaic-life-tracker-6luuatyml-carls-projects-72516fde.vercel.app`
+with exact build SHA `70d7485b06c0004769f03b0ad96189669777f05a`; no
+arbitrary host, old protected alias, local rebuild or Production URL is accepted.
+
+These commands **require** a short-lived, exact-origin
+`MOSAIC_CORE_PREVIEW_SHARE_URL` bearing only the `_vercel_share` parameter.
+Retrieve an approved temporary Vercel share link for this immutable deployment;
+set the environment variable **privately on the operator machine**, never in
+GitHub issues, source, CI logs or shell history. Also use the already held
+`SUPABASE_ACCESS_TOKEN` in that same private environment. No credentials are
+placed in the frontend. The runner validates both inputs **before creating
+fixture identities**, exchanges the share URL separately within each fresh
+Playwright browser context and navigates only to clean app paths. Browser
+trace/screenshot/video are disabled, token-containing error text is omitted,
+unauthorized access fails closed, and existing fixture retirement runs on
+any post-provisioning failure.
+
+From the `life-tracker/` directory after private environment setup:
+
+```sh
+node supabase-poc/hosted-core.mjs --ui-preview
+node supabase-poc/hosted-email.mjs --ui-preview
+```
+
+Both are disposable/generated-code exercises; the latter **does not send email**
+and cannot verify Brevo delivery. Real public signups, browser privacy/clean
+incognito access, installed Android/iOS PWA and live user email delivery are
+separate release gates. The `--ui-preview` mode never changes Auth policy,
+Vercel alias/protection, published assets or real user content.
