@@ -26,7 +26,7 @@ const LazyReplyComposerSheet = React.lazy(() =>
   }))
 );
 
-const { Component: LazyDayDetailPanel, preload: preloadDayDetailPanel } =
+const { Component: LazyDayDetailPanel } =
   createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
 
 interface CalendarBodyProps {
@@ -106,7 +106,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [openPresentation, setOpenPresentation] = useState<'sheet' | 'panel'>('sheet');
   const [openedFrameWidth, setOpenedFrameWidth] = useState(0);
   const [panelMounted, setPanelMounted] = useState(false);
-  const [openedHeight, setOpenedHeight] = useState<DayPanelHeight>('grid');
   const panelHostRef = useRef<HTMLDivElement>(null);
   const calendarTriggerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -166,7 +165,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const handleDayClick = useCallback((date: Date) => {
     if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
-    if (dayDetailPresentation === 'panel') void preloadDayDetailPanel().catch(() => {});
     if (document.activeElement instanceof HTMLElement) calendarTriggerRef.current = document.activeElement;
     if (!daySheetOpen) {
       const host = panelHostRef.current;
@@ -175,7 +173,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       const presentation = dayDetailPresentation === 'panel' && width >= DAY_PANEL_MIN_FRAME_WIDTH ? 'panel' : 'sheet';
       setOpenPresentation(presentation);
       if (presentation === 'panel') {
-        setOpenedHeight(dayPanelHeight);
         setOpenedFrameWidth(width);
         setPanelMounted(true);
       }
@@ -271,7 +268,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             side={dayPanelSide}
             isPresented={daySheetOpen}
             onExited={() => setPanelMounted(false)}
-            heightMode={openedHeight}
+            initialHeightMode={dayPanelHeight}
             onCalendarLayoutChange={onCalendarLayoutChange}
             initialFrameWidth={openedFrameWidth}
             frameRef={panelHostRef}

@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import './dayDetailPanel.css';
 import { X } from 'lucide-react';
 import { isSheetVisible } from '../../../lib/sheetVisibility';
 import { DayPanelResizeHandle } from './DayPanelResizeHandle';
@@ -40,7 +41,7 @@ interface DayDetailPanelProps {
   side: DayPanelSide;
   isPresented: boolean;
   onExited: () => void;
-  heightMode: DayPanelHeight;
+  initialHeightMode: DayPanelHeight;
   onCalendarLayoutChange?: () => void;
   initialFrameWidth: number;
   frameRef: React.RefObject<HTMLDivElement | null>;
@@ -59,12 +60,13 @@ interface DayDetailPanelProps {
 }
 
 export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
-  side, isPresented, onExited, heightMode,
+  side, isPresented, onExited, initialHeightMode,
   onCalendarLayoutChange, initialFrameWidth, frameRef,
   onClose, onFocusCalendar, isFriend, selectedDate, onDateChange, tasks,
   categories, friendName, currentUserId, onReplyToTask, onReactToTask, holidayConfig,
 }) => {
   const [panelWidth, setPanelWidth] = useState(readDayPanelWidth);
+  const [heightMode] = useState(initialHeightMode);
   const [entered, setEntered] = useState(false);
   const [frameWidth, setFrameWidth] = useState(initialFrameWidth);
   const [screenPortal, setScreenPortal] = useState<{ node: HTMLDivElement | null } | null>(null);
