@@ -24,7 +24,6 @@ export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth,
       aria-valuemax={maxDayPanelWidth(frameWidth)} aria-valuenow={width}
       aria-valuetext={`${width} pixels`} data-testid="day-panel-resize-handle"
       className="swiper-no-swiping relative z-10 flex h-full w-3 shrink-0 cursor-col-resize touch-none select-none items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-      style={{ order: side === 'left' ? 0 : 2 }}
       onPointerDown={event => {
         if (event.button !== 0 || dragging.current !== null) return;
         event.preventDefault();

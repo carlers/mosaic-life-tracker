@@ -275,8 +275,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const calendarAndPanel = (
     <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex h-full min-h-0 min-w-0 w-full">
-        <div style={{ order: 1 }} className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className={`flex h-full min-h-0 min-w-0 w-full ${dayPanelSide === 'left' ? 'flex-row-reverse' : ''}`}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {calendarContent(carousel)}
         </div>
         {isSplit && (
@@ -289,7 +289,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             className={isSplit
               ? 'h-full min-h-0 shrink-0 p-2'
               : `absolute inset-y-0 ${dayPanelSide === 'left' ? 'left-0' : 'right-0'} z-20 w-[min(100%,440px)] bg-surface p-2`}
-            style={isSplit ? { width: effectivePanelWidth, order: dayPanelSide === 'left' ? -1 : 3 } : undefined}
+            style={isSplit ? { width: effectivePanelWidth } : undefined}
           >
             <LazyDayDetailPanel
               onClose={handleCloseDaySheet}
