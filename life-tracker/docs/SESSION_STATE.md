@@ -48,3 +48,7 @@ Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and 
 ## Seventh CI-budget task
 - Preview `6a96fecf8bbb19e6e526593c299ecda148ab2095` Quality Gate 39561559937 blocking Home closure 381047/381000 bytes (+47). No gate weakening.
 - Deduplicate three preexisting Home idle schedulers behind a small helper; preserve exact idle timeouts 1800/1200/1200 ms, fallback timers 700/900/400 ms and cleanup. Scope is start-up behavior required for Home split's strict bundle-budget acceptance, no user-facing change. Focused → stable full canonical → Vercel exact READY next. 
+
+## Eighth task: consolidate Home keyboard handlers
+- Stable `c95ac81f840c02539811b2f6e53f07dcec6dbe10` full Quality Gate [39562065202](https://github.com/carlers/mosaic-life-tracker/actions/runs/39562065202) passed checks, DOM, both browser shards and dependency audit; only Home closure `381049/381000` (+49 gzip bytes) failed. No gate changes.
+- Merge the two existing Home keyboard listeners for friend-carousel focus (F) and Home accelerators (Shift+H, s, b). Both have identical enablement guards and canUseKeyboardShortcut contract. Keep slash-search separate because of its native-typing exclusions. No split UX changes; v0.40.2 unchanged. Task `chatgpt/404-home-shortcuts-budget-20261021` pending focused and full acceptance then trusted Vercel READY.
