@@ -37,3 +37,7 @@ Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and 
 - Stable candidate `496a6f7b0c6ba15fd67541caafbe28b3962d452a` run 39559807501 Home static closure 381,173/381,000 bytes (+173); full build-size gate blocks Preview. Other checks remained green.
 - Move two split-only CSS :has placement rules out of global startup stylesheet into `src/components/home/views/dayDetailPanel.css`, imported only by lazy DayDetailPanel chunk. Move height preference snapshot into that lazy component, keeping editing mode stable across preference sync, and remove eager manual preload from CalendarBody (lazy mount still imports on first day selection with its existing local Suspense fallback). No budget changes, v0.40.2 retained.
 - Next: task focused CI, stable squash, full canonical, trusted exact READY Vercel then user acceptance. No dev/main promotion.
+
+## Fifth canonical optimization
+- Stable v0.40.2 `8fd111c7b88c612d816e8e1d18ad25e2fd7215d1` full Quality Gate run 39560449743 still above Home closure by 75 gzip bytes (381075/381000). No budget change.
+- Split-only styles and height state now lazy. Replace unused createPreloadedLazy helper (no longer manually prewarmed) with React.lazy plus a panel-local Suspense boundary, keeping the Calendar mounted while the panel import resolves. No markup/layout/data behavior change. Full acceptance and exact Vercel still required.
