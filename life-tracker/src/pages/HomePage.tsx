@@ -27,6 +27,17 @@ const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettin
 const RENDER_WINDOW = 1;
 const INITIAL_RENDER_WINDOW = 0;
 
+// Keep Home preloads after first usable paint, with the same idle and Safari
+// fallback deadlines for settings, task views and neighbor person slides.
+function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
+  if (window.requestIdleCallback) {
+    const id = window.requestIdleCallback(work, { timeout });
+    return () => window.cancelIdleCallback?.(id);
+  }
+  const id = window.setTimeout(work, fallback);
+  return () => window.clearTimeout(id);
+}
+
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
@@ -90,12 +101,7 @@ export const HomePage: React.FC = () => {
     markStartup('home:carousel-ready');
     // Warm only the preferences module once its owning carousel is usable.
     const warm = () => { if (!document.hidden) void preloadFriendSettings().catch(() => {}); };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1800 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = window.setTimeout(warm, 700);
-    return () => window.clearTimeout(id);
+    return whenHomeIdle(warm, 1800, 700);
   }, [carouselLoading]);
 
   useEffect(() => {
@@ -123,27 +129,12 @@ export const HomePage: React.FC = () => {
         );
       }
     };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1200 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    // Safari fallback retains the delayed, startup-safe import.
-    const id = window.setTimeout(warm, 900);
-    return () => window.clearTimeout(id);
+    return whenHomeIdle(warm, 1200, 900);
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
   useEffect(() => {
     const schedule = () => setRenderWindow(RENDER_WINDOW);
-    if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(schedule, { timeout: 1200 });
-      return () => {
-        if (typeof window.cancelIdleCallback === 'function') {
-          window.cancelIdleCallback(idleId);
-        }
-      };
-    }
-    const timer = window.setTimeout(schedule, 400);
-    return () => window.clearTimeout(timer);
+    return whenHomeIdle(schedule, 1200, 400);
   }, []);
 
   useEffect(() => {
