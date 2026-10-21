@@ -36,3 +36,15 @@ Current task: #404 v0.40.3 — left panel alignment, full height and expand/coll
 ## Geometry correction targeted to left-resize completion
 - Debounced watchResize run [39569053753](https://github.com/carlers/mosaic-life-tracker/actions/runs/39569053753) failed original mobile calendar swipe contract and still showed 412px left-grid drift. Reverted global watchResize override entirely; preserve default native Embla handling for all calendars.
 - Post-inspector-layout callback now reInit at canonical focus month, compares actual selected slide and viewport left edges, and, only if the offset is greater than 1 CSS px, synchronizes Embla's current internal location/target/translate to remove exactly that observed delta. This is restricted to explicit panel resize/closing callbacks; there is no eager monthly observer override or calendar DOM remount. Real-browser geometry regression must pass on open/drag/close before any Preview promotion.
+
+## v0.40.3 stable build-size repair (2026-10-21)
+- v0.40.3 source PR #1171 squash `20058e903501691aa1668f0b7debaf5a379d7283`, canonical [39570411230](https://github.com/carlers/mosaic-life-tracker/actions/runs/39570411230): focused and both task browser shards [39569889451](https://github.com/carlers/mosaic-life-tracker/actions/runs/39569889451) SUCCESS; stable production build size **381117/381000 bytes** (+117 gzip bytes) FAILED. The existing size gate is unchanged.
+- Move the optional post-panel-resize Embla positioning code from eager `useCalendarState` into the existing lazy `DayDetailPanel` module and dynamically import the helper only on inspector resize/close. The panel module is already loaded when invoked. The focused-month correction remains identical; unit test awaits the lazy callback. Version remains **0.40.3**; no new features, backend, or dev/main changes.
+- Task `chatgpt/404-lazy-snap-budget-20261021`: focused gate then stable Preview squash/canonical acceptance/exact READY. Human visual acceptance remains required after rollout.
+
+## Task lint repair
+- Focused CI [39570843503](https://github.com/carlers/mosaic-life-tracker/actions/runs/39570843503) failed `react-refresh/only-export-components`: the lazy React `DayDetailPanel.tsx` component file cannot export the geometry helper.
+- Moved the **unchanged** `alignFocusedCalendarSlide` implementation into `calendarPanelSnap.ts`, dynamically imported only by the existing `resnapAfterResize` callback. The DayDetailPanel component exports only the component; no lint disable, size-gate exception, or altered behavior. Keep version 0.40.3. Focused and canonical acceptance pending.
+
+## Generated component inventory
+- Focused [39571081790](https://github.com/carlers/mosaic-life-tracker/actions/runs/39571081790) stopped on generated docs freshness because new pure helper `calendarPanelSnap.ts` needed a source inventory entry. Updated `docs/COMPONENT_INDEX.md` using the generator's sorted path and template contract. No functional change or gate adjustment; rerun focused.

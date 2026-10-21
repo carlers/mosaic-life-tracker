@@ -97,20 +97,9 @@ export function useCalendarState(
   // focused slide rather than remounting a 61-slide calendar.
   const resnapAfterResize = useCallback(() => {
     if (!emblaApi) return;
-    emblaApi.reInit({ startIndex: focusIndex });
-    const slide = emblaApi.slideNodes()[focusIndex];
-    if (!slide) return;
-    const delta = slide.getBoundingClientRect().left
-      - emblaApi.rootNode().getBoundingClientRect().left;
-    if (Math.abs(delta) <= 1) return;
-    const engine = emblaApi.internalEngine();
-    const aligned = engine.location.get() - delta;
-    engine.animation.stop();
-    engine.location.set(aligned);
-    engine.offsetLocation.set(aligned);
-    engine.previousLocation.set(aligned);
-    engine.target.set(aligned);
-    engine.translate.to(aligned);
+    void import('./calendarPanelSnap').then(({ alignFocusedCalendarSlide }) =>
+      alignFocusedCalendarSlide(emblaApi, focusIndex)
+    );
   }, [emblaApi, focusIndex]);
 
   // Selection makes the destination slide ready; waiting for Embla's
