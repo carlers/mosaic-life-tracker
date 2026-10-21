@@ -1,23 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Current task: #1027 verify exact Supabase CI-artifact prebuilt staging.
+Current task: #1027 repair direct cold-navigation 404 for Supabase email confirmation.
 
 ## Source and safety
-- Accepted isolated baseline `feature/1027-supabase-recovery-20261020@277252bd8ac551934e3fb9fd9e75b911de770fac`, v0.32.3. Canonical Quality Gate #39541536470 and signed disposable Supabase lab #39541536518 SUCCESS. Artifact #12319758414, GitHub-reported ZIP SHA256 `b861bc9a496d2d0e50d82175e297954441da99d4a836e47647b6715d7e411aea`; 178 static files verified.
-- Deployed isolated alias `mosaic-supabase-core-preview.vercel.app` still points to protected older READY `dpl_CSBQtqBXqz2naXLx3bS73rE4UTAR`; no current v0.32.3 deployed proof. Preserve Production/dev/main, existing user data, original Appwrite support, external credentials and registered SSO/aliases. Appwrite Scratch suspended; OCI VM not provisioned.
-- Original Codex operator VM expired. Reconstructed credential-free OTP email templates/code-entry UI in PRs #1141/#1142/#1144; historical hosted-code evidence was from *different* source, so not acceptance for current SHA.
+- Isolated accepted baseline `feature/1027-supabase-recovery-20261020@faa4649b9f60174205c89f9c1064fa02269d7789`, v0.32.3; Quality Gate #39545036549 and Supabase Core App Lab #39545036568 SUCCESS; signed CI artifact #12320933249 with 178 verified static files.
+- Immutable Vercel Preview `dpl_8SQCLXk2NG6JAbPtTQ8J3eWgfC5r` READY at `https://mosaic-life-tracker-a52pfxk0n-carls-projects-72516fde.vercel.app`. Protected alias `mosaic-supabase-core-preview.vercel.app` still points to older READY `dpl_CSBQtqBXqz2naXLx3bS73rE4UTAR`. User reproduced private/incognito cold 404 at `/auth/confirm` while `/reset-password` worked. No credentials, provider policy, real accounts or Production/dev/main changed.
+- Vercel project Root Directory `life-tracker`, SSO enabled. Appwrite Scratch suspended; OCI VM not provisioned.
 
-## Implemented
-- Task `chatgpt/1027-verify-prebuilt-staging-20261021` adds an exact-SHA disposable CI execution of the previously accepted `scripts/stage-supabase-core-artifact.mjs` after building the isolated Supabase public-input ZIP.
-- Assert Vercel v3 static files and `STAGED_NOT_DEPLOYED` marker; negative checks forbid digest mismatch and overwrite. Job never rebuilds after staging, contacts Vercel, changes email policies or passes cloud secrets. Local ZIP digest tests mechanics only; separate operator must verify GitHub-reported artifact digest and both gates.
-- No user-visible version impact; keep version v0.32.3.
+## Implemented in current task branch
+- Root cause: React `RootAuthProvider` recognizes `/auth/confirm`, but `vercel.json` and strict Build Output API v3 route generator omit that deep-link rewrite; cached PWA navigation masked missing server fallback.
+- Add the exact `/auth/confirm` SPA rewrite; update strict prebuilt route counts 15 → 16 without relaxing headers or filesystem handling; assert both email routes and unmatched paths in routing tests. Set next user-testable Preview revision `0.32.4` in all three version fields. Email token/auth code unchanged.
+- Main-owned trusted generic Appwrite prebuilt writer retains its independent reviewed routing fingerprint; no relaxation of that trust boundary. Isolated Supabase staging independently verifies route digest at the new exact source SHA.
 
-## Verification
-- Focused task, then stable full canonical plus signed Supabase lab and fresh exact SHA-bound artifact required. Never reuse earlier SHA evidence for new source.
-- Hosted RLS: task/category policies constrain `auth.uid()`; privileged CAS/core session functions have owner/session checks, empty search_path and revoked anonymous EXECUTE. Security Advisor still reports intentionally authenticated-executable SECURITY DEFINER RPCs and disabled leaked-password protection. Final security signoff pending.
-
-## Next action
-- Repair actual focused/lab failures, squash to isolated Preview, verify exact source and artifact.
-- Fresh-account beta still needs trusted external immutable Vercel prebuilt delivery, clean hosted Auth email template readback, 3 deployed core + 2 hosted OTP tests, real SMTP/mailbox delivery and physical PWA acceptance. Never use unsafe old hash-token email links or bypass Vercel SSO.
-- Existing-user release additionally needs server Appwrite legacy-PWA writer cutoff, verified owner mapping, three-provider reversible changes/tombstones/pending offline edits, encrypted DR and restore. No Production or user migration without approval; Diary #1029 after core. Keep #1027/#967/#975/#1026 open.
+## Verification / next action
+- Focused task CI `[verify:focused]`; squash PR into isolated stable `feature/1027-supabase-recovery-20261020`; require new exact-SHA full Quality Gate and signed Supabase Core App Lab/artifact. Old v0.32.3 CI evidence and deployed bytes do **not** accept corrected route.
+- Assemble new verified prebuilt, deploy only immutable protected Preview with operator gating; never move alias/Production without acceptance. Browser incognito HTTP navigation to `/auth/confirm` and `/reset-password`, then hosted disposable Auth/core/email-code tests, safe isolated email template readback, controlled SMTP, physical PWA remain.
+- Supabase security review: three intentionally authenticated privileged SECURITY DEFINER RPC Advisor warnings; disabled leaked-password protection. Existing-user Appwrite writer fencing, owner mapping, tombstones and reversible DR remain separate release work. Keep #1027/#967 open; Diary #1029 after core.

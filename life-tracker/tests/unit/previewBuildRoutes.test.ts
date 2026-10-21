@@ -20,7 +20,7 @@ describe('Vercel static prebuilt routing contract (#592)', () => {
       route.headers?.['X-Frame-Options'] === 'DENY' &&
       route.headers?.['X-Content-Type-Options'] === 'nosniff')).toBe(true);
     expect(evidence).toMatchObject({
-      deploymentAuthorized: false, rewrites: 15,
+      deploymentAuthorized: false, rewrites: 16,
       generatedConfigSha256: sha256(serialized),
       vercelConfigSha256: sha256(preparedRoutes.raw),
     });
@@ -30,18 +30,18 @@ describe('Vercel static prebuilt routing contract (#592)', () => {
     const { config } = await prepared();
     const rewrites = config.routes.filter((route: { dest?: string }) =>
       route.dest === '/index.html' || route.dest === '/index.html?path=$1');
-    expect(rewrites).toHaveLength(15);
+    expect(rewrites).toHaveLength(16);
     expect(rewrites.filter((r: { dest?: string }) => r.dest === '/index.html?path=$1'))
       .toHaveLength(4);
     const served = (url: string) => rewrites.some((rule: { src?: string }) =>
       typeof rule.src === 'string' && new RegExp(rule.src).test(url));
     for (const url of [
-      '/reset-password', '/login', '/home', '/backlog', '/bucket-list',
+      '/auth/confirm', '/reset-password', '/login', '/home', '/backlog', '/bucket-list',
       '/bucket-list/123', '/explore', '/friends/alice', '/notifications',
       '/messages', '/messages/123', '/account', '/settings',
       '/settings/notifications', '/profile',
     ]) expect(served(url), url).toBe(true);
-    for (const url of ['/assets/missing.js', '/does-not-exist', '/push-sw.js', '/favicon.svg']) {
+    for (const url of ['/auth/confirm/invalid', '/assets/missing.js', '/does-not-exist', '/push-sw.js', '/favicon.svg']) {
       expect(served(url), url).toBe(false);
     }
   });
