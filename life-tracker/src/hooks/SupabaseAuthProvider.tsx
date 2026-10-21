@@ -312,6 +312,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       session: runtime.session,
       isActive: () => active && mounted.current &&
         runtime.coordinator.getPhase() === 'active' &&
+        (runtime.session.getExpiresAt() ?? 0) - Date.now() >= 120_000 &&
         (!runtime.browser || runtime.browser.isCurrent()),
       onWake: catchUp,
     });

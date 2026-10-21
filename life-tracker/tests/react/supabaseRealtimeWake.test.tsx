@@ -37,19 +37,24 @@ class FakeSocket {
 const publishableKey = 'sb_publishable_test_test_test';
 function harness() {
   const signed = { userId: owner, accessToken: 'signed-owner-token', sessionEpoch: 3 };
+  const diagnostics = { active: 0, online: 0, visible: 0, factory: 0 };
   const session = { getVerifiedSession: vi.fn(async () => ({ ...signed })) };
   const onWake = vi.fn(async () => {});
   let active = true;
   const stop = startCoreRealtimeWake({
     baseUrl: 'https://hcxtiifzxoaflhjgoglb.supabase.co',
-    publishableKey, session, onWake, isActive: () => active,
-    socketFactory: url => new FakeSocket(url) as unknown as WebSocket,
-    isOnline: () => true, isVisible: () => true,
+    publishableKey, session, onWake, isActive: () => { diagnostics.active++; return active; },
+    socketFactory: url => { diagnostics.factory++; return new FakeSocket(url) as unknown as WebSocket; },
+    isOnline: () => { diagnostics.online++; return true; },
+    isVisible: () => { diagnostics.visible++; return true; },
   });
-  return { session, signed, stop, onWake, deactivate: () => { active = false; } };
+  return { session, signed, stop, onWake, diagnostics, deactivate: () => { active = false; } };
 }
-async function getSocket() {
-  await vi.waitFor(() => expect(FakeSocket.sockets.length).toBeGreaterThan(0));
+async function getSocket(h: ReturnType<typeof harness>) {
+  await vi.waitFor(() => {
+    if (!FakeSocket.sockets.length) throw Error('No socket: ' + JSON.stringify({ ...h.diagnostics,
+      sessionCalls: h.session.getVerifiedSession.mock.calls.length }));
+  });
   return FakeSocket.sockets.at(-1)!;
 }
 
@@ -62,7 +67,7 @@ describe('Supabase signed owner realtime wake (#1187)', () => {
 
   it('subscribes only to owner-filtered INSERT/UPDATE, then wakes incremental pull without applying payloads', async () => {
     const h = harness();
-    const socket = await getSocket();
+    const socket = await getSocket(h);
     expect(socket.url).toContain('vsn=1.0.0');
     expect(socket.url).not.toContain('signed-owner-token');
     socket.open();
@@ -90,7 +95,7 @@ describe('Supabase signed owner realtime wake (#1187)', () => {
 
   it('fences in-flight changes after session replacement or account switch', async () => {
     const h = harness();
-    const socket = await getSocket();
+    const socket = await getSocket(h);
     socket.open();
     socket.acceptJoin();
     await vi.waitFor(() => expect(h.onWake).toHaveBeenCalledTimes(1));
@@ -104,7 +109,7 @@ describe('Supabase signed owner realtime wake (#1187)', () => {
 
   it('rejects a rejected channel and keeps a bounded fallback instead of trusting notifications', async () => {
     const h = harness();
-    const socket = await getSocket();
+    const socket = await getSocket(h);
     socket.open();
     const join = socket.frames[0];
     socket.receive({ topic: join.topic, event: 'phx_reply', ref: join.ref, payload: { status: 'error' } });
