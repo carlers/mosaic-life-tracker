@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
@@ -82,10 +82,7 @@ export const HomePage: React.FC = () => {
     setActivePersonId('me');
   }
 
-  const activeIndex = useMemo(() => {
-    const idx = persons.findIndex((p) => p.id === activePersonId);
-    return idx >= 0 ? idx : 0;
-  }, [persons, activePersonId]);
+  const activeIndex = Math.max(0, persons.findIndex((p) => p.id === activePersonId));
 
   useEffect(() => {
     markStartup('home:mounted');
@@ -153,8 +150,6 @@ export const HomePage: React.FC = () => {
     if (!s) return;
     const raf = requestAnimationFrame(() => {
       s.update();
-      s.updateSize();
-      s.updateSlides();
       const idx = persons.findIndex((p) => p.id === activePersonId);
       if (idx >= 0 && s.activeIndex !== idx) {
         s.slideTo(idx, 0);
