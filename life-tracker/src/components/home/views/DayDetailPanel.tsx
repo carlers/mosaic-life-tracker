@@ -199,6 +199,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         {isSplit && (
           <DayPanelResizeHandle
             side={side} width={effectivePanelWidth} frameWidth={frameWidth} frameRef={frameRef}
+            screenHeight={Boolean(portalHost) && heightMode === 'screen'}
             onResize={setPanelWidth}
             onCommit={width => { saveDayPanelWidth(width); realignRef.current?.(); }}
             onResizeEnd={finishResize}

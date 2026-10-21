@@ -43,8 +43,6 @@ interface CalendarBodyProps {
   dayDetailPresentation?: 'sheet' | 'panel';
   dayPanelSide?: DayPanelSide;
   dayPanelHeight?: DayPanelHeight;
-  screenFrameRef?: React.RefObject<HTMLDivElement | null>;
-  screenPanelHost?: HTMLDivElement | null;
   zoomPreference?: CalendarZoomDays;
   pinchGestureEnabled?: boolean;
   onZoomPreferenceChange?: (days: CalendarZoomDays) => void;
@@ -81,8 +79,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   dayDetailPresentation = 'sheet',
   dayPanelSide = 'right',
   dayPanelHeight = 'grid',
-  screenFrameRef,
-  screenPanelHost,
   zoomPreference = 7,
   pinchGestureEnabled = false,
   onZoomPreferenceChange,
@@ -111,12 +107,14 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [availableWidth, setAvailableWidth] = useState(0);
   const [panelMounted, setPanelMounted] = useState(false);
   const [openedHeight, setOpenedHeight] = useState<DayPanelHeight>('grid');
+  const [portalHost, setPortalHost] = useState<HTMLDivElement | null>(null);
   const panelHostRef = useRef<HTMLDivElement>(null);
   const calendarTriggerRef = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
     if (dayDetailPresentation !== 'panel' || !isActive) return;
-    const host = dayPanelHeight === 'screen' && screenFrameRef?.current
-      ? screenFrameRef.current : panelHostRef.current;
+    const host = dayPanelHeight === 'screen'
+      ? panelHostRef.current?.closest('.mosaic-home-workspace') ?? panelHostRef.current
+      : panelHostRef.current;
     if (!host) return;
     const measure = () => setAvailableWidth(host.getBoundingClientRect().width);
     measure();
@@ -124,7 +122,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     const observer = new ResizeObserver(measure);
     observer.observe(host);
     return () => observer.disconnect();
-  }, [dayDetailPresentation, dayPanelHeight, screenFrameRef, isActive]);
+  }, [dayDetailPresentation, dayPanelHeight, isActive]);
   useEffect(() => {
     if (isActive) return;
     const timer = window.setTimeout(() => {
@@ -189,6 +187,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       setOpenPresentation(presentation);
       if (presentation === 'panel') {
         setOpenedHeight(dayPanelHeight);
+        setPortalHost(dayPanelHeight === 'screen'
+          ? panelHostRef.current?.closest('.mosaic-home-workspace')
+            ?.querySelector<HTMLDivElement>('[data-home-panel-slot]') ?? null
+          : null);
         setPanelMounted(true);
       }
     }
@@ -271,7 +273,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const isFriend = variant === 'friend' && Boolean(friendName && friendUserId);
   const panelOpen = panelMounted && openPresentation === 'panel' && isActive;
-  const fullScreen = panelOpen && openedHeight === 'screen' && Boolean(screenPanelHost);
+  const fullScreen = panelOpen && openedHeight === 'screen' && Boolean(portalHost);
   const isSplit = panelOpen && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
 
   const calendarAndPanel = (
@@ -287,10 +289,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             isPresented={daySheetOpen}
             onExited={() => setPanelMounted(false)}
             heightMode={openedHeight}
-            portalHost={fullScreen ? screenPanelHost : null}
+            portalHost={fullScreen ? portalHost : null}
             onCalendarLayoutChange={onCalendarLayoutChange}
             frameWidth={availableWidth}
-            frameRef={fullScreen && screenFrameRef ? screenFrameRef : panelHostRef}
+            frameRef={panelHostRef}
             onClose={handleCloseDaySheet}
             onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}
             isFriend={isFriend}
