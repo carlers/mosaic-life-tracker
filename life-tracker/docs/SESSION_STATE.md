@@ -48,3 +48,7 @@ Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and 
 ## Seventh CI-budget task
 - Preview `6a96fecf8bbb19e6e526593c299ecda148ab2095` Quality Gate 39561559937 blocking Home closure 381047/381000 bytes (+47). No gate weakening.
 - Deduplicate three preexisting Home idle schedulers behind a small helper; preserve exact idle timeouts 1800/1200/1200 ms, fallback timers 700/900/400 ms and cleanup. Scope is start-up behavior required for Home split's strict bundle-budget acceptance, no user-facing change. Focused → stable full canonical → Vercel exact READY next. 
+
+## Eighth size-gate repair
+- Stable v0.40.2 `c95ac81f840c02539811b2f6e53f07dcec6dbe10` Quality Gate 39562065202 Home closure +49 bytes, all limits enforced.
+- Remove duplicate Swiper.updateSize() and updateSlides() immediately after Swiper.update(), which already performs both internally, avoiding redundant layout work with the new Home split. Inline neighboring-slide window initialization constants without changing behavior. No backend/style changes. Next task focused / canonical / trusted READY before link; dev/main untouched.

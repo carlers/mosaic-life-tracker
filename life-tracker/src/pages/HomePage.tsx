@@ -24,8 +24,6 @@ import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/day
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
-const RENDER_WINDOW = 1;
-const INITIAL_RENDER_WINDOW = 0;
 
 // Keep Home preloads after first usable paint, with the same idle and Safari
 // fallback deadlines for settings, task views and neighbor person slides.
@@ -59,7 +57,7 @@ export const HomePage: React.FC = () => {
   } = useCategories();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
-  const [renderWindow, setRenderWindow] = useState(INITIAL_RENDER_WINDOW);
+  const [renderWindow, setRenderWindow] = useState(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -133,8 +131,7 @@ export const HomePage: React.FC = () => {
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
   useEffect(() => {
-    const schedule = () => setRenderWindow(RENDER_WINDOW);
-    return whenHomeIdle(schedule, 1200, 400);
+    return whenHomeIdle(() => setRenderWindow(1), 1200, 400);
   }, []);
 
   useEffect(() => {
@@ -156,8 +153,6 @@ export const HomePage: React.FC = () => {
     if (!s) return;
     const raf = requestAnimationFrame(() => {
       s.update();
-      s.updateSize();
-      s.updateSlides();
       const idx = persons.findIndex((p) => p.id === activePersonId);
       if (idx >= 0 && s.activeIndex !== idx) {
         s.slideTo(idx, 0);
