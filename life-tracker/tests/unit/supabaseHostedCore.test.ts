@@ -8,6 +8,11 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 
 describe('hosted core verification safety boundary', () => {
   it('limits email policy edits to the isolated callbacks and preserves existing redirect entries', () => {
+    // Explicitly bind policy to the independently accepted immutable Preview, not the stale alias.
+    expect(EMAIL_ROUTES).toEqual([
+      'https://mosaic-life-tracker-6luuatyml-carls-projects-72516fde.vercel.app/auth/confirm',
+      'https://mosaic-life-tracker-6luuatyml-carls-projects-72516fde.vercel.app/reset-password',
+    ]);
     const current = { site_url: 'http://localhost:3000', mailer_autoconfirm: false,
       uri_allow_list: 'http://localhost:3000/reset-password', smtp_pass: 'never-display' };
     const patch = previewEmailPolicy(current);
@@ -26,6 +31,13 @@ describe('hosted core verification safety boundary', () => {
       confirmationRequired: true, siteReady: true, redirectsReady: true, templatesReady: true,
     });
     expect(JSON.stringify(inspectEmailPolicy(current))).not.toContain('never-display');
+    expect(inspectEmailPolicy({ ...current, smtp_host: 'smtp-relay.brevo.com',
+      smtp_admin_email: 'private@example.org', smtp_pass: 'never-display' })).toMatchObject({
+      customSmtpConfigured: true, brevoRelayConfigured: true, smtpSenderConfigured: true,
+    });
+    expect(JSON.stringify(inspectEmailPolicy({ ...current, smtp_host: 'smtp-relay.brevo.com',
+      smtp_admin_email: 'private@example.org', smtp_pass: 'never-display' })))
+      .not.toContain('private@example.org');
     expect(assertCredentialFreeEmailTemplates()).toBe(true);
     expect(() => assertCredentialFreeEmailTemplates({
       ...EMAIL_TEMPLATES,
@@ -42,7 +54,9 @@ describe('hosted core verification safety boundary', () => {
       mailer_templates_confirmation_content: EMAIL_TEMPLATES.mailer_templates_confirmation_content
         .replace('/auth/confirm"', '/auth/confirm#token_hash=secret"'),
     })).toThrow('must use a code');
-    for (const change of [{ mailer_autoconfirm: true }, { site_url: 'https://production.example' }])
+    for (const change of [{ mailer_autoconfirm: true },
+      { site_url: 'https://production.example' },
+      { site_url: 'https://mosaic-supabase-core-preview.vercel.app' }])
       expect(() => previewEmailPolicy({ ...current, ...change })).toThrow('Unexpected isolated');
   });
   it('generates email grants only for the exact server-marked disposable account', async () => {

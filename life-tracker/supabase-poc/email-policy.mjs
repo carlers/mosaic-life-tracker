@@ -1,4 +1,6 @@
-export const EMAIL_PREVIEW = 'https://mosaic-supabase-core-preview.vercel.app';
+// Immutable v0.32.4 deployment; the old protected alias still points to an earlier build.
+// Only advance this exact origin after new signed/hosted acceptance and operator review.
+export const EMAIL_PREVIEW = 'https://mosaic-life-tracker-6luuatyml-carls-projects-72516fde.vercel.app';
 export const EMAIL_ROUTES = [EMAIL_PREVIEW + '/auth/confirm', EMAIL_PREVIEW + '/reset-password'];
 export const EMAIL_TEMPLATES = {
   mailer_templates_confirmation_content:
@@ -44,6 +46,8 @@ export function inspectEmailPolicy(current) {
       EMAIL_ROUTES.every(route => current.uri_allow_list.split(',').map(value => value.trim()).includes(route)),
     templatesReady: Object.entries(EMAIL_TEMPLATES).every(([key, value]) => current[key] === value),
     customSmtpConfigured: Boolean(current.smtp_host),
+    brevoRelayConfigured: current.smtp_host === 'smtp-relay.brevo.com',
+    smtpSenderConfigured: Boolean(current.smtp_admin_email),
     emailRateLimit: current.rate_limit_email_sent ?? null,
   };
 }
