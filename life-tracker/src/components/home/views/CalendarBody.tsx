@@ -35,7 +35,7 @@ interface CalendarBodyProps {
   renderStart: number;
   renderEnd: number;
   emblaRef: (node: HTMLElement | null) => void;
-  onCalendarLayoutChange?: () => void;
+  onCalendarLayoutChange?: (live?: boolean) => void;
   tasks: TaskDocument[];
   categories?: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;

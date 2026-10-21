@@ -35,7 +35,7 @@ export interface CalendarState {
   isZoomTransitioning: boolean;
   handleZoomNavigate: (direction: 'prev' | 'next') => boolean;
   emblaRef: (node: HTMLElement | null) => void;
-  resnapAfterResize: () => void;
+  resnapAfterResize: (live?: boolean) => void;
   title: string;
   handlePrev: () => void;
   handleNext: () => void;
@@ -76,6 +76,10 @@ export function useCalendarState(
     startIndex: CENTER_INDEX,
     duration: reduceMotion ? 0 : 22,
     watchDrag: (_api, event) => !(event.target instanceof Element && event.target.closest('[data-calendar-zoom-lane]')),
+    // The inspector projects the focused month during its own width animation.
+    // Embla's default ResizeObserver reInit on every width frame would fight it.
+    watchResize: (api) => !api.rootNode().closest('.mosaic-home-workspace')
+      ?.querySelector('[data-day-panel-side]'),
   });
 
   useEmblaTrackpadNavigation(emblaApi);
@@ -95,11 +99,15 @@ export function useCalendarState(
   // exactly equal to the space taken by the inspector even when the selected
   // snap index is correct. Align the existing engine's location with the real
   // focused slide rather than remounting a 61-slide calendar.
-  const resnapAfterResize = useCallback(() => {
+  const panelResizeSequence = useRef(0);
+  const resnapAfterResize = useCallback((live = false) => {
     if (!emblaApi) return;
-    void import('./calendarPanelSnap').then(({ alignFocusedCalendarSlide }) =>
-      alignFocusedCalendarSlide(emblaApi, focusIndex)
-    );
+    const sequence = ++panelResizeSequence.current;
+    void import('./calendarPanelSnap').then(({ alignFocusedCalendarSlide, projectFocusedCalendarSlide }) => {
+      if (sequence !== panelResizeSequence.current) return;
+      if (live) projectFocusedCalendarSlide(emblaApi, focusIndex);
+      else alignFocusedCalendarSlide(emblaApi, focusIndex);
+    });
   }, [emblaApi, focusIndex]);
 
   // Selection makes the destination slide ready; waiting for Embla's

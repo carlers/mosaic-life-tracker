@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { clampDayPanelWidth, DAY_PANEL_MIN_WIDTH, maxDayPanelWidth, type DayPanelSide } from '../../../lib/dayPanelLayout';
 
 interface Props {
@@ -16,10 +16,25 @@ interface Props {
 export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth, frameRef, screenHeight, onResize, onCommit, onResizeStart, onResizeEnd }) => {
   const dragging = useRef<number | null>(null);
   const lastWidth = useRef(width);
-  const resize = (value: number) => {
+  const frame = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+  }, []);
+  const resize = (value: number, pointer = false) => {
     const next = clampDayPanelWidth(value, frameWidth);
     lastWidth.current = next;
-    onResize(next);
+    if (pointer) {
+      if (frame.current === null) frame.current = requestAnimationFrame(() => {
+        frame.current = null;
+        onResize(lastWidth.current);
+      });
+    } else onResize(next);
+  };
+  const flushResize = () => {
+    if (frame.current === null) return;
+    cancelAnimationFrame(frame.current);
+    frame.current = null;
+    onResize(lastWidth.current);
   };
   return (
     <div role="separator" tabIndex={0} aria-label="Resize day details panel"
@@ -44,12 +59,13 @@ export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth,
           ? frameRef.current?.closest('.mosaic-home-workspace') : frameRef.current
         )?.getBoundingClientRect();
         if (!rect) return;
-        resize(side === 'left' ? event.clientX - rect.left : rect.right - event.clientX);
+        resize(side === 'left' ? event.clientX - rect.left : rect.right - event.clientX, true);
       }}
       onPointerUp={event => {
         if (dragging.current !== event.pointerId) return;
         event.stopPropagation();
         dragging.current = null;
+        flushResize();
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
         onCommit(lastWidth.current);
         onResizeEnd?.();
@@ -57,6 +73,7 @@ export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth,
       onPointerCancel={event => {
         if (dragging.current !== event.pointerId) return;
         dragging.current = null;
+        flushResize();
         onCommit(lastWidth.current);
         onResizeEnd?.();
       }}
@@ -73,6 +90,7 @@ export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth,
         const result = clampDayPanelWidth(next, frameWidth);
         resize(result);
         onCommit(result);
+         onResizeEnd?.();
       }}
     >
       <div aria-hidden="true" className="h-14 w-1 rounded-full bg-[var(--mosaic-border)]" />

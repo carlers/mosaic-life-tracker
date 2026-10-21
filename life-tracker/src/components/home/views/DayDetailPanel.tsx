@@ -42,7 +42,7 @@ interface DayDetailPanelProps {
   isPresented: boolean;
   onExited: () => void;
   initialHeightMode: DayPanelHeight;
-  onCalendarLayoutChange?: () => void;
+  onCalendarLayoutChange?: (live?: boolean) => void;
   initialFrameWidth: number;
   frameRef: React.RefObject<HTMLDivElement | null>;
   onClose: () => void;
@@ -68,6 +68,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const [panelWidth, setPanelWidth] = useState(readDayPanelWidth);
   const [heightMode] = useState(initialHeightMode);
   const [entered, setEntered] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [frameWidth, setFrameWidth] = useState(initialFrameWidth);
   const [frameHeight, setFrameHeight] = useState(0);
   const [screenPortal, setScreenPortal] = useState<{ node: HTMLDivElement | null } | null>(null);
@@ -80,12 +81,16 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     const measure = () => {
       const rect = frame.getBoundingClientRect();
       setFrameWidth(rect.width);
-      setFrameHeight(rect.height);
+      // In grid mode the inspector starts beneath Home chrome, but its bottom
+      // is the workspace bottom, not the possibly shorter month grid.
+      const homeBottom = home?.getBoundingClientRect().bottom ?? rect.bottom;
+      setFrameHeight(Math.max(rect.height, homeBottom - rect.top));
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(frame);
+    if (home && home !== frame) observer.observe(home);
     return () => observer.disconnect();
   }, [heightMode, frameRef]);
   const portalHost = screenPortal?.node ?? null;
@@ -123,15 +128,19 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     let previousWidth = viewport.getBoundingClientRect().width;
     const observer = new ResizeObserver(() => {
       const width = viewport.getBoundingClientRect().width;
-      if (Math.abs(width - previousWidth) < 1) return;
+      if (Math.abs(width - previousWidth) < 0.1) return;
       previousWidth = width;
-      if (pending !== null) window.clearTimeout(pending);
-      pending = window.setTimeout(() => realignRef.current?.(), 85);
+      if (pending !== null) window.cancelAnimationFrame(pending);
+      // Project the focused slide at the current width without reInit.
+      pending = window.requestAnimationFrame(() => {
+        pending = null;
+        realignRef.current?.(true);
+      });
     });
     observer.observe(viewport);
     return () => {
       observer.disconnect();
-      if (pending !== null) window.clearTimeout(pending);
+      if (pending !== null) window.cancelAnimationFrame(pending);
     };
   }, [frameRef]);
 
@@ -199,7 +208,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         width: entered ? (isSplit ? targetWidth : 'min(100%, 440px)') : 0,
         height: frameHeight || '100%',
         pointerEvents: isPresented ? 'auto' : 'none',
-        transition: reduceMotion ? 'none' : 'width 300ms cubic-bezier(0.22, 1, 0.36, 1)',
+        transition: reduceMotion || dragging ? 'none' : 'width 300ms cubic-bezier(0.22, 1, 0.36, 1)',
       }}
       onTransitionEnd={event => {
         if (event.target === event.currentTarget)
@@ -213,8 +222,9 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
             side={side} width={effectivePanelWidth} frameWidth={frameWidth} frameRef={frameRef}
             screenHeight={Boolean(portalHost) && heightMode === 'screen'}
             onResize={setPanelWidth}
-            onCommit={width => { saveDayPanelWidth(width); realignRef.current?.(); }}
-            onResizeEnd={finishResize}
+            onResizeStart={() => setDragging(true)}
+            onCommit={saveDayPanelWidth}
+            onResizeEnd={() => { setDragging(false); finishResize(); }}
           />
         )}
         <div className="h-full min-h-0 shrink-0 p-2"
