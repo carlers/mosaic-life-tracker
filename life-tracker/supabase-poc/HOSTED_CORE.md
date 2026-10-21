@@ -211,3 +211,30 @@ actual READY metadata, safely update the isolated Auth email policy and alias,
 exercise the deployed 3 core + 2 email disposable browser scenarios, and
 revoke temporary credentials. Never use staging output as proof of deployed
 acceptance or as permission to touch the existing Appwrite/Production paths.
+
+## Fresh-account beta: zero-cost email destination (2026-10-21)
+
+The accepted v0.32.4 artifact is currently on the **immutable, SSO-protected**
+`https://mosaic-life-tracker-6luuatyml-carls-projects-72516fde.vercel.app` Preview; its cold confirmation and reset paths were verified by the owner.
+The older `https://mosaic-supabase-core-preview.vercel.app` alias is still on a different build.
+The source-side Auth email policy now pins one-time-code navigation links to the
+immutable deployment, not that old alias. This **does not** make the Preview
+public: testers must first obtain approved Vercel share access; use a code in
+the email body rather than credential-bearing callback URL parameters.
+
+For **Brevo Free** use a verified Brevo transactional sender and the SMTP relay
+`smtp-relay.brevo.com` (port 587 with STARTTLS, SMTP login and **SMTP key**, not
+API key). Only enter credentials in the isolated `mosaic-dev` Supabase Auth
+SMTP dashboard. Brevo's free-email sender replacement may be available but is
+not guaranteed; inspect actual sender/recipient delivery and rate limits. Run
+`node supabase-poc/hosted-email.mjs --inspect-policy` after configuration:
+`brevoRelayConfigured` and `smtpSenderConfigured` are sanitized configuration
+checks, **not** delivery proof. Follow with controlled real-mailbox confirmation,
+reset, replay, and recipient/inbox tests; use sender/provider delivery logs.
+
+Never invoke `--configure-preview-email` before independently verifying the
+exact deployment, protected tester access, source policy diff and Auth target,
+and obtaining an explicit authorization for the **isolated** Auth policy write.
+Do not change shared Vercel aliases or Production/dev/main. The auth policy
+patch preserves SMTP values and unrelated redirect entries; it does not
+configure SMTP, suppress leaked-password warnings or approve public signup.
