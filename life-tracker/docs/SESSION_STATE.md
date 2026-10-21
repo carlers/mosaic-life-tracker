@@ -1,6 +1,8 @@
 # Session checkpoint
 
-Updated: 2026-10-21 UTC. Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and calm transitions.
+Updated: 2026-10-21 UTC
+Current task: #404 Preview v0.40.2
+Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and calm transitions.
 
 ## Baseline and authority
 - Exact stable Preview base: `feature/split-day-panel-dev-404-20261021@5249f72df87f54bcd10bac9c8d8fece3662a7210` (v0.40.1), canonical CI 39553606512 success and trusted READY Vercel deployment dpl_ARSc4xJLkBxWMvrivuVSeFo9hXxT. No `dev` or `main` promotion approval; `dev@e1c90b387ecfb4e29d64c88b6557703dd23ca207`.

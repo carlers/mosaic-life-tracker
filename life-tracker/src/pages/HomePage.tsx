@@ -442,6 +442,7 @@ export const HomePage: React.FC = () => {
         </div>
         <div
           ref={setScreenPanelHost}
+          inert={isSearchOpen ? true : undefined}
           data-testid="home-screen-panel-slot"
           className="flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
         />

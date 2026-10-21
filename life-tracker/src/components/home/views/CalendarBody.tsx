@@ -43,6 +43,9 @@ interface CalendarBodyProps {
   dayDetailPresentation?: 'sheet' | 'panel';
   dayPanelSide?: DayPanelSide;
   dayPanelHeight?: DayPanelHeight;
+  screenFrameRef?: React.RefObject<HTMLDivElement | null>;
+  screenPanelHost?: HTMLDivElement | null;
+  onScreenPanelChange?: (side: DayPanelSide | null) => void;
   zoomPreference?: CalendarZoomDays;
   pinchGestureEnabled?: boolean;
   onZoomPreferenceChange?: (days: CalendarZoomDays) => void;
@@ -79,6 +82,9 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   dayDetailPresentation = 'sheet',
   dayPanelSide = 'right',
   dayPanelHeight = 'grid',
+  screenFrameRef,
+  screenPanelHost,
+  onScreenPanelChange,
   zoomPreference = 7,
   pinchGestureEnabled = false,
   onZoomPreferenceChange,
@@ -106,18 +112,21 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [openPresentation, setOpenPresentation] = useState<'sheet' | 'panel'>('sheet');
   const [availableWidth, setAvailableWidth] = useState(0);
   const [panelMounted, setPanelMounted] = useState(false);
+  const [openedHeight, setOpenedHeight] = useState<DayPanelHeight>('grid');
   const panelHostRef = useRef<HTMLDivElement>(null);
   const calendarTriggerRef = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
-    if (dayDetailPresentation !== 'panel' || !isActive || !panelHostRef.current) return;
-    const host = panelHostRef.current;
+    if (dayDetailPresentation !== 'panel' || !isActive) return;
+    const host = dayPanelHeight === 'screen' && screenFrameRef?.current
+      ? screenFrameRef.current : panelHostRef.current;
+    if (!host) return;
     const measure = () => setAvailableWidth(host.getBoundingClientRect().width);
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(host);
     return () => observer.disconnect();
-  }, [dayDetailPresentation, isActive]);
+  }, [dayDetailPresentation, dayPanelHeight, screenFrameRef, isActive]);
   useEffect(() => {
     if (isActive) return;
     const timer = window.setTimeout(() => {
@@ -180,12 +189,15 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     if (!daySheetOpen) {
       const presentation = dayDetailPresentation === 'panel' && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH ? 'panel' : 'sheet';
       setOpenPresentation(presentation);
-      if (presentation === 'panel') setPanelMounted(true);
+      if (presentation === 'panel') {
+        setOpenedHeight(dayPanelHeight);
+        setPanelMounted(true);
+      }
     }
     setSelectedDate(date);
     setDaySheetMounted(true);
     setDaySheetOpen(true);
-  }, [variant, daySheetOpen, dayDetailPresentation, availableWidth]);
+  }, [variant, daySheetOpen, dayDetailPresentation, dayPanelHeight, availableWidth]);
 
   const handleCloseDaySheet = useCallback(() => {
     setDaySheetOpen(false);
@@ -261,11 +273,17 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const isFriend = variant === 'friend' && Boolean(friendName && friendUserId);
   const panelOpen = panelMounted && openPresentation === 'panel' && isActive;
+  const fullScreen = panelOpen && openedHeight === 'screen' && Boolean(screenPanelHost);
   const isSplit = panelOpen && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
+  useEffect(() => {
+    if (!fullScreen) return;
+    onScreenPanelChange?.(dayPanelSide);
+    return () => onScreenPanelChange?.(null);
+  }, [fullScreen, dayPanelSide, onScreenPanelChange]);
 
   const calendarAndPanel = (
     <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className={`flex h-full min-h-0 min-w-0 w-full ${isSplit && dayPanelSide === 'left' ? 'flex-row-reverse' : ''}`}>
+      <div className={`flex h-full min-h-0 min-w-0 w-full ${isSplit && !fullScreen && dayPanelSide === 'left' ? 'flex-row-reverse' : ''}`}>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {calendarContent(carousel)}
         </div>
@@ -275,10 +293,11 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             isSplit={isSplit}
             isPresented={daySheetOpen}
             onExited={() => setPanelMounted(false)}
-            heightMode={dayPanelHeight}
+            heightMode={openedHeight}
+            portalHost={fullScreen ? screenPanelHost : null}
             onCalendarLayoutChange={onCalendarLayoutChange}
             frameWidth={availableWidth}
-            frameRef={panelHostRef}
+            frameRef={fullScreen && screenFrameRef ? screenFrameRef : panelHostRef}
             onClose={handleCloseDaySheet}
             onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}
             isFriend={isFriend}
