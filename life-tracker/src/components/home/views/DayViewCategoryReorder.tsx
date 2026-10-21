@@ -15,7 +15,7 @@ interface ReorderProps {
   animateExternal?: boolean;
   canStartDrag: boolean;
   onCommit: (categories: CategoryDocument[]) => Promise<void>;
-  onUpdate: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility'>) => Promise<void>;
+  onUpdate: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility' | 'color'>) => Promise<void>;
   onDragActiveChange?: (active: boolean) => void;
   onError?: (message: string) => void;
   renderCategory: (category: CategoryDocument) => React.ReactNode;
