@@ -80,6 +80,10 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(protectedRouteSwipeMode('/bucket-list')).toBe('full');
     expect(matchProtectedRoute('/backlog')?.id).toBe('backlog');
     expect(resolveRouteParent('/backlog')).toBe('/home');
+    // Same-path detail navigation preserves the query-view parent in history.
+    expect(resolveRouteParent('/backlog', { parentPath: '/backlog?view=uncompleted' })).toBe('/backlog?view=uncompleted');
+    expect(resolvePrimarySwipeDestination('/backlog', 'right', { parentPath: '/backlog?view=uncompleted' }))
+      .toBe('/backlog?view=uncompleted');
     expect(protectedRouteSwipeMode('/backlog')).toBe('full');
     expect(protectedRouteSwipeMode('/settings/releases')).toBe('full');
     // Detail routes inherit swipe-back; nested horizontal gesture owners opt into edge-back.
