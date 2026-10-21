@@ -159,7 +159,7 @@ export function useCalendarState(
     if (!emblaApi) return;
     const syncSelectedIndex = () => {
       const index = emblaApi.selectedScrollSnap();
-      setEmblaActiveIndex((prev) => (prev === index ? prev : index));
+      setEmblaActiveIndex(index);
     };
     syncSelectedIndex();
     emblaApi.on('select', syncSelectedIndex);

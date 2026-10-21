@@ -24,8 +24,6 @@ import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/day
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
-const RENDER_WINDOW = 1;
-const INITIAL_RENDER_WINDOW = 0;
 
 // Keep Home preloads after first usable paint, with the same idle and Safari
 // fallback deadlines for settings, task views and neighbor person slides.
@@ -59,7 +57,7 @@ export const HomePage: React.FC = () => {
   } = useCategories();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
-  const [renderWindow, setRenderWindow] = useState(INITIAL_RENDER_WINDOW);
+  const [renderWindow, setRenderWindow] = useState(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -128,7 +126,7 @@ export const HomePage: React.FC = () => {
     return whenHomeIdle(warm, 1200, 900);
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
-  useEffect(() => whenHomeIdle(() => setRenderWindow(RENDER_WINDOW), 1200, 400), []);
+  useEffect(() => whenHomeIdle(() => setRenderWindow(1), 1200, 400), []);
 
   useEffect(() => {
     const s = swiperRef.current;
@@ -163,10 +161,6 @@ export const HomePage: React.FC = () => {
     },
     [persons, activePersonId]
   );
-
-  const handlePillSelect = useCallback((personId: string) => {
-    setActivePersonId((current) => (current === personId ? current : personId));
-  }, []);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsSheetMounted(true);
@@ -340,7 +334,7 @@ export const HomePage: React.FC = () => {
             <PersonCarousel
               persons={persons}
               activePersonId={activePersonId}
-              onSelect={handlePillSelect}
+              onSelect={setActivePersonId}
               focusRootRef={friendCarouselRef}
               onOpenSettings={handleOpenSettings}
             />
