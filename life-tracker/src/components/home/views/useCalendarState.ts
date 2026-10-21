@@ -79,7 +79,7 @@ export function useCalendarState(
     watchDrag: (_api, event) => !(event.target instanceof Element && event.target.closest('[data-calendar-zoom-lane]')),
     // The inspector projects the focused month during its own width animation.
     // Embla's default ResizeObserver reInit on every width frame would fight it.
-    watchResize: api => !api.rootNode().dataset.panelResizeOwned,
+    watchResize: api => !api.rootNode().dataset.panelMotion,
   });
 
   useEmblaTrackpadNavigation(emblaApi);

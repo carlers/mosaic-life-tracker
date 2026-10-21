@@ -223,6 +223,14 @@ export const HomePage: React.FC = () => {
     navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/home') });
   }, [navigate]);
 
+  const openDatedTask = useCallback((date: Date, id: string) => {
+    setSearchSelectedDate(date);
+    setSearchFocusTaskId(id);
+    setSearchSheetKey(current => current + 1);
+    searchDaySheetOpenRef.current = true;
+    setSearchDaySheetOpen(true);
+  }, []);
+
   // Open a real dated task from the Bucket List or Uncompleted Tasks.
   useEffect(() => {
     const state = location.state as { bucketLinkedFocusTaskId?: string; bucketLinkedFocusDate?: string; focusTaskId?: string; focusTaskDate?: string } | null;
@@ -236,16 +244,12 @@ export const HomePage: React.FC = () => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      setSearchSelectedDate(date);
-      setSearchFocusTaskId(taskId);
-      setSearchSheetKey(current => current + 1);
-      searchDaySheetOpenRef.current = true;
-      setSearchDaySheetOpen(true);
+      openDatedTask(date, taskId);
       // Consume the route intent exactly once, including on Android Back.
       navigate('/home', { replace: true, state: null });
     });
     return () => { cancelled = true; };
-  }, [location.key, location.state, navigate]);
+  }, [location.key, location.state, navigate, openDatedTask]);
 
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
     if (task.date === '') {
@@ -256,12 +260,8 @@ export const HomePage: React.FC = () => {
     }
     const date = parseISO(task.date);
     if (!isValid(date)) return;
-    setSearchSelectedDate(date);
-    setSearchFocusTaskId(task.id);
-    setSearchSheetKey((current) => current + 1);
-    searchDaySheetOpenRef.current = true;
-    setSearchDaySheetOpen(true);
-  }, [navigate]);
+    openDatedTask(date, task.id);
+  }, [navigate, openDatedTask]);
 
   const handleCloseSearchDaySheet = useCallback(() => {
     searchDaySheetOpenRef.current = false;

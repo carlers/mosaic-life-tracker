@@ -69,6 +69,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const [heightMode] = useState(initialHeightMode);
   const [entered, setEntered] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const viewportRef = useRef<HTMLElement | null>(null);
   const [frameWidth, setFrameWidth] = useState(initialFrameWidth);
   const [frameHeight, setFrameHeight] = useState(0);
   const [screenPortal, setScreenPortal] = useState<{ node: HTMLDivElement | null } | null>(null);
@@ -109,54 +110,51 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   useEffect(() => {
     let canceled = false;
     let frame: number | null = null;
-    if (isPresented) {
-      // The lazy projection module must be ready before the first width
-      // transition frame; otherwise the grid shifts by whole slide widths.
-      void Promise.resolve(realignRef.current?.(true)).then(() => {
-        if (!canceled) frame = window.requestAnimationFrame(() => setEntered(true));
-      });
-      return () => {
-        canceled = true;
-        if (frame !== null) window.cancelAnimationFrame(frame);
-      };
-    }
-    frame = window.requestAnimationFrame(() => setEntered(false));
-    const timeout = window.setTimeout(() => exitedRef.current(), reduceMotion ? 0 : 320);
+    let timeout: number | null = null;
+    // Resolve the focused month before enabling the track's CSS-bound snap,
+    // otherwise its fallback translate(0) would briefly expose slide zero.
+    void Promise.resolve(realignRef.current?.(true)).then(() => {
+      if (canceled) return;
+      viewportRef.current?.setAttribute('data-panel-motion', 'true');
+      frame = window.requestAnimationFrame(() => setEntered(isPresented));
+      if (!isPresented) timeout = window.setTimeout(
+        () => exitedRef.current(), reduceMotion ? 0 : 320);
+    });
     return () => {
+      canceled = true;
       if (frame !== null) window.cancelAnimationFrame(frame);
-      window.clearTimeout(timeout);
+      if (timeout !== null) window.clearTimeout(timeout);
     };
   }, [isPresented, reduceMotion]);
 
-  // Embla snapshots pixel widths. Shrinking from the left can leave its
-  // old transform halfway across a month even after automatic observation.
-  // Realign to the selected logical slide after each settled resize.
-  useEffect(() => {
+  // During flex width motion, CSS keeps the selected month pinned to the
+  // current viewport width; ResizeObserver JS would land one frame too late.
+  useLayoutEffect(() => {
     const viewport = frameRef.current?.querySelector<HTMLElement>(
       '[data-route-swipe-horizontal-owner="true"]'
     );
-    if (!viewport || typeof ResizeObserver === 'undefined') return;
-    let previousWidth = viewport.getBoundingClientRect().width;
-    // Only this calendar suspends its automatic Embla width reinitialization.
-    viewport.dataset.panelResizeOwned = 'true';
-    const observer = new ResizeObserver(() => {
-      const width = viewport.getBoundingClientRect().width;
-      if (Math.abs(width - previousWidth) < 0.1) return;
-      previousWidth = width;
-      // ResizeObserver runs before paint: correct this geometry now, rather
-      // than allowing another frame to show the neighboring month.
-      realignRef.current?.(true);
-    });
-    observer.observe(viewport);
+    if (!viewport) return;
+    viewportRef.current = viewport;
     return () => {
-      observer.disconnect();
-      delete viewport.dataset.panelResizeOwned;
+      delete viewport.dataset.panelMotion;
+      viewportRef.current = null;
     };
   }, [frameRef]);
 
   const finishResize = () => {
-    realignRef.current?.();
+    requestAnimationFrame(() => {
+      void Promise.resolve(realignRef.current?.()).then(() => {
+        delete viewportRef.current?.dataset.panelMotion;
+        setDragging(false);
+      });
+    });
   };
+  useEffect(() => {
+    if (!reduceMotion || !entered || !isPresented) return;
+    void Promise.resolve(realignRef.current?.()).then(() => {
+      delete viewportRef.current?.dataset.panelMotion;
+    });
+  }, [reduceMotion, entered, isPresented]);
   const panelIdRef = useRef<string | null>(null);
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
@@ -221,8 +219,10 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         transition: reduceMotion || dragging ? 'none' : 'width 300ms cubic-bezier(0.22, 1, 0.36, 1)',
       }}
       onTransitionEnd={event => {
-        if (event.target === event.currentTarget)
-          realignRef.current?.();
+        if (event.target !== event.currentTarget || event.propertyName !== 'width') return;
+        void Promise.resolve(realignRef.current?.()).then(() => {
+          if (isPresented) delete viewportRef.current?.dataset.panelMotion;
+        });
       }}
     >
       <div className={`flex h-full min-h-0 ${side === 'left' ? 'flex-row-reverse' : ''}`}
@@ -232,9 +232,13 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
             side={side} width={effectivePanelWidth} frameWidth={frameWidth} frameRef={frameRef}
             screenHeight={Boolean(portalHost) && heightMode === 'screen'}
             onResize={setPanelWidth}
-            onResizeStart={() => setDragging(true)}
+            onResizeStart={() => {
+              void realignRef.current?.(true);
+              viewportRef.current?.setAttribute('data-panel-motion', 'true');
+              setDragging(true);
+            }}
             onCommit={saveDayPanelWidth}
-            onResizeEnd={() => { setDragging(false); finishResize(); }}
+            onResizeEnd={finishResize}
           />
         )}
         <div className="h-full min-h-0 shrink-0 p-2"
