@@ -3,6 +3,7 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { CategoryDocument } from '../db/schema';
+import { resolveVisibility } from '../lib/visibility';
 
 export function useCategories(enabled = true) {
   const { user, isLocalOwnerCurrent } = useAuth();
@@ -132,8 +133,17 @@ export function useCategories(enabled = true) {
         if (!current || current.userId !== uid)
           throw new Error('[useCategories] Task owner changed during category deletion');
         if (current.isDeleted || current.categoryId !== id) continue;
+        // Category visibility is inherited when task.visibility is empty.
+        // Moving to a more public category must never silently expose tasks.
+        // Preserve the *effective* visibility from before the move even if
+        // the destination has a different access level.
+        const originalVisibility = resolveVisibility(current.visibility, source.visibility);
+        const destinationVisibility = resolveVisibility('', destination!.visibility);
         await current.incrementalPatch({
           categoryId: destination!.id,
+          ...(originalVisibility !== destinationVisibility && !current.visibility
+            ? { visibility: originalVisibility }
+            : {}),
           updatedAt: new Date().toISOString(),
         });
       }
