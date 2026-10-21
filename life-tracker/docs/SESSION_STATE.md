@@ -24,3 +24,7 @@ Current task: #404 v0.40.3 — left panel alignment, full height and expand/coll
 
 ## Third browser investigation
 - Browser [39566839309](https://github.com/carlers/mosaic-life-tracker/actions/runs/39566839309) still revealed +402px grid offset on initial open and +10px in screen mode after divider drag without redundant reinit. To distinguish snap-list caching from CSS geometry, force one Embla reInit with explicit focused-month `startIndex` at settled layout; add compact viewport/track/slide rectangle and transform diagnostics to browser case. Do not weaken assertion on exact selected month edges.
+
+## Geometry diagnosis from real browser
+- Run [39567471481](https://github.com/carlers/mosaic-life-tracker/actions/runs/39567471481) measured **after grid-height left drag**: viewport x=402, width=1198, selected slide x=804, track translate `-35538px`. Correct translate is `-35940px` (30 slides × 1198px), a difference of exactly 402px (panel+divider). Screen-height drag aligned. This is stale previous track transform contaminating Embla reInit's new snap measurements, not invalid weekday/date data or the panel's outer width.
+- Reset `emblaApi.containerNode().style.transform` to none *synchronously before* `reInit({startIndex:focusIndex})`. Embla owns the resulting new transform; no React subtree remount or visible CSS compensation needed. Maintain strict real-browser grid/screen post-drag and close alignment assertions, plus unit evidence that transform was cleared before reInit.

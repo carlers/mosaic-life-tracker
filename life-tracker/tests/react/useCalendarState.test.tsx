@@ -23,6 +23,7 @@ const emblaFixture = vi.hoisted(() => {
     selectedScrollSnap: vi.fn(() => selectedIndex),
     scrollTo: vi.fn(),
     reInit: vi.fn(),
+    containerNode: vi.fn(() => document.createElement('div')),
     scrollPrev: vi.fn(),
     scrollNext: vi.fn(),
   };
@@ -83,6 +84,7 @@ describe('useCalendarState render window', () => {
     // still correctly shows the focused month. Never use that stale snap.
     emblaFixture.setSelectedIndex(29);
     act(() => result.current.resnapAfterResize());
+    expect(emblaFixture.api.containerNode().style.transform).toBe('none');
     expect(emblaFixture.api.reInit).toHaveBeenCalledWith({ startIndex: 30 });
   });
 });

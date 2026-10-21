@@ -91,11 +91,13 @@ export function useCalendarState(
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
   }, [focusDate, baseDate, viewMode, weekStartsOn]);
 
-  // Rebuild the snap list *from the focused month* after the split settles.
-  // Without an explicit startIndex, Embla may preserve a translated position
-  // from the old frame (exactly the width of the left-side panel).
+  // Embla's previous track transform participates in measurement after a
+  // left-side flex resize. Reset it synchronously before re-measuring, or the
+  // selected slide inherits precisely the old inspector width as an offset.
   const resnapAfterResize = useCallback(() => {
-    emblaApi?.reInit({ startIndex: focusIndex });
+    if (!emblaApi) return;
+    emblaApi.containerNode().style.transform = 'none';
+    emblaApi.reInit({ startIndex: focusIndex });
   }, [emblaApi, focusIndex]);
 
   // Selection makes the destination slide ready; waiting for Embla's
