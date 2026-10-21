@@ -225,13 +225,11 @@ export function useCalendarState(
     setBaseDate(today);
   }, []);
 
-  const weekStart = startOfWeek(focusDate, { weekStartsOn });
-  const weekEnd = endOfWeek(focusDate, { weekStartsOn });
-  const title = useMemo(() => {
-    return viewMode === 'month'
-      ? format(focusDate, 'MMMM yyyy')
-      : `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
-  }, [viewMode, focusDate, weekStart, weekEnd]);
+  // Week boundaries only matter in week view. A month render need not
+  // recalculate or memoize dates that its heading does not display.
+  const title = viewMode === 'month'
+    ? format(focusDate, 'MMMM yyyy')
+    : `${format(startOfWeek(focusDate, { weekStartsOn }), 'MMM d')} - ${format(endOfWeek(focusDate, { weekStartsOn }), 'MMM d, yyyy')}`;
 
   // The index that focusDate maps to. Combined with Embla's active index
   // below, this covers both the currently-animating slide and any

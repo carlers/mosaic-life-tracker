@@ -203,7 +203,7 @@ function SplitPanelLayoutProbe() {
           <button type="button" data-testid="split-next-month" onClick={calendar.handleNext}>Next month</button>
         </div>
         {/* Reproduce a shorter month grid with remaining space above the app nav. */}
-        <div data-testid="split-calendar-frame" className="flex h-[470px] min-h-0 shrink-0 flex-col">
+        <div data-testid="split-calendar-frame" className="flex min-h-0 shrink-0 flex-col" style={{ height: 470 }}>
           <CalendarBody viewMode={calendar.viewMode}
             slides={calendar.slides} renderStart={calendar.renderStart} renderEnd={calendar.renderEnd}
             emblaRef={calendar.emblaRef} activeIndex={calendar.activeIndex}
