@@ -57,6 +57,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |
 | DayCell | [src/components/home/views/DayCell.tsx](../src/components/home/views/DayCell.tsx) |
+| DayDetailPanel | [src/components/home/views/DayDetailPanel.tsx](../src/components/home/views/DayDetailPanel.tsx) |
+| DayPanelResizeHandle | [src/components/home/views/DayPanelResizeHandle.tsx](../src/components/home/views/DayPanelResizeHandle.tsx) |
 | DaySlide | [src/components/home/views/DaySlide.tsx](../src/components/home/views/DaySlide.tsx) |
 | DaySlideContent | [src/components/home/views/DaySlideContent.tsx](../src/components/home/views/DaySlideContent.tsx) |
 | DayViewCategoryReorder | [src/components/home/views/DayViewCategoryReorder.tsx](../src/components/home/views/DayViewCategoryReorder.tsx) |
@@ -88,6 +90,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ViewToggle | [src/components/home/views/ViewToggle.tsx](../src/components/home/views/ViewToggle.tsx) |
 | WeekView | [src/components/home/views/WeekView.tsx](../src/components/home/views/WeekView.tsx) |
 | bulkTaskActions | [src/components/home/views/bulkTaskActions.ts](../src/components/home/views/bulkTaskActions.ts) |
+| calendarPanelSnap | [src/components/home/views/calendarPanelSnap.ts](../src/components/home/views/calendarPanelSnap.ts) |
 | categoryPillActionContext | [src/components/home/views/categoryPillActionContext.ts](../src/components/home/views/categoryPillActionContext.ts) |
 | crossDayTaskDrag | [src/components/home/views/crossDayTaskDrag.ts](../src/components/home/views/crossDayTaskDrag.ts) |
 | dayViewSheetModule | [src/components/home/views/dayViewSheetModule.ts](../src/components/home/views/dayViewSheetModule.ts) |

@@ -19,6 +19,11 @@ import {
   SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  DAY_DETAIL_PRESENTATION_SETTING_KEY,
+  DAY_PANEL_SIDE_SETTING_KEY,
+  DAY_PANEL_HEIGHT_SETTING_KEY,
+  resolveDayPanelHeight,
+  resolveDayDetailPresentation,
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
   CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
@@ -75,6 +80,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
+  const dayDetailPresentation = resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
+  const dayPanelSide = getSetting(DAY_PANEL_SIDE_SETTING_KEY, 'right') === 'left' ? 'left' : 'right';
+  const dayPanelHeight = resolveDayPanelHeight(getSetting(DAY_PANEL_HEIGHT_SETTING_KEY, 'grid'));
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
@@ -168,10 +176,14 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           renderStart={calendarState.renderStart}
           renderEnd={calendarState.renderEnd}
           emblaRef={calendarState.emblaRef}
+          onCalendarLayoutChange={calendarState.resnapAfterResize}
           tasks={ownerTasks}
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
+          dayDetailPresentation={dayDetailPresentation}
+          dayPanelSide={dayPanelSide}
+          dayPanelHeight={dayPanelHeight}
           zoomPreference={calendarZoomDays}
           pinchGestureEnabled={calendarPinchZoom}
           onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}

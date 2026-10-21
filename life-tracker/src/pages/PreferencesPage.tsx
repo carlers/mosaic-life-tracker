@@ -69,6 +69,11 @@ import {
   resolveDiaryDayViewPosition,
   SHOW_HOLIDAYS_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
+  DAY_DETAIL_PRESENTATION_SETTING_KEY,
+  DAY_PANEL_SIDE_SETTING_KEY,
+  DAY_PANEL_HEIGHT_SETTING_KEY,
+  resolveDayPanelHeight,
+  resolveDayDetailPresentation,
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
   CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
@@ -270,6 +275,9 @@ export const PreferencesPage: React.FC = () => {
   );
   const shareLabelMode = getSetting(SHARED_LABEL_MODE_SETTING_KEY, 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting(SHOW_PENDING_SHARES_SETTING_KEY, false) === true;
+  const dayDetailPresentation = resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
+  const dayPanelSide = getSetting(DAY_PANEL_SIDE_SETTING_KEY, 'right') === 'left' ? 'left' : 'right';
+  const dayPanelHeight = resolveDayPanelHeight(getSetting(DAY_PANEL_HEIGHT_SETTING_KEY, 'grid'));
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
@@ -504,6 +512,24 @@ export const PreferencesPage: React.FC = () => {
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Calendar
           </h2>
+          <SelectSettingRow
+            id="day-detail-presentation" icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Open day details as" value={dayDetailPresentation}
+            options={[{ value: 'sheet', label: 'Bottom sheet (default)' }, { value: 'panel', label: 'Side panel when space allows' }]}
+            onChange={value => void setSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, resolveDayDetailPresentation(value))}
+          />
+          <SelectSettingRow
+            id="day-panel-side" icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Day panel position" value={dayPanelSide}
+            options={[{ value: 'right', label: 'Right (default)' }, { value: 'left', label: 'Left' }]}
+            onChange={value => void setSetting(DAY_PANEL_SIDE_SETTING_KEY, value === 'left' ? 'left' : 'right')}
+          />
+          <SelectSettingRow
+            id="day-panel-height" icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Day panel height" value={dayPanelHeight}
+            options={[{ value: 'grid', label: 'Match month grid (default)' }, { value: 'screen', label: 'Screen height' }]}
+            onChange={value => void setSetting(DAY_PANEL_HEIGHT_SETTING_KEY, resolveDayPanelHeight(value))}
+          />
           <SelectSettingRow
             id="calendar-zoom-days"
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}

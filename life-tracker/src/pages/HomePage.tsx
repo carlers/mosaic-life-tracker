@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
@@ -24,8 +24,17 @@ import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/day
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
-const RENDER_WINDOW = 1;
-const INITIAL_RENDER_WINDOW = 0;
+
+// Keep Home preloads after first usable paint, with the same idle and Safari
+// fallback deadlines for settings, task views and neighbor person slides.
+function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
+  if (window.requestIdleCallback) {
+    const id = window.requestIdleCallback(work, { timeout });
+    return () => window.cancelIdleCallback?.(id);
+  }
+  const id = window.setTimeout(work, fallback);
+  return () => window.clearTimeout(id);
+}
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,7 +57,7 @@ export const HomePage: React.FC = () => {
   } = useCategories();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
-  const [renderWindow, setRenderWindow] = useState(INITIAL_RENDER_WINDOW);
+  const [renderWindow, setRenderWindow] = useState(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -67,14 +76,10 @@ export const HomePage: React.FC = () => {
   const friendCarouselRef = useRef<HTMLDivElement>(null);
   const isProgrammaticMoveRef = useRef(false);
 
-  if (persons.length > 0 && !persons.some((p) => p.id === activePersonId)) {
-    setActivePersonId('me');
-  }
+  const personIndex = persons.findIndex(p => p.id === activePersonId);
+  if (persons.length > 0 && personIndex < 0) setActivePersonId('me');
 
-  const activeIndex = useMemo(() => {
-    const idx = persons.findIndex((p) => p.id === activePersonId);
-    return idx >= 0 ? idx : 0;
-  }, [persons, activePersonId]);
+  const activeIndex = Math.max(0, personIndex);
 
   useEffect(() => {
     markStartup('home:mounted');
@@ -90,12 +95,7 @@ export const HomePage: React.FC = () => {
     markStartup('home:carousel-ready');
     // Warm only the preferences module once its owning carousel is usable.
     const warm = () => { if (!document.hidden) void preloadFriendSettings().catch(() => {}); };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1800 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = window.setTimeout(warm, 700);
-    return () => window.clearTimeout(id);
+    return whenHomeIdle(warm, 1800, 700);
   }, [carouselLoading]);
 
   useEffect(() => {
@@ -123,37 +123,17 @@ export const HomePage: React.FC = () => {
         );
       }
     };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1200 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    // Safari fallback retains the delayed, startup-safe import.
-    const id = window.setTimeout(warm, 900);
-    return () => window.clearTimeout(id);
+    return whenHomeIdle(warm, 1200, 900);
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
-  useEffect(() => {
-    const schedule = () => setRenderWindow(RENDER_WINDOW);
-    if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(schedule, { timeout: 1200 });
-      return () => {
-        if (typeof window.cancelIdleCallback === 'function') {
-          window.cancelIdleCallback(idleId);
-        }
-      };
-    }
-    const timer = window.setTimeout(schedule, 400);
-    return () => window.clearTimeout(timer);
-  }, []);
+  useEffect(() => whenHomeIdle(() => setRenderWindow(1), 1200, 400), []);
 
   useEffect(() => {
     const s = swiperRef.current;
     if (!s) return;
-    const idx = persons.findIndex((p) => p.id === activePersonId);
-    if (idx < 0) return;
-    if (s.activeIndex === idx) return;
+    if (personIndex < 0 || s.activeIndex === personIndex) return;
     isProgrammaticMoveRef.current = true;
-    s.slideTo(idx, 280);
+    s.slideTo(personIndex, 280);
     const raf = requestAnimationFrame(() => {
       isProgrammaticMoveRef.current = false;
     });
@@ -165,12 +145,8 @@ export const HomePage: React.FC = () => {
     if (!s) return;
     const raf = requestAnimationFrame(() => {
       s.update();
-      s.updateSize();
-      s.updateSlides();
-      const idx = persons.findIndex((p) => p.id === activePersonId);
-      if (idx >= 0 && s.activeIndex !== idx) {
-        s.slideTo(idx, 0);
-      }
+      if (personIndex >= 0 && s.activeIndex !== personIndex)
+        s.slideTo(personIndex, 0);
     });
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -185,10 +161,6 @@ export const HomePage: React.FC = () => {
     },
     [persons, activePersonId]
   );
-
-  const handlePillSelect = useCallback((personId: string) => {
-    setActivePersonId((current) => (current === personId ? current : personId));
-  }, []);
 
   const handleOpenSettings = useCallback(() => {
     setSettingsSheetMounted(true);
@@ -245,6 +217,14 @@ export const HomePage: React.FC = () => {
     navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/home') });
   }, [navigate]);
 
+  const openDatedTask = useCallback((date: Date, id: string) => {
+    setSearchSelectedDate(date);
+    setSearchFocusTaskId(id);
+    setSearchSheetKey(current => current + 1);
+    searchDaySheetOpenRef.current = true;
+    setSearchDaySheetOpen(true);
+  }, []);
+
   // Open a real dated task from the Bucket List or Uncompleted Tasks.
   useEffect(() => {
     const state = location.state as { bucketLinkedFocusTaskId?: string; bucketLinkedFocusDate?: string; focusTaskId?: string; focusTaskDate?: string } | null;
@@ -258,16 +238,12 @@ export const HomePage: React.FC = () => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      setSearchSelectedDate(date);
-      setSearchFocusTaskId(taskId);
-      setSearchSheetKey(current => current + 1);
-      searchDaySheetOpenRef.current = true;
-      setSearchDaySheetOpen(true);
+      openDatedTask(date, taskId);
       // Consume the route intent exactly once, including on Android Back.
       navigate('/home', { replace: true, state: null });
     });
     return () => { cancelled = true; };
-  }, [location.key, location.state, navigate]);
+  }, [location.key, location.state, navigate, openDatedTask]);
 
   const handleSelectSearchTask = useCallback((task: TaskDocument) => {
     if (task.date === '') {
@@ -278,12 +254,8 @@ export const HomePage: React.FC = () => {
     }
     const date = parseISO(task.date);
     if (!isValid(date)) return;
-    setSearchSelectedDate(date);
-    setSearchFocusTaskId(task.id);
-    setSearchSheetKey((current) => current + 1);
-    searchDaySheetOpenRef.current = true;
-    setSearchDaySheetOpen(true);
-  }, [navigate]);
+    openDatedTask(date, task.id);
+  }, [navigate, openDatedTask]);
 
   const handleCloseSearchDaySheet = useCallback(() => {
     searchDaySheetOpenRef.current = false;
@@ -296,59 +268,40 @@ export const HomePage: React.FC = () => {
     setSearchFocusTaskId(null);
   }, []);
 
-  // F jumps directly to the selected person without switching their calendar.
-  // Left/Right in the carousel moves focus; Enter/Space activates that person.
-  useEffect(() => {
-    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'f' || event.key.length !== 1 ||
-          !canUseKeyboardShortcut(event)) return;
-      const active = friendCarouselRef.current?.querySelector<HTMLButtonElement>(
-        '[data-person-pill][aria-pressed="true"]'
-      );
-      if (!active) return;
-      event.preventDefault();
-      active.focus({ preventScroll: true });
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [shortcutsEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen]);
-
-  // Home-only search launcher. Keep native typing and all nested sheet
-  // keyboard ownership untouched; the existing Search control still handles
-  // Escape and focus when the field opens.
-  useEffect(() => {
-    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
-    const handleSlash = (event: KeyboardEvent) => {
-      if (event.key !== '/' || event.defaultPrevented || event.isComposing ||
-        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
-        (event.target instanceof Element && event.target.closest(
-          'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'
-        )) || document.querySelector('[aria-modal="true"]')) return;
-      event.preventDefault();
-      handleOpenSearch();
-    };
-    window.addEventListener('keydown', handleSlash);
-    return () => window.removeEventListener('keydown', handleSlash);
-  }, [shortcutsEnabled, handleOpenSearch, isSearchOpen, isSettingsOpen, searchDaySheetOpen]);
-
   // Home accelerators reuse the exact existing controls/actions so that Sync
   // opens its status sheet, rather than silently initiating a network write.
   useEffect(() => {
     if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
+      // Slash retains its native typing/overlay exclusions before the
+      // modifier-gated Home shortcuts share this one listener.
+      if (event.key === '/') {
+        if (event.defaultPrevented || event.isComposing ||
+          event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+          (event.target instanceof Element && event.target.closest(
+            'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'
+          )) || document.querySelector('[aria-modal="true"]')) return;
+        event.preventDefault();
+        handleOpenSearch();
+        return;
+      }
       const homeMenuShortcut = event.key === 'H' && event.shiftKey;
       if (!canUseKeyboardShortcut(event, { allowShift: homeMenuShortcut })) return;
-      if (homeMenuShortcut) {
-        const menu = document.querySelector<HTMLButtonElement>('[data-home-menu-trigger="true"]');
-        if (!menu) return;
+      if (event.key === 'f') {
+        const active = friendCarouselRef.current?.querySelector<HTMLButtonElement>(
+          '[data-person-pill][aria-pressed="true"]'
+        );
+        if (active) {
+          event.preventDefault();
+          active.focus({ preventScroll: true });
+        }
+      } else if (homeMenuShortcut || event.key === 's') {
+        const trigger = document.querySelector<HTMLButtonElement>(
+          homeMenuShortcut ? '[data-home-menu-trigger="true"]' : '[data-home-sync-trigger="true"]'
+        );
+        if (!trigger) return;
         event.preventDefault();
-        menu.click();
-      } else if (event.key === 's') {
-        const sync = document.querySelector<HTMLButtonElement>('[data-home-sync-trigger="true"]');
-        if (!sync) return;
-        event.preventDefault();
-        sync.click();
+        trigger.click();
       } else if (event.key === 'b') {
         event.preventDefault();
         handleOpenBacklog();
@@ -356,11 +309,14 @@ export const HomePage: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [shortcutsEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog]);
+  }, [shortcutsEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
 
   return (
     <>
-      <div className="h-full flex flex-col min-h-0">
+      <div
+        className="mosaic-home-workspace flex h-full min-h-0 min-w-0"
+      >
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <HomeTaskSearch
           isOpen={isSearchOpen}
           tasks={ownerTasks}
@@ -373,12 +329,12 @@ export const HomePage: React.FC = () => {
           trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} />}
         />
 
-        <div inert={isSearchOpen ? true : undefined} className="flex-1 min-h-0 flex flex-col relative">
+        <div inert={isSearchOpen} className="flex-1 min-h-0 flex flex-col relative">
           <div className="flex-shrink-0">
             <PersonCarousel
               persons={persons}
               activePersonId={activePersonId}
-              onSelect={handlePillSelect}
+              onSelect={setActivePersonId}
               focusRootRef={friendCarouselRef}
               onOpenSettings={handleOpenSettings}
             />
@@ -389,30 +345,19 @@ export const HomePage: React.FC = () => {
             onSwiper={(s) => {
               swiperRef.current = s;
             }}
-            slidesPerView={1}
-            spaceBetween={0}
             speed={280}
             resistanceRatio={0.85}
             threshold={5}
-            followFinger
-            longSwipes
             longSwipesRatio={0.25}
             longSwipesMs={250}
-            shortSwipes
             noSwiping
             noSwipingClass="swiper-no-swiping"
             allowTouchMove={!isSettingsOpen && !isSearchOpen}
             onSlideChange={handleSlideChange}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
+            className="absolute inset-0"
           >
             {persons.map((p, i) => (
-              <SwiperSlide key={p.id} style={{ height: '100%' }}>
+              <SwiperSlide key={p.id} className="h-full">
                 {Math.abs(i - activeIndex) <= renderWindow ? (
                   <PersonPane
                     person={p}
@@ -426,6 +371,12 @@ export const HomePage: React.FC = () => {
           </Swiper>
           </div>
         </div>
+        </div>
+        <div
+          inert={isSearchOpen}
+          data-home-panel-slot="true"
+          className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
+        />
       </div>
 
       {settingsSheetMounted && (

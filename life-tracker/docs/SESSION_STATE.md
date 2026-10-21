@@ -1,20 +1,25 @@
 # Session checkpoint
+Updated: 2026-10-22, Asia/Manila
+Current task: Issue #404, left-panel month-swipe misalignment; next Preview v0.40.5.
 
-Updated: 2026-10-21 UTC
-Current task: integrate keyboard navigation and shortcut preferences (issue #956) into current dev, with Home shortcut changed to plain H.
+## Branch, gate and approval
+- Exact accepted v0.40.4 stable Preview: `feature/split-day-panel-dev-404-20261021@ea5a6ad583b0586288b01e288f59fc88a5c5226d` with canonical [Quality Gate 39627958057](https://github.com/carlers/mosaic-life-tracker/actions/runs/39627958057) SUCCESS and [trusted Preview 39628447154](https://github.com/carlers/mosaic-life-tracker/actions/runs/39628447154) SUCCESS; immutable URL `https://mosaic-life-tracker-g5z9n630f-carls-projects-72516fde.vercel.app/home`.
+- New task branch `chatgpt/404-left-month-swipe-20261022` from the accepted stable SHA. v0.40.5 is a PATCH refinement after user testing. No merge to `dev`, `main`, or Production authorized.
+- Issue #404 remains open; old PR #1184 is already merged into stable Preview. Create a new PR against that stable branch for this fix.
 
-## Authority and baseline
-- User approved: "make home page just h not shift h then merge to dev." Plain H now returns Home from other protected pages; on Home, Shift+H opens the hamburger. Previously published keyboard Preview v0.35.6 is READY: `feature/dayview-keyboard-956-20261020@5b2965083bb97cb12afbd83d1994e6c2fdf4c5e8`, canonical CI 39534317656 SUCCESS, trusted delivery 39534534824 SUCCESS.
-- At integration start dev had advanced to `65a68821865e16d4b580fde0afce282cb2eebc51` (v0.38.0, Uncompleted Tasks + Timeline/cross-day drag + standardized dropdowns), diverging from v0.35.6 keyboard Preview. Main at earlier check `c938c825370f8270b46f19119b06a1f74d35842b`. Direct merge is not safe: version regression and conflicting Day View changes. No main/Production approval.
-- Integration task branch `chatgpt/956-keyboard-dev-integrated-20261021` and stable integrated Preview `feature/keyboard-dev-integrated-956-20261021` both start from exact dev 65a6882. New user-facing feature relative to dev v0.38.0 => Preview v0.39.0 (new MINOR, retains accepted keyboard behavior).
+## Exact browser reproduction and cause
+- User: left-side panel remains aligned after opening or divider resizing, but calendar horizontal month swipes move the grid off-width again.
+- Real Chromium with 1,600px desktop viewport and 412px left inspector, both short-grid and screen-height layouts: after opening on month slide 31 the focused slide was aligned, then dragging to slide 32 left the slide offset **+412px**; same for horizontal trackpad and next-month click. Right panel stayed aligned.
+- Instrumented Embla after left-panel open: `containerRect.left=412` (offset of viewport against ancestor) while slide rectangles started at left=0 (against translated track). Embla consequently computed slide-32 scroll snap `-37604` instead of `-38016`. Existing manual re-snap after divider corrected track position without fixing Embla's *stored* snap coordinates.
+- Minimal source fix: make the immediate `CalendarCarousel` wrapper position-relative, so viewport and slides share a local positioning origin; Embla then reported `containerRect.left=0`, slide-32 snap `-38016`, and correct horizontal swipes. No changes to panel animation logic, backend, gesture ownership or bundle budgets.
 
-## Scope and merge strategy
-- Layer all nine previously accepted keyboard commits / 49 changed paths onto latest dev with granular source patch integration. Preserve existing dev Timeline sorting, Day View selection layout, cross-day task drag, Uncompleted Tasks and account shortcuts, standard MosaicSelect dropdowns, sync isolation and page behavior.
-- H route shortcut is unmodified `h`; `Shift+H` opens Home hamburger (never ambiguously navigates). Keyboard shortcut guide and targeted route/Home tests reflect these bindings. Keep existing Home S (Sync Status, manual trigger inside), Me S (Settings), Day View S (Select), F friends, G calendar, T/D/V views, B Backlogs, / search, E/A/C/M routes and original task keyboard behavior.
-- Account-synced default-on `keyboardShortcutsEnabled` controls single-key accelerators including ?/N while preserving normal keyboard accessibility. Shared provider scoped to authenticated app; no new backend/schema changes.
-- Day View integration uses latest dev as base and applies all feature-specific keyboard hunks except conflicting import/toolbar blocks, which are adapted into latest Timeline toolbar with a keyboard-help button and panel. Restore source-generated component inventory with new shortcut components. Update version in package.json, lockfile and src/lib/appVersion.ts.
+## Regression evidence and local verification
+- Expanded `tests/e2e/split-panel-layout.spec.mjs`: real pointer drag to next/previous month **with the panel already open**, repeat after divider resize, then horizontal wheel next/previous. Existing open/close sampled-paint, full-width, panel-bottom and scrollLeft=0 assertions remain.
+- **Red evidence:** accepted v0.40.4 source with added new test failed left/grid after actual swipe with Received **412**, Expected <2px. No fabricated failure.
+- **Green evidence:** v0.40.5 source passed 8/8 repeated left/right × grid/screen browser cases with pointer drag; extended pointer+trackpad version passed 4/4.
+- `npm run build` passed with publicly available CI Preview config (Home closure **380,888/381,000 gzip bytes**), `npm run version:check` and `git diff --check` PASS. `npm run lint` PASS (0 errors, 19 warnings); unit tests **1,204/1,204**; DOM tests **655/655**.
+- Full exact-SHA GitHub focused/browser verification and canonical stable Preview acceptance / Vercel READY **not yet performed** for v0.40.5. Size headroom is very narrow with CI secrets; do not relax gates or claim readiness until remote build passes.
+- Manual authenticated large-screen/mobile touch, owner/friend, pinch-zoom and reduced motion acceptance still pending.
 
-## Verification and next action
-- Commit all integration changes plus this checkpoint to task branch with `[verify:focused]` and validate. Fix focused failures without weakening checks.
-- After focused SUCCESS squash PR into stable `feature/keyboard-dev-integrated-956-20261021`, confirm full canonical CI and trusted exact-SHA READY Preview, then create stable Preview → dev promotion PR. Confirm latest dev SHA and automatic exact-tree promotion eligibility; if dev advances, recompute integrated Preview, revalidate rather than merge with conflicts/version regression.
-- User explicitly authorized dev only; never merge to main/Production. Manual device/AT theme acceptance remains unperformed. Issue #956 stays open.
+## Next
+Commit code, v0.40.5 version files, regression and this checkpoint together on task branch with `[verify:browser]`; inspect exact-head CI. If green, squash PR to existing stable Preview, run full canonical Quality Gate, and verify trusted exact-SHA READY Preview URL. Preserve existing stable link until acceptance and never promote to dev/main/Production without explicit approval.
