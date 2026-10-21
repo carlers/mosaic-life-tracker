@@ -5,11 +5,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const emblaFixture = vi.hoisted(() => {
   const handlers = new Map<string, Set<() => void>>();
   const viewport = document.createElement('div');
-  const slide = document.createElement('div');
   let slideOffset = 0;
   let engineLocation = -48000;
   viewport.getBoundingClientRect = vi.fn(() => ({ left: 0 } as DOMRect));
-  slide.getBoundingClientRect = vi.fn(() => ({ left: slideOffset } as DOMRect));
+  // Real Embla has 61 distinct flex slides. On resize, their actual measured
+  // spacing changes before the engine location is updated. Reusing one fake
+  // node for every slide masked this geometry-dependent regression.
+  const slides = Array.from({ length: 61 }, (_, index) => {
+    const slide = document.createElement('div');
+    slide.getBoundingClientRect = vi.fn(() => ({
+      left: engineLocation + index * ((48000 + slideOffset) / 30),
+    } as DOMRect));
+    return slide;
+  });
   const engine = {
     animation: { stop: vi.fn() },
     location: {
@@ -36,7 +44,7 @@ const emblaFixture = vi.hoisted(() => {
       return api;
     }),
     rootNode: vi.fn(() => viewport),
-    slideNodes: vi.fn(() => Array(61).fill(slide)),
+    slideNodes: vi.fn(() => slides),
     internalEngine: vi.fn(() => engine),
     scrollProgress: vi.fn(() => progress),
     selectedScrollSnap: vi.fn(() => selectedIndex),

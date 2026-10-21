@@ -133,11 +133,9 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     const s = swiperRef.current;
     if (!s) return;
-    const idx = persons.findIndex((p) => p.id === activePersonId);
-    if (idx < 0) return;
-    if (s.activeIndex === idx) return;
+    if (personIndex < 0 || s.activeIndex === personIndex) return;
     isProgrammaticMoveRef.current = true;
-    s.slideTo(idx, 280);
+    s.slideTo(personIndex, 280);
     const raf = requestAnimationFrame(() => {
       isProgrammaticMoveRef.current = false;
     });
@@ -149,10 +147,8 @@ export const HomePage: React.FC = () => {
     if (!s) return;
     const raf = requestAnimationFrame(() => {
       s.update();
-      const idx = persons.findIndex((p) => p.id === activePersonId);
-      if (idx >= 0 && s.activeIndex !== idx) {
-        s.slideTo(idx, 0);
-      }
+      if (personIndex >= 0 && s.activeIndex !== personIndex)
+        s.slideTo(personIndex, 0);
     });
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
