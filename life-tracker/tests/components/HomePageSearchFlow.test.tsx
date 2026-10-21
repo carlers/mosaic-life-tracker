@@ -96,8 +96,14 @@ vi.mock('../../src/components/home/HomeTaskSearch', () => ({
   ),
 }));
 vi.mock('../../src/components/home/PersonCarousel', () => ({
-  PersonCarousel: ({ onOpenSettings }: { onOpenSettings: () => void }) =>
-    <div>Carousel <button type="button" onClick={onOpenSettings}>Friend preferences</button></div>,
+  PersonCarousel: ({ onOpenSettings, focusRootRef }: {
+    onOpenSettings: () => void;
+    focusRootRef?: React.Ref<HTMLDivElement>;
+  }) =>
+    <div ref={focusRootRef}>Carousel
+      <button type="button" data-person-pill="me" aria-pressed="true">Me</button>
+      <button type="button" onClick={onOpenSettings}>Friend preferences</button>
+    </div>,
 }));
 vi.mock('../../src/components/home/PersonPane', () => ({
   PersonPane: () => <div>Pane</div>,
@@ -216,6 +222,30 @@ describe('HomePage task-search wiring', () => {
     expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument();
   });
 
+  it('F focuses the selected person without changing calendar or stealing editor keys', () => {
+    renderHome();
+    const me = screen.getByRole('button', { name: 'Me' });
+    const outside = screen.getByRole('button', { name: 'Open search' });
+    outside.focus();
+    fireEvent.keyDown(outside, { key: 'f' });
+    expect(me).toHaveFocus();
+
+    const input = document.createElement('input');
+    input.setAttribute('aria-label', 'Example task editor');
+    document.body.appendChild(input);
+    try {
+      input.focus();
+      fireEvent.keyDown(input, { key: 'f' });
+      expect(input).toHaveFocus();
+      fireEvent.click(outside);
+      outside.focus();
+      fireEvent.keyDown(outside, { key: 'f' });
+      expect(outside).toHaveFocus();
+    } finally {
+      input.remove();
+    }
+  });
+
   it('makes the Home content inert while search is open', () => {
     renderHome();
 
@@ -269,4 +299,23 @@ describe('HomePage task-search wiring', () => {
     expect(sheet).toHaveTextContent('task_search');
     expect(sheet).toHaveTextContent('1');
   });
+  it('reserves H for Home navigation and uses Shift+H for the Home menu', () => {
+    renderHome();
+    // The search-header mock omits its trailing HamburgerMenu control.
+    // Supply the same DOM trigger used by the production Home action.
+    const menu = document.createElement('button');
+    menu.dataset.homeMenuTrigger = 'true';
+    document.body.appendChild(menu);
+    try {
+      const click = vi.spyOn(menu, 'click');
+      fireEvent.keyDown(document.body, { key: 'h' });
+      expect(click).not.toHaveBeenCalled();
+      fireEvent.keyDown(document.body, { key: 'H', shiftKey: true });
+      expect(click).toHaveBeenCalledTimes(1);
+      click.mockRestore();
+    } finally {
+      menu.remove();
+    }
+  });
+
 });

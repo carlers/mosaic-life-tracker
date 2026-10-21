@@ -91,12 +91,15 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | categoryPillActionContext | [src/components/home/views/categoryPillActionContext.ts](../src/components/home/views/categoryPillActionContext.ts) |
 | crossDayTaskDrag | [src/components/home/views/crossDayTaskDrag.ts](../src/components/home/views/crossDayTaskDrag.ts) |
 | dayViewSheetModule | [src/components/home/views/dayViewSheetModule.ts](../src/components/home/views/dayViewSheetModule.ts) |
+| taskKeyboardSensor | [src/components/home/views/taskKeyboardSensor.ts](../src/components/home/views/taskKeyboardSensor.ts) |
 | taskReorder | [src/components/home/views/taskReorder.ts](../src/components/home/views/taskReorder.ts) |
 | taskRowRegistrationContext | [src/components/home/views/taskRowRegistrationContext.ts](../src/components/home/views/taskRowRegistrationContext.ts) |
 | todoListViewModule | [src/components/home/views/todoListViewModule.ts](../src/components/home/views/todoListViewModule.ts) |
+| useCalendarGridKeyboard | [src/components/home/views/useCalendarGridKeyboard.ts](../src/components/home/views/useCalendarGridKeyboard.ts) |
 | useCalendarPinchZoom | [src/components/home/views/useCalendarPinchZoom.ts](../src/components/home/views/useCalendarPinchZoom.ts) |
 | useCalendarState | [src/components/home/views/useCalendarState.ts](../src/components/home/views/useCalendarState.ts) |
 | useContinuousTaskDrag | [src/components/home/views/useContinuousTaskDrag.tsx](../src/components/home/views/useContinuousTaskDrag.tsx) |
+| useDayViewKeyboardNavigation | [src/components/home/views/useDayViewKeyboardNavigation.ts](../src/components/home/views/useDayViewKeyboardNavigation.ts) |
 | useDayViewSwiper | [src/components/home/views/useDayViewSwiper.ts](../src/components/home/views/useDayViewSwiper.ts) |
 | useTaskReorderProximity | [src/components/home/views/useTaskReorderProximity.ts](../src/components/home/views/useTaskReorderProximity.ts) |
 
@@ -172,6 +175,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DeferredAvatar | [src/components/ui/DeferredAvatar.tsx](../src/components/ui/DeferredAvatar.tsx) |
 | ErrorBoundary | [src/components/ui/ErrorBoundary.tsx](../src/components/ui/ErrorBoundary.tsx) |
 | Input | [src/components/ui/Input.tsx](../src/components/ui/Input.tsx) |
+| KeyboardShortcutsSheet | [src/components/ui/KeyboardShortcutsSheet.tsx](../src/components/ui/KeyboardShortcutsSheet.tsx) |
 | MosaicSelect | [src/components/ui/MosaicSelect.tsx](../src/components/ui/MosaicSelect.tsx) |
 | OfflineBanner | [src/components/ui/OfflineBanner.tsx](../src/components/ui/OfflineBanner.tsx) |
 | PwaAssetProgressView | [src/components/ui/PwaAssetProgressView.tsx](../src/components/ui/PwaAssetProgressView.tsx) |

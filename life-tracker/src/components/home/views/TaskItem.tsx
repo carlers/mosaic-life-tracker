@@ -285,7 +285,25 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               else if (event.detail === 0) onOpenActions(task);
             }}
             data-day-swipe-through="true"
-            className="w-full touch-pan-y text-left rounded focus:outline-none"
+            data-day-keyboard-target="task"
+            data-day-keyboard-id={task.id}
+            aria-keyshortcuts={selectionMode ? 'Enter Space' : 'Enter Space Shift+Enter'}
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (selectionMode) onToggleSelection?.();
+                else if (event.shiftKey) onOpenActions(task);
+                else onEditStart(task);
+              } else if (event.key === ' ' || event.key === 'Spacebar') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (selectionMode) onToggleSelection?.();
+                else onToggle(task.id);
+              }
+            }}
+            className="w-full touch-pan-y text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label={task.title}
           >
             <span className={isCompleted ? 'line-through text-gray-400' : 'text-white'}>

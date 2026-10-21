@@ -285,4 +285,53 @@ describe('CategorySection', () => {
     ).toBeInTheDocument();
   });
 
+
+  it('supports keyboard edit, completion and actions without opening actions twice', () => {
+    const task = {
+      id: 'keyboard_task', title: 'Write proposal', completed: false,
+      categoryId: 'work', date: '2026-10-20',
+      createdAt: '2026-10-20T00:00:00.000Z',
+      updatedAt: '2026-10-20T00:00:00.000Z',
+      userId: 'user_A', isDeleted: false, visibility: 'private' as const,
+    };
+    const { cbs } = renderSection({ tasks: [task] });
+    const title = screen.getByRole('button', { name: 'Write proposal' });
+
+    expect(fireEvent.keyDown(title, { key: 'Enter' })).toBe(false);
+    expect(cbs.onEditTask).toHaveBeenCalledExactlyOnceWith(task);
+    expect(cbs.onOpenActions).not.toHaveBeenCalled();
+
+    expect(fireEvent.keyDown(title, { key: ' ', code: 'Space' })).toBe(false);
+    expect(cbs.onToggleTask).toHaveBeenCalledExactlyOnceWith('keyboard_task', false);
+    expect(cbs.onOpenActions).not.toHaveBeenCalled();
+
+    expect(fireEvent.keyDown(title, { key: 'Enter', shiftKey: true })).toBe(false);
+    expect(cbs.onOpenActions).toHaveBeenCalledExactlyOnceWith(task);
+  });
+
+  it('keeps task completion unchanged when Space or Enter selects in selection mode', () => {
+    const task = {
+      id: 'select_keyboard', title: 'Select this', completed: false,
+      categoryId: 'work', date: '2026-10-20',
+      createdAt: '2026-10-20T00:00:00.000Z',
+      updatedAt: '2026-10-20T00:00:00.000Z',
+      userId: 'user_A', isDeleted: false, visibility: 'private' as const,
+    };
+    const cbs = makeCallbacks();
+    const onToggleTaskSelection = vi.fn();
+    render(<CategorySection
+      categoryId="work" categoryName="Work" categoryColor="#3B82F6"
+      currentUserId="user_A" tasks={[task]}
+      editingTaskId={null} editValue="" selectionMode
+      onToggleTaskSelection={onToggleTaskSelection} {...cbs}
+    />);
+    const title = screen.getByRole('button', { name: 'Select this' });
+    fireEvent.keyDown(title, { key: ' ' });
+    fireEvent.keyDown(title, { key: 'Enter' });
+    expect(onToggleTaskSelection).toHaveBeenCalledTimes(2);
+    expect(onToggleTaskSelection).toHaveBeenNthCalledWith(1, 'select_keyboard');
+    expect(cbs.onToggleTask).not.toHaveBeenCalled();
+    expect(cbs.onEditTask).not.toHaveBeenCalled();
+  });
+
 });

@@ -21,6 +21,7 @@ interface DayCellProps {
   holidays?: readonly HolidayOccurrence[];
   isCurrentMonth?: boolean;
   onDayClick?: (date: Date) => void;
+  keyboardTabIndex?: number;
 }
 
 const DayCellComponent: React.FC<DayCellProps> = ({
@@ -33,6 +34,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   holidays = EMPTY_HOLIDAYS,
   isCurrentMonth = true,
   onDayClick,
+  keyboardTabIndex,
 }) => {
   const dayNumber = date.getDate();
   const dayOfWeek = date.getDay();
@@ -91,10 +93,12 @@ const DayCellComponent: React.FC<DayCellProps> = ({
       aria-label={ariaLabel}
       aria-current={isTodayDate ? 'date' : undefined}
       aria-disabled={!onDayClick}
+      data-calendar-day={format(date, 'yyyy-MM-dd')}
+      tabIndex={keyboardTabIndex}
       // Keep sparse calendar rows readable: reserve the height of the
       // day label plus two standard (text-only) task blocks. Rows can
       // still grow when their tallest cell contains more content.
-      className={`py-0.5 flex flex-col h-full min-h-[4.25rem] w-full rounded-md text-left transition-colors focus:outline-none ${
+      className={`py-0.5 flex flex-col h-full min-h-[4.25rem] w-full rounded-md text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/80 ${
         onDayClick ? 'cursor-pointer hover:bg-[#1E1E1E] active:scale-[0.98]' : 'cursor-default'
       } ${!isCurrentMonth ? 'opacity-40' : ''}`}
     >
@@ -164,7 +168,8 @@ function dayCellPropsEqual(previous: DayCellProps, next: DayCellProps): boolean 
     previous.categories !== next.categories ||
     previous.holidays !== next.holidays ||
     previous.isCurrentMonth !== next.isCurrentMonth ||
-    previous.onDayClick !== next.onDayClick
+    previous.onDayClick !== next.onDayClick ||
+    previous.keyboardTabIndex !== next.keyboardTabIndex
   ) return false;
 
   if (previous.tasks === next.tasks) return true;
