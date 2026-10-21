@@ -66,6 +66,27 @@ function assertNoShaking(frames, phase) {
     phase + ': month slide width must match visible grid width').toBeLessThan(2);
 }
 
+// A swipe after a panel has fully opened must use the current calendar width,
+// not stale global offsets from Embla's pre-panel measurements.
+async function swipeMonth(page, direction, expectedIndex) {
+  const viewport = page.locator('[data-route-swipe-horizontal-owner="true"]');
+  const box = await viewport.boundingBox();
+  if (!box) throw Error('Missing calendar for swipe');
+  const title = await page.getByTestId('split-focused-title').textContent();
+  const y = box.y + Math.min(130, box.height / 3);
+  const fromX = box.x + box.width * (direction === 'next' ? .82 : .18);
+  const toX = box.x + box.width * (direction === 'next' ? .18 : .82);
+  await page.mouse.move(fromX, y);
+  await page.mouse.down();
+  await page.mouse.move(toX, y, { steps: 20 });
+  await page.mouse.up();
+  await expect(page.getByTestId('split-focused-title')).not.toHaveText(title ?? '');
+  // Tests the *next* selected slide after genuine user dragging; a stale
+  // Embla snap gives a persistent +panelWidth offset on left placement.
+  await expect.poll(() => alignment(page, expectedIndex)).toBeLessThan(2);
+  await expect(viewport).toHaveJSProperty('scrollLeft', 0);
+}
+
 for (const height of ['grid', 'screen']) {
   for (const side of ['left', 'right']) {
     test(`${side} panel retains focused month through live ${height} resize and reaches bottom`, async ({ page }) => {
@@ -96,6 +117,10 @@ for (const height of ['grid', 'screen']) {
       await expect.poll(() => alignment(page, 31)).toBeLessThan(2);
       // Native viewport scrolling must remain impossible even after resizing stops.
       await expect(viewport).toHaveJSProperty('scrollLeft', 0);
+
+      // The previous regression never navigated while the panel was open.
+      await swipeMonth(page, 'next', 32);
+      await swipeMonth(page, 'prev', 31);
 
       const bounds = await page.evaluate((mode) => {
         const host = document.querySelector('[data-testid="day-panel-motion-host"]');
@@ -141,6 +166,19 @@ for (const height of ['grid', 'screen']) {
       await expect.poll(() => alignment(page, 31)).toBeLessThan(2);
       // Native viewport scrolling must remain impossible even after resizing stops.
       await expect(viewport).toHaveJSProperty('scrollLeft', 0);
+
+      // Resizing must not be the only action that restores the correct snap.
+      await swipeMonth(page, 'next', 32);
+      await swipeMonth(page, 'prev', 31);
+      // Horizontal trackpad/wheel follows Embla's measured snaps as well.
+      const wheelBox = await viewport.boundingBox();
+      if (!wheelBox) throw Error('Missing calendar viewport for wheel');
+      await page.mouse.move(wheelBox.x + wheelBox.width / 2, wheelBox.y + Math.min(130, wheelBox.height / 3));
+      await page.mouse.wheel(750, 0);
+      await expect.poll(() => alignment(page, 32)).toBeLessThan(2);
+      await page.mouse.wheel(-750, 0);
+      await expect.poll(() => alignment(page, 31)).toBeLessThan(2);
+
 
       await startFrameCapture(page, 31);
       await page.getByRole('button', { name: 'Close day details' }).click();
