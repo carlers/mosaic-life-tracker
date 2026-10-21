@@ -4,7 +4,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const emblaFixture = vi.hoisted(() => {
   const handlers = new Map<string, Set<() => void>>();
-  const container = document.createElement('div');
+  const viewport = document.createElement('div');
+  const slide = document.createElement('div');
+  let slideOffset = 0;
+  let engineLocation = -48000;
+  viewport.getBoundingClientRect = vi.fn(() => ({ left: 0 } as DOMRect));
+  slide.getBoundingClientRect = vi.fn(() => ({ left: slideOffset } as DOMRect));
+  const engine = {
+    animation: { stop: vi.fn() },
+    location: {
+      get: vi.fn(() => engineLocation),
+      set: vi.fn((value: number) => { engineLocation = value; }),
+    },
+    offsetLocation: { set: vi.fn() },
+    previousLocation: { set: vi.fn() },
+    target: { set: vi.fn() },
+    translate: { to: vi.fn() },
+  };
   let selectedIndex = 30;
   let progress = 0.5;
 
@@ -19,19 +35,30 @@ const emblaFixture = vi.hoisted(() => {
       handlers.get(event)?.delete(handler);
       return api;
     }),
-    rootNode: vi.fn(() => document.createElement('div')),
+    rootNode: vi.fn(() => viewport),
+    slideNodes: vi.fn(() => Array(61).fill(slide)),
+    internalEngine: vi.fn(() => engine),
     scrollProgress: vi.fn(() => progress),
     selectedScrollSnap: vi.fn(() => selectedIndex),
     scrollTo: vi.fn(),
     reInit: vi.fn(),
-    containerNode: vi.fn(() => container),
     scrollPrev: vi.fn(),
     scrollNext: vi.fn(),
   };
 
   return {
     api,
+    engine,
+    setSlideOffset(value: number) { slideOffset = value; },
     reset() {
+      slideOffset = 0;
+      engineLocation = -48000;
+      engine.animation.stop.mockClear();
+      engine.location.set.mockClear();
+      engine.offsetLocation.set.mockClear();
+      engine.previousLocation.set.mockClear();
+      engine.target.set.mockClear();
+      engine.translate.to.mockClear();
       handlers.clear();
       selectedIndex = 30;
       progress = 0.5;
@@ -84,8 +111,12 @@ describe('useCalendarState render window', () => {
     // A resize can leave Embla reporting an adjacent slide, while the header
     // still correctly shows the focused month. Never use that stale snap.
     emblaFixture.setSelectedIndex(29);
+    emblaFixture.setSlideOffset(412);
     act(() => result.current.resnapAfterResize());
-    expect(emblaFixture.api.containerNode().style.transform).toBe('none');
     expect(emblaFixture.api.reInit).toHaveBeenCalledWith({ startIndex: 30 });
+    expect(emblaFixture.engine.animation.stop).toHaveBeenCalled();
+    expect(emblaFixture.engine.location.set).toHaveBeenCalledWith(-48412);
+    expect(emblaFixture.engine.target.set).toHaveBeenCalledWith(-48412);
+    expect(emblaFixture.engine.translate.to).toHaveBeenCalledWith(-48412);
   });
 });

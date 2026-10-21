@@ -52,21 +52,6 @@ export function useCalendarState(
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
   const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
-  const resizeTimerRef = useRef<number | null>(null);
-  const focusIndexRef = useRef(CENTER_INDEX);
-  // Do not remeasure Embla against intermediate widths during a left inspector
-  // expansion. Only the final settled frame may rebuild the snap list.
-  const onEmblaResize = useCallback((api: { reInit: (options: { startIndex: number }) => void }) => {
-    if (resizeTimerRef.current !== null) window.clearTimeout(resizeTimerRef.current);
-    resizeTimerRef.current = window.setTimeout(() => {
-      resizeTimerRef.current = null;
-      api.reInit({ startIndex: focusIndexRef.current });
-    }, 130);
-    return false;
-  }, []);
-  useEffect(() => () => {
-    if (resizeTimerRef.current !== null) window.clearTimeout(resizeTimerRef.current);
-  }, []);
   const isInternalSwipeRef = useRef(false);
   const zoomNavigationLock = useRef(false);
   const [isZoomTransitioning, setIsZoomTransitioning] = useState(false);
@@ -90,7 +75,6 @@ export function useCalendarState(
     skipSnaps: false,
     startIndex: CENTER_INDEX,
     duration: reduceMotion ? 0 : 22,
-    watchResize: onEmblaResize,
     watchDrag: (_api, event) => !(event.target instanceof Element && event.target.closest('[data-calendar-zoom-lane]')),
   });
 
@@ -106,11 +90,27 @@ export function useCalendarState(
     const raw = CENTER_INDEX + offset;
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
   }, [focusDate, baseDate, viewMode, weekStartsOn]);
-  focusIndexRef.current = focusIndex;
 
-  // Invoked after closing or releasing the divider.
+  // After an inspector resizes from the left, Embla can retain a track offset
+  // exactly equal to the space taken by the inspector even when the selected
+  // snap index is correct. Align the existing engine's location with the real
+  // focused slide rather than remounting a 61-slide calendar.
   const resnapAfterResize = useCallback(() => {
-    emblaApi?.reInit({ startIndex: focusIndex });
+    if (!emblaApi) return;
+    emblaApi.reInit({ startIndex: focusIndex });
+    const slide = emblaApi.slideNodes()[focusIndex];
+    if (!slide) return;
+    const delta = slide.getBoundingClientRect().left
+      - emblaApi.rootNode().getBoundingClientRect().left;
+    if (Math.abs(delta) <= 1) return;
+    const engine = emblaApi.internalEngine();
+    const aligned = engine.location.get() - delta;
+    engine.animation.stop();
+    engine.location.set(aligned);
+    engine.offsetLocation.set(aligned);
+    engine.previousLocation.set(aligned);
+    engine.target.set(aligned);
+    engine.translate.to(aligned);
   }, [emblaApi, focusIndex]);
 
   // Selection makes the destination slide ready; waiting for Embla's
