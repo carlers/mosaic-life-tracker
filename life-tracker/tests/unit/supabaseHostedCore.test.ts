@@ -30,12 +30,17 @@ describe('hosted core verification safety boundary', () => {
     expect(() => assertCredentialFreeEmailTemplates({
       ...EMAIL_TEMPLATES,
       mailer_templates_confirmation_content: EMAIL_TEMPLATES.mailer_templates_confirmation_content
-        .replace('/auth/confirm"', '/auth/confirm#token_hash=secret"'),
+        .replace('/auth/confirm"', '/auth/confirm#marker=secret"'),
     })).toThrow('credential-free exact routes');
     expect(() => assertCredentialFreeEmailTemplates({
       ...EMAIL_TEMPLATES,
       mailer_templates_recovery_content: EMAIL_TEMPLATES.mailer_templates_recovery_content
         .replace('{{ .Token }}', '{{ .TokenHash }}'),
+    })).toThrow('must use a code');
+    expect(() => assertCredentialFreeEmailTemplates({
+      ...EMAIL_TEMPLATES,
+      mailer_templates_confirmation_content: EMAIL_TEMPLATES.mailer_templates_confirmation_content
+        .replace('/auth/confirm"', '/auth/confirm#token_hash=secret"'),
     })).toThrow('must use a code');
     for (const change of [{ mailer_autoconfirm: true }, { site_url: 'https://production.example' }])
       expect(() => previewEmailPolicy({ ...current, ...change })).toThrow('Unexpected isolated');
