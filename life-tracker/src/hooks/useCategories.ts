@@ -102,14 +102,18 @@ export function useCategories(enabled = true) {
       assertActiveOwner(uid);
       if (!uid) throw new Error('[useCategories] Cannot delete without an account');
       const db = getDatabase();
-      const [source, categories, assignedTasks] = await Promise.all([
-        db.categories.findOne(id).exec(),
+      // Reject a stale/foreign category ID before any sibling task lookup.
+      const source = await db.categories.findOne(id).exec();
+      assertActiveOwner(uid);
+      if (source && source.userId !== uid)
+        throw new Error('[useCategories] Cannot delete category for another account');
+      if (!source || source.isDeleted)
+        throw new Error('[useCategories] Category no longer exists for this account');
+      const [categories, assignedTasks] = await Promise.all([
         db.categories.find({ selector: { userId: uid, isDeleted: false } }).exec(),
         db.tasks.find({ selector: { userId: uid, categoryId: id, isDeleted: false } }).exec(),
       ]);
       assertActiveOwner(uid);
-      if (!source || source.userId !== uid || source.isDeleted)
-        throw new Error('[useCategories] Category no longer exists for this account');
       const destination = categories
         .filter(category => category.userId === uid && !category.isDeleted && category.id !== id)
         .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))[0];

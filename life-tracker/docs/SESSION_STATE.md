@@ -15,7 +15,7 @@ Current task: #1186 category deletion must preserve tasks in Calendar, Day View 
 - Implement transfer to first remaining owner category before tombstoning, with owner checks, checked partial failure/retry and refusal when it would strand last-category tasks. Update confirmation to name actual destination; behavior-first DOM hook regressions. Preserve prior orphaned task records for a future explicit recovery path; do not silently purge user content.
 - #1187 investigates scoped Supabase Realtime wake-only resync. Existing candidate RxDB pilot intentionally has no realtime event subscription; never add unbounded polling or a client-authorized payload channel as an expedient fix.
 
-## Next actions
+## Next action
 - Focused verify category mutation/UI tests, lint/build/version contracts and repair failures.
 - Squash accepted #1186 task PR into isolated stable #1027 Preview only; require same-SHA canonical Quality Gate + Supabase lab and exact artifact deployment acceptance before owner tests. Preserve shared production path for later deliberate forward-port from current dev baseline, with its distinct version line.
 - Run direct deployed Preview/browser verification, security/invite revocation and restore drills; establish safe stable tester URL and Free quotas before limited beta invitation. Keep #1027, #1186, #1187 open until independently accepted; Diary #1029 immediately after core beta.
