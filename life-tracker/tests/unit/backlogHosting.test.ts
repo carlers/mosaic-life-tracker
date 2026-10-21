@@ -16,6 +16,8 @@ describe('Backlogs hosted SPA route', () => {
       source: '/backlog',
       destination: '/index.html',
     });
+    // Query-based list mode reuses the existing trusted /backlog SPA rewrite.
+    expect(config.rewrites.some(rule => rule.source === '/uncompleted')).toBe(false);
     expect(config.rewrites).not.toContainEqual({
       source: '/(.*)',
       destination: '/index.html',
