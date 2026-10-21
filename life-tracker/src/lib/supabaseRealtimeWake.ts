@@ -21,6 +21,9 @@ export interface CoreRealtimeWakeOptions {
   /** Existing authenticated replication catch-up, not event payload apply. */
   onWake: () => Promise<void>;
   socketFactory?: (url: string) => WebSocket;
+  /** Test seams; defaults use browser connection/visibility state. */
+  isOnline?: () => boolean;
+  isVisible?: () => boolean;
 }
 
 type Notice = { event?: unknown; topic?: unknown; ref?: unknown; payload?: unknown };
@@ -124,8 +127,9 @@ export function startCoreRealtimeWake(options: CoreRealtimeWakeOptions): () => v
   }
 
   async function connect() {
-    if (!active() || current || typeof navigator !== 'undefined' && navigator.onLine === false ||
-        typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    if (!active() || current ||
+        !(options.isOnline?.() ?? (typeof navigator === 'undefined' || navigator.onLine !== false)) ||
+        !(options.isVisible?.() ?? (typeof document === 'undefined' || document.visibilityState !== 'hidden'))) return;
     const attempt = ++revision;
     let session: CandidateVerifiedSession | null;
     try { session = await options.session.getVerifiedSession(); }

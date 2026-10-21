@@ -44,6 +44,7 @@ function harness() {
     baseUrl: 'https://hcxtiifzxoaflhjgoglb.supabase.co',
     publishableKey, session, onWake, isActive: () => active,
     socketFactory: url => new FakeSocket(url) as unknown as WebSocket,
+    isOnline: () => true, isVisible: () => true,
   });
   return { session, signed, stop, onWake, deactivate: () => { active = false; } };
 }
