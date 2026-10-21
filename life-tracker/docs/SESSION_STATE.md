@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Task: #1027 zero-cost fresh-account Supabase core beta.
+Current task: #1027 zero-cost fresh-account Supabase core beta.
 
 ## Baseline
 - Stable isolated source: `feature/1027-supabase-recovery-20261020@12f343895efa7810e2bbf626900e121cbcb71c78`, v0.32.4. Quality Gate #39577588073 and signed Core App Lab #39577588135 SUCCESS, including real local invitation-hook SQL decisions, catalog privileges, signed browser core and CI artifact staging.
