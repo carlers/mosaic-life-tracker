@@ -32,3 +32,8 @@ Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and 
 ## Third size-gate fix (structural)
 - Canonical Preview `566d97d613eaaf5d8df5c17645ca912b9d6ee280` failed strict Home closure by 249 bytes in run 39559047358, while other suites passed. No size limit changes.
 - Refactor moves frame ResizeObserver, screen portal resolution and responsive split state into the already lazy-loaded DayDetailPanel. CalendarBody only measures width on a day-selection event to decide sheet/panel and passes the initial width. Grid left placement is derived from the mounted inspector's data attributes; screen placement remains from Home-level portal CSS. Preserves active-panel resize and nested editor history, without increasing default Home code. Keep v0.40.2 and require full acceptance and exact-SHA READY.
+
+## Fourth size-gate repair: lazy stylesheet
+- Stable candidate `496a6f7b0c6ba15fd67541caafbe28b3962d452a` run 39559807501 Home static closure 381,173/381,000 bytes (+173); full build-size gate blocks Preview. Other checks remained green.
+- Move two split-only CSS :has placement rules out of global startup stylesheet into `src/components/home/views/dayDetailPanel.css`, imported only by lazy DayDetailPanel chunk. Move height preference snapshot into that lazy component, keeping editing mode stable across preference sync, and remove eager manual preload from CalendarBody (lazy mount still imports on first day selection with its existing local Suspense fallback). No budget changes, v0.40.2 retained.
+- Next: task focused CI, stable squash, full canonical, trusted exact READY Vercel then user acceptance. No dev/main promotion.
