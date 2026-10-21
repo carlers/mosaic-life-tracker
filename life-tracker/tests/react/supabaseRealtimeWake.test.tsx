@@ -53,7 +53,11 @@ function harness() {
 async function getSocket(h: ReturnType<typeof harness>) {
   await vi.waitFor(() => {
     if (!FakeSocket.sockets.length) throw Error('No socket: ' + JSON.stringify({ ...h.diagnostics,
-      sessionCalls: h.session.getVerifiedSession.mock.calls.length }));
+      sessionCalls: h.session.getVerifiedSession.mock.calls.length,
+      lastSessionResult: h.session.getVerifiedSession.mock.results.at(-1)?.type,
+      ownerMatchesUuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(h.signed.userId),
+      tokenPresent: !!h.signed.accessToken, epochSafe: Number.isSafeInteger(h.signed.sessionEpoch),
+    }));
   });
   return FakeSocket.sockets.at(-1)!;
 }
