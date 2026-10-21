@@ -24,6 +24,7 @@ export interface CoreRealtimeWakeOptions {
   /** Test seams; defaults use browser connection/visibility state. */
   isOnline?: () => boolean;
   isVisible?: () => boolean;
+  onDebug?: (status: Record<string, boolean>) => void;
 }
 
 type Notice = { event?: unknown; topic?: unknown; ref?: unknown; payload?: unknown };
@@ -135,6 +136,15 @@ export function startCoreRealtimeWake(options: CoreRealtimeWakeOptions): () => v
     try { session = await options.session.getVerifiedSession(); }
     catch { scheduleReconnect(); return; }
     if (!active() || current || attempt !== revision) return;
+    options.onDebug?.({
+      received: !!session,
+      uuid: !!session && UUID.test(session.userId),
+      token: !!session?.accessToken,
+      epoch: !!session && Number.isSafeInteger(session.sessionEpoch),
+      current: !current,
+      attempt: attempt === revision,
+      active: active(),
+    });
     if (!session || !UUID.test(session.userId) || !session.accessToken ||
         !Number.isSafeInteger(session.sessionEpoch)) {
       scheduleReconnect();

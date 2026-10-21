@@ -37,7 +37,7 @@ class FakeSocket {
 const publishableKey = 'sb_publishable_test_test_test';
 function harness() {
   const signed = { userId: owner, accessToken: 'signed-owner-token', sessionEpoch: 3 };
-  const diagnostics = { active: 0, online: 0, visible: 0, factory: 0 };
+  const diagnostics = { active: 0, online: 0, visible: 0, factory: 0, guards: {} as Record<string, boolean> };
   const session = { getVerifiedSession: vi.fn(async () => ({ ...signed })) };
   const onWake = vi.fn(async () => {});
   let active = true;
@@ -47,6 +47,7 @@ function harness() {
     socketFactory: url => { diagnostics.factory++; return new FakeSocket(url) as unknown as WebSocket; },
     isOnline: () => { diagnostics.online++; return true; },
     isVisible: () => { diagnostics.visible++; return true; },
+    onDebug: status => { diagnostics.guards = status; },
   });
   return { session, signed, stop, onWake, diagnostics, deactivate: () => { active = false; } };
 }
