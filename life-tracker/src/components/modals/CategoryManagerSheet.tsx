@@ -191,6 +191,14 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     }
   }
 
+  // The first remaining category in user order is the deterministic
+  // destination. No tasks may be left pointing at a deleted category.
+  const deleteDestination = useMemo(() => [...categories]
+    .filter(cat => cat.id !== deleteId)
+    .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))[0],
+  [categories, deleteId]);
+  const deleteHasTasks = tasks.some(task => task.categoryId === deleteId);
+
   const overriddenCounts = useMemo(() => {
     const map = new Map<string, number>();
     for (const t of tasks) {
@@ -356,13 +364,17 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
           <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
             <p className="text-white">Delete this category?</p>
             <p className="text-sm text-gray-400">
-              Tasks in this category will be moved to the default category.
+              {deleteDestination
+                ? `Tasks in this category will be moved to ${deleteDestination.name}.`
+                : deleteHasTasks
+                  ? 'Create another category first so these tasks are not lost.'
+                  : 'This empty category will be removed.'}
             </p>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={handleCancelDelete} className="flex-1" disabled={isSaving}>
                 Cancel
               </Button>
-              <Button variant="danger" onClick={handleConfirmDelete} className="flex-1" disabled={isSaving}>
+              <Button variant="danger" onClick={handleConfirmDelete} className="flex-1" disabled={isSaving || (deleteHasTasks && !deleteDestination)}>
                 Delete
               </Button>
             </div>

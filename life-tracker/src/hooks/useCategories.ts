@@ -98,9 +98,57 @@ export function useCategories(enabled = true) {
 
   const deleteCategory = useCallback(
     async (id: string) => {
+      const uid = ownerId;
+      assertActiveOwner(uid);
+      if (!uid) throw new Error('[useCategories] Cannot delete without an account');
+      const db = getDatabase();
+      // Reject a stale/foreign category ID before any sibling task lookup.
+      const source = await db.categories.findOne(id).exec();
+      assertActiveOwner(uid);
+      if (source && source.userId !== uid)
+        throw new Error('[useCategories] Cannot delete category for another account');
+      if (!source || source.isDeleted)
+        throw new Error('[useCategories] Category no longer exists for this account');
+      const [categories, assignedTasks] = await Promise.all([
+        db.categories.find({ selector: { userId: uid, isDeleted: false } }).exec(),
+        db.tasks.find({ selector: { userId: uid, categoryId: id, isDeleted: false } }).exec(),
+      ]);
+      assertActiveOwner(uid);
+      const destination = categories
+        .filter(category => category.userId === uid && !category.isDeleted && category.id !== id)
+        .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))[0];
+      if (assignedTasks.length && !destination)
+        throw new Error('Create another category before deleting one that contains tasks');
+
+      // Deleting the category first makes its still-live tasks disappear from
+      // Day View while Calendar continues showing their orphaned TaskBlocks.
+      // Transfer owner-scoped tasks first, keeping their original IDs, dates,
+      // completion state and tombstone history. A failed move leaves the
+      // category visible and a retry can finish only the remaining tasks.
+      for (const task of assignedTasks) {
+        assertActiveOwner(uid);
+        const current = await db.tasks.findOne(task.id).exec();
+        assertActiveOwner(uid);
+        if (!current || current.userId !== uid)
+          throw new Error('[useCategories] Task owner changed during category deletion');
+        if (current.isDeleted || current.categoryId !== id) continue;
+        await current.incrementalPatch({
+          categoryId: destination!.id,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      // A task created during the transfer must not be stranded by the
+      // category tombstone. Refuse to finish and allow an idempotent retry.
+      const remaining = await db.tasks.find({
+        selector: { userId: uid, categoryId: id, isDeleted: false },
+      }).exec();
+      assertActiveOwner(uid);
+      if (remaining.length)
+        throw new Error('Tasks changed during category deletion. Try again.');
       await updateCategory(id, { isDeleted: true });
     },
-    [updateCategory]
+    [ownerId, assertActiveOwner, updateCategory]
   );
 
   const reorderCategories = useCallback(
