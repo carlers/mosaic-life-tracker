@@ -78,11 +78,10 @@ export const HomePage: React.FC = () => {
   const friendCarouselRef = useRef<HTMLDivElement>(null);
   const isProgrammaticMoveRef = useRef(false);
 
-  if (persons.length > 0 && !persons.some((p) => p.id === activePersonId)) {
-    setActivePersonId('me');
-  }
+  const personIndex = persons.findIndex(p => p.id === activePersonId);
+  if (persons.length > 0 && personIndex < 0) setActivePersonId('me');
 
-  const activeIndex = Math.max(0, persons.findIndex((p) => p.id === activePersonId));
+  const activeIndex = Math.max(0, personIndex);
 
   useEffect(() => {
     markStartup('home:mounted');

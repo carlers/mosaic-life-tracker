@@ -6,11 +6,13 @@ export function updateFocusedCalendarSlide(emblaApi: EmblaCarouselType, focusInd
   if (!live) emblaApi.reInit({ startIndex: focusIndex });
   const slide = emblaApi.slideNodes()[focusIndex];
   if (!slide) return;
-  const delta = slide.getBoundingClientRect().left
-    - emblaApi.rootNode().getBoundingClientRect().left;
-  if (Math.abs(delta) <= 0.25) return;
+  const first = emblaApi.slideNodes()[0];
+  if (!first) return;
+  // Use current DOM slide geometry, not Embla's cached pre-resize snap.
+  // The carousel's flex slides start at the viewport's left edge.
+  const aligned = first.getBoundingClientRect().left
+    - slide.getBoundingClientRect().left;
   const engine = emblaApi.internalEngine();
-  const aligned = engine.location.get() - delta;
   engine.animation.stop();
   engine.location.set(aligned);
   engine.offsetLocation.set(aligned);
