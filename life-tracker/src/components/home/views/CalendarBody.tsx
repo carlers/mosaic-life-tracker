@@ -124,12 +124,9 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   }, [isActive]);
   useEffect(() => {
     if (dayDetailPresentation !== 'panel' || !isActive) return;
-    const warm = () => { if (!document.hidden) void preloadDayDetailPanel().catch(() => {}); };
-    if (window.requestIdleCallback) {
-      const idle = window.requestIdleCallback(warm, { timeout: 1800 });
-      return () => window.cancelIdleCallback?.(idle);
-    }
-    const timer = window.setTimeout(warm, 900);
+    const timer = window.setTimeout(() => {
+      if (!document.hidden) void preloadDayDetailPanel().catch(() => {});
+    }, 700);
     return () => window.clearTimeout(timer);
   }, [dayDetailPresentation, isActive]);
   const [calendarWidth, setCalendarWidth] = useState(0);
