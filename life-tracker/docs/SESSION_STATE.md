@@ -1,5 +1,6 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
+Current task: Repair #404 dev Vercel bundle-size parity without changing accepted layout; then implement approved large-screen Todo/Diary and panel-controls feature.
 
 ## Current task and evidence
 - Issue #404 v0.40.5 large-screen Calendar split accepted by owner as fully working. PR #1191 promoted accepted stable Preview `feature/split-day-panel-dev-404-20261021@1e73d7bce6014475905342b2b5b7751145720846` to `dev@5e18064e516663aca71a930ffc6687cc0f2c46e7` with an identical Git tree. Promotion [Quality Gate 39639072325](https://github.com/carlers/mosaic-life-tracker/actions/runs/39639072325) SUCCESS.
