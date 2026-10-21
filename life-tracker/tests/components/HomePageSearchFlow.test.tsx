@@ -301,13 +301,21 @@ describe('HomePage task-search wiring', () => {
   });
   it('reserves H for Home navigation and uses Shift+H for the Home menu', () => {
     renderHome();
-    const menu = screen.getByRole('button', { name: 'Open menu' });
-    const click = vi.spyOn(menu, 'click');
-    fireEvent.keyDown(document.body, { key: 'h' });
-    expect(click).not.toHaveBeenCalled();
-    fireEvent.keyDown(document.body, { key: 'H', shiftKey: true });
-    expect(click).toHaveBeenCalledTimes(1);
-    click.mockRestore();
+    // The search-header mock omits its trailing HamburgerMenu control.
+    // Supply the same DOM trigger used by the production Home action.
+    const menu = document.createElement('button');
+    menu.dataset.homeMenuTrigger = 'true';
+    document.body.appendChild(menu);
+    try {
+      const click = vi.spyOn(menu, 'click');
+      fireEvent.keyDown(document.body, { key: 'h' });
+      expect(click).not.toHaveBeenCalled();
+      fireEvent.keyDown(document.body, { key: 'H', shiftKey: true });
+      expect(click).toHaveBeenCalledTimes(1);
+      click.mockRestore();
+    } finally {
+      menu.remove();
+    }
   });
 
 });
