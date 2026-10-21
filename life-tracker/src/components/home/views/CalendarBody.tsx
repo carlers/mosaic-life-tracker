@@ -266,7 +266,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           <LazyDayDetailPanel
             side={dayPanelSide}
             isPresented={daySheetOpen}
-            onExited={() => setPanelMounted(false)}
+            onExited={() => {
+              setPanelMounted(false);
+              requestAnimationFrame(() => onCalendarLayoutChange?.());
+            }}
             initialHeightMode={dayPanelHeight}
             onCalendarLayoutChange={onCalendarLayoutChange}
             initialFrameWidth={openedFrameWidth}

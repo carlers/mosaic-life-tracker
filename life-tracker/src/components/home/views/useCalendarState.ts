@@ -80,15 +80,25 @@ export function useCalendarState(
 
   useEmblaTrackpadNavigation(emblaApi);
 
+  // Focused month, not Embla's transient selected snap, is the authority when
+  // the left inspector shifts the viewport. Never chase a half-settled slide.
+  const focusIndex = useMemo(() => {
+    const offset =
+      viewMode === 'month'
+        ? differenceInCalendarMonths(focusDate, baseDate)
+        : differenceInCalendarWeeks(focusDate, baseDate, { weekStartsOn });
+    const raw = CENTER_INDEX + offset;
+    return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
+  }, [focusDate, baseDate, viewMode, weekStartsOn]);
+
   // A left-side inspector shifts the Embla viewport as well as narrowing it.
   // Re-initialize against the *settled* viewport and restore the logical snap,
   // never its stale pixel transform.
   const resnapAfterResize = useCallback(() => {
     if (!emblaApi) return;
-    const selected = emblaApi.selectedScrollSnap();
     emblaApi.reInit();
-    emblaApi.scrollTo(selected, true);
-  }, [emblaApi]);
+    emblaApi.scrollTo(focusIndex, true);
+  }, [emblaApi, focusIndex]);
 
   // Selection makes the destination slide ready; waiting for Embla's
   // physics-based 'settle' can keep zoomed month navigation locked for
@@ -159,16 +169,10 @@ export function useCalendarState(
       isInternalSwipeRef.current = false;
       return;
     }
-    const offset =
-      viewMode === 'month'
-        ? differenceInCalendarMonths(focusDate, baseDate)
-        : differenceInCalendarWeeks(focusDate, baseDate, { weekStartsOn });
-    const targetIndex = CENTER_INDEX + offset;
-    if (targetIndex < 0 || targetIndex >= TOTAL_SLIDES) return;
-    if (emblaApi.selectedScrollSnap() !== targetIndex) {
-      emblaApi.scrollTo(targetIndex, true);
+    if (emblaApi.selectedScrollSnap() !== focusIndex) {
+      emblaApi.scrollTo(focusIndex, true);
     }
-  }, [emblaApi, focusDate, baseDate, viewMode, weekStartsOn]);
+  }, [emblaApi, focusIndex]);
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -226,14 +230,7 @@ export function useCalendarState(
   // below, this covers both the currently-animating slide and any
   // programmatic scroll target (which can momentarily diverge during a
   // resetToToday jump).
-  const focusIndex = useMemo(() => {
-    const offset =
-      viewMode === 'month'
-        ? differenceInCalendarMonths(focusDate, baseDate)
-        : differenceInCalendarWeeks(focusDate, baseDate, { weekStartsOn });
-    const raw = CENTER_INDEX + offset;
-    return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
-  }, [focusDate, baseDate, viewMode, weekStartsOn]);
+
 
   const renderStart = Math.max(
     0,

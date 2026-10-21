@@ -22,6 +22,7 @@ const emblaFixture = vi.hoisted(() => {
     scrollProgress: vi.fn(() => progress),
     selectedScrollSnap: vi.fn(() => selectedIndex),
     scrollTo: vi.fn(),
+    reInit: vi.fn(),
     scrollPrev: vi.fn(),
     scrollNext: vi.fn(),
   };
@@ -37,9 +38,11 @@ const emblaFixture = vi.hoisted(() => {
       api.scrollProgress.mockClear();
       api.selectedScrollSnap.mockClear();
       api.scrollTo.mockClear();
+      api.reInit.mockClear();
       api.scrollPrev.mockClear();
       api.scrollNext.mockClear();
     },
+    setSelectedIndex(value: number) { selectedIndex = value; },
     setProgress(value: number) {
       progress = value;
     },
@@ -73,5 +76,14 @@ describe('useCalendarState render window', () => {
 
     expect(result.current.renderStart).toBe(29);
     expect(result.current.renderEnd).toBe(31);
+  });
+  it('restores the focused month even when Embla temporarily selects a neighboring snap after a left split', () => {
+    const { result } = renderHook(() => useCalendarState());
+    // A resize can leave Embla reporting an adjacent slide, while the header
+    // still correctly shows the focused month. Never use that stale snap.
+    emblaFixture.setSelectedIndex(29);
+    act(() => result.current.resnapAfterResize());
+    expect(emblaFixture.api.reInit).toHaveBeenCalledTimes(1);
+    expect(emblaFixture.api.scrollTo).toHaveBeenLastCalledWith(30, true);
   });
 });

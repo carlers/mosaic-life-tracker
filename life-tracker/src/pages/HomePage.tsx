@@ -408,7 +408,7 @@ export const HomePage: React.FC = () => {
         <div
           inert={isSearchOpen ? true : undefined}
           data-home-panel-slot="true"
-          className="flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
+          className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
         />
       </div>
 
