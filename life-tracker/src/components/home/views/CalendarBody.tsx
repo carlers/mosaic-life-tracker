@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { CalendarCarousel } from './CalendarCarousel';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
-import { clampDayPanelWidth, DAY_PANEL_MIN_FRAME_WIDTH, readDayPanelWidth, saveDayPanelWidth, type DayPanelSide } from '../../../lib/dayPanelLayout';
+import { DAY_PANEL_MIN_FRAME_WIDTH, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
@@ -28,9 +28,6 @@ const LazyReplyComposerSheet = React.lazy(() =>
 
 const { Component: LazyDayDetailPanel, preload: preloadDayDetailPanel } =
   createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
-const { Component: LazyDayPanelResizeHandle } = createPreloadedLazy(
-  () => import('./DayPanelResizeHandle').then(({ DayPanelResizeHandle }) => DayPanelResizeHandle)
-);
 
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
@@ -104,7 +101,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [openPresentation, setOpenPresentation] = useState<'sheet' | 'panel'>('sheet');
   const [availableWidth, setAvailableWidth] = useState(0);
-  const [panelWidth, setPanelWidth] = useState(readDayPanelWidth);
   const panelHostRef = useRef<HTMLDivElement>(null);
   const calendarTriggerRef = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
@@ -271,7 +267,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const isFriend = variant === 'friend' && Boolean(friendName && friendUserId);
   const panelOpen = daySheetOpen && openPresentation === 'panel' && isActive;
   const isSplit = panelOpen && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
-  const effectivePanelWidth = clampDayPanelWidth(panelWidth, availableWidth);
 
   const calendarAndPanel = (
     <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -279,33 +274,25 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {calendarContent(carousel)}
         </div>
-        {isSplit && (
-          <LazyDayPanelResizeHandle side={dayPanelSide} width={effectivePanelWidth}
-            frameWidth={availableWidth} frameRef={panelHostRef}
-            onResize={setPanelWidth} onCommit={saveDayPanelWidth} />
-        )}
         {panelOpen && (
-          <div
-            className={isSplit
-              ? 'h-full min-h-0 shrink-0 p-2'
-              : `absolute inset-y-0 ${dayPanelSide === 'left' ? 'left-0' : 'right-0'} z-20 w-[min(100%,440px)] bg-surface p-2`}
-            style={isSplit ? { width: effectivePanelWidth } : undefined}
-          >
-            <LazyDayDetailPanel
-              onClose={handleCloseDaySheet}
-              onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}
-              isFriend={isFriend}
-              selectedDate={selectedDate}
-              onDateChange={handleDateChange}
-              tasks={tasks}
-              categories={isFriend ? friendCategories ?? [] : categories ?? []}
-              friendName={friendName}
-              currentUserId={currentUserId}
-              onReplyToTask={handleReplyToTask}
-              onReactToTask={onReactToTask}
-              holidayConfig={holidayConfig}
-            />
-          </div>
+          <LazyDayDetailPanel
+            side={dayPanelSide}
+            isSplit={isSplit}
+            frameWidth={availableWidth}
+            frameRef={panelHostRef}
+            onClose={handleCloseDaySheet}
+            onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}
+            isFriend={isFriend}
+            selectedDate={selectedDate}
+            onDateChange={handleDateChange}
+            tasks={tasks}
+            categories={isFriend ? friendCategories ?? [] : categories ?? []}
+            friendName={friendName}
+            currentUserId={currentUserId}
+            onReplyToTask={handleReplyToTask}
+            onReactToTask={onReactToTask}
+            holidayConfig={holidayConfig}
+          />
         )}
       </div>
     </div>
