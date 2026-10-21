@@ -522,3 +522,9 @@ html[data-ui-controls='false'] [class*='ring-emerald-'] {
 .mosaic-home-workspace:has(> [data-home-panel-slot] > [data-day-panel-side='left']) {
   flex-direction: row-reverse;
 }
+
+/* A grid-height inspector occupies the left side only when it is actually split.
+   The screen-height inspector is portaled away and handled by Home workspace CSS. */
+.mosaic-calendar-split:has(> [data-day-panel-side='left'][data-panel-split='true']) {
+  flex-direction: row-reverse;
+}

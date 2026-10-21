@@ -1,9 +1,9 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { isSheetVisible } from '../../../lib/sheetVisibility';
 import { DayPanelResizeHandle } from './DayPanelResizeHandle';
-import { clampDayPanelWidth, DAY_PANEL_DIVIDER_WIDTH, readDayPanelWidth, saveDayPanelWidth, type DayPanelSide } from '../../../lib/dayPanelLayout';
+import { clampDayPanelWidth, DAY_PANEL_MIN_FRAME_WIDTH, DAY_PANEL_DIVIDER_WIDTH, readDayPanelWidth, saveDayPanelWidth, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import type { DayPanelHeight } from '../../../lib/preferences';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
@@ -38,13 +38,11 @@ function installStalePanelGuard() {
 
 interface DayDetailPanelProps {
   side: DayPanelSide;
-  isSplit: boolean;
   isPresented: boolean;
   onExited: () => void;
   heightMode: DayPanelHeight;
-  portalHost?: HTMLDivElement | null;
   onCalendarLayoutChange?: () => void;
-  frameWidth: number;
+  initialFrameWidth: number;
   frameRef: React.RefObject<HTMLDivElement | null>;
   onClose: () => void;
   onFocusCalendar?: () => void;
@@ -61,13 +59,30 @@ interface DayDetailPanelProps {
 }
 
 export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
-  side, isSplit, isPresented, onExited, heightMode, portalHost,
-  onCalendarLayoutChange, frameWidth, frameRef,
+  side, isPresented, onExited, heightMode,
+  onCalendarLayoutChange, initialFrameWidth, frameRef,
   onClose, onFocusCalendar, isFriend, selectedDate, onDateChange, tasks,
   categories, friendName, currentUserId, onReplyToTask, onReactToTask, holidayConfig,
 }) => {
   const [panelWidth, setPanelWidth] = useState(readDayPanelWidth);
   const [entered, setEntered] = useState(false);
+  const [frameWidth, setFrameWidth] = useState(initialFrameWidth);
+  const [screenPortal, setScreenPortal] = useState<{ node: HTMLDivElement | null } | null>(null);
+  useLayoutEffect(() => {
+    const home = frameRef.current?.closest('.mosaic-home-workspace');
+    const frame = heightMode === 'screen' && home ? home : frameRef.current;
+    if (!frame) return;
+    setScreenPortal({ node: heightMode === 'screen'
+      ? home?.querySelector<HTMLDivElement>('[data-home-panel-slot]') ?? null : null });
+    const measure = () => setFrameWidth(frame.getBoundingClientRect().width);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [heightMode, frameRef]);
+  const portalHost = screenPortal?.node ?? null;
+  const isSplit = frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
   const appearance = useContext(AppearanceContext);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const effectivePanelWidth = clampDayPanelWidth(panelWidth, frameWidth);
@@ -167,6 +182,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     <div
       data-testid="day-panel-motion-host"
       data-day-panel-side={side}
+      data-panel-split={isSplit ? 'true' : undefined}
       aria-hidden={!isPresented}
       inert={!isPresented}
       className={isSplit
@@ -259,6 +275,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       </div>
     </div>
   );
+  if (heightMode === 'screen' && screenPortal === null) return null;
   return portalHost && heightMode === 'screen'
     ? createPortal(panel, portalHost)
     : panel;

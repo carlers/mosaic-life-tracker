@@ -28,3 +28,7 @@ Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and 
 ## Follow-up canonical repair
 - Stable Preview `54813673401736d04b5dc8ab97dc59fc1d11db45` CI 39558353190 passed DOM/checks/browser/audit but Home closure was +273 bytes. No gates changed.
 - The active Calendar now measures its nearest Home workspace and resolves its sibling screen portal on actual day selection, reducing Home and owner/friend startup props. Lazy resize handle computes workspace bounds on pointer drag. DOM test validates portal without injected refs. Version remains v0.40.2. Pending focused/full/READY gates.
+
+## Third size-gate fix (structural)
+- Canonical Preview `566d97d613eaaf5d8df5c17645ca912b9d6ee280` failed strict Home closure by 249 bytes in run 39559047358, while other suites passed. No size limit changes.
+- Refactor moves frame ResizeObserver, screen portal resolution and responsive split state into the already lazy-loaded DayDetailPanel. CalendarBody only measures width on a day-selection event to decide sheet/panel and passes the initial width. Grid left placement is derived from the mounted inspector's data attributes; screen placement remains from Home-level portal CSS. Preserves active-panel resize and nested editor history, without increasing default Home code. Keep v0.40.2 and require full acceptance and exact-SHA READY.

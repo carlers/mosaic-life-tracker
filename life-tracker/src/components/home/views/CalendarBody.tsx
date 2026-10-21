@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
@@ -104,25 +104,11 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [openPresentation, setOpenPresentation] = useState<'sheet' | 'panel'>('sheet');
-  const [availableWidth, setAvailableWidth] = useState(0);
+  const [openedFrameWidth, setOpenedFrameWidth] = useState(0);
   const [panelMounted, setPanelMounted] = useState(false);
   const [openedHeight, setOpenedHeight] = useState<DayPanelHeight>('grid');
-  const [portalHost, setPortalHost] = useState<HTMLDivElement | null>(null);
   const panelHostRef = useRef<HTMLDivElement>(null);
   const calendarTriggerRef = useRef<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    if (dayDetailPresentation !== 'panel' || !isActive) return;
-    const host = dayPanelHeight === 'screen'
-      ? panelHostRef.current?.closest('.mosaic-home-workspace') ?? panelHostRef.current
-      : panelHostRef.current;
-    if (!host) return;
-    const measure = () => setAvailableWidth(host.getBoundingClientRect().width);
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(host);
-    return () => observer.disconnect();
-  }, [dayDetailPresentation, dayPanelHeight, isActive]);
   useEffect(() => {
     if (isActive) return;
     const timer = window.setTimeout(() => {
@@ -183,21 +169,21 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     if (dayDetailPresentation === 'panel') void preloadDayDetailPanel().catch(() => {});
     if (document.activeElement instanceof HTMLElement) calendarTriggerRef.current = document.activeElement;
     if (!daySheetOpen) {
-      const presentation = dayDetailPresentation === 'panel' && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH ? 'panel' : 'sheet';
+      const host = panelHostRef.current;
+      const width = (dayPanelHeight === 'screen'
+        ? host?.closest('.mosaic-home-workspace') ?? host : host)?.getBoundingClientRect().width ?? 0;
+      const presentation = dayDetailPresentation === 'panel' && width >= DAY_PANEL_MIN_FRAME_WIDTH ? 'panel' : 'sheet';
       setOpenPresentation(presentation);
       if (presentation === 'panel') {
         setOpenedHeight(dayPanelHeight);
-        setPortalHost(dayPanelHeight === 'screen'
-          ? panelHostRef.current?.closest('.mosaic-home-workspace')
-            ?.querySelector<HTMLDivElement>('[data-home-panel-slot]') ?? null
-          : null);
+        setOpenedFrameWidth(width);
         setPanelMounted(true);
       }
     }
     setSelectedDate(date);
     setDaySheetMounted(true);
     setDaySheetOpen(true);
-  }, [variant, daySheetOpen, dayDetailPresentation, dayPanelHeight, availableWidth]);
+  }, [variant, daySheetOpen, dayDetailPresentation, dayPanelHeight]);
 
   const handleCloseDaySheet = useCallback(() => {
     setDaySheetOpen(false);
@@ -273,25 +259,21 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const isFriend = variant === 'friend' && Boolean(friendName && friendUserId);
   const panelOpen = panelMounted && openPresentation === 'panel' && isActive;
-  const fullScreen = panelOpen && openedHeight === 'screen' && Boolean(portalHost);
-  const isSplit = panelOpen && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
 
   const calendarAndPanel = (
     <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className={`flex h-full min-h-0 min-w-0 w-full ${isSplit && !fullScreen && dayPanelSide === 'left' ? 'flex-row-reverse' : ''}`}>
+      <div className="mosaic-calendar-split flex h-full min-h-0 min-w-0 w-full">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {calendarContent(carousel)}
         </div>
         {panelOpen && (
           <LazyDayDetailPanel
             side={dayPanelSide}
-            isSplit={isSplit}
             isPresented={daySheetOpen}
             onExited={() => setPanelMounted(false)}
             heightMode={openedHeight}
-            portalHost={fullScreen ? portalHost : null}
             onCalendarLayoutChange={onCalendarLayoutChange}
-            frameWidth={availableWidth}
+            initialFrameWidth={openedFrameWidth}
             frameRef={panelHostRef}
             onClose={handleCloseDaySheet}
             onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}
