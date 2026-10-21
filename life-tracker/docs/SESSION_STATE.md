@@ -16,7 +16,7 @@ Current task: #1027 zero-cost fresh-account beta admission preparation, Brevo co
 - No live schema migration, hook activation, invitations, email sends, Auth write, Vercel public exposure, old Appwrite user migration or dev/main/Production mutation.
 - Focused task CI and stable canonical/lab acceptance **pending** until this task branch is committed/merged; scratch SQL execution/real GoTrue behavior UNVERIFIED.
 
-## Release blockers and next
+## Next action
 - Execute SQL probe in an actual disposable Supabase/Postgres environment and test positive/negative GoTrue hook plus `supabase_auth_admin` privileges. The current disposable admin fixture lab may be blocked by hook: design safe temporary fixture invitations before production-like hook activation. Staged schema/hook enablement need separate explicit approval.
 - Run signed immutable deployed `--ui-preview` core/OTP and physical Android/iOS offline/restart tests; verify task/category sync, two owner isolation and stable fresh signup. Protected Preview share link and operator-held Supabase Management token remain private.
 - Review Free quota, Brevo sender authentication for Proton, PWA service worker, rollback/DR and abuse controls. A scoped stable Preview alias and any public Vercel exception require explicit approval and enforceable server invitation gate first.
