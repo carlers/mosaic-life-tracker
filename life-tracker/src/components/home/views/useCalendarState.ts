@@ -97,7 +97,7 @@ export function useCalendarState(
   // focused slide rather than remounting a 61-slide calendar.
   const resnapAfterResize = useCallback(() => {
     if (!emblaApi) return;
-    void import('./DayDetailPanel').then(({ alignFocusedCalendarSlide }) =>
+    void import('./calendarPanelSnap').then(({ alignFocusedCalendarSlide }) =>
       alignFocusedCalendarSlide(emblaApi, focusIndex)
     );
   }, [emblaApi, focusIndex]);
