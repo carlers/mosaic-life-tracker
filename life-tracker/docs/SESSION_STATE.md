@@ -1,21 +1,27 @@
 # Session checkpoint
-
 Updated: 2026-10-21 UTC
-Current task: issue #404 — v0.40.4 split-panel animation, month snap and full-height repair.
+Current task: issue #404 — v0.40.4 split-panel open/close, month snap, divider and full-height correction.
 
-## Source of truth
-- Task branch: `chatgpt/404-resize-root-cause-20261021`, PR #1184 against stable Preview `feature/split-day-panel-dev-404-20261021` at `08c7a003af04121c50de60b7bdd37eef73efd782` (v0.40.3).
-- `dev` baseline on this topic remains `e1c90b387ecfb4e29d64c88b6557703dd23ca207`; no approval to merge `dev`, `main` or Production.
-- User feedback: left-side month grid offset; divider resize and panel expansion/collapse visibly shake; both height modes must fill to workspace bottom, even for shorter month grids. Screen-height includes Home header/search/person chrome in calendar column; grid-height begins below chrome.
+## Exact branches and boundary
+- Task `chatgpt/404-resize-root-cause-20261021`, draft PR #1184; upstream stable Preview `feature/split-day-panel-dev-404-20261021@08c7a003af04121c50de60b7bdd37eef73efd782` remains v0.40.3 and is NOT this candidate.
+- `dev` baseline for #404 remains `e1c90b387ecfb4e29d64c88b6557703dd23ca207`. No approval to merge `dev`, `main` or Production.
 
-## Root cause and task implementation
-- Previously selected initial month was the only browser snap assertion; geometry was tested only after settling. PR #1184 adds real Embla tests after navigating to month 31, with ResizeObserver paint-alignment samples while opening, pointer-dragging and closing on left/right in both height modes.
-- Dynamic panel width had multiple competing snaps while Embla cached track sizes; during width motion, the focused slide is now bound to viewport-width CSS; Embla automatic resize reinit is suppressed only for panel motion. One final reinit runs at settled geometry.
-- Pointer resize is coalesced with animation frames and width easing is disabled during pointer capture. Inspector height measures Home workspace bottom without changing its top position in grid mode.
-- Production-build CI on task SHA `c75d2a4c9d6fdb83adfd50168b1da2b67d5291f4` failed only Home closure 381023/381000 (+23 gzip bytes); static, DOM and browser shard 1 passed. Browser shard 2 did not reach its alignment assertions: all four tests found workspace minus calendar bottom = 0 rather than >100.
-- Repair: test-only fixture used Tailwind utility `h-[470px]` not emitted for the isolated test harness; use an explicit inline 470px height so the negative-height case exists in the browser. Avoid the nonessential month-render week-boundary computations in `useCalendarState` to recover production-size headroom without changing calendar presentation or size gates.
+## Root cause and changes
+- Native horizontal scroll in the Embla viewport was independent from Embla's track transform. When the panel opened on the left, browser focus/scroll adjustment intermittently left `scrollLeft=8`, shifting the month grid 8 CSS px even while Embla's logical selected index and transform were correct. Real Chromium geometry verified the offset and its elimination by changing only the outer CalendarCarousel clipping container from `overflow-hidden` to `overflow-clip`, so it is not a native scroll container. Nested month-grid zoom/vertical scroll containers remain separate.
+- Previous v0.40.4 candidate suppresses competing Embla auto-reinit during panel motion, pins the focused month transform with viewport-relative CSS, performs one settled reinit, removes transition easing while dragging, coalesces pointer width updates, and measures both side-panel height modes down to the Home workspace bottom.
+- Test-only split fixture now explicitly fixes both 750px workspace and 470px calendar heights with inline styles. Prior test-only Tailwind classes were not emitted, so its first browser assertion was invalid; the current fixture actually exercises a short calendar.
+- Strong browser test navigates to next month before opening, samples per-paint focused-month offset and full slide width during open/drag/close for left/right and grid/screen, asserts under 2px alignment, and requires zero native horizontal viewport scroll.
+- Version remains 0.40.4. No security/size budget, feature flags, backend, authentication or release gate changes.
 
-## Next action
-1. Rerun exact task SHA Quality Gate and inspect both browser shards plus blocking production size; repair any actual geometry failure without relaxing the alignment assertions, security gates or build ceilings.
-2. After task focused/full gate succeeds, squash through PR #1184 into the existing stable Preview; verify canonical full Quality Gate, exact-SHA trusted Vercel READY and provide the new Preview URL.
-3. Manual authenticated large-screen/device acceptance remains outstanding: left/right, both heights, open/close, divider, changed month, owner/friend, keyboard, zoom/reduced motion, nested modals, Back/Escape, and narrow fallback. Do not merge Preview to dev/main without explicit approval.
+## Verification performed (isolated Vercel sandbox)
+- Exact earlier task source at `8ac9513975cb727fcb9913a5075bc03320b4b8a7`, plus the three scoped local file changes described above; independent `npm ci`.
+- Production PWA build and strict size budget PASS with patched source: Home static closure **380,892 / 381,000 gzip bytes**, initial 149,180 / 154,500. `npm run version:check` and `git diff --check` PASS.
+- Chromium real-browser split tests PASS **12/12 repeated cases** (3 repetitions per left/right and grid/screen). Open, live divider, close, offset, full slide width, panel bottom and native viewport scroll all asserted.
+- Full local Playwright browser suite **77/79 PASS**. Both failures were outside split tests: PostHog instrumentation not configured at initial sandbox start, and offline-startup's transient indicator timed out while its recorded browser snapshot already showed locally rendered Calendar. After configuring the CI PostHog environment, PostHog PASS; offline transient assertion still fails in this sandbox. Do not claim canonical browser shard success.
+- `npm run lint` PASS (0 errors; 19 existing warnings); `npm run test:unit` PASS **1,204/1,204**; `npm run test:dom` PASS **655/655**.
+
+## CI and next action
+- Initial source task commit `c75d2a4` [full Quality Gate 39607228490](https://github.com/carlers/mosaic-life-tracker/actions/runs/39607228490) FAILED blocking Home size by 23 B, plus an invalid short-grid fixture prerequisite. Both addressed; the sandbox patched source passes budget and stricter real-browser split assertions.
+- GitHub connector Git-object ref writes did not emit an Actions run for later task SHAs; PR #1184 metadata remained at `c75d2a4` despite task branch advancing. A genuine exact-head full/focused GitHub Quality Gate is outstanding; do not claim CI passed or squash to stable Preview until it does.
+- Resolve GitHub push/Actions trigger and PR head synchronization through an authorized authenticated Git push or explicit workflow dispatch at this task SHA. Inspect canonical CI (including the offline/telemetry contracts) and trusted Vercel Preview READY at the exact eventual stable SHA. Manual authenticated large-screen/owner-friend, nested modal and device acceptance remains outstanding.
+- Never merge Preview to dev/main or mutate Production without explicit approval.

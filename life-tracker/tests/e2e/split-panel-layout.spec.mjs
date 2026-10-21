@@ -28,6 +28,7 @@ async function startFrameCapture(page, focusIndex) {
         offset: Math.abs(selected.getBoundingClientRect().left - viewport.getBoundingClientRect().left),
         viewportWidth: viewport.getBoundingClientRect().width,
         slideWidth: selected.getBoundingClientRect().width,
+        nativeScrollLeft: viewport.scrollLeft,
         panelWidth: panel instanceof HTMLElement ? panel.getBoundingClientRect().width : 0,
       });
     };
@@ -56,7 +57,9 @@ function assertNoShaking(frames, phase) {
   // reInit after the 300ms width transition or pointer-up.
   expect(max, phase + ': maximum focused-month offset across paints; samples=' +
     JSON.stringify(frames.filter((_, index) => index % 4 === 0).slice(0, 14)))
-    .toBeLessThan(12);
+    .toBeLessThan(2);
+  expect(Math.max(...frames.map(frame => Math.abs(frame.nativeScrollLeft))),
+    phase + ': carousel viewport must not natively scroll horizontally').toBe(0);
   // No amount of left-edge resnapping compensates for a clipped or stretched
   // month: require the selected full seven-column slide to fit every frame.
   expect(Math.max(...frames.map(frame => Math.abs(frame.slideWidth - frame.viewportWidth))),

@@ -195,7 +195,7 @@ function SplitPanelLayoutProbe() {
   const mode = new URLSearchParams(window.location.search).get('splitPanelProbe') === 'screen' ? 'screen' : 'grid';
   const side = new URLSearchParams(window.location.search).get('side') === 'right' ? 'right' : 'left';
   return (
-    <div data-testid="split-workspace" className="mosaic-home-workspace flex h-[750px] w-full min-w-0 bg-[#111111]">
+    <div data-testid="split-workspace" className="mosaic-home-workspace flex w-full min-w-0 bg-[#111111]" style={{ height: 750 }}>
       <div className="flex min-w-0 flex-1 flex-col">
         <header data-testid="split-header" className="shrink-0 p-3">Search · Menu · Profile</header>
         <div className="shrink-0 px-3">
