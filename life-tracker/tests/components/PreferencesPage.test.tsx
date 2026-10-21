@@ -138,6 +138,8 @@ describe('PreferencesPage', () => {
     choosePreference('Day panel position', 'Left');
     expect(mocks.setSetting).toHaveBeenCalledWith('dayDetailPresentation', 'panel');
     expect(mocks.setSetting).toHaveBeenCalledWith('dayPanelSide', 'left');
+    choosePreference('Day panel height', 'Screen height');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayPanelHeight', 'screen');
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose accent color' }));
     expect(screen.getByRole('dialog', { name: 'Accent color' })).toBeInTheDocument();

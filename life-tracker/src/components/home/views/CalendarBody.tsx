@@ -11,7 +11,7 @@ import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
-import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
+import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit, DayPanelHeight } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import {
@@ -35,12 +35,14 @@ interface CalendarBodyProps {
   renderStart: number;
   renderEnd: number;
   emblaRef: (node: HTMLElement | null) => void;
+  onCalendarLayoutChange?: () => void;
   tasks: TaskDocument[];
   categories?: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
   dayDetailPresentation?: 'sheet' | 'panel';
   dayPanelSide?: DayPanelSide;
+  dayPanelHeight?: DayPanelHeight;
   zoomPreference?: CalendarZoomDays;
   pinchGestureEnabled?: boolean;
   onZoomPreferenceChange?: (days: CalendarZoomDays) => void;
@@ -69,12 +71,14 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   renderStart,
   renderEnd,
   emblaRef,
+  onCalendarLayoutChange,
   tasks,
   categories,
   categoriesMap,
   variant,
   dayDetailPresentation = 'sheet',
   dayPanelSide = 'right',
+  dayPanelHeight = 'grid',
   zoomPreference = 7,
   pinchGestureEnabled = false,
   onZoomPreferenceChange,
@@ -101,6 +105,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [openPresentation, setOpenPresentation] = useState<'sheet' | 'panel'>('sheet');
   const [availableWidth, setAvailableWidth] = useState(0);
+  const [panelMounted, setPanelMounted] = useState(false);
   const panelHostRef = useRef<HTMLDivElement>(null);
   const calendarTriggerRef = useRef<HTMLElement | null>(null);
   useLayoutEffect(() => {
@@ -115,7 +120,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   }, [dayDetailPresentation, isActive]);
   useEffect(() => {
     if (isActive) return;
-    const timer = window.setTimeout(() => setDaySheetOpen(false), 0);
+    const timer = window.setTimeout(() => {
+      setDaySheetOpen(false);
+      setPanelMounted(false);
+    }, 0);
     return () => window.clearTimeout(timer);
   }, [isActive]);
   const [calendarWidth, setCalendarWidth] = useState(0);
@@ -184,9 +192,11 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const handleDayClick = useCallback((date: Date) => {
     if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
     if (document.activeElement instanceof HTMLElement) calendarTriggerRef.current = document.activeElement;
-    if (!daySheetOpen) setOpenPresentation(
-      dayDetailPresentation === 'panel' && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH ? 'panel' : 'sheet'
-    );
+    if (!daySheetOpen) {
+      const presentation = dayDetailPresentation === 'panel' && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH ? 'panel' : 'sheet';
+      setOpenPresentation(presentation);
+      if (presentation === 'panel') setPanelMounted(true);
+    }
     setSelectedDate(date);
     setDaySheetMounted(true);
     setDaySheetOpen(true);
@@ -265,12 +275,12 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   );
 
   const isFriend = variant === 'friend' && Boolean(friendName && friendUserId);
-  const panelOpen = daySheetOpen && openPresentation === 'panel' && isActive;
+  const panelOpen = panelMounted && openPresentation === 'panel' && isActive;
   const isSplit = panelOpen && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
 
   const calendarAndPanel = (
     <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className={`flex h-full min-h-0 min-w-0 w-full ${dayPanelSide === 'left' ? 'flex-row-reverse' : ''}`}>
+      <div className={`flex h-full min-h-0 min-w-0 w-full ${isSplit && dayPanelSide === 'left' ? 'flex-row-reverse' : ''}`}>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {calendarContent(carousel)}
         </div>
@@ -278,6 +288,11 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           <LazyDayDetailPanel
             side={dayPanelSide}
             isSplit={isSplit}
+            isPresented={daySheetOpen}
+            onExited={() => setPanelMounted(false)}
+            heightMode={dayPanelHeight}
+            activeIndex={activeIndex ?? 30}
+            onCalendarLayoutChange={onCalendarLayoutChange}
             frameWidth={availableWidth}
             frameRef={panelHostRef}
             onClose={handleCloseDaySheet}

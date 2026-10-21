@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 import { preloadFriendDayViewSheet } from '../../src/components/friend/friendDayViewSheetModule';
@@ -96,7 +96,7 @@ describe('CalendarBody behavior', () => {
     // A resolved import must not suspend for one blank React commit.
     expect(getByRole('dialog', { name: 'Friend day' })).toBeInTheDocument();
   });
-  it('keeps the interactive calendar and a non-modal split panel mounted across date taps', async () => {
+  it('keeps the interactive calendar and a non-modal left split panel mounted across date taps', async () => {
     const original = globalThis.ResizeObserver;
     const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
       () => ({ width: 1300, height: 700, top: 0, left: 0, right: 1300, bottom: 700, x: 0, y: 0, toJSON: () => ({}) })
@@ -110,7 +110,7 @@ describe('CalendarBody behavior', () => {
           viewMode="month" slides={[new Date('2026-01-01')]}
           renderStart={0} renderEnd={0} emblaRef={vi.fn()}
           tasks={[]} categoriesMap={{}} variant="me"
-          dayDetailPresentation="panel" dayPanelSide="left"
+          dayDetailPresentation="panel" dayPanelSide="left" dayPanelHeight="screen"
           currentUserId="user_1" isActive
           onPrev={vi.fn()} onNext={vi.fn()}
         />
@@ -120,6 +120,8 @@ describe('CalendarBody behavior', () => {
       expect(queryByRole('dialog', { name: 'Day details' })).toBeNull();
       const divider = await findByRole('separator', { name: 'Resize day details panel' });
       expect(divider).toHaveAttribute('aria-valuemin', '320');
+      const motionHost = getByTestId('day-panel-motion-host');
+      expect(motionHost.style.height).toBe('100%');
       expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
         renderMode: 'panel', isOpen: true,
       });
@@ -130,7 +132,9 @@ describe('CalendarBody behavior', () => {
       const closeButton = await findByRole('button', { name: 'Close day details' });
       expect(closeButton.closest('.swiper-no-swiping')).not.toBeNull();
       fireEvent.click(closeButton);
-      expect(queryByRole('complementary', { name: 'Day details' })).toBeNull();
+      // Exit keeps the same editor mounted until motion completes, but removes interaction immediately.
+      expect(getByTestId('day-panel-motion-host')).toHaveAttribute('aria-hidden', 'true');
+      await waitFor(() => expect(queryByRole('complementary', { name: 'Day details' })).toBeNull());
     } finally {
       rect.mockRestore();
       if (original === undefined) vi.unstubAllGlobals();
