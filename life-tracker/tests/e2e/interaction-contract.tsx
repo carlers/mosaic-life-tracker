@@ -212,6 +212,9 @@ function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; c
         renderStart={calendar.renderStart}
         renderEnd={calendar.renderEnd}
         emblaRef={calendar.emblaRef}
+        activeIndex={calendar.activeIndex}
+        isZoomTransitioning={calendar.isZoomTransitioning}
+        onZoomNavigate={calendar.handleZoomNavigate}
         tasks={tasks}
         categories={categories}
         categoriesMap={categoriesMap}

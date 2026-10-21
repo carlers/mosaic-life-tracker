@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -69,7 +69,8 @@ vi.mock('swiper/react', () => ({
     onSwiper?.(swiper);
     return <div>{children}</div>;
   },
-  SwiperSlide: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SwiperSlide: ({ children, 'aria-hidden': hidden }: { children: ReactNode; 'aria-hidden'?: boolean }) =>
+    <div className="swiper-slide" aria-hidden={hidden}>{children}</div>,
 }));
 vi.mock('swiper/modules', () => ({
   Virtual: {},
@@ -82,7 +83,7 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
     disableTaskLayoutAnimation?: boolean;
   }) => {
     fixture.disableTaskLayoutAnimation = disableTaskLayoutAnimation ?? false;
-    return <div data-testid="day-slide">Day content</div>;
+    return <div data-testid="day-slide"><button type="button" data-day-keyboard-target="category" data-day-keyboard-id="cat_1">Add a task to Work</button></div>;
   },
 }));
 
@@ -219,6 +220,60 @@ describe('DayViewSheet mount scheduling', () => {
     expect(
       document.querySelectorAll('[data-day-view-navigation="true"]')
     ).toHaveLength(1);
+  });
+
+  it('focuses the first active category on opening without requiring Tab, only once', async () => {
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    const active = document.querySelector<HTMLElement>(
+      '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]'
+    );
+    expect(active).not.toBeNull();
+    await waitFor(() => expect(active).toHaveFocus());
+    const next = screen.getByRole('button', { name: 'Next day' });
+    next.focus();
+    act(() => fixture.onAnimationComplete?.());
+    expect(next).toHaveFocus();
+  });
+
+  it('exposes keyboard help through a focusable button and returns focus on Escape', async () => {
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    // The opening sheet intentionally focuses its first category first.
+    const firstCategory = document.querySelector<HTMLElement>(
+      '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]'
+    );
+    await waitFor(() => expect(firstCategory).toHaveFocus());
+    const help = screen.getByRole('button', { name: 'Show keyboard shortcuts' });
+    help.focus();
+    fireEvent.click(help);
+    const panel = screen.getByRole('region', { name: 'Day View keyboard shortcuts' });
+    expect(panel).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus();
+    expect(panel).toHaveTextContent('New task in the focused category');
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Close' }), { key: 'Escape' });
+    expect(panel).not.toBeInTheDocument();
+    await waitFor(() => expect(help).toHaveFocus());
+  });
+
+  it('S focuses the active day Select button without toggling selection, even from a task category', async () => {
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    const category = document.querySelector<HTMLElement>(
+      '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]'
+    );
+    await waitFor(() => expect(category).toHaveFocus());
+    fireEvent.keyDown(category!, { key: 's' });
+    const select = screen.getByRole('button', { name: 'Select tasks' });
+    expect(select).toHaveFocus();
+    expect(select).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(select);
+    expect(screen.getByRole('button', { name: 'Exit selection mode' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('shows the same help in Backlog without suggesting date navigation', () => {
+    render(<DayViewSheet isOpen renderMode="backlog" onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Show keyboard shortcuts' }));
+    const panel = screen.getByRole('region', { name: 'Day View keyboard shortcuts' });
+    expect(panel).toBeInTheDocument();
+    expect(panel).not.toHaveTextContent('Previous / next day');
   });
 
   // Regression: §2 (Day View teardown releases stale Swiper ownership before reopen).

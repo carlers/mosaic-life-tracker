@@ -1,3 +1,4 @@
+export const KEYBOARD_SHORTCUTS_SETTING_KEY = 'keyboardShortcutsEnabled';
 export { REDUCE_ANIMATIONS_SETTING_KEY } from './motionPreferences';
 export const GIPHY_AUTOPLAY_SETTING_KEY = 'giphyStickerAutoplay';
 export const ESCAPE_AS_BACK_SETTING_KEY = 'escapeAsBack';

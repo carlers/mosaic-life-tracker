@@ -213,10 +213,11 @@ describe('TaskItem owner gestures', () => {
     fireEvent.keyDown(row, { key: ' ' });
     const title = screen.getByRole('button', { name: 'Write release notes' });
     fireEvent.keyDown(title, { key: 'Enter' });
-    expect(onToggleSelection).toHaveBeenCalledTimes(1);
+    // Keyboard Enter on a task title now selects in Select mode.
+    expect(onToggleSelection).toHaveBeenCalledTimes(2);
     fireEvent.click(title);
     fireEvent.click(screen.getByRole('button', { name: 'Open memo' }));
-    expect(onToggleSelection).toHaveBeenCalledTimes(3);
+    expect(onToggleSelection).toHaveBeenCalledTimes(4);
     expect(callbacks.onOpenActions).not.toHaveBeenCalled();
     expect(callbacks.onOpenMemo).not.toHaveBeenCalled();
     expect(callbacks.onToggle).not.toHaveBeenCalled();

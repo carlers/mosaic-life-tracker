@@ -11,6 +11,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
+import { useHomeViewKeyboardShortcuts } from '../../hooks/useHomeViewKeyboardShortcuts';
 import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
@@ -106,6 +107,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
     );
   }, []);
+  useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
