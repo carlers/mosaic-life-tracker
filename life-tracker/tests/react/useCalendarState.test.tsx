@@ -1,5 +1,5 @@
 // Regression: §16 (calendar swipes avoid React state work on Embla's per-frame scroll event).
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const emblaFixture = vi.hoisted(() => {
@@ -106,14 +106,14 @@ describe('useCalendarState render window', () => {
     expect(result.current.renderStart).toBe(29);
     expect(result.current.renderEnd).toBe(31);
   });
-  it('restores the focused month even when Embla temporarily selects a neighboring snap after a left split', () => {
+  it('restores the focused month even when Embla temporarily selects a neighboring snap after a left split', async () => {
     const { result } = renderHook(() => useCalendarState());
     // A resize can leave Embla reporting an adjacent slide, while the header
     // still correctly shows the focused month. Never use that stale snap.
     emblaFixture.setSelectedIndex(29);
     emblaFixture.setSlideOffset(412);
     act(() => result.current.resnapAfterResize());
-    expect(emblaFixture.api.reInit).toHaveBeenCalledWith({ startIndex: 30 });
+    await waitFor(() => expect(emblaFixture.api.reInit).toHaveBeenCalledWith({ startIndex: 30 }));
     expect(emblaFixture.engine.animation.stop).toHaveBeenCalled();
     expect(emblaFixture.engine.location.set).toHaveBeenCalledWith(-48412);
     expect(emblaFixture.engine.target.set).toHaveBeenCalledWith(-48412);
