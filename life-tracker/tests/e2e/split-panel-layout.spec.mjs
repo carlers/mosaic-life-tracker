@@ -174,9 +174,12 @@ for (const height of ['grid', 'screen']) {
       const wheelBox = await viewport.boundingBox();
       if (!wheelBox) throw Error('Missing calendar viewport for wheel');
       await page.mouse.move(wheelBox.x + wheelBox.width / 2, wheelBox.y + Math.min(130, wheelBox.height / 3));
+      const wheelMonth = await page.getByTestId('split-focused-title').textContent();
       await page.mouse.wheel(750, 0);
+      await expect(page.getByTestId('split-focused-title')).not.toHaveText(wheelMonth ?? '');
       await expect.poll(() => alignment(page, 32)).toBeLessThan(2);
       await page.mouse.wheel(-750, 0);
+      await expect(page.getByTestId('split-focused-title')).toHaveText(wheelMonth ?? '');
       await expect.poll(() => alignment(page, 31)).toBeLessThan(2);
 
 
