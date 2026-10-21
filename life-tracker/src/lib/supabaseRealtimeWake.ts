@@ -24,7 +24,6 @@ export interface CoreRealtimeWakeOptions {
   /** Test seams; defaults use browser connection/visibility state. */
   isOnline?: () => boolean;
   isVisible?: () => boolean;
-  onDebug?: (status: Record<string, boolean>) => void;
 }
 
 type Notice = { event?: unknown; topic?: unknown; ref?: unknown; payload?: unknown };
@@ -33,7 +32,7 @@ type Payload = { status?: unknown; response?: { postgres_changes?: unknown }; id
 const TABLES = ['mosaic_candidate_tasks', 'mosaic_candidate_categories'] as const;
 const EVENTS = ['INSERT', 'UPDATE'] as const;
 const TOPIC = 'realtime:mosaic-core-sync';
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function startCoreRealtimeWake(options: CoreRealtimeWakeOptions): () => void {
   const base = new URL(options.baseUrl);
@@ -136,15 +135,6 @@ export function startCoreRealtimeWake(options: CoreRealtimeWakeOptions): () => v
     try { session = await options.session.getVerifiedSession(); }
     catch { scheduleReconnect(); return; }
     if (!active() || current || attempt !== revision) return;
-    options.onDebug?.({
-      received: !!session,
-      uuid: !!session && UUID.test(session.userId),
-      token: !!session?.accessToken,
-      epoch: !!session && Number.isSafeInteger(session.sessionEpoch),
-      current: !current,
-      attempt: attempt === revision,
-      active: active(),
-    });
     if (!session || !UUID.test(session.userId) || !session.accessToken ||
         !Number.isSafeInteger(session.sessionEpoch)) {
       scheduleReconnect();
