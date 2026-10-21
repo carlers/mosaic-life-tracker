@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
+import { retirementStateForDay } from '../../../lib/categoryLifecycle';
 import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
@@ -247,6 +248,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           visibility={category.visibility}
           currentUserId={currentUserId}
           tasks={tasksByCategory.get(category.id) ?? []}
+          canAddTasks={retirementStateForDay(category, dateStr,
+            (tasksByCategory.get(category.id)?.length ?? 0) > 0) !== 'existing-tasks-only'}
           ownerLabels={ownerLabels}
           sharedRows={!selectionMode && onSharedCompletion && sharedPendingFor && currentShares.some(item => sharedCategoryFor?.(item) === category.id) && (
             <SharedTaskRows items={currentShares.filter(item =>

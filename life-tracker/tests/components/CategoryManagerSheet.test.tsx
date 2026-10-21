@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
   addCategory: vi.fn().mockResolvedValue(undefined),
   updateCategory: vi.fn().mockResolvedValue(undefined),
   deleteCategory: vi.fn().mockResolvedValue(undefined),
+  retireCategory: vi.fn().mockResolvedValue(undefined),
+  restoreCategory: vi.fn().mockResolvedValue(undefined),
+  tasks: [] as Array<{ categoryId: string; date: string; isDeleted: boolean }>,
   reorderCategories: vi.fn().mockResolvedValue(undefined),
   startDrag: vi.fn(),
 }));
@@ -49,12 +52,14 @@ vi.mock('../../src/hooks/useCategories', () => ({
     addCategory: mocks.addCategory,
     updateCategory: mocks.updateCategory,
     deleteCategory: mocks.deleteCategory,
+    retireCategory: mocks.retireCategory,
+    restoreCategory: mocks.restoreCategory,
     reorderCategories: mocks.reorderCategories,
   }),
 }));
 
 vi.mock('../../src/hooks/useTasks', () => ({
-  useTasks: () => ({ tasks: [] }),
+  useTasks: () => ({ tasks: mocks.tasks }),
 }));
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
@@ -97,6 +102,9 @@ describe('CategoryManagerSheet', () => {
     mocks.addCategory.mockReset().mockResolvedValue(undefined);
     mocks.updateCategory.mockReset().mockResolvedValue(undefined);
     mocks.deleteCategory.mockReset().mockResolvedValue(undefined);
+    mocks.retireCategory.mockReset().mockResolvedValue(undefined);
+    mocks.restoreCategory.mockReset().mockResolvedValue(undefined);
+    mocks.tasks = [];
   });
 
   it('starts reordering only from the category grip button', () => {
@@ -298,27 +306,55 @@ describe('CategoryManagerSheet', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Save Changes' })).toBeNull());
   });
 
-  it('states the actual destination before deleting a populated category', () => {
+  it('offers reversible historical retirement separately from deleting tasks', async () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Delete category' })[0]);
-    expect(screen.getByText('Tasks will move to Second without changing their visibility.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Retire category' })[0]);
+    expect(screen.getByText('Retire category?')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Last active day'), { target: { value: '2026-10-20' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Retire', exact: true }));
+    await waitFor(() =>
+      expect(mocks.retireCategory).toHaveBeenCalledWith('first', '2026-10-20'));
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
   });
 
-  it('retains the delete confirmation when deletion rejects and allows retry', async () => {
+  it('requires explicit category-name confirmation for deleting tasks on every date', async () => {
+    mocks.tasks = [
+      { categoryId: 'first', date: '2026-10-20', isDeleted: false },
+      { categoryId: 'first', date: '', isDeleted: false },
+      { categoryId: 'first', date: '2026-10-22', isDeleted: false },
+    ];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete category' })[0]);
+    expect(screen.getByText(/remove 3 tasks across/i)).toBeInTheDocument();
+    const remove = screen.getByRole('button', { name: 'Delete category and tasks' });
+    expect(remove).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Type First to confirm' }), {
+      target: { value: 'Incorrect' },
+    });
+    expect(remove).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Type First to confirm' }), {
+      target: { value: 'First' },
+    });
+    expect(remove).toBeEnabled();
+    fireEvent.click(remove);
+    await waitFor(() => expect(mocks.deleteCategory).toHaveBeenCalledWith('first'));
+  });
+
+  it('retains the destructive confirmation after a failed write and permits retry', async () => {
     mocks.deleteCategory.mockRejectedValueOnce(new Error('write failed'));
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     fireEvent.click(screen.getAllByRole('button', { name: 'Delete category' })[0]);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-
+    fireEvent.change(screen.getByRole('textbox', { name: 'Type First to confirm' }), {
+      target: { value: 'First' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete category and tasks' }));
     await screen.findByRole('alert');
     expect(screen.getByRole('alert')).toHaveTextContent(/could not delete category/i);
-    expect(screen.getByText('Delete this category?')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.getByText('Delete category and all tasks?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete category and tasks' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete category and tasks' }));
     await waitFor(() => expect(mocks.deleteCategory).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.queryByText('Delete this category?')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Delete category and all tasks?')).toBeNull());
   });
 
   it('focuses the edited category input, including when switching edited categories', () => {

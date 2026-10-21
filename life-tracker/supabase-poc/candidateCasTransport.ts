@@ -32,7 +32,7 @@ const ALLOWED: Record<CandidateDomain, readonly string[]> = {
     'routine_id', 'reminder_time', 'visibility', 'is_deleted',
   ],
   categories: [
-    'name', 'color', 'order_index', 'visibility', 'icon', 'updated_at', 'is_deleted',
+    'name', 'color', 'order_index', 'visibility', 'icon', 'retired_on', 'updated_at', 'is_deleted',
   ],
 };
 const RPC: Record<CandidateDomain, string> = {
