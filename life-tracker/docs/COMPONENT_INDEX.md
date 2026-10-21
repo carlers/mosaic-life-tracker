@@ -171,6 +171,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DeferredAvatar | [src/components/ui/DeferredAvatar.tsx](../src/components/ui/DeferredAvatar.tsx) |
 | ErrorBoundary | [src/components/ui/ErrorBoundary.tsx](../src/components/ui/ErrorBoundary.tsx) |
 | Input | [src/components/ui/Input.tsx](../src/components/ui/Input.tsx) |
+| KeyboardShortcutsSheet | [src/components/ui/KeyboardShortcutsSheet.tsx](../src/components/ui/KeyboardShortcutsSheet.tsx) |
 | OfflineBanner | [src/components/ui/OfflineBanner.tsx](../src/components/ui/OfflineBanner.tsx) |
 | PwaAssetProgressView | [src/components/ui/PwaAssetProgressView.tsx](../src/components/ui/PwaAssetProgressView.tsx) |
 | PwaPrompt | [src/components/ui/PwaPrompt.tsx](../src/components/ui/PwaPrompt.tsx) |

@@ -4,6 +4,7 @@ import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import { useCalendarGridKeyboard } from './useCalendarGridKeyboard';
+import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
@@ -165,6 +166,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     setSelectedDate(date);
   }, []);
 
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const {
     rootRef: keyboardRootRef,
     onKeyDown: handleGridKeyDown,
@@ -172,6 +174,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     activeKey: keyboardActiveKey,
   } = useCalendarGridKeyboard({
     enabled: isActive && !daySheetOpen && !replyTask,
+    singleKeyShortcutsEnabled: shortcutsEnabled,
     slides, activeIndex: activeIndex ?? 30, viewMode, weekStartsOn, onPrev, onNext,
   });
   const setCalendarHost = useCallback((node: HTMLDivElement | null) => {

@@ -9,6 +9,8 @@ import {
   Globe2,
   ListFilter,
   ListPlus,
+  Keyboard,
+  BookOpenText,
   UsersRound,
   Palette,
   Tag,
@@ -30,6 +32,7 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
   CONFIRM_TASK_DELETE_SETTING_KEY,
@@ -41,6 +44,7 @@ import {
   SHARED_LABEL_MODE_SETTING_KEY,
   SHOW_PENDING_SHARES_SETTING_KEY,
   ESCAPE_AS_BACK_SETTING_KEY,
+  KEYBOARD_SHORTCUTS_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
@@ -233,6 +237,8 @@ export const PreferencesPage: React.FC = () => {
     setSheetWidthMode,
   } = useAppearance();
   const { getSetting, setSetting } = useSettings();
+  const { openGuide } = useKeyboardShortcuts();
+  const shortcutsEnabled = getSetting(KEYBOARD_SHORTCUTS_SETTING_KEY, true) !== false;
   const holidayCountries = useHolidayCountries();
   const [isAccentPickerOpen, setIsAccentPickerOpen] = useState(false);
   const escapeAsBack = getSetting(ESCAPE_AS_BACK_SETTING_KEY, false) === true;
@@ -554,6 +560,21 @@ export const PreferencesPage: React.FC = () => {
         </section>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Navigation</h2>
+          <SettingsRow
+            icon={<Keyboard size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Keyboard shortcuts"
+            value="Single-key shortcuts for navigating Mosaic. Tab, arrows, Enter and Space remain available when off."
+            showChevron={false}
+            isToggle
+            checked={shortcutsEnabled}
+            onClick={() => void setSetting(KEYBOARD_SHORTCUTS_SETTING_KEY, !shortcutsEnabled)}
+          />
+          <SettingsRow
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="View keyboard shortcut guide"
+            value="See the keys for Home, Calendar, Day View and other pages."
+            onClick={openGuide}
+          />
           <SettingsRow
             icon={<ChevronLeft size={18} className="text-gray-400" aria-hidden="true" />}
             label="Escape navigates back"

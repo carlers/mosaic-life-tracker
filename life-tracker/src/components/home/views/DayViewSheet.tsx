@@ -50,6 +50,7 @@ import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
+import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
@@ -195,6 +196,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   );
   const { message: deleteFeedback, show: showFeedback } = useFeedback();
   const { getSetting, setSetting, settings } = useSettings();
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =
@@ -879,7 +881,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [exitSelectMode, isBackgroundLocked, isSelectMode, renderMode]);
   useEffect(() => {
-    if (!isOpen || isBackgroundLocked || isTaskReorderActive || keyboardHelpOpen ||
+    if (!shortcutsEnabled || !isOpen || isBackgroundLocked || isTaskReorderActive || keyboardHelpOpen ||
         editingTaskId !== null) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== 's' || event.key.length !== 1 ||
@@ -900,7 +902,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, isBackgroundLocked, isTaskReorderActive, keyboardHelpOpen,
+  }, [shortcutsEnabled, isOpen, isBackgroundLocked, isTaskReorderActive, keyboardHelpOpen,
     editingTaskId, renderMode, isBacklogView]);
 
   // The BottomSheet trap initially focuses the header's Previous button.

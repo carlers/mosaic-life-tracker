@@ -17,7 +17,6 @@ import {
   preloadPrimaryRoute,
 } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
-import { usePrimaryNavigationShortcuts } from '../../hooks/usePrimaryNavigationShortcuts';
 import { matchProtectedRoute, protectedRouteSwipeMode, protectedRouteHidesBottomNav } from '../../lib/protectedRoutes';
 import {
   hasExpectedRouteParent,
@@ -280,8 +279,6 @@ export const AppLayout: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, user?.$id]);
 
-  usePrimaryNavigationShortcuts(Boolean(user && database.state === 'ready'));
-
   if (!user && isOffline) {
     const headline =
       connectivity.status === 'checking'
@@ -366,9 +363,6 @@ export const AppLayout: React.FC = () => {
     );
   }
 
-  // Navigate between primary pages only after the authenticated local shell is usable.
-  // Editors, modal sheets and native modified shortcuts retain keyboard ownership.
-  // This hook must stay above all conditional startup/offline returns.
   // OFF-1: `user` is non-null here. When `isOffline` is true the identity
   // was hydrated from `mosaic_last_known_user` at mount time — render the
   // app tree so local data is reachable; MainLayout shows the
