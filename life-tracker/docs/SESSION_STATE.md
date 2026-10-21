@@ -15,7 +15,10 @@ Current task: #1027 reconstruct protected Preview email-code repair from Codex t
 - Runner fixtures require a server-generated `email_otp` from an exact server-marked disposable account, redact both token hash and code in child logs, and run clean-link email tests with replay, writer and referrer/query leak assertions. Reconstructed unit/DOM/policy tests cover the code path.
 - Hosted `mosaic-dev` and Vercel email policy **have not been changed** in this task. The untracked external operator deployment helper originally changed by Codex is not contained in this repository or recovered automatically. Deploy only after an independently audited trusted exact-artifact helper has the clean-template-before-mutation guard.
 
-## Verification and next action
+## Verification
+- First focused Quality Gate #39538463774 failed on the checkpoint heading contract; this repair restores the required heading without changing the check.
+
+## Next action
 - No task focused or canonical CI has yet been established for this reconstructed source; run task `[verify:focused]`, repair failures without weakening checks, then squash into isolated stable `feature/1027-supabase-recovery-20261020` only after focused checks pass. Require stable full canonical AND Supabase Core App Lab/test artifact on the exact accepted SHA. Do not count historical hosted run `ff73923158367002a1923739` as verification of reconstructed bytes.
 - Trusted Preview delivery requires exact new CI bytes, policy readback for clean templates, approved temporary nonproduction access, deployed real core/email tests and credential/fixture retirement. Do not substitute a local build, request unrelated permissions, or alter protected alias until actual acceptance evidence exists.
 - Public signup/controlled mailbox delivery, physical phone PWA, old Appwrite PWA cutoff, existing-account migration and reversible three-backend data DR remain incomplete and are not solved by this email code patch.
