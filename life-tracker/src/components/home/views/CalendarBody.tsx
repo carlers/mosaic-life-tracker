@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
+import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
 import { DAY_PANEL_MIN_FRAME_WIDTH, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
@@ -25,9 +26,8 @@ const LazyReplyComposerSheet = React.lazy(() =>
   }))
 );
 
-const LazyDayDetailPanel = React.lazy(() =>
-  import('./DayDetailPanel').then(({ DayDetailPanel }) => ({ default: DayDetailPanel }))
-);
+const { Component: LazyDayDetailPanel } =
+  createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
 
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
@@ -164,7 +164,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   } = useFriendTaskReply(tasks);
 
   const handleDayClick = useCallback((date: Date) => {
-    if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
     if (document.activeElement instanceof HTMLElement) calendarTriggerRef.current = document.activeElement;
     if (!daySheetOpen) {
       const host = panelHostRef.current;
@@ -264,7 +263,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           {calendarContent(carousel)}
         </div>
         {panelOpen && (
-          <React.Suspense fallback={null}>
           <LazyDayDetailPanel
             side={dayPanelSide}
             isPresented={daySheetOpen}
@@ -286,7 +284,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             onReactToTask={onReactToTask}
             holidayConfig={holidayConfig}
           />
-          </React.Suspense>
         )}
       </div>
     </div>
