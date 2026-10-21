@@ -21,6 +21,11 @@ Current task: #1027 zero-cost fresh-account beta admission preparation, Brevo co
 - Extend its Supabase Core App Lab with a real SQL execution step against the uniquely identified disposable Supabase CLI Docker PostgreSQL container. Probe tests invited/revoked/expired/unlisted addresses and catalogs `supabase_auth_admin` EXECUTE and client/table denials; actual execution as the Auth role is reserved for a real local GoTrue integration. Initial lab #39576869327 failed only because the disposable migration owner was not permitted to SET ROLE `supabase_auth_admin`; no privilege grants or hosted writes will be added as a workaround. A focused follow-up is under verification.
 - The GoTrue Before User Created hook stays inactive and uninstalled on hosted `mosaic-dev`. No public access, real invitations, production or Appwrite change.
 
+## Follow-up under CI verification
+- Stable source before this task: `feature/1027-supabase-recovery-20261020@12f343895efa7810e2bbf626900e121cbcb71c78`, canonical Quality Gate #39577588073 and signed core lab #39577588135 both SUCCESS, including actual SQL local decisions, catalog ACL checks and signed UI.
+- Extend the same existing disposable signed core CI job with a second *fresh* local Supabase CLI stack having the staged Before User Created hook enabled only locally. Synthetic exact-email invitations, actual GoTrue invited/revoked/expired/unlisted public signups, approved admin fixture and readback are tested without real mail.
+- New GoTrue stage is unverified until its own CI lab executes. No hosted Auth config, SMTP, real user, public Vercel access, Appwrite, dev/main, Production or paid change. No GoTrue hook activation is authorized on `mosaic-dev`.
+
 ## Next action
 - Execute SQL probe in an actual disposable Supabase/Postgres environment and test positive/negative GoTrue hook plus `supabase_auth_admin` privileges. The current disposable admin fixture lab may be blocked by hook: design safe temporary fixture invitations before production-like hook activation. Staged schema/hook enablement need separate explicit approval.
 - Run signed immutable deployed `--ui-preview` core/OTP and physical Android/iOS offline/restart tests; verify task/category sync, two owner isolation and stable fresh signup. Protected Preview share link and operator-held Supabase Management token remain private.

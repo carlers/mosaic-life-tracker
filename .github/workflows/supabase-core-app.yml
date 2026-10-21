@@ -102,6 +102,59 @@ jobs:
             sleep 1
           done
           tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --workers=1 --reporter=line,github
+      - name: Exercise actual disposable GoTrue invite hook
+        run: |
+          set -euo pipefail
+          # The signed core UI ran with the hook disabled. Recreate only the
+          # local CLI stack with the candidate enabled for real Auth requests.
+          supabase stop --no-backup
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('supabase/config.toml')
+          config = p.read_text()
+          if '[auth.hook.before_user_created]' in config:
+              raise SystemExit('Refuse ambiguous existing local hook configuration')
+          config += '''
+          [auth.hook.before_user_created]
+          enabled = true
+          uri = "pg-functions://postgres/mosaic_candidate_private/beta_before_user_created"
+          '''
+          p.write_text(config)
+          PY
+          cp supabase-poc/migrations/20261021_beta_signup_invite_gate.sql \
+            supabase/migrations/20261021000000_invite_gate.sql
+          supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler
+          supabase db reset --local
+          mapfile -t db_containers < <(docker ps --filter name=supabase_db_ --format '{{.ID}}')
+          test "${#db_containers[@]}" -eq 1
+          docker exec -i "${db_containers[0]}" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d postgres <<'SQL'
+          insert into mosaic_candidate_private.beta_signup_invitations(email,created_at,expires_at)
+          values ('mosaic-invite-allowed@example.org',now(),now()+interval '1 day'),
+                 ('mosaic-invite-admin@example.org',now(),now()+interval '1 day'),
+                 ('mosaic-invite-revoked@example.org',now(),now()+interval '1 day'),
+                 ('mosaic-invite-expired@example.org',now()-interval '2 days',now()-interval '1 day');
+          update mosaic_candidate_private.beta_signup_invitations
+            set revoked_at=now() where email='mosaic-invite-revoked@example.org';
+          SQL
+          supabase status -o env > "$RUNNER_TEMP/mosaic-invite-local.env"
+          set -a
+          source "$RUNNER_TEMP/mosaic-invite-local.env"
+          set +a
+          export MOSAIC_SB_LOCAL_URL=http://127.0.0.1:54321
+          export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="${PUBLISHABLE_KEY:?Required local publishable key}"
+          export MOSAIC_SB_LOCAL_ADMIN_KEY="${SECRET_KEY:-${SERVICE_ROLE_KEY:-}}"
+          node supabase-poc/tests/beta-invite-gotrue-local.mjs
+          docker exec -i "${db_containers[0]}" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d postgres <<'SQL'
+          do $test$
+          begin
+            if (select count(*) from auth.users
+                where email like 'mosaic-invite-%@example.org') <> 2 then
+              raise exception 'Denied signup created an Auth user or invited account missing';
+            end if;
+          end $test$;
+          SQL
       - name: Destroy disposable data
         if: always()
         run: supabase stop --no-backup || true
