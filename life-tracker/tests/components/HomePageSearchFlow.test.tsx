@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 const mockWarmDayView = vi.hoisted(() => vi.fn(async () => undefined));
+const mockWarmTodo = vi.hoisted(() => vi.fn(async () => undefined));
 let idleCallbacks: IdleRequestCallback[] = [];
 let carouselLoading = false;
 const mockPersons = [
@@ -40,6 +41,10 @@ vi.mock('../../src/components/home/views/dayViewSheetModule', async (importOrigi
   const actual = await importOriginal<typeof import('../../src/components/home/views/dayViewSheetModule')>();
   return { ...actual, loadDayViewSheet: mockWarmDayView };
 });
+
+vi.mock('../../src/components/home/views/todoListViewModule', () => ({
+  preloadTodoListView: mockWarmTodo,
+}));
 
 vi.mock('swiper/react', () => ({
   Swiper: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -147,7 +152,8 @@ describe('HomePage task-search wiring', () => {
   beforeEach(() => {
     idleCallbacks = [];
     carouselLoading = false;
-    mockWarmDayView.mockClear();
+    mockWarmDayView.mockReset().mockResolvedValue(undefined);
+    mockWarmTodo.mockReset().mockResolvedValue(undefined);
     vi.stubGlobal('requestIdleCallback', (cb: IdleRequestCallback) => {
       idleCallbacks.push(cb);
       return idleCallbacks.length;
@@ -180,6 +186,20 @@ describe('HomePage task-search wiring', () => {
     });
     expect(mockWarmDayView).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('search-day-view')).not.toBeInTheDocument();
+  });
+
+  it('warms Todo List even when the Day View module preload fails', async () => {
+    mockWarmDayView.mockRejectedValueOnce(new Error('offline module'));
+    renderHome();
+    await act(async () => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockWarmDayView).toHaveBeenCalledTimes(1);
+    expect(mockWarmTodo).toHaveBeenCalledTimes(1);
   });
 
   it('warms owner Day View even while friend carousel data is unresolved', () => {
