@@ -197,7 +197,8 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     userId: { type: 'string', maxLength: 255 },
     isDeleted: { type: 'boolean' },
     icon: { type: 'string', maxLength: 10 },
-    retiredOn: { type: 'string', maxLength: 10, pattern: '^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}
+    retiredOn: { type: 'string', maxLength: 10, pattern: '^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    updatedAt: { type: 'string', maxLength: 50 },
   },
   indexes: [
     ['userId', 'isDeleted', 'order'],
