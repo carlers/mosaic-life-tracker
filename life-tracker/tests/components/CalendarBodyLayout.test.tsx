@@ -106,7 +106,7 @@ describe('CalendarBody behavior', () => {
     try {
       daySheetState.mockClear();
       const realignCalendar = vi.fn();
-      const { getByTestId, findByRole, queryByRole } = render(
+      const { getByTestId, queryByTestId, findByRole, queryByRole } = render(
         <CalendarBody
           viewMode="month" slides={[new Date('2026-01-01')]}
           renderStart={0} renderEnd={0} emblaRef={vi.fn()}
@@ -139,7 +139,7 @@ describe('CalendarBody behavior', () => {
       // Exit keeps the same editor mounted until motion completes, but removes interaction immediately.
       expect(getByTestId('day-panel-motion-host')).toHaveAttribute('aria-hidden', 'true');
       await waitFor(() => expect(queryByRole('complementary', { name: 'Day details' })).toBeNull());
-      await waitFor(() => expect(getByTestId('day-panel-motion-host')).not.toBeInTheDocument());
+      await waitFor(() => expect(queryByTestId('day-panel-motion-host')).toBeNull());
     } finally {
       rect.mockRestore();
       if (original === undefined) vi.unstubAllGlobals();
