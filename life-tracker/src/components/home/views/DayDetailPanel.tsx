@@ -143,7 +143,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const panelIdRef = useRef<string | null>(null);
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-  const entered = useRef(false);
+  const historyEntered = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -151,8 +151,8 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     const id = panelIdRef.current;
     installStalePanelGuard();
     activePanelIds.add(id);
-    if (!entered.current) {
-      entered.current = true;
+    if (!historyEntered.current) {
+      historyEntered.current = true;
       issuedPanelIds.add(id);
       window.history.pushState(
         { ...(window.history.state ?? {}), [PANEL_HISTORY_KEY]: id },
