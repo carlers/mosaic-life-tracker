@@ -52,6 +52,21 @@ export function useCalendarState(
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
   const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
+  const resizeTimerRef = useRef<number | null>(null);
+  const focusIndexRef = useRef(CENTER_INDEX);
+  // Do not remeasure Embla against intermediate widths during a left inspector
+  // expansion. Only the final settled frame may rebuild the snap list.
+  const onEmblaResize = useCallback((api: { reInit: (options: { startIndex: number }) => void }) => {
+    if (resizeTimerRef.current !== null) window.clearTimeout(resizeTimerRef.current);
+    resizeTimerRef.current = window.setTimeout(() => {
+      resizeTimerRef.current = null;
+      api.reInit({ startIndex: focusIndexRef.current });
+    }, 130);
+    return false;
+  }, []);
+  useEffect(() => () => {
+    if (resizeTimerRef.current !== null) window.clearTimeout(resizeTimerRef.current);
+  }, []);
   const isInternalSwipeRef = useRef(false);
   const zoomNavigationLock = useRef(false);
   const [isZoomTransitioning, setIsZoomTransitioning] = useState(false);
@@ -75,6 +90,7 @@ export function useCalendarState(
     skipSnaps: false,
     startIndex: CENTER_INDEX,
     duration: reduceMotion ? 0 : 22,
+    watchResize: onEmblaResize,
     watchDrag: (_api, event) => !(event.target instanceof Element && event.target.closest('[data-calendar-zoom-lane]')),
   });
 
@@ -90,14 +106,11 @@ export function useCalendarState(
     const raw = CENTER_INDEX + offset;
     return Math.max(0, Math.min(TOTAL_SLIDES - 1, raw));
   }, [focusDate, baseDate, viewMode, weekStartsOn]);
+  focusIndexRef.current = focusIndex;
 
-  // Embla's previous track transform participates in measurement after a
-  // left-side flex resize. Reset it synchronously before re-measuring, or the
-  // selected slide inherits precisely the old inspector width as an offset.
+  // Invoked after closing or releasing the divider.
   const resnapAfterResize = useCallback(() => {
-    if (!emblaApi) return;
-    emblaApi.containerNode().style.transform = 'none';
-    emblaApi.reInit({ startIndex: focusIndex });
+    emblaApi?.reInit({ startIndex: focusIndex });
   }, [emblaApi, focusIndex]);
 
   // Selection makes the destination slide ready; waiting for Embla's
