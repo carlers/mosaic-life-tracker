@@ -13,7 +13,9 @@ Current task: #1027 repair direct cold-navigation 404 for Supabase email confirm
 - Add the exact `/auth/confirm` SPA rewrite; update strict prebuilt route counts 15 → 16 without relaxing headers or filesystem handling; assert both email routes and unmatched paths in routing tests. Set next user-testable Preview revision `0.32.4` in all three version fields. Email token/auth code unchanged.
 - Main-owned trusted generic Appwrite prebuilt writer retains its independent reviewed routing fingerprint; no relaxation of that trust boundary. Isolated Supabase staging independently verifies route digest at the new exact source SHA.
 
-## Verification / next action
+## Verification
 - Focused task CI `[verify:focused]`; squash PR into isolated stable `feature/1027-supabase-recovery-20261020`; require new exact-SHA full Quality Gate and signed Supabase Core App Lab/artifact. Old v0.32.3 CI evidence and deployed bytes do **not** accept corrected route.
+
+## Next action
 - Assemble new verified prebuilt, deploy only immutable protected Preview with operator gating; never move alias/Production without acceptance. Browser incognito HTTP navigation to `/auth/confirm` and `/reset-password`, then hosted disposable Auth/core/email-code tests, safe isolated email template readback, controlled SMTP, physical PWA remain.
 - Supabase security review: three intentionally authenticated privileged SECURITY DEFINER RPC Advisor warnings; disabled leaked-password protection. Existing-user Appwrite writer fencing, owner mapping, tombstones and reversible DR remain separate release work. Keep #1027/#967 open; Diary #1029 after core.
