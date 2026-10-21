@@ -111,15 +111,33 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p = Path('supabase/config.toml')
-          config = p.read_text()
-          if '[auth.hook.before_user_created]' in config:
-              raise SystemExit('Refuse ambiguous existing local hook configuration')
-          config += '''
-          [auth.hook.before_user_created]
-          enabled = true
-          uri = "pg-functions://postgres/mosaic_candidate_private/beta_before_user_created"
-          '''
-          p.write_text(config)
+          lines = p.read_text().splitlines()
+          header = '[auth.hook.before_user_created]'
+          value = 'uri = "pg-functions://postgres/mosaic_candidate_private/beta_before_user_created"'
+          locations = [i for i, line in enumerate(lines) if line.strip() == header]
+          if len(locations) > 1:
+              raise SystemExit('Duplicate local Auth hook sections')
+          if not locations:
+              lines.extend([header, 'enabled = true', value])
+          else:
+              begin = locations[0] + 1
+              end = next((i for i in range(begin, len(lines))
+                          if lines[i].strip().startswith('[') and lines[i].strip().endswith(']')),
+                         len(lines))
+              section = lines[begin:end]
+              enabled = [i for i, line in enumerate(section) if line.strip() == 'enabled = false']
+              if len(enabled) != 1:
+                  raise SystemExit('Local hook must be disabled before acceptance setup')
+              section[enabled[0]] = 'enabled = true'
+              uris = [i for i, line in enumerate(section) if line.strip().startswith('uri =')]
+              if len(uris) > 1:
+                  raise SystemExit('Duplicate local hook URIs')
+              if uris:
+                  section[uris[0]] = value
+              else:
+                  section.append(value)
+              lines[begin:end] = section
+          p.write_text(chr(10).join(lines) + chr(10))
           PY
           cp supabase-poc/migrations/20261021_beta_signup_invite_gate.sql \
             supabase/migrations/20261021000000_invite_gate.sql
