@@ -40,7 +40,7 @@ describe('historical category lifecycle (#857)', () => {
     expect(retirementStateForDay({ ...category, isDeleted: true }, '2020-10-22', true)).toBe('hidden');
   });
 
-  it('counts all active category tasks, not just today's, before destructive deletion', () => {
+  it('counts all active category tasks across dates before destructive deletion', () => {
     const all = [
       { categoryId: 'study', date: '2026-01-01', isDeleted: false },
       { categoryId: 'study', date: '', isDeleted: false },
