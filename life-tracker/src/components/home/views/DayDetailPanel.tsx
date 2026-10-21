@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { isSheetVisible } from '../../../lib/sheetVisibility';
+import { DayPanelResizeHandle } from './DayPanelResizeHandle';
+import { clampDayPanelWidth, readDayPanelWidth, saveDayPanelWidth, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import { LazyFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
@@ -31,6 +33,10 @@ function installStalePanelGuard() {
 }
 
 interface DayDetailPanelProps {
+  side: DayPanelSide;
+  isSplit: boolean;
+  frameWidth: number;
+  frameRef: React.RefObject<HTMLDivElement | null>;
   onClose: () => void;
   onFocusCalendar?: () => void;
   isFriend: boolean;
@@ -46,9 +52,12 @@ interface DayDetailPanelProps {
 }
 
 export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
+  side, isSplit, frameWidth, frameRef,
   onClose, onFocusCalendar, isFriend, selectedDate, onDateChange, tasks,
   categories, friendName, currentUserId, onReplyToTask, onReactToTask, holidayConfig,
 }) => {
+  const [panelWidth, setPanelWidth] = useState(readDayPanelWidth);
+  const effectivePanelWidth = clampDayPanelWidth(panelWidth, frameWidth);
   const panelIdRef = useRef<string | null>(null);
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
@@ -97,6 +106,18 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   }, []);
 
   return (
+    <>
+      {isSplit && (
+        <DayPanelResizeHandle side={side} width={effectivePanelWidth}
+          frameWidth={frameWidth} frameRef={frameRef}
+          onResize={setPanelWidth} onCommit={saveDayPanelWidth} />
+      )}
+      <div key="day-panel-host"
+        className={isSplit
+          ? 'h-full min-h-0 shrink-0 p-2'
+          : `absolute inset-y-0 ${side === 'left' ? 'left-0' : 'right-0'} z-20 w-[min(100%,440px)] bg-surface p-2`}
+        style={isSplit ? { width: effectivePanelWidth } : undefined}
+      >
     <aside
       aria-label="Day details"
       className="swiper-no-swiping flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"
@@ -145,5 +166,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         )}
       </div>
     </aside>
+      </div>
+    </>
   );
 };
