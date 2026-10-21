@@ -170,7 +170,7 @@ export function toCandidateCategoryWrite(
     order_index: doc.order,
     visibility: doc.visibility,
     icon: doc.icon ?? null,
-    retired_on: doc.retiredOn ?? '',
+    ...(doc.retiredOn !== undefined ? { retired_on: doc.retiredOn } : {}),
     updated_at: doc.updatedAt,
     is_deleted: doc.isDeleted,
   };
@@ -188,7 +188,7 @@ export function fromCandidateCategoryRow(
     order: row.order_index,
     visibility: row.visibility,
     icon: row.icon ?? undefined,
-    retiredOn: row.retired_on ?? '',
+    ...(row.retired_on !== undefined ? { retiredOn: row.retired_on } : {}),
     updatedAt: row.updated_at,
     userId: identity.legacyUserId,
     isDeleted: row.is_deleted,
