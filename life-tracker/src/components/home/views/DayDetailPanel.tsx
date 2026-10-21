@@ -166,6 +166,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const panel = (
     <div
       data-testid="day-panel-motion-host"
+      data-day-panel-side={side}
       aria-hidden={!isPresented}
       inert={!isPresented}
       className={isSplit

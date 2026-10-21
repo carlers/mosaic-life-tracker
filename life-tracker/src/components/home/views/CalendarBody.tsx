@@ -45,7 +45,6 @@ interface CalendarBodyProps {
   dayPanelHeight?: DayPanelHeight;
   screenFrameRef?: React.RefObject<HTMLDivElement | null>;
   screenPanelHost?: HTMLDivElement | null;
-  onScreenPanelChange?: (side: DayPanelSide | null) => void;
   zoomPreference?: CalendarZoomDays;
   pinchGestureEnabled?: boolean;
   onZoomPreferenceChange?: (days: CalendarZoomDays) => void;
@@ -84,7 +83,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   dayPanelHeight = 'grid',
   screenFrameRef,
   screenPanelHost,
-  onScreenPanelChange,
   zoomPreference = 7,
   pinchGestureEnabled = false,
   onZoomPreferenceChange,
@@ -275,11 +273,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const panelOpen = panelMounted && openPresentation === 'panel' && isActive;
   const fullScreen = panelOpen && openedHeight === 'screen' && Boolean(screenPanelHost);
   const isSplit = panelOpen && availableWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
-  useEffect(() => {
-    if (!fullScreen) return;
-    onScreenPanelChange?.(dayPanelSide);
-    return () => onScreenPanelChange?.(null);
-  }, [fullScreen, dayPanelSide, onScreenPanelChange]);
 
   const calendarAndPanel = (
     <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">

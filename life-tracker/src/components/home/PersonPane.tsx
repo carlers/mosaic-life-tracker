@@ -3,7 +3,6 @@ import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
-import type { DayPanelSide } from '../../lib/dayPanelLayout';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
@@ -52,7 +51,6 @@ interface PersonPaneProps {
   isActive: boolean;
   screenFrameRef?: React.RefObject<HTMLDivElement | null>;
   screenPanelHost?: HTMLDivElement | null;
-  onScreenPanelChange?: (side: DayPanelSide | null) => void;
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
 }
@@ -71,7 +69,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   isActive,
   screenFrameRef,
   screenPanelHost,
-  onScreenPanelChange,
   ownerTasks = [],
   ownerCategories = [],
 }) => {
@@ -193,7 +190,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           dayPanelHeight={dayPanelHeight}
           screenFrameRef={screenFrameRef}
           screenPanelHost={screenPanelHost}
-          onScreenPanelChange={onScreenPanelChange}
           zoomPreference={calendarZoomDays}
           pinchGestureEnabled={calendarPinchZoom}
           onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
@@ -253,7 +249,6 @@ export const PersonPane: React.FC<PersonPaneProps> = (props) => {
           isActive={props.isActive}
           screenFrameRef={props.screenFrameRef}
           screenPanelHost={props.screenPanelHost}
-          onScreenPanelChange={props.onScreenPanelChange}
         />
       </React.Suspense>
     );

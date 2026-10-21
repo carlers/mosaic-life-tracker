@@ -516,3 +516,9 @@ html[data-ui-controls='false'] :is([class~='border-emerald-500'], [class~='borde
 html[data-ui-controls='false'] [class*='ring-emerald-'] {
   --tw-ring-color: var(--mosaic-text-muted) !important;
 }
+
+/* In true screen-height split, the portal itself determines which side owns the
+   full-height inspector. This avoids syncing parallel Home/DayView layout state. */
+.mosaic-home-workspace:has(> [data-home-panel-slot] > [data-day-panel-side='left']) {
+  flex-direction: row-reverse;
+}
