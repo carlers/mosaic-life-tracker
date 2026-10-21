@@ -48,3 +48,7 @@ Current task: #404 v0.40.3 — left panel alignment, full height and expand/coll
 
 ## Generated component inventory
 - Focused [39571081790](https://github.com/carlers/mosaic-life-tracker/actions/runs/39571081790) stopped on generated docs freshness because new pure helper `calendarPanelSnap.ts` needed a source inventory entry. Updated `docs/COMPONENT_INDEX.md` using the generator's sorted path and template contract. No functional change or gate adjustment; rerun focused.
+
+## Stable Preview v0.40.3 canonical size repair
+- Exact stable Preview `1176834fcdcb7cb29b68fc35a8177f72766904f8`: [Quality Gate 39571477842](https://github.com/carlers/mosaic-life-tracker/actions/runs/39571477842) passed static, DOM, both browser, dependency audit; failed only blocking Home startup closure `381063/381000` (+63 gzip bytes). Task-focused CI 39571292078 previously passed. No deployment READY at this SHA.
+- Current task `chatgpt/404-home-startup-budget-20261021`: combine duplicate Home keyboard listeners for search slash and existing Home/friend accelerators. Preserve slash's full native-input/modal/modifier exclusions, accelerator's `canUseKeyboardShortcut` and enablement gating, and all action handlers. This is an eager Home cleanup without changing #404 inspector behavior, version 0.40.3, tests or budget values. Run focused, squash into stable Preview, full canonical, trusted Vercel exact READY; no dev/main promotion.
