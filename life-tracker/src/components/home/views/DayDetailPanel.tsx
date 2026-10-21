@@ -42,7 +42,7 @@ interface DayDetailPanelProps {
   isPresented: boolean;
   onExited: () => void;
   initialHeightMode: DayPanelHeight;
-  onCalendarLayoutChange?: (live?: boolean) => void;
+  onCalendarLayoutChange?: (live?: boolean) => Promise<void>;
   initialFrameWidth: number;
   frameRef: React.RefObject<HTMLDivElement | null>;
   onClose: () => void;
@@ -107,11 +107,23 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   // Keep the mounted Day View and its editing state alive through exit.
   // Reverse an in-flight close without tearing down the same inspector.
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setEntered(isPresented));
-    if (isPresented) return () => window.cancelAnimationFrame(frame);
+    let canceled = false;
+    let frame: number | null = null;
+    if (isPresented) {
+      // The lazy projection module must be ready before the first width
+      // transition frame; otherwise the grid shifts by whole slide widths.
+      void Promise.resolve(realignRef.current?.(true)).then(() => {
+        if (!canceled) frame = window.requestAnimationFrame(() => setEntered(true));
+      });
+      return () => {
+        canceled = true;
+        if (frame !== null) window.cancelAnimationFrame(frame);
+      };
+    }
+    frame = window.requestAnimationFrame(() => setEntered(false));
     const timeout = window.setTimeout(() => exitedRef.current(), reduceMotion ? 0 : 320);
     return () => {
-      window.cancelAnimationFrame(frame);
+      if (frame !== null) window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
   }, [isPresented, reduceMotion]);
@@ -124,23 +136,21 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       '[data-route-swipe-horizontal-owner="true"]'
     );
     if (!viewport || typeof ResizeObserver === 'undefined') return;
-    let pending: number | null = null;
     let previousWidth = viewport.getBoundingClientRect().width;
+    // Only this calendar suspends its automatic Embla width reinitialization.
+    viewport.dataset.panelResizeOwned = 'true';
     const observer = new ResizeObserver(() => {
       const width = viewport.getBoundingClientRect().width;
       if (Math.abs(width - previousWidth) < 0.1) return;
       previousWidth = width;
-      if (pending !== null) window.cancelAnimationFrame(pending);
-      // Project the focused slide at the current width without reInit.
-      pending = window.requestAnimationFrame(() => {
-        pending = null;
-        realignRef.current?.(true);
-      });
+      // ResizeObserver runs before paint: correct this geometry now, rather
+      // than allowing another frame to show the neighboring month.
+      realignRef.current?.(true);
     });
     observer.observe(viewport);
     return () => {
       observer.disconnect();
-      if (pending !== null) window.cancelAnimationFrame(pending);
+      delete viewport.dataset.panelResizeOwned;
     };
   }, [frameRef]);
 
