@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Current scope: issue #956 — keyboard shortcut guide, preference and scoped Home actions; v0.35.6 Preview candidate.
+Current task: issue #956 — keyboard shortcut guide, preference and scoped Home actions; v0.35.6 Preview candidate.
 
 ## Authority and baseline
 - User accepted keyboard navigation v0.35.5 and approved further shortcut expansion: H/Shift+H, /, S by page, T/D views, shortcut guide, setting in Preferences. Add V Calendar and B Backlogs as complementary Home actions.
@@ -18,5 +18,6 @@ Current scope: issue #956 — keyboard shortcut guide, preference and scoped Hom
 ## Verification / handoff
 - Task scope includes React components/hooks, generated COMPONENT_INDEX for guide sheet, focused DOM tests for routing Shift+H, active views, preference and guide.
 - First focused run 39533818696 failed only the React Fast Refresh lint rule: provider file exported both its component and hook/context. Moved context/hook into a separate non-component module and adjusted consumers, retaining the provider's single component export. Reverify focused before Preview squash.
+- Focused repair run 39534119227 passed lint and failed only the checkpoint contract: its header read `Current scope:` rather than required `Current task:`. Corrected exactly and rerunning focused.
 - Submit a coherent [verify:focused] task repair commit. Fix failures on task branch; after focused SUCCESS squash to stable Preview; perform one canonical full gate and trusted exact-SHA Vercel READY. User device/visual/AT acceptance remains manual and unperformed.
 - Keep issue #956 open; never promote to dev, main, or Production without user approval.
