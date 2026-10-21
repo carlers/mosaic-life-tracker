@@ -20,7 +20,6 @@ import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
-import type { DayPanelSide } from '../lib/dayPanelLayout';
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -49,7 +48,6 @@ export const HomePage: React.FC = () => {
   } = useCategories();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
-  const [screenSplitSide, setScreenSplitSide] = useState<DayPanelSide | null>(null);
   const [screenPanelHost, setScreenPanelHost] = useState<HTMLDivElement | null>(null);
   const screenFrameRef = useRef<HTMLDivElement>(null);
   const [renderWindow, setRenderWindow] = useState(INITIAL_RENDER_WINDOW);
@@ -367,8 +365,7 @@ export const HomePage: React.FC = () => {
       <div
         ref={screenFrameRef}
         data-testid="home-workspace-split"
-        data-split-side={screenSplitSide ?? undefined}
-        className={`flex h-full min-h-0 min-w-0 ${screenSplitSide === 'left' ? 'flex-row-reverse' : ''}`}
+        className="mosaic-home-workspace flex h-full min-h-0 min-w-0"
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <HomeTaskSearch
@@ -431,7 +428,6 @@ export const HomePage: React.FC = () => {
                     ownerCategories={ownerCategories}
                     screenFrameRef={screenFrameRef}
                     screenPanelHost={screenPanelHost}
-                    onScreenPanelChange={setScreenSplitSide}
                   />
                 ) : null}
               </SwiperSlide>
@@ -443,6 +439,7 @@ export const HomePage: React.FC = () => {
         <div
           ref={setScreenPanelHost}
           inert={isSearchOpen ? true : undefined}
+          data-home-panel-slot="true"
           data-testid="home-screen-panel-slot"
           className="flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
         />

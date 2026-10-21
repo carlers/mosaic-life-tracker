@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Current task: #404 Preview v0.40.2
+Current task: #404 Preview v0.40.2 — canonical Home bundle-size repair
 Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and calm transitions.
 
 ## Baseline and authority
@@ -19,3 +19,8 @@ Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and 
 - Task branch `chatgpt/404-true-workspace-split-20261021`; request focused CI in task commit, repair failures, squash to stable Preview, require canonical acceptance and trusted exact-SHA READY Vercel before sharing new link.
 - Manual wide-window tests still required: first/last weekday columns visible after opening left, switch month and resize divider; smooth close/open and side switching; full-screen shell correctly relocates search/hamburger and date header; reduced motion, owner/friend, browser Back, narrow fallback and offline draft retention.
 - Never promote dev/main or Production without explicit approval.
+
+## Latest gate repair
+- Stable v0.40.2 candidate `8bed5b2f304503d4a528de7b085461897a4881dc`: full CI [39556385411](https://github.com/carlers/mosaic-life-tracker/actions/runs/39556385411) passed checks, DOM, browser, audit, but blocking Home closure 381,293 / 381,000 bytes. No Vercel delivery.
+- Scoped repair moves left/right arrangement from Home useState and three-layer callbacks into portal-derived CSS :has rule, retaining same full-shell layout without extra startup state. Embla reInit then immediate explicit snap after actual resize. Update DOM portal test accordingly; no version increment or release limits changed.
+- Task branch `chatgpt/404-screen-split-budget-20261021`: focused gate, then squash to stable Preview, full canonical gate and trusted READY exact SHA required. Manual wide-screen left/right validation and animation/device checks not yet performed. Do not promote dev/main.

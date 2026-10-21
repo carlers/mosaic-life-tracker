@@ -84,7 +84,10 @@ export function useCalendarState(
   // Re-initialize against the *settled* viewport and restore the logical snap,
   // never its stale pixel transform.
   const resnapAfterResize = useCallback(() => {
-    emblaApi?.reInit();
+    if (!emblaApi) return;
+    const selected = emblaApi.selectedScrollSnap();
+    emblaApi.reInit();
+    emblaApi.scrollTo(selected, true);
   }, [emblaApi]);
 
   // Selection makes the destination slide ready; waiting for Embla's

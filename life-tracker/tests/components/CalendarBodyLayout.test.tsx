@@ -156,7 +156,6 @@ describe('CalendarBody behavior', () => {
     }));
     class TestObserver { observe() {} disconnect() {} }
     vi.stubGlobal('ResizeObserver', TestObserver);
-    const onScreenPanelChange = vi.fn();
     try {
       const { getByTestId, findByRole, unmount } = render(
         <CalendarBody viewMode="month" slides={[new Date('2026-10-01')]}
@@ -164,13 +163,12 @@ describe('CalendarBody behavior', () => {
           tasks={[]} categoriesMap={{}} variant="me" isActive currentUserId="user_1"
           dayDetailPresentation="panel" dayPanelSide="left" dayPanelHeight="screen"
           screenPanelHost={host} screenFrameRef={{ current: frame }}
-          onScreenPanelChange={onScreenPanelChange}
           onPrev={vi.fn()} onNext={vi.fn()}
         />
       );
       fireEvent.click(getByTestId('calendar-day'));
       expect(await findByRole('complementary', { name: 'Day details' })).toBeInTheDocument();
-      await waitFor(() => expect(onScreenPanelChange).toHaveBeenCalledWith('left'));
+      await waitFor(() => expect(host.querySelector('[data-day-panel-side="left"]')).not.toBeNull());
       expect(host.querySelector('[data-testid="calendar-day-side-panel"]')).not.toBeNull();
       expect(getByTestId('calendar-carousel')).toBeInTheDocument();
       const motionHost = host.querySelector<HTMLElement>('[data-testid="day-panel-motion-host"]');
@@ -178,7 +176,7 @@ describe('CalendarBody behavior', () => {
       expect(motionHost?.style.width).not.toBe('0px');
       expect(motionHost?.style.transition).not.toContain('width');
       fireEvent.click(await findByRole('button', { name: 'Close day details' }));
-      await waitFor(() => expect(onScreenPanelChange).toHaveBeenLastCalledWith(null));
+      await waitFor(() => expect(host.querySelector('[data-day-panel-side]')).toBeNull());
       unmount();
     } finally {
       rect.mockRestore();

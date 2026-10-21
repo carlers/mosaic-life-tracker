@@ -9,7 +9,6 @@ import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
-import type { DayPanelSide } from '../../lib/dayPanelLayout';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { fetchFriendDiaryMonth, reactToFriendDiary, type FriendDiaryDocument } from '../../lib/friendData';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
@@ -63,7 +62,6 @@ interface FriendPersonPaneProps {
   isActive: boolean;
   screenFrameRef?: React.RefObject<HTMLDivElement | null>;
   screenPanelHost?: HTMLDivElement | null;
-  onScreenPanelChange?: (side: DayPanelSide | null) => void;
 }
 
 export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
@@ -71,7 +69,6 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
   isActive,
   screenFrameRef,
   screenPanelHost,
-  onScreenPanelChange,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -231,7 +228,6 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
           dayPanelHeight={dayPanelHeight}
           screenFrameRef={screenFrameRef}
           screenPanelHost={screenPanelHost}
-          onScreenPanelChange={onScreenPanelChange}
           zoomPreference={calendarZoomDays}
           pinchGestureEnabled={calendarPinchZoom}
           onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
