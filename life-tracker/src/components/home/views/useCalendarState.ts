@@ -35,6 +35,7 @@ export interface CalendarState {
   isZoomTransitioning: boolean;
   handleZoomNavigate: (direction: 'prev' | 'next') => boolean;
   emblaRef: (node: HTMLElement | null) => void;
+  resnapAfterResize: () => void;
   title: string;
   handlePrev: () => void;
   handleNext: () => void;
@@ -78,6 +79,16 @@ export function useCalendarState(
   });
 
   useEmblaTrackpadNavigation(emblaApi);
+
+  // A left-side inspector shifts the Embla viewport as well as narrowing it.
+  // Re-initialize against the *settled* viewport and restore the logical snap,
+  // never its stale pixel transform.
+  const resnapAfterResize = useCallback(() => {
+    if (!emblaApi) return;
+    const selected = emblaApi.selectedScrollSnap();
+    emblaApi.reInit();
+    emblaApi.scrollTo(selected, true);
+  }, [emblaApi]);
 
   // Selection makes the destination slide ready; waiting for Embla's
   // physics-based 'settle' can keep zoomed month navigation locked for
@@ -243,6 +254,7 @@ export function useCalendarState(
     isZoomTransitioning,
     handleZoomNavigate,
     emblaRef,
+    resnapAfterResize,
     title,
     handlePrev,
     handleNext,

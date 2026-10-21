@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clampDayPanelWidth, maxDayPanelWidth, readDayPanelWidth, saveDayPanelWidth,
   DAY_PANEL_MIN_WIDTH, DAY_PANEL_MIN_FRAME_WIDTH } from '../../src/lib/dayPanelLayout';
-import { resolveDayDetailPresentation } from '../../src/lib/preferences';
+import { resolveDayDetailPresentation, resolveDayPanelHeight } from '../../src/lib/preferences';
 
 describe('split Day View panel sizing and fallbacks', () => {
   it('protects calendar width and clamps the panel', () => {
@@ -14,6 +14,8 @@ describe('split Day View panel sizing and fallbacks', () => {
   it('rejects unknown settings and preserves the existing bottom-sheet default', () => {
     expect(resolveDayDetailPresentation('invalid')).toBe('sheet');
     expect(resolveDayDetailPresentation('panel')).toBe('panel');
+    expect(resolveDayPanelHeight('unknown')).toBe('grid');
+    expect(resolveDayPanelHeight('screen')).toBe('screen');
   });
   it('stores bounded widths on this device only', () => {
     const state = new Map<string, string>();

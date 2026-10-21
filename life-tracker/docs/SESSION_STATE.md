@@ -1,21 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-21 UTC
-Current task: issue #404 split Day View panel reconciliation and adjustable left/right panel Preview.
+Current task: #404 Preview refinement v0.40.1 — fix left-panel month scrolling, add panel motion and height preference.
 
-## Baseline and authority
-- User authorized: reconcile prior #404 Preview with dev and provide a fresh Preview with side placement and resizable split. No dev/main promotion approval.
-- Task base dev e1c90b387ecfb4e29d64c88b6557703dd23ca207 v0.39.0. Prior split Preview feature/split-day-panel-404-20261012@59b64a8e4630d740c1ba906c2797b6ef627b7a44 (v0.21.0), not incorporated in dev.
-- New user-facing Preview candidate v0.40.0. Task branch chatgpt/404-split-layout-dev-20261021.
-- Current dev Calendar pinch zoom, keyboard grid and H Home navigation, task previews, Timeline mode, cross-day drag, friend calendar state and all unrelated settings must remain intact.
+## Source of truth and scope
+- Stable accepted v0.40.0 Preview source `feature/split-day-panel-dev-404-20261021@37253f36f393a3872d7e3cf2d553ffea20ad92d0`, full canonical CI 39546329988 success, trusted Vercel READY deployment dpl_Jq85MCYFHpAQhzKB5218SRiWz5Rr. No dev/main promotion approval; dev remains `e1c90b387ecfb4e29d64c88b6557703dd23ca207`.
+- User found left-panel month carousel clipping at partial horizontal snap and requested smooth panel open/close and account-synced height choice: match actual month-grid content (default) or full available Calendar workspace (screen height).
+- Patch revision v0.40.1, task branch `chatgpt/404-side-panel-animation-height-20261021` to squash into existing stable feature Preview after focused checks.
+- Preserve existing owner/friend behavior, responsive fallback, nested sheets, task editors/drafts, drag geometry, 320–720px local panel width persistence, keyboard accessibility, reduced-motion, 1040px eligibility, and older calendar zoom/Timeline/keyboard features.
 
-## Implemented task scope
-- Account-synced optional Home owner/friend Day View side panel; default retains bottom sheet. Account-synced side choice defaults right, can choose left; mobile/narrow new opens use bottom sheet.
-- Calendar and panel remain interactive at sufficient Home frame width (1040 CSS px). When an existing panel's frame shrinks, keep content mounted in an overlaid inspector to avoid draft loss.
-- Pointer-draggable and keyboard-operable separator moves border, 320–720px panel with 560px calendar reserve, device-local saved width; no global modal rewrite. Both Day Views use existing virtualized inline/panel renderer, modal children unchanged.
-- Reconciled with current dev rather than overwriting current CalendarBody / DayViewSheet / FriendDayViewSheet. Added preference and sizing tests.
+## Implementation
+- Expose `resnapAfterResize` from `useCalendarState`. The lazy side panel observes Embla viewport size changes and reinitializes + snaps to the same logical month after settled geometry, including when panel animates and when separator is resized.
+- Keep panel mounted during 280ms width/opacity open/close transitions; narrow overlay transitions by opacity/translate. Avoid remount on date switch or reopen during close; use inert/aria-hidden while exiting. Respect reduced motion.
+- Height setting `dayPanelHeight` ('grid' default | 'screen'), synced via useSettings for both owner/friend. Default grid height uses active [role=rowgroup] bottom relative to grid top instead of full slide min-height; screen uses the full available Calendar workspace, excluding surrounding app chrome.
+- Bump package, lockfile, appVersion to v0.40.1 once for this user-testable refinement. Add preference and interaction regressions; no backend schema changes.
 
-## Verification and next action
-- Task commit requests [verify:focused]; inspect CI/TypeScript/lint/unit/DOM, repair any failures, then squash into stable feature Preview and verify canonical quality gate and trusted Vercel READY exact SHA before sharing updated link.
-- Responsive layout, pointer drag, keyboard, browser Back, owner/friend privacy and real-device/zoom manual acceptance remain unperformed until evidence. No Appwrite schema or Function changes.
-- Do not merge dev/main or modify Production without explicit permission.
+## Acceptance and remaining
+- Verify focused CI on exact task SHA, then squash stable Preview and canonical CI/build-size/PWA/browser + trusted Vercel READY exact SHA. Do not raise budget ceilings.
+- Manual browser acceptance still required on physical wide viewport: left/right open/close month alignment, resizing, screen vs grid panel height, reduced motion, owner/friend, editor preservation during resize/exit, Back/Escape and touch.
+- Do not merge dev/main or change Production without explicit subsequent approval.

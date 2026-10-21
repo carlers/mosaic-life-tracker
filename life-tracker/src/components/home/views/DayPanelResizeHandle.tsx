@@ -7,10 +7,12 @@ interface Props {
   frameWidth: number;
   frameRef: React.RefObject<HTMLDivElement | null>;
   onResize: (width: number) => void;
+  onResizeStart?: () => void;
+  onResizeEnd?: () => void;
   onCommit: (width: number) => void;
 }
 
-export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth, frameRef, onResize, onCommit }) => {
+export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth, frameRef, onResize, onCommit, onResizeStart, onResizeEnd }) => {
   const dragging = useRef<number | null>(null);
   const lastWidth = useRef(width);
   const resize = (value: number) => {
@@ -29,6 +31,7 @@ export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth,
         event.preventDefault();
         event.stopPropagation();
         dragging.current = event.pointerId;
+        onResizeStart?.();
         lastWidth.current = width;
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
@@ -46,11 +49,13 @@ export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth,
         dragging.current = null;
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
         onCommit(lastWidth.current);
+        onResizeEnd?.();
       }}
       onPointerCancel={event => {
         if (dragging.current !== event.pointerId) return;
         dragging.current = null;
         onCommit(lastWidth.current);
+        onResizeEnd?.();
       }}
       onKeyDown={event => {
         const step = event.shiftKey ? 40 : 20;
