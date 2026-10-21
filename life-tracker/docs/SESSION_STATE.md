@@ -44,3 +44,7 @@ Issue #404 Preview v0.40.2 — true full-height split, fixed left-grid snap and 
 
 ## Sixth candidate: preserve retryable lazy mount + remove redundant warmup
 - Stable `368e615b04095409896518bb62a2fbfc863b6f92` full run 39560948733 failed only Home startup closure +80 gzip bytes. Revert native React.lazy to repository-standard retryable createPreloadedLazy (internal local Suspense), remove duplicate friend preload from day click (pointer and lazy paths remain), and remove unused Home test IDs while retaining semantic slot attribute. Strict limits and v0.40.2 unchanged. Pending focused → canonical → trusted READY.
+
+## Seventh CI-budget task
+- Preview `6a96fecf8bbb19e6e526593c299ecda148ab2095` Quality Gate 39561559937 blocking Home closure 381047/381000 bytes (+47). No gate weakening.
+- Deduplicate three preexisting Home idle schedulers behind a small helper; preserve exact idle timeouts 1800/1200/1200 ms, fallback timers 700/900/400 ms and cleanup. Scope is start-up behavior required for Home split's strict bundle-budget acceptance, no user-facing change. Focused → stable full canonical → Vercel exact READY next. 
