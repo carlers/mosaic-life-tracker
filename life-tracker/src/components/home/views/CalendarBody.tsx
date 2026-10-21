@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
-import { DayPanelResizeHandle } from './DayPanelResizeHandle';
+
 import { clampDayPanelWidth, DAY_PANEL_MIN_FRAME_WIDTH, readDayPanelWidth, saveDayPanelWidth, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
@@ -28,6 +28,9 @@ const LazyReplyComposerSheet = React.lazy(() =>
 
 const { Component: LazyDayDetailPanel, preload: preloadDayDetailPanel } =
   createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
+const { Component: LazyDayPanelResizeHandle } = createPreloadedLazy(
+  () => import('./DayPanelResizeHandle').then(({ DayPanelResizeHandle }) => DayPanelResizeHandle)
+);
 
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
@@ -286,7 +289,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           {calendarContent(carousel)}
         </div>
         {isSplit && (
-          <DayPanelResizeHandle side={dayPanelSide} width={effectivePanelWidth}
+          <LazyDayPanelResizeHandle side={dayPanelSide} width={effectivePanelWidth}
             frameWidth={availableWidth} frameRef={panelHostRef}
             onResize={setPanelWidth} onCommit={saveDayPanelWidth} />
         )}
