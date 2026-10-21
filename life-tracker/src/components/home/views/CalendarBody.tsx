@@ -276,7 +276,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             isPresented={daySheetOpen}
             onExited={() => setPanelMounted(false)}
             heightMode={dayPanelHeight}
-            activeIndex={activeIndex ?? 30}
             onCalendarLayoutChange={onCalendarLayoutChange}
             frameWidth={availableWidth}
             frameRef={panelHostRef}

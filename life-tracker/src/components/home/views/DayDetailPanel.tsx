@@ -1,4 +1,5 @@
-import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { isSheetVisible } from '../../../lib/sheetVisibility';
 import { DayPanelResizeHandle } from './DayPanelResizeHandle';
@@ -41,7 +42,7 @@ interface DayDetailPanelProps {
   isPresented: boolean;
   onExited: () => void;
   heightMode: DayPanelHeight;
-  activeIndex: number;
+  portalHost?: HTMLDivElement | null;
   onCalendarLayoutChange?: () => void;
   frameWidth: number;
   frameRef: React.RefObject<HTMLDivElement | null>;
@@ -60,21 +61,17 @@ interface DayDetailPanelProps {
 }
 
 export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
-  side, isSplit, isPresented, onExited, heightMode, activeIndex,
+  side, isSplit, isPresented, onExited, heightMode, portalHost,
   onCalendarLayoutChange, frameWidth, frameRef,
   onClose, onFocusCalendar, isFriend, selectedDate, onDateChange, tasks,
   categories, friendName, currentUserId, onReplyToTask, onReactToTask, holidayConfig,
 }) => {
   const [panelWidth, setPanelWidth] = useState(readDayPanelWidth);
   const [entered, setEntered] = useState(false);
-  const [dragging, setDragging] = useState(false);
-  const [gridHeight, setGridHeight] = useState<number | null>(null);
   const appearance = useContext(AppearanceContext);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const effectivePanelWidth = clampDayPanelWidth(panelWidth, frameWidth);
   const targetWidth = effectivePanelWidth + DAY_PANEL_DIVIDER_WIDTH;
-  const effectiveHeight = heightMode === 'screen' || gridHeight === null
-    ? '100%' : `min(100%, ${gridHeight}px)`;
   const exitedRef = useRef(onExited);
   const realignRef = useRef(onCalendarLayoutChange);
   useEffect(() => { exitedRef.current = onExited; }, [onExited]);
@@ -85,34 +82,12 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setEntered(isPresented));
     if (isPresented) return () => window.cancelAnimationFrame(frame);
-    const timeout = window.setTimeout(() => exitedRef.current(), reduceMotion ? 0 : 320);
+    const timeout = window.setTimeout(() => exitedRef.current(), reduceMotion ? 0 : 260);
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
   }, [isPresented, reduceMotion]);
-
-  // A month grid is intrinsically sized by its rows, even though its
-  // scrolling slide has min-height:100%. Measure the rowgroup bottom, not
-  // the full slide, so the default height genuinely follows month content.
-  useLayoutEffect(() => {
-    if (heightMode !== 'grid') return;
-    const grid = frameRef.current?.querySelector<HTMLElement>(
-      `[data-calendar-slide-index="${activeIndex}"] [role="grid"]`
-    );
-    const rows = grid?.querySelector<HTMLElement>('[role="rowgroup"]');
-    if (!grid || !rows) return;
-    const measure = () => {
-      const height = Math.ceil(rows.getBoundingClientRect().bottom -
-        grid.getBoundingClientRect().top + 12);
-      if (height > 0) setGridHeight(previous => previous === height ? previous : height);
-    };
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(rows);
-    return () => observer.disconnect();
-  }, [activeIndex, frameRef, heightMode]);
 
   // Embla snapshots pixel widths. Shrinking from the left can leave its
   // old transform halfway across a month even after automatic observation.
@@ -139,7 +114,6 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   }, [frameRef]);
 
   const finishResize = () => {
-    setDragging(false);
     realignRef.current?.();
   };
   const panelIdRef = useRef<string | null>(null);
@@ -189,7 +163,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     if (panelIdRef.current) activePanelIds.delete(panelIdRef.current);
   }, []);
 
-  return (
+  const panel = (
     <div
       data-testid="day-panel-motion-host"
       aria-hidden={!isPresented}
@@ -199,18 +173,20 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         : `swiper-no-swiping absolute inset-y-0 ${side === 'left' ? 'left-0' : 'right-0'} z-20 max-w-full overflow-hidden bg-surface`}
       style={isSplit
         ? {
-            width: entered ? targetWidth : 0,
-            height: effectiveHeight,
+            width: targetWidth,
+            height: '100%',
+            opacity: entered ? 1 : 0,
+            transform: entered ? 'translateX(0)' : side === 'left' ? 'translateX(-18px)' : 'translateX(18px)',
             pointerEvents: isPresented ? 'auto' : 'none',
-            transition: dragging || reduceMotion ? 'none' : 'width 280ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+            transition: reduceMotion ? 'none' : 'transform 240ms ease-out, opacity 240ms ease-out',
           }
         : {
             width: 'min(100%, 440px)',
-            height: effectiveHeight,
+            height: '100%',
             opacity: entered ? 1 : 0,
             transform: entered ? 'translateX(0)' : side === 'left' ? 'translateX(-24px)' : 'translateX(24px)',
             pointerEvents: isPresented ? 'auto' : 'none',
-            transition: reduceMotion ? 'none' : 'transform 280ms ease, opacity 280ms ease',
+            transition: reduceMotion ? 'none' : 'transform 240ms ease-out, opacity 240ms ease-out',
           }}
       onTransitionEnd={event => {
         if (event.target === event.currentTarget)
@@ -224,7 +200,6 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
             side={side} width={effectivePanelWidth} frameWidth={frameWidth} frameRef={frameRef}
             onResize={setPanelWidth}
             onCommit={width => { saveDayPanelWidth(width); realignRef.current?.(); }}
-            onResizeStart={() => setDragging(true)}
             onResizeEnd={finishResize}
           />
         )}
@@ -282,4 +257,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       </div>
     </div>
   );
+  return portalHost && heightMode === 'screen'
+    ? createPortal(panel, portalHost)
+    : panel;
 };
