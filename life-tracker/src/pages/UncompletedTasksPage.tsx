@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { ChevronLeft, Circle, ListTodo } from 'lucide-react';
+import { ChevronLeft, ListTodo } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTasks } from '../hooks/useTasks';
@@ -93,31 +93,30 @@ export const UncompletedTasksPage: React.FC = () => {
             <p className="mosaic-general-text text-sm">{ownerId ? 'All tasks completed.' : 'No tasks available.'}</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="mx-auto w-full max-w-2xl space-y-8">
             {sections.map(section => (
               <section key={section.id} aria-labelledby={`uncompleted-${section.id}`}>
-                <div className="mb-2 flex items-baseline justify-between gap-3">
+                <div className="mb-2 flex items-baseline justify-between gap-3 px-2.5">
                   <h2 id={`uncompleted-${section.id}`} className="mosaic-general-text text-sm font-semibold text-white">{section.title}</h2>
-                  <span className="text-xs text-gray-400">{section.tasks.length}</span>
+                  <span className="text-xs tabular-nums text-gray-500">{section.tasks.length}</span>
                 </div>
-                <div className="overflow-hidden rounded-xl border border-border bg-surface">
-                  {section.tasks.map((task, index) => {
+                <div className="space-y-0.5">
+                  {section.tasks.map((task) => {
                     const category = categoryById.get(task.categoryId);
                     const scheduled = isScheduledDateKey(task.date);
                     return (
-                      <div key={task.id} className={`flex min-w-0 items-start gap-3 px-3 py-3 ${index > 0 ? 'border-t border-border' : ''}`}>
+                      <div key={task.id} className="flex min-w-0 items-start gap-3 rounded-xl px-2.5 py-3 transition-colors duration-150 hover:bg-surfaceHighlight focus-within:bg-surfaceHighlight">
                         <button type="button" role="checkbox" aria-checked={false}
                           aria-label={`Complete ${task.title}`}
                           disabled={pending.has(task.id)}
                           onClick={() => void completeTask(task)}
                           className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-gray-400 text-gray-400 transition-colors hover:border-white focus-visible:outline focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50">
-                          <Circle size={12} strokeWidth={0} aria-hidden="true" />
                         </button>
                         <button type="button" onClick={() => openTask(task)}
                           disabled={task.date !== '' && !scheduled}
                           className="min-w-0 flex-1 rounded-md text-left focus-visible:outline focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default">
-                          <span className="block break-words text-sm text-white">{task.title}</span>
-                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-400">
+                          <span className="block break-words text-[15px] leading-5 text-white">{task.title}</span>
+                          <span className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-gray-400">
                             {category && <span className="inline-flex items-center gap-1.5">
                               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: category.color }} aria-hidden="true" />
                               {category.name}
