@@ -107,8 +107,8 @@ export function createSupabaseEmailActions(options: {
     if (consumed || callback || (kind !== 'signup' && kind !== 'recovery'))
       throw Error('Invalid or completed email action. Request a new code.');
     const normalized = email.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized) ||
-        !/^\\d{6,10}$/.test(code))
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) ||
+        !/^\d{6,10}$/.test(code))
       throw Error('Enter a valid email address and code.');
     if (grant) {
       if (grant.email.trim().toLowerCase() !== normalized)
