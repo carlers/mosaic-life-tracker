@@ -776,9 +776,15 @@ test('@performance real Day View nested Memo, Task Actions and Add Photo', async
         droppedFrameRatio: result.droppedFrameRatio,
         layoutReads: result.layoutReads,
         mutationRecords: result.mutationRecords,
+        // Preserve commit timestamps so delayed React work can be aligned
+        // with the frame and long-animation-frame sampling window.
         reactRenders: result.reactProfile.map(render => ({
+          id: render.id,
           phase: render.phase,
           actualDuration: render.actualDuration,
+          commitOffsetMs: typeof render.commitTime === 'number'
+            ? Number((render.commitTime - result.startedAt).toFixed(2))
+            : null,
         })),
       }));
     }
