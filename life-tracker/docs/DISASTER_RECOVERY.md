@@ -124,6 +124,8 @@ Restore order is:
 3. recreate databases/tables with original IDs, permissions, columns, and indexes;
 4. recreate rows with original IDs and permissions after omitting erased owner/cross-user
    rows and scrubbing erased IDs from supported structured references;
+   The restore scrubber must also exclude records with erased `owner_id` or
+   `invitee_id` (including historical shared-task membership and diary reactions).
 5. recreate Storage buckets/files with original IDs, permissions, folders, and verified
    file bytes, excluding files owned by erased users;
 6. verify the filtered target resource IDs, schemas, row records/checksums, user records/hash

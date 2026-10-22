@@ -181,6 +181,38 @@ describe('DR restore CLI', () => {
     ).toBe(true);
   });
 
+  it('does not resurrect shared-task and diary-reaction records linked to erased users', () => {
+    const deleted = new Set(['erased_owner']);
+    expect(
+      scrubDeletedUserRow(
+        'task_shares',
+        { id: 'old_share', data: { owner_id: 'erased_owner', invitee_id: 'surviving_user' } },
+        deleted
+      )
+    ).toBeNull();
+    expect(
+      scrubDeletedUserRow(
+        'task_shares',
+        { id: 'old_invitation', data: { owner_id: 'surviving_user', invitee_id: 'erased_owner' } },
+        deleted
+      )
+    ).toBeNull();
+    expect(
+      scrubDeletedUserRow(
+        'diary_reactions',
+        { id: 'old_reaction', data: { owner_id: 'erased_owner', user_id: 'surviving_user' } },
+        deleted
+      )
+    ).toBeNull();
+    expect(
+      scrubDeletedUserRow(
+        'task_shares',
+        { id: 'valid_share', data: { owner_id: 'surviving_user', invitee_id: 'other_user' } },
+        deleted
+      )
+    ).toMatchObject({ id: 'valid_share' });
+  });
+
   it('loads only a committed manifest with matching ciphertext hash and AAD', async () => {
     const key = Buffer.alloc(32, 9);
     const snapshotId = '20260927T010203004Z';
