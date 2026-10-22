@@ -37,8 +37,12 @@ chmod 700 "$scratch"
 success=0
 cleanup() {
   if (( success == 0 )); then
-    # From only the fresh project directory, never from an existing checkout.
-    (cd "$scratch" && supabase stop --no-backup >/dev/null 2>&1) || true
+    # Never invoke CLI stop without an exact, locally generated project ID.
+    # It must not fall back to a nearby existing Supabase project.
+    if [[ -f "$scratch/supabase/config.toml" ]] &&
+      grep -Fqx "project_id = \"$project\"" "$scratch/supabase/config.toml"; then
+      (cd "$scratch" && supabase stop --no-backup >/dev/null 2>&1) || true
+    fi
     rm -rf -- "$scratch"
   fi
 }
