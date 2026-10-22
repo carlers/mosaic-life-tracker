@@ -13,12 +13,12 @@ describe('private restored signed owner read preflight (#1027)', () => {
     expect(result.stdout).toBe('')
   })
   it('refuses arbitrary remote directories and invalid project identities', () => {
-    const code = `from verify_private_core_signin import resolve_project; from pathlib import Path; bad=['/tmp','/var','.', '/home/other/mosaic-project']; assert all(_refuse(x) for x in bad) if False else True; exec('for x in bad:\\n try: resolve_project(x); raise AssertionError(\\\"accepted\\\")\\n except (ValueError,OSError,FileNotFoundError): pass')`
+    const code = `from verify_private_core_signin import resolve_project; from unittest import TestCase; tc=TestCase(); [tc.assertRaises(ValueError,resolve_project,x) for x in ['/tmp','/var','.','/home/other/mosaic-project']]`
     const result = run(code)
     expect(result.status).toBe(0)
   })
   it('forbids non-local redirect destinations', () => {
-    const code = `from verify_private_core_signin import NoRedirect; guard=NoRedirect(); try: guard.redirect_request(None,None,302,'redirect',{},'https://somewhere.example'); except ValueError: pass; else: raise AssertionError('redirect accepted')`
+    const code = `from verify_private_core_signin import NoRedirect; from unittest import TestCase; TestCase().assertRaises(ValueError,NoRedirect().redirect_request,None,None,302,'redirect',{},'https://somewhere.example')`
     expect(run(code).status).toBe(0)
   })
 })
