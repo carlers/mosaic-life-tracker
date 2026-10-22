@@ -81,7 +81,6 @@ BEGIN
     (SELECT count(*) FROM mosaic_candidate_private.core_authorities)<>0 THEN
     RAISE EXCEPTION 'Non-empty disposable recovery target'; END IF;
 END $v$;
-ALTER TABLE auth.users DISABLE TRIGGER mosaic_enroll_fresh_core_owner;
 ALTER TABLE public.mosaic_candidate_categories DISABLE TRIGGER USER;
 ALTER TABLE public.mosaic_candidate_tasks DISABLE TRIGGER USER;
 SQL
@@ -102,12 +101,23 @@ restore_data() {
 }
 restore_data auth users
 restore_data auth identities
+# Auth's native INSERT fires the reviewed fresh-owner enrollment trigger.
+# Never disable managed auth.users triggers. On this verified-empty synthetic
+# target only, replace that auto-enrolled ledger with its archived owner state.
+docker exec -i "$db" psql -Xq -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+DO $v$
+BEGIN
+ IF (SELECT count(*) FROM mosaic_candidate_private.core_authorities)<>1 THEN
+  RAISE EXCEPTION 'Expected one fresh authority after native Auth trigger';
+ END IF;
+END $v$;
+DELETE FROM mosaic_candidate_private.core_authorities;
+SQL
 restore_data mosaic_candidate_private core_authorities
 restore_data mosaic_candidate_private owner_revisions
 restore_data public mosaic_candidate_categories
 restore_data public mosaic_candidate_tasks
 docker exec -i "$db" psql -Xq -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
-ALTER TABLE auth.users ENABLE TRIGGER mosaic_enroll_fresh_core_owner;
 ALTER TABLE public.mosaic_candidate_categories ENABLE TRIGGER USER;
 ALTER TABLE public.mosaic_candidate_tasks ENABLE TRIGGER USER;
 DO $v$
