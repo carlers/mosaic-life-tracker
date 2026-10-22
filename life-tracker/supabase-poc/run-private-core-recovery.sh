@@ -81,17 +81,17 @@ supabase start --network-id "$private_network" \
   >"$scratch/start.stdout" 2>"$scratch/start.stderr" || {
   echo 'Could not initialize a separate local Supabase stack' >&2; exit 1;
 }
-supabase db reset --local >"$scratch/reset.stdout" 2>"$scratch/reset.stderr" || {
-  echo 'Could not initialize fresh local recovery schema' >&2; exit 1;
-}
+# A new supabase start initializes its own database and applies all six
+# migrations. A subsequent db reset is redundant and may fail when using the
+# independent private Docker network; the restore engine separately verifies
+# the schema and all relevant tables are empty before it reads user data.
 python3 "$here/configure-private-disposable-stack.py" check "$scratch" "$project"
 db="$(docker ps --filter "name=supabase_db_$project" --format '{{.ID}}')"
 [[ -n "$db" && "$db" != *$'\n'* ]] || {
   echo 'Unable to uniquely identify the new disposable DB container' >&2; exit 1;
 }
 python3 "$here/restore_private_core_to_disposable.py" "$archive" "$identity" "$db"
-rm -f "$scratch/start.stdout" "$scratch/start.stderr" \
-  "$scratch/reset.stdout" "$scratch/reset.stderr"
+rm -f "$scratch/start.stdout" "$scratch/start.stderr"
 success=1
 echo "ISOLATED_LOCAL_STACK_READY: $project"
 echo "PRIVATE_DOCKER_NETWORK: $private_network"

@@ -42,8 +42,10 @@ It checks that *every* newly created published container port is bound only
 to loopback **before decrypting the private snapshot**. If the CLI ignores
 the network binding, the script refuses to load data and destroys the new
 stack. It bootstraps
-a new Supabase CLI stack with only six reviewed core migrations and checks
-the fresh target before decrypting anything. The user's existing
+a new Supabase CLI stack, which applies exactly six reviewed core
+migrations on the first start. No second local database reset is performed.
+The restore engine independently verifies the required schemas and zero
+existing records before decrypting anything. The user's existing
 `postgres:25077` target, other local Supabase stacks, hosted `mosaic-dev`,
 Vercel and Production are not touched.
 

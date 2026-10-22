@@ -10,6 +10,9 @@ Current task: #1027 original private archive has passed count-only audit; core r
 - Hosted mosaic-dev nonempty (81 users incl 3 unmarked), Diary and retirement not migrated. No hosted schema/Auth/SMTP/public signup writes, no dev/main/Production changes.
 
 ## Task
+- Generated-data CI showed exact six-object core recovery, signed original-password reauthentication and foreign-owner isolation PASS, but the second independently initialized operator stack failed at an unnecessary `supabase db reset --local` after new-stack `supabase start` had already applied all six migrations. Remove the redundant reset; retain empty target, PG17, loopback and source/target exact row checks. PR #1239 remains draft until updated generated-data test passes.
+
+## Task
 - Create a guarded local-only recovery into a freshly initialized, random disposable PG17 Supabase CLI Docker stack, separate from existing Fedora local postgres:25077. Restore only six core TABLE DATA objects, never import old sessions/tokens or raw managed DDL, preserve archival invitation/leases in original age backup, verify exact source/target per-row COPY equality and counts plus canonical authority integrity.
 - Share no secrets, archived rows or user IDs; require Unix-socket Docker daemon, loopback-only published ports, recognized unique new DB container, archive SHA, empty target, expected counts, in-memory archive staging and cleanup. Integrate exact helper in generated real GoTrue CI, document scope. No app version impact or hosted writes.
 
