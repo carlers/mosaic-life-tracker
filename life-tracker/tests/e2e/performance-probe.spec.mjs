@@ -753,13 +753,18 @@ test('@performance real Day View nested Memo, Task Actions and Add Photo', async
     const slide = dayView.locator('[data-testid="day-slide"][data-date-str="2026-09-15"]').first();
     await slide.getByRole('button', { name: 'Open memo' }).first().focus();
 
+    const openActions = async () => {
+      await slide.getByRole('button', { name: 'Task 1.1' }).first().focus();
+      await page.keyboard.press('Shift+Enter');
+    };
     const transitions = [
       ['memo-open', () => page.keyboard.press('Enter')],
       ['memo-close', () => page.keyboard.press('Escape')],
-      ['actions-open', async () => {
-        await slide.getByRole('button', { name: 'Task 1.1' }).first().focus();
-        await page.keyboard.press('Shift+Enter');
-      }],
+      ['actions-open', openActions],
+      // Distinguish the standalone Task Actions exit from the Add Photo
+      // handoff, which intentionally combines one sheet's exit with another's entrance.
+      ['actions-close', () => page.keyboard.press('Escape')],
+      ['actions-reopen', openActions],
       ['photo-open', () => page.getByRole('button', { name: 'Add Photo', exact: true }).click()],
       ['photo-close', () => page.keyboard.press('Escape')],
     ];
