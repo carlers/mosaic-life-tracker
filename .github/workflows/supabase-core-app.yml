@@ -64,7 +64,20 @@ jobs:
               raise SystemExit('Missing local JWT expiry configuration')
           p.write_text(re.sub(expiry, 'jwt_expiry = 60', text))
           PY
-          supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler
+          # Docker public image registries sometimes rate-limit ephemeral GH
+          # runners (429/toomanyrequests). Retry ONLY disposable stack startup;
+          # always fail closed if all attempts fail. No checks are bypassed.
+          for startup_attempt in 1 2 3; do
+            if supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler; then
+              break
+            fi
+            if (( startup_attempt == 3 )); then
+              echo "Disposable Supabase image pull failed after bounded retries" >&2
+              exit 1
+            fi
+            supabase stop --no-backup || true
+            sleep "$((startup_attempt * 20))"
+          done
           supabase db reset --local
       - name: Validate inactive invite-only hook in disposable PostgreSQL
         run: |
@@ -157,7 +170,20 @@ jobs:
           PY
           cp supabase-poc/migrations/20261021_beta_signup_invite_gate.sql \
             supabase/migrations/20261021000000_invite_gate.sql
-          supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler
+          # Docker public image registries sometimes rate-limit ephemeral GH
+          # runners (429/toomanyrequests). Retry ONLY disposable stack startup;
+          # always fail closed if all attempts fail. No checks are bypassed.
+          for startup_attempt in 1 2 3; do
+            if supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler; then
+              break
+            fi
+            if (( startup_attempt == 3 )); then
+              echo "Disposable Supabase image pull failed after bounded retries" >&2
+              exit 1
+            fi
+            supabase stop --no-backup || true
+            sleep "$((startup_attempt * 20))"
+          done
           supabase db reset --local
           mapfile -t db_containers < <(docker ps --filter name=supabase_db_ --format '{{.ID}}')
           test "${#db_containers[@]}" -eq 1
