@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useId, useRef, useState } from 'react';
 import { CategoryPillActionContext } from './categoryPillActionContext';
+import { ColorPalettePicker } from '../../ui/ColorPalettePicker';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CheckSquare, ChevronDown, MoreHorizontal, Plus, Square } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
@@ -26,7 +27,7 @@ export interface CategoryPillActions {
   setMenuOpen: (open: boolean) => void;
   moveUp?: () => void;
   moveDown?: () => void;
-  update: (changes: Pick<CategoryDocument, 'name' | 'visibility'>) => Promise<void>;
+  update: (changes: Pick<CategoryDocument, 'name' | 'visibility' | 'color'>) => Promise<void>;
 }
 
 const EMPTY_SELECTED_TASK_IDS: ReadonlySet<string> = new Set();
@@ -137,6 +138,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const [editingCategory, setEditingCategory] = useState(false);
   const [editName, setEditName] = useState(categoryName);
   const [editVisibility, setEditVisibility] = useState<Visibility>(visibility ?? 'private');
+  const [editColor, setEditColor] = useState(categoryColor);
   const [savingCategory, setSavingCategory] = useState(false);
   const [categoryError, setCategoryError] = useState('');
   const actionMenuRef = useRef<HTMLDivElement>(null);
@@ -168,6 +170,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const startCategoryEdit = () => {
     setEditName(categoryName);
     setEditVisibility(visibility ?? 'private');
+    setEditColor(categoryColor);
     setCategoryError('');
     categoryActions?.setMenuOpen(false);
     setEditingCategory(true);
@@ -178,7 +181,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     setSavingCategory(true);
     setCategoryError('');
     try {
-      await categoryActions.update({ name: editName.trim(), visibility: editVisibility });
+      await categoryActions.update({ name: editName.trim(), visibility: editVisibility, color: editColor });
       setEditingCategory(false);
       optionsButtonRef.current?.focus();
     } catch (error) {
@@ -511,6 +514,14 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
               className="mt-1 w-full rounded-lg border border-[#444444] bg-background p-2 text-white"
             />
           </label>
+          <div className="space-y-1">
+            <span className="block text-sm text-gray-300">Category color</span>
+            <ColorPalettePicker
+              selectedColor={editColor}
+              onSelect={setEditColor}
+              ariaLabel="Category color"
+            />
+          </div>
           <label className="block text-sm text-gray-300">
             Visibility
             <select value={editVisibility}

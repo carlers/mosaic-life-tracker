@@ -33,6 +33,10 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
   const [activePaletteId, setActivePaletteId] =
     useState<string>(selectedPaletteId);
 
+  const selectedIsInPalette = availablePalettes.some((palette) =>
+    palette.colors.some((color) => color.toUpperCase() === selectedColor.toUpperCase())
+  );
+
   const activePalette =
     availablePalettes.find((palette) => palette.id === activePaletteId) ||
     availablePalettes.find((palette) => palette.id === selectedPaletteId) ||
@@ -40,6 +44,13 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
 
   return (
     <div className="flex flex-col">
+      {!selectedIsInPalette && (
+        <div className="mb-2 flex items-center gap-2 text-xs text-gray-400">
+          <span className="h-5 w-5 shrink-0 rounded-full border border-[#444444]"
+            style={{ backgroundColor: selectedColor }} aria-hidden="true" />
+          <span>Current color: {selectedColor}</span>
+        </div>
+      )}
       <div
         role="tablist"
         aria-label="Color palette"

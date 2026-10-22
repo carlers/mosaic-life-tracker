@@ -1,6 +1,6 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: Repair #404 dev Vercel bundle-size parity without changing accepted layout; then implement approved large-screen Todo/Diary and panel-controls feature.
+Current task: Integrate accepted #1185 category-color edits into current dev without regressing #404 large-screen layout. The #404 Todo/Diary panel work remains a separate active workstream.
 
 ## Current task and evidence
 - Issue #404 v0.40.5 large-screen Calendar split accepted by owner as fully working. PR #1191 promoted accepted stable Preview `feature/split-day-panel-dev-404-20261021@1e73d7bce6014475905342b2b5b7751145720846` to `dev@5e18064e516663aca71a930ffc6687cc0f2c46e7` with an identical Git tree. Promotion [Quality Gate 39639072325](https://github.com/carlers/mosaic-life-tracker/actions/runs/39639072325) SUCCESS.
@@ -17,3 +17,9 @@ Current task: Repair #404 dev Vercel bundle-size parity without changing accepte
 ## Safeguards
 - No budget bypass or CI weakening. Account/diary privacy unchanged.
 - Preserve existing 0.40.5 Calendar snap/drag behavior; no unsupervised main/Production changes. Record actual QA and deployment evidence on issue #404.
+
+## Issue #1185 dev integration (approved 2026-10-22)
+- Owner explicitly accepted category-color Preview and authorized merge **to dev only**. Original accepted Preview `feature/category-color-1185-20261022@6dc93b23c4c4cbc92dbc80772f51daabaad15e83` (v0.41.0), canonical Quality Gate 39639900487 SUCCESS, trusted Vercel delivery 39640280309 SUCCESS READY.
+- Original Preview started from pre-#404 dev, so direct promotion would drop accepted v0.40.5 large-screen source and source-tree parity. Current integration baseline: `dev@2dbc4c809ba9e4a939f526c2474e7c0a28e5df8b`. Reapply only #1185's editor/palette source and tests atop it, carrying v0.41.0; preserve #404 layout/hosting repair and its independent Todo/Diary workstream.
+- Integration task: `chatgpt/1185-category-colors-dev-integration-20261022`. Stable Preview: `feature/category-colors-dev-integrated-1185-20261022`. GitHub issue #1185 stays open pending main acceptance.
+- Verify focused CI for task, squash into stable Preview, canonical acceptance and exact-SHA READY trusted Preview, and merge Preview → dev after checking latest dev SHA and exact-tree promotion eligibility. This dev approval does not authorize main/Production or include #404 unfinished Todo/Diary features. Manual offline/sync/friend and device/theme acceptance remain unverified.

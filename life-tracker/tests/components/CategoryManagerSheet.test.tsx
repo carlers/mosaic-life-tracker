@@ -308,9 +308,57 @@ describe('CategoryManagerSheet', () => {
     await waitFor(() =>
       expect(mocks.updateCategory).toHaveBeenCalledWith('first', {
         name: 'First',
+        color: '#111111',
         visibility: 'followers',
       })
     );
+  });
+
+  it('edits category color with the creation palette and retains other fields', async () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit category' })[0]);
+
+    expect(screen.getByText('Current color: #111111')).toBeInTheDocument();
+    const palette = screen.getByRole('radiogroup', { name: 'Category color' });
+    fireEvent.click(within(palette).getByRole('radio', { name: 'Select color #FF6B6B' }));
+    expect(within(palette).getByRole('radio', { name: 'Select color #FF6B6B' }))
+      .toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledExactlyOnceWith('first', {
+      name: 'First', color: '#FF6B6B', visibility: 'private',
+    }));
+  });
+
+  it('discards unsaved colors and reloads each category color on edit switch', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const edits = screen.getAllByRole('button', { name: 'Edit category' });
+    fireEvent.click(edits[0]);
+    fireEvent.click(screen.getByRole('radio', { name: 'Select color #FF6B6B' }));
+    fireEvent.click(edits[1]);
+    expect(screen.getByText('Current color: #222222')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Select color #FF6B6B' }))
+      .toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(edits[0]);
+    expect(screen.getByText('Current color: #111111')).toBeInTheDocument();
+    expect(mocks.updateCategory).not.toHaveBeenCalled();
+  });
+
+  it('retains a color choice after failed update and retries the same value', async () => {
+    mocks.updateCategory.mockRejectedValueOnce(new Error('write failed'));
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit category' })[0]);
+    fireEvent.click(screen.getByRole('radio', { name: 'Select color #FF6B6B' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await screen.findByRole('alert');
+    expect(screen.getByRole('radio', { name: 'Select color #FF6B6B' }))
+      .toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledTimes(2));
+    expect(mocks.updateCategory).toHaveBeenLastCalledWith('first', {
+      name: 'First', color: '#FF6B6B', visibility: 'private',
+    });
   });
 
   it('resets an unsaved new-category visibility selection after cancel', () => {
