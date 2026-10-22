@@ -183,7 +183,17 @@ describe('TodoMateImportSheet', () => {
     expect(screen.getByText(/will replace all current Mosaic tasks and categories/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(mocks.restoreUserData).not.toHaveBeenCalled();
+  });
+
+  it('applies TodoMate Replace only after explicitly confirming', async () => {
+    render(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('TodoMate email'), { target: { value: 'todo@example.com' } });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), { target: { value: 'pw-safe' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    await screen.findByRole('button', { name: 'Import into Mosaic' });
+    fireEvent.click(screen.getByRole('radio', { name: /Replace tasks & categories/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Replace with TodoMate' }));
+    expect(mocks.restoreUserData).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Replace tasks' }));
     await waitFor(() => expect(mocks.restoreUserData).toHaveBeenCalledWith(
       preparedFile, expect.objectContaining({ id: 'user_A' }),

@@ -419,7 +419,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
                 </p>
               )}
               {importMode === 'merge' ? (
-                <p>Merge preserves newer Mosaic data and current-only records.</p>
+                <p>Existing newer Mosaic data wins in Merge mode, and current-only records are left untouched.</p>
               ) : (
                 <p>Replace makes TodoMate tasks and categories authoritative.
                   Other Mosaic personal data is preserved; Diary entries merge without deletion.</p>
