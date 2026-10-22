@@ -17,6 +17,8 @@ interface BottomSheetProps {
   preventDismiss?: boolean;
   suspendInteraction?: boolean;
   backdropBlur?: boolean;
+  /** Keep the sheet surface at native scale beneath nested sheets with layout-sensitive rows. */
+  scaleBehind?: boolean;
   contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
@@ -353,6 +355,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   preventDismiss = false,
   suspendInteraction = false,
   backdropBlur = false,
+  scaleBehind = true,
   contentMode = 'scroll',
   onHorizontalSwipe,
   onAnimationComplete,
@@ -537,7 +540,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
           <SheetPresenceSurface
             key="sheet"
             sheetRef={sheetRef}
-            isBehind={isBehindLayer}
+            isBehind={scaleBehind && isBehindLayer}
             aria-hidden={isBlockedLayer ? true : undefined}
             inert={isBlockedLayer || !isOpen ? true : undefined}
             aria-labelledby={title ? titleId : undefined}
