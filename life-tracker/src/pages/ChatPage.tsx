@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, MessageSquare, Search } from 'lucide-react';
 import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { BottomSheet } from '../components/ui/BottomSheet';
+import { useRetainedSheetValue } from '../hooks/useRetainedSheetValue';
 import { ChatSyncSheet } from '../components/messages/ChatSyncSheet';
 import type { ChatSyncStage } from '../lib/chatReconcile';
 import {
@@ -111,6 +112,12 @@ export const ChatPage: React.FC = () => {
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
   const [selectedDiaryReference, setSelectedDiaryReference] = useState<{ id: string; ownerId: string; date: string } | null>(null);
+  const { value: diaryReferenceSession, onExitComplete: clearDiaryReferenceSession } = useRetainedSheetValue(
+    selectedDiaryReference && myUserId
+      ? { id: `${myUserId}:${selectedDiaryReference.id}`, viewerId: myUserId, reference: selectedDiaryReference }
+      : null,
+    Boolean(selectedDiaryReference && myUserId)
+  );
 
   // Never mount sticker hooks until requested; warm code on usable Chat.
   useEffect(() => {
@@ -530,8 +537,9 @@ export const ChatPage: React.FC = () => {
             onPickGiphy={handlePickGiphySticker}
           />
       )}
-      {selectedDiaryReference && <React.Suspense fallback={null}>
-        <DiaryReferenceSheet key={`${myUserId}:${selectedDiaryReference.id}`} reference={selectedDiaryReference}
+      {myUserId && diaryReferenceSession?.viewerId === myUserId && <React.Suspense fallback={null}>
+        <DiaryReferenceSheet key={diaryReferenceSession.id} reference={diaryReferenceSession.reference}
+          isOpen={selectedDiaryReference !== null} onExitComplete={clearDiaryReferenceSession}
           onClose={() => setSelectedDiaryReference(null)} />
       </React.Suspense>}
       <MessageActionSheet

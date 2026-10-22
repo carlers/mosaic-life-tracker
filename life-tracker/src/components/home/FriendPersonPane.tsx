@@ -12,6 +12,7 @@ import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { fetchFriendDiaryMonth, reactToFriendDiary, type FriendDiaryDocument } from '../../lib/friendData';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
+import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { useCalendarState } from './views/useCalendarState';
 import { useMessageActions } from '../../hooks/useMessageActions';
 import { useAuth } from '../../hooks/useAuth';
@@ -105,6 +106,15 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     return () => { mounted = false; };
   }, [isActive, activeView, diaryKey, diaryMonth, currentUserId, person.userId]);
   const diaryEntries = diaryState.key === diaryKey ? diaryState.entries : [];
+  const activeDiaryEntry = diaryDate ? diaryEntries.find(entry => entry.date === diaryDate) : undefined;
+  const friendDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate && activeDiaryEntry);
+  const { value: friendDiarySession, onExitComplete: clearFriendDiarySession } = useRetainedSheetValue(
+    friendDiaryOpen && diaryDate && activeDiaryEntry
+      ? { id: `${currentUserId}:${person.userId}:${diaryDate}`, viewerId: currentUserId, friendId: person.userId,
+          date: diaryDate, entry: activeDiaryEntry }
+      : null,
+    friendDiaryOpen
+  );
   const onDiaryReact = async (emoji: string, op: 'add' | 'remove') => {
     const entry = diaryEntries.find(item => item.date === diaryDate);
     if (!entry) return;
@@ -269,10 +279,11 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
             holidayConfig={holidayConfig} />
         </React.Suspense>
       )}
-      {isActive && activeView === 'diary' && diaryDate && diaryEntries.some(entry => entry.date === diaryDate) && <React.Suspense fallback={null}>
-        <LazyDiaryEntrySheet key={`${currentUserId}:${person.userId}:${diaryDate}`} date={diaryDate}
-          entry={diaryEntries.find(entry => entry.date === diaryDate)}
-          author={person.displayName} friendUserId={person.userId}
+      {isActive && friendDiarySession?.viewerId === currentUserId &&
+        friendDiarySession.friendId === person.userId && (!diaryDate || !!activeDiaryEntry) && <React.Suspense fallback={null}>
+        <LazyDiaryEntrySheet key={friendDiarySession.id} isOpen={friendDiaryOpen}
+          onExitComplete={clearFriendDiarySession} date={friendDiarySession.date}
+          entry={friendDiarySession.entry} author={person.displayName} friendUserId={person.userId}
           onReact={onDiaryReact} onReply={onDiaryReply} onClose={() => setDiaryDate(null)} />
       </React.Suspense>}
     </div>
