@@ -34,7 +34,7 @@ test -s "$tmp/selection.toc"
 set +e
 age --decrypt --identity "$identity" "$archive" |
   pg_restore --data-only --no-owner --use-list="$tmp/selection.toc" \
-    --file=/dev/null - >"$tmp/stdout" 2>"$tmp/stderr"
+    --file=/dev/null >"$tmp/stdout" 2>"$tmp/stderr"
 status=(${PIPESTATUS[@]})
 set -e
 if (( status[1] != 0 || (status[0] != 0 && status[0] != 141) )); then
