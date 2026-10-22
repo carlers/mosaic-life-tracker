@@ -57,6 +57,9 @@ describe('protected exact-SHA Supabase Preview deployment preflight', () => {
       },
     };
     expect(() => assertVercelDeployment(original, { sha, zipDigest: digest })).not.toThrow();
+    // Vercel's REST API represents normal Preview deployments with target:null.
+    expect(() => assertVercelDeployment({ ...original, target: null },
+      { sha, zipDigest: digest })).not.toThrow();
     for (const changed of [
       { readyState: 'BUILDING' }, { target: 'production' }, { projectId: 'foreign' },
       { meta: { ...original.meta, mosaicSourceSha: 'd'.repeat(40) } },

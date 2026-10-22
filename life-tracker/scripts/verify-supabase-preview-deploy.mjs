@@ -55,7 +55,7 @@ export function assertCoreArtifact(artifacts, { sha, runId, attempt }) {
 
 export function assertVercelDeployment(deployment, { sha, zipDigest }) {
   if (deployment?.readyState !== 'READY' ||
-      deployment?.target !== 'preview' ||
+      !(deployment?.target === null || deployment?.target === 'preview') ||
       deployment?.projectId !== CORE_VERCEL_PROJECT ||
       deployment?.meta?.mosaicSourceSha !== sha ||
       deployment?.meta?.mosaicBackend !== 'supabase-cloud' ||
