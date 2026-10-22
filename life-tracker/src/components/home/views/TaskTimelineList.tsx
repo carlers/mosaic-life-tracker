@@ -18,7 +18,7 @@ type Props = Pick<DaySlideProps,
   | 'onToggleTask' | 'onAddTask' | 'onOpenActions' | 'onOpenMemo'
   | 'onEditTask' | 'onViewImage' | 'onEditChange'
   | 'onEditSave' | 'onEditCancel' | 'selectionMode'
-  | 'selectedTaskIds' | 'onToggleTaskSelection' | 'emptyCategoryPrompt'
+  | 'selectedTaskIds' | 'onToggleTaskSelection' | 'emptyCategoryPrompt' | 'footerCategoryPrompt'
 > & {
   direction: TimelineDirection;
   sortBasis: TimelineSortBasis;
@@ -55,6 +55,7 @@ export const TaskTimelineList: React.FC<Props> = ({
   timestampDisplay,
   showOtherContentNotice = false,
   emptyCategoryPrompt,
+  footerCategoryPrompt,
 }) => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -228,6 +229,7 @@ export const TaskTimelineList: React.FC<Props> = ({
           Diary and shared tasks remain available in Categories view.
         </p>
       )}
+      {footerCategoryPrompt}
     </div>
   );
 };
