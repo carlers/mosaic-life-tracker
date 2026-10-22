@@ -96,7 +96,7 @@ test('Memo opens without remounting background Day View category and task rows',
   })).toBe(true);
   await expect(category).toBeVisible();
   // Day View stays inert and inaccessible under the Memo.
-  await expect(page.locator('[role="dialog"]').filter({ has: slide })).toHaveAttribute('inert');
+  await expect(dayView).toHaveAttribute('inert');
   await page.keyboard.press('Escape');
   await expect(memo).toHaveCount(0);
   await expect(category).toBeVisible();
