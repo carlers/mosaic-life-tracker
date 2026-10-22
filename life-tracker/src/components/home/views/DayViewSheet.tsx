@@ -19,7 +19,6 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
-import { DaySlideWithDiaryPlacement } from './DaySlideWithDiaryPlacement';
 import { FirstCategoryPrompt } from './FirstCategoryPrompt';
 import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
 const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
@@ -81,7 +80,7 @@ import {
   SHOW_HOLIDAYS_SETTING_KEY,
 } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
-import { diaryPlacementKey } from '../../../lib/diaryPlacement';
+import { diaryPlacementKey, normalizeDiaryPlacement } from '../../../lib/diaryPlacement';
 import {
   EMPTY_HOLIDAYS,
   createHolidayDisplayConfig,
@@ -1378,7 +1377,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         />
                       </Suspense>
                     ) : (
-                    <DaySlideWithDiaryPlacement
+                    <DaySlide
                       date={date}
                       dateStr={dateStr}
                       scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
@@ -1451,9 +1450,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
                           footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
                        diaryEnabled={showDiaryInDayView && !isSelectMode}
-                      savedDiaryPlacement={getSetting(diaryPlacementKey(dateStr), null)}
-                      diaryPosition={diaryPosition}
-                      setDiaryPlacement={setSetting}
+                      diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
+                      onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
                     />
                     )}
 
