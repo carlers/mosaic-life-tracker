@@ -247,3 +247,83 @@ jobs:
           path: life-tracker/.mosaic/supabase-core-preview/*
           if-no-files-found: error
           retention-days: 7
+
+  preview-deploy:
+    # Enabling the repository variable and configuring the protected environment
+    # is an explicit one-time operator action. Default: SKIPPED. NEVER Production.
+    needs: hosted-preview-artifact
+    if: ${{ vars.MOSAIC_SUPABASE_PREVIEW_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/feature/1027-supabase-recovery-20261020' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: mosaic-supabase-preview
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - name: Check out exact isolated Supabase candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - name: Install approved local artifact stage dependencies
+        run: npm ci --prefer-offline --no-audit
+      - name: Verify canonical SHA, active branch and download exact GitHub CI artifact
+        id: accept
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/verify-supabase-preview-deploy.mjs --prepare
+      - name: Stage only verified static bytes for the fixed Supabase Preview project
+        env:
+          ACCEPTED_ZIP: ${{ steps.accept.outputs.archive }}
+          ACCEPTED_ZIP_SHA256: ${{ steps.accept.outputs.digest }}
+        run: |
+          set -euo pipefail
+          test -n "$ACCEPTED_ZIP" && test -n "$ACCEPTED_ZIP_SHA256"
+          node scripts/stage-supabase-core-artifact.mjs \
+            "$ACCEPTED_ZIP" "$GITHUB_SHA" "$ACCEPTED_ZIP_SHA256" \
+            "$RUNNER_TEMP/mosaic-supabase-prebuilt"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const e = JSON.parse(readFileSync(process.argv[1], "utf8"));
+            if (e.status !== "STAGED_NOT_DEPLOYED" || e.deploymentAuthorized !== false ||
+                e.acceptedSha !== process.env.GITHUB_SHA || e.target !== "preview" ||
+                e.projectId !== "prj_jysOLDbuO9c5rP8x6Q145DVIw0fc" ||
+                e.teamId !== "team_UbpudOr8jXyrDA5SdVUxVGOr" ||
+                e.backend !== "supabase-cloud") process.exit(1);
+          ' "$RUNNER_TEMP/mosaic-supabase-prebuilt/.mosaic-staged-evidence.json"
+      - name: Publish immutable, protected Supabase Preview (never an alias or production)
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_SUPABASE_PREVIEW_VERCEL_TOKEN }}
+          EXPECTED_PREVIEW_PROJECT: ${{ vars.MOSAIC_SUPABASE_PREVIEW_PROJECT_ID }}
+          ARTIFACT_DIGEST: ${{ steps.accept.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [[ "$EXPECTED_PREVIEW_PROJECT" != "prj_jysOLDbuO9c5rP8x6Q145DVIw0fc" ||
+                -z "$VERCEL_TOKEN" || ! "$ARTIFACT_DIGEST" =~ ^[a-f0-9]{64}$ ]]; then
+            echo "Protected Preview-only Vercel environment is unconfigured" >&2
+            exit 1
+          fi
+          npm install --global --no-audit vercel@62.7.0
+          cd "$RUNNER_TEMP/mosaic-supabase-prebuilt"
+          url="$(vercel deploy --prebuilt --archive=tgz --yes --target=preview \
+            --scope=team_UbpudOr8jXyrDA5SdVUxVGOr \
+            --meta "mosaicSourceSha=$GITHUB_SHA" \
+            --meta "mosaicBackend=supabase-cloud" \
+            --meta "mosaicArtifactSha256=$ARTIFACT_DIGEST")"
+          DEPLOYMENT_URL="$url" node \
+            "$GITHUB_WORKSPACE/life-tracker/scripts/verify-supabase-preview-deploy.mjs" --readback
+          printf 'url=%s\n' "$url" >> "$GITHUB_OUTPUT"
+      - name: Report immutable Preview for signed disposable-account acceptance
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          echo "Verified immutable Supabase Preview: $PREVIEW_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "No alias, shared environment, hosted Auth policy, dev/main or Production changes." >> "$GITHUB_STEP_SUMMARY"
