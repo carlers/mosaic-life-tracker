@@ -72,6 +72,7 @@ import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+  SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
   SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
   DIARY_DAY_VIEW_POSITION_SETTING_KEY,
@@ -228,6 +229,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   );
   const showCategoryCollapseButton =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const alwaysShowAddCategory = getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
   const showDiaryInDayView = !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
@@ -1084,16 +1086,24 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     </div>
   ) : null;
 
-  const showFirstCategoryPrompt = Boolean(isOpen && !isBacklogView && currentUserId &&
-    !isSelectMode && !categoriesLoading && categories.length === 0 && hookCategories.length === 0);
-  const firstCategoryPrompt = showFirstCategoryPrompt ? (
-    <FirstCategoryPrompt onCreate={async draft => {
-      if (!currentUserId || categories.length > 0 || hookCategories.length > 0) {
+  const canCreateCategory = Boolean(isOpen && !isBacklogView && currentUserId &&
+    !isSelectMode && !categoriesLoading &&
+    categories.every(category => category.userId === currentUserId));
+  const showFirstCategoryPrompt = canCreateCategory &&
+    categories.length === 0 && hookCategories.length === 0;
+  const showPersistentCategoryPrompt = canCreateCategory && alwaysShowAddCategory;
+  const categoryCreationPrompt = showFirstCategoryPrompt || showPersistentCategoryPrompt ? (
+    <FirstCategoryPrompt persistent={showPersistentCategoryPrompt} onCreate={async draft => {
+      if (!currentUserId || categories.some(category => category.userId !== currentUserId) ||
+          (!showPersistentCategoryPrompt && (categories.length > 0 || hookCategories.length > 0))) {
         throw new Error('Categories have changed. Try again.');
       }
-      await addCategory({ ...draft, order: 0, icon: '' });
+      await addCategory({ ...draft, order: categories.length, icon: '' });
     }} />
   ) : undefined;
+  // Empty owners keep the onboarding prompt unless the optional footer action is enabled.
+  const firstCategoryPrompt = showPersistentCategoryPrompt ? undefined : categoryCreationPrompt;
+  const footerCategoryPrompt = showPersistentCategoryPrompt ? categoryCreationPrompt : undefined;
 
   const content = (
     <>
@@ -1342,6 +1352,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           onSortBasisChange={basis => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, basis)}
                           timestampDisplay={timestampDisplay}
                           emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
+                          footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
                            showOtherContentNotice={showDiaryInDayView ||
                             sharedTasks.activeItems.some(item => item.status === 'accepted' && item.date === dateStr)}
                         />
@@ -1417,6 +1428,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onCategoryActionError={showFeedback}
                       onReorderActiveChange={(active) => setIsTaskReorderActive(active || Boolean(continuousDrag.carried))}
                       emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
+                          footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
                        diaryEnabled={showDiaryInDayView && !isSelectMode}
                       diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
                       onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
