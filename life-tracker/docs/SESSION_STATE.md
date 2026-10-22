@@ -9,7 +9,7 @@ Current task: #1027 owner-provided encrypted archive TOC PASS; offline data deco
 - Read-only hosted mosaic-dev aggregate at previous checkpoint: 81 Auth users, 78 marked disposable/banned/frozen and 3 unmarked; 81 Auth identities, 184 sessions, 58 tasks (9 live), 53 categories (1 live), 49 owner revisions, 81 authorities (78 frozen), no Storage buckets/objects. Hosted Diary/retirement not installed. No cloud mutations performed in this work.
 
 ## Task
-- Add credential-free, read-only private backup preflight that authenticates age ciphertext, builds strict six-entry TABLE DATA plan from archive TOC, reports extra Mosaic-only table identifiers for review and decodes selected SQL to /dev/null without DB connection. No data, tokens, role names or secret keys appear in the output.
+- Add credential-free, read-only private backup preflight that authenticates age ciphertext, builds strict six-entry TABLE DATA plan from archive TOC, reports extra Mosaic-only table identifiers for review and uses anonymous Linux seekable memfd (256 MiB cap) to decode selected SQL to /dev/null without DB connection or plaintext disk file. No data, tokens, role names or secret keys appear in the output.
 - Add negative tests for absent or duplicate objects and synthetic encrypted archive CI rehearsal; document exact operator command and limitations. No app version impact; no provider, dev/main, Production or live user data changes.
 
 ## Next action

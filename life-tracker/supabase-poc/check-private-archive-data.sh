@@ -6,7 +6,7 @@ if [[ $# -ne 2 || "$1" != /* || "$2" != /* || ! -f "$1" || ! -f "$2" ]]; then
   echo 'Usage: bash supabase-poc/check-private-archive-data.sh /absolute/backup.age /absolute/key.agekey' >&2
   exit 2
 fi
-for bin in age pg_restore node mktemp; do
+for bin in age pg_restore node mktemp python3; do
   command -v "$bin" >/dev/null || { echo "Missing $bin" >&2; exit 2; }
 done
 archive="$1"
@@ -30,19 +30,8 @@ if (( status[2] != 0 || status[1] != 0 ||
   echo 'Offline TOC planning failed' >&2; exit 1
 fi
 test -s "$tmp/selection.toc"
-# No connection string or target database. All selected SQL is discarded.
-set +e
-age --decrypt --identity "$identity" "$archive" |
-  pg_restore --data-only --no-owner --use-list="$tmp/selection.toc" \
-    --file=/dev/null >"$tmp/stdout" 2>"$tmp/stderr"
-status=(${PIPESTATUS[@]})
-set -e
-if (( status[1] != 0 || (status[0] != 0 && status[0] != 141) )); then
-  echo 'Selected archive data could not be decoded (no database touched)' >&2
-  # This diagnostic is exclusively for generated-data GitHub Actions fixtures.
-  if [[ "${MOSAIC_SYNTHETIC_RESTORE_LAB:-}" == 1 && "${GITHUB_ACTIONS:-}" == true ]]; then
-    sed -n '1,8p' "$tmp/stderr" >&2
-  fi
-  exit 1
-fi
+# Decrypted archive must be seekable for pg_restore's selected TABLE DATA blocks.
+# Linux memfd is anonymous RAM-backed storage, never a plaintext disk file.
+python3 "$here/decode-private-archive-memory.py" \
+  "$archive" "$identity" "$tmp/selection.toc"
 echo 'SELECTED_DATA_DECODE_PASS: six required data payloads decoded to /dev/null; zero restores.'

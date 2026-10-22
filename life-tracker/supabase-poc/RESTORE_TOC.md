@@ -40,6 +40,10 @@ present, and **zero** restores. This is an inventory success, NOT recovery.
 Use the newly added **offline decode-only** step. It authenticates the
 entire ciphertext again, builds a temporary six-table DATA-only TOC selection,
 and makes `pg_restore` decode the selected SQL directly into `/dev/null`.
+Because selected PostgreSQL archive blocks require random access, the full
+age-decrypted archive is held temporarily in a **Linux anonymous, seekable
+memory file (memfd)**, limited to 256 MiB; it is never written to persistent
+disk. The memory descriptor is closed at exit. Python 3 and Linux are required.
 The selected TOC is deleted by the script. No DB host, SQL client, connection,
 plaintext archive file or user-row output is required:
 
