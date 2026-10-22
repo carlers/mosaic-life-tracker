@@ -51,6 +51,7 @@ export function resolveDayPanelHeight(value: unknown): DayPanelHeight {
 }
 export const WEEK_STARTS_ON_SUNDAY_SETTING_KEY = 'weekStartsOnSunday';
 export const SHOW_CATEGORY_COLLAPSE_SETTING_KEY = 'showCategoryCollapseButton';
+export const SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY = 'showAddCategoryInDayView';
 export const SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY = 'showDayViewTodayTag';
 export const SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY = 'showDiaryInDayView';
 export const SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY = 'showDiaryTodayShortcut';
