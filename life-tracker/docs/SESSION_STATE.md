@@ -1,22 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-22 UTC
-Current task: #1027 original private archive has passed count-only audit; core recovery target being independently exercised.
+Current task: #1027 Supabase core MVP; scoped #1029 private-Diary bootstrap profile integration repair.
 
-## Verified input and baseline
-- Isolated feature/1027-supabase-recovery-20261020@8eee86b26bf72580ead5f43c67d500cea1548cdf: exact SHA full Quality Gate #39743201665 (one unrelated browser flake passed on rerun), signed Core App Lab #39743201666, synthetic encrypted restore #39743201699 and real GoTrue restore #39743201664 all SUCCESS.
-- Owner independently ran Fedora-only count auditor on age-encrypted 2026-10-22 snapshot. 54 DATA objects decoded, 1410 total rows and zero restores. Six core: auth.users=81, identities=81, core_authorities=81, owner_revisions=49, categories=53, tasks=58; matches earlier read-only hosted counts exactly.
-- Additional archived Mosaic data: beta_signup_invitations=2, core_sessions=150, legacy owner_revision, public mosaic_poc_items and mosaic_sync_probe=0. Auth: 27 data tables with sessions=184, refresh_tokens=226, mfa_amr_claims=184, one_time_tokens=3 and schema_migrations=82, all other Auth DATA tables empty except users/identities. Storage: only migrations=74; Realtime migrations=91; supabase_migrations schema_migrations=11. Original encrypted archive/key stay on user Fedora machine.
-- Hosted mosaic-dev nonempty (81 users incl 3 unmarked), Diary and retirement not migrated. No hosted schema/Auth/SMTP/public signup writes, no dev/main/Production changes.
+## Verified baseline
+- Stable isolated recovery branch `feature/1027-supabase-recovery-20261020@35c74e0b45f2ed387ef8ebb6a985bb8e845ea76e`. PR #1239 merged into that branch; all four exact-SHA recovery workflows previously passed.
+- Fedora operator-reported original archive recovery accepted: six Auth/core tables, 403 identical source/target restored rows; fresh original-password authentication, populated signed read (11 tasks, 2 categories), independent second-owner signed RLS denial and forged-write rejection passed. This is local disposable evidence only, not a hosted cutover or a shipped app release. The Fedora isolated stack and original encrypted backup remain preserved.
+- On 2026-10-22, authorized read-only Supabase connector queries confirmed `mosaic-dev` healthy, hosted table counts 81 Auth users / 81 Auth identities / 81 core authorities / 49 owner revisions / 53 categories / 58 tasks. Authority distribution: 78 frozen and 3 Supabase-cloud. All six *counts* match the archived source; exact hosted row equality, mutations since the snapshot and readiness for existing-account cutover remain unverified.
+- Hosted security advisors still report three intentionally exposed authenticated SECURITY DEFINER core RPC warnings needing signed authorization evidence and disabled leaked-password protection. No hosted Auth, schema or account rows were changed in this task.
 
-## Task
-- Generated-data CI showed exact six-object core recovery, signed original-password reauthentication and foreign-owner isolation PASS, but the second independently initialized operator stack failed at an unnecessary `supabase db reset --local` after new-stack `supabase start` had already applied all six migrations. Remove the redundant reset; retain empty target, PG17, loopback and source/target exact row checks. PR #1239 remains draft until updated generated-data test passes.
-
-## Task
-- Create a guarded local-only recovery into a freshly initialized, random disposable PG17 Supabase CLI Docker stack, separate from existing Fedora local postgres:25077. Restore only six core TABLE DATA objects, never import old sessions/tokens or raw managed DDL, preserve archival invitation/leases in original age backup, verify exact source/target per-row COPY equality and counts plus canonical authority integrity.
-- Share no secrets, archived rows or user IDs; require Unix-socket Docker daemon, loopback-only published ports, recognized unique new DB container, archive SHA, empty target, expected counts, in-memory archive staging and cleanup. Integrate exact helper in generated real GoTrue CI, document scope. No app version impact or hosted writes.
+## Working task
+- App-owned `core-diary` selector reaches `src/lib/supabaseCoreBootstrap.ts` but was passed to the lower candidate runtime as `core-only`, despite supplying the Diary collection. The candidate runtime requires exact profile/collection parity and therefore rejects this path.
+- Task-scoped repair forwards the selected `core-only` or `core-diary` profile unchanged and adds a regression to `tests/unit/supabaseCoreBootstrap.test.ts` proving the real Diary collection and guarded profile reach the runtime. This is source/test wiring only, not a hosted Diary migration or enabling a public feature.
 
 ## Next action
-- Verify focused Quality Gate and real GoTrue CI after implementation; repair failures and add dedicated wrapper self-check if needed, squash only to isolated recovery feature, verify exact-SHA four labs.
-- Owner then runs vetted Fedora script per supabase-poc/PRIVATE_CORE_RECOVERY.md. Share only sanitized final status and anonymous local target diagnostics, not credentials, age archive/key or data.
-- Even a six-table recovery pass does not certify historical invitations, current hosted delta, federated Auth, SMTP or real signed multi-owner acceptance. Continue issue #1027/#1029/#857; do not promote dev/main/Production without separately required explicit approvals.
+- Verify this coherent task commit with focused CI, review its exact-SHA checks, then merge only into the isolated recovery feature branch via reviewed task PR as permitted. Do not promote to dev/main/Production.
+- Prioritize exact-content hosted delta reconciliation and verified existing-owner mapping/old-PWA Appwrite server writer cutoff before account migration. Complete hosted Diary migrations and signed owner/negative tests (#1029), category retirement/deletion (#857), offline/two-device/device/PWA/rollback, separate public-registration/SMTP/operational checks, and explicit release authorization.
+- No further local private-archive restoration or password tests are required unless new evidence calls for them. Do not stop/reset/reimport the Fedora disposable stack.

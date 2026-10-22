@@ -133,7 +133,7 @@ export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrap
           ...(options.featureProfile === 'core-diary' ? { diary: db.diary } : {}),
         },
         selectedBackend: 'supabase',
-        featureProfile: 'core-only',
+        featureProfile: options.featureProfile,
         fetcher: options.fetcher,
       });
       writerAttempted = true;
