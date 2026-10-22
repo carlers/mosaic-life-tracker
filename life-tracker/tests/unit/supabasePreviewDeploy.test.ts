@@ -42,9 +42,20 @@ describe('protected exact-SHA Supabase Preview deployment preflight', () => {
     const good = { id: 981, name, size_in_bytes: 800000, digest: 'sha256:' + digest, expired: false };
     expect(assertCoreArtifact([good], { sha, runId: 100, attempt: 2 }))
       .toEqual({ id: 981, name, digest });
+    // A retry of just the failed job inherits the prior attempt's artifact.
+    const firstAttempt = { ...good, name: name.replace('-100-2', '-100-1'), id: 980 };
+    expect(assertCoreArtifact([firstAttempt], { sha, runId: 100, attempt: 2 }))
+      .toEqual({ id: 980, name: firstAttempt.name, digest });
+    expect(assertCoreArtifact([firstAttempt, good], { sha, runId: 100, attempt: 2 }))
+      .toEqual({ id: 981, name, digest });
+    expect(() => assertCoreArtifact([firstAttempt, { ...good, expired: true }],
+      { sha, runId: 100, attempt: 2 })).toThrow(/artifact or authenticated ZIP digest missing/);
+    expect(() => assertCoreArtifact([good, { ...good, id: 999 }],
+      { sha, runId: 100, attempt: 2 })).toThrow(/artifact or authenticated ZIP digest missing/);
     for (const bad of [
       { ...good, expired: true },
       { ...good, name: name.replace('-100-2', '-99-1') },
+      { ...good, name: name.replace('-100-2', '-100-3') },
       { ...good, digest: 'sha256:' + 'c'.repeat(63) },
     ]) expect(() => assertCoreArtifact([bad], { sha, runId: 100, attempt: 2 }))
       .toThrow(/artifact or authenticated ZIP digest missing/);

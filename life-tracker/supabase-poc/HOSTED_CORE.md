@@ -456,3 +456,7 @@ migration, old Appwrite PWA fencing or production cutover.
 downloaded artifacts are never renamed or reused by guessing an SHA. This
 deployment job consumes only the artifact produced by its own accepted run.
 
+
+### Protected Preview deploy retries and Vercel CLI auth
+
+The approved Preview job must pass the protected environment `VERCEL_TOKEN` explicitly as `--token="$VERCEL_TOKEN"` on `vercel deploy --prebuilt`; environment presence alone is not Vercel CLI authentication. Keep GitHub masking enabled and do not echo the token. The job may be rerun after a transient Vercel failure. A GitHub job retry may retain the same-run original artifact rather than mint an artifact with the retry's attempt number: the verifier accepts only the latest available artifact whose name proves the exact branch SHA, same run ID, and attempt no greater than the current run attempt, with a separately verified published SHA-256 digest. Duplicate, malformed, future, expired or invalid newer artifacts fail closed. Each retry still requires the protected GitHub environment review as configured. Do not disable that requirement to hide deployment failures.

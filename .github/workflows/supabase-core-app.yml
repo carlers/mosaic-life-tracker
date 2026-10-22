@@ -314,7 +314,7 @@ jobs:
           npm install --global --no-audit vercel@62.7.0
           cd "$RUNNER_TEMP/mosaic-supabase-prebuilt"
           url="$(vercel deploy --prebuilt --archive=tgz --yes --target=preview \
-            --scope=team_UbpudOr8jXyrDA5SdVUxVGOr \
+            --token="$VERCEL_TOKEN" --scope=team_UbpudOr8jXyrDA5SdVUxVGOr \
             --meta "mosaicSourceSha=$GITHUB_SHA" \
             --meta "mosaicBackend=supabase-cloud" \
             --meta "mosaicArtifactSha256=$ARTIFACT_DIGEST")"

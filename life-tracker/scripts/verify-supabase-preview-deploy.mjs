@@ -41,16 +41,33 @@ export function qualityRunStatus(runs, sha) {
 }
 
 export function assertCoreArtifact(artifacts, { sha, runId, attempt }) {
-  const name = ARTIFACT_PREFIX + sha + '-' + runId + '-' + attempt;
-  const matching = (artifacts || []).filter(a => a.name === name && !a.expired);
-  const item = matching.length === 1 ? matching[0] : null;
-  if (!item || !Number.isSafeInteger(item.id) || item.id <= 0 ||
+  // GitHub may rerun only a failed job without re-uploading artifacts. Accept
+  // the newest authenticated artifact for THIS exact run and SHA, from the
+  // current or an earlier attempt. Never accept a foreign or later run.
+  if (!SHA.test(sha ?? '') || !Number.isSafeInteger(runId) || runId <= 0 ||
+      !Number.isSafeInteger(attempt) || attempt <= 0)
+    throw Error('Invalid exact-SHA CI artifact source');
+  const prefix = ARTIFACT_PREFIX + sha + '-' + runId + '-';
+  const items = (artifacts || []).map(item => {
+    const match = typeof item?.name === 'string' &&
+      item.name.startsWith(prefix) &&
+      /^([1-9][0-9]*)$/.exec(item.name.slice(prefix.length));
+    return match ? { item, attempt: Number(match[1]) } : null;
+  }).filter(Boolean).filter(candidate =>
+    Number.isSafeInteger(candidate.attempt) && candidate.attempt <= attempt
+  ).sort((a, b) => b.attempt - a.attempt);
+  const chosen = items[0];
+  const duplicates = chosen && items.filter(x => x.attempt === chosen.attempt);
+  const item = chosen?.item;
+  if (!chosen || duplicates.length !== 1 || item.expired ||
+      !Number.isSafeInteger(item.id) || item.id <= 0 ||
       !Number.isSafeInteger(item.size_in_bytes) || item.size_in_bytes < 1_000 ||
       item.size_in_bytes > 40 * 1024 * 1024 ||
       !DIGEST.test(item.digest ?? '')) {
     throw Error('Exact-SHA Supabase CI artifact or authenticated ZIP digest missing');
   }
-  return { id: item.id, name, digest: item.digest.slice('sha256:'.length) };
+  return { id: item.id, name: item.name,
+    digest: item.digest.slice('sha256:'.length) };
 }
 
 export function assertVercelDeployment(deployment, { sha, zipDigest }) {
