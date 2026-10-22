@@ -1,15 +1,19 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: #1221 owner-requested v0.43.2 borderless Add category button refinement, Preview only.
+Current task: #1245 nested BottomSheet performance diagnostics and Diary exit lifetimes; v0.43.3 candidate, task branch only.
 
 ## Verified baseline
-- Last accepted stable Preview `feature/1221-first-category-dayview-v043-20261022@a449ccb9e77228b4055fa7c28aa14413f96e4c72`, version 0.43.1. Full canonical Quality Gate #39744661305 SUCCESS; Trusted Preview Delivery #39745044841 SUCCESS; Git-first Vercel `dpl_3uiAsHvB2odi4k56fhZJyLAPnjJF` READY; `/home` HTTP 200. Owner authenticated manual/device testing not yet established because Scratch registered-host quota.
-- `dev@2e976653f93eacdfeed0493fb4f67220cb763c58` v0.42.1 and `main@c938c825370f8270b46f19119b06a1f74d35842b` unchanged. #404 remains OPEN for later larger-screen layout expansion.
+- `dev@ebbc9a1e01c4380af13ed2c913bed17fba905892` v0.43.2; no newer dev baseline at task creation. The previous #1221 checkpoint was stale and its feature is already promoted to dev.
+- Historical #640 and #656 prove virtualization and resolved-component lazy warmup; don't regress them or infer present-day mobile latency from Chromium historical numbers.
+- #858 remains open for cold-start work, separate from this nested sheet investigation. #700 architecture audit remains deferred.
 
-## Authorized v0.43.2 refinement
-- User requested removing the border around the area containing the Day View Add category button. In `src/components/home/views/FirstCategoryPrompt.tsx`, keep collapsed CTA wrapper borderless and background-free (existing Add category button styling and accessible action unchanged); retain bordered form container only *while editing*, including name/color/visibility and cancel/create behavior. Applies to both first-category empty state and persistent user-enabled footer action.
-- Patch increment from delivered v0.43.1 to candidate 0.43.2, synchronizing package.json, package-lock.json and src/lib/appVersion.ts. No backend/schema/security/CI gate change; no cosmetic-only test added because CSS DOM-shape assertions are prohibited by AGENTS.
-- Isolated task branch `chatgpt/1221-borderless-add-category-v0432-20261022` from accepted v0.43.1 exact SHA.
+## Authorized v0.43.3 candidate
+- #1245: controlled `DiaryEntrySheet` and `DiaryReferenceSheet` opening/closing across owner/friend Day View, Diary and Chat quote callers, retained record through Framer exit, existing Back/focus/scroll and authorization gates preserved.
+- Opt-in `@performance` nested two-layer BottomSheet benchmark built from real shared components, 50 synthetic task rows, cold/warm and blur/plain comparisons. Adds first frame where target DOM state is observed (not a guaranteed pixel paint); adds separate browser acceptance test for Diary exit and Escape.
+- No speculative alteration of Day View reopen deferral, blur defaults, scaling, focus trap, global sheet registry, backend, or schema. Real device compositor performance and owner-acceptance remain unverified.
+- Version files package.json/package-lock.json/appVersion.ts set to v0.43.3 in the same task tree.
 
-## Next
-- Focused [verify:focused] at coherent task commit, squash to existing stable #1221 Preview only after green, require stable Preview full canonical and trusted deployment READY exact SHA. User manual visual acceptance remains. Keep #1221 and #404 OPEN; do not promote to dev/main/Production without explicit approval.
+## Delivery plan / next
+- Task branch: `chatgpt/1245-nested-sheet-perf-diary-exit-20261022`, base dev SHA above, coherent task commit `[verify:browser]` to run focused plus browser contracts.
+- Repair genuine CI failures, then create/reconcile stable Preview branch and verify exact-SHA canonical gate + Vercel Scratch Preview. Android/iOS device checks remain manual.
+- Keep #1245 OPEN through manual acceptance. **No dev/main/Production promotion without explicit approval.**

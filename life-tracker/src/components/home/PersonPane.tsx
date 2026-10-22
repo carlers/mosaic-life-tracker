@@ -5,6 +5,7 @@ import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
+import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
 import { useAuth } from '../../hooks/useAuth';
@@ -99,6 +100,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const { entries: diaryEntries, getEntryByDate, saveEntry, deleteEntry } = useDiary(isActive && activeView === 'diary');
+  const ownerDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate);
+  const { value: ownerDiarySession, onExitComplete: clearOwnerDiarySession } = useRetainedSheetValue(
+    ownerDiaryOpen && diaryDate && currentUserId
+      ? { id: `${currentUserId}:${diaryDate}`, userId: currentUserId, date: diaryDate, entry: getEntryByDate(diaryDate) }
+      : null,
+    ownerDiaryOpen
+  );
   const viewRequestRef = useRef(0);
   const handleViewChange = useCallback((next: ViewType) => {
     const request = ++viewRequestRef.current;
@@ -224,9 +232,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
             weekStartsOn={weekStartsOn} holidayConfig={holidayConfig} />
         </React.Suspense>
       )}
-      {isActive && activeView === 'diary' && currentUserId && diaryDate && <React.Suspense fallback={null}>
-        <LazyDiaryEntrySheet key={`${currentUserId}:${diaryDate}`} date={diaryDate} entry={getEntryByDate(diaryDate)}
-          author={person.displayName} onSave={saveEntry} onDelete={deleteEntry}
+      {isActive && currentUserId && ownerDiarySession?.userId === currentUserId && <React.Suspense fallback={null}>
+        <LazyDiaryEntrySheet key={ownerDiarySession.id} isOpen={ownerDiaryOpen}
+          onExitComplete={clearOwnerDiarySession} date={ownerDiarySession.date}
+          entry={ownerDiarySession.entry} author={person.displayName} onSave={saveEntry} onDelete={deleteEntry}
           onClose={() => setDiaryDate(null)} />
       </React.Suspense>}
     </div>

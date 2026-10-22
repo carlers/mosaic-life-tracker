@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useState, useRef, useEffect } from 'react';
 import { BookOpenText, Plus, Images } from 'lucide-react';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { useDiary } from '../../../hooks/useDiary';
+import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { useSettings } from '../../../hooks/useSettings';
 import type { DiaryDocument } from '../../../db/schema';
 import { DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, resolveDiaryDayViewHeight } from '../../../lib/preferences';
@@ -62,14 +63,21 @@ export const DiaryDayPreview: React.FC<{
   const { getSetting } = useSettings();
   const [mode, setMode] = useState<'read' | 'edit' | null>(null);
   const entry = entryOverride ?? getEntryByDate(date);
+  const { value: diarySession, onExitComplete: clearDiarySession } = useRetainedSheetValue(
+    mode ? { id: `${date}:${mode}`, date, mode, entry } : null,
+    mode !== null
+  );
   const expanded = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact')) === 'expanded';
   return (
     <>
       <div className="my-2 min-w-0">
         <DiaryDayCard entry={entry} onOpen={() => setMode('read')} onEdit={entry ? () => setMode('edit') : undefined} expanded={expanded} dragHandleRef={dragHandleRef}/>
       </div>
-      {mode && <Suspense fallback={null}><DiaryEntrySheet key={date} date={date} entry={entry} author="Me"
-        onSave={saveEntry} onDelete={deleteEntry} initialEditing={mode === 'edit'} onClose={() => setMode(null)} /></Suspense>}
+      {diarySession && <Suspense fallback={null}><DiaryEntrySheet key={diarySession.id}
+        isOpen={mode !== null} onExitComplete={clearDiarySession}
+        date={diarySession.date} entry={diarySession.entry} author="Me"
+        onSave={saveEntry} onDelete={deleteEntry} initialEditing={diarySession.mode === 'edit'}
+        onClose={() => setMode(null)} /></Suspense>}
     </>
   );
 };
