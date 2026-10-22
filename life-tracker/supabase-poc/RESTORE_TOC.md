@@ -72,6 +72,44 @@ column compatibility and a reviewed dependency-ordered object allowlist.
 Never point an unfiltered `pg_restore` at an initialized managed Supabase
 database or request superuser to bypass permission failures.
 
+## Archived record counts after the offline data-decode pass
+
+On 2026-10-22 the operator's actual age-encrypted backup returned
+`SELECTED_DATA_DECODE_PASS` with six of six required payloads readable,
+27 Auth TABLE DATA entries, and these five additional Mosaic TABLE DATA entries:
+`mosaic_candidate_private.beta_signup_invitations`,
+`mosaic_candidate_private.core_sessions`,
+`mosaic_poc_internal.owner_revision`,
+`public.mosaic_poc_items`, and `public.mosaic_sync_probe`.
+No rows were restored. Preserve all of these objects in the original snapshot.
+
+To establish source **record counts** without inspecting or printing row values,
+use the read-only Linux/Python 3 program below. It authenticates the full age
+ciphertext, opens a 256 MiB-capped anonymous memory file, asks pg_restore to
+emit only the TABLE DATA COPY stream through a private pipe, counts rows,
+and immediately discards the COPY payload. There is no database connection,
+hosted API call, plaintext backup file, SQL execution or mutation:
+
+```bash
+cd "$HOME/mosaic-supabase-recovery-review/life-tracker"
+git pull --ff-only
+python3 supabase-poc/audit_private_archive_rows.py \
+  "$HOME/mosaic-secure-backups/mosaic-dev-20261022T031628Z.age" \
+  "$HOME/.config/mosaic/supabase-backup.agekey"
+```
+
+The JSON output contains table identifiers and **counts only**. It includes
+core task/category/authority/identity counts, all nonempty Auth tables,
+all five additional Mosaic tables and any populated Storage or other schemas.
+The selected TABLE DATA list is private and anonymous in memory. If the stream
+contains unknown COPY syntax, missing/duplicate tables, or corrupted blocks,
+the audit fails closed and prints only a generic error. This is for offline
+recovery planning, **not** authorization to reuse archived access/refresh tokens,
+retire invitations, skip historical data, or claim an independent restore.
+Reconcile all nonempty table counts against a fresh target **after** a separate,
+transactional, dependency-ordered recovery. Do not publish the row-count report
+to a public GitHub issue if it discloses sensitive account activity.
+
 Next recovery step: construct and test an explicit object-level restore allowlist
 against a disposable *initialized* Supabase instance, with Auth account/related
 table dependency ordering and signed two-owner verification. Review exact

@@ -6,6 +6,7 @@ on:
       - 'chatgpt/1027-ci-synthetic-restore-*'
       - 'chatgpt/1027-recovery-coverage-*'
       - 'chatgpt/1027-private-archive-decode-plan-*'
+      - 'chatgpt/1027-private-source-row-audit-*'
       - 'feature/1027-supabase-recovery-*'
 permissions:
   contents: read
@@ -30,6 +31,8 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql age
       - name: Check recovery script
         run: bash -n supabase-poc/synthetic-restore-lab.sh
+      - name: Test private row-count parser against synthetic COPY only
+        run: python3 -m unittest discover -s supabase-poc/tests -p 'test_audit_private_archive_rows.py' -q
       - name: Rehearse encrypted synthetic recovery
         env:
           MOSAIC_SYNTHETIC_RESTORE_LAB: '1'
