@@ -179,11 +179,8 @@ export const HomePage: React.FC = () => {
   }, []);
 
   const handleCloseSearch = useCallback(() => {
-    if (searchHistoryEntryRef.current) {
-      window.history.back();
-      return;
-    }
-    setIsSearchOpen(false);
+    if (searchHistoryEntryRef.current) window.history.back();
+    else setIsSearchOpen(false);
   }, []);
 
   useEffect(() => {
