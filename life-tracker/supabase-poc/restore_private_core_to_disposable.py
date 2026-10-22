@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from audit_private_archive_rows import load_archive, parse_toc
+from audit_private_archive_rows import load_archive
 
 CORE = [
     "auth.users", "auth.identities",
@@ -125,9 +125,25 @@ def copy_archive_to_tmpfs(container, archive, identity):
         os.close(memfd)
 
 def copy_manifest(container):
-    toc = in_db(container, "pg_restore", "--list", ARCHIVE_IN_RAM).decode().splitlines()
-    entries = parse_toc(toc)
-    return {name: entries[name] for name in CORE}
+    # Source archives can include Supabase-managed TABLE DATA names with
+    # quoted/leading-underscore identifiers. None belong to this restore.
+    # Accept only the six exact known core records; reject duplicates.
+    lines = in_db(container, "pg_restore", "--list", ARCHIVE_IN_RAM).decode().splitlines()
+    entry = re.compile(r"^\\s*\\d+;\\s+\\d+\\s+\\d+\\s+TABLE DATA\\s+(\\S+)\\s+(\\S+)\\s+")
+    selected = {}
+    for line in lines:
+        match = entry.match(line)
+        if not match:
+            continue
+        name = match.group(1) + "." + match.group(2)
+        if name not in CORE:
+            continue
+        if name in selected:
+            raise ValueError("Duplicate required core TABLE DATA object")
+        selected[name] = line
+    if set(selected) != set(CORE):
+        raise ValueError("Missing required core TABLE DATA object")
+    return selected
 
 def restore_one(container, manifest, name):
     selection = "; SINGLE CORE DATA OBJECT ONLY\n" + manifest[name] + "\n"
