@@ -1,18 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-22 UTC
-Current task: #1027 zero-cost encrypted logical backup preparation for the isolated Supabase core+Diary candidate before hosted schema changes.
+Current task: #1027 fix encrypted hosted backup helper exit 141 on Fedora; continue core+Diary release recovery gate.
 
-## Verified stable baseline
-- `feature/1027-supabase-recovery-20261020@31dd343987d183fa0516ae1f2c6d2313cbb6593c` includes owner-private Diary, date-effective category retirement and transactional category+task tombstones. Exact-SHA full Quality Gate #39707242313 SUCCESS; signed disposable Core App Lab #39707242358 SUCCESS, including two-owner real HTTP Diary privacy and a source artifact job.
-- Live `mosaic-dev` remains Supabase Free, active, invite-only, with two core Realtime tables under RLS; hosted Diary table and category `retired_on` are absent. No hosted migrations or real data changed. Existing auth/users and historical orphaned tasks require preservation.
-- Appwrite `dev` and `main` have newer divergent application trees. The existing v0.32.5 protected Supabase core-only Preview does not include new Diary/retirement. No direct stable-candidate promotion, public signup switch, or Production modification is permitted before explicit gates.
+## Verified source baseline
+- Isolated `feature/1027-supabase-recovery-20261020@b5653aa007a041bb9c823563d68b408d4895f108` has candidate owner-private Diary and date-effective category retirement / atomic deletion, plus a source-read-only encrypted hosted backup helper. Merged-source Quality Gate #39710007352 SUCCESS; signed Core App Lab #39710007344 SUCCESS.
+- Supabase Free `mosaic-dev` hosted remains protected / invite-only with task/category Realtime, no hosted Diary or retired_on, no hosted migrations or public signup. Do not promote to `dev`, `main` or Production without approved gates. Appwrite dev/main diverge.
+- Fedora operator already cloned isolated branch, connected PostgreSQL 18.6 client using the official project pooler and generated a private local age key. The backup run returned **141 (SIGPIPE)** with **zero published files**, so NO backup has been produced, and no user data was changed.
 
-## Current task branch
-- `chatgpt/1027-encrypted-hosted-backup-20261022` based on exact stable SHA. Add an opt-in, source-read-only `supabase-poc/hosted-encrypted-backup.sh` operator helper: exact `mosaic-dev` project host/user guard, absolute output outside Git, default fail-closed/no overwrite, encrypted streaming `pg_dump` through age, on-disk ciphertext mode 0600 and decrypt→`pg_restore --list` structural validation.
-- No database backup or separate-target restore has actually been performed. A successful archive check is NOT a verified restore. PostgreSQL logical dump excludes global roles, external object bytes, environment/SMTP/GoTrue settings and separately escrowed secrets.
+## Current isolated fix
+- `chatgpt/1027-backup-sigpipe-fix-20261022` fixes inspection where `pg_restore --list` closes the pipe after TOC/header and upstream `age` gets SIGPIPE. Independently decrypt complete age archive to /dev/null (verify full ciphertext authentication); metadata-only `age | pg_restore --list` must report pg_restore success and permits upstream producer 141 only, rejecting other nonzero statuses. Preserve fail-closed cleanup, no plaintext file, exact project host restrictions and nonclobber.
+- Add deterministic Vitest mock regression for expected early-reader SIGPIPE, unreadable age archive, failing pg_restore and wrong project. Local bash mock smoke exercised these cases successfully; task-focused CI pending until task branch push.
 
 ## Next action
-- Run `[verify:focused]` on the coherent script+runbook checkpoint commit and squash PR into isolated stable only after green; then exact-SHA canonical Supabase Quality Gate + signed Core App Lab again.
-- Operator must create a real encrypted off-repo hosted logical backup, independently restore to a disposable matched Supabase environment, validate Auth identity/owner-private row hashes/RLS/CAS/grants and config/media escrow. Only after recovery proof review/apply scoped additive Diary, retirement and atomic-delete hosted migrations; then signed hosted privacy, protected Preview, old-PWA/iOS and public signup abuse checks.
-- Keep #1027/#1029/#857 open. No dev/main/Production promotion, release, hosted SQL or auth policy change from this task.
+- Commit task checkpoint [verify:focused], run focused green, squash PR onto isolated stable, ensure exact-SHA full Quality Gate + signed Core App Lab green.
+- Then operator: `cd ~/mosaic-supabase-backup/life-tracker && git pull --ff-only`, confirm script updated; re-enter database password (cleared by previous `unset PGPASSWORD`), run encrypted script with **fresh** outside-repo output name, check generated `.age` archive and printed checksum. Never send DB password, encryption private key, or encrypted archive through chat.
+- Independent isolated restore and Auth/Storage/config/global-roles recovery verification **still required** before hosted Diary/category migrations, public signup or Production release. Keep #1027/#1029/#857 open.

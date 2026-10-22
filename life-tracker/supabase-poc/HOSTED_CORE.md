@@ -381,6 +381,10 @@ tables from the `supabase_realtime` publication; never drop user data.
 
 ## Operator-only encrypted logical snapshot before core+Diary hosted rollout (#1027)
 
+**Known metadata-pipeline SIGPIPE (exit 141):** The initial helper could discard a valid encrypted dump because `pg_restore --list` stops reading after the directory while `age` continues writing. The corrected helper validates the **entire** authenticated `age` stream first, then accepts producer SIGPIPE **only** if the separate metadata inspection succeeds. Do not interpret a past exit 141 or an empty backup directory as success; fetch the current isolated branch and rerun. A published .age file plus success output confirms only a readable encrypted archive, **not** an independently tested restore.
+
+
+
 The Free `mosaic-dev` project has no automatic daily Supabase backup guarantee. Before **any** hosted Diary/category migrations, an operator must independently encrypt and preserve a recoverable off-site database snapshot. `hosted-encrypted-backup.sh` is source-read-only. It deliberately refuses other Supabase projects, repo-local output, and overwriting a snapshot. It streams the **raw** full PostgreSQL logical dump through `age` without writing plaintext to disk, then decrypts it privately into `pg_restore --list` to check archive structure. It does **not** restore data or grant rollout authorization.
 
 From a trusted private Fedora terminal, use PostgreSQL client tools and `age` (and a private `age` identity). Obtain the `mosaic-dev` **database** connection parameters from the Supabase Project **Connect** panel; the direct host is `db.hcxtiifzxoaflhjgoglb.supabase.co`, and a session pooler also works when `PGUSER=postgres.hcxtiifzxoaflhjgoglb`. Never put a password in an argument, repo file, ticket, issue, or transcript. Keep the identity key separate from the encrypted snapshot.
