@@ -63,7 +63,21 @@ describe('DaySlideWithDiaryPlacement', () => {
     expect(withPlacement.diaryPlacement).toEqual(savedDiaryPlacement);
     expect(withPlacement.onMoveDiary).toBe(first.onMoveDiary);
 
+    // Changing only the account-scoped writer must not retain a stale setter.
     const nextWriter = vi.fn(async () => {});
+    view.rerender(
+      <DaySlideWithDiaryPlacement
+        {...props}
+        savedDiaryPlacement={savedDiaryPlacement}
+        setDiaryPlacement={nextWriter}
+      />,
+    );
+    const newWriterSameDate = daySlideRender.mock.lastCall?.[0] as typeof first;
+    await newWriterSameDate.onMoveDiary({ kind: 'bottom' });
+    expect(nextWriter).toHaveBeenCalledWith('diaryPlacement:2026-09-15', { kind: 'bottom' });
+    expect(setDiaryPlacement).not.toHaveBeenCalled();
+
+    // Changing only the selected day must write to the new date, not the old key.
     view.rerender(
       <DaySlideWithDiaryPlacement
         {...props}
@@ -75,7 +89,6 @@ describe('DaySlideWithDiaryPlacement', () => {
     const nextDay = daySlideRender.mock.lastCall?.[0] as typeof first;
     await nextDay.onMoveDiary({ kind: 'bottom' });
     expect(nextWriter).toHaveBeenCalledWith('diaryPlacement:2026-09-16', { kind: 'bottom' });
-    expect(setDiaryPlacement).not.toHaveBeenCalled();
     cleanup();
   });
 });
