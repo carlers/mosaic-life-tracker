@@ -1,18 +1,8 @@
 # Session checkpoint
-
-Updated: 2026-10-22 Asia/Manila.
-Current task: Recover the exact accepted v0.42.1 large-screen layout promotion on `dev` after a Vercel-only one-byte size failure.
-
-## Accepted source and promotion
-- Owner approved v0.42.1 Calendar, Todo and Diary resizable Day panels, mode switches and layout controls on dev; issue #404 intentionally remains OPEN for future Chats, Settings, Friend View, Explore, Alerts and reusable Bottom Sheet large-screen expansion.
-- Preview `feature/404-todo-diary-panel-v042-20261022@85136936103e4315ae60d62a8e5f011333120ee3`, canonical #39712657340 SUCCESS (attempt 4) and trusted #39716565534 SUCCESS, Vercel READY `dpl_HUvUSRtC29a8woML1R8o7A86muWN`.
-- Promotion PR #1220 merged to `dev@f75c332bfa68ae6fad0e7de4241bb3bd5cf867cb`; dev tree `e082bde29fd369b3853aca55bb271235d7a098c0` identical to accepted Preview; dev Quality Gate #39719002560 provenance/canonical PASS, first-parent prior dev correct. Main `c938c825370f8270b46f19119b06a1f74d35842b` unchanged.
-- Vercel Git-first dev `dpl_5STwkmXiaFDdVeR4CiX62qQ7oUUV` ERROR despite passing CI: Home closure gzip 381001 B vs blocking 381000 B (1 B), Node 24.22.1. Accepted CI builds Node 22.23.3. Do not change build budget, relax gates or mutate Production/global Vercel project settings.
-
-## Scoped repair
-- Task `chatgpt/404-vercel-node22-20261022` and isolated stable Preview `fix/404-vercel-node22-20261022` both branch from accepted dev `f75c332b...`.
-- Pin `life-tracker/package.json` and lockfile root `engines.node=22.x`, matching existing CI Node 22. Vercel docs confirm package engines overrides shared Project Settings 24.x without modifying the global project. No app behavior or semver change; stays 0.42.1.
-- Verify task focused checks, squash into fix Preview, check full exact-source canonical including security audit, trusted Preview READY; then promote only the reviewed identical repair tree into dev under user's current approval, confirm dev CI and Vercel READY. If any gate fails, diagnose without bypassing.
-- Scratch Appwrite already has 6 web platforms and cannot register a new immutable Preview hostname (403 plan quota). Authenticated manual device testing on the immutable Preview is unverified; backend is unchanged. Do not remove/replace platforms without explicit review.
-- Issue #1221 created for **planning only**: first-category creation CTA directly in empty owner Day View, no code authorization; no category feature code should be written as part of this repair.
-- Issue #404 stays OPEN. Do not promote to main/Production or release version 1.0.
+Updated: 2026-10-22 Asia/Manila
+Current task: #1224 recover accepted v0.42.1 `dev` delivery, then implement #1221 first-category owner Day View shortcut on separate scoped Preview.
+- `dev@d5f1a251ac7b8b904935d7a8bfc2a4abc59e5db3`, canonical #39720646649 SUCCESS; original accepted large-screen UI on dev, but Vercel Node 24 and Node 22 builds both ERROR with Home static closure 381001 B > 381000 B. CI on same tree 380978 B. Do not relax size threshold or assume Node version is cause. `main@c938c825370f8270b46f19119b06a1f74d35842b` untouched.
+- #1224 repair task `chatgpt/1224-lazy-home-search-20261022`, stable `fix/1224-lazy-home-search-20261022` from exact dev tree: defer full Home Task Search form/results/ranking module to a lazy chunk while retaining the initial search button, sync control and hamburger synchronously; idle/hover/touch/focus prefetch limits first-use latency. Refine existing Home search component tests for asynchronous opening; no user-facing search behavior change, no semver bump, no backend change.
+- Focused verification, squash to stable Preview, full canonical & exact Vercel READY, then approved dev repair merge with tree parity and dev CI/Vercel READY. If gate fails, diagnose and correct without loosening security/size gates.
+- #1221 planning issue covers an Add category CTA for owners with no categories (Calendar/Diary/Timeline and Todo inline/panels). Implement only after dev delivery green, in separate versioned task/Preview, with focused owner-only/hydration/creation tests. Do not merge #1221 to dev without explicit new approval.
+- Keep #404 OPEN for future Chats, Settings, Friend View, Explore, Alerts and general Bottom Sheet large-screen coverage; keep #1221 open until acceptance. Do not promote to main/Production or release 1.0.
