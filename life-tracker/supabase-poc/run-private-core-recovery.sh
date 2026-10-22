@@ -9,7 +9,7 @@ if [[ $# -ne 2 || "$1" != /* || "$2" != /* || ! -f "$1" || ! -f "$2" ]]; then
   exit 2
 fi
 [[ "$(uname -s)" == Linux ]] || { echo 'Local Linux required' >&2; exit 2; }
-for cmd in docker supabase python3 age pg_restore; do
+for cmd in docker supabase python3 age; do
   command -v "$cmd" >/dev/null || { echo "Missing prerequisite: $cmd" >&2; exit 2; }
 done
 for forbidden in SUPABASE_ACCESS_TOKEN DATABASE_URL PGHOST PGSERVICE PGUSER PGPASSWORD PGDATABASE; do

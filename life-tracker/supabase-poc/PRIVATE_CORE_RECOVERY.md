@@ -25,7 +25,9 @@ bash supabase-poc/run-private-core-recovery.sh \
 ```
 
 The operator needs local Docker with a **Unix-socket daemon**, Linux, Python 3,
-age, PostgreSQL `pg_restore`, and the Supabase CLI. The script refuses remote
+age, and the Supabase CLI; PostgreSQL 17 `pg_restore` is run only **inside**
+the verified disposable PG17 container, never via the operator's host
+`pg_restore` version. The script refuses remote
 Docker contexts, external PG/Supabase credentials, an altered archive SHA,
 unexpected source row counts, incorrect target identity, nonempty target
 tables, a PostgreSQL version other than 17, missing schemas, externally
@@ -54,7 +56,8 @@ tables, definitions and their original Auth sessions and tokens are not
 replayed. Managed Auth triggers remain enabled; application-only task/category
 triggers are temporarily disabled for exact historical rows and reenabled.
 Archived canonical owner authorities **including all frozen records** are
-preserved. It verifies all six row counts and every source/target COPY row
+preserved. It verifies all six row counts (81/81/81/49/53/58) from the actual
+source COPY blocks **inside the PG17 container**, then every source/target COPY row
 **byte-for-byte after order-independent comparison** without displaying
 private row values, email addresses, owner IDs, passwords or hashes.
 The source archive is preserved and all temporary container plaintext is

@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from audit_private_archive_rows import audit, load_archive, parse_toc
+from audit_private_archive_rows import load_archive, parse_toc
 
 CORE = [
     "auth.users", "auth.identities",
@@ -214,15 +214,16 @@ def restore(archive, identity, container):
                  os.getenv("MOSAIC_REAL_AUTH_RECOVERY_LAB") == "1")
     if not synthetic and sha256(archive) != EXPECTED_AGE_SHA256:
         raise ValueError("Encrypted original archive SHA256 mismatches reviewed snapshot")
-    report = audit(str(archive), str(identity))
-    expected = report["coreDataRowCounts"]
-    if not synthetic and expected != EXPECTED_SOURCE:
-        raise ValueError("Original archived core row counts changed unexpectedly")
+    # Use ONLY PostgreSQL 17 tools inside the verified local Docker target.
+    # Host pg_restore may be PG15/16 and cannot reliably decode PG17 archives.
     assert_target(container)
     copy_archive_to_tmpfs(container, archive, identity)
     try:
         manifest = copy_manifest(container)
         source_rows, columns = source_copy_rows(container, manifest)
+        expected = {table: len(source_rows[table]) for table in CORE}
+        if not synthetic and expected != EXPECTED_SOURCE:
+            raise ValueError("Original archived core row counts changed unexpectedly")
         # Disable only application triggers. Managed native Auth triggers remain.
         for tbl in ("public.mosaic_candidate_categories", "public.mosaic_candidate_tasks"):
             sql(container, "ALTER TABLE " + tbl + " DISABLE TRIGGER USER")
@@ -245,7 +246,7 @@ def restore(archive, identity, container):
                   "rm -f " + ARCHIVE_IN_RAM + " " + SELECT_IN_RAM)
         except ValueError:
             pass
-    return report
+    return {"coreDataRowCounts": expected}
 
 def main():
     if len(sys.argv) != 4:
