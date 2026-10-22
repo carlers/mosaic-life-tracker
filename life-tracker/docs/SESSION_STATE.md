@@ -1,19 +1,20 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: Repair #404 dev Vercel bundle-size parity without changing accepted layout; then implement approved large-screen Todo/Diary and panel-controls feature.
+Current task: Issue #404 large-screen Todo List and Diary side panels plus in-Day-View layout switcher, v0.41.0.
 
-## Current task and evidence
-- Issue #404 v0.40.5 large-screen Calendar split accepted by owner as fully working. PR #1191 promoted accepted stable Preview `feature/split-day-panel-dev-404-20261021@1e73d7bce6014475905342b2b5b7751145720846` to `dev@5e18064e516663aca71a930ffc6687cc0f2c46e7` with an identical Git tree. Promotion [Quality Gate 39639072325](https://github.com/carlers/mosaic-life-tracker/actions/runs/39639072325) SUCCESS.
-- Official Vercel Git `dev` deployment `dpl_3iqzbAgPwkZ2Zt2q19TWUww35JgB` ERROR: same source and unchanged Home blocking gzip budget 381,000 B, Vercel computed 381,008 B (8 B over), despite stable canonical CI 380,987 B. Provider environment/compiled constants account for difference. Existing accepted stable Preview v0.40.5 is READY. Do not claim new dev deployment READY.
-- Owner explicitly authorized **repair dev first**, then **implement proposed #404 improvements**: extend large-screen left/right panels to Todo List and Diary, and provide an in-view position/height switcher. Do not automatically promote that later feature from its Preview to dev/main.
-- Issue #404 remains OPEN by explicit owner request.
+## Accepted baseline / prior dev repair
+- Owner confirmed issue #404 Calendar split v0.40.5 visually bug-free, and approved stable Preview → dev while keeping #404 OPEN.
+- Initial dev Vercel build failed unchanged Home bundle budget (381008/381000 gzip); owner explicitly authorized fix.
+- Repair stable Preview fix/404-dev-home-size-20261022@b1b4a60dc384d9fc6a70b2c2c9665765c36aa564 passed canonical Quality Gate 39647088964 and Trusted Delivery 39647619354. PR #1195 promoted exact tree to dev@2dbc4c809ba9e4a939f526c2474e7c0a28e5df8b, dev Quality Gate 39647846426 SUCCESS, official Vercel dev deployment dpl_CRYJx8Z5SCVCMBqQwdStRXFGw4PZ READY. Main and Production untouched.
 
-## Dev provider size repair (internal version impact NONE)
-- Task branch `chatgpt/404-dev-home-size-20261022` based on `5e18064e516663aca71a930ffc6687cc0f2c46e7`. Safe HomePage simplifications: coalesce idempotent (Set-backed) startup timing marks while retaining exact conditions; preserve both successful and failed Day View preload paths without redundant promise closures; let React's same-value state update bailout handle selected-person id, removing duplicate condition/dependency.
-- Local sandbox with public Preview config built Home at 380,876/381,000 gzip after changes (baseline 380,888). This offers narrow headroom but **Vercel env remains authoritative**; verify exact stable provider build and repair if needed. No limit changes, auth/backend/UI changes or version bump. Unit/lint and GitHub focused/full gate remain to be verified; do not claim them green preemptively.
-- Delivery route: task focused → new `fix/404-dev-home-size-20261022` stable Preview branch canonical and trusted Preview READY → explicit approval already granted for `dev` repair; promote its exact accepted tree through merge PR, verify dev promotion gate and Vercel READY. No Production.
-- After dev READY, start next feature in separate v0.41.0 candidate and implement approved plan, with Todo/Diary shared Day View and mode controls, preserving existing defaults and gestures; verify normal gates and user-facing Preview, without dev promotion.
+## Feature scope / delivery boundary
+- Owner authorized implementation (but not its later dev/main/Production promotion). Task branch chatgpt/404-todo-diary-panel-20261022, stable target feature/404-todo-diary-panel-20261022 from exact repaired dev.
+- v0.41.0 MINOR: reuse existing DayDetailPanel and DayViewSheet for Todo List and Diary on wide desktop, left/right with resize and month-grid/full-screen height modes; preserve existing inline Bottom behavior and narrow fallback. Preserve Diary double-tap opening, friend read-only/replies/diary entry placement, date navigation and existing Calendar snap corrections.
+- Lazy DayLayoutMenu in owner/friend sheet/inline and panel headers; uses existing synchronized preference keys for position/height, with keyboard/Escape and outside-click behavior.
+- Compact TodoCalendarGrid exposes a realignment callback, clips native horizontal scroll, and suppresses automatic Embla resize during panel motion. Full-screen workspace measurements are taken from the outer Home workspace to prevent breakpoint oscillation. Browser fixture tests real left/right compact month swipes including divider resizing.
+- No backend/schema/Production changes. No weakening of fixed 381000 Home gzip gate.
 
-## Safeguards
-- No budget bypass or CI weakening. Account/diary privacy unchanged.
-- Preserve existing 0.40.5 Calendar snap/drag behavior; no unsupervised main/Production changes. Record actual QA and deployment evidence on issue #404.
+## Verification so far / next
+- Earlier isolated source sandbox (before its 30-minute expiry) passed local v0.41.0 build at 380882/381000 Home gzip with public Preview config, lint 0 errors, targeted Calendar/Todo/menu DOM 16/16, full DOM 661/661, actual Chromium left/right compact month swipe 2/2, and version check. Initial full unit 1202/1204 only because generated COMPONENT_INDEX was stale; index was regenerated and its two failed contracts passed 10/10.
+- Those uncommitted sandbox files were lost when the session auto-expired; equivalent changes were reconstructed directly as Git blobs from the verified patch operations, along with version/index/tests and this checkpoint. Exact committed tree still requires remote CI verification. Do not treat old sandbox runs as acceptance evidence for a different SHA.
+- Next: create coherent task branch commit requesting [verify:browser]; if focused + browser gate green, open PR and squash to stable Preview, verify canonical and trusted Vercel READY, give user immutable test URL, keep issue #404 OPEN. Do not promote this v0.41.0 feature to dev or main without separate explicit owner approval. Manual touch/device and editing-draft preservation remain acceptance risks.

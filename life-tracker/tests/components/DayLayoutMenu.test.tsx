@@ -1,0 +1,58 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DayLayoutMenu } from '../../src/components/home/views/DayLayoutMenu';
+
+const settings = vi.hoisted(() => ({
+  values: {} as Record<string, unknown>,
+  setSetting: vi.fn(async (key: string, value: unknown) => { settings.values[key] = value; }),
+}));
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: (key: string, fallback: unknown) => settings.values[key] ?? fallback,
+    setSetting: settings.setSetting,
+  }),
+}));
+describe('Day View layout control', () => {
+  beforeEach(() => {
+    settings.values = {};
+    settings.setSetting.mockClear();
+  });
+  it('preserves Bottom as default and saves left/right using existing synced keys', async () => {
+    const { rerender } = render(<DayLayoutMenu />);
+    fireEvent.click(screen.getByRole('button', { name: 'Change Day View layout' }));
+    expect(screen.getByRole('menuitemradio', { name: 'Bottom' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Left' }));
+    await waitFor(() => expect(settings.setSetting).toHaveBeenCalledWith('dayDetailPresentation', 'panel'));
+    expect(settings.values.dayPanelSide).toBe('left');
+    expect(settings.values.dayDetailPresentation).toBe('panel');
+    rerender(<DayLayoutMenu />);
+    fireEvent.click(screen.getByRole('button', { name: 'Change Day View layout' }));
+    expect(screen.getByRole('menuitemradio', { name: 'Left' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Right' }));
+    await waitFor(() => expect(settings.values.dayPanelSide).toBe('right'));
+  });
+  it('saves height and disables height choices in Bottom mode', async () => {
+    settings.values.dayDetailPresentation = 'panel';
+    const { rerender } = render(<DayLayoutMenu />);
+    fireEvent.click(screen.getByRole('button', { name: 'Change Day View layout' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Full screen height' }));
+    await waitFor(() => expect(settings.values.dayPanelHeight).toBe('screen'));
+    rerender(<DayLayoutMenu />);
+    fireEvent.click(screen.getByRole('button', { name: 'Change Day View layout' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Bottom' }));
+    await waitFor(() => expect(settings.values.dayDetailPresentation).toBe('sheet'));
+    rerender(<DayLayoutMenu />);
+    fireEvent.click(screen.getByRole('button', { name: 'Change Day View layout' }));
+    expect(screen.getByRole('menuitemradio', { name: 'Full screen height' })).toBeDisabled();
+  });
+  it('closes on Escape without changing preferences', () => {
+    render(<DayLayoutMenu />);
+    const trigger = screen.getByRole('button', { name: 'Change Day View layout' });
+    fireEvent.click(trigger);
+    expect(screen.getByRole('menu', { name: 'Day View layout' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(settings.setSetting).not.toHaveBeenCalled();
+  });
+});

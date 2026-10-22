@@ -32,6 +32,10 @@ vi.mock('../../src/components/messages/ReplyComposerSheet', () => ({
   ReplyComposerSheet: () => null,
 }));
 
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({ getSetting: (_key: string, fallback: unknown) => fallback, setSetting: vi.fn() }),
+}));
+
 vi.mock('../../src/hooks/useTasksByDate', () => ({
   useTasksByDate: () => new Map(),
 }));

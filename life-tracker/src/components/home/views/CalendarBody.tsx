@@ -103,8 +103,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [openPresentation, setOpenPresentation] = useState<'sheet' | 'panel'>('sheet');
   const [openedFrameWidth, setOpenedFrameWidth] = useState(0);
+  const openPresentation = openedFrameWidth >= DAY_PANEL_MIN_FRAME_WIDTH ? dayDetailPresentation : 'sheet';
   const [panelMounted, setPanelMounted] = useState(false);
   const panelHostRef = useRef<HTMLDivElement>(null);
   const calendarTriggerRef = useRef<HTMLElement | null>(null);
@@ -169,17 +169,13 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       const host = panelHostRef.current;
       const width = (dayPanelHeight === 'screen'
         ? host?.closest('.mosaic-home-workspace') ?? host : host)?.getBoundingClientRect().width ?? 0;
-      const presentation = dayDetailPresentation === 'panel' && width >= DAY_PANEL_MIN_FRAME_WIDTH ? 'panel' : 'sheet';
-      setOpenPresentation(presentation);
-      if (presentation === 'panel') {
-        setOpenedFrameWidth(width);
-        setPanelMounted(true);
-      }
+      setOpenedFrameWidth(width);
+      setPanelMounted(true);
     }
     setSelectedDate(date);
     setDaySheetMounted(true);
     setDaySheetOpen(true);
-  }, [variant, daySheetOpen, dayDetailPresentation, dayPanelHeight]);
+  }, [daySheetOpen, dayPanelHeight]);
 
   const handleCloseDaySheet = useCallback(() => {
     setDaySheetOpen(false);
@@ -285,11 +281,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const calendarAndPanel = (
     <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="mosaic-calendar-split flex h-full min-h-0 min-w-0 w-full">
-        {dayPanelSide === 'left' && detailPanel}
+        {detailPanel}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {calendarContent(carousel)}
         </div>
-        {dayPanelSide === 'right' && detailPanel}
       </div>
     </div>
   );

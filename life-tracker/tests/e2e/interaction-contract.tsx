@@ -941,6 +941,43 @@ function CategoryEditorMotionProbe() {
   );
 }
 
+/** Browser-only: compact calendar inside a left/right split with divider motion. */
+function TodoSplitSwipeProbe() {
+  const [month, setMonth] = useState(() => new Date(2026, 8, 1));
+  const [day, setDay] = useState(() => new Date(2026, 8, 15));
+  const [panelWidth, setPanelWidth] = useState(412);
+  const side = new URLSearchParams(window.location.search).get('side') === 'right' ? 'right' : 'left';
+  const realign = useRef<((live?: boolean) => void) | null>(null);
+  const bindRealign = React.useCallback((fn: ((live?: boolean) => void) | null) => { realign.current = fn; }, []);
+  const changePanelWidth = () => {
+    const viewport = document.querySelector<HTMLElement>('[data-testid="todo-calendar-grid"]');
+    realign.current?.(true);
+    if (viewport) viewport.dataset.panelMotion = 'true';
+    setPanelWidth(width => width === 412 ? 500 : 412);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      realign.current?.();
+      if (viewport) delete viewport.dataset.panelMotion;
+    }));
+  };
+  return (
+    <div data-testid="todo-split-probe" className="relative flex min-w-0 bg-[#111111]" style={{ width: '100%', height: 750 }}>
+      <div className="shrink-0 border-r border-[#444]" style={{ width: panelWidth, order: side === 'left' ? -1 : 1 }}>
+        <div>Day details · {side}</div>
+        <button type="button" data-testid="todo-resize-panel" onClick={changePanelWidth}>Resize panel</button>
+      </div>
+      <div className="min-w-0 flex-1" style={{ order: 0 }}>
+        <h2 data-testid="todo-split-month-title">{format(month, 'MMMM yyyy')}</h2>
+        <div className="relative min-w-0" data-testid="todo-split-calendar-container">
+          <TodoCalendarGrid focusDate={month} selectedDate={day}
+            tasks={[]} categories={[]} categoriesMap={{}}
+            onDateSelect={setDay} onMonthChange={setMonth}
+            onLayoutChangeReady={bindRealign} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
@@ -959,7 +996,9 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('splitPanelProbe')
+      {new URLSearchParams(window.location.search).has('todoSplitProbe')
+        ? <TodoSplitSwipeProbe />
+        : new URLSearchParams(window.location.search).has('splitPanelProbe')
         ? <SplitPanelLayoutProbe />
         : new URLSearchParams(window.location.search).has('chatMotion')
         ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
