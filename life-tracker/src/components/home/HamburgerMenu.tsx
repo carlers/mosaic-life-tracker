@@ -32,7 +32,7 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
     { label: 'Backlogs', icon: Archive, action: () => { setIsMenuOpen(false); onOpenBacklog(); } },
     { label: 'Uncompleted Tasks', icon: ListChecks, action: () => { setIsMenuOpen(false); onOpenUncompleted(); } },
     {
-      label: 'Lists & Categories',
+      label: 'Categories',
       icon: List,
       action: () => {
         setIsMenuOpen(false);
