@@ -1,19 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-22 UTC
-Current task: #1027 fresh original-owner signed-read on a separately restored Fedora disposable target.
+Current task: #1027 fresh encrypted Supabase recovery acceptance and canonical checkpoint repair.
 
 ## Verified milestones
-- Stable isolated Supabase feature `feature/1027-supabase-recovery-20261020@768505a493b89b1b6d9cbc9b8caff6f6bbbab350` has FOUR exact-SHA green workflows: Quality Gate #39763061158, Core App #39763061167, Synthetic Restore #39763061240, Real GoTrue Restore #39763061205.
-- Owner on Fedora reported fresh encrypted hosted `mosaic-dev` snapshot restored to a DIFFERENT isolated loopback-only PG17 target with **403 exact six-table source/target rows** verified, no old session/lease replay. The earlier private original-snapshot disposable recovery also passed signed original-password/owner negative tests and remains preserved.
-- Read-only hosted SQL on 2026-10-22: 81 Auth users, 81 identities, 81 authorities, 49 revisions, 53 categories, 58 tasks; 184 Auth sessions, 228 refresh tokens, 150 old leases, zero Storage objects/buckets. Hosted Diary table, category retirement column and atomic category-delete triggers are still ABSENT. These are catalog/count observations, NOT full hosted exact row/managed settings equality.
-- Fresh-snapshot recovery is PASS for six core tables ONLY; platform Auth/SMTP/external settings, complete archive replay, old Appwrite migration and writer cutoff, reverse migration, user devices, public Auth and promotion remain open. Neither encrypted backup nor either Fedora recovery instance may be touched.
+- Isolated candidate `feature/1027-supabase-recovery-20261020@e515a0d2ccb041fc0da0068de0b4aa4557ce66ea`; PR #1243 added the guarded local recovered-owner sign-in verifier. Its focused Quality Gate #39767333393 was SUCCESS.
+- **Operator-reported fresh recovery PASS**: independently age-encrypted hosted `mosaic-dev` full logical snapshot, a NEW separate loopback-only Fedora PG17 stack, **403 exact source/target rows** across six Auth/core tables (81 Auth users, 81 identities, 81 authorities, 49 owner revisions, 53 categories, 58 tasks); old Auth sessions/tokens and writer leases excluded. Preserve the new and original snapshots and both private disposable stacks.
+- **Operator-reported signed private original-account PASS on that NEW recovery**: original-password sign-in, signed `mosaic_core_session(acquire)` writer lease, populated owner's task/category read matching independent local SQL, and cross-owner restored task read isolation. No account ID, password, JWT or private row content disclosed. The earlier original-snapshot local stack separately passed synthetic second-owner forged-write denial.
+- Exact merged SHA `e515a0d2...`: Supabase Core App Lab #39767534610, Synthetic Restore #39767534542 and Real GoTrue Restore #39767534511 **SUCCESS**. **Quality Gate #39767534551 FAILED** because this checkpoint's `## Next` heading violates the executable documentation contract requiring `## Next action`. Its build, browser and DOM tests passed. Fix the checkpoint in this coherent commit, then require new exact-SHA canonical acceptance; do not claim the failed SHA green.
+- Read-only hosted `mosaic-dev` inventory: 81 users/81 identities/81 authorities/49 revisions/53 categories/58 tasks; 184 Auth sessions, 228 refresh tokens, 150 old leases, zero Storage buckets/objects at inspection. Private Diary table, category `retired_on` and atomic category-delete trigger are NOT installed hosted. Read-only counts do not certify full hosted data/content parity or Auth settings recovery.
 
-## Task scope
-- Add guarded operator-only signed REST verification against exactly a local `~/.mosaic-private-recovery-XXXXXXXX` project: validate local Unix-socket Docker/loopback-only container/port, obtain browser publishable key from locally running CLI, terminal-private original password, freshly signed GoTrue identity+authority lease, SQL-versus-RLS task/category counts, and a cross-owner row denial.
-- Strictly no hosted endpoint, no non-loopback URL, no secret key, no output of credentials, tokens, emails or UUIDs; only positive PASS labels. Freshly signed Auth session and writer lease are local disposable test effects.
-- Unit coverage for strict local key parsing, refused arbitrary target and refused redirects. No Vercel/hosted schema/Production mutation.
+## Scope and boundaries
+- The task fixes the current checkpoint's tested `## Next action` heading and updates true fresh-snapshot recovery/CI evidence. No code/runtime/schema changes.
+- Six-table core recovery plus signed RLS checks are NOT complete managed Auth/SMTP/role/hook, full-storage, all-domain or Production recovery. Passwords/keys and both Fedora recovery instances stay private and preserved.
+- Existing Appwrite shipped accounts and old PWAs remain a distinct authority. No unverified identity mapping, concurrent writers, production account import, rollback or cross-provider promotion.
 
-## Next
-- Verify focused CI, squash to isolated stable, exact-SHA four workflows. New private-Fedora owner invokes the signed read (requires an original password for an account with at least one live task); report only sanitized PASS labels.
-- Independently audit managed Auth configurations/full encrypted archive restoration and old-PWA Appwrite writer fence before any live Diary/retirement/atomic-delete schema install. Hosted staging, public signup, device tests, isolated core-diary Preview and release require independent gates and approvals. Keep #1027/#1029/#857 open.
+## Next action
+- Verify focused CI for this task, squash only into the isolated `feature/1027-supabase-recovery-20261020` branch, and require new exact-SHA canonical Quality Gate plus Core App, Synthetic Restore and Real GoTrue lab SUCCESS before any handoff.
+- Prepare and validate complete managed Auth/SMTP/config rollback/independent recovery and an **Appwrite server-enforced old-PWA writer cutoff** with trusted original-owner mapping/reverse replay; do not remove provider protections or change live data.
+- Only after those safeguards, review separately staged hosted private Diary, reversible category retirement and atomic all-task deletion migrations under issue #1029/#857, then signed hosted two-user denial and cross-device offline/PWA tests. Isolated core-diary Preview, public signup security, `dev`/`main`/Production deployment and 1.0 release remain separate approvals/gates.
