@@ -180,6 +180,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('#3B82F6');
   const [editVisibility, setEditVisibility] = useState<Visibility>('private');
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -290,6 +291,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setIsAdding(false);
                 setEditingId(c.id);
                 setEditName(c.name);
+                setEditColor(c.color);
                 setEditVisibility(c.visibility);
               }}
               onDeleteRequest={(id) => {
@@ -319,13 +321,19 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                   />
+                  <ColorPalettePicker
+                    key={cat.id}
+                    selectedColor={editColor}
+                    onSelect={setEditColor}
+                    ariaLabel="Category color"
+                  />
                   <VisibilityPicker
                     value={editVisibility}
                     onChange={setEditVisibility}
                   />
                   <Button
                     onClick={() => void save(
-                      () => updateCategory(cat.id, { name: editName, visibility: editVisibility }),
+                      () => updateCategory(cat.id, { name: editName.trim(), color: editColor, visibility: editVisibility }),
                       () => setEditingId(null), 'Could not update category. Try again.'
                     )}
                     disabled={!editName.trim() || isSaving}
