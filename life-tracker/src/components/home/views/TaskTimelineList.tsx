@@ -18,7 +18,7 @@ type Props = Pick<DaySlideProps,
   | 'onToggleTask' | 'onAddTask' | 'onOpenActions' | 'onOpenMemo'
   | 'onEditTask' | 'onViewImage' | 'onEditChange'
   | 'onEditSave' | 'onEditCancel' | 'selectionMode'
-  | 'selectedTaskIds' | 'onToggleTaskSelection'
+  | 'selectedTaskIds' | 'onToggleTaskSelection' | 'emptyCategoryPrompt' | 'footerCategoryPrompt'
 > & {
   direction: TimelineDirection;
   sortBasis: TimelineSortBasis;
@@ -54,6 +54,8 @@ export const TaskTimelineList: React.FC<Props> = ({
   onSortBasisChange,
   timestampDisplay,
   showOtherContentNotice = false,
+  emptyCategoryPrompt,
+  footerCategoryPrompt,
 }) => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -89,6 +91,7 @@ export const TaskTimelineList: React.FC<Props> = ({
         ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-4 pb-8'
         : 'w-full min-w-0 px-4 pb-8'}
     >
+      {emptyCategoryPrompt}
       <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline filters">
         <ListFilter size={16} className="shrink-0 text-gray-400" aria-hidden="true" />
         <MosaicSelect
@@ -226,6 +229,7 @@ export const TaskTimelineList: React.FC<Props> = ({
           Diary and shared tasks remain available in Categories view.
         </p>
       )}
+      {footerCategoryPrompt}
     </div>
   );
 };

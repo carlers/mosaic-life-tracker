@@ -58,6 +58,7 @@ import {
   KEYBOARD_SHORTCUTS_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+  SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
@@ -286,6 +287,8 @@ export const PreferencesPage: React.FC = () => {
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const alwaysShowAddCategory =
+    getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
   const showDiaryInDayView = getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
@@ -493,6 +496,16 @@ export const PreferencesPage: React.FC = () => {
             isToggle
             checked={showPendingShares}
             onClick={() => void setSetting(SHOW_PENDING_SHARES_SETTING_KEY, !showPendingShares)}
+          />
+          <SettingsRow
+            icon={<ListPlus size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Always show Add category in Day View"
+            showChevron={false}
+            isToggle
+            checked={alwaysShowAddCategory}
+            onClick={() => void setSetting(
+              SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, !alwaysShowAddCategory
+            )}
           />
           <SettingsRow
             icon={<ChevronsUpDown size={18} className="text-gray-400" aria-hidden="true" />}

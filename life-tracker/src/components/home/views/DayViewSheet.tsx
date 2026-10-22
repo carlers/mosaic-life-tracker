@@ -19,6 +19,7 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
+import { FirstCategoryPrompt } from './FirstCategoryPrompt';
 import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
 const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
@@ -71,6 +72,7 @@ import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+  SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
   SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
   DIARY_DAY_VIEW_POSITION_SETTING_KEY,
@@ -202,8 +204,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     moveTasksToCategory,
     moveTaskAcrossDays,
   } = taskStore;
-  const { categories: hookCategories = [], reorderCategories, updateCategory } = useCategories(
-    categoriesOverride === undefined
+  // With an empty override, wait for owner category hydration before prompting.
+  const { categories: hookCategories = [], isLoading: categoriesLoading, addCategory, reorderCategories, updateCategory } = useCategories(
+    categoriesOverride === undefined || categoriesOverride.length === 0
   );
   const { message: deleteFeedback, show: showFeedback } = useFeedback();
   const { getSetting, setSetting, settings } = useSettings();
@@ -226,6 +229,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   );
   const showCategoryCollapseButton =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const alwaysShowAddCategory = getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
   const showDiaryInDayView = !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
@@ -1082,6 +1086,25 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     </div>
   ) : null;
 
+  const canCreateCategory = Boolean(isOpen && !isBacklogView && currentUserId &&
+    !isSelectMode && !categoriesLoading &&
+    categories.every(category => category.userId === currentUserId));
+  const showFirstCategoryPrompt = canCreateCategory &&
+    categories.length === 0 && hookCategories.length === 0;
+  const showPersistentCategoryPrompt = canCreateCategory && alwaysShowAddCategory;
+  const categoryCreationPrompt = showFirstCategoryPrompt || showPersistentCategoryPrompt ? (
+    <FirstCategoryPrompt persistent={showPersistentCategoryPrompt} onCreate={async draft => {
+      if (!currentUserId || categories.some(category => category.userId !== currentUserId) ||
+          (!showPersistentCategoryPrompt && (categories.length > 0 || hookCategories.length > 0))) {
+        throw new Error('Categories have changed. Try again.');
+      }
+      await addCategory({ ...draft, order: categories.length, icon: '' });
+    }} />
+  ) : undefined;
+  // Empty owners keep the onboarding prompt unless the optional footer action is enabled.
+  const firstCategoryPrompt = showPersistentCategoryPrompt ? undefined : categoryCreationPrompt;
+  const footerCategoryPrompt = showPersistentCategoryPrompt ? categoryCreationPrompt : undefined;
+
   const content = (
     <>
       {isBacklogView ? (
@@ -1328,7 +1351,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           sortBasis={timelineSortBasis}
                           onSortBasisChange={basis => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, basis)}
                           timestampDisplay={timestampDisplay}
-                          showOtherContentNotice={showDiaryInDayView ||
+                          emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
+                          footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
+                           showOtherContentNotice={showDiaryInDayView ||
                             sharedTasks.activeItems.some(item => item.status === 'accepted' && item.date === dateStr)}
                         />
                       </Suspense>
@@ -1402,7 +1427,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
             onCategoryActionError={showFeedback}
                       onReorderActiveChange={(active) => setIsTaskReorderActive(active || Boolean(continuousDrag.carried))}
-                      diaryEnabled={showDiaryInDayView && !isSelectMode}
+                      emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
+                          footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
+                       diaryEnabled={showDiaryInDayView && !isSelectMode}
                       diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
                       onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
                     />
