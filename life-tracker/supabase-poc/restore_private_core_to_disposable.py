@@ -129,7 +129,7 @@ def copy_manifest(container):
     # quoted/leading-underscore identifiers. None belong to this restore.
     # Accept only the six exact known core records; reject duplicates.
     lines = in_db(container, "pg_restore", "--list", ARCHIVE_IN_RAM).decode().splitlines()
-    entry = re.compile(r"^\\s*\\d+;\\s+\\d+\\s+\\d+\\s+TABLE DATA\\s+(\\S+)\\s+(\\S+)\\s+")
+    entry = re.compile(r"^\s*\d+;\s+\d+\s+\d+\s+TABLE DATA\s+(\S+)\s+(\S+)\s+")
     selected = {}
     for line in lines:
         match = entry.match(line)
