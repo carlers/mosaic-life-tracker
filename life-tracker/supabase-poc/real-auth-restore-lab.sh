@@ -28,15 +28,21 @@ import re
 p = Path('supabase/config.toml')
 lines = p.read_text().splitlines(keepends=True)
 is_email = False
+is_db = False
 found = 0
+found_pg17 = 0
 for i, line in enumerate(lines):
   if line.strip().startswith('[') and line.strip().endswith(']'):
     is_email = line.strip() == '[auth.email]'
+    is_db = line.strip() == '[db]'
   elif is_email and re.fullmatch(r'\s*enable_confirmations\s*=\s*(true|false)\s*', line):
     lines[i] = 'enable_confirmations = false\n'
     found += 1
-if found != 1:
-  raise SystemExit('Expected one local auth.email confirmation setting')
+  elif is_db and re.fullmatch(r'\s*major_version\s*=\s*\d+\s*', line):
+    lines[i] = 'major_version = 17\n'
+    found_pg17 += 1
+if found != 1 or found_pg17 != 1:
+  raise SystemExit('Expected one local email confirmation and PG17 setting')
 p.write_text(''.join(lines))
 PY
 supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler >/dev/null

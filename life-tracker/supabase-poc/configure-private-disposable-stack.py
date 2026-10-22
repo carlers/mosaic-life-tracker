@@ -49,12 +49,15 @@ def configure(directory, project):
             section = heading.group(1)
         match = re.fullmatch(
             r'(\s*)(port|shadow_port)\s*=\s*\d+\s*(?:#.*)?\n?', line)
+        if section == 'db' and re.fullmatch(r'\s*major_version\s*=\s*\d+\s*', line):
+            line = 'major_version = 17\n'
+            seen.add(('db','major_version'))
         if match and section in sections:
             seen.add((section,match.group(2)))
             port = base + (2 if match.group(2) == 'shadow_port' else sections[section])
             line = match.group(1) + match.group(2) + ' = ' + str(port) + '\n'
         newlines.append(line)
-    if not {('api','port'),('db','port')}.issubset(seen):
+    if not {('api','port'),('db','port'),('db','major_version')}.issubset(seen):
         raise ValueError("Local CLI config API or DB port missing")
     p.write_text(''.join(newlines))
     (Path(directory) / "mosaic-disposable-api-port").write_text(str(base))
