@@ -234,7 +234,8 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     }, { timeout: 20_000 }).toBe(true);
     await contexts[0].setOffline(true);
     await originalCategory.getByRole('button', { name: 'Delete category', exact: true }).click();
-    await first.getByRole('button', { name: 'Delete', exact: true }).click();
+    await first.getByRole('textbox', { name: 'Type Core private list to confirm' }).fill('Core private list');
+    await first.getByRole('button', { name: 'Delete category and tasks', exact: true }).click();
     await expect(originalCategory).toHaveCount(0);
     expect((await rows(owner, 'categories')).find(row => row.name === 'Core private list').is_deleted).toBe(false);
     await contexts[0].setOffline(false);
@@ -277,6 +278,90 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
   } finally {
     await Promise.allSettled(contexts.map(context => context.close()));
   }
+});
+
+test('signed two-session category retirement preserves history, then deletion atomically tombstones every task', async () => {
+  test.skip(hosted, 'Requires the disposable local atomic category migration and synthetic users');
+  const owner = await account();
+  const foreign = await account();
+  const otherGrant = await api('/auth/v1/token?grant_type=password', null,
+    { email: owner.email, password: owner.password });
+  expect(otherGrant.ok).toBe(true);
+  const secondToken = (await otherGrant.json()).access_token;
+
+  // These are REAL independent signed GoTrue sessions; both must hold a
+  // server-issued owner lease. No synthetic claims or service-role bypass.
+  for (const token of [owner.token, secondToken]) {
+    const lease = await api('/rest/v1/rpc/mosaic_core_session', token, { p_action: 'acquire' });
+    expect(lease.ok).toBe(true);
+  }
+  const categoryId = 'cat_' + randomBytes(8).toString('hex');
+  const taskId = 'task_' + randomBytes(8).toString('hex');
+  const lateId = 'late_' + randomBytes(8).toString('hex');
+  const now = new Date().toISOString();
+  const addCategory = await api('/rest/v1/mosaic_candidate_categories', owner.token, {
+    owner_id: owner.id, id: categoryId, name: 'History preserved',
+    color: '#123456', order_index: 0, visibility: 'private',
+    updated_at: now, retired_on: '', is_deleted: false,
+  });
+  expect(addCategory.ok).toBe(true);
+  let category = (await addCategory.json())[0];
+  const taskBody = id => ({
+    owner_id: owner.id, id, title: 'History-bound task ' + id,
+    category_id: categoryId, order_index: 0, task_date: now.slice(0, 10),
+    completed: false, created_at: now, updated_at: now, is_deleted: false,
+  });
+  const initialInsert = await api('/rest/v1/mosaic_candidate_tasks', owner.token, taskBody(taskId));
+  expect(initialInsert.ok).toBe(true);
+
+  // The reversible operation MUST NOT delete or move any task.
+  const retired = await api('/rest/v1/rpc/mosaic_candidate_cas_category', owner.token, {
+    p_id: categoryId, p_expected_seq: category.change_seq,
+    p_patch: { retired_on: '2026-10-21', updated_at: new Date().toISOString() },
+  });
+  expect(retired.ok).toBe(true);
+  category = await retired.json();
+  expect(category.retired_on).toBe('2026-10-21');
+  expect(category.is_deleted).toBe(false);
+  const historyBeforeDelete = (await rows(owner, 'tasks')).find(task => task.id === taskId);
+  expect(historyBeforeDelete.category_id).toBe(categoryId);
+  expect(historyBeforeDelete.is_deleted).toBe(false);
+
+  // A different signed device races a task insert against destructive
+  // category CAS. It may commit before deletion or be rejected afterwards;
+  // either way NO task may remain live in a deleted category.
+  const [concurrentInsert, deletion] = await Promise.all([
+    api('/rest/v1/mosaic_candidate_tasks', secondToken, taskBody(lateId)),
+    api('/rest/v1/rpc/mosaic_candidate_cas_category', owner.token, {
+      p_id: categoryId, p_expected_seq: category.change_seq,
+      p_patch: { is_deleted: true, updated_at: new Date().toISOString() },
+    }),
+  ]);
+  expect(deletion.ok).toBe(true);
+  expect((await deletion.json()).is_deleted).toBe(true);
+  if (!concurrentInsert.ok) expect([400, 409]).toContain(concurrentInsert.status);
+  const allTasks = (await rows(owner, 'tasks')).filter(task => task.category_id === categoryId);
+  expect(allTasks.some(task => !task.is_deleted)).toBe(false);
+  expect(allTasks.find(task => task.id === taskId)?.is_deleted).toBe(true);
+  if (concurrentInsert.ok) {
+    expect(allTasks.find(task => task.id === lateId)?.is_deleted).toBe(true);
+  }
+  const categoryAfter = (await rows(owner, 'categories')).find(row => row.id === categoryId);
+  expect(categoryAfter.is_deleted).toBe(true);
+
+  const impossibleInsert = await api('/rest/v1/mosaic_candidate_tasks', secondToken,
+    taskBody('rejected_' + randomBytes(8).toString('hex')));
+  expect(impossibleInsert.ok).toBe(false);
+  const resurrection = await api('/rest/v1/rpc/mosaic_candidate_cas_category', owner.token, {
+    p_id: categoryId, p_expected_seq: categoryAfter.change_seq,
+    p_patch: { is_deleted: false },
+  });
+  expect(resurrection.ok).toBe(false);
+  expect((await rows(owner, 'categories')).find(row => row.id === categoryId).is_deleted).toBe(true);
+  const foreignRead = await api(
+    '/rest/v1/mosaic_candidate_tasks?select=*&category_id=eq.' + categoryId, foreign.token);
+  expect(foreignRead.ok).toBe(true);
+  expect(await foreignRead.json()).toEqual([]);
 });
 
 test('offline cold start: durable edits, simultaneous tab rotation and logout isolation', async ({ browser }) => {

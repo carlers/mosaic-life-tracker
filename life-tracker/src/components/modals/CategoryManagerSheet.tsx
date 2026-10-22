@@ -6,7 +6,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
-import { Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
+import { Archive, RotateCcw, Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
 import {
@@ -14,6 +14,8 @@ import {
   visibilityIcon,
 } from '../../lib/visibility';
 import type { CategoryDocument } from '../../db/schema';
+import { categoryDeletionCount, validLocalDateKey } from '../../lib/categoryLifecycle';
+import { format } from 'date-fns';
 
 type Visibility = 'private' | 'followers' | 'public';
 
@@ -60,6 +62,8 @@ interface CategoryRowProps {
   overriddenCount: number;
   onEditStart: (cat: CategoryDocument) => void;
   onDeleteRequest: (id: string) => void;
+  onRetireRequest: (id: string) => void;
+  onRestoreRequest: (id: string) => void;
   onReorderEnd: () => void;
   disabled: boolean;
 }
@@ -69,6 +73,8 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   overriddenCount,
   onEditStart,
   onDeleteRequest,
+  onRetireRequest,
+  onRestoreRequest,
   onReorderEnd,
   disabled,
 }) => {
@@ -102,6 +108,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-white truncate">{cat.name}</span>
           {visibilityIcon(cat.visibility)}
+          {cat.retiredOn && <span className="text-xs text-gray-400">Retired {cat.retiredOn}</span>}
         </div>
         {overriddenCount > 0 && (
           <span className="text-xs text-gray-400">
@@ -117,6 +124,14 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         aria-label="Edit category"
       >
         <Pencil size={16} />
+      </button>
+      <button
+        onClick={() => cat.retiredOn ? onRestoreRequest(cat.id) : onRetireRequest(cat.id)}
+        disabled={disabled}
+        className="p-2 text-gray-400"
+        aria-label={cat.retiredOn ? 'Restore category' : 'Retire category'}
+      >
+        {cat.retiredOn ? <RotateCcw size={16} /> : <Archive size={16} />}
       </button>
       <button
         onClick={() => onDeleteRequest(cat.id)}
@@ -144,6 +159,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     addCategory,
     updateCategory,
     deleteCategory,
+    retireCategory,
+    restoreCategory,
     reorderCategories,
   } = useCategories();
   const { tasks = [] } = useTasks();
@@ -159,6 +176,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [editVisibility, setEditVisibility] = useState<Visibility>('private');
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [retireId, setRetireId] = useState<string | null>(null);
+  const [retirementDate, setRetirementDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [orderedIds, setOrderedIds] = useState(() =>
     categories.map((cat) => cat.id)
   );
@@ -188,17 +208,13 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       setEditName('');
       setEditVisibility('private');
       setDeleteId(null);
+      setDeleteConfirmation('');
+      setRetireId(null);
     }
   }
 
-  // The first remaining category in user order is the deterministic
-  // destination. No tasks may be left pointing at a deleted category.
-  const deleteDestination = useMemo(() => [...categories]
-    .filter(cat => cat.id !== deleteId)
-    .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))[0],
-  [categories, deleteId]);
-  const deleteHasTasks = tasks.some(task => task.categoryId === deleteId);
-
+  const deletionCategory = categories.find(cat => cat.id === deleteId);
+  const deleteTaskCount = deleteId ? categoryDeletionCount(deleteId, tasks) : 0;
   const overriddenCounts = useMemo(() => {
     const map = new Map<string, number>();
     for (const t of tasks) {
@@ -243,16 +259,32 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId || deleteConfirmation !== deletionCategory?.name) return;
     await save(
       () => deleteCategory(deleteId),
-      () => setDeleteId(null),
+      () => { setDeleteId(null); setDeleteConfirmation(''); },
       'Could not delete category. Try again.'
     );
   };
 
   const handleCancelDelete = () => {
     setDeleteId(null);
+    setDeleteConfirmation('');
+  };
+  const handleConfirmRetire = async () => {
+    if (!retireId || !validLocalDateKey(retirementDate)) return;
+    await save(
+      () => retireCategory(retireId, retirementDate),
+      () => setRetireId(null),
+      'Could not retire category. Try again.'
+    );
+  };
+  const handleRestoreCategory = async (id: string) => {
+    await save(
+      () => restoreCategory(id),
+      () => setRetireId(null),
+      'Could not restore category. Try again.'
+    );
   };
 
   const resetForm = () => {
@@ -292,7 +324,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setEditName(c.name);
                 setEditVisibility(c.visibility);
               }}
-              onDeleteRequest={(id) => setDeleteId(id)}
+              onDeleteRequest={(id) => { setRetireId(null); setDeleteConfirmation(''); setDeleteId(id); }}
+              onRetireRequest={(id) => { setDeleteId(null); setRetireId(id); setRetirementDate(format(new Date(), 'yyyy-MM-dd')); }}
+              onRestoreRequest={(id) => { void handleRestoreCategory(id); }}
               onReorderEnd={() => {
                 if (!isSaving) void reorderCategories(pendingOrder.current);
               }}
@@ -360,22 +394,43 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
           </Button>
         )}
 
+        {retireId && (
+          <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
+            <p className="text-white">Retire category?</p>
+            <p className="text-sm text-gray-400">
+              Past tasks keep their original category. After the chosen date, this category
+              no longer appears for new tasks; existing scheduled tasks stay accessible.
+              You can restore it later.
+            </p>
+            <label htmlFor="category-retirement-date" className="block text-sm text-gray-300">Last active day</label>
+            <input id="category-retirement-date" type="date" value={retirementDate}
+              onChange={(e) => setRetirementDate(e.target.value)}
+              className="w-full rounded-lg bg-[#242424] border border-[#444] text-white p-2" />
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setRetireId(null)}
+                className="flex-1" disabled={isSaving}>Cancel</Button>
+              <Button onClick={handleConfirmRetire} className="flex-1"
+                disabled={isSaving || !validLocalDateKey(retirementDate)}>Retire</Button>
+            </div>
+          </div>
+        )}
+
         {deleteId && (
           <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
-            <p className="text-white">Delete this category?</p>
+            <p className="text-white">Delete category and all tasks?</p>
             <p className="text-sm text-gray-400">
-              {deleteDestination
-                ? `Tasks will move to ${deleteDestination.name} without changing their visibility.`
-                : deleteHasTasks
-                  ? 'Create another category first so these tasks are not lost.'
-                  : 'This empty category will be removed.'}
+              This will remove {deleteTaskCount} task{deleteTaskCount === 1 ? '' : 's'} across
+              all dates and Backlogs. The changes will sync to your devices. To keep
+              the history instead, cancel and retire the category.
             </p>
+            <Input label={`Type ${deletionCategory?.name ?? ''} to confirm`}
+              value={deleteConfirmation} onChange={e => setDeleteConfirmation(e.target.value)} />
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={handleCancelDelete} className="flex-1" disabled={isSaving}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleConfirmDelete} className="flex-1" disabled={isSaving || (deleteHasTasks && !deleteDestination)}>
-                Delete
+              <Button variant="ghost" onClick={handleCancelDelete} className="flex-1"
+                disabled={isSaving}>Cancel</Button>
+              <Button variant="danger" onClick={handleConfirmDelete} className="flex-1"
+                disabled={isSaving || deleteConfirmation !== deletionCategory?.name}>
+                Delete category and tasks
               </Button>
             </div>
           </div>

@@ -44,6 +44,7 @@ export interface CandidateCategoryWrite {
   order_index: number;
   visibility: CategoryDocument['visibility'];
   icon: string | null;
+  retired_on?: string;
   updated_at: string;
   is_deleted: boolean;
 }
@@ -169,6 +170,7 @@ export function toCandidateCategoryWrite(
     order_index: doc.order,
     visibility: doc.visibility,
     icon: doc.icon ?? null,
+    ...(doc.retiredOn !== undefined ? { retired_on: doc.retiredOn } : {}),
     updated_at: doc.updatedAt,
     is_deleted: doc.isDeleted,
   };
@@ -186,6 +188,7 @@ export function fromCandidateCategoryRow(
     order: row.order_index,
     visibility: row.visibility,
     icon: row.icon ?? undefined,
+    ...(row.retired_on !== undefined ? { retiredOn: row.retired_on } : {}),
     updatedAt: row.updated_at,
     userId: identity.legacyUserId,
     isDeleted: row.is_deleted,

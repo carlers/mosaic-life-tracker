@@ -22,6 +22,7 @@ interface CategorySectionProps {
   categoryName: string;
   categoryColor: string;
   visibility?: Visibility;
+  canAddTasks?: boolean;
   currentUserId: string;
   tasks: TaskDocument[];
   ownerLabels?: ReadonlyMap<string, string>;
@@ -64,6 +65,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   categoryName,
   categoryColor,
   visibility,
+  canAddTasks = true,
   currentUserId,
   tasks,
   ownerLabels,
@@ -117,6 +119,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const commitAdd = (completed = false) => {
+    if (!canAddTasks) return;
     const trimmed = newTitle.trim();
     if (trimmed) {
       onAddTask(trimmed, completed);
@@ -144,6 +147,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const handleOpen = () => {
+    if (!canAddTasks) return;
     setIsCollapsed(false);
     setIsAdding(true);
   };
@@ -259,11 +263,11 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       <button
         type="button"
         onClick={selectionMode ? () => onToggleCategorySelection?.(categoryId) : handleOpen}
-        disabled={selectionMode && (!onToggleCategorySelection || tasks.length === 0)}
+        disabled={selectionMode ? (!onToggleCategorySelection || tasks.length === 0) : !canAddTasks}
         className="mosaic-category-pill inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label={selectionMode
           ? `${allCategoryTasksSelected ? 'Deselect all' : 'Select all'} tasks in ${categoryName}`
-          : `Add a task to ${categoryName}`}
+          : canAddTasks ? `Add a task to ${categoryName}` : `Retired ${categoryName} tasks`}
         aria-pressed={selectionMode ? allCategoryTasksSelected : undefined}
       >
         {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
@@ -279,7 +283,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         >
           {selectionMode
             ? allCategoryTasksSelected ? <CheckSquare size={18} /> : <Square size={18} />
-            : <Plus data-testid="category-add-icon" size={18} />}
+            : canAddTasks ? <Plus data-testid="category-add-icon" size={18} /> : null}
         </span>
       </button>
       {showCollapseButton && (
@@ -317,7 +321,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </CategoryHeaderFrame>
       )}
 
-      {!categoryCollapsed && isAdding && (
+      {!categoryCollapsed && isAdding && canAddTasks && (
         <div
           data-testid="pending-task-row"
           className="flex items-start gap-3 rounded-lg pl-0 pr-2 py-2"

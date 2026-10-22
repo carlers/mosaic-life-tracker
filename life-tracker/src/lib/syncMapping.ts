@@ -307,6 +307,9 @@ export function fromAppwriteFormat(
     mapped.userId = mapped.user_id;
     mapped.isDeleted = mapped.deleted ?? false;
     mapped.icon = row.icon || '';
+    // Legacy Appwrite rows have no retirement metadata yet; an Appwrite
+    // schema migration is required before allowing remote retirement edits.
+    mapped.retiredOn = '';
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     delete mapped.user_id;
     delete mapped.deleted;

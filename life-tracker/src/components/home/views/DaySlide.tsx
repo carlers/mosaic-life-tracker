@@ -7,6 +7,7 @@ import {
   sortTaskPlacementByCompletion,
 } from '../../../lib/taskOrder';
 import { buildRenderedTasksByCategory } from './taskReorder';
+import { categoriesForDay } from '../../../lib/categoryLifecycle';
 
 interface ReadOnlySlideProps extends DaySlideProps {
   livePlacement: import('../../../lib/taskOrder').TaskPlacement;
@@ -43,16 +44,24 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     () => tasks.map(materializeTaskDocument),
     [tasks]
   );
+  const shownCategories = React.useMemo(
+    () => categoriesForDay(categories, materializedTasks, props.dateStr),
+    [categories, materializedTasks, props.dateStr]
+  );
+  const visibleCategories = React.useMemo(
+    () => shownCategories.map(({ category }) => category),
+    [shownCategories]
+  );
   const categoryIds = React.useMemo(
-    () => categories.map((category) => category.id),
-    [categories]
+    () => visibleCategories.map((category) => category.id),
+    [visibleCategories]
   );
   const livePlacement = React.useMemo(
     () => buildTaskPlacement(materializedTasks, categoryIds),
     [categoryIds, materializedTasks]
   );
 
-  if (categories.length === 0 && !props.sharedItems?.length && !props.diaryEnabled) {
+  if (visibleCategories.length === 0 && !props.sharedItems?.length && !props.diaryEnabled) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">No categories yet</p>
@@ -63,6 +72,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   const sharedProps = {
     ...props,
     tasks: materializedTasks,
+    categories: visibleCategories,
   };
 
   if (!reorderRuntimeActive) {

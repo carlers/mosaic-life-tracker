@@ -30,6 +30,8 @@ export interface CategoryDocument {
   isDeleted: boolean;
   icon?: string;
   updatedAt: string;
+  /** Inclusive owner-local cutoff. Empty/absent means active. */
+  retiredOn?: string;
 }
 export interface DiaryDocument {
   id: string;
@@ -169,7 +171,7 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
   ],
 };
 export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -195,6 +197,7 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     userId: { type: 'string', maxLength: 255 },
     isDeleted: { type: 'boolean' },
     icon: { type: 'string', maxLength: 10 },
+    retiredOn: { type: 'string', maxLength: 10, pattern: '^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     updatedAt: { type: 'string', maxLength: 50 },
   },
   indexes: [
@@ -413,4 +416,3 @@ export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
   },
   indexes: [['userId', 'collectionName']],
 };
-
