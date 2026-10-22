@@ -1,18 +1,15 @@
 # Session checkpoint
 
 Updated: 2026-10-22 UTC
-Current task: #1027 safe metadata-only inspection of encrypted live snapshot before isolated Supabase recovery.
+Current task: #1027 credential-free synthetic recovery acceptance.
 
-## Verified boundary
-- Isolated `feature/1027-supabase-recovery-20261020@04b0d42ed6143ec835377f0121cbefd73a0a01f9`: canonical Quality Gate #39713598138 and signed Core App Lab #39713598104 SUCCESS.
-- Owner-created, off-repository `mosaic-dev-20261022T031628Z.age` was checksum-verified and fully decrypted into `pg_restore` with exit 0. Its plaintext contents/private key are local only and unavailable to a connected chat agent.
-- Local PostgreSQL 17.11 on 127.0.0.1:25077 has native `auth.users` and no Mosaic app tables. Full raw archive restore failed/rolled back on protected managed `realtime.list_changes` definition. No independent restore accepted.
-- Hosted `mosaic-dev` has task/category schema and isolated Realtime only, no private Diary/retirement migrations. Do not modify hosted data, Auth, dev/main or Production before independent restore and release gates.
+## Verified baseline
+- Isolated Supabase feature/1027-supabase-recovery-20261020@46cdc37f9b6e762351a8c75a250bfa1381efcf4e: Quality Gate #39725299240 SUCCESS, signed Core App Lab #39725299287 SUCCESS.
+- Vercel Sandbox ran source/target PostgreSQL 18 with actual Mosaic migrations, two fake owner sessions, age encryption, selective eight-table restore, exact source/target hashes and signed-claim RLS checks: PASS. This is simulated Auth, not real GoTrue.
+- Private Fedora snapshot and age key are inaccessible to ChatGPT/cloud workers. The original snapshot still lacks an independently verified restore.
+- Hosted mosaic-dev has core-only schema and Realtime but no hosted private Diary or category-retirement migrations. Public signup disabled. dev/main/Production unchanged.
 
-## Scoped task
-- `chatgpt/1027-safe-backup-toc-20261022`: read-only age archive TOC inventory, returning sanitized object counts, refusing missing core/Auth entries and avoiding managed object replay. Add parser regressions and `supabase-poc/RESTORE_TOC.md`.
-- Local source checks, focused CI and source acceptance must be recorded after actual runs. No user-facing version bump; no API/project writes.
-
-## Next action
-- Verify exact source/CI and review the inventory logic; combine into isolated stable Preview only after required gates. The encrypted snapshot remains on the owner's machine. An actual restore still requires private local execution or an independently authorized secure worker with access to the encrypted snapshot and key. Do not request those secrets in chat.
-- After a safe object-level restore plan and independently proven Auth/RLS/CAS recovery, separately authorize hosted Diary/category migrations, public signup and release. Keep #1027, #1029 and #857 open.
+## Current scoped change and next action
+- Add an automatic disposable GitHub Action to replay the synthetic recovery on a clean runner, with a strict no-hosted-credentials boundary; version impact NONE.
+- Verify task focused CI, squash into isolated feature branch, then verify exact full Quality Gate, signed Supabase Core App Lab and Synthetic Restore Lab. Diagnose failures without weakening gates.
+- Real Auth/SMTP/Storage backup and restore, private source recovery, protected Preview + device tests and explicit Production approval remain mandatory before release. Keep #1027/#1029/#857 open.

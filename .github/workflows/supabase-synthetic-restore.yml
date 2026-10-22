@@ -1,0 +1,34 @@
+name: Supabase Synthetic Restore Lab
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'chatgpt/1027-ci-synthetic-restore-*'
+      - 'feature/1027-supabase-recovery-*'
+permissions:
+  contents: read
+concurrency:
+  group: supabase-synthetic-restore
+  cancel-in-progress: true
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install disposable PostgreSQL and age
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql age
+      - name: Check recovery script
+        run: bash -n supabase-poc/synthetic-restore-lab.sh
+      - name: Rehearse encrypted synthetic recovery
+        env:
+          MOSAIC_SYNTHETIC_RESTORE_LAB: '1'
+        run: bash supabase-poc/synthetic-restore-lab.sh
