@@ -314,8 +314,49 @@ describe('inline category actions', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(props.onUpdate).toHaveBeenCalledWith('work', {
-      name: 'Career', visibility: 'public',
+      name: 'Career', visibility: 'public', color: '#345678',
     }));
+  });
+
+  it('allows changing category color without changing its identity or visibility', async () => {
+    const props = renderRealSection();
+    fireEvent.click(screen.getByRole('button', { name: 'Category options for Work' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(screen.getByText('Current color: #345678')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: 'Select color #FF6B6B' }));
+    expect(screen.getByRole('radio', { name: 'Select color #FF6B6B' }))
+      .toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(props.onUpdate).toHaveBeenCalledExactlyOnceWith('work', {
+      name: 'Work', visibility: 'private', color: '#FF6B6B',
+    }));
+  });
+
+  it('discards cancelled color edits and retains a failed edit for retry', async () => {
+    const props = renderRealSection();
+    fireEvent.click(screen.getByRole('button', { name: 'Category options for Work' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Select color #FF6B6B' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(props.onUpdate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Category options for Work' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByText('Current color: #345678')).toBeInTheDocument();
+    props.onUpdate.mockRejectedValueOnce(new Error('write failed'));
+    fireEvent.click(screen.getByRole('radio', { name: 'Select color #FF6B6B' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByRole('alert');
+    expect(screen.getByRole('radio', { name: 'Select color #FF6B6B' }))
+      .toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(props.onUpdate).toHaveBeenCalledTimes(2));
+    expect(props.onUpdate).toHaveBeenLastCalledWith('work', {
+      name: 'Work', visibility: 'private', color: '#FF6B6B',
+    });
   });
 
   it('disables native text selection only on the interactive category pill', () => {

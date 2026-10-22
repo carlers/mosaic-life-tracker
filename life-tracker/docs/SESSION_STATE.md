@@ -1,20 +1,22 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: Issue #404 large-screen Todo List and Diary side panels plus in-Day-View layout switcher, v0.41.0.
+Current task: Issue #404 Todo List/Diary large-screen panels and in-Day-View controls, next isolated Preview v0.42.0.
 
-## Accepted baseline / prior dev repair
-- Owner confirmed issue #404 Calendar split v0.40.5 visually bug-free, and approved stable Preview → dev while keeping #404 OPEN.
-- Initial dev Vercel build failed unchanged Home bundle budget (381008/381000 gzip); owner explicitly authorized fix.
-- Repair stable Preview fix/404-dev-home-size-20261022@b1b4a60dc384d9fc6a70b2c2c9665765c36aa564 passed canonical Quality Gate 39647088964 and Trusted Delivery 39647619354. PR #1195 promoted exact tree to dev@2dbc4c809ba9e4a939f526c2474e7c0a28e5df8b, dev Quality Gate 39647846426 SUCCESS, official Vercel dev deployment dpl_CRYJx8Z5SCVCMBqQwdStRXFGw4PZ READY. Main and Production untouched.
+## Authorized baseline and concurrent reconciliation
+- User confirmed large-screen Calendar v0.40.5 working, authorized merge to dev and requested issue #404 remain OPEN. PR #1191 promoted accepted Calendar source to dev.
+- Original Vercel dev size failure repaired through PR #1195: dev@2dbc4c809ba9e4a939f526c2474e7c0a28e5df8b, Quality Gate 39647846426 SUCCESS, Vercel dpl_CRYJx8Z5SCVCMBqQwdStRXFGw4PZ READY; no main/Production changes.
+- Another workstream promoted category-color editing (issue #1185) to dev@ddd953842d636c41b6d8ad983684f2594c4c3e25, version v0.41.0, including revised Category Manager, Day Slide and reusable palette picker. Its changes do not overlap #404 feature source files; the feature now merges exact current dev and sets **v0.42.0**, avoiding version collision. Do not undo category-color editing.
+- Owner authorized #404 feature implementation but did not authorize subsequent dev/main/Production promotion. Keep issue #404 open.
 
-## Feature scope / delivery boundary
-- Owner authorized implementation (but not its later dev/main/Production promotion). Task branch chatgpt/404-todo-diary-panel-20261022, stable target feature/404-todo-diary-panel-20261022 from exact repaired dev.
-- v0.41.0 MINOR: reuse existing DayDetailPanel and DayViewSheet for Todo List and Diary on wide desktop, left/right with resize and month-grid/full-screen height modes; preserve existing inline Bottom behavior and narrow fallback. Preserve Diary double-tap opening, friend read-only/replies/diary entry placement, date navigation and existing Calendar snap corrections.
-- Lazy DayLayoutMenu in owner/friend sheet/inline and panel headers; uses existing synchronized preference keys for position/height, with keyboard/Escape and outside-click behavior.
-- Compact TodoCalendarGrid exposes a realignment callback, clips native horizontal scroll, and suppresses automatic Embla resize during panel motion. Full-screen workspace measurements are taken from the outer Home workspace to prevent breakpoint oscillation. Browser fixture tests real left/right compact month swipes including divider resizing.
-- No backend/schema/Production changes. No weakening of fixed 381000 Home gzip gate.
+## Current v0.42.0 feature
+- Task branch chatgpt/404-todo-diary-panel-20261022, stable Preview target feature/404-todo-diary-panel-20261022. [PR #1202](https://github.com/carlers/mosaic-life-tracker/pull/1202) is the feature PR.
+- Reuses existing DayDetailPanel in both Todo List and Diary desktop views, with left/right draggable panel, calendar-aligned or full-screen height; original Bottom inline content and mobile fallback remain.
+- In-Day-View DayLayoutMenu added to owner/friend Day View sheet, inline and panel headers, saving existing account-synced placement and height settings. Escape handler is on mounted menu React subtree, not effect-installed document listener.
+- Compact TodoCalendarGrid forwards measured Embla alignment callback to resize handle and uses overflow-clip/watchResize motion guard; browser regression swipes left and right repeatedly after divider resize. Retains existing Diary second-tap opening and friend reply/privacy paths.
+- Component index regenerated for new menu; v0.42.0 synchronized app/package/lock versions; no backend/schema/security/budget changes.
 
-## Verification so far / next
-- Earlier isolated source sandbox (before its 30-minute expiry) passed local v0.41.0 build at 380882/381000 Home gzip with public Preview config, lint 0 errors, targeted Calendar/Todo/menu DOM 16/16, full DOM 661/661, actual Chromium left/right compact month swipe 2/2, and version check. Initial full unit 1202/1204 only because generated COMPONENT_INDEX was stale; index was regenerated and its two failed contracts passed 10/10.
-- Those uncommitted sandbox files were lost when the session auto-expired; equivalent changes were reconstructed directly as Git blobs from the verified patch operations, along with version/index/tests and this checkpoint. Exact committed tree still requires remote CI verification. Do not treat old sandbox runs as acceptance evidence for a different SHA.
-- Next: create coherent task branch commit requesting [verify:browser]; if focused + browser gate green, open PR and squash to stable Preview, verify canonical and trusted Vercel READY, give user immutable test URL, keep issue #404 OPEN. Do not promote this v0.41.0 feature to dev or main without separate explicit owner approval. Manual touch/device and editing-draft preservation remain acceptance risks.
+## Verification and delivery
+- Before reconciling category-color changes, original task SHA 353fb13e9fb556c838857d64daaca61550411f2e passed focused and both real Playwright browser shards in [Quality Gate 39700022763](https://github.com/carlers/mosaic-life-tracker/actions/runs/39700022763). Earlier isolated local v0.41 source build 380882/381000 gzip, DOM 661/661, browser 2/2 passed.
+- Exact merged v0.42.0 task SHA must repeat focused/browser checks because it incorporates the newer dev category-color changes. Do not claim acceptance until exact checks succeed.
+- If task gate succeeds, fast-forward stable Preview branch from old dev baseline to accepted current dev and squash PR #1202, then require stable full canonical Quality Gate and trusted Vercel READY with immutable URL. Verify size headroom in actual provider environment, without weakening 381000-byte gate. Owner/device testing required.
+- Never merge this feature into dev/main/Production without separate approval. Preserve existing dev READY and keep #404 OPEN.

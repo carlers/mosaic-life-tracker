@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 import {
   PREDEFINED_COLORS,
@@ -20,26 +20,27 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
   ariaLabel = 'Choose a color',
 }) => {
   const availablePalettes = palettes.length > 0 ? palettes : PREDEFINED_COLORS;
-  const selectedPaletteId = useMemo(() => {
-    const normalizedSelected = selectedColor.toUpperCase();
-    return (
-      availablePalettes.find((palette) =>
-        palette.colors.some(
-          (color) => color.toUpperCase() === normalizedSelected
-        )
-      )?.id ?? availablePalettes[0].id
-    );
-  }, [availablePalettes, selectedColor]);
+  const normalizedSelected = selectedColor.toUpperCase();
+  const selectedPalette = availablePalettes.find((palette) =>
+    palette.colors.some((color) => color.toUpperCase() === normalizedSelected)
+  );
   const [activePaletteId, setActivePaletteId] =
-    useState<string>(selectedPaletteId);
-
+    useState(selectedPalette?.id ?? availablePalettes[0].id);
+  const selectedIsInPalette = Boolean(selectedPalette);
   const activePalette =
     availablePalettes.find((palette) => palette.id === activePaletteId) ||
-    availablePalettes.find((palette) => palette.id === selectedPaletteId) ||
+    selectedPalette ||
     availablePalettes[0];
 
   return (
     <div className="flex flex-col">
+      {!selectedIsInPalette && (
+        <div className="mb-2 flex items-center gap-2 text-xs text-gray-400">
+          <span className="h-5 w-5 shrink-0 rounded-full border border-[#444444]"
+            style={{ backgroundColor: selectedColor }} aria-hidden="true" />
+          <span>Current color: {selectedColor}</span>
+        </div>
+      )}
       <div
         role="tablist"
         aria-label="Color palette"
@@ -71,7 +72,7 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
       >
         {activePalette.colors.map((color) => {
           const isSelected =
-            selectedColor.toUpperCase() === color.toUpperCase();
+            normalizedSelected === color.toUpperCase();
           const indicatorColor = getReadableTextColor(color);
           return (
             <button
