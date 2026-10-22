@@ -34,6 +34,7 @@ here="$(cd "$(dirname "$0")" && pwd -P)"
 project="mosaic_dr_$(python3 -c 'import secrets; print(secrets.token_hex(6))')"
 scratch="$(mktemp -d "$HOME/.mosaic-private-recovery-XXXXXXXX")"
 chmod 700 "$scratch"
+private_network="mosaic_dr_net_$(python3 -c 'import secrets; print(secrets.token_hex(6))')"
 success=0
 cleanup() {
   if (( success == 0 )); then
@@ -43,10 +44,20 @@ cleanup() {
       grep -Fqx "project_id = \"$project\"" "$scratch/supabase/config.toml"; then
       (cd "$scratch" && supabase stop --no-backup >/dev/null 2>&1) || true
     fi
+    # Remove only this task's uniquely named Docker bridge, never default.
+    docker network rm "$private_network" >/dev/null 2>&1 || true
     rm -rf -- "$scratch"
   fi
 }
 trap cleanup EXIT
+# Supabase's official private development recipe: an independent bridge with
+# host binding fixed to loopback BEFORE any container is created.
+docker network create --driver bridge \
+  -o com.docker.network.bridge.host_binding_ipv4=127.0.0.1 \
+  "$private_network" >/dev/null || {
+  echo 'Could not create independent loopback-only Docker bridge' >&2
+  exit 1
+}
 cd "$scratch"
 supabase init --yes >/dev/null
 mkdir -p supabase/migrations
@@ -65,7 +76,8 @@ done
 python3 "$here/configure-private-disposable-stack.py" init "$scratch" "$project"
 # No user backup is decrypted before stack identity, empty-target and loopback
 # publication checks all succeed. Failures auto-destroy only this project.
-supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler \
+supabase start --network-id "$private_network" \
+  --exclude realtime,storage,functions,studio,mail,analytics,pooler \
   >"$scratch/start.stdout" 2>"$scratch/start.stderr" || {
   echo 'Could not initialize a separate local Supabase stack' >&2; exit 1;
 }
@@ -82,7 +94,8 @@ rm -f "$scratch/start.stdout" "$scratch/start.stderr" \
   "$scratch/reset.stdout" "$scratch/reset.stderr"
 success=1
 echo "ISOLATED_LOCAL_STACK_READY: $project"
+echo "PRIVATE_DOCKER_NETWORK: $private_network"
 echo "PRIVATE_LOCAL_DIRECTORY: $scratch"
 echo "LOCAL_AUTH_API: http://127.0.0.1:$(cat "$scratch/mosaic-disposable-api-port")"
 echo 'Fresh password sign-in and signed multi-owner privacy tests remain required.'
-echo 'Only after manual acceptance, stop this lab from its private directory: supabase stop --no-backup'
+echo 'After testing, stop the printed private project using supabase stop --no-backup and remove ONLY the printed private network.'

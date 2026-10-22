@@ -32,7 +32,14 @@ tables, a PostgreSQL version other than 17, missing schemas, externally
 published container ports and any mismatch of restored row contents.
 
 It creates a **new hidden 0700 local project directory**, random project ID
-starting `mosaic_dr_`, and separate autoallocated local ports. It bootstraps
+starting `mosaic_dr_`, and separate autoallocated local ports. It creates a **unique Docker bridge**
+with `com.docker.network.bridge.host_binding_ipv4=127.0.0.1` and uses
+`supabase start --network-id`, following
+[Supabase's loopback-only local-development guidance](https://supabase.com/docs/guides/local-development).
+It checks that *every* newly created published container port is bound only
+to loopback **before decrypting the private snapshot**. If the CLI ignores
+the network binding, the script refuses to load data and destroys the new
+stack. It bootstraps
 a new Supabase CLI stack with only six reviewed core migrations and checks
 the fresh target before decrypting anything. The user's existing
 `postgres:25077` target, other local Supabase stacks, hosted `mosaic-dev`,
@@ -89,6 +96,9 @@ records remain encrypted and intact regardless of the outcome.
 
 To stop the successful disposable stack when finished, run
 `cd <PRIVATE_LOCAL_DIRECTORY>` using the exact path printed locally, then
-`supabase stop --no-backup`. This discards the local rehearsal; it never
-deletes the original encrypted backup. The private directory can then be
-removed only after verifying its exact path and no other project data.
+`supabase stop --no-backup`. Then remove only the **exact**
+`PRIVATE_DOCKER_NETWORK` printed by the operator command with
+`docker network rm <PRIVATE_DOCKER_NETWORK>` once that stack is stopped.
+This discards the local rehearsal; it never deletes the original encrypted
+backup. The private directory can then be removed only after verifying its
+exact path and no other project data.

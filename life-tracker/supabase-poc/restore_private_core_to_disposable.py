@@ -263,6 +263,12 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, ValueError, subprocess.SubprocessError):
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        # The CI job has only randomly generated fake GoTrue accounts. Never
+        # print details from an operator's real encrypted backup.
+        if (os.getenv("GITHUB_ACTIONS") == "true" and
+                os.getenv("MOSAIC_REAL_AUTH_RECOVERY_LAB") == "1"):
+            print("Synthetic recovery guard:", type(error).__name__,
+                  str(error)[:350], file=sys.stderr)
         print("Disposable recovery failed a strict target, data compatibility or integrity check; no live DB was used.", file=sys.stderr)
         sys.exit(1)
