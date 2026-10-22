@@ -1,19 +1,16 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: Issue #404 Todo List / Diary left-right panel expansion and on-Day-View layout controls; deliver isolated Preview v0.42.0.
+Current task: Fix two owner-reported large-screen #404 v0.42.0 regressions and deliver an isolated v0.42.1 Preview.
 
-## State / authorization
-- Owner tested and accepted Calendar large-screen v0.40.5; issue #404 must stay OPEN while expanding Todo List and Diary. Owner authorized repair dev, then feature implementation/Preview, but NOT promotion of this v0.42.0 feature to dev/main/Production.
-- Concurrent category-color editing #1185 promoted version v0.41.0; #404 feature version bumped to v0.42.0 to avoid collision.
-- Latest owner-authorized hosting repair PR #1213 promoted source fix/404-dev-category-byte-20261022@c53d6b6bebdd0142a262c00476d35b46f6fce490 to dev@31be0286812ed52f86caaaa68541ae1e351aa671. Promotion Quality Gate 39705347609 SUCCESS and Vercel dpl_CfrmVLN56YsnZZH1Q2qWDkomqd92 READY. Home original 381000 gzip hard gate unchanged. Main/Production untouched.
+## Baseline and scope
+- Accepted Calendar large-screen v0.40.5 and repaired category-color v0.41.0 remain on dev@31be0286812ed52f86caaaa68541ae1e351aa671; dev Vercel READY. Main/Production unchanged.
+- Preview v0.42.0 from PR #1202 is stable at feature/404-todo-diary-panel-v042-20261022@acd7a4828540e662d2114ce5c75442279180a4e6, Quality Gate 39708270937 SUCCESS and Vercel dpl_4RwLy1dNqmc7idDbZTF3b675TKtN READY.
+- Two owner-reported bugs: live Full screen height → Calendar height can leave the panel taller than the workspace; while dragging the divider, reorderable tasks/categories/diary rows lag behind layout.
 
-## Feature and acceptance
-- Task branch chatgpt/404-todo-diary-panel-20261022, PR #1202 → Preview feature/404-todo-diary-panel-v042-20261022 (created from current accepted dev). Feature reuses DayDetailPanel for compact Todo/Diary left/right resizable panel, both height modes, and existing inline Bottom and narrow fallback. Shared account-synced DayLayoutMenu exists in owner/friend Day View header, and compact Embla swipe/resize browser regression.
-- Earlier task SHA 46abded72e8396d767236fbd981db3546ed19cb6 passed focused and both browser shards in Quality Gate 39703329481. The next merge task commit retains all v0.42.0 feature code and accepts latest dev HomePage.tsx search-close optimization through true two-parent merge, resolving protected PR conflict. Reverify exact new task SHA with [verify:browser] before Preview merge.
-- After new task CI success: squash PR #1202 into protected isolated Preview branch; require full stable canonical CI and trusted Vercel READY at exact SHA. Check actual Home bundle size in provider, no budget relaxations. Provide registered Preview alias for user testing. Keep #404 OPEN; device/touch/editor-draft checks pending user acceptance.
-
-## Popup clipping hardening before Preview
-- A review identified DayLayoutMenu's absolutely positioned popup would be clipped by the existing overflow-hidden DayDetailPanel and BottomSheet ancestors. Corrected by rendering the menu into document.body using a fixed-position portal anchored and repositioned to its trigger on window scroll/resize. Outside-click guard now considers both trigger and portaled menu and installs while open. React keyboard capture still closes with Escape and restores trigger focus. The menu popup remains outside the clipped panel's DOM ancestry.
-- Added targeted regression wrapping DayLayoutMenu in a clipped ancestor: portal visibility invariant, inside interaction and outside-click dismissal. Isolated exact source from previous commit + patch: menu DOM 4/4, eslint 0 errors, production build Home 380881/381000 gzip PASS. Browser CI and stable Preview canonical acceptance are still required at next task commit; do not call v0.42.0 READY until provider confirms.
-
-- Keyboard/focus follow-up: BottomSheet focus trapping can intercept Tab from a portaled popup. When the DayLayoutMenu is open, its React capture handler now owns Tab/Shift+Tab and Up/Down among the trigger and menu radios (stopping propagation to the parent sheet trap), while Escape returns focus to the trigger. New clipped-ancestor DOM regression verifies Tab, arrows, focus cycle, Escape. Isolated updated tests 5/5 PASS. Exact latest browser CI and stable Preview acceptance still required.
+## v0.42.1 repair candidate
+- Task branch chatgpt/404-height-resize-motion-20261022 from accepted Preview v0.42.0.
+- Height measurement now derives exclusively from the Home workspace bottom relative to the active frame top. Never feed back the panel-inflated frame height after switching screen/grid modes.
+- Divider changes the panel width custom property directly each animation frame and commits React state/persistence only at drag end; FLIP transforms for task/category/diary reorder rows are suspended only during the resize gesture. Preserve normal drag/reorder animations outside resizing.
+- Real-browser height-toggle and divider/row geometry regressions accompany the fix; do not weaken any tests, size/security budgets or settings.
+- Planned Preview v0.42.1 PATCH. Verify task browser gate, then squash only into existing protected stable Preview; require exact-tree canonical gate and Vercel READY before sharing for visual acceptance.
+- Issue #404 remains OPEN. Do not promote to dev/main/Production without separate approval. Manual authenticated touch/editor-draft checks outstanding.

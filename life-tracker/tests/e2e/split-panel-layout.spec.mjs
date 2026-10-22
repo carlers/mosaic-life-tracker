@@ -194,3 +194,80 @@ for (const height of ['grid', 'screen']) {
     });
   }
 }
+
+for (const side of ['left', 'right']) {
+  test(`switching the ${side} panel from full screen to calendar height does not retain excess height`, async ({ page }) => {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?splitPanelProbe=screen&side=${side}`);
+    const viewport = page.locator('[data-route-swipe-horizontal-owner="true"]');
+    await expect(viewport).toBeVisible();
+    await page.locator('[data-calendar-slide-index="30"] [data-calendar-day]').first().click();
+    const panel = page.getByTestId('day-panel-motion-host');
+    await expect(panel).toBeVisible();
+    const geometry = async () => page.evaluate(() => {
+      const panel = document.querySelector('[data-testid="day-panel-motion-host"]');
+      const workspace = document.querySelector('[data-testid="split-workspace"]');
+      const frame = document.querySelector('[data-testid="split-calendar-frame"]');
+      if (!(panel instanceof HTMLElement) || !(workspace instanceof HTMLElement) || !(frame instanceof HTMLElement))
+        throw Error('Missing split layout');
+      return {
+        top: panel.getBoundingClientRect().top,
+        bottom: panel.getBoundingClientRect().bottom,
+        workspaceTop: workspace.getBoundingClientRect().top,
+        workspaceBottom: workspace.getBoundingClientRect().bottom,
+        frameTop: frame.getBoundingClientRect().top,
+      };
+    });
+    await expect.poll(async () => Math.abs((await geometry()).bottom - (await geometry()).workspaceBottom)).toBeLessThan(3);
+    const toggle = page.getByTestId('split-toggle-height');
+    for (let step = 0; step < 4; step++) {
+      await toggle.click();
+      const expectedTop = step % 2 === 0 ? 'frameTop' : 'workspaceTop';
+      await expect.poll(async () => {
+        const current = await geometry();
+        return Math.abs(current.top - current[expectedTop]) +
+          Math.abs(current.bottom - current.workspaceBottom);
+      }).toBeLessThan(4);
+      await expect.poll(() => alignment(page, 30)).toBeLessThan(2);
+    }
+  });
+}
+
+test('task and category rows stay in phase with divider motion rather than easing after each width update', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?splitPanelProbe=grid&side=right&splitRows=1`);
+  await page.locator('[data-calendar-slide-index="30"] [data-calendar-day]').first().click();
+  const panel = page.getByTestId('day-panel-motion-host');
+  const task = panel.locator('[data-task-id]').first();
+  await expect(task).toBeVisible({ timeout: 12000 });
+  const divider = page.getByRole('separator', { name: 'Resize day details panel' });
+  const box = await divider.boundingBox();
+  if (!box) throw Error('Missing divider');
+  await page.mouse.move(box.x + box.width / 2, box.y + 50);
+  await page.mouse.down();
+  await expect(panel).toHaveAttribute('data-day-panel-resizing', 'true');
+  const frames = [];
+  for (let step = 1; step <= 8; step++) {
+    await page.mouse.move(box.x + box.width / 2 - step * 9, box.y + 50);
+    await page.waitForTimeout(16);
+    frames.push(await page.evaluate(() => {
+      const host = document.querySelector('[data-testid="day-panel-motion-host"]');
+      const row = host?.querySelector('[data-task-id]')?.closest('[data-panel-reorder-row]');
+      const category = host?.querySelector('[data-panel-reorder-row]');
+      const aside = host?.querySelector('[data-testid="calendar-day-side-panel"]');
+      if (!(host instanceof HTMLElement) || !(row instanceof HTMLElement) ||
+          !(category instanceof HTMLElement) || !(aside instanceof HTMLElement))
+        throw Error('Missing real reorderable rows in inspector');
+      const taskBounds = row.getBoundingClientRect();
+      const panelBounds = aside.getBoundingClientRect();
+      return {
+        width: host.getBoundingClientRect().width,
+        taskTransform: getComputedStyle(row).transform,
+        categoryTransform: getComputedStyle(category).transform,
+        withinPanel: taskBounds.left >= panelBounds.left - 2 && taskBounds.right <= panelBounds.right + 2,
+      };
+    }));
+  }
+  await page.mouse.up();
+  expect(Math.max(...frames.map(frame => frame.width)) - Math.min(...frames.map(frame => frame.width))).toBeGreaterThan(40);
+  expect(frames.every(frame => frame.taskTransform === 'none' && frame.categoryTransform === 'none' && frame.withinPanel)).toBe(true);
+  await expect(panel).not.toHaveAttribute('data-day-panel-resizing', 'true');
+});

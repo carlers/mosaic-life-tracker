@@ -71,6 +71,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   categories, friendName, currentUserId, onReplyToTask, onReactToTask, holidayConfig,
 }) => {
   const [panelWidth, setPanelWidth] = useState(readDayPanelWidth);
+  const panelRef = useRef<HTMLDivElement>(null);
   const heightMode = initialHeightMode;
   const [entered, setEntered] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -90,7 +91,10 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       // In grid mode the inspector starts beneath Home chrome, but its bottom
       // is the workspace bottom, not the possibly shorter month grid.
       const homeBottom = home?.getBoundingClientRect().bottom ?? rect.bottom;
-      setFrameHeight(Math.max(rect.height, homeBottom - rect.top));
+      // The panel is itself a flex child of the measured frame in grid mode.
+      // Using rect.height as a minimum feeds its previous screen-mode height
+      // back into the measurement after a live screen → grid switch.
+      setFrameHeight(Math.max(0, homeBottom - rect.top));
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
@@ -104,7 +108,13 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const appearance = useContext(AppearanceContext);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const effectivePanelWidth = clampDayPanelWidth(panelWidth, frameWidth);
-  const targetWidth = effectivePanelWidth + DAY_PANEL_DIVIDER_WIDTH;
+  // Change the divider geometry directly on the panel while dragging. A
+  // React update every pointer frame re-renders the whole Day View and makes
+  // Motion's reorderable rows trail behind the divider.
+  const targetWidth = `calc(var(--mosaic-day-panel-width) + ${DAY_PANEL_DIVIDER_WIDTH}px)`;
+  const resizePanel = (width: number) => {
+    panelRef.current?.style.setProperty('--mosaic-day-panel-width', `${width}px`);
+  };
   const exitedRef = useRef(onExited);
   const realignRef = useRef(onCalendarLayoutChange);
   useEffect(() => { exitedRef.current = onExited; }, [onExited]);
@@ -210,7 +220,9 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
 
   const panel = (
     <div
+      ref={panelRef}
       data-testid="day-panel-motion-host"
+      data-day-panel-resizing={dragging ? 'true' : undefined}
       data-day-panel-side={side}
       data-panel-split={isSplit ? 'true' : undefined}
       aria-hidden={!isPresented}
@@ -219,12 +231,13 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         ? 'swiper-no-swiping relative z-10 min-h-0 shrink-0 overflow-hidden'
         : `swiper-no-swiping absolute inset-y-0 ${side === 'left' ? 'left-0' : 'right-0'} z-20 max-w-full overflow-hidden bg-surface`}
       style={{
+        '--mosaic-day-panel-width': `${effectivePanelWidth}px`,
         order: side === 'left' ? -1 : 1,
         width: entered ? (isSplit ? targetWidth : 'min(100%, 440px)') : 0,
         height: frameHeight || '100%',
         pointerEvents: isPresented ? 'auto' : 'none',
         transition: reduceMotion || dragging ? 'none' : 'width 300ms cubic-bezier(0.22, 1, 0.36, 1)',
-      }}
+      } as React.CSSProperties}
       onTransitionEnd={event => {
         if (event.target !== event.currentTarget || event.propertyName !== 'width') return;
         void Promise.resolve(realignRef.current?.()).then(() => {
@@ -238,18 +251,21 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
           <DayPanelResizeHandle
             side={side} width={effectivePanelWidth} frameWidth={frameWidth} frameRef={frameRef}
             screenHeight={Boolean(portalHost) && heightMode === 'screen'}
-            onResize={setPanelWidth}
+            onResize={resizePanel}
             onResizeStart={() => {
               void realignRef.current?.(true);
               viewportRef.current?.setAttribute('data-panel-motion', 'true');
               setDragging(true);
             }}
-            onCommit={saveDayPanelWidth}
+            onCommit={width => {
+              setPanelWidth(width);
+              saveDayPanelWidth(width);
+            }}
             onResizeEnd={finishResize}
           />
         )}
         <div className="h-full min-h-0 shrink-0 p-2"
-          style={{ width: isSplit ? effectivePanelWidth : 'min(100%, 440px)' }}>
+          style={{ width: isSplit ? 'var(--mosaic-day-panel-width)' : 'min(100%, 440px)' }}>
     <aside
       aria-label="Day details"
       className="swiper-no-swiping flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"

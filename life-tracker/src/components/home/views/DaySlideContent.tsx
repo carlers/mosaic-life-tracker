@@ -210,6 +210,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
     : null;
   const diaryCard = diaryEnabled ? (
     <motion.div
+      data-diary-reorder-row="true"
       key={diaryReleaseRevision}
       layout={reorderRuntimeActive && !diaryDragging && !diarySettling ? 'position' : false}
       data-diary-source-slot={diaryDragging ? 'true' : undefined}
@@ -265,7 +266,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       }
     >
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="top" active={diaryDragging}/>}
-      {diaryEnabled && fallbackPlacement.kind === 'top' && <motion.div layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
+      {diaryEnabled && fallbackPlacement.kind === 'top' && <motion.div data-diary-reorder-row="true" layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
       <DayViewCategoryReorder
         categories={categories}
@@ -343,7 +344,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       )}
       />
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'bottom' && diaryGhost}
-      {diaryEnabled && fallbackPlacement.kind === 'bottom' && <motion.div layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
+      {diaryEnabled && fallbackPlacement.kind === 'bottom' && <motion.div data-diary-reorder-row="true" layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="bottom" active={diaryDragging}/>}
       {!selectionMode && unassignedShares.length > 0 &&
         onSharedCompletion && sharedPendingFor && (

@@ -369,7 +369,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             eagerRegister={index < 12} animatePosition={animatePositions}>
             <DraggableTaskItem {...taskProps(task)} />
           </TaskRowDropSurface>
-        : <motion.div key={task.id} layout={animatePositions ? 'position' : false}
+        : <motion.div key={task.id} data-panel-reorder-row="true" layout={animatePositions ? 'position' : false}
             transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>
             <TaskItem {...taskProps(task)} />
           </motion.div>
