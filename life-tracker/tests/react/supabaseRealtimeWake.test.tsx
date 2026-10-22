@@ -35,7 +35,7 @@ class FakeSocket {
   }
 }
 const publishableKey = 'sb_publishable_test_test_test';
-function harness() {
+function harness(includeDiary = false) {
   const signed = { userId: owner, accessToken: 'signed-owner-token', sessionEpoch: 3 };
   const session = { getVerifiedSession: vi.fn(async () => ({ ...signed })) };
   const onWake = vi.fn(async () => {});
@@ -43,6 +43,7 @@ function harness() {
   const stop = startCoreRealtimeWake({
     baseUrl: 'https://hcxtiifzxoaflhjgoglb.supabase.co',
     publishableKey, session, onWake, isActive: () => active,
+    includeDiary,
     socketFactory: url => new FakeSocket(url) as unknown as WebSocket,
     isOnline: () => true,
     isVisible: () => true,
@@ -87,6 +88,21 @@ describe('Supabase signed owner realtime wake (#1187)', () => {
     expect(socket.closed).toBe(true);
     socket.change(7, 'INSERT', owner);
     expect(h.onWake).toHaveBeenCalledTimes(2);
+  });
+
+  it('includes private Diary INSERT/UPDATE only under the explicit personal profile', async () => {
+    const h = harness(true);
+    const socket = await getSocket();
+    socket.open();
+    const join = socket.frames.find(frame => frame.event === 'phx_join')!;
+    const config = join.payload.config as { postgres_changes: Array<{ event: string; table: string; filter: string }> };
+    expect(config.postgres_changes).toHaveLength(6);
+    expect(config.postgres_changes.filter(entry => entry.table === 'mosaic_candidate_diary')
+      .map(entry => entry.event).sort()).toEqual(['INSERT', 'UPDATE']);
+    expect(config.postgres_changes.every(entry => entry.filter === 'owner_id=eq.' + owner)).toBe(true);
+    socket.acceptJoin();
+    await vi.waitFor(() => expect(h.onWake).toHaveBeenCalledTimes(1));
+    h.stop();
   });
 
   it('fences in-flight changes after session replacement or account switch', async () => {

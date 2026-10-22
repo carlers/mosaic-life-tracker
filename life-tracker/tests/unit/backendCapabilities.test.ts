@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CORE_MVP_SYNC_COLLECTIONS,
+  CORE_MVP_SYNC_COLLECTIONS, PERSONAL_MVP_SYNC_COLLECTIONS,
   assertSafeProviderSwitch,
   assertSingleCloudWriter,
   driverForBackend,
@@ -19,6 +19,21 @@ describe('Mosaic core-only capability boundary (#1026 / #1027)', () => {
     expect(hasCapability('diary', 'full')).toBe(true);
     expect(hasCapability('social', 'full')).toBe(true);
     expect(CORE_MVP_SYNC_COLLECTIONS).toEqual(['tasks', 'categories']);
+  });
+
+  it('enables private Diary without exposing social or image domains in personal MVP', () => {
+    expect(resolveFeatureProfile('core-diary')).toBe('core-diary');
+    expect(PERSONAL_MVP_SYNC_COLLECTIONS).toEqual(['tasks', 'categories', 'diary']);
+    expect(hasCapability('core', 'core-diary')).toBe(true);
+    expect(hasCapability('diary', 'core-diary')).toBe(true);
+    expect(hasCapability('diary', 'core-diary', false)).toBe(false);
+    for (const feature of ['bucketList', 'social', 'alerts', 'chat', 'sharedTasks', 'taskImages'] as const) {
+      expect(hasCapability(feature, 'core-diary', true)).toBe(false);
+    }
+    for (const page of ['explore', 'friendCalendar', 'messages', 'chat', 'notifications',
+      'notificationSettings', 'bucketList', 'bucketListDetail']) {
+      expect(isPageAvailable(page, 'core-diary')).toBe(false);
+    }
   });
 
   it('preserves core features while fail-closing unsupported backend domains', () => {

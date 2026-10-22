@@ -14,6 +14,9 @@ describe('explicit core backend selection', () => {
       VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_disposable',
     };
     expect(resolveCoreBackendConfig(valid).driver).toBe('supabase');
+    expect(resolveCoreBackendConfig({
+      ...valid, VITE_MOSAIC_FEATURE_PROFILE: 'core-diary',
+    }).driver).toBe('supabase');
     expect(() => resolveCoreBackendConfig({ ...valid, VITE_MOSAIC_FEATURE_PROFILE: 'full' })).toThrow();
     expect(() => resolveCoreBackendConfig({ ...valid, VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_secret_forbidden' })).toThrow();
     expect(() => resolveCoreBackendConfig({ ...valid, VITE_SUPABASE_URL: 'https://production.supabase.co' })).toThrow();

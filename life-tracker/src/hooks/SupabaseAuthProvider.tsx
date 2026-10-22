@@ -15,6 +15,7 @@ import { createSupabaseBrowserSession } from '../lib/supabaseBrowserSession';
 import type { CandidateIdentity } from '../../supabase-poc/candidateMapping';
 import { markOfflineDataReady } from '../lib/offlineReadiness';
 import { startCoreRealtimeWake } from '../lib/supabaseRealtimeWake';
+import { MOSAIC_FEATURE_PROFILE } from '../lib/backendCapabilities';
 
 function reportAuthOutage(error: unknown) {
   if (error instanceof CandidateSessionUnavailableError ||
@@ -40,7 +41,8 @@ function createRuntime(config: Extract<CoreBackendConfig, { driver: 'supabase' }
   const session = browser?.session ?? createCandidateAuthSession({ ...config, logoutScope: 'local' });
   const authority = createSupabaseCoreAuthority({ ...config, session });
   const coordinator = createSupabaseCoreAuthCoordinator({
-    ...config, selectedBackend: 'supabase-cloud', featureProfile: 'core-only',
+    ...config, selectedBackend: 'supabase-cloud',
+    featureProfile: MOSAIC_FEATURE_PROFILE === 'core-diary' ? 'core-diary' : 'core-only',
     session, guard: authority.guard, resolveIdentity: authority.resolveIdentity,
     async assertLocalAppwriteStopped() {
       const { assertAppwriteSyncStoppedForCore } = await import('../db/sync');
@@ -280,7 +282,7 @@ export default function SupabaseAuthProvider({ config, children }: {
         settling = null;
       });
     };
-    const activity = [false, false];
+    const activity: boolean[] = Array(states?.length ?? 2).fill(false);
     let conflictCount = 0;
     const unsubscribeConflicts = runtime.coordinator.subscribeConflicts(() => {
       if (!active) return;
@@ -315,6 +317,7 @@ export default function SupabaseAuthProvider({ config, children }: {
         (runtime.session.getExpiresAt() ?? 0) - Date.now() >= 120_000 &&
         (!runtime.browser || runtime.browser.isCurrent()),
       onWake: catchUp,
+      includeDiary: MOSAIC_FEATURE_PROFILE === 'core-diary',
     });
     const online = () => { void catchUp(); };
     const visible = () => { if (document.visibilityState === 'visible') online(); };

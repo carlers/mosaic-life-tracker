@@ -19,7 +19,7 @@ import type {
 
 export interface AppSupabaseCoreBootstrapOptions {
   selectedBackend: 'supabase-cloud';
-  featureProfile: 'core-only';
+  featureProfile: 'core-only' | 'core-diary';
   baseUrl: string;
   publishableKey: string;
   identity: CandidateIdentity;
@@ -35,7 +35,7 @@ type BridgePhase = 'idle' | 'starting' | 'active' | 'paused' | 'stopping' | 'blo
 
 export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrapOptions) {
   if (options.selectedBackend !== 'supabase-cloud' ||
-      options.featureProfile !== 'core-only') {
+      !['core-only', 'core-diary'].includes(options.featureProfile)) {
     throw new Error('Supabase core bootstrap requires an explicit provider and core-only profile');
   }
   validateCandidateIdentity(options.identity);
@@ -128,7 +128,10 @@ export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrap
         identity: options.identity,
         session: options.session,
         guard: options.guard,
-        collections: { tasks: db.tasks, categories: db.categories },
+        collections: {
+          tasks: db.tasks, categories: db.categories,
+          ...(options.featureProfile === 'core-diary' ? { diary: db.diary } : {}),
+        },
         selectedBackend: 'supabase',
         featureProfile: 'core-only',
         fetcher: options.fetcher,
@@ -150,6 +153,7 @@ export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrap
       return {
         taskState: established.taskState,
         categoryState: established.categoryState,
+        ...('diaryState' in established ? { diaryState: established.diaryState } : {}),
         async awaitInitialReplication() {
           ensureActive();
           await established.awaitInitialReplication();
@@ -168,13 +172,13 @@ export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrap
           ensureActive();
           return established.subscribeConflicts(listener);
         },
-        async refreshConflict(domain: 'tasks' | 'categories', id: string) {
+        async refreshConflict(domain: 'tasks' | 'categories' | 'diary', id: string) {
           ensureActive();
           const result = await established.refreshConflict(domain, id);
           ensureActive();
           return result;
         },
-        async keepLocalConflict(domain: 'tasks' | 'categories', id: string, revision: string) {
+        async keepLocalConflict(domain: 'tasks' | 'categories' | 'diary', id: string, revision: string) {
           ensureActive();
           const result = await established.keepLocalConflict(domain, id, revision);
           ensureActive();
