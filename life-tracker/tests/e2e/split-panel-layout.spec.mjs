@@ -271,6 +271,8 @@ test('task and category rows stay in phase with divider motion rather than easin
   }
   await page.mouse.up();
   expect(Math.max(...frames.map(frame => frame.width)) - Math.min(...frames.map(frame => frame.width))).toBeGreaterThan(40);
-  expect(frames.every(frame => frame.taskTransform === 'none' && frame.categoryTransform === 'none' && frame.withinPanel)).toBe(true);
+  const badFrames = frames.map((frame, index) => ({ index, ...frame }))
+    .filter(frame => frame.taskTransform !== 'none' || frame.categoryTransform !== 'none' || !frame.withinPanel);
+  expect(badFrames, 'Each live frame must keep task/category rows aligned: ' + JSON.stringify(frames)).toEqual([]);
   await expect(panel).not.toHaveAttribute('data-day-panel-resizing', 'true');
 });
