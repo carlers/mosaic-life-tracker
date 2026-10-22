@@ -47,6 +47,7 @@ jobs:
           cp supabase-poc/migrations/20261020_core_fresh_identity_authority.sql supabase/migrations/20261020000001_authority.sql
           cp supabase-poc/migrations/20261021_core_realtime_publication.sql supabase/migrations/20261020000002_realtime.sql
           cp supabase-poc/migrations/20261022_candidate_private_diary_domain.sql supabase/migrations/20261020000003_private_diary.sql
+          cp supabase-poc/migrations/20261022_candidate_private_diary_realtime.sql supabase/migrations/20261020000005_diary_realtime.sql
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -83,6 +84,8 @@ jobs:
           test "${#local_db[@]}" -eq 1
           docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres \
             < supabase-poc/validation/20261022_private_diary_contract.sql
+          docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres \
+            < supabase-poc/validation/20261022_private_diary_realtime_contract.sql
       - name: Exercise signed real UI and server authority
         run: |
           set -euo pipefail
