@@ -195,6 +195,12 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, ValueError):
+    except (OSError, ValueError) as error:
+        # The synthetic CI runner owns its generated fake archive. Operator
+        # output must never contain parser diagnostics from a private archive.
+        if (os.environ.get("MOSAIC_SYNTHETIC_RESTORE_LAB") == "1"
+                and os.environ.get("GITHUB_ACTIONS") == "true"):
+            print("Synthetic row count diagnostic:", type(error).__name__,
+                  str(error), file=sys.stderr)
         print("Offline source row-count audit failed; zero database writes", file=sys.stderr)
         sys.exit(1)
