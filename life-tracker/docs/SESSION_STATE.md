@@ -1,18 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-22 UTC
-Current task: #1027 owner-provided encrypted archive TOC PASS; offline data decoding preflight.
+Current task: #1027 privacy-safe source row-count audit after real encrypted snapshot decode.
 
 ## Verified baseline
-- Isolated Supabase stable feature/1027-supabase-recovery-20261020@277db87915f95f807936035af37abc2318e67ac0; exact-SHA full Quality Gate #39732857270, signed GoTrue Core App Lab #39732857286, nine-table Synthetic Restore Lab #39732857266 and real GoTrue reset-and-restore #39732857308 all SUCCESS.
-- Owner executed private Fedora `inspect-encrypted-backup-toc.sh` on `mosaic-dev-20261022T031628Z.age`: METADATA_ONLY_NOT_RESTORED; 707 TOC entries, 75 Mosaic-owned entries, 9 Mosaic-owned data entries, 537 platform managed entries (490 definitions), auth users/identities/sessions present, exactly 6/6 critical data entries present, missingRequiredEntries empty, restoresPerformed 0. Result **does not** verify data decoding or actual restore.
-- Read-only hosted mosaic-dev aggregate at previous checkpoint: 81 Auth users, 78 marked disposable/banned/frozen and 3 unmarked; 81 Auth identities, 184 sessions, 58 tasks (9 live), 53 categories (1 live), 49 owner revisions, 81 authorities (78 frozen), no Storage buckets/objects. Hosted Diary/retirement not installed. No cloud mutations performed in this work.
+- Stable isolated Supabase feature/1027-supabase-recovery-20261020@ecb5baf80707f6d5d5fae332f4fcc4f51891cac7: exact-SHA Quality Gate #39738976067, signed Core App Lab #39738976121, Synthetic Restore Lab #39738976137 and real GoTrue Restore Lab #39738976108 all SUCCESS.
+- Owner privately authenticated original `mosaic-dev-20261022T031628Z.age` archive and passed offline metadata (707 TOC objects, six critical TABLE DATA entries) and seekable memfd DATA-only decode `SELECTED_DATA_DECODE_PASS`; no database restores or account data read into chat.
+- Original archive includes 27 Auth TABLE DATA entries (including sessions and refresh tokens) and five other Mosaic TABLE DATA entries: `mosaic_candidate_private.beta_signup_invitations`, `mosaic_candidate_private.core_sessions`, `mosaic_poc_internal.owner_revision`, `public.mosaic_poc_items`, `public.mosaic_sync_probe`. Their row counts are unknown; none may be discarded or replayed without role/data migration review.
+- Hosted mosaic-dev read-only last known aggregate: 81 Auth users, 78 marked test/banned/frozen and three unmarked; 58 tasks, 53 categories, 49 owner revisions, 81 authorities, no Storage buckets/objects; hosted Diary and category retirement absent. No provider mutation from this task.
 
 ## Task
-- Add credential-free, read-only private backup preflight that authenticates age ciphertext, builds strict six-entry TABLE DATA plan from archive TOC, reports extra Mosaic-only table identifiers for review and uses anonymous Linux seekable memfd (256 MiB cap) to decode selected SQL to /dev/null without DB connection or plaintext disk file. No data, tokens, role names or secret keys appear in the output.
-- Add negative tests for absent or duplicate objects and synthetic encrypted archive CI rehearsal; document exact operator command and limitations. No app version impact; no provider, dev/main, Production or live user data changes.
+- Create a safe count-only preflight that reads all PostgreSQL TABLE DATA entries from authenticated original ciphertext through capped anonymous Linux memfd and pg_restore COPY pipeline; returns per-table record counts only, with no row contents, IDs, emails, hashes, tokens, SQL execution, DB connections or disk plaintext.
+- Add negative parser and generated-encrypted-archive CI acceptance, operator runbook and current checkpoint. No user-visible version impact; no hosted writes, dev/main merge, or Production deployment.
 
 ## Next action
-- Run focused task Quality Gate + disposable synthetic lab. If green, squash into isolated Supabase feature and verify full canonical and all three Supabase labs on merged SHA.
-- Owner then runs the offline decode-only check in supabase-poc/RESTORE_TOC.md and shares its sanitized JSON/final PASS line. Determine the additional custom tables and Auth/managed-schema compatibility before designing any real restore into separately initialized disposable Supabase.
-- Actual encrypted snapshot recovery, Auth/passwords and multi-owner privacy verification, device/Preview/security gates, hosted Diary/category migrations, public signup and release all remain unverified/blocked. Keep #1027, #1029, #857 open; never upload backup/private key, bypass managed roles or promote dev/main/Production without separate approval.
+- Finish focused task branch Quality Gate + synthetic row-count test, squash into only isolated Supabase candidate, and verify exact-SHA four canonical/real GoTrue/synthetic labs.
+- Owner runs `python3 supabase-poc/audit_private_archive_rows.py <absolute-age-archive> <absolute-identity>` from updated isolated Fedora checkout and shares sanitized JSON only in this private chat. Compare core row counts to hosted snapshot time and reconcile nonempty Auth/storage/legacy tables prior to restoring any data.
+- Real backup recovery still requires independently initialized disposable Supabase Postgres 17, explicit table dependencies, signed password and two-owner RLS, full restored row counts and data hashes, role/Auth/SMTP/Storage compatibility, public signup/Preview/mobile release gates. Keep #1027/#1029/#857 open; never upload private archive/age key or bypass managed privileges. No unauthorized dev/main/Production promotion.

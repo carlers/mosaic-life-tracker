@@ -74,6 +74,19 @@ if age -d -i "$tmp/key" "$tmp/truncated.age" >/dev/null 2>&1; then exit 1; fi
 node "$root/supabase-poc/inspect-archive-toc.mjs" < <(pg_restore -l "$tmp/recovered.dump") >"$tmp/toc-summary.json"
 # Exercise the same private operator workflow using ONLY generated fake data.
 bash "$root/supabase-poc/check-private-archive-data.sh" "$tmp/backup.age" "$tmp/key"
+# Count all synthetic source TABLE DATA rows without exposing their contents.
+python3 "$root/supabase-poc/audit_private_archive_rows.py" "$tmp/backup.age" "$tmp/key" >"$tmp/private-row-counts.json"
+node -e '
+ const s=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));
+ for(const k of ["auth.users","auth.identities","mosaic_candidate_private.core_authorities","mosaic_candidate_private.owner_revisions","public.mosaic_candidate_categories","public.mosaic_candidate_tasks"]){
+   if(s.coreDataRowCounts[k]!==2)throw Error("Synthetic row count mismatch");
+ }
+ if(s.additionalMosaicRowCounts["mosaic_candidate_private.core_sessions"]!==2 ||
+    s.additionalMosaicRowCounts["public.mosaic_candidate_diary"]!==2 ||
+    s.authNonemptyTableRowCounts["auth.sessions"]!==2 ||
+    s.allTableDataEntriesCounted!==9 ||
+    s.restoresPerformed!==0 || s.rowValuesOutput!==0)throw Error("Synthetic audit missed data");
+' "$tmp/private-row-counts.json"
 # Only these disposable fake records are relaxed for local postgres access.
 chmod 711 "$tmp"
 chmod 644 "$tmp/recovered.dump"
