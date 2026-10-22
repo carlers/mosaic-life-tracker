@@ -115,6 +115,7 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
     onToggleTaskSelection,
     onToggleCategorySelection,
     emptyCategoryPrompt,
+    footerCategoryPrompt,
   }: {
     tasks: TaskDocument[];
     onOpenActions: (task: TaskDocument) => void;
@@ -123,6 +124,7 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
     onToggleTaskSelection?: (taskId: string) => void;
     onToggleCategorySelection?: (categoryId: string) => void;
     emptyCategoryPrompt?: ReactNode;
+    footerCategoryPrompt?: ReactNode;
   }) =>
     tasks.length > 0 ? (
       <>
@@ -141,8 +143,9 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
               : index ? `Open actions ${task.id}` : 'Open actions'}
           </button>
         ))}
+        {footerCategoryPrompt}
       </>
-    ) : emptyCategoryPrompt ?? null,
+    ) : footerCategoryPrompt ?? emptyCategoryPrompt ?? null,
 }));
 
 vi.mock('../../src/components/home/views/MemoSheet', () => ({
@@ -786,7 +789,45 @@ describe('Day View first category onboarding', () => {
     expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
   });
 
+  it('shows a repeatable footer for populated owner categories only when enabled', async () => {
+    firstCategoryFixture.categories = [fixture.category, fixture.secondCategory];
+    const { rerender } = render(<DayViewSheet {...ownerProps}
+      categories={[fixture.category, fixture.secondCategory]} />);
+    expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
+    settingsFixture.values = { showAddCategoryInDayView: true };
+    rerender(<DayViewSheet {...ownerProps} categories={[fixture.category, fixture.secondCategory]} />);
+    expect(screen.getAllByRole('button', { name: 'Add category' })).toHaveLength(1);
+    expect(screen.queryByText('No categories yet')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add category' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Category name' }), {
+      target: { value: '  Extra  ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    await waitFor(() => expect(firstCategoryFixture.addCategory).toHaveBeenCalledWith({
+      name: 'Extra', color: '#3B82F6', visibility: 'private', order: 2, icon: '',
+    }));
+    expect(await screen.findByRole('button', { name: 'Add category' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Add category' }));
+    expect(screen.getByRole('textbox', { name: 'Category name' })).toHaveValue('');
+  });
+
+  it('uses only one bottom action for an empty owner and hides it in select mode or another user view', () => {
+    settingsFixture.values = { showAddCategoryInDayView: true };
+    const { rerender } = render(<DayViewSheet {...ownerProps} />);
+    expect(screen.getAllByRole('button', { name: 'Add category' })).toHaveLength(1);
+    expect(screen.queryByText('No categories yet')).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find(button => button.getAttribute('tabindex') === '0') as HTMLElement);
+    expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Exit selection mode' })
+      .find(button => button.getAttribute('tabindex') === '0') as HTMLElement);
+    expect(screen.getByRole('button', { name: 'Add category' })).toBeVisible();
+    rerender(<DayViewSheet {...ownerProps} categories={[{ ...fixture.category, userId: 'other_user' }]} />);
+    expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
+  });
+
   it('does not show first-category CTA before owner categories hydrate or in Backlogs', () => {
+    settingsFixture.values = { showAddCategoryInDayView: true };
     firstCategoryFixture.loading = true;
     const { rerender } = render(<DayViewSheet {...ownerProps} />);
     expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
@@ -799,5 +840,13 @@ describe('Day View first category onboarding', () => {
     settingsFixture.values = { dayViewMode: 'timeline' };
     render(<DayViewSheet {...ownerProps} showDiaryAlways />);
     expect(await screen.findByRole('button', { name: 'Add category' }, { timeout: 5000 })).toBeVisible();
+  });
+
+  it('keeps the timeline footer action after existing categories when enabled', async () => {
+    firstCategoryFixture.categories = [fixture.category];
+    settingsFixture.values = { dayViewMode: 'timeline', showAddCategoryInDayView: true };
+    render(<DayViewSheet {...ownerProps} showDiaryAlways categories={[fixture.category]} />);
+    expect(await screen.findByRole('button', { name: 'Add category' }, { timeout: 5000 })).toBeVisible();
+    expect(screen.queryByText('No categories yet')).toBeNull();
   });
 });

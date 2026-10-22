@@ -27,6 +27,7 @@ export interface DaySlideProps {
   tasks: TaskDocument[];
   categories: CategoryDocument[];
   emptyCategoryPrompt?: React.ReactNode;
+  footerCategoryPrompt?: React.ReactNode;
   currentUserId: string;
   sharedItems?: SharedTaskItem[];
   ownerLabels?: ReadonlyMap<string, string>;
@@ -104,6 +105,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   scrollMode = 'page',
   categories,
   emptyCategoryPrompt,
+  footerCategoryPrompt,
   currentUserId,
   sharedItems = [],
   ownerLabels,
@@ -358,6 +360,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           selectedItem={selectedSharedTask} actionsOnly
           onSheetOpenChange={onSharedSheetOpenChange} />
       )}
+      {footerCategoryPrompt}
     </motion.div>
   );
 };

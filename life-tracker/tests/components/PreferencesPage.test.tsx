@@ -216,6 +216,24 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
   });
 
+  it('defaults to hiding the persistent Day View category action and saves explicit opt-in', () => {
+    const { unmount } = render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    const toggle = screen.getByRole('switch', { name: 'Always show Add category in Day View' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(toggle);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showAddCategoryInDayView', true);
+    unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'showAddCategoryInDayView' ? true : defaultValue
+    );
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    const enabled = screen.getByRole('switch', { name: 'Always show Add category in Day View' });
+    expect(enabled).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(enabled);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showAddCategoryInDayView', false);
+  });
+
   it('keeps pinch gestures opt-in for malformed stored values', () => {
     mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
       key === 'calendarPinchZoom' ? 'true' : defaultValue
