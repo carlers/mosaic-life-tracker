@@ -15,6 +15,7 @@ interface Props {
 
 export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth, frameRef, screenHeight, onResize, onCommit, onResizeStart, onResizeEnd }) => {
   const dragging = useRef<number | null>(null);
+  const separatorRef = useRef<HTMLDivElement>(null);
   const lastWidth = useRef(width);
   const frame = useRef<number | null>(null);
   useEffect(() => () => {
@@ -23,6 +24,10 @@ export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth,
   const resize = (value: number, pointer = false) => {
     const next = clampDayPanelWidth(value, frameWidth);
     lastWidth.current = next;
+    // React's width prop updates only on commit; keep the accessible live
+    // value current while the panel itself resizes without React renders.
+    separatorRef.current?.setAttribute('aria-valuenow', String(next));
+    separatorRef.current?.setAttribute('aria-valuetext', `${next} pixels`);
     if (pointer) {
       if (frame.current === null) frame.current = requestAnimationFrame(() => {
         frame.current = null;
@@ -37,7 +42,7 @@ export const DayPanelResizeHandle: React.FC<Props> = ({ side, width, frameWidth,
     onResize(lastWidth.current);
   };
   return (
-    <div role="separator" tabIndex={0} aria-label="Resize day details panel"
+    <div ref={separatorRef} role="separator" tabIndex={0} aria-label="Resize day details panel"
       aria-orientation="vertical" aria-valuemin={DAY_PANEL_MIN_WIDTH}
       aria-valuemax={maxDayPanelWidth(frameWidth)} aria-valuenow={width}
       aria-valuetext={`${width} pixels`} data-testid="day-panel-resize-handle"

@@ -71,6 +71,9 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   categories, friendName, currentUserId, onReplyToTask, onReactToTask, holidayConfig,
 }) => {
   const [panelWidth, setPanelWidth] = useState(readDayPanelWidth);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelInnerRef = useRef<HTMLDivElement>(null);
+  const panelContentRef = useRef<HTMLDivElement>(null);
   const heightMode = initialHeightMode;
   const [entered, setEntered] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -90,7 +93,10 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       // In grid mode the inspector starts beneath Home chrome, but its bottom
       // is the workspace bottom, not the possibly shorter month grid.
       const homeBottom = home?.getBoundingClientRect().bottom ?? rect.bottom;
-      setFrameHeight(Math.max(rect.height, homeBottom - rect.top));
+      // The panel is itself a flex child of the measured frame in grid mode.
+      // Using rect.height as a minimum feeds its previous screen-mode height
+      // back into the measurement after a live screen → grid switch.
+      setFrameHeight(Math.max(0, homeBottom - rect.top));
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
@@ -104,7 +110,15 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const appearance = useContext(AppearanceContext);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const effectivePanelWidth = clampDayPanelWidth(panelWidth, frameWidth);
+  // Change the divider geometry directly on the panel while dragging. A
+  // React update every pointer frame re-renders the whole Day View and makes
+  // Motion's reorderable rows trail behind the divider.
   const targetWidth = effectivePanelWidth + DAY_PANEL_DIVIDER_WIDTH;
+  const resizePanel = (width: number) => {
+    if (panelRef.current) panelRef.current.style.width = `${width + DAY_PANEL_DIVIDER_WIDTH}px`;
+    if (panelInnerRef.current) panelInnerRef.current.style.width = `${width + DAY_PANEL_DIVIDER_WIDTH}px`;
+    if (panelContentRef.current) panelContentRef.current.style.width = `${width}px`;
+  };
   const exitedRef = useRef(onExited);
   const realignRef = useRef(onCalendarLayoutChange);
   useEffect(() => { exitedRef.current = onExited; }, [onExited]);
@@ -210,7 +224,9 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
 
   const panel = (
     <div
+      ref={panelRef}
       data-testid="day-panel-motion-host"
+      data-day-panel-resizing={dragging ? 'true' : undefined}
       data-day-panel-side={side}
       data-panel-split={isSplit ? 'true' : undefined}
       aria-hidden={!isPresented}
@@ -232,23 +248,26 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         });
       }}
     >
-      <div className={`flex h-full min-h-0 ${side === 'left' ? 'flex-row-reverse' : ''}`}
+      <div ref={panelInnerRef} className={`flex h-full min-h-0 ${side === 'left' ? 'flex-row-reverse' : ''}`}
         style={{ width: isSplit ? targetWidth : 'min(100%, 440px)' }}>
         {isSplit && (
           <DayPanelResizeHandle
             side={side} width={effectivePanelWidth} frameWidth={frameWidth} frameRef={frameRef}
             screenHeight={Boolean(portalHost) && heightMode === 'screen'}
-            onResize={setPanelWidth}
+            onResize={resizePanel}
             onResizeStart={() => {
               void realignRef.current?.(true);
               viewportRef.current?.setAttribute('data-panel-motion', 'true');
               setDragging(true);
             }}
-            onCommit={saveDayPanelWidth}
+            onCommit={width => {
+              setPanelWidth(width);
+              saveDayPanelWidth(width);
+            }}
             onResizeEnd={finishResize}
           />
         )}
-        <div className="h-full min-h-0 shrink-0 p-2"
+        <div ref={panelContentRef} className="h-full min-h-0 shrink-0 p-2"
           style={{ width: isSplit ? effectivePanelWidth : 'min(100%, 440px)' }}>
     <aside
       aria-label="Day details"
