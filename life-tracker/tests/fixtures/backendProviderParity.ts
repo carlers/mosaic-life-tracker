@@ -71,7 +71,7 @@ function forOwner(ownerId: string, peerId: string, label: 'a' | 'b'): BackendPar
     categories: [{
       id: categoryId, name: 'synthetic category', color: '#336699',
       order: 1, visibility: 'private', userId: ownerId,
-      isDeleted: false, icon: '', updatedAt,
+      isDeleted: false, icon: '', retiredOn: '', updatedAt,
     }],
     diary: [{
       id: 'diary_' + label, date: '2026-10-19',

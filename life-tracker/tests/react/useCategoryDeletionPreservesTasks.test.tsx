@@ -9,6 +9,7 @@ interface Row {
   order?: number;
   visibility?: 'private' | 'public' | 'followers' | '';
   updatedAt: string;
+  retiredOn?: string;
   incrementalPatch: ReturnType<typeof vi.fn>;
 }
 const fixtures = vi.hoisted(() => ({
@@ -60,7 +61,7 @@ function row(id: string, userId: string, extra: Partial<Row> = {}): Row {
   return record;
 }
 
-describe('deleting categories keeps owner tasks visible', () => {
+describe('retired category history and explicit destructive deletion', () => {
   beforeEach(() => {
     fixtures.owner = 'owner_a';
     fixtures.categories = [
@@ -77,59 +78,61 @@ describe('deleting categories keeps owner tasks visible', () => {
     fixtures.taskLookupDelay = null;
   });
 
-  it('moves only the owner tasks before tombstoning the category', async () => {
+  it('tombstones only owner tasks before the category without reassigning them', async () => {
     const { result } = renderHook(() => useCategories());
     await act(async () => result.current.deleteCategory('old'));
-    expect(fixtures.tasks.slice(0, 2).map(t => t.categoryId)).toEqual(['next', 'next']);
+    expect(fixtures.tasks.slice(0, 2).map(t => t.categoryId)).toEqual(['old', 'old']);
+    expect(fixtures.tasks.slice(0, 2).map(t => t.isDeleted)).toEqual([true, true]);
     expect(fixtures.categories[0].isDeleted).toBe(true);
     expect(fixtures.tasks[2].categoryId).toBe('old');
+    expect(fixtures.tasks[2].isDeleted).toBe(false);
     expect(fixtures.events).toEqual(['task_1', 'task_2', 'old']);
   });
 
-  it('preserves inherited private visibility when destination category is public', async () => {
+  it('retiring a category retains identity, privacy and all original task links', async () => {
     fixtures.tasks[0].visibility = '';
     fixtures.tasks[1].visibility = 'followers';
     const { result } = renderHook(() => useCategories());
-    await act(async () => result.current.deleteCategory('old'));
-    expect(fixtures.tasks[0].categoryId).toBe('next');
-    expect(fixtures.tasks[0].visibility).toBe('private');
+    await act(async () => result.current.retireCategory('old', '2026-10-21'));
+    expect(fixtures.categories[0].retiredOn).toBe('2026-10-21');
+    expect(fixtures.categories[0].isDeleted).toBe(false);
+    expect(fixtures.tasks.map(t => t.categoryId)).toEqual(['old', 'old', 'old']);
+    expect(fixtures.tasks[0].visibility).toBe('');
     expect(fixtures.tasks[1].visibility).toBe('followers');
-    expect(fixtures.categories[0].isDeleted).toBe(true);
+    expect(fixtures.events).toEqual(['old']);
+    await act(async () => result.current.restoreCategory('old'));
+    expect(fixtures.categories[0].retiredOn).toBe('');
+    expect(fixtures.tasks.every(t => !t.isDeleted)).toBe(true);
   });
 
-  it('preserves inherited public visibility when destination is private', async () => {
-    fixtures.categories[0].visibility = 'public';
-    fixtures.categories[1].visibility = 'private';
-    fixtures.tasks[0].visibility = '';
-    const { result } = renderHook(() => useCategories());
-    await act(async () => result.current.deleteCategory('old'));
-    expect(fixtures.tasks[0].categoryId).toBe('next');
-    expect(fixtures.tasks[0].visibility).toBe('public');
-  });
-
-  it('can delete an empty last category, but does not strand tasks in it', async () => {
-    fixtures.categories = [row('old', 'owner_a')];
+  it('refuses invalid retirement cutoff without changing task history', async () => {
     const { result } = renderHook(() => useCategories());
     await act(async () => {
-      await expect(result.current.deleteCategory('old')).rejects.toThrow(/create another category/i);
+      await expect(result.current.retireCategory('old', '2026-02-30')).rejects.toThrow(/valid/i);
     });
-    expect(fixtures.categories[0].isDeleted).toBe(false);
-    fixtures.tasks = [];
-    await act(async () => result.current.deleteCategory('old'));
-    expect(fixtures.categories[0].isDeleted).toBe(true);
+    expect(fixtures.events).toEqual([]);
   });
 
-  it('does not tombstone after a failed partial move and retries without losing data', async () => {
+  it('can delete the last populated category only through destructive deletion', async () => {
+    fixtures.categories = [row('old', 'owner_a')];
+    const { result } = renderHook(() => useCategories());
+    await act(async () => result.current.deleteCategory('old'));
+    expect(fixtures.categories[0].isDeleted).toBe(true);
+    expect(fixtures.tasks.slice(0, 2).map(t => t.isDeleted)).toEqual([true, true]);
+  });
+
+  it('does not tombstone the category after partial task failure and supports a retry', async () => {
     fixtures.tasks[1].incrementalPatch.mockRejectedValueOnce(new Error('disk full'));
     const { result } = renderHook(() => useCategories());
     await act(async () => {
       await expect(result.current.deleteCategory('old')).rejects.toThrow('disk full');
     });
     expect(fixtures.categories[0].isDeleted).toBe(false);
-    expect(fixtures.tasks[0].categoryId).toBe('next');
-    expect(fixtures.tasks[1].categoryId).toBe('old');
+    expect(fixtures.tasks[0].isDeleted).toBe(true);
+    expect(fixtures.tasks[1].isDeleted).toBe(false);
+    expect(fixtures.tasks[0].categoryId).toBe('old');
     await act(async () => result.current.deleteCategory('old'));
-    expect(fixtures.tasks[1].categoryId).toBe('next');
+    expect(fixtures.tasks[1].isDeleted).toBe(true);
     expect(fixtures.categories[0].isDeleted).toBe(true);
   });
 

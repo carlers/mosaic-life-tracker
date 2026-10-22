@@ -3,7 +3,7 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { CategoryDocument } from '../db/schema';
-import { resolveVisibility } from '../lib/visibility';
+import { validLocalDateKey } from '../lib/categoryLifecycle';
 
 export function useCategories(enabled = true) {
   const { user, isLocalOwnerCurrent } = useAuth();
@@ -71,6 +71,9 @@ export function useCategories(enabled = true) {
         if (!doc) throw new Error('Category no longer exists');
         if (!ownerId || doc.userId !== ownerId)
           throw new Error('[useCategories] Cannot update category for another account');
+        if (updates.retiredOn !== undefined && updates.retiredOn !== '' &&
+            !validLocalDateKey(updates.retiredOn))
+          throw new Error('Choose a valid category retirement date');
         if ((updates.userId !== undefined && updates.userId !== ownerId) ||
             (updates.id !== undefined && updates.id !== id))
           throw new Error('[useCategories] Cannot reassign category identity');
@@ -97,35 +100,36 @@ export function useCategories(enabled = true) {
     [ownerId, assertActiveOwner]
   );
 
+  const retireCategory = useCallback(async (id: string, date: string) => {
+    if (!validLocalDateKey(date)) throw new Error('Choose a valid retirement date');
+    await updateCategory(id, { retiredOn: date });
+  }, [updateCategory]);
+
+  const restoreCategory = useCallback(async (id: string) => {
+    await updateCategory(id, { retiredOn: '' });
+  }, [updateCategory]);
+
+  /**
+   * The destructive alternative to retirement: tombstone the category AND
+   * its owner tasks on all dates including undated backlogs. Soft tombstones
+   * ensure offline devices can learn of deletion; never silently rehome rows.
+   */
   const deleteCategory = useCallback(
     async (id: string) => {
       const uid = ownerId;
       assertActiveOwner(uid);
       if (!uid) throw new Error('[useCategories] Cannot delete without an account');
       const db = getDatabase();
-      // Reject a stale/foreign category ID before any sibling task lookup.
       const source = await db.categories.findOne(id).exec();
       assertActiveOwner(uid);
       if (source && source.userId !== uid)
         throw new Error('[useCategories] Cannot delete category for another account');
       if (!source || source.isDeleted)
         throw new Error('[useCategories] Category no longer exists for this account');
-      const [categories, assignedTasks] = await Promise.all([
-        db.categories.find({ selector: { userId: uid, isDeleted: false } }).exec(),
-        db.tasks.find({ selector: { userId: uid, categoryId: id, isDeleted: false } }).exec(),
-      ]);
+      const assignedTasks = await db.tasks.find({
+        selector: { userId: uid, categoryId: id, isDeleted: false },
+      }).exec();
       assertActiveOwner(uid);
-      const destination = categories
-        .filter(category => category.userId === uid && !category.isDeleted && category.id !== id)
-        .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))[0];
-      if (assignedTasks.length && !destination)
-        throw new Error('Create another category before deleting one that contains tasks');
-
-      // Deleting the category first makes its still-live tasks disappear from
-      // Day View while Calendar continues showing their orphaned TaskBlocks.
-      // Transfer owner-scoped tasks first, keeping their original IDs, dates,
-      // completion state and tombstone history. A failed move leaves the
-      // category visible and a retry can finish only the remaining tasks.
       for (const task of assignedTasks) {
         assertActiveOwner(uid);
         const current = await db.tasks.findOne(task.id).exec();
@@ -133,29 +137,18 @@ export function useCategories(enabled = true) {
         if (!current || current.userId !== uid)
           throw new Error('[useCategories] Task owner changed during category deletion');
         if (current.isDeleted || current.categoryId !== id) continue;
-        // Category visibility is inherited when task.visibility is empty.
-        // Moving to a more public category must never silently expose tasks.
-        // Preserve the *effective* visibility from before the move even if
-        // the destination has a different access level.
-        const originalVisibility = resolveVisibility(current.visibility, source.visibility);
-        const destinationVisibility = resolveVisibility('', destination!.visibility);
         await current.incrementalPatch({
-          categoryId: destination!.id,
-          ...(originalVisibility !== destinationVisibility && !current.visibility
-            ? { visibility: originalVisibility }
-            : {}),
+          isDeleted: true,
           updatedAt: new Date().toISOString(),
         });
       }
-
-      // A task created during the transfer must not be stranded by the
-      // category tombstone. Refuse to finish and allow an idempotent retry.
+      // A concurrent task creation must not be orphaned. A failed partial
+      // mutation remains retryable and never tombstones the category early.
       const remaining = await db.tasks.find({
         selector: { userId: uid, categoryId: id, isDeleted: false },
       }).exec();
       assertActiveOwner(uid);
-      if (remaining.length)
-        throw new Error('Tasks changed during category deletion. Try again.');
+      if (remaining.length) throw new Error('Tasks changed during deletion. Try again.');
       await updateCategory(id, { isDeleted: true });
     },
     [ownerId, assertActiveOwner, updateCategory]
@@ -207,6 +200,8 @@ export function useCategories(enabled = true) {
     isLoading,
     addCategory,
     updateCategory,
+    retireCategory,
+    restoreCategory,
     deleteCategory,
     reorderCategories,
   };
