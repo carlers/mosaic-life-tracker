@@ -21,8 +21,12 @@ bash supabase-poc/inspect-encrypted-backup-toc.sh \
 
 The report contains only TOC counts and known required-object names, with no
 per-owner IDs, email addresses or row values. It fails when the required
-`public.mosaic_candidate_tasks`, `public.mosaic_candidate_categories`, or
-`auth.users` data-entry metadata is absent. A matching report **does not**
+`public.mosaic_candidate_tasks`, `public.mosaic_candidate_categories`,
+`auth.users`, `auth.identities`, `mosaic_candidate_private.core_authorities`,
+or `mosaic_candidate_private.owner_revisions` data-entry metadata is absent.
+These six recovery-critical data objects are counted without printing raw TOC
+entries. Auth session data presence is reported but not required: stale sessions
+and refresh tokens must not be presumed reusable after new Auth/JWT setup. A matching report **does not**
 prove the archive can restore users, passwords, table data, RLS, RPC or service
 config. Keep both snapshot and private key offline; **never upload either**.
 

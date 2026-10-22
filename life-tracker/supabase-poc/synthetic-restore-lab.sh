@@ -20,6 +20,7 @@ bootstrap() {
   sudo -u postgres psql -qX -v ON_ERROR_STOP=1 -d "$1" <<'SQL'
 CREATE SCHEMA auth;
 CREATE TABLE auth.users(id uuid PRIMARY KEY);
+CREATE TABLE auth.identities(id uuid PRIMARY KEY, user_id uuid REFERENCES auth.users(id));
 CREATE TABLE auth.sessions(id uuid PRIMARY KEY, user_id uuid REFERENCES auth.users(id));
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $f$
  SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $f$;
@@ -48,6 +49,7 @@ BEGIN
    owner := (repeat(suffix,8)||'-'||repeat(suffix,4)||'-'||repeat(suffix,4)||'-'||repeat(suffix,4)||'-'||repeat(suffix,12))::uuid;
    session_id := (repeat(suffix,8)||'-'||repeat(suffix,4)||'-'||repeat(suffix,4)||'-'||repeat(suffix,4)||'-000000000001')::uuid;
    INSERT INTO auth.users(id) VALUES(owner);
+   INSERT INTO auth.identities(id,user_id) VALUES(owner,owner);
    INSERT INTO auth.sessions(id,user_id) VALUES(session_id,owner);
    PERFORM set_config('request.jwt.claim.sub',owner::text,true);
    PERFORM set_config('request.jwt.claim.session_id',session_id::text,true);
@@ -95,6 +97,7 @@ restore() {
     -L "$tmp/selection" -d mosaic_synth_dst "$tmp/recovered.dump"
 }
 restore auth users
+restore auth identities
 restore auth sessions
 restore mosaic_candidate_private core_authorities
 restore mosaic_candidate_private core_sessions
@@ -108,7 +111,7 @@ ALTER TABLE public.mosaic_candidate_categories ENABLE TRIGGER USER;
 ALTER TABLE public.mosaic_candidate_tasks ENABLE TRIGGER USER;
 ALTER TABLE public.mosaic_candidate_diary ENABLE TRIGGER USER;
 SQL
-for t in auth.users auth.sessions mosaic_candidate_private.core_authorities \
+for t in auth.users auth.identities auth.sessions mosaic_candidate_private.core_authorities \
  mosaic_candidate_private.core_sessions mosaic_candidate_private.owner_revisions \
  public.mosaic_candidate_categories public.mosaic_candidate_tasks public.mosaic_candidate_diary; do
   q="SELECT md5(coalesce(string_agg(row_to_json(x)::text,'|' ORDER BY row_to_json(x)::text),'')) FROM $t x"
@@ -145,4 +148,4 @@ DO $check$ BEGIN
 END $check$;
 ROLLBACK;
 SQL
-echo 'SYNTHETIC_RESTORE_PASS (two owners, eight data tables, matching hashes, no anonymous Diary read)'
+echo 'SYNTHETIC_RESTORE_PASS (two owners, nine data tables, matching hashes, no anonymous Diary read)'
