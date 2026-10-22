@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 import {
   PREDEFINED_COLORS,
@@ -20,26 +20,16 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
   ariaLabel = 'Choose a color',
 }) => {
   const availablePalettes = palettes.length > 0 ? palettes : PREDEFINED_COLORS;
-  const selectedPaletteId = useMemo(() => {
-    const normalizedSelected = selectedColor.toUpperCase();
-    return (
-      availablePalettes.find((palette) =>
-        palette.colors.some(
-          (color) => color.toUpperCase() === normalizedSelected
-        )
-      )?.id ?? availablePalettes[0].id
-    );
-  }, [availablePalettes, selectedColor]);
-  const [activePaletteId, setActivePaletteId] =
-    useState<string>(selectedPaletteId);
-
-  const selectedIsInPalette = availablePalettes.some((palette) =>
-    palette.colors.some((color) => color.toUpperCase() === selectedColor.toUpperCase())
+  const normalizedSelected = selectedColor.toUpperCase();
+  const selectedPalette = availablePalettes.find((palette) =>
+    palette.colors.some((color) => color.toUpperCase() === normalizedSelected)
   );
-
+  const [activePaletteId, setActivePaletteId] =
+    useState(selectedPalette?.id ?? availablePalettes[0].id);
+  const selectedIsInPalette = Boolean(selectedPalette);
   const activePalette =
     availablePalettes.find((palette) => palette.id === activePaletteId) ||
-    availablePalettes.find((palette) => palette.id === selectedPaletteId) ||
+    selectedPalette ||
     availablePalettes[0];
 
   return (
@@ -82,7 +72,7 @@ export const ColorPalettePicker: React.FC<ColorPalettePickerProps> = ({
       >
         {activePalette.colors.map((color) => {
           const isSelected =
-            selectedColor.toUpperCase() === color.toUpperCase();
+            normalizedSelected === color.toUpperCase();
           const indicatorColor = getReadableTextColor(color);
           return (
             <button
