@@ -261,7 +261,41 @@ export default function SupabaseAuthProvider({ config, children }: {
         }
       } finally { busy.current = false; }
     };
-    const unregister = registerCoreSync(ownerId, catchUp);
+    const assertSignedImportOwner = async () => {
+      if (!active || !mounted.current || user.$id !== ownerId ||
+          (runtime.browser && !runtime.browser.isCurrent()) ||
+          runtime.coordinator.getPhase() !== 'active')
+        throw new Error('Supabase import requires the active signed owner');
+      const signed = await runtime.session.getVerifiedSession();
+      const identity = runtime.coordinator.getAuthenticatedOwner();
+      if (!signed || !identity ||
+          signed.userId !== identity.supabaseUserId ||
+          identity.legacyUserId !== ownerId)
+        throw new Error('Supabase import owner verification failed');
+    };
+    const refreshForImport = async () => {
+      if (busy.current || navigator.onLine === false)
+        throw new Error('Reconnect and finish account synchronization before importing');
+      await assertSignedImportOwner();
+      await runtime.authority.renew();
+      await runtime.coordinator.resync();
+      const states = runtime.coordinator.getReplicationStates();
+      const expected = MOSAIC_FEATURE_PROFILE === 'core-diary' ? 3 : 2;
+      if (!states || states.length !== expected)
+        throw new Error('All supported Supabase import domains must be actively replicating');
+      await Promise.all(states.map(async state => {
+        await state.awaitInitialReplication();
+        await state.awaitInSync();
+      }));
+      await assertSignedImportOwner();
+      const pending = runtime.coordinator.getPendingConflicts();
+      if (Object.values(pending).some(items => items.length > 0))
+        throw new Error('Resolve Supabase sync conflicts before importing');
+    };
+    const unregister = registerCoreSync(ownerId, catchUp, {
+      refresh: refreshForImport,
+      assertOwner: assertSignedImportOwner,
+    });
     retrySync.current = catchUp;
     const states = runtime.coordinator.getReplicationStates();
     let settling: Promise<void> | null = null;

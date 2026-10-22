@@ -4,6 +4,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSheetReset } from '../../hooks/useSheetReset';
 import { usePropSync } from '../../hooks/usePropSync';
 import { restoreUserData } from '../../lib/restoreData';
+import { CORE_BACKEND } from '../../lib/coreBackendConfig';
+import { MOSAIC_FEATURE_PROFILE } from '../../lib/backendCapabilities';
+import { triggerDownload } from '../../lib/exportData';
 import { ConfirmSheet } from '../ui/ConfirmSheet';
 import {
   prepareTodoMateTransfer,
@@ -190,6 +193,11 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
       photos: prepared.preview.photosReady,
     });
     try {
+      if (CORE_BACKEND.driver === 'supabase' && prepared.preview.photosReady > 0) {
+        // Supabase core has no authorized media storage yet. Keep the prepared
+        // TodoMate photo archive independently downloadable before local apply.
+        triggerDownload(prepared.file, prepared.file.name);
+      }
       const result = await restoreUserData(prepared.file, currentUser, {
         mode: importMode,
         onProgressDetail: (detail) => {
@@ -208,7 +216,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
           ? `${result.imagesRestored} photo${result.imagesRestored === 1 ? '' : 's'} copied`
           : '',
         result.imagesMissing > 0
-          ? `${result.imagesMissing} photo${result.imagesMissing === 1 ? '' : 's'} missing`
+          ? `${result.imagesMissing} photo${result.imagesMissing === 1 ? '' : 's'} not copied`
           : '',
         result.skippedNewer > 0 ? `${result.skippedNewer} newer Mosaic item${result.skippedNewer === 1 ? '' : 's'} kept` : '',
         result.tombstoned > 0 ? `${result.tombstoned} prior task/category item${result.tombstoned === 1 ? '' : 's'} replaced` : '',
@@ -390,6 +398,12 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
             </div>
 
             <div className="space-y-1 text-xs text-gray-400 leading-relaxed">
+              {CORE_BACKEND.driver === 'supabase' && (
+                <p role="status">Supabase currently imports tasks and categories
+                  {MOSAIC_FEATURE_PROFILE === 'core-diary' ? ' plus Diary entries' : ' only (Diary remains in TodoMate)'}.
+                  Keep your existing Mosaic ZIP and any downloaded TodoMate photo ZIP.
+                  Import requires an active signed Supabase sync connection.</p>
+              )}
               {preview.unscheduledMovedToToday > 0 && (
                 <p>
                   {preview.unscheduledMovedToToday} unscheduled task
@@ -400,8 +414,8 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
               {preview.photosReady > 0 && (
                 <p>
                   {preview.photosReady} of {preview.photosFound} TodoMate photo
-                  attachment{preview.photosFound === 1 ? '' : 's'} are ready to
-                  copy into Mosaic Storage.
+                  attachment{preview.photosFound === 1 ? '' : 's'} are ready
+                  {CORE_BACKEND.driver === 'supabase' ? ' in a separate ZIP download, but cannot be uploaded to Supabase yet.' : ' to copy into Mosaic Storage.'}
                 </p>
               )}
               {preview.photosUnavailable > 0 && (
@@ -422,7 +436,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
                 <p>Existing newer Mosaic data wins in Merge mode, and current-only records are left untouched.</p>
               ) : (
                 <p>Replace makes TodoMate tasks and categories authoritative.
-                  Other Mosaic personal data is preserved; Diary entries merge without deletion.</p>
+                  Other Mosaic personal data is preserved; supported Diary entries merge without deletion.</p>
               )}
             </div>
           </section>

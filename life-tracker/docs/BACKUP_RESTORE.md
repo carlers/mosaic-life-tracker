@@ -87,3 +87,28 @@ records. Neither Merge nor Replace imports, clears, or replays those intents. Ex
 pending, accepted, blocked, and deleted relationships remain unchanged on same-account
 and cross-account restore, including TodoMate imports. Backup versions remain unchanged.
 See [friendship recovery](FRIENDSHIP_RECOVERY.md) for administrative legacy-data repair.
+
+## Emergency personal import on the isolated Supabase core candidate (#1250)
+
+The legacy ZIP/JSON parser and owner-remapped Merge restore are shared with the
+experimental Supabase core provider. In Supabase mode, importing never calls
+Appwrite account, Storage or replication APIs: before any write it requires
+the browser's **active server-verified Supabase Auth owner** and a completed
+signed RxDB pull/push freshness barrier, and checks that same owner during and
+after applying data. A mere requested resync is not a freshness proof.
+
+The core-only provider imports **tasks and categories**; the core-diary provider
+can additionally import **private Diary**. Settings, Bucket List/links and
+unsupported personal domains are **not uploaded or marked synced**. Original ZIP
+must be retained intact for later recovery. There is no approved Supabase
+image-storage upload yet: original image references stay on records, but photos
+are not copied to cloud or certified available on other devices. The preview
+must disclose this; never clear the old PWA cache or delete the original ZIP.
+General Replace Personal Data is deliberately unavailable in Supabase core mode.
+The separately confirmed TodoMate task/category Replace does not touch
+unsupported domains. Interrupted local import work remains in RxDB with an
+explicit sync-pending result rather than a false cloud-success claim.
+
+This enables **isolated Preview testing**, NOT Appwrite historical completeness,
+proof of trusted legacy identity mapping, or permission for real-user Production
+cutover. Old Appwrite PWAs and final source deltas remain independent gates.

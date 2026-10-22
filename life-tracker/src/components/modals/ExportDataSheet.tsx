@@ -7,6 +7,8 @@ import { ConfirmSheet } from '../ui/ConfirmSheet';
 import { useSheetReset } from '../../hooks/useSheetReset';
 import { FileDown, Loader2, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { CORE_BACKEND } from '../../lib/coreBackendConfig';
+import { MOSAIC_FEATURE_PROFILE } from '../../lib/backendCapabilities';
 import { exportUserData, triggerDownload } from '../../lib/exportData';
 import {
   inspectBackupFile,
@@ -345,6 +347,14 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
             </div>
           )}
 
+          {restorePreview && CORE_BACKEND.driver === 'supabase' && (
+            <p role="status" className="rounded-xl border border-amber-900/40 p-3 text-xs text-amber-200">
+              Supabase imports tasks and categories{MOSAIC_FEATURE_PROFILE === 'core-diary' ? ' plus private Diary text' : ''} only.
+              Other ZIP data and photos are not uploaded. Keep the original ZIP for later recovery.
+              Import requires a verified signed Supabase sync connection.
+            </p>
+          )}
+
           {restorePreview && (
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium text-white mb-2">
@@ -369,6 +379,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
                   </span>
                 </span>
               </label>
+              {CORE_BACKEND.driver !== 'supabase' && (
               <label className="flex gap-3 rounded-xl border border-[#333333] bg-[#1A1A1A] p-3 cursor-pointer">
                 <input
                   type="radio"
@@ -389,6 +400,7 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
                   </span>
                 </span>
               </label>
+              )}
             </fieldset>
           )}
 

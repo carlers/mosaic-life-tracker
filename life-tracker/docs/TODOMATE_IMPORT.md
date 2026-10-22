@@ -352,3 +352,18 @@ portrait/square images. The viewer contract now requires real intrinsic dimensio
 behavioral regression test proving a 720×1280 source is opened as 720×1280 rather than 16:9.
 Hosted visual acceptance of that viewer repair remains before this enhancement is marked
 complete.
+
+## Emergency Supabase TodoMate catch-up (#1250)
+
+The existing authenticated TodoMate browser-only Firebase/Firestore reader is
+reused. The signed Supabase import freshness barrier replaces Appwrite sync;
+the core-only candidate accepts tasks/categories, with Diary accepted only in
+`core-diary`. TodoMate Replace (explicit destructive confirmation) can
+tombstone tasks/categories that are absent from the TodoMate snapshot, while
+preserving existing Diary, preferences, Bucket List and social records.
+
+In Supabase mode no Appwrite photo uploads are attempted. Prepared TodoMate
+photos are downloaded in a separate local ZIP at the confirmation gesture;
+keep that ZIP until provider-specific owner-private storage is available.
+The importer reports unavailable remote photos and never claims they were
+synced. This is not real-user cutover or full Appwrite parity.

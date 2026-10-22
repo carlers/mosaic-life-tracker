@@ -7,7 +7,10 @@ import type {
   BucketTaskLinkDocument,
   SettingsDocument,
 } from '../db/schema';
-import { isRateLimitError, refreshSync } from '../db/sync';
+import { isRateLimitError } from '../db/sync';
+import { CORE_BACKEND } from './coreBackendConfig';
+import { MOSAIC_FEATURE_PROFILE } from './backendCapabilities';
+import { assertPersonalImportOwner, refreshPersonalImport } from './appSync';
 import { subscribeTaskPushProgress } from '../db/taskReplicationPilot';
 import {
   captureAccountWorkGeneration,
@@ -26,7 +29,7 @@ import {
   makeSettingsRowId,
 } from './settingsRowId';
 import { makeBucketTaskLinkId } from './bucketTaskLinkId';
-import { ensureRestoredImage, getCurrentUserId } from './storage';
+import { ensureRestoredImage } from './storage';
 
 export type RestoreMode = 'merge' | 'replace' | 'todomate-replace';
 
@@ -46,6 +49,15 @@ const POST_RESTORE_SYNC_MAX_TIMEOUT_MS = 300_000;
 const POST_RESTORE_SYNC_PER_ROW_MS = 500;
 
 type RestorableCollection = (typeof RESTORABLE_COLLECTIONS)[number];
+/** Never write unsupported domains into an offline-only Supabase cache and call
+ * them synced. The source ZIP remains the durable archive for those domains. */
+function importDomains(): readonly RestorableCollection[] {
+  if (CORE_BACKEND.driver !== 'supabase') return RESTORABLE_COLLECTIONS;
+  return MOSAIC_FEATURE_PROFILE === 'core-diary'
+    ? ['categories', 'tasks', 'diary']
+    : ['categories', 'tasks'];
+}
+
 const TODOMATE_REPLACE_DOMAINS: ReadonlySet<RestorableCollection> = new Set(['categories', 'tasks']);
 
 /** Only TodoMate tasks and categories replace; Diary and other personal data
@@ -758,6 +770,12 @@ async function restoreImages(
   precompressedImages: boolean
 ): Promise<{ restored: number; missing: number }> {
   const ids = Array.from(referencedImageIds(data));
+  if (CORE_BACKEND.driver === 'supabase') {
+    // No authorized photo Storage provider exists for this candidate yet.
+    // Preserve image references and original ZIP bytes without Appwrite uploads.
+    onImageProgress(ids.length, ids.length);
+    return { restored: 0, missing: ids.length };
+  }
   const publicImageIds = new Set(data.tasks.map(t => t.image).filter(Boolean));
   for (const setting of data.settings) {
     if (setting.key === 'profileImageId' && setting.value) publicImageIds.add(setting.value);
@@ -889,7 +907,7 @@ async function planRestore(
   };
   let skippedNewer = 0;
 
-  for (const collectionName of RESTORABLE_COLLECTIONS) {
+  for (const collectionName of importDomains()) {
     assertOwner?.();
     const collection = collectionFor(collectionName);
     const target = planned[collectionName] as RestorableDocument[];
@@ -1117,12 +1135,7 @@ function postRestoreSyncTimeoutMs(data: NormalizedBackup): number {
 async function assertRestoreUserStillCurrent(
   expectedUserId: string
 ): Promise<void> {
-  const authenticatedUserId = await getCurrentUserId();
-  if (authenticatedUserId !== expectedUserId) {
-    throw new Error(
-      'Restore stopped because the signed-in account changed. Reopen Backup & Restore and try again.'
-    );
-  }
+  await assertPersonalImportOwner(expectedUserId);
 }
 
 export async function restoreUserData(
@@ -1175,6 +1188,10 @@ export async function restoreUserData(
     throw new Error('TodoMate Replace requires a trusted in-memory TodoMate transfer.');
   }
 
+  if (CORE_BACKEND.driver === 'supabase' && options.mode === 'replace') {
+    throw new Error('Replace Personal Data requires all personal domains. Use Merge for this Supabase preview.');
+  }
+
   if (
     typeof navigator !== 'undefined' &&
     navigator.onLine === false
@@ -1185,7 +1202,7 @@ export async function restoreUserData(
   }
 
   reportDetail('Refreshing current data…', 5);
-  const refreshed = await refreshSync(currentUser.id, undefined, {
+  const refreshed = await refreshPersonalImport(currentUser.id, undefined, {
     onProgress: (syncProgress) => {
       reportDetail(
         'Refreshing current data · ' + syncProgress.label,
@@ -1298,7 +1315,7 @@ export async function restoreUserData(
     totalDocuments
   );
 
-  for (const collection of RESTORABLE_COLLECTIONS) {
+  for (const collection of importDomains()) {
     const result = await applyDocuments(
       collection,
       documentsFor(plan.data, collection),
@@ -1362,7 +1379,7 @@ export async function restoreUserData(
   let syncState: RestoreResult['syncState'] = 'synced';
   let syncError = '';
   try {
-    await refreshSync(
+    await refreshPersonalImport(
       currentUser.id,
       postRestoreSyncTimeoutMs(plan.data),
       {
