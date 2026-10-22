@@ -238,6 +238,9 @@ test('task and category rows stay in phase with divider motion rather than easin
   const panel = page.getByTestId('day-panel-motion-host');
   const task = panel.locator('[data-task-id]').first();
   await expect(task).toBeVisible({ timeout: 12000 });
+  // Wait for the panel's independent 300ms opening transition before
+  // measuring and grabbing its moving separator.
+  await page.waitForTimeout(380);
   const divider = page.getByRole('separator', { name: 'Resize day details panel' });
   const box = await divider.boundingBox();
   if (!box) throw Error('Missing divider');

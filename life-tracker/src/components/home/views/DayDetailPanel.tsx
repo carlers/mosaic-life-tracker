@@ -72,6 +72,8 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
 }) => {
   const [panelWidth, setPanelWidth] = useState(readDayPanelWidth);
   const panelRef = useRef<HTMLDivElement>(null);
+  const panelInnerRef = useRef<HTMLDivElement>(null);
+  const panelContentRef = useRef<HTMLDivElement>(null);
   const heightMode = initialHeightMode;
   const [entered, setEntered] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -111,9 +113,11 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   // Change the divider geometry directly on the panel while dragging. A
   // React update every pointer frame re-renders the whole Day View and makes
   // Motion's reorderable rows trail behind the divider.
-  const targetWidth = `calc(var(--mosaic-day-panel-width) + ${DAY_PANEL_DIVIDER_WIDTH}px)`;
+  const targetWidth = effectivePanelWidth + DAY_PANEL_DIVIDER_WIDTH;
   const resizePanel = (width: number) => {
-    panelRef.current?.style.setProperty('--mosaic-day-panel-width', `${width}px`);
+    if (panelRef.current) panelRef.current.style.width = `${width + DAY_PANEL_DIVIDER_WIDTH}px`;
+    if (panelInnerRef.current) panelInnerRef.current.style.width = `${width + DAY_PANEL_DIVIDER_WIDTH}px`;
+    if (panelContentRef.current) panelContentRef.current.style.width = `${width}px`;
   };
   const exitedRef = useRef(onExited);
   const realignRef = useRef(onCalendarLayoutChange);
@@ -231,13 +235,12 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         ? 'swiper-no-swiping relative z-10 min-h-0 shrink-0 overflow-hidden'
         : `swiper-no-swiping absolute inset-y-0 ${side === 'left' ? 'left-0' : 'right-0'} z-20 max-w-full overflow-hidden bg-surface`}
       style={{
-        '--mosaic-day-panel-width': `${effectivePanelWidth}px`,
         order: side === 'left' ? -1 : 1,
         width: entered ? (isSplit ? targetWidth : 'min(100%, 440px)') : 0,
         height: frameHeight || '100%',
         pointerEvents: isPresented ? 'auto' : 'none',
         transition: reduceMotion || dragging ? 'none' : 'width 300ms cubic-bezier(0.22, 1, 0.36, 1)',
-      } as React.CSSProperties}
+      }}
       onTransitionEnd={event => {
         if (event.target !== event.currentTarget || event.propertyName !== 'width') return;
         void Promise.resolve(realignRef.current?.()).then(() => {
@@ -245,7 +248,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         });
       }}
     >
-      <div className={`flex h-full min-h-0 ${side === 'left' ? 'flex-row-reverse' : ''}`}
+      <div ref={panelInnerRef} className={`flex h-full min-h-0 ${side === 'left' ? 'flex-row-reverse' : ''}`}
         style={{ width: isSplit ? targetWidth : 'min(100%, 440px)' }}>
         {isSplit && (
           <DayPanelResizeHandle
@@ -264,8 +267,8 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
             onResizeEnd={finishResize}
           />
         )}
-        <div className="h-full min-h-0 shrink-0 p-2"
-          style={{ width: isSplit ? 'var(--mosaic-day-panel-width)' : 'min(100%, 440px)' }}>
+        <div ref={panelContentRef} className="h-full min-h-0 shrink-0 p-2"
+          style={{ width: isSplit ? effectivePanelWidth : 'min(100%, 440px)' }}>
     <aside
       aria-label="Day details"
       className="swiper-no-swiping flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"
