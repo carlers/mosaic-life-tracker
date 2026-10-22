@@ -63,7 +63,9 @@ export const FirstCategoryPrompt: React.FC<FirstCategoryPromptProps> = ({ onCrea
   };
 
   return (
-    <section className="swiper-no-swiping my-3 rounded-2xl border border-[#333333] bg-surface px-4 py-4"
+    <section className={`swiper-no-swiping my-3 ${editing
+      ? 'rounded-2xl border border-[#333333] bg-surface px-4 py-4'
+      : 'px-4 py-2'}`}
       data-testid="first-category-prompt" data-route-swipe-ignore="true" aria-label={persistent ? 'Add category' : 'Create your first category'}>
       {created && !persistent ? (
         <p role="status" className="text-sm text-gray-300">Category added.</p>

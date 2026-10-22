@@ -1,16 +1,15 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: #1221 v0.43.1 persistent Add category Preview; repair stale Hamburger label regression test on isolated task branch.
+Current task: #1221 owner-requested v0.43.2 borderless Add category button refinement, Preview only.
 
 ## Verified baseline
-- `dev@2e976653f93eacdfeed0493fb4f67220cb763c58` v0.42.1 canonical #39722872739 SUCCESS, Git-first Vercel `dpl_AtnUt1PgoPV44vn9LGaWzdSYJzAT` READY. Main/Production untouched. #404 remains OPEN.
-- First-category onboarding v0.43.0 accepted Preview `feature/1221-first-category-dayview-v043-20261022@2f05a97190fb7c2f8b44f402474984e2ef43f85e`, canonical #39724239281, trusted #39724612999 SUCCESS, immutable Vercel `dpl_FH3bYBc9bXimTc7oSgskNhe8yafm` READY.
-- User-approved v0.43.1 includes Hamburger label `Categories`, OFF-by-default account-synced `showAddCategoryInDayView` preference, and one repeatable bottom Add category action for active owners in Categories/Timeline/Calendar/Diary/Todo. No friend/read-only, Backlogs, selection mode, or pre-hydration CTA. Existing local-first `useCategories.addCategory` is unchanged.
+- Last accepted stable Preview `feature/1221-first-category-dayview-v043-20261022@a449ccb9e77228b4055fa7c28aa14413f96e4c72`, version 0.43.1. Full canonical Quality Gate #39744661305 SUCCESS; Trusted Preview Delivery #39745044841 SUCCESS; Git-first Vercel `dpl_3uiAsHvB2odi4k56fhZJyLAPnjJF` READY; `/home` HTTP 200. Owner authenticated manual/device testing not yet established because Scratch registered-host quota.
+- `dev@2e976653f93eacdfeed0493fb4f67220cb763c58` v0.42.1 and `main@c938c825370f8270b46f19119b06a1f74d35842b` unchanged. #404 remains OPEN for later larger-screen layout expansion.
 
-## Delivery issue and repair
-- Initial source PR #1235: task `chatgpt/1221-persistent-add-category-v0431-20261022@3a52d936ca2e15915e7b246f210ae3c2fd4cb8ca`, focused Quality Gate #39742933511 SUCCESS.
-- Squashed into existing stable Preview at `c930ad1ade757248bdfc17418bc0e00f12601666`. Full Quality Gate #39744154187: production build and audit PASS, DOM shard 1 PASS, DOM shard 2 FAIL only because `tests/components/HamburgerMenu.test.tsx` asserted old `Lists & Categories` label. 315 other tests on shard 2 PASS. Full canonical acceptance therefore NOT granted; v0.43.1 not yet READY.
-- This repair branch `chatgpt/1221-v0431-menu-test-repair-20261022` from exactly `c930ad1` changes only the stale Hamburger DOM test and this checkpoint. No application code, version, backend, or security gate change. Keep v0.43.1 (failed candidate had no successful release).
+## Authorized v0.43.2 refinement
+- User requested removing the border around the area containing the Day View Add category button. In `src/components/home/views/FirstCategoryPrompt.tsx`, keep collapsed CTA wrapper borderless and background-free (existing Add category button styling and accessible action unchanged); retain bordered form container only *while editing*, including name/color/visibility and cancel/create behavior. Applies to both first-category empty state and persistent user-enabled footer action.
+- Patch increment from delivered v0.43.1 to candidate 0.43.2, synchronizing package.json, package-lock.json and src/lib/appVersion.ts. No backend/schema/security/CI gate change; no cosmetic-only test added because CSS DOM-shape assertions are prohibited by AGENTS.
+- Isolated task branch `chatgpt/1221-borderless-add-category-v0432-20261022` from accepted v0.43.1 exact SHA.
 
-## Next action
-- Request [verify:focused] on this repair task commit, require focused SUCCESS. Squash into stable `feature/1221-first-category-dayview-v043-20261022`, then require a new full canonical CI and matching trusted Vercel READY on the new stable SHA. Do not patch the stable Preview directly or bypass the failed gate. Authenticated Scratch/device checks remain outstanding due immutable-host platform quota. Keep #1221 and #404 OPEN; do not promote to dev/main/Production without explicit approval.
+## Next
+- Focused [verify:focused] at coherent task commit, squash to existing stable #1221 Preview only after green, require stable Preview full canonical and trusted deployment READY exact SHA. User manual visual acceptance remains. Keep #1221 and #404 OPEN; do not promote to dev/main/Production without explicit approval.
