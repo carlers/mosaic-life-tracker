@@ -5,7 +5,7 @@ const OWNER = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
 const mocks = vi.hoisted(() => ({
   waitForDatabaseReady: vi.fn(async () => {}),
-  getDatabase: vi.fn(() => ({ tasks: { domain: 'real-tasks' }, categories: { domain: 'real-categories' } })),
+  getDatabase: vi.fn(() => ({ tasks: { domain: 'real-tasks' }, categories: { domain: 'real-categories' }, diary: { domain: 'real-diary' } })),
   createCandidateCoreRuntime: vi.fn(),
   start: vi.fn(),
   stop: vi.fn(async () => {}),
@@ -99,6 +99,26 @@ describe('app-owned Supabase core RxDB bridge (#1027)', () => {
     expect(mocks.stop).toHaveBeenCalledOnce();
     expect(f.controller.getPhase()).toBe('idle');
     await expect(started.resync()).rejects.toThrow('no longer owns');
+  });
+
+  it('passes the explicit private Diary profile and real diary collection to the guarded runtime', async () => {
+    const f = fixture();
+    const controller = createAppSupabaseCoreBootstrap({
+      ...f.options,
+      featureProfile: 'core-diary',
+    });
+    const active = await controller.start();
+    expect(f.assertLocalAppwriteStopped).toHaveBeenCalledTimes(2);
+    expect(mocks.createCandidateCoreRuntime).toHaveBeenCalledWith(expect.objectContaining({
+      selectedBackend: 'supabase',
+      featureProfile: 'core-diary',
+      collections: {
+        tasks: { domain: 'real-tasks' },
+        categories: { domain: 'real-categories' },
+        diary: { domain: 'real-diary' },
+      },
+    }));
+    await active.stop();
   });
 
   it('refuses unsigned/foreign Supabase owner before any Appwrite or database work', async () => {
