@@ -727,3 +727,44 @@ test('@performance Calendar path first sheet paint', async ({ page }) => {
   await page.waitForTimeout(550);
   await open('reopen');
 });
+
+
+test('@performance real Day View nested Memo, Task Actions and Add Photo', async ({ page }) => {
+  // Diagnostic only: exercise Day View's actual drag/layout/Swiper subtree,
+  // not the lightweight 50-row synthetic BottomSheet compositor probe.
+  for (const count of [50, 200]) {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&perfTaskCount=${count}`);
+    await page.getByTestId('open-day-view-sheet').click();
+    const dayView = page.locator('[role="dialog"]').filter({ has: page.getByTestId('day-swiper') });
+    const slide = dayView.locator('[data-testid="day-slide"][data-date-str="2026-09-15"]').first();
+    await slide.getByRole('button', { name: 'Open memo' }).first().focus();
+
+    const transitions = [
+      ['memo-open', () => page.keyboard.press('Enter')],
+      ['memo-close', () => page.keyboard.press('Escape')],
+      ['actions-open', async () => {
+        await slide.getByRole('button', { name: 'Task 1.1' }).first().focus();
+        await page.keyboard.press('Shift+Enter');
+      }],
+      ['photo-open', () => page.getByRole('button', { name: 'Add Photo', exact: true }).click()],
+      ['photo-close', () => page.keyboard.press('Escape')],
+    ];
+    for (const [name, action] of transitions) {
+      const result = await measureInteraction(page, `real-day-${count}-${name}`, action);
+      console.log('MOSAIC_DAY_VIEW_PERF ' + JSON.stringify({
+        name: result.name,
+        frameCount: result.frameCount,
+        p95FrameMs: result.p95FrameMs,
+        maxFrameMs: result.maxFrameMs,
+        maxLongAnimationFrameMs: result.maxLongAnimationFrameMs,
+        droppedFrameRatio: result.droppedFrameRatio,
+        layoutReads: result.layoutReads,
+        mutationRecords: result.mutationRecords,
+        reactRenders: result.reactProfile.map(render => ({
+          phase: render.phase,
+          actualDuration: render.actualDuration,
+        })),
+      }));
+    }
+  }
+});

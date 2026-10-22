@@ -63,6 +63,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DayPanelResizeHandle | [src/components/home/views/DayPanelResizeHandle.tsx](../src/components/home/views/DayPanelResizeHandle.tsx) |
 | DaySlide | [src/components/home/views/DaySlide.tsx](../src/components/home/views/DaySlide.tsx) |
 | DaySlideContent | [src/components/home/views/DaySlideContent.tsx](../src/components/home/views/DaySlideContent.tsx) |
+| DaySlideWithDiaryPlacement | [src/components/home/views/DaySlideWithDiaryPlacement.tsx](../src/components/home/views/DaySlideWithDiaryPlacement.tsx) |
 | DayViewCategoryReorder | [src/components/home/views/DayViewCategoryReorder.tsx](../src/components/home/views/DayViewCategoryReorder.tsx) |
 | DayViewSheet | [src/components/home/views/DayViewSheet.tsx](../src/components/home/views/DayViewSheet.tsx) |
 | DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
