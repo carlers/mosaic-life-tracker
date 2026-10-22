@@ -1,15 +1,16 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: #1221 owner-approved first-category Preview refinement, v0.43.1 candidate.
+Current task: #1221 v0.43.1 persistent Add category Preview; repair stale Hamburger label regression test on isolated task branch.
 
 ## Verified baseline
-- `dev@2e976653f93eacdfeed0493fb4f67220cb763c58` v0.42.1, canonical #39722872739 SUCCESS, exact Vercel `dpl_AtnUt1PgoPV44vn9LGaWzdSYJzAT` READY. Large-screen Calendar/Todo/Diary delivery complete; `main`/Production untouched. #404 remains OPEN for future Chat/Settings/Friend/Explore/Alerts/general sheets.
-- #1221 v0.43.0 stable Preview `feature/1221-first-category-dayview-v043-20261022@2f05a97190fb7c2f8b44f402474984e2ef43f85e`, canonical #39724239281, trusted #39724612999 SUCCESS, Vercel `dpl_FH3bYBc9bXimTc7oSgskNhe8yafm` READY; not merged to dev.
+- `dev@2e976653f93eacdfeed0493fb4f67220cb763c58` v0.42.1 canonical #39722872739 SUCCESS, Git-first Vercel `dpl_AtnUt1PgoPV44vn9LGaWzdSYJzAT` READY. Main/Production untouched. #404 remains OPEN.
+- First-category onboarding v0.43.0 accepted Preview `feature/1221-first-category-dayview-v043-20261022@2f05a97190fb7c2f8b44f402474984e2ef43f85e`, canonical #39724239281, trusted #39724612999 SUCCESS, immutable Vercel `dpl_FH3bYBc9bXimTc7oSgskNhe8yafm` READY.
+- User-approved v0.43.1 includes Hamburger label `Categories`, OFF-by-default account-synced `showAddCategoryInDayView` preference, and one repeatable bottom Add category action for active owners in Categories/Timeline/Calendar/Diary/Todo. No friend/read-only, Backlogs, selection mode, or pre-hydration CTA. Existing local-first `useCategories.addCategory` is unchanged.
 
-## Scoped v0.43.1 refinement
-- Branch `chatgpt/1221-persistent-add-category-v0431-20261022` from accepted v0.43.0. Hamburger category manager label `Categories` replaces `Lists & Categories`, destination unchanged.
-- Account-synced `showAddCategoryInDayView` preference in Tasks, OFF by default; OFF preserves existing first-category prompt only when owner has none. ON offers one Add category entry at the *bottom* of the active owner Day View list (Categories/Timeline, Diary and Todo inline; Bottom/Left/Right) even after categories exist. No Backlogs, selection mode or friend/read-only content. Hydration/owner checks retained. Repeatable inline form reuses `useCategories.addCategory`, increments order, resets successful input without closing Day View.
-- Focused component, DayView and Preferences regression coverage added. Version candidate 0.43.1 in package, lockfile and appVersion. No schema, backend, CI gate or Production change.
+## Delivery issue and repair
+- Initial source PR #1235: task `chatgpt/1221-persistent-add-category-v0431-20261022@3a52d936ca2e15915e7b246f210ae3c2fd4cb8ca`, focused Quality Gate #39742933511 SUCCESS.
+- Squashed into existing stable Preview at `c930ad1ade757248bdfc17418bc0e00f12601666`. Full Quality Gate #39744154187: production build and audit PASS, DOM shard 1 PASS, DOM shard 2 FAIL only because `tests/components/HamburgerMenu.test.tsx` asserted old `Lists & Categories` label. 315 other tests on shard 2 PASS. Full canonical acceptance therefore NOT granted; v0.43.1 not yet READY.
+- This repair branch `chatgpt/1221-v0431-menu-test-repair-20261022` from exactly `c930ad1` changes only the stale Hamburger DOM test and this checkpoint. No application code, version, backend, or security gate change. Keep v0.43.1 (failed candidate had no successful release).
 
 ## Next action
-- Request focused [verify:focused] at coherent task commit, repair any build/test failures, review scoped diff, squash only to existing protected #1221 stable Preview, run full canonical CI and trusted Vercel READY on exact SHA. Obtain owner manual/device acceptance before any separately approved dev promotion. Scratch immutable-host authenticated acceptance still unverified because of Web platform quota; do not claim signed-in end-to-end or change Scratch platforms without permission. Keep #1221 and #404 OPEN.
+- Request [verify:focused] on this repair task commit, require focused SUCCESS. Squash into stable `feature/1221-first-category-dayview-v043-20261022`, then require a new full canonical CI and matching trusted Vercel READY on the new stable SHA. Do not patch the stable Preview directly or bypass the failed gate. Authenticated Scratch/device checks remain outstanding due immutable-host platform quota. Keep #1221 and #404 OPEN; do not promote to dev/main/Production without explicit approval.
