@@ -213,12 +213,14 @@ async function measureInteraction(page, name, action, target = null) {
     return window.__mosaicPerf.actionFinishedAt;
   });
 
+  // Include commits during the full 700 ms animation sampling window, not
+  // only the synchronous input dispatch that Playwright just completed.
+  await page.waitForTimeout(750);
+
   const reactProfile = await page.evaluate(
     (start) => (window.__mosaicReactProfile ?? []).slice(start),
     profileStart,
   );
-
-  await page.waitForTimeout(750);
 
   return page.evaluate(({ name, startedAt, actionFinishedAt, reactProfile }) => {
     const perf = window.__mosaicPerf;
@@ -255,6 +257,14 @@ async function measureInteraction(page, name, action, target = null) {
     const actionLongAnimationFrames = perf.longAnimationFrames.filter(
       (entry) =>
         entry.startTime < actionFinishedAt &&
+        entry.startTime + entry.duration > startedAt
+    );
+
+    // Input-handling long frames and entrance/exit animation long frames are
+    // distinct windows; an asynchronous sheet transition can outlive the action.
+    const animationLongAnimationFrames = perf.longAnimationFrames.filter(
+      (entry) =>
+        entry.startTime < startedAt + 700 &&
         entry.startTime + entry.duration > startedAt
     );
 
@@ -322,6 +332,10 @@ async function measureInteraction(page, name, action, target = null) {
       })),
       longAnimationFrameCount: perf.longAnimationFrames.length,
       actionLongAnimationFrameCount: actionLongAnimationFrames.length,
+      animationLongAnimationFrameCount: animationLongAnimationFrames.length,
+      maxAnimationLongAnimationFrameMs: animationLongAnimationFrames.length
+        ? Math.max(...animationLongAnimationFrames.map((entry) => entry.duration))
+        : 0,
       maxLongAnimationFrameMs: actionLongAnimationFrames.length
         ? Math.max(...actionLongAnimationFrames.map((entry) => entry.duration))
         : 0,
@@ -757,6 +771,8 @@ test('@performance real Day View nested Memo, Task Actions and Add Photo', async
         p95FrameMs: result.p95FrameMs,
         maxFrameMs: result.maxFrameMs,
         maxLongAnimationFrameMs: result.maxLongAnimationFrameMs,
+        animationLongAnimationFrameCount: result.animationLongAnimationFrameCount,
+        maxAnimationLongAnimationFrameMs: result.maxAnimationLongAnimationFrameMs,
         droppedFrameRatio: result.droppedFrameRatio,
         layoutReads: result.layoutReads,
         mutationRecords: result.mutationRecords,
