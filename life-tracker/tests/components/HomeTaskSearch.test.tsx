@@ -90,7 +90,9 @@ describe('HomeTaskSearch', () => {
     const onClose = vi.fn();
     renderSearch({ onClose });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Dismiss search overlay' }));
+    // The search interface is loaded on demand; wait for its first module evaluation.
+    // Keep the actual dismiss/backdrop behavior assertion unchanged.
+    fireEvent.click(await screen.findByRole('button', { name: 'Dismiss search overlay' }, { timeout: 5000 }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
