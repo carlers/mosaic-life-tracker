@@ -1,16 +1,18 @@
 # Session checkpoint
-Updated: 2026-10-22 Asia/Manila
-Current task: Fix two owner-reported large-screen #404 v0.42.0 regressions and deliver an isolated v0.42.1 Preview.
 
-## Baseline and scope
-- Accepted Calendar large-screen v0.40.5 and repaired category-color v0.41.0 remain on dev@31be0286812ed52f86caaaa68541ae1e351aa671; dev Vercel READY. Main/Production unchanged.
-- Preview v0.42.0 from PR #1202 is stable at feature/404-todo-diary-panel-v042-20261022@acd7a4828540e662d2114ce5c75442279180a4e6, Quality Gate 39708270937 SUCCESS and Vercel dpl_4RwLy1dNqmc7idDbZTF3b675TKtN READY.
-- Two owner-reported bugs: live Full screen height → Calendar height can leave the panel taller than the workspace; while dragging the divider, reorderable tasks/categories/diary rows lag behind layout.
+Updated: 2026-10-22 Asia/Manila.
+Current task: Recover the exact accepted v0.42.1 large-screen layout promotion on `dev` after a Vercel-only one-byte size failure.
 
-## v0.42.1 repair candidate
-- Task branch chatgpt/404-height-resize-motion-20261022 from accepted Preview v0.42.0.
-- Height measurement now derives exclusively from the Home workspace bottom relative to the active frame top. Never feed back the panel-inflated frame height after switching screen/grid modes.
-- Divider updates the panel/inner/content pixel widths directly on animation frames and commits React state/persistence only at drag end; FLIP transforms for task/category/diary reorder rows are suspended only during the resize gesture. Preserve normal drag/reorder animations outside resizing.
-- Real-browser height-toggle and divider/row geometry regressions accompany the fix; do not weaken any tests, size/security budgets or settings.
-- Planned Preview v0.42.1 PATCH. Focused CI first found jsdom rejecting CSS-variable calc() widths in the opening test; the implementation now uses direct pixel widths compatible with both real browsers and jsdom. Reverify task browser gate, then squash only into existing protected stable Preview; require exact-tree canonical gate and Vercel READY before sharing for visual acceptance.
-- Issue #404 remains OPEN. Do not promote to dev/main/Production without separate approval. Manual authenticated touch/editor-draft checks outstanding.
+## Accepted source and promotion
+- Owner approved v0.42.1 Calendar, Todo and Diary resizable Day panels, mode switches and layout controls on dev; issue #404 intentionally remains OPEN for future Chats, Settings, Friend View, Explore, Alerts and reusable Bottom Sheet large-screen expansion.
+- Preview `feature/404-todo-diary-panel-v042-20261022@85136936103e4315ae60d62a8e5f011333120ee3`, canonical #39712657340 SUCCESS (attempt 4) and trusted #39716565534 SUCCESS, Vercel READY `dpl_HUvUSRtC29a8woML1R8o7A86muWN`.
+- Promotion PR #1220 merged to `dev@f75c332bfa68ae6fad0e7de4241bb3bd5cf867cb`; dev tree `e082bde29fd369b3853aca55bb271235d7a098c0` identical to accepted Preview; dev Quality Gate #39719002560 provenance/canonical PASS, first-parent prior dev correct. Main `c938c825370f8270b46f19119b06a1f74d35842b` unchanged.
+- Vercel Git-first dev `dpl_5STwkmXiaFDdVeR4CiX62qQ7oUUV` ERROR despite passing CI: Home closure gzip 381001 B vs blocking 381000 B (1 B), Node 24.22.1. Accepted CI builds Node 22.23.3. Do not change build budget, relax gates or mutate Production/global Vercel project settings.
+
+## Scoped repair
+- Task `chatgpt/404-vercel-node22-20261022` and isolated stable Preview `fix/404-vercel-node22-20261022` both branch from accepted dev `f75c332b...`.
+- Pin `life-tracker/package.json` and lockfile root `engines.node=22.x`, matching existing CI Node 22. Vercel docs confirm package engines overrides shared Project Settings 24.x without modifying the global project. No app behavior or semver change; stays 0.42.1.
+- Verify task focused checks, squash into fix Preview, check full exact-source canonical including security audit, trusted Preview READY; then promote only the reviewed identical repair tree into dev under user's current approval, confirm dev CI and Vercel READY. If any gate fails, diagnose without bypassing.
+- Scratch Appwrite already has 6 web platforms and cannot register a new immutable Preview hostname (403 plan quota). Authenticated manual device testing on the immutable Preview is unverified; backend is unchanged. Do not remove/replace platforms without explicit review.
+- Issue #1221 created for **planning only**: first-category creation CTA directly in empty owner Day View, no code authorization; no category feature code should be written as part of this repair.
+- Issue #404 stays OPEN. Do not promote to main/Production or release version 1.0.
