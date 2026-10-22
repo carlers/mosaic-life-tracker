@@ -44,6 +44,9 @@ let historyGuardSequence = 0;
 let historyBackHandlerInstalled = false;
 /** Visible portals outlive isOpen until Framer finishes the exit animation. */
 const visibleSheetIds: string[] = [];
+// Exiting portals remain visible/inert, but must stop holding the parent at its
+// behind-layer scale. Keep live-opening state separate from portal ownership.
+const openSheetIds = new Set<string>();
 const sheetLayerListeners = new Set<() => void>();
 const deferredFocusReturn = new Map<string, HTMLElement>();
 
@@ -60,6 +63,20 @@ function subscribeSheetLayers(listener: () => void) {
 
 function currentTopVisibleSheet(): string | null {
   return visibleSheetIds[visibleSheetIds.length - 1] ?? null;
+}
+
+function currentTopOpenSheet(): string | null {
+  for (let index = visibleSheetIds.length - 1; index >= 0; index -= 1) {
+    if (openSheetIds.has(visibleSheetIds[index])) return visibleSheetIds[index];
+  }
+  return null;
+}
+
+function updateOpenSheet(sheetId: string, isOpen: boolean) {
+  if (openSheetIds.has(sheetId) === isOpen) return;
+  if (isOpen) openSheetIds.add(sheetId);
+  else openSheetIds.delete(sheetId);
+  for (const listener of sheetLayerListeners) listener();
 }
 
 function updateVisibleSheet(sheetId: string, visible: boolean) {
@@ -305,6 +322,13 @@ function SheetPresenceSurface({
         duration: document.documentElement.dataset.reduceMotion === 'true' ||
           systemRequestsReducedMotion() ? 0 : 0.32,
         ease: [0.32, 0.72, 0, 1],
+        // Finish parent-scale restoration before the upper portal exits, not
+        // in a second visible settle after the top sheet disappears.
+        scale: {
+          duration: document.documentElement.dataset.reduceMotion === 'true' ||
+            systemRequestsReducedMotion() ? 0 : 0.24,
+          ease: [0.32, 0.72, 0, 1],
+        },
       }}
       onAnimationComplete={() => {
         onAnimationComplete?.();
@@ -389,13 +413,17 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     currentTopVisibleSheet,
     () => null
   );
+  const topOpenSheetId = useSyncExternalStore(
+    subscribeSheetLayers,
+    currentTopOpenSheet,
+    () => null
+  );
   const isTopLayer = topVisibleSheetId === sheetId;
-  // The visible stack includes closing portals until their exit completes.
-  // Each backdrop must paint above the previous sheet rather than sharing
-  // a fixed z-index with every other backdrop in the stack.
+  // Keep exiting portals on top for Back/focus/pointer safety. For visual
+  // scaling only, ignore sheets already closing so restoration overlaps exit.
   const layerIndex = visibleSheetIds.indexOf(sheetId);
   const layerDepth = Math.max(0, layerIndex);
-  const isBehindLayer = layerIndex >= 0 && !isTopLayer;
+  const isBehindLayer = layerIndex >= 0 && topOpenSheetId !== null && topOpenSheetId !== sheetId;
   const isBlockedLayer = suspendInteraction || !isTopLayer;
 
   useFocusTrap(
@@ -407,10 +435,14 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   useEffect(() => {
     updateVisibleSheet(sheetId, isOpen || childrenMounted);
+    updateOpenSheet(sheetId, isOpen);
   }, [childrenMounted, isOpen, sheetId]);
 
   // Covers a genuine parent unmount before Framer can signal exit completion.
-  useEffect(() => () => updateVisibleSheet(sheetId, false), [sheetId]);
+  useEffect(() => () => {
+    updateOpenSheet(sheetId, false);
+    updateVisibleSheet(sheetId, false);
+  }, [sheetId]);
 
   useEffect(() => {
     if (!isOpen && !childrenMounted) return;

@@ -1,19 +1,18 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: #1245 nested BottomSheet performance diagnostics and Diary exit lifetimes; v0.43.3 candidate, task branch only.
+Task: #1245 nested BottomSheet animation refinement, v0.43.4 Preview candidate.
 
-## Verified baseline
-- `dev@ebbc9a1e01c4380af13ed2c913bed17fba905892` v0.43.2; no newer dev baseline at task creation. The previous #1221 checkpoint was stale and its feature is already promoted to dev.
-- Historical #640 and #656 prove virtualization and resolved-component lazy warmup; don't regress them or infer present-day mobile latency from Chromium historical numbers.
-- #858 remains open for cold-start work, separate from this nested sheet investigation. #700 architecture audit remains deferred.
+## Baseline and authorization
+- Accepted stable Preview `perf/1245-nested-sheet-diary-exit-v0433-20261022@90edcb0b79ab5edf8e85c01c88949c9aaeb566dc` v0.43.3. Full canonical CI #39772841414 and trusted Preview Delivery #39773356361 succeeded; Vercel READY exact SHA. Owner reports Day View delayed settling on Task Action Sheet close.
+- `dev@ebbc9a1e01c4380af13ed2c913bed17fba905892` v0.43.2; no promotion authorization.
+- Task Action Sheet height and position explicitly OUT OF SCOPE by owner's most recent instruction. Retain `height="auto"` and shared cap unchanged.
 
-## Authorized v0.43.3 candidate
-- #1245: controlled `DiaryEntrySheet` and `DiaryReferenceSheet` opening/closing across owner/friend Day View, Diary and Chat quote callers, retained record through Framer exit, existing Back/focus/scroll and authorization gates preserved.
-- Opt-in `@performance` nested two-layer BottomSheet benchmark built from real shared components, 50 synthetic task rows, cold/warm and blur/plain comparisons. Adds first frame where target DOM state is observed (not a guaranteed pixel paint); adds separate browser acceptance test for Diary exit and Escape.
-- No speculative alteration of Day View reopen deferral, blur defaults, scaling, focus trap, global sheet registry, backend, or schema. Real device compositor performance and owner-acceptance remain unverified.
-- Version files package.json/package-lock.json/appVersion.ts set to v0.43.3 in the same task tree.
+## v0.43.4 implementation
+- Split retained visible modal-portal stack (remains inert, scroll locked, atop history until exit) from open-layer visual scaling membership (removed when closing starts).
+- Restore parent scale in parallel with departing child, 240ms scale easing within 320ms top-sheet exit; avoid second late settling animation. No changes to modal height, Day View virtualization, backdrop blur, backend, data or auth.
+- Real-browser regression checks nested sheet open/close, parent fully restored at upper sheet exit, continued inert/focus safety and Escape/reopen. Existing Diary exit regression retained.
+- Version triplet is 0.43.4. Opt-in performance probe still available, not claiming measured device gains.
 
-## Delivery plan / next
-- Task branch: `chatgpt/1245-nested-sheet-perf-diary-exit-20261022`, base dev SHA above, coherent task commit `[verify:browser]` to run focused plus browser contracts.
-- Repair genuine CI failures, then create/reconcile stable Preview branch and verify exact-SHA canonical gate + Vercel Scratch Preview. Android/iOS device checks remain manual.
-- Keep #1245 OPEN through manual acceptance. **No dev/main/Production promotion without explicit approval.**
+## Delivery
+- Task branch `chatgpt/1245-nested-scale-settle-v0434-20261022` from accepted v0.43.3 Preview `90edcb0b`. Focused `[verify:browser]`, then squash into existing `perf/1245-nested-sheet-diary-exit-v0433-20261022` stable Preview; exact-SHA canonical, trusted Scratch Vercel deployment READY.
+- No dev/main/Production promotion without separate explicit approval. Device/perceived smoothness and opt-in benchmark remain manual acceptance. Issue #1245 stays OPEN.
