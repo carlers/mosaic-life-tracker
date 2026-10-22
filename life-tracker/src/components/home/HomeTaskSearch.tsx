@@ -332,23 +332,16 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
             </div>
 
             <div className="px-2 py-2">
-              {isLoading ? (
+              {isLoading || !hasCriteria || searchOutput.total === 0 ? (
                 <div
-                  role="status"
+                  role={isLoading || hasCriteria ? 'status' : undefined}
                   className="px-3 py-8 text-center text-sm text-gray-400"
                 >
-                  Loading tasks…
-                </div>
-              ) : !hasCriteria ? (
-                <div className="px-3 py-8 text-center text-sm text-gray-400">
-                  Search by task title or choose a filter.
-                </div>
-              ) : searchOutput.total === 0 ? (
-                <div
-                  role="status"
-                  className="px-3 py-8 text-center text-sm text-gray-400"
-                >
-                  No matching tasks.
+                  {isLoading
+                    ? 'Loading tasks…'
+                    : !hasCriteria
+                      ? 'Search by task title or choose a filter.'
+                      : 'No matching tasks.'}
                 </div>
               ) : (
                 <>
