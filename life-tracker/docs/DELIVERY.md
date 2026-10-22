@@ -450,3 +450,17 @@ explicit stable→dev authorization for every promotion.
 
 A full green canonical gate by itself does not authorize provider configuration
 changes, Production backend writes, `main` product promotion, or a 1.0 tag.
+
+### Supabase core Preview (opt-in protected CI job)
+
+The isolated \`feature/1027-supabase-recovery-20261020\` branch now shares the
+same CI → protected Preview delivery concept as Appwrite, but never inherits
+Appwrite Scratch or Production variables. Its \`Supabase Core App Lab\` may
+publish the exact-SHA \`mosaic-dev\` core-only artifact only when the
+\`mosaic-supabase-preview\` GitHub environment/approvals and repository
+enablement variable are configured. The pinned prebuilt static bytes are verified
+independently against the canonical Quality Gate and published artifact digest.
+See \`../supabase-poc/HOSTED_CORE.md\` for exact protection, CLI, provenance and
+no-alias restrictions. This is a Preview toolchain, not a user-data cutover
+or automatic promotion to \`dev\`/\`main\`.
+

@@ -407,3 +407,52 @@ For session pooler, replace `PGHOST` with the exact project-supplied hostname an
 **Still mandatory after this command:** restore the encrypted archive onto a separately isolated disposable Supabase-compatible target, prove per-owner row counts and hashes including tombstones and Auth identities, verify active RLS/grants/CAS/Diary privacy with signed negative tests, and separately preserve Auth email/hook/SMTP configuration plus any external Storage bytes and global-role requirements. An `age` decrypt + `pg_restore --list` pass alone is not a restore drill, nor is an ordinary personal Settings export. Keep signup invite gate, protected Preview and Production unchanged until all acceptance/rollback checks are green.
 
 The guarded original-data six-table recovery is pinned to the first archive by default. For a **fresh** encrypted hosted snapshot, the same disposable recovery wrapper supports an explicitly operator-pinned `--fresh-snapshot-sha256` argument (see `PRIVATE_CORE_RECOVERY.md`). It still refuses nonempty targets, changed source counts, unauthorized Docker targets, managed session replay or content mismatch; never reuse the already-running Fedora rehearsal. This verifies only the six selected core tables and cannot certify the full hosted logical archive or managed Auth/SMTP configuration. Keep the source encrypted until a separately audited full recovery/rollback gate is accepted.
+
+## CI-backed, opt-in Supabase prebuilt Preview deployment (#1250)
+
+The same \`Supabase Core App Lab\` that produces the isolated, nondeployable
+Supabase static artifact now offers a **protected Preview-only** delivery job.
+The delivery job is **skipped by default**; it never deploys to \`dev\`, \`main\`,
+Production, Appwrite, or any shared Vercel alias.
+
+**One-time trusted operator configuration in GitHub Settings (never in the
+repository):**
+
+1. Create GitHub environment \`mosaic-supabase-preview\` with required reviewers,
+   and restrict deployment branches to
+   \`feature/1027-supabase-recovery-20261020\`.
+2. In that environment, store a short-scope Preview Vercel access token as
+   \`MOSAIC_SUPABASE_PREVIEW_VERCEL_TOKEN\` (secret), and set
+   \`MOSAIC_SUPABASE_PREVIEW_PROJECT_ID\` (variable) to the reviewed
+   \`prj_jysOLDbuO9c5rP8x6Q145DVIw0fc\`. Never store this token in
+   \`VITE_*\`, output artifacts, issues, or PR bodies.
+3. Only after verifying those protections, set the **repository** variable
+   \`MOSAIC_SUPABASE_PREVIEW_DEPLOY_ENABLED=true\`. Removing it or setting it to
+   false disables future automatic Preview deployment. GitHub environment
+   approval remains in force for each run.
+
+On an accepted push to the exact recovery branch, the existing Core App Lab runs
+its signed disposable tests and produces the pinned Supabase static artifact.
+The guarded deployment job then reads the latest original branch tip and
+completed **exact-SHA** canonical Quality Gate, reads the artifact for its own
+run/attempt, checks the GitHub-authenticated ZIP SHA-256 digest, runs
+\`stage-supabase-core-artifact.mjs\` in a clean checkout, and only then uses
+\`vercel@62.7.0 deploy --prebuilt --archive=tgz --target=preview\`.
+It emits a new **immutable, protected Preview URL**, with source SHA/provider/
+artifact fingerprint metadata. The separate Vercel READY readback must match
+the hard-coded project, preview target, exact source and artifact digest.
+A missing secret, variable, review, Quality Gate, artifact, branch match,
+untrusted content or READY response fails closed.
+
+The action does **not** change existing aliases, Vercel project settings,
+Supabase Auth/email policy, data, or Production. In particular, the older
+\`mosaic-supabase-core-preview.vercel.app\` alias remains on its existing build
+until a separately approved and verified alias cutover. An immutable protected
+URL requires tester SSO/share access. It is not evidence of signed-personal ZIP
+or TodoMate import, two-device convergence, public signup readiness, user
+migration, old Appwrite PWA fencing or production cutover.
+
+**Operational note:** A new workflow commit produces a new CI artifact; older
+downloaded artifacts are never renamed or reused by guessing an SHA. This
+deployment job consumes only the artifact produced by its own accepted run.
+
