@@ -28,7 +28,7 @@ import {
 import { makeBucketTaskLinkId } from './bucketTaskLinkId';
 import { ensureRestoredImage, getCurrentUserId } from './storage';
 
-export type RestoreMode = 'merge' | 'replace';
+export type RestoreMode = 'merge' | 'replace' | 'todomate-replace';
 
 const RESTORABLE_COLLECTIONS = [
   'categories',
@@ -46,6 +46,15 @@ const POST_RESTORE_SYNC_MAX_TIMEOUT_MS = 300_000;
 const POST_RESTORE_SYNC_PER_ROW_MS = 500;
 
 type RestorableCollection = (typeof RESTORABLE_COLLECTIONS)[number];
+const TODOMATE_REPLACE_DOMAINS: ReadonlySet<RestorableCollection> = new Set(['categories', 'tasks']);
+
+/** Only TodoMate tasks and categories replace; Diary and other personal data
+ * are merged or retained, never swept by the external snapshot. */
+function collectionRestoreMode(mode: RestoreMode, domain: RestorableCollection): 'merge' | 'replace' {
+  return mode === 'todomate-replace'
+    ? (TODOMATE_REPLACE_DOMAINS.has(domain) ? 'replace' : 'merge')
+    : mode;
+}
 type JsonRecord = Record<string, unknown>;
 type RestorableDocument =
   | TaskDocument
@@ -903,7 +912,7 @@ async function planRestore(
       if (current.userId !== userId) {
         throw new Error('Restore ID collides with data owned by another account.');
       }
-      if (mode === 'merge') {
+      if (collectionRestoreMode(mode, collectionName) === 'merge') {
         const currentUpdatedAt = toMs(current.updatedAt);
         const backupUpdatedAt = toMs(doc.updatedAt);
         const isEqualCrossAccountImageRetry =
@@ -951,7 +960,7 @@ async function applyDocuments(
       assertOwner?.();
       const doc = {
         ...sourceDoc,
-        ...(mode === 'replace' ? { updatedAt: replaceTimestamp } : {}),
+        ...(collectionRestoreMode(mode, collectionName) === 'replace' ? { updatedAt: replaceTimestamp } : {}),
         userId,
         isDeleted: false,
       } as RestorableDocument;
@@ -963,7 +972,7 @@ async function applyDocuments(
         if (current.userId !== userId) {
           throw new Error('Restore ID collides with data owned by another account.');
         }
-        if (mode === 'merge') {
+        if (collectionRestoreMode(mode, collectionName) === 'merge') {
           const currentUpdatedAt = toMs(current.updatedAt);
           const backupUpdatedAt = toMs(doc.updatedAt);
           const isEqualCrossAccountImageRetry =
@@ -1004,7 +1013,8 @@ async function tombstoneMissing(
   timestamp: string,
   assertOwner?: () => void,
   includeBucketList = true,
-  includeBucketTaskLinks = true
+  includeBucketTaskLinks = true,
+  onlyDomains?: ReadonlySet<RestorableCollection>
 ): Promise<number> {
   const wanted: Record<RestorableCollection, Set<string>> = {
     tasks: new Set(data.tasks.map((doc) => doc.id)),
@@ -1017,6 +1027,7 @@ async function tombstoneMissing(
 
   let tombstoned = 0;
   for (const name of RESTORABLE_COLLECTIONS) {
+    if (onlyDomains && !onlyDomains.has(name)) continue;
     if (name === 'bucketList' && !includeBucketList) continue;
     if (name === 'bucketTaskLinks' && !includeBucketTaskLinks) continue;
     assertOwner?.();
@@ -1155,8 +1166,13 @@ export async function restoreUserData(
   assertOwner();
   const data = normalizeBackup(loaded.payload, currentUser.id);
 
-  if (options.mode !== 'merge' && options.mode !== 'replace') {
+  if (options.mode !== 'merge' && options.mode !== 'replace' && options.mode !== 'todomate-replace') {
     throw new Error('Restore mode is invalid.');
+  }
+
+  if (options.mode === 'todomate-replace' &&
+      (!precompressedImages || !loaded.payload.user.id.startsWith('todomate_'))) {
+    throw new Error('TodoMate Replace requires a trusted in-memory TodoMate transfer.');
   }
 
   if (
@@ -1206,7 +1222,7 @@ export async function restoreUserData(
   );
 
   let safetyBackupDownloaded = false;
-  if (options.mode === 'replace') {
+  if (options.mode !== 'merge') {
     reportDetail('Creating safety backup…', 23);
     const safety = await exportUserData(currentUser, { includeImages: false });
     triggerDownload(safety.blob, safety.filename);
@@ -1274,7 +1290,7 @@ export async function restoreUserData(
     plan.data.bucketTaskLinks.length;
   let processedDocuments = 0;
   reportDetail(
-    options.mode === 'replace'
+    options.mode !== 'merge'
       ? 'Applying backup data…'
       : 'Merging personal data…',
     45,
@@ -1312,7 +1328,7 @@ export async function restoreUserData(
   }
 
   let tombstoned = 0;
-  if (options.mode === 'replace') {
+  if (options.mode !== 'merge') {
     await assertRestoreUserStillCurrent(currentUser.id);
     reportDetail('Removing current-only personal data…', 76);
     tombstoned = await tombstoneMissing(
@@ -1321,7 +1337,8 @@ export async function restoreUserData(
       replaceTimestamp,
       assertOwner,
       loaded.payload.version >= 3,
-      loaded.payload.version >= 4
+      loaded.payload.version >= 4,
+      options.mode === 'todomate-replace' ? TODOMATE_REPLACE_DOMAINS : undefined
     );
   }
 

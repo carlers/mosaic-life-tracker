@@ -243,6 +243,44 @@ describe('backup restore', () => {
 
   it('merge preserves a newer current row and imports a newer missing row', async () => { state.rows.tasks.set('task_keep', { id: 'task_keep', title: 'Current title', completed: false, categoryId: '', date: '2026-09-19', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-21T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }); const file = jsonBackup({ data: { tasks: [{ id: 'task_keep', title: 'Older backup title', completed: false, categoryId: '', date: '2026-09-19', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }, { id: 'task_new', title: 'Imported', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-22T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }], categories: [], diary: [], settings: [], friendships: [] } }); const result = await restoreUserData(file, currentUser, { mode: 'merge' }); expect(state.rows.tasks.get('task_keep')?.title).toBe('Current title'); expect(state.rows.tasks.get('task_new')).toMatchObject({ title: 'Imported', userId: 'user_A' }); expect(result.skippedNewer).toBe(1); expect(result.restored.tasks).toBe(1); expect(result.syncState).toBe('synced'); expect(state.refreshSync).toHaveBeenCalledTimes(2); });
   it('cross-account restore uses deterministic IDs and is duplicate-safe', async () => { const file = jsonBackup({ user: { id: 'source_user', email: 'source@example.com', name: 'Source' }, data: { categories: [{ id: 'cat_source', name: 'Work', color: '#123456', order: 0, visibility: 'private', userId: 'source_user', isDeleted: false, updatedAt: '2026-09-20T00:00:00.000Z' }], tasks: [{ id: 'task_source', title: 'Portable', completed: false, categoryId: 'cat_source', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'source_user', isDeleted: false, visibility: 'private' }], diary: [], settings: [], friendships: [] } }); await restoreUserData(file, currentUser, { mode: 'merge' }); await restoreUserData(file, currentUser, { mode: 'merge' }); expect(state.rows.categories.size).toBe(1); expect(state.rows.tasks.size).toBe(1); const category = Array.from(state.rows.categories.values())[0]; const task = Array.from(state.rows.tasks.values())[0]; expect(category.id).not.toBe('cat_source'); expect(task.id).not.toBe('task_source'); expect(task.categoryId).toBe(category.id); expect(task.userId).toBe('user_A'); });
+  it('TodoMate Replace tombstones tasks/categories only, preserving Diary, settings, and goals', async () => {
+    const older = '2026-09-20T00:00:00.000Z';
+    const newer = '2026-09-28T00:00:00.000Z';
+    state.rows.tasks.set('original_task', { id:'original_task', userId:'user_A', title:'Mosaic only',
+      categoryId:'', date:'2026-09-20', completed:false, createdAt:older, updatedAt:newer, isDeleted:false });
+    state.rows.categories.set('original_category', { id:'original_category', userId:'user_A',
+      name:'Original', color:'#123456', order:0, updatedAt:newer, isDeleted:false });
+    state.rows.diary.set('old_diary', { id:'old_diary', userId:'user_A', date:'2026-09-20',
+      content:'Original diary', updatedAt:newer, isDeleted:false });
+    state.rows.settings.set('prefs', { id:'prefs', userId:'user_A', key:'theme', value:'"dark"',
+      updatedAt:newer, isDeleted:false });
+    state.rows.bucketList.set('goal', { id:'goal', userId:'user_A', title:'Keep this goal',
+      description:'', achieved:false, updatedAt:newer, isDeleted:false });
+    const file = jsonBackup({ user:{ id:'todomate_sample', email:'todo@example.com', name:'TodoMate' },
+      data:{ tasks:[{ id:'source_task', title:'TodoMate task', completed:true, categoryId:'source_cat',
+        date:'2026-09-20', createdAt:older, updatedAt:older, userId:'todomate_sample', isDeleted:false }],
+        categories:[{ id:'source_cat', name:'TodoMate', color:'#abcdef', order:0,
+          updatedAt:older, userId:'todomate_sample', isDeleted:false }],
+        diary:[], settings:[], friendships:[] } });
+    const result = await restoreUserData(file, currentUser, { mode:'todomate-replace' }, true);
+    expect(result.tombstoned).toBe(2);
+    expect(state.rows.tasks.get('original_task')?.isDeleted).toBe(true);
+    expect(state.rows.categories.get('original_category')?.isDeleted).toBe(true);
+    expect([...state.rows.tasks.values()].some(task => task.title === 'TodoMate task' && task.isDeleted === false)).toBe(true);
+    expect(state.rows.diary.get('old_diary')?.isDeleted).toBe(false);
+    expect(state.rows.settings.get('prefs')?.isDeleted).toBe(false);
+    expect(state.rows.bucketList.get('goal')?.isDeleted).toBe(false);
+    expect(result.safetyBackupDownloaded).toBe(true);
+    expect(state.triggerDownload).toHaveBeenCalledOnce();
+  });
+
+  it('rejects TodoMate Replace for arbitrary user ZIP files before mutation', async () => {
+    await expect(restoreUserData(jsonBackup(), currentUser, { mode:'todomate-replace' }))
+      .rejects.toThrow(/trusted in-memory TodoMate transfer/i);
+    expect(state.exportUserData).not.toHaveBeenCalled();
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+  });
+
   it('replace tombstones missing personal rows without touching friendships or messages', async () => { state.rows.tasks.set('task_extra', { id: 'task_extra', title: 'Remove me', completed: false, categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }); state.rows.friendships.set('friend_1', { id: 'friend_1', userId: 'user_A', isDeleted: false }); state.rows.messages.set('msg_1', { id: 'msg_1', userId: 'user_A', isDeleted: false }); const file = jsonBackup(); const result = await restoreUserData(file, currentUser, { mode: 'replace' }); expect(state.rows.tasks.get('task_extra')?.isDeleted).toBe(true); expect(state.rows.friendships.get('friend_1')?.isDeleted).toBe(false); expect(state.rows.messages.get('msg_1')?.isDeleted).toBe(false); expect(result.tombstoned).toBe(1); expect(state.exportUserData).toHaveBeenCalledWith(currentUser, expect.objectContaining({ includeImages: false })); expect(state.triggerDownload).toHaveBeenCalledOnce(); });
   it.each([['merge', false, false], ['replace', false, true], ['merge', true, true], ['replace', true, false]] as const)('%s preserves relationships (cross-account=%s, zip=%s)', async (mode, crossAccount, zip) => { const relationships = ['pending_incoming', 'pending_outgoing', 'accepted', 'blocked'].map((status, i) => ({ id: 'fr_' + i, userId: 'user_A', friendId: 'peer_' + i, status, isDeleted: false })); relationships.push({ id: 'fr_deleted', userId: 'user_A', friendId: 'old_peer', status: 'accepted', isDeleted: true }); for (const row of relationships) state.rows.friendships.set(row.id, { ...row }); const storage = new Map<string, string>(); vi.stubGlobal('localStorage', { getItem: (k: string) => storage.get(k), setItem: (k: string, v: string) => storage.set(k, v) }); const queue = JSON.stringify([{ ownerId: 'user_A', operation: 'send', friendUserId: 'new_peer' }]); localStorage.setItem('mosaic_friendship_commands_v1', queue); const payload = backupPayload({ user: crossAccount ? { ...currentUser, id: 'source_user' } : currentUser }); payload.data.friendships = [{ id: 'must_not_restore', userId: 'source_user', status: 'accepted' }]; await restoreUserData(zip ? zipBackup(payload) : jsonBackup(payload), currentUser, { mode }); expect([...state.rows.friendships.values()]).toEqual(relationships); expect(localStorage.getItem('mosaic_friendship_commands_v1')).toBe(queue); });
   it('rejects a v2 file without the Mosaic backup format marker', async () => { const payload = backupPayload(); delete (payload as { format?: string }).format; const file = new File([JSON.stringify(payload)], 'not-v2.json', { type: 'application/json' }); await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(/valid Mosaic backup v2/i); });

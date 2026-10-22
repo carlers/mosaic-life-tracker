@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSheetReset } from '../../hooks/useSheetReset';
 import { usePropSync } from '../../hooks/usePropSync';
 import { restoreUserData } from '../../lib/restoreData';
+import { ConfirmSheet } from '../ui/ConfirmSheet';
 import {
   prepareTodoMateTransfer,
   type PreparedTodoMateTransfer,
@@ -36,6 +37,8 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
   const [prepared, setPrepared] = useState<PreparedTodoMateTransfer | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [importMode, setImportMode] = useState<'merge' | 'todomate-replace'>('merge');
+  const [isReplaceConfirmOpen, setIsReplaceConfirmOpen] = useState(false);
   const [progress, setProgress] = useState('');
   const [progressPercent, setProgressPercent] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +58,8 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     setEmail('');
     setPassword('');
     setPrepared(null);
+    setImportMode('merge');
+    setIsReplaceConfirmOpen(false);
     setIsPreparing(false);
     setIsImporting(false);
     setProgress('');
@@ -117,6 +122,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
 
     setIsPreparing(true);
     setPrepared(null);
+    setIsReplaceConfirmOpen(false);
     setRecoveryNotice(null);
     setError(null);
     setProgress('Connecting to TodoMate…');
@@ -185,7 +191,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     });
     try {
       const result = await restoreUserData(prepared.file, currentUser, {
-        mode: 'merge',
+        mode: importMode,
         onProgressDetail: (detail) => {
           setProgress(detail.message);
           setProgressPercent(detail.percent);
@@ -205,6 +211,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
           ? `${result.imagesMissing} photo${result.imagesMissing === 1 ? '' : 's'} missing`
           : '',
         result.skippedNewer > 0 ? `${result.skippedNewer} newer Mosaic item${result.skippedNewer === 1 ? '' : 's'} kept` : '',
+        result.tombstoned > 0 ? `${result.tombstoned} prior task/category item${result.tombstoned === 1 ? '' : 's'} replaced` : '',
       ].filter(Boolean);
 
       if (result.syncState === 'synced') {
@@ -217,6 +224,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
       }
       importInFlightRef.current = false;
       setIsImporting(false);
+      setIsReplaceConfirmOpen(false);
       setProgress('');
       setProgressPercent(null);
       onClose();
@@ -228,6 +236,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
       );
       importInFlightRef.current = false;
       setIsImporting(false);
+      setIsReplaceConfirmOpen(false);
       setProgress('');
       setProgressPercent(null);
     }
@@ -272,12 +281,14 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     ) : null;
 
   return (
+    <>
     <BottomSheet
       isOpen={isOpen}
       onClose={onClose}
       title="Import from TodoMate"
       height="full"
-      isLocked={isImporting}
+      isLocked={isImporting || isReplaceConfirmOpen}
+      suspendInteraction={isReplaceConfirmOpen}
       preventDismiss={isImporting}
     >
       <div className="px-4 pt-2 pb-8 space-y-5">
@@ -407,27 +418,60 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
                   on imported tasks, but recurring routine rules are not recreated.
                 </p>
               )}
-              <p>
-                Import uses Merge mode. Existing newer Mosaic data wins, and
-                current-only Mosaic data is left untouched.
-              </p>
+              {importMode === 'merge' ? (
+                <p>Merge preserves newer Mosaic data and current-only records.</p>
+              ) : (
+                <p>Replace makes TodoMate tasks and categories authoritative.
+                  Other Mosaic personal data is preserved; Diary entries merge without deletion.</p>
+              )}
             </div>
           </section>
+        )}
+
+        {prepared && (
+          <fieldset className="space-y-2" disabled={busy}>
+            <legend className="text-sm font-medium text-white">TodoMate import mode</legend>
+            <label className="flex items-start gap-3 rounded-xl border border-[#333333] bg-[#1A1A1A] p-3 cursor-pointer">
+              <input type="radio" name="todomate-mode" value="merge"
+                checked={importMode === 'merge'} onChange={() => setImportMode('merge')} className="mt-1" />
+              <span className="text-sm text-gray-300"><strong className="block text-white">Merge (recommended)</strong>
+                Keep newer Mosaic records and everything missing from TodoMate.</span>
+            </label>
+            <label className="flex items-start gap-3 rounded-xl border border-red-900/40 bg-[#1A1A1A] p-3 cursor-pointer">
+              <input type="radio" name="todomate-mode" value="todomate-replace"
+                checked={importMode === 'todomate-replace'} onChange={() => setImportMode('todomate-replace')} className="mt-1" />
+              <span className="text-sm text-gray-300"><strong className="block text-white">Replace tasks &amp; categories</strong>
+                Current-only Mosaic tasks/categories are marked deleted. Diary, settings,
+                Bucket List and social records remain.</span>
+            </label>
+          </fieldset>
         )}
 
         {isImporting && progressPanel}
 
         {prepared && (
           <Button
-            variant="primary"
+            variant={importMode === 'todomate-replace' ? 'danger' : 'primary'}
             className="w-full py-3"
             disabled={busy || !currentUser}
-            onClick={() => void handleImport()}
+            onClick={() => importMode === 'todomate-replace' ? setIsReplaceConfirmOpen(true) : void handleImport()}
           >
-            {isImporting ? 'Importing…' : 'Import into Mosaic'}
+            {isImporting ? 'Importing…' : importMode === 'todomate-replace' ? 'Replace with TodoMate' : 'Import into Mosaic'}
           </Button>
         )}
       </div>
     </BottomSheet>
+    <ConfirmSheet
+      isOpen={isReplaceConfirmOpen}
+      onClose={() => setIsReplaceConfirmOpen(false)}
+      title="Replace Mosaic tasks and categories?"
+      message="TodoMate will replace all current Mosaic tasks and categories, including newer Mosaic edits. Tasks and categories missing from TodoMate will be marked deleted on sync. Your Diary entries, settings, Bucket List and social data are preserved. Mosaic downloads a safety backup before changing anything. Keep your original offline ZIP."
+      confirmLabel="Replace tasks"
+      destructive
+      isProcessing={isImporting}
+      processingLabel="Replacing…"
+      onConfirm={() => void handleImport()}
+    />
+    </>
   );
 };

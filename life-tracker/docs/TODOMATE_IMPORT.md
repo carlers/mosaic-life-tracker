@@ -144,7 +144,13 @@ visibility model. Such records import as `private`, never as broader visibility.
 ## Mosaic write semantics
 
 The TodoMate adapter produces an in-memory Mosaic user-backup v2 file and passes it to the
-existing personal restore engine in **Merge** mode.
+existing personal restore engine in **Merge** mode by default. The user can explicitly
+select **Replace tasks & categories** with a second destructive confirmation. This mode
+makes TodoMate authoritative for tasks and categories only (current-only rows are
+tombstoned after imported rows apply). Diary still merges with newer-current protection;
+settings, Bucket List/links, friendships, messages, login and social grants are preserved.
+Before any Replace mutation the app downloads a safety backup of current personal data.
+Only trusted in-memory TodoMate previews may request this mode; never arbitrary ZIP input.
 
 This is deliberate. Restore planning resolves each collection's existing IDs in one RxDB
 find-by-ID batch instead of one serial lookup per imported row. Photo restore uses a bounded
@@ -179,8 +185,10 @@ This is deliberate. The existing restore path provides:
 - categories-before-tasks local application with account-generation guards
 - an adaptive bounded post-apply freshness barrier with separate synced and sync-pending outcomes
 
-The TodoMate importer must not expose Replace Personal Data. A migration from an external
-service is additive and must not delete unrelated Mosaic data.
+TodoMate Replace must not invoke generic Replace Personal Data, which would erase
+unrelated Mosaic domains that TodoMate does not contain. Replacement requires explicit
+confirmation: older ZIP-only tasks/categories will be tombstoned and should be
+preserved in the original ZIP. This does not replace provider cutover reconciliation.
 
 ## Preview and failure behavior
 

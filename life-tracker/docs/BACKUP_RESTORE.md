@@ -67,9 +67,12 @@ Data application is idempotent by logical/deterministic IDs. Image upload is bes
 
 ## External migrations
 
-External-service migrations are not backup Replace operations. The TodoMate importer creates
-an in-memory Mosaic v2 payload and enters this restore engine only through Merge mode, so an
-external migration cannot delete current-only Mosaic data. Its provider-specific network,
+External-service migrations are not backup Replace operations. The TodoMate importer creates an in-memory Mosaic v2 payload and uses Merge by default.
+A separately confirmed `todomate-replace` option treats only tasks and categories as
+authoritative and tombstones current-only records in those domains **after** applying
+new rows and downloading a safety backup. Diary still uses Merge; settings, Bucket List,
+friendships, messages and accounts remain untouched. This is intentionally **not**
+the broad personal-backup Replace mode and may not be requested by an uploaded ZIP. Its provider-specific network,
 credential, mapping, and limitation contract lives in [TodoMate import](TODOMATE_IMPORT.md).
 
 ## Activity timestamps
