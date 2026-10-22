@@ -221,7 +221,7 @@ export function startCoreRealtimeWake(options: CoreRealtimeWakeOptions): () => v
       }
       if (message.event !== 'postgres_changes' || !joined || !Array.isArray(data.ids) ||
           !data.data || data.data.schema !== 'public' ||
-          !tables.includes(data.data.table as typeof TABLES[number]) ||
+          !tables.includes(data.data.table as string) ||
           !EVENTS.includes(data.data.type as typeof EVENTS[number]) ||
           data.data.record?.owner_id !== session.userId) return;
       if (!data.ids.some(value => typeof value === 'number' &&
