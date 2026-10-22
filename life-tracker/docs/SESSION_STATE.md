@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-22 UTC
-Issue: #1250 protected Supabase Preview deployment and ZIP/TodoMate emergency recovery.
+Current task: #1250 protected Supabase Preview deployment and ZIP/TodoMate emergency recovery.
 
 ## Source of truth
 - Isolated `feature/1027-supabase-recovery-20261020@710cbbd6`, version 0.44.0. Previously all four canonical CI workflows passed on `c000c42d`; Production, dev and main untouched. User configured GitHub protected Preview environment and Vercel token.
