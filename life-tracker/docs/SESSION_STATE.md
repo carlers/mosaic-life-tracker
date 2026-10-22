@@ -1,18 +1,17 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: #1245 nested BottomSheet animation refinement, v0.43.4 Preview candidate.
+Current task: #1245 Memo overlay background task/category remount jitter; v0.43.5 Preview candidate.
 
-## Baseline and authorization
-- Accepted stable Preview `perf/1245-nested-sheet-diary-exit-v0433-20261022@90edcb0b79ab5edf8e85c01c88949c9aaeb566dc` v0.43.3. Full canonical CI #39772841414 and trusted Preview Delivery #39773356361 succeeded; Vercel READY exact SHA. Owner reports Day View delayed settling on Task Action Sheet close.
-- `dev@ebbc9a1e01c4380af13ed2c913bed17fba905892` v0.43.2; no promotion authorization.
-- Task Action Sheet height and position explicitly OUT OF SCOPE by owner's most recent instruction. Retain `height="auto"` and shared cap unchanged.
+## Verified baseline
+- Stable Preview `perf/1245-nested-sheet-diary-exit-v0433-20261022@bcdf46312c8ea1ca283f35eaf144f8aa6fb9f8be` v0.43.4 accepted; canonical Quality Gate #39780745085 and Trusted Preview Delivery #39781326892 SUCCESS; Vercel Preview `dpl_62k42XAHH7p188tEsQW27MQXnTky` READY.
+- `dev@ebbc9a1e01c4380af13ed2c913bed17fba905892` v0.43.2 unchanged. No dev/main/Production promotion authorized. #1245 open.
+- Owner confirms late parent-scale settling is improved, reports visible task/category jitter underneath when Memo opens. Task Action Sheet height/position explicitly out of scope.
 
-## v0.43.4 implementation
-- Split retained visible modal-portal stack (remains inert, scroll locked, atop history until exit) from open-layer visual scaling membership (removed when closing starts).
-- Restore parent scale in parallel with departing child, 240ms scale easing within 320ms top-sheet exit; avoid second late settling animation. No changes to modal height, Day View virtualization, backdrop blur, backend, data or auth.
-- Real-browser regression checks nested sheet open/close, parent fully restored at upper sheet exit, continued inert/focus safety and Escape/reopen. Existing Diary exit regression retained.
-- Version triplet is 0.43.4. Opt-in performance probe still available, not claiming measured device gains.
+## Root cause and scoped fix
+- In sheet-mode Day View, opening any nested modal sets `isBackgroundLocked`. That formerly forced `reorderEnabled=false`, replacing `DayViewCategoryReorder`'s `Reorder.Group/Item` with fragment-based rows and switching `CategorySection` from registered header/task drop surfaces to plain ones. This remounted category and task DOM while the background visibly scaled down, producing flashes/jitter.
+- Keep `reorderEnabled` structurally stable under a nested modal in `renderMode='sheet'` only. The shared parent `BottomSheet` already handles nested `inert`, pointer-events lock and focus ownership; active selection/edit/drag guards remain. Non-sheet modes retain existing background-lock behavior.
+- Browser test against real DayViewSheet Memo path asserts category/task nodes remain attached and identical while Memo opens, parent remains inert, Escape close preserves rows.
+- Version 0.43.5 across package/package-lock/appVersion. No change to Task Action height, shared sheet motion, data/backend, category reorder gesture semantics or performance budgets.
 
 ## Delivery
-- Task branch `chatgpt/1245-nested-scale-settle-v0434-20261022` from accepted v0.43.3 Preview `90edcb0b`. Focused `[verify:browser]`, then squash into existing `perf/1245-nested-sheet-diary-exit-v0433-20261022` stable Preview; exact-SHA canonical, trusted Scratch Vercel deployment READY.
-- No dev/main/Production promotion without separate explicit approval. Device/perceived smoothness and opt-in benchmark remain manual acceptance. Issue #1245 stays OPEN.
+- Isolated task branch `chatgpt/1245-memo-background-row-stability-v0435-20261022` based on `bcdf463`. Request `[verify:browser]`, squash onto current stable Preview after task check green, require canonical Quality Gate and trusted Vercel exact-SHA READY. User/phone visual acceptance outstanding. No dev/main/Production promotion.

@@ -1409,7 +1409,12 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         isOpen &&
                         i === activeIndex &&
                         !isSelectMode &&
-                        !isBackgroundLocked &&
+                        // A modal over sheet-mode Day View already makes the
+                        // entire parent inert. Keep the category Reorder.Group
+                        // and task/drop-row component identities mounted:
+                        // flipping reorderEnabled here would replace every
+                        // category and task row during the Memo entrance.
+                        (renderMode === 'sheet' || !isBackgroundLocked) &&
                         !continuousDrag.projection &&
                         editingTaskId === null
                       }
