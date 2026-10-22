@@ -364,6 +364,101 @@ test('signed two-session category retirement preserves history, then deletion at
   expect(await foreignRead.json()).toEqual([]);
 });
 
+
+test('signed private Diary: independent owners, exact CAS, protected fields, tombstones', async () => {
+  test.skip(hosted, 'Only the disposable local Supabase lab has the private Diary migration');
+  const owner = await account();
+  const stranger = await account();
+  const signed = await api('/rest/v1/rpc/mosaic_core_session', owner.token,
+    { p_action: 'acquire' });
+  expect(signed.ok).toBe(true);
+  const secondLease = await api('/rest/v1/rpc/mosaic_core_session', stranger.token,
+    { p_action: 'acquire' });
+  expect(secondLease.ok).toBe(true);
+
+  const id = 'diary_' + randomBytes(8).toString('hex');
+  const date = '2026-10-22';
+  const now = new Date().toISOString();
+  const data = {
+    owner_id: owner.id, id, entry_date: date,
+    content: 'My private disposable entry', emoji: '🌙', photos: '[]',
+    visibility: 'private', created_at: now, updated_at: now, is_deleted: false,
+  };
+  const created = await api('/rest/v1/mosaic_candidate_diary', owner.token, data);
+  expect(created.ok).toBe(true);
+  const first = (await created.json())[0];
+  expect(first.id).toBe(id);
+  expect(first.entry_date).toBe(date);
+  expect(first.visibility).toBe('private');
+  expect(first.owner_id).toBe(owner.id);
+  expect(first.change_seq).toBeTruthy();
+
+  // RLS is enforced by real GoTrue user A/B JWTs. Neither the anon role
+  // nor the other owner may discover the entry or impersonate its owner.
+  const foreignRead = await api('/rest/v1/mosaic_candidate_diary?select=*&id=eq.' + id,
+    stranger.token);
+  expect(foreignRead.ok).toBe(true);
+  expect(await foreignRead.json()).toEqual([]);
+  const anonymousRead = await api('/rest/v1/mosaic_candidate_diary?select=*&id=eq.' + id, null);
+  if (anonymousRead.ok) expect(await anonymousRead.json()).toEqual([]);
+  const forgedInsert = await api('/rest/v1/mosaic_candidate_diary', stranger.token, {
+    ...data, id: 'forged_' + randomBytes(8).toString('hex'),
+  });
+  expect(forgedInsert.ok).toBe(false);
+  // Privacy cannot be widened by writing a public Diary row.
+  const publicInsert = await api('/rest/v1/mosaic_candidate_diary', owner.token, {
+    ...data, id: 'public_' + randomBytes(8).toString('hex'),
+    entry_date: '2026-10-23', visibility: 'public',
+  });
+  expect(publicInsert.ok).toBe(false);
+  const directPatch = await api(
+    '/rest/v1/mosaic_candidate_diary?id=eq.' + id, owner.token,
+    { content: 'Unauthorized direct mutation' }, 'PATCH');
+  expect(directPatch.ok).toBe(false);
+
+  // All permitted modifications must advance the owner's server revision.
+  const changed = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+    p_id: id, p_expected_seq: first.change_seq,
+    p_patch: { content: 'Signed second revision', emoji: '🍃', updated_at: now },
+  });
+  expect(changed.ok).toBe(true);
+  const next = await changed.json();
+  expect(next.content).toBe('Signed second revision');
+  expect(next.emoji).toBe('🍃');
+  expect(next.entry_date).toBe(date);
+  expect(BigInt(next.change_seq) > BigInt(first.change_seq)).toBe(true);
+
+  const forbiddenPatch = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+    p_id: id, p_expected_seq: next.change_seq, p_patch: { visibility: 'public' },
+  });
+  expect(forbiddenPatch.ok).toBe(false);
+  const foreignCas = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', stranger.token, {
+    p_id: id, p_expected_seq: next.change_seq, p_patch: { content: 'Foreign overwrite' },
+  });
+  expect(foreignCas.ok).toBe(true);
+  const hidden = await foreignCas.json();
+  expect(hidden === null || (hidden.owner_id === null && hidden.id === null)).toBe(true);
+
+  const stale = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+    p_id: id, p_expected_seq: first.change_seq, p_patch: { content: 'Stale overwrite' },
+  });
+  expect(stale.ok).toBe(true);
+  const conflict = await stale.json();
+  expect(conflict === null || (conflict.owner_id === null && conflict.id === null)).toBe(true);
+
+  const tombstone = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+    p_id: id, p_expected_seq: next.change_seq,
+    p_patch: { is_deleted: true, updated_at: new Date().toISOString() },
+  });
+  expect(tombstone.ok).toBe(true);
+  const removed = await tombstone.json();
+  expect(removed.is_deleted).toBe(true);
+  expect(removed.entry_date).toBe(date);
+  const ownerRows = await rows(owner, 'diary');
+  expect(ownerRows.find(record => record.id === id)?.is_deleted).toBe(true);
+  expect((await rows(stranger, 'diary')).some(record => record.id === id)).toBe(false);
+});
+
 test('offline cold start: durable edits, simultaneous tab rotation and logout isolation', async ({ browser }) => {
   const owner = await account();
   const other = await account();
