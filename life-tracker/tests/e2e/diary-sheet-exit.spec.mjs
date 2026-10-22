@@ -57,7 +57,8 @@ test('Memo opens without remounting background Day View category and task rows',
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
 
-  const slide = page.locator('[data-testid="day-slide"][data-date-str="2026-09-15"]');
+  const dayView = page.locator('[role="dialog"]').filter({ has: page.getByTestId('day-swiper') });
+  const slide = dayView.locator('[data-testid="day-slide"][data-date-str="2026-09-15"]').first();
   const category = slide.locator('[data-task-category-id="cat_0"]');
   const task = slide.locator('[data-task-dnd-registered="true"]').first();
   await expect(category).toBeVisible();
@@ -67,7 +68,7 @@ test('Memo opens without remounting background Day View category and task rows',
   // transition. Previously this replaced Reorder.Group with fragments,
   // and registered task-row wrappers with plain rows on every Memo open.
   await page.evaluate(() => {
-    const slide = document.querySelector('[data-testid="day-slide"][data-date-str="2026-09-15"]');
+    const slide = document.querySelector('[role="dialog"] [data-testid="day-swiper"] [data-testid="day-slide"][data-date-str="2026-09-15"]');
     const category = slide?.querySelector('[data-task-category-id="cat_0"]');
     const task = slide?.querySelector('[data-task-dnd-registered="true"]');
     if (!category || !task) throw new Error('Expected mounted category and task row');
@@ -89,7 +90,7 @@ test('Memo opens without remounting background Day View category and task rows',
   })).toBe(true);
   expect(await page.evaluate(() => {
     const saved = (window).__memoBackgroundRows;
-    const slide = document.querySelector('[data-testid="day-slide"][data-date-str="2026-09-15"]');
+    const slide = document.querySelector('[role="dialog"] [data-testid="day-swiper"] [data-testid="day-slide"][data-date-str="2026-09-15"]');
     return slide?.querySelector('[data-task-category-id="cat_0"]') === saved?.category &&
       slide?.querySelector('[data-task-dnd-registered="true"]') === saved?.task;
   })).toBe(true);
