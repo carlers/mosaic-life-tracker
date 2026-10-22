@@ -25,7 +25,7 @@ function equalCount(actual, expected) {
   }
 }
 
-export async function inspectSnapshot(snapshot, deleted, source, now = new Date()) {
+export async function inspectSnapshot(snapshot, deleted, source, now = new Date(), blobsVerified = false) {
   const m = snapshot.manifest;
   if (m.source?.projectId !== source) {
     throw new Error('Source project mismatch');
@@ -88,7 +88,7 @@ export async function inspectSnapshot(snapshot, deleted, source, now = new Date(
     archivedRows, retainedRows, filteredRows, sanitizedRows,
     archivedFiles, excludedFiles, retainedFiles: archivedFiles - excludedFiles,
     tables: summary.sort((a,b)=>a.table.localeCompare(b.table)),
-    fullFileContentIntegrityVerified: true,
+    fullFileContentIntegrityVerified: blobsVerified,
     postSnapshotSourceDeltaVerified: false,
     oldPwaServerWriterFenceVerified: false,
     readyForLiveMigration: false,
@@ -120,7 +120,7 @@ export async function runAudit(args = process.argv.slice(2), env = process.env) 
   });
   // Download and authenticate all objects and file bytes before claiming completeness.
   await preflightSnapshot(snapshot);
-  return inspectSnapshot(snapshot, deleted, source);
+  return inspectSnapshot(snapshot, deleted, source, new Date(), true);
 }
 
 if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1]).href) {

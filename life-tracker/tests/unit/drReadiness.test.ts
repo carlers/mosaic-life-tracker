@@ -43,7 +43,7 @@ describe('read-only historic DR readiness audit', () => {
     expect(y).toMatchObject({ archivedUsers:2, archivedUsersExcluded:1, archivedRows:2,
       retainedRows:1, filteredRows:1, archivedFiles:1, excludedFiles:1,
       sourceProjectVerified:true, readyForLiveMigration:false,
-      meets36HourFreshness:false, fullFileContentIntegrityVerified:true });
+      meets36HourFreshness:false, fullFileContentIntegrityVerified:false });
     expect(JSON.stringify(y)).not.toMatch(/erased|alpha|production123/);
   });
 
