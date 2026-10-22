@@ -1,14 +1,15 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: #1221 first-category creation directly inside owner Day View, user-approved implementation with isolated v0.43.0 Preview only.
+Current task: #1221 owner-approved first-category Preview refinement, v0.43.1 candidate.
 
-## Verified baseline and delivered recovery
-- Dev large-screen Calendar/Todo/Diary v0.42.1 is at `dev@2e976653f93eacdfeed0493fb4f67220cb763c58` via #1220, #1223 and #1227. Stable perf fix Preview `fix/1224-lazy-home-search-20261022@70a0a58759bf036966bb155fdaada271693d16fd`, Quality Gate #39722372220 SUCCESS, trusted #39722686241 SUCCESS. Dev #39722872739 promotion + canonical SUCCESS, Git-first Vercel `dpl_AtnUt1PgoPV44vn9LGaWzdSYJzAT` READY. Size gate untouched; Home closure 377901/381000 B in accepted CI. This resolves #1224 delivery failure; main/Production unchanged.
-- Owner explicitly authorized implementing prior planning-only issue #1221 after dev repair, NOT an automatic merge of #1221 to dev or production. #404 stays OPEN for future large-screen Chats, Settings, Friend View, Explore, Alerts and general Bottom Sheets.
+## Verified baseline
+- `dev@2e976653f93eacdfeed0493fb4f67220cb763c58` v0.42.1, canonical #39722872739 SUCCESS, exact Vercel `dpl_AtnUt1PgoPV44vn9LGaWzdSYJzAT` READY. Large-screen Calendar/Todo/Diary delivery complete; `main`/Production untouched. #404 remains OPEN for future Chat/Settings/Friend/Explore/Alerts/general sheets.
+- #1221 v0.43.0 stable Preview `feature/1221-first-category-dayview-v043-20261022@2f05a97190fb7c2f8b44f402474984e2ef43f85e`, canonical #39724239281, trusted #39724612999 SUCCESS, Vercel `dpl_FH3bYBc9bXimTc7oSgskNhe8yafm` READY; not merged to dev.
 
-## #1221 Preview implementation candidate
-- Task branch `chatgpt/1221-first-category-dayview-20261022` from exact accepted dev; stable Preview `feature/1221-first-category-dayview-v043-20261022`. New user-visible capability: planned **MINOR** version **0.43.0** (package, lockfile root/top and appVersion consistent).
-- FirstCategoryPrompt mounts only in active owner Day View with no categories after local cache hydration, outside Backlogs/select mode; works in Categories and Timeline with optional Diary, in inline Todo and normal Bottom/Left/Right panels. Prompt belongs to the same native Day View scroll area. Existing `useCategories.addCategory` owner-scoped local-first mutation creates name+color+visibility+order 0; no new backend/schema/service. Category manager behavior unchanged.
-- Compact add/cancel form, default blue/private, prevent invalid and duplicate submissions; keep form and error on failure; preserve Day View and selected day. Existing read-only FriendDayViewSheet unchanged. No auto default category.
-- Focused prompt tests and DayView integration tests for owner/empty/loading/selection/timeline/Backlog and reactive category update; then task focused CI, squash to stable Preview, canonical full CI, trusted Vercel READY. Physical phone and desktop, Dark/Light/Black, and authenticated Scratch testing remain separate/manual. Scratch has no free exact-host slots for immutable URLs; do not change backend/platform config for frontend-only work.
-- Do not merge #1221 to dev or main without new explicit approval. Keep #1221 open through user Preview acceptance; no production release or 1.0.
+## Scoped v0.43.1 refinement
+- Branch `chatgpt/1221-persistent-add-category-v0431-20261022` from accepted v0.43.0. Hamburger category manager label `Categories` replaces `Lists & Categories`, destination unchanged.
+- Account-synced `showAddCategoryInDayView` preference in Tasks, OFF by default; OFF preserves existing first-category prompt only when owner has none. ON offers one Add category entry at the *bottom* of the active owner Day View list (Categories/Timeline, Diary and Todo inline; Bottom/Left/Right) even after categories exist. No Backlogs, selection mode or friend/read-only content. Hydration/owner checks retained. Repeatable inline form reuses `useCategories.addCategory`, increments order, resets successful input without closing Day View.
+- Focused component, DayView and Preferences regression coverage added. Version candidate 0.43.1 in package, lockfile and appVersion. No schema, backend, CI gate or Production change.
+
+## Next action
+- Request focused [verify:focused] at coherent task commit, repair any build/test failures, review scoped diff, squash only to existing protected #1221 stable Preview, run full canonical CI and trusted Vercel READY on exact SHA. Obtain owner manual/device acceptance before any separately approved dev promotion. Scratch immutable-host authenticated acceptance still unverified because of Web platform quota; do not claim signed-in end-to-end or change Scratch platforms without permission. Keep #1221 and #404 OPEN.
