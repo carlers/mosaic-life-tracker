@@ -23,6 +23,27 @@ describe('first category prompt', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Category added.');
   });
 
+  it('keeps the footer action available for subsequent categories and clears each successful draft', async () => {
+    const create = vi.fn().mockResolvedValue(undefined);
+    render(<FirstCategoryPrompt persistent onCreate={create} />);
+    expect(screen.queryByText('No categories yet')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add category' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Category name' }), {
+      target: { value: 'Work' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole('button', { name: 'Add category' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Add category' }));
+    expect(screen.getByRole('textbox', { name: 'Category name' })).toHaveValue('');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Category name' }), {
+      target: { value: 'Home' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+    expect(create).toHaveBeenLastCalledWith({ name: 'Home', color: '#3B82F6', visibility: 'private' });
+  });
+
   it('prevents invalid and repeated submit while a write is pending', async () => {
     let complete: (() => void) | undefined;
     const create = vi.fn().mockImplementation(() =>
