@@ -50,6 +50,8 @@ export const FirstCategoryPrompt: React.FC<FirstCategoryPromptProps> = ({ onCrea
         setName('');
         setColor('#3B82F6');
         setVisibility('private');
+        // The footer stays mounted for another category; restore keyboard focus.
+        requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
       }
     } catch (cause) {
       setError(cause instanceof Error && cause.message ? cause.message :
