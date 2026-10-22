@@ -147,12 +147,17 @@ def audit(archive, identity):
                 ["pg_restore", "--data-only", "--no-owner",
                  "--use-list=/proc/self/fd/" + str(selected),
                  "/proc/self/fd/" + str(fd)],
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 pass_fds=(fd, selected),
             ) as proc:
                 try:
                     counts = count_copies(proc.stdout, tables)
-                except BaseException:
+                except BaseException as error:
+                    proc.poll()
+                    if proc.returncode not in (None, 0):
+                        detail = proc.stderr.read(500).decode("utf-8", errors="replace")
+                        proc.wait()
+                        raise ValueError("pg_restore failed before stream: " + detail) from error
                     proc.kill()
                     proc.wait()
                     raise
