@@ -1,3 +1,4 @@
+const DayLayoutMenu = React.lazy(() => import('../home/views/DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
 import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
@@ -505,6 +506,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                 >
                   {format(slideDate, 'EEEE, MMMM d, yyyy')}
                 </h3>
+                {index === activeIndex && <React.Suspense fallback={null}><DayLayoutMenu /></React.Suspense>}
                 <button
                   type="button"
                   onClick={handleNextDay}
@@ -567,6 +569,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
             >
               {format(date, 'EEEE, MMMM d, yyyy')}
             </h3>
+            {renderMode !== 'panel' && <React.Suspense fallback={null}><DayLayoutMenu /></React.Suspense>}
             <button
               type="button"
               onClick={handleNextDay}

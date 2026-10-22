@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 
 import { createPortal } from 'react-dom';
 import './dayDetailPanel.css';
 import { X } from 'lucide-react';
+const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
 import { isSheetVisible } from '../../../lib/sheetVisibility';
 import { DayPanelResizeHandle } from './DayPanelResizeHandle';
 import { clampDayPanelWidth, DAY_PANEL_MIN_FRAME_WIDTH, DAY_PANEL_DIVIDER_WIDTH, readDayPanelWidth, saveDayPanelWidth, type DayPanelSide } from '../../../lib/dayPanelLayout';
@@ -40,6 +41,7 @@ function installStalePanelGuard() {
 interface DayDetailPanelProps {
   side: DayPanelSide;
   isPresented: boolean;
+  persistent?: boolean;
   onExited: () => void;
   initialHeightMode: DayPanelHeight;
   onCalendarLayoutChange?: (live?: boolean) => void | Promise<void>;
@@ -48,6 +50,9 @@ interface DayDetailPanelProps {
   onClose: () => void;
   onFocusCalendar?: () => void;
   isFriend: boolean;
+  showDiaryAlways?: boolean;
+  friendDiaryCard?: React.ReactNode;
+  friendDiaryPosition?: 'top' | 'bottom';
   selectedDate: Date;
   onDateChange: (date: Date) => void;
   tasks: TaskDocument[];
@@ -60,13 +65,16 @@ interface DayDetailPanelProps {
 }
 
 export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
-  side, isPresented, onExited, initialHeightMode,
+  side, isPresented, persistent = false, onExited, initialHeightMode,
   onCalendarLayoutChange, initialFrameWidth, frameRef,
-  onClose, onFocusCalendar, isFriend, selectedDate, onDateChange, tasks,
+  onClose, onFocusCalendar, isFriend, showDiaryAlways = false, friendDiaryCard, friendDiaryPosition = 'top', selectedDate, onDateChange, tasks,
   categories, friendName, currentUserId, onReplyToTask, onReactToTask, holidayConfig,
 }) => {
   const [panelWidth, setPanelWidth] = useState(readDayPanelWidth);
-  const [heightMode] = useState(initialHeightMode);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelInnerRef = useRef<HTMLDivElement>(null);
+  const panelContentRef = useRef<HTMLDivElement>(null);
+  const heightMode = initialHeightMode;
   const [entered, setEntered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const viewportRef = useRef<HTMLElement | null>(null);
@@ -85,7 +93,10 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       // In grid mode the inspector starts beneath Home chrome, but its bottom
       // is the workspace bottom, not the possibly shorter month grid.
       const homeBottom = home?.getBoundingClientRect().bottom ?? rect.bottom;
-      setFrameHeight(Math.max(rect.height, homeBottom - rect.top));
+      // The panel is itself a flex child of the measured frame in grid mode.
+      // Using rect.height as a minimum feeds its previous screen-mode height
+      // back into the measurement after a live screen → grid switch.
+      setFrameHeight(Math.max(0, homeBottom - rect.top));
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
@@ -99,7 +110,15 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const appearance = useContext(AppearanceContext);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const effectivePanelWidth = clampDayPanelWidth(panelWidth, frameWidth);
+  // Change the divider geometry directly on the panel while dragging. A
+  // React update every pointer frame re-renders the whole Day View and makes
+  // Motion's reorderable rows trail behind the divider.
   const targetWidth = effectivePanelWidth + DAY_PANEL_DIVIDER_WIDTH;
+  const resizePanel = (width: number) => {
+    if (panelRef.current) panelRef.current.style.width = `${width + DAY_PANEL_DIVIDER_WIDTH}px`;
+    if (panelInnerRef.current) panelInnerRef.current.style.width = `${width + DAY_PANEL_DIVIDER_WIDTH}px`;
+    if (panelContentRef.current) panelContentRef.current.style.width = `${width}px`;
+  };
   const exitedRef = useRef(onExited);
   const realignRef = useRef(onCalendarLayoutChange);
   useEffect(() => { exitedRef.current = onExited; }, [onExited]);
@@ -162,6 +181,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
+    if (persistent) return;
     if (!panelIdRef.current) panelIdRef.current = `mosaic-day-panel-${++panelHistorySequence}`;
     const id = panelIdRef.current;
     installStalePanelGuard();
@@ -196,7 +216,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         if (readPanelId(window.history.state) === id) window.history.back();
       });
     };
-  }, []);
+  }, [persistent]);
 
   useEffect(() => () => {
     if (panelIdRef.current) activePanelIds.delete(panelIdRef.current);
@@ -204,7 +224,9 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
 
   const panel = (
     <div
+      ref={panelRef}
       data-testid="day-panel-motion-host"
+      data-day-panel-resizing={dragging ? 'true' : undefined}
       data-day-panel-side={side}
       data-panel-split={isSplit ? 'true' : undefined}
       aria-hidden={!isPresented}
@@ -213,6 +235,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         ? 'swiper-no-swiping relative z-10 min-h-0 shrink-0 overflow-hidden'
         : `swiper-no-swiping absolute inset-y-0 ${side === 'left' ? 'left-0' : 'right-0'} z-20 max-w-full overflow-hidden bg-surface`}
       style={{
+        order: side === 'left' ? -1 : 1,
         width: entered ? (isSplit ? targetWidth : 'min(100%, 440px)') : 0,
         height: frameHeight || '100%',
         pointerEvents: isPresented ? 'auto' : 'none',
@@ -225,23 +248,26 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         });
       }}
     >
-      <div className={`flex h-full min-h-0 ${side === 'left' ? 'flex-row-reverse' : ''}`}
+      <div ref={panelInnerRef} className={`flex h-full min-h-0 ${side === 'left' ? 'flex-row-reverse' : ''}`}
         style={{ width: isSplit ? targetWidth : 'min(100%, 440px)' }}>
         {isSplit && (
           <DayPanelResizeHandle
             side={side} width={effectivePanelWidth} frameWidth={frameWidth} frameRef={frameRef}
             screenHeight={Boolean(portalHost) && heightMode === 'screen'}
-            onResize={setPanelWidth}
+            onResize={resizePanel}
             onResizeStart={() => {
               void realignRef.current?.(true);
               viewportRef.current?.setAttribute('data-panel-motion', 'true');
               setDragging(true);
             }}
-            onCommit={saveDayPanelWidth}
+            onCommit={width => {
+              setPanelWidth(width);
+              saveDayPanelWidth(width);
+            }}
             onResizeEnd={finishResize}
           />
         )}
-        <div className="h-full min-h-0 shrink-0 p-2"
+        <div ref={panelContentRef} className="h-full min-h-0 shrink-0 p-2"
           style={{ width: isSplit ? effectivePanelWidth : 'min(100%, 440px)' }}>
     <aside
       aria-label="Day details"
@@ -252,6 +278,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         <h2 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold text-white outline-none">
           Day details
         </h2>
+        <React.Suspense fallback={null}><DayLayoutMenu /></React.Suspense>
         {onFocusCalendar && (
           <button type="button" onClick={onFocusCalendar} className="rounded p-2 text-xs text-gray-300 focus-visible:ring-2 focus-visible:ring-emerald-500" aria-label="Focus calendar">
             Calendar
@@ -263,6 +290,8 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {isFriend ? (
+          <>
+          {friendDiaryPosition === 'top' && friendDiaryCard}
           <LazyFriendDayViewSheet
             isOpen
             onClose={onClose}
@@ -277,12 +306,15 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
             holidayConfig={holidayConfig}
             renderMode="panel"
           />
+          {friendDiaryPosition === 'bottom' && friendDiaryCard}
+          </>
         ) : (
           <LazyDayViewSheet
             isOpen
             onClose={onClose}
             selectedDate={selectedDate}
             onDateChange={onDateChange}
+            showDiaryAlways={showDiaryAlways}
             tasks={tasks}
             categories={categories}
             holidayConfig={holidayConfig}

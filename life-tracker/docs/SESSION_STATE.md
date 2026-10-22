@@ -1,16 +1,16 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Current task: Issue #404 follow-up, restore latest v0.41.0 dev Vercel deployment headroom after concurrent category-color editing, then deliver isolated v0.42.0 Todo/Diary split Preview.
+Current task: Fix two owner-reported large-screen #404 v0.42.0 regressions and deliver an isolated v0.42.1 Preview.
 
-## Current dev baseline and provider size blocker
-- Accepted Calendar v0.40.5 issue #404 was user-tested and promoted by PR #1191 to dev; original Vercel size mismatch was fixed by PR #1195, dev@2dbc4c809ba9e4a939f526c2474e7c0a28e5df8b Vercel READY.
-- Concurrent category-color editing #1185 promoted v0.41.0 to dev@ddd953842d636c41b6d8ad983684f2594c4c3e25; GitHub canonical Quality Gate 39701133512 SUCCESS, but exact dev Vercel deployment dpl_6CzyMrtVyCeuh3NX3Hina5RUe5uS ERROR: unchanged Home closure gzip gate 381001/381000 (+1 byte). Main and Production untouched.
-- User authorized repairing dev and then implementing #404 enhancements, while leaving #404 OPEN. Keep category editing functionality intact and do not relax gates.
-- Dev repair task chatgpt/404-dev-category-byte-20261022 from exact dev, stable Preview fix/404-dev-category-byte-20261022. Safe equivalent Home search-close control-flow refactor: if history entry exists back(), else close search directly; eliminates redundant early return. Local isolated build under public Preview configuration improved 380881→380877/381000 gzip; lint PASS, Home DOM 12/12 PASS. This tiny margin MUST be validated through exact trusted Vercel provider build; do not assume it will pass.
-- Deliver via focused task CI, stable Preview full canonical + trusted Vercel READY; only after provider READY, make owner-authorized dev repair merge PR, verify exact tree, dev CI and Vercel READY. Preserve version 0.41.0.
+## Baseline and scope
+- Accepted Calendar large-screen v0.40.5 and repaired category-color v0.41.0 remain on dev@31be0286812ed52f86caaaa68541ae1e351aa671; dev Vercel READY. Main/Production unchanged.
+- Preview v0.42.0 from PR #1202 is stable at feature/404-todo-diary-panel-v042-20261022@acd7a4828540e662d2114ce5c75442279180a4e6, Quality Gate 39708270937 SUCCESS and Vercel dpl_4RwLy1dNqmc7idDbZTF3b675TKtN READY.
+- Two owner-reported bugs: live Full screen height → Calendar height can leave the panel taller than the workspace; while dragging the divider, reorderable tasks/categories/diary rows lag behind layout.
 
-## Concurrent #404 v0.42.0 feature state
-- Todo/Diary side panels and in-Day-View layout controls fully committed in task branch chatgpt/404-todo-diary-panel-20261022@46abded72e8396d767236fbd981db3546ed19cb6, draft [PR #1202](https://github.com/carlers/mosaic-life-tracker/pull/1202) to isolated feature/404-todo-diary-panel-20261022 Preview branch.
-- Previous task SHA 46abded merged category-color changes and bumped MINOR to v0.42.0 to avoid v0.41.0 collision; [task Quality Gate 39703329481](https://github.com/carlers/mosaic-life-tracker/actions/runs/39703329481) fully SUCCESS (focused and both Playwright shards); local public Preview build 380889/381000 PASS.
-- Feature Preview protected branch cannot be directly fast-forwarded: PR baseline synchronization required. Once dev current build is accepted, sync baseline through a protected-branch PR, reconcile 1-file Home repair into task branch if needed, repeat exact focused browser gate, squash feature PR only into stable Preview, full canonical Quality Gate and trusted READY. Do NOT promote v0.42.0 to dev/main/Production without separate owner approval.
-- Issue #404 remains OPEN, and manual authenticated touch/editor-draft acceptance remains outstanding.
+## v0.42.1 repair candidate
+- Task branch chatgpt/404-height-resize-motion-20261022 from accepted Preview v0.42.0.
+- Height measurement now derives exclusively from the Home workspace bottom relative to the active frame top. Never feed back the panel-inflated frame height after switching screen/grid modes.
+- Divider updates the panel/inner/content pixel widths directly on animation frames and commits React state/persistence only at drag end; FLIP transforms for task/category/diary reorder rows are suspended only during the resize gesture. Preserve normal drag/reorder animations outside resizing.
+- Real-browser height-toggle and divider/row geometry regressions accompany the fix; do not weaken any tests, size/security budgets or settings.
+- Planned Preview v0.42.1 PATCH. Focused CI first found jsdom rejecting CSS-variable calc() widths in the opening test; the implementation now uses direct pixel widths compatible with both real browsers and jsdom. Reverify task browser gate, then squash only into existing protected stable Preview; require exact-tree canonical gate and Vercel READY before sharing for visual acceptance.
+- Issue #404 remains OPEN. Do not promote to dev/main/Production without separate approval. Manual authenticated touch/editor-draft checks outstanding.

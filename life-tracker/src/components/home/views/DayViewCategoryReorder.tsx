@@ -142,6 +142,7 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
 
   return (
     <Reorder.Item
+      data-panel-reorder-row="true"
       as="div"
       value={category.id}
       dragListener={false}

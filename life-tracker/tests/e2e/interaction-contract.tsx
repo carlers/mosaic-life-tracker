@@ -192,8 +192,22 @@ function ColdDayViewProbe({ tasks, categories, emptyDayTasks }: {
  * months that a mocked DOM test cannot detect. */
 function SplitPanelLayoutProbe() {
   const calendar = useCalendarState({ weekStartsOn: 0 });
-  const mode = new URLSearchParams(window.location.search).get('splitPanelProbe') === 'screen' ? 'screen' : 'grid';
+  const [mode, setMode] = useState<'screen' | 'grid'>(
+    new URLSearchParams(window.location.search).get('splitPanelProbe') === 'screen' ? 'screen' : 'grid'
+  );
   const side = new URLSearchParams(window.location.search).get('side') === 'right' ? 'right' : 'left';
+  const withRows = new URLSearchParams(window.location.search).has('splitRows');
+  const categories = React.useMemo<CategoryDocument[]>(() => withRows ? [
+    { id: 'split_cat_a', userId: 'user_1', name: 'Work', order: 0, color: '#3B82F6', visibility: 'private', isDeleted: false },
+    { id: 'split_cat_b', userId: 'user_1', name: 'Life', order: 1, color: '#10B981', visibility: 'private', isDeleted: false },
+  ] : [], [withRows]);
+  const month = calendar.slides[30] ?? new Date(2026, 8, 1);
+  const tasks = React.useMemo<TaskDocument[]>(() => withRows ? Array.from({ length: 42 }, (_, index) => ({
+    id: `split_task_${index}`, userId: 'user_1', title: `Resize task ${index}`,
+    categoryId: 'split_cat_a', date: format(new Date(month.getFullYear(), month.getMonth(), index - 6), 'yyyy-MM-dd'),
+    order: index, completed: false, completedAt: '', createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: '2026-09-01T00:00:00Z', visibility: 'private', memo: '', isDeleted: false,
+  })) : [], [withRows, month]);
   return (
     <div data-testid="split-workspace" className="mosaic-home-workspace flex w-full min-w-0 bg-[#111111]" style={{ height: 750 }}>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -201,6 +215,7 @@ function SplitPanelLayoutProbe() {
         <div className="shrink-0 px-3">
           <span data-testid="split-focused-title">{calendar.title}</span>
           <button type="button" data-testid="split-next-month" onClick={calendar.handleNext}>Next month</button>
+          <button type="button" data-testid="split-toggle-height" onClick={() => setMode(value => value === 'screen' ? 'grid' : 'screen')}>Toggle height</button>
         </div>
         {/* Reproduce a shorter month grid with remaining space above the app nav. */}
         <div data-testid="split-calendar-frame" className="flex min-h-0 shrink-0 flex-col" style={{ height: 470 }}>
@@ -210,7 +225,7 @@ function SplitPanelLayoutProbe() {
             isZoomTransitioning={calendar.isZoomTransitioning}
             onZoomNavigate={calendar.handleZoomNavigate}
             onCalendarLayoutChange={calendar.resnapAfterResize}
-            tasks={[]} categories={[]} categoriesMap={{}} variant="me" isActive
+            tasks={tasks} categories={categories} categoriesMap={{}} variant="me" isActive
             currentUserId="user_1" dayDetailPresentation="panel"
             dayPanelSide={side} dayPanelHeight={mode}
             onPrev={calendar.handlePrev} onNext={calendar.handleNext} />
@@ -941,6 +956,43 @@ function CategoryEditorMotionProbe() {
   );
 }
 
+/** Browser-only: compact calendar inside a left/right split with divider motion. */
+function TodoSplitSwipeProbe() {
+  const [month, setMonth] = useState(() => new Date(2026, 8, 1));
+  const [day, setDay] = useState(() => new Date(2026, 8, 15));
+  const [panelWidth, setPanelWidth] = useState(412);
+  const side = new URLSearchParams(window.location.search).get('side') === 'right' ? 'right' : 'left';
+  const realign = useRef<((live?: boolean) => void) | null>(null);
+  const bindRealign = React.useCallback((fn: ((live?: boolean) => void) | null) => { realign.current = fn; }, []);
+  const changePanelWidth = () => {
+    const viewport = document.querySelector<HTMLElement>('[data-testid="todo-calendar-grid"]');
+    realign.current?.(true);
+    if (viewport) viewport.dataset.panelMotion = 'true';
+    setPanelWidth(width => width === 412 ? 500 : 412);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      realign.current?.();
+      if (viewport) delete viewport.dataset.panelMotion;
+    }));
+  };
+  return (
+    <div data-testid="todo-split-probe" className="relative flex min-w-0 bg-[#111111]" style={{ width: '100%', height: 750 }}>
+      <div className="shrink-0 border-r border-[#444]" style={{ width: panelWidth, order: side === 'left' ? -1 : 1 }}>
+        <div>Day details · {side}</div>
+        <button type="button" data-testid="todo-resize-panel" onClick={changePanelWidth}>Resize panel</button>
+      </div>
+      <div className="min-w-0 flex-1" style={{ order: 0 }}>
+        <h2 data-testid="todo-split-month-title">{format(month, 'MMMM yyyy')}</h2>
+        <div className="relative min-w-0" data-testid="todo-split-calendar-container">
+          <TodoCalendarGrid focusDate={month} selectedDate={day}
+            tasks={[]} categories={[]} categoriesMap={{}}
+            onDateSelect={setDay} onMonthChange={setMonth}
+            onLayoutChangeReady={bindRealign} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
@@ -959,7 +1011,9 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('splitPanelProbe')
+      {new URLSearchParams(window.location.search).has('todoSplitProbe')
+        ? <TodoSplitSwipeProbe />
+        : new URLSearchParams(window.location.search).has('splitPanelProbe')
         ? <SplitPanelLayoutProbe />
         : new URLSearchParams(window.location.search).has('chatMotion')
         ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
