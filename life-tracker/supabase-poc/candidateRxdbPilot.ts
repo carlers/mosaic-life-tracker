@@ -17,23 +17,23 @@ import type {
 } from 'rxdb';
 import { replicateRxCollection } from 'rxdb/plugins/replication';
 import { Subject } from 'rxjs';
-import type { TaskDocument, CategoryDocument } from '../src/db/schema';
+import type { TaskDocument, CategoryDocument, DiaryDocument } from '../src/db/schema';
 import {
-  fromCandidateCategoryRow, fromCandidateTaskRow,
-  parseCandidateRevision, toCandidateCategoryWrite, toCandidateTaskWrite,
-  validateCandidateIdentity, type CandidateCategoryRow, type CandidateTaskRow,
+  fromCandidateCategoryRow, fromCandidateTaskRow, fromCandidateDiaryRow,
+  parseCandidateRevision, toCandidateCategoryWrite, toCandidateTaskWrite, toCandidateDiaryWrite,
+  validateCandidateIdentity, type CandidateCategoryRow, type CandidateTaskRow, type CandidateDiaryRow,
   type CandidateIdentity,
 } from './candidateMapping';
 import {
-  pullCandidateCategories, pullCandidateTasks,
+  pullCandidateCategories, pullCandidateTasks, pullCandidateDiary,
   type CandidateChangeTransport, type CandidateCheckpoint, type CandidateDomain,
 } from './candidatePull';
 import type { createCandidateCreateTransport } from './candidateCreateTransport';
 import type { createCandidateCasTransport } from './candidateCasTransport';
 import { CandidateAuthError, type CandidateSessionProvider } from './candidateHttpTransport';
 
-type Document = TaskDocument | CategoryDocument;
-type Row = CandidateTaskRow | CandidateCategoryRow;
+type Document = TaskDocument | CategoryDocument | DiaryDocument;
+type Row = CandidateTaskRow | CandidateCategoryRow | CandidateDiaryRow;
 type Replicated<D extends Document> = WithDeletedAndAttachments<D>;
 type Writer = ReturnType<typeof createCandidateCreateTransport>;
 type Cas = ReturnType<typeof createCandidateCasTransport>;
@@ -82,7 +82,7 @@ export interface CandidateRxdbPilotOptions<D extends Document> {
 }
 
 function assertedDomain(value: CandidateDomain): void {
-  if (value !== 'tasks' && value !== 'categories')
+  if (value !== 'tasks' && value !== 'categories' && value !== 'diary')
     throw new Error('Unsupported candidate RxDB replication domain');
 }
 
@@ -90,7 +90,9 @@ function assertedDomain(value: CandidateDomain): void {
 function canonical(domain: CandidateDomain, doc: Document, owner: CandidateIdentity): string {
   return JSON.stringify(domain === 'tasks'
     ? toCandidateTaskWrite(doc as TaskDocument, owner)
-    : toCandidateCategoryWrite(doc as CategoryDocument, owner));
+    : domain === 'categories'
+      ? toCandidateCategoryWrite(doc as CategoryDocument, owner)
+      : toCandidateDiaryWrite(doc as DiaryDocument, owner));
 }
 
 export function createCandidateRxdbPilot<D extends Document>(
@@ -170,7 +172,9 @@ export function createCandidateRxdbPilot<D extends Document>(
   const readDocument = (row: Row): Replicated<D> => ({
     ...(domain === 'tasks'
       ? fromCandidateTaskRow(row as CandidateTaskRow, identity)
-      : fromCandidateCategoryRow(row as CandidateCategoryRow, identity)) as D,
+      : domain === 'categories'
+        ? fromCandidateCategoryRow(row as CandidateCategoryRow, identity)
+        : fromCandidateDiaryRow(row as CandidateDiaryRow, identity)) as D,
     _deleted: false,
   });
 
@@ -205,7 +209,9 @@ export function createCandidateRxdbPilot<D extends Document>(
     const before = await guardedSession();
     const result = domain === 'tasks'
       ? await pullCandidateTasks({ identity, transport: changes, checkpoint, batchSize })
-      : await pullCandidateCategories({ identity, transport: changes, checkpoint, batchSize });
+      : domain === 'categories'
+        ? await pullCandidateCategories({ identity, transport: changes, checkpoint, batchSize })
+        : await pullCandidateDiary({ identity, transport: changes, checkpoint, batchSize });
     const after = await guardedSession();
     if (after.sessionEpoch !== before.sessionEpoch || after.accessToken !== before.accessToken) {
       clearAllReviews();
@@ -222,7 +228,9 @@ export function createCandidateRxdbPilot<D extends Document>(
   async function readMaster(id: string): Promise<Revisioned | null> {
     const row = domain === 'tasks'
       ? await writer.readTaskMaster(id, identity)
-      : await writer.readCategoryMaster(id, identity);
+      : domain === 'categories'
+        ? await writer.readCategoryMaster(id, identity)
+        : await writer.readDiaryMaster(id, identity);
     return row ? checkedRow(row) : null;
   }
 
@@ -231,7 +239,9 @@ export function createCandidateRxdbPilot<D extends Document>(
       recordConflict(doc, null, null, 'protected-field-change');
     const result = domain === 'tasks'
       ? await writer.createTask(doc as TaskDocument, identity)
-      : await writer.createCategory(doc as CategoryDocument, identity);
+      : domain === 'categories'
+        ? await writer.createCategory(doc as CategoryDocument, identity)
+        : await writer.createDiary(doc as DiaryDocument, identity);
     const remote = checkedRow(result.row);
     if (result.revision !== remote.revision)
       throw new Error('Candidate inserted row had inconsistent revision');
@@ -260,6 +270,20 @@ export function createCandidateRxdbPilot<D extends Document>(
       void _created;
       void _reactions;
       return patch;
+    }
+    if (domain === 'diary') {
+      const current = toCandidateDiaryWrite(local as DiaryDocument, identity);
+      const previous = toCandidateDiaryWrite(master as DiaryDocument, identity);
+      // Never allow a local update to silently rewrite the calendar date,
+      // privacy scope, historical attachments or creation timestamp.
+      if (current.entry_date !== previous.entry_date ||
+          current.visibility !== previous.visibility ||
+          current.photos !== previous.photos ||
+          current.created_at !== previous.created_at) return null;
+      return {
+        content: current.content, emoji: current.emoji,
+        updated_at: current.updated_at, is_deleted: current.is_deleted,
+      };
     }
     const { owner_id: _owner, id: _id, ...patch } =
       toCandidateCategoryWrite(local as CategoryDocument, identity);
@@ -291,6 +315,10 @@ export function createCandidateRxdbPilot<D extends Document>(
         row.assumedMasterState.userId !== identity.legacyUserId)
         throw new Error('Foreign assumed RxDB master');
       const assumed = row.assumedMasterState as Replicated<D> | undefined;
+      // Refuse Diary visibility escalation before canonicalizing a local
+      // draft; preserve that draft for explicit review, never acknowledge it.
+      if (domain === 'diary' && (next as DiaryDocument).visibility !== 'private')
+        recordConflict(next, assumed ?? null, null, 'protected-field-change');
 
       const master = await readMaster(next.id);
       await fence();
