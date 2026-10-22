@@ -75,6 +75,41 @@ describe('isolated Supabase RxDB native replication bridge (#967)', () => {
     expect(h.compareAndSet).not.toHaveBeenCalled();
   });
 
+  it('accepts the signed SQL default retired_on on a newly created legacy category', async () => {
+    const h = makeHarness();
+    // RxDB v2 treats the new field as optional. PostgreSQL inserts '' as
+    // column DEFAULT and returns it in the authoritative INSERT response.
+    // That is not a competing device edit or an unresolved write.
+    h.createCategory.mockResolvedValueOnce({
+      state: 'created', row: { ...row(), retired_on: '' }, revision: '1',
+    });
+    await expect(h.push(initial)).resolves.toEqual([]);
+    expect(h.pilot.listPendingConflicts()).toEqual([]);
+    expect(h.createCategory).toHaveBeenCalledOnce();
+  });
+
+  it('accepts the same default on signed remote reads and category edits', async () => {
+    const h = makeHarness();
+    h.readCategoryMaster.mockResolvedValue({ ...row(initial, '1'), retired_on: '' });
+    h.compareAndSet.mockResolvedValue({
+      state: 'applied', row: { ...row(changed, '2'), retired_on: '' },
+      revision: '2',
+    });
+    await expect(h.push(changed, initial)).resolves.toEqual([]);
+    expect(h.compareAndSet).toHaveBeenCalledOnce();
+    expect(h.compareAndSet.mock.calls[0][0].patch).not.toHaveProperty('retired_on');
+    expect(h.pilot.listPendingConflicts()).toEqual([]);
+  });
+
+  it('still rejects a genuinely different retirement cutoff', async () => {
+    const h = makeHarness();
+    h.readCategoryMaster.mockResolvedValue({
+      ...row(initial, '1'), retired_on: '2026-10-21',
+    });
+    await expect(h.push(changed, initial)).rejects.toBeInstanceOf(CandidatePendingConflictError);
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+  });
+
   it('replays ambiguous already-applied new rows without duplicate remote writes', async () => {
     const h = makeHarness();
     h.readCategoryMaster.mockResolvedValue(row());

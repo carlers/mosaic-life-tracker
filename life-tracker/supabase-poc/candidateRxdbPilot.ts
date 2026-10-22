@@ -91,7 +91,14 @@ function canonical(domain: CandidateDomain, doc: Document, owner: CandidateIdent
   return JSON.stringify(domain === 'tasks'
     ? toCandidateTaskWrite(doc as TaskDocument, owner)
     : domain === 'categories'
-      ? toCandidateCategoryWrite(doc as CategoryDocument, owner)
+      // PostgreSQL returns the newly-added retirement column's empty
+      // default even when an older local RxDB category omits this optional
+      // field. Compare normalized values, without inventing a client write
+      // or discarding a real retirement cutoff.
+      ? toCandidateCategoryWrite({
+          ...(doc as CategoryDocument),
+          retiredOn: (doc as CategoryDocument).retiredOn ?? '',
+        }, owner)
       : toCandidateDiaryWrite(doc as DiaryDocument, owner));
 }
 
