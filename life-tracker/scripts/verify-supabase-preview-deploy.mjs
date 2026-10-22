@@ -54,9 +54,15 @@ export function assertCoreArtifact(artifacts, { sha, runId, attempt }) {
 }
 
 export function assertVercelDeployment(deployment, { sha, zipDigest }) {
+  // Vercel's deployment endpoint may return either a root projectId or a
+  // nested project.id; if both are present, require BOTH to match exactly.
+  const projectIds = [deployment?.projectId, deployment?.project?.id]
+    .filter(value => value != null);
+  const projectVerified = projectIds.length > 0 &&
+    projectIds.every(id => id === CORE_VERCEL_PROJECT);
   if (deployment?.readyState !== 'READY' ||
       !(deployment?.target === null || deployment?.target === 'preview') ||
-      deployment?.projectId !== CORE_VERCEL_PROJECT ||
+      !projectVerified ||
       deployment?.meta?.mosaicSourceSha !== sha ||
       deployment?.meta?.mosaicBackend !== 'supabase-cloud' ||
       deployment?.meta?.mosaicArtifactSha256 !== zipDigest) {

@@ -57,6 +57,22 @@ describe('protected exact-SHA Supabase Preview deployment preflight', () => {
       },
     };
     expect(() => assertVercelDeployment(original, { sha, zipDigest: digest })).not.toThrow();
+    // The Vercel deployment API also surfaces project.id rather than a
+    // root projectId. Require exact matching in either/both representations.
+    expect(() => assertVercelDeployment({
+      ...original, projectId: undefined, project: { id: CORE_VERCEL_PROJECT },
+    }, { sha, zipDigest: digest })).not.toThrow();
+    expect(() => assertVercelDeployment({
+      ...original, project: { id: CORE_VERCEL_PROJECT },
+    }, { sha, zipDigest: digest })).not.toThrow();
+    for (const invalid of [
+      { projectId: undefined, project: undefined },
+      { projectId: undefined, project: { id: 'foreign' } },
+      { projectId: CORE_VERCEL_PROJECT, project: { id: 'foreign' } },
+    ]) expect(() => assertVercelDeployment({
+      ...original, ...invalid,
+    }, { sha, zipDigest: digest })).toThrow(/identity mismatch/);
+
     // Vercel's REST API represents normal Preview deployments with target:null.
     expect(() => assertVercelDeployment({ ...original, target: null },
       { sha, zipDigest: digest })).not.toThrow();
