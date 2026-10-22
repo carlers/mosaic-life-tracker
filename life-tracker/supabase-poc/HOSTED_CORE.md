@@ -410,24 +410,24 @@ The guarded original-data six-table recovery is pinned to the first archive by d
 
 ## CI-backed, opt-in Supabase prebuilt Preview deployment (#1250)
 
-The same \`Supabase Core App Lab\` that produces the isolated, nondeployable
+The same `Supabase Core App Lab` that produces the isolated, nondeployable
 Supabase static artifact now offers a **protected Preview-only** delivery job.
-The delivery job is **skipped by default**; it never deploys to \`dev\`, \`main\`,
+The delivery job is **skipped by default**; it never deploys to `dev`, `main`,
 Production, Appwrite, or any shared Vercel alias.
 
 **One-time trusted operator configuration in GitHub Settings (never in the
 repository):**
 
-1. Create GitHub environment \`mosaic-supabase-preview\` with required reviewers,
+1. Create GitHub environment `mosaic-supabase-preview` with required reviewers,
    and restrict deployment branches to
-   \`feature/1027-supabase-recovery-20261020\`.
+   `feature/1027-supabase-recovery-20261020`.
 2. In that environment, store a short-scope Preview Vercel access token as
-   \`MOSAIC_SUPABASE_PREVIEW_VERCEL_TOKEN\` (secret), and set
-   \`MOSAIC_SUPABASE_PREVIEW_PROJECT_ID\` (variable) to the reviewed
-   \`prj_jysOLDbuO9c5rP8x6Q145DVIw0fc\`. Never store this token in
-   \`VITE_*\`, output artifacts, issues, or PR bodies.
+   `MOSAIC_SUPABASE_PREVIEW_VERCEL_TOKEN` (secret), and set
+   `MOSAIC_SUPABASE_PREVIEW_PROJECT_ID` (variable) to the reviewed
+   `prj_jysOLDbuO9c5rP8x6Q145DVIw0fc`. Never store this token in
+   `VITE_*`, output artifacts, issues, or PR bodies.
 3. Only after verifying those protections, set the **repository** variable
-   \`MOSAIC_SUPABASE_PREVIEW_DEPLOY_ENABLED=true\`. Removing it or setting it to
+   `MOSAIC_SUPABASE_PREVIEW_DEPLOY_ENABLED=true`. Removing it or setting it to
    false disables future automatic Preview deployment. GitHub environment
    approval remains in force for each run.
 
@@ -436,8 +436,8 @@ its signed disposable tests and produces the pinned Supabase static artifact.
 The guarded deployment job then reads the latest original branch tip and
 completed **exact-SHA** canonical Quality Gate, reads the artifact for its own
 run/attempt, checks the GitHub-authenticated ZIP SHA-256 digest, runs
-\`stage-supabase-core-artifact.mjs\` in a clean checkout, and only then uses
-\`vercel@62.7.0 deploy --prebuilt --archive=tgz --target=preview\`.
+`stage-supabase-core-artifact.mjs` in a clean checkout, and only then uses
+`vercel@62.7.0 deploy --prebuilt --archive=tgz --target=preview`.
 It emits a new **immutable, protected Preview URL**, with source SHA/provider/
 artifact fingerprint metadata. The separate Vercel READY readback must match
 the hard-coded project, preview target, exact source and artifact digest.
@@ -446,7 +446,7 @@ untrusted content or READY response fails closed.
 
 The action does **not** change existing aliases, Vercel project settings,
 Supabase Auth/email policy, data, or Production. In particular, the older
-\`mosaic-supabase-core-preview.vercel.app\` alias remains on its existing build
+`mosaic-supabase-core-preview.vercel.app` alias remains on its existing build
 until a separately approved and verified alias cutover. An immutable protected
 URL requires tester SSO/share access. It is not evidence of signed-personal ZIP
 or TodoMate import, two-device convergence, public signup readiness, user
