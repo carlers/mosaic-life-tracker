@@ -12,6 +12,31 @@ counts exactly match the earlier read-only hosted mosaic-dev snapshot:
 
 ## Recover into a truly separate initialized target
 
+The default command below remains cryptographically pinned to the reviewed
+original 2026-10-22 archive. For a **new** post-reconciliation encrypted
+mosaic-dev snapshot, supply the operator-recorded SHA-256 of that *encrypted*
+file using `--fresh-snapshot-sha256`; never change or disable the original
+pinned digest. The new mode retains six allowlisted objects, 81/81/81/49/53/58
+source-row-count assertions, fresh empty PG17 target, loopback-only Docker,
+original sessions/tokens exclusion, exact row equality, and failure cleanup.
+If hosted counts have changed, this strict mode refuses the restore; review a
+new source baseline rather than weakening the checks. This is **not** a full
+managed-Auth/Storage/configuration recovery or a substitute for independently
+verifying the current hosted backup before rollout.
+
+Example of the alternate invocation (operator runs locally; no credentials in
+arguments other than the private file paths, and no digest sent to ChatGPT):
+
+```bash
+archive="$HOME/mosaic-secure-backups/NEW-MOSAIC-DEV-SNAPSHOT.age"
+key="$HOME/.config/mosaic/supabase-backup.agekey"
+sha="$(sha256sum "$archive" | cut -d ' ' -f1)"
+bash supabase-poc/run-private-core-recovery.sh "$archive" "$key" \
+  --fresh-snapshot-sha256 "$sha"
+unset sha
+```
+
+
 Once the **Real GoTrue Restore Lab** on the current isolated candidate SHA has
 passed its new six-table exact-row-contents comparison, run on the trusted
 Fedora machine:

@@ -225,11 +225,23 @@ def verify_restored_counts(container, expected):
     if authority != "0":
         raise ValueError("Canonical owner or frozen authority integrity failed")
 
+def approved_source_sha256():
+    """Default to the independently reviewed original. A new snapshot needs
+    a separately recorded exact encrypted-file digest, never an implicit bypass.
+    """
+    new = os.environ.get("MOSAIC_FRESH_SNAPSHOT_SHA256")
+    if new is None:
+        return EXPECTED_AGE_SHA256
+    if not re.fullmatch(r"[a-f0-9]{64}", new):
+        raise ValueError("Invalid fresh encrypted archive SHA256 pin")
+    return new
+
+
 def restore(archive, identity, container):
     synthetic = (os.getenv("GITHUB_ACTIONS") == "true" and
                  os.getenv("MOSAIC_REAL_AUTH_RECOVERY_LAB") == "1")
-    if not synthetic and sha256(archive) != EXPECTED_AGE_SHA256:
-        raise ValueError("Encrypted original archive SHA256 mismatches reviewed snapshot")
+    if not synthetic and sha256(archive) != approved_source_sha256():
+        raise ValueError("Encrypted archive SHA256 does not match approved source pin")
     # Use ONLY PostgreSQL 17 tools inside the verified local Docker target.
     # Host pg_restore may be PG15/16 and cannot reliably decode PG17 archives.
     assert_target(container)

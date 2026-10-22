@@ -4,9 +4,22 @@
 set -euo pipefail
 umask 077
 
-if [[ $# -ne 2 || "$1" != /* || "$2" != /* || ! -f "$1" || ! -f "$2" ]]; then
-  echo 'Usage: bash supabase-poc/run-private-core-recovery.sh /ABSOLUTE/backup.age /ABSOLUTE/key.agekey' >&2
+if [[ ( $# -ne 2 && $# -ne 4 ) || "$1" != /* || "$2" != /* || ! -f "$1" || ! -f "$2" ]]; then
+  echo 'Usage: bash supabase-poc/run-private-core-recovery.sh /ABSOLUTE/backup.age /ABSOLUTE/key.agekey [--fresh-snapshot-sha256 64-lowercase-hex-digest]' >&2
   exit 2
+fi
+# Never accept an ambient override: a fresh source is an explicit operator
+# action after independently recording the checksum of a newly encrypted dump.
+if [[ ${MOSAIC_FRESH_SNAPSHOT_SHA256+x} ]]; then
+  echo 'Refusing inherited fresh-snapshot approval variable' >&2
+  exit 2
+fi
+if [[ $# -eq 4 ]]; then
+  if [[ "$3" != "--fresh-snapshot-sha256" || ! "$4" =~ ^[a-f0-9]{64}$ ]]; then
+    echo 'Fresh snapshot requires the exact lowercase SHA-256 of the encrypted archive' >&2
+    exit 2
+  fi
+  export MOSAIC_FRESH_SNAPSHOT_SHA256="$4"
 fi
 [[ "$(uname -s)" == Linux ]] || { echo 'Local Linux required' >&2; exit 2; }
 for cmd in docker supabase python3 age; do
