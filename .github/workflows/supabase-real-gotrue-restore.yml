@@ -1,0 +1,39 @@
+name: Supabase Real GoTrue Restore Lab
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'chatgpt/1027-real-gotrue-restore-*'
+      - 'feature/1027-supabase-recovery-*'
+permissions:
+  contents: read
+concurrency:
+  group: supabase-real-gotrue-restore
+  cancel-in-progress: true
+jobs:
+  real-auth-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: '2.81.3'
+      - name: Install disposable age encryption tool
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq age
+      - name: Verify recovery source syntax
+        run: |
+          bash -n supabase-poc/real-auth-restore-lab.sh
+          node --check supabase-poc/tests/real-auth-restore-local.mjs
+      - name: Exercise real local Auth account recovery
+        env:
+          MOSAIC_REAL_AUTH_RECOVERY_LAB: '1'
+        run: bash supabase-poc/real-auth-restore-lab.sh
