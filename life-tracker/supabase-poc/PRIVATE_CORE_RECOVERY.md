@@ -121,7 +121,30 @@ acceptance and rollout gates open until those checks pass.
 After a successful rehearsal, privately sign in to the printed local API
 with an existing non-frozen account and verify category/task records, then
 test a separate fresh signed account for isolation. Do **not** share
-credentials or raw responses. The real-data source and all historical
+credentials or raw responses.
+
+For a guarded private positive original-password read on the **new** restored
+stack (not the old test instance), use the repository's operator helper:
+
+```bash
+python3 supabase-poc/verify-private-core-signin.py \
+  "$HOME/.mosaic-private-recovery-<EXACT-NEW-STACK-NAME>"
+```
+
+Replace the argument with the exact `PRIVATE_LOCAL_DIRECTORY` printed by
+the successful fresh restore. The helper rejects other directories, remote
+Docker daemons, non-loopback container ports, HTTP redirects and non-local
+endpoints; it reads only a local browser-scoped API key, never admin secret.
+Enter an existing restored account email and password **only at the Fedora
+terminal** (password input is hidden). Use an original owner that has a live
+task; an otherwise valid owner with zero tasks intentionally fails this
+positive-data acceptance. It acquires a fresh lease and reads signed RLS
+records in this local disposable instance. It verifies signed owner
+task/category totals against local SQL and denies one other restored owner's
+task read, printing no identifying data. Keep both original and fresh
+disposable stacks preserved. A PASS does not test second signed owner's
+forged-write denial on this instance, all-platform Auth/SMTP or Production
+writer cutoff. The real-data source and all historical
 records remain encrypted and intact regardless of the outcome.
 
 To stop the successful disposable stack when finished, run
