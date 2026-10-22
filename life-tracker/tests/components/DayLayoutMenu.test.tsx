@@ -50,7 +50,7 @@ describe('Day View layout control', () => {
     const trigger = screen.getByRole('button', { name: 'Change Day View layout' });
     fireEvent.click(trigger);
     expect(screen.getByRole('menu', { name: 'Day View layout' })).toBeInTheDocument();
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(trigger, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
     expect(trigger).toHaveFocus();
     expect(settings.setSetting).not.toHaveBeenCalled();

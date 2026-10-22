@@ -25,19 +25,8 @@ export const DayLayoutMenu: React.FC = () => {
     const onPointer = (event: PointerEvent) => {
       if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
     };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        setOpen(false);
-        rootRef.current?.querySelector<HTMLButtonElement>('[data-day-layout-trigger]')?.focus();
-      }
-    };
     document.addEventListener('pointerdown', onPointer);
-    document.addEventListener('keydown', onKey, true);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      document.removeEventListener('keydown', onKey, true);
-    };
+    return () => document.removeEventListener('pointerdown', onPointer);
   }, []);
 
   const changePlacement = async (next: Placement) => {
@@ -72,7 +61,13 @@ export const DayLayoutMenu: React.FC = () => {
     { value: 'right' as const, label: 'Right', Icon: PanelRight },
   ];
   return (
-    <div className="relative shrink-0" ref={rootRef} data-testid="day-layout-menu">
+    <div className="relative shrink-0" ref={rootRef} data-testid="day-layout-menu"
+      onKeyDownCapture={event => {
+        if (!open || event.key !== 'Escape') return;
+        event.stopPropagation();
+        setOpen(false);
+        rootRef.current?.querySelector<HTMLButtonElement>('[data-day-layout-trigger]')?.focus();
+      }}>
       <button type="button" data-day-layout-trigger
         className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--mosaic-border)] bg-surfaceHighlight text-secondary hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent)]"
         aria-label="Change Day View layout" aria-haspopup="menu" aria-expanded={open}
