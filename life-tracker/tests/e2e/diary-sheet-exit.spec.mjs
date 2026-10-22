@@ -106,6 +106,63 @@ test('Memo opens without remounting background Day View category and task rows',
   })).toBe(true);
 });
 
+test('Nested Memo entrance does not move Day View task and category rows', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dayView = page.locator('[role="dialog"]').filter({ has: page.getByTestId('day-swiper') });
+  const slide = dayView.locator('[data-testid="day-slide"][data-date-str="2026-09-15"]').first();
+  const memoTrigger = slide.getByRole('button', { name: 'Open memo' }).first();
+  await expect(memoTrigger).toBeVisible();
+  // Wait for the original Day View entrance to settle; only nested motion
+  // should be sampled, not the unrelated first-open slide animation.
+  await page.waitForTimeout(450);
+  await memoTrigger.focus();
+
+  await page.evaluate(() => {
+    const dayView = document.querySelector('[role="dialog"] [data-testid="day-swiper"]');
+    const slide = dayView?.querySelector('[data-testid="day-slide"][data-date-str="2026-09-15"]');
+    const category = slide?.querySelector('[data-task-category-id="cat_0"]');
+    const task = slide?.querySelector('[data-task-dnd-registered="true"]')?.parentElement;
+    if (!category || !task) throw new Error('Nested-sheet row geometry probe is missing a row');
+    const rect = (element) => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return { x, y, width, height };
+    };
+    window.__memoRowFrames = [];
+    window.__memoFrameCaptureDone = false;
+    let frames = 0;
+    function sample() {
+      window.__memoRowFrames.push({ category: rect(category), task: rect(task) });
+      if (++frames < 36) requestAnimationFrame(sample);
+      else window.__memoFrameCaptureDone = true;
+    }
+    sample();
+  });
+
+  await page.keyboard.press('Enter');
+  const memo = page.getByRole('dialog').filter({
+    has: page.getByRole('button', { name: 'Edit memo' }),
+  });
+  await expect(memo).toBeVisible();
+  await expect(dayView).toHaveAttribute('inert');
+  await page.waitForFunction(() => window.__memoFrameCaptureDone);
+  const frames = await page.evaluate(() => window.__memoRowFrames);
+  expect(frames.length).toBe(36);
+  // Motion layout projection used to misinterpret the ancestor's animated
+  // scale as task/category movement, causing visible jitter beneath Memo.
+  // With the parent geometry fixed, both rows remain stationary.
+  for (const kind of ['category', 'task']) {
+    for (const axis of ['x', 'y', 'width', 'height']) {
+      const values = frames.map(frame => frame[kind][axis]);
+      expect(Math.max(...values) - Math.min(...values),
+        `${kind} ${axis} moved during nested Memo animation`).toBeLessThan(1.5);
+    }
+  }
+  await page.keyboard.press('Escape');
+  await expect(memo).toHaveCount(0);
+  await expect(dayView).not.toHaveAttribute('inert');
+});
+
 test('Diary preserves its portal through an animated close and releases on completion', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?diaryExitProbe=1`);
   const open = page.getByTestId('diary-exit-open');
