@@ -1,18 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-22 UTC
-Current task: #1027 fix encrypted hosted backup helper exit 141 on Fedora; continue core+Diary release recovery gate.
+Current task: #1027 safe metadata-only inspection of encrypted live snapshot before isolated Supabase recovery.
 
-## Verified source baseline
-- Isolated `feature/1027-supabase-recovery-20261020@b5653aa007a041bb9c823563d68b408d4895f108` has candidate owner-private Diary and date-effective category retirement / atomic deletion, plus a source-read-only encrypted hosted backup helper. Merged-source Quality Gate #39710007352 SUCCESS; signed Core App Lab #39710007344 SUCCESS.
-- Supabase Free `mosaic-dev` hosted remains protected / invite-only with task/category Realtime, no hosted Diary or retired_on, no hosted migrations or public signup. Do not promote to `dev`, `main` or Production without approved gates. Appwrite dev/main diverge.
-- Fedora operator already cloned isolated branch, connected PostgreSQL 18.6 client using the official project pooler and generated a private local age key. The backup run returned **141 (SIGPIPE)** with **zero published files**, so NO backup has been produced, and no user data was changed.
+## Verified boundary
+- Isolated `feature/1027-supabase-recovery-20261020@04b0d42ed6143ec835377f0121cbefd73a0a01f9`: canonical Quality Gate #39713598138 and signed Core App Lab #39713598104 SUCCESS.
+- Owner-created, off-repository `mosaic-dev-20261022T031628Z.age` was checksum-verified and fully decrypted into `pg_restore` with exit 0. Its plaintext contents/private key are local only and unavailable to a connected chat agent.
+- Local PostgreSQL 17.11 on 127.0.0.1:25077 has native `auth.users` and no Mosaic app tables. Full raw archive restore failed/rolled back on protected managed `realtime.list_changes` definition. No independent restore accepted.
+- Hosted `mosaic-dev` has task/category schema and isolated Realtime only, no private Diary/retirement migrations. Do not modify hosted data, Auth, dev/main or Production before independent restore and release gates.
 
-## Current isolated fix
-- `chatgpt/1027-backup-sigpipe-fix-20261022` fixes inspection where `pg_restore --list` closes the pipe after TOC/header and upstream `age` gets SIGPIPE. Independently decrypt complete age archive to /dev/null (verify full ciphertext authentication); metadata-only `age | pg_restore --list` must report pg_restore success and permits upstream producer 141 only, rejecting other nonzero statuses. Preserve fail-closed cleanup, no plaintext file, exact project host restrictions and nonclobber.
-- Add deterministic Vitest mock regression for expected early-reader SIGPIPE, unreadable age archive, failing pg_restore and wrong project. Local bash mock smoke exercised these cases successfully; task-focused CI pending until task branch push.
+## Scoped task
+- `chatgpt/1027-safe-backup-toc-20261022`: read-only age archive TOC inventory, returning sanitized object counts, refusing missing core/Auth entries and avoiding managed object replay. Add parser regressions and `supabase-poc/RESTORE_TOC.md`.
+- Local source checks, focused CI and source acceptance must be recorded after actual runs. No user-facing version bump; no API/project writes.
 
 ## Next action
-- Commit task checkpoint [verify:focused], run focused green, squash PR onto isolated stable, ensure exact-SHA full Quality Gate + signed Core App Lab green.
-- Then operator: `cd ~/mosaic-supabase-backup/life-tracker && git pull --ff-only`, confirm script updated; re-enter database password (cleared by previous `unset PGPASSWORD`), run encrypted script with **fresh** outside-repo output name, check generated `.age` archive and printed checksum. Never send DB password, encryption private key, or encrypted archive through chat.
-- Independent isolated restore and Auth/Storage/config/global-roles recovery verification **still required** before hosted Diary/category migrations, public signup or Production release. Keep #1027/#1029/#857 open.
+- Verify exact source/CI and review the inventory logic; combine into isolated stable Preview only after required gates. The encrypted snapshot remains on the owner's machine. An actual restore still requires private local execution or an independently authorized secure worker with access to the encrypted snapshot and key. Do not request those secrets in chat.
+- After a safe object-level restore plan and independently proven Auth/RLS/CAS recovery, separately authorize hosted Diary/category migrations, public signup and release. Keep #1027, #1029 and #857 open.
