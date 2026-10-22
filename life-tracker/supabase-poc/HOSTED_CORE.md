@@ -378,3 +378,26 @@ simultaneous connection load against Supabase Free allowances. Publishing the
 SQL is a separately verified hosted migration, not a license to open Vercel
 protection or modify Auth SMTP settings. Roll back only by removing these two
 tables from the `supabase_realtime` publication; never drop user data.
+
+## Operator-only encrypted logical snapshot before core+Diary hosted rollout (#1027)
+
+The Free `mosaic-dev` project has no automatic daily Supabase backup guarantee. Before **any** hosted Diary/category migrations, an operator must independently encrypt and preserve a recoverable off-site database snapshot. `hosted-encrypted-backup.sh` is source-read-only. It deliberately refuses other Supabase projects, repo-local output, and overwriting a snapshot. It streams the **raw** full PostgreSQL logical dump through `age` without writing plaintext to disk, then decrypts it privately into `pg_restore --list` to check archive structure. It does **not** restore data or grant rollout authorization.
+
+From a trusted private Fedora terminal, use PostgreSQL client tools and `age` (and a private `age` identity). Obtain the `mosaic-dev` **database** connection parameters from the Supabase Project **Connect** panel; the direct host is `db.hcxtiifzxoaflhjgoglb.supabase.co`, and a session pooler also works when `PGUSER=postgres.hcxtiifzxoaflhjgoglb`. Never put a password in an argument, repo file, ticket, issue, or transcript. Keep the identity key separate from the encrypted snapshot.
+
+```sh
+cd /path/to/mosaic-life-tracker/life-tracker
+export PGHOST='db.hcxtiifzxoaflhjgoglb.supabase.co' # or actual project's session pooler host
+export PGPORT=5432 PGDATABASE=postgres PGUSER=postgres
+read -rs -p 'mosaic-dev database password: ' PGPASSWORD; echo; export PGPASSWORD
+mkdir -p -m 700 "$HOME/.config/mosaic" "$HOME/mosaic-secure-backups"
+age-keygen -o "$HOME/.config/mosaic/supabase-backup.agekey" # only once; escrow privately
+export MOSAIC_AGE_IDENTITY_FILE="$HOME/.config/mosaic/supabase-backup.agekey"
+export MOSAIC_AGE_RECIPIENT="$(age-keygen -y "$MOSAIC_AGE_IDENTITY_FILE")"
+bash supabase-poc/hosted-encrypted-backup.sh "$HOME/mosaic-secure-backups/mosaic-dev-$(date -u +%Y%m%dT%H%M%SZ).age"
+unset PGPASSWORD
+```
+
+For session pooler, replace `PGHOST` with the exact project-supplied hostname and `PGUSER` with `postgres.hcxtiifzxoaflhjgoglb`. PostgreSQL binary `pg_dump` must support the hosted server's PostgreSQL major version; a failed dump, missing extension, permission denial or failed age validation aborts without publishing an archive. **Do not upload ciphertext or age private keys to GitHub, ChatGPT or Preview.** Escrow the key offline.
+
+**Still mandatory after this command:** restore the encrypted archive onto a separately isolated disposable Supabase-compatible target, prove per-owner row counts and hashes including tombstones and Auth identities, verify active RLS/grants/CAS/Diary privacy with signed negative tests, and separately preserve Auth email/hook/SMTP configuration plus any external Storage bytes and global-role requirements. An `age` decrypt + `pg_restore --list` pass alone is not a restore drill, nor is an ordinary personal Settings export. Keep signup invite gate, protected Preview and Production unchanged until all acceptance/rollback checks are green.
