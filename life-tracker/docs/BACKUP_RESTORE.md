@@ -67,9 +67,12 @@ Data application is idempotent by logical/deterministic IDs. Image upload is bes
 
 ## External migrations
 
-External-service migrations are not backup Replace operations. The TodoMate importer creates
-an in-memory Mosaic v2 payload and enters this restore engine only through Merge mode, so an
-external migration cannot delete current-only Mosaic data. Its provider-specific network,
+External-service migrations are not backup Replace operations. The TodoMate importer creates an in-memory Mosaic v2 payload and uses Merge by default.
+A separately confirmed `todomate-replace` option treats only tasks and categories as
+authoritative and tombstones current-only records in those domains **after** applying
+new rows and downloading a safety backup. Diary still uses Merge; settings, Bucket List,
+friendships, messages and accounts remain untouched. This is intentionally **not**
+the broad personal-backup Replace mode and may not be requested by an uploaded ZIP. Its provider-specific network,
 credential, mapping, and limitation contract lives in [TodoMate import](TODOMATE_IMPORT.md).
 
 ## Activity timestamps
@@ -84,3 +87,28 @@ records. Neither Merge nor Replace imports, clears, or replays those intents. Ex
 pending, accepted, blocked, and deleted relationships remain unchanged on same-account
 and cross-account restore, including TodoMate imports. Backup versions remain unchanged.
 See [friendship recovery](FRIENDSHIP_RECOVERY.md) for administrative legacy-data repair.
+
+## Emergency personal import on the isolated Supabase core candidate (#1250)
+
+The legacy ZIP/JSON parser and owner-remapped Merge restore are shared with the
+experimental Supabase core provider. In Supabase mode, importing never calls
+Appwrite account, Storage or replication APIs: before any write it requires
+the browser's **active server-verified Supabase Auth owner** and a completed
+signed RxDB pull/push freshness barrier, and checks that same owner during and
+after applying data. A mere requested resync is not a freshness proof.
+
+The core-only provider imports **tasks and categories**; the core-diary provider
+can additionally import **private Diary**. Settings, Bucket List/links and
+unsupported personal domains are **not uploaded or marked synced**. Original ZIP
+must be retained intact for later recovery. There is no approved Supabase
+image-storage upload yet: original image references stay on records, but photos
+are not copied to cloud or certified available on other devices. The preview
+must disclose this; never clear the old PWA cache or delete the original ZIP.
+General Replace Personal Data is deliberately unavailable in Supabase core mode.
+The separately confirmed TodoMate task/category Replace does not touch
+unsupported domains. Interrupted local import work remains in RxDB with an
+explicit sync-pending result rather than a false cloud-success claim.
+
+This enables **isolated Preview testing**, NOT Appwrite historical completeness,
+proof of trusted legacy identity mapping, or permission for real-user Production
+cutover. Old Appwrite PWAs and final source deltas remain independent gates.

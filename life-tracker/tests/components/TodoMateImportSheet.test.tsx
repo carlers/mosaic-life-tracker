@@ -170,6 +170,37 @@ describe('TodoMateImportSheet', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('never applies TodoMate Replace without destructive confirmation', async () => {
+    render(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('TodoMate email'), { target: { value: 'todo@example.com' } });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), { target: { value: 'pw-safe' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    await screen.findByRole('button', { name: 'Import into Mosaic' });
+    fireEvent.click(screen.getByRole('radio', { name: /Replace tasks & categories/i }));
+    expect(screen.getByText(/Diary, settings, Bucket List and social records remain/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Replace with TodoMate' }));
+    expect(mocks.restoreUserData).not.toHaveBeenCalled();
+    expect(screen.getByText(/will replace all current Mosaic tasks and categories/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(mocks.restoreUserData).not.toHaveBeenCalled();
+  });
+
+  it('applies TodoMate Replace only after explicitly confirming', async () => {
+    render(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('TodoMate email'), { target: { value: 'todo@example.com' } });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), { target: { value: 'pw-safe' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    await screen.findByRole('button', { name: 'Import into Mosaic' });
+    fireEvent.click(screen.getByRole('radio', { name: /Replace tasks & categories/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Replace with TodoMate' }));
+    expect(mocks.restoreUserData).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Replace tasks' }));
+    await waitFor(() => expect(mocks.restoreUserData).toHaveBeenCalledWith(
+      preparedFile, expect.objectContaining({ id: 'user_A' }),
+      expect.objectContaining({ mode: 'todomate-replace' }), true
+    ));
+  });
+
   it('cancels a preview when the sheet closes and ignores its stale result', async () => {
     let resolveFirst!: (value: unknown) => void;
     let firstSignal: AbortSignal | undefined;
