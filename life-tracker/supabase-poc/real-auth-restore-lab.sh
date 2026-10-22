@@ -76,3 +76,19 @@ python3 "$root/supabase-poc/restore_private_core_to_disposable.py" \
   "$tmp/backup.age" "$tmp/key" "$db"
 node "$root/supabase-poc/tests/real-auth-restore-local.mjs" verify
 echo 'REAL_GOTRUE_LOCAL_RESTORE_PASS: password, owner, revisions, denied prior session and signed foreign access'
+
+# Exercise the independent new-stack operator wrapper as a second, real GoTrue
+# generated-data test. First stop this first lab's CLI instance, without
+# touching any external project, to free runner resources.
+supabase stop --no-backup >/dev/null
+wrapper_out="$(bash "$root/supabase-poc/run-private-core-recovery.sh" "$tmp/backup.age" "$tmp/key")"
+printf '%s\n' "$wrapper_out" | grep -q 'DISPOSABLE_CORE_RESTORE_PASS'
+printf '%s\n' "$wrapper_out" | grep -q 'ISOLATED_LOCAL_STACK_READY: mosaic_dr_'
+new_lab="$(printf '%s\n' "$wrapper_out" | sed -n 's/^PRIVATE_LOCAL_DIRECTORY: //p')"
+case "$new_lab" in
+  "$HOME"/.mosaic-private-recovery-*) ;;
+  *) echo 'Unrecognized new-stack project directory' >&2; exit 1 ;;
+esac
+test -f "$new_lab/supabase/config.toml"
+(cd "$new_lab" && supabase stop --no-backup >/dev/null)
+echo 'INDEPENDENT_GO_TRUE_RECOVERY_STACK_PASS: generated snapshot restored to separate local project'
