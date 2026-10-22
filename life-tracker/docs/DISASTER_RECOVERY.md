@@ -220,3 +220,27 @@ its compatible Function and run the audited [friendship repair](FRIENDSHIP_RECOV
 Do not edit the snapshot or weaken permissions to make an old frontend work. Queued browser
 intents are not part of administrator snapshots. Keep the DR Function read-only and both
 recovery-project schedules disabled throughout the drill.
+
+## One-command historical Appwrite R2 readiness audit (#1027)
+
+For an operator with the original R2 credentials and escrowed DR key saved as
+`~/.config/mosaic/dr-recovery.env` (owner-only permissions), use the **read-only**
+aggregate audit rather than running repetitive one-off shell snippets:
+
+```sh
+npm run dr:readiness -- --snapshot 20261018T110129330Z --expected-source 6a9703c50016b37110ff
+```
+
+The command loads the private environment file locally if necessary, verifies
+Appwrite project origin, authenticates and rechecks the 37 historical encrypted
+objects and every referenced media blob, validates 11 global erasure markers,
+checks source table and file counts and computes privacy-filtered owner/row/file
+counts and scrubbed surviving records. Only aggregate counts and public table
+names are printed. No credentials, account IDs, messages, tasks, file names or
+raw data are uploaded or printed. It makes R2 reads but no R2 writes and never
+connects to Appwrite/Supabase or changes existing backups or recovery targets.
+
+The historical 2026-10-18 archive is **over 36 hours old**. Passing this audit
+is NOT source freshness, proof of post-snapshot deltas, independent DR target
+record parity, permission to import or full disaster recovery acceptance. The
+ordinary `npm run dr:check` still fails its 36-hour freshness gate.
