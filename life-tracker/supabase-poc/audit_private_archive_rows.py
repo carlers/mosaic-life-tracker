@@ -78,7 +78,7 @@ def count_copies(lines, expected):
         found.add(key)
         active = key
     if active is not None or len(found) != len(counts):
-        raise ValueError("Incomplete data stream or missing table")
+        raise ValueError("Incomplete data stream or missing table: " + ",".join(sorted(set(counts) - found)))
     return counts
 
 def put_memfd(data, label):
