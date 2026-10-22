@@ -53,6 +53,58 @@ test('Nested action exit restores parent without a second late scale animation',
   await expect(parent).toHaveCount(0);
 });
 
+test('Memo opens without remounting background Day View category and task rows', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+
+  const slide = page.locator('[data-testid="day-slide"][data-date-str="2026-09-15"]');
+  const category = slide.locator('[data-task-category-id="cat_0"]');
+  const task = slide.locator('[data-task-dnd-registered="true"]').first();
+  await expect(category).toBeVisible();
+  await expect(task).toHaveCount(1);
+
+  // Preserve the actual visual row elements across the background-lock
+  // transition. Previously this replaced Reorder.Group with fragments,
+  // and registered task-row wrappers with plain rows on every Memo open.
+  await page.evaluate(() => {
+    const slide = document.querySelector('[data-testid="day-slide"][data-date-str="2026-09-15"]');
+    const category = slide?.querySelector('[data-task-category-id="cat_0"]');
+    const task = slide?.querySelector('[data-task-dnd-registered="true"]');
+    if (!category || !task) throw new Error('Expected mounted category and task row');
+    (window).__memoBackgroundRows = { category, task };
+  });
+
+  // Keyboard activation avoids the intentional touch single/double-tap
+  // disambiguation delay, while invoking the real Memo callback.
+  const openMemo = slide.getByRole('button', { name: 'Open memo' }).first();
+  await openMemo.focus();
+  await page.keyboard.press('Enter');
+  const memo = page.getByRole('dialog').filter({
+    has: page.getByRole('button', { name: 'Edit memo' }),
+  });
+  await expect(memo).toBeVisible();
+  await expect.poll(() => page.evaluate(() => {
+    const saved = (window).__memoBackgroundRows;
+    return Boolean(saved?.category?.isConnected && saved?.task?.isConnected);
+  })).toBe(true);
+  expect(await page.evaluate(() => {
+    const saved = (window).__memoBackgroundRows;
+    const slide = document.querySelector('[data-testid="day-slide"][data-date-str="2026-09-15"]');
+    return slide?.querySelector('[data-task-category-id="cat_0"]') === saved?.category &&
+      slide?.querySelector('[data-task-dnd-registered="true"]') === saved?.task;
+  })).toBe(true);
+  await expect(category).toBeVisible();
+  // Day View stays inert and inaccessible under the Memo.
+  await expect(page.locator('[role="dialog"]').filter({ has: slide })).toHaveAttribute('inert');
+  await page.keyboard.press('Escape');
+  await expect(memo).toHaveCount(0);
+  await expect(category).toBeVisible();
+  expect(await page.evaluate(() => {
+    const saved = (window).__memoBackgroundRows;
+    return Boolean(saved?.category?.isConnected && saved?.task?.isConnected);
+  })).toBe(true);
+});
+
 test('Diary preserves its portal through an animated close and releases on completion', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?diaryExitProbe=1`);
   const open = page.getByTestId('diary-exit-open');
