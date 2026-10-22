@@ -1,6 +1,6 @@
 # Session checkpoint
 Updated: 2026-10-22 Asia/Manila
-Task: #1245 nested BottomSheet animation refinement, v0.43.4 Preview candidate.
+Current task: #1245 nested BottomSheet animation refinement, v0.43.4 Preview candidate.
 
 ## Baseline and authorization
 - Accepted stable Preview `perf/1245-nested-sheet-diary-exit-v0433-20261022@90edcb0b79ab5edf8e85c01c88949c9aaeb566dc` v0.43.3. Full canonical CI #39772841414 and trusted Preview Delivery #39773356361 succeeded; Vercel READY exact SHA. Owner reports Day View delayed settling on Task Action Sheet close.
