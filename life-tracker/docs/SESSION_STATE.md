@@ -19,6 +19,8 @@ Current task: #1250 unify protected Supabase Preview delivery, then signed perso
 
 - Owner confirmed the protected GitHub Preview environment, Vercel secret and opt-in toggle have been configured; this GitHub connector cannot read back these private settings. Four canonical CI workflows at `468dff53` passed, while deployment was SKIPPED because the previous job ran before enablement. To trigger the next accepted push, fix actual Vercel API project identity readback compatibility: accept exact `projectId` or nested `project.id` and require both to match when both are present. Maintain Preview-only READY/source/provider/artifact verification and required CI gates. No dev/main/Production writes.
 
+- Deployment retry: Owner configured GitHub protected Preview token. Run #39809123171 attempt 1 passed 179-file staging but Vercel CLI lacked explicit `--token`; attempt 2 looked for a nonexistent second-run artifact. Fix CLI authentication and safe same-SHA/run earlier-attempt artifact retry. All app CI passed; no Vercel Preview or Production writes. Keep reviewer protection.
+
 ## Next action
 - Check focused tests and exact-SHA canonical CI; confirm delivery job skipped/enabled actual outcome without fabricating READY evidence. If protected credentials are configured, inspect the immutable URL in Vercel and perform signed disposable ZIP → TodoMate Replace, second-device/foreign-owner privacy and offline convergence. Personal ZIP is not uploaded to CI.
 - Before real-user cutover: proof of legacy Appwrite↔Supabase owner mapping, old-PWA **server-enforced** writer fence, post-Oct-18 source delta, partial-domain/media disclosure, signed owner/device acceptance, independent rollback and explicit dev/main/Production approval. Keep #1250/#1027/#914 open.
