@@ -236,7 +236,7 @@ test('task and category rows stay in phase with divider motion rather than easin
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?splitPanelProbe=grid&side=right&splitRows=1`);
   await page.locator('[data-calendar-slide-index="30"] [data-calendar-day]').first().click();
   const panel = page.getByTestId('day-panel-motion-host');
-  const task = panel.locator('[data-task-id]').first();
+  const task = panel.locator('.swiper-slide-active [data-task-id]').first();
   await expect(task).toBeVisible({ timeout: 12000 });
   // Wait for the panel's independent 300ms opening transition before
   // measuring and grabbing its moving separator.
@@ -253,8 +253,11 @@ test('task and category rows stay in phase with divider motion rather than easin
     await page.waitForTimeout(16);
     frames.push(await page.evaluate(() => {
       const host = document.querySelector('[data-testid="day-panel-motion-host"]');
-      const row = host?.querySelector('[data-task-id]')?.closest('[data-panel-reorder-row]');
-      const category = host?.querySelector('[data-panel-reorder-row]');
+      // Only the active Day View slide occupies the inspector. Virtualized
+      // offscreen day slides can remain DOM-visible but far outside its bounds.
+      const activeSlide = host?.querySelector('.swiper-slide-active');
+      const row = activeSlide?.querySelector('[data-task-id]')?.closest('[data-panel-reorder-row]');
+      const category = activeSlide?.querySelector('[data-panel-reorder-row]');
       const aside = host?.querySelector('[data-testid="calendar-day-side-panel"]');
       if (!(host instanceof HTMLElement) || !(row instanceof HTMLElement) ||
           !(category instanceof HTMLElement) || !(aside instanceof HTMLElement))
