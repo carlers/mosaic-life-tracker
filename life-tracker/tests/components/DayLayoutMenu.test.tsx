@@ -70,3 +70,24 @@ describe('Day View layout menu in clipped sheets and panels', () => {
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
   });
 });
+
+describe('Portaled layout menu keyboard behavior', () => {
+  it('keeps Tab and arrow navigation inside the floating menu even when its trigger is clipped', () => {
+    render(<div style={{ overflow: 'hidden', height: 32 }}><DayLayoutMenu /></div>);
+    const trigger = screen.getByRole('button', { name: 'Change Day View layout' });
+    fireEvent.click(trigger);
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Tab' });
+    const bottom = screen.getByRole('menuitemradio', { name: 'Bottom' });
+    expect(bottom).toHaveFocus();
+    fireEvent.keyDown(bottom, { key: 'ArrowDown' });
+    const left = screen.getByRole('menuitemradio', { name: 'Left' });
+    expect(left).toHaveFocus();
+    fireEvent.keyDown(left, { key: 'Tab', shiftKey: true });
+    expect(bottom).toHaveFocus();
+    fireEvent.keyDown(bottom, { key: 'Tab', shiftKey: true });
+    expect(trigger).toHaveFocus();
+    fireEvent.keyDown(trigger, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+});

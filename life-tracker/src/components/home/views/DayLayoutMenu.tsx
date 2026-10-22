@@ -96,10 +96,24 @@ export const DayLayoutMenu: React.FC = () => {
   return (
     <div className="relative shrink-0" ref={rootRef} data-testid="day-layout-menu"
       onKeyDownCapture={event => {
-        if (!open || event.key !== 'Escape') return;
+        if (!open) return;
+        const trigger = rootRef.current?.querySelector<HTMLButtonElement>('[data-day-layout-trigger]');
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          setOpen(false);
+          trigger?.focus();
+          return;
+        }
+        if (event.key !== 'Tab' && event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+        const controls = [trigger, ...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not([disabled])') ?? [])]
+          .filter((button): button is HTMLButtonElement => Boolean(button));
+        if (controls.length < 2) return;
+        const current = controls.indexOf(event.target as HTMLButtonElement);
+        const direction = event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey) ? -1 : 1;
+        const next = (Math.max(0, current) + direction + controls.length) % controls.length;
+        event.preventDefault();
         event.stopPropagation();
-        setOpen(false);
-        rootRef.current?.querySelector<HTMLButtonElement>('[data-day-layout-trigger]')?.focus();
+        controls[next].focus();
       }}>
       <button type="button" data-day-layout-trigger
         className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--mosaic-border)] bg-surfaceHighlight text-secondary hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent)]"
