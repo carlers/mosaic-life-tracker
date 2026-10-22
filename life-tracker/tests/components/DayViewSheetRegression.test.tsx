@@ -819,11 +819,15 @@ describe('Day View first category onboarding', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
       .find(button => button.getAttribute('tabindex') === '0') as HTMLElement);
     expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Exit selection mode' })
+      .find(button => button.getAttribute('tabindex') === '0') as HTMLElement);
+    expect(screen.getByRole('button', { name: 'Add category' })).toBeVisible();
     rerender(<DayViewSheet {...ownerProps} categories={[{ ...fixture.category, userId: 'other_user' }]} />);
     expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
   });
 
   it('does not show first-category CTA before owner categories hydrate or in Backlogs', () => {
+    settingsFixture.values = { showAddCategoryInDayView: true };
     firstCategoryFixture.loading = true;
     const { rerender } = render(<DayViewSheet {...ownerProps} />);
     expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
@@ -836,5 +840,13 @@ describe('Day View first category onboarding', () => {
     settingsFixture.values = { dayViewMode: 'timeline' };
     render(<DayViewSheet {...ownerProps} showDiaryAlways />);
     expect(await screen.findByRole('button', { name: 'Add category' }, { timeout: 5000 })).toBeVisible();
+  });
+
+  it('keeps the timeline footer action after existing categories when enabled', async () => {
+    firstCategoryFixture.categories = [fixture.category];
+    settingsFixture.values = { dayViewMode: 'timeline', showAddCategoryInDayView: true };
+    render(<DayViewSheet {...ownerProps} showDiaryAlways categories={[fixture.category]} />);
+    expect(await screen.findByRole('button', { name: 'Add category' }, { timeout: 5000 })).toBeVisible();
+    expect(screen.queryByText('No categories yet')).toBeNull();
   });
 });
