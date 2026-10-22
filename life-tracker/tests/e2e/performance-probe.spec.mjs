@@ -10,13 +10,14 @@ test.use({
   viewport: { width: 412, height: 915 },
 });
 
-async function measureInteraction(page, name, action) {
+async function measureInteraction(page, name, action, target = null) {
   const profileStart = await page.evaluate(
     () => (window.__mosaicReactProfile ?? []).length,
   );
 
-  const startedAt = await page.evaluate(() => {
+  const startedAt = await page.evaluate((target) => {
     window.__mosaicPerf = {
+      target: target ? { ...target, firstMatchingFrameMs: null } : null,
       frames: [],
       longTasks: [],
       longAnimationFrames: [],
@@ -188,6 +189,14 @@ async function measureInteraction(page, name, action) {
     const start = performance.now();
     window.__mosaicPerf.actionStartedAt = start;
     const sample = (now) => {
+      if (window.__mosaicPerf.actionFinishedAt !== null &&
+          window.__mosaicPerf.target && window.__mosaicPerf.target.firstMatchingFrameMs === null) {
+        const { selector, present } = window.__mosaicPerf.target;
+        if (Boolean(document.querySelector(selector)) === present) {
+          // First observed animation frame, not a guaranteed browser paint.
+          window.__mosaicPerf.target.firstMatchingFrameMs = now - start;
+        }
+      }
       if (now - start < 700) {
         window.__mosaicPerf.frames.push(now);
         requestAnimationFrame(sample);
@@ -195,7 +204,7 @@ async function measureInteraction(page, name, action) {
     };
     requestAnimationFrame(sample);
     return start;
-  });
+  }, target);
 
   await action();
 
@@ -275,6 +284,7 @@ async function measureInteraction(page, name, action) {
       name,
       startedAt,
       actionDurationMs: actionFinishedAt - startedAt,
+      firstMatchingTargetFrameMs: perf.target?.firstMatchingFrameMs ?? null,
       frameCount: deltas.length,
       avgFrameMs: deltas.length
         ? deltas.reduce((sum, value) => sum + value, 0) / deltas.length
@@ -366,6 +376,44 @@ async function swipe(page, selector, fromX = 620, toX = 180, y = 420) {
   await page.mouse.move(endX, startY, { steps: 20 });
   await page.mouse.up();
 }
+
+
+test('@performance nested BottomSheet cold/warm and compositor probe', async ({ page }) => {
+  // Opt-in diagnostic: alternate backdrop treatment in separate documents.
+  // These are descriptive measurements, never pass/fail latency thresholds.
+  for (const blur of ['0', '1']) {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?nestedSheetProbe=1&nestedBlur=${blur}`);
+    const label = blur === '1' ? 'blur' : 'plain';
+    const cases = [
+      ['parent-first-open', 'nested-parent-open', 'nested-parent-content', true],
+      ['detail-first-open', 'nested-detail-open', 'nested-detail-content', true],
+      ['detail-first-close', 'nested-detail-close', 'nested-detail-content', false],
+      ['detail-warm-reopen', 'nested-detail-open', 'nested-detail-content', true],
+      ['detail-warm-close', 'nested-detail-close', 'nested-detail-content', false],
+      ['parent-close', 'nested-parent-close', 'nested-parent-content', false],
+      ['parent-warm-reopen', 'nested-parent-open', 'nested-parent-content', true],
+      ['parent-warm-close', 'nested-parent-close', 'nested-parent-content', false],
+    ];
+    for (const [name, control, target, present] of cases) {
+      const outcome = await measureInteraction(
+        page,
+        `nested-${label}-${name}`,
+        async () => { await page.getByTestId(control).click(); },
+        { selector: `[data-testid="${target}"]`, present },
+      );
+      // An absent first-frame observation is useful latency evidence, not a
+      // numerical failure threshold on a slow machine. Still verify the
+      // requested visible state eventually settles.
+      await page.waitForFunction(
+        ({ selector, present }) => Boolean(document.querySelector(selector)) === present,
+        { selector: `[data-testid="${target}"]`, present },
+      );
+      if (outcome.firstMatchingTargetFrameMs === null) {
+        console.log(`MOSAIC_PERF_LATE_TARGET ${label} ${name}`);
+      }
+    }
+  }
+});
 
 test('@performance interaction performance probe', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);

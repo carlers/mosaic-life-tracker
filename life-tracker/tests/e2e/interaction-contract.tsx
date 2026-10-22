@@ -17,6 +17,7 @@ import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 import { AuthContext } from '../../src/hooks/authContext';
 import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
+import { useRetainedSheetValue } from '../../src/hooks/useRetainedSheetValue';
 import { CategoryRow } from '../../src/components/modals/CategoryManagerSheet';
 import { Reorder } from 'framer-motion';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
@@ -184,6 +185,88 @@ function ColdDayViewProbe({ tasks, categories, emptyDayTasks }: {
             </Profiler>
           </DayViewProbeBoundary>}
         </>
+  );
+}
+
+
+/** Isolated, opt-in compositor probe; it must not rerender the large Calendar
+ * fixture on each sheet transition. Uses the real shared BottomSheet stack. */
+function NestedSheetPerformanceProbe({ blur }: { blur: boolean }) {
+  const [parentOpen, setParentOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const rows = React.useMemo(
+    () => Array.from({ length: 50 }, (_, index) => `Task ${index + 1}: nested sheet performance fixture`),
+    []
+  );
+  return (
+    <div>
+      <button type="button" data-testid="nested-parent-open" onClick={() => setParentOpen(true)}>
+        Open task list sheet
+      </button>
+      <Profiler id="NestedBottomSheet" onRender={(id, phase, actualDuration, baseDuration, startTime, commitTime) => {
+        const profile = {
+          id, phase,
+          timestamp: Number(performance.now().toFixed(2)),
+          actualDuration: Number(actualDuration.toFixed(2)),
+          baseDuration: Number(baseDuration.toFixed(2)),
+          startTime: Number(startTime.toFixed(2)),
+          commitTime: Number(commitTime.toFixed(2)),
+        };
+        const global = window as typeof window & { __mosaicReactProfile?: typeof profile[] };
+        global.__mosaicReactProfile ??= [];
+        global.__mosaicReactProfile.push(profile);
+      }}>
+        <BottomSheet isOpen={parentOpen} onClose={() => setParentOpen(false)}
+          title="Task list" height="full">
+          <div data-testid="nested-parent-content">
+            <button type="button" data-testid="nested-parent-close" onClick={() => setParentOpen(false)}>
+              Close task list
+            </button>
+            <button type="button" data-testid="nested-detail-open" onClick={() => setDetailOpen(true)}>
+              Open task actions
+            </button>
+            {rows.map((row, index) => <div key={index} className="p-3">{row}</div>)}
+          </div>
+        </BottomSheet>
+        <BottomSheet isOpen={detailOpen} onClose={() => setDetailOpen(false)}
+          title="Task actions" backdropBlur={blur}>
+          <div data-testid="nested-detail-content" className="p-5">
+            <button type="button" data-testid="nested-detail-close" onClick={() => setDetailOpen(false)}>
+              Close task actions
+            </button>
+          </div>
+        </BottomSheet>
+      </Profiler>
+    </div>
+  );
+}
+
+/** Browser ownership contract: the real DiaryEntrySheet must survive the close
+ * request and finish its exit before its retained record is discarded. */
+const LazyDiaryExitSheet = React.lazy(() =>
+  import('../../src/components/home/views/DiaryEntrySheet')
+    .then(module => ({ default: module.DiaryEntrySheet }))
+);
+function DiarySheetExitProbe() {
+  const [opened, setOpened] = useState(false);
+  const [exits, setExits] = useState(0);
+  const { value: session, onExitComplete: release } = useRetainedSheetValue(
+    opened ? { id: 'diary-exit-fixture', date: '2026-09-15' } : null,
+    opened
+  );
+  return (
+    <div>
+      <button type="button" data-testid="diary-exit-open" onClick={() => setOpened(true)}>
+        Open diary
+      </button>
+      <div data-testid="diary-exit-count">{exits}</div>
+      {session && <React.Suspense fallback={null}>
+        <LazyDiaryExitSheet key={session.id} isOpen={opened}
+          date={session.date} author="Fixture" onClose={() => setOpened(false)}
+          onReact={async () => {}} onReply={async () => {}}
+          onExitComplete={() => { release(); setExits(count => count + 1); }} />
+      </React.Suspense>}
+    </div>
   );
 }
 
@@ -1011,7 +1094,11 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('todoSplitProbe')
+      {new URLSearchParams(window.location.search).has('nestedSheetProbe')
+        ? <NestedSheetPerformanceProbe blur={new URLSearchParams(window.location.search).get('nestedBlur') === '1'} />
+        : new URLSearchParams(window.location.search).has('diaryExitProbe')
+        ? <DiarySheetExitProbe />
+        : new URLSearchParams(window.location.search).has('todoSplitProbe')
         ? <TodoSplitSwipeProbe />
         : new URLSearchParams(window.location.search).has('splitPanelProbe')
         ? <SplitPanelLayoutProbe />

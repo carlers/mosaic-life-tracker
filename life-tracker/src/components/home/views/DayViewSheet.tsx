@@ -1409,7 +1409,12 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         isOpen &&
                         i === activeIndex &&
                         !isSelectMode &&
-                        !isBackgroundLocked &&
+                        // A modal over sheet-mode Day View already makes the
+                        // entire parent inert. Keep the category Reorder.Group
+                        // and task/drop-row component identities mounted:
+                        // flipping reorderEnabled here would replace every
+                        // category and task row during the Memo entrance.
+                        (renderMode === 'sheet' || !isBackgroundLocked) &&
                         !continuousDrag.projection &&
                         editingTaskId === null
                       }
@@ -1652,6 +1657,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
       }}
       ariaLabel={format(props.selectedDate, 'EEEE, MMMM d, yyyy')}
       height="full"
+      // Framer Motion reorder/layout projection measures all task/category
+      // rows relative to this surface. Scaling their ancestor during nested
+      // sheet entrance causes visible FLIP corrections (jitter) even when rows
+      // retain DOM identity. Use the nested backdrop for depth instead.
+      scaleBehind={false}
       isLocked={lock.background || lock.reorder}
       preventDismiss={lock.reorder}
       suspendInteraction={lock.background}
