@@ -39,6 +39,10 @@ status=(${PIPESTATUS[@]})
 set -e
 if (( status[1] != 0 || (status[0] != 0 && status[0] != 141) )); then
   echo 'Selected archive data could not be decoded (no database touched)' >&2
+  # This diagnostic is exclusively for generated-data GitHub Actions fixtures.
+  if [[ "${MOSAIC_SYNTHETIC_RESTORE_LAB:-}" == 1 && "${GITHUB_ACTIONS:-}" == true ]]; then
+    sed -n '1,8p' "$tmp/stderr" >&2
+  fi
   exit 1
 fi
 echo 'SELECTED_DATA_DECODE_PASS: six required data payloads decoded to /dev/null; zero restores.'
