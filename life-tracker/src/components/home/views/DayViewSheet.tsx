@@ -4,6 +4,7 @@
  */
 /* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
 import { runBulkTaskActions } from './bulkTaskActions';
 import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
@@ -1240,6 +1241,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           ))}
                         </div>
                         <div className="justify-self-end flex items-center gap-1.5">
+                          {i === activeIndex && renderMode !== 'panel' && <React.Suspense fallback={null}><DayLayoutMenu /></React.Suspense>}
                           <button
                             type="button"
                             ref={i === activeIndex ? keyboardHelpTriggerRef : undefined}

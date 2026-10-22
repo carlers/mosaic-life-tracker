@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import {
   format,
   isSameMonth,
@@ -8,11 +8,15 @@ import { DayViewSheet } from './DayViewSheet';
 import { FriendDayViewSheet } from '../../friend/FriendDayViewSheet';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { TodoCalendarGrid } from './TodoCalendarGrid';
+import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
+import { DAY_PANEL_MIN_FRAME_WIDTH } from '../../../lib/dayPanelLayout';
 import { DiaryDayCard } from './DiaryDayPreview';
 import { useSettings } from '../../../hooks/useSettings';
 import {
   DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, DIARY_DAY_VIEW_POSITION_SETTING_KEY,
   SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, resolveDiaryDayViewHeight, resolveDiaryDayViewPosition,
+  DAY_DETAIL_PRESENTATION_SETTING_KEY, DAY_PANEL_SIDE_SETTING_KEY, DAY_PANEL_HEIGHT_SETTING_KEY,
+  resolveDayDetailPresentation, resolveDayPanelHeight,
 } from '../../../lib/preferences';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
@@ -21,6 +25,9 @@ import {
   DISABLED_HOLIDAY_CONFIG,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
+
+const { Component: LazyDayDetailPanel } = createPreloadedLazy(() =>
+  import('./DayDetailPanel').then(m => m.DayDetailPanel));
 
 const ReplyComposerSheet = lazy(() =>
   import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
@@ -68,7 +75,36 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   onOpenDiary,
 }) => {
   const [selectedDate, setSelectedDate] = useState(() => new Date(focusDate));
-  const { getSetting } = useSettings();
+  const { getSetting, setSetting } = useSettings();
+  const dayPresentation = resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
+  const dayPanelSide = getSetting(DAY_PANEL_SIDE_SETTING_KEY, 'right') === 'left' ? 'left' : 'right';
+  const dayPanelHeight = resolveDayPanelHeight(getSetting(DAY_PANEL_HEIGHT_SETTING_KEY, 'grid'));
+  const frameRef = useRef<HTMLDivElement>(null);
+  const todoRealignRef = useRef<((live?: boolean) => void) | null>(null);
+  const [frameWidth, setFrameWidth] = useState(0);
+  const bindTodoRealign = useCallback((callback: ((live?: boolean) => void) | null) => {
+    todoRealignRef.current = callback;
+  }, []);
+  const realignTodoCalendar = useCallback((live = false) => {
+    todoRealignRef.current?.(live);
+  }, []);
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const host = dayPanelHeight === 'screen'
+      ? frame.closest('.mosaic-home-workspace') ?? frame : frame;
+    const measure = () => setFrameWidth(host.getBoundingClientRect().width);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [dayPanelHeight]);
+  const sidePanelOpen = dayPresentation === 'panel' && frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
+  const showBottom = !sidePanelOpen;
+  const restoreBottom = useCallback(() => {
+    void setSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet');
+  }, [setSetting]);
   const showFriendDiaryCard = variant === 'friend' &&
     (markerMode === 'diary' || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
   const friendDiaryPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
@@ -113,6 +149,23 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   }, [markerMode, selectedDate, handleDateChange, onOpenDiary]);
 
   return (
+    <div ref={frameRef} className="relative flex min-h-0 min-w-0 flex-1" data-testid="todo-split-workspace">
+    {sidePanelOpen && (
+      <LazyDayDetailPanel
+        persistent side={dayPanelSide} isPresented onExited={() => {}}
+        initialHeightMode={dayPanelHeight} initialFrameWidth={frameWidth}
+        frameRef={frameRef} onCalendarLayoutChange={realignTodoCalendar}
+        onClose={restoreBottom}
+        onFocusCalendar={() => frameRef.current?.querySelector<HTMLElement>('[data-testid="todo-calendar-grid"]')?.focus()}
+        isFriend={variant === 'friend' && Boolean(friendUserId)}
+        showDiaryAlways={markerMode === 'diary'}
+        friendDiaryCard={friendDiaryCard} friendDiaryPosition={friendDiaryPosition}
+        selectedDate={selectedDate} onDateChange={handleDateChange}
+        tasks={tasks} categories={categories} friendName={friendName}
+        currentUserId={currentUserId} onReplyToTask={handleReplyToTask}
+        onReactToTask={onReactToTask} holidayConfig={holidayConfig}
+      />
+    )}
     <section
       className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300"
       data-testid="todo-scroll-region"
@@ -122,6 +175,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
         data-testid="todo-calendar-surface"
       >
         <TodoCalendarGrid
+          onLayoutChangeReady={bindTodoRealign}
           focusDate={focusDate}
           selectedDate={selectedDate}
           tasks={tasks}
@@ -138,7 +192,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
         />
       </div>
 
-      <div className="mt-0 min-w-0 w-full max-w-full overflow-x-hidden" data-testid="todo-day-section">
+      {showBottom && <div className="mt-0 min-w-0 w-full max-w-full overflow-x-hidden" data-testid="todo-day-section">
         {variant === 'friend' && friendUserId ? (
           <>
             {friendDiaryPosition === 'top' && friendDiaryCard}
@@ -187,7 +241,15 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
             holidayConfig={holidayConfig}
           />
         )}
-      </div>
+      </div>}
     </section>
+    {sidePanelOpen && variant === 'friend' && friendUserId && (
+      <Suspense fallback={null}>
+        <ReplyComposerSheet isOpen={!!replyTask} onClose={closeReply}
+          task={replyTask} categoryColor={replyColor}
+          friendId={friendUserId} friendName={friendName} onSent={handleReplySent} />
+      </Suspense>
+    )}
+    </div>
   );
 };

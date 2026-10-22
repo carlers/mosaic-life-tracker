@@ -3,8 +3,25 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
+const dayLayoutSettings = vi.hoisted(() => ({
+  values: {} as Record<string, unknown>,
+  setSetting: vi.fn(async (key: string, value: unknown) => { dayLayoutSettings.values[key] = value; }),
+}));
 vi.mock('../../src/hooks/useSettings', () => ({
-  useSettings: () => ({ getSetting: (_key: string, fallback: unknown) => fallback }),
+  useSettings: () => ({
+    getSetting: (key: string, fallback: unknown) => dayLayoutSettings.values[key] ?? fallback,
+    setSetting: dayLayoutSettings.setSetting,
+  }),
+}));
+vi.mock('../../src/components/home/views/DayDetailPanel', () => ({
+  DayDetailPanel: ({ side, initialHeightMode, selectedDate, showDiaryAlways, onClose }: {
+    side: string; initialHeightMode: string; selectedDate: Date;
+    showDiaryAlways?: boolean; onClose: () => void;
+  }) => <div data-testid="todo-side-panel-mock" data-side={side}
+    data-height={initialHeightMode} data-diary={String(Boolean(showDiaryAlways))}
+    data-selected-date={format(selectedDate, 'yyyy-MM-dd')}>
+    <button type="button" onClick={onClose}>Switch to Bottom</button>
+  </div>,
 }));
 
 vi.mock('../../src/components/home/views/DayViewSheet', () => ({
@@ -210,5 +227,49 @@ describe('TodoListView', () => {
       screen.getByRole('heading', { name: 'Thursday, October 1' })
     ).toBeInTheDocument();
     expect(onFocusDateChange).toHaveBeenCalledWith(new Date(2026, 9, 1));
+  });
+});
+
+describe('Todo and Diary split panel', () => {
+  it('uses the left-side day panel for Todo and preserves calendar selection', async () => {
+    dayLayoutSettings.values = { dayDetailPresentation: 'panel', dayPanelSide: 'left', dayPanelHeight: 'screen' };
+    const original = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return { x: 0, y: 0, width: 1440, height: 750, top: 0, left: 0,
+        right: 1440, bottom: 750, toJSON: () => ({}) } as DOMRect;
+    };
+    try {
+      render(<TodoListView {...props} />);
+      const panel = await screen.findByTestId('todo-side-panel-mock');
+      expect(panel).toHaveAttribute('data-side', 'left');
+      expect(panel).toHaveAttribute('data-height', 'screen');
+      expect(panel).toHaveAttribute('data-selected-date', '2026-09-15');
+      expect(screen.queryByTestId('inline-day-view-mock')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('gridcell', { name: 'Wednesday, September 16, 2026, 0 tasks' }));
+      expect(panel).toHaveAttribute('data-selected-date', '2026-09-16');
+      fireEvent.click(screen.getByRole('button', { name: 'Switch to Bottom' }));
+      expect(dayLayoutSettings.setSetting).toHaveBeenCalledWith('dayDetailPresentation', 'sheet');
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = original;
+      dayLayoutSettings.values = {};
+    }
+  });
+  it('shares the same panel in Diary mode and passes the diary flag', async () => {
+    dayLayoutSettings.values = { dayDetailPresentation: 'panel', dayPanelSide: 'right' };
+    const original = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return { x: 0, y: 0, width: 1440, height: 750, top: 0, left: 0,
+        right: 1440, bottom: 750, toJSON: () => ({}) } as DOMRect;
+    };
+    try {
+      render(<TodoListView {...props} markerMode="diary" />);
+      const panel = await screen.findByTestId('todo-side-panel-mock');
+      expect(panel).toHaveAttribute('data-diary', 'true');
+      expect(panel).toHaveAttribute('data-side', 'right');
+      expect(screen.getByTestId('todo-calendar-grid')).toBeInTheDocument();
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = original;
+      dayLayoutSettings.values = {};
+    }
   });
 });
