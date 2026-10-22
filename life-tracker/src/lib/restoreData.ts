@@ -773,7 +773,7 @@ async function restoreImages(
   if (CORE_BACKEND.driver === 'supabase') {
     // No authorized photo Storage provider exists for this candidate yet.
     // Preserve image references and original ZIP bytes without Appwrite uploads.
-    onImageProgress(ids.length, ids.length);
+    // No media copy was performed. 0/0 would also produce invalid UI progress.
     return { restored: 0, missing: ids.length };
   }
   const publicImageIds = new Set(data.tasks.map(t => t.image).filter(Boolean));
@@ -1186,6 +1186,11 @@ export async function restoreUserData(
   if (options.mode === 'todomate-replace' &&
       (!precompressedImages || !loaded.payload.user.id.startsWith('todomate_'))) {
     throw new Error('TodoMate Replace requires a trusted in-memory TodoMate transfer.');
+  }
+
+  if (options.mode === 'todomate-replace' &&
+      data.tasks.length === 0 && data.categories.length === 0) {
+    throw new Error('Cannot replace Mosaic with an empty TodoMate task/category snapshot.');
   }
 
   if (CORE_BACKEND.driver === 'supabase' && options.mode === 'replace') {

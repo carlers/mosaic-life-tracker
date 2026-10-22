@@ -367,3 +367,9 @@ photos are downloaded in a separate local ZIP at the confirmation gesture;
 keep that ZIP until provider-specific owner-private storage is available.
 The importer reports unavailable remote photos and never claims they were
 synced. This is not real-user cutover or full Appwrite parity.
+
+**Fail-closed empty snapshot:** TodoMate Replace rejects a preparation that contains
+zero tasks *and* zero categories, rather than erasing the destination on an empty
+read or accidentally selected empty TodoMate account. A dedicated user-managed
+clear-data feature is separate from import. The Supabase no-photo branch does not
+report copied media or emit an invalid 0/0 progress event.
