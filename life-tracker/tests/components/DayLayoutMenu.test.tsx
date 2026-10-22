@@ -45,13 +45,13 @@ describe('Day View layout control', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Change Day View layout' }));
     expect(screen.getByRole('menuitemradio', { name: 'Full screen height' })).toBeDisabled();
   });
-  it('closes on Escape without changing preferences', () => {
+  it('closes on Escape without changing preferences', async () => {
     render(<DayLayoutMenu />);
     const trigger = screen.getByRole('button', { name: 'Change Day View layout' });
     fireEvent.click(trigger);
     expect(screen.getByRole('menu', { name: 'Day View layout' })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
     expect(trigger).toHaveFocus();
     expect(settings.setSetting).not.toHaveBeenCalled();
   });
