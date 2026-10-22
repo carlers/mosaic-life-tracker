@@ -1,18 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-22 UTC
-Current task: #1029 signed two-owner private Diary HTTP acceptance, coordinated with #857 category retirement and #1027 Supabase public release.
+Current task: #1027 zero-cost encrypted logical backup preparation for the isolated Supabase core+Diary candidate before hosted schema changes.
 
-## Baseline verified
-- Isolated source `feature/1027-supabase-recovery-20261020@113297aadba8c1e4d3355a83c54b218a05b9a259` contains source-only private Diary/RxDB Realtime plus v0.33.0 retirement/restore and atomic category-task deletion. The initial combined full Quality Gate #39705342859 passed, but the signed Core App Lab #39705342860 failed 4 browser cases due to absent vs empty `retiredOn` metadata; candidate canonical repair PR #1215 focused #39706180012 passed. Accepted source merged full Quality Gate #39706353699 passed, signed Core App Lab #39706354105 pending at current task start.
-- The hosted Supabase project `mosaic-dev` still lacks Diary/retiredOn columns; data untouched, 2 historical active orphaned tasks remain. Invite gate still on; v0.32.5 core-only Preview stable. Newer Appwrite dev/main remain separate and must not be overwritten.
-- Owner requested personal core+Diary public launch with reversible category retirement and explicit category+tasks deletion. Social/images deferred. Signed privacy, backups/restore, PWA upgrades, current dev integration, Free tier capacity, and Auth abuse guards remain prerequisites. Production/public signup not authorized before release gates.
+## Verified stable baseline
+- `feature/1027-supabase-recovery-20261020@31dd343987d183fa0516ae1f2c6d2313cbb6593c` includes owner-private Diary, date-effective category retirement and transactional category+task tombstones. Exact-SHA full Quality Gate #39707242313 SUCCESS; signed disposable Core App Lab #39707242358 SUCCESS, including two-owner real HTTP Diary privacy and a source artifact job.
+- Live `mosaic-dev` remains Supabase Free, active, invite-only, with two core Realtime tables under RLS; hosted Diary table and category `retired_on` are absent. No hosted migrations or real data changed. Existing auth/users and historical orphaned tasks require preservation.
+- Appwrite `dev` and `main` have newer divergent application trees. The existing v0.32.5 protected Supabase core-only Preview does not include new Diary/retirement. No direct stable-candidate promotion, public signup switch, or Production modification is permitted before explicit gates.
 
 ## Current task branch
-- `chatgpt/1029-signed-private-diary-http-e2e` begins at `113297aa...`, no hosted mutation or Preview version bump.
-- Adds real signed disposable GoTrue two-account HTTP acceptance to the existing local Supabase Core App Lab: private Diary INSERT/read and exact revision CAS; prevents cross-account/anonymous read and foreign INSERT/CAS; rejects public visibility and direct privileged UPDATE; protects stale write and forbidden fields; retains owner tombstones/date.
-- Must remain skipped on hosted until a reviewed hosted schema migration and disposable hosted fixtures are ready. No weakening of CAS, RLS, grants or session fences.
+- `chatgpt/1027-encrypted-hosted-backup-20261022` based on exact stable SHA. Add an opt-in, source-read-only `supabase-poc/hosted-encrypted-backup.sh` operator helper: exact `mosaic-dev` project host/user guard, absolute output outside Git, default fail-closed/no overwrite, encrypted streaming `pg_dump` through age, on-disk ciphertext mode 0600 and decrypt→`pg_restore --list` structural validation.
+- No database backup or separate-target restore has actually been performed. A successful archive check is NOT a verified restore. PostgreSQL logical dump excludes global roles, external object bytes, environment/SMTP/GoTrue settings and separately escrowed secrets.
 
 ## Next action
-- Run focused Gate on this test-only task branch; repair failures in batch, then squash to isolated stable with same-SHA full Quality Gate and signed Core App Lab.
-- Only after signed/hosted owner-private Diary tests, independent backup/recovery and PWA/dev version reconciliation may the team stage protected v0.33.0 Preview. Public signup/Production remain closed until the owner approves exact release.
+- Run `[verify:focused]` on the coherent script+runbook checkpoint commit and squash PR into isolated stable only after green; then exact-SHA canonical Supabase Quality Gate + signed Core App Lab again.
+- Operator must create a real encrypted off-repo hosted logical backup, independently restore to a disposable matched Supabase environment, validate Auth identity/owner-private row hashes/RLS/CAS/grants and config/media escrow. Only after recovery proof review/apply scoped additive Diary, retirement and atomic-delete hosted migrations; then signed hosted privacy, protected Preview, old-PWA/iOS and public signup abuse checks.
+- Keep #1027/#1029/#857 open. No dev/main/Production promotion, release, hosted SQL or auth policy change from this task.
