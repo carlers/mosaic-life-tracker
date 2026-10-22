@@ -2,7 +2,7 @@
  * #1187: Supabase Realtime is a wake-up hint, never a replication writer.
  *
  * A single, owner-filtered Phoenix channel listens only for INSERT/UPDATE
- * on the two core tables. Durable values always come from the existing
+ * on the two core tables (plus Diary only under an explicit profile). Durable values come from the existing
  * signed RxDB pull/CAS transport. DELETE is intentionally omitted because
  * Supabase Postgres Changes does not filter DELETE with row-level security;
  * Mosaic uses UPDATE tombstones instead.
@@ -21,6 +21,8 @@ export interface CoreRealtimeWakeOptions {
   /** Existing authenticated replication catch-up, not event payload apply. */
   onWake: () => Promise<void>;
   socketFactory?: (url: string) => WebSocket;
+  /** Add the owner-private Diary wake only under the reviewed core-diary profile. */
+  includeDiary?: boolean;
   /** Test seams; defaults use browser connection/visibility state. */
   isOnline?: () => boolean;
   isVisible?: () => boolean;
@@ -29,12 +31,14 @@ export interface CoreRealtimeWakeOptions {
 type Notice = { event?: unknown; topic?: unknown; ref?: unknown; payload?: unknown };
 type Payload = { status?: unknown; response?: { postgres_changes?: unknown }; ids?: unknown;
   data?: { schema?: unknown; table?: unknown; type?: unknown; record?: { owner_id?: unknown } } };
-const TABLES = ['mosaic_candidate_tasks', 'mosaic_candidate_categories'] as const;
+const CORE_TABLES = ['mosaic_candidate_tasks', 'mosaic_candidate_categories'] as const;
 const EVENTS = ['INSERT', 'UPDATE'] as const;
 const TOPIC = 'realtime:mosaic-core-sync';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function startCoreRealtimeWake(options: CoreRealtimeWakeOptions): () => void {
+  const tables: readonly string[] = options.includeDiary
+    ? [...CORE_TABLES, 'mosaic_candidate_diary'] : CORE_TABLES;
   const base = new URL(options.baseUrl);
   if (!((base.protocol === 'https:' && base.hostname === 'hcxtiifzxoaflhjgoglb.supabase.co') ||
       (base.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(base.hostname))) ||
@@ -144,7 +148,7 @@ export function startCoreRealtimeWake(options: CoreRealtimeWakeOptions): () => v
     try { socket = factory(url.toString()); } catch { scheduleReconnect(); return; }
     current = socket;
     let joinRef: string | null = null;
-    const configurations = TABLES.flatMap(table => EVENTS.map(event => ({
+    const configurations = tables.flatMap(table => EVENTS.map(event => ({
       event, schema: 'public', table, filter: 'owner_id=eq.' + session.userId,
     })));
 
@@ -192,7 +196,7 @@ export function startCoreRealtimeWake(options: CoreRealtimeWakeOptions): () => v
         }
         const registrations = new Map<number, { table: string; event: string }>();
         for (const item of subs) {
-          if (!item || typeof item.id !== 'number' || !TABLES.includes(item.table) ||
+          if (!item || typeof item.id !== 'number' || !tables.includes(item.table) ||
               !EVENTS.includes(item.event) || item.schema !== 'public' ||
               registrations.has(item.id)) {
             disconnect(socket, true); return;
@@ -217,7 +221,7 @@ export function startCoreRealtimeWake(options: CoreRealtimeWakeOptions): () => v
       }
       if (message.event !== 'postgres_changes' || !joined || !Array.isArray(data.ids) ||
           !data.data || data.data.schema !== 'public' ||
-          !TABLES.includes(data.data.table as typeof TABLES[number]) ||
+          !tables.includes(data.data.table as typeof TABLES[number]) ||
           !EVENTS.includes(data.data.type as typeof EVENTS[number]) ||
           data.data.record?.owner_id !== session.userId) return;
       if (!data.ids.some(value => typeof value === 'number' &&

@@ -64,8 +64,9 @@ function sameSession(
 }
 
 export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptions) {
-  if (options.selectedBackend !== 'supabase-cloud' || options.featureProfile !== 'core-only')
-    throw new Error('Signed Supabase core requires explicit Supabase core-only selection');
+  if (options.selectedBackend !== 'supabase-cloud' ||
+      !['core-only', 'core-diary'].includes(options.featureProfile))
+    throw new Error('Signed Supabase core requires explicit Supabase personal profile selection');
   if (typeof options.resolveIdentity !== 'function')
     throw new Error('Signed Supabase core requires a trusted legacy identity resolver');
   if (typeof options.assertLocalAppwriteStopped !== 'function' ||
@@ -286,17 +287,19 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
       if (phase !== 'active' || !active) return () => {};
       return active.run.subscribeConflicts(listener);
     },
-    async refreshConflict(domain: 'tasks' | 'categories', id: string) {
+    async refreshConflict(domain: 'tasks' | 'categories' | 'diary', id: string) {
       if (phase !== 'active' || !active) throw new Error('Core conflict account is not active');
       return active.run.refreshConflict(domain, id);
     },
-    async keepLocalConflict(domain: 'tasks' | 'categories', id: string, revision: string) {
+    async keepLocalConflict(domain: 'tasks' | 'categories' | 'diary', id: string, revision: string) {
       if (phase !== 'active' || !active) throw new Error('Core conflict account is not active');
       return active.run.keepLocalConflict(domain, id, revision);
     },
     getPhase: () => phase,
     getReplicationStates: () => phase === 'active' && active
-      ? [active.run.taskState, active.run.categoryState] : null,
+      ? [active.run.taskState, active.run.categoryState,
+          ...('diaryState' in active.run && active.run.diaryState
+            ? [active.run.diaryState] : [])] : null,
     /** No access token or Supabase refresh credential escapes this snapshot. */
     getAuthenticatedOwner: () => phase === 'active' && active
       ? { ...active.identity } : null,

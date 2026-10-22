@@ -13,6 +13,7 @@ import type { DiaryDocument } from '../../../db/schema';
 import { diaryMarker } from '../../../lib/diaryMarker';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
+import { MOSAIC_FEATURE_PROFILE } from '../../../lib/backendCapabilities';
 
 const CHOICES = ['😀','🥰','😌','😢','😴','😎','🥳','😤','❤️','🌞','🌙','🌧️','🌸','🍀','⭐','💪','📖','🎉','💭','🏆','🧘','🤍','✨','🫶'];
 
@@ -34,6 +35,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   date, entry, author, onClose, onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
 }) => {
   const { user } = useAuth();
+  const personalOnly = MOSAIC_FEATURE_PROFILE === 'core-diary';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoIds, setPhotoIds] = useState(() => parseDiaryPhotos(entry?.photos));
   const [uploading, setUploading] = useState(false);
@@ -43,13 +45,13 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const [reactBusy, setReactBusy] = useState(false);
   const [ownerReactions, setOwnerReactions] = useState<string | null>(null);
   useEffect(() => {
-    if (!onSave || !entry?.id) return;
+    if (!onSave || !entry?.id || personalOnly) return;
     let current = true;
     void fetchOwnerDiaryReactions(entry.id)
       .then(reactions => { if (current) setOwnerReactions(reactions); })
       .catch(() => { if (current) setOwnerReactions(null); });
     return () => { current = false; };
-  }, [onSave, entry?.id]);
+  }, [onSave, entry?.id, personalOnly]);
   const [editing, setEditing] = useState(!!onSave && (initialEditing || !entry));
   const lastContentTap = useRef(0);
   const [body, setBody] = useState(entry?.content || '');
@@ -149,22 +151,28 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                     aria-label={`Use ${choice} emoji`} onClick={() => {setEmoji(choice); setPicker(false);}}>{choice}</button>)}
                 </div>
               )}
-              <div className="my-4 flex items-center gap-2">
-                <span className="text-sm text-gray-400">Visibility</span>
-                <select aria-label="Diary visibility" value={visibility} onChange={e => setVisibility(e.target.value as DiaryDocument['visibility'])}
-                  className="rounded-lg bg-surfaceHighlight p-2 text-white">
-                  <option value="private">Private</option>
-                  <option value="followers">Friends</option>
-                  <option value="public">Public</option>
-                </select>
-              </div>
-              <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
-                aria-label="Choose diary photos" onChange={e => void uploadPhotos(e.target.files)}/>
-              <button type="button" disabled={busy || uploading || photoIds.length >= 5} onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-lg p-2 text-sm text-gray-300 disabled:opacity-40">
-                <ImagePlus size={19}/> {uploading ? 'Uploading…' : `Add photos (${photoIds.length}/5)`}
-              </button>
-              <DiaryPhotoGallery date={date} photoIds={photoIds} editable onChange={setPhotoIds}/>
+              {personalOnly ? (
+                <div className="my-4 text-sm text-gray-400" aria-label="Diary visibility">Private diary</div>
+              ) : (
+                <>
+                <div className="my-4 flex items-center gap-2">
+                  <span className="text-sm text-gray-400">Visibility</span>
+                  <select aria-label="Diary visibility" value={visibility} onChange={e => setVisibility(e.target.value as DiaryDocument['visibility'])}
+                    className="rounded-lg bg-surfaceHighlight p-2 text-white">
+                    <option value="private">Private</option>
+                    <option value="followers">Friends</option>
+                    <option value="public">Public</option>
+                  </select>
+                </div>
+                <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+                  aria-label="Choose diary photos" onChange={e => void uploadPhotos(e.target.files)}/>
+                <button type="button" disabled={busy || uploading || photoIds.length >= 5} onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 rounded-lg p-2 text-sm text-gray-300 disabled:opacity-40">
+                  <ImagePlus size={19}/> {uploading ? 'Uploading…' : `Add photos (${photoIds.length}/5)`}
+                </button>
+                <DiaryPhotoGallery date={date} photoIds={photoIds} editable onChange={setPhotoIds}/>
+                </>
+              )}
               <textarea aria-label="Diary text" value={body} onChange={e=>setBody(e.target.value)}
                 placeholder="How was your day?" className="min-h-28 flex-1 resize-none rounded-xl bg-transparent p-2 text-base text-white outline-offset-2"
                 autoFocus />

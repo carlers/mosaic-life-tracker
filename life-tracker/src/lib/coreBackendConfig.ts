@@ -7,8 +7,9 @@ export function resolveCoreBackendConfig(env: Record<string, unknown>): CoreBack
   const selected = env.VITE_MOSAIC_BACKEND;
   if (!selected || selected === 'appwrite-cloud' || selected === 'appwrite-oracle')
     return { driver: 'appwrite' };
-  if (selected !== 'supabase-cloud' || env.VITE_MOSAIC_FEATURE_PROFILE !== 'core-only')
-    throw new Error('Supabase requires an explicit core-only backend selection');
+  if (selected !== 'supabase-cloud' ||
+      !['core-only', 'core-diary'].includes(String(env.VITE_MOSAIC_FEATURE_PROFILE)))
+    throw new Error('Supabase requires an explicit core-only or core-diary backend selection');
   const url = new URL(String(env.VITE_SUPABASE_URL ?? ''));
   const local = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
   if ((!local && url.origin !== 'https://hcxtiifzxoaflhjgoglb.supabase.co') ||
