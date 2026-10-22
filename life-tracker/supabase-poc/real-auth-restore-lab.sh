@@ -26,11 +26,18 @@ python3 - <<'PY'
 from pathlib import Path
 import re
 p = Path('supabase/config.toml')
-s = p.read_text()
-pattern = r'(?m)^enable_confirmations\s*=\s*(true|false)\s*$'
-if len(re.findall(pattern, s)) != 1:
-  raise SystemExit('Expected local GoTrue confirmation option')
-p.write_text(re.sub(pattern, 'enable_confirmations = false', s))
+lines = p.read_text().splitlines(keepends=True)
+is_email = False
+found = 0
+for i, line in enumerate(lines):
+  if line.strip().startswith('[') and line.strip().endswith(']'):
+    is_email = line.strip() == '[auth.email]'
+  elif is_email and re.fullmatch(r'\s*enable_confirmations\s*=\s*(true|false)\s*', line):
+    lines[i] = 'enable_confirmations = false\n'
+    found += 1
+if found != 1:
+  raise SystemExit('Expected one local auth.email confirmation setting')
+p.write_text(''.join(lines))
 PY
 supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler >/dev/null
 supabase db reset --local >/dev/null
