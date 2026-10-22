@@ -1,19 +1,22 @@
 # Session checkpoint
 
 Updated: 2026-10-22 UTC
-Current task: #1027 privacy-safe source row-count audit after real encrypted snapshot decode.
+Current task: #1027 original private archive has passed count-only audit; core recovery target being independently exercised.
 
-## Verified baseline
-- Stable isolated Supabase feature/1027-supabase-recovery-20261020@ecb5baf80707f6d5d5fae332f4fcc4f51891cac7: exact-SHA Quality Gate #39738976067, signed Core App Lab #39738976121, Synthetic Restore Lab #39738976137 and real GoTrue Restore Lab #39738976108 all SUCCESS.
-- Owner privately authenticated original `mosaic-dev-20261022T031628Z.age` archive and passed offline metadata (707 TOC objects, six critical TABLE DATA entries) and seekable memfd DATA-only decode `SELECTED_DATA_DECODE_PASS`; no database restores or account data read into chat.
-- Original archive includes 27 Auth TABLE DATA entries (including sessions and refresh tokens) and five other Mosaic TABLE DATA entries: `mosaic_candidate_private.beta_signup_invitations`, `mosaic_candidate_private.core_sessions`, `mosaic_poc_internal.owner_revision`, `public.mosaic_poc_items`, `public.mosaic_sync_probe`. Their row counts are unknown; none may be discarded or replayed without role/data migration review.
-- Hosted mosaic-dev read-only last known aggregate: 81 Auth users, 78 marked test/banned/frozen and three unmarked; 58 tasks, 53 categories, 49 owner revisions, 81 authorities, no Storage buckets/objects; hosted Diary and category retirement absent. No provider mutation from this task.
+## Verified input and baseline
+- Isolated feature/1027-supabase-recovery-20261020@8eee86b26bf72580ead5f43c67d500cea1548cdf: exact SHA full Quality Gate #39743201665 (one unrelated browser flake passed on rerun), signed Core App Lab #39743201666, synthetic encrypted restore #39743201699 and real GoTrue restore #39743201664 all SUCCESS.
+- Owner independently ran Fedora-only count auditor on age-encrypted 2026-10-22 snapshot. 54 DATA objects decoded, 1410 total rows and zero restores. Six core: auth.users=81, identities=81, core_authorities=81, owner_revisions=49, categories=53, tasks=58; matches earlier read-only hosted counts exactly.
+- Additional archived Mosaic data: beta_signup_invitations=2, core_sessions=150, legacy owner_revision, public mosaic_poc_items and mosaic_sync_probe=0. Auth: 27 data tables with sessions=184, refresh_tokens=226, mfa_amr_claims=184, one_time_tokens=3 and schema_migrations=82, all other Auth DATA tables empty except users/identities. Storage: only migrations=74; Realtime migrations=91; supabase_migrations schema_migrations=11. Original encrypted archive/key stay on user Fedora machine.
+- Hosted mosaic-dev nonempty (81 users incl 3 unmarked), Diary and retirement not migrated. No hosted schema/Auth/SMTP/public signup writes, no dev/main/Production changes.
 
 ## Task
-- Create a safe count-only preflight that reads all PostgreSQL TABLE DATA entries from authenticated original ciphertext through capped anonymous Linux memfd and pg_restore COPY pipeline; returns per-table record counts only, with no row contents, IDs, emails, hashes, tokens, SQL execution, DB connections or disk plaintext.
-- Add negative parser and generated-encrypted-archive CI acceptance, operator runbook and current checkpoint. No user-visible version impact; no hosted writes, dev/main merge, or Production deployment.
+- Generated-data CI showed exact six-object core recovery, signed original-password reauthentication and foreign-owner isolation PASS, but the second independently initialized operator stack failed at an unnecessary `supabase db reset --local` after new-stack `supabase start` had already applied all six migrations. Remove the redundant reset; retain empty target, PG17, loopback and source/target exact row checks. PR #1239 remains draft until updated generated-data test passes.
+
+## Task
+- Create a guarded local-only recovery into a freshly initialized, random disposable PG17 Supabase CLI Docker stack, separate from existing Fedora local postgres:25077. Restore only six core TABLE DATA objects, never import old sessions/tokens or raw managed DDL, preserve archival invitation/leases in original age backup, verify exact source/target per-row COPY equality and counts plus canonical authority integrity.
+- Share no secrets, archived rows or user IDs; require Unix-socket Docker daemon, loopback-only published ports, recognized unique new DB container, archive SHA, empty target, expected counts, in-memory archive staging and cleanup. Integrate exact helper in generated real GoTrue CI, document scope. No app version impact or hosted writes.
 
 ## Next action
-- Finish focused task branch Quality Gate + synthetic row-count test, squash into only isolated Supabase candidate, and verify exact-SHA four canonical/real GoTrue/synthetic labs.
-- Owner runs `python3 supabase-poc/audit_private_archive_rows.py <absolute-age-archive> <absolute-identity>` from updated isolated Fedora checkout and shares sanitized JSON only in this private chat. Compare core row counts to hosted snapshot time and reconcile nonempty Auth/storage/legacy tables prior to restoring any data.
-- Real backup recovery still requires independently initialized disposable Supabase Postgres 17, explicit table dependencies, signed password and two-owner RLS, full restored row counts and data hashes, role/Auth/SMTP/Storage compatibility, public signup/Preview/mobile release gates. Keep #1027/#1029/#857 open; never upload private archive/age key or bypass managed privileges. No unauthorized dev/main/Production promotion.
+- Verify focused Quality Gate and real GoTrue CI after implementation; repair failures and add dedicated wrapper self-check if needed, squash only to isolated recovery feature, verify exact-SHA four labs.
+- Owner then runs vetted Fedora script per supabase-poc/PRIVATE_CORE_RECOVERY.md. Share only sanitized final status and anonymous local target diagnostics, not credentials, age archive/key or data.
+- Even a six-table recovery pass does not certify historical invitations, current hosted delta, federated Auth, SMTP or real signed multi-owner acceptance. Continue issue #1027/#1029/#857; do not promote dev/main/Production without separately required explicit approvals.
