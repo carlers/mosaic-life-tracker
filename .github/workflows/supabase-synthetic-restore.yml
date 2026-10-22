@@ -5,6 +5,7 @@ on:
     branches:
       - 'chatgpt/1027-ci-synthetic-restore-*'
       - 'chatgpt/1027-recovery-coverage-*'
+      - 'chatgpt/1027-private-archive-decode-plan-*'
       - 'feature/1027-supabase-recovery-*'
 permissions:
   contents: read

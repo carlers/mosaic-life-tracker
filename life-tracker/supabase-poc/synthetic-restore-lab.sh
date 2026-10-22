@@ -72,6 +72,8 @@ cp "$tmp/backup.age" "$tmp/truncated.age"
 truncate -s -1 "$tmp/truncated.age"
 if age -d -i "$tmp/key" "$tmp/truncated.age" >/dev/null 2>&1; then exit 1; fi
 node "$root/supabase-poc/inspect-archive-toc.mjs" < <(pg_restore -l "$tmp/recovered.dump") >"$tmp/toc-summary.json"
+# Exercise the same private operator workflow using ONLY generated fake data.
+bash "$root/supabase-poc/check-private-archive-data.sh" "$tmp/backup.age" "$tmp/key"
 # Only these disposable fake records are relaxed for local postgres access.
 chmod 711 "$tmp"
 chmod 644 "$tmp/recovered.dump"
