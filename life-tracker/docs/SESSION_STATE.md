@@ -12,7 +12,7 @@ Current task: #1027 fix encrypted hosted backup helper exit 141 on Fedora; conti
 - `chatgpt/1027-backup-sigpipe-fix-20261022` fixes inspection where `pg_restore --list` closes the pipe after TOC/header and upstream `age` gets SIGPIPE. Independently decrypt complete age archive to /dev/null (verify full ciphertext authentication); metadata-only `age | pg_restore --list` must report pg_restore success and permits upstream producer 141 only, rejecting other nonzero statuses. Preserve fail-closed cleanup, no plaintext file, exact project host restrictions and nonclobber.
 - Add deterministic Vitest mock regression for expected early-reader SIGPIPE, unreadable age archive, failing pg_restore and wrong project. Local bash mock smoke exercised these cases successfully; task-focused CI pending until task branch push.
 
-## Next
+## Next action
 - Commit task checkpoint [verify:focused], run focused green, squash PR onto isolated stable, ensure exact-SHA full Quality Gate + signed Core App Lab green.
 - Then operator: `cd ~/mosaic-supabase-backup/life-tracker && git pull --ff-only`, confirm script updated; re-enter database password (cleared by previous `unset PGPASSWORD`), run encrypted script with **fresh** outside-repo output name, check generated `.age` archive and printed checksum. Never send DB password, encryption private key, or encrypted archive through chat.
 - Independent isolated restore and Auth/Storage/config/global-roles recovery verification **still required** before hosted Diary/category migrations, public signup or Production release. Keep #1027/#1029/#857 open.
