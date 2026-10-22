@@ -33,7 +33,7 @@ SQL
     20261022_candidate_private_diary_domain 20261022_candidate_category_retirement \
     20261023_candidate_atomic_category_delete 20261022_candidate_private_diary_realtime; do
     sudo -u postgres psql -qX -v ON_ERROR_STOP=1 -d "$1" \
-      -f "$root/supabase-poc/migrations/$name.sql" >"$tmp/migrations.log" 2>&1 || {
+      < "$root/supabase-poc/migrations/$name.sql" >"$tmp/migrations.log" 2>&1 || {
        echo "Migration failed: $name" >&2; tail -12 "$tmp/migrations.log" >&2; exit 1;
       }
   done
