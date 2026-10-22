@@ -146,7 +146,7 @@ def audit(archive, identity):
             with subprocess.Popen(
                 ["pg_restore", "--data-only", "--no-owner",
                  "--use-list=/proc/self/fd/" + str(selected),
-                 "/proc/self/fd/" + str(fd)],
+                 "--file=/dev/stdout", "/proc/self/fd/" + str(fd)],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 pass_fds=(fd, selected),
             ) as proc:
