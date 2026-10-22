@@ -302,6 +302,8 @@ export function scrubDeletedUserRow(tableId, row, deletedUserIds) {
   const data = row.data && typeof row.data === 'object' ? { ...row.data } : {};
   for (const key of [
     'user_id',
+    'owner_id',
+    'invitee_id',
     'friend_id',
     'sender_id',
     'recipient_id',
