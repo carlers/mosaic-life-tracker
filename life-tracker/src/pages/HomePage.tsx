@@ -95,8 +95,9 @@ export const HomePage: React.FC = () => {
     if (carouselLoading) return;
     markStartup('home:carousel-ready');
     // Warm only the preferences module once its owning carousel is usable.
-    const warm = () => { if (!document.hidden) void preloadFriendSettings().catch(() => {}); };
-    return whenHomeIdle(warm, 1800, 700);
+    return whenHomeIdle(() => {
+      if (!document.hidden) void preloadFriendSettings().catch(() => {});
+    }, 1800, 700);
   }, [carouselLoading]);
 
   // Warm the code after first usable local Home data, never in the startup graph.
@@ -107,17 +108,15 @@ export const HomePage: React.FC = () => {
     // They must not indefinitely suppress idle Day View module warmup.
     if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
 
-    const warm = () => {
+    return whenHomeIdle(() => {
       if (document.visibilityState === 'visible') {
-        // After Calendar is usable, warm the shared Todo/Diary module too.
-        // Delay its JS evaluation until after the critical Calendar path;
-        // no task view, provider or offscreen DOM is mounted by this work.
+        // Warm Todo/Diary after a successful or failed Day View preload.
+        // An on-demand navigation retries failed imports as before.
         void loadDayViewSheet()
-          .then(preloadTodoListView, preloadTodoListView)
-          .catch(() => { /* On-demand navigation retries failed imports. */ });
+          .finally(preloadTodoListView)
+          .catch(() => {});
       }
-    };
-    return whenHomeIdle(warm, 1200, 900);
+    }, 1200, 900);
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
   useEffect(() => whenHomeIdle(() => setRenderWindow(1), 1200, 400), []);
@@ -199,17 +198,13 @@ export const HomePage: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isSearchOpen]);
 
-  const handleOpenBucketList = useCallback(() => {
-    navigate('/bucket-list', { state: makeRouteParentState('/home') });
+  const navigateFromHome = useCallback((path: string) => {
+    navigate(path, { state: makeRouteParentState('/home') });
   }, [navigate]);
 
-  const handleOpenBacklog = useCallback(() => {
-    navigate('/backlog', { state: makeRouteParentState('/home') });
-  }, [navigate]);
-
-  const handleOpenUncompleted = useCallback(() => {
-    navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/home') });
-  }, [navigate]);
+  const handleOpenBucketList = useCallback(() => navigateFromHome('/bucket-list'), [navigateFromHome]);
+  const handleOpenBacklog = useCallback(() => navigateFromHome('/backlog'), [navigateFromHome]);
+  const handleOpenUncompleted = useCallback(() => navigateFromHome('/backlog?view=uncompleted'), [navigateFromHome]);
 
   const openDatedTask = useCallback((date: Date, id: string) => {
     setSearchSelectedDate(date);
