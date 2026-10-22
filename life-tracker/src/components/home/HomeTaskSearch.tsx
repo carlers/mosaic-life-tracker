@@ -47,6 +47,10 @@ const DATE_FILTERS: Array<{
   { value: 'custom', label: 'Custom' },
 ];
 
+const SEARCH_FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60';
+const SELECTED_FILTER_CLASS = 'border-[#444444] bg-[#333333] text-white';
+const UNSELECTED_FILTER_CLASS = 'border-[#333333] text-gray-400';
+
 function taskDateLabel(date: string): string {
   if (date === '') return 'Unscheduled';
   if (!isScheduledTaskDate(date)) return 'Invalid date';
@@ -182,7 +186,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
               <button
                 type="button"
                 onClick={handleClose}
-                className="mosaic-action-icon absolute right-2 rounded-lg p-1.5 text-gray-400 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                className={`mosaic-action-icon absolute right-2 rounded-lg p-1.5 text-gray-400 transition-colors hover:text-white ${SEARCH_FOCUS_RING}`}
                 aria-label="Close task search"
               >
                 <X size={16} aria-hidden="true" />
@@ -200,7 +204,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
             <button
               type="button"
               onClick={onOpen}
-              className="mosaic-action-icon rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              className={`mosaic-action-icon rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white ${SEARCH_FOCUS_RING}`}
               aria-label="Search tasks"
             >
               <Search size={20} aria-hidden="true" />
@@ -239,7 +243,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                   <button
                     type="button"
                     onClick={resetSearch}
-                    className="mosaic-general-text rounded px-2 py-1 text-xs text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                    className={`mosaic-general-text rounded px-2 py-1 text-xs text-gray-400 hover:text-white ${SEARCH_FOCUS_RING}`}
                   >
                     Reset
                   </button>
@@ -250,10 +254,10 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                   type="button"
                   aria-pressed={selectedCategoryIds.size === 0}
                   onClick={clearCategories}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors ${SEARCH_FOCUS_RING} ${
                     selectedCategoryIds.size === 0
-                      ? 'border-[#444444] bg-[#333333] text-white'
-                      : 'border-[#333333] text-gray-400'
+                      ? SELECTED_FILTER_CLASS
+                      : UNSELECTED_FILTER_CLASS
                   }`}
                 >
                   All categories
@@ -266,10 +270,10 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                       type="button"
                       aria-pressed={selected}
                       onClick={() => toggleCategory(category.id)}
-                      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+                      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors ${SEARCH_FOCUS_RING} ${
                         selected
-                          ? 'border-[#444444] bg-[#333333] text-white'
-                          : 'border-[#333333] text-gray-400'
+                          ? SELECTED_FILTER_CLASS
+                          : UNSELECTED_FILTER_CLASS
                       }`}
                     >
                       <span
@@ -290,10 +294,10 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                     type="button"
                     aria-pressed={dateFilter === filter.value}
                     onClick={() => setDateFilter(filter.value)}
-                    className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors ${SEARCH_FOCUS_RING} ${
                       dateFilter === filter.value
-                        ? 'border-[#444444] bg-[#333333] text-white'
-                        : 'border-[#333333] text-gray-400'
+                        ? SELECTED_FILTER_CLASS
+                        : UNSELECTED_FILTER_CLASS
                     }`}
                   >
                     {filter.label}
@@ -368,7 +372,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = ({
                           type="button"
                           onClick={() => onSelectTask(task)}
                           aria-label={`Open task ${task.title} on ${dateLabel}`}
-                          className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#333333] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                          className={`flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#333333] ${SEARCH_FOCUS_RING}`}
                         >
                           <span
                             aria-hidden="true"
