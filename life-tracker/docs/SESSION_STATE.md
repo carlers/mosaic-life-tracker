@@ -1,21 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-22 UTC
-Current task: #1029 owner-private Diary signed RxDB pilot on isolated Supabase core+Diary launch branch; #857 retirement and #1027 public release remain active.
+Current task: #1029 Diary single-lease runtime, next after signed RxDB pilot; #857 category retirement, #1027 public core+Diary launch.
 
-## Verified baseline
-- Isolated Supabase branch `feature/1027-supabase-recovery-20261020@ed0bb5ed56a11e9232f9f65f28760b8c0d3ff77d` includes Diary SQL table/RLS/signed CAS and owner-fenced transport, not yet hosted or active in the UI. Exact-SHA canonical Quality Gate #39654508051 and signed Core App Lab #39654509055 **SUCCEEDED**.
-- Core task/category Realtime Preview v0.32.5 works according to owner manual two-device test. Current Supabase Auth remains invite-only. No public signup or Production/provider cutover.
-- Owner requires public core tasks/calendar/categories/Backlogs **PLUS owner-private Diary**, category retirement/restore and explicit category+tasks destructive deletion before launch, social/chat/alerts/sharing/image uploading deferred; release safeguards preserved.
-- `chatgpt/857-category-retirement-reconciled@85625abd3517422daf2c5e75638ec5fc5ccfa850` has focused Quality Gate #39654659963 SUCCESS, but needs rebase/reconcile onto later isolated stable, signed lab, server-side concurrent task deletion protection and Appwrite parity before release.
+## Verified starting point
+- Supabase isolated stable `feature/1027-supabase-recovery-20261020@bed8d4cc16d4a9e4a566201c3747afaeada3e030` contains owner-private Diary DB migration source, signed transport and native RxDB pilot, but the hosted Diary table and app runtime/UI are NOT activated. Diary pilot task `9448fc8de6a0a5c771b908101e50c753a401555b` passed focused #39699159433. Merged exact-SHA full Quality Gate #39699311911 and Core App Lab #39699311346 pending at branch creation.
+- Stable core-only v0.32.5 Preview task/category Realtime manually accepted by owner. Public signups remain invite-gated. No dev/main, Production, live schema, PWA/provider migration or social changes.
+- User's approved target: public tasks/calendar/categories/Backlogs and PRIVATE Diary; category retirement and explicit category+tasks deletion, no evolving category labels. Social/chat/alerts/sharing/images deferred. Retired categories v0.33.0 task `chatgpt/857-category-retirement-reconciled@85625abd3517422daf2c5e75638ec5fc5ccfa850` focused #39654659963 succeeded but remains isolated; remote race/atomic cascade and Appwrite parity unverified.
 
-## Current task branch
-- `chatgpt/1029-diary-rxdb-pilot` based on isolated stable `ed0bb5ed56a11e9232f9f65f28760b8c0d3ff77d`. **Source-only, no preview version bump or user-facing capability.**
-- Added third `diary` branch to `supabase-poc/candidateRxdbPilot.ts`: private owner/date/attachment-sensitive canonical mapping; signed owner pull, create, read, exact-revision CAS; only content/emoji/updatedAt/tombstone mutable. Immutable date/privacy/createdAt/photos cannot be rewritten; conflicting offline changes remain durably pending, not silently acknowledged; foreign owners and physical deletes denied.
-- Added `tests/unit/supabaseCandidateDiaryRxdbPilot.test.ts` for exact signed cursor, BigInt revisions, idempotent create, CAS patch, tombstone, immutability, simultaneous device edit conflicts, foreign rows, account switching.
-- These pilot primitives are not yet bootstrapped as third app-owned writer. No backend authority or browser UI selection changes here. Do not claim synced Diary until runtime, signed hosted/local E2E and manual cross-device tests pass.
+## This task branch
+- `chatgpt/1029-diary-single-lease-runtime` based on `bed8d4c...`, no Preview version bump because not externally selected.
+- Introduces *explicit source-only* `featureProfile:'core-diary'` on `createCandidateCoreRuntime` with mandatory diary collection. The legacy `core-only` option still starts exactly two writers. The third Diary RxDB pilot is created only under the matching profile and joins the **same signed session, verified legacy mapping, Appwrite fencing and exclusive owner lease**; shutdown, partial-failure cleanup, initial readiness, resync and conflicts all account for the third writer. No separately acquired backend lease.
+- Adds runtime tests for three-domain single-lease operation, start failure cleanup and unaffected legacy two-domain flow.
+- **Not enabled in AppSupabaseCoreBootstrap, capability UI, hosted schema or installed PWAs.** The returned third-conflict data requires visible conflict-review wiring and signed end-to-end owner verification before feature activation. No public signup changes.
 
 ## Next action
-- Execute task-focused Quality Gate; repair any type/security/test failures, then review/squash isolated stable, exact-SHA canonical and signed lab.
-- Extend `candidateCoreRuntime`, `supabaseCoreBootstrap`, coordinator, Auth startup/Realtime and capability profile to opt-in core+Diary *only after* signed smoke tests and hosted owner-fenced RLS migration. Preserve explicit lease/stop/foregound/offline protections and no dual-write.
-- Finish #857 all-day task cascade race and remote schema before hosting category feature. Reconcile newer dev/main and Production-safe Appwrite return; independent backup/restore, public signup anti-abuse, existing PWA upgrades and device acceptance are public launch blockers. Two older orphaned beta tasks remain untouched pending owner-approved recovery.
+- Run task-focused Quality Gate, repair failures; squash to isolated stable if green, then same-SHA full Quality Gate and signed lab. Next implement opt-in app/bootstrap/coordinator/runtime UI Diary conflict state, Realtime wake and validated hosted migration to actually enable the private Diary.
+- Complete #857 server-side atomic category deletion and Appwrite provider parity, user consented orphan recovery, upgrade/PWA, backups/restore and public Auth abuse controls; reconcile newer dev/main before exact-release authorized public launch. Keep current working hosted beta untouched until verified.

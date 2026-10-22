@@ -7,13 +7,17 @@ const mocks = vi.hoisted(() => ({
   started: [] as string[],
   tasksStop: vi.fn(async () => {}),
   categoriesStop: vi.fn(async () => {}),
+  diaryStop: vi.fn(async () => {}),
   taskResync: vi.fn(),
   categoryResync: vi.fn(),
+  diaryResync: vi.fn(),
   taskReady: vi.fn(async () => {}),
   categoryReady: vi.fn(async () => {}),
+  diaryReady: vi.fn(async () => {}),
   refreshConflict: vi.fn(async () => ({ state: 'unchanged' })),
   keepLocalConflict: vi.fn(async () => ({ state: 'applied' })),
   failCategories: false,
+  failDiary: false,
 }));
 vi.mock('../../supabase-poc/candidateRxdbPilot', () => ({
   createCandidateRxdbPilot: (opts: { domain: string }) => ({
@@ -21,13 +25,18 @@ vi.mock('../../supabase-poc/candidateRxdbPilot', () => ({
       mocks.started.push(opts.domain);
       if (opts.domain === 'categories' && mocks.failCategories)
         throw new Error('Synthetic category start failed');
+      if (opts.domain === 'diary' && mocks.failDiary)
+        throw new Error('Synthetic Diary start failed');
       return {
         state: {
           awaitInitialReplication:
-            opts.domain === 'tasks' ? mocks.taskReady : mocks.categoryReady,
+            opts.domain === 'tasks' ? mocks.taskReady :
+              opts.domain === 'categories' ? mocks.categoryReady : mocks.diaryReady,
         },
-        resync: opts.domain === 'tasks' ? mocks.taskResync : mocks.categoryResync,
-        stop: opts.domain === 'tasks' ? mocks.tasksStop : mocks.categoriesStop,
+        resync: opts.domain === 'tasks' ? mocks.taskResync :
+          opts.domain === 'categories' ? mocks.categoryResync : mocks.diaryResync,
+        stop: opts.domain === 'tasks' ? mocks.tasksStop :
+          opts.domain === 'categories' ? mocks.categoriesStop : mocks.diaryStop,
       };
     },
     listPendingConflicts: () => [],
@@ -37,7 +46,7 @@ vi.mock('../../supabase-poc/candidateRxdbPilot', () => ({
   }),
 }));
 
-function fixture() {
+function fixture(withDiary = false) {
   let owner = OWNER;
   let validLease = true;
   const guard = {
@@ -57,8 +66,9 @@ function fixture() {
     baseUrl: 'https://isolated.test.supabase.co',
     publishableKey: 'sb_publishable_synthetic_only',
     identity: { legacyUserId: 'legacy_owner', supabaseUserId: OWNER },
-    selectedBackend: 'supabase', featureProfile: 'core-only',
-    collections: { tasks: {} as never, categories: {} as never },
+    selectedBackend: 'supabase', featureProfile: withDiary ? 'core-diary' : 'core-only',
+    collections: { tasks: {} as never, categories: {} as never,
+      ...(withDiary ? { diary: {} as never } : {}) },
     session, guard,
   });
   return {
@@ -73,6 +83,8 @@ beforeEach(() => {
   mocks.failCategories = false;
   mocks.tasksStop.mockResolvedValue(undefined);
   mocks.categoriesStop.mockResolvedValue(undefined);
+  mocks.diaryStop.mockResolvedValue(undefined);
+  mocks.failDiary = false;
 });
 
 describe('isolated signed two-domain core sync lifecycle (#1027)', () => {
@@ -239,4 +251,47 @@ describe('isolated signed two-domain core sync lifecycle (#1027)', () => {
       session: f.session, guard: {} as never,
     })).toThrow('requires all migration safety guards');
   });
+  it('starts Diary only under explicit personal profile, sharing the SAME owner lease', async () => {
+    const f = fixture(true);
+    const run = await f.runtime.start();
+    expect(f.guard.verifyLegacyMapping).toHaveBeenCalledOnce();
+    expect(f.guard.assertAppwriteWritersFenced).toHaveBeenCalledOnce();
+    expect(f.guard.acquireExclusiveLease).toHaveBeenCalledOnce();
+    expect(mocks.started).toEqual(['tasks', 'categories', 'diary']);
+    expect(run).toHaveProperty('diaryState');
+    await run.awaitInitialReplication();
+    expect(mocks.taskReady).toHaveBeenCalledOnce();
+    expect(mocks.categoryReady).toHaveBeenCalledOnce();
+    expect(mocks.diaryReady).toHaveBeenCalledOnce();
+    await run.resync();
+    expect(mocks.diaryResync).toHaveBeenCalledOnce();
+    expect(run.getPendingConflicts()).toEqual({ tasks: [], categories: [], diary: [] });
+    await run.stop();
+    expect(mocks.tasksStop).toHaveBeenCalledOnce();
+    expect(mocks.categoriesStop).toHaveBeenCalledOnce();
+    expect(mocks.diaryStop).toHaveBeenCalledOnce();
+    const lease = await f.guard.acquireExclusiveLease.mock.results[0].value;
+    expect(lease.release).toHaveBeenCalledOnce();
+  });
+
+  it('stops both original writers and releases the single lease on Diary startup failure', async () => {
+    const f = fixture(true);
+    mocks.failDiary = true;
+    await expect(f.runtime.start()).rejects.toThrow('Synthetic Diary start failed');
+    expect(mocks.started).toEqual(['tasks', 'categories', 'diary']);
+    expect(mocks.tasksStop).toHaveBeenCalledOnce();
+    expect(mocks.categoriesStop).toHaveBeenCalledOnce();
+    const lease = await f.guard.acquireExclusiveLease.mock.results[0].value;
+    expect(lease.release).toHaveBeenCalledOnce();
+  });
+
+  it('does not construct a Diary writer under core-only even when starting normally', async () => {
+    const f = fixture();
+    const run = await f.runtime.start();
+    expect(mocks.started).toEqual(['tasks', 'categories']);
+    expect(run).not.toHaveProperty('diaryState');
+    expect(run.getPendingConflicts()).not.toHaveProperty('diary');
+    await run.stop();
+  });
+
 });

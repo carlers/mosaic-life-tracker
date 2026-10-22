@@ -7,7 +7,7 @@
  * No implicit fallback, PWA migration or cross-provider dual writes.
  */
 import type { RxCollection } from 'rxdb';
-import type { TaskDocument, CategoryDocument } from '../src/db/schema';
+import type { TaskDocument, CategoryDocument, DiaryDocument } from '../src/db/schema';
 import type { CandidateIdentity } from './candidateMapping';
 import { validateCandidateIdentity } from './candidateMapping';
 import type { CandidateSessionProvider, CandidateVerifiedSession } from './candidateHttpTransport';
@@ -24,7 +24,7 @@ export interface CandidateCoreWriterLease {
 export interface CandidateCoreGuard {
   /** Must verify legacy Appwrite ID <-> signed Supabase UUID in trusted migration registry. */
   verifyLegacyMapping(identity: CandidateIdentity): Promise<void>;
-  /** Must fence ALL Appwrite tasks/categories writers for this owner, including old PWA versions. */
+  /** Must fence ALL Appwrite writers for every selected collection, including old PWA versions. */
   assertAppwriteWritersFenced(identity: CandidateIdentity): Promise<void>;
   /** Must atomically reject any competing writer for this owner/domain, across tabs/devices. */
   acquireExclusiveLease(identity: CandidateIdentity): Promise<CandidateCoreWriterLease>;
@@ -37,17 +37,22 @@ export interface CandidateCoreRuntimeOptions {
   collections: {
     tasks: RxCollection<TaskDocument>;
     categories: RxCollection<CategoryDocument>;
+    /** Supplied ONLY when the reviewed core-diary profile is explicitly selected. */
+    diary?: RxCollection<DiaryDocument>;
   };
   guard: CandidateCoreGuard;
   fetcher?: typeof fetch;
   /** Be explicit: a profile alone must never silently change providers. */
   selectedBackend: 'supabase';
-  featureProfile: 'core-only';
+  featureProfile: 'core-only' | 'core-diary';
 }
 
 export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions) {
-  if (options.selectedBackend !== 'supabase' || options.featureProfile !== 'core-only')
-    throw new Error('Candidate core runtime requires an explicit Supabase core-only selection');
+  if (options.selectedBackend !== 'supabase' ||
+      !['core-only', 'core-diary'].includes(options.featureProfile))
+    throw new Error('Candidate core runtime requires an explicit Supabase personal profile');
+  if (Boolean(options.collections.diary) !== (options.featureProfile === 'core-diary'))
+    throw new Error('Candidate Diary writer requires explicit matching profile and collection');
   validateCandidateIdentity(options.identity);
   if (!options.guard || typeof options.guard.acquireExclusiveLease !== 'function' ||
       typeof options.guard.assertAppwriteWritersFenced !== 'function' ||
@@ -68,11 +73,25 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
     cas: createCandidateCasTransport(options),
     collection: options.collections.categories,
   });
+  // The Diary writer must use the SAME signed session and exclusive owner
+  // lease as tasks/categories. Never initialize it as a separate authority.
+  const diary = options.featureProfile === 'core-diary' && options.collections.diary
+    ? createCandidateRxdbPilot<DiaryDocument>({
+        domain: 'diary', identity: options.identity, session: options.session,
+        changes: createCandidateHttpTransport(options),
+        writer: createCandidateCreateTransport(options),
+        cas: createCandidateCasTransport(options),
+        collection: options.collections.diary,
+      })
+    : null;
   const ownerId = options.identity.supabaseUserId;
+  type DiaryPilot = NonNullable<typeof diary>;
+  type DiaryRun = ReturnType<DiaryPilot['start']>;
   let active: {
     lease: CandidateCoreWriterLease;
     taskRun: ReturnType<typeof tasks.start>;
     categoryRun: ReturnType<typeof categories.start>;
+    diaryRun: DiaryRun | null;
     signed: CandidateVerifiedSession;
   } | null = null;
   let starting = false;
@@ -87,7 +106,9 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
   }
   function checkedWriter(owner: CandidateVerifiedSession, lease: CandidateCoreWriterLease): void {
     if (!lease.isCurrent()) throw new Error('Candidate core writer lease was revoked');
-    const writers: DomainWriter[] = ['tasks', 'categories'].map(domain => ({
+    const domains = options.featureProfile === 'core-diary'
+      ? ['tasks', 'categories', 'diary'] : ['tasks', 'categories'];
+    const writers: DomainWriter[] = domains.map(domain => ({
       domain,
       canonicalOwnerId: options.identity.legacyUserId,
       ownerId: owner.userId,
@@ -103,6 +124,7 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
     let lease: CandidateCoreWriterLease | null = null;
     let taskRun: ReturnType<typeof tasks.start> | null = null;
     let categoryRun: ReturnType<typeof categories.start> | null = null;
+    let diaryRun: DiaryRun | null = null;
     try {
       const before = await checkedOwner();
       await options.guard.verifyLegacyMapping(options.identity);
@@ -115,7 +137,9 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
         throw new CandidateAuthError('Candidate core session changed while acquiring exclusive writer');
       taskRun = tasks.start(options.collections.tasks);
       categoryRun = categories.start(options.collections.categories);
-      const established = { lease, taskRun, categoryRun, signed: before };
+      if (diary && options.collections.diary)
+        diaryRun = diary.start(options.collections.diary);
+      const established = { lease, taskRun, categoryRun, diaryRun, signed: before };
       active = established;
       let cancellation: Promise<void> | null = null;
       let reviewWork: Promise<unknown> = Promise.resolve();
@@ -136,13 +160,15 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
         reviewWork = next.catch(() => {});
         return next;
       };
-      const pilot = (domain: 'tasks' | 'categories') => {
+      const pilot = (domain: 'tasks' | 'categories' | 'diary') => {
         if (domain === 'tasks') return tasks;
         if (domain === 'categories') return categories;
+        if (domain === 'diary' && diary) return diary;
         throw new Error('Unsupported core conflict domain');
       };
       const conflicts = () => ({
         tasks: tasks.listPendingConflicts(), categories: categories.listPendingConflicts(),
+        ...(diary ? { diary: diary.listPendingConflicts() } : {}),
       });
       const pause = async () => {
         if (active !== established) throw new Error('Candidate core replication no longer active');
@@ -150,6 +176,7 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
         // Drain an already dispatched signed resolution before lease release.
         cancellation ??= reviewWork.then(() => Promise.allSettled([
           established.taskRun.stop(), established.categoryRun.stop(),
+          ...(established.diaryRun ? [established.diaryRun.stop()] : []),
         ])).then(results => {
           if (results.some(result => result.status === 'rejected'))
             throw new Error('Candidate core shutdown unconfirmed; writer lease retained');
@@ -166,10 +193,13 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
       return {
         taskState: taskRun.state,
         categoryState: categoryRun.state,
+        ...(diaryRun ? { diaryState: diaryRun.state } : {}),
         async awaitInitialReplication() {
           await Promise.all([
             established.taskRun.state.awaitInitialReplication(),
             established.categoryRun.state.awaitInitialReplication(),
+            ...(established.diaryRun
+              ? [established.diaryRun.state.awaitInitialReplication()] : []),
           ]);
           const latest = await checkedOwner();
           if (active !== established || cancellation || !established.lease.isCurrent() ||
@@ -189,6 +219,7 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
             throw new CandidateAuthError('Candidate core session replaced; stop and restart with fresh owner lease');
           established.taskRun.resync();
           established.categoryRun.resync();
+          established.diaryRun?.resync();
         },
         stop,
         pause,
@@ -196,19 +227,21 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
         subscribeConflicts(listener: () => void) {
           const subscriptions = [
             tasks.conflictEvents$.subscribe(listener), categories.conflictEvents$.subscribe(listener),
+            ...(diary ? [diary.conflictEvents$.subscribe(listener)] : []),
           ];
           listener();
           return () => subscriptions.forEach(subscription => subscription.unsubscribe());
         },
-        refreshConflict: (domain: 'tasks' | 'categories', id: string) =>
+        refreshConflict: (domain: 'tasks' | 'categories' | 'diary', id: string) =>
           review(() => pilot(domain).refreshPendingConflict(id)),
-        keepLocalConflict: (domain: 'tasks' | 'categories', id: string, revision: string) =>
+        keepLocalConflict: (domain: 'tasks' | 'categories' | 'diary', id: string, revision: string) =>
           review(() => pilot(domain).resolveKeepLocal(id, revision)),
       };
     } catch (error) {
       // No partially started writer may continue if verification or a second
       // collection startup failed. Always release the lease on failure.
       const cleanup = await Promise.allSettled([
+        ...(diaryRun ? [diaryRun.stop()] : []),
         ...(categoryRun ? [categoryRun.stop()] : []),
         ...(taskRun ? [taskRun.stop()] : []),
       ]);
