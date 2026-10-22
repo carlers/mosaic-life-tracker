@@ -11,7 +11,8 @@ interface FirstCategoryPromptProps {
   persistent?: boolean;
 }
 
-// Only mounted for the active, loaded owner Day View with zero categories.
+// Only mounted for the active, hydrated owner Day View: either when no
+// categories exist, or as a user-enabled persistent footer action.
 // Category Manager and this entry point share the same useCategories mutation.
 export const FirstCategoryPrompt: React.FC<FirstCategoryPromptProps> = ({ onCreate, persistent = false }) => {
   const [editing, setEditing] = useState(false);
