@@ -56,3 +56,17 @@ describe('Day View layout control', () => {
     expect(settings.setSetting).not.toHaveBeenCalled();
   });
 });
+
+describe('Day View layout menu in clipped sheets and panels', () => {
+  it('renders its options outside overflow-hidden ancestors and dismisses on outside pointerdown', async () => {
+    const { container } = render(<div style={{ overflow: 'hidden', height: 35 }}><DayLayoutMenu /></div>);
+    fireEvent.click(screen.getByRole('button', { name: 'Change Day View layout' }));
+    const menu = await screen.findByRole('menu', { name: 'Day View layout' });
+    expect(menu.parentElement).toBe(document.body);
+    expect(container.contains(menu)).toBe(false);
+    fireEvent.pointerDown(menu);
+    expect(menu).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+  });
+});

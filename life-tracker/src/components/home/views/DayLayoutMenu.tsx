@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, PanelBottom, PanelLeft, PanelRight, PanelsTopLeft } from 'lucide-react';
 import { useSettings } from '../../../hooks/useSettings';
 import {
@@ -15,6 +16,8 @@ export const DayLayoutMenu: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 8, left: 8 });
   const presentation = resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
   const side = getSetting(DAY_PANEL_SIDE_SETTING_KEY, 'right') === 'left' ? 'left' : 'right';
   const height = resolveDayPanelHeight(getSetting(DAY_PANEL_HEIGHT_SETTING_KEY, 'grid'));
@@ -23,11 +26,41 @@ export const DayLayoutMenu: React.FC = () => {
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: PointerEvent) => {
-      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+      if (!(event.target instanceof Node)) return;
+      if (!rootRef.current?.contains(event.target) && !menuRef.current?.contains(event.target))
+        setOpen(false);
     };
     document.addEventListener('pointerdown', onPointer);
     return () => document.removeEventListener('pointerdown', onPointer);
-  }, []);
+  }, [open]);
+
+  // The inspector and BottomSheet clip overflow. Render the popup above them
+  // while tracking the trigger as panel widths/scroll positions change.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const reposition = () => {
+      const trigger = rootRef.current?.querySelector<HTMLButtonElement>('[data-day-layout-trigger]');
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const width = menuRef.current?.offsetWidth || 224;
+      const height = menuRef.current?.offsetHeight || 310;
+      const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+      const below = rect.bottom + 4;
+      const above = rect.top - height - 4;
+      const top = Math.max(8, Math.min(
+        below + height > window.innerHeight && above >= 8 ? above : below,
+        window.innerHeight - height - 8
+      ));
+      setPosition(value => value.left === left && value.top === top ? value : { left, top });
+    };
+    reposition();
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  }, [open]);
 
   const changePlacement = async (next: Placement) => {
     if (saving) return;
@@ -74,9 +107,10 @@ export const DayLayoutMenu: React.FC = () => {
         onClick={() => setOpen(value => !value)}>
         <PanelsTopLeft size={17} aria-hidden="true" />
       </button>
-      {open && (
-        <div role="menu" aria-label="Day View layout"
-          className="absolute right-0 top-full z-[85] mt-1 w-56 rounded-xl border border-[var(--mosaic-border)] bg-surface p-2 shadow-xl">
+      {open && createPortal(
+        <div ref={menuRef} role="menu" aria-label="Day View layout"
+          style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 180 }}
+          className="w-56 rounded-xl border border-[var(--mosaic-border)] bg-surface p-2 shadow-xl">
           <p className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-secondary">Position</p>
           {placementOptions.map(({ value, label, Icon }) => (
             <button key={value} type="button" role="menuitemradio" aria-checked={placement === value}
@@ -98,7 +132,8 @@ export const DayLayoutMenu: React.FC = () => {
               {height === value && <Check size={15} aria-hidden="true" />}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
