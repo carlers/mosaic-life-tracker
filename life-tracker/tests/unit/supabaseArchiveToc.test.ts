@@ -10,6 +10,8 @@ const base = [
   '3; 1259 221 TABLE public mosaic_candidate_categories postgres',
   '4; 0 221 TABLE DATA public mosaic_candidate_categories postgres',
   '5; 0 000 TABLE DATA auth users supabase_auth_admin',
+  '12; 0 000 TABLE DATA auth identities supabase_auth_admin',
+  '13; 0 301 TABLE DATA mosaic_candidate_private owner_revisions postgres',
   '6; 1255 133 FUNCTION realtime list_changes(text) supabase_admin',
   '7; 2615 133 SCHEMA - mosaic_candidate_private postgres',
   '8; 1259 300 TABLE mosaic_candidate_private core_authorities postgres',
@@ -29,7 +31,11 @@ describe('isolated Supabase encrypted archive TOC inspection', () => {
     expect(report.status).toBe('METADATA_ONLY_NOT_RESTORED')
     expect(report.authUsersDataEntryPresent).toBe(true)
     expect(report.managedPlatformDefinitionEntries).toBe(2)
-    expect(report.mosaicOwnedDataEntries).toBe(3)
+    expect(report.mosaicOwnedDataEntries).toBe(4)
+    expect(report.authIdentitiesDataEntryPresent).toBe(true)
+    expect(report.authSessionsDataEntryPresent).toBe(false)
+    expect(report.criticalDataEntriesPresent).toBe(6)
+    expect(report.criticalDataEntriesExpected).toBe(6)
     expect(report.restoresPerformed).toBe(0)
     expect(result.stdout).not.toContain('list_changes')
     expect(result.stdout).not.toContain('core_authorities')
@@ -42,6 +48,21 @@ describe('isolated Supabase encrypted archive TOC inspection', () => {
     const report = JSON.parse(result.stdout)
     expect(report.missingRequiredEntries).toContain('auth.users:TABLE DATA')
     expect(report.missingRequiredEntries).toContain('public.mosaic_candidate_tasks:TABLE DATA')
+  })
+  it('refuses identity-less or revision-less archives despite complete task rows', () => {
+    const missing = base.split('\n').filter(line =>
+      !line.includes('TABLE DATA auth identities') &&
+      !line.includes('TABLE DATA mosaic_candidate_private owner_revisions') &&
+      !line.includes('TABLE DATA mosaic_candidate_private core_authorities')).join('\n')
+    const result = run(missing)
+    expect(result.status).toBe(1)
+    const report = JSON.parse(result.stdout)
+    expect(report.status).toBe('INCOMPLETE_METADATA')
+    expect(report.criticalDataEntriesPresent).toBe(3)
+    expect(report.missingRequiredEntries).toContain('auth.identities:TABLE DATA')
+    expect(report.missingRequiredEntries).toContain('mosaic_candidate_private.core_authorities:TABLE DATA')
+    expect(report.missingRequiredEntries).toContain('mosaic_candidate_private.owner_revisions:TABLE DATA')
+    expect(report.restoresPerformed).toBe(0)
   })
   it('rejects invalid or empty archive TOC', () => {
     const result = run('untrusted arbitrary text without pg_restore objects\n')

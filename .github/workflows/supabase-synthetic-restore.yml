@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'chatgpt/1027-ci-synthetic-restore-*'
+      - 'chatgpt/1027-recovery-coverage-*'
       - 'feature/1027-supabase-recovery-*'
 permissions:
   contents: read

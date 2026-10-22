@@ -13,6 +13,17 @@ const managed = new Set([
 ]);
 const personal = new Set(['mosaic_candidate_private', 'mosaic_poc_internal']);
 const expected = ['mosaic_candidate_tasks', 'mosaic_candidate_categories'];
+// A restorable core account needs more than auth.users: identity provider links,
+// the trusted canonical-owner ledger, and server change-sequence high water.
+// Session rows are visible separately but must not be treated as reusable tokens.
+const criticalData = [
+  ['auth', 'users'],
+  ['auth', 'identities'],
+  ['mosaic_candidate_private', 'core_authorities'],
+  ['mosaic_candidate_private', 'owner_revisions'],
+  ['public', 'mosaic_candidate_tasks'],
+  ['public', 'mosaic_candidate_categories'],
+];
 
 export function summarizeToc(source) {
   const entries = [];
@@ -46,9 +57,16 @@ export function summarizeToc(source) {
       }
     }
   }
-  const authUserData = entries.filter((entry) =>
-    entry.kind === 'TABLE DATA' && entry.schema === 'auth' && entry.name === 'users').length;
-  if (!authUserData) missing.push('auth.users:TABLE DATA');
+  const dataPresent = (schema, name) => entries.some((entry) =>
+    entry.kind === 'TABLE DATA' && entry.schema === schema && entry.name === name);
+  for (const [schema, name] of criticalData) {
+    if (!dataPresent(schema, name)) {
+      const item = `${schema}.${name}:TABLE DATA`;
+      if (!missing.includes(item)) missing.push(item);
+    }
+  }
+  const completeCritical = criticalData.filter(([schema, name]) =>
+    dataPresent(schema, name)).length;
   return {
     status: missing.length ? 'INCOMPLETE_METADATA' : 'METADATA_ONLY_NOT_RESTORED',
     archiveTocEntries: entries.length,
@@ -56,7 +74,11 @@ export function summarizeToc(source) {
     mosaicOwnedDataEntries: mosaic.filter(isData).length,
     managedPlatformEntries: platform.length,
     managedPlatformDefinitionEntries: platform.filter((entry) => !isData(entry)).length,
-    authUsersDataEntryPresent: authUserData > 0,
+    authUsersDataEntryPresent: dataPresent('auth', 'users'),
+    authIdentitiesDataEntryPresent: dataPresent('auth', 'identities'),
+    authSessionsDataEntryPresent: dataPresent('auth', 'sessions'),
+    criticalDataEntriesPresent: completeCritical,
+    criticalDataEntriesExpected: criticalData.length,
     otherEntries: entries.length - new Set([...mosaic, ...platform]).size,
     missingRequiredEntries: missing,
     restoresPerformed: 0,

@@ -6,7 +6,7 @@ SQL migrations, and generates two **fake** owner identities and sessions.
 
 It checks age encryption/authentication, rejects a truncated ciphertext,
 confirms that replaying every raw archive object into an initialized database
-fails atomically, then restores only eight enumerated table-data objects.
+fails atomically, then restores only nine enumerated table-data objects (including synthetic Auth identities).
 It compares all recovered data columns and checks signed-claim row-level
 read isolation (two owners) plus anonymous Diary-read denial.
 
