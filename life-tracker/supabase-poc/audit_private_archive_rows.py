@@ -56,7 +56,11 @@ def count_copies(lines, expected):
     counts = {name: 0 for name in expected}
     found = set()
     active = None
+    read_bytes = 0
+    read_lines = 0
     for chunk in lines:
+        read_bytes += len(chunk)
+        read_lines += 1
         if active is not None:
             if chunk.rstrip(b"\r\n") == b"\\.":
                 active = None
@@ -78,7 +82,7 @@ def count_copies(lines, expected):
         found.add(key)
         active = key
     if active is not None or len(found) != len(counts):
-        raise ValueError("Incomplete data stream or missing table: " + ",".join(sorted(set(counts) - found)))
+        raise ValueError("Incomplete data stream or missing table: " + ",".join(sorted(set(counts) - found)) + "; SQL stream lines=" + str(read_lines) + "; bytes=" + str(read_bytes))
     return counts
 
 def put_memfd(data, label):
