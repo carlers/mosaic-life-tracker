@@ -21,6 +21,11 @@ const taskMocks = vi.hoisted(() => ({
 }));
 
 const feedbackMocks = vi.hoisted(() => ({ show: vi.fn() }));
+const firstCategoryFixture = vi.hoisted(() => ({
+  categories: null as CategoryDocument[] | null,
+  loading: false,
+  addCategory: vi.fn().mockResolvedValue(undefined),
+}));
 
 const settingsFixture = vi.hoisted(() => ({
   values: {} as Record<string, unknown>,
@@ -109,6 +114,7 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
     selectedTaskIds,
     onToggleTaskSelection,
     onToggleCategorySelection,
+    emptyCategoryPrompt,
   }: {
     tasks: TaskDocument[];
     onOpenActions: (task: TaskDocument) => void;
@@ -116,9 +122,11 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
     selectedTaskIds?: ReadonlySet<string>;
     onToggleTaskSelection?: (taskId: string) => void;
     onToggleCategorySelection?: (categoryId: string) => void;
+    emptyCategoryPrompt?: ReactNode;
   }) =>
     tasks.length > 0 ? (
       <>
+        {emptyCategoryPrompt}
         {selectionMode && onToggleCategorySelection && (
           <button type="button" onClick={() => onToggleCategorySelection(tasks[0].categoryId)}>
             {selectionMode && tasks.every(task => selectedTaskIds?.has(task.id))
@@ -134,7 +142,7 @@ vi.mock('../../src/components/home/views/DaySlide', () => ({
           </button>
         ))}
       </>
-    ) : null,
+    ) : emptyCategoryPrompt ?? null,
 }));
 
 vi.mock('../../src/components/home/views/MemoSheet', () => ({
@@ -184,7 +192,11 @@ vi.mock('../../src/hooks/useTasks', () => ({
 }));
 
 vi.mock('../../src/hooks/useCategories', () => ({
-  useCategories: () => ({ categories: [fixture.category, fixture.secondCategory] }),
+  useCategories: () => ({
+    categories: firstCategoryFixture.categories ?? [fixture.category, fixture.secondCategory],
+    isLoading: firstCategoryFixture.loading,
+    addCategory: firstCategoryFixture.addCategory,
+  }),
 }));
 
 vi.mock('../../src/hooks/useAuth', () => ({
@@ -257,6 +269,9 @@ function renderSheet() {
 
 describe('DayViewSheet nested task actions', () => {
   beforeEach(() => {
+    firstCategoryFixture.categories = null;
+    firstCategoryFixture.loading = false;
+    firstCategoryFixture.addCategory.mockReset().mockResolvedValue(undefined);
     settingsFixture.values = {};
     feedbackMocks.show.mockClear();
     fixture.task.image = 'image_1';
@@ -736,5 +751,53 @@ describe('DayViewSheet nested task actions', () => {
       () => expect(screen.getByTestId('image-viewer')).toBeInTheDocument(),
       { timeout: 5000 }
     );
+  });
+});
+
+describe('Day View first category onboarding', () => {
+  const ownerProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    selectedDate: new Date(2026, 8, 20),
+    renderMode: 'inline' as const,
+    tasks: [] as TaskDocument[],
+    categories: [] as CategoryDocument[],
+  };
+  beforeEach(() => {
+    settingsFixture.values = {};
+    firstCategoryFixture.categories = [];
+    firstCategoryFixture.loading = false;
+    firstCategoryFixture.addCategory.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('offers one category creation flow in the active owner day and uses local-first addCategory', async () => {
+    const { rerender } = render(<DayViewSheet {...ownerProps} />);
+    expect(screen.getAllByRole('button', { name: 'Add category' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Add category' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Category name' }), {
+      target: { value: '  Study  ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    await waitFor(() => expect(firstCategoryFixture.addCategory).toHaveBeenCalledWith({
+      name: 'Study', color: '#3B82F6', visibility: 'private', order: 0, icon: '',
+    }));
+    firstCategoryFixture.categories = [fixture.category];
+    rerender(<DayViewSheet {...ownerProps} categories={[fixture.category]} />);
+    expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
+  });
+
+  it('does not show first-category CTA before owner categories hydrate or in Backlogs', () => {
+    firstCategoryFixture.loading = true;
+    const { rerender } = render(<DayViewSheet {...ownerProps} />);
+    expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
+    firstCategoryFixture.loading = false;
+    rerender(<DayViewSheet {...ownerProps} renderMode="backlog" />);
+    expect(screen.queryByRole('button', { name: 'Add category' })).toBeNull();
+  });
+
+  it('offers the same flow when Diary is enabled and in Timeline mode', async () => {
+    settingsFixture.values = { dayViewMode: 'timeline' };
+    render(<DayViewSheet {...ownerProps} showDiaryAlways />);
+    expect(await screen.findByRole('button', { name: 'Add category' }, { timeout: 5000 })).toBeVisible();
   });
 });

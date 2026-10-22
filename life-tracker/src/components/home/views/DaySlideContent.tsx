@@ -26,6 +26,7 @@ export interface DaySlideProps {
   dateStr: string;
   tasks: TaskDocument[];
   categories: CategoryDocument[];
+  emptyCategoryPrompt?: React.ReactNode;
   currentUserId: string;
   sharedItems?: SharedTaskItem[];
   ownerLabels?: ReadonlyMap<string, string>;
@@ -102,6 +103,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   dateStr,
   scrollMode = 'page',
   categories,
+  emptyCategoryPrompt,
   currentUserId,
   sharedItems = [],
   ownerLabels,
@@ -265,6 +267,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         reorderRuntimeActive ? 'true' : undefined
       }
     >
+      {emptyCategoryPrompt}
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="top" active={diaryDragging}/>}
       {diaryEnabled && fallbackPlacement.kind === 'top' && <motion.div data-diary-reorder-row="true" layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
