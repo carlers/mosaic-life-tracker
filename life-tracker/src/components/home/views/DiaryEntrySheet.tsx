@@ -23,7 +23,7 @@ interface DiaryEntrySheetProps {
   author: string;
   onClose: () => void;
   /** Keep the rendered entry through BottomSheet exit rather than unmounting the portal. */
-  isOpen?: boolean;
+  isOpen: boolean;
   onExitComplete?: () => void;
   onSave?: (date: string, content: string, visibility: DiaryDocument['visibility'], emoji: string, photos: string) => Promise<void>;
   onDelete?: (date: string) => Promise<void>;
@@ -35,7 +35,7 @@ interface DiaryEntrySheetProps {
 
 /** Read-only for friends; local-first editing for the signed-in owner. */
 export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
-  date, entry, author, onClose, isOpen = true, onExitComplete,
+  date, entry, author, onClose, isOpen, onExitComplete,
   onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
 }) => {
   const { user } = useAuth();
@@ -216,7 +216,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
       </BottomSheet>
       <EmojiPickerSheet isOpen={isOpen && reactionsOpen} onClose={() => setReactionsOpen(false)}
         onPick={emoji => void toggleReaction(emoji)} />
-      {replyOpen && <BottomSheet isOpen={isOpen} onClose={() => setReplyOpen(false)} title={`Reply to ${author}`} height="auto">
+      <BottomSheet isOpen={isOpen && replyOpen} onClose={() => setReplyOpen(false)} title={`Reply to ${author}`} height="auto">
         <div className="px-4 pb-8 pt-3">
           <p className="mb-3 text-sm text-gray-400">Reply privately about the diary from {date}.</p>
           <textarea aria-label="Diary reply" value={replyText} onChange={e => setReplyText(e.target.value)}
@@ -224,7 +224,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
           <button type="button" disabled={busy || !replyText.trim()} onClick={() => void sendReply()}
             className="mt-3 w-full rounded-lg bg-surfaceHighlight py-3 font-semibold disabled:opacity-40">Send reply</button>
         </div>
-      </BottomSheet>}
+      </BottomSheet>
       <ConfirmSheet isOpen={confirm !== null} onClose={() => setConfirm(null)}
         title={confirm === 'delete' ? 'Delete diary?' : 'Discard changes?'}
         message={confirm === 'delete' ? 'This diary entry will be deleted.' : 'Your unsaved diary changes will be lost.'}

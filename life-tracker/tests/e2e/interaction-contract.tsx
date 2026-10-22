@@ -263,6 +263,7 @@ function DiarySheetExitProbe() {
       {session && <React.Suspense fallback={null}>
         <LazyDiaryExitSheet key={session.id} isOpen={opened}
           date={session.date} author="Fixture" onClose={() => setOpened(false)}
+          onReact={async () => {}} onReply={async () => {}}
           onExitComplete={() => { release(); setExits(count => count + 1); }} />
       </React.Suspense>}
     </div>
