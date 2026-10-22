@@ -68,7 +68,7 @@ def assert_target(container):
         raise ValueError("Refusing unrecognized/non-disposable container name")
     # Never allow calling this on a non-Supabase Docker image or a PG 15 target.
     image = execute(["docker", "inspect", "--format", "{{.Config.Image}}", container]).decode().strip()
-    if not image.startswith("public.ecr.aws/supabase/postgres:") and not image.startswith("supabase/postgres:"):
+    if not any(image.startswith(prefix) for prefix in ("public.ecr.aws/supabase/postgres:", "supabase/postgres:", "ghcr.io/supabase/postgres:")):
         raise ValueError("Unexpected Docker image for local recovery")
     version = int(sql(container, "SHOW server_version_num"))
     if not (170000 <= version < 180000):
