@@ -1,5 +1,17 @@
 # Session checkpoint
 Updated: 2026-10-23 Asia/Manila
+Current task: #1276 UI release candidate from dev to main; reconcile main-only CI trust history first.
+
+## Release preparation (2026-10-23)
+- Owner explicitly requested dev→main user-visible UI rollout now while Supabase remains isolated and Appwrite is reportedly unavailable. This is approval to prepare the protected promotion, **not evidence of healthy backend sync, passing gates, or data safety**.
+- Protected source refs at review: dev `ebc8614f379dcd7934316cd5c299d40ceae75e16` (0.43.8) and main `c938c825370f8270b46f19119b06a1f74d35842b` (0.29.1); branches diverge. Main has four unique trusted PREBUILT script/test edits and this checkpoint, so PR #1276 is initially unmergeable.
+- Isolated two-parent ancestry reconciliation candidate must take dev as first parent, main as second, retain dev application source and 0.43.8, take all four main-only trusted writer/contract/test blobs verbatim, and resolve this checkpoint deliberately. No Appwrite/Supabase schema, Function, credentials, user data, Production deployment or protected ref change is part of this candidate.
+- Verify exact candidate source diff, run full stable Preview canonical and trusted Preview deployment; only then promote via protected PR to dev with policy checks. Recheck dev→main PR #1276 after integration; release may proceed only if the normal CI, backend/data-compatibility, Production acceptance and publishing gates are actually met. Do not bypass gates because Appwrite is unavailable, substitute Supabase or tag 1.0.0.
+- Existing #1245 drag optimization work and manual device acceptance remain independently tracked below.
+
+## Previous task checkpoint — #1245
+
+Updated: 2026-10-23 Asia/Manila
 Current task: #1245 follow-up: stabilize task drag sensor configuration through nested bottom-sheet renders (v0.43.8 candidate).
 
 ## Verified baseline and authorization
