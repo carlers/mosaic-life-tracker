@@ -6,6 +6,7 @@ import { MainLayout, type MainLayoutProps } from './MainLayout';
 import { RouteViewportTransition } from './RouteViewportTransition';
 import { EscapeBackNavigation } from './EscapeBackNavigation';
 import { markStartup } from '../../lib/startupMetrics';
+import { KeyboardShortcutsProvider } from '../../hooks/KeyboardShortcutsProvider';
 
 interface AppDataShellProps extends MainLayoutProps {
   includeConversations: boolean;
@@ -23,6 +24,7 @@ export const AppDataShell: React.FC<AppDataShellProps> = ({
     <AppearanceProvider>
       <FriendsProvider>
         <ConversationsProvider includeConversations={includeConversations}>
+          <KeyboardShortcutsProvider>
           <EscapeBackNavigation />
           <RouteViewportTransition
             pathname={layoutProps.routeKey ?? '/home'}
@@ -30,6 +32,7 @@ export const AppDataShell: React.FC<AppDataShellProps> = ({
           >
             <MainLayout {...layoutProps} />
           </RouteViewportTransition>
+          </KeyboardShortcutsProvider>
         </ConversationsProvider>
       </FriendsProvider>
     </AppearanceProvider>

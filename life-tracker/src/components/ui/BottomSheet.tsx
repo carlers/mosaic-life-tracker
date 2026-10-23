@@ -17,6 +17,8 @@ interface BottomSheetProps {
   preventDismiss?: boolean;
   suspendInteraction?: boolean;
   backdropBlur?: boolean;
+  /** Keep the sheet surface at native scale beneath nested sheets with layout-sensitive rows. */
+  scaleBehind?: boolean;
   contentMode?: 'scroll' | 'fixed';
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
@@ -44,6 +46,9 @@ let historyGuardSequence = 0;
 let historyBackHandlerInstalled = false;
 /** Visible portals outlive isOpen until Framer finishes the exit animation. */
 const visibleSheetIds: string[] = [];
+// Exiting portals remain visible/inert, but must stop holding the parent at its
+// behind-layer scale. Keep live-opening state separate from portal ownership.
+const openSheetIds = new Set<string>();
 const sheetLayerListeners = new Set<() => void>();
 const deferredFocusReturn = new Map<string, HTMLElement>();
 
@@ -60,6 +65,20 @@ function subscribeSheetLayers(listener: () => void) {
 
 function currentTopVisibleSheet(): string | null {
   return visibleSheetIds[visibleSheetIds.length - 1] ?? null;
+}
+
+function currentTopOpenSheet(): string | null {
+  for (let index = visibleSheetIds.length - 1; index >= 0; index -= 1) {
+    if (openSheetIds.has(visibleSheetIds[index])) return visibleSheetIds[index];
+  }
+  return null;
+}
+
+function updateOpenSheet(sheetId: string, isOpen: boolean) {
+  if (openSheetIds.has(sheetId) === isOpen) return;
+  if (isOpen) openSheetIds.add(sheetId);
+  else openSheetIds.delete(sheetId);
+  for (const listener of sheetLayerListeners) listener();
 }
 
 function updateVisibleSheet(sheetId: string, visible: boolean) {
@@ -305,6 +324,13 @@ function SheetPresenceSurface({
         duration: document.documentElement.dataset.reduceMotion === 'true' ||
           systemRequestsReducedMotion() ? 0 : 0.32,
         ease: [0.32, 0.72, 0, 1],
+        // Finish parent-scale restoration before the upper portal exits, not
+        // in a second visible settle after the top sheet disappears.
+        scale: {
+          duration: document.documentElement.dataset.reduceMotion === 'true' ||
+            systemRequestsReducedMotion() ? 0 : 0.24,
+          ease: [0.32, 0.72, 0, 1],
+        },
       }}
       onAnimationComplete={() => {
         onAnimationComplete?.();
@@ -329,6 +355,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   preventDismiss = false,
   suspendInteraction = false,
   backdropBlur = false,
+  scaleBehind = true,
   contentMode = 'scroll',
   onHorizontalSwipe,
   onAnimationComplete,
@@ -389,13 +416,17 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     currentTopVisibleSheet,
     () => null
   );
+  const topOpenSheetId = useSyncExternalStore(
+    subscribeSheetLayers,
+    currentTopOpenSheet,
+    () => null
+  );
   const isTopLayer = topVisibleSheetId === sheetId;
-  // The visible stack includes closing portals until their exit completes.
-  // Each backdrop must paint above the previous sheet rather than sharing
-  // a fixed z-index with every other backdrop in the stack.
+  // Keep exiting portals on top for Back/focus/pointer safety. For visual
+  // scaling only, ignore sheets already closing so restoration overlaps exit.
   const layerIndex = visibleSheetIds.indexOf(sheetId);
   const layerDepth = Math.max(0, layerIndex);
-  const isBehindLayer = layerIndex >= 0 && !isTopLayer;
+  const isBehindLayer = layerIndex >= 0 && topOpenSheetId !== null && topOpenSheetId !== sheetId;
   const isBlockedLayer = suspendInteraction || !isTopLayer;
 
   useFocusTrap(
@@ -407,10 +438,14 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   useEffect(() => {
     updateVisibleSheet(sheetId, isOpen || childrenMounted);
+    updateOpenSheet(sheetId, isOpen);
   }, [childrenMounted, isOpen, sheetId]);
 
   // Covers a genuine parent unmount before Framer can signal exit completion.
-  useEffect(() => () => updateVisibleSheet(sheetId, false), [sheetId]);
+  useEffect(() => () => {
+    updateOpenSheet(sheetId, false);
+    updateVisibleSheet(sheetId, false);
+  }, [sheetId]);
 
   useEffect(() => {
     if (!isOpen && !childrenMounted) return;
@@ -505,7 +540,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
           <SheetPresenceSurface
             key="sheet"
             sheetRef={sheetRef}
-            isBehind={isBehindLayer}
+            isBehind={scaleBehind && isBehindLayer}
             aria-hidden={isBlockedLayer ? true : undefined}
             inert={isBlockedLayer || !isOpen ? true : undefined}
             aria-labelledby={title ? titleId : undefined}
@@ -658,7 +693,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               }
             }}
             style={{ ...SHEET_SURFACE_STYLE, zIndex: 60 + layerDepth * 20, transformOrigin: 'bottom center' }}
-            className={`fixed bottom-0 left-0 right-0 bg-surface text-white shadow-2xl border flex flex-col overflow-hidden ${layerIndex > 0 ? 'border-[var(--mosaic-border-strong)] shadow-[0_-12px_30px_rgba(0,0,0,0.28)]' : 'border-[var(--mosaic-border)]'} ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
+            className={`mosaic-bottom-sheet fixed bottom-0 left-0 right-0 bg-surface text-white shadow-2xl border flex flex-col overflow-hidden ${layerIndex > 0 ? 'border-[var(--mosaic-border-strong)] shadow-[0_-12px_30px_rgba(0,0,0,0.28)]' : 'border-[var(--mosaic-border)]'} ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
           >
             <div
               className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${
@@ -679,7 +714,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               {title && (
                 <h3
                   id={titleId}
-                  className="text-lg font-semibold w-full text-center"
+                  className="mosaic-sheet-heading text-lg font-semibold w-full text-center"
                 >
                   {title}
                 </h3>

@@ -43,6 +43,10 @@ vi.mock('../../src/hooks/useAppearance', () => ({
   }),
 }));
 
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { $id: 'test-user' } }),
+}));
+
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({
     getSetting: mocks.getSetting,
@@ -59,7 +63,60 @@ vi.mock('../../src/hooks/useHolidays', () => ({
 
 import { PreferencesPage } from '../../src/pages/PreferencesPage';
 
+
+function choosePreference(label: string, option: string) {
+  fireEvent.click(screen.getByRole('combobox', { name: new RegExp('^' + label + ':') }));
+  fireEvent.click(screen.getByRole('option', { name: option }));
+}
+
 describe('PreferencesPage', () => {
+  it('exposes independent holiday color customization', async () => {
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Choose where accent color appears' }));
+    const holidayScope = screen.getByRole('switch', { name: 'Holiday labels and dates' });
+    expect(holidayScope).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(holidayScope);
+    expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:holidays', true);
+  });
+
+  it('offers separate placement switches for Settings icons and navbar glyphs without changing the app color', () => {
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Choose where accent color appears' }));
+    expect(screen.getByRole('switch', { name: 'Navigation icons and labels' })).toHaveAttribute('aria-checked', 'false');
+    const settingsIcons = screen.getByRole('switch', { name: 'Settings and subpage icons' });
+    expect(settingsIcons).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('switch', { name: 'Settings and subpage text' })).toBeInTheDocument();
+    fireEvent.click(settingsIcons);
+    expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:settingsIcons', true);
+    expect(mocks.setAccentColor).not.toHaveBeenCalled();
+  });
+
+  it('groups accent placement under Accent color and toggles general interface text independently', () => {
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    const accentSection = screen.getByRole('region', { name: 'Accent color' });
+    expect(accentSection).toContainElement(screen.getByRole('button', { name: 'Choose accent color' }));
+    const placementButton = screen.getByRole('button', { name: 'Choose where accent color appears' });
+    expect(accentSection).toContainElement(placementButton);
+    fireEvent.click(placementButton);
+    const generalText = screen.getByRole('switch', { name: 'General page text' });
+    expect(generalText).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(generalText);
+    expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:generalText', true);
+    expect(mocks.setAccentColor).not.toHaveBeenCalled();
+  });
+
+  it('offers friend carousel and sheet text as independent default-off placements', () => {
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Choose where accent color appears' }));
+    const carousel = screen.getByRole('switch', { name: 'Friend carousel selection and labels' });
+    const sheet = screen.getByRole('switch', { name: 'Bottom sheet headings and labels' });
+    expect(carousel).toHaveAttribute('aria-checked', 'false');
+    expect(sheet).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(carousel);
+    expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:friendCarousel', true);
+    expect(mocks.setAccentColor).not.toHaveBeenCalled();
+  });
+
   // Regression: §2 (Preferences owns display/layout and synced behavior controls).
   it('exposes existing screen choices and the requested behavior preferences', async () => {
     render(
@@ -77,6 +134,12 @@ describe('PreferencesPage', () => {
     expect(mocks.setAppearanceMode).toHaveBeenCalledWith('light');
     expect(mocks.setContentWidthMode).toHaveBeenCalledWith('comfortable');
     expect(mocks.setSheetWidthMode).toHaveBeenCalledWith('compact');
+    choosePreference('Open day details as', 'Side panel when space allows');
+    choosePreference('Day panel position', 'Left');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayDetailPresentation', 'panel');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayPanelSide', 'left');
+    choosePreference('Day panel height', 'Screen height');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayPanelHeight', 'screen');
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose accent color' }));
     expect(screen.getByRole('dialog', { name: 'Accent color' })).toBeInTheDocument();
@@ -99,12 +162,19 @@ describe('PreferencesPage', () => {
     const taskPosition = screen.getByRole('switch', {
       name: 'Add new tasks to top',
     });
-    const zoom = screen.getByRole('combobox', { name: 'Days visible on small screens' });
-    expect(zoom).toHaveValue('7');
-    fireEvent.change(zoom, { target: { value: '3' } });
+    expect(screen.getByRole('combobox', { name: /^Days visible on small screens:/ })).toHaveTextContent('7 days');
+    choosePreference('Days visible on small screens', '3 days');
     expect(mocks.setSetting).toHaveBeenCalledWith('calendarZoomDays', 3);
-    fireEvent.change(zoom, { target: { value: '4' } });
+    choosePreference('Days visible on small screens', '4 days');
     expect(mocks.setSetting).toHaveBeenCalledWith('calendarZoomDays', 4);
+    const pinch = screen.getByRole('switch', { name: 'Pinch to change visible days' });
+    expect(pinch).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(pinch);
+    expect(mocks.setSetting).toHaveBeenCalledWith('calendarPinchZoom', true);
+    const sticky = screen.getByRole('switch', { name: 'Keep weekday header visible' });
+    expect(sticky).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(sticky);
+    expect(mocks.setSetting).toHaveBeenCalledWith('stickyCalendarWeekdayHeader', true);
     const sunday = screen.getByRole('switch', {
       name: 'Start week on Sunday',
     });
@@ -124,9 +194,7 @@ describe('PreferencesPage', () => {
     expect(todayTag).toHaveAttribute('aria-checked', 'false');
     expect(holidays).toHaveAttribute('aria-checked', 'false');
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Task completion order' }), {
-      target: { value: 'completed-last' },
-    });
+    choosePreference('Task completion order', 'Completed last');
     expect(mocks.setSetting).toHaveBeenCalledWith('taskCompletionSort', 'completed-last');
 
     fireEvent.click(continuous);
@@ -135,12 +203,8 @@ describe('PreferencesPage', () => {
     fireEvent.click(collapse);
     fireEvent.click(todayTag);
     fireEvent.click(holidays);
-    fireEvent.change(screen.getByRole('combobox', { name: 'Holiday region' }), {
-      target: { value: 'PH' },
-    });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Holiday types' }), {
-      target: { value: 'public' },
-    });
+    choosePreference('Holiday region', 'Philippines');
+    choosePreference('Holiday types', 'Public holidays only');
 
     expect(mocks.setSetting).toHaveBeenCalledWith('continueAddingTasks', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('addTasksToTop', true);
@@ -152,15 +216,68 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
   });
 
+  it('defaults to hiding the persistent Day View category action and saves explicit opt-in', () => {
+    const { unmount } = render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    const toggle = screen.getByRole('switch', { name: 'Always show Add category in Day View' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(toggle);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showAddCategoryInDayView', true);
+    unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'showAddCategoryInDayView' ? true : defaultValue
+    );
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    const enabled = screen.getByRole('switch', { name: 'Always show Add category in Day View' });
+    expect(enabled).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(enabled);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showAddCategoryInDayView', false);
+  });
+
+  it('keeps pinch gestures opt-in for malformed stored values', () => {
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'calendarPinchZoom' ? 'true' : defaultValue
+    );
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    expect(screen.getByRole('switch', { name: 'Pinch to change visible days' }))
+      .toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('defaults to confirming task deletion and persists explicit opt-out or opt-in', () => {
+    const view = render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    const toggle = screen.getByRole('switch', { name: 'Confirm individual task deletion' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(toggle);
+    expect(mocks.setSetting).toHaveBeenCalledWith('confirmTaskDelete', false);
+    view.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'confirmTaskDelete' ? false : defaultValue
+    );
+    const saved = render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    const disabled = screen.getByRole('switch', { name: 'Confirm individual task deletion' });
+    expect(disabled).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(disabled);
+    expect(mocks.setSetting).toHaveBeenCalledWith('confirmTaskDelete', true);
+    saved.unmount();
+
+    // Unrecognized values fail safe rather than silently disabling confirmation.
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'confirmTaskDelete' ? 'false' : defaultValue
+    );
+    render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
+    expect(screen.getByRole('switch', { name: 'Confirm individual task deletion' }))
+      .toHaveAttribute('aria-checked', 'true');
+  });
+
   it('persists the selected incomplete calendar task accent and defaults to unchanged appearance', () => {
     const { unmount } = render(
       <MemoryRouter><PreferencesPage /></MemoryRouter>
     );
-    const select = screen.getByRole('combobox', { name: 'Incomplete calendar task color' });
-    expect(select).toHaveValue('default');
-    fireEvent.change(select, { target: { value: 'text' } });
+    expect(screen.getByRole('combobox', { name: /^Incomplete calendar task color:/ })).toHaveTextContent('Default');
+    choosePreference('Incomplete calendar task color', 'Category text');
     expect(mocks.setSetting).toHaveBeenCalledWith('incompleteTaskBlockColor', 'text');
-    fireEvent.change(select, { target: { value: 'border' } });
+    choosePreference('Incomplete calendar task color', 'Category border');
     expect(mocks.setSetting).toHaveBeenCalledWith('incompleteTaskBlockColor', 'border');
     unmount();
 
@@ -168,14 +285,14 @@ describe('PreferencesPage', () => {
       key === 'incompleteTaskBlockColor' ? 'border' : defaultValue
     );
     const saved = render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
-    expect(screen.getByRole('combobox', { name: 'Incomplete calendar task color' })).toHaveValue('border');
+    expect(screen.getByRole('combobox', { name: /^Incomplete calendar task color:/ })).toHaveTextContent('Category border');
     saved.unmount();
 
     mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
       key === 'incompleteTaskBlockColor' ? 'invalid' : defaultValue
     );
     render(<MemoryRouter><PreferencesPage /></MemoryRouter>);
-    expect(screen.getByRole('combobox', { name: 'Incomplete calendar task color' })).toHaveValue('default');
+    expect(screen.getByRole('combobox', { name: /^Incomplete calendar task color:/ })).toHaveTextContent('Default');
   });
 
 });

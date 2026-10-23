@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { PwaPrompt } from "./components/ui/PwaPrompt";
@@ -29,6 +29,12 @@ const HomePage = lazy(() =>
 );
 // No preloading path needs Backlogs; direct import avoids a redundant memoized loader.
 const BacklogPage = lazy(() => import('./pages/BacklogPage'));
+const UncompletedTasksPage = lazy(() => import('./pages/UncompletedTasksPage'));
+function BacklogRoute() {
+  const { search } = useLocation();
+  return new URLSearchParams(search).get('view') === 'uncompleted'
+    ? <UncompletedTasksPage /> : <BacklogPage />;
+}
 const BucketListPage = lazy(() => import('./pages/BucketListPage'));
 const BucketListDetailPage = lazy(() => import('./pages/BucketListDetailPage'));
 const AccountPage = lazy(() =>
@@ -128,7 +134,7 @@ function HomeRouteFallback() {
 
 const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
   home: <RouteContent label="HomePage" fallback={<HomeRouteFallback />}><HomePage /></RouteContent>,
-  backlog: <RouteContent label="BacklogPage"><BacklogPage /></RouteContent>,
+  backlog: <RouteContent label="BacklogPage"><BacklogRoute /></RouteContent>,
   bucketList: <RouteContent label="BucketListPage"><BucketListPage /></RouteContent>,
   bucketListDetail: <RouteContent label="BucketListDetailPage"><BucketListDetailPage /></RouteContent>,
   explore: <RouteContent label="ExplorePage"><ExplorePage /></RouteContent>,

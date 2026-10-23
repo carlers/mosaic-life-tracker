@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, UsersRound } from 'lucide-react';
+import { TaskTimestampMeta } from './TaskTimestampMeta';
+import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
@@ -15,6 +17,7 @@ export interface TaskItemProps {
   task: TaskDocument;
   categoryColor: string;
   shareLabel?: string;
+  timestampDisplay?: TaskTimestampDisplay;
   currentUserId: string;
   onToggle: (taskId: string) => void;
   onOpenActions: (task: TaskDocument) => void;
@@ -136,6 +139,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   task,
   categoryColor,
   shareLabel,
+  timestampDisplay,
   currentUserId,
   onToggle,
   onOpenActions,
@@ -213,6 +217,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     tabIndex: !isDragOverlay && selectionMode ? 0 : undefined,
     onClick: selectionMode ? onToggleSelection : undefined,
     onKeyDown: selectionMode ? (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.target !== event.currentTarget) return;
       activateOnEnterOrSpace(event, () => onToggleSelection?.());
     } : undefined,
     className: 'flex scroll-mt-16 items-start gap-3 rounded-lg pl-0 pr-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60',
@@ -225,7 +230,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         type="button"
         onClick={(event) => {
           event.stopPropagation();
-          onToggle(task.id);
+          if (!selectionMode) onToggle(task.id);
         }}
         onPointerDown={(e) => {
           e.stopPropagation();
@@ -238,6 +243,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           backgroundColor: isCompleted ? categoryColor : 'transparent',
         }}
         aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+        aria-disabled={selectionMode || undefined}
       >
         {isCompleted && (
           <Check
@@ -279,7 +285,25 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               else if (event.detail === 0) onOpenActions(task);
             }}
             data-day-swipe-through="true"
-            className="w-full touch-pan-y text-left rounded focus:outline-none"
+            data-day-keyboard-target="task"
+            data-day-keyboard-id={task.id}
+            aria-keyshortcuts={selectionMode ? 'Enter Space' : 'Enter Space Shift+Enter'}
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (selectionMode) onToggleSelection?.();
+                else if (event.shiftKey) onOpenActions(task);
+                else onEditStart(task);
+              } else if (event.key === ' ' || event.key === 'Spacebar') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (selectionMode) onToggleSelection?.();
+                else onToggle(task.id);
+              }
+            }}
+            className="w-full touch-pan-y text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label={task.title}
           >
             <span className={isCompleted ? 'line-through text-gray-400' : 'text-white'}>
@@ -292,6 +316,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             <UsersRound size={12} className="shrink-0" aria-hidden="true" />
             <span className="min-w-0 truncate">{shareLabel}</span>
           </p>
+        )}
+        {timestampDisplay && (timestampDisplay.showCreated || timestampDisplay.showCompleted) && (
+          <TaskTimestampMeta task={task} display={timestampDisplay} />
         )}
         {task.memo && (
           <TaskMemo task={task} onOpenMemo={onOpenMemo} selectionMode={selectionMode} onSelect={onToggleSelection} />

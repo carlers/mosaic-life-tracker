@@ -1,12 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
+import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
+
+import { DAY_PANEL_MIN_FRAME_WIDTH, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
+import { useCalendarGridKeyboard } from './useCalendarGridKeyboard';
+import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
-import type { WeekStartsOn, CalendarZoomDays } from '../../../lib/preferences';
+import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit, DayPanelHeight } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import {
@@ -21,17 +26,28 @@ const LazyReplyComposerSheet = React.lazy(() =>
   }))
 );
 
+const { Component: LazyDayDetailPanel } =
+  createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
+
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
   slides: Date[];
   renderStart: number;
   renderEnd: number;
   emblaRef: (node: HTMLElement | null) => void;
+  onCalendarLayoutChange?: (live?: boolean) => void | Promise<void>;
   tasks: TaskDocument[];
   categories?: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
+  dayDetailPresentation?: 'sheet' | 'panel';
+  dayPanelSide?: DayPanelSide;
+  dayPanelHeight?: DayPanelHeight;
   zoomPreference?: CalendarZoomDays;
+  pinchGestureEnabled?: boolean;
+  onZoomPreferenceChange?: (days: CalendarZoomDays) => void;
+  taskPreviewLimit?: CalendarTaskPreviewLimit;
+  stickyWeekdayHeader?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
   onZoomNavigate?: (direction: 'prev' | 'next') => boolean;
@@ -55,11 +71,19 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   renderStart,
   renderEnd,
   emblaRef,
+  onCalendarLayoutChange,
   tasks,
   categories,
   categoriesMap,
   variant,
+  dayDetailPresentation = 'sheet',
+  dayPanelSide = 'right',
+  dayPanelHeight = 'grid',
   zoomPreference = 7,
+  pinchGestureEnabled = false,
+  onZoomPreferenceChange,
+  taskPreviewLimit = 'unlimited',
+  stickyWeekdayHeader = false,
   activeIndex,
   isZoomTransitioning,
   onZoomNavigate,
@@ -79,10 +103,27 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [openedFrameWidth, setOpenedFrameWidth] = useState(0);
+  const openPresentation = openedFrameWidth >= DAY_PANEL_MIN_FRAME_WIDTH ? dayDetailPresentation : 'sheet';
+  const [panelMounted, setPanelMounted] = useState(false);
+  const panelHostRef = useRef<HTMLDivElement>(null);
+  const calendarTriggerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (isActive) return;
+    const timer = window.setTimeout(() => {
+      setDaySheetOpen(false);
+      setPanelMounted(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [isActive]);
   const [calendarWidth, setCalendarWidth] = useState(0);
+  const handlePinchChange = useCallback((days: CalendarZoomDays) => {
+    // The account-synced setting is the single source of truth.
+    onZoomPreferenceChange?.(days);
+  }, [onZoomPreferenceChange]);
   const calendarHostRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (zoomPreference === 7 || !isActive) return;
+    if ((zoomPreference === 7 && !pinchGestureEnabled) || !isActive) return;
     const host = calendarHostRef.current;
     if (!host) return;
     const measure = () => setCalendarWidth(host.getBoundingClientRect().width);
@@ -91,26 +132,13 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     const observer = new ResizeObserver(measure);
     observer.observe(host);
     return () => observer.disconnect();
-  }, [zoomPreference, isActive]);
+  }, [zoomPreference, pinchGestureEnabled, isActive]);
   const zoomDays: CalendarZoomDays =
     zoomPreference !== 7 && calendarWidth > 0 && calendarWidth <= 700
       ? zoomPreference
       : 7;
 
-  // Match owner Day View: warm a resolved component after the friend Calendar
-  // becomes usable. No friend hooks or sheets are mounted by this preload.
-  useEffect(() => {
-    if (variant !== 'friend' || !isActive) return;
-    const warm = () => {
-      if (!document.hidden) void preloadFriendDayViewSheet().catch(() => {});
-    };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1800 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = setTimeout(warm, 700);
-    return () => clearTimeout(id);
-  }, [variant, isActive]);
+  const allowPinch = pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
   const tasksByDate = useTasksByDate(tasks);
   const holidayYears = useMemo(() => {
@@ -136,19 +164,45 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   } = useFriendTaskReply(tasks);
 
   const handleDayClick = useCallback((date: Date) => {
-    if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
+    if (document.activeElement instanceof HTMLElement) calendarTriggerRef.current = document.activeElement;
+    if (!daySheetOpen) {
+      const host = panelHostRef.current;
+      const width = (dayPanelHeight === 'screen'
+        ? host?.closest('.mosaic-home-workspace') ?? host : host)?.getBoundingClientRect().width ?? 0;
+      setOpenedFrameWidth(width);
+      setPanelMounted(true);
+    }
     setSelectedDate(date);
     setDaySheetMounted(true);
     setDaySheetOpen(true);
-  }, [variant]);
+  }, [daySheetOpen, dayPanelHeight]);
 
   const handleCloseDaySheet = useCallback(() => {
     setDaySheetOpen(false);
-  }, []);
+    if (isActive) window.requestAnimationFrame(() => {
+      if (calendarTriggerRef.current?.isConnected) calendarTriggerRef.current.focus({ preventScroll: true });
+    });
+  }, [isActive]);
 
   const handleDateChange = useCallback((date: Date) => {
     setSelectedDate(date);
   }, []);
+
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
+  const {
+    rootRef: keyboardRootRef,
+    onKeyDown: handleGridKeyDown,
+    onFocusCapture: handleGridFocus,
+    activeKey: keyboardActiveKey,
+  } = useCalendarGridKeyboard({
+    enabled: isActive && (!daySheetOpen || openPresentation === 'panel') && !replyTask,
+    singleKeyShortcutsEnabled: shortcutsEnabled,
+    slides, activeIndex: activeIndex ?? 30, viewMode, weekStartsOn, onPrev, onNext,
+  });
+  const setCalendarHost = useCallback((node: HTMLDivElement | null) => {
+    calendarHostRef.current = node;
+    keyboardRootRef.current = node;
+  }, [keyboardRootRef]);
 
   useHorizontalArrowNavigation({
     enabled: isActive && !daySheetOpen && !replyTask,
@@ -164,12 +218,18 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       emblaRef={emblaRef}
       viewMode={viewMode}
       zoomDays={zoomDays}
+      pinchEnabled={allowPinch}
+      onPinchChange={handlePinchChange}
+      taskPreviewLimit={taskPreviewLimit}
+      stickyWeekdayHeader={stickyWeekdayHeader}
       activeIndex={activeIndex}
       isZoomTransitioning={isZoomTransitioning}
       onZoomNavigate={onZoomNavigate}
       onPrev={onPrev}
       onNext={onNext}
       onDayClick={handleDayClick}
+      keyboardEnabled={isActive && (!daySheetOpen || openPresentation === 'panel') && !replyTask}
+      keyboardFocusDay={keyboardActiveKey}
       tasksByDate={tasksByDate}
       sharedByDay={variant === 'me' ? sharedByDay : undefined}
       ownedSharedTaskIds={variant === 'me' ? ownedSharedTaskIds : undefined}
@@ -180,40 +240,79 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   );
 
   const calendarContent = (content: React.ReactNode) => (
-    <div ref={calendarHostRef} className="flex min-h-0 min-w-0 flex-1 flex-col"
+    <div ref={setCalendarHost} className="flex min-h-0 min-w-0 flex-1 flex-col"
+      data-calendar-keyboard-owned="true"
+      onKeyDown={handleGridKeyDown}
+      onFocusCapture={handleGridFocus}
       onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
       {content}
     </div>
   );
 
-  if (variant === 'friend' && friendName && friendUserId) {
+  const isFriend = variant === 'friend' && Boolean(friendName && friendUserId);
+  const panelOpen = panelMounted && openPresentation === 'panel' && isActive;
+
+  const detailPanel = panelOpen && (
+          <LazyDayDetailPanel
+            side={dayPanelSide}
+            isPresented={daySheetOpen}
+            onExited={() => {
+              setPanelMounted(false);
+              requestAnimationFrame(() => onCalendarLayoutChange?.());
+            }}
+            initialHeightMode={dayPanelHeight}
+            onCalendarLayoutChange={onCalendarLayoutChange}
+            initialFrameWidth={openedFrameWidth}
+            frameRef={panelHostRef}
+            onClose={handleCloseDaySheet}
+            onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}
+            isFriend={isFriend}
+            selectedDate={selectedDate}
+            onDateChange={handleDateChange}
+            tasks={tasks}
+            categories={isFriend ? friendCategories ?? [] : categories ?? []}
+            friendName={friendName}
+            currentUserId={currentUserId}
+            onReplyToTask={handleReplyToTask}
+            onReactToTask={onReactToTask}
+            holidayConfig={holidayConfig}
+          />
+  );
+  const calendarAndPanel = (
+    <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="mosaic-calendar-split flex h-full min-h-0 min-w-0 w-full">
+        {detailPanel}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {calendarContent(carousel)}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (isFriend) {
     return (
       <>
-        {calendarContent(carousel)}
-        {daySheetMounted && (
-            <LazyFriendDayViewSheet
-              isOpen={daySheetOpen}
-              onClose={handleCloseDaySheet}
-              date={selectedDate}
-              onDateChange={handleDateChange}
-              tasks={tasks}
-              categories={friendCategories ?? []}
-              friendName={friendName}
-              currentUserId={currentUserId}
-              onReplyToTask={handleReplyToTask}
-              onReactToTask={onReactToTask}
-              holidayConfig={holidayConfig}
-            />
+        {calendarAndPanel}
+        {daySheetMounted && openPresentation === 'sheet' && (
+          <LazyFriendDayViewSheet
+            isOpen={daySheetOpen}
+            onClose={handleCloseDaySheet}
+            date={selectedDate}
+            onDateChange={handleDateChange}
+            tasks={tasks}
+            categories={friendCategories ?? []}
+            friendName={friendName ?? ''}
+            currentUserId={currentUserId}
+            onReplyToTask={handleReplyToTask}
+            onReactToTask={onReactToTask}
+            holidayConfig={holidayConfig}
+          />
         )}
         <React.Suspense fallback={null}>
           <LazyReplyComposerSheet
-            isOpen={!!replyTask}
-            onClose={closeReply}
-            task={replyTask}
-            categoryColor={replyColor}
-            friendId={friendUserId}
-            friendName={friendName}
-            onSent={handleReplySent}
+            isOpen={!!replyTask} onClose={closeReply} task={replyTask}
+            categoryColor={replyColor} friendId={friendUserId ?? ''}
+            friendName={friendName ?? ''} onSent={handleReplySent}
           />
         </React.Suspense>
         {feedback && (
@@ -227,8 +326,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   return (
     <>
-      {calendarContent(carousel)}
-      {daySheetMounted && (
+      {calendarAndPanel}
+      {daySheetMounted && openPresentation === 'sheet' && (
         <LazyDayViewSheet
           isOpen={daySheetOpen}
           onClose={handleCloseDaySheet}

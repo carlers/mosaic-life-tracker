@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { lazy, Suspense, useContext } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { BottomNav, type TabId } from './BottomNav';
 import {
@@ -11,8 +11,11 @@ import { useChatViewport } from '../messages/useChatViewport';
 import { AppearanceContext } from '../../hooks/appearanceContext';
 import { useConnectivity } from '../../hooks/useConnectivity';
 
-// Connectivity feedback must already be available when the network fails.
-import { OfflineBanner } from '../ui/OfflineBanner';
+const OfflineBanner = lazy(() =>
+  import('../ui/OfflineBanner').then(({ OfflineBanner }) => ({
+    default: OfflineBanner,
+  }))
+);
 
 export interface MainLayoutProps {
   children: React.ReactNode;
@@ -81,7 +84,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <div style={viewportStyle} className={`${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}>
-      {connectivity.status === 'offline' && <OfflineBanner />}
+      {connectivity.status === 'offline' && (
+        <Suspense fallback={null}>
+          <OfflineBanner />
+        </Suspense>
+      )}
 
       <main className={`flex-1 min-h-0 ${hideBottomNav ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         <div

@@ -42,6 +42,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | HamburgerMenu | [src/components/home/HamburgerMenu.tsx](../src/components/home/HamburgerMenu.tsx) |
 | HomeStatusIndicators | [src/components/home/HomeStatusIndicators.tsx](../src/components/home/HomeStatusIndicators.tsx) |
 | HomeTaskSearch | [src/components/home/HomeTaskSearch.tsx](../src/components/home/HomeTaskSearch.tsx) |
+| HomeTaskSearchExpanded | [src/components/home/HomeTaskSearchExpanded.tsx](../src/components/home/HomeTaskSearchExpanded.tsx) |
 | PersonCarousel | [src/components/home/PersonCarousel.tsx](../src/components/home/PersonCarousel.tsx) |
 | PersonPane | [src/components/home/PersonPane.tsx](../src/components/home/PersonPane.tsx) |
 | PersonProfileHeader | [src/components/home/PersonProfileHeader.tsx](../src/components/home/PersonProfileHeader.tsx) |
@@ -63,14 +64,19 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |
 | DayCell | [src/components/home/views/DayCell.tsx](../src/components/home/views/DayCell.tsx) |
+| DayDetailPanel | [src/components/home/views/DayDetailPanel.tsx](../src/components/home/views/DayDetailPanel.tsx) |
+| DayLayoutMenu | [src/components/home/views/DayLayoutMenu.tsx](../src/components/home/views/DayLayoutMenu.tsx) |
+| DayPanelResizeHandle | [src/components/home/views/DayPanelResizeHandle.tsx](../src/components/home/views/DayPanelResizeHandle.tsx) |
 | DaySlide | [src/components/home/views/DaySlide.tsx](../src/components/home/views/DaySlide.tsx) |
 | DaySlideContent | [src/components/home/views/DaySlideContent.tsx](../src/components/home/views/DaySlideContent.tsx) |
+| DayViewCategoryReorder | [src/components/home/views/DayViewCategoryReorder.tsx](../src/components/home/views/DayViewCategoryReorder.tsx) |
 | DayViewSheet | [src/components/home/views/DayViewSheet.tsx](../src/components/home/views/DayViewSheet.tsx) |
 | DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
 | DiaryEntrySheet | [src/components/home/views/DiaryEntrySheet.tsx](../src/components/home/views/DiaryEntrySheet.tsx) |
 | DiaryPhotoGallery | [src/components/home/views/DiaryPhotoGallery.tsx](../src/components/home/views/DiaryPhotoGallery.tsx) |
 | DraggableDiaryDayPreview | [src/components/home/views/DraggableDiaryDayPreview.tsx](../src/components/home/views/DraggableDiaryDayPreview.tsx) |
 | DraggableTaskItem | [src/components/home/views/DraggableTaskItem.tsx](../src/components/home/views/DraggableTaskItem.tsx) |
+| FirstCategoryPrompt | [src/components/home/views/FirstCategoryPrompt.tsx](../src/components/home/views/FirstCategoryPrompt.tsx) |
 | ImagePickerSheet | [src/components/home/views/ImagePickerSheet.tsx](../src/components/home/views/ImagePickerSheet.tsx) |
 | ImageViewer | [src/components/home/views/ImageViewer.tsx](../src/components/home/views/ImageViewer.tsx) |
 | LinkTaskToBucketSheet | [src/components/home/views/LinkTaskToBucketSheet.tsx](../src/components/home/views/LinkTaskToBucketSheet.tsx) |
@@ -85,17 +91,27 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | TaskItem | [src/components/home/views/TaskItem.tsx](../src/components/home/views/TaskItem.tsx) |
 | TaskReorderRuntime | [src/components/home/views/TaskReorderRuntime.tsx](../src/components/home/views/TaskReorderRuntime.tsx) |
 | TaskReorderSurfaces | [src/components/home/views/TaskReorderSurfaces.tsx](../src/components/home/views/TaskReorderSurfaces.tsx) |
+| TaskTimelineList | [src/components/home/views/TaskTimelineList.tsx](../src/components/home/views/TaskTimelineList.tsx) |
+| TaskTimestampMeta | [src/components/home/views/TaskTimestampMeta.tsx](../src/components/home/views/TaskTimestampMeta.tsx) |
 | TaskVisibilitySheet | [src/components/home/views/TaskVisibilitySheet.tsx](../src/components/home/views/TaskVisibilitySheet.tsx) |
 | TodoCalendarGrid | [src/components/home/views/TodoCalendarGrid.tsx](../src/components/home/views/TodoCalendarGrid.tsx) |
 | TodoListView | [src/components/home/views/TodoListView.tsx](../src/components/home/views/TodoListView.tsx) |
 | ViewToggle | [src/components/home/views/ViewToggle.tsx](../src/components/home/views/ViewToggle.tsx) |
 | WeekView | [src/components/home/views/WeekView.tsx](../src/components/home/views/WeekView.tsx) |
 | bulkTaskActions | [src/components/home/views/bulkTaskActions.ts](../src/components/home/views/bulkTaskActions.ts) |
+| calendarPanelSnap | [src/components/home/views/calendarPanelSnap.ts](../src/components/home/views/calendarPanelSnap.ts) |
+| categoryPillActionContext | [src/components/home/views/categoryPillActionContext.ts](../src/components/home/views/categoryPillActionContext.ts) |
+| crossDayTaskDrag | [src/components/home/views/crossDayTaskDrag.ts](../src/components/home/views/crossDayTaskDrag.ts) |
 | dayViewSheetModule | [src/components/home/views/dayViewSheetModule.ts](../src/components/home/views/dayViewSheetModule.ts) |
+| taskKeyboardSensor | [src/components/home/views/taskKeyboardSensor.ts](../src/components/home/views/taskKeyboardSensor.ts) |
 | taskReorder | [src/components/home/views/taskReorder.ts](../src/components/home/views/taskReorder.ts) |
 | taskRowRegistrationContext | [src/components/home/views/taskRowRegistrationContext.ts](../src/components/home/views/taskRowRegistrationContext.ts) |
 | todoListViewModule | [src/components/home/views/todoListViewModule.ts](../src/components/home/views/todoListViewModule.ts) |
+| useCalendarGridKeyboard | [src/components/home/views/useCalendarGridKeyboard.ts](../src/components/home/views/useCalendarGridKeyboard.ts) |
+| useCalendarPinchZoom | [src/components/home/views/useCalendarPinchZoom.ts](../src/components/home/views/useCalendarPinchZoom.ts) |
 | useCalendarState | [src/components/home/views/useCalendarState.ts](../src/components/home/views/useCalendarState.ts) |
+| useContinuousTaskDrag | [src/components/home/views/useContinuousTaskDrag.tsx](../src/components/home/views/useContinuousTaskDrag.tsx) |
+| useDayViewKeyboardNavigation | [src/components/home/views/useDayViewKeyboardNavigation.ts](../src/components/home/views/useDayViewKeyboardNavigation.ts) |
 | useDayViewSwiper | [src/components/home/views/useDayViewSwiper.ts](../src/components/home/views/useDayViewSwiper.ts) |
 | useTaskReorderProximity | [src/components/home/views/useTaskReorderProximity.ts](../src/components/home/views/useTaskReorderProximity.ts) |
 
@@ -172,6 +188,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DeferredAvatar | [src/components/ui/DeferredAvatar.tsx](../src/components/ui/DeferredAvatar.tsx) |
 | ErrorBoundary | [src/components/ui/ErrorBoundary.tsx](../src/components/ui/ErrorBoundary.tsx) |
 | Input | [src/components/ui/Input.tsx](../src/components/ui/Input.tsx) |
+| KeyboardShortcutsSheet | [src/components/ui/KeyboardShortcutsSheet.tsx](../src/components/ui/KeyboardShortcutsSheet.tsx) |
+| MosaicSelect | [src/components/ui/MosaicSelect.tsx](../src/components/ui/MosaicSelect.tsx) |
 | OfflineBanner | [src/components/ui/OfflineBanner.tsx](../src/components/ui/OfflineBanner.tsx) |
 | PwaAssetProgressView | [src/components/ui/PwaAssetProgressView.tsx](../src/components/ui/PwaAssetProgressView.tsx) |
 | PwaPrompt | [src/components/ui/PwaPrompt.tsx](../src/components/ui/PwaPrompt.tsx) |
@@ -180,6 +198,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | SheetErrorBanner | [src/components/ui/SheetErrorBanner.tsx](../src/components/ui/SheetErrorBanner.tsx) |
 | SheetSaveButton | [src/components/ui/SheetSaveButton.tsx](../src/components/ui/SheetSaveButton.tsx) |
 | Spinner | [src/components/ui/Spinner.tsx](../src/components/ui/Spinner.tsx) |
+| UiColorSettings | [src/components/ui/UiColorSettings.tsx](../src/components/ui/UiColorSettings.tsx) |
 
 ## pages
 
@@ -203,6 +222,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ReleaseHistoryPage | [src/pages/ReleaseHistoryPage.tsx](../src/pages/ReleaseHistoryPage.tsx) |
 | ResetPasswordPage | [src/pages/ResetPasswordPage.tsx](../src/pages/ResetPasswordPage.tsx) |
 | SettingsPage | [src/pages/SettingsPage.tsx](../src/pages/SettingsPage.tsx) |
+| UncompletedTasksPage | [src/pages/UncompletedTasksPage.tsx](../src/pages/UncompletedTasksPage.tsx) |
 
 ## route entrypoints
 

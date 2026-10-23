@@ -86,11 +86,13 @@ describe('HomeTaskSearch', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('closes when the blurred backdrop is tapped', () => {
+  it('closes when the blurred backdrop is tapped', async () => {
     const onClose = vi.fn();
     renderSearch({ onClose });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss search overlay' }));
+    // The search interface is loaded on demand; wait for its first module evaluation.
+    // Keep the actual dismiss/backdrop behavior assertion unchanged.
+    fireEvent.click(await screen.findByRole('button', { name: 'Dismiss search overlay' }, { timeout: 5000 }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -100,10 +102,10 @@ describe('HomeTaskSearch', () => {
     renderSearch({ onSelectTask });
 
     expect(
-      screen.getByText('Search by task title or choose a filter.')
+      await screen.findByText('Search by task title or choose a filter.')
     ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search my tasks' }), {
+    fireEvent.change(await screen.findByRole('searchbox', { name: 'Search my tasks' }), {
       target: { value: 'plan' },
     });
 
@@ -121,8 +123,8 @@ describe('HomeTaskSearch', () => {
   it('supports category and date filtering without requiring a text query', async () => {
     renderSearch();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Life' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Today' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Life' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Today' }));
 
     expect(
       await screen.findByRole('button', { name: /Open task Evening walk/i })

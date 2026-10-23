@@ -2,10 +2,14 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
 import { retirementStateForDay } from '../../../lib/categoryLifecycle';
+import { useDayViewKeyboardNavigation } from './useDayViewKeyboardNavigation';
+import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
+import { DayViewCategoryReorder } from './DayViewCategoryReorder';
 import { SharedTaskRows } from './SharedTaskRows';
 import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskShareQueue';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
+import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
 const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
@@ -23,6 +27,8 @@ export interface DaySlideProps {
   dateStr: string;
   tasks: TaskDocument[];
   categories: CategoryDocument[];
+  emptyCategoryPrompt?: React.ReactNode;
+  footerCategoryPrompt?: React.ReactNode;
   currentUserId: string;
   sharedItems?: SharedTaskItem[];
   ownerLabels?: ReadonlyMap<string, string>;
@@ -54,17 +60,29 @@ export interface DaySlideProps {
   continueAddingTasks?: boolean;
   showCategoryCollapseButton?: boolean;
   selectionMode?: boolean;
+  keyboardNavigationEnabled?: boolean;
+  onShowKeyboardHelp?: () => void;
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
   onToggleCategorySelection?: (categoryId: string) => void;
   reorderEnabled?: boolean;
   reorderRuntimeActive?: boolean;
   taskSortMode?: TaskCompletionSortMode;
+  timestampDisplay?: TaskTimestampDisplay;
   onReorderTasks?: (
     dateStr: string,
     groups: readonly TaskOrderGroup[]
   ) => Promise<void> | void;
   onReorderActiveChange?: (active: boolean) => void;
+  onCrossDayTaskStart?: (task: TaskDocument, rect: DOMRect, event?: Event | null, point?: { x: number; y: number }) => void;
+  onCrossDayTaskMove?: (point: { x: number; y: number }, event?: Event | null) => void;
+  onCrossDayNativeEnd?: (taskId: string, canceled: boolean) => boolean;
+  crossDayDragTaskId?: string | null;
+  crossDayInsertion?: { categoryId: string; index: number; height: number };
+
+  onReorderCategories?: (next: CategoryDocument[]) => Promise<void>;
+  onUpdateCategory?: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility' | 'color'>) => Promise<void>;
+  onCategoryActionError?: (message: string) => void;
   diaryEnabled?: boolean;
   diaryEntryOverride?: DiaryDocument;
   diaryPlacement?: DiaryPlacement;
@@ -87,9 +105,12 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   dateStr,
   scrollMode = 'page',
   categories,
+  emptyCategoryPrompt,
+  footerCategoryPrompt,
   currentUserId,
   sharedItems = [],
   ownerLabels,
+  timestampDisplay,
   sharedCategoryFor,
   onAssignSharedCategory,
   onCopySharedTask,
@@ -116,11 +137,19 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   continueAddingTasks = false,
   showCategoryCollapseButton = false,
   selectionMode = false,
+  keyboardNavigationEnabled = false,
+  onShowKeyboardHelp,
   selectedTaskIds = EMPTY_SELECTED_TASK_IDS,
   onToggleTaskSelection,
   onToggleCategorySelection,
   reorderEnabled = false,
   reorderRuntimeActive = false,
+  onReorderActiveChange,
+  crossDayDragTaskId,
+  crossDayInsertion,
+  onReorderCategories,
+  onUpdateCategory,
+  onCategoryActionError,
   tasksByCategory,
   activeDrag,
   diaryEnabled = false,
@@ -135,6 +164,15 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   diaryProjectedPlacement = null,
   diaryDragHeight = 48,
 }) => {
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
+  const { rootRef: keyboardRootRef, onKeyDown: handleBrowseKeyDown,
+    onFocusCapture: handleBrowseFocus, onBlurCapture: handleBrowseBlur } =
+    useDayViewKeyboardNavigation(
+      keyboardNavigationEnabled && !activeDrag && !diaryDragging && !activeSharedDragId && !diarySettling,
+      onShowKeyboardHelp,
+      !selectionMode && editingTaskId === null,
+      shortcutsEnabled
+    );
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
     : null;
@@ -177,6 +215,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
     : null;
   const diaryCard = diaryEnabled ? (
     <motion.div
+      data-diary-reorder-row="true"
       key={diaryReleaseRevision}
       layout={reorderRuntimeActive && !diaryDragging && !diarySettling ? 'position' : false}
       data-diary-source-slot={diaryDragging ? 'true' : undefined}
@@ -213,6 +252,12 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
 
   return (
     <motion.div
+      ref={keyboardRootRef}
+      onFocusCapture={handleBrowseFocus}
+      onBlurCapture={handleBrowseBlur}
+      onKeyDown={handleBrowseKeyDown}
+      tabIndex={-1}
+      aria-label="Day tasks"
       layoutScroll={scrollMode === 'contained' && reorderRuntimeActive}
       className={
         scrollMode === 'contained'
@@ -220,14 +265,28 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           : 'w-full min-w-0 px-4 pb-8'
       }
       data-testid="day-slide"
+      data-date-str={dateStr}
       data-task-reorder-runtime={
         reorderRuntimeActive ? 'true' : undefined
       }
     >
+      {emptyCategoryPrompt}
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="top" active={diaryDragging}/>}
-      {diaryEnabled && fallbackPlacement.kind === 'top' && <motion.div layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
+      {diaryEnabled && fallbackPlacement.kind === 'top' && <motion.div data-diary-reorder-row="true" layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
-      {categories.map((category) => (
+      <DayViewCategoryReorder
+        categories={categories}
+        animateExternal={Boolean(crossDayDragTaskId)}
+        enabled={Boolean((reorderEnabled || (reorderRuntimeActive && crossDayDragTaskId)) &&
+          onReorderCategories && onUpdateCategory && !selectionMode &&
+          categories.every(category => category.userId === currentUserId))}
+        canStartDrag={!crossDayDragTaskId && !activeDrag && !diaryDragging &&
+          !activeSharedDragId && !diarySettling}
+        onCommit={onReorderCategories ?? (async () => undefined)}
+        onUpdate={onUpdateCategory ?? (async () => undefined)}
+        onDragActiveChange={onReorderActiveChange}
+        onError={onCategoryActionError}
+        renderCategory={(category: CategoryDocument) => (
         <CategorySection
           key={category.id}
           categoryId={category.id}
@@ -239,7 +298,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
              diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
           diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
              ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
-          animateDragProjection={reorderRuntimeActive}
+          animateDragProjection={reorderRuntimeActive || Boolean(crossDayDragTaskId)}
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
           settlingTaskId={settlingTaskId}
@@ -251,6 +310,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           canAddTasks={retirementStateForDay(category, dateStr,
             (tasksByCategory.get(category.id)?.length ?? 0) > 0) !== 'existing-tasks-only'}
           ownerLabels={ownerLabels}
+          timestampDisplay={timestampDisplay}
           sharedRows={!selectionMode && onSharedCompletion && sharedPendingFor && currentShares.some(item => sharedCategoryFor?.(item) === category.id) && (
             <SharedTaskRows items={currentShares.filter(item =>
               sharedCategoryFor?.(item) === category.id)}
@@ -284,10 +344,15 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
             projectedCategoryId === category.id ? projectedGapIndex : null
           }
           dragGapHeight={activeDrag?.rowHeight ?? 0}
+          externalDraggedTaskId={crossDayDragTaskId}
+          externalRuntimeActive={Boolean(reorderRuntimeActive && crossDayDragTaskId)}
+          externalGapIndex={crossDayInsertion?.categoryId === category.id ? crossDayInsertion.index : null}
+          externalGapHeight={crossDayInsertion?.height ?? 0}
         />
-      ))}
+      )}
+      />
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'bottom' && diaryGhost}
-      {diaryEnabled && fallbackPlacement.kind === 'bottom' && <motion.div layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
+      {diaryEnabled && fallbackPlacement.kind === 'bottom' && <motion.div data-diary-reorder-row="true" layout={diaryDragging || diarySettling ? false : 'position'}>{diaryCard}</motion.div>}
       {diaryEnabled && reorderRuntimeActive && <DiaryBoundaryDropSurface position="bottom" active={diaryDragging}/>}
       {!selectionMode && unassignedShares.length > 0 &&
         onSharedCompletion && sharedPendingFor && (
@@ -298,6 +363,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           selectedItem={selectedSharedTask} actionsOnly
           onSheetOpenChange={onSharedSheetOpenChange} />
       )}
+      {footerCategoryPrompt}
     </motion.div>
   );
 };

@@ -1,18 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-23 UTC
-Current task: #1250 protected Supabase Preview: repair Vercel CLI staged root-directory mismatch.
+Current task: #1027 / #1029 reconcile latest dev personal UI into isolated Supabase Preview, enable private Diary only after hosted migration/privacy acceptance.
 
-## Accepted baseline
-- Isolated `feature/1027-supabase-recovery-20261020@cd9e5bb3b7e374ceb666b9ab87ef5c2cacfc9bcf`, v0.44.0; no dev/main/Production promotion.
-- All four exact-SHA workflows succeeded: Quality #39822945997, Synthetic Restore #39822945931, Real GoTrue #39822946104 attempt 2, and Core App #39822945936 attempt 2. Core artifact staging and integrity succeeded (179 static files).
-- User approved the protected environment for Core run #39822945936 attempt 2. Deployment job 120187731983 FAILED before upload: Vercel CLI requested staged `life-tracker/` matching the project's configured Git rootDirectory, but that directory was absent. No matching Vercel deployment or READY URL.
-- Original Mosaic ZIP/JSON and confirmed TodoMate task/category import are supported in the isolated candidate; photos/settings/Bucket List/social not certified synced. Preserve original personal ZIP. Historical Appwrite source delta and old PWA server writer fence remain unavailable.
+## Source boundary
+- Isolated stable baseline `feature/1027-supabase-recovery-20261020@4058478efe6a5cea33adaa660601d1a341ccc7c3` v0.44.0, all four canonical tests SUCCESS, protected Vercel immutable READY at `mosaic-life-tracker-p9qzyy5fs-carls-projects-72516fde.vercel.app`. No dev/main/Production writes.
+- Reconcile the user-facing UI from pinned dev `ebc8614f379dcd7934316cd5c299d40ceae75e16` onto the isolated feature via task `chatgpt/1027-dev-ui-diary-reconcile-20261023`. Proposed Preview version v0.44.1; not yet accepted.
+- Preserve Supabase Auth, signed owner authority, legacy Appwrite writer fences, native RxDB sync, category retirement and deletion behavior, local owner isolation, and core-only social/media/bucket-list denial. Do not overwrite provider-specific guards from dev.
+- Adopt dev calendar/day layout, timeline, pinch zoom, task/category reorder, keyboard navigation, standard select, accent color controls, and personal uncompleted tasks. User-facing combined build requires Quality plus signed core/restore/browser acceptance.
 
-## Scoped repair
-- In the protected Preview publish step, verify prebuilt `.vercel/output/config.json` and fixed project link, require `life-tracker/` absent, create only an empty temporary `life-tracker/` for Vercel CLI rootDirectory validation, then deploy unchanged authenticated prebuilt bytes.
-- No relaxing Quality/Core/GoTrue/restore tests, provenance SHA/digest checks, protected approval, Vercel READY validation or isolation. No remote project settings, aliases, hosted database/users, dev/main/Production writes. Version impact NONE.
+## Diary blocker
+- Source already contains `core-diary`, private owner CAS/RxDB pilot, migrations `20261022_candidate_private_diary_domain.sql` and `20261022_candidate_private_diary_realtime.sql`; deployed Preview is intentionally `core-only`.
+- Read-only Supabase project inspection 2026-10-23 shows no hosted Diary table/migration. Never change build flag alone; independently encrypted snapshot and isolated restore, reviewed hosted additive migrations, signed two-owner/RLS/diary/offline CI, then protected READY must pass before UI Diary can be enabled.
+- Hosted advisor warns four private-schema tables lack RLS; separate privilege grants previously verified deny anon/auth schema/table access. Do not silently grant public access or apply unreviewed fixes.
 
 ## Next action
-- Focused Quality Gate for task `chatgpt/1250-vercel-rootdir-prebuilt-20261023`; review diff and squash only to isolated Supabase recovery branch once green. On the new merged SHA, require Quality, Core App, Synthetic Restore and Real GoTrue successes and authenticated artifact proof.
-- Protected `mosaic-supabase-preview` reviewer must approve the new run. Check exact immutable Vercel Preview READY/project/SHA/backend/digest and report URL. Then signed disposable ZIP Merge → TodoMate Replace and two-device RLS/offline tests; no real-user cutover or Production approval.
+- Review scoped graft diff from dev, feature-specific bridge files and v0.44.1 stamp, then task focused CI; repair diagnostics. After green, squash only to isolated feature, run full four canonical exact-SHA tests and protected reviewer-approved immutable Preview.
+- User will test representative mobile/calendar/dayview/Diary + two-device sync AFTER verified Preview. No actual Appwrite↔Supabase data cutover; historical Appwrite source/old-PWA writer cutoff not ready.
