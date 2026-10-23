@@ -220,7 +220,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       identity, baseUrl: config.baseUrl, publishableKey: config.publishableKey,
       getVerifiedSession: () => runtime.session.getVerifiedSession(),
       isCurrent: () => mounted.current && user.$id === identity.legacyUserId &&
-        ['active', 'paused'].includes(runtime.coordinator.getPhase()) &&
+        runtime.coordinator.getPhase() === 'active' &&
         runtime.coordinator.getAuthenticatedOwner()?.supabaseUserId === identity.supabaseUserId &&
         (!runtime.browser || runtime.browser.isCurrent()),
     });
