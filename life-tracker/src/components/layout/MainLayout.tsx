@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useContext } from 'react';
+import React, { useContext } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { BottomNav, type TabId } from './BottomNav';
 import {
@@ -11,11 +11,8 @@ import { useChatViewport } from '../messages/useChatViewport';
 import { AppearanceContext } from '../../hooks/appearanceContext';
 import { useConnectivity } from '../../hooks/useConnectivity';
 
-const OfflineBanner = lazy(() =>
-  import('../ui/OfflineBanner').then(({ OfflineBanner }) => ({
-    default: OfflineBanner,
-  }))
-);
+// Connectivity feedback must be available even when offline chunk loading fails.
+import { OfflineBanner } from '../ui/OfflineBanner';
 
 export interface MainLayoutProps {
   children: React.ReactNode;
@@ -84,11 +81,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <div style={viewportStyle} className={`${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}>
-      {connectivity.status === 'offline' && (
-        <Suspense fallback={null}>
-          <OfflineBanner />
-        </Suspense>
-      )}
+      {connectivity.status === 'offline' && <OfflineBanner />}
 
       <main className={`flex-1 min-h-0 ${hideBottomNav ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         <div

@@ -28,11 +28,15 @@ interface DiaryEntrySheetProps {
   onReact?: (emoji: string, op: 'add' | 'remove') => Promise<void>;
   onReply?: (content: string) => Promise<void>;
   initialEditing?: boolean;
+  /** Retain the sheet through its close animation in modern Day View. */
+  isOpen?: boolean;
+  onExitComplete?: () => void;
 }
 
 /** Read-only for friends; local-first editing for the signed-in owner. */
 export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
-  date, entry, author, onClose, onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
+  date, entry, author, onClose, onSave, onDelete, friendUserId, onReact, onReply,
+  initialEditing = false, isOpen = true, onExitComplete,
 }) => {
   const { user } = useAuth();
   const personalOnly = MOSAIC_FEATURE_PROFILE === 'core-diary';
@@ -117,7 +121,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const dayLabel = format(parseISO(date), 'EEEE, MMMM d, yyyy');
   return (
     <>
-      <BottomSheet isOpen onClose={close} title="Diary" height={editing ? 'full' : 'auto'}
+      <BottomSheet isOpen={isOpen} onClose={close} onExitComplete={onExitComplete} title="Diary" height={editing ? 'full' : 'auto'}
         isLocked={busy || !!confirm} preventDismiss={busy || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}>
         <div className={editing ? 'flex min-h-0 flex-1 flex-col px-5 pb-5' : 'px-5 pb-8'} data-testid="diary-entry-sheet">
           <div className="flex items-center justify-between gap-3 py-3">

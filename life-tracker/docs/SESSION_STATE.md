@@ -5,7 +5,7 @@ Current task: #1027 / #1029 reconcile latest dev personal UI into isolated Supab
 
 ## Source boundary
 - Isolated stable baseline `feature/1027-supabase-recovery-20261020@4058478efe6a5cea33adaa660601d1a341ccc7c3` v0.44.0, all four canonical tests SUCCESS, protected Vercel immutable READY at `mosaic-life-tracker-p9qzyy5fs-carls-projects-72516fde.vercel.app`. No dev/main/Production writes.
-- Reconcile the user-facing UI from pinned dev `ebc8614f379dcd7934316cd5c299d40ceae75e16` onto the isolated feature via task `chatgpt/1027-dev-ui-diary-reconcile-20261023`. Proposed Preview version v0.44.1; not yet accepted.
+- Reconcile the user-facing UI from pinned dev `ebc8614f379dcd7934316cd5c299d40ceae75e16` onto the isolated feature via task `chatgpt/1027-dev-ui-diary-reconcile-20261023`. v0.44.1 initial UI focused task #39895491272 SUCCESS, PR #1269 merged only to isolated feature fd966a963; merged-SHA Quality #39895617216 failed on four TS types, offline banner and missing uncompleted route parent. Core App #39895617186 failed early build. Repair branch PR #1270 focused #39896032482 PASS before this addendum; next focused CI pending.
 - Preserve Supabase Auth, signed owner authority, legacy Appwrite writer fences, native RxDB sync, category retirement and deletion behavior, local owner isolation, and core-only social/media/bucket-list denial. Do not overwrite provider-specific guards from dev.
 - Adopt dev calendar/day layout, timeline, pinch zoom, task/category reorder, keyboard navigation, standard select, accent color controls, and personal uncompleted tasks. User-facing combined build requires Quality plus signed core/restore/browser acceptance.
 
@@ -15,5 +15,5 @@ Current task: #1027 / #1029 reconcile latest dev personal UI into isolated Supab
 - Hosted advisor warns four private-schema tables lack RLS; separate privilege grants previously verified deny anon/auth schema/table access. Do not silently grant public access or apply unreviewed fixes.
 
 ## Next action
-- Review scoped graft diff from dev, feature-specific bridge files and v0.44.1 stamp, then task focused CI; repair diagnostics. After green, squash only to isolated feature, run full four canonical exact-SHA tests and protected reviewer-approved immutable Preview.
+- Fix exact merged-SHA frontend compile: owner Diary sheet open/exit lifecycle, friend side-panel renderMode, PWA browser timer typing and keyboard-aware guarded PersonCarousel on separate task branch (no host/Production writes); focused CI. After green, squash only to isolated feature, run full four canonical exact-SHA tests and protected reviewer-approved immutable Preview.
 - User will test representative mobile/calendar/dayview/Diary + two-device sync AFTER verified Preview. No actual Appwrite↔Supabase data cutover; historical Appwrite source/old-PWA writer cutoff not ready.
