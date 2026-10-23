@@ -23,10 +23,10 @@ const PROFILE_CAPABILITIES: Record<MosaicFeatureProfile, Readonly<Record<MosaicC
     core: true, diary: false, bucketList: false, social: false,
     alerts: false, chat: false, sharedTasks: false, taskImages: false,
   }),
-  // Owner-private Diary only: photos/uploads and every social domain remain off.
+  // Owner-private Diary + task photos; only verified private Storage may enable uploads.
   'core-diary': Object.freeze({
     core: true, diary: true, bucketList: false, social: false,
-    alerts: false, chat: false, sharedTasks: false, taskImages: false,
+    alerts: false, chat: false, sharedTasks: false, taskImages: true,
   }),
 };
 

@@ -16,6 +16,7 @@ import type { CandidateIdentity } from '../../supabase-poc/candidateMapping';
 import { markOfflineDataReady } from '../lib/offlineReadiness';
 import { startCoreRealtimeWake } from '../lib/supabaseRealtimeWake';
 import { MOSAIC_FEATURE_PROFILE } from '../lib/backendCapabilities';
+import { registerSupabaseMedia } from '../lib/supabaseMedia';
 
 function reportAuthOutage(error: unknown) {
   if (error instanceof CandidateSessionUnavailableError ||
@@ -210,6 +211,20 @@ export default function SupabaseAuthProvider({ config, children }: {
       if (conflictReview.current === registration) conflictReview.current = null;
     };
   }, [runtime, user, restoreAccount]);
+
+  useEffect(() => {
+    if (!user || MOSAIC_FEATURE_PROFILE !== 'core-diary') return;
+    const identity = runtime.coordinator.getAuthenticatedOwner();
+    if (!identity || identity.legacyUserId !== user.$id) return;
+    return registerSupabaseMedia({
+      identity, baseUrl: config.baseUrl, publishableKey: config.publishableKey,
+      getVerifiedSession: () => runtime.session.getVerifiedSession(),
+      isCurrent: () => mounted.current && user.$id === identity.legacyUserId &&
+        ['active', 'paused'].includes(runtime.coordinator.getPhase()) &&
+        runtime.coordinator.getAuthenticatedOwner()?.supabaseUserId === identity.supabaseUserId &&
+        (!runtime.browser || runtime.browser.isCurrent()),
+    });
+  }, [config, runtime, user, syncGeneration]);
 
   useEffect(() => {
     if (!user) return;

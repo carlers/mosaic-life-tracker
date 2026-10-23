@@ -168,6 +168,8 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                     <option value="public">Public</option>
                   </select>
                 </div>
+                </>
+              )}
                 <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                   aria-label="Choose diary photos" onChange={e => void uploadPhotos(e.target.files)}/>
                 <button type="button" disabled={busy || uploading || photoIds.length >= 5} onClick={() => fileInputRef.current?.click()}
@@ -175,8 +177,6 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                   <ImagePlus size={19}/> {uploading ? 'Uploading…' : `Add photos (${photoIds.length}/5)`}
                 </button>
                 <DiaryPhotoGallery date={date} photoIds={photoIds} editable onChange={setPhotoIds}/>
-                </>
-              )}
               <textarea aria-label="Diary text" value={body} onChange={e=>setBody(e.target.value)}
                 placeholder="How was your day?" className="min-h-28 flex-1 resize-none rounded-xl bg-transparent p-2 text-base text-white outline-offset-2"
                 autoFocus />

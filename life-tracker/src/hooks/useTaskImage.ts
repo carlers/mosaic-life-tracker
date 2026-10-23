@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getLocalImageUrl } from '../lib/storage';
+import { CORE_BACKEND } from '../lib/coreBackendConfig';
+import { currentSupabaseMediaOwner } from '../lib/supabaseMedia';
 
 interface ImageState {
   url: string | null;
@@ -15,6 +17,13 @@ interface CacheEntry {
 
 const objectUrlCache = new Map<string, CacheEntry>();
 const REVOKE_DELAY_MS = 1500;
+
+function cacheScope(fileId?: string): string {
+  if (!fileId) return '';
+  return CORE_BACKEND.driver === 'supabase'
+    ? 'supabase:' + (currentSupabaseMediaOwner() ?? 'signed-out') + ':' + fileId
+    : fileId;
+}
 
 function readCachedUrl(fileId: string | undefined): string | null {
   if (!fileId) return null;
@@ -33,19 +42,19 @@ function scheduleEviction(fileId: string, entry: CacheEntry): void {
   }, REVOKE_DELAY_MS);
 }
 
-function acquireObjectUrl(fileId: string, refreshFromCloud = false): {
+function acquireObjectUrl(fileId: string, refreshFromCloud = false, key = fileId): {
   promise: Promise<string | null>;
   release: () => void;
 } {
-  let entry = objectUrlCache.get(fileId);
+  let entry = objectUrlCache.get(key);
   // Retain old leases while a damaged local blob is replaced from the cloud.
   if (refreshFromCloud && entry) {
-    objectUrlCache.delete(fileId);
+    objectUrlCache.delete(key);
     entry = undefined;
   }
   if (!entry) {
     entry = { url: null, promise: null, refCount: 0, revokeTimer: null };
-    objectUrlCache.set(fileId, entry);
+    objectUrlCache.set(key, entry);
   }
   const e = entry;
   if (e.revokeTimer) {
@@ -60,7 +69,7 @@ function acquireObjectUrl(fileId: string, refreshFromCloud = false): {
         return null;
       })
       .then((url) => {
-        if (objectUrlCache.get(fileId) !== e) {
+        if (objectUrlCache.get(key) !== e) {
           if (url) URL.revokeObjectURL(url);
           return null;
         }
@@ -74,7 +83,7 @@ function acquireObjectUrl(fileId: string, refreshFromCloud = false): {
   const release = () => {
     e.refCount--;
     if (e.refCount <= 0) {
-      scheduleEviction(fileId, e);
+      scheduleEviction(key, e);
     }
   };
   return { promise: e.promise, release };
@@ -98,17 +107,18 @@ export function resetTaskImageCacheForTests(): void {
 }
 
 export function useTaskImage(fileId: string | undefined, enabled = true) {
-  const [tracked, setTracked] = useState({ fileId, enabled });
-  const [revision, setRevision] = useState({ fileId, count: 0 });
+  const key = cacheScope(fileId);
+  const [tracked, setTracked] = useState({ fileId, key, enabled });
+  const [revision, setRevision] = useState({ key, count: 0 });
   const [state, setState] = useState<ImageState>(() => {
-    const cached = readCachedUrl(fileId);
+    const cached = readCachedUrl(key);
     return { url: cached, isLoading: enabled && !cached && !!fileId };
   });
 
-  if (fileId !== tracked.fileId || enabled !== tracked.enabled) {
-    setTracked({ fileId, enabled });
-    if (fileId !== tracked.fileId) setRevision({ fileId, count: 0 });
-    const cached = readCachedUrl(fileId);
+  if (fileId !== tracked.fileId || enabled !== tracked.enabled || key !== tracked.key) {
+    setTracked({ fileId, key, enabled });
+    if (key !== tracked.key) setRevision({ key, count: 0 });
+    const cached = readCachedUrl(key);
     setState({ url: cached, isLoading: enabled && !cached && !!fileId });
   }
 
@@ -120,7 +130,7 @@ export function useTaskImage(fileId: string | undefined, enabled = true) {
     const load = () => {
       failed = false;
       release();
-      const acquired = acquireObjectUrl(fileId, revision.fileId === fileId && revision.count > 0);
+      const acquired = acquireObjectUrl(fileId, revision.key === key && revision.count > 0, key);
       release = acquired.release;
       acquired.promise.then((url) => {
         if (!active) return;
@@ -140,14 +150,14 @@ export function useTaskImage(fileId: string | undefined, enabled = true) {
       window.removeEventListener('online', retry);
       window.removeEventListener('focus', retry);
     };
-  }, [fileId, enabled, revision]);
+  }, [fileId, enabled, revision, key]);
 
   const retryImage = () => {
     setState({ url: null, isLoading: true });
-    setRevision((value) => ({ fileId, count: value.fileId === fileId ? value.count + 1 : 1 }));
+    setRevision((value) => ({ key, count: value.key === key ? value.count + 1 : 1 }));
   };
   const handleImageError = () => {
-    if (revision.fileId === fileId && revision.count > 0) {
+    if (revision.key === key && revision.count > 0) {
       setState({ url: null, isLoading: false });
     } else {
       retryImage();

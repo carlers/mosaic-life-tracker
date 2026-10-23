@@ -1,6 +1,8 @@
 import { format } from 'date-fns';
 import { getDatabase } from '../db/database';
 import { getCachedImage, cacheImage } from './imageCache';
+import { CORE_BACKEND } from './coreBackendConfig';
+import { fetchSupabasePhoto, currentSupabaseMediaOwner } from './supabaseMedia';
 import { getPendingImage, isPendingImageId } from './pendingImages';
 import { guardedStorage } from './sdk';
 import { APP_VERSION } from './appVersion';
@@ -167,6 +169,11 @@ async function fetchImageBlob(
   fileId: string,
   ownerUserId: string
 ): Promise<Blob | null> {
+  if (CORE_BACKEND.driver === 'supabase') {
+    // Never use an old Appwrite global image-cache key in the signed provider.
+    if (currentSupabaseMediaOwner() !== ownerUserId) return null;
+    return fetchSupabasePhoto(fileId).catch(() => null);
+  }
   if (isPendingImageId(fileId)) {
     return getPendingImage(fileId, ownerUserId);
   }
