@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fixtures = vi.hoisted(() => ({
   stored: [] as Record<string, unknown>[],
-  upsert: vi.fn(async (..._args: unknown[]) => {}),
+  upsert: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../src/lib/backendCapabilities', () => ({ MOSAIC_FEATURE_PROFILE: 'core-diary' }));
 vi.mock('../../src/hooks/useAuth', () => ({ useAuth: () => ({ user: { $id: 'signed_personal_owner' } }) }));
