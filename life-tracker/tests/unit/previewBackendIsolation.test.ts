@@ -39,7 +39,7 @@ describe('Vercel Preview Appwrite isolation', () => {
     }
   });
 
-  it('limits the explicit Supabase Preview to core-only mosaic-dev and forbids Production', () => {
+  it('limits the explicit Supabase Preview to core-only or private core-diary mosaic-dev and forbids Production', () => {
     const candidate = {
       VERCEL_ENV: 'preview', MOSAIC_SUPABASE_CORE_PREVIEW: 'true',
       VITE_MOSAIC_BACKEND: 'supabase-cloud', VITE_MOSAIC_FEATURE_PROFILE: 'core-only',
@@ -47,8 +47,14 @@ describe('Vercel Preview Appwrite isolation', () => {
       VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_synthetic',
     };
     expect(assertPreviewBackendIsolation(candidate)?.endpoint).toBe(MOSAIC_SUPABASE_DEV_ORIGIN);
+    expect(assertPreviewBackendIsolation({ ...candidate,
+      VITE_MOSAIC_FEATURE_PROFILE: 'core-diary',
+    })).toEqual({ backend: 'supabase-cloud', projectId: 'hcxtiifzxoaflhjgoglb',
+      endpoint: MOSAIC_SUPABASE_DEV_ORIGIN });
     for (const override of [
       { MOSAIC_SUPABASE_CORE_PREVIEW: '' }, { VITE_MOSAIC_FEATURE_PROFILE: 'full' },
+      { VITE_MOSAIC_FEATURE_PROFILE: 'core-diary-social' },
+      { VITE_MOSAIC_FEATURE_PROFILE: '' },
       { VITE_SUPABASE_URL: 'https://other.supabase.co' },
       { VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_secret_never_browser' },
       { VITE_MOSAIC_BACKEND: 'appwrite-oracle' },
