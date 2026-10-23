@@ -39,6 +39,12 @@ describe('protected main prebuilt writer remains optional and restricted (#592)'
     expect(body).toContain('loadAcceptedArtifact');
     expect(body).toContain('assembleVerifiedCandidateStatic');
     expect(body).toContain('addUniquePrebuiltDeploymentId');
+    // Presentation fields must originate from the authenticated exact-SHA
+    // GitHub readback, never candidate-controlled env variables or source.
+    expect(body).toContain('verifiedPrebuiltGitMetadata(commit, plan)');
+    expect(body).toContain('prebuiltCliArguments(plan, gitMetadata)');
+    expect(body).toContain('Object.entries(gitMetadata)');
+
     expect(body).toContain('await accepted(event)');
     expect(body).toContain('assessKnownPrebuiltDeployments');
     expect(body).toContain('prebuiltCliArguments');

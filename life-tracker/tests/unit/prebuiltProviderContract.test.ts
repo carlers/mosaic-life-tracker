@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
   addUniquePrebuiltDeploymentId, assessKnownPrebuiltDeployments,
-  planAcceptedPreview, prebuiltCliArguments, createTrustedCliProjectRoot,
+  planAcceptedPreview, prebuiltCliArguments, verifiedPrebuiltGitMetadata, createTrustedCliProjectRoot,
   isKnownPrebuiltHistoryCandidate, providerDeploymentId,
   verifyPrebuiltHistoryDetail,
   VERIFIED_PREVIEW_PROJECT, assertTrustedProviderProject, assertIsolatedCanaryGitDisable,
@@ -123,6 +123,88 @@ describe('CI-first prebuilt Vercel provider contract (#592)', () => {
     expect(() => prebuiltCliArguments({ ...plan, target: 'production' })).toThrow();
     expect(() => prebuiltCliArguments({ ...plan, projectId: 'wrong' })).toThrow();
     expect(() => prebuiltCliArguments({ ...plan, meta: { bad: 'unsafe\nvalue' } })).toThrow();
+  });
+
+  it('adds GitHub-verified commit titles to CLI Preview metadata without changing deploy target', () => {
+    const commit = {
+      sha, commit: {
+        message: 'feat(calendar): Make month navigation easier ✨\n\nChangelog follows.',
+        author: { name: 'Jane Contributor' },
+      }, author: { login: 'janedev' },
+    };
+    const meta = verifiedPrebuiltGitMetadata(commit, plan);
+    expect(meta).toEqual({
+      githubCommitMessage: 'feat(calendar): Make month navigation easier ✨',
+      githubCommitSha: sha,
+      githubCommitRef: plan.branch,
+      githubCommitOrg: 'carlers',
+      githubCommitRepo: 'mosaic-life-tracker',
+      githubOrg: 'carlers',
+      githubRepo: 'mosaic-life-tracker',
+      githubDeployment: '1',
+      githubCommitAuthorName: 'Jane Contributor',
+      githubCommitAuthorLogin: 'janedev',
+    });
+    const args = prebuiltCliArguments(plan, meta);
+    expect(args).toContain('githubCommitMessage=' + meta.githubCommitMessage);
+    expect(args).toContain('githubCommitSha=' + sha);
+    expect(args).toContain('mosaicPrebuiltId=' + plan.deploymentId);
+    expect(args).toContain('--prebuilt');
+    expect(args).toContain('--target=preview');
+    expect(args).not.toContain('--prod');
+    expect(args).not.toContain('vercel build');
+    expect(args).not.toContain('--scope');
+    expect(args).not.toContain('--force');
+  });
+
+  it('rejects mismatched/spoofed Git identity and control-character presentation metadata', () => {
+    const commit = {
+      sha, commit: { message: 'fix: usable preview names', author: { name: 'A' } },
+      author: { login: 'contributor' },
+    };
+    expect(() => verifiedPrebuiltGitMetadata({ ...commit, sha: 'b'.repeat(40) }, plan))
+      .toThrow(/Unverified/);
+    expect(() => verifiedPrebuiltGitMetadata({ ...commit,
+      commit: { message: '\n', author: { name: 'A' } } }, plan)).toThrow(/subject/);
+    expect(() => verifiedPrebuiltGitMetadata({ ...commit,
+      commit: { message: 'fix: bad\u0000title', author: { name: 'A' } } }, plan)).toThrow(/subject/);
+    const valid = verifiedPrebuiltGitMetadata(commit, plan);
+    expect(() => prebuiltCliArguments(plan, { ...valid, githubCommitSha: 'b'.repeat(40) }))
+      .toThrow(/Unverified/);
+    expect(() => prebuiltCliArguments(plan, { ...valid, githubCommitRef: 'main' }))
+      .toThrow(/Unverified/);
+    expect(() => prebuiltCliArguments(plan, { ...valid, githubCommitMessage: 'bad\n--prod' }))
+      .toThrow(/Unsafe/);
+    expect(() => prebuiltCliArguments(plan, { ...valid, injectedSecret: 'value' }))
+      .toThrow(/Unsafe/);
+    expect(() => prebuiltCliArguments(plan, { ...valid, githubOrg: 'other' }))
+      .toThrow(/Unverified/);
+    expect(() => prebuiltCliArguments({ ...plan, target: 'production' }, valid))
+      .toThrow(/Forbidden/);
+    const withoutAccount = verifiedPrebuiltGitMetadata({
+      sha, commit: { message: 'fix: safe title', author: { name: 'Bad\nName' } },
+    }, plan);
+    expect(withoutAccount).not.toHaveProperty('githubCommitAuthorName');
+    expect(withoutAccount).not.toHaveProperty('githubCommitAuthorLogin');
+  });
+
+  it('distinguishes trusted CLI Git presentation metadata from real/unknown Git collisions', () => {
+    const meta = { ...plan.meta, githubCommitSha: sha, githubCommitRef: plan.branch };
+    const cli = {
+      id: 'dpl_B123', url: 'mosaic-prebuilt-safe.vercel.app',
+      projectId: VERIFIED_PREVIEW_PROJECT, target: 'preview',
+      state: 'READY', meta,
+    };
+    expect(assessKnownPrebuiltDeployments([cli], plan, { exhaustive: true }))
+      .toEqual({ action: 'reuse', id: cli.id });
+    expect(() => assessKnownPrebuiltDeployments([{ ...cli, source: 'git' }],
+      plan, { exhaustive: true })).toThrow(/Another deployment/);
+    const unrelated = { ...cli,
+      meta: { githubCommitSha: sha, githubCommitRef: plan.branch } };
+    expect(() => assessKnownPrebuiltDeployments([unrelated],
+      plan, { exhaustive: true })).toThrow(/Another deployment/);
+    expect(() => assessKnownPrebuiltDeployments([{ ...unrelated, source: 'git' }],
+      plan, { exhaustive: true })).toThrow(/Another deployment/);
   });
 
   it('creates only an empty required monorepo root, preserving the one verified prebuilt output', async () => {
