@@ -410,7 +410,7 @@ The original historical archive retains its fixed six-table record counts.
 For a **fresh** current snapshot, the independently SHA-pinned
 `--fresh-snapshot-sha256` recovery wrapper instead validates seven
 allowlisted Auth/core/Diary tables and proves actual source-to-target COPY
-row equality with a new empty loopback-only local PostgreSQL 17 Supabase stack.
+row equality with a new empty loopback-only local PostgreSQL 17 Supabase stack\nthat mirrors only the already-hosted private Diary schema (not pending category retirement).
 It does **not** replay old Auth tokens or write to hosted Supabase.
 See `PRIVATE_CORE_RECOVERY.md` for its exact scope and prerequisites.
 It is still only a partial database restore: managed Auth/SMTP configuration,

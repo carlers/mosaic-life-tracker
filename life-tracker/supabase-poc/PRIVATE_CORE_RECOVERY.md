@@ -17,8 +17,8 @@ original 2026-10-22 archive. For a **new** post-reconciliation encrypted
 mosaic-dev snapshot, supply the operator-recorded SHA-256 of that *encrypted*
 file using `--fresh-snapshot-sha256`; never change or disable the original
 pinned digest. The fresh-snapshot path retains the **six original core tables** and adds
-private Diary as a **seventh** allowlisted data object, with its required
-retirement/Diary schema initialized on an isolated local PG17 target. Actual
+private Diary as a **seventh** allowlisted data object, with only its reviewed
+Diary schema initialized on an isolated local PG17 target. Actual
 source COPY row counts are extracted from the newly SHA-pinned encrypted
 archive and verified by exact source-versus-target COPY **byte equality**;
 historical counts are NOT silently reused for a new snapshot. The older
