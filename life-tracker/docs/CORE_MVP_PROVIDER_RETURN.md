@@ -5,8 +5,8 @@ Updated 2026-10-19. **Plan and source guardrails, not a live migration or author
 ## First release boundary
 
 - Enable a strictly personal, local-first task tracker: authenticated owner, categories, tasks, Calendar, Todo List, Day View, Backlogs, local edits and two-device owner-scoped cloud synchronization.
-- Defer **Diary until the very next post-core milestone** (high priority, ahead of bucket lists/social), including private text/emoji, privacy, offline replay, accurate tombstones and optional photo storage only when safely supported.
-- Gate bucket lists, friend calendar/carousel, Explore, chat, alerts/push, invitations, shared tasks and reactions on explicit verified backend capabilities; show Coming Soon for direct disabled routes, never delete stored rows or drafts because their UI is hidden.
+- **Current updated MVP scope:** private tasks/categories/Diary **and owner-private task/Diary photos** must work before public release. Diary text/emoji and photo references must sync on signed accounts; photos require private Supabase Storage with owner UUID path RLS, cross-device downloads, ZIP merge/import, encrypted blob DR and negative access tests. Historical Appwrite photos are recoverable only when present in each owner's retained ZIP until the source comes back. Social and shared features remain separately disabled.
+- Only social capabilities are outside the updated personal MVP: friend calendar/carousel, Explore, chat, alerts/push, invitations, shared tasks and reactions remain disabled pending separate backend acceptance. **Owner-private Bucket List/links and synced personal settings are now pre-release MVP requirements**; they stay unavailable until real Supabase parity is proven. Never delete stored rows or drafts because a route is hidden.
 - Local preferences may still exist, but MUST be explicitly described as device-local until account-synced settings can be safely migrated. New task photo uploads must be disabled until trusted storage exists; preserve references for recovery.
 
 ## Capability boundary already staged in source

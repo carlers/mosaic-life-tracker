@@ -289,14 +289,14 @@ export function createCandidateRxdbPilot<D extends Document>(
     if (domain === 'diary') {
       const current = toCandidateDiaryWrite(local as DiaryDocument, identity);
       const previous = toCandidateDiaryWrite(master as DiaryDocument, identity);
-      // Never allow a local update to silently rewrite the calendar date,
-      // privacy scope, historical attachments or creation timestamp.
+      // Calendar date, visibility, owner and creation time remain immutable.
+      // Owner-private photo arrays use the same revision-fenced Diary CAS.
       if (current.entry_date !== previous.entry_date ||
           current.visibility !== previous.visibility ||
-          current.photos !== previous.photos ||
           current.created_at !== previous.created_at) return null;
       return {
         content: current.content, emoji: current.emoji,
+        photos: current.photos,
         updated_at: current.updated_at, is_deleted: current.is_deleted,
       };
     }

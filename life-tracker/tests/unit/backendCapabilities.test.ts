@@ -21,13 +21,15 @@ describe('Mosaic core-only capability boundary (#1026 / #1027)', () => {
     expect(CORE_MVP_SYNC_COLLECTIONS).toEqual(['tasks', 'categories']);
   });
 
-  it('enables private Diary without exposing social or image domains in personal MVP', () => {
+  it('enables owner-private Diary and task images, while social remains disabled', () => {
     expect(resolveFeatureProfile('core-diary')).toBe('core-diary');
     expect(PERSONAL_MVP_SYNC_COLLECTIONS).toEqual(['tasks', 'categories', 'diary']);
     expect(hasCapability('core', 'core-diary')).toBe(true);
     expect(hasCapability('diary', 'core-diary')).toBe(true);
     expect(hasCapability('diary', 'core-diary', false)).toBe(false);
-    for (const feature of ['bucketList', 'social', 'alerts', 'chat', 'sharedTasks', 'taskImages'] as const) {
+    expect(hasCapability('taskImages', 'core-diary')).toBe(true);
+    expect(hasCapability('taskImages', 'core-diary', false)).toBe(false);
+    for (const feature of ['bucketList', 'social', 'alerts', 'chat', 'sharedTasks'] as const) {
       expect(hasCapability(feature, 'core-diary', true)).toBe(false);
     }
     for (const page of ['explore', 'friendCalendar', 'messages', 'chat', 'notifications',

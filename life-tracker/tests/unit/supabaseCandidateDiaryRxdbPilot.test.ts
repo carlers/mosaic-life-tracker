@@ -94,7 +94,7 @@ describe('owner-private Diary native RxDB candidate replication (#1029)', () => 
       domain: 'diary', ownerId: owner.supabaseUserId, documentId: original.id,
       expectedRevision: '9007199254740993',
       patch: {
-        content: 'Saved offline', emoji: '🌙',
+        content: 'Saved offline', emoji: '🌙', photos: '[]',
         updated_at: '2026-10-21T09:00:00Z', is_deleted: false,
       },
     });
@@ -111,11 +111,10 @@ describe('owner-private Diary native RxDB candidate replication (#1029)', () => 
     expect(h.compareAndSet.mock.calls[0][0].patch).not.toHaveProperty('owner_id');
   });
 
-  it('blocks date, visibility, attachments, and creation timestamp edits', async () => {
+  it('blocks date, visibility, and creation timestamp edits', async () => {
     const changes: DiaryDocument[] = [
       { ...original, date: '2026-10-22' },
       { ...original, visibility: 'followers' },
-      { ...original, photos: '["photo"]' },
       { ...original, createdAt: '2026-10-21T09:00:00Z' },
     ];
     for (const invalid of changes) {
@@ -125,6 +124,23 @@ describe('owner-private Diary native RxDB candidate replication (#1029)', () => 
         .rejects.toBeInstanceOf(CandidatePendingConflictError);
       expect(h.compareAndSet).not.toHaveBeenCalled();
     }
+  });
+
+  it('allows owner-private photo additions/removals under the exact Diary revision CAS', async () => {
+    const photoEdited = {
+      ...original, photos: '["img_private"]', updatedAt: '2026-10-21T09:00:00Z',
+    };
+    const h = setup();
+    h.readDiaryMaster.mockResolvedValue(row());
+    h.compareAndSet.mockResolvedValue({ state: 'applied', row: row(photoEdited, '2'), revision: '2' });
+    await expect(h.push(photoEdited, original)).resolves.toEqual([]);
+    expect(h.compareAndSet).toHaveBeenCalledWith(expect.objectContaining({
+      domain: 'diary', documentId: original.id, ownerId: owner.supabaseUserId,
+      expectedRevision: '1',
+      patch: expect.objectContaining({ photos: '["img_private"]' }),
+    }));
+    expect(h.compareAndSet.mock.calls[0][0].patch).not.toHaveProperty('visibility');
+    expect(h.compareAndSet.mock.calls[0][0].patch).not.toHaveProperty('owner_id');
   });
 
   it('never acknowledges divergent device edits or an unexpected foreign row', async () => {

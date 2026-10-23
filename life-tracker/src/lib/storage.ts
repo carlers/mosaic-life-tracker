@@ -1,4 +1,6 @@
 import { Permission, Role } from 'appwrite';
+import { CORE_BACKEND } from './coreBackendConfig';
+import { currentSupabaseMediaOwner, putSupabasePhoto, fetchSupabasePhoto, deleteSupabasePhoto } from './supabaseMedia';
 import { isUnauthorizedError, OfflineError } from './authEvents';
 import { guardedStorage, guardedAccount } from './sdk';
 import { getCachedImage, cacheImage, deleteCachedImage } from './imageCache';
@@ -49,6 +51,7 @@ function generateFileId(): string {
 }
 
 export async function getCurrentUserId(): Promise<string | null> {
+  if (CORE_BACKEND.driver === 'supabase') return currentSupabaseMediaOwner();
   try {
     const user = await guardedAccount.get();
     return user?.$id || null;
@@ -130,6 +133,8 @@ export async function saveDiaryImage(file: File, userId: string): Promise<string
   if (!userId) throw new Error('Sign in before adding a diary photo.');
   if (getConnectivitySnapshot().status !== 'online') throw new Error('Connect to upload diary photos.');
   const blob = await compressImage(file);
+  if (CORE_BACKEND.driver === 'supabase')
+    return (await putSupabasePhoto(blob, generateFileId(), userId)).fileId;
   return uploadCompressedBlobWithId(blob, generateFileId(), userId, false);
 }
 
@@ -139,6 +144,11 @@ export async function saveImage(
 ): Promise<string> {
   if (!userId) throw new Error('Cannot upload image: no authenticated user');
   const compressedBlob = await compressImage(file);
+  if (CORE_BACKEND.driver === 'supabase') {
+    if (getConnectivitySnapshot().status !== 'online')
+      throw new Error('Reconnect to upload private task photos to Supabase. No photo was attached.');
+    return (await putSupabasePhoto(compressedBlob, generateFileId(), userId)).fileId;
+  }
   if (getConnectivitySnapshot().status !== 'online') {
     return createPendingImage(userId, compressedBlob);
   }
@@ -165,6 +175,8 @@ export async function uploadPendingImage(
   userId: string
 ): Promise<string> {
   if (!isPendingImageId(fileId)) return fileId;
+  if (CORE_BACKEND.driver === 'supabase')
+    throw new Error('Supabase task photos must be uploaded with a verified online owner.');
   const blob = await getPendingImage(fileId, userId);
   if (!blob) {
     throw new Error('Pending image is missing or belongs to another account.');
@@ -191,6 +203,7 @@ export async function uploadPendingImage(
 // contract; retain the profile-specific missing-user diagnostic.
 export async function saveProfileImage(file: File, userId: string): Promise<string> {
   if (!userId) throw new Error('Cannot save profile image: no authenticated user');
+  if (CORE_BACKEND.driver === 'supabase') throw new Error('Profile photos are not part of the personal MVP.');
   return saveImage(file, userId);
 }
 
@@ -244,6 +257,10 @@ export async function ensureRestoredImage(
   if (expectedUserId && userId !== expectedUserId) {
     throw new Error('Cannot restore image: authenticated user changed');
   }
+  if (CORE_BACKEND.driver === 'supabase') {
+    const blob = alreadyCompressed ? file : await compressImage(file);
+    return putSupabasePhoto(blob, preferredFileId, userId, true);
+  }
 
   try {
     await guardedStorage.getFile({
@@ -284,6 +301,12 @@ export async function ensureRestoredImage(
 
 export async function getLocalImageUrl(fileId: string, refreshFromCloud = false): Promise<string | null> {
   if (!fileId) return null;
+  if (CORE_BACKEND.driver === 'supabase') {
+    try {
+      const blob = await fetchSupabasePhoto(fileId, refreshFromCloud);
+      return blob ? URL.createObjectURL(blob) : null;
+    } catch { return null; }
+  }
   try {
     const pending = isPendingImageId(fileId);
     // IndexedDB failure must not block the authorized online file download.
@@ -309,6 +332,7 @@ export async function getLocalImageUrl(fileId: string, refreshFromCloud = false)
 }
 
 export async function deleteImage(fileId: string): Promise<void> {
+  if (CORE_BACKEND.driver === 'supabase') return deleteSupabasePhoto(fileId);
   if (isPendingImageId(fileId)) {
     await deletePendingImage(fileId);
     return;
@@ -329,6 +353,7 @@ export async function deleteImage(fileId: string): Promise<void> {
 }
 
 export function getImagePreviewUrl(fileId: string): string {
+  if (CORE_BACKEND.driver === 'supabase') return ''; // Never leak private photo URLs.
   const url = guardedStorage.getFilePreview({
     bucketId: APPWRITE_CONFIG.bucketId,
     fileId: fileId,
@@ -339,6 +364,7 @@ export function getImagePreviewUrl(fileId: string): string {
 }
 
 export function getImageFullUrl(fileId: string): string {
+  if (CORE_BACKEND.driver === 'supabase') return ''; // Authenticated Blob read only.
   const url = guardedStorage.getFileView({
     bucketId: APPWRITE_CONFIG.bucketId,
     fileId: fileId,

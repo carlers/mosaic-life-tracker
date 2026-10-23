@@ -769,13 +769,15 @@ async function restoreImages(
   onImageProgress: (completed: number, total: number) => void,
   precompressedImages: boolean
 ): Promise<{ restored: number; missing: number }> {
-  const ids = Array.from(referencedImageIds(data));
-  if (CORE_BACKEND.driver === 'supabase') {
-    // No authorized photo Storage provider exists for this candidate yet.
-    // Preserve image references and original ZIP bytes without Appwrite uploads.
-    onImageProgress(ids.length, ids.length);
-    return { restored: 0, missing: ids.length };
-  }
+  // Only actually supported personal domains are imported under Supabase.
+  // An unported Settings/profile photo is preserved in the source archive,
+  // never silently sent to an unsupported backend.
+  const ids = CORE_BACKEND.driver === 'supabase'
+    ? [...new Set([
+        ...data.tasks.map(task => task.image).filter((id): id is string => Boolean(id)),
+        ...data.diary.flatMap(entry => parseDiaryPhotos(entry.photos)),
+      ])]
+    : Array.from(referencedImageIds(data));
   const publicImageIds = new Set(data.tasks.map(t => t.image).filter(Boolean));
   for (const setting of data.settings) {
     if (setting.key === 'profileImageId' && setting.value) publicImageIds.add(setting.value);
@@ -839,7 +841,10 @@ async function restoreImages(
         remapped.set(oldId, ensured.fileId);
         if (ensured.uploaded) restored += 1;
       } catch (error) {
-        if (isRateLimitError(error)) throw error;
+        // Under Supabase a rejected bundled-image upload must NOT leave a new
+        // task/Diary row pointing at another photo or a missing cloud object.
+        // Fail before applying any restored documents, preserve the source ZIP.
+        if (CORE_BACKEND.driver === 'supabase' || isRateLimitError(error)) throw error;
         console.warn('[Restore] Image restore failed:', oldId, error);
         missing += 1;
       } finally {
@@ -858,6 +863,10 @@ async function restoreImages(
     if (!task.image) continue;
     const replacement = remapped.get(task.image);
     if (replacement) task.image = replacement;
+  }
+  for (const diary of data.diary) {
+    const ids = parseDiaryPhotos(diary.photos);
+    diary.photos = serializeDiaryPhotos(ids.map(id => remapped.get(id) ?? id));
   }
   for (const setting of data.settings) {
     if (setting.key !== 'profileImageId' || !setting.value) continue;
@@ -1298,13 +1307,9 @@ export async function restoreUserData(
   };
   let skippedNewer = plan.skippedNewer;
 
-  const totalDocuments =
-    plan.data.tasks.length +
-    plan.data.categories.length +
-    plan.data.diary.length +
-    plan.data.settings.length +
-    plan.data.bucketList.length +
-    plan.data.bucketTaskLinks.length;
+  const totalDocuments = importDomains().reduce(
+    (count, domain) => count + documentsFor(plan.data, domain).length, 0
+  );
   let processedDocuments = 0;
   reportDetail(
     options.mode !== 'merge'
