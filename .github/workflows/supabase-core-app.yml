@@ -50,6 +50,7 @@ jobs:
           cp supabase-poc/migrations/20261022_candidate_category_retirement.sql supabase/migrations/20261020000004_retirement.sql
           cp supabase-poc/migrations/20261023_candidate_atomic_category_delete.sql supabase/migrations/20261020000006_atomic_category_delete.sql
           cp supabase-poc/migrations/20261022_candidate_private_diary_realtime.sql supabase/migrations/20261020000005_diary_realtime.sql
+          cp supabase-poc/migrations/20261023_candidate_private_personal_photos.sql supabase/migrations/20261023000000_personal_photos.sql
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -68,7 +69,7 @@ jobs:
           # runners (429/toomanyrequests). Retry ONLY disposable stack startup;
           # always fail closed if all attempts fail. No checks are bypassed.
           for startup_attempt in 1 2 3; do
-            if supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler; then
+            if supabase start --exclude realtime,functions,studio,mail,analytics,pooler; then
               break
             fi
             if (( startup_attempt == 3 )); then
@@ -103,6 +104,12 @@ jobs:
             < supabase-poc/validation/20261022_private_diary_realtime_contract.sql
           docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres \
             < supabase-poc/validation/20261023_atomic_category_delete_contract.sql
+      - name: Assert private personal photo Storage schema
+        run: |
+          set -euo pipefail
+          mapfile -t local_db < <(docker ps --filter name=supabase_db_ --format '{{.ID}}')
+          test "${#local_db[@]}" -eq 1
+          docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres             < supabase-poc/validation/20261023_private_photo_contract.sql
       - name: Exercise signed real UI and server authority
         run: |
           set -euo pipefail
@@ -195,7 +202,7 @@ jobs:
           # runners (429/toomanyrequests). Retry ONLY disposable stack startup;
           # always fail closed if all attempts fail. No checks are bypassed.
           for startup_attempt in 1 2 3; do
-            if supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler; then
+            if supabase start --exclude realtime,functions,studio,mail,analytics,pooler; then
               break
             fi
             if (( startup_attempt == 3 )); then

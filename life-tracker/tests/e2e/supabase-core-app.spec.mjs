@@ -15,6 +15,8 @@ test.use({ ignoreHTTPSErrors: !hosted, actionTimeout: 15_000, navigationTimeout:
 test.setTimeout(hosted ? 240_000 : 120_000);
 const app = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 const hostedAccounts = hosted ? JSON.parse(process.env.MOSAIC_CORE_HOSTED_FIXTURES ?? '[]') : [];
+// A real 2x2 WebP, not a fake text upload; verifies binary round-trip.
+const PHOTO_BYTES = Buffer.from('UklGRjQAAABXRUJQVlA4ICgAAABwAQCdASoCAAIAAoBCJaACdAFAAAD+5Qr/+N4/yXf277eZTblcAAAA', 'base64');
 
 async function api(path, token, body, method = body === undefined ? 'GET' : 'POST') {
   if (!configured) throw new Error('Explicit disposable Supabase lab required');
@@ -439,13 +441,17 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
     p_id: id, p_expected_seq: next.change_seq, p_patch: { visibility: 'public' },
   });
   expect(forbiddenPatch.ok).toBe(false);
-  // A signed owner cannot change historical image references via Diary CAS.
-  const forbiddenPhotos = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
-    p_id: id, p_expected_seq: next.change_seq, p_patch: { photos: '["new_photo"]' },
+  // Owner-private photo references may be edited ONLY by signed exact-revision CAS.
+  const signedPhotos = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+    p_id: id, p_expected_seq: next.change_seq,
+    p_patch: { photos: '["img_private"]', updated_at: now },
   });
-  expect(forbiddenPhotos.ok).toBe(false);
+  expect(signedPhotos.ok).toBe(true);
+  const photoRevision = await signedPhotos.json();
+  expect(photoRevision.photos).toBe('["img_private"]');
+  expect(BigInt(photoRevision.change_seq)).toBeGreaterThan(BigInt(next.change_seq));
   const foreignCas = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', stranger.token, {
-    p_id: id, p_expected_seq: next.change_seq, p_patch: { content: 'Foreign overwrite' },
+    p_id: id, p_expected_seq: photoRevision.change_seq, p_patch: { content: 'Foreign overwrite' },
   });
   expect(foreignCas.ok).toBe(true);
   const hidden = await foreignCas.json();
@@ -462,7 +468,7 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
   // exactly one wins, the other returns PostgREST's nullable composite result.
   const races = await Promise.all(['Device A', 'Device B'].map(content =>
     api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
-      p_id: id, p_expected_seq: next.change_seq, p_patch: { content, updated_at: now },
+      p_id: id, p_expected_seq: photoRevision.change_seq, p_patch: { content, updated_at: now },
     })));
   expect(races.every(response => response.ok)).toBe(true);
   const raceResults = await Promise.all(races.map(response => response.json()));
@@ -472,7 +478,7 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
     (value.owner_id === null && value.id === null))).toHaveLength(1);
   const winner = winners[0];
   expect(['Device A', 'Device B']).toContain(winner.content);
-  expect(BigInt(winner.change_seq)).toBeGreaterThan(BigInt(next.change_seq));
+  expect(BigInt(winner.change_seq)).toBeGreaterThan(BigInt(photoRevision.change_seq));
   const duplicateDate = await api('/rest/v1/mosaic_candidate_diary', owner.token, {
     ...data, id: 'diary_' + randomBytes(8).toString('hex'),
     content: 'Duplicate day denied',
@@ -935,16 +941,25 @@ test('signed owner Diary UI @diary-ui: create a private entry, recover on anothe
     await first.getByRole('button', { name: 'Add diary entry' }).first().click();
     await expect(first.locator('[data-testid="diary-entry-sheet"]')).toBeVisible();
     await expect(first.getByLabel('Diary visibility', { exact: true })).toContainText('Private diary');
-    await expect(first.getByRole('button', { name: /Add photos/i })).toHaveCount(0);
+    await expect(first.getByRole('button', { name: /Add photos/i })).toBeVisible();
+    await first.getByLabel('Choose diary photos').setInputFiles({
+      name: 'signed-diary.webp', mimeType: 'image/webp', buffer: PHOTO_BYTES,
+    });
+    await expect(first.getByRole('button', { name: 'Add photos (1/5)' })).toBeVisible({ timeout: 15_000 });
     await first.getByLabel('Diary text').fill(content);
     await first.getByRole('button', { name: 'Done', exact: true }).click();
     await expect.poll(async () => (await rows(owner, 'diary')).some(row =>
-      row.content === content && row.visibility === 'private' && row.is_deleted === false),
+      row.content === content && row.visibility === 'private' && row.is_deleted === false &&
+      JSON.parse(row.photos ?? '[]').length === 1),
       { timeout: 25000 }).toBe(true);
 
     await signIn(second, owner);
     await second.getByRole('tab', { name: 'Diary', exact: true }).click();
     await expect(second.getByText(content, { exact: true }).first()).toBeVisible({ timeout: 25000 });
+    // The remote storage URL is authenticated and the second device must
+    // independently obtain the attached image bytes, not only its ID.
+    await second.getByText(content, { exact: true }).first().click();
+    await expect(second.getByRole('button', { name: 'View diary photo' }).first()).toBeEnabled({ timeout: 20_000 });
     await signIn(other, foreign);
     await other.getByRole('tab', { name: 'Diary', exact: true }).click();
     await expect(other.getByText(content, { exact: true })).toHaveCount(0);
@@ -954,6 +969,50 @@ test('signed owner Diary UI @diary-ui: create a private entry, recover on anothe
   } finally {
     await Promise.allSettled(contexts.map(c => c.close()));
   }
+});
+
+test('signed private Storage @photo-storage: owner-only upload/read/delete, immutable bytes and no public access', async () => {
+  test.skip(hosted || process.env.MOSAIC_CORE_DIARY_UI_LAB !== 'true',
+    'Only local disposable Supabase Storage may exercise owner-private object permissions');
+  const owner = await account();
+  const foreign = await account();
+  const fileId = 'img_' + randomBytes(12).toString('hex');
+  const resource = '/storage/v1/object/mosaic-personal-photos/' + owner.id + '/' + fileId + '.webp';
+  const authenticated = '/storage/v1/object/authenticated/mosaic-personal-photos/' + owner.id + '/' + fileId + '.webp';
+  const photo = (path, token, method = 'GET', blob) =>
+    fetch(url + path, {
+      method, credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(15000),
+      headers: {
+        apikey: key,
+        ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        ...(blob ? { 'Content-Type': 'image/webp', 'x-upsert': 'false' } : {}),
+      },
+      ...(blob ? { body: blob } : {}),
+    });
+  const authOwner = await photo(resource, owner.token, 'POST', PHOTO_BYTES);
+  expect(authOwner.ok).toBe(true);
+  const downloaded = await photo(authenticated, owner.token);
+  expect(downloaded.status).toBe(200);
+  expect(Buffer.from(await downloaded.arrayBuffer())).toEqual(PHOTO_BYTES);
+
+  const publicRead = await photo(authenticated.replace('/authenticated/', '/public/'), null);
+  expect(publicRead.ok).toBe(false);
+  const anonymousRead = await photo(authenticated, null);
+  expect(anonymousRead.ok).toBe(false);
+  const foreignRead = await photo(authenticated, foreign.token);
+  expect(foreignRead.ok).toBe(false);
+  const foreignCreate = await photo(resource, foreign.token, 'POST', PHOTO_BYTES);
+  expect(foreignCreate.ok).toBe(false);
+  const foreignDelete = await photo(resource, foreign.token, 'DELETE');
+  expect(foreignDelete.ok).toBe(false);
+  const anonCreate = await photo(resource, null, 'POST', PHOTO_BYTES);
+  expect(anonCreate.ok).toBe(false);
+  const duplicate = await photo(resource, owner.token, 'POST', PHOTO_BYTES);
+  expect(duplicate.ok).toBe(false); // No overwrite/upsert, even by owner.
+  expect(Buffer.from(await (await photo(authenticated, owner.token)).arrayBuffer())).toEqual(PHOTO_BYTES);
+  const ownerDelete = await photo(resource, owner.token, 'DELETE');
+  expect(ownerDelete.ok).toBe(true);
+  expect((await photo(authenticated, owner.token)).ok).toBe(false);
 });
 
 // Hosted generated email grants exercise real GoTrue verification without
