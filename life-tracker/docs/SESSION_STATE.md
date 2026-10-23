@@ -1,20 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-23 UTC
-Current task: #1027 / #1029 reconcile latest dev personal UI into isolated Supabase Preview, enable private Diary only after hosted migration/privacy acceptance.
+Current issues: #1027 isolated Supabase UI Preview; #1029 private Diary next.
 
-## Source boundary
-- Isolated stable baseline `feature/1027-supabase-recovery-20261020@4058478efe6a5cea33adaa660601d1a341ccc7c3` v0.44.0, all four canonical tests SUCCESS, protected Vercel immutable READY at `mosaic-life-tracker-p9qzyy5fs-carls-projects-72516fde.vercel.app`. No dev/main/Production writes.
-- Reconcile the user-facing UI from pinned dev `ebc8614f379dcd7934316cd5c299d40ceae75e16` onto the isolated feature via task `chatgpt/1027-dev-ui-diary-reconcile-20261023`. v0.44.1 initial UI focused task #39895491272 SUCCESS, PR #1269 merged only to isolated feature fd966a963; merged-SHA Quality #39895617216 failed on four TS types, offline banner and missing uncompleted route parent. Core App #39895617186 failed early build. Repair branch PR #1270 focused #39896032482 PASS before this addendum; next focused CI pending.
-- Preserve Supabase Auth, signed owner authority, legacy Appwrite writer fences, native RxDB sync, category retirement and deletion behavior, local owner isolation, and core-only social/media/bucket-list denial. Do not overwrite provider-specific guards from dev.
-- Adopt dev calendar/day layout, timeline, pinch zoom, task/category reorder, keyboard navigation, standard select, accent color controls, and personal uncompleted tasks. User-facing combined build requires Quality plus signed core/restore/browser acceptance.
+## Exact live source and delivered gate
+- Isolated `feature/1027-supabase-recovery-20261020@dcf685b91645efca2402295d3a20fbc319929e2d`, v0.44.1; UI reconciled from pinned `dev@ebc8614f379dcd7934316cd5c299d40ceae75e16`. PRs #1269–#1273 integrated new Calendar/Day View layout, timeline, keyboard, dropdown, colors, uncompleted tasks and compatibility fixes. No `dev`, `main` or Production promotions.
+- Four canonical exact-SHA runs PASS: Quality #39898662992, Core App #39898662897, Real GoTrue Restore #39898663111 and Synthetic Restore #39898662931. Home static gzip 372558 B / 381000 B blocking. Verified artifact `12478177186` digest `sha256:e6c7f6f11803d76d42195bf3ea4fd215e78da6976f6fa96970c9ce2d998bc200`.
+- Protected job `120237205640` in run #39898662897 was still WAITING on required reviewer approval for `mosaic-supabase-preview` at last check; Vercel had no deployment for exact SHA. Approve environment review, then verify exact immutable READY target before user-device testing. Do not bypass reviewer, alias, or change Production.
 
-## Diary blocker
-- Source already contains `core-diary`, private owner CAS/RxDB pilot, migrations `20261022_candidate_private_diary_domain.sql` and `20261022_candidate_private_diary_realtime.sql`; deployed Preview is intentionally `core-only`.
-- Read-only Supabase project inspection 2026-10-23 shows no hosted Diary table/migration. Never change build flag alone; independently encrypted snapshot and isolated restore, reviewed hosted additive migrations, signed two-owner/RLS/diary/offline CI, then protected READY must pass before UI Diary can be enabled.
-- Hosted advisor warns four private-schema tables lack RLS; separate privilege grants previously verified deny anon/auth schema/table access. Do not silently grant public access or apply unreviewed fixes.
+## Diary next; separate release gate
+- `core-diary` owner-private source, RxDB pilot, SQL CAS + RLS and Realtime migration already exist; current hosted `mosaic-dev` lacks Diary table/migration, shipped Preview profile is `core-only`. Do NOT flip feature flag or apply hosted SQL without encrypted off-site snapshot, **independent restore** including Auth identities/roles, signed owner privacy/replication acceptance, and approval.
+- Current isolated task `chatgpt/1029-signed-diary-acceptance-20261023` adds disposable signed Diary REST tests to `tests/e2e/supabase-core-app.spec.mjs`: pre-lease/anon denial, owner insert/read, foreign owner denial, immutable privacy/photos, exact CAS races/stale refusal, unique owner/date, tombstones and release denial. Hosted runs expressly skip this test. Version impact NONE, test-only.
+- Do not squash the Diary test into isolated feature while the earlier v0.44.1 protected deployment job is pending: newer stable push cancels the outstanding reviewer run by Actions concurrency. Run task-focused verification; coordinate subsequent stable acceptance after reviewer approved v0.44.1.
+- Open blockers: hosted Diary restore, migration/security certification, two-device Diary UI/Offline acceptance; signed existing-user Appwrite recovery delta and old-client server fence; task-photo storage and Bucket List backend parity; public release gates.
 
 ## Next action
-- v0.44.1 modern UI Quality #39897479590 failed Home closure 383483 B vs 381000 B; PR #1271 splitting Week did not improve (+21 B), revert and split real interactive CalendarBody from initial Home route. No size gate changes. Reverify canonical SHA after focused checks.
-- Fix exact merged-SHA frontend compile: owner Diary sheet open/exit lifecycle, friend side-panel renderMode, PWA browser timer typing and keyboard-aware guarded PersonCarousel on separate task branch (no host/Production writes); focused CI. After green, squash only to isolated feature, run full four canonical exact-SHA tests and protected reviewer-approved immutable Preview.
-- User will test representative mobile/calendar/dayview/Diary + two-device sync AFTER verified Preview. No actual Appwrite↔Supabase data cutover; historical Appwrite source/old-PWA writer cutoff not ready.
+- Task branch: focused CI for signed Diary test; inspect diff/results, repair if necessary; park ready PR until earlier deployment reviewer approval. Preview user should first test already accepted v0.44.1; do not claim Diary usable yet. After protected READY, merge/test accepted Diary guard changes in a subsequent isolated Preview candidate. No hosted backend writes.
