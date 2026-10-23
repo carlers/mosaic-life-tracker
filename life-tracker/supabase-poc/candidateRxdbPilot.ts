@@ -570,22 +570,25 @@ export function createCandidateRxdbPilot<D extends Document>(
         const local = locals.get(id);
         if (!local || local.value !== canonical(domain, current.document, identity))
           mismatch = true;
-        onScan?.({ phase: 'remote', pages, rows: checked, checked: 0, total: localTotal });
       }
+      onScan?.({ phase: 'remote', pages, rows: checked, checked: 0, total: localTotal });
       if (rows.length < batchSize) break;
     }
     let localChecked = 0;
     for (const [id, local] of locals) {
-      await assertSameSession();
+      if (localChecked % batchSize === 0) await assertSameSession();
       // A local edit during verification invalidates its snapshot. Do not
       // classify that concurrent write as a safely repairable stale cache.
       const latest = local.doc.toJSON() as D;
       if (canonical(domain, latest, identity) !== local.value ||
           !remoteIds.has(id)) mismatch = true;
       localChecked++;
-      onScan?.({ phase: 'local', pages, rows: checked,
-        checked: localChecked, total: localTotal });
+      if (localChecked % batchSize === 0 || localChecked === localTotal)
+        onScan?.({ phase: 'local', pages, rows: checked,
+          checked: localChecked, total: localTotal });
     }
+    if (localTotal === 0)
+      onScan?.({ phase: 'local', pages, rows: checked, checked: 0, total: 0 });
     await assertSameSession();
     if (mismatch) throw new Error(
       'Supabase ' + domain + ' local/cloud verification found a difference. ' +

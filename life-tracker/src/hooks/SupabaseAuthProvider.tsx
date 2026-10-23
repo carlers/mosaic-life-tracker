@@ -304,11 +304,23 @@ export default function SupabaseAuthProvider({ config, children }: {
       try {
         await assertSignedImportOwner();
         await runtime.authority.renew();
-        await runtime.coordinator.verifyLocalReplica(progress => {
-          if (!active || !verifying) return;
-          publishSyncStatus({ isSyncing: true, progress });
-          onProgress(progress);
-        });
+        let deadline: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            runtime.coordinator.verifyLocalReplica(progress => {
+              if (!active || !verifying) return;
+              publishSyncStatus({ isSyncing: true, progress });
+              onProgress(progress);
+            }),
+            new Promise<never>((_, reject) => {
+              deadline = setTimeout(() => reject(new Error(
+                'Supabase verification timed out; local data was not changed'
+              )), 90_000);
+            }),
+          ]);
+        } finally {
+          if (deadline) clearTimeout(deadline);
+        }
         await assertSignedImportOwner();
         if (!active) throw new Error('Supabase account changed during verification');
         const completedAt = new Date().toISOString();
@@ -336,7 +348,7 @@ export default function SupabaseAuthProvider({ config, children }: {
         await state.awaitInitialReplication();
         await state.awaitInSync();
       })).then(() => {
-        if (active && runtime.coordinator.getReplicationStates()?.[0] === states[0]) {
+        if (active && !verifying && runtime.coordinator.getReplicationStates()?.[0] === states[0]) {
           const completedAt = new Date().toISOString();
           if (runtime.browser?.isCurrent()) markOfflineDataReady(ownerId, completedAt);
           publishSyncStatus({ lastSync: completedAt, errors: [] });
