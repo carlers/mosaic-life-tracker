@@ -841,7 +841,10 @@ async function restoreImages(
         remapped.set(oldId, ensured.fileId);
         if (ensured.uploaded) restored += 1;
       } catch (error) {
-        if (isRateLimitError(error)) throw error;
+        // Under Supabase a rejected bundled-image upload must NOT leave a new
+        // task/Diary row pointing at another photo or a missing cloud object.
+        // Fail before applying any restored documents, preserve the source ZIP.
+        if (CORE_BACKEND.driver === 'supabase' || isRateLimitError(error)) throw error;
         console.warn('[Restore] Image restore failed:', oldId, error);
         missing += 1;
       } finally {

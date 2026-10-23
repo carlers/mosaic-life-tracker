@@ -7,7 +7,7 @@ type Stored = Record<string, unknown>;
 
 const state = vi.hoisted(() => {
   const rows = { tasks: new Map<string, Stored>(), categories: new Map<string, Stored>(), diary: new Map<string, Stored>(), settings: new Map<string, Stored>(), friendships: new Map<string, Stored>(), messages: new Map<string, Stored>(), bucketList: new Map<string, Stored>(), bucketTaskLinks: new Map<string, Stored>() };
-  return { rows, accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A'), subscribeTaskPushProgress: vi.fn().mockReturnValue(null) };
+  return { rows, backend: 'appwrite' as 'appwrite' | 'supabase', accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A'), subscribeTaskPushProgress: vi.fn().mockReturnValue(null) };
 });
 function resetRows() { for (const map of Object.values(state.rows)) map.clear(); }
 function wrap(collection: CollectionName, id: string) { const map = state.rows[collection]; return { get id() { return id; }, toJSON: () => ({ ...(map.get(id) ?? {}) }), incrementalPatch: vi.fn(async (patch: Stored) => { map.set(id, { ...(map.get(id) ?? {}), ...patch }); }) }; }
@@ -22,6 +22,11 @@ vi.mock('../../src/lib/accountWorkScope', () => ({
 }));
 vi.mock('../../src/db/taskReplicationPilot', () => ({
   subscribeTaskPushProgress: state.subscribeTaskPushProgress,
+}));
+vi.mock('../../src/lib/coreBackendConfig', () => ({ CORE_BACKEND: { get driver() { return state.backend; } } }));
+vi.mock('../../src/lib/appSync', () => ({
+  assertPersonalImportOwner: vi.fn(async () => {}),
+  refreshPersonalImport: () => state.refreshSync(),
 }));
 vi.mock('../../src/db/sync', () => ({
   initializeSync: state.sync,
@@ -136,7 +141,7 @@ describe('backup restore', () => {
     await expect(inspectBackupFile(file)).rejects.toThrow(/missing required data/i);
   });
 
-  beforeEach(() => { resetRows(); vi.clearAllMocks(); state.accountCurrent = true; state.sync.mockResolvedValue(undefined); state.refreshSync.mockImplementation(async () => ({ status: { isSyncing: false, lastSync: new Date().toISOString(), errors: [] }, startedAt: Date.now() - 1_000 })); state.upsertLocalDoc.mockImplementation(async (collection: CollectionName, id: string, doc: Stored) => { state.rows[collection].set(id, { ...(state.rows[collection].get(id) ?? {}), ...doc }); }); state.ensureRestoredImage.mockResolvedValue({ fileId: 'img_restored', uploaded: true }); state.getCurrentUserId.mockResolvedValue('user_A'); state.subscribeTaskPushProgress.mockReturnValue(null); state.exportUserData.mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }); });
+  beforeEach(() => { resetRows(); vi.clearAllMocks(); state.backend = 'appwrite'; state.accountCurrent = true; state.sync.mockResolvedValue(undefined); state.refreshSync.mockImplementation(async () => ({ status: { isSyncing: false, lastSync: new Date().toISOString(), errors: [] }, startedAt: Date.now() - 1_000 })); state.upsertLocalDoc.mockImplementation(async (collection: CollectionName, id: string, doc: Stored) => { state.rows[collection].set(id, { ...(state.rows[collection].get(id) ?? {}), ...doc }); }); state.ensureRestoredImage.mockResolvedValue({ fileId: 'img_restored', uploaded: true }); state.getCurrentUserId.mockResolvedValue('user_A'); state.subscribeTaskPushProgress.mockReturnValue(null); state.exportUserData.mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }); });
   it('accepts legacy v1 JSON and reports friendships as reference-only', async () => { const file = new File([JSON.stringify({ app: { name: 'Mosaic', version: '0.0.0' }, version: 1, exportedAt: '2026-09-01T00:00:00.000Z', user: currentUser, counts: { tasks: 1, categories: 0, diary: 0, settings: 1, friendships: 2, images: 0, missingImages: 0 }, data: { tasks: [{ id: 'task_1', title: 'Old export', completed: false, categoryId: '', date: '2026-09-01', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z', userId: 'user_A', isDeleted: false, visibility: 'private' }], categories: [], diary: [], settings: { showTodayTag: true }, friendships: [{ id: 'friend_ref' }, { id: 'friend_ref_2' }] }, images: { included: false, referenced: [], missingImages: [], note: '' } })], 'legacy.json', { type: 'application/json' }); const preview = await inspectBackupFile(file); expect(preview.version).toBe(1); expect(preview.counts.tasks).toBe(1); expect(preview.counts.settings).toBe(1); expect(preview.friendshipsReferenceOnly).toBe(2); });
   it('does not trust a TodoMate-looking source ID from backup metadata', async () => {
     const task = {
@@ -185,6 +190,46 @@ describe('backup restore', () => {
       false,
       false
     );
+  });
+
+  it('Supabase aborts ZIP Merge before writing rows if existing photo bytes differ', async () => {
+    state.backend = 'supabase';
+    const task = {
+      id: 'task_private', title: 'Photo', categoryId: '', order: 0,
+      completed: false, date: '2026-09-20', image: 'img_source',
+      userId: 'user_A', isDeleted: false, visibility: 'private',
+      createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z',
+    };
+    const file = zipBackup({
+      data: { tasks: [task], categories: [], diary: [], settings: [], friendships: [] },
+      images: { included: true, referenced: ['img_source'], missingImages: [], note: '' },
+    }, { img_source: 'different-backup-photo' });
+    state.ensureRestoredImage.mockRejectedValueOnce(
+      new Error('Existing private photo differs from the backup')
+    );
+    await expect(restoreUserData(file, currentUser, { mode: 'merge' }))
+      .rejects.toThrow(/differs from the backup/);
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+    expect(state.rows.tasks.size).toBe(0);
+  });
+
+  it('Supabase never imports a dangling photo reference after signed Storage failure', async () => {
+    state.backend = 'supabase';
+    const task = {
+      id: 'task_private', title: 'Photo', categoryId: '', order: 0,
+      completed: false, date: '2026-09-20', image: 'img_source',
+      userId: 'user_A', isDeleted: false, visibility: 'private',
+      createdAt: '2026-09-20T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z',
+    };
+    const file = zipBackup({
+      data: { tasks: [task], categories: [], diary: [], settings: [], friendships: [] },
+      images: { included: true, referenced: ['img_source'], missingImages: [], note: '' },
+    }, { img_source: 'real-photo-bytes' });
+    state.ensureRestoredImage.mockRejectedValueOnce(new Error('Signed Storage denied'));
+    await expect(restoreUserData(file, currentUser, { mode: 'merge' }))
+      .rejects.toThrow(/Signed Storage denied/);
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+    expect(state.rows.tasks.size).toBe(0);
   });
 
   it('retries Storage 429s and fails visibly instead of counting the photo as missing', async () => {
