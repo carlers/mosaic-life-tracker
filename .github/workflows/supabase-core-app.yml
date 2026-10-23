@@ -131,6 +131,27 @@ jobs:
             sleep 1
           done
           tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --workers=1 --reporter=line,github
+      - name: Exercise signed core-diary actual UI and second-device replication
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/mosaic-core-local.env"
+          : "${PUBLISHABLE_KEY:?Local publishable key required}"
+          export VITE_MOSAIC_BACKEND=supabase-cloud
+          export VITE_MOSAIC_FEATURE_PROFILE=core-diary
+          export VITE_SUPABASE_URL=http://127.0.0.1:54321
+          export VITE_SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
+          export MOSAIC_SB_LOCAL_URL="$VITE_SUPABASE_URL"
+          export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
+          export MOSAIC_CORE_APP_LAB=true
+          export MOSAIC_CORE_DIARY_UI_LAB=true
+          npm run build
+          export MOSAIC_E2E_BASE_URL=http://127.0.0.1:4174
+          npm run preview -- --config "$RUNNER_TEMP/mosaic-core-http.config.mjs" --host 127.0.0.1 --port 4174 --strictPort > "$RUNNER_TEMP/mosaic-diary-vite.log" 2>&1 &
+          for attempt in {1..40}; do
+            if curl -fsS "$MOSAIC_E2E_BASE_URL/" >/dev/null; then break; fi
+            sleep 1
+          done
+          tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --grep '@diary-ui' --workers=1 --reporter=line,github
       - name: Exercise actual disposable GoTrue invite hook
         run: |
           set -euo pipefail

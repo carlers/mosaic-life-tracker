@@ -1,18 +1,19 @@
 # Session checkpoint
 
 Updated: 2026-10-23 UTC
-Current task: #1029 signed Diary owner privacy acceptance; #1027 isolated Supabase Preview waiting on protected review.
+Current task: #1029 deliver Supabase owner-private Diary on the reconciled isolated Preview before user device testing.
 
-## Exact live source and delivered gate
-- Isolated `feature/1027-supabase-recovery-20261020@dcf685b91645efca2402295d3a20fbc319929e2d`, v0.44.1; UI reconciled from pinned `dev@ebc8614f379dcd7934316cd5c299d40ceae75e16`. PRs #1269–#1273 integrated new Calendar/Day View layout, timeline, keyboard, dropdown, colors, uncompleted tasks and compatibility fixes. No `dev`, `main` or Production promotions.
-- Four canonical exact-SHA runs PASS: Quality #39898662992, Core App #39898662897, Real GoTrue Restore #39898663111 and Synthetic Restore #39898662931. Home static gzip 372558 B / 381000 B blocking. Verified artifact `12478177186` digest `sha256:e6c7f6f11803d76d42195bf3ea4fd215e78da6976f6fa96970c9ce2d998bc200`.
-- Protected job `120237205640` in run #39898662897 was still WAITING on required reviewer approval for `mosaic-supabase-preview` at last check; Vercel had no deployment for exact SHA. Approve environment review, then verify exact immutable READY target before user-device testing. Do not bypass reviewer, alias, or change Production.
+## Exact baseline, scopes
+- Base for this task: signed Diary-focused PR #1274 head `b2ab7c810a9e929845921959049e852af3e28897`, based on isolated feature `feature/1027-supabase-recovery-20261020@dcf685b91645efca2402295d3a20fbc319929e2d`. Four canonical v0.44.1 runs successful; protected Vercel immutable READY at `https://mosaic-life-tracker-yz0y7gr7h-carls-projects-72516fde.vercel.app`, build `core-only`. `dev@ebc8614` and `main@c938c825` untouched.
+- New candidate `chatgpt/1029-core-diary-preview-v0450-20261023` version **v0.45.0**, changes only isolated Preview artifact from `core-only` to `core-diary` and guards its exact-SHA evidence. Existing Appwrite Production `full` untouched. Client already implements private-only Diary, no social/photos, and native 3-domain RxDB.
+- Disposable signed Diary SQL/RLS/CAS owner boundary test passed in [Core Lab #39904216588](https://github.com/carlers/mosaic-life-tracker/actions/runs/39904216588) `core-app` job. Hosted-artifact stage failed because verification-only branch was intentionally not allowed by protected artifact rules; no Preview deployment.
 
-## Diary next; separate release gate
-- `core-diary` owner-private source, RxDB pilot, SQL CAS + RLS and Realtime migration already exist; current hosted `mosaic-dev` lacks Diary table/migration, shipped Preview profile is `core-only`. Do NOT flip feature flag or apply hosted SQL without encrypted off-site snapshot, **independent restore** including Auth identities/roles, signed owner privacy/replication acceptance, and approval.
-- Current isolated task `chatgpt/1029-signed-diary-acceptance-20261023` extends the **existing** disposable signed Diary test in `tests/e2e/supabase-core-app.spec.mjs`: pre-lease owner write denial, immutable photo CAS, two racing exact-revision writes, unique owner/day and post-release write denial. Existing owner/foreign privacy, CAS, tombstone and hosted skip retained. Version impact NONE, test-only.
-- Do not squash the Diary test into isolated feature while the earlier v0.44.1 protected deployment job is pending: newer stable push cancels the outstanding reviewer run by Actions concurrency. Run task-focused verification; coordinate subsequent stable acceptance after reviewer approved v0.44.1.
-- Open blockers: hosted Diary restore, migration/security certification, two-device Diary UI/Offline acceptance; signed existing-user Appwrite recovery delta and old-client server fence; task-photo storage and Bucket List backend parity; public release gates.
+## Backend hard gate
+- Read-only Supabase inspection `hcxtiifzxoaflhjgoglb`: hosted has NO `public.mosaic_candidate_diary` table/migrations. Existing locally verified disposable additive SQL `20261022_candidate_private_diary_domain.sql` and `..._realtime.sql`; do NOT flip hosted UI until its migrations reviewed and applied in order.
+- Before hosted DDL, obtain **current encrypted offsite snapshot** and independent restore of fresh Auth identities, tasks/categories, active sessions and configuration/Storage scope; 2026-10-22 historical encrypted core six-table backup is stale; no current independent hosted DR proof. Existing operator scripts `supabase-poc/hosted-encrypted-backup.sh` and `run-private-core-recovery.sh` cover only part of that and must not be misrepresented as full DR.
+- Supabase advisory flags four private schema tables without RLS; direct catalog grants show `anon`/`authenticated` have neither schema USAGE nor table SELECT/INSERT/UPDATE. Must review defense in depth, not blindly change server-owned tables.
+- No dev/main/Production or hosted data writes, no Expo/media/social rollout, no one-click provider migration. Protected exact-SHA GitHub environment approval is still mandatory for the *new* v0.45.0 artifact.
 
-## Next action
-- Task branch: focused CI for signed Diary test; inspect diff/results, repair if necessary; park ready PR until earlier deployment reviewer approval. Preview user should first test already accepted v0.44.1; do not claim Diary usable yet. After protected READY, merge/test accepted Diary guard changes in a subsequent isolated Preview candidate. No hosted backend writes.
+## Implementation, verification, next
+- Candidate changes built artifact contract to `core-diary`, embedded profile checks, version 0.45.0, Playwright signed real UI fixture with owner/private save and device/foreign-owner checks; local signed lab rebuilds core-diary on disposable DB and runs this browser test.
+- Run focused Quality task CI, fix legitimate test/UI failures, then after reviewed fresh hosted snapshot/restoration and additive migration, squash isolated Preview task, run four exact-SHA canonical labs, approve protected deployment, verify immutable Vercel READY with `core-diary`, perform manual mobile two-owner/offline acceptance before using real user data.

@@ -9,7 +9,7 @@ const evidence = {
   source: { sha, ref: 'refs/heads/' + CORE_BRANCH },
   buildProfile: {
     environment: 'untrusted-ci-diagnostic', vercelEnvironment: 'preview',
-    backend: 'supabase-cloud', featureProfile: 'core-only', appwriteBackend: 'none',
+    backend: 'supabase-cloud', featureProfile: 'core-diary', appwriteBackend: 'none',
     supabaseOrigin: CORE_SUPABASE_ORIGIN, publishableKeySha256: 'c'.repeat(64),
     giphy: 'disabled', posthog: 'disabled',
   },
@@ -38,7 +38,7 @@ describe('isolated Supabase exact CI artifact stage boundary (#1027)', () => {
     const f = valid();
     for (const patch of [
       { backend: 'appwrite-cloud' }, { appwriteBackend: 'production' },
-      { featureProfile: 'full' }, { vercelEnvironment: 'production' },
+      { featureProfile: 'full' }, { featureProfile: 'core-only' }, { vercelEnvironment: 'production' },
       { supabaseOrigin: 'https://example.supabase.co' },
       { posthog: 'enabled' }, { giphy: 'enabled' },
     ]) {

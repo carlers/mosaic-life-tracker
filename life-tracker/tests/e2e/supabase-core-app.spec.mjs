@@ -68,7 +68,7 @@ async function signIn(page, owner) {
     expect(identity.commit).toBe(process.env.MOSAIC_CORE_PREVIEW_SHA);
     expect(identity.channel).toBe('Preview');
     expect(identity.backend).toBe('supabase-cloud');
-    expect(identity.featureProfile).toBe('core-only');
+    expect(identity.featureProfile).toBe('core-diary');
   }
   await page.getByLabel('Email Address').fill(owner.email);
   await page.getByLabel('Password', { exact: true }).fill(owner.password);
@@ -917,6 +917,44 @@ test('signed server denies old clients without leases, foreign writes, and relea
   expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'acquire' })).status).toBe(403);
 });
 
+
+
+test('signed owner Diary UI @diary-ui: create a private entry, recover on another device, deny foreign access', async ({ browser }) => {
+  test.skip(hosted || process.env.MOSAIC_CORE_DIARY_UI_LAB !== 'true',
+    'Only the disposable local signed core-diary browser lab may exercise this UI');
+  const owner = await account();
+  const foreign = await account();
+  const contexts = await Promise.all([0, 1, 2].map(() =>
+    newBrowserContext(browser, { ignoreHTTPSErrors: true })));
+  const content = 'Private diary UI fixture ' + randomBytes(5).toString('hex');
+  try {
+    const [first, second, other] = await Promise.all(contexts.map(x => x.newPage()));
+    await signIn(first, owner);
+    await first.getByRole('tab', { name: 'Diary', exact: true }).click();
+    await expect(first.getByRole('tab', { name: 'Diary', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await first.getByRole('button', { name: 'Add diary entry' }).first().click();
+    await expect(first.locator('[data-testid="diary-entry-sheet"]')).toBeVisible();
+    await expect(first.getByLabel('Diary visibility', { exact: true })).toContainText('Private diary');
+    await expect(first.getByRole('button', { name: /Add photos/i })).toHaveCount(0);
+    await first.getByLabel('Diary text').fill(content);
+    await first.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'diary')).some(row =>
+      row.content === content && row.visibility === 'private' && row.is_deleted === false),
+      { timeout: 25000 }).toBe(true);
+
+    await signIn(second, owner);
+    await second.getByRole('tab', { name: 'Diary', exact: true }).click();
+    await expect(second.getByText(content, { exact: true }).first()).toBeVisible({ timeout: 25000 });
+    await signIn(other, foreign);
+    await other.getByRole('tab', { name: 'Diary', exact: true }).click();
+    await expect(other.getByText(content, { exact: true })).toHaveCount(0);
+    const foreignRows = await api('/rest/v1/mosaic_candidate_diary?select=id,content', foreign.token);
+    expect(foreignRows.ok).toBe(true);
+    expect(await foreignRows.json()).toEqual([]);
+  } finally {
+    await Promise.allSettled(contexts.map(c => c.close()));
+  }
+});
 
 // Hosted generated email grants exercise real GoTrue verification without
 // sending mail to uncontrolled recipients. SMTP delivery is a separate gate.
