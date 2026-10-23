@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-23 UTC
-Current issues: #1027 isolated Supabase UI Preview; #1029 private Diary next.
+Current task: #1029 signed Diary owner privacy acceptance; #1027 isolated Supabase Preview waiting on protected review.
 
 ## Exact live source and delivered gate
 - Isolated `feature/1027-supabase-recovery-20261020@dcf685b91645efca2402295d3a20fbc319929e2d`, v0.44.1; UI reconciled from pinned `dev@ebc8614f379dcd7934316cd5c299d40ceae75e16`. PRs #1269–#1273 integrated new Calendar/Day View layout, timeline, keyboard, dropdown, colors, uncompleted tasks and compatibility fixes. No `dev`, `main` or Production promotions.
