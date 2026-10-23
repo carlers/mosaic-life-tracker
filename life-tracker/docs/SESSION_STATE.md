@@ -15,5 +15,6 @@ Current task: #1027 / #1029 reconcile latest dev personal UI into isolated Supab
 - Hosted advisor warns four private-schema tables lack RLS; separate privilege grants previously verified deny anon/auth schema/table access. Do not silently grant public access or apply unreviewed fixes.
 
 ## Next action
+- v0.44.1 modern UI Quality #39897479590 failed Home closure 383483 B vs 381000 B; PR #1271 splitting Week did not improve (+21 B), revert and split real interactive CalendarBody from initial Home route. No size gate changes. Reverify canonical SHA after focused checks.
 - Fix exact merged-SHA frontend compile: owner Diary sheet open/exit lifecycle, friend side-panel renderMode, PWA browser timer typing and keyboard-aware guarded PersonCarousel on separate task branch (no host/Production writes); focused CI. After green, squash only to isolated feature, run full four canonical exact-SHA tests and protected reviewer-approved immutable Preview.
 - User will test representative mobile/calendar/dayview/Diary + two-device sync AFTER verified Preview. No actual Appwrite↔Supabase data cutover; historical Appwrite source/old-PWA writer cutoff not ready.
