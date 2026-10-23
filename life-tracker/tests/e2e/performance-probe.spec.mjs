@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 const BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
@@ -213,12 +213,14 @@ async function measureInteraction(page, name, action, target = null) {
     return window.__mosaicPerf.actionFinishedAt;
   });
 
+  // Include commits during the full 700 ms animation sampling window, not
+  // only the synchronous input dispatch that Playwright just completed.
+  await page.waitForTimeout(750);
+
   const reactProfile = await page.evaluate(
     (start) => (window.__mosaicReactProfile ?? []).slice(start),
     profileStart,
   );
-
-  await page.waitForTimeout(750);
 
   return page.evaluate(({ name, startedAt, actionFinishedAt, reactProfile }) => {
     const perf = window.__mosaicPerf;
@@ -255,6 +257,14 @@ async function measureInteraction(page, name, action, target = null) {
     const actionLongAnimationFrames = perf.longAnimationFrames.filter(
       (entry) =>
         entry.startTime < actionFinishedAt &&
+        entry.startTime + entry.duration > startedAt
+    );
+
+    // Input-handling long frames and entrance/exit animation long frames are
+    // distinct windows; an asynchronous sheet transition can outlive the action.
+    const animationLongAnimationFrames = perf.longAnimationFrames.filter(
+      (entry) =>
+        entry.startTime < startedAt + 700 &&
         entry.startTime + entry.duration > startedAt
     );
 
@@ -322,6 +332,10 @@ async function measureInteraction(page, name, action, target = null) {
       })),
       longAnimationFrameCount: perf.longAnimationFrames.length,
       actionLongAnimationFrameCount: actionLongAnimationFrames.length,
+      animationLongAnimationFrameCount: animationLongAnimationFrames.length,
+      maxAnimationLongAnimationFrameMs: animationLongAnimationFrames.length
+        ? Math.max(...animationLongAnimationFrames.map((entry) => entry.duration))
+        : 0,
       maxLongAnimationFrameMs: actionLongAnimationFrames.length
         ? Math.max(...actionLongAnimationFrames.map((entry) => entry.duration))
         : 0,
@@ -726,4 +740,73 @@ test('@performance Calendar path first sheet paint', async ({ page }) => {
   await page.mouse.click(5, 5);
   await page.waitForTimeout(550);
   await open('reopen');
+});
+
+
+test('@performance real Day View nested Memo, Task Actions and Add Photo', async ({ page }) => {
+  // Diagnostic only: exercise Day View's actual drag/layout/Swiper subtree,
+  // not the lightweight 50-row synthetic BottomSheet compositor probe.
+  for (const count of [50, 200]) {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&perfTaskCount=${count}`);
+    await page.getByTestId('open-day-view-sheet').click();
+    const dayView = page.locator('[role="dialog"]').filter({ has: page.getByTestId('day-swiper') });
+    const slide = dayView.locator('[data-testid="day-slide"][data-date-str="2026-09-15"]').first();
+    await slide.getByRole('button', { name: 'Open memo' }).first().focus();
+
+    const openActions = async () => {
+      await slide.getByRole('button', { name: 'Task 1.1' }).first().focus();
+      await page.keyboard.press('Shift+Enter');
+    };
+    const transitions = [
+      ['memo-open', () => page.keyboard.press('Enter')],
+      ['memo-close', () => page.keyboard.press('Escape')],
+      ['actions-open', openActions],
+      // Distinguish the standalone Task Actions exit from the Add Photo
+      // handoff, which intentionally combines one sheet's exit with another's entrance.
+      ['actions-close', () => page.keyboard.press('Escape')],
+      ['actions-reopen', openActions],
+      ['photo-open', () => page.getByRole('button', { name: 'Add Photo', exact: true }).click()],
+      ['photo-close', () => page.keyboard.press('Escape')],
+    ];
+    for (const [name, action] of transitions) {
+      const result = await measureInteraction(page, `real-day-${count}-${name}`, action);
+      // Diagnostic measurements are useless if a keyboard shortcut, sheet
+      // handoff, or Escape dismissal silently misses the intended target.
+      // Validate the semantic state after timing has finished, not inside the
+      // measured action window.
+      const memoEditor = page.getByRole('textbox', { name: 'Memo', exact: true });
+      const photoSheet = page.getByRole('dialog', { name: 'Task Photo', exact: true });
+      const addPhotoAction = page.getByRole('button', { name: 'Add Photo', exact: true });
+      if (name === 'memo-open') await expect(memoEditor).toBeVisible();
+      if (name === 'memo-close') await expect(memoEditor).toHaveCount(0);
+      if (name === 'actions-open' || name === 'actions-reopen') {
+        await expect(addPhotoAction).toBeVisible();
+      }
+      if (name === 'actions-close') await expect(addPhotoAction).toHaveCount(0);
+      if (name === 'photo-open') await expect(photoSheet).toBeVisible();
+      if (name === 'photo-close') await expect(photoSheet).toHaveCount(0);
+      console.log('MOSAIC_DAY_VIEW_PERF ' + JSON.stringify({
+        name: result.name,
+        frameCount: result.frameCount,
+        p95FrameMs: result.p95FrameMs,
+        maxFrameMs: result.maxFrameMs,
+        maxLongAnimationFrameMs: result.maxLongAnimationFrameMs,
+        animationLongAnimationFrameCount: result.animationLongAnimationFrameCount,
+        maxAnimationLongAnimationFrameMs: result.maxAnimationLongAnimationFrameMs,
+        droppedFrameRatio: result.droppedFrameRatio,
+        layoutReads: result.layoutReads,
+        mutationRecords: result.mutationRecords,
+        // Preserve commit timestamps so delayed React work can be aligned
+        // with the frame and long-animation-frame sampling window.
+        reactRenders: result.reactProfile.map(render => ({
+          id: render.id,
+          phase: render.phase,
+          actualDuration: render.actualDuration,
+          commitOffsetMs: typeof render.commitTime === 'number'
+            ? Number((render.commitTime - result.startedAt).toFixed(2))
+            : null,
+        })),
+      }));
+    }
+  }
 });

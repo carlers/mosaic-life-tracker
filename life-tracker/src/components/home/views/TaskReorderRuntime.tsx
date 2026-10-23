@@ -39,6 +39,16 @@ const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
   ],
 });
 
+// DragDropProvider is long-lived while a nested sheet is open. Keep the
+// pure sensor configurator referentially stable across overlay state renders:
+// recreating the prop cannot change the configured pointer/keyboard sensors.
+const TASK_REORDER_SENSORS: NonNullable<React.ComponentProps<typeof DragDropProvider>['sensors']> =
+  (defaults) => [
+    ...defaults.filter((sensor) => sensor !== PointerSensor && sensor !== KeyboardSensor),
+    TASK_REORDER_POINTER_SENSOR,
+    TASK_REORDER_KEYBOARD_SENSOR,
+  ];
+
 // This is the SAME presentation used by the owner Diary Day View; the lazy
 // module is already loaded when a diary drag can begin.
 const DiaryDayCardOverlay = React.lazy(() => import('./DiaryDayPreview').then(
@@ -495,11 +505,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
 
   return (
     <DragDropProvider
-      sensors={(defaults) => [
-        ...defaults.filter((sensor) => sensor !== PointerSensor && sensor !== KeyboardSensor),
-        TASK_REORDER_POINTER_SENSOR,
-        TASK_REORDER_KEYBOARD_SENSOR,
-      ]}
+      sensors={TASK_REORDER_SENSORS}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragOver={handleDragOver}

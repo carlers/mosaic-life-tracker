@@ -93,6 +93,8 @@ const ImageViewer = lazy(() =>
 
 const DAY_SWIPER_FOCUSABLE_ELEMENTS =
   'input, select, option, textarea, video, label, button:not([data-day-swipe-through="true"])';
+// Do not invalidate every DaySlide when the owned-share projection is empty.
+const EMPTY_OWNER_LABELS: ReadonlyMap<string, string> = new Map();
 const DAY_SWIPER_TRANSITION_SPEED_MS = 320;
 const DAY_SWIPER_TRANSITION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
@@ -209,6 +211,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     categoriesOverride === undefined || categoriesOverride.length === 0
   );
   const { message: deleteFeedback, show: showFeedback } = useFeedback();
+  const handleSharedMoveError = useCallback((error: unknown) => {
+    showFeedback(error instanceof Error ? error.message : 'Could not move shared task.');
+  }, [showFeedback]);
   const { getSetting, setSetting, settings } = useSettings();
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const continueAddingTasks =
@@ -216,11 +221,16 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
   const confirmTaskDelete = shouldConfirmTaskDelete(getSetting(CONFIRM_TASK_DELETE_SETTING_KEY));
-  const timestampDisplay = {
-    showCreated: getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true,
-    showCompleted: getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true,
-    labelStyle: resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons')),
-  };
+  const showCreatedTime = getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
+  const showCompletedTime = getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
+  const timestampLabelStyle = resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons'));
+  // Keep task rows' display preferences referentially stable while unrelated
+  // nested overlays open; updates still propagate when a preference changes.
+  const timestampDisplay = useMemo(() => ({
+    showCreated: showCreatedTime,
+    showCompleted: showCompletedTime,
+    labelStyle: timestampLabelStyle,
+  }), [showCreatedTime, showCompletedTime, timestampLabelStyle]);
   const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
   const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
@@ -256,9 +266,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const sharingFriends = useOptionalFriendList();
   const labelMode = getSetting('sharedTaskLabelMode', 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting('showPendingSharedTaskInvites', false) === true;
-  const ownerLabels = useMemo(() => ownerShareLabels(
-    ownerShares.items, sharingFriends, labelMode, showPendingShares,
-  ), [ownerShares.items, sharingFriends, labelMode, showPendingShares]);
+  const ownerLabels = useMemo(() => {
+    const labels = ownerShareLabels(ownerShares.items, sharingFriends, labelMode, showPendingShares);
+    return labels.size === 0 ? EMPTY_OWNER_LABELS : labels;
+  }, [ownerShares.items, sharingFriends, labelMode, showPendingShares]);
 
   const validCategoryIds = useMemo(() => new Set(categories.map(cat => cat.id)), [categories]);
   const sharedCategoryFor = useCallback((item: SharedTaskItem): string => {
@@ -422,6 +433,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     onFeedback: showFeedback,
     onExternalFinished: () => setIsTaskReorderActive(false),
   });
+  const handleReorderActiveChange = useCallback((active: boolean) => {
+    setIsTaskReorderActive(active || Boolean(continuousDrag.carried));
+  }, [continuousDrag.carried]);
   useEffect(() => {
     continuousDrag.onWindowRebased();
   }, [anchorKey, continuousDrag.onWindowRebased]);
@@ -705,6 +719,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const leaveSharedTask = sharedTasks.updateMembership;
   const updateSharedCompletion = sharedTasks.updateCompletion;
+  const handleLeaveSharedTask = useCallback(async (item: SharedTaskItem) => {
+    const outcome = await leaveSharedTask(item, 'leave');
+    if (outcome.status === 'pending') showFeedback('Leaving task queued for sync.');
+    if (outcome.status === 'rejected') showFeedback(outcome.reason || 'Could not leave shared task.');
+  }, [leaveSharedTask, showFeedback]);
   const handleSharedCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
     try {
       const result = await updateSharedCompletion(item, desired);
@@ -1377,14 +1396,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       onChangeSharedDate={updateSharedDate}
                       onMoveSharedTask={moveSharedTask}
                       sharedOrderFor={sharedOrderFor}
-                      onSharedMoveError={(error) => showFeedback(error instanceof Error ? error.message : 'Could not move shared task.')}
+                      onSharedMoveError={handleSharedMoveError}
                       ownerLabels={ownerLabels}
                       onSharedCompletion={handleSharedCompletion}
-                      onLeaveSharedTask={async (item) => {
-                        const outcome = await leaveSharedTask(item, 'leave');
-                        if (outcome.status === 'pending') showFeedback('Leaving task queued for sync.');
-                        if (outcome.status === 'rejected') showFeedback(outcome.reason || 'Could not leave shared task.');
-                      }}
+                      onLeaveSharedTask={handleLeaveSharedTask}
                       sharedPendingFor={sharedTasks.pendingFor}
                       onAddTask={handleAddTask}
                       onOpenActions={handleOpenActions}
@@ -1431,7 +1446,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
             onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
             onCategoryActionError={showFeedback}
-                      onReorderActiveChange={(active) => setIsTaskReorderActive(active || Boolean(continuousDrag.carried))}
+                      onReorderActiveChange={handleReorderActiveChange}
                       emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
                           footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
                        diaryEnabled={showDiaryInDayView && !isSelectMode}

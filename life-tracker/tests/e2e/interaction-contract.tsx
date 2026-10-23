@@ -365,6 +365,9 @@ export function InteractionHarness() {
   const calendar = useCalendarState();
   const searchParams = new URLSearchParams(window.location.search);
   const performanceHeavy = searchParams.get('perf') === 'heavy';
+  const performanceTaskCount = searchParams.has('perfTaskCount')
+    ? Math.max(0, Math.min(200, Number(searchParams.get('perfTaskCount')) || 0))
+    : 50;
   const stickyCalendarProbe = searchParams.get('stickyCalendar') === '3';
   const compactDiaryMode = searchParams.get('compactDiary') === '1';
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
@@ -413,7 +416,7 @@ export function InteractionHarness() {
             : !performanceHeavy && categoryIndex === 2
               ? 0
               : performanceHeavy
-                ? 10
+                ? Math.ceil(performanceTaskCount / todoCategories.length)
                 : 3,
         },
         (_, taskIndex) => ({
