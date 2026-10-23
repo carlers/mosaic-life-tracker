@@ -1,20 +1,21 @@
 # Session checkpoint
 
 Updated: 2026-10-23 UTC
-Current task: #1027 Supabase three-domain Sync Now integrity verification and backend/build target identity, plus #967 post-release reversible provider migration priority.
+Current task: #1027 isolated Supabase v0.46.0 Sync Now snapshot-consistency fence.
 
-## Exact starting point / change scope
-- Isolated feature `feature/1027-supabase-recovery-20261020@964f671a8d6445aaffd62ae4bc20230df010031d`: v0.45.0 protected immutable `core-diary` Preview READY at `https://mosaic-life-tracker-l1s5gaj6f-carls-projects-72516fde.vercel.app`. Hosted mosaic-dev private Diary RLS/CAS and Realtime installed after encrypted 403-row independent restore + original-owner signed recovery. Real-device owner user reports task/category/Diary create, edit, date move and deletion passed. Do not conflate manual CRUD with corruption recovery.
-- `dev@95ecd0b1b8ba1e5ec2e1716ae41a63582093721e`, `main@319421a35a19ad43b2c3c253806c65b131c64722` unchanged. No Production promotion authorized.
-- Task branch `chatgpt/1027-supabase-sync-verify-backend-label-20261023`, candidate **v0.46.0**.
+## Verified baseline
+- Isolated `feature/1027-supabase-recovery-20261020@701a65ea660e2ee3aaf5ef2f6e07d29d65df06ae` includes v0.46.0 signed three-domain Sync Now progress/owner audit and backend Version labels (#1279/#1280).
+- Exact-SHA canonical Quality #39924918077, Synthetic Restore #39924917974 and Real GoTrue #39924917794 SUCCESS. Core App Lab #39924918059 passed its core-app/artifact jobs but the Preview deploy is WAITING for the protected `mosaic-supabase-preview` environment reviewer. No new v0.46.0 READY Preview or manual mobile acceptance was established.
+- `dev@95ecd0b1b8ba1e5ec2e1716ae41a63582093721e`, `main@319421a35a19ad43b2c3c253806c65b131c64722` remain on Appwrite. Supabase is isolated, not Production.
 
-## Changes under focused review
-- Production/Appwrite Sync Now calls `refreshSync(...reconcile:true)`: 8 domains, first native freshness, full paginated owner-scope reconciliation with guarded local repairs, then final freshness. Existing Supabase Sync Now called nonawaited `reSync()`, with no local verification or progress; status was based on settling only.
-- Candidate v0.46.0: signed, paginated (100/page, bounded) **read-only anti-entropy proof** for tasks/categories/Diary from revision 0 including soft tombstones; compare normalized local and cloud owner records, verify signed token/epoch during every page, retain local contents and checkpoints on any drift. Three phases: await native refresh, verify all 3 owned groups with counts, final fresh convergence; publish truthful progress in existing Sync Status UI; fail-closed on drift/conflicts/offline with no false 100% or silent overwrites. This is **detection/verification first, not Production's automatic drift repair**; separate conflict-safe proof is required before calling provider parity complete.
-- Build Version details display `backend: appwrite-cloud/production|scratch`, `appwrite-oracle/production|scratch|unknown`, or `supabase/scratch|unknown` derived from effective backend/target, not a misleading hardcoded Appwrite label. Supabase current hosted `mosaic-dev` is scratch, not Production.
-- Roadmap priority: after separately approved production release, **one-prompt reversible Appwrite Cloud/Oracle ↔ Supabase provider migration BEFORE social**, with encrypted backup/restore, auth/identity mapping, offline/old-PWA writer fencing, idempotent all-domain data+attachment copy, signed counts/hash/RLS/device acceptance and rollback; a few-minute goal, never bypass preflight or Production approvals. Track #967 and #1027.
+## Scoped internal correctness refinement (no new version)
+- Task branch `chatgpt/1027-supabase-audit-snapshot-fence-20261023` begins from the exact stable SHA above.
+- Previously, owner verification could certify an initial local snapshot after a new offline draft appeared, or certify its last remote page after another device committed a newer CAS. Both are in-flight race windows and cannot safely be interpreted as evidence of equality.
+- After existing paginated readback and local comparison, a second owner-filtered RxDB snapshot checks identities and normalized values; a one-row server read after the last seen revision rejects a mid-audit remote change. The account/session epoch remains checked; no data mutation, checkpoint adjustment or cross-owner comparison occurs.
+- Unit regressions cover concurrent newly added local data and a later remote CAS, including denial of CAS/create writes. This does **not** add automatic local repair, a linearizable database snapshot, or full Appwrite eight-domain parity.
 
 ## Next action
-- Canonical Quality #39924203163 build failed on generic RxDB MangoQuerySelector typing in the local owner scan (`candidateRxdbPilot.ts:533`); the task-focused 2,273-test suite passed. Scoped fix reads the shared local RxDB via typed `find().exec()` and **ignores foreign cached rows** before comparison, preserving cross-owner isolation. Add regression for both owners cached locally and no writes. No live data or Production changes.
-- First focused CI #39923528993 ran 2,273 passing tests and found ONLY the mandatory checkpoint heading; repaired to 'Next action'. Rerun focused Quality, fix any substantive failures. Do not merge to isolated stable or stage new protected Vercel Preview without exact focused green and canonical acceptance.
-- Need additional proven conflict-aware **automatic local repair** for true Production parity. Need hosted signed two-owner, offline drafts, stale checkpoint > retention, cross-tab and mobile/manual tests, complete managed Auth/SMTP DR + reversible provider cutover before Production.
+- Run task-focused CI on this scoped change and resolve any actual failures. Preserve original `701a65e` accepted gates and pending protected Preview approval; do not silently replace its deployment subject.
+- After approved v0.46.0 Preview acceptance, determine whether a separate stable Preview refinement is warranted, with fresh canonical exact-SHA acceptance and signed/multi-device testing.
+- Automatic drift repair still requires persisted pristine/dirty-owner evidence, race-safe CAS/local patch behavior, offline draft preservation, old-PWA/server writer fences, a fresh Appwrite authoritative source and full reversible migration proof. Never infer safe overwrite from a settled RxDB checkpoint alone.
+- No `dev`/`main`/Production, hosted SQL, data, Auth, Appwrite writer or provider change is authorized. Keep #1027/#967 open.
