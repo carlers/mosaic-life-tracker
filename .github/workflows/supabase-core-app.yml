@@ -338,7 +338,15 @@ jobs:
             exit 1
           fi
           npm install --global --no-audit vercel@62.7.0
-          cd "$RUNNER_TEMP/mosaic-supabase-prebuilt"
+          # This project has a Git rootDirectory of life-tracker. The CLI
+          # validates its existence even for an already verified prebuilt.
+          # Do not move, rebuild or change any authenticated static bytes.
+          stage="$RUNNER_TEMP/mosaic-supabase-prebuilt"
+          test -f "$stage/.vercel/output/config.json"
+          test -f "$stage/.vercel/project.json"
+          test ! -e "$stage/life-tracker"
+          mkdir -m 700 -- "$stage/life-tracker"
+          cd "$stage"
           url="$(vercel deploy --prebuilt --archive=tgz --yes --target=preview \
             --token="$VERCEL_TOKEN" --scope=team_UbpudOr8jXyrDA5SdVUxVGOr \
             --meta "mosaicSourceSha=$GITHUB_SHA" \
