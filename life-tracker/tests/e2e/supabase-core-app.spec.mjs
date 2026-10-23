@@ -110,7 +110,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     }
     await signIn(first, owner);
     await first.getByRole('button', { name: 'Open menu' }).click();
-    await first.getByRole('button', { name: 'Lists & Categories' }).click();
+    await first.getByRole('button', { name: 'Categories', exact: true }).click();
     await first.getByRole('button', { name: 'Add Category', exact: true }).click();
     await first.getByLabel('Name', { exact: true }).fill('Initial core list');
     await first.getByRole('button', { name: 'Add Category', exact: true }).click();
@@ -200,7 +200,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     // hooks as task edits and must converge on the second device too.
     await first.getByRole('button', { name: 'Home', exact: true }).click();
     await first.getByRole('button', { name: 'Open menu' }).click();
-    await first.getByRole('button', { name: 'Lists & Categories' }).click();
+    await first.getByRole('button', { name: 'Categories', exact: true }).click();
     await first.getByRole('button', { name: 'Add Category', exact: true }).click();
     await first.getByLabel('Name', { exact: true }).fill('Second core list');
     await first.getByRole('button', { name: 'Add Category', exact: true }).click();
@@ -224,7 +224,7 @@ test('real Mosaic UI: signed fresh owner, categories/tasks, offline replay and s
     await second.evaluate(() => window.dispatchEvent(new Event('online')));
     await second.getByRole('button', { name: 'Home', exact: true }).click();
     await second.getByRole('button', { name: 'Open menu' }).click();
-    await second.getByRole('button', { name: 'Lists & Categories' }).click();
+    await second.getByRole('button', { name: 'Categories', exact: true }).click();
     await expect(second.getByRole('listitem').filter({ hasText: 'Second core list' }))
       .toBeVisible({ timeout: 20_000 });
     await expect.poll(async () => {
@@ -473,7 +473,7 @@ test('offline cold start: durable edits, simultaneous tab rotation and logout is
     });
     await signIn(first, owner);
     await first.getByRole('button', { name: 'Open menu' }).click();
-    await first.getByRole('button', { name: 'Lists & Categories' }).click();
+    await first.getByRole('button', { name: 'Categories', exact: true }).click();
     await first.getByRole('button', { name: 'Add Category', exact: true }).click();
     await first.getByLabel('Name', { exact: true }).fill('Offline restart list');
     await first.getByRole('button', { name: 'Add Category', exact: true }).click();
@@ -612,7 +612,7 @@ test('real expired JWT: offline edits survive a failed refresh and signed retry'
     expect(grant.expires_in).toBeLessThanOrEqual(60);
     expect((await api('/auth/v1/user', oldToken)).status).toBe(200);
     await page.getByRole('button', { name: 'Open menu' }).click();
-    await page.getByRole('button', { name: 'Lists & Categories' }).click();
+    await page.getByRole('button', { name: 'Categories', exact: true }).click();
     await page.getByRole('button', { name: 'Add Category', exact: true }).click();
     await page.getByLabel('Name', { exact: true }).fill('Expiry recovery list');
     await page.getByRole('button', { name: 'Add Category', exact: true }).click();
@@ -715,7 +715,7 @@ test('lost write acknowledgement: preserve offline draft and review changing clo
     });
     await signIn(page, owner);
     await page.getByRole('button', { name: 'Open menu' }).click();
-    await page.getByRole('button', { name: 'Lists & Categories' }).click();
+    await page.getByRole('button', { name: 'Categories', exact: true }).click();
     await page.getByRole('button', { name: 'Add Category', exact: true }).click();
     await page.getByLabel('Name', { exact: true }).fill('Conflict review list');
     await page.getByRole('button', { name: 'Add Category', exact: true }).click();
