@@ -14,6 +14,6 @@ Current task: #1027 / #1029 reconcile latest dev personal UI into isolated Supab
 - Read-only Supabase project inspection 2026-10-23 shows no hosted Diary table/migration. Never change build flag alone; independently encrypted snapshot and isolated restore, reviewed hosted additive migrations, signed two-owner/RLS/diary/offline CI, then protected READY must pass before UI Diary can be enabled.
 - Hosted advisor warns four private-schema tables lack RLS; separate privilege grants previously verified deny anon/auth schema/table access. Do not silently grant public access or apply unreviewed fixes.
 
-## Verification / next action
+## Next action
 - Review scoped graft diff from dev, feature-specific bridge files and v0.44.1 stamp, then task focused CI; repair diagnostics. After green, squash only to isolated feature, run full four canonical exact-SHA tests and protected reviewer-approved immutable Preview.
 - User will test representative mobile/calendar/dayview/Diary + two-device sync AFTER verified Preview. No actual Appwrite↔Supabase data cutover; historical Appwrite source/old-PWA writer cutoff not ready.
