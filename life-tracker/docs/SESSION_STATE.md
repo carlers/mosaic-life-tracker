@@ -1,19 +1,19 @@
 # Session checkpoint
-Updated: 2026-10-22 Asia/Manila
-Current task: #1245 v0.43.7 nested-sheet prop-stability Preview repair for cross-day drag.
+Updated: 2026-10-23 Asia/Manila
+Current task: #1245 opt-in nested-sheet performance measurement accuracy, following accepted v0.43.7 canonical CI.
 
-## Accepted baseline and candidate
-- `dev@fcfd860c3bc4d975ab62ac5b6523ad3b206c03f6` v0.43.6 is the prior owner-accepted baseline. `main@c938c825370f8270b46f19119b06a1f74d35842b` unchanged.
-- v0.43.7 task #1258 `7f22b34e652245b8393b5936bcf695c308f6bba4` focused and both browser shards passed on CI attempt 2. Squashed to stable Preview `perf/1245-day-slide-prop-stability-v0437-20261022@9d9657694de0e0e46bb3719362483503fc3d7107` with identical tree.
-- Stable canonical Quality Gate #39808662909 failed one browser shard on cross-day held touch drag; all static, build, audit, DOM, and other browser tests passed. Do NOT treat this SHA as accepted or deployed.
+## Verified baseline
+- `dev@fcfd860c3bc4d975ab62ac5b6523ad3b206c03f6` v0.43.6 includes the owner-approved nested-sheet jitter fixes; `main@c938c825370f8270b46f19119b06a1f74d35842b` unchanged.
+- Repaired stable `perf/1245-day-slide-prop-stability-v0437-20261022@8bfb96128eb919798150723a8cbf8fc838125242` v0.43.7 passed canonical Quality Gate #39811764621, including browser gesture/drag tests; PR #1260 removed the unsafe Diary memo adapter after an observed held cross-day drag regression.
+- Trusted Preview Delivery #39812355460 attempt 3 **FAILED**: trusted receiver succeeded, but protected prebuilt deploy rejected latest exact-SHA CI/branch evidence. Vercel has no exact-SHA v0.43.7 READY deployment. Do not claim READY until trusted receiver, deploy and Vercel exact SHA are verified. Issue #1262 tracks receiver API failures.
 
-## Root cause isolation (disposable Ubuntu/Chromium sandbox)
-- The cross-day destination insertion test timed out intermittently on the v0.43.7 candidate; two targeted diagnostic repetitions at 60s also hung after beginning the move back from the day-edge into destination rows. The same exact instrumented test on untouched dev v0.43.6 passed in ~9s.
-- Reverting ONLY the new `DaySlideWithDiaryPlacement` memo wrapper to direct `DaySlide` with original inline `normalizeDiaryPlacement` / `onMoveDiary` made the previously failing targeted test pass. Three more repeated runs passed, all without changing the gesture test or release timeout. Memo wrapper breaks live cross-day projection in this code path.
-- Keep the safe v0.43.7 changes: timestamp-display memoization keyed by real preferences, stable empty owner label map, shared-task callback identity, and reorder-active callback identity. Remove the memo wrapper and its unit test, and update the generated component index. Per-date Diary placement references remain intentionally unoptimized pending a drag-safe design.
-- Retain the opt-in 50/200-task real Day View Memo/Task Actions/Add Photo profiler. Earlier synthetic dev-mode timings were mixed/noisy; do not claim a numerical speedup.
+## Measurement correction
+- Opt-in `tests/e2e/performance-probe.spec.mjs` recorded `reactProfile` **before** waiting for its full 700 ms animation sample. Move the snapshot after the 750 ms observation wait to include delayed commits.
+- Preserve the input-action long-animation-frame metric and separately report 700 ms animation-window LoAF count/maximum; include React commit timestamps. Existing Event Timing observer already disconnects correctly.
+- Measure standalone Task Actions close/reopen separately from the Add Photo transfer (which also closes Task Actions), so exit and overlapping transitions are not conflated.
+- Diagnostic-only change; no Day View/BottomSheet runtime behavior, version bump, provider/backend, or CI thresholds. No performance gain or physical-device result is claimed.
 
-## Delivery
-- Repair task branch `chatgpt/1245-v0437-cross-day-drag-compatibility-20261022` starts from rejected stable SHA `9d965769`; target the same existing stable Preview branch through normal focused [verify:browser] then squash.
-- Version remains v0.43.7: this fixes an unaccepted candidate, not a new successful user-facing version.
-- Require full canonical quality gate and exact-SHA Vercel READY before calling the stable Preview accepted; no direct `dev`/main/Production promotion. Keep #1245 OPEN for manual phone verification and further benchmarks.
+## Delivery and next action
+- Task branch `chatgpt/1245-perf-probe-animation-window-20261023` based on accepted stable `8bfb961`, with `[verify:focused]` for scoped checks. Its first two meaningful commits produced **no Quality Gate run or check-runs** despite workflow push filters; no focused CI result can be claimed.
+- After focused green, squash into the existing stable Preview, obtain new full canonical acceptance, trusted exact-SHA Vercel READY, and only then perform matched synthetic/mobile measurements before any rendering optimization.
+- Do not promote to dev/main or alter Production without separate approval. Keep #1245 open.
