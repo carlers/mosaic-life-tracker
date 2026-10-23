@@ -1,22 +1,30 @@
 # Session checkpoint
+Updated: 2026-10-23 Asia/Manila
+Current task: #1276 UI release candidate from dev to main; reconcile main-only CI trust history first.
 
-Updated: 2026-10-20 UTC
-Current task: #1047 — main-only trusted CI-first Preview deployment title metadata.
+## Release preparation (2026-10-23)
+- Owner explicitly requested dev→main user-visible UI rollout now while Supabase remains isolated and Appwrite is reportedly unavailable. This is approval to prepare the protected promotion, **not evidence of healthy backend sync, passing gates, or data safety**.
+- Protected source refs at review: dev `ebc8614f379dcd7934316cd5c299d40ceae75e16` (0.43.8) and main `c938c825370f8270b46f19119b06a1f74d35842b` (0.29.1); branches diverge. Main has four unique trusted PREBUILT script/test edits and this checkpoint, so PR #1276 is initially unmergeable.
+- Isolated two-parent ancestry reconciliation candidate must take dev as first parent, main as second, retain dev application source and 0.43.8, take all four main-only trusted writer/contract/test blobs verbatim, and resolve this checkpoint deliberately. No Appwrite/Supabase schema, Function, credentials, user data, Production deployment or protected ref change is part of this candidate.
+- Verify exact candidate source diff, run full stable Preview canonical and trusted Preview deployment; only then promote via protected PR to dev with policy checks. Recheck dev→main PR #1276 after integration; release may proceed only if the normal CI, backend/data-compatibility, Production acceptance and publishing gates are actually met. Do not bypass gates because Appwrite is unavailable, substitute Supabase or tag 1.0.0.
+- Existing #1245 drag optimization work and manual device acceptance remain independently tracked below.
 
-## Boundary
-- Parent/source is protected Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` (v0.29.1); this is a **draft proposal branch only**.
-- Version impact NONE. No application files, Appwrite, Production deployment, alias, Git integration settings, runtime feature flags or workflow configuration changed.
-- Approved stable Preview source is `refactor/ci-first-preview-commit-titles-1047@f81e13cbef9b7588eb16b0f3497ca77cc1e40ba6`; canonical full CI and Vercel acceptance must be verified separately.
-- NO main merge/Production operation without separately explicit owner-approved narrow workflow exception and all repository release/provenance gates.
+## Previous task checkpoint — #1245
 
-## Proposed changes
-- Only protected writer + its pure Vercel contract and two regression test modules, using content proven identical on original dev and main.
-- Exact accepted GitHub SHA commit metadata is passed via CLI to improve dashboard labels; no rebuilds, routes, extra files, aliases, provider project changes, or version updates.
+Updated: 2026-10-23 Asia/Manila
+Current task: #1245 follow-up: stabilize task drag sensor configuration through nested bottom-sheet renders (v0.43.8 candidate).
 
-## Verification
-- Integrated dev feature task commit `7fc32d2d2c5aebbb1122d65aea6443f870699a16` focused CI #39296476373 SUCCESS.
-- Stable Preview commit `f81e13cbef9b7588eb16b0f3497ca77cc1e40ba6` under full canonical acceptance; do not assert success until checked.
-- This main-only draft has no Production effect. Runtime Vercel dashboard label remains unverified until a new Preview uses the amended protected writer.
+## Verified baseline and authorization
+- Stable `perf/1245-day-slide-prop-stability-v0437-20261022@6d14c5b1d50b0aff41a5a8b734a424849034de1d` (v0.43.7) passed exact-SHA canonical Quality Gate #39883528760 (attempt 3) and trusted Preview Delivery #39884574463. Vercel deployment `dpl_Bsbx9aLPKtpw2s6B2MF9HJzxb9vX` is READY; authenticated Scratch user/device testing has not been performed.
+- The diagnostic-only profiling fixes (React commit window, LoAF separation, Task Actions close/reopen) were merged with PR #1265. No quantitative responsiveness gain has been measured.
+- `dev@fcfd860c3bc4d975ab62ac5b6523ad3b206c03f6` remains v0.43.6, and `main@c938c825370f8270b46f19119b06a1f74d35842b` is unchanged. No protected promotion is authorized.
 
-## Next action
-- Verify this task's focused checks; review its four-file diff and exact main parent. Require owner approval for an exceptional narrowly scoped protected-main PR merge that is **not** dev/main app promotion. After approved deployment, inspect first new trusted Preview's exact provider metadata/dashboard title and close #1047 only on confirmed acceptance.
+## Scoped v0.43.8 refinement
+- Task branch `chatgpt/1245-stable-reorder-sensors-v0438-20261023` starts from stable `6d14c5b`. In `TaskReorderRuntime.tsx`, hoist the pure `DragDropProvider.sensors` factory so nested overlay rerenders no longer allocate a distinct factory reference; retain identical pointer delay/tolerance, filtering of built-in sensors, keyboard sensor, and drag lifecycle.
+- Bump the Preview candidate version to 0.43.8 in the three canonical source files; no schema, network, sync, focus, sheet geometry, or animation settings changes.
+- This is a code-identity optimization hypothesis, **not** a proven latency improvement. Avoid broad memoization of DaySlide/Diary (previous v0.43.7 unsafe memo broke held cross-day drag). Issue #1245 stays OPEN.
+
+## Verification and next step
+- Review exact diff; run focused source/build checks on a committed `[verify:focused]` task checkpoint, then squash to stable Preview only if green. Complete new full canonical gate and trusted Vercel exact-SHA READY. Explicitly inspect existing held native-touch/mouse cross-day drag, category reorder and nested sheet browser contracts. Keep the accepted old v0.43.7 Preview as fallback.
+- Require physical-device comparison before claiming subjective smoothness. The unrelated intermittent left split-panel month alignment failure in previous canonical attempt 1 is tracked on #404; a retry passed.
+- Do not merge to `dev`/`main`, modify Production, or relax tests/security gates without explicit approval.

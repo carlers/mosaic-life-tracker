@@ -1,3 +1,4 @@
+const DayLayoutMenu = React.lazy(() => import('../home/views/DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
 import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
@@ -60,7 +61,7 @@ interface FriendDayViewSheetProps {
   currentUserId: string;
   onReplyToTask?: (task: TaskDocument, categoryColor: string) => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
-  renderMode?: 'sheet' | 'inline';
+  renderMode?: 'sheet' | 'inline' | 'panel';
   holidayConfig?: HolidayDisplayConfig;
   focusTaskId?: string;
   emptyMessage?: string;
@@ -445,9 +446,9 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
   const content = (
     <Swiper
       // Same 181 logical dates as owner Day View, only nearby DOM slides.
-      modules={renderMode === 'sheet' ? [Virtual] : undefined}
-      virtual={renderMode === 'sheet' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
-      nested={renderMode === 'inline'}
+      modules={renderMode !== 'inline' ? [Virtual] : undefined}
+      virtual={renderMode !== 'inline' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
+      nested={renderMode !== 'sheet'}
       noSwiping={renderMode === 'sheet'}
       touchStartPreventDefault={false}
       touchMoveStopPropagation={false}
@@ -460,12 +461,12 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         renderMode === 'sheet' ? 'true' : undefined
       }
       className={`min-w-0 w-full max-w-full overflow-hidden ${
-        renderMode === 'sheet' ? 'flex-1' : ''
+        renderMode !== 'inline' ? 'flex-1' : ''
       }`}
       style={{
         width: '100%',
         maxWidth: '100%',
-        height: renderMode === 'sheet' ? '100%' : 'auto',
+        height: renderMode !== 'inline' ? '100%' : 'auto',
         touchAction: 'pan-y',
       }}
     >
@@ -478,11 +479,11 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
           <SwiperSlide
             key={slideDate.toISOString()}
             virtualIndex={index}
-            style={{ height: renderMode === 'sheet' ? '100%' : 'auto' }}
+            style={{ height: renderMode !== 'inline' ? '100%' : 'auto' }}
           >
             <div
               className={
-                renderMode === 'sheet'
+                renderMode !== 'inline'
                   ? 'flex h-full min-h-0 w-full min-w-0 flex-col'
                   : 'w-full min-w-0'
               }
@@ -500,11 +501,12 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                   <ChevronLeft size={20} />
                 </button>
                 <h3
-                  className="min-w-0 flex-1 text-center text-base font-semibold text-white"
+                  className="mosaic-date-header min-w-0 flex-1 text-center text-base font-semibold text-white"
                   aria-live={index === activeIndex ? 'polite' : undefined}
                 >
                   {format(slideDate, 'EEEE, MMMM d, yyyy')}
                 </h3>
+                {index === activeIndex && <React.Suspense fallback={null}><DayLayoutMenu /></React.Suspense>}
                 <button
                   type="button"
                   onClick={handleNextDay}
@@ -537,7 +539,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
                   onReactToTask={onReactToTask}
                   onOpenReactions={setReactionTask}
                   onViewImage={handleViewImage}
-                  scrollMode={renderMode === 'sheet' ? 'contained' : 'page'}
+                  scrollMode={renderMode !== 'inline' ? 'contained' : 'page'}
                   focusTaskId={focusTaskId}
                   emptyMessage={emptyMessage}
                 />
@@ -549,6 +551,38 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
     </Swiper>
   );
 
+  const containedContent = (
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="flex shrink-0 items-center gap-2 px-4 py-2">
+            <button
+              type="button"
+              onClick={handlePrevDay}
+              className="rounded-lg p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              aria-label="Previous day"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <h3
+              data-bottom-sheet-drag-handle={renderMode === 'sheet' ? 'true' : undefined}
+              className="mosaic-date-header flex min-h-10 flex-1 cursor-grab touch-none select-none items-center justify-center text-center text-base font-semibold text-white active:cursor-grabbing"
+              aria-live="polite"
+            >
+              {format(date, 'EEEE, MMMM d, yyyy')}
+            </h3>
+            {renderMode !== 'panel' && <React.Suspense fallback={null}><DayLayoutMenu /></React.Suspense>}
+            <button
+              type="button"
+              onClick={handleNextDay}
+              className="rounded-lg p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              aria-label="Next day"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+          {content}
+        </div>
+  );
+
   const surface =
     renderMode === 'inline' ? (
       <div
@@ -557,6 +591,8 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
       >
         {content}
       </div>
+    ) : renderMode === 'panel' ? (
+      containedContent
     ) : (
       <BottomSheet
         isOpen={isOpen}
@@ -569,34 +605,7 @@ export const FriendDayViewSheet: React.FC<FriendDayViewSheetProps> = ({
         contentMode="fixed"
         onHorizontalSwipe={handleSheetHorizontalSwipe}
       >
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="flex shrink-0 items-center gap-2 px-4 py-2">
-            <button
-              type="button"
-              onClick={handlePrevDay}
-              className="rounded-lg p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-              aria-label="Previous day"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <h3
-              data-bottom-sheet-drag-handle="true"
-              className="flex min-h-10 flex-1 cursor-grab touch-none select-none items-center justify-center text-center text-base font-semibold text-white active:cursor-grabbing"
-              aria-live="polite"
-            >
-              {format(date, 'EEEE, MMMM d, yyyy')}
-            </h3>
-            <button
-              type="button"
-              onClick={handleNextDay}
-              className="rounded-lg p-2 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-              aria-label="Next day"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-          {content}
-        </div>
+        {containedContent}
       </BottomSheet>
     );
 

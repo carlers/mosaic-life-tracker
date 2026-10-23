@@ -12,6 +12,7 @@ import { DiaryPhotoGallery } from './DiaryPhotoGallery';
 import type { DiaryDocument } from '../../../db/schema';
 import { diaryMarker } from '../../../lib/diaryMarker';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { MosaicSelect } from '../../ui/MosaicSelect';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 
 const CHOICES = ['😀','🥰','😌','😢','😴','😎','🥳','😤','❤️','🌞','🌙','🌧️','🌸','🍀','⭐','💪','📖','🎉','💭','🏆','🧘','🤍','✨','🫶'];
@@ -21,6 +22,9 @@ interface DiaryEntrySheetProps {
   entry?: DiaryDocument & { reactions?: string };
   author: string;
   onClose: () => void;
+  /** Keep the rendered entry through BottomSheet exit rather than unmounting the portal. */
+  isOpen: boolean;
+  onExitComplete?: () => void;
   onSave?: (date: string, content: string, visibility: DiaryDocument['visibility'], emoji: string, photos: string) => Promise<void>;
   onDelete?: (date: string) => Promise<void>;
   friendUserId?: string;
@@ -31,7 +35,8 @@ interface DiaryEntrySheetProps {
 
 /** Read-only for friends; local-first editing for the signed-in owner. */
 export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
-  date, entry, author, onClose, onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
+  date, entry, author, onClose, isOpen, onExitComplete,
+  onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
 }) => {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,7 +120,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const dayLabel = format(parseISO(date), 'EEEE, MMMM d, yyyy');
   return (
     <>
-      <BottomSheet isOpen onClose={close} title="Diary" height={editing ? 'full' : 'auto'}
+      <BottomSheet isOpen={isOpen} onExitComplete={onExitComplete} onClose={close} title="Diary" height={editing ? 'full' : 'auto'}
         isLocked={busy || !!confirm} preventDismiss={busy || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}>
         <div className={editing ? 'flex min-h-0 flex-1 flex-col px-5 pb-5' : 'px-5 pb-8'} data-testid="diary-entry-sheet">
           <div className="flex items-center justify-between gap-3 py-3">
@@ -151,12 +156,16 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
               )}
               <div className="my-4 flex items-center gap-2">
                 <span className="text-sm text-gray-400">Visibility</span>
-                <select aria-label="Diary visibility" value={visibility} onChange={e => setVisibility(e.target.value as DiaryDocument['visibility'])}
-                  className="rounded-lg bg-surfaceHighlight p-2 text-white">
-                  <option value="private">Private</option>
-                  <option value="followers">Friends</option>
-                  <option value="public">Public</option>
-                </select>
+                <MosaicSelect
+                  label="Diary visibility"
+                  value={visibility}
+                  onChange={value => setVisibility(value as DiaryDocument['visibility'])}
+                  options={[
+                    { value: 'private', label: 'Private' },
+                    { value: 'followers', label: 'Friends' },
+                    { value: 'public', label: 'Public' },
+                  ]}
+                />
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                 aria-label="Choose diary photos" onChange={e => void uploadPhotos(e.target.files)}/>
@@ -205,9 +214,9 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
           {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         </div>
       </BottomSheet>
-      <EmojiPickerSheet isOpen={reactionsOpen} onClose={() => setReactionsOpen(false)}
+      <EmojiPickerSheet isOpen={isOpen && reactionsOpen} onClose={() => setReactionsOpen(false)}
         onPick={emoji => void toggleReaction(emoji)} />
-      {replyOpen && <BottomSheet isOpen onClose={() => setReplyOpen(false)} title={`Reply to ${author}`} height="auto">
+      <BottomSheet isOpen={isOpen && replyOpen} onClose={() => setReplyOpen(false)} title={`Reply to ${author}`} height="auto">
         <div className="px-4 pb-8 pt-3">
           <p className="mb-3 text-sm text-gray-400">Reply privately about the diary from {date}.</p>
           <textarea aria-label="Diary reply" value={replyText} onChange={e => setReplyText(e.target.value)}
@@ -215,7 +224,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
           <button type="button" disabled={busy || !replyText.trim()} onClick={() => void sendReply()}
             className="mt-3 w-full rounded-lg bg-surfaceHighlight py-3 font-semibold disabled:opacity-40">Send reply</button>
         </div>
-      </BottomSheet>}
+      </BottomSheet>
       <ConfirmSheet isOpen={confirm !== null} onClose={() => setConfirm(null)}
         title={confirm === 'delete' ? 'Delete diary?' : 'Discard changes?'}
         message={confirm === 'delete' ? 'This diary entry will be deleted.' : 'Your unsaved diary changes will be lost.'}

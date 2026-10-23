@@ -34,7 +34,7 @@ const SOCIAL_FAILURE_MESSAGES: Partial<Record<SocialOutboxAction, string>> = {
 const ExploreLoadingShell: React.FC = () => (
   <div className="min-h-full" role="status">
     <div className="sticky top-0 border-b border-[#333333] bg-[#111111] px-4 py-3">
-      <h1 className="text-lg font-bold text-white">Explore</h1>
+      <h1 className="mosaic-general-text text-lg font-bold text-white">Explore</h1>
     </div>
     <div className="space-y-3 px-4 pt-4">
       <div className="h-11 rounded-xl bg-[#1A1A1A]" />
@@ -170,8 +170,8 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         <div className="w-16 h-16 bg-[#1E1E1E] rounded-full flex items-center justify-center mb-4 border border-[#333333]">
           <Users size={28} className="text-gray-400" />
         </div>
-        <h2 className="text-lg font-bold text-white mb-2">Set up your profile</h2>
-        <p className="text-sm text-gray-400 mb-6 max-w-xs">
+        <h2 className="mosaic-general-text text-lg font-bold text-white mb-2">Set up your profile</h2>
+        <p className="mosaic-general-text text-sm text-gray-400 mb-6 max-w-xs">
           Pick a username so friends can find and add you.
         </p>
         <motion.button
@@ -188,7 +188,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   return (
     <div className="flex min-h-full flex-col">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
-        <h1 className="text-lg font-bold text-white">Explore</h1>
+        <h1 className="mosaic-general-text text-lg font-bold text-white">Explore</h1>
       </div>
 
       <div className="flex-1 pb-24 px-4 pt-4 space-y-6">
@@ -214,7 +214,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
         {visibleResults.length > 0 && (
           <section className="space-y-2">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+            <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
               Search results
             </h2>
             {visibleResults.map((p) => (
@@ -239,7 +239,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           <section className="space-y-2">
             <div className="flex items-center gap-2 px-1">
               <Inbox size={14} className="text-gray-400" />
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 Incoming requests ({incomingRequests.length})
               </h2>
             </div>
@@ -262,7 +262,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
 
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+          <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
             My friends ({friends.length})
           </h2>
           {friendsLoading ? (
@@ -286,7 +286,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
         {outgoingRequests.length > 0 && (
           <section className="space-y-2">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+            <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
               Sent requests ({outgoingRequests.length})
             </h2>
             {outgoingRequests.map((r) => (
@@ -300,7 +300,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         )}
 
         <section className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-1">Your username</p>
+          <p className="mosaic-general-text text-xs text-gray-400 mb-1">Your username</p>
           <div className="flex items-center gap-2">
             <p className="text-base font-bold text-white flex-1 truncate">
               @{myUsername}

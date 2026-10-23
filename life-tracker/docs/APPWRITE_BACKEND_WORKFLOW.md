@@ -68,16 +68,24 @@ the production build unless the Preview project ID and region endpoint match
 the configured scratch target. This check is build-time, and direct links
 to a prior deployment still contain the endpoint compiled at the time.
 
-The scratch project must explicitly register the stable Vercel Preview
-hostname under Appwrite Web platforms (no wildcard production host grant).
-Vercel's unique immutable deployment hostname changes on every build;
-Appwrite does **not** register it just because a branch alias is allowed.
-Use the stable branch alias from Vercel's deployment alias list for
-authenticated Preview links. If an immutable deployment hostname is needed,
-register that precise hostname separately on scratch. Before asserting login
-works, compare the Vercel Preview URL hostname with the live Appwrite
-project's Web-platform allowlist. An unregistered origin commonly surfaces
-as a generic browser "Failed to fetch" instead of an Appwrite login error.
+The Scratch project must allow the selected Vercel Preview hostname
+through its live Appwrite Web platforms, **either as an exact host or under an
+already registered matching wildcard**. Scratch currently registers
+`*.vercel.app` intentionally; it covers one-level `name.vercel.app`
+Preview/immutable deployment hosts, so no extra platform registration is
+needed for them. Confirm the actual hostname matches the wildcard depth.
+This is a deliberately broad disposable-Scratch allowance, **not** permission
+to register `*.vercel.app` on Production; exact Production origins remain
+preferred. Vercel's unique immutable deployment hostname changes on every
+build. Use the stable branch alias from Vercel's deployment alias list for
+authenticated Preview links, or an immutable host covered by the verified
+allowlist. Do not reconfigure or retire another team's Scratch Web platform
+just to work around a redundant platform-quota rejection.
+
+Before asserting login works, compare the actual Preview URL hostname with
+the live Scratch Web-platform allowlist. An origin outside the allowlist
+commonly surfaces as a generic browser "Failed to fetch" error rather than
+an Appwrite login error.
 A web server returning HTTP 200 for `/login` only tests Vercel delivery;
 it does not validate cross-origin `/v1/account/sessions/email` requests.
 A final browser login still needs real-user/device acceptance; a read-only

@@ -13,9 +13,12 @@ export interface DiaryReference {
 }
 
 /** Mounted only when a quote is opened; every remote read rechecks friend authorization. */
-export const DiaryReferenceSheet: React.FC<{ reference: DiaryReference; onClose: () => void }> = ({
-  reference, onClose,
-}) => {
+export const DiaryReferenceSheet: React.FC<{
+  reference: DiaryReference;
+  isOpen: boolean;
+  onClose: () => void;
+  onExitComplete?: () => void;
+}> = ({ reference, isOpen, onClose, onExitComplete }) => {
   const { user } = useAuth();
   const userId = user?.$id ?? '';
   const isOwner = userId === reference.ownerId;
@@ -23,7 +26,7 @@ export const DiaryReferenceSheet: React.FC<{ reference: DiaryReference; onClose:
   const [remote, setRemote] = useState<{ status: 'loading' | 'available' | 'unavailable'; entry?: FriendDiaryDocument }>({ status: 'loading' });
 
   useEffect(() => {
-    if (!userId || isOwner) return;
+    if (!isOpen || !userId || isOwner) return;
     let current = true;
     fetchFriendDiaryMonth(userId, reference.ownerId, reference.date.slice(0, 7))
       .then(entries => {
@@ -33,20 +36,22 @@ export const DiaryReferenceSheet: React.FC<{ reference: DiaryReference; onClose:
       })
       .catch(() => { if (current) setRemote({ status: 'unavailable' }); });
     return () => { current = false; };
-  }, [userId, isOwner, reference.id, reference.ownerId, reference.date]);
+  }, [isOpen, userId, isOwner, reference.id, reference.ownerId, reference.date]);
 
   const ownedEntry = isOwner ? getEntryByDate(reference.date) : undefined;
   const entry = isOwner
     ? ownedEntry?.id === reference.id ? ownedEntry : undefined
     : remote.status === 'available' ? remote.entry : undefined;
   if (entry && userId) {
-    return <DiaryEntrySheet date={reference.date} entry={entry}
+    return <DiaryEntrySheet isOpen={isOpen} onExitComplete={onExitComplete}
+      date={reference.date} entry={entry}
       author={isOwner ? 'Me' : 'Friend'}
       friendUserId={isOwner ? undefined : reference.ownerId}
       onClose={onClose} />;
   }
   const loading = Boolean(userId && (isOwner ? ownerLoading : remote.status === 'loading'));
-  return <BottomSheet isOpen onClose={onClose} title="Diary entry" height="auto">
+  return <BottomSheet isOpen={isOpen} onExitComplete={onExitComplete}
+    onClose={onClose} title="Diary entry" height="auto">
     <div className="px-5 pb-8 pt-4" role="status">
       {loading ? 'Loading diary…' : 'Diary entry unavailable or no longer shared.'}
     </div>

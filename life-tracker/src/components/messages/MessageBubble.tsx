@@ -16,7 +16,7 @@ import { PackStickerImage } from './PackStickerImage';
 import { giphyStickerSummary, parseGiphyStickerMessage } from '../../lib/giphyStickers';
 import { GiphyStickerImage } from './GiphyStickerImage';
 
-export type MessageStatusKind = 'pending' | 'delivered' | 'read';
+export type MessageStatusKind = 'pending' | 'delivered' | 'read' | 'not-sent';
 
 interface MessageBubbleProps {
   message: MessageDocument;
@@ -26,6 +26,7 @@ interface MessageBubbleProps {
   reducedMotion?: boolean;
   showTimestamp?: boolean;
   statusKind?: MessageStatusKind;
+  onRetrySend?: (messageId: string) => void;
   resolveSenderName?: (senderId: string) => string;
   onLongPress?: (message: MessageDocument) => void;
   onQuoteTap?: (targetMessageId: string) => void;
@@ -59,6 +60,7 @@ function buildBubbleLabel(
 
 interface StatusRowProps {
   statusKind?: MessageStatusKind;
+  onRetrySend?: () => void;
   showTimestamp?: boolean;
   readAt: string;
   createdAt: string;
@@ -66,6 +68,7 @@ interface StatusRowProps {
 
 const StatusRow: React.FC<StatusRowProps> = ({
   statusKind,
+  onRetrySend,
   showTimestamp,
   readAt,
   createdAt,
@@ -81,6 +84,19 @@ const StatusRow: React.FC<StatusRowProps> = ({
         <>
           <CheckCheck size={12} />
           <span>Delivered</span>
+        </>
+      ) : statusKind === 'not-sent' ? (
+        <>
+          <Ban size={12} />
+          <span role="status">Not sent</span>
+          {onRetrySend && (
+            <button type="button" aria-label="Retry sending"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => { event.stopPropagation(); onRetrySend(); }}
+              className="ml-1 underline underline-offset-2 focus-visible:outline focus-visible:outline-2">
+              Retry
+            </button>
+          )}
         </>
       ) : statusKind === 'pending' ? (
         <>
@@ -122,6 +138,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   reducedMotion = false,
   showTimestamp,
   statusKind,
+  onRetrySend,
   resolveSenderName,
   onLongPress,
   onQuoteTap,
@@ -290,6 +307,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           {statusRow && (
             <StatusRow
               statusKind={statusKind}
+              onRetrySend={onRetrySend ? () => onRetrySend(message.id) : undefined}
               showTimestamp={showTimestampLocal || showTimestamp}
               readAt={message.readAt}
               createdAt={message.createdAt}
@@ -321,6 +339,7 @@ export const MessageBubble = React.memo(
       prev.message.deliveryStatus === next.message.deliveryStatus &&
       prev.message.isUnsent === next.message.isUnsent &&
       prev.statusKind === next.statusKind &&
+      prev.onRetrySend === next.onRetrySend &&
       prev.showTimestamp === next.showTimestamp &&
       prev.isOutgoing === next.isOutgoing &&
       prev.gesturesDisabled === next.gesturesDisabled &&

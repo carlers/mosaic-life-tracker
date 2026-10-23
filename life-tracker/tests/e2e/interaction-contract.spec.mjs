@@ -91,6 +91,8 @@ async function startTaskLongPress(page, locator, holdMs = 550) {
   const session = await page.context().newCDPSession(page);
   const startX = box.x + box.width * 0.5;
   const startY = box.y + box.height * 0.5;
+  let currentX = startX;
+  let currentY = startY;
 
   await session.send('Input.dispatchTouchEvent', {
     type: 'touchStart',
@@ -103,15 +105,21 @@ async function startTaskLongPress(page, locator, holdMs = 550) {
     startX,
     startY,
     moveTo: async (x, y) => {
+      // A held finger continues from its LAST location. Restarting every
+      // segment at touchStart made reversals artificially jump across days.
+      const fromX = currentX;
+      const fromY = currentY;
       for (let step = 1; step <= 5; step += 1) {
         await session.send('Input.dispatchTouchEvent', {
           type: 'touchMove',
           touchPoints: [{
-            x: startX + ((x - startX) * step) / 5,
-            y: startY + ((y - startY) * step) / 5,
+            x: fromX + ((x - fromX) * step) / 5,
+            y: fromY + ((y - fromY) * step) / 5,
           }],
         });
       }
+      currentX = x;
+      currentY = y;
     },
     finish: () => session.send('Input.dispatchTouchEvent', {
       type: 'touchEnd',
@@ -438,6 +446,34 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
   await expect(friendIndex).toHaveText('1');
 });
 
+// Geometry regression for optional pinned headings: CSS sticky alone fails
+// when the weekday row is nested inside the horizontal zoom scroller.
+test('sticky Calendar weekdays stay pinned and aligned at 3-day zoom', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?stickyCalendar=3&perf=heavy`);
+  const region = page.getByTestId('calendar-region');
+  const activeSlide = region.locator('[data-calendar-slide-index="30"]');
+  const grid = activeSlide.getByRole('grid');
+  const heading = grid.getByRole('columnheader', { name: 'Tuesday' });
+  const lane = activeSlide.getByRole('region', { name: 'Scrollable calendar weekdays' });
+  await expect(heading).toBeVisible();
+  const before = await heading.boundingBox();
+  if (!before) throw new Error('Missing sticky weekday heading');
+  await activeSlide.evaluate(node => { node.scrollTop = 150; });
+  expect(await activeSlide.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+  const after = await heading.boundingBox();
+  if (!after) throw new Error('Pinned heading disappeared after vertical scroll');
+  expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(2);
+
+  await lane.evaluate(node => { node.scrollLeft = 100; });
+  const firstWeekTuesday = grid.getByRole('gridcell').nth(2);
+  await expect.poll(async () => {
+    const label = await heading.boundingBox();
+    const day = await firstWeekTuesday.boundingBox();
+    if (!label || !day) return Infinity;
+    return Math.abs(label.x + label.width / 2 - day.x - day.width / 2);
+  }).toBeLessThanOrEqual(3);
+});
+
 test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const friendIndex = page.getByTestId('friend-index');
@@ -463,6 +499,45 @@ test('Calendar and Todo carousels own horizontal trackpad scrolling without movi
   await expect(page.getByTestId('todo-month')).toHaveText('October 2026');
   await expect(friendIndex).toHaveText('0');
 });
+
+// Regression #858: the compact Todo and Diary carousel must always render
+// the programmatically selected month, even on a distant Today jump or after
+// more month-arrow requests than the original finite 61-slide range.
+for (const markerMode of ['todo', 'diary']) {
+  test(`${markerMode} compact grid survives future Today reset and fast month arrows`, async ({ page }) => {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html${markerMode === 'diary' ? '?compactDiary=1' : ''}`);
+    const region = page.getByTestId('todo-calendar-region');
+    const month = page.getByTestId('todo-month');
+    const gridFor = (name) => region.getByRole('grid', {
+      name: `${name} todo calendar`,
+    });
+    await expect(month).toHaveText('September 2026');
+    await expect(gridFor('September 2026')).toBeVisible();
+
+    // Jump forward 72 months (beyond original 61 snaps), then reset.
+    await page.getByTestId('compact-jump-future').click();
+    await expect(month).toHaveText('September 2032');
+    await expect(gridFor('September 2032')).toBeVisible();
+    await expect(gridFor('September 2032').getByRole('gridcell').first()).toBeVisible();
+    await page.getByTestId('compact-reset-today').click();
+    await expect(month).toHaveText('September 2026');
+    await expect(gridFor('September 2026').getByRole('gridcell').first()).toBeVisible();
+
+    // Rapid header-arrow actions queue parent updates before Embla settles.
+    // The last month must win, with a real grid rather than blank placeholders.
+    await page.evaluate(() => {
+      const next = document.querySelector('[data-testid="compact-next-month"]');
+      if (!(next instanceof HTMLButtonElement)) throw Error('missing month arrow');
+      for (let i = 0; i < 68; i++) next.click();
+    });
+    await expect(month).toHaveText('May 2032');
+    await expect(gridFor('May 2032')).toBeVisible();
+    await expect(gridFor('May 2032').getByRole('gridcell').first()).toBeVisible();
+    await expect(region.getByRole('grid')).toHaveCount(1);
+    await page.getByTestId('compact-reset-today').click();
+    await expect(gridFor('September 2026').getByRole('gridcell').first()).toBeVisible();
+  });
+}
 
 // Regression: §2/§7 (Todo calendar owns direct-manipulation swipes).
 test('todo calendar follows the finger before snapping months', async ({ page }) => {
@@ -669,6 +744,35 @@ test('fresh task reorder runtime keeps legacy RxDocument-backed rows readable be
       )
     )
     .toBe(true);
+});
+
+// #858: offscreen row wrappers may omit inert dnd surfaces and Motion layout.
+// On the first scroll into view, the *real* task title must still respond to
+// long-press without an extra gesture, and cancellation must restore all rows.
+test('Todo distant task activates drag on first touch after scrolling and restores rows', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?rxdocs=legacy`);
+
+  const region = page.getByTestId('todo-day-content');
+  const rows = region.locator('[data-task-id]');
+  await expect(rows).toHaveCount(12);
+  const lastRow = rows.last();
+  const taskId = await lastRow.getAttribute('data-task-id');
+  if (!taskId) throw new Error('Missing far-row task identity');
+  await lastRow.scrollIntoViewIfNeeded();
+  const title = lastRow.locator('[data-day-swipe-through="true"]');
+  await expect(title).toBeVisible();
+
+  const gesture = await startTaskLongPress(page, title);
+  try {
+    await expect(page.locator(`[data-task-overlay-id="${taskId}"]`))
+      .toBeVisible();
+  } finally {
+    await gesture.cancel();
+  }
+  await expect(page.locator(`[data-task-overlay-id="${taskId}"]`))
+    .toHaveCount(0);
+  await expect(rows).toHaveCount(12);
+  await expect(lastRow).toBeVisible();
 });
 
 // Regression: owner task reorder is a simple delayed sortable interaction.
@@ -1531,6 +1635,337 @@ test('inactive adjacent Day View keeps category spacing when it becomes active',
   expect(Math.abs(spacingAfter - spacingBefore)).toBeLessThanOrEqual(1);
 });
 
+// #856: a held task must advance days instead of merely reordering inside
+// its source day. Pure edge detection tests cannot catch missing sensor wiring.
+test('long-held task at Day View edge advances repeatedly without releasing or showing blank days', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'CDP touch gestures require Chromium');
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View viewport');
+  const title = swiper.locator('.swiper-slide-active').getByRole('button', {
+    name: 'Task 1.1', exact: true,
+  });
+  await expect(title).toBeVisible();
+  await page.evaluate(() => {
+    window.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'touch') (window).__mosaicHeldTouchPointerId = event.pointerId;
+    }, { once: true, capture: true });
+  });
+  const gesture = await startTaskLongPress(page, title);
+  const rightEdge = bounds.x + bounds.width - 6;
+  const leftEdge = bounds.x + 6;
+  const middle = bounds.x + bounds.width / 2;
+  try {
+    await gesture.moveTo(rightEdge, gesture.startY);
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Wednesday, September 16, 2026', { timeout: 6500 },
+    );
+    const carried = page.locator('[data-cross-day-drag-overlay="true"]');
+    await expect(carried).toBeVisible();
+    // Some phones cancel the PointerEvent stream when Swiper replaces the
+    // original touched row. The same Touch identifier remains physically held
+    // and must keep the carried task alive through that pointercancel.
+    const liveTouchId = await page.evaluate(() => {
+      const touch = (window).__mosaicHeldTouchPointerId;
+      return typeof touch === 'number' ? touch : null;
+    });
+    if (liveTouchId !== null) {
+      await page.evaluate(id => {
+        window.dispatchEvent(new PointerEvent('pointercancel', {
+          pointerId: id, pointerType: 'touch', isPrimary: true, bubbles: true,
+        }));
+      }, liveTouchId);
+      await expect(carried).toBeVisible();
+    }
+    // The visual task must follow touch movement DURING a Swiper transition.
+    // Previously this position froze until settling, losing the finger.
+    const before = await carried.boundingBox();
+    if (!before) throw new Error('No carried task bounds');
+    await gesture.moveTo(rightEdge - 12, gesture.startY + 38);
+    await expect.poll(async () => (await carried.boundingBox())?.y ?? before.y)
+      .toBeGreaterThan(before.y + 22);
+    await expect(page.locator('[data-cross-day-insertion-gap="true"]')).toHaveCount(0);
+    await expect(page.getByTestId('cross-day-drag-status')).toHaveCount(0);
+    // Stationary finger must trigger another day after the cooldown.
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Thursday, September 17, 2026', { timeout: 6500 },
+    );
+    await gesture.moveTo(middle, gesture.startY + 38);
+    await page.waitForTimeout(1100);
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Thursday, September 17, 2026',
+    );
+    await gesture.moveTo(leftEdge, gesture.startY + 38);
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Wednesday, September 16, 2026', { timeout: 6500 },
+    );
+    await expect(dialog.locator('.swiper-slide-active [data-task-category-id]')).toHaveCount(5);
+  } finally {
+    await gesture.cancel();
+  }
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
+// #856: near-edge release must never leave the floating source alive or
+// let delayed edge timers swipe further. Test both release on the edge and
+// after moving inward into a populated category drop target.
+test('released touch task stops edge navigation and clears the overlay in both drop zones', async ({page, browserName}) => {
+  test.skip(browserName !== 'chromium', 'CDP touch requires Chromium');
+  for (const landing of ['edge', 'category']) {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&crossDayDestinations=1`);
+    await page.getByTestId('open-day-view-sheet').click();
+    const dialog = page.getByRole('dialog');
+    await waitForStableVerticalPosition(dialog);
+    const swiper = dialog.getByTestId('day-swiper');
+    const bounds = await swiper.boundingBox();
+    if (!bounds) throw new Error('Missing Day View geometry');
+    const title = swiper.locator('.swiper-slide-active').getByRole('button', {name:'Task 1.1', exact:true});
+    const gesture = await startTaskLongPress(page, title);
+    const edge = bounds.x + bounds.width - 6;
+    await gesture.moveTo(edge, gesture.startY);
+    await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toBeVisible();
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Wednesday, September 16, 2026', {timeout:6500});
+    if (landing === 'category') {
+      const row = dialog.locator('.swiper-slide-active [data-task-category-id="cat_0"] [data-task-id]').first();
+      const box = await row.boundingBox();
+      if (!box) throw new Error('Missing destination category task');
+      await gesture.moveTo(bounds.x + bounds.width / 2, box.y + box.height / 2);
+      await expect(dialog.locator('.swiper-slide-active [data-cross-day-reorder-slot="true"]')).toHaveCount(1);
+      // Keep the DOM nodes of existing destination rows and categories
+      // through the handoff. Remounting them creates the visible flicker
+      // even when final row geometry does not overlap.
+      await page.evaluate(() => {
+        const active = document.querySelector('.swiper-slide-active');
+        window.__crossDayDropStableNodes = {
+          category: active?.querySelector('[data-task-category-id="cat_0"]'),
+          task: active?.querySelector('[data-task-category-id="cat_0"] [data-task-id]'),
+        };
+      });
+    }
+    await gesture.finish();
+    await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+    // The first release may interrupt an in-flight transition and snap back
+    // to its last settled day. Whichever date wins, it must stay stable.
+    const activeDate = await dialog.locator('.swiper-slide-active [data-date-str]').getAttribute('data-date-str');
+    await page.waitForTimeout(1250);
+    await expect(dialog.locator('.swiper-slide-active [data-date-str]')).toHaveAttribute('data-date-str', activeDate);
+    await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+    if (landing === 'category') {
+      await expect.poll(() => page.evaluate(() => {
+        const nodes = window.__crossDayDropStableNodes;
+        const active = document.querySelector('.swiper-slide-active');
+        return Boolean(nodes?.category && nodes?.task && nodes.category.isConnected &&
+          nodes.task.isConnected &&
+          nodes.category === active?.querySelector('[data-task-category-id="cat_0"]') &&
+          nodes.task === active?.querySelector('[data-task-category-id="cat_0"] [data-task-id]'));
+      })).toBe(true);
+    }
+    // Settled sibling rows must not overlap each other after the neutral
+    // insertion space is traded for the persisted row.
+    const boxes = await dialog.locator('.swiper-slide-active [data-task-category-id="cat_0"] [data-task-id]')
+      .evaluateAll(nodes => nodes.map(node => {
+        const rect = node.getBoundingClientRect();
+        return {top:rect.top,bottom:rect.bottom};
+      }));
+    for (let i = 1; i < boxes.length; i += 1) {
+      expect(boxes[i].top).toBeGreaterThanOrEqual(boxes[i - 1].bottom - 1);
+    }
+  }
+});
+
+// #856: the original touchend can fail to bubble after virtual slide
+// replacement, but the physical pointerup is still a definitive release.
+test('pointerup during held touch clears the cross-day drag even without touchend', async ({page,browserName}) => {
+  test.skip(browserName !== 'chromium', 'CDP touch requires Chromium');
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View geometry');
+  await page.evaluate(() => window.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch') window.__mosaicReleasePointer = event.pointerId;
+  },{capture:true,once:true}));
+  const title = swiper.locator('.swiper-slide-active').getByRole('button',{name:'Task 1.1',exact:true});
+  const gesture = await startTaskLongPress(page,title);
+  await gesture.moveTo(bounds.x + bounds.width - 6,gesture.startY);
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toBeVisible();
+  const id = await page.evaluate(() => window.__mosaicReleasePointer);
+  await page.evaluate(pointerId => window.dispatchEvent(new PointerEvent('pointerup', {
+    pointerId,pointerType:'touch',button:0,buttons:0,isPrimary:true,bubbles:true,
+  })), id);
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+  const activeDate = await dialog.locator('.swiper-slide-active [data-date-str]').getAttribute('data-date-str');
+  await page.waitForTimeout(1150);
+  await expect(dialog.locator('.swiper-slide-active [data-date-str]')).toHaveAttribute('data-date-str', activeDate);
+  await gesture.cancel();
+});
+
+// #856: the destination day must respond to the carried task just like the
+// original day's animated reorder, with a neutral reserved slot and no writes
+// until release. Populate the NEXT day (normal probe days are empty).
+test('held touch drag animates insertion through populated next-day rows and categories', async ({page, browserName}) => {
+  test.skip(browserName !== 'chromium', 'CDP touch requires Chromium');
+  const fixtureErrors = [];
+  page.on('pageerror', error => fixtureErrors.push(error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') fixtureErrors.push(message.text());
+  });
+  const loaded = await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&crossDayDestinations=1`);
+  await page.waitForTimeout(750);
+  console.log('CROSS_DAY_FIXTURE_DIAGNOSTICS', JSON.stringify({
+    status: loaded?.status(), url: page.url(), errors: fixtureErrors.slice(0, 8),
+    text: (await page.locator('body').innerText().catch(() => 'NO BODY')).slice(0, 350),
+  }));
+  await expect(page.getByTestId('open-day-view-sheet')).toBeVisible({timeout:12000});
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View');
+  const title = swiper.locator('.swiper-slide-active').getByRole('button', { name: 'Task 1.1', exact: true });
+  const gesture = await startTaskLongPress(page, title);
+  const middle = bounds.x + bounds.width / 2;
+  const edge = bounds.x + bounds.width - 6;
+  try {
+    await gesture.moveTo(edge, gesture.startY);
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Wednesday, September 16, 2026', { timeout: 6500 });
+    const active = dialog.locator('.swiper-slide-active');
+    const firstCategory = active.locator('[data-task-category-id="cat_0"]');
+    const secondCategory = active.locator('[data-task-category-id="cat_1"]');
+    await expect(firstCategory.locator('[data-task-id]')).toHaveCount(2);
+    await expect(secondCategory.locator('[data-task-id]')).toHaveCount(3);
+    const firstRow = await firstCategory.locator('[data-task-id]').first().boundingBox();
+    if (!firstRow) throw new Error('Missing destination rows');
+    const startY = firstRow.y + Math.min(firstRow.height / 4, 8);
+    await gesture.moveTo(middle, startY);
+    const firstSlot = firstCategory.locator('[data-cross-day-reorder-slot="true"]');
+    await expect(firstSlot).toHaveCount(1);
+    const topSlot = await firstSlot.boundingBox();
+    if (!topSlot) throw new Error('Missing reserved insertion slot');
+    // Push siblings down as the held finger crosses their rows.
+    const lastRow = await firstCategory.locator('[data-task-id]').last().boundingBox();
+    if (!lastRow) throw new Error('Missing final destination task');
+    await gesture.moveTo(middle, Math.min(bounds.y + bounds.height - 35, lastRow.y + lastRow.height - 4));
+    await expect.poll(async () => (await firstSlot.boundingBox())?.y ?? topSlot.y)
+      .toBeGreaterThan(topSlot.y + 12);
+    // Move into another category without lifting. Its rows now make room,
+    // and the former category collapses its empty slot.
+    const secondBox = await secondCategory.boundingBox();
+    if (!secondBox) throw new Error('Missing next destination category');
+    await gesture.moveTo(middle, Math.min(bounds.y + bounds.height - 30, secondBox.y + 34));
+    await expect(secondCategory.locator('[data-cross-day-reorder-slot="true"]')).toHaveCount(1);
+    await expect(firstCategory.locator('[data-cross-day-reorder-slot="true"]')).toHaveCount(0);
+    await expect(page.locator('[data-cross-day-insertion-gap="true"]')).toHaveCount(0);
+  } finally {
+    await gesture.cancel();
+  }
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
+test.describe('desktop pointer ownership — no touch emulation', () => {
+  test.use({
+    isMobile: false,
+    hasTouch: false,
+    viewport: { width: 1280, height: 840 },
+    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+  });
+
+// #856: genuine held primary-mouse dragging is distinct from Swiper's
+// ordinary mouse swipe. The old touch-only regression missed this failure.
+test('held mouse task drag advances Day View at right edge and ends at mouseup', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  // Exercise the supported compact-sheet geometry: full-width sheets touch
+  // both browser edges, so a cursor cannot physically move beyond them.
+  await dialog.evaluate((sheet) => {
+    sheet.style.width = 'min(540px, calc(100vw - 2rem))';
+    sheet.style.left = '50%';
+    sheet.style.right = 'auto';
+    sheet.style.translate = '-50% 0';
+  });
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View viewport');
+  const title = swiper.locator('.swiper-slide-active').getByRole('button', {
+    name: 'Task 1.1', exact: true,
+  });
+  const task = await title.boundingBox();
+  if (!task) throw new Error('Missing draggable task title');
+  const x = task.x + task.width * 0.5;
+  const y = task.y + Math.min(task.height * 0.5, 18);
+  await page.mouse.move(x, y);
+  await page.mouse.down({ button: 'left' });
+  try {
+    await page.waitForTimeout(580);
+    await expect(page.locator('[data-task-drag-overlay="true"]')).toBeVisible();
+    // Maintain the hold after leaving the Day View boundary horizontally.
+    // This is still inside the browser viewport so physical pointer events flow.
+    const beyondRight = bounds.x + bounds.width + 30;
+    const beyondLeft = bounds.x - 30;
+    expect(beyondRight).toBeLessThan(1280);
+    expect(beyondLeft).toBeGreaterThan(0);
+    await page.mouse.move(beyondRight, y, { steps: 9 });
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Wednesday, September 16, 2026', { timeout: 6500 },
+    );
+    await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toBeVisible();
+    // Crossing outside the other side reverses without lifting.
+    await page.mouse.move(beyondLeft, y, { steps: 9 });
+    await expect(dialog.locator('.swiper-slide-active')).toContainText(
+      'Tuesday, September 15, 2026', { timeout: 6500 },
+    );
+    await page.mouse.move(bounds.x + bounds.width * 0.5, y, { steps: 5 });
+  } finally {
+    await page.mouse.up({ button: 'left' });
+  }
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+  const releasedDay = await dialog.locator('.swiper-slide-active [data-date-str]').first().getAttribute('data-date-str');
+  if (!releasedDay) throw new Error('No settled day after mouse release');
+  // Moving to an edge WITHOUT pressing again must not restart any dragged
+  // overlay or make the date advance autonomously.
+  await page.mouse.move(bounds.x + bounds.width + 30, y, { steps: 10 });
+  await page.mouse.move(bounds.x - 30, y, { steps: 10 });
+  await page.waitForTimeout(1200);
+  await expect(dialog.locator('.swiper-slide-active [data-date-str]').first()).toHaveAttribute('data-date-str', releasedDay);
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
+test('ordinary mouse Day View swipe stops following cursor when button is released', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View viewport');
+  const title = swiper.locator('.swiper-slide-active').getByRole('button', {
+    name: 'Task 1.1', exact: true,
+  });
+  await dragWithMouse(page, title, -240);
+  await expect(dialog.locator('.swiper-slide-active')).toContainText('Wednesday, September 16, 2026');
+  await page.mouse.move(bounds.x + bounds.width - 9, bounds.y + bounds.height / 2, { steps: 12 });
+  await page.waitForTimeout(1100);
+  await expect(dialog.locator('.swiper-slide-active')).toContainText('Wednesday, September 16, 2026');
+  await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
+}); // desktop pointer ownership
+
 test('mouse drag over a task title swipes the Day View instead of being trapped by the task control', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
@@ -1604,6 +2039,43 @@ test('interaction harness has no detectable non-visual WCAG A/AA axe violations'
 });
 
 
+// #956: keyboard-driven month changes must never scroll the Embla viewport
+// through Element.scrollIntoView while focus moves to an incoming period.
+test('Calendar keyboard period changes snap to a full-width slide', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&calendarPath=1`);
+  const host = page.getByTestId('real-calendar-cold-probe');
+  const start = host.locator('[data-calendar-slide-index="30"] button[data-calendar-day="2026-09-15"]');
+  await expect(start).toHaveCount(1);
+  await start.evaluate(node => node.focus({ preventScroll: true }));
+
+  // The fixture may have a stable inset from its scroll-gutter and
+  // surrounding layout. Compare incoming slides to the initially settled
+  // period, rather than assuming the viewport and slide share pixel-zero.
+  const snapOffset = async (index) => host.evaluate((root, selected) => {
+    const viewport = root.querySelector('[data-route-swipe-horizontal-owner]');
+    const slide = root.querySelector(`[data-calendar-slide-index="${selected}"]`);
+    if (!(viewport instanceof HTMLElement) || !(slide instanceof HTMLElement)) return 10000;
+    return slide.getBoundingClientRect().left - viewport.getBoundingClientRect().left;
+  }, index);
+  const initialOffset = await snapOffset(30);
+  expect(Math.abs(initialOffset)).toBeLessThan(20);
+
+  // Exercise successive keyboard changes while the carousel is animating.
+  for (const [key, index, date] of [
+    ['PageDown', 31, '2026-10-15'],
+    ['PageDown', 32, '2026-11-15'],
+    ['PageUp', 31, '2026-10-15'],
+    ['PageUp', 30, '2026-09-15'],
+  ]) {
+    await page.keyboard.press(key);
+    await expect(host.locator(`[data-calendar-slide-index="${index}"] button[data-calendar-day="${date}"]`))
+      .toBeFocused();
+    await expect.poll(async () => Math.abs((await snapOffset(index)) - initialOffset),
+      { timeout: 3500, intervals: [70, 100, 130, 170, 250] }).toBeLessThan(2);
+  }
+});
+
 // #640: actual CalendarBody/DayCell first tap must paint the sheet shell
 // before running the expensive DayViewSheet subtree. This is an ordering
 // contract, not a machine-dependent millisecond performance budget.
@@ -1647,4 +2119,48 @@ test('Calendar first sheet open commits a shell before Day View slides', async (
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await day.click();
   await expect(page.getByRole('dialog')).toBeVisible();
+});
+
+// Browser geometry regression: animate real height, not reordered sibling transforms.
+test('category editors expand and switch without overlapping adjacent categories', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?categoryMotion`);
+  const selector = '[data-testid="category-editor-motion-probe"] li[aria-label$=" category"]';
+  const rows = page.locator(selector);
+  await expect(rows).toHaveCount(3);
+
+  async function sampleTransition(editIndex, interruptIndex = null) {
+    return page.evaluate(async ({ editIndex, interruptIndex, selector }) => {
+      const items = Array.from(document.querySelectorAll(selector));
+      const heightsBefore = items.map(el => el.getBoundingClientRect().height);
+      items[editIndex].querySelector('button[aria-label="Edit category"]').click();
+      let maximumOverlap = 0;
+      let finalHeights = [];
+      for (let frame = 0; frame < 28; frame++) {
+        await new Promise(requestAnimationFrame);
+        if (frame === 5 && interruptIndex !== null) {
+          items[interruptIndex].querySelector('button[aria-label="Edit category"]').click();
+        }
+        const boxes = items.map(el => el.getBoundingClientRect());
+        finalHeights = boxes.map(box => box.height);
+        for (let index = 0; index + 1 < boxes.length; index++) {
+          maximumOverlap = Math.max(maximumOverlap, boxes[index].bottom - boxes[index + 1].top);
+        }
+      }
+      return { heightsBefore, finalHeights, maximumOverlap };
+    }, { editIndex, interruptIndex, selector });
+  }
+
+  const opening = await sampleTransition(0);
+  expect(opening.maximumOverlap).toBeLessThan(1);
+  expect(opening.finalHeights[0]).toBeGreaterThan(opening.heightsBefore[0] + 100);
+
+  const switching = await sampleTransition(1);
+  expect(switching.maximumOverlap).toBeLessThan(1);
+  expect(switching.finalHeights[1]).toBeGreaterThan(switching.heightsBefore[1] + 100);
+  expect(switching.finalHeights[0]).toBeLessThan(switching.heightsBefore[0] - 100);
+
+  const interrupted = await sampleTransition(0, 2);
+  expect(interrupted.maximumOverlap).toBeLessThan(1);
+  await expect(rows.nth(2).getByRole('button', { name: 'Edit category' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(rows.nth(0).getByRole('textbox', { name: 'Name' })).toHaveCount(0);
 });

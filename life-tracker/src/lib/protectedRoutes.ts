@@ -48,7 +48,7 @@ export const PROTECTED_ROUTES = [
   { id: 'home', path: '/home', kind: 'primary', tab: 'home', preview: 'supported', swipeMode: 'home-zone' },
   { id: 'bucketListDetail', path: '/bucket-list/:id', kind: 'detail', tab: 'home', parent: '/bucket-list', preview: 'none' },
   { id: 'bucketList', path: '/bucket-list', kind: 'detail', tab: 'home', parent: '/home', alternateParents: ['/account'], preview: 'none' },
-  { id: 'backlog', path: '/backlog', kind: 'detail', tab: 'home', parent: '/home', alternateParents: ['/account'], preview: 'none' },
+  { id: 'backlog', path: '/backlog', kind: 'detail', tab: 'home', parent: '/home', alternateParents: ['/account', '/backlog?view=uncompleted'], preview: 'none' },
   { id: 'explore', path: '/explore', kind: 'primary', tab: 'explore', preview: 'supported' },
   { id: 'friendCalendar', path: '/friends/:friendId', kind: 'detail', tab: 'explore', parent: '/explore', preview: 'none', swipeMode: 'edge-back' },
   { id: 'notifications', path: '/notifications', kind: 'primary', tab: 'notifications', preview: 'supported' },

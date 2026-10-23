@@ -6,7 +6,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
-import { Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
+import { ArrowDownUp, Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
 import {
@@ -29,7 +29,7 @@ const VisibilityPicker: React.FC<VisibilityPickerProps> = ({
   onChange,
 }) => (
   <div>
-    <p className="mb-2 text-xs text-gray-400">Visibility</p>
+    <p className="mosaic-sheet-text mb-2 text-xs text-gray-400">Visibility</p>
     <div
       role="group"
       aria-label="Visibility"
@@ -62,70 +62,94 @@ interface CategoryRowProps {
   onDeleteRequest: (id: string) => void;
   onReorderEnd: () => void;
   disabled: boolean;
+  isEditing: boolean;
+  orderSignature: string | string[];
+  children?: React.ReactNode;
 }
 
-const CategoryRow: React.FC<CategoryRowProps> = ({
+export const CategoryRow: React.FC<CategoryRowProps> = ({
   cat,
   overriddenCount,
   onEditStart,
   onDeleteRequest,
   onReorderEnd,
   disabled,
+  isEditing,
+  orderSignature,
+  children,
 }) => {
   const dragControls = useDragControls();
+  const [exitContent, setExitContent] = useState(children);
+  if (isEditing && exitContent !== children) setExitContent(children);
 
   return (
     <Reorder.Item
       value={cat}
       dragListener={false}
+      layout="position"
+      layoutDependency={orderSignature}
       dragControls={dragControls}
       onDragEnd={onReorderEnd}
-      className="flex items-center gap-3 py-3 px-2 bg-[#1A1A1A] rounded-lg"
+      aria-label={`${cat.name} category`}
+      className="relative bg-[#1A1A1A] rounded-lg"
     >
-      <button
-        type="button"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          if (!disabled) dragControls.start(e);
-        }}
-        className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
-        aria-label="Drag to reorder"
-        disabled={disabled}
-      >
-        <GripVertical size={18} />
-      </button>
-      <div
-        className="w-4 h-4 rounded-full shrink-0"
-        style={{ backgroundColor: cat.color }}
-      />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-white truncate">{cat.name}</span>
-          {visibilityIcon(cat.visibility)}
+      <div className="flex items-center gap-3 py-3 px-2">
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (!disabled) dragControls.start(e);
+          }}
+          className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
+          aria-label="Drag to reorder"
+          disabled={disabled}
+        >
+          <GripVertical size={18} />
+        </button>
+        <div
+          className="w-4 h-4 rounded-full shrink-0"
+          style={{ backgroundColor: cat.color }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-white truncate">{cat.name}</span>
+            {visibilityIcon(cat.visibility)}
+          </div>
+          {overriddenCount > 0 && (
+            <span className="text-xs text-gray-400">
+              {overriddenCount} task{overriddenCount === 1 ? '' : 's'} override
+              visibility
+            </span>
+          )}
         </div>
-        {overriddenCount > 0 && (
-          <span className="text-xs text-gray-400">
-            {overriddenCount} task{overriddenCount === 1 ? '' : 's'} override
-            visibility
-          </span>
-        )}
+        <button
+          onClick={() => onEditStart(cat)}
+          disabled={disabled}
+          className="p-2 text-gray-400"
+          aria-label="Edit category"
+          aria-expanded={isEditing}
+        >
+          <Pencil size={16} />
+        </button>
+        <button
+          onClick={() => onDeleteRequest(cat.id)}
+          disabled={disabled}
+          className="p-2 text-gray-400"
+          aria-label="Delete category"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
-      <button
-        onClick={() => onEditStart(cat)}
-        disabled={disabled}
-        className="p-2 text-gray-400"
-        aria-label="Edit category"
+      <div
+        className="grid transition-all duration-200 ease-in-out"
+        style={{ gridTemplateRows: isEditing ? '1fr' : '0fr' }}
       >
-        <Pencil size={16} />
-      </button>
-      <button
-        onClick={() => onDeleteRequest(cat.id)}
-        disabled={disabled}
-        className="p-2 text-gray-400"
-        aria-label="Delete category"
-      >
-        <Trash2 size={16} />
-      </button>
+        <div className="min-h-0 overflow-hidden" inert={!isEditing} aria-hidden={!isEditing}>
+          <div className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
+            {isEditing ? children : exitContent}
+          </div>
+        </div>
+      </div>
     </Reorder.Item>
   );
 };
@@ -156,6 +180,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('#3B82F6');
   const [editVisibility, setEditVisibility] = useState<Visibility>('private');
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -172,6 +197,13 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   }, [categories, orderedIds]);
   const pendingOrder = useRef(orderedCategories);
 
+  const resetForm = () => {
+    setIsAdding(false);
+    setNewName('');
+    setNewColor('#3B82F6');
+    setNewVisibility('private');
+  };
+
   const [syncedIsOpen, setSyncedIsOpen] = useState(isOpen);
   if (isOpen !== syncedIsOpen) {
     setSyncedIsOpen(isOpen);
@@ -180,90 +212,63 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       reset();
     }
     if (!isOpen) {
-      setIsAdding(false);
-      setNewName('');
-      setNewColor('#3B82F6');
-      setNewVisibility('private');
+      resetForm();
       setEditingId(null);
-      setEditName('');
-      setEditVisibility('private');
       setDeleteId(null);
     }
   }
 
   const overriddenCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const t of tasks) {
-      if (t.visibility) {
-        map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + 1);
-      }
-    }
-    return map;
+    const counts: Record<string, number> = {};
+    tasks.forEach(t => {
+      if (t.visibility) counts[t.categoryId] = (counts[t.categoryId] || 0) + 1;
+    });
+    return counts;
   }, [tasks]);
 
-  const handleSaveNew = async () => {
-    if (!newName.trim()) return;
-    await save(
-      () =>
-        addCategory({
-          name: newName.trim(),
-          color: newColor,
-          visibility: newVisibility,
-          order: categories.length,
-          icon: '',
-        }),
-      () => {
-        setIsAdding(false);
-        setNewName('');
-        setNewColor('#3B82F6');
-        setNewVisibility('private');
-      },
+  const handleSaveNew = () => {
+    if (newName.trim()) void save(
+      () => addCategory({ name: newName.trim(), color: newColor, visibility: newVisibility, order: categories.length, icon: '' }),
+      resetForm,
       'Could not add category. Try again.'
     );
   };
 
-  const handleUpdate = async (
-    id: string,
-    name: string,
-    visibility: Visibility
-  ) => {
-    await save(
-      () => updateCategory(id, { name, visibility }),
-      () => setEditingId(null),
-      'Could not update category. Try again.'
-    );
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteId) return;
-    await save(
+  const handleConfirmDelete = () => {
+    if (deleteId) void save(
       () => deleteCategory(deleteId),
       () => setDeleteId(null),
       'Could not delete category. Try again.'
     );
   };
 
-  const handleCancelDelete = () => {
-    setDeleteId(null);
-  };
-
-  const resetForm = () => {
-    setIsAdding(false);
-    setNewName('');
-    setNewColor('#3B82F6');
-    setNewVisibility('private');
-  };
-
-  const handleEditCancel = () => {
-    setEditingId(null);
-    setEditName('');
-    setEditVisibility('private');
+  const handleReverse = () => {
+    if (isSaving || orderedCategories.length < 2) return;
+    const reversed = [...orderedCategories].reverse();
+    void save(
+      () => reorderCategories(reversed),
+      () => {
+        pendingOrder.current = reversed;
+        setOrderedIds(reversed.map((cat) => cat.id));
+      },
+      'Could not reverse category order. Try again.'
+    );
   };
 
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full" preventDismiss={isSaving}>
       <div className="pt-2 pb-8 px-4">
-        <SheetErrorBanner message={error} />
+        {!editingId && <SheetErrorBanner message={error} />}
+        <div className="mb-3 flex justify-end">
+          <Button
+            variant="ghost"
+            onClick={handleReverse}
+            disabled={isSaving || orderedCategories.length < 2}
+          >
+            <ArrowDownUp size={16} />
+            <span className="mosaic-sheet-text">Reverse order</span>
+          </Button>
+        </div>
         <Reorder.Group
           axis="y"
           values={orderedCategories}
@@ -278,45 +283,74 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             <CategoryRow
               key={cat.id}
               cat={cat}
-              overriddenCount={overriddenCounts.get(cat.id) ?? 0}
+              overriddenCount={overriddenCounts[cat.id] || 0}
+              isEditing={editingId === cat.id}
+              orderSignature={orderedIds}
               onEditStart={(c) => {
+                reset();
+                setIsAdding(false);
                 setEditingId(c.id);
                 setEditName(c.name);
+                setEditColor(c.color);
                 setEditVisibility(c.visibility);
               }}
-              onDeleteRequest={(id) => setDeleteId(id)}
+              onDeleteRequest={(id) => {
+                reset();
+                setEditingId(null);
+                setIsAdding(false);
+                setDeleteId(id);
+              }}
               onReorderEnd={() => {
-                if (!isSaving) void reorderCategories(pendingOrder.current);
+                if (!isSaving) {
+                  void save(
+                    () => reorderCategories(pendingOrder.current),
+                    () => {},
+                    'Could not reorder categories. Try again.'
+                  );
+                }
               }}
               disabled={isSaving}
-            />
+            >
+              {editingId === cat.id && (
+                <>
+                  <SheetErrorBanner message={error} />
+                  <Input
+                    key={editingId}
+                    autoFocus
+                    label="Name"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                  />
+                  <ColorPalettePicker
+                    key={cat.id}
+                    selectedColor={editColor}
+                    onSelect={setEditColor}
+                    ariaLabel="Category color"
+                  />
+                  <VisibilityPicker
+                    value={editVisibility}
+                    onChange={setEditVisibility}
+                  />
+                  <Button
+                    onClick={() => void save(
+                      () => updateCategory(cat.id, { name: editName.trim(), color: editColor, visibility: editVisibility }),
+                      () => setEditingId(null), 'Could not update category. Try again.'
+                    )}
+                    disabled={!editName.trim() || isSaving}
+                  >
+                    Save Changes
+                  </Button>
+                  <Button variant="ghost" onClick={() => {
+                    reset();
+                    setEditingId(null);
+                  }} disabled={isSaving}>
+                    Cancel
+                  </Button>
+                </>
+              )}
+            </CategoryRow>
           ))}
         </Reorder.Group>
-
-        {editingId && (
-          <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
-            <Input
-              key={editingId}
-              autoFocus
-              label="Name"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-            />
-            <VisibilityPicker
-              value={editVisibility}
-              onChange={setEditVisibility}
-            />
-            <Button
-              onClick={() => handleUpdate(editingId, editName, editVisibility)}
-              disabled={!editName.trim() || isSaving}
-            >
-              Save Changes
-            </Button>
-            <Button variant="ghost" onClick={handleEditCancel} disabled={isSaving}>
-              Cancel
-            </Button>
-          </div>
-        )}
 
         {isAdding ? (
           <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
@@ -343,7 +377,11 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
         ) : (
           <Button
             variant="ghost"
-            onClick={() => setIsAdding(true)}
+            onClick={() => {
+              reset();
+              setEditingId(null);
+              setIsAdding(true);
+            }}
             disabled={isSaving}
             className="mt-4 w-full"
           >
@@ -359,7 +397,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               Tasks in this category will be moved to the default category.
             </p>
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={handleCancelDelete} className="flex-1" disabled={isSaving}>
+              <Button variant="ghost" onClick={() => setDeleteId(null)} className="flex-1" disabled={isSaving}>
                 Cancel
               </Button>
               <Button variant="danger" onClick={handleConfirmDelete} className="flex-1" disabled={isSaving}>

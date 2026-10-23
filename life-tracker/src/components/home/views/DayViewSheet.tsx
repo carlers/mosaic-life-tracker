@@ -4,6 +4,7 @@
  */
 /* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
 import { runBulkTaskActions } from './bulkTaskActions';
 import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
@@ -12,12 +13,16 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Virtual } from 'swiper/modules';
 import 'swiper/css/virtual';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckSquare, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2 } from 'lucide-react';
+import { CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
+import { FirstCategoryPrompt } from './FirstCategoryPrompt';
+import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
+const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
+import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { TaskActionSheet } from './TaskActionSheet';
 const { Component: LazyLinkTaskToBucketSheet, preload: preloadLinkTaskToBucketSheet } =
@@ -49,14 +54,25 @@ import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
+import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
+import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
+  CONFIRM_TASK_DELETE_SETTING_KEY,
+  shouldConfirmTaskDelete,
   TASK_COMPLETION_SORT_SETTING_KEY,
+  SHOW_TASK_CREATED_TIME_SETTING_KEY,
+  SHOW_TASK_COMPLETED_TIME_SETTING_KEY,
+  TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY,
+  DAY_VIEW_MODE_SETTING_KEY,
+  TIMELINE_DIRECTION_SETTING_KEY,
+  TIMELINE_SORT_BASIS_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+  SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
   SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
   DIARY_DAY_VIEW_POSITION_SETTING_KEY,
@@ -77,6 +93,8 @@ const ImageViewer = lazy(() =>
 
 const DAY_SWIPER_FOCUSABLE_ELEMENTS =
   'input, select, option, textarea, video, label, button:not([data-day-swipe-through="true"])';
+// Do not invalidate every DaySlide when the owned-share projection is empty.
+const EMPTY_OWNER_LABELS: ReadonlyMap<string, string> = new Map();
 const DAY_SWIPER_TRANSITION_SPEED_MS = 320;
 const DAY_SWIPER_TRANSITION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
@@ -97,7 +115,7 @@ interface DayViewSheetProps {
   onClose: () => void;
   selectedDate: Date;
   onDateChange?: (date: Date) => void;
-  renderMode?: 'sheet' | 'inline' | 'backlog';
+  renderMode?: 'sheet' | 'inline' | 'backlog' | 'panel';
   tasks?: TaskDocument[];
   categories?: CategoryDocument[];
   focusTaskId?: string | null;
@@ -138,6 +156,41 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // The React Compiler cannot safely infer dependencies across these state machines.
   'use no memo';
   const isBacklogView = renderMode === 'backlog';
+  const sheetContentRef = useRef<HTMLDivElement>(null);
+  const didInitialCategoryFocusRef = useRef(false);
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
+  const keyboardHelpCloseRef = useRef<HTMLButtonElement>(null);
+  const keyboardHelpTriggerRef = useRef<HTMLButtonElement>(null);
+  const keyboardHelpReturnRef = useRef<HTMLElement | null>(null);
+  const showKeyboardHelp = useCallback(() => {
+    // Opening help is an explicit focus choice; do not let Day View's
+    // initial-autofocus frame move focus away from the help Close button.
+    didInitialCategoryFocusRef.current = true;
+    keyboardHelpReturnRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setKeyboardHelpOpen(true);
+  }, []);
+  const hideKeyboardHelp = useCallback(() => {
+    setKeyboardHelpOpen(false);
+    const former = keyboardHelpReturnRef.current;
+    window.requestAnimationFrame(() => {
+      if (former?.isConnected && !former.closest('[aria-hidden="true"], [inert]')) {
+        former.focus({ preventScroll: true });
+      } else {
+        keyboardHelpTriggerRef.current?.focus({ preventScroll: true });
+      }
+    });
+  }, []);
+  useEffect(() => {
+    if (isOpen) return;
+    // Closing may retain the mounted Day View for its exit animation. Reset
+    // after paint rather than synchronously cascading a render from an effect.
+    const frame = window.requestAnimationFrame(() => setKeyboardHelpOpen(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen]);
+  useEffect(() => {
+    if (keyboardHelpOpen) keyboardHelpCloseRef.current?.focus({ preventScroll: true });
+  }, [keyboardHelpOpen]);
   const appearance = React.useContext(AppearanceContext);
   const reducedMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
   const { user } = useAuth();
@@ -151,21 +204,42 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     deleteTask,
     reorderTasks,
     moveTasksToCategory,
+    moveTaskAcrossDays,
   } = taskStore;
-  const { categories: hookCategories = [] } = useCategories(
-    categoriesOverride === undefined
+  // With an empty override, wait for owner category hydration before prompting.
+  const { categories: hookCategories = [], isLoading: categoriesLoading, addCategory, reorderCategories, updateCategory } = useCategories(
+    categoriesOverride === undefined || categoriesOverride.length === 0
   );
   const { message: deleteFeedback, show: showFeedback } = useFeedback();
+  const handleSharedMoveError = useCallback((error: unknown) => {
+    showFeedback(error instanceof Error ? error.message : 'Could not move shared task.');
+  }, [showFeedback]);
   const { getSetting, setSetting, settings } = useSettings();
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
+  const confirmTaskDelete = shouldConfirmTaskDelete(getSetting(CONFIRM_TASK_DELETE_SETTING_KEY));
+  const showCreatedTime = getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
+  const showCompletedTime = getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
+  const timestampLabelStyle = resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons'));
+  // Keep task rows' display preferences referentially stable while unrelated
+  // nested overlays open; updates still propagate when a preference changes.
+  const timestampDisplay = useMemo(() => ({
+    showCreated: showCreatedTime,
+    showCompleted: showCompletedTime,
+    labelStyle: timestampLabelStyle,
+  }), [showCreatedTime, showCompletedTime, timestampLabelStyle]);
+  const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
+  const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
+  const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
   const showCategoryCollapseButton =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const alwaysShowAddCategory = getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
   const showDiaryInDayView = !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
@@ -192,9 +266,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const sharingFriends = useOptionalFriendList();
   const labelMode = getSetting('sharedTaskLabelMode', 'names') === 'count' ? 'count' : 'names';
   const showPendingShares = getSetting('showPendingSharedTaskInvites', false) === true;
-  const ownerLabels = useMemo(() => ownerShareLabels(
-    ownerShares.items, sharingFriends, labelMode, showPendingShares,
-  ), [ownerShares.items, sharingFriends, labelMode, showPendingShares]);
+  const ownerLabels = useMemo(() => {
+    const labels = ownerShareLabels(ownerShares.items, sharingFriends, labelMode, showPendingShares);
+    return labels.size === 0 ? EMPTY_OWNER_LABELS : labels;
+  }, [ownerShares.items, sharingFriends, labelMode, showPendingShares]);
 
   const validCategoryIds = useMemo(() => new Set(categories.map(cat => cat.id)), [categories]);
   const sharedCategoryFor = useCallback((item: SharedTaskItem): string => {
@@ -251,6 +326,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const [memoInitialMode, setMemoInitialMode] = useState<'view' | 'edit'>('edit');
   const [isVisibilityOpen, setIsVisibilityOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleteProcessing, setIsDeleteProcessing] = useState(false);
+  const deletePendingRef = useRef(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [deletePhotoConfirmOpen, setDeletePhotoConfirmOpen] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -259,6 +336,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const [isBulkCategoryOpen, setIsBulkCategoryOpen] = useState(false);
   const [isBulkVisibilityOpen, setIsBulkVisibilityOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const bulkDeletePendingRef = useRef(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const copyPendingRef = useRef(false);
@@ -306,6 +384,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     slideDateStrs,
     activeIndex,
     initialIndex,
+    anchorKey,
     renderWindow,
     handlePrevDay,
     handleNextDay,
@@ -344,6 +423,23 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
 
   const activeDateStr = isBacklogView ? '' : (slideDateStrs[activeIndex] ?? format(selectedDate, 'yyyy-MM-dd'));
+  const continuousDrag = useContinuousTaskDrag({
+    isOpen: isOpen && !isBacklogView,
+    currentUserId,
+    swiperRef,
+    categories,
+    onCommit: (task, date, categoryId, index) =>
+      moveTaskAcrossDays(task.id, task.date, date, categoryId, index),
+    onFeedback: showFeedback,
+    onExternalFinished: () => setIsTaskReorderActive(false),
+  });
+  const handleReorderActiveChange = useCallback((active: boolean) => {
+    setIsTaskReorderActive(active || Boolean(continuousDrag.carried));
+  }, [continuousDrag.carried]);
+  useEffect(() => {
+    continuousDrag.onWindowRebased();
+  }, [anchorKey, continuousDrag.onWindowRebased]);
+
   const previousActiveDateStrRef = useRef(activeDateStr);
   const selectedTasks = useMemo(
     () =>
@@ -387,18 +483,19 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // Inline Todo Day View has no sheet entrance animation, so its initial render
   // window must not wait for BottomSheet's animation-complete callback.
   const effectiveRenderWindow =
-    renderMode === 'inline' ? renderWindow : deferredRenderWindow;
+    (renderMode === 'inline' || renderMode === 'panel') ? renderWindow : deferredRenderWindow;
 
   const handleSheetClose = useCallback(() => {
+    continuousDrag.cancel();
     setDeferredRenderWindow(0);
     setIsTaskReorderActive(false);
     setIsSelectMode(false);
     setSelectedTaskIds(new Set());
     onClose();
-  }, [onClose]);
+  }, [continuousDrag.cancel, onClose]);
 
   useEffect(() => {
-    if (!isOpen || (renderMode !== 'sheet' && !isBacklogView) || !focusTaskId) return;
+    if (!isOpen || (renderMode !== 'sheet' && renderMode !== 'panel' && !isBacklogView) || !focusTaskId) return;
 
     let clearTimer: number | null = null;
     const frame = requestAnimationFrame(() => {
@@ -456,13 +553,16 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [exitSelectMode, handleNextDay, isSelectMode]);
 
   const handleSlideChangeFromUi = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
+    if (!continuousDrag.onSlideChanged(swiper)) return;
     if (isSelectMode) exitSelectMode();
     handleSlideChange(swiper);
-  }, [exitSelectMode, handleSlideChange, isSelectMode]);
+  }, [continuousDrag.onSlideChanged, exitSelectMode, handleSlideChange, isSelectMode]);
 
   const handleSwipeSettledFromUi = useCallback((swiper: Parameters<typeof handleSwipeSettled>[0]) => {
+    const settled = slideDateStrs[swiper.activeIndex];
+    if (!settled || !continuousDrag.onSettled(settled, swiper)) return;
     handleSwipeSettled(swiper);
-  }, [handleSwipeSettled]);
+  }, [continuousDrag.onSettled, handleSwipeSettled, slideDateStrs]);
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) => {
@@ -567,17 +667,22 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleBulkDelete = useCallback(async () => {
     const snapshot = selectedTasks;
-    if (snapshot.length === 0 || isBulkWorking) return;
+    if (snapshot.length === 0 || isBulkWorking || bulkDeletePendingRef.current) return;
+    bulkDeletePendingRef.current = true;
     setIsBulkWorking(true);
-    const failedIds = await runBulkTaskActions(snapshot, (task) => deleteTask(task.id));
-    setIsBulkWorking(false);
-    if (failedIds.size > 0) {
-      setSelectedTaskIds(failedIds);
-      setIsBulkDeleteOpen(false);
-      showFeedback(`${failedIds.size} ${failedIds.size === 1 ? 'task' : 'tasks'} could not be deleted`);
-      return;
+    try {
+      const failedIds = await runBulkTaskActions(snapshot, (task) => deleteTask(task.id));
+      if (failedIds.size > 0) {
+        setSelectedTaskIds(failedIds);
+        setIsBulkDeleteOpen(false);
+        showFeedback(`${failedIds.size} ${failedIds.size === 1 ? 'task' : 'tasks'} could not be deleted`);
+        return;
+      }
+      exitSelectMode();
+    } finally {
+      bulkDeletePendingRef.current = false;
+      setIsBulkWorking(false);
     }
-    exitSelectMode();
   }, [deleteTask, exitSelectMode, isBulkWorking, selectedTasks, showFeedback]);
 
   const handleAddTask = useCallback(
@@ -614,6 +719,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const leaveSharedTask = sharedTasks.updateMembership;
   const updateSharedCompletion = sharedTasks.updateCompletion;
+  const handleLeaveSharedTask = useCallback(async (item: SharedTaskItem) => {
+    const outcome = await leaveSharedTask(item, 'leave');
+    if (outcome.status === 'pending') showFeedback('Leaving task queued for sync.');
+    if (outcome.status === 'rejected') showFeedback(outcome.reason || 'Could not leave shared task.');
+  }, [leaveSharedTask, showFeedback]);
   const handleSharedCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
     try {
       const result = await updateSharedCompletion(item, desired);
@@ -664,11 +774,21 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // useCallback keeps prop identities stable for any downstream memoized
   // children. No behavior change with current consumers.
   const handleDelete = useCallback(async () => {
-    if (!activeTask) return;
-    await deleteTask(activeTask.id);
-    setIsDeleteConfirmOpen(false);
-    setActiveTaskId(null);
-  }, [activeTask, deleteTask]);
+    if (!activeTask || deletePendingRef.current) return;
+    const taskId = activeTask.id;
+    deletePendingRef.current = true;
+    setIsDeleteProcessing(true);
+    try {
+      await deleteTask(taskId);
+      setIsDeleteConfirmOpen(false);
+      setActiveTaskId(current => current === taskId ? null : current);
+    } catch {
+      showFeedback('Task could not be deleted');
+    } finally {
+      deletePendingRef.current = false;
+      setIsDeleteProcessing(false);
+    }
+  }, [activeTask, deleteTask, showFeedback]);
 
   const handleMemoSave = useCallback(
     async (
@@ -772,9 +892,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, []);
 
   const handleOpenDeleteConfirm = useCallback(() => {
-    setIsDeleteConfirmOpen(true);
     setIsActionSheetOpen(false);
-  }, []);
+    if (confirmTaskDelete) setIsDeleteConfirmOpen(true);
+    else void handleDelete();
+  }, [confirmTaskDelete, handleDelete]);
 
   const handleOpenImageViewer = useCallback(() => {
     if (!activeTask) return;
@@ -819,13 +940,96 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [exitSelectMode, isBackgroundLocked, isSelectMode, renderMode]);
-  // A11Y-33: keyboard arrows mirror the existing swipe/chevron day navigation.
-  // Nested sheets and text editing retain their own keyboard behavior.
+  useEffect(() => {
+    if (!shortcutsEnabled || !isOpen || isBackgroundLocked || isTaskReorderActive || keyboardHelpOpen ||
+        editingTaskId !== null) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 's' || event.key.length !== 1 ||
+          !canUseKeyboardShortcut(event, { allowOpenDialog: true })) return;
+      const root = renderMode === 'sheet' ? sheetContentRef.current :
+        document.querySelector<HTMLElement>(renderMode === 'backlog'
+          ? '[data-testid="backlog-day-view"]' : renderMode === 'panel'
+            ? '[data-testid="day-sheet-swipe-surface"]' : '[data-testid="inline-day-view"]');
+      if (!root || root.closest('[inert], [aria-hidden="true"]') ||
+          !(event.target instanceof Node) || !root.contains(event.target)) return;
+      const scope = isBacklogView ? root :
+        root.querySelector<HTMLElement>('.swiper-slide:not([aria-hidden="true"])');
+      const select = scope?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Select tasks"], button[aria-label="Exit selection mode"]'
+      );
+      if (!select || select.disabled) return;
+      event.preventDefault();
+      select.focus({ preventScroll: true });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [shortcutsEnabled, isOpen, isBackgroundLocked, isTaskReorderActive, keyboardHelpOpen,
+    editingTaskId, renderMode, isBacklogView]);
+
+  // The BottomSheet trap initially focuses the header's Previous button.
+  // After its focus setup, start keyboard browsing at the first visible
+  // category instead. Only do this once per sheet opening, not on day swipes,
+  // changes in task data, drag snap-back or nested sheet restoration.
+  useEffect(() => {
+    if (!isOpen) {
+      didInitialCategoryFocusRef.current = false;
+      return;
+    }
+    if (renderMode !== 'sheet' || focusTaskId || isBackgroundLocked ||
+        didInitialCategoryFocusRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (didInitialCategoryFocusRef.current) return;
+      const root = sheetContentRef.current;
+      if (!root || root.closest('[inert], [aria-hidden="true"]')) return;
+      const target = root.querySelector<HTMLButtonElement>(
+        '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]:not(:disabled)'
+      );
+      if (!target) return; // Categories may still be loading.
+      const focused = document.activeElement;
+      // Never override a task being edited or a target already chosen by user.
+      if (focused instanceof Element && root.contains(focused) &&
+          focused.closest('input, textarea, select, [role="textbox"], [contenteditable], [data-day-keyboard-target]')) {
+        didInitialCategoryFocusRef.current = true;
+        return;
+      }
+      target.focus({ preventScroll: true });
+      didInitialCategoryFocusRef.current = true;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen, renderMode, focusTaskId, isBackgroundLocked, activeIndex, categories]);
+
+  // A11Y-33: arrows still change dates outside editable fields. When a
+  // keyboard user changes dates, move focus out of the now-hidden Swiper slide.
+  const keyboardDateFocusRef = useRef<{ categoryId: string | null } | null>(null);
+  const navigateDateByKeyboard = (direction: 'left' | 'right') => {
+    keyboardDateFocusRef.current = {
+      categoryId: document.activeElement instanceof Element
+        ? document.activeElement.closest('[data-task-category-id]')?.getAttribute('data-task-category-id') ?? null
+        : null,
+    };
+    if (direction === 'left') handlePrevDayFromUi();
+    else handleNextDayFromUi();
+  };
   useHorizontalArrowNavigation({
-    enabled: isOpen && !isBacklogView && !isBackgroundLocked && !isTaskReorderActive,
-    onLeft: handlePrevDayFromUi,
-    onRight: handleNextDayFromUi,
+    enabled: isOpen && !isBacklogView && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen,
+    onLeft: () => navigateDateByKeyboard('left'),
+    onRight: () => navigateDateByKeyboard('right'),
   });
+  useEffect(() => {
+    const pending = keyboardDateFocusRef.current;
+    if (!pending || !isOpen || isBackgroundLocked) return;
+    const slide = swiperRef.current?.el?.querySelector('.swiper-slide:not([aria-hidden="true"])');
+    if (!slide) return;
+    keyboardDateFocusRef.current = null;
+    const category = pending.categoryId
+      ? Array.from(slide.querySelectorAll<HTMLButtonElement>('[data-day-keyboard-target="category"]'))
+        .find(button => button.dataset.dayKeyboardId === pending.categoryId && !button.disabled)
+      : null;
+    const target = category ??
+      slide.querySelector<HTMLButtonElement>('[data-day-keyboard-target="category"]:not(:disabled)') ??
+      slide.querySelector<HTMLButtonElement>('[data-day-view-navigation="true"] button');
+    target?.focus({ preventScroll: true });
+  }, [activeIndex, isBackgroundLocked, isOpen]);
 
   const handleTransientDismiss = useCallback(() => {
     if (!isSelectMode || isBackgroundLocked) return false;
@@ -863,20 +1067,83 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     </div>
   );
 
+  const keyboardHelpPanel = keyboardHelpOpen ? (
+    <div
+      role="region"
+      aria-label="Day View keyboard shortcuts"
+      className="mx-4 mb-2 rounded-xl border border-white/10 bg-[#222222] px-4 py-3 text-gray-200 shadow-lg"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          hideKeyboardHelp();
+        }
+      }}
+    >
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-semibold text-sm text-white">Keyboard shortcuts</p>
+        <button
+          ref={keyboardHelpCloseRef}
+          type="button"
+          onClick={hideKeyboardHelp}
+          className="rounded-lg px-2 py-1 text-xs text-gray-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+        >Close</button>
+      </div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+        <dt className="font-mono text-gray-100">↑ / ↓</dt><dd>Previous / next task or category</dd>
+        <dt className="font-mono text-gray-100">Home / End</dt><dd>First / last visible item</dd>
+        {!isBacklogView && <><dt className="font-mono text-gray-100">← / →</dt><dd>Previous / next day outside text editing</dd></>}
+        <dt className="font-mono text-gray-100">S</dt><dd>Focus the Select tasks button</dd>
+        <dt className="font-mono text-gray-100">N</dt><dd>New task in the focused category (not in Select mode)</dd>
+        <dt className="font-mono text-gray-100">Enter</dt><dd>Edit a task; select it in Select mode</dd>
+        <dt className="font-mono text-gray-100">Space</dt><dd>Complete a task; select it in Select mode</dd>
+        <dt className="font-mono text-gray-100">Shift+Enter</dt><dd>Task actions (outside Select mode)</dd>
+        <dt className="font-mono text-gray-100">?</dt><dd>Show this help from a task or category</dd>
+        <dt className="font-mono text-gray-100">Tab</dt><dd>Move through other controls</dd>
+        <dt className="font-mono text-gray-100">Esc</dt><dd>Cancel editing or close the active overlay</dd>
+      </dl>
+    </div>
+  ) : null;
+
+  const canCreateCategory = Boolean(isOpen && !isBacklogView && currentUserId &&
+    !isSelectMode && !categoriesLoading &&
+    categories.every(category => category.userId === currentUserId));
+  const showFirstCategoryPrompt = canCreateCategory &&
+    categories.length === 0 && hookCategories.length === 0;
+  const showPersistentCategoryPrompt = canCreateCategory && alwaysShowAddCategory;
+  const categoryCreationPrompt = showFirstCategoryPrompt || showPersistentCategoryPrompt ? (
+    <FirstCategoryPrompt persistent={showPersistentCategoryPrompt} onCreate={async draft => {
+      if (!currentUserId || categories.some(category => category.userId !== currentUserId) ||
+          (!showPersistentCategoryPrompt && (categories.length > 0 || hookCategories.length > 0))) {
+        throw new Error('Categories have changed. Try again.');
+      }
+      await addCategory({ ...draft, order: categories.length, icon: '' });
+    }} />
+  ) : undefined;
+  // Empty owners keep the onboarding prompt unless the optional footer action is enabled.
+  const firstCategoryPrompt = showPersistentCategoryPrompt ? undefined : categoryCreationPrompt;
+  const footerCategoryPrompt = showPersistentCategoryPrompt ? categoryCreationPrompt : undefined;
+
   const content = (
     <>
       {isBacklogView ? (
         <>
-          <div className="flex justify-end px-4 py-2">
+          <div className="flex justify-end gap-2 px-4 py-2">
+            <button type="button" ref={keyboardHelpTriggerRef} onClick={showKeyboardHelp}
+              aria-label="Show keyboard shortcuts" aria-expanded={keyboardHelpOpen}
+              className="rounded-lg px-2.5 py-1.5 text-gray-300 hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            ><CircleHelp size={17} aria-hidden="true" /></button>
             <button type="button" onClick={handleToggleSelectMode}
               aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
               aria-pressed={isSelectMode}
               className="rounded-lg px-3 py-1.5 text-sm text-gray-300 focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >{isSelectMode ? 'Done' : 'Select'}</button>
           </div>
+          {keyboardHelpPanel}
           <DaySlide
             date={selectedDate}
             dateStr=""
+            timestampDisplay={timestampDisplay}
             scrollMode="page"
             tasks={backlogTasks}
             categories={categories}
@@ -896,22 +1163,28 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             showCategoryCollapseButton={showCategoryCollapseButton}
             taskSortMode={taskSortMode}
             selectionMode={isSelectMode}
+            keyboardNavigationEnabled={isOpen && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen}
+            onShowKeyboardHelp={showKeyboardHelp}
             selectedTaskIds={selectedTaskIds}
             onToggleTaskSelection={handleToggleTaskSelection}
             reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
             reorderRuntimeActive={isOpen}
             onReorderTasks={reorderTasks}
+            onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
+            onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
+            onCategoryActionError={showFeedback}
             onReorderActiveChange={setIsTaskReorderActive}
           />
         </>
       ) : (
       <Swiper
+        key={anchorKey}
         // Preserve all 181 logical dates for direct jumps, but avoid 181 DOM
         // slides (and their synchronous layout) on every sheet open.
-        modules={renderMode === 'sheet' ? [Virtual] : undefined}
-        virtual={renderMode === 'sheet' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
-        nested={renderMode === 'inline'}
-        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen}
+        modules={renderMode === 'sheet' || renderMode === 'panel' ? [Virtual] : undefined}
+        virtual={renderMode === 'sheet' || renderMode === 'panel' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
+        nested={renderMode !== 'sheet'}
+        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen && !continuousDrag.projection}
         noSwiping={renderMode === 'sheet'}
         focusableElements={DAY_SWIPER_FOCUSABLE_ELEMENTS}
         touchStartPreventDefault={false}
@@ -919,6 +1192,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         autoHeight={renderMode === 'inline'}
         onSwiper={(swiper) => {
           swiperRef.current = swiper;
+          continuousDrag.onWindowRebased();
         }}
         onBeforeDestroy={(swiper) => {
           if (swiperRef.current === swiper) {
@@ -976,7 +1250,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           <ChevronLeft size={20} />
                         </button>
                         <h3
-                          className="min-w-0 text-center text-base font-semibold text-white"
+                          className="mosaic-date-header min-w-0 text-center text-base font-semibold text-white"
                           aria-live={i === activeIndex ? 'polite' : undefined}
                         >
                           <span className="block truncate">{slideDateLabels.get(i)}</span>
@@ -1008,25 +1282,101 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                             </span>
                           ))}
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleToggleSelectMode}
-                          tabIndex={i === activeIndex ? 0 : -1}
-                          aria-pressed={isSelectMode}
-                          aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
-                          className={`justify-self-end flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode ? 'bg-emerald-500 text-black' : 'text-gray-300 hover:bg-[#2A2A2A]'}`}
-                        >
-                          <CheckSquare size={16} aria-hidden="true" />
-                          <span>Select</span>
-                        </button>
+                        <div className="justify-self-end flex items-center gap-1.5">
+                          {i === activeIndex && renderMode !== 'panel' && <React.Suspense fallback={null}><DayLayoutMenu /></React.Suspense>}
+                          <button
+                            type="button"
+                            ref={i === activeIndex ? keyboardHelpTriggerRef : undefined}
+                            onClick={showKeyboardHelp}
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            aria-label="Show keyboard shortcuts"
+                            aria-expanded={i === activeIndex ? keyboardHelpOpen : false}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#444444] bg-surfaceHighlight text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                          ><CircleHelp size={16} aria-hidden="true" /></button>
+                          <button
+                            type="button"
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            disabled={isBackgroundLocked || editingTaskId !== null || isTaskReorderActive || Boolean(continuousDrag.carried)}
+                            aria-pressed={dayViewMode === 'timeline'}
+                            aria-label={dayViewMode === 'timeline' ? 'Switch to categories view' : 'Switch to timeline view'}
+                            title={dayViewMode === 'timeline' ? 'Categories view' : 'Timeline view'}
+                            onClick={() => void setSetting(DAY_VIEW_MODE_SETTING_KEY, dayViewMode === 'timeline' ? 'categories' : 'timeline')}
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40 ${dayViewMode === 'timeline'
+                              ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
+                              : 'border-[#444444] bg-surfaceHighlight text-gray-300 hover:bg-[#333333]'}`}
+                          >
+                            <ListOrdered size={16} aria-hidden="true" />
+                          </button>
+                          {dayViewMode === 'timeline' && (
+                            <button
+                              type="button"
+                              tabIndex={i === activeIndex ? 0 : -1}
+                              aria-label={timelineDirection === 'desc' ? 'Timeline newest first; switch to oldest' : 'Timeline oldest first; switch to newest'}
+                              title={timelineDirection === 'desc' ? 'Newest first' : 'Oldest first'}
+                              onClick={() => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, timelineDirection === 'desc' ? 'asc' : 'desc')}
+                              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full border border-[#444444] bg-surfaceHighlight px-2 text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                            >
+                              {timelineDirection === 'desc' ? <ArrowDownWideNarrow size={16} aria-hidden="true" /> : <ArrowUpNarrowWide size={16} aria-hidden="true" />}
+                              <span className="hidden min-[420px]:inline text-[11px] font-semibold">{timelineDirection === 'desc' ? 'Newest' : 'Oldest'}</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleToggleSelectMode}
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            aria-pressed={isSelectMode}
+                            aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
+                            className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${isSelectMode
+                              ? 'border-transparent bg-emerald-500 text-black'
+                              : 'border-[#444444] bg-surfaceHighlight text-gray-300 hover:bg-[#333333]'}`}
+                          >
+                            <CheckSquare size={16} aria-hidden="true" />
+                            <span>Select</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
+                    {i === activeIndex && keyboardHelpPanel}
                     {dayTasks.some(task => pendingOwnedTaskIds.has(task.id)) && (
                       <p role="status" className="px-4 pb-1 text-xs text-amber-400">
                         Shared completion pending sync
                       </p>
                     )}
 
+                    {dayViewMode === 'timeline' ? (
+                      <Suspense fallback={<div className="px-4 py-4 text-xs text-gray-400">Loading timeline…</div>}>
+                        <LazyTaskTimelineList
+                          dateStr={dateStr}
+                          scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
+                          tasks={dayTasks}
+                          categories={categories}
+                          currentUserId={currentUserId}
+                          ownerLabels={ownerLabels}
+                          editingTaskId={editingTaskId}
+                          editValue={editValue}
+                          onToggleTask={handleToggleTask}
+                          onAddTask={handleAddTask}
+                          onOpenActions={handleOpenActions}
+                          onOpenMemo={handleOpenMemo}
+                          onEditTask={handleEditTask}
+                          onViewImage={handleViewImage}
+                          onEditChange={handleEditChange}
+                          onEditSave={handleEditSave}
+                          onEditCancel={handleEditCancel}
+                          selectionMode={isSelectMode && i === activeIndex}
+                          selectedTaskIds={selectedTaskIds}
+                          onToggleTaskSelection={handleToggleTaskSelection}
+                          direction={timelineDirection}
+                          sortBasis={timelineSortBasis}
+                          onSortBasisChange={basis => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, basis)}
+                          timestampDisplay={timestampDisplay}
+                          emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
+                          footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
+                           showOtherContentNotice={showDiaryInDayView ||
+                            sharedTasks.activeItems.some(item => item.status === 'accepted' && item.date === dateStr)}
+                        />
+                      </Suspense>
+                    ) : (
                     <DaySlide
                       date={date}
                       dateStr={dateStr}
@@ -1046,14 +1396,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       onChangeSharedDate={updateSharedDate}
                       onMoveSharedTask={moveSharedTask}
                       sharedOrderFor={sharedOrderFor}
-                      onSharedMoveError={(error) => showFeedback(error instanceof Error ? error.message : 'Could not move shared task.')}
+                      onSharedMoveError={handleSharedMoveError}
                       ownerLabels={ownerLabels}
                       onSharedCompletion={handleSharedCompletion}
-                      onLeaveSharedTask={async (item) => {
-                        const outcome = await leaveSharedTask(item, 'leave');
-                        if (outcome.status === 'pending') showFeedback('Leaving task queued for sync.');
-                        if (outcome.status === 'rejected') showFeedback(outcome.reason || 'Could not leave shared task.');
-                      }}
+                      onLeaveSharedTask={handleLeaveSharedTask}
                       sharedPendingFor={sharedTasks.pendingFor}
                       onAddTask={handleAddTask}
                       onOpenActions={handleOpenActions}
@@ -1063,11 +1409,14 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       onEditChange={handleEditChange}
                       onEditSave={handleEditSave}
                       onEditCancel={handleEditCancel}
-                      disableTaskLayoutAnimation={renderMode === 'sheet'}
+                      disableTaskLayoutAnimation={renderMode === 'sheet' || renderMode === 'panel'}
                       continueAddingTasks={continueAddingTasks}
                       showCategoryCollapseButton={showCategoryCollapseButton}
                       taskSortMode={taskSortMode}
+                      timestampDisplay={timestampDisplay}
                       selectionMode={isSelectMode && i === activeIndex}
+                      keyboardNavigationEnabled={isOpen && i === activeIndex && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen}
+                      onShowKeyboardHelp={i === activeIndex ? showKeyboardHelp : undefined}
                       selectedTaskIds={selectedTaskIds}
                       onToggleTaskSelection={handleToggleTaskSelection}
                       onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
@@ -1075,16 +1424,36 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         isOpen &&
                         i === activeIndex &&
                         !isSelectMode &&
-                        !isBackgroundLocked &&
+                        // A modal over sheet-mode Day View already makes the
+                        // entire parent inert. Keep the category Reorder.Group
+                        // and task/drop-row component identities mounted:
+                        // flipping reorderEnabled here would replace every
+                        // category and task row during the Memo entrance.
+                        (renderMode === 'sheet' || !isBackgroundLocked) &&
+                        !continuousDrag.projection &&
                         editingTaskId === null
                       }
                       reorderRuntimeActive={isOpen && i === activeIndex}
+                      onCrossDayTaskStart={continuousDrag.startTask}
+                      onCrossDayTaskMove={continuousDrag.moveTask}
+                      onCrossDayNativeEnd={continuousDrag.onNativeEnd}
+                      crossDayDragTaskId={continuousDrag.projection?.task.id}
+                      crossDayInsertion={continuousDrag.projection?.date === dateStr
+                        ? { categoryId: continuousDrag.projection.categoryId,
+                            index: continuousDrag.projection.index, height: continuousDrag.projection.height }
+                        : undefined}
                       onReorderTasks={reorderTasks}
-                      onReorderActiveChange={setIsTaskReorderActive}
-                      diaryEnabled={showDiaryInDayView && !isSelectMode}
+            onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
+            onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
+            onCategoryActionError={showFeedback}
+                      onReorderActiveChange={handleReorderActiveChange}
+                      emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
+                          footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
+                       diaryEnabled={showDiaryInDayView && !isSelectMode}
                       diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
                       onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
                     />
+                    )}
 
                   </>
                 )}
@@ -1094,6 +1463,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         })}
       </Swiper>
       )}
+      {continuousDrag.overlay}
       <AnimatePresence initial={false}>
         {isSelectMode && (
           <motion.div
@@ -1196,6 +1566,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         message="This task will be permanently removed."
         confirmLabel="Delete"
         destructive
+        isProcessing={isDeleteProcessing}
+        processingLabel="Deleting…"
         onConfirm={handleDelete}
       />
       <ConfirmSheet
@@ -1248,7 +1620,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     </>
   );
 
-  if (renderMode !== 'sheet') {
+  if (renderMode === 'inline' || renderMode === 'backlog') {
     return (
       <div
         className={`flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-x-hidden ${isBackgroundLocked ? 'pointer-events-none' : ''}`}
@@ -1265,6 +1637,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     <div
       data-testid="day-sheet-swipe-surface"
       data-day-view-focus-scope={focusTaskId ? 'true' : undefined}
+      ref={sheetContentRef}
       className="flex h-full min-h-0 flex-col"
     >
       {content}
@@ -1299,6 +1672,11 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
       }}
       ariaLabel={format(props.selectedDate, 'EEEE, MMMM d, yyyy')}
       height="full"
+      // Framer Motion reorder/layout projection measures all task/category
+      // rows relative to this surface. Scaling their ancestor during nested
+      // sheet entrance causes visible FLIP corrections (jitter) even when rows
+      // retain DOM identity. Use the nested backdrop for depth instead.
+      scaleBehind={false}
       isLocked={lock.background || lock.reorder}
       preventDismiss={lock.reorder}
       suspendInteraction={lock.background}

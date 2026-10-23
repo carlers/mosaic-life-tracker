@@ -5,7 +5,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
 import '../../src/index.css';
-import { format } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 import { CalendarCarousel } from '../../src/components/home/views/CalendarCarousel';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 import { TaskBlock } from '../../src/components/home/views/TaskBlock';
@@ -17,6 +17,9 @@ import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 import { AuthContext } from '../../src/hooks/authContext';
 import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
+import { useRetainedSheetValue } from '../../src/hooks/useRetainedSheetValue';
+import { CategoryRow } from '../../src/components/modals/CategoryManagerSheet';
+import { Reorder } from 'framer-motion';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
 import { MessageComposer } from '../../src/components/messages/MessageComposer';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../src/db/schema';
@@ -185,6 +188,138 @@ function ColdDayViewProbe({ tasks, categories, emptyDayTasks }: {
   );
 }
 
+
+/** Isolated, opt-in compositor probe; it must not rerender the large Calendar
+ * fixture on each sheet transition. Uses the real shared BottomSheet stack. */
+function NestedSheetPerformanceProbe({ blur }: { blur: boolean }) {
+  const [parentOpen, setParentOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const rows = React.useMemo(
+    () => Array.from({ length: 50 }, (_, index) => `Task ${index + 1}: nested sheet performance fixture`),
+    []
+  );
+  return (
+    <div>
+      <button type="button" data-testid="nested-parent-open" onClick={() => setParentOpen(true)}>
+        Open task list sheet
+      </button>
+      <Profiler id="NestedBottomSheet" onRender={(id, phase, actualDuration, baseDuration, startTime, commitTime) => {
+        const profile = {
+          id, phase,
+          timestamp: Number(performance.now().toFixed(2)),
+          actualDuration: Number(actualDuration.toFixed(2)),
+          baseDuration: Number(baseDuration.toFixed(2)),
+          startTime: Number(startTime.toFixed(2)),
+          commitTime: Number(commitTime.toFixed(2)),
+        };
+        const global = window as typeof window & { __mosaicReactProfile?: typeof profile[] };
+        global.__mosaicReactProfile ??= [];
+        global.__mosaicReactProfile.push(profile);
+      }}>
+        <BottomSheet isOpen={parentOpen} onClose={() => setParentOpen(false)}
+          title="Task list" height="full">
+          <div data-testid="nested-parent-content">
+            <button type="button" data-testid="nested-parent-close" onClick={() => setParentOpen(false)}>
+              Close task list
+            </button>
+            <button type="button" data-testid="nested-detail-open" onClick={() => setDetailOpen(true)}>
+              Open task actions
+            </button>
+            {rows.map((row, index) => <div key={index} className="p-3">{row}</div>)}
+          </div>
+        </BottomSheet>
+        <BottomSheet isOpen={detailOpen} onClose={() => setDetailOpen(false)}
+          title="Task actions" backdropBlur={blur}>
+          <div data-testid="nested-detail-content" className="p-5">
+            <button type="button" data-testid="nested-detail-close" onClick={() => setDetailOpen(false)}>
+              Close task actions
+            </button>
+          </div>
+        </BottomSheet>
+      </Profiler>
+    </div>
+  );
+}
+
+/** Browser ownership contract: the real DiaryEntrySheet must survive the close
+ * request and finish its exit before its retained record is discarded. */
+const LazyDiaryExitSheet = React.lazy(() =>
+  import('../../src/components/home/views/DiaryEntrySheet')
+    .then(module => ({ default: module.DiaryEntrySheet }))
+);
+function DiarySheetExitProbe() {
+  const [opened, setOpened] = useState(false);
+  const [exits, setExits] = useState(0);
+  const { value: session, onExitComplete: release } = useRetainedSheetValue(
+    opened ? { id: 'diary-exit-fixture', date: '2026-09-15' } : null,
+    opened
+  );
+  return (
+    <div>
+      <button type="button" data-testid="diary-exit-open" onClick={() => setOpened(true)}>
+        Open diary
+      </button>
+      <div data-testid="diary-exit-count">{exits}</div>
+      {session && <React.Suspense fallback={null}>
+        <LazyDiaryExitSheet key={session.id} isOpen={opened}
+          date={session.date} author="Fixture" onClose={() => setOpened(false)}
+          onReact={async () => {}} onReply={async () => {}}
+          onExitComplete={() => { release(); setExits(count => count + 1); }} />
+      </React.Suspense>}
+    </div>
+  );
+}
+
+/** Desktop split regression: real Embla, flex geometry, and lazy Day View
+ * without authentication or network. This catches half-scrolled adjacent
+ * months that a mocked DOM test cannot detect. */
+function SplitPanelLayoutProbe() {
+  const calendar = useCalendarState({ weekStartsOn: 0 });
+  const [mode, setMode] = useState<'screen' | 'grid'>(
+    new URLSearchParams(window.location.search).get('splitPanelProbe') === 'screen' ? 'screen' : 'grid'
+  );
+  const side = new URLSearchParams(window.location.search).get('side') === 'right' ? 'right' : 'left';
+  const withRows = new URLSearchParams(window.location.search).has('splitRows');
+  const categories = React.useMemo<CategoryDocument[]>(() => withRows ? [
+    { id: 'split_cat_a', userId: 'user_1', name: 'Work', order: 0, color: '#3B82F6', visibility: 'private', isDeleted: false },
+    { id: 'split_cat_b', userId: 'user_1', name: 'Life', order: 1, color: '#10B981', visibility: 'private', isDeleted: false },
+  ] : [], [withRows]);
+  const month = calendar.slides[30] ?? new Date(2026, 8, 1);
+  const tasks = React.useMemo<TaskDocument[]>(() => withRows ? Array.from({ length: 42 }, (_, index) => ({
+    id: `split_task_${index}`, userId: 'user_1', title: `Resize task ${index}`,
+    categoryId: 'split_cat_a', date: format(new Date(month.getFullYear(), month.getMonth(), index - 6), 'yyyy-MM-dd'),
+    order: index, completed: false, completedAt: '', createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: '2026-09-01T00:00:00Z', visibility: 'private', memo: '', isDeleted: false,
+  })) : [], [withRows, month]);
+  return (
+    <div data-testid="split-workspace" className="mosaic-home-workspace flex w-full min-w-0 bg-[#111111]" style={{ height: 750 }}>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header data-testid="split-header" className="shrink-0 p-3">Search · Menu · Profile</header>
+        <div className="shrink-0 px-3">
+          <span data-testid="split-focused-title">{calendar.title}</span>
+          <button type="button" data-testid="split-next-month" onClick={calendar.handleNext}>Next month</button>
+          <button type="button" data-testid="split-toggle-height" onClick={() => setMode(value => value === 'screen' ? 'grid' : 'screen')}>Toggle height</button>
+        </div>
+        {/* Reproduce a shorter month grid with remaining space above the app nav. */}
+        <div data-testid="split-calendar-frame" className="flex min-h-0 shrink-0 flex-col" style={{ height: 470 }}>
+          <CalendarBody viewMode={calendar.viewMode}
+            slides={calendar.slides} renderStart={calendar.renderStart} renderEnd={calendar.renderEnd}
+            emblaRef={calendar.emblaRef} activeIndex={calendar.activeIndex}
+            isZoomTransitioning={calendar.isZoomTransitioning}
+            onZoomNavigate={calendar.handleZoomNavigate}
+            onCalendarLayoutChange={calendar.resnapAfterResize}
+            tasks={tasks} categories={categories} categoriesMap={{}} variant="me" isActive
+            currentUserId="user_1" dayDetailPresentation="panel"
+            dayPanelSide={side} dayPanelHeight={mode}
+            onPrev={calendar.handlePrev} onNext={calendar.handleNext} />
+        </div>
+      </div>
+      <div data-home-panel-slot="true"
+        className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden" />
+    </div>
+  );
+}
+
 /** The actual CalendarBody / DayCell / lazy DayViewSheet entry path, rather than an isolated open button. */
 function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; categories: CategoryDocument[] }) {
   const calendar = useCalendarState();
@@ -210,6 +345,9 @@ function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; c
         renderStart={calendar.renderStart}
         renderEnd={calendar.renderEnd}
         emblaRef={calendar.emblaRef}
+        activeIndex={calendar.activeIndex}
+        isZoomTransitioning={calendar.isZoomTransitioning}
+        onZoomNavigate={calendar.handleZoomNavigate}
         tasks={tasks}
         categories={categories}
         categoriesMap={categoriesMap}
@@ -227,10 +365,16 @@ export function InteractionHarness() {
   const calendar = useCalendarState();
   const searchParams = new URLSearchParams(window.location.search);
   const performanceHeavy = searchParams.get('perf') === 'heavy';
+  const performanceTaskCount = searchParams.has('perfTaskCount')
+    ? Math.max(0, Math.min(200, Number(searchParams.get('perfTaskCount')) || 0))
+    : 50;
+  const stickyCalendarProbe = searchParams.get('stickyCalendar') === '3';
+  const compactDiaryMode = searchParams.get('compactDiary') === '1';
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
   const performanceCalendarPath = searchParams.get('calendarPath') === '1';
   const rxLikeLegacyTasks = searchParams.get('rxdocs') === 'legacy';
   const diaryDragProbe = searchParams.get('diaryDrag') === '1';
+  const crossDayDestinations = searchParams.get('crossDayDestinations') === '1';
   const [diaryTestPlacement, setDiaryTestPlacement] = useState<DiaryPlacement>({kind: 'slot', categoryId: 'cat_0', index: 3});
   const diaryTestEntry = React.useMemo<DiaryDocument>(() => ({
     id: 'fixture_diary', userId: 'user_1', date: '2026-09-15',
@@ -268,11 +412,11 @@ export function InteractionHarness() {
     todoCategories.flatMap((category, categoryIndex) =>
       Array.from(
         {
-          length:
-            !performanceHeavy && categoryIndex === 2
+          length: crossDayDestinations ? 3
+            : !performanceHeavy && categoryIndex === 2
               ? 0
               : performanceHeavy
-                ? 10
+                ? Math.ceil(performanceTaskCount / todoCategories.length)
                 : 3,
         },
         (_, taskIndex) => ({
@@ -281,7 +425,11 @@ export function InteractionHarness() {
           completed: false,
           categoryId: category.id,
           order: rxLikeLegacyTasks ? 0 : taskIndex,
-          date: '2026-09-15',
+          // Controlled browser-only fixture: keep Task 1.1 on the source
+          // day but distribute existing siblings across the next two
+          // categories, with no extra data volume or duplicate IDs.
+          date: crossDayDestinations && (categoryIndex === 1 ||
+            (categoryIndex === 0 && taskIndex > 0)) ? '2026-09-16' : '2026-09-15',
           createdAt: '2026-09-01T00:00:00.000Z',
           completedAt: '',
           updatedAt: '2026-09-01T00:00:00.000Z',
@@ -325,6 +473,14 @@ export function InteractionHarness() {
         <span>Friend index: <output data-testid="friend-index">{friendIndex}</output></span>
         <span>Todo day: <output data-testid="todo-day-index">{todoDayIndex}</output></span>
         <span>Todo month: <output data-testid="todo-month">{format(todoMonth, 'MMMM yyyy')}</output></span>
+        <button type="button" data-testid="compact-next-month"
+          onClick={() => setTodoMonth(current => addMonths(current, 1))}>Next compact month</button>
+        <button type="button" data-testid="compact-prev-month"
+          onClick={() => setTodoMonth(current => addMonths(current, -1))}>Previous compact month</button>
+        <button type="button" data-testid="compact-reset-today"
+          onClick={() => { setTodoMonth(new Date(2026, 8, 15)); setTodoSelectedDate(new Date(2026, 8, 15)); }}>Compact back to September</button>
+        <button type="button" data-testid="compact-jump-future"
+          onClick={() => setTodoMonth(new Date(2032, 8, 15))}>Compact jump to September 2032</button>
         <span>Todo selected: <output data-testid="todo-selected-date">{format(todoSelectedDate, 'yyyy-MM-dd')}</output></span>
         <span>Todo gesture: <output data-testid="todo-gesture">{todoGesture}</output></span>
         <span>Calendar: <output data-testid="calendar-title">{calendar.title}</output></span>
@@ -394,6 +550,7 @@ export function InteractionHarness() {
                   setTodoMonth(date);
                   setTodoSelectedDate(date);
                 }}
+                markerMode={compactDiaryMode ? 'diary' : 'todo'}
               />
             </div>
             <div
@@ -443,13 +600,15 @@ export function InteractionHarness() {
                 ))}
               </Swiper>
             </div>
-            <div data-testid="calendar-region" style={{ height: 280, overflow: 'hidden' }}>
+            <div data-testid="calendar-region" style={{ height: 280, overflow: 'hidden', ...(stickyCalendarProbe ? { display: 'flex', flexDirection: 'column' } as const : {}) }}>
               <CalendarCarousel
                 slides={calendar.slides}
                 renderStart={calendar.renderStart}
                 renderEnd={calendar.renderEnd}
                 emblaRef={calendar.emblaRef}
                 viewMode={calendar.viewMode}
+                zoomDays={stickyCalendarProbe ? 3 : 7}
+                stickyWeekdayHeader={stickyCalendarProbe}
                 onDayClick={() => {}}
                 tasksByDate={performanceHeavy ? calendarTasksByDate : new Map()}
                 categoriesMap={{}}
@@ -837,6 +996,89 @@ export function InteractionHarness() {
   );
 }
 
+/** Isolated browser fixture exercises the production category row animation. */
+function CategoryEditorMotionProbe() {
+  const [items, setItems] = useState<CategoryDocument[]>(() =>
+    ['First', 'Second', 'Third'].map((name, order) => ({
+      id: `motion_${order}`,
+      name,
+      color: '#64748b',
+      icon: '',
+      order,
+      visibility: 'private',
+      userId: 'fixture',
+      isDeleted: false,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }))
+  );
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const orderSignature = items.map((item) => item.id).join('|');
+  return (
+    <div className="max-w-md p-4" data-testid="category-editor-motion-probe">
+      <Reorder.Group axis="y" values={items} onReorder={setItems} className="space-y-2">
+        {items.map((item) => (
+          <CategoryRow
+            key={item.id}
+            cat={item}
+            overriddenCount={0}
+            isEditing={editingId === item.id}
+            orderSignature={orderSignature}
+            onEditStart={(category) => setEditingId(category.id)}
+            onDeleteRequest={() => setEditingId(null)}
+            onReorderEnd={() => {}}
+            disabled={false}
+          >
+            {editingId === item.id && (
+              <div className="space-y-3">
+                <label className="block text-white">Name <input aria-label="Name" defaultValue={item.name} /></label>
+                <div className="h-32 rounded-md border border-[#333333]">Visibility settings</div>
+                <button type="button" onClick={() => setEditingId(null)}>Save Changes</button>
+              </div>
+            )}
+          </CategoryRow>
+        ))}
+      </Reorder.Group>
+    </div>
+  );
+}
+
+/** Browser-only: compact calendar inside a left/right split with divider motion. */
+function TodoSplitSwipeProbe() {
+  const [month, setMonth] = useState(() => new Date(2026, 8, 1));
+  const [day, setDay] = useState(() => new Date(2026, 8, 15));
+  const [panelWidth, setPanelWidth] = useState(412);
+  const side = new URLSearchParams(window.location.search).get('side') === 'right' ? 'right' : 'left';
+  const realign = useRef<((live?: boolean) => void) | null>(null);
+  const bindRealign = React.useCallback((fn: ((live?: boolean) => void) | null) => { realign.current = fn; }, []);
+  const changePanelWidth = () => {
+    const viewport = document.querySelector<HTMLElement>('[data-testid="todo-calendar-grid"]');
+    realign.current?.(true);
+    if (viewport) viewport.dataset.panelMotion = 'true';
+    setPanelWidth(width => width === 412 ? 500 : 412);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      realign.current?.();
+      if (viewport) delete viewport.dataset.panelMotion;
+    }));
+  };
+  return (
+    <div data-testid="todo-split-probe" className="relative flex min-w-0 bg-[#111111]" style={{ width: '100%', height: 750 }}>
+      <div className="shrink-0 border-r border-[#444]" style={{ width: panelWidth, order: side === 'left' ? -1 : 1 }}>
+        <div>Day details · {side}</div>
+        <button type="button" data-testid="todo-resize-panel" onClick={changePanelWidth}>Resize panel</button>
+      </div>
+      <div className="min-w-0 flex-1" style={{ order: 0 }}>
+        <h2 data-testid="todo-split-month-title">{format(month, 'MMMM yyyy')}</h2>
+        <div className="relative min-w-0" data-testid="todo-split-calendar-container">
+          <TodoCalendarGrid focusDate={month} selectedDate={day}
+            tasks={[]} categories={[]} categoriesMap={{}}
+            onDateSelect={setDay} onMonthChange={setMonth}
+            onLayoutChangeReady={bindRealign} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
@@ -855,9 +1097,19 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('chatMotion')
+      {new URLSearchParams(window.location.search).has('nestedSheetProbe')
+        ? <NestedSheetPerformanceProbe blur={new URLSearchParams(window.location.search).get('nestedBlur') === '1'} />
+        : new URLSearchParams(window.location.search).has('diaryExitProbe')
+        ? <DiarySheetExitProbe />
+        : new URLSearchParams(window.location.search).has('todoSplitProbe')
+        ? <TodoSplitSwipeProbe />
+        : new URLSearchParams(window.location.search).has('splitPanelProbe')
+        ? <SplitPanelLayoutProbe />
+        : new URLSearchParams(window.location.search).has('chatMotion')
         ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
-        : <InteractionHarness />}
+        : new URLSearchParams(window.location.search).has('categoryMotion')
+          ? <CategoryEditorMotionProbe />
+          : <InteractionHarness />}
     </AuthContext.Provider>
   </StrictMode>
 );

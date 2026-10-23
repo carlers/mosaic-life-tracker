@@ -1,5 +1,5 @@
 // Regression: §2 (Calendar/Diary view switching remains reachable).
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { addMonths, format } from 'date-fns';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,10 +19,14 @@ vi.mock('../../src/hooks/useDiary', () => ({
   }),
 }));
 
-vi.mock('../../src/components/home/views/TodoListView', () => ({
-  TodoListView: ({ variant = 'me', tasks = [], markerMode = 'todo' }: { variant?: string; tasks?: unknown[]; markerMode?: string }) => (
+const lazyTodoFixture = vi.hoisted(() => ({
+  loadGate: null as Promise<void> | null,
+}));
+vi.mock('../../src/components/home/views/todoListViewModule', () => ({
+  LazyTodoListView: ({ variant = 'me', tasks = [], markerMode = 'todo' }: { variant?: string; tasks?: unknown[]; markerMode?: string }) => (
     <div data-testid="todo-list-view" data-variant={variant} data-task-count={tasks.length} data-marker-mode={markerMode} />
   ),
+  preloadTodoListView: () => lazyTodoFixture.loadGate ?? Promise.resolve(),
 }));
 
 const calendarFixture = vi.hoisted(() => ({
@@ -117,13 +121,17 @@ describe('PersonPane view switcher', () => {
     settingsFixture.values = {
       weekStartsOnSunday: true,
     };
+    lazyTodoFixture.loadGate = null;
   });
 
   // Regression: §2 (friends expose the shared Todo List and its date title returns to the current month).
   it('renders Todo List for a friend in friend mode and lets its date header return to today', async () => {
+    // Warm the module before measuring UI behavior, not the CI runner's
+    // dynamic-import cold start (which is nondeterministic under parallel tests).
+    await import('../../src/components/home/FriendPersonPane');
     render(<PersonPane person={friend} isActive />);
 
-    fireEvent.click(await screen.findByLabelText('Todo list'));
+    fireEvent.click(await screen.findByLabelText('Todo list', {}, { timeout: 5000 }));
 
     expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
     expect(screen.queryByTestId('diary-body')).toBeNull();
@@ -182,4 +190,32 @@ describe('PersonPane view switcher', () => {
     fireEvent.click(screen.getByLabelText('Calendar'));
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
   });
+  // Regression #858: a first view switch must not replace the already-visible
+  // Calendar with an empty Suspense fallback while the Todo/Diary module loads.
+  it('keeps Calendar on screen until the first Todo module is ready', async () => {
+    let release!: () => void;
+    lazyTodoFixture.loadGate = new Promise<void>(resolve => { release = resolve; });
+    render(<PersonPane person={me} isActive />);
+    expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Todo list'));
+    expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
+    expect(screen.queryByTestId('todo-list-view')).toBeNull();
+    await act(async () => { release(); });
+    expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-marker-mode', 'todo');
+  });
+
+  it('ignores a pending Diary module when Calendar was selected afterward', async () => {
+    let release!: () => void;
+    lazyTodoFixture.loadGate = new Promise<void>(resolve => { release = resolve; });
+    render(<PersonPane person={me} isActive />);
+
+    fireEvent.click(screen.getByLabelText('Diary'));
+    expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Calendar'));
+    await act(async () => { release(); });
+    expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
+    expect(screen.queryByTestId('todo-list-view')).toBeNull();
+  });
+
 });

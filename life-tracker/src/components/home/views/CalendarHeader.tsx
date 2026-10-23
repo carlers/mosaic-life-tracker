@@ -54,7 +54,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     <div className="px-4 py-3 flex items-center gap-3 border-b border-[#333333]">
       <ViewSwitcher activeView={activeView} onViewChange={onViewChange} />
       <h2
-        className="min-w-0 flex-1 text-base font-bold text-white transition-all duration-200"
+        className="mosaic-date-header min-w-0 flex-1 text-base font-bold text-white transition-all duration-200"
         aria-live="polite"
         onTouchStart={handleTitleTouchStart}
         onTouchEnd={handleTitleTouchEnd}
@@ -91,7 +91,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             type="button"
             onClick={onPrev}
             onPointerDown={(e) => e.stopPropagation()}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label="Previous month"
           >
             <ChevronLeft size={16} aria-hidden="true" />
@@ -100,7 +100,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             type="button"
             onClick={onNext}
             onPointerDown={(e) => e.stopPropagation()}
-            className="p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label="Next month"
           >
             <ChevronRight size={16} aria-hidden="true" />

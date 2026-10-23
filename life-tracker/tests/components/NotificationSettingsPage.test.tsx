@@ -53,8 +53,8 @@ describe('NotificationSettingsPage', () => {
   it('explains retention and does not request permission when push is unconfigured', async () => {
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
     expect(screen.getByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Unread alerts' })).toHaveValue('7');
-    expect(screen.getByRole('combobox', { name: 'Read alerts' })).toHaveValue('24');
+    expect(screen.getByRole('combobox', { name: /^Unread alerts:/ })).toHaveTextContent('7 days');
+    expect(screen.getByRole('combobox', { name: /^Read alerts:/ })).toHaveTextContent('24 hours');
     const switchControl = screen.getByRole('switch', { name: 'Enable push notifications' });
     await waitFor(() => expect(switchControl).toBeDisabled());
     fireEvent.click(switchControl);
@@ -76,13 +76,15 @@ describe('NotificationSettingsPage', () => {
 
   it('offers separate account-synced retention choices and keeps push independent', async () => {
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
-    const unread = screen.getByRole('combobox', { name: 'Unread alerts' });
-    const read = screen.getByRole('combobox', { name: 'Read alerts' });
-    expect(unread).toHaveValue('7');
-    expect(read).toHaveValue('24');
+    const unread = screen.getByRole('combobox', { name: /^Unread alerts:/ });
+    const read = screen.getByRole('combobox', { name: /^Read alerts:/ });
+    expect(unread).toHaveTextContent('7 days');
+    expect(read).toHaveTextContent('24 hours');
+    fireEvent.click(unread);
     expect(screen.getByRole('option', { name: '30 days' })).toBeInTheDocument();
-    fireEvent.change(unread, { target: { value: '14' } });
-    fireEvent.change(read, { target: { value: '168' } });
+    fireEvent.click(screen.getByRole('option', { name: '14 days' }));
+    fireEvent.click(read);
+    fireEvent.click(screen.getByRole('option', { name: '7 days' }));
     expect(mocks.setSetting).toHaveBeenCalledWith('alertsUnreadRetentionDays', 14);
     expect(mocks.setSetting).toHaveBeenCalledWith('alertsReadRetentionHours', 168);
     expect(mocks.enablePushNotifications).not.toHaveBeenCalled();
@@ -94,15 +96,15 @@ describe('NotificationSettingsPage', () => {
       alertsReadRetentionHours: 72,
     };
     const { rerender } = render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
-    expect(screen.getByRole('combobox', { name: 'Unread alerts' })).toHaveValue('30');
-    expect(screen.getByRole('combobox', { name: 'Read alerts' })).toHaveValue('72');
+    expect(screen.getByRole('combobox', { name: /^Unread alerts:/ })).toHaveTextContent('30 days');
+    expect(screen.getByRole('combobox', { name: /^Read alerts:/ })).toHaveTextContent('3 days');
     mocks.retentionSettings = {
       alertsUnreadRetentionDays: -1,
       alertsReadRetentionHours: 'never',
     };
     rerender(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
-    expect(screen.getByRole('combobox', { name: 'Unread alerts' })).toHaveValue('7');
-    expect(screen.getByRole('combobox', { name: 'Read alerts' })).toHaveValue('24');
+    expect(screen.getByRole('combobox', { name: /^Unread alerts:/ })).toHaveTextContent('7 days');
+    expect(screen.getByRole('combobox', { name: /^Read alerts:/ })).toHaveTextContent('24 hours');
   });
 
   it('saves an independent on-device foreground setting without changing push registration', async () => {

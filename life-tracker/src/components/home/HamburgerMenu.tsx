@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
-import { Menu, List, RefreshCw, Bell, Archive, Star } from 'lucide-react';
+import { Menu, List, RefreshCw, Bell, Archive, Star, ListChecks } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 const { Component: LazyBottomSheet, preload: preloadMenuBottomSheet } =
@@ -8,7 +8,7 @@ const { Component: LazyBottomSheet, preload: preloadMenuBottomSheet } =
 const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
   createPreloadedLazy(() => import('../modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 
-export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketList: () => void }> = ({ onOpenBacklog, onOpenBucketList }) => {
+export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketList: () => void; onOpenUncompleted: () => void }> = ({ onOpenBacklog, onOpenBucketList, onOpenUncompleted }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuSheetMounted, setMenuSheetMounted] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
@@ -30,8 +30,9 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
   const menuItems = [
     { label: 'Bucket List', icon: Star, action: () => { setIsMenuOpen(false); onOpenBucketList(); } },
     { label: 'Backlogs', icon: Archive, action: () => { setIsMenuOpen(false); onOpenBacklog(); } },
+    { label: 'Uncompleted Tasks', icon: ListChecks, action: () => { setIsMenuOpen(false); onOpenUncompleted(); } },
     {
-      label: 'Lists & Categories',
+      label: 'Categories',
       icon: List,
       action: () => {
         setIsMenuOpen(false);
@@ -53,8 +54,9 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
           // User has opened Menu: warm the nested manager without mounting its hooks.
           if (!document.hidden) void preloadCategoryManagerSheet().catch(() => {});
         }}
-        className="p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        className="mosaic-action-icon p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label="Open menu"
+        data-home-menu-trigger="true"
         onPointerDown={() => { void preloadMenuBottomSheet().catch(() => {}); }}
         onMouseEnter={() => { void preloadMenuBottomSheet().catch(() => {}); }}
         onFocus={() => { void preloadMenuBottomSheet().catch(() => {}); }}
@@ -74,8 +76,8 @@ export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketLi
                     className="w-full justify-start gap-3 py-3"
                     onClick={item.action}
                   >
-                    <Icon size={18} className="text-gray-400" aria-hidden="true" />
-                    <span>{item.label}</span>
+                    <Icon size={18} className="mosaic-action-icon text-gray-400" aria-hidden="true" />
+                    <span className="mosaic-sheet-text">{item.label}</span>
                   </Button>
                 );
               })}

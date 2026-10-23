@@ -1,8 +1,9 @@
 import React from 'react';
 import { useDraggable } from '@dnd-kit/react';
 import { TaskItem, type TaskItemProps } from './TaskItem';
+import { TaskRowRegistrationContext } from './taskRowRegistrationContext';
 
-export const DraggableTaskItem: React.FC<TaskItemProps> = (
+const RegisteredDraggableTaskItem: React.FC<TaskItemProps> = (
   taskItemProps
 ) => {
   const { ref: dragRef, handleRef } = useDraggable({
@@ -15,6 +16,7 @@ export const DraggableTaskItem: React.FC<TaskItemProps> = (
       <div
         ref={dragRef}
         aria-hidden="true"
+        data-task-dnd-registered="true"
         style={{
           position: 'absolute',
           inset: 0,
@@ -29,4 +31,11 @@ export const DraggableTaskItem: React.FC<TaskItemProps> = (
       />
     </>
   );
+};
+
+export const DraggableTaskItem: React.FC<TaskItemProps> = (props) => {
+  const registered = React.useContext(TaskRowRegistrationContext);
+  return registered
+    ? <RegisteredDraggableTaskItem {...props} />
+    : <TaskItem {...props} disableLayoutAnimation />;
 };

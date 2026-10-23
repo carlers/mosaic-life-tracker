@@ -63,7 +63,7 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
         </div>
         <p className={`text-xs truncate mt-0.5 ${previewClass}`}>
           {lastMessage?.direction === 'outgoing' && (
-            <span className="text-gray-400">You: </span>
+            <span className="mosaic-general-text text-gray-400">You: </span>
           )}
           {preview}
         </p>

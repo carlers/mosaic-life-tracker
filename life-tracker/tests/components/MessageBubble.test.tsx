@@ -131,6 +131,19 @@ describe('MessageBubble', () => {
     expect(container.textContent).toContain('Sending');
   });
 
+  it('shows a denied send with an accessible manual retry action', () => {
+    const onRetrySend = vi.fn();
+    render(
+      <MessageBubble message={makeMessage({ deliveryStatus: 'pending', id: 'msg_deny' })}
+        isOutgoing currentUserId="user_A" statusKind="not-sent"
+        onRetrySend={onRetrySend} />
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Not sent');
+    expect(screen.queryByText('Sending')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry sending' }));
+    expect(onRetrySend).toHaveBeenCalledWith('msg_deny');
+  });
+
   it('single-tap reveals the timestamp', () => {
     vi.useFakeTimers();
     const { container } = render(

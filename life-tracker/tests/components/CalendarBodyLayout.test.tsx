@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 import { preloadFriendDayViewSheet } from '../../src/components/friend/friendDayViewSheetModule';
@@ -30,6 +30,10 @@ vi.mock('../../src/components/friend/FriendDayViewSheet', () => ({
 
 vi.mock('../../src/components/messages/ReplyComposerSheet', () => ({
   ReplyComposerSheet: () => null,
+}));
+
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({ getSetting: (_key: string, fallback: unknown) => fallback, setSetting: vi.fn() }),
 }));
 
 vi.mock('../../src/hooks/useTasksByDate', () => ({
@@ -95,5 +99,97 @@ describe('CalendarBody behavior', () => {
     fireEvent.click(getByTestId('calendar-day'));
     // A resolved import must not suspend for one blank React commit.
     expect(getByRole('dialog', { name: 'Friend day' })).toBeInTheDocument();
+  });
+  it('keeps the interactive calendar and a non-modal left split panel mounted across date taps', async () => {
+    const original = globalThis.ResizeObserver;
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
+      () => ({ width: 1300, height: 700, top: 0, left: 0, right: 1300, bottom: 700, x: 0, y: 0, toJSON: () => ({}) })
+    );
+    class TestObserver { observe() {} disconnect() {} }
+    vi.stubGlobal('ResizeObserver', TestObserver);
+    try {
+      daySheetState.mockClear();
+      const realignCalendar = vi.fn();
+      const { getByTestId, queryByTestId, findByRole, queryByRole } = render(
+        <CalendarBody
+          viewMode="month" slides={[new Date('2026-01-01')]}
+          renderStart={0} renderEnd={0} emblaRef={vi.fn()}
+          tasks={[]} categoriesMap={{}} variant="me"
+          dayDetailPresentation="panel" dayPanelSide="left" dayPanelHeight="screen"
+          onCalendarLayoutChange={realignCalendar}
+          currentUserId="user_1" isActive
+          onPrev={vi.fn()} onNext={vi.fn()}
+        />
+      );
+      fireEvent.click(getByTestId('calendar-day'));
+      expect(await findByRole('complementary', { name: 'Day details' })).toBeInTheDocument();
+      expect(queryByRole('dialog', { name: 'Day details' })).toBeNull();
+      const divider = await findByRole('separator', { name: 'Resize day details panel' });
+      expect(divider).toHaveAttribute('aria-valuemin', '320');
+      const motionHost = getByTestId('day-panel-motion-host');
+      expect(motionHost.style.height).toBe('700px');
+      fireEvent.transitionEnd(motionHost, { propertyName: 'width' });
+      expect(realignCalendar).toHaveBeenCalled();
+      expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
+        renderMode: 'panel', isOpen: true,
+      });
+      const originalPanel = getByTestId('calendar-day-side-panel');
+      fireEvent.click(getByTestId('calendar-day'));
+      expect(getByTestId('calendar-day-side-panel')).toBe(originalPanel);
+      expect(getByTestId('calendar-carousel')).toBeInTheDocument();
+      const closeButton = await findByRole('button', { name: 'Close day details' });
+      expect(closeButton.closest('.swiper-no-swiping')).not.toBeNull();
+      fireEvent.click(closeButton);
+      // Exit keeps the same editor mounted until motion completes, but removes interaction immediately.
+      expect(getByTestId('day-panel-motion-host')).toHaveAttribute('aria-hidden', 'true');
+      await waitFor(() => expect(queryByRole('complementary', { name: 'Day details' })).toBeNull());
+      await waitFor(() => expect(queryByTestId('day-panel-motion-host')).toBeNull());
+    } finally {
+      rect.mockRestore();
+      if (original === undefined) vi.unstubAllGlobals();
+      else vi.stubGlobal('ResizeObserver', original);
+    }
+  });
+
+  it('portals screen-height day details beside the Home workspace without moving its headers', async () => {
+    const frame = document.createElement('div');
+    frame.className = 'mosaic-home-workspace';
+    const host = document.createElement('div');
+    host.dataset.homePanelSlot = 'true';
+    frame.append(host);
+    document.body.append(frame);
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(() => ({
+      width: 1400, height: 800, left: 0, right: 1400, top: 0, bottom: 800, x: 0, y: 0, toJSON: () => ({}),
+    }));
+    class TestObserver { observe() {} disconnect() {} }
+    vi.stubGlobal('ResizeObserver', TestObserver);
+    try {
+      const { getByTestId, findByRole, unmount } = render(
+        <CalendarBody viewMode="month" slides={[new Date('2026-10-01')]}
+          renderStart={0} renderEnd={0} emblaRef={vi.fn()}
+          tasks={[]} categoriesMap={{}} variant="me" isActive currentUserId="user_1"
+          dayDetailPresentation="panel" dayPanelSide="left" dayPanelHeight="screen"
+          onPrev={vi.fn()} onNext={vi.fn()}
+        />,
+        { container: frame }
+      );
+      frame.append(host);
+      fireEvent.click(getByTestId('calendar-day'));
+      expect(await findByRole('complementary', { name: 'Day details' })).toBeInTheDocument();
+      await waitFor(() => expect(host.querySelector('[data-day-panel-side="left"]')).not.toBeNull());
+      expect(host.querySelector('[data-testid="calendar-day-side-panel"]')).not.toBeNull();
+      expect(getByTestId('calendar-carousel')).toBeInTheDocument();
+      const motionHost = host.querySelector<HTMLElement>('[data-testid="day-panel-motion-host"]');
+      expect(motionHost?.style.height).toBe('800px');
+      await waitFor(() => expect(motionHost?.style.width).not.toBe('0px'));
+      expect(motionHost?.style.transition).toContain('width');
+      fireEvent.click(await findByRole('button', { name: 'Close day details' }));
+      await waitFor(() => expect(host.querySelector('[data-day-panel-side]')).toBeNull());
+      unmount();
+    } finally {
+      rect.mockRestore();
+      vi.unstubAllGlobals();
+      frame.remove();
+    }
   });
 });

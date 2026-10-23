@@ -347,3 +347,172 @@ html[data-reduce-motion="true"] :where(*:not(.animate-spin):not([data-essential-
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
+
+
+/* Independent UI color roles. No override attribute = exact legacy appearance. */
+html[data-ui-calendarGrid='true'] .mosaic-calendar-gridcell {
+  outline: 1px solid var(--mosaic-ui-calendarGrid-border-dark);
+  outline-offset: -1px;
+}
+html[data-theme='light'][data-ui-calendarGrid='true'] .mosaic-calendar-gridcell {
+  outline-color: var(--mosaic-ui-calendarGrid-border-light);
+}
+html[data-ui-profileRing='true'] .mosaic-profile-avatar {
+  border-color: var(--mosaic-ui-profileRing) !important;
+}
+/* The navbar placement styles icons and labels only, never the bar surface. */
+html[data-ui-navigationBar='true'] .mosaic-navigation-bar :is(.mosaic-navigation-inactive, .mosaic-navigation-active) {
+  color: var(--mosaic-ui-nav-label-dark) !important;
+}
+html[data-theme='light'][data-ui-navigationBar='true'] .mosaic-navigation-bar :is(.mosaic-navigation-inactive, .mosaic-navigation-active) {
+  color: var(--mosaic-ui-nav-label-light) !important;
+}
+html[data-ui-navigationBar='true'] .mosaic-navigation-bar .mosaic-navigation-active {
+  font-weight: 700;
+}
+html[data-ui-navigationActive='true'] .mosaic-navigation-bar .mosaic-navigation-active {
+  color: var(--mosaic-ui-nav-active-dark) !important;
+}
+html[data-theme='light'][data-ui-navigationActive='true'] .mosaic-navigation-bar .mosaic-navigation-active {
+  color: var(--mosaic-ui-nav-active-light) !important;
+}
+html[data-ui-icons='true'] svg:is([class~='text-emerald-400'], [class~='text-emerald-500']):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-ui-icons-text-dark) !important;
+}
+html[data-theme='light'][data-ui-icons='true'] svg:is([class~='text-emerald-400'], [class~='text-emerald-500']):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-ui-icons-text-light) !important;
+}
+html[data-ui-text='true'] :is([class~='text-emerald-400'], [class~='text-emerald-500']):not(svg):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-ui-text-text-dark) !important;
+}
+html[data-theme='light'][data-ui-text='true'] :is([class~='text-emerald-400'], [class~='text-emerald-500']):not(svg):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-ui-text-text-light) !important;
+}
+html[data-ui-controls='true'] [class~='bg-emerald-500'] {
+  background-color: var(--mosaic-ui-controls) !important;
+  color: var(--mosaic-ui-controls-foreground) !important;
+}
+html[data-ui-controls='true'] [class~='hover:bg-emerald-600']:hover {
+  background-color: var(--mosaic-ui-controls-hover) !important;
+}
+html[data-ui-controls='true'] [class~='bg-emerald-500/15'] {
+  background-color: var(--mosaic-ui-controls-soft) !important;
+}
+html[data-ui-controls='true'] [class~='border-emerald-500'],
+html[data-ui-controls='true'] [class~='border-emerald-500/50'] {
+  border-color: var(--mosaic-ui-controls-border-dark) !important;
+}
+html[data-ui-controls='true'] [class*='ring-emerald-'] {
+  --tw-ring-color: var(--mosaic-ui-controls-ring-dark) !important;
+}
+html[data-theme='light'][data-ui-controls='true'] [class~='border-emerald-500'],
+html[data-theme='light'][data-ui-controls='true'] [class~='border-emerald-500/50'] {
+  border-color: var(--mosaic-ui-controls-border-light) !important;
+}
+html[data-theme='light'][data-ui-controls='true'] [class*='ring-emerald-'] {
+  --tw-ring-color: var(--mosaic-ui-controls-ring-light) !important;
+}
+html[data-ui-holidays='true'] .mosaic-holiday-label {
+  background-color: var(--mosaic-ui-holidays-soft) !important;
+  color: var(--mosaic-ui-holidays-text-dark) !important;
+}
+html[data-ui-holidays='true'] .mosaic-holiday-date {
+  color: var(--mosaic-ui-holidays-text-dark) !important;
+}
+html[data-theme='light'][data-ui-holidays='true'] .mosaic-holiday-label {
+  color: var(--mosaic-ui-holidays-text-light) !important;
+}
+html[data-theme='light'][data-ui-holidays='true'] .mosaic-holiday-date {
+  color: var(--mosaic-ui-holidays-text-light) !important;
+}
+
+
+/* Accent placements: only explicitly marked text, without recoloring task data. */
+html[data-ui-dateHeaders='true'] .mosaic-date-header {
+  color: var(--mosaic-ui-dateHeaders-text-dark) !important;
+}
+html[data-ui-dayHeaders='true'] :is(.mosaic-weekday-header, .mosaic-day-number) {
+  color: var(--mosaic-ui-dayHeaders-text-dark) !important;
+}
+html[data-ui-settingsText='true'] .mosaic-settings-page :is(h1, h2, h3, .mosaic-settings-label, .mosaic-settings-detail, .mosaic-settings-copy) {
+  color: var(--mosaic-ui-settingsText-text-dark) !important;
+}
+html[data-theme='light'][data-ui-dateHeaders='true'] .mosaic-date-header {
+  color: var(--mosaic-ui-dateHeaders-text-light) !important;
+}
+html[data-theme='light'][data-ui-dayHeaders='true'] :is(.mosaic-weekday-header, .mosaic-day-number) {
+  color: var(--mosaic-ui-dayHeaders-text-light) !important;
+}
+html[data-theme='light'][data-ui-settingsText='true'] .mosaic-settings-page :is(h1, h2, h3, .mosaic-settings-label, .mosaic-settings-detail, .mosaic-settings-copy) {
+  color: var(--mosaic-ui-settingsText-text-light) !important;
+}
+/* Explicitly marked settings icons, across Settings and its subroutes.
+   Destructive/warning icons retain their semantic colors. */
+html[data-ui-settingsIcons='true'] .mosaic-settings-page :is(.mosaic-settings-icon svg, svg.mosaic-settings-icon):not([class*='text-red-']):not([class*='text-amber-']):not([class*='text-yellow-']) {
+  color: var(--mosaic-ui-settingsIcons-text-dark) !important;
+}
+html[data-theme='light'][data-ui-settingsIcons='true'] .mosaic-settings-page :is(.mosaic-settings-icon svg, svg.mosaic-settings-icon):not([class*='text-red-']):not([class*='text-amber-']):not([class*='text-yellow-']) {
+  color: var(--mosaic-ui-settingsIcons-text-light) !important;
+}
+/* General page text is opt-in on authored UI labels/headings, never raw user
+   content (task titles, chat messages, activity bodies or colored semantic text). */
+html[data-ui-generalText='true'] .mosaic-general-text {
+  color: var(--mosaic-ui-generalText-text-dark) !important;
+}
+html[data-theme='light'][data-ui-generalText='true'] .mosaic-general-text {
+  color: var(--mosaic-ui-generalText-text-light) !important;
+}
+/* Additional opt-in action glyphs: neutral search, menu, carousel and date
+   arrows join Action icons without recoloring any semantic status indicator. */
+html[data-ui-icons='true'] :is(.mosaic-action-icon svg, svg.mosaic-action-icon) {
+  color: var(--mosaic-ui-icons-text-dark) !important;
+}
+html[data-theme='light'][data-ui-icons='true'] :is(.mosaic-action-icon svg, svg.mosaic-action-icon) {
+  color: var(--mosaic-ui-icons-text-light) !important;
+}
+/* Selected carousel pill has an accessible accent fill/foreground pair.
+   An inactive pill retains the original surface, border, and avatar. */
+html[data-ui-friendCarousel='true'] .mosaic-person-pill.mosaic-person-active {
+  background-color: var(--mosaic-ui-friendCarousel) !important;
+  border-color: var(--mosaic-ui-friendCarousel) !important;
+}
+html[data-ui-friendCarousel='true'] .mosaic-person-active .mosaic-person-label {
+  color: var(--mosaic-ui-friendCarousel-foreground) !important;
+}
+html[data-ui-friendCarousel='true'] .mosaic-person-inactive .mosaic-person-label {
+  color: var(--mosaic-ui-carousel-inactive-dark) !important;
+}
+html[data-theme='light'][data-ui-friendCarousel='true'] .mosaic-person-inactive .mosaic-person-label {
+  color: var(--mosaic-ui-carousel-inactive-light) !important;
+}
+/* Shared BottomSheet owns only its chrome. Sheet body contents must opt in
+   explicitly; user-authored data and semantic warning/destructive copy do not. */
+html[data-ui-bottomSheetText='true'] .mosaic-bottom-sheet :is(.mosaic-sheet-heading, .mosaic-sheet-text) {
+  color: var(--mosaic-ui-sheet-label-dark) !important;
+}
+html[data-theme='light'][data-ui-bottomSheetText='true'] .mosaic-bottom-sheet :is(.mosaic-sheet-heading, .mosaic-sheet-text) {
+  color: var(--mosaic-ui-sheet-label-light) !important;
+}
+/* Disabled placements return to neutral theme roles, not a second green accent. */
+html[data-ui-icons='false'] svg:is([class~='text-emerald-400'], [class~='text-emerald-500']):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-text-muted) !important;
+}
+html[data-ui-text='false'] :is([class~='text-emerald-400'], [class~='text-emerald-500']):not(svg):not(.mosaic-semantic-success-400):not(.mosaic-semantic-success-500) {
+  color: var(--mosaic-text) !important;
+}
+html[data-ui-controls='false'] [class~='bg-emerald-500'] {
+  background-color: var(--mosaic-surface-pressed) !important;
+  color: var(--mosaic-text) !important;
+}
+html[data-ui-controls='false'] [class~='hover:bg-emerald-600']:hover {
+  background-color: var(--mosaic-surface-elevated) !important;
+}
+html[data-ui-controls='false'] [class~='bg-emerald-500/15'] {
+  background-color: var(--mosaic-hover-wash) !important;
+}
+html[data-ui-controls='false'] :is([class~='border-emerald-500'], [class~='border-emerald-500/50']) {
+  border-color: var(--mosaic-border-strong) !important;
+}
+html[data-ui-controls='false'] [class*='ring-emerald-'] {
+  --tw-ring-color: var(--mosaic-text-muted) !important;
+}

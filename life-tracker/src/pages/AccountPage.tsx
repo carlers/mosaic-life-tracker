@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
-import { Settings, LogOut, BarChart3, Sticker, ListTodo, Star } from 'lucide-react';
+import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
+import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
+import { Settings, LogOut, BarChart3, Sticker, ListTodo, Star, ListChecks } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
@@ -20,6 +22,7 @@ export const AccountPage: React.FC = () => {
   const { categories } = useCategories();
   const { friends } = useFriends();
   const navigate = useNavigate();
+  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
@@ -34,6 +37,17 @@ export const AccountPage: React.FC = () => {
     const id = window.setTimeout(warm, 700);
     return () => window.clearTimeout(id);
   }, []);
+
+  useEffect(() => {
+    if (!shortcutsEnabled) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 's' || !canUseKeyboardShortcut(event)) return;
+      event.preventDefault();
+      document.querySelector<HTMLButtonElement>('[data-account-settings-trigger="true"]')?.click();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [shortcutsEnabled]);
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
@@ -50,24 +64,26 @@ export const AccountPage: React.FC = () => {
   };
 
   const backlogCount = tasks.filter((t) => t.date === '' && !t.isDeleted && !t.completed).length;
+  const uncompletedCount = tasks.filter((t) => t.userId === user?.$id && !t.isDeleted && !t.completed).length;
 
   return (
     <div className="flex min-h-full flex-col">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
-        <h1 className="text-lg font-bold text-white">Me</h1>
+        <h1 className="mosaic-general-text text-lg font-bold text-white">Me</h1>
         <button
           type="button"
           onClick={() => navigate('/settings', { state: makeRouteParentState('/account') })}
           onPointerDown={(e) => e.stopPropagation()}
           className="p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Settings"
+          data-account-settings-trigger="true"
         >
           <Settings size={20} aria-hidden="true" />
         </button>
       </div>
       <div className="flex-1 px-4 pt-6 pb-4 space-y-6" data-testid="account-scroll">
         <div className="flex flex-col items-center text-center space-y-3">
-          <Avatar size="lg" alt={user?.name || user?.email || 'User'} />
+          <Avatar size="lg" className="mosaic-profile-avatar" alt={user?.name || user?.email || 'User'} />
           <div>
             <h2 className="text-xl font-bold text-white">
               {user?.name || 'User'}
@@ -88,25 +104,33 @@ export const AccountPage: React.FC = () => {
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
             <BarChart3 size={20} className="text-blue-500" aria-hidden="true" />
-            <span className="text-xs text-gray-400">My Progress</span>
+            <span className="mosaic-general-text text-xs text-gray-400">My Progress</span>
           </div>
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
             <Sticker size={20} className="text-green-500" aria-hidden="true" />
-            <span className="text-xs text-gray-400">Sticker Shop</span>
+            <span className="mosaic-general-text text-xs text-gray-400">Sticker Shop</span>
           </div>
         </div>
         <button type="button" onClick={() => navigate('/bucket-list', { state: makeRouteParentState('/account') })}
           className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-          <div><h3 className="text-base font-bold text-white">Bucket List</h3><p className="text-sm text-gray-400">Life aspirations</p></div>
+          <div><h3 className="mosaic-general-text text-base font-bold text-white">Bucket List</h3><p className="mosaic-general-text text-sm text-gray-400">Life aspirations</p></div>
           <Star size={24} className="text-gray-400" aria-hidden="true" />
         </button>
         <button type="button" onClick={() => navigate('/backlog', { state: makeRouteParentState('/account') })}
           className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <div>
-            <h3 className="text-base font-bold text-white">Backlogs</h3>
+            <h3 className="mosaic-general-text text-base font-bold text-white">Backlogs</h3>
             <p className="text-sm text-gray-400">{backlogCount} tasks</p>
           </div>
           <ListTodo size={24} className="text-gray-400" aria-hidden="true" />
+        </button>
+        <button type="button" onClick={() => navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/account') })}
+          className="w-full bg-surface border border-border rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-accent">
+          <div>
+            <h3 className="mosaic-general-text text-base font-bold text-white">Uncompleted Tasks</h3>
+            <p className="text-sm text-gray-400">{uncompletedCount} tasks</p>
+          </div>
+          <ListChecks size={24} className="text-gray-400" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -119,7 +143,7 @@ export const AccountPage: React.FC = () => {
           className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         >
           <div>
-            <h3 className="text-base font-bold text-white">Categories</h3>
+            <h3 className="mosaic-general-text text-base font-bold text-white">Categories</h3>
             <p className="text-sm text-gray-400">{categories.length} active</p>
           </div>
           <div

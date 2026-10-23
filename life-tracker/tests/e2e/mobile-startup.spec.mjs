@@ -17,7 +17,18 @@ const NETWORK = {
 const STARTUP_MARKS = [
   'bootstrap:start',
   'react:mounted',
+  'database:import-start',
+  'database:module-ready',
+  'database:create-start',
+  'database:create-ready',
+  'database:collections-start',
+  'database:collections-ready',
   'database:ready',
+  'app-shell:import-start',
+  'app-shell:module-ready',
+  'app-shell:database-fallback-visible',
+  'app-shell:module-fallback-visible',
+  'app-data-shell:mounted',
   'auth:resolved',
   'home:mounted',
   'home:owner-data-ready',
@@ -104,6 +115,8 @@ async function measureOnce(browser, scenario, iteration) {
         ? 'react:mounted' : 'home:local-data-ready';
       const readyMs = marks[readyName];
       if (readyMs == null) throw new Error('Missing required startup mark: ' + readyName);
+      const interval = (start, end) => marks[start] != null && marks[end] != null
+        ? Math.round((marks[end] - marks[start]) * 100) / 100 : null;
 
       const sameOrigin = performance.getEntriesByType('resource')
         .filter((item) => item.name.startsWith(location.origin + '/'));
@@ -115,6 +128,15 @@ async function measureOnce(browser, scenario, iteration) {
         requestedPath: location.pathname,
         readyMark: readyName,
         readyMs: fixed(readyMs),
+        homeMountedMs: fixed(marks['home:mounted']),
+        homeOwnerDataReadyMs: fixed(marks['home:owner-data-ready']),
+        startupPhaseMs: {
+          databaseModule: interval('database:import-start', 'database:module-ready'),
+          databaseOpen: interval('database:create-start', 'database:create-ready'),
+          databaseCollections: interval('database:collections-start', 'database:collections-ready'),
+          appShellModule: interval('app-shell:import-start', 'app-shell:module-ready'),
+          localDatabaseToHomeMount: interval('database:ready', 'home:mounted'),
+        },
         firstContentfulPaintMs: fixed(
           paint.find((entry) => entry.name === 'first-contentful-paint')?.startTime ?? NaN,
         ),
@@ -183,6 +205,8 @@ test('@performance @mobile-audit production-build emulated mobile cold startup',
       'Fresh browser profiles simulate first navigation, not installed PWA startup.',
       'Localhost network throttling does not replicate remote TLS, cellular packets or CDN.',
       'LCP is a generic paint metric; Home startup marks represent local-data readiness.',
+      'The database and app-shell module intervals include download, parse, and evaluation; they cannot alone distinguish the three.',
+      'An actual cached-online delayed Appwrite session requires the separate browser contract and device follow-up.',
     ],
     samples,
     failures,

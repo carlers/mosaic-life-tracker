@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, MessageSquare, Search } from 'lucide-react';
 import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { BottomSheet } from '../components/ui/BottomSheet';
+import { useRetainedSheetValue } from '../hooks/useRetainedSheetValue';
 import { ChatSyncSheet } from '../components/messages/ChatSyncSheet';
 import type { ChatSyncStage } from '../lib/chatReconcile';
 import {
@@ -18,6 +19,8 @@ import { EmojiPickerSheet } from '../components/messages/EmojiPickerSheet';
 import { ScrollToBottomButton } from '../components/messages/ScrollToBottomButton';
 import { ChatSearchBar } from '../components/messages/ChatSearchBar';
 import { useMessages } from '../hooks/useMessages';
+import { clearDeniedOutgoing, isDeniedOutgoing, subscribeDeniedOutgoing } from '../lib/messageSendDenials';
+import { retryDeniedOutgoing } from '../lib/messageDelivery';
 import { useFriends } from '../hooks/useFriends';
 import { useAuth } from '../hooks/useAuth';
 import { useConnectivity } from '../hooks/useConnectivity';
@@ -79,6 +82,9 @@ export const ChatPage: React.FC = () => {
     toggleReaction,
   } = useMessages(friendId ?? null);
 
+  const [denialRevision, setDenialRevision] = useState(0);
+  useEffect(() => subscribeDeniedOutgoing(() => setDenialRevision(value => value + 1)), []);
+
   const { friends } = useFriends();
   const friend = useMemo(
     () => friends.find((f) => f.friendId === friendId) ?? null,
@@ -106,6 +112,12 @@ export const ChatPage: React.FC = () => {
   const [unsendTargetId, setUnsendTargetId] = useState<string | null>(null);
   const [reactionTargetId, setReactionTargetId] = useState<string | null>(null);
   const [selectedDiaryReference, setSelectedDiaryReference] = useState<{ id: string; ownerId: string; date: string } | null>(null);
+  const { value: diaryReferenceSession, onExitComplete: clearDiaryReferenceSession } = useRetainedSheetValue(
+    selectedDiaryReference && myUserId
+      ? { id: `${myUserId}:${selectedDiaryReference.id}`, viewerId: myUserId, reference: selectedDiaryReference }
+      : null,
+    Boolean(selectedDiaryReference && myUserId)
+  );
 
   // Never mount sticker hooks until requested; warm code on usable Chat.
   useEffect(() => {
@@ -171,12 +183,28 @@ export const ChatPage: React.FC = () => {
         } else if (m.deliveryStatus === 'delivered') {
           map.set(m.id, 'delivered');
         } else {
-          map.set(m.id, 'pending');
+          map.set(m.id, isDeniedOutgoing(myUserId, m.id) ? 'not-sent' : 'pending');
         }
       }
     }
     return map;
-  }, [messages]);
+  }, [messages, myUserId, denialRevision]);
+
+  useEffect(() => {
+    if (!myUserId) return;
+    for (const message of messages) {
+      if (message.direction === 'outgoing' &&
+          (message.deliveryStatus === 'delivered' || message.readAt || message.isUnsent)) {
+        clearDeniedOutgoing(myUserId, message.id);
+      }
+    }
+  }, [messages, myUserId]);
+
+  const handleRetryDenied = useCallback((messageId: string) => {
+    void retryDeniedOutgoing(myUserId, messageId).catch(() => {
+      setFeedback('Could not retry message. Try again.');
+    });
+  }, [myUserId]);
 
   const resolveSenderName = useMemo(
     () => (senderId: string): string => {
@@ -421,7 +449,7 @@ export const ChatPage: React.FC = () => {
           ) : renderItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <MessageSquare size={48} />
-              <p className="mt-2 text-sm">
+              <p className="mosaic-general-text mt-2 text-sm">
                 {isSearching ? 'No matches' : 'No messages yet'}
               </p>
             </div>
@@ -444,6 +472,7 @@ export const ChatPage: React.FC = () => {
                     reducedMotion={effectiveReducedMotion}
                     showTimestamp={item.showTimestamp}
                     statusKind={statusById.get(item.message.id)}
+                    onRetrySend={handleRetryDenied}
                     resolveSenderName={resolveSenderName}
                     onLongPress={(m) => setActionMessageId(m.id)}
                     onQuoteTap={handleQuoteTap}
@@ -508,8 +537,9 @@ export const ChatPage: React.FC = () => {
             onPickGiphy={handlePickGiphySticker}
           />
       )}
-      {selectedDiaryReference && <React.Suspense fallback={null}>
-        <DiaryReferenceSheet key={`${myUserId}:${selectedDiaryReference.id}`} reference={selectedDiaryReference}
+      {myUserId && diaryReferenceSession?.viewerId === myUserId && <React.Suspense fallback={null}>
+        <DiaryReferenceSheet key={diaryReferenceSession.id} reference={diaryReferenceSession.reference}
+          isOpen={selectedDiaryReference !== null} onExitComplete={clearDiaryReferenceSession}
           onClose={() => setSelectedDiaryReference(null)} />
       </React.Suspense>}
       <MessageActionSheet

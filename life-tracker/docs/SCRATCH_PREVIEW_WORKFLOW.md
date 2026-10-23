@@ -111,9 +111,20 @@ automatic reset, and restoration from production is NOT an alternative.
 
 ## Handoff acceptance checklist
 
-1. Confirm exact Vercel Preview project ID/region and the stable branch alias
-   are registered in scratch Appwrite Web platforms. Immutable Vercel URLs
-   need their own registered origins; a healthy HTML page is not a CORS check.
+1. Confirm the exact Vercel Preview project ID/region and selected stable
+   alias, then check the alias hostname against Scratch's live Appwrite Web
+   platform allowlist. An explicit hostname **or a matching registered wildcard**
+   is sufficient; do not demand another platform slot for a host already
+   covered by the wildcard. As of 2026-10-16, Scratch intentionally registers
+   `*.vercel.app`, which covers a single-label hostname such as
+   `mosaic-life-tracker-fix745-carls-projects-72516fde.vercel.app`.
+   Verify the actual hostname and wildcard depth, not just that the URL ends
+   with `vercel.app`. Wildcards are broader CORS trust than exact hosts:
+   retain this exception only for disposable Scratch; never grant the same
+   blanket wildcard to Production. An immutable deployment host covered by
+   the same wildcard needs no additional platform registration. A successful
+   registration/list read or healthy HTML response is **not** evidence of
+   authenticated browser login; verify real CORS, cookies and sync separately.
 2. Run `appwrite:preview:prepare` read-only after additive migrations and
    Function activation, with the approved active deployment ID. No managed
    drift is allowed. Confirm production auth-policy expectations on scratch

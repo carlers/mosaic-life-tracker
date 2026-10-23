@@ -176,17 +176,12 @@ describe('TaskItem owner gestures', () => {
     expect(input).toHaveFocus();
   });
 
-  it('keeps the completion control normal while row selection suppresses task actions', () => {
+  it('keeps completion inert in Select mode while row and title selection still work', () => {
     const onToggleSelection = vi.fn();
     const callbacks = {
-      onToggle: vi.fn(),
-      onOpenActions: vi.fn(),
-      onOpenMemo: vi.fn(),
-      onEditStart: vi.fn(),
-      onViewImage: vi.fn(),
-      onEditChange: vi.fn(),
-      onEditSave: vi.fn(),
-      onEditCancel: vi.fn(),
+      onToggle: vi.fn(), onOpenActions: vi.fn(), onOpenMemo: vi.fn(),
+      onEditStart: vi.fn(), onViewImage: vi.fn(),
+      onEditChange: vi.fn(), onEditSave: vi.fn(), onEditCancel: vi.fn(),
     };
     render(
       <TaskItem
@@ -203,16 +198,58 @@ describe('TaskItem owner gestures', () => {
     );
 
     const row = screen.getByRole('checkbox', { name: 'Write release notes, selected' });
+    const completion = screen.getByRole('button', { name: 'Mark complete' });
     expect(row).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('button', { name: 'Open memo' })).toBeInTheDocument();
+    expect(completion).toHaveAttribute('aria-disabled', 'true');
+
+    fireEvent.pointerDown(completion, { pointerType: 'touch' });
+    fireEvent.click(completion);
+    fireEvent.keyDown(completion, { key: 'Enter' });
+    fireEvent.keyDown(completion, { key: ' ' });
+    fireEvent.click(completion); // Keyboard-triggered click must also be inert.
+    expect(callbacks.onToggle).not.toHaveBeenCalled();
+    expect(onToggleSelection).not.toHaveBeenCalled();
 
     fireEvent.keyDown(row, { key: ' ' });
-    fireEvent.click(screen.getByRole('button', { name: 'Mark complete' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open memo' }));
-
+    const title = screen.getByRole('button', { name: 'Write release notes' });
+    fireEvent.keyDown(title, { key: 'Enter' });
+    // Keyboard Enter on a task title now selects in Select mode.
     expect(onToggleSelection).toHaveBeenCalledTimes(2);
-    expect(callbacks.onToggle).toHaveBeenCalledWith(task.id);
+    fireEvent.click(title);
+    fireEvent.click(screen.getByRole('button', { name: 'Open memo' }));
+    expect(onToggleSelection).toHaveBeenCalledTimes(4);
     expect(callbacks.onOpenActions).not.toHaveBeenCalled();
     expect(callbacks.onOpenMemo).not.toHaveBeenCalled();
+    expect(callbacks.onToggle).not.toHaveBeenCalled();
   });
+
+  it('keeps completed tasks immutable in Select mode and restores completion outside it', () => {
+    const callbacks = {
+      onToggle: vi.fn(), onOpenActions: vi.fn(), onOpenMemo: vi.fn(),
+      onEditStart: vi.fn(), onEditChange: vi.fn(),
+      onEditSave: vi.fn(), onEditCancel: vi.fn(),
+    };
+    const onToggleSelection = vi.fn();
+    const completedTask = { ...task, completed: true };
+    const renderItem = (selectionMode: boolean) => (
+      <TaskItem task={completedTask} categoryColor="#3B82F6" currentUserId="user_1"
+        isEditing={false} editValue="" selectionMode={selectionMode}
+        isSelected={false} onToggleSelection={onToggleSelection} {...callbacks} />
+    );
+    const { rerender } = render(renderItem(true));
+    const completion = screen.getByRole('button', { name: 'Mark incomplete' });
+    expect(completion).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(completion);
+    fireEvent.keyDown(completion, { key: 'Enter' });
+    fireEvent.click(completion);
+    expect(callbacks.onToggle).not.toHaveBeenCalled();
+    expect(onToggleSelection).not.toHaveBeenCalled();
+
+    rerender(renderItem(false));
+    expect(screen.getByRole('button', { name: 'Mark incomplete' })).not.toHaveAttribute('aria-disabled');
+    fireEvent.click(screen.getByRole('button', { name: 'Mark incomplete' }));
+    expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith(task.id);
+    expect(onToggleSelection).not.toHaveBeenCalled();
+  });
+
 });

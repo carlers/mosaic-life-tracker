@@ -248,7 +248,6 @@ function waitForInstallingWorker(
 
   return new Promise((resolve) => {
     let settled = false;
-    let timeout = 0;
     const finish = (result: InstallingWorkerResult) => {
       if (settled) return;
       settled = true;
@@ -267,7 +266,7 @@ function waitForInstallingWorker(
     };
 
     worker.addEventListener('statechange', handleStateChange);
-    timeout = globalThis.setTimeout(
+    const timeout = globalThis.setTimeout(
       () => finish('timeout'),
       INSTALL_WAIT_BEFORE_BACKGROUND_MS
     );

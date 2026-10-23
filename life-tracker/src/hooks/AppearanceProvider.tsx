@@ -30,6 +30,10 @@ import {
   normalizeAccentColor,
 } from '../constants/colors';
 import {
+  UI_COLOR_ROLES, readCachedUiColors, cacheUiColors,
+  resolveUiColorChoice, uiColorSettingKey, applyUiColors,
+} from '../lib/uiColors';
+import {
   CONTENT_WIDTH_SETTING_KEY,
   SHEET_WIDTH_SETTING_KEY,
   applyScreenLayoutModes,
@@ -57,6 +61,15 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     () => readCachedAccentColor(userId),
     [userId]
   );
+  const cachedUiColors = useMemo(() => readCachedUiColors(userId), [userId]);
+  const uiColors = useMemo(() => {
+    const choices = { ...cachedUiColors };
+    if (!isLoading) {
+      for (const role of UI_COLOR_ROLES)
+        choices[role] = resolveUiColorChoice(getSetting(uiColorSettingKey(role), undefined), role);
+    }
+    return choices;
+  }, [cachedUiColors, getSetting, isLoading]);
   const cachedContentWidthMode = useMemo(() => readCachedContentWidthMode(), []);
   const cachedSheetWidthMode = useMemo(() => readCachedSheetWidthMode(), []);
   const [overrideMode, setOverrideMode] = useState<AppearanceMode | null>(null);
@@ -167,6 +180,11 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({
     applyAccentColor(accentColor);
     if (userId) cacheAccentColor(accentColor, userId);
   }, [accentColor, userId]);
+
+  useEffect(() => {
+    applyUiColors(uiColors, accentColor);
+    if (userId && !isLoading) cacheUiColors(userId, uiColors);
+  }, [uiColors, accentColor, userId, isLoading]);
 
   useEffect(() => {
     cacheContentWidthMode(contentWidthMode);

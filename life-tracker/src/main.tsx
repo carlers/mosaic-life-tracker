@@ -17,16 +17,19 @@ import {
 } from './lib/posthog';
 import { initializeAppearance } from './lib/appearance';
 import { initializeAccentColor } from './lib/accentColor';
+import { initializeUiColors } from './lib/uiColors';
 import { initializeScreenLayout } from './lib/screenLayout';
 import { startDatabaseBootstrap } from './lib/databaseBootstrap';
 import { markStartup } from './lib/startupMetrics';
 import { initializeConnectivity } from './lib/connectivity';
 import { preloadHomePage } from './lib/homePreload';
+import { loadAppDataShell } from './components/layout/routeModuleLoaders';
 
 markStartup('bootstrap:start');
 initializeConnectivity(window);
 initializeAppearance();
 initializeAccentColor();
+initializeUiColors();
 initializeScreenLayout();
 installChunkLoadErrorTracking();
 // Keep the install/update listeners registered before the browser can emit
@@ -43,7 +46,7 @@ const beginDatabaseBootstrap = () => {
 };
 
 // Read the local auth hint before React mounts so an authenticated reload can
-// start its two expensive independent imports in the same bootstrap task. The
+// start the independent DB, Home and application-shell imports early. The
 // imports remain asynchronous; logged-out Login still gets first paint first.
 const hasCachedIdentity = (() => {
   try {
@@ -57,6 +60,11 @@ if (hasCachedIdentity) {
   beginDatabaseBootstrap();
   void preloadHomePage().catch((error) => {
     console.warn('[Bootstrap] Home preload failed:', error);
+  });
+  // Load the app-shell module graph alongside RxDB and Home instead of
+  // waiting for the first React effect. Never wait for network or sync.
+  void loadAppDataShell().catch((error) => {
+    console.warn('[Bootstrap] App shell preload failed:', error);
   });
 }
 

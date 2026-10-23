@@ -1,0 +1,48 @@
+name: Issue 858 Cached Home Scale Diagnostic
+
+# Read-only isolated synthetic browser diagnostic; never deploy this checkout.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-mount-prototype:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      VERCEL_ENV: preview
+      VITE_APPWRITE_PROJECT_ID: 6a96e82d000d1310b3be
+      VITE_APPWRITE_ENDPOINT: https://fra.cloud.appwrite.io/v1
+      VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: 6aa8057f002a4c306fdd
+      MOSAIC_AUDIT_SOURCE_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - run: npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund
+      - run: tests/e2e/node_modules/.bin/playwright install --with-deps chromium
+      # Prototype must meet the same TypeScript, PWA and size safety contracts.
+      - run: npm run build
+      - name: Benchmark Calendar and Todo with the same local fixtures
+        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/startup-local-mount-prototype.spec.mjs --config=playwright.mobile-audit.config.mjs --reporter=line
+      - name: Archive raw results and browser traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-858-local-mount-prototype
+          path: |
+            life-tracker/.mosaic/slow-startup/calendar-volume-*.json
+            life-tracker/test-results/**
+          if-no-files-found: warn
+          retention-days: 14

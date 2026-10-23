@@ -1,6 +1,7 @@
 import type { RxDocument } from 'rxdb';
 import { getDatabase } from '../db/database';
-import { isUnauthorizedError } from './authEvents';
+import { dispatchUnauthorized, isUnauthorizedError } from './authEvents';
+import { clearDeniedOutgoing, isDeniedOutgoing, markDeniedOutgoing } from './messageSendDenials';
 import {
   enqueueMessageAction,
   flushMessageActionQueue,
@@ -44,7 +45,11 @@ export { flushMessageActionQueue };
 function shouldQueueMessageAction(err: unknown): boolean {
   if (isUnauthorizedError(err)) return false;
   const code = (err as { code?: number } | null)?.code;
-  return typeof code !== 'number' || code === 429 || code >= 500;
+  return typeof code !== 'number' || code === 408 || code === 425 || code === 429 || code >= 500;
+}
+function isPermanentSendDenial(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === 'number' && [400, 403, 404, 409, 422].includes(code);
 }
 export async function deliverPendingMessages(userId: string): Promise<void> {
   if (!userId) return;
@@ -123,14 +128,33 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
         if (pending.length === 0) clearDeliveryRetry();
         for (const doc of pending) {
           if (!isAccountWorkCurrent(userId, generation)) break;
+          // A confirmed 4xx denial is not a transient network error. Retain
+          // the local message but require explicit review/retry.
+          if (isDeniedOutgoing(userId, doc.id)) continue;
           try {
             await deliverOne(doc);
-            if (!isAccountWorkCurrent(userId, generation)) break;
-            await doc.patch({ deliveryStatus: 'delivered' });
           } catch (err) {
-            if (shouldQueueMessageAction(err))
+            if (!isAccountWorkCurrent(userId, generation)) break;
+            if (isPermanentSendDenial(err)) {
+              markDeniedOutgoing(userId, doc.id);
+            } else if (isUnauthorizedError(err)) {
+              dispatchUnauthorized();
+            } else if (shouldQueueMessageAction(err)) {
               scheduleDeliveryRetry(userId, generation);
-            console.error(doc.id, err);
+            }
+            // Appwrite response bodies may contain private message content.
+            if (DEBUG) console.warn('[messageDelivery] send not confirmed',
+              { code: (err as { code?: unknown } | null)?.code ?? 'unknown' });
+            continue;
+          }
+          if (!isAccountWorkCurrent(userId, generation)) break;
+          try {
+            await doc.patch({ deliveryStatus: 'delivered' });
+            clearDeniedOutgoing(userId, doc.id);
+          } catch {
+            // The server receipt exists, but local acknowledgement failed.
+            // Keep the row pending and retry the same ID idempotently.
+            scheduleDeliveryRetry(userId, generation);
           }
         }
 
@@ -155,6 +179,17 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
   })();
   return inFlightDeliveryPromise;
 }
+export async function retryDeniedOutgoing(userId: string, messageId: string): Promise<void> {
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null || !isDeniedOutgoing(userId, messageId)) return;
+  const doc = await getDatabase().messages.findOne(messageId).exec();
+  if (!isAccountWorkCurrent(userId, generation) || !doc ||
+      doc.userId !== userId || doc.direction !== 'outgoing' ||
+      doc.deliveryStatus !== 'pending' || doc.isDeleted || doc.isUnsent) return;
+  clearDeniedOutgoing(userId, messageId);
+  await deliverPendingMessages(userId);
+}
+
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
   const result = await sendMessageAction({
     action: 'deliver',

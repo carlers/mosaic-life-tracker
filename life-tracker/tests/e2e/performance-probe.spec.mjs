@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 const BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
@@ -10,13 +10,14 @@ test.use({
   viewport: { width: 412, height: 915 },
 });
 
-async function measureInteraction(page, name, action) {
+async function measureInteraction(page, name, action, target = null) {
   const profileStart = await page.evaluate(
     () => (window.__mosaicReactProfile ?? []).length,
   );
 
-  const startedAt = await page.evaluate(() => {
+  const startedAt = await page.evaluate((target) => {
     window.__mosaicPerf = {
+      target: target ? { ...target, firstMatchingFrameMs: null } : null,
       frames: [],
       longTasks: [],
       longAnimationFrames: [],
@@ -188,6 +189,14 @@ async function measureInteraction(page, name, action) {
     const start = performance.now();
     window.__mosaicPerf.actionStartedAt = start;
     const sample = (now) => {
+      if (window.__mosaicPerf.actionFinishedAt !== null &&
+          window.__mosaicPerf.target && window.__mosaicPerf.target.firstMatchingFrameMs === null) {
+        const { selector, present } = window.__mosaicPerf.target;
+        if (Boolean(document.querySelector(selector)) === present) {
+          // First observed animation frame, not a guaranteed browser paint.
+          window.__mosaicPerf.target.firstMatchingFrameMs = now - start;
+        }
+      }
       if (now - start < 700) {
         window.__mosaicPerf.frames.push(now);
         requestAnimationFrame(sample);
@@ -195,7 +204,7 @@ async function measureInteraction(page, name, action) {
     };
     requestAnimationFrame(sample);
     return start;
-  });
+  }, target);
 
   await action();
 
@@ -204,12 +213,14 @@ async function measureInteraction(page, name, action) {
     return window.__mosaicPerf.actionFinishedAt;
   });
 
+  // Include commits during the full 700 ms animation sampling window, not
+  // only the synchronous input dispatch that Playwright just completed.
+  await page.waitForTimeout(750);
+
   const reactProfile = await page.evaluate(
     (start) => (window.__mosaicReactProfile ?? []).slice(start),
     profileStart,
   );
-
-  await page.waitForTimeout(750);
 
   return page.evaluate(({ name, startedAt, actionFinishedAt, reactProfile }) => {
     const perf = window.__mosaicPerf;
@@ -249,6 +260,14 @@ async function measureInteraction(page, name, action) {
         entry.startTime + entry.duration > startedAt
     );
 
+    // Input-handling long frames and entrance/exit animation long frames are
+    // distinct windows; an asynchronous sheet transition can outlive the action.
+    const animationLongAnimationFrames = perf.longAnimationFrames.filter(
+      (entry) =>
+        entry.startTime < startedAt + 700 &&
+        entry.startTime + entry.duration > startedAt
+    );
+
     const loafMetrics = actionLongAnimationFrames.flatMap((entry) => {
       const scriptDuration = entry.scripts.reduce(
         (sum, script) => sum + (script.duration ?? 0),
@@ -275,6 +294,7 @@ async function measureInteraction(page, name, action) {
       name,
       startedAt,
       actionDurationMs: actionFinishedAt - startedAt,
+      firstMatchingTargetFrameMs: perf.target?.firstMatchingFrameMs ?? null,
       frameCount: deltas.length,
       avgFrameMs: deltas.length
         ? deltas.reduce((sum, value) => sum + value, 0) / deltas.length
@@ -312,6 +332,10 @@ async function measureInteraction(page, name, action) {
       })),
       longAnimationFrameCount: perf.longAnimationFrames.length,
       actionLongAnimationFrameCount: actionLongAnimationFrames.length,
+      animationLongAnimationFrameCount: animationLongAnimationFrames.length,
+      maxAnimationLongAnimationFrameMs: animationLongAnimationFrames.length
+        ? Math.max(...animationLongAnimationFrames.map((entry) => entry.duration))
+        : 0,
       maxLongAnimationFrameMs: actionLongAnimationFrames.length
         ? Math.max(...actionLongAnimationFrames.map((entry) => entry.duration))
         : 0,
@@ -366,6 +390,44 @@ async function swipe(page, selector, fromX = 620, toX = 180, y = 420) {
   await page.mouse.move(endX, startY, { steps: 20 });
   await page.mouse.up();
 }
+
+
+test('@performance nested BottomSheet cold/warm and compositor probe', async ({ page }) => {
+  // Opt-in diagnostic: alternate backdrop treatment in separate documents.
+  // These are descriptive measurements, never pass/fail latency thresholds.
+  for (const blur of ['0', '1']) {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?nestedSheetProbe=1&nestedBlur=${blur}`);
+    const label = blur === '1' ? 'blur' : 'plain';
+    const cases = [
+      ['parent-first-open', 'nested-parent-open', 'nested-parent-content', true],
+      ['detail-first-open', 'nested-detail-open', 'nested-detail-content', true],
+      ['detail-first-close', 'nested-detail-close', 'nested-detail-content', false],
+      ['detail-warm-reopen', 'nested-detail-open', 'nested-detail-content', true],
+      ['detail-warm-close', 'nested-detail-close', 'nested-detail-content', false],
+      ['parent-close', 'nested-parent-close', 'nested-parent-content', false],
+      ['parent-warm-reopen', 'nested-parent-open', 'nested-parent-content', true],
+      ['parent-warm-close', 'nested-parent-close', 'nested-parent-content', false],
+    ];
+    for (const [name, control, target, present] of cases) {
+      const outcome = await measureInteraction(
+        page,
+        `nested-${label}-${name}`,
+        async () => { await page.getByTestId(control).click(); },
+        { selector: `[data-testid="${target}"]`, present },
+      );
+      // An absent first-frame observation is useful latency evidence, not a
+      // numerical failure threshold on a slow machine. Still verify the
+      // requested visible state eventually settles.
+      await page.waitForFunction(
+        ({ selector, present }) => Boolean(document.querySelector(selector)) === present,
+        { selector: `[data-testid="${target}"]`, present },
+      );
+      if (outcome.firstMatchingTargetFrameMs === null) {
+        console.log(`MOSAIC_PERF_LATE_TARGET ${label} ${name}`);
+      }
+    }
+  }
+});
 
 test('@performance interaction performance probe', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
@@ -678,4 +740,73 @@ test('@performance Calendar path first sheet paint', async ({ page }) => {
   await page.mouse.click(5, 5);
   await page.waitForTimeout(550);
   await open('reopen');
+});
+
+
+test('@performance real Day View nested Memo, Task Actions and Add Photo', async ({ page }) => {
+  // Diagnostic only: exercise Day View's actual drag/layout/Swiper subtree,
+  // not the lightweight 50-row synthetic BottomSheet compositor probe.
+  for (const count of [50, 200]) {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&perfTaskCount=${count}`);
+    await page.getByTestId('open-day-view-sheet').click();
+    const dayView = page.locator('[role="dialog"]').filter({ has: page.getByTestId('day-swiper') });
+    const slide = dayView.locator('[data-testid="day-slide"][data-date-str="2026-09-15"]').first();
+    await slide.getByRole('button', { name: 'Open memo' }).first().focus();
+
+    const openActions = async () => {
+      await slide.getByRole('button', { name: 'Task 1.1' }).first().focus();
+      await page.keyboard.press('Shift+Enter');
+    };
+    const transitions = [
+      ['memo-open', () => page.keyboard.press('Enter')],
+      ['memo-close', () => page.keyboard.press('Escape')],
+      ['actions-open', openActions],
+      // Distinguish the standalone Task Actions exit from the Add Photo
+      // handoff, which intentionally combines one sheet's exit with another's entrance.
+      ['actions-close', () => page.keyboard.press('Escape')],
+      ['actions-reopen', openActions],
+      ['photo-open', () => page.getByRole('button', { name: 'Add Photo', exact: true }).click()],
+      ['photo-close', () => page.keyboard.press('Escape')],
+    ];
+    for (const [name, action] of transitions) {
+      const result = await measureInteraction(page, `real-day-${count}-${name}`, action);
+      // Diagnostic measurements are useless if a keyboard shortcut, sheet
+      // handoff, or Escape dismissal silently misses the intended target.
+      // Validate the semantic state after timing has finished, not inside the
+      // measured action window.
+      const memoEditor = page.getByRole('textbox', { name: 'Memo', exact: true });
+      const photoSheet = page.getByRole('dialog', { name: 'Task Photo', exact: true });
+      const addPhotoAction = page.getByRole('button', { name: 'Add Photo', exact: true });
+      if (name === 'memo-open') await expect(memoEditor).toBeVisible();
+      if (name === 'memo-close') await expect(memoEditor).toHaveCount(0);
+      if (name === 'actions-open' || name === 'actions-reopen') {
+        await expect(addPhotoAction).toBeVisible();
+      }
+      if (name === 'actions-close') await expect(addPhotoAction).toHaveCount(0);
+      if (name === 'photo-open') await expect(photoSheet).toBeVisible();
+      if (name === 'photo-close') await expect(photoSheet).toHaveCount(0);
+      console.log('MOSAIC_DAY_VIEW_PERF ' + JSON.stringify({
+        name: result.name,
+        frameCount: result.frameCount,
+        p95FrameMs: result.p95FrameMs,
+        maxFrameMs: result.maxFrameMs,
+        maxLongAnimationFrameMs: result.maxLongAnimationFrameMs,
+        animationLongAnimationFrameCount: result.animationLongAnimationFrameCount,
+        maxAnimationLongAnimationFrameMs: result.maxAnimationLongAnimationFrameMs,
+        droppedFrameRatio: result.droppedFrameRatio,
+        layoutReads: result.layoutReads,
+        mutationRecords: result.mutationRecords,
+        // Preserve commit timestamps so delayed React work can be aligned
+        // with the frame and long-animation-frame sampling window.
+        reactRenders: result.reactProfile.map(render => ({
+          id: render.id,
+          phase: render.phase,
+          actualDuration: render.actualDuration,
+          commitOffsetMs: typeof render.commitTime === 'number'
+            ? Number((render.commitTime - result.startedAt).toFixed(2))
+            : null,
+        })),
+      }));
+    }
+  }
 });

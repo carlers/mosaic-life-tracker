@@ -73,7 +73,10 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 describe('AuthProvider PostHog identity integration', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.clearAllMocks();
+    // Clear queued one-time responses as well as call history. Auth's
+    // asynchronous connectivity checks can otherwise leave a stale mock
+    // implementation for the following login/logout case.
+    vi.resetAllMocks();
     waitForDatabaseReadyMock.mockResolvedValue(undefined);
     initializeSyncMock.mockResolvedValue(undefined);
     suspendSyncOwnerMock.mockResolvedValue(undefined);

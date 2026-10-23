@@ -12,8 +12,8 @@ function MilestoneRow({ entry, releaseUrl }: { entry: VersionMilestone; releaseU
   return (
     <details className="group">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 [&::-webkit-details-marker]:hidden">
-        <span className="shrink-0 text-sm font-semibold">{entry.tag}</span>
-        <span className="min-w-0 flex-1 truncate text-xs text-gray-400">{entry.title}</span>
+        <span className="mosaic-settings-copy shrink-0 text-sm font-semibold">{entry.tag}</span>
+        <span className="mosaic-settings-copy min-w-0 flex-1 truncate text-xs text-gray-400">{entry.title}</span>
         <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
       </summary>
       <div className="border-t border-[#333333] px-3 pb-3 pt-2">
@@ -57,15 +57,15 @@ export function ReleaseHistoryPage() {
   };
 
   return (
-    <div className="min-h-full bg-background text-white">
+    <div className="mosaic-settings-page min-h-full bg-background text-white">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-[#333333] bg-background px-4 py-3">
         <button type="button" onClick={back} onPointerDown={event => event.stopPropagation()}
-          className="rounded-lg p-1 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          className="mosaic-settings-icon rounded-lg p-1 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Back to Settings"><ChevronLeft size={22} aria-hidden="true" /></button>
         <h1 className="flex-1 text-lg font-bold">Release history</h1>
         <button type="button" aria-label="Refresh release history" disabled={loading}
           onClick={() => { setLoading(true); setRefresh(count => count + 1); }}
-          className="rounded-lg p-2 text-gray-400 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+          className="mosaic-settings-icon rounded-lg p-2 text-gray-400 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <RefreshCw size={18} aria-hidden="true" />
         </button>
       </header>

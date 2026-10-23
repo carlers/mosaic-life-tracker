@@ -272,13 +272,13 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="mosaic-settings-page flex min-h-full flex-col">
       <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-center relative">
         <button
           type="button"
           onClick={handleBack}
           onPointerDown={(e) => e.stopPropagation()}
-          className="absolute left-4 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          className="mosaic-settings-icon absolute left-4 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Back"
         >
           <ChevronLeft size={20} aria-hidden="true" />

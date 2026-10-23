@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, UsersRound } from 'lucide-react';
+import { TaskTimestampMeta } from './TaskTimestampMeta';
+import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import { useImageLoadGate } from '../../../hooks/useImageLoadGate';
 import { useTaskImage } from '../../../hooks/useTaskImage';
 import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
@@ -15,6 +17,7 @@ export interface TaskItemProps {
   task: TaskDocument;
   categoryColor: string;
   shareLabel?: string;
+  timestampDisplay?: TaskTimestampDisplay;
   currentUserId: string;
   onToggle: (taskId: string) => void;
   onOpenActions: (task: TaskDocument) => void;
@@ -136,6 +139,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   task,
   categoryColor,
   shareLabel,
+  timestampDisplay,
   currentUserId,
   onToggle,
   onOpenActions,
@@ -190,45 +194,43 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     }
   };
   const isCompleted = task.completed;
+  const frameStyle: React.CSSProperties | undefined = isDragOverlay
+    ? {
+        backgroundColor: 'var(--mosaic-bg)',
+        boxShadow: '0 14px 36px rgba(0, 0, 0, 0.38)',
+        pointerEvents: 'none',
+      }
+    : isSelected
+      ? { backgroundColor: `${categoryColor}33` }
+      : undefined;
 
-  return (
-    <motion.div
-      layout={!disableLayoutAnimation}
-      layoutDependency={`${task.updatedAt}:${isEditing}`}
-      data-task-id={isDragOverlay ? undefined : task.id}
-      data-task-overlay-id={isDragOverlay ? task.id : undefined}
-      data-task-dragging={isDragOverlay ? 'true' : undefined}
-      role={!isDragOverlay && selectionMode ? 'checkbox' : undefined}
-      aria-checked={!isDragOverlay && selectionMode ? isSelected : undefined}
-      aria-label={
-        !isDragOverlay && selectionMode
-          ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}`
-          : undefined
-      }
-      aria-hidden={isDragOverlay ? true : undefined}
-      tabIndex={!isDragOverlay && selectionMode ? 0 : undefined}
-      onClick={selectionMode ? onToggleSelection : undefined}
-      onKeyDown={selectionMode ? (event) => {
-        activateOnEnterOrSpace(event, () => onToggleSelection?.());
-      } : undefined}
-      className="flex scroll-mt-16 items-start gap-3 rounded-lg pl-0 pr-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60"
-      style={
-        isDragOverlay
-          ? {
-              backgroundColor: 'var(--mosaic-bg)',
-              boxShadow: '0 14px 36px rgba(0, 0, 0, 0.38)',
-              pointerEvents: 'none',
-            }
-          : isSelected
-            ? { backgroundColor: `${categoryColor}33` }
-            : undefined
-      }
-    >
+  const frameProps = {
+    'data-task-id': isDragOverlay ? undefined : task.id,
+    'data-task-overlay-id': isDragOverlay ? task.id : undefined,
+    'data-task-dragging': isDragOverlay ? 'true' : undefined,
+    role: !isDragOverlay && selectionMode ? ('checkbox' as const) : undefined,
+    'aria-checked': !isDragOverlay && selectionMode ? isSelected : undefined,
+    'aria-label': !isDragOverlay && selectionMode
+      ? `${task.title}, ${isSelected ? 'selected' : 'not selected'}`
+      : undefined,
+    'aria-hidden': isDragOverlay ? (true as const) : undefined,
+    tabIndex: !isDragOverlay && selectionMode ? 0 : undefined,
+    onClick: selectionMode ? onToggleSelection : undefined,
+    onKeyDown: selectionMode ? (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.target !== event.currentTarget) return;
+      activateOnEnterOrSpace(event, () => onToggleSelection?.());
+    } : undefined,
+    className: 'flex scroll-mt-16 items-start gap-3 rounded-lg pl-0 pr-2 py-2 transition-[background-color,box-shadow] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 data-[search-focused=true]:ring-1 data-[search-focused=true]:ring-emerald-400/60',
+    style: frameStyle,
+  };
+
+  const rowContent = (
+    <>
       <button
         type="button"
         onClick={(event) => {
           event.stopPropagation();
-          onToggle(task.id);
+          if (!selectionMode) onToggle(task.id);
         }}
         onPointerDown={(e) => {
           e.stopPropagation();
@@ -241,6 +243,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           backgroundColor: isCompleted ? categoryColor : 'transparent',
         }}
         aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+        aria-disabled={selectionMode || undefined}
       >
         {isCompleted && (
           <Check
@@ -282,7 +285,25 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               else if (event.detail === 0) onOpenActions(task);
             }}
             data-day-swipe-through="true"
-            className="w-full touch-pan-y text-left rounded focus:outline-none"
+            data-day-keyboard-target="task"
+            data-day-keyboard-id={task.id}
+            aria-keyshortcuts={selectionMode ? 'Enter Space' : 'Enter Space Shift+Enter'}
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (selectionMode) onToggleSelection?.();
+                else if (event.shiftKey) onOpenActions(task);
+                else onEditStart(task);
+              } else if (event.key === ' ' || event.key === 'Spacebar') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (selectionMode) onToggleSelection?.();
+                else onToggle(task.id);
+              }
+            }}
+            className="w-full touch-pan-y text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label={task.title}
           >
             <span className={isCompleted ? 'line-through text-gray-400' : 'text-white'}>
@@ -296,6 +317,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             <span className="min-w-0 truncate">{shareLabel}</span>
           </p>
         )}
+        {timestampDisplay && (timestampDisplay.showCreated || timestampDisplay.showCompleted) && (
+          <TaskTimestampMeta task={task} display={timestampDisplay} />
+        )}
         {task.memo && (
           <TaskMemo task={task} onOpenMemo={onOpenMemo} selectionMode={selectionMode} onSelect={onToggleSelection} />
         )}
@@ -308,6 +332,17 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           </div>
         )}
       </div>
+    </>
+  );
+
+  // Static task rows do not need Motion measurement. Keep the original
+  // Motion wrapper for the dragged overlay and every animated presentation.
+  return disableLayoutAnimation && !isDragOverlay ? (
+    <div {...frameProps}>{rowContent}</div>
+  ) : (
+    <motion.div {...frameProps} layout={!disableLayoutAnimation}
+      layoutDependency={`${task.updatedAt}:${isEditing}`}>
+      {rowContent}
     </motion.div>
   );
 };
