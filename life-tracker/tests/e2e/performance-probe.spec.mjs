@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 const BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
@@ -770,6 +770,21 @@ test('@performance real Day View nested Memo, Task Actions and Add Photo', async
     ];
     for (const [name, action] of transitions) {
       const result = await measureInteraction(page, `real-day-${count}-${name}`, action);
+      // Diagnostic measurements are useless if a keyboard shortcut, sheet
+      // handoff, or Escape dismissal silently misses the intended target.
+      // Validate the semantic state after timing has finished, not inside the
+      // measured action window.
+      const memoEditor = page.getByRole('textbox', { name: 'Memo', exact: true });
+      const photoSheet = page.getByRole('dialog', { name: 'Task Photo', exact: true });
+      const addPhotoAction = page.getByRole('button', { name: 'Add Photo', exact: true });
+      if (name === 'memo-open') await expect(memoEditor).toBeVisible();
+      if (name === 'memo-close') await expect(memoEditor).toHaveCount(0);
+      if (name === 'actions-open' || name === 'actions-reopen') {
+        await expect(addPhotoAction).toBeVisible();
+      }
+      if (name === 'actions-close') await expect(addPhotoAction).toHaveCount(0);
+      if (name === 'photo-open') await expect(photoSheet).toBeVisible();
+      if (name === 'photo-close') await expect(photoSheet).toHaveCount(0);
       console.log('MOSAIC_DAY_VIEW_PERF ' + JSON.stringify({
         name: result.name,
         frameCount: result.frameCount,
