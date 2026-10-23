@@ -230,7 +230,22 @@ describe('isolated Supabase RxDB native replication bridge (#967)', () => {
       expect.objectContaining({ phase: 'remote', rows: 1 }),
       expect.objectContaining({ phase: 'local', checked: 1 }),
     ]));
-    expect(local.find).toHaveBeenCalledWith({ selector: { userId: alice.legacyUserId } });
+    expect(local.find).toHaveBeenCalledWith();
+  });
+
+  it('skips foreign cached RxDB rows without reading or mutating them', async () => {
+    const foreign = { ...initial, id: 'foreign_cached', userId: bob.legacyUserId };
+    const collection = { find: () => ({ exec: async () => [
+      { toJSON: () => initial },
+      { toJSON: () => foreign },
+    ] }) };
+    const h = makeHarness(collection);
+    h.listChanges.mockResolvedValueOnce([row(initial, '1')]);
+    await expect(h.pilot.verifyLocalReplica()).resolves.toMatchObject({
+      rows: 1, localChecked: 1, localTotal: 1,
+    });
+    expect(h.createCategory).not.toHaveBeenCalled();
+    expect(h.compareAndSet).not.toHaveBeenCalled();
   });
 
   it('refuses behind-checkpoint drift and missing remote rows without overwriting offline drafts', async () => {
