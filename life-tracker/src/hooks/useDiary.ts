@@ -54,15 +54,10 @@ export function useDiary(enabled = true) {
       throw new Error('Write a diary entry, choose an emoji, or attach a photo.');
     const now = new Date().toISOString();
     const selectedVisibility = visibility ?? (doc && !doc.isDeleted ? doc.visibility : 'private');
-    // Public/shared Diary entries and new photo uploads are deferred in the
-    // personal Supabase MVP. Reject before creating an unsyncable local draft.
-    if (MOSAIC_FEATURE_PROFILE === 'core-diary') {
-      if (selectedVisibility !== 'private')
-        throw new Error('Diary entries must remain private on this backend.');
-      if (photos !== undefined && savedPhotos.length > 0 &&
-          serializeDiaryPhotos(savedPhotos) !== (doc?.photos ?? '[]'))
-        throw new Error('Diary photo uploads are not available on this backend.');
-    }
+    // Private Diary photos are part of the Supabase personal MVP.
+    // Social visibility remains unsupported and must never be widened here.
+    if (MOSAIC_FEATURE_PROFILE === 'core-diary' && selectedVisibility !== 'private')
+      throw new Error('Diary entries must remain private on this backend.');
     if (doc) {
       await upsertLocalDoc('diary', doc.id, {
         content, emoji, photos: serializeDiaryPhotos(savedPhotos), visibility: selectedVisibility, updatedAt: now, isDeleted: false,

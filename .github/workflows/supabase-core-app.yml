@@ -158,7 +158,7 @@ jobs:
             if curl -fsS "$MOSAIC_E2E_BASE_URL/" >/dev/null; then break; fi
             sleep 1
           done
-          tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --grep '@diary-ui' --workers=1 --reporter=line,github
+          tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --grep '@diary-ui|@photo-storage' --workers=1 --reporter=line,github
       - name: Exercise actual disposable GoTrue invite hook
         run: |
           set -euo pipefail
