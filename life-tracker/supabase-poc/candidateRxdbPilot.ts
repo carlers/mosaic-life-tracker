@@ -530,14 +530,17 @@ export function createCandidateRxdbPilot<D extends Document>(
           latest.accessToken !== before.accessToken)
         throw new CandidateAuthError('Supabase audit owner changed during verification');
     };
-    const docs = await collection.find({ selector: { userId: identity.legacyUserId } }).exec();
+    // The shared local RxDB can retain other accounts' cached records. Read
+    // locally, but compare ONLY documents owned by the currently signed user.
+    // Never inspect/repair/delete unrelated owner rows as part of this audit.
+    const docs = await collection.find().exec();
     await assertSameSession();
     if (docs.length > 100_000) throw new Error('Supabase audit local row cap exceeded');
     const locals = new Map<string, { value: string; doc: (typeof docs)[number] }>();
     for (const doc of docs) {
       const json = doc.toJSON() as D;
-      if (json.userId !== identity.legacyUserId ||
-          typeof json.id !== 'string' || locals.has(json.id))
+      if (json.userId !== identity.legacyUserId) continue;
+      if (typeof json.id !== 'string' || locals.has(json.id))
         throw new Error('Supabase audit found an invalid or foreign local document');
       locals.set(json.id, { value: canonical(domain, json, identity), doc });
     }
