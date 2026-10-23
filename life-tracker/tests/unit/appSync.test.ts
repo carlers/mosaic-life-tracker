@@ -21,11 +21,17 @@ describe('provider-neutral app refresh', () => {
     const { registerCoreSync, requestAppSync } = await import('../../src/lib/appSync');
     await expect(requestAppSync('owner')).rejects.toThrow();
     const resync = vi.fn().mockResolvedValue(undefined);
-    const dispose = registerCoreSync('owner', resync);
+    const verify = vi.fn().mockResolvedValue(undefined);
+    const dispose = registerCoreSync('owner', resync, { verify });
     await expect(requestAppSync('foreign')).rejects.toThrow();
+    await requestAppSync('owner');
     await requestAppSync('owner', true);
     expect(resync).toHaveBeenCalledTimes(1);
+    expect(verify).toHaveBeenCalledTimes(1);
     dispose();
+    const unverified = registerCoreSync('owner', resync);
+    await expect(requestAppSync('owner', true)).rejects.toThrow(/verification is unavailable/);
+    unverified();
     await expect(requestAppSync('owner')).rejects.toThrow();
     expect(appwrite.forceSync).not.toHaveBeenCalled();
     expect(appwrite.syncNow).not.toHaveBeenCalled();

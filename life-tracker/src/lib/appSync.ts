@@ -7,13 +7,14 @@ type CoreRegistration = {
   /** Independently verifies signed owner and waits for actual RxDB convergence. */
   refresh?: () => Promise<void>;
   assertOwner?: () => Promise<void>;
+  verify?: (onProgress: (progress: SyncProgress) => void) => Promise<void>;
 };
 let core: CoreRegistration | null = null;
 
 export function registerCoreSync(
   ownerId: string,
   resync: () => Promise<void>,
-  checked?: Pick<CoreRegistration, 'refresh' | 'assertOwner'>
+  checked?: Pick<CoreRegistration, 'refresh' | 'assertOwner' | 'verify'>
 ) {
   const registration = { ownerId, resync, ...checked };
   core = registration;
@@ -23,7 +24,12 @@ export function registerCoreSync(
 export async function requestAppSync(ownerId: string, manual = false): Promise<void> {
   if (CORE_BACKEND.driver === 'supabase') {
     if (!core || core.ownerId !== ownerId) throw new Error('Core sync is not active for this account');
-    await core.resync();
+    if (manual) {
+      if (!core.verify) throw new Error('Manual Supabase verification is unavailable');
+      await core.verify(() => {});
+    } else {
+      await core.resync();
+    }
     return;
   }
   const sync = await import('../db/sync');

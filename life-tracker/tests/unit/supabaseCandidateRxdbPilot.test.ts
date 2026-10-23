@@ -212,6 +212,54 @@ describe('isolated Supabase RxDB native replication bridge (#967)', () => {
     });
   });
 
+  it('checks every signed owner row from revision zero, including tombstones, without modifying local RxDB', async () => {
+    const local = { find: vi.fn(() => ({ exec: async () => [
+      { toJSON: () => initial },
+    ] })) };
+    const h = makeHarness(local);
+    h.listChanges.mockResolvedValueOnce([row(initial, '3')]).mockResolvedValue([]);
+    const scans: unknown[] = [];
+    await expect(h.pilot.verifyLocalReplica(scan => scans.push(scan))).resolves.toMatchObject({
+      pages: 1, rows: 1, localChecked: 1, localTotal: 1,
+    });
+    expect(h.listChanges).toHaveBeenCalledWith({
+      domain: 'categories', ownerId: alice.supabaseUserId,
+      afterExclusive: '0', batchSize: 100,
+    });
+    expect(scans).toEqual(expect.arrayContaining([
+      expect.objectContaining({ phase: 'remote', rows: 1 }),
+      expect.objectContaining({ phase: 'local', checked: 1 }),
+    ]));
+    expect(local.find).toHaveBeenCalledWith({ selector: { userId: alice.legacyUserId } });
+  });
+
+  it('refuses behind-checkpoint drift and missing remote rows without overwriting offline drafts', async () => {
+    const toJSON = vi.fn(() => initial);
+    const collection = { find: () => ({ exec: async () => [{ toJSON }] }) };
+    const h = makeHarness(collection);
+    h.listChanges.mockResolvedValueOnce([row(changed, '2')]);
+    await expect(h.pilot.verifyLocalReplica()).rejects.toThrow(/local\/cloud verification/);
+    expect(toJSON).toHaveBeenCalled();
+    expect(h.createCategory).not.toHaveBeenCalled();
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+    h.listChanges.mockResolvedValue([]);
+    await expect(h.pilot.verifyLocalReplica()).rejects.toThrow(/local\/cloud verification/);
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+  });
+
+  it('rejects foreign/out-of-order page data and account rotations mid-audit', async () => {
+    const h = makeHarness({ find: () => ({ exec: async () => [] }) });
+    h.listChanges.mockResolvedValueOnce([{ ...row(), owner_id: bob.supabaseUserId }]);
+    await expect(h.pilot.verifyLocalReplica()).rejects.toThrow(/foreign/);
+    h.listChanges.mockResolvedValueOnce([row(initial, '5'), row(initial, '4')]);
+    await expect(h.pilot.verifyLocalReplica()).rejects.toThrow(/out-of-order|duplicate/);
+    h.listChanges.mockImplementationOnce(async () => {
+      h.switchTo(bob.supabaseUserId);
+      return [row()];
+    });
+    await expect(h.pilot.verifyLocalReplica()).rejects.toThrow(/owner|account/);
+  });
+
   it('starts only on an explicitly supplied collection and uses native RxDB checkpoints', async () => {
     const h = makeHarness();
     expect(() => h.pilot.start()).toThrow('collection required');

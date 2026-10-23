@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   pause: vi.fn(async () => {}),
   ready: vi.fn(async () => {}),
   resync: vi.fn(async () => {}),
+  verify: vi.fn(async () => {}),
   conflicts: vi.fn(() => ({ tasks: [], categories: [] })),
 }));
 vi.mock('../../src/lib/databaseBootstrap', () => ({
@@ -29,6 +30,7 @@ const run = {
   categoryState: { domain: 'category-state' },
   awaitInitialReplication: mocks.ready,
   resync: mocks.resync,
+  verifyLocalReplica: mocks.verify,
   getPendingConflicts: mocks.conflicts,
   stop: mocks.stop,
   pause: mocks.pause,
@@ -94,6 +96,8 @@ describe('app-owned Supabase core RxDB bridge (#1027)', () => {
     expect(f.controller.getPhase()).toBe('active');
     await started.awaitInitialReplication();
     await started.resync();
+    await started.verifyLocalReplica(() => {});
+    expect(mocks.verify).toHaveBeenCalledOnce();
     expect(started.getPendingConflicts()).toEqual({ tasks: [], categories: [] });
     await started.stop();
     expect(mocks.stop).toHaveBeenCalledOnce();

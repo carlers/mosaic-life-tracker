@@ -262,6 +262,19 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
     return startSigned(async () => signed);
   }
 
+  async function verifyLocalReplica(onProgress: (progress: import('./syncStatus').SyncProgress) => void) {
+    if (phase !== 'active' || !active)
+      throw new Error('Supabase manual verification requires an active signed owner');
+    const established = active;
+    await verified(established.signed);
+    if (phase !== 'active' || active !== established)
+      throw new Error('Supabase account switched before verification');
+    await established.run.verifyLocalReplica(onProgress);
+    if (phase !== 'active' || active !== established)
+      throw new Error('Supabase account switched during verification');
+    await verified(established.signed);
+  }
+
   async function resync() {
     if (phase !== 'active' || !active)
       throw new Error('Supabase core is not authenticated and active');
@@ -281,6 +294,7 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
     signOut,
     refreshAndRestart,
     resync,
+    verifyLocalReplica,
     getPendingConflicts: () => phase === 'active' && active
       ? active.run.getPendingConflicts() : { tasks: [], categories: [] },
     subscribeConflicts(listener: () => void) {

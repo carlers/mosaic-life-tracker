@@ -14,7 +14,8 @@ import type { CandidateSessionProvider, CandidateVerifiedSession } from './candi
 import { CandidateAuthError, createCandidateHttpTransport } from './candidateHttpTransport';
 import { createCandidateCasTransport } from './candidateCasTransport';
 import { createCandidateCreateTransport } from './candidateCreateTransport';
-import { createCandidateRxdbPilot } from './candidateRxdbPilot';
+import { createCandidateRxdbPilot, type CandidateReplicaScan } from './candidateRxdbPilot';
+import type { SyncProgress } from '../src/lib/syncStatus';
 import { assertSingleCloudWriter, type DomainWriter } from '../src/lib/backendCapabilities';
 
 export interface CandidateCoreWriterLease {
@@ -207,6 +208,73 @@ export function createCandidateCoreRuntime(options: CandidateCoreRuntimeOptions)
               latest.accessToken !== established.signed.accessToken) {
             throw new CandidateAuthError('Candidate core session or lease changed during initial sync');
           }
+        },
+        /**
+         * Explicit manual Sync Now: await native push/pull settlement, scan
+         * every signed owner row without altering local drafts or checkpoints,
+         * then settle all three streams again before reporting 100%.
+         */
+        async verifyLocalReplica(onProgress: (progress: SyncProgress) => void) {
+          await ensureCurrent();
+          if (Object.values(conflicts()).some(items => items.length))
+            throw new Error('Resolve local Supabase conflicts before verifying data');
+          const groups = [
+            { name: 'Tasks', run: established.taskRun, pilot: tasks },
+            { name: 'Categories', run: established.categoryRun, pilot: categories },
+            ...(established.diaryRun && diary
+              ? [{ name: 'Diary', run: established.diaryRun, pilot: diary }] : []),
+          ];
+          const total = groups.length;
+          const pending = () => groups.map(item => item.name);
+          const emit = (phase: 'refresh' | 'verify' | 'finalize',
+                        completed: number, label: string, scan?: CandidateReplicaScan,
+                        group?: string) => {
+            onProgress({
+              phase, completed, total: total * 3,
+              percent: Math.min(100, Math.round(completed / (total * 3) * 100)),
+              label, groupTotal: total,
+              ...(phase === 'verify' ? {
+                activeGroup: group ?? null,
+                verifiedGroups: completed - total,
+                scannedPages: scan?.pages,
+                scannedRows: scan?.rows,
+                localChecked: scan?.phase === 'local' ? scan.checked : undefined,
+                localTotal: scan?.total,
+              } : { pendingGroups: pending() }),
+            });
+          };
+          let done = 0;
+          emit('refresh', done, 'Refreshing ' + total + ' Supabase data groups');
+          for (const item of groups) {
+            await ensureCurrent();
+            item.run.resync();
+            await item.run.state.awaitInitialReplication();
+            await item.run.state.awaitInSync();
+            await ensureCurrent();
+            emit('refresh', ++done, item.name + ' synced · ' + done + ' of ' + total);
+          }
+          for (const item of groups) {
+            await ensureCurrent();
+            await item.pilot.verifyLocalReplica(scan => {
+              emit('verify', done, 'Verifying ' + item.name +
+                ' · ' + scan.rows + ' server rows / ' + scan.pages + ' pages',
+              scan, item.name);
+            });
+            await ensureCurrent();
+            emit('verify', ++done, item.name + ' verified · ' + (done - total) +
+              ' of ' + total, undefined, item.name);
+          }
+          for (const item of groups) {
+            await ensureCurrent();
+            item.run.resync();
+            await item.run.state.awaitInSync();
+            await ensureCurrent();
+            emit('finalize', ++done, 'Confirming final freshness · ' +
+              (done - total * 2) + ' of ' + total);
+          }
+          if (Object.values(conflicts()).some(items => items.length))
+            throw new Error('Supabase writes still need conflict review');
+          await ensureCurrent();
         },
         async resync() {
           if (active !== established || cancellation || !established.lease.isCurrent())

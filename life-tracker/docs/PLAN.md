@@ -2,6 +2,12 @@
 
 This roadmap retains durable workstreams, recorded acceptance, and planned scope—not a live task queue or deployment report. [GitHub Issues](ISSUE_WORKFLOW.md) owns actionable work and issue-specific plans. Before acting on a pending item, check its issue/PR, the current branches and CI, and any backend rollout evidence. The dated [session checkpoint](SESSION_STATE.md) holds the most recent task handoff, not authoritative release status; [project instructions](../AGENTS.md) own working rules.
 
+## Delivery sequence — after private Supabase core/Diary MVP
+
+1. **Before Production promotion:** bring Supabase Sync Now's verified three-domain owner-data audit, progress, fail-closed drift reporting and final freshness barrier to acceptance. No production cutover based only on normal CRUD smoke tests. Manually test offline drafts, stale cursors, two devices, account switching and backups.
+2. **First priority immediately after separately approved Production cutover, ahead of social features:** a one-prompt/one-command **reversible Appwrite Cloud/Oracle ↔ Supabase migration**. Target a few minutes only when preflight and data size allow it: orchestrate encrypted source snapshot + isolated restore, stable cross-provider account mapping, read-only data/media/invitation audit, old-device/offline writer fencing, idempotent copy, tombstones and pending drafts, signed two-owner verification, cutover and return/rollback. A one-command UX may orchestrate the gates, **never** bypass them or claim losslessness before independent count/hash/restore proof. Keep the user away from repeated terminal credential chores through protected, time-limited secrets; require separate explicit Production approval and stop safely when a gate fails. Track #967 and #1027.
+3. Only after reversible provider switching is accepted, resume social domains and media migration.
+
 ## Delivered foundation
 
 - [x] Vite, React 19, TypeScript, Tailwind, PWA shell, and persistent local storage

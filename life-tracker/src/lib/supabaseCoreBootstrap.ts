@@ -159,6 +159,11 @@ export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrap
           await established.awaitInitialReplication();
           ensureActive();
         },
+        async verifyLocalReplica(onProgress: (progress: import('./syncStatus').SyncProgress) => void) {
+          ensureActive();
+          await established.verifyLocalReplica(onProgress);
+          ensureActive();
+        },
         async resync() {
           ensureActive();
           await established.resync();

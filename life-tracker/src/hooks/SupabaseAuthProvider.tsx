@@ -6,7 +6,7 @@ import { CandidateAuthUnavailableError } from '../../supabase-poc/candidateVerif
 import { createSupabaseCoreAuthCoordinator } from '../lib/supabaseCoreAuth';
 import { createSupabaseCoreAuthority } from '../lib/supabaseCoreAuthority';
 import { scopeAccountWork } from '../lib/accountWorkScope';
-import { publishSyncStatus, scopeSyncStatusToUser } from '../lib/syncStatus';
+import { publishSyncStatus, scopeSyncStatusToUser, type SyncProgress } from '../lib/syncStatus';
 import { registerCoreSync } from '../lib/appSync';
 import { markConnectivityOffline, reportConnectivityResult } from '../lib/connectivity';
 import { registerSyncConflictReview } from '../lib/syncConflictReview';
@@ -261,6 +261,7 @@ export default function SupabaseAuthProvider({ config, children }: {
         }
       } finally { busy.current = false; }
     };
+    let verifying = false;
     const assertSignedImportOwner = async () => {
       if (!active || !mounted.current || user.$id !== ownerId ||
           (runtime.browser && !runtime.browser.isCurrent()) ||
@@ -292,20 +293,62 @@ export default function SupabaseAuthProvider({ config, children }: {
       if (Object.values(pending).some(items => items.length > 0))
         throw new Error('Resolve Supabase sync conflicts before importing');
     };
+    const verifyNow = async (onProgress: (progress: SyncProgress) => void) => {
+      if (verifying || busy.current || navigator.onLine === false)
+        throw new Error('Supabase verification needs a free, online signed session');
+      verifying = true;
+      publishSyncStatus({ isSyncing: true, errors: [], notice: null, progress: {
+        completed: 0, total: MOSAIC_FEATURE_PROFILE === 'core-diary' ? 9 : 6,
+        percent: 0, phase: 'refresh', label: 'Refreshing signed Supabase data',
+      } });
+      try {
+        await assertSignedImportOwner();
+        await runtime.authority.renew();
+        let deadline: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            runtime.coordinator.verifyLocalReplica(progress => {
+              if (!active || !verifying) return;
+              publishSyncStatus({ isSyncing: true, progress });
+              onProgress(progress);
+            }),
+            new Promise<never>((_, reject) => {
+              deadline = setTimeout(() => reject(new Error(
+                'Supabase verification timed out; local data was not changed'
+              )), 90_000);
+            }),
+          ]);
+        } finally {
+          if (deadline) clearTimeout(deadline);
+        }
+        await assertSignedImportOwner();
+        if (!active) throw new Error('Supabase account changed during verification');
+        const completedAt = new Date().toISOString();
+        if (runtime.browser?.isCurrent()) markOfflineDataReady(ownerId, completedAt);
+        publishSyncStatus({ isSyncing: false, progress: null, errors: [],
+          notice: null, lastSync: completedAt });
+      } catch (error) {
+        if (active) publishSyncStatus({ isSyncing: false, progress: null,
+          errors: [error instanceof Error ? error.message : 'Supabase verification failed'],
+          notice: 'Local data was not overwritten. Review sync errors before trusting a full match.' });
+        throw error;
+      } finally { verifying = false; }
+    };
     const unregister = registerCoreSync(ownerId, catchUp, {
       refresh: refreshForImport,
       assertOwner: assertSignedImportOwner,
+      verify: verifyNow,
     });
     retrySync.current = catchUp;
     const states = runtime.coordinator.getReplicationStates();
     let settling: Promise<void> | null = null;
     const recordSettled = () => {
-      if (!states || settling || !active) return;
+      if (!states || settling || !active || verifying) return;
       settling = Promise.all(states.map(async state => {
         await state.awaitInitialReplication();
         await state.awaitInSync();
       })).then(() => {
-        if (active && runtime.coordinator.getReplicationStates()?.[0] === states[0]) {
+        if (active && !verifying && runtime.coordinator.getReplicationStates()?.[0] === states[0]) {
           const completedAt = new Date().toISOString();
           if (runtime.browser?.isCurrent()) markOfflineDataReady(ownerId, completedAt);
           publishSyncStatus({ lastSync: completedAt, errors: [] });
@@ -324,7 +367,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       conflictCount = conflicts.length;
       conflictReview.current?.publish(conflicts);
       publishSyncStatus({
-        isSyncing: activity.some(Boolean) && conflictCount === 0,
+        isSyncing: (verifying || activity.some(Boolean)) && conflictCount === 0,
         notice: conflictCount ? 'Some changes need your review. Your edits are kept on this device.' : null,
       });
     });
@@ -332,7 +375,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       state.active$.subscribe(value => {
         if (!active) return;
         activity[index] = value;
-        publishSyncStatus({ isSyncing: activity.some(Boolean) && conflictCount === 0 });
+        publishSyncStatus({ isSyncing: (verifying || activity.some(Boolean)) && conflictCount === 0 });
         if (!activity.some(Boolean)) recordSettled();
       }),
       state.error$.subscribe(() => {
