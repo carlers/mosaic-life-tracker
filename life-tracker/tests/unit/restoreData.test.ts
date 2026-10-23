@@ -274,6 +274,23 @@ describe('backup restore', () => {
     expect(state.triggerDownload).toHaveBeenCalledOnce();
   });
 
+  it('refuses empty TodoMate Replace before a safety backup or any deletion', async () => {
+    const file = jsonBackup({
+      user: { id: 'todomate_empty', email: 'todo@example.com', name: 'TodoMate' },
+      data: { tasks: [], categories: [], diary: [], settings: [], friendships: [] },
+    });
+    state.rows.tasks.set('current_task', {
+      id: 'current_task', userId: 'user_A', title: 'Preserve me',
+      categoryId: '', date: '2026-09-20', createdAt: '2026-09-20T00:00:00.000Z',
+      updatedAt: '2026-09-20T00:00:00.000Z', isDeleted: false,
+    });
+    await expect(restoreUserData(file, currentUser, { mode: 'todomate-replace' }, true))
+      .rejects.toThrow(/empty TodoMate task\/category snapshot/);
+    expect(state.rows.tasks.get('current_task')?.isDeleted).toBe(false);
+    expect(state.exportUserData).not.toHaveBeenCalled();
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+  });
+
   it('rejects TodoMate Replace for arbitrary user ZIP files before mutation', async () => {
     await expect(restoreUserData(jsonBackup(), currentUser, { mode:'todomate-replace' }))
       .rejects.toThrow(/trusted in-memory TodoMate transfer/i);

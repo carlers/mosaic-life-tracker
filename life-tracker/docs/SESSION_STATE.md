@@ -14,6 +14,9 @@ Current task: #1027 Supabase three-domain Sync Now integrity verification and ba
 - Build Version details display `backend: appwrite-cloud/production|scratch`, `appwrite-oracle/production|scratch|unknown`, or `supabase/scratch|unknown` derived from effective backend/target, not a misleading hardcoded Appwrite label. Supabase current hosted `mosaic-dev` is scratch, not Production.
 - Roadmap priority: after separately approved production release, **one-prompt reversible Appwrite Cloud/Oracle ↔ Supabase provider migration BEFORE social**, with encrypted backup/restore, auth/identity mapping, offline/old-PWA writer fencing, idempotent all-domain data+attachment copy, signed counts/hash/RLS/device acceptance and rollback; a few-minute goal, never bypass preflight or Production approvals. Track #967 and #1027.
 
+## Final scoped hardening
+- Fail-closed TodoMate Replace on an empty category/task snapshot, before any safety-backup or data write. Do not report unsupported Supabase photo bytes as copied or emit invalid 0/0 media progress. Narrow regression added; no provider/real-user write.
+
 ## Next action
 - Canonical Quality #39924203163 build failed on generic RxDB MangoQuerySelector typing in the local owner scan (`candidateRxdbPilot.ts:533`); the task-focused 2,273-test suite passed. Scoped fix reads the shared local RxDB via typed `find().exec()` and **ignores foreign cached rows** before comparison, preserving cross-owner isolation. Add regression for both owners cached locally and no writes. No live data or Production changes.
 - First focused CI #39923528993 ran 2,273 passing tests and found ONLY the mandatory checkpoint heading; repaired to 'Next action'. Rerun focused Quality, fix any substantive failures. Do not merge to isolated stable or stage new protected Vercel Preview without exact focused green and canonical acceptance.
