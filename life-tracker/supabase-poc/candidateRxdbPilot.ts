@@ -597,6 +597,36 @@ export function createCandidateRxdbPilot<D extends Document>(
       'Supabase ' + domain + ' local/cloud verification found a difference. ' +
       'Local edits were preserved; no automatic overwrite was attempted.'
     );
+    // A new local draft could have arrived after the first find(), without
+    // belonging to the original document snapshot. Never certify that stale
+    // list as complete. Foreign account records remain outside this check.
+    const currentDocs = await collection.find().exec();
+    await assertSameSession();
+    if (currentDocs.length > 100_000) throw new Error('Supabase audit local row cap exceeded');
+    let currentOwnerCount = 0;
+    for (const doc of currentDocs) {
+      const json = doc.toJSON() as D;
+      if (json.userId !== identity.legacyUserId) continue;
+      const original = locals.get(json.id);
+      if (!original || canonical(domain, json, identity) !== original.value)
+        throw new Error('Supabase audit local snapshot changed during verification; retry');
+      currentOwnerCount++;
+    }
+    if (currentOwnerCount !== localTotal)
+      throw new Error('Supabase audit local snapshot changed during verification; retry');
+    await assertSameSession();
+    // A remote CAS after its row was scanned receives a higher change_seq.
+    // A bounded tail read catches such mid-audit writes rather than issuing
+    // a false success. Never advance replication checkpoints from this read.
+    const tail = await changes.listChanges<Row>({
+      domain, ownerId: identity.supabaseUserId,
+      afterExclusive: after.toString(), batchSize: 1,
+    });
+    await assertSameSession();
+    if (!Array.isArray(tail) || tail.length > 1)
+      throw new Error('Supabase audit final owner page invalid');
+    if (tail.length)
+      throw new Error('Supabase audit remote snapshot changed during verification; retry');
     return { pages, rows: checked, localChecked, localTotal };
   }
 
