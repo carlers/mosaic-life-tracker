@@ -267,7 +267,7 @@ function waitForInstallingWorker(
     };
 
     worker.addEventListener('statechange', handleStateChange);
-    timeout = globalThis.setTimeout(
+    timeout = window.setTimeout(
       () => finish('timeout'),
       INSTALL_WAIT_BEFORE_BACKGROUND_MS
     );

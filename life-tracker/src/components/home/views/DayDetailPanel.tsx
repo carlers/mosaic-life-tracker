@@ -304,7 +304,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
             onReplyToTask={onReplyToTask}
             onReactToTask={onReactToTask}
             holidayConfig={holidayConfig}
-            renderMode="panel"
+            renderMode="inline"
           />
           {friendDiaryPosition === 'bottom' && friendDiaryCard}
           </>
