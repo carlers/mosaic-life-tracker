@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => ({
   taskReady: vi.fn(async () => {}),
   categoryReady: vi.fn(async () => {}),
   diaryReady: vi.fn(async () => {}),
+  taskSettled: vi.fn(async () => {}),
+  categorySettled: vi.fn(async () => {}),
+  diarySettled: vi.fn(async () => {}),
+  verify: vi.fn(async () => ({ pages: 1, rows: 1, localTotal: 1, localChecked: 1 })),
   refreshConflict: vi.fn(async () => ({ state: 'unchanged' })),
   keepLocalConflict: vi.fn(async () => ({ state: 'applied' })),
   failCategories: false,
@@ -32,6 +36,8 @@ vi.mock('../../supabase-poc/candidateRxdbPilot', () => ({
           awaitInitialReplication:
             opts.domain === 'tasks' ? mocks.taskReady :
               opts.domain === 'categories' ? mocks.categoryReady : mocks.diaryReady,
+          awaitInSync: opts.domain === 'tasks' ? mocks.taskSettled :
+            opts.domain === 'categories' ? mocks.categorySettled : mocks.diarySettled,
         },
         resync: opts.domain === 'tasks' ? mocks.taskResync :
           opts.domain === 'categories' ? mocks.categoryResync : mocks.diaryResync,
@@ -39,6 +45,7 @@ vi.mock('../../supabase-poc/candidateRxdbPilot', () => ({
           opts.domain === 'categories' ? mocks.categoriesStop : mocks.diaryStop,
       };
     },
+    verifyLocalReplica: mocks.verify,
     listPendingConflicts: () => [],
     refreshPendingConflict: mocks.refreshConflict,
     resolveKeepLocal: mocks.keepLocalConflict,
@@ -107,6 +114,35 @@ describe('isolated signed two-domain core sync lifecycle (#1027)', () => {
     expect(mocks.categoriesStop).toHaveBeenCalledOnce();
     const lease = await f.guard.acquireExclusiveLease.mock.results[0].value;
     expect(lease.release).toHaveBeenCalledOnce();
+  });
+
+  it('manually verifies signed tasks/categories/Diary in three real phases and never reports 100 early', async () => {
+    const f = fixture(true);
+    const run = await f.runtime.start();
+    const values: Array<{ phase?: string; percent: number; label: string }> = [];
+    await run.verifyLocalReplica(p => values.push(p));
+    expect(mocks.verify).toHaveBeenCalledTimes(3);
+    expect(mocks.taskSettled).toHaveBeenCalledTimes(2);
+    expect(mocks.categorySettled).toHaveBeenCalledTimes(2);
+    expect(mocks.diarySettled).toHaveBeenCalledTimes(2);
+    expect(values.some(v => v.phase === 'verify')).toBe(true);
+    expect(values.at(-1)).toMatchObject({ phase: 'finalize', percent: 100 });
+    expect(values.slice(0, -1).every(v => v.percent < 100)).toBe(true);
+    await run.stop();
+  });
+
+  it('does not finalize local proof or mutate remote state when a signed owner audit finds drift', async () => {
+    const f = fixture(true);
+    const run = await f.runtime.start();
+    mocks.verify.mockRejectedValueOnce(new Error('local/cloud verification found a difference'));
+    const values: Array<{ phase?: string; percent: number }> = [];
+    await expect(run.verifyLocalReplica(p => values.push(p)))
+      .rejects.toThrow(/local\/cloud/);
+    expect(values.at(-1)?.percent).toBeLessThan(100);
+    expect(mocks.taskSettled).toHaveBeenCalledTimes(1);
+    await run.stop();
+    mocks.verify.mockReset();
+    mocks.verify.mockResolvedValue({ pages: 1, rows: 1, localTotal: 1, localChecked: 1 });
   });
 
   it('blocks foreign owner and identity mapping failures before any remote writer starts', async () => {

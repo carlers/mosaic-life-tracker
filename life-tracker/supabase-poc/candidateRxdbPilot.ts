@@ -38,6 +38,14 @@ type Replicated<D extends Document> = WithDeletedAndAttachments<D>;
 type Writer = ReturnType<typeof createCandidateCreateTransport>;
 type Cas = ReturnType<typeof createCandidateCasTransport>;
 
+export interface CandidateReplicaScan {
+  phase: 'remote' | 'local';
+  pages: number;
+  rows: number;
+  checked: number;
+  total: number;
+}
+
 export type CandidateConflictReason =
   | 'missing-master' | 'divergent-master' | 'duplicate-create'
   | 'cas-conflict' | 'unconfirmed-write' | 'protected-field-change';
@@ -505,6 +513,87 @@ export function createCandidateRxdbPilot<D extends Document>(
     return { state: 'applied' as const, revision: accepted.revision };
   }
 
+  /**
+   * Explicit, read-only anti-entropy proof. Every server row (including soft
+   * tombstones) is fetched from revision 0 under the current signed owner.
+   * This does NOT edit RxDB, advance native replication checkpoints or
+   * acknowledge pending offline writes. Unexpected drift fails closed until
+   * a separately accepted conflict-aware repair path exists.
+   */
+  async function verifyLocalReplica(onScan?: (progress: CandidateReplicaScan) => void) {
+    const collection = options.collection;
+    if (!collection) throw new Error('Supabase audit requires the active owner collection');
+    const before = await guardedSession();
+    const assertSameSession = async () => {
+      const latest = await guardedSession();
+      if (latest.sessionEpoch !== before.sessionEpoch ||
+          latest.accessToken !== before.accessToken)
+        throw new CandidateAuthError('Supabase audit owner changed during verification');
+    };
+    const docs = await collection.find({ selector: { userId: identity.legacyUserId } }).exec();
+    await assertSameSession();
+    if (docs.length > 100_000) throw new Error('Supabase audit local row cap exceeded');
+    const locals = new Map<string, { value: string; doc: (typeof docs)[number] }>();
+    for (const doc of docs) {
+      const json = doc.toJSON() as D;
+      if (json.userId !== identity.legacyUserId ||
+          typeof json.id !== 'string' || locals.has(json.id))
+        throw new Error('Supabase audit found an invalid or foreign local document');
+      locals.set(json.id, { value: canonical(domain, json, identity), doc });
+    }
+    const localTotal = locals.size;
+    const remoteIds = new Set<string>();
+    let pages = 0;
+    let checked = 0;
+    let mismatch = false;
+    let after = 0n;
+    const batchSize = 100;
+    for (;;) {
+      if (pages >= 1_000) throw new Error('Supabase audit remote page cap exceeded');
+      const rows = await changes.listChanges<Row>({
+        domain, ownerId: identity.supabaseUserId,
+        afterExclusive: after.toString(), batchSize,
+      });
+      await assertSameSession();
+      if (!Array.isArray(rows) || rows.length > batchSize)
+        throw new Error('Supabase audit response page invalid');
+      pages++;
+      for (const row of rows) {
+        const current = checkedRow(row);
+        const revision = BigInt(current.revision);
+        const id = current.document.id;
+        if (revision <= after || remoteIds.has(id))
+          throw new Error('Supabase audit rejected duplicate or out-of-order owner data');
+        after = revision;
+        remoteIds.add(id);
+        checked++;
+        const local = locals.get(id);
+        if (!local || local.value !== canonical(domain, current.document, identity))
+          mismatch = true;
+        onScan?.({ phase: 'remote', pages, rows: checked, checked: 0, total: localTotal });
+      }
+      if (rows.length < batchSize) break;
+    }
+    let localChecked = 0;
+    for (const [id, local] of locals) {
+      await assertSameSession();
+      // A local edit during verification invalidates its snapshot. Do not
+      // classify that concurrent write as a safely repairable stale cache.
+      const latest = local.doc.toJSON() as D;
+      if (canonical(domain, latest, identity) !== local.value ||
+          !remoteIds.has(id)) mismatch = true;
+      localChecked++;
+      onScan?.({ phase: 'local', pages, rows: checked,
+        checked: localChecked, total: localTotal });
+    }
+    await assertSameSession();
+    if (mismatch) throw new Error(
+      'Supabase ' + domain + ' local/cloud verification found a difference. ' +
+      'Local edits were preserved; no automatic overwrite was attempted.'
+    );
+    return { pages, rows: checked, localChecked, localTotal };
+  }
+
   function start(collection = options.collection) {
     if (!collection) throw new Error('Isolated RxDB candidate collection required');
     const stream = new Subject<RxReplicationPullStreamItem<D, CandidateCheckpoint>>();
@@ -565,7 +654,7 @@ export function createCandidateRxdbPilot<D extends Document>(
   }
 
   return {
-    pull, push, start, listPendingConflicts, refreshPendingConflict, resolveKeepLocal,
+    pull, push, start, verifyLocalReplica, listPendingConflicts, refreshPendingConflict, resolveKeepLocal,
     conflictEvents$: conflictEvents.asObservable(),
   };
 }

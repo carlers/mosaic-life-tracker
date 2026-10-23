@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { APP_VERSION } from '../../src/lib/appVersion';
 import {
   APP_BUILD_INFO,
+  classifyBuildBackend,
   parseEmbeddedBuildInfo,
 } from '../../src/lib/buildInfo';
 
@@ -43,6 +44,21 @@ describe('app version and build identity', () => {
       channel: 'Preview',
     });
     expect(parseEmbeddedBuildInfo('{not-json')).toBeNull();
+  });
+
+  it('labels the actual provider and target rather than calling Supabase Appwrite', () => {
+    expect(classifyBuildBackend('supabase-cloud', 'production', 'Preview',
+      'https://hcxtiifzxoaflhjgoglb.supabase.co')).toBe('supabase/scratch');
+    expect(classifyBuildBackend('supabase-cloud', 'production', 'Production',
+      'https://unexpected.supabase.co')).toBe('supabase/unknown');
+    expect(classifyBuildBackend('appwrite-cloud', 'scratch', 'Preview'))
+      .toBe('appwrite-cloud/scratch');
+    expect(classifyBuildBackend('appwrite-cloud', 'production', 'Production'))
+      .toBe('appwrite-cloud/production');
+    expect(classifyBuildBackend('appwrite-oracle', 'custom', 'Preview'))
+      .toBe('appwrite-oracle/scratch');
+    expect(classifyBuildBackend('appwrite-oracle', 'custom', 'Production'))
+      .toBe('appwrite-oracle/production');
   });
 
   it('uses a stable local fallback outside deployment builds', () => {

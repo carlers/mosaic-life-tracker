@@ -409,7 +409,7 @@ export const SettingsPage: React.FC = () => {
               data-testid="app-build-info"
               className="px-4 pb-3 text-xs text-gray-500"
             >
-              <div>appwrite: {APP_BUILD_INFO.appwrite}</div>
+              <div>backend: {APP_BUILD_INFO.backend}</div>
               <div>branch: {APP_BUILD_INFO.branch ?? 'local'}</div>
               <div>
                 commit: {APP_BUILD_INFO.commitShort ?? APP_BUILD_INFO.buildId}

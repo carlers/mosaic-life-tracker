@@ -24,6 +24,7 @@ function fixture() {
     categoryState: {},
     awaitInitialReplication: vi.fn(async () => {}),
     resync: vi.fn(async () => {}),
+    verifyLocalReplica: vi.fn(async () => {}),
     getPendingConflicts: vi.fn(() => ({ tasks: [], categories: [] })),
     stop: vi.fn(async () => { phase = 'idle'; }),
     pause: vi.fn(async () => {}),
@@ -99,7 +100,9 @@ describe('app-owned signed Supabase core Auth+RxDB lifecycle (#1027)', () => {
     expect(f.coordinator.getAuthenticatedOwner()).toEqual(f.identity);
     expect(f.coordinator.getAuthenticatedOwner()).not.toHaveProperty('accessToken');
     await f.coordinator.resync();
+    await f.coordinator.verifyLocalReplica(() => {});
     expect(f.run.resync).toHaveBeenCalledOnce();
+    expect(f.run.verifyLocalReplica).toHaveBeenCalledOnce();
   });
 
   it('restores only after signed refresh verifies the same owner, never from local hints', async () => {
