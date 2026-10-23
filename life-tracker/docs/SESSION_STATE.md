@@ -14,6 +14,6 @@ Current task: #1029 deliver Supabase owner-private Diary on the reconciled isola
 - Supabase advisory flags four private schema tables without RLS; direct catalog grants show `anon`/`authenticated` have neither schema USAGE nor table SELECT/INSERT/UPDATE. Must review defense in depth, not blindly change server-owned tables.
 - No dev/main/Production or hosted data writes, no Expo/media/social rollout, no one-click provider migration. Protected exact-SHA GitHub environment approval is still mandatory for the *new* v0.45.0 artifact.
 
-## Implementation, verification, next
+## Next action
 - Candidate changes built artifact contract to `core-diary`, embedded profile checks, version 0.45.0, Playwright signed real UI fixture with owner/private save and device/foreign-owner checks; local signed lab rebuilds core-diary on disposable DB and runs this browser test.
 - Run focused Quality task CI, fix legitimate test/UI failures, then after reviewed fresh hosted snapshot/restoration and additive migration, squash isolated Preview task, run four exact-SHA canonical labs, approve protected deployment, verify immutable Vercel READY with `core-diary`, perform manual mobile two-owner/offline acceptance before using real user data.
