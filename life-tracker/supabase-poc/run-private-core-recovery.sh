@@ -86,6 +86,17 @@ for migration in \
   cp "$here/migrations/$migration.sql" "supabase/migrations/$stamp"_"$migration.sql"
   index=$((index+1))
 done
+if [[ $# -eq 4 ]]; then
+  # Live hosted mosaic-dev has private Diary but has NOT applied category
+  # retirement or atomic category-delete migrations (read-only verified).
+  # Match only the currently installed fresh-source schema here, never widen
+  # the restore target with unrelated future feature migrations.
+  for migration in 20261022_candidate_private_diary_domain; do
+    printf -v stamp '2026102000%04d' "$index"
+    cp "$here/migrations/$migration.sql" "supabase/migrations/$stamp"_"$migration.sql"
+    index=$((index+1))
+  done
+fi
 python3 "$here/configure-private-disposable-stack.py" init "$scratch" "$project"
 # No user backup is decrypted before stack identity, empty-target and loopback
 # publication checks all succeed. Failures auto-destroy only this project.

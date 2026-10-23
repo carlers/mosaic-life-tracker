@@ -1,18 +1,16 @@
 # Session checkpoint
 
 Updated: 2026-10-23 UTC
-Current task: #1027 v0.47.0 owner-private task + Diary photo acceptance.
+Current task: #1027 Supabase v0.47.0 private photo rollout and **operator-owned fresh Scratch DR preflight**.
 
-## Exact verified state
-- Isolated stable `feature/1027-supabase-recovery-20261020@442046a27902811994da5bfd117566fa929cf6ed`; `dev@95ecd0b` and `main@319421a` stay Appwrite. No Production or hosted DB/Storage writes authorized by this task.
-- Stable v0.47.0 Quality #39940031255 SUCCESS, Synthetic Restore #39940031148 SUCCESS, Real GoTrue Restore #39940031228 SUCCESS. Core App #39940031175 FAILED signed Diary UI: photos uploaded to disposable Storage but local Diary save rejected with obsolete `useDiary` core-diary "uploads not available" guard. Test reached signed browser phase; local Storage migration and policy validation passed. Artifact/protected Preview skipped.
-- `mosaic-dev` `hcxtiifzxoaflhjgoglb` read-only inspection: 63 task rows, 54 category rows, 1 Diary row and **zero photo buckets/objects**. This is live Scratch; it has real personal data. Existing `hosted-encrypted-backup.sh` captures PG only; not independently restored and not Storage object bytes. Do **not** apply photo migration or deploy user-facing v0.47.0 without fresh, verifiable encrypted DB/media DR and signed hosted owner-isolation checks.
-- New scoped repair branch `chatgpt/1027-supabase-photo-lab-filter-20261023` from 442046: permit private Diary photo saves/edits in local hook (preserve private visibility and bounded opaque ID verification), regression React tests, include `@photo-storage` in Core Diary CI grep (previous filter silently skipped it). Internal fix, version remains v0.47.0.
+## Live exact verified state
+- Isolated stable `feature/1027-supabase-recovery-20261020@7173e1fa78df6e8dcda6ba9caac5244b7cdc3ccf` v0.47.0. `dev@95ecd0b` and `main@319421a` remain Appwrite. Four exact-SHA Quality/Restore/Core App workflows SUCCESS; Core App's two signed private photo tests PASSED. CI artifact SUCCESS, **protected `preview-deploy` waiting for owner approval**; do NOT approve until hosted photo Storage exists and is safe.
+- Read-only Supabase management `mosaic-dev` project ref `hcxtiifzxoaflhjgoglb`: PG17, 81 Auth users, 63 task rows, 54 categories, 1 private Diary, **zero Storage objects, zero photo buckets and zero photo RLS policies**. Real stored personal data requires fresh encrypted snapshot and independently verified disposable restore. No hosted schema/data/Storage writes performed.
+- Existing age snapshot helper encrypts full PG stream, authenticates ciphertext and inspects TOC. Existing `run-private-core-recovery.sh` originally pinned six old archive counts 81/81/81/49/53/58 and would fail closed on today's 63/54+Diary.
+- Current task branch `chatgpt/1027-fresh-photo-restore-preflight-20261023`: strictly **only** an explicitly digest-pinned fresh archive gets dynamic source table row counts and a seventh private Diary COPY, with source-versus-local-PG17 restored row byte comparison. Historical immutable original snapshot keeps six fixed counts. Disposable target adds only the already-hosted Diary schema; no account credentials passed into the recovery wrapper. Guarded React/app/remote schema unaffected. This is NOT complete managed Auth/SMTP/Storage backup/restore.
 
-## Remaining product/release gates
-- **Only social deferred** means private Bucket List/links and synced owner-private settings still need Supabase parity; v0.47.0 photos alone do not complete personal MVP.
-- Pre-Oct-31 Appwrite Cloud quota blockage defers historical cross-provider backfill; an earlier public launch requires disclosed optional ZIP Merge / TodoMate reimport, device/offline safety and genuinely recoverable photo bytes. Preserve original archives and PWA local data.
-- PR #1281 sync-audit snapshot fence still open; automatic drift repair, old-Appwrite writer fencing, provider-return/media disaster recovery, signed mobile and cross-tab checks remain separate blockers.
-
-## Next action
-- Commit focused repair, run targeted CI. If passing squash into isolated stable, then full canonical + disposable signed Storage and second-device Diary tests and protected immutable Preview artifact. Investigate real failures and repair without relaxing assertions. Only then consider separately gated fresh encrypted Scratch snapshot, hosted additive bucket/RLS/CAS migration, signed two-owner denial, independent blob restore and Vercel reviewer approval. No dev/main/Production promotion without owner authorization.
+## Next action and blockers
+- Run task focused CI, review diff; merge scoped task PR to isolated stable only after green. Four canonical stable gates/Preview waiting may recur.
+- **User action required** on private Fedora terminal: fresh `hosted-encrypted-backup.sh` after database credentials entered only locally, and `run-private-core-recovery.sh --fresh-snapshot-sha256` after unsetting PostgreSQL credentials. Keep age key out of chat/Git. Report only success markers and aggregated counts.
+- After operator proofs: independently back up Auth configuration, verify Storage object count still zero, review/apply additive private bucket+RLS+Diary CAS to hosted Scratch only with approved safe gate, prove signed two-owner JWT access denials and restore, then approve protected Preview exact build and manual two-device/photo ZIP/PWA testing.
+- User's MVP = all personal features (private task+Diary photos, Bucket List/links, synced settings), defer social only. Full Appwrite history blocked to expected Oct31; early public release relies on clearly disclosed TodoMate/ZIP self-service recovery. Automatic divergence repair and old-PWA writer fencing remain open. Never promote `dev`, `main`, Production or v1.0 without separate explicit approval.
