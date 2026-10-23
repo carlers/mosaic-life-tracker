@@ -66,7 +66,7 @@ describe('signed Supabase personal Diary photo saving', () => {
     await expect(result.current.saveEntry('2026-10-23', 'Private', 'private', '', '["data:image/jpeg;base64,abc"]'))
       .rejects.toThrow(/Invalid diary photo list/);
     await expect(result.current.saveEntry('2026-10-23', 'Private', 'private', '', '["img_same","img_same"]'))
-      .rejects.toThrow(/Invalid diary photo list/);
+      .rejects.toThrow(/five distinct photos/);
     expect(fixtures.upsert).not.toHaveBeenCalled();
   });
 });
