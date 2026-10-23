@@ -16,13 +16,23 @@ The default command below remains cryptographically pinned to the reviewed
 original 2026-10-22 archive. For a **new** post-reconciliation encrypted
 mosaic-dev snapshot, supply the operator-recorded SHA-256 of that *encrypted*
 file using `--fresh-snapshot-sha256`; never change or disable the original
-pinned digest. The new mode retains six allowlisted objects, 81/81/81/49/53/58
-source-row-count assertions, fresh empty PG17 target, loopback-only Docker,
-original sessions/tokens exclusion, exact row equality, and failure cleanup.
-If hosted counts have changed, this strict mode refuses the restore; review a
-new source baseline rather than weakening the checks. This is **not** a full
-managed-Auth/Storage/configuration recovery or a substitute for independently
-verifying the current hosted backup before rollout.
+pinned digest. The fresh-snapshot path retains the **six original core tables** and adds
+private Diary as a **seventh** allowlisted data object, with its required
+retirement/Diary schema initialized on an isolated local PG17 target. Actual
+source COPY row counts are extracted from the newly SHA-pinned encrypted
+archive and verified by exact source-versus-target COPY **byte equality**;
+historical counts are NOT silently reused for a new snapshot. The older
+historically SHA-pinned archive keeps its original six-table, exact fixed-count
+81/81/81/49/53/58 guard unchanged. Fresh mode additionally requires equal
+nonzero Auth user, identity and owner authority counts and a bounded row cap.
+
+The wrapper still rejects remote Docker, external database credential leakage
+into the restore process, a nonempty target, malformed encryption or identity,
+stale sessions/tokens and row/ownership mismatches. It restores only seven
+data tables, **not** the entire managed Auth/Storage infrastructure, SMTP,
+global roles, SQL extensions or raw Storage object bytes. A passed restored
+snapshot is a partial recoverability gate, not an entire-backend backup claim.
+Hosted migrations still require separate reviewed approval.
 
 Example of the alternate invocation (operator runs locally; no credentials in
 arguments other than the private file paths, and no digest sent to ChatGPT):

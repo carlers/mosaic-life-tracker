@@ -406,7 +406,41 @@ For session pooler, replace `PGHOST` with the exact project-supplied hostname an
 
 **Still mandatory after this command:** restore the encrypted archive onto a separately isolated disposable Supabase-compatible target, prove per-owner row counts and hashes including tombstones and Auth identities, verify active RLS/grants/CAS/Diary privacy with signed negative tests, and separately preserve Auth email/hook/SMTP configuration plus any external Storage bytes and global-role requirements. An `age` decrypt + `pg_restore --list` pass alone is not a restore drill, nor is an ordinary personal Settings export. Keep signup invite gate, protected Preview and Production unchanged until all acceptance/rollback checks are green.
 
-The guarded original-data six-table recovery is pinned to the first archive by default. For a **fresh** encrypted hosted snapshot, the same disposable recovery wrapper supports an explicitly operator-pinned `--fresh-snapshot-sha256` argument (see `PRIVATE_CORE_RECOVERY.md`). It still refuses nonempty targets, changed source counts, unauthorized Docker targets, managed session replay or content mismatch; never reuse the already-running Fedora rehearsal. This verifies only the six selected core tables and cannot certify the full hosted logical archive or managed Auth/SMTP configuration. Keep the source encrypted until a separately audited full recovery/rollback gate is accepted.
+The original historical archive retains its fixed six-table record counts.
+For a **fresh** current snapshot, the independently SHA-pinned
+`--fresh-snapshot-sha256` recovery wrapper instead validates seven
+allowlisted Auth/core/Diary tables and proves actual source-to-target COPY
+row equality with a new empty loopback-only local PostgreSQL 17 Supabase stack.
+It does **not** replay old Auth tokens or write to hosted Supabase.
+See `PRIVATE_CORE_RECOVERY.md` for its exact scope and prerequisites.
+It is still only a partial database restore: managed Auth/SMTP configuration,
+global roles, migrations and external Storage bytes need separate recovery
+proof; any unexpected table/column mismatch fails closed.
+
+**Photo-migration backup checkpoint (current zero Storage objects):**
+(1) read back hosted project identity, photo bucket/object count **zero**,
+current owner-domain and Auth counts and migration history;
+(2) take a fresh age-encrypted logical snapshot with the source-read-only script
+above and keep its key separately escrowed;
+(3) remove *all* `PG*` and `DATABASE_URL` / `SUPABASE_ACCESS_TOKEN`
+variables, then restore that exact archive into a new disposable local stack:
+
+```sh
+archive="$HOME/mosaic-secure-backups/LATEST-MOSAIC-DEV-SNAPSHOT.age"
+identity="$HOME/.config/mosaic/supabase-backup.agekey"
+sha="$(sha256sum "$archive" | cut -d ' ' -f1)"
+bash supabase-poc/run-private-core-recovery.sh "$archive" "$identity" \
+  --fresh-snapshot-sha256 "$sha"
+unset sha
+```
+
+Treat only `DISPOSABLE_CORE_RESTORE_PASS: 7 data tables` as the reviewed
+core+Diary row comparison. Preserve the printed disposable local target for
+separate signed login/owner tests; no hostname or password gets sent to the
+assistant. Never approve hosted photo migration on a TOC-only backup, on
+the historical stale six-table snapshot, or if nonempty Storage objects
+exist without independent encrypted media-binary escrow/restore.
+
 
 ## CI-backed, opt-in Supabase prebuilt Preview deployment (#1250)
 

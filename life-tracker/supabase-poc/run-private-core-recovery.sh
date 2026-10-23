@@ -86,6 +86,19 @@ for migration in \
   cp "$here/migrations/$migration.sql" "supabase/migrations/$stamp"_"$migration.sql"
   index=$((index+1))
 done
+if [[ $# -eq 4 ]]; then
+  # Fresh encrypted mosaic-dev snapshots can include private Diary and the
+  # retired-category schema. Mirror source columns on this disposable target;
+  # the original reviewed six-table recovery remains byte-for-byte scoped.
+  for migration in \
+    20261022_candidate_private_diary_domain \
+    20261022_candidate_category_retirement \
+    20261023_candidate_atomic_category_delete; do
+    printf -v stamp '2026102000%04d' "$index"
+    cp "$here/migrations/$migration.sql" "supabase/migrations/$stamp"_"$migration.sql"
+    index=$((index+1))
+  done
+fi
 python3 "$here/configure-private-disposable-stack.py" init "$scratch" "$project"
 # No user backup is decrypted before stack identity, empty-target and loopback
 # publication checks all succeed. Failures auto-destroy only this project.
