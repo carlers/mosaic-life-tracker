@@ -25,8 +25,13 @@ vi.mock('../../src/db/taskReplicationPilot', () => ({
 }));
 vi.mock('../../src/lib/coreBackendConfig', () => ({ CORE_BACKEND: { get driver() { return state.backend; } } }));
 vi.mock('../../src/lib/appSync', () => ({
-  assertPersonalImportOwner: vi.fn(async () => {}),
-  refreshPersonalImport: () => state.refreshSync(),
+  assertPersonalImportOwner: async (ownerId: string) => {
+    if (await state.getCurrentUserId() !== ownerId)
+      throw new Error('Restore stopped because the signed-in account changed.');
+  },
+  refreshPersonalImport: (
+    ownerId: string, timeoutMs?: number, options?: unknown
+  ) => (state.refreshSync as (...args: unknown[]) => Promise<unknown>)(ownerId, timeoutMs, options),
 }));
 vi.mock('../../src/db/sync', () => ({
   initializeSync: state.sync,
