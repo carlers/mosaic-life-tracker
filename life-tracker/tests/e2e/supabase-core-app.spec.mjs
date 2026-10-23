@@ -68,7 +68,7 @@ async function signIn(page, owner) {
     expect(identity.commit).toBe(process.env.MOSAIC_CORE_PREVIEW_SHA);
     expect(identity.channel).toBe('Preview');
     expect(identity.backend).toBe('supabase-cloud');
-    expect(identity.featureProfile).toBe('core-only');
+    expect(identity.featureProfile).toBe('core-diary');
   }
   await page.getByLabel('Email Address').fill(owner.email);
   await page.getByLabel('Password', { exact: true }).fill(owner.password);
@@ -369,6 +369,13 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
   test.skip(hosted, 'Only the disposable local Supabase lab has the private Diary migration');
   const owner = await account();
   const stranger = await account();
+  // Owner writes must be fenced until a signed server authority lease exists.
+  const unleased = await api('/rest/v1/mosaic_candidate_diary', owner.token, {
+    owner_id: owner.id, id: 'unleased_' + randomBytes(8).toString('hex'),
+    entry_date: '2026-10-23', content: 'Forbidden before lease',
+    visibility: 'private', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+  });
+  expect(unleased.status).toBe(403);
   const signed = await api('/rest/v1/rpc/mosaic_core_session', owner.token,
     { p_action: 'acquire' });
   expect(signed.ok).toBe(true);
@@ -432,6 +439,11 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
     p_id: id, p_expected_seq: next.change_seq, p_patch: { visibility: 'public' },
   });
   expect(forbiddenPatch.ok).toBe(false);
+  // A signed owner cannot change historical image references via Diary CAS.
+  const forbiddenPhotos = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+    p_id: id, p_expected_seq: next.change_seq, p_patch: { photos: '["new_photo"]' },
+  });
+  expect(forbiddenPhotos.ok).toBe(false);
   const foreignCas = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', stranger.token, {
     p_id: id, p_expected_seq: next.change_seq, p_patch: { content: 'Foreign overwrite' },
   });
@@ -446,8 +458,29 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
   const conflict = await stale.json();
   expect(conflict === null || (conflict.owner_id === null && conflict.id === null)).toBe(true);
 
+  // Two simultaneous signed writes to the same revision are serializable:
+  // exactly one wins, the other returns PostgREST's nullable composite result.
+  const races = await Promise.all(['Device A', 'Device B'].map(content =>
+    api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+      p_id: id, p_expected_seq: next.change_seq, p_patch: { content, updated_at: now },
+    })));
+  expect(races.every(response => response.ok)).toBe(true);
+  const raceResults = await Promise.all(races.map(response => response.json()));
+  const winners = raceResults.filter(value => value?.owner_id === owner.id);
+  expect(winners).toHaveLength(1);
+  expect(raceResults.filter(value => value === null ||
+    (value.owner_id === null && value.id === null))).toHaveLength(1);
+  const winner = winners[0];
+  expect(['Device A', 'Device B']).toContain(winner.content);
+  expect(BigInt(winner.change_seq)).toBeGreaterThan(BigInt(next.change_seq));
+  const duplicateDate = await api('/rest/v1/mosaic_candidate_diary', owner.token, {
+    ...data, id: 'diary_' + randomBytes(8).toString('hex'),
+    content: 'Duplicate day denied',
+  });
+  expect(duplicateDate.status).toBe(409);
+
   const tombstone = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
-    p_id: id, p_expected_seq: next.change_seq,
+    p_id: id, p_expected_seq: winner.change_seq,
     p_patch: { is_deleted: true, updated_at: new Date().toISOString() },
   });
   expect(tombstone.ok).toBe(true);
@@ -457,6 +490,14 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
   const ownerRows = await rows(owner, 'diary');
   expect(ownerRows.find(record => record.id === id)?.is_deleted).toBe(true);
   expect((await rows(stranger, 'diary')).some(record => record.id === id)).toBe(false);
+  const released = await api('/rest/v1/rpc/mosaic_core_session', owner.token,
+    { p_action: 'release' });
+  expect(released.ok).toBe(true);
+  const afterRelease = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+    p_id: id, p_expected_seq: removed.change_seq,
+    p_patch: { is_deleted: false },
+  });
+  expect(afterRelease.status).toBe(403);
 });
 
 test('offline cold start: durable edits, simultaneous tab rotation and logout isolation', async ({ browser }) => {
@@ -874,6 +915,45 @@ test('signed server denies old clients without leases, foreign writes, and relea
   expect((await api('/rest/v1/rpc/mosaic_core_session', null, { p_action: 'acquire' })).ok).toBe(false);
   expect((await api('/auth/v1/logout?scope=local', owner.token, {})).ok).toBe(true);
   expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'acquire' })).status).toBe(403);
+});
+
+
+
+test('signed owner Diary UI @diary-ui: create a private entry, recover on another device, deny foreign access', async ({ browser }) => {
+  test.skip(hosted || process.env.MOSAIC_CORE_DIARY_UI_LAB !== 'true',
+    'Only the disposable local signed core-diary browser lab may exercise this UI');
+  const owner = await account();
+  const foreign = await account();
+  const contexts = await Promise.all([0, 1, 2].map(() =>
+    newBrowserContext(browser, { ignoreHTTPSErrors: true })));
+  const content = 'Private diary UI fixture ' + randomBytes(5).toString('hex');
+  try {
+    const [first, second, other] = await Promise.all(contexts.map(x => x.newPage()));
+    await signIn(first, owner);
+    await first.getByRole('tab', { name: 'Diary', exact: true }).click();
+    await expect(first.getByRole('tab', { name: 'Diary', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await first.getByRole('button', { name: 'Add diary entry' }).first().click();
+    await expect(first.locator('[data-testid="diary-entry-sheet"]')).toBeVisible();
+    await expect(first.getByLabel('Diary visibility', { exact: true })).toContainText('Private diary');
+    await expect(first.getByRole('button', { name: /Add photos/i })).toHaveCount(0);
+    await first.getByLabel('Diary text').fill(content);
+    await first.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'diary')).some(row =>
+      row.content === content && row.visibility === 'private' && row.is_deleted === false),
+      { timeout: 25000 }).toBe(true);
+
+    await signIn(second, owner);
+    await second.getByRole('tab', { name: 'Diary', exact: true }).click();
+    await expect(second.getByText(content, { exact: true }).first()).toBeVisible({ timeout: 25000 });
+    await signIn(other, foreign);
+    await other.getByRole('tab', { name: 'Diary', exact: true }).click();
+    await expect(other.getByText(content, { exact: true })).toHaveCount(0);
+    const foreignRows = await api('/rest/v1/mosaic_candidate_diary?select=id,content', foreign.token);
+    expect(foreignRows.ok).toBe(true);
+    expect(await foreignRows.json()).toEqual([]);
+  } finally {
+    await Promise.allSettled(contexts.map(c => c.close()));
+  }
 });
 
 // Hosted generated email grants exercise real GoTrue verification without

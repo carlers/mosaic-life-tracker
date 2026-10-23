@@ -31,7 +31,7 @@ export function assertExactCoreArtifact({ sha, zipDigest, entries, evidence }) {
   if (profile?.environment !== 'untrusted-ci-diagnostic' ||
       profile.vercelEnvironment !== 'preview' ||
       profile.backend !== 'supabase-cloud' ||
-      profile.featureProfile !== 'core-only' ||
+      profile.featureProfile !== 'core-diary' ||
       profile.appwriteBackend !== 'none' ||
       profile.supabaseOrigin !== CORE_SUPABASE_ORIGIN ||
       profile.giphy !== 'disabled' || profile.posthog !== 'disabled' ||

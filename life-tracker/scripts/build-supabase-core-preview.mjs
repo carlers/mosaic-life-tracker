@@ -28,7 +28,7 @@ Object.assign(env, {
   VERCEL_GIT_COMMIT_REF: ref.replace('refs/heads/', ''),
   VERCEL_PROJECT_ID: 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc',
   MOSAIC_SUPABASE_CORE_PREVIEW: 'true',
-  VITE_MOSAIC_BACKEND: 'supabase-cloud', VITE_MOSAIC_FEATURE_PROFILE: 'core-only',
+  VITE_MOSAIC_BACKEND: 'supabase-cloud', VITE_MOSAIC_FEATURE_PROFILE: 'core-diary',
   VITE_SUPABASE_URL: config.origin, VITE_SUPABASE_PUBLISHABLE_KEY: config.publishableKey,
 });
 function run(command, args) {
