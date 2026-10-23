@@ -126,11 +126,12 @@ describe('PersonPane view switcher', () => {
 
   // Regression: §2 (friends expose the shared Todo List and its date title returns to the current month).
   it('renders Todo List for a friend in friend mode and lets its date header return to today', async () => {
+    // Warm the module before measuring UI behavior, not the CI runner's
+    // dynamic-import cold start (which is nondeterministic under parallel tests).
+    await import('../../src/components/home/FriendPersonPane');
     render(<PersonPane person={friend} isActive />);
-    // Await the actual lazy friend module, separately from the UI assertion.
-    await act(async () => { await vi.dynamicImportSettled(); });
 
-    fireEvent.click(await screen.findByLabelText('Todo list'));
+    fireEvent.click(await screen.findByLabelText('Todo list', {}, { timeout: 5000 }));
 
     expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
     expect(screen.queryByTestId('diary-body')).toBeNull();

@@ -17,14 +17,14 @@ vi.mock('../../src/components/modals/CategoryManagerSheet', () => ({
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-it('opens Lists & Categories on the first committed render after Menu intent warmup', async () => {
+it('opens Categories on the first committed render after Menu intent warmup', async () => {
   let idleWarm: (() => void) | null = null;
   vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) => {
     idleWarm = () => callback({ didTimeout: false, timeRemaining: () => 50 });
     return 1;
   });
   vi.stubGlobal('cancelIdleCallback', vi.fn());
-  render(<HamburgerMenu onOpenBacklog={vi.fn()} onOpenBucketList={vi.fn()} />);
+  render(<HamburgerMenu onOpenBacklog={vi.fn()} onOpenBucketList={vi.fn()} onOpenUncompleted={vi.fn()} />);
   await act(async () => {
     if (!idleWarm) throw new Error('Menu warmup was not scheduled');
     idleWarm();
@@ -38,7 +38,7 @@ it('opens Lists & Categories on the first committed render after Menu intent war
     await Promise.resolve();
     await Promise.resolve();
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Lists & Categories' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Categories' }));
   // Synchronous assertion: a settled import must not first suspend into a null fallback.
   expect(screen.getByRole('dialog', { name: 'Categories manager' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Close categories' }));
@@ -54,7 +54,8 @@ it('opens the warmed hamburger sheet on its first click without a blank commit',
   });
   vi.stubGlobal('cancelIdleCallback', vi.fn());
   const onOpenBacklog = vi.fn();
-  render(<HamburgerMenu onOpenBacklog={onOpenBacklog} onOpenBucketList={vi.fn()} />);
+  const onOpenUncompleted = vi.fn();
+  render(<HamburgerMenu onOpenBacklog={onOpenBacklog} onOpenBucketList={vi.fn()} onOpenUncompleted={onOpenUncompleted} />);
   const menu = screen.getByRole('button', { name: 'Open menu' });
   await act(async () => {
     if (!idleWarm) throw new Error('Menu warmup was not scheduled');
@@ -68,4 +69,7 @@ it('opens the warmed hamburger sheet on its first click without a blank commit',
   fireEvent.click(screen.getByRole('button', { name: 'Backlogs' }));
   expect(onOpenBacklog).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument();
+  fireEvent.click(menu);
+  fireEvent.click(screen.getByRole('button', { name: 'Uncompleted Tasks' }));
+  expect(onOpenUncompleted).toHaveBeenCalledTimes(1);
 });

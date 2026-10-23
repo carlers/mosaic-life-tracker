@@ -1,0 +1,27 @@
+/* In true screen-height split, the portal itself determines which side owns the
+   full-height inspector. This avoids syncing parallel Home/DayView layout state. */
+.mosaic-home-workspace:has(> [data-home-panel-slot] > [data-day-panel-side='left']) {
+  flex-direction: row-reverse;
+}
+
+
+/* Track width equals one month slide; percentage transforms adapt atomically
+   as the panel grows, without waiting for a JS resize/snap callback. */
+[data-panel-motion="true"][data-route-swipe-horizontal-owner="true"] > div {
+  transform: translate3d(var(--mosaic-panel-focused-slide, 0%), 0, 0) !important;
+}
+
+/* A divider drag is a layout resize, not a task/category/diary reorder.
+   Suspend FLIP projections for those rows only; the calendar's own transform
+   and ordinary drag/reorder settling animations remain untouched. */
+[data-day-panel-resizing='true'] :is(
+  [data-task-category-id],
+  [data-task-id],
+  [data-panel-reorder-row],
+  [data-diary-reorder-row],
+  [data-task-drop-gap],
+  [data-cross-day-reorder-slot]
+) {
+  transform: none !important;
+  transition: none !important;
+}

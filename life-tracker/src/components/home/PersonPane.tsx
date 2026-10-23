@@ -5,6 +5,7 @@ import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
+import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
 import { useAuth } from '../../hooks/useAuth';
@@ -12,6 +13,7 @@ import { hasCapability } from '../../lib/backendCapabilities';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
+import { useHomeViewKeyboardShortcuts } from '../../hooks/useHomeViewKeyboardShortcuts';
 import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
@@ -19,7 +21,16 @@ import {
   SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY,
   WEEK_STARTS_ON_SUNDAY_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
+  DAY_DETAIL_PRESENTATION_SETTING_KEY,
+  DAY_PANEL_SIDE_SETTING_KEY,
+  DAY_PANEL_HEIGHT_SETTING_KEY,
+  resolveDayPanelHeight,
+  resolveDayDetailPresentation,
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
+  CALENDAR_PINCH_ZOOM_SETTING_KEY,
+  CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
+  resolveCalendarTaskPreviewLimit,
+  STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
   resolveCalendarZoomDays,
   resolveIncompleteTaskBlockColorMode,
   resolveWeekStartsOn,
@@ -67,11 +78,17 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const ownedSharedTaskIds = useMemo(
     () => new Set(ownedShares.map(share => share.taskId)), [ownedShares]
   );
-  const { getSetting } = useSettings();
+  const { getSetting, setSetting } = useSettings();
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
+  const dayDetailPresentation = resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
+  const dayPanelSide = getSetting(DAY_PANEL_SIDE_SETTING_KEY, 'right') === 'left' ? 'left' : 'right';
+  const dayPanelHeight = resolveDayPanelHeight(getSetting(DAY_PANEL_HEIGHT_SETTING_KEY, 'grid'));
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
+  const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
+  const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
+  const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -84,8 +101,16 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const { entries: diaryEntries, getEntryByDate, saveEntry, deleteEntry } = useDiary(hasCapability('diary') && isActive && activeView === 'diary');
+  const ownerDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate);
+  const { value: ownerDiarySession, onExitComplete: clearOwnerDiarySession } = useRetainedSheetValue(
+    ownerDiaryOpen && diaryDate && currentUserId
+      ? { id: `${currentUserId}:${diaryDate}`, userId: currentUserId, date: diaryDate, entry: getEntryByDate(diaryDate) }
+      : null,
+    ownerDiaryOpen
+  );
   const viewRequestRef = useRef(0);
   const handleViewChange = useCallback((next: ViewType) => {
+    if (next === 'diary' && !hasCapability('diary')) return;
     const request = ++viewRequestRef.current;
     setDiaryDate(null);
     if (next === 'diary') void preloadDiaryEntrySheet().catch(() => {});
@@ -100,6 +125,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
     );
   }, []);
+  useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
@@ -160,11 +186,19 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           renderStart={calendarState.renderStart}
           renderEnd={calendarState.renderEnd}
           emblaRef={calendarState.emblaRef}
+          onCalendarLayoutChange={calendarState.resnapAfterResize}
           tasks={ownerTasks}
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
+          dayDetailPresentation={dayDetailPresentation}
+          dayPanelSide={dayPanelSide}
+          dayPanelHeight={dayPanelHeight}
           zoomPreference={calendarZoomDays}
+          pinchGestureEnabled={calendarPinchZoom}
+          onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
+          taskPreviewLimit={calendarTaskPreviewLimit}
+          stickyWeekdayHeader={stickyWeekdayHeader}
           activeIndex={calendarState.activeIndex}
           isZoomTransitioning={calendarState.isZoomTransitioning}
           onZoomNavigate={calendarState.handleZoomNavigate}
@@ -200,9 +234,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
             weekStartsOn={weekStartsOn} holidayConfig={holidayConfig} />
         </React.Suspense>
       )}
-      {isActive && activeView === 'diary' && currentUserId && diaryDate && <React.Suspense fallback={null}>
-        <LazyDiaryEntrySheet key={`${currentUserId}:${diaryDate}`} date={diaryDate} entry={getEntryByDate(diaryDate)}
-          author={person.displayName} onSave={saveEntry} onDelete={deleteEntry}
+      {isActive && currentUserId && ownerDiarySession?.userId === currentUserId && <React.Suspense fallback={null}>
+        <LazyDiaryEntrySheet key={ownerDiarySession.id} isOpen={ownerDiaryOpen}
+          onExitComplete={clearOwnerDiarySession} date={ownerDiarySession.date}
+          entry={ownerDiarySession.entry} author={person.displayName} onSave={saveEntry} onDelete={deleteEntry}
           onClose={() => setDiaryDate(null)} />
       </React.Suspense>}
     </div>

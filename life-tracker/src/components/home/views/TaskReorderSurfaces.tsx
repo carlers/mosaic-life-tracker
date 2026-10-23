@@ -137,6 +137,7 @@ export const TaskRowDropSurface: React.FC<{
   return (
     <motion.div
       ref={ref}
+      data-panel-reorder-row="true"
       layout={animatePosition && active ? 'position' : false}
       transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
       className={isActiveSource ? 'relative !invisible' : 'relative'}

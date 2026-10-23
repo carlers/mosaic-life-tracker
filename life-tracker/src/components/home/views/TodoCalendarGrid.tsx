@@ -22,6 +22,7 @@ import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/
 import { diaryMarker } from '../../../lib/diaryMarker';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { UsersRound } from 'lucide-react';
+import { updateFocusedCalendarSlide } from './calendarPanelSnap';
 import type { WeekStartsOn } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
 import {
@@ -42,6 +43,7 @@ interface TodoCalendarGridProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   onDateSelect: (date: Date) => void;
   onMonthChange: (date: Date) => void;
+  onLayoutChangeReady?: (callback: ((live?: boolean) => void) | null) => void;
   markerMode?: 'todo' | 'diary';
   diaryEntries?: readonly DiaryDocument[];
   weekStartsOn?: WeekStartsOn;
@@ -252,7 +254,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                   </span>
                   <span
                     data-testid={`todo-day-number-${dateKey}`}
-                    className={`mt-1 flex h-7 w-7 items-center justify-center rounded-full text-base font-semibold leading-none ${
+                    className={`mt-1 flex h-7 w-7 items-center justify-center rounded-full text-base font-semibold leading-none ${dayHolidays.length > 0 && !selected ? 'mosaic-holiday-date' : !selected ? 'mosaic-day-number' : ''} ${
                       selected
                         ? 'bg-white text-black'
                         : currentMonth
@@ -284,6 +286,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   categoriesMap,
   onDateSelect,
   onMonthChange,
+  onLayoutChangeReady,
   markerMode = 'todo',
   diaryEntries = [],
   weekStartsOn = 0,
@@ -342,9 +345,19 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     skipSnaps: false,
     startIndex: CENTER_INDEX,
     duration: reduceMotion ? 0 : 22,
+    watchResize: api => !api.rootNode().dataset.panelMotion,
   });
 
   useEmblaTrackpadNavigation(emblaApi);
+
+  const realign = useCallback((live = false) => {
+    if (emblaApi && focusIndex >= 0 && focusIndex < TOTAL_SLIDES)
+      updateFocusedCalendarSlide(emblaApi, focusIndex, live);
+  }, [emblaApi, focusIndex]);
+  useEffect(() => {
+    onLayoutChangeReady?.(realign);
+    return () => onLayoutChangeReady?.(null);
+  }, [onLayoutChangeReady, realign]);
 
   useLayoutEffect(() => {
     if (!emblaApi || focusIndex < 0 || focusIndex >= TOTAL_SLIDES) return;
@@ -427,7 +440,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     <div
       key={format(baseDate, 'yyyy-MM')}
       ref={emblaRef}
-      className="swiper-no-swiping w-full min-w-0 max-w-full shrink-0 overflow-hidden touch-pan-y"
+      className="swiper-no-swiping w-full min-w-0 max-w-full shrink-0 overflow-clip touch-pan-y"
       data-route-swipe-horizontal-owner="true"
       data-testid="todo-calendar-grid"
     >

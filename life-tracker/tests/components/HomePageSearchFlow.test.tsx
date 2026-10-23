@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 const mockWarmDayView = vi.hoisted(() => vi.fn(async () => undefined));
+const mockWarmTodo = vi.hoisted(() => vi.fn(async () => undefined));
 let idleCallbacks: IdleRequestCallback[] = [];
 let carouselLoading = false;
 const mockPersons = [
@@ -40,6 +41,10 @@ vi.mock('../../src/components/home/views/dayViewSheetModule', async (importOrigi
   const actual = await importOriginal<typeof import('../../src/components/home/views/dayViewSheetModule')>();
   return { ...actual, loadDayViewSheet: mockWarmDayView };
 });
+
+vi.mock('../../src/components/home/views/todoListViewModule', () => ({
+  preloadTodoListView: mockWarmTodo,
+}));
 
 vi.mock('swiper/react', () => ({
   Swiper: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -96,8 +101,14 @@ vi.mock('../../src/components/home/HomeTaskSearch', () => ({
   ),
 }));
 vi.mock('../../src/components/home/PersonCarousel', () => ({
-  PersonCarousel: ({ onOpenSettings }: { onOpenSettings: () => void }) =>
-    <div>Carousel <button type="button" onClick={onOpenSettings}>Friend preferences</button></div>,
+  PersonCarousel: ({ onOpenSettings, focusRootRef }: {
+    onOpenSettings: () => void;
+    focusRootRef?: React.Ref<HTMLDivElement>;
+  }) =>
+    <div ref={focusRootRef}>Carousel
+      <button type="button" data-person-pill="me" aria-pressed="true">Me</button>
+      <button type="button" onClick={onOpenSettings}>Friend preferences</button>
+    </div>,
 }));
 vi.mock('../../src/components/home/PersonPane', () => ({
   PersonPane: () => <div>Pane</div>,
@@ -141,7 +152,8 @@ describe('HomePage task-search wiring', () => {
   beforeEach(() => {
     idleCallbacks = [];
     carouselLoading = false;
-    mockWarmDayView.mockClear();
+    mockWarmDayView.mockReset().mockResolvedValue(undefined);
+    mockWarmTodo.mockReset().mockResolvedValue(undefined);
     vi.stubGlobal('requestIdleCallback', (cb: IdleRequestCallback) => {
       idleCallbacks.push(cb);
       return idleCallbacks.length;
@@ -174,6 +186,20 @@ describe('HomePage task-search wiring', () => {
     });
     expect(mockWarmDayView).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('search-day-view')).not.toBeInTheDocument();
+  });
+
+  it('warms Todo List even when the Day View module preload fails', async () => {
+    mockWarmDayView.mockRejectedValueOnce(new Error('offline module'));
+    renderHome();
+    await act(async () => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockWarmDayView).toHaveBeenCalledTimes(1);
+    expect(mockWarmTodo).toHaveBeenCalledTimes(1);
   });
 
   it('warms owner Day View even while friend carousel data is unresolved', () => {
@@ -214,6 +240,30 @@ describe('HomePage task-search wiring', () => {
     fireEvent(window, new PopStateEvent('popstate'));
 
     expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument();
+  });
+
+  it('F focuses the selected person without changing calendar or stealing editor keys', () => {
+    renderHome();
+    const me = screen.getByRole('button', { name: 'Me' });
+    const outside = screen.getByRole('button', { name: 'Open search' });
+    outside.focus();
+    fireEvent.keyDown(outside, { key: 'f' });
+    expect(me).toHaveFocus();
+
+    const input = document.createElement('input');
+    input.setAttribute('aria-label', 'Example task editor');
+    document.body.appendChild(input);
+    try {
+      input.focus();
+      fireEvent.keyDown(input, { key: 'f' });
+      expect(input).toHaveFocus();
+      fireEvent.click(outside);
+      outside.focus();
+      fireEvent.keyDown(outside, { key: 'f' });
+      expect(outside).toHaveFocus();
+    } finally {
+      input.remove();
+    }
   });
 
   it('makes the Home content inert while search is open', () => {
@@ -269,4 +319,23 @@ describe('HomePage task-search wiring', () => {
     expect(sheet).toHaveTextContent('task_search');
     expect(sheet).toHaveTextContent('1');
   });
+  it('reserves H for Home navigation and uses Shift+H for the Home menu', () => {
+    renderHome();
+    // The search-header mock omits its trailing HamburgerMenu control.
+    // Supply the same DOM trigger used by the production Home action.
+    const menu = document.createElement('button');
+    menu.dataset.homeMenuTrigger = 'true';
+    document.body.appendChild(menu);
+    try {
+      const click = vi.spyOn(menu, 'click');
+      fireEvent.keyDown(document.body, { key: 'h' });
+      expect(click).not.toHaveBeenCalled();
+      fireEvent.keyDown(document.body, { key: 'H', shiftKey: true });
+      expect(click).toHaveBeenCalledTimes(1);
+      click.mockRestore();
+    } finally {
+      menu.remove();
+    }
+  });
+
 });

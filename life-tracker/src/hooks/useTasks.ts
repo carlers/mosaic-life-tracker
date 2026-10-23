@@ -223,6 +223,62 @@ export function useTasks(enabled = true) {
     [user?.$id, assertActiveOwner]
   );
 
+  const moveTaskAcrossDays = useCallback(
+    (taskId: string, expectedDate: string, date: string, categoryId: string, proposedIndex: number) => {
+      const uid = user?.$id;
+      const applyMove = async () => {
+        assertActiveOwner(uid);
+        if (!uid || !date || !categoryId) throw new Error('Invalid task destination');
+        const db = getDatabase();
+        const task = await db.tasks.findOne(taskId).exec();
+        const category = await db.categories.findOne(categoryId).exec();
+        assertActiveOwner(uid);
+        if (!task || task.isDeleted || task.userId !== uid || task.date !== expectedDate ||
+            !category || category.isDeleted || category.userId !== uid) {
+          throw new Error('Task or category changed while dragging');
+        }
+        const siblings = await db.tasks.find({ selector: {
+          userId: uid, date, categoryId, isDeleted: false,
+        } }).exec();
+        assertActiveOwner(uid);
+        const sorted = siblings.filter(row => row.id !== taskId).sort((a, b) =>
+          (a.order ?? 0) - (b.order ?? 0) || b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+        const index = Number.isFinite(proposedIndex)
+          ? Math.max(0, Math.min(Math.trunc(proposedIndex), sorted.length)) : sorted.length;
+        const ordered = [...sorted];
+        ordered.splice(index, 0, task);
+        if (ordered.length > 999999) throw new Error('Destination category is full');
+        const changes = ordered.map((row, order) => ({ row, order }))
+          .filter(({ row, order }) => row.order !== order && row.id !== taskId);
+        const modified: { row: typeof task; order: number }[] = [];
+        const now = new Date().toISOString();
+        try {
+          // Keep the source on its old day until the destination ordering is
+          // valid. Restore sibling orders if the final source patch fails.
+          for (const { row, order } of changes) {
+            assertActiveOwner(uid);
+            const oldOrder = row.order;
+            await row.incrementalPatch({ order, updatedAt: now });
+            modified.push({ row, order: oldOrder });
+          }
+          assertActiveOwner(uid);
+          if (task.date !== date || task.categoryId !== categoryId || task.order !== index) {
+            await task.incrementalPatch({ date, categoryId, order: index, updatedAt: now });
+          }
+        } catch (error) {
+          await Promise.allSettled(modified.map(({ row, order }) => row.incrementalPatch({
+            order, updatedAt: new Date().toISOString(),
+          })));
+          throw error;
+        }
+      };
+      const queued = reorderQueue.current.then(applyMove, applyMove);
+      reorderQueue.current = queued.catch(() => undefined);
+      return queued;
+    },
+    [user?.$id, assertActiveOwner]
+  );
+
   const moveTasksToCategory = useCallback(
     (
       date: string,
@@ -323,5 +379,6 @@ export function useTasks(enabled = true) {
     toggleTaskCompletion,
     reorderTasks,
     moveTasksToCategory,
+    moveTaskAcrossDays,
   };
 }

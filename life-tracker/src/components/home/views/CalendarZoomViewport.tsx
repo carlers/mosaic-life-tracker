@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import type { CalendarZoomDays } from '../../../lib/preferences';
+import { scrollCalendarDateWithinSlide } from './useCalendarGridKeyboard';
 import {
   edgeSwipeDirection, nearestZoomSnap, zoomSnapColumns,
   type ZoomEdge,
@@ -150,8 +151,8 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
   };
   const queueNativeSnap = (node: HTMLDivElement, delay = 160) => {
     clearNativeIdle();
-    if (navigationLocked || mouseStartRef.current || touchStartRef.current ||
-      pendingMouseSnapRef.current) return;
+    if (navigationLocked || node.dataset.calendarPinchMorph === 'true' ||
+      mouseStartRef.current || touchStartRef.current || pendingMouseSnapRef.current) return;
     nativeIdleTimerRef.current = window.setTimeout(() => {
       nativeIdleTimerRef.current = null;
       smoothSnap(node);
@@ -161,7 +162,8 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
     const node = viewportRef.current;
     if (!node) return;
     const onNativeScrollEnd = () => {
-      if (!navigationLocked && !pendingMouseSnapRef.current) smoothSnap(node);
+      if (!navigationLocked && node.dataset.calendarPinchMorph !== 'true' &&
+        !pendingMouseSnapRef.current) smoothSnap(node);
     };
     node.addEventListener('scrollend', onNativeScrollEnd);
     return () => node.removeEventListener('scrollend', onNativeScrollEnd);
@@ -180,24 +182,30 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
     }
     smoothSnap(node);
   };
+  // Standalone MonthView/WeekView grids historically support arrow navigation
+  // through this zoom lane. Once CalendarBody owns the grid keyboard contract,
+  // leave arrows to its date-aware controller (including period boundaries).
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.defaultPrevented || event.ctrlKey || event.altKey ||
-      event.metaKey || event.shiftKey) return;
-    const target = event.target;
-    if (!(target instanceof HTMLButtonElement) ||
-      !target.parentElement?.matches('[role="gridcell"]')) return;
-    const delta = event.key === 'ArrowRight' ? 1 :
+    if (event.defaultPrevented || event.nativeEvent.isComposing ||
+      event.ctrlKey || event.altKey || event.metaKey || event.shiftKey ||
+      event.currentTarget.closest('[data-calendar-keyboard-owned="true"]')) return;
+    const source = event.target;
+    if (!(source instanceof HTMLButtonElement) ||
+      !source.parentElement?.matches('[role="gridcell"]')) return;
+    const offset = event.key === 'ArrowRight' ? 1 :
       event.key === 'ArrowLeft' ? -1 :
       event.key === 'ArrowDown' ? 7 :
       event.key === 'ArrowUp' ? -7 : 0;
-    if (delta === 0) return;
-    const days = [...event.currentTarget.querySelectorAll<HTMLButtonElement>(
-      '[role="gridcell"] > button:not(:disabled)')];
-    const next = days[days.indexOf(target) + delta];
-    if (!next) return;
+    if (!offset) return;
+    const days = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>(
+      '[role="gridcell"] > button:not(:disabled)'
+    ));
+    const target = days[days.indexOf(source) + offset];
+    if (!target) return;
     event.preventDefault();
-    next.focus({ preventScroll: true });
-    next.scrollIntoView?.({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
+    target.focus({ preventScroll: true });
+    const slide = event.currentTarget.closest<HTMLElement>('[data-calendar-slide-index]') ?? event.currentTarget;
+    scrollCalendarDateWithinSlide(target, slide);
   };
 
   return (
@@ -207,6 +215,7 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
       aria-label="Scrollable calendar weekdays"
       tabIndex={0}
       data-calendar-zoom-lane="true"
+      onKeyDown={handleKeyDown}
       data-zoom-days={zoomDays}
       className="max-w-full overflow-x-auto overscroll-x-contain"
       style={{
@@ -214,7 +223,6 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
         scrollSnapType: 'x mandatory',
         cursor: navigationLocked ? 'default' : 'grab',
       }}
-      onKeyDown={handleKeyDown}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={(event) => {
@@ -285,7 +293,8 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
         if (!navigationLocked && event.target !== event.currentTarget &&
           event.target instanceof HTMLElement &&
           event.target.closest('[role="gridcell"]')) {
-          event.target.scrollIntoView?.({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
+          const slide = event.currentTarget.closest<HTMLElement>('[data-calendar-slide-index]');
+          if (slide) scrollCalendarDateWithinSlide(event.target, slide);
         }
       }}
       onScroll={(event) => {
