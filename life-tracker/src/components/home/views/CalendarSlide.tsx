@@ -1,8 +1,6 @@
 import React from 'react';
 import { MonthView } from './MonthView';
-// Month is the first visible view; defer optional Week code until requested.
-const loadWeekView = () => import('./WeekView');
-const LazyWeekView = React.lazy(() => loadWeekView().then(({ WeekView }) => ({ default: WeekView })));
+import { WeekView } from './WeekView';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
@@ -74,8 +72,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
     );
   }
   return (
-    <React.Suspense fallback={<div role="status" aria-label="Loading week" className="min-h-28 w-full" />}>
-    <LazyWeekView
+    <WeekView
       focusDate={date}
       zoomDays={zoomDays}
       taskPreviewLimit={taskPreviewLimit}
@@ -93,7 +90,6 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
       categoriesMap={categoriesMap}
       weekStartsOn={weekStartsOn}
     />
-    </React.Suspense>
   );
 };
 

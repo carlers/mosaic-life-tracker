@@ -2,7 +2,11 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
-import { CalendarBody } from './views/CalendarBody';
+// Keep the owner profile/header synchronous and stream the interactive calendar
+// island alongside Home, avoiding a large blocking JS closure on cold load.
+const LazyCalendarBody = React.lazy(() =>
+  import('./views/CalendarBody').then(({ CalendarBody }) => ({ default: CalendarBody }))
+);
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
@@ -180,7 +184,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
       />
       {activeView === 'calendar' ? (
-        <CalendarBody
+        <React.Suspense fallback={<div role="status" aria-label="Loading calendar" className="min-h-0 flex-1 bg-[#111111]" />}>
+        <LazyCalendarBody
           viewMode={calendarState.viewMode}
           slides={calendarState.slides}
           renderStart={calendarState.renderStart}
@@ -211,6 +216,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           weekStartsOn={weekStartsOn}
           holidayConfig={holidayConfig}
         />
+        </React.Suspense>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
           <LazyTodoListView
