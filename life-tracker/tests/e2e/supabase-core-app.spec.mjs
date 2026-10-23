@@ -369,6 +369,13 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
   test.skip(hosted, 'Only the disposable local Supabase lab has the private Diary migration');
   const owner = await account();
   const stranger = await account();
+  // Owner writes must be fenced until a signed server authority lease exists.
+  const unleased = await api('/rest/v1/mosaic_candidate_diary', owner.token, {
+    owner_id: owner.id, id: 'unleased_' + randomBytes(8).toString('hex'),
+    entry_date: '2026-10-23', content: 'Forbidden before lease',
+    visibility: 'private', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+  });
+  expect(unleased.status).toBe(403);
   const signed = await api('/rest/v1/rpc/mosaic_core_session', owner.token,
     { p_action: 'acquire' });
   expect(signed.ok).toBe(true);
@@ -432,6 +439,11 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
     p_id: id, p_expected_seq: next.change_seq, p_patch: { visibility: 'public' },
   });
   expect(forbiddenPatch.ok).toBe(false);
+  // A signed owner cannot change historical image references via Diary CAS.
+  const forbiddenPhotos = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+    p_id: id, p_expected_seq: next.change_seq, p_patch: { photos: '["new_photo"]' },
+  });
+  expect(forbiddenPhotos.ok).toBe(false);
   const foreignCas = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', stranger.token, {
     p_id: id, p_expected_seq: next.change_seq, p_patch: { content: 'Foreign overwrite' },
   });
@@ -446,8 +458,29 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
   const conflict = await stale.json();
   expect(conflict === null || (conflict.owner_id === null && conflict.id === null)).toBe(true);
 
+  // Two simultaneous signed writes to the same revision are serializable:
+  // exactly one wins, the other returns PostgREST's nullable composite result.
+  const races = await Promise.all(['Device A', 'Device B'].map(content =>
+    api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+      p_id: id, p_expected_seq: next.change_seq, p_patch: { content, updated_at: now },
+    })));
+  expect(races.every(response => response.ok)).toBe(true);
+  const raceResults = await Promise.all(races.map(response => response.json()));
+  const winners = raceResults.filter(value => value?.owner_id === owner.id);
+  expect(winners).toHaveLength(1);
+  expect(raceResults.filter(value => value === null ||
+    (value.owner_id === null && value.id === null))).toHaveLength(1);
+  const winner = winners[0];
+  expect(['Device A', 'Device B']).toContain(winner.content);
+  expect(BigInt(winner.change_seq)).toBeGreaterThan(BigInt(next.change_seq));
+  const duplicateDate = await api('/rest/v1/mosaic_candidate_diary', owner.token, {
+    ...data, id: 'diary_' + randomBytes(8).toString('hex'),
+    content: 'Duplicate day denied',
+  });
+  expect(duplicateDate.status).toBe(409);
+
   const tombstone = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
-    p_id: id, p_expected_seq: next.change_seq,
+    p_id: id, p_expected_seq: winner.change_seq,
     p_patch: { is_deleted: true, updated_at: new Date().toISOString() },
   });
   expect(tombstone.ok).toBe(true);
@@ -457,6 +490,14 @@ test('signed private Diary: independent owners, exact CAS, protected fields, tom
   const ownerRows = await rows(owner, 'diary');
   expect(ownerRows.find(record => record.id === id)?.is_deleted).toBe(true);
   expect((await rows(stranger, 'diary')).some(record => record.id === id)).toBe(false);
+  const released = await api('/rest/v1/rpc/mosaic_core_session', owner.token,
+    { p_action: 'release' });
+  expect(released.ok).toBe(true);
+  const afterRelease = await api('/rest/v1/rpc/mosaic_candidate_cas_diary', owner.token, {
+    p_id: id, p_expected_seq: removed.change_seq,
+    p_patch: { is_deleted: false },
+  });
+  expect(afterRelease.status).toBe(403);
 });
 
 test('offline cold start: durable edits, simultaneous tab rotation and logout isolation', async ({ browser }) => {
@@ -876,98 +917,6 @@ test('signed server denies old clients without leases, foreign writes, and relea
   expect((await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'acquire' })).status).toBe(403);
 });
 
-
-test('signed private Diary: owner-only creation, exact-revision CAS, tombstones, and no foreign reads', async () => {
-  // The production candidate stays core-only until a separately restored,
-  // reviewed hosted Diary migration and signed device acceptance. All data in
-  // this test is synthetic and created in the disposable local CLI instance.
-  test.skip(hosted, 'Never install or mutate hosted Diary through the core-only lab');
-  const owner = await account();
-  const foreign = await account();
-  const id = 'diary_' + randomBytes(8).toString('hex');
-  const otherId = 'diary_' + randomBytes(8).toString('hex');
-  const now = new Date().toISOString();
-  const entry = {
-    owner_id: owner.id, id, entry_date: '2026-10-23',
-    content: 'Synthetic private draft', emoji: '🌙', photos: '[]',
-    visibility: 'private', created_at: now, updated_at: now, is_deleted: false,
-  };
-  const diaryPath = '/rest/v1/mosaic_candidate_diary';
-  const casPath = '/rest/v1/rpc/mosaic_candidate_cas_diary';
-  const cas = (actor, revision, patch) => api(casPath, actor.token, {
-    p_id: id, p_expected_seq: revision, p_patch: patch,
-  });
-
-  expect((await api(diaryPath, owner.token, entry)).status).toBe(403);
-  expect((await api(diaryPath + '?select=id', null)).ok).toBe(false);
-  for (const actor of [owner, foreign]) {
-    const lease = await api('/rest/v1/rpc/mosaic_core_session', actor.token, { p_action: 'acquire' });
-    expect(lease.ok).toBe(true);
-  }
-
-  // An existing owner-private Diary row may contain historical photos; the
-  // candidate preserves references but must not allow editing/adding them.
-  const insert = await api(diaryPath + '?select=*', owner.token, entry);
-  expect(insert.status).toBe(201);
-  const [original] = await insert.json();
-  expect(original).toMatchObject(entry);
-  expect(BigInt(original.change_seq)).toBeGreaterThan(0n);
-
-  const ownerRead = await api(diaryPath + '?select=*&owner_id=eq.' + owner.id, owner.token);
-  expect(ownerRead.ok).toBe(true);
-  expect(await ownerRead.json()).toHaveLength(1);
-  const foreignRead = await api(diaryPath + '?select=content,emoji,photos,entry_date', foreign.token);
-  expect(foreignRead.ok).toBe(true);
-  expect(await foreignRead.json()).toEqual([]);
-  expect((await api(diaryPath + '?select=*', foreign.token,
-    { ...entry, id: otherId }, 'POST')).status).toBe(403);
-  expect((await api(diaryPath + '?id=eq.' + id, owner.token,
-    { content: 'Direct update bypass' }, 'PATCH')).status).toBe(403);
-  const foreignCas = await cas(foreign, original.change_seq, { content: 'Foreign CAS' });
-  expect(foreignCas.ok).toBe(true);
-  expect(await foreignCas.json()).toBeNull();
-  const invalidVisibility = await cas(owner, original.change_seq, { visibility: 'public' });
-  expect(invalidVisibility.ok).toBe(false);
-  const invalidPhotos = await cas(owner, original.change_seq, { photos: '["new_photo"]' });
-  expect(invalidPhotos.ok).toBe(false);
-
-  // Concurrent signed edits from two owner sessions must yield exactly one
-  // revision winner. The losing edit may not be silently acknowledged.
-  const edits = await Promise.all([
-    cas(owner, original.change_seq, { content: 'Device A revision', updated_at: now }),
-    cas(owner, original.change_seq, { content: 'Device B revision', updated_at: now }),
-  ]);
-  expect(edits.every(response => response.ok)).toBe(true);
-  const results = await Promise.all(edits.map(response => response.json()));
-  const applied = results.filter(Boolean);
-  expect(applied).toHaveLength(1);
-  expect(results.filter(value => value === null)).toHaveLength(1);
-  expect(BigInt(applied[0].change_seq)).toBeGreaterThan(BigInt(original.change_seq));
-  expect(['Device A revision', 'Device B revision']).toContain(applied[0].content);
-  const stale = await cas(owner, original.change_seq, { content: 'Stale overwrite' });
-  expect(stale.ok).toBe(true);
-  expect(await stale.json()).toBeNull();
-
-  // Unique owner/day and immutable date/creation/attachments remain protected.
-  const duplicateDate = await api(diaryPath, owner.token,
-    { ...entry, id: otherId, content: 'Second entry for same day' });
-  expect(duplicateDate.status).toBe(409);
-  const removed = await cas(owner, applied[0].change_seq,
-    { is_deleted: true, updated_at: new Date().toISOString() });
-  expect(removed.ok).toBe(true);
-  const tombstone = await removed.json();
-  expect(tombstone).toMatchObject({
-    owner_id: owner.id, id, entry_date: entry.entry_date,
-    created_at: entry.created_at, photos: '[]', visibility: 'private', is_deleted: true,
-  });
-  expect(BigInt(tombstone.change_seq)).toBeGreaterThan(BigInt(applied[0].change_seq));
-  expect((await rows(owner, 'diary'))[0].is_deleted).toBe(true);
-  expect(await (await api(diaryPath + '?select=id,content,emoji', foreign.token)).json()).toEqual([]);
-
-  const released = await api('/rest/v1/rpc/mosaic_core_session', owner.token, { p_action: 'release' });
-  expect(released.ok).toBe(true);
-  expect((await cas(owner, tombstone.change_seq, { is_deleted: false })).status).toBe(403);
-});
 
 // Hosted generated email grants exercise real GoTrue verification without
 // sending mail to uncontrolled recipients. SMTP delivery is a separate gate.
