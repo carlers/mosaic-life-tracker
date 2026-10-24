@@ -1,6 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25
+Current task: #1027 live recovery acceptance and canonical test repair.
 Issue: #1027, isolated Supabase recovery branch.
 
 ## Verified result
