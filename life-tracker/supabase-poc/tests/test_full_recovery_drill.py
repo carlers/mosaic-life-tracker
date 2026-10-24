@@ -74,7 +74,7 @@ class FullRecoveryTests(unittest.TestCase):
                  patch.object(m, "run", side_effect=m.DrillFailure("Trusted Mosaic Git root missing above life-tracker")), \
                  patch("sys.stderr", error), patch("sys.stdout", output):
                 with self.assertRaises(SystemExit) as raised:
-                    m.main()
+                    m.cli()
                 self.assertEqual(raised.exception.code, 1)
         finally:
             m.ACTIVE_STAGE = old_stage

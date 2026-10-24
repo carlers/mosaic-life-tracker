@@ -324,7 +324,8 @@ def main():
     run(args)
 
 
-if __name__ == "__main__":
+def cli():
+    """Guard the same command-line path used by the Git-piped Fedora runner."""
     try:
         main()
     except (DrillFailure, KeyboardInterrupt, OSError, ValueError) as exc:
@@ -335,3 +336,7 @@ if __name__ == "__main__":
             print("MOSAIC_FULL_DR_SAFE_REASON: " + str(exc), file=sys.stderr)
         print("MOSAIC_FULL_DR_NOT_VERIFIED", file=sys.stderr)
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    cli()
