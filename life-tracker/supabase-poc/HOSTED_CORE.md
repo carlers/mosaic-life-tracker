@@ -549,6 +549,32 @@ RLS, disable owner checks, enter private passwords in chat, or re-run the
 entire historical core restore. The recovery archive and private Docker
 stack can be left intact until final acceptance.
 
+### 2026-10-24 final verification of signed synthetic photo cleanup
+
+The original owner reran the approved signed one-time cleanup at **14:32 UTC**.
+It printed a generic `HOSTED_PRIVATE_PHOTO_TEST_NOT_VERIFIED`, but the
+connected Supabase Storage service logs independently show authenticated
+owner-scoped `LIST` (HTTP 200), private blob read (HTTP 200), and
+**Storage API DELETE (HTTP 200 at 2026-10-24 14:32:38 UTC)**. Read-only
+hosted `storage.objects` inventories following that operation show
+**0 total objects, 0 private-photo objects and 0 synthetic probes**.
+**No repeat operator cleanup, Auth password prompt, full signed test or
+database recovery is required.** No SQL deletion or administrative override
+was performed. The original cleanup runner did **not** emit its final
+PASS marker; report its outcome as externally verified cleanup, not
+a clean test run. This milestone clears only the synthetic leftover object.
+
+The cleanup script now checks post-delete absence with a *second owner-only
+Storage LIST* (already demonstrated working in the incident logs), rather
+than relying on the post-delete GET that never reached the Storage service
+before the misleading generic error. The exact-owner, incident-minute,
+synthetic-byte checks and Storage API DELETE remain mandatory; this is
+not a relaxation of permissions or allowlist protections.
+
+Full project-wide scheduled Storage backup/retention and independent media
+recovery remain separate; small synthetic encrypted-byte restore is not
+equivalent to complete disaster recovery.
+
 ### 2026-10-24 cleanup incident — signed temporary photo, no data loss
 
 In the **one-pass signed hosted test**, five substantive

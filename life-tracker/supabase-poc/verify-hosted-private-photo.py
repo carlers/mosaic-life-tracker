@@ -200,9 +200,22 @@ def cleanup_previous_probe():
     code, _ = request(obj, key, token_owner, "DELETE")
     if not 200 <= code < 300:
         raise ValueError("Fixture Storage API deletion not confirmed")
-    code, _ = request(private, key, token_owner)
-    if 200 <= code < 300:
-        raise ValueError("Fixture still accessible after deletion")
+    # A successful Storage DELETE is authoritative, but still verify absence.
+    # A post-delete GET/404 sometimes aborted without reaching the service
+    # and left a misleading NOT_VERIFIED after a real HTTP 200 DELETE.
+    # Reuse the already working authenticated scoped-list API instead.
+    code, raw = request("/storage/v1/object/list/" + BUCKET, key, token_owner,
+                        "POST", payload, "application/json")
+    if code != 200:
+        raise ValueError("Owner-only post-delete inventory unavailable")
+    after = json.loads(raw)
+    if not isinstance(after, list) or len(after) >= 100:
+        raise ValueError("Post-delete inventory incomplete")
+    if any(not isinstance(item, dict) or
+           not isinstance(item.get("name"), str) for item in after):
+        raise ValueError("Invalid post-delete listing")
+    if any(item["name"] == candidates[0] for item in after):
+        raise ValueError("Synthetic photo still present after signed delete")
     print("HOSTED_PRIVATE_PHOTO_LEFTOVER_CLEANUP_PASS")
 
 
