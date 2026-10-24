@@ -549,6 +549,33 @@ RLS, disable owner checks, enter private passwords in chat, or re-run the
 entire historical core restore. The recovery archive and private Docker
 stack can be left intact until final acceptance.
 
+### 2026-10-24 cleanup incident — signed temporary photo, no data loss
+
+In the **one-pass signed hosted test**, five substantive
+`HOSTED_PRIVATE_PHOTO_*_PASS` markers were printed, including the
+independent encrypted-second-object byte restore. The final generic
+`HOSTED_PRIVATE_PHOTO_TEST_NOT_VERIFIED` means **NOT ACCEPTED**:
+the original single `probe_<24hex>.webp` fixture remained in private
+`mosaic-personal-photos`. Live read-only Storage inventory found exactly
+one fixture, no other objects. The secondary recovered object was
+successfully removed via signed Storage API (HTTP 200), but sequential
+`finally` cleanup aborted before removing the original. Do **not**
+wipe the bucket or SQL-delete `storage.objects`; SQL-only deletion
+would orphan the actual blob. Leave the protected Preview on hold.
+
+The repaired script independently attempts both fixture cleanups even if
+one fails. Its dedicated one-time cleanup mode, invoked with
+`--cleanup-20261024-probe`, uses only the *first original signed test
+account*, lists only that account's own private folder, and requires
+exactly one immutable timestamp-bound `probe_<24hex>.webp` object
+created 2026-10-24 09:44 UTC **with byte-exact synthetic fixture contents**.
+It deletes only that proven synthetic object through the owner-authenticated
+Storage API, checks absence, prints
+`HOSTED_PRIVATE_PHOTO_LEFTOVER_CLEANUP_PASS`. No account passwords,
+tokens, owner UUIDs or blob bytes go into issues/chat. It refuses
+ambiguous or unexpected objects instead of deleting them.
+No other backend/schema/Production modifications are authorized.
+
 ## CI-backed, opt-in Supabase prebuilt Preview deployment (#1250)
 
 The same `Supabase Core App Lab` that produces the isolated, nondeployable

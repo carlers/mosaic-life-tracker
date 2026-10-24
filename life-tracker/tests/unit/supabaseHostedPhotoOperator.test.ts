@@ -114,4 +114,49 @@ describe('hosted signed private-photo operator guard', () => {
     expect(output).toContain('ENCRYPTED_PRIVATE_BLOB_DR_GUARDS_PASS');
   });
 
+  it('removes only one signed-owner time-bound synthetic probe after exact-byte verification', () => {
+    const output = run([
+      'import sys,importlib.util,json',
+      'from unittest.mock import patch',
+      'spec=importlib.util.spec_from_file_location("audit",sys.argv[1])',
+      'p=importlib.util.module_from_spec(spec);spec.loader.exec_module(p)',
+      'owner="11111111-1111-4111-8111-111111111111"',
+      'calls=[]',
+      'def fake(path,key,token=None,method="GET",body=None,mime=None):',
+      '  calls.append((method,path))',
+      '  if "/list/" in path: return 200,json.dumps([{"name":"probe_"+"a"*24+".webp","created_at":"2026-10-24T09:44:35Z"},{"name":"personal.webp","created_at":"2026-10-24T09:44:35Z"}]).encode()',
+      '  if method=="DELETE":return 200,b""',
+      '  return (400,b"") if any(x[0]=="DELETE" for x in calls) else (200,p.WEBP)',
+      'with patch.object(p,"signed_owner",return_value=(owner,"token")),patch.object(p,"request",side_effect=fake):',
+      '  p.cleanup_previous_probe()',
+      'assert len([x for x in calls if x[0]=="DELETE"])==1',
+      'assert "probe_"+"a"*24 in [x for x in calls if x[0]=="DELETE"][0][1]',
+      'assert "personal.webp" not in str(calls)',
+      'print("SCOPED_FIXTURE_CLEANUP_PASS")',
+    ].join('\n'));
+    expect(output).toContain('SCOPED_FIXTURE_CLEANUP_PASS');
+  });
+
+  it('rejects unexpected fixture bytes instead of deleting user content', () => {
+    const output = run([
+      'import sys,importlib.util,json',
+      'from unittest.mock import patch',
+      'spec=importlib.util.spec_from_file_location("audit",sys.argv[1])',
+      'p=importlib.util.module_from_spec(spec);spec.loader.exec_module(p)',
+      'owner="11111111-1111-4111-8111-111111111111"',
+      'calls=[]',
+      'def fake(path,key,token=None,method="GET",body=None,mime=None):',
+      '  calls.append(method)',
+      '  if "/list/" in path:return 200,json.dumps([{"name":"probe_"+"b"*24+".webp","created_at":"2026-10-24T09:44:35Z"}]).encode()',
+      '  if method=="DELETE":raise AssertionError("Forbidden deletion")',
+      '  return 200,b"different bytes"',
+      'with patch.object(p,"signed_owner",return_value=(owner,"token")),patch.object(p,"request",side_effect=fake):',
+      '  try:p.cleanup_previous_probe();assert False',
+      '  except ValueError:pass',
+      'assert "DELETE" not in calls',
+      'print("NON_FIXTURE_REFUSED_PASS")',
+    ].join('\n'));
+    expect(output).toContain('NON_FIXTURE_REFUSED_PASS');
+  });
+
 });
