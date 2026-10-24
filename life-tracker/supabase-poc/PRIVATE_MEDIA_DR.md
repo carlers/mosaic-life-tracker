@@ -32,9 +32,7 @@ does not retrieve privileged credentials from Supabase management access.
 Modern opaque keys are used only in the `apikey` header, not a bearer JWT.
 A private 0700 output directory and a preexisting 0600 age identity are required.
 
-Run **only after** the outstanding one-time 2026-10-24 synthetic fixture is
-cleaned via its separate owner-signed tool and independently observed as
-zero objects. When a dedicated server key has been safely provisioned:
+**The 2026-10-24 synthetic fixture is already cleaned**: the authenticated Storage API DELETE returned 200, and connected read-only management confirmed zero objects. Do **not** ask the operator to repeat cleanup. The one-command protected-key snapshot wrapper is documented at [operator protocol](../docs/OPERATOR_ONEPASS.md). When a dedicated backend-only server key has been privately provisioned:
 
 ```bash
 # On trusted operator host only. Source secret must already be in a private

@@ -18,6 +18,7 @@ additional reading. Current code and Git override stale progress prose.
   checkpoint can belong to another issue. Do not require the old chat or an issue number
   when the repository can resolve the request.
 - Resolve routine choices and complete authorized work without repeated confirmation.
+- Operator workstation work is capped at **one copy-paste command per handoff, two only if unavoidable**. First finish all automatable connected work; batch trusted-machine checks and hidden-secret prompts; never repeat successful setup, checks, backups or cleanup. Follow [one-pass operator protocol](docs/OPERATOR_ONEPASS.md) and do not bypass approval/security gates.
 - Use focused tests during edits; broaden for shared behavior or failures. Report actual
   results and unresolved limitations. Do not manufacture red evidence or add trivial tests.
 - Tests protect durable behavior/invariants, not incidental JSX/CSS. Do not assert Tailwind
