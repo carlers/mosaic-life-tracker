@@ -12,7 +12,7 @@ describe('full encrypted DB + signed privacy + hosted photo one-command drill', 
       env: { PATH: process.env.PATH ?? '', HOME: '/nonexistent' },
     });
     expect(run.status, run.stderr || run.error?.message).toBe(0);
-    expect(run.stderr).toContain('Ran 5 tests');
+    expect(run.stderr).toContain('Ran 7 tests');
     expect(run.stderr).toContain('OK');
   });
 

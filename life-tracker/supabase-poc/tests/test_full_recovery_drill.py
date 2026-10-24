@@ -9,6 +9,7 @@ import os
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -27,6 +28,59 @@ class FullRecoveryTests(unittest.TestCase):
             m.main()
         self.assertEqual(captured.getvalue().count("MOSAIC_FULL_DR_PLAN: "), 6)
         self.assertIn("MOSAIC_FULL_DR_PLAN_NO_CLOUD_OR_SECRETS_PASS", captured.getvalue())
+
+    def test_nested_life_tracker_checkout_git_root_and_real_worktree(self):
+        # Reproduce the exact layout used by the operator: <worktree>/.git
+        # holds metadata and <worktree>/life-tracker does not.
+        with tempfile.TemporaryDirectory(prefix="mosaic-real-git-") as tmp:
+            root = pathlib.Path(tmp) / "mosaic-photo-dr-review"
+            root.mkdir()
+            inner = root / "life-tracker"
+            inner.mkdir()
+            (inner / "fixture.txt").write_text("reviewed")
+            def git(*args):
+                output = subprocess.run(
+                    ["git", "-C", str(inner), *args],
+                    check=True, capture_output=True, text=True, timeout=25,
+                )
+                return output.stdout.strip()
+            subprocess.run(["git", "init", "-q", str(root)], check=True,
+                           capture_output=True, timeout=25)
+            git("config", "user.name", "Mosaic Test")
+            git("config", "user.email", "mosaic-test@example.invalid")
+            git("add", ".")
+            git("commit", "-qm", "fixture root")
+            sha = git("rev-parse", "HEAD")
+            git("fetch", "-q", ".", "HEAD")
+            self.assertFalse((inner / ".git").exists())
+            self.assertTrue((root / ".git").exists())
+            m.exact_source(inner, sha)
+            target = pathlib.Path(tmp) / "disposable"
+            target.mkdir()
+            try:
+                git("worktree", "add", "--detach", str(target), sha)
+                self.assertTrue((target / "life-tracker/fixture.txt").exists())
+            finally:
+                git("worktree", "remove", "--force", str(target))
+            self.assertFalse(target.exists())
+
+    def test_preflight_failure_prints_safe_stage_without_backend_output(self):
+        output = io.StringIO()
+        error = io.StringIO()
+        old_stage = m.ACTIVE_STAGE
+        m.ACTIVE_STAGE = m.STAGES[0]
+        try:
+            with patch.object(sys, "argv", ["drill", "--run", "--source-sha", "a" * 40]), \
+                 patch.object(m, "run", side_effect=m.DrillFailure("Trusted Mosaic Git root missing above life-tracker")), \
+                 patch("sys.stderr", error), patch("sys.stdout", output):
+                with self.assertRaises(SystemExit) as raised:
+                    m.cli()
+                self.assertEqual(raised.exception.code, 1)
+        finally:
+            m.ACTIVE_STAGE = old_stage
+        self.assertIn("MOSAIC_FULL_DR_FAILED_STAGE: 01", error.getvalue())
+        self.assertIn("MOSAIC_FULL_DR_SAFE_REASON: Trusted Mosaic Git root", error.getvalue())
+        self.assertNotIn("password", error.getvalue().lower())
 
     def test_invalid_project_and_pooler_are_blocked(self):
         with tempfile.TemporaryDirectory() as folder:
