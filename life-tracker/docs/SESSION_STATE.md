@@ -13,6 +13,6 @@ Current task: #1027 full private photo-bucket encrypted backup and independently
 - Simulated multiple-owner encrypted media restore, empty inventory, tamper denial, local endpoint restriction, nonempty synthetic run, and late-stage cleanup in focused CI. Update Media DR and full recovery docs.
 - Current scope source+destination Stage in single command; protected scheduled **offsite** backup retention/alert pipeline, managed Auth/SMTP, true real nonempty owner-media acceptance remain separately gated (not automatically deployed). No Preview/dev/main/Production approval or release.
 
-## Next actions
+## Next action
 - Run focused CI; repair, PR squash into isolated stable; canonical Quality/Core App/GoTrue/Synthetic checks. Then one real Fedora run with single source-pinned full command; backend-only key is prompted privately once inside same command, alongside historical restored-auth prompts. Success must include `SUPABASE_PRIVATE_MEDIA_ALL_BUCKET_ISOLATED_RESTORE_PASS`, `SUPABASE_PRIVATE_MEDIA_NONEMPTY_ENCRYPTED_RESTORE_PASS`, `MOSAIC_FULL_DR_WHOLE_BUCKET_MEDIA_RESTORE_PASS`, and final combined drill PASS.
 - Later: protected scheduled offsite whole-bucket encrypted retention, monitored restore drills, full managed Auth/SMTP configuration escrow and actual nonempty owner media, device/offline ZIP, personal Bucket List/settings, prior-writer fence and reversible providers. Preserve 1–2 Fedora commands maximum per operator handoff.
