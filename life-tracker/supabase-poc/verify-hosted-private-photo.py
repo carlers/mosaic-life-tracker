@@ -14,6 +14,9 @@ import os
 import re
 import secrets
 import sys
+import stat
+import subprocess
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, HTTPRedirectHandler, build_opener
@@ -25,6 +28,9 @@ WEBP = base64.b64decode(
     "UklGRjQAAABXRUJQVlA4ICgAAABwAQCdASoCAAIAAoBCJaACdAFAAAD+5Qr/+N4/yXf277eZTblcAAAA"
 )
 MAX_RESPONSE = 1024 * 1024
+# Modern publishable key is explicitly non-secret; bound to this reviewed
+# Scratch project. Environment override allows safe public key rotation.
+DEFAULT_PUBLISHABLE_KEY = "sb_publishable_xj5Jj1DtNMRju9nXl8XPJQ_6oh4367V"
 
 
 class DenyRedirect(HTTPRedirectHandler):
@@ -113,12 +119,58 @@ def storage_path(owner, name, authenticated=False, public=False):
     return prefix + BUCKET + "/" + quote(owner) + "/" + name + ".webp"
 
 
+def encrypted_roundtrip(blob):
+    """Escrow only this synthetic fixture with the existing private age key.
+
+    No plaintext temporary files or DB/service credentials. Do not mistake
+    this independent binary drill for scheduled recovery of every real photo.
+    """
+    identity = Path.home() / ".config/mosaic/supabase-backup.agekey"
+    backup_dir = Path.home() / "mosaic-secure-backups"
+    if not identity.is_file() or identity.is_symlink() or not identity.stat().st_size:
+        raise ValueError("Existing locally escrowed age private key required")
+    if not backup_dir.is_dir() or backup_dir.is_symlink() or (
+        stat.S_IMODE(backup_dir.stat().st_mode) & 0o077
+    ):
+        raise ValueError("Private encrypted backup directory must exist with restricted permissions")
+    try:
+        recipient = subprocess.run(
+            ["age-keygen", "-y", str(identity)], capture_output=True, text=True,
+            check=True, timeout=20
+        ).stdout.strip()
+        if not re.fullmatch(r"age1[0-9a-z]{40,100}", recipient):
+            raise ValueError("Invalid age backup recipient")
+        archive = backup_dir / ("mosaic-photo-dr-" + secrets.token_hex(12) + ".age")
+        old_umask = os.umask(0o077)
+        try:
+            # Creation is O_EXCL: never overwrite a valid backup.
+            with archive.open("xb") as output:
+                subprocess.run(
+                    ["age", "--encrypt", "--recipient", recipient],
+                    input=blob, stdout=output, stderr=subprocess.DEVNULL,
+                    check=True, timeout=20
+                )
+        except BaseException:
+            archive.unlink(missing_ok=True)
+            raise
+        finally:
+            os.umask(old_umask)
+        restored = subprocess.run(
+            ["age", "--decrypt", "--identity", str(identity), str(archive)],
+            capture_output=True, check=True, timeout=20
+        ).stdout
+        if restored != blob or not archive.stat().st_size:
+            raise ValueError("Encrypted Storage binary recovery was not byte-exact")
+        return restored
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ValueError("Encrypted Storage fixture backup/restore failed") from exc
+
+
 def main():
     if len(sys.argv) != 1:
         raise ValueError("No arguments permitted; this test is bound to Scratch")
     print("Hosted private-photo security lab: mosaic-dev only; no admin credentials.")
-    key = (os.getenv("MOSAIC_SUPABASE_PUBLISHABLE_KEY") or
-           getpass.getpass("Project publishable key (sb_publishable_, hidden): ")).strip()
+    key = (os.getenv("MOSAIC_SUPABASE_PUBLISHABLE_KEY") or DEFAULT_PUBLISHABLE_KEY).strip()
     if not key.startswith("sb_publishable_") or any(c.isspace() for c in key):
         raise ValueError("Invalid project publishable key")
     owner_a, token_a = signed_owner(key, 1)
@@ -131,6 +183,11 @@ def main():
     public_path = storage_path(owner_a, name, public=True)
     uploaded = False
     attempted_upload = False
+    restore_name = "probe_" + secrets.token_hex(12)
+    restore_object = storage_path(owner_a, restore_name)
+    restore_private = storage_path(owner_a, restore_name, authenticated=True)
+    attempted_restore_upload = False
+    restored_uploaded = False
     try:
         # Start from an independently verified unused random test object ID.
         status, _ = request(private_path, key, token_a)
@@ -161,13 +218,34 @@ def main():
         status, after = request(private_path, key, token_a)
         if status != 200 or hashlib.sha256(after).digest() != hashlib.sha256(WEBP).digest():
             raise ValueError("Immutable photo bytes were changed")
+        # One operation: signed two-owner RLS verification AND encrypted media
+        # binary backup/restore using the user's already-escrowed age identity.
+        recovered = encrypted_roundtrip(after)
+        attempted_restore_upload = True
+        status, _ = request(restore_object, key, token_a, "POST", recovered, "image/webp")
+        if not 200 <= status < 300:
+            raise ValueError("Recovered encrypted photo could not be re-uploaded")
+        restored_uploaded = True
+        status, live = request(restore_private, key, token_a)
+        if status != 200 or live != WEBP:
+            raise ValueError("Independent recovered photo differs from its source")
+        status, _ = request(restore_private, key, token_b)
+        expect_denied("Foreign owner recovered photo read", status)
         print("HOSTED_PRIVATE_PHOTO_OWNER_UPLOAD_READ_PASS")
         print("HOSTED_PRIVATE_PHOTO_CROSS_OWNER_DENIAL_PASS")
         print("HOSTED_PRIVATE_PHOTO_PUBLIC_ANON_DENIAL_PASS")
         print("HOSTED_PRIVATE_PHOTO_IMMUTABLE_BYTES_PASS")
+        print("HOSTED_PRIVATE_PHOTO_ENCRYPTED_BYTE_RESTORE_PASS")
     finally:
         # Always attempt to remove only our random object, even when an upload
         # response was lost. Never list/delete arbitrary user photos.
+        if attempted_restore_upload:
+            status, _ = request(restore_object, key, token_a, "DELETE")
+            if not (200 <= status < 300) and not (status in (400, 404) and not restored_uploaded):
+                raise ValueError("Encrypted photo restore fixture cleanup failed")
+            status, _ = request(restore_private, key, token_a)
+            if 200 <= status < 300:
+                raise ValueError("Restored private photo fixture remains after cleanup")
         if attempted_upload:
             status, _ = request(object_path, key, token_a, "DELETE")
             if not (200 <= status < 300) and not (status in (400, 404) and not uploaded):
@@ -175,8 +253,9 @@ def main():
             status, _ = request(private_path, key, token_a)
             if 200 <= status < 300:
                 raise ValueError("Private fixture remains after cleanup")
+        if attempted_upload and attempted_restore_upload:
             print("HOSTED_PRIVATE_PHOTO_FIXTURE_CLEANUP_PASS")
-    print("NOT_FULL_RECOVERY: Auth config, Storage binary DR, other owners and app device tests remain separate.")
+    print("NOT_FULL_RECOVERY: synthetic encrypted bytes verified; backend-wide scheduled Storage backups, managed Auth and device tests remain separate.")
 
 
 if __name__ == "__main__":

@@ -507,47 +507,47 @@ anonymous Diary CAS EXECUTE revoked, and the photo-aware Diary CAS installed.
 This is an explicitly gated **Scratch schema-only** migration; no Production
 data, `dev`/`main`, or protected Preview was promoted.
 
-**Next gate — real hosted signed private Storage acceptance, not yet performed:**
-Run the source-controlled `supabase-poc/verify-hosted-private-photo.py` on
-the trusted Fedora host. This standard-library script is hard-pinned to the
-mosaic-dev HTTPS API URL and refuses arbitrary arguments, endpoints or
-redirects. It asks for the **publishable** project API key and credentials
-for two **distinct existing Supabase test accounts** in local terminal
-prompts (never send email, password, token, or key to the assistant).
-With two separately signed GoTrue JWTs it uploads only one fresh random,
-small WebP object into the first owner's prefix, proves binary readback,
-rejects foreign/anonymous upload/read/delete and public URL/immutable overwrite,
-and deletes the synthetic object before exit. The script has no admin credential,
-never reads other owners' records or invokes Auth admin actions; it prints
-only fixed `HOSTED_PRIVATE_PHOTO_*_PASS` markers. A failed test is a
-hard-stop for Preview/production acceptance, not a reason to disable RLS.
+**Single-session acceptance, with no repeated database setup:** the local
+operator's existing, verified `~/.config/mosaic/supabase-backup.agekey`
+and `~/mosaic-secure-backups` are reused automatically. Source-controlled
+`supabase-poc/verify-hosted-private-photo.py` pins the exact mosaic-dev HTTPS
+API and existing public publishable key (override for key rotation), and
+prompts privately for **two distinct existing account logins once**. It:
 
-```sh
-cd "$HOME/mosaic-photo-dr-review/life-tracker"
-# Pull latest isolated stable only if this worktree is on that branch;
-# an existing SHA-pinned standalone worktree should use a new detached checkout
-# or download the reviewed script from exact approved source instead.
-python3 supabase-poc/verify-hosted-private-photo.py
+1. Checks owner/foreign/anonymous signed upload, read, deletion, public URL
+   and immutable photo bytes against hosted private Storage.
+2. Encrypts the verified **synthetic** WebP bytes directly to a newly
+   no-overwrite `.age` archive outside Git, using the already-escrowed key,
+   independently decrypts and hashes it, reuploads the restored bytes to a
+   **second random owned Storage object** and verifies cloud roundtrip and
+   foreign-owner denial.
+3. Deletes **both** unique synthetic objects, confirms signed reads fail,
+   then reports only fixed `HOSTED_PRIVATE_PHOTO_*_PASS` markers.
+   No Auth-admin token, service role, managed user creation, PG password,
+   session pooler, plaintext files or user records are used.
+
+On the trusted Fedora machine, from **any** existing Mosaic clone, the
+operator can execute the exact-source version in **one shell command**:
+
+```bash
+set -o pipefail
+git -C "$HOME/mosaic-photo-dr-review/life-tracker" fetch --quiet origin feature/1027-supabase-recovery-20261020 && git -C "$HOME/mosaic-photo-dr-review/life-tracker" show FETCH_HEAD:life-tracker/supabase-poc/verify-hosted-private-photo.py | python3 -
 ```
 
-**Before running, verify this script exists at your checked-out source SHA.**
-If absent, use the Git-reviewed isolated stable branch containing it; do not
-hand-create ad hoc Storage policies in the Supabase Dashboard. A publishable
-key is available in Supabase Dashboard → mosaic-dev → Settings → API Keys.
-Optionally set `MOSAIC_SUPABASE_PUBLISHABLE_KEY` privately in the local shell;
-do not save account passwords. Two existing accounts are required; if only
-one is available, stop safely rather than creating test Auth users with
-unreviewed SQL. All signed tests are scoped to a fresh random object that is
-removed on exit. Confirm Storage object count returns to **zero**.
+For exact SHA provenance, inspect `git rev-parse FETCH_HEAD` locally.
+A successful run prints all private Storage checks, the encrypted binary
+restore marker, and cleanup. Keep the locally encrypted synthetic fixture
+archive as test evidence. **This is NOT ongoing backend-wide media DR**:
+before allowing real users to rely on photos, independently build
+scheduled full-bucket encrypted object inventory/byte backups, retention
+and restore testing as a separate protected release gate. A successful
+small synthetic fixture cannot substitute for complete ongoing file
+retention; no automatic promotion to the protected Preview follows.
 
-The remaining rollout blocker **after the hosted signed checks** is an
-independent encrypted Storage-**object-byte** backup and restore method
-before real users create photos. PostgreSQL logical dumps alone do not
-back up private Storage blobs. Media-aware user ZIP exports also require
-device/manual acceptance and are not a backend-wide DR replacement. Only
-after signing off that media recovery gate should the reviewer approve the
-exact immutable protected Supabase v0.47.0 Preview job. Do not promote
-Production or claim the private Bucket List/settings MVP is complete.
+Failure: stop and retain the last error locally; do not weaken Storage
+RLS, disable owner checks, enter private passwords in chat, or re-run the
+entire historical core restore. The recovery archive and private Docker
+stack can be left intact until final acceptance.
 
 ## CI-backed, opt-in Supabase prebuilt Preview deployment (#1250)
 
