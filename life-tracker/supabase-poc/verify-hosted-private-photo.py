@@ -83,7 +83,12 @@ def json_request(path, publishable, token=None, payload=None):
 
 def signed_owner(publishable, ordinal):
     print("Sign in hosted Supabase owner " + str(ordinal) + " (private input).")
-    email = input("Account email: ").strip().lower()
+    # The audited one-command runner pipes source from Git directly into
+    # python3 -. Reading sys.stdin here would receive EOF instead of the
+    # operator's input. Require a trusted interactive terminal explicitly.
+    print("Account email: ", end="", flush=True)
+    with open("/dev/tty", encoding="utf-8") as terminal:
+        email = terminal.readline().strip().lower()
     password = getpass.getpass("Account password (hidden): ")
     if "@" not in email or not password:
         raise ValueError("Missing signed account identity")
