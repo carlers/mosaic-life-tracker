@@ -42,6 +42,9 @@ class DrillFailure(Exception):
     pass
 
 
+ACTIVE_STAGE = "01 exact-source and saved-private-configuration preflight"
+
+
 def assert_private(path, directory=False):
     if path.is_symlink() or not (path.is_dir() if directory else path.is_file()):
         raise DrillFailure("Previously configured private backup resource missing")
@@ -92,8 +95,17 @@ def guarded_run(args, *, cwd=None, env=None, stdin=None, output=True, timeout=12
 
 
 def exact_source(repo, sha):
-    if not SHA.fullmatch(sha) or repo.is_symlink() or not (repo / ".git").exists():
-        raise DrillFailure("Exact source SHA or trusted repo missing")
+    # The operator works from <worktree>/life-tracker, but Git metadata is
+    # correctly at its PARENT (either a .git file for a linked worktree or a
+    # directory in a normal clone). Checking repo/.git rejected the valid
+    # Fedora checkout before any backup stage could start.
+    if (not SHA.fullmatch(sha) or repo.is_symlink() or not repo.is_dir()
+        or repo.name != "life-tracker"
+        or not (repo.parent / ".git").exists()):
+        raise DrillFailure("Trusted Mosaic Git root missing above life-tracker")
+    root = guarded_run(["git", "-C", str(repo), "rev-parse", "--show-toplevel"]).strip()
+    if root != str(repo.parent.resolve()):
+        raise DrillFailure("Mosaic nested checkout has unexpected Git root")
     actual = guarded_run(["git", "-C", str(repo), "rev-parse", "--verify", sha + "^{commit}"]).strip()
     if actual != sha:
         raise DrillFailure("Requested source Git object is not available")
@@ -114,6 +126,8 @@ def clean_env():
 
 
 def stage_run(name, callback):
+    global ACTIVE_STAGE
+    ACTIVE_STAGE = name
     print("MOSAIC_FULL_DR_STAGE_BEGIN: " + name, flush=True)
     result = callback()
     print("MOSAIC_FULL_DR_STAGE_PASS: " + name, flush=True)
@@ -162,6 +176,9 @@ def verify_markers(stdout, expected):
 
 
 def run(args):
+    global ACTIVE_STAGE
+    ACTIVE_STAGE = STAGES[0]
+    print("MOSAIC_FULL_DR_STAGE_BEGIN: " + STAGES[0], flush=True)
     home = Path.home()
     backup_key = home / ".config/mosaic/supabase-backup.agekey"
     pooler = home / ".config/mosaic/supabase-pooler.env"
@@ -173,6 +190,7 @@ def run(args):
     for cmd in ("age", "age-keygen", "pg_dump", "pg_restore", "docker", "supabase", "node", "git"):
         if not shutil.which(cmd):
             raise DrillFailure("Missing local prerequisite: " + cmd)
+    print("MOSAIC_FULL_DR_STAGE_PASS: " + STAGES[0], flush=True)
     # A pinned detached worktree is isolated from any user's existing worktree.
     temp = Path(tempfile.mkdtemp(prefix=".mosaic-onepass-worktree-", dir=home))
     private = None
@@ -244,6 +262,11 @@ def run(args):
             print("MOSAIC_FULL_DR_HOSTED_PHOTO_ENCRYPTED_RESTORE_PASS")
         stage_run(STAGES[4], photos)
     finally:
+        # If an earlier stage failed, keep its name as the primary diagnostic;
+        # otherwise any cleanup error belongs to the cleanup stage.
+        if sys.exc_info()[0] is None:
+            ACTIVE_STAGE = STAGES[5]
+        print("MOSAIC_FULL_DR_STAGE_BEGIN: " + STAGES[5], flush=True)
         # This owns ONLY an exact freshly generated private project, network and
         # temporary detached worktree. Preserve age ciphertext as DR evidence.
         errors = []
@@ -275,7 +298,9 @@ def run(args):
         if not temp.exists() or not any(temp.iterdir()):
             temp.rmdir() if temp.exists() else None
         if errors:
+            ACTIVE_STAGE = STAGES[5]
             raise DrillFailure("Isolated resource cleanup incomplete: " + ", ".join(errors))
+        print("MOSAIC_FULL_DR_STAGE_PASS: " + STAGES[5], flush=True)
     print("MOSAIC_FULL_DR_COMBINED_EXISTING_GATES_PASS")
     print("NOT_FULL_RECOVERY: managed Auth/SMTP, all-owner scheduled Storage DR and separate-target nonempty media restore remain release gates")
 
@@ -302,6 +327,11 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (DrillFailure, KeyboardInterrupt, OSError, ValueError):
+    except (DrillFailure, KeyboardInterrupt, OSError, ValueError) as exc:
+        # Emit only our own fixed stage labels and program-authored guard
+        # messages, never raw PostgreSQL/HTTP/credential subprocess output.
+        print("MOSAIC_FULL_DR_FAILED_STAGE: " + ACTIVE_STAGE, file=sys.stderr)
+        if isinstance(exc, DrillFailure):
+            print("MOSAIC_FULL_DR_SAFE_REASON: " + str(exc), file=sys.stderr)
         print("MOSAIC_FULL_DR_NOT_VERIFIED", file=sys.stderr)
         sys.exit(1)

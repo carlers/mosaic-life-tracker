@@ -58,6 +58,25 @@ A partial stage's PASS does not count as complete acceptance. Credentials
 are not written to repo files, passed on the command line, printed by the
 orchestrator, or retained in GitHub CI.
 
+## 2026-10-24 preflight compatibility repair
+
+The first live one-command Fedora execution returned only
+`MOSAIC_FULL_DR_NOT_VERIFIED`, without entering any stage or prompting
+for passwords. The preflight incorrectly looked for `.git` **inside**
+`life-tracker/`, whereas Mosaic's Git root/linked-worktree `.git`
+is correctly in its parent directory. The runner now validates the
+nested repo through real `git rev-parse --show-toplevel` and FETCH_HEAD
+source pin, with a regression using an actual nested scratch Git repo
+and detached worktree. No fresh snapshot or hosted user data writes
+were observed from that failed preflight.
+
+A future fail-closed run now prints **`MOSAIC_FULL_DR_FAILED_STAGE`**
+with a safe program-authored reason, then
+`MOSAIC_FULL_DR_NOT_VERIFIED`. These are diagnostics, not success.
+Once canonical CI passes the repair, rerun only the single exact
+fetch+source-pinned orchestration command above; do **not** repeat
+individual database, pooler, age key, account or Storage micro-commands.
+
 ## Automated CI rehearsal (does NOT require Fedora secrets)
 
 The no-network Python test under
