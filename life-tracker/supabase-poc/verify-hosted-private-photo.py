@@ -187,7 +187,7 @@ def cleanup_previous_probe():
     candidates = [
         x["name"] for x in items if isinstance(x, dict)
         and isinstance(x.get("name"), str)
-        and re.fullmatch(r"probe_[0-9a-f]{24}\\.webp", x["name"])
+        and re.fullmatch(r"probe_[0-9a-f]{24}[.]webp", x["name"])
         and str(x.get("created_at", "")).startswith("2026-10-24T09:44:")
     ]
     if len(candidates) != 1:
