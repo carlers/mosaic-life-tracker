@@ -10,6 +10,28 @@ counts exactly match the earlier read-only hosted mosaic-dev snapshot:
 `public.mosaic_candidate_categories=53`,
 `public.mosaic_candidate_tasks=58`.
 
+## Operator 2026-10-24 fresh snapshot checkpoint
+
+On the operator's Fedora, the IPv4 Session pooler is already configured in
+`$HOME/.config/mosaic/supabase-pooler.env`. **Reuse it** for *future hosted
+database backups*, rather than suggesting the direct IPv6-only
+`db.hcxtiifzxoaflhjgoglb.supabase.co` host or repeatedly asking for the
+Session pooler hostname. Credentials are entered privately on Fedora.
+See `HOSTED_CORE.md` for the exact persisted connection instructions.
+
+On 2026-10-24, the operator confirmed a **new encrypted** `mosaic-dev` snapshot,
+with fully authenticated archive and a successful **metadata-only** TOC inspection:
+731 entries, 86 Mosaic-owned entries, 10 Mosaic-owned data entries,
+all six required critical data entries present, and none missing. This
+snapshot is **not yet independently restored** at the recorded checkpoint;
+do not call it full disaster recovery. The backup's checksum is known to
+the operator and should be pinned in the `--fresh-snapshot-sha256` command.
+Before local recovery, **unset the sourced pooler environment**:
+`PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE`, `PGPASSWORD`,
+`PGOPTIONS`, `PGSERVICE`, `DATABASE_URL`, and `SUPABASE_ACCESS_TOKEN`.
+The isolated recovery wrapper deliberately refuses inherited database credentials
+so it cannot accidentally operate against the hosted project.
+
 ## Recover into a truly separate initialized target
 
 The default command below remains cryptographically pinned to the reviewed
