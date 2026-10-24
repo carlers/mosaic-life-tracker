@@ -49,6 +49,24 @@ remote requests or mutations after the Git source fetch and asks for no
 passwords. The assistant already performs the same offline rehearsal in CI,
 so do not require the user to rerun it merely to prove that it works.
 
+## Complete historical recovery drill in one command
+
+The one-pass simulation above is intentionally smaller than the Oct 24
+sequence. The [full recovery drill](FULL_SUPABASE_RECOVERY_DRILL.md) now
+orchestrates the **real** age-encrypted PostgreSQL dump, full-byte TOC,
+fresh isolated seven-table restore, signed original-password owner isolation
+and two-hosted-owner private WebP+age binary restore **in one invocation**,
+with exact private stack and fixture cleanup. It reuses the already-saved
+IPv4 Session pooler and age identity. It requires an interactive Fedora
+session because the database and user passwords are private; those are
+entered in the **same command**. A separate CI mock runs the full stage
+graph, including a deliberately failed photo stage and clean teardown.
+
+Do not confuse this existing-gates drill with managed Auth/SMTP backup,
+scheduled complete Storage DR, or approved provider cutover. See that doc
+for the exact single pasteable run command; no reason to repeat the original
+individual commands.
+
 ## Future one-command full-bucket encrypted capture
 
 This is *future work when a protected backend-only key is provisioned*,

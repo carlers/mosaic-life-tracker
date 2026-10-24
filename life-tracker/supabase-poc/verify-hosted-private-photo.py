@@ -219,6 +219,26 @@ def cleanup_previous_probe():
     print("HOSTED_PRIVATE_PHOTO_LEFTOVER_CLEANUP_PASS")
 
 
+def verify_absent_from_signed_inventory(owner, publishable, token, filename):
+    """Storage GET after DELETE may fail before reaching provider; list is authoritative."""
+    prefix = owner + "/"
+    status, raw = request("/storage/v1/object/list/" + BUCKET,
+                          publishable, token, "POST",
+                          json.dumps({"prefix": prefix, "limit": 100, "offset": 0}).encode(),
+                          "application/json")
+    if status != 200 or len(raw) > MAX_RESPONSE:
+        raise ValueError("Signed private post-delete inventory unavailable")
+    try:
+        items = json.loads(raw)
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ValueError("Invalid private post-delete inventory") from exc
+    if (not isinstance(items, list) or len(items) >= 100 or
+        any(not isinstance(x, dict) or not isinstance(x.get("name"), str) for x in items)):
+        raise ValueError("Incomplete or malformed signed private inventory")
+    if any(x["name"] == filename for x in items):
+        raise ValueError("Synthetic private fixture still exists")
+
+
 def main():
     if sys.argv[1:] == ["--cleanup-20261024-probe"]:
         cleanup_previous_probe()
@@ -309,11 +329,11 @@ def main():
             except (OSError, RuntimeError, ValueError):
                 cleanup_errors.append("delete interrupted")
             try:
-                code, _ = request(private, key, token_a)
-                if 200 <= code < 300:
-                    cleanup_errors.append("fixture still accessible")
+                verify_absent_from_signed_inventory(
+                    owner_a, key, token_a, obj.rsplit("/", 1)[-1]
+                )
             except (OSError, RuntimeError, ValueError):
-                cleanup_errors.append("readback interrupted")
+                cleanup_errors.append("signed inventory did not confirm deletion")
         if cleanup_errors:
             raise ValueError("One or more private fixture cleanups were not verified")
         if attempted_upload and attempted_restore_upload:

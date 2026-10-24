@@ -52,6 +52,9 @@ describe('hosted signed private-photo operator guard', () => {
       '  is_public="/public/" in path',
       '  obj=path.replace("/authenticated/","/").replace("/public/","/")',
       '  if is_public: return 400,b""',
+      '  if "/list/" in path and method=="POST":',
+      '    names=[key.split("/")[-1] for key in state["bytes"]]',
+      '    return 200, __import__("json").dumps([{"name":name} for name in names]).encode()',
       '  if method=="POST":',
       '    if not is_a: return 403,b""',
       '    if obj in state["bytes"]: return 409,b""',
@@ -112,6 +115,24 @@ describe('hosted signed private-photo operator guard', () => {
       'print("ENCRYPTED_PRIVATE_BLOB_DR_GUARDS_PASS")',
     ].join('\n'));
     expect(output).toContain('ENCRYPTED_PRIVATE_BLOB_DR_GUARDS_PASS');
+  });
+
+  it('does not treat a missing post-delete GET as a failed authenticated Storage cleanup', () => {
+    const output = run([
+      'import sys,importlib.util,json',
+      'from unittest.mock import patch',
+      'spec=importlib.util.spec_from_file_location("photo",sys.argv[1])',
+      'p=importlib.util.module_from_spec(spec);spec.loader.exec_module(p)',
+      'a="11111111-1111-4111-8111-111111111111"',
+      'def fetch(path,key,token=None,method="GET",body=None,mime=None):',
+      '  if "/list/" not in path or method!="POST": raise AssertionError("GET after DELETE forbidden")',
+      '  assert json.loads(body)["prefix"]==a+"/"',
+      '  return 200,b"[]"',
+      'with patch.object(p,"request",side_effect=fetch):',
+      '  p.verify_absent_from_signed_inventory(a,"sb_publishable_synthetic","token","probe_"+"c"*24+".webp")',
+      'print("POST_DELETE_LIST_CONFIRMED_PASS")',
+    ].join('\n'));
+    expect(output).toContain('POST_DELETE_LIST_CONFIRMED_PASS');
   });
 
   it('removes only one signed-owner time-bound synthetic probe after exact-byte verification', () => {
