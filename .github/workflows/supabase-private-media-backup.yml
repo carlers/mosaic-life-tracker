@@ -1,0 +1,44 @@
+name: Supabase Scratch Private Media Offsite Backup
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mosaic-supabase-media-dr
+  cancel-in-progress: false
+
+jobs:
+  encrypted-media-backup:
+    # Never run from a branch workflow or without explicit repository enablement.
+    if: ${{ github.ref == 'refs/heads/main' && vars.SUPABASE_MEDIA_DR_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: mosaic-supabase-media-dr
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      MEDIA_DR_ENABLED: 'true'
+      MEDIA_DR_SOURCE_PROJECT: mosaic-dev
+      MEDIA_DR_SOURCE_STORAGE_KEY: ${{ secrets.SUPABASE_MEDIA_DR_SOURCE_STORAGE_KEY }}
+      MEDIA_DR_AGE_IDENTITY: ${{ secrets.SUPABASE_MEDIA_DR_AGE_IDENTITY }}
+      MEDIA_DR_R2_ACCOUNT_ID: ${{ secrets.SUPABASE_MEDIA_DR_R2_ACCOUNT_ID }}
+      MEDIA_DR_R2_ACCESS_KEY_ID: ${{ secrets.SUPABASE_MEDIA_DR_R2_WRITE_ACCESS_KEY_ID }}
+      MEDIA_DR_R2_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_MEDIA_DR_R2_WRITE_SECRET_ACCESS_KEY }}
+      MEDIA_DR_R2_BUCKET: ${{ vars.SUPABASE_MEDIA_DR_R2_BUCKET }}
+      MEDIA_DR_PRUNE_ENABLED: ${{ vars.SUPABASE_MEDIA_DR_PRUNE_ENABLED }}
+      MEDIA_DR_R2_LOCK_CONFIRMED: ${{ vars.SUPABASE_MEDIA_DR_R2_LOCK_CONFIRMED }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install age for encrypted source snapshots
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+      - name: Encrypt, verify and commit full private Storage ciphertext offsite
+        run: node supabase-poc/private-media-offsite.mjs --backup

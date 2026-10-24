@@ -69,6 +69,7 @@ authorization, Scratch checks, or release gates.
 | Isolated old/new PWA, queued-write and server permission compatibility exercise (#914 Phase B) | [Compatibility rehearsal](COMPATIBILITY_REHEARSAL.md) |
 | Isolated scratch Preview parity, synthetic accounts, and readiness | [Scratch Preview workflow](SCRATCH_PREVIEW_WORKFLOW.md) |
 | Administrator recovery, encrypted snapshots, restore drills, watcher | [Disaster recovery](DISASTER_RECOVERY.md) |
+| Supabase Scratch encrypted private-media offsite backups, retention and watchdog | [Supabase media offsite DR](SUPABASE_MEDIA_OFFSITE_DR.md) |
 | Exact-source local Production-target pre-release testing (not a Vercel Preview) | [Production acceptance](PRODUCTION_ACCEPTANCE.md) |
 | Independent forks and maintainer continuity | [Forking and recovery](FORKING.md) |
 | Friendship rollout, permissions, and legacy repair | [Friendship recovery](FRIENDSHIP_RECOVERY.md) |
