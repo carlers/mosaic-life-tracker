@@ -35,15 +35,16 @@ a test performed on the owner's Fedora or a live cloud backup.**
 
 For an optional *local reproduction*, one pasted command:
 
-\`\`\`bash
+```bash
+set -o pipefail
 repo="$HOME/mosaic-photo-dr-review/life-tracker"; \
 git -C "$repo" fetch --quiet origin feature/1027-supabase-recovery-20261020 && \
 git -C "$repo" show FETCH_HEAD:life-tracker/supabase-poc/operator-onepass.py | python3 - --rehearse
-\`\`\`
+```
 
-Expected: \`MOSAIC_ONEPASS_OFFLINE_REHEARSAL_PASS\`,
-\`MOSAIC_ONEPASS_MAX_TWO_COMMANDS_PASS\`, and
-\`MOSAIC_ONEPASS_NO_NETWORK_OR_CLOUD_WRITES_PASS\`. It makes **zero**
+Expected: `MOSAIC_ONEPASS_OFFLINE_REHEARSAL_PASS`,
+`MOSAIC_ONEPASS_MAX_TWO_COMMANDS_PASS`, and
+`MOSAIC_ONEPASS_NO_NETWORK_OR_CLOUD_WRITES_PASS`. It makes **zero**
 remote requests or mutations after the Git source fetch and asks for no
 passwords. The assistant already performs the same offline rehearsal in CI,
 so do not require the user to rerun it merely to prove that it works.
@@ -55,22 +56,23 @@ not an instruction to run today. The runner intentionally does not
 attempt to access a privileged key through management tools or silently
 provision one. It prompts privately **once**, passes that credential only
 to the existing bounded, read-only, project-pinned
-\`supabase-poc/private-photo-snapshot.py\`, and reuses the existing
+`supabase-poc/private-photo-snapshot.py`, and reuses the existing
 0600 age identity and 0700 encrypted-backup directory:
 
-\`\`\`bash
+```bash
+set -o pipefail
 repo="$HOME/mosaic-photo-dr-review/life-tracker"; \
 git -C "$repo" fetch --quiet origin feature/1027-supabase-recovery-20261020 && \
 git -C "$repo" show FETCH_HEAD:life-tracker/supabase-poc/operator-onepass.py | \
 python3 - --media-snapshot --source-sha "$(git -C "$repo" rev-parse FETCH_HEAD)"
-\`\`\`
+```
 
 It refuses a missing/invalid source SHA, wrong backend Storage source,
 world-readable escrow, public-only API key, a failed decryption/checksum
 or archive collision. It never calls remote SQL, Storage DELETE, Auth admin,
 Vercel deploy or provider promotion. On success the underlying implementation
-prints \`SUPABASE_PRIVATE_MEDIA_ENCRYPTED_SNAPSHOT_PASS\`, then the wrapper
-prints \`MOSAIC_ONEPASS_PRIVATE_MEDIA_SNAPSHOT_COMPLETE\`. If the bucket
+prints `SUPABASE_PRIVATE_MEDIA_ENCRYPTED_SNAPSHOT_PASS`, then the wrapper
+prints `MOSAIC_ONEPASS_PRIVATE_MEDIA_SNAPSHOT_COMPLETE`. If the bucket
 currently contains **zero objects**, the result certifies only an empty
 inventory, NOT future media recoverability.
 

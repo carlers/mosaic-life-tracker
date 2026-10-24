@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const script = fileURLToPath(new URL('../../supabase-poc/operator-onepass.py', import.meta.url));
+const operatorDoc = fileURLToPath(new URL('../../docs/OPERATOR_ONEPASS.md', import.meta.url));
 const run = (...args: string[]) => spawnSync('python3', [script, ...args], {
   encoding: 'utf8', timeout: 12_000,
   env: { PATH: process.env.PATH ?? '', HOME: '/nonexistent', PGHOST: 'should_not_leak' },
@@ -60,4 +62,15 @@ describe('one-command Supabase operator rehearsal', () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('PINNED_SOURCE_REHEARSAL_PASS');
   });
+  it('keeps a real Markdown-fenced single-command shell recipe and propagates failed Git source pipelines', () => {
+    const doc = readFileSync(operatorDoc, 'utf8');
+    expect(doc.match(/```bash\nset -o pipefail\nrepo=/g)).toHaveLength(2);
+    expect(doc).not.toContain('\\' + '`');
+    const result = spawnSync('bash', ['-c', 'set -o pipefail; false | python3 - --rehearse'], {
+      encoding: 'utf8', timeout: 10_000,
+      env: { PATH: process.env.PATH ?? '', HOME: '/nonexistent' },
+    });
+    expect(result.status).not.toBe(0);
+  });
+
 });
