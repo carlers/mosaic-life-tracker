@@ -16,7 +16,7 @@ jobs:
   full-offsite-backup:
     # Scratch-only, disabled until a separately reviewed default-branch rollout.
     if: ${{ github.ref == 'refs/heads/main' && vars.SUPABASE_DR_ENABLED == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     environment: mosaic-supabase-dr
     defaults:
@@ -43,12 +43,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install age and require PostgreSQL 17 client
+      - name: Install age and signed PostgreSQL 17 client
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq age
+          sudo apt-get install -y -qq age curl ca-certificates
+          # Ubuntu 24.04 runners ship PostgreSQL 16, not 17. Use the official
+          # PostgreSQL project's signed PGDG apt repository for the exact client.
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error --location \
+            --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          printf '%s\n' \
+            'Types: deb' \
+            'URIs: https://apt.postgresql.org/pub/repos/apt' \
+            'Suites: noble-pgdg' \
+            'Components: main' \
+            'Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc' \
+            | sudo tee /etc/apt/sources.list.d/pgdg.sources >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
           test -x /usr/lib/postgresql/17/bin/pg_dump
           test -x /usr/lib/postgresql/17/bin/pg_restore
-          echo '/usr/lib/postgresql/17/bin' >> "$GITHUB_PATH"
+          printf '%s\n' '/usr/lib/postgresql/17/bin' >> "$GITHUB_PATH"
       - name: Capture encrypted PostgreSQL and whole private Storage then publish ONE verified R2 marker
         run: node supabase-poc/unified-offsite.mjs --backup
