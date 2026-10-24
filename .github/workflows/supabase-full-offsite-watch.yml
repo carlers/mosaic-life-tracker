@@ -1,0 +1,32 @@
+name: Supabase Scratch Unified Offsite Recovery Watch
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  watch-full-offsite:
+    if: ${{ github.ref == 'refs/heads/main' && vars.SUPABASE_DR_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: mosaic-supabase-dr
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      SUPABASE_DR_SOURCE_PROJECT: hcxtiifzxoaflhjgoglb
+      SUPABASE_DR_R2_ACCOUNT_ID: ${{ secrets.SUPABASE_DR_R2_ACCOUNT_ID }}
+      SUPABASE_DR_R2_ACCESS_KEY_ID: ${{ secrets.SUPABASE_DR_R2_READ_ACCESS_KEY_ID }}
+      SUPABASE_DR_R2_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_DR_R2_READ_SECRET_ACCESS_KEY }}
+      SUPABASE_DR_R2_BUCKET: ${{ vars.SUPABASE_DR_R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Independently recheck ALL R2 PostgreSQL and media ciphertext bytes and 36h freshness
+        run: node supabase-poc/unified-offsite.mjs --watch
