@@ -387,22 +387,62 @@ tables from the `supabase_realtime` publication; never drop user data.
 
 The Free `mosaic-dev` project has no automatic daily Supabase backup guarantee. Before **any** hosted Diary/category migrations, an operator must independently encrypt and preserve a recoverable off-site database snapshot. `hosted-encrypted-backup.sh` is source-read-only. It deliberately refuses other Supabase projects, repo-local output, and overwriting a snapshot. It streams the **raw** full PostgreSQL logical dump through `age` without writing plaintext to disk, then decrypts it privately into `pg_restore --list` to check archive structure. It does **not** restore data or grant rollout authorization.
 
-From a trusted private Fedora terminal, use PostgreSQL client tools and `age` (and a private `age` identity). Obtain the `mosaic-dev` **database** connection parameters from the Supabase Project **Connect** panel; the direct host is `db.hcxtiifzxoaflhjgoglb.supabase.co`, and a session pooler also works when `PGUSER=postgres.hcxtiifzxoaflhjgoglb`. Never put a password in an argument, repo file, ticket, issue, or transcript. Keep the identity key separate from the encrypted snapshot.
+### Fedora network and persistent connection setup — verified 2026-10-24
+
+The operator's Fedora network **cannot route IPv6** to the direct PostgreSQL
+host `db.hcxtiifzxoaflhjgoglb.supabase.co` (observed `Network is unreachable`).
+**Future agents: do not recommend that direct host as the default, and do not
+ask the operator to retrieve a new Session pooler host for every run.** On the
+operator's Fedora machine, a working IPv4 Session pooler configuration has
+**already been saved** in the local, private file:
 
 ```sh
-cd /path/to/mosaic-life-tracker/life-tracker
-export PGHOST='db.hcxtiifzxoaflhjgoglb.supabase.co' # or actual project's session pooler host
-export PGPORT=5432 PGDATABASE=postgres PGUSER=postgres
-read -rs -p 'mosaic-dev database password: ' PGPASSWORD; echo; export PGPASSWORD
-mkdir -p -m 700 "$HOME/.config/mosaic" "$HOME/mosaic-secure-backups"
-age-keygen -o "$HOME/.config/mosaic/supabase-backup.agekey" # only once; escrow privately
+$HOME/.config/mosaic/supabase-pooler.env
+```
+
+This local file is **not in Git, not synced to other machines, and contains
+connection parameters only, no database password**. Reuse it from trusted
+Fedora shells by running `source "$HOME/.config/mosaic/supabase-pooler.env"`.
+It sets the actual project-issued `PGHOST=*.pooler.supabase.com`,
+`PGPORT=5432`, `PGUSER=postgres.hcxtiifzxoaflhjgoglb`, and
+`PGDATABASE=postgres`. Do not fabricate or replace its verified host with
+one guessed from the region. If the file is absent **on another machine**,
+obtain the correct host once from Supabase Dashboard → mosaic-dev →
+**Connect → Session pooler**, then save locally with `chmod 600`.
+Never commit it or put passwords, age keys, or complete database connection
+strings in tickets or chat.
+
+From the private Fedora recovery checkout, with existing key escrowed:
+
+```sh
+cd "$HOME/mosaic-photo-dr-review/life-tracker"
+source "$HOME/.config/mosaic/supabase-pooler.env"
+test -s "$HOME/.config/mosaic/supabase-backup.agekey" || {
+  echo 'Existing age private key missing; stop'; exit 1;
+}
 export MOSAIC_AGE_IDENTITY_FILE="$HOME/.config/mosaic/supabase-backup.agekey"
 export MOSAIC_AGE_RECIPIENT="$(age-keygen -y "$MOSAIC_AGE_IDENTITY_FILE")"
-bash supabase-poc/hosted-encrypted-backup.sh "$HOME/mosaic-secure-backups/mosaic-dev-$(date -u +%Y%m%dT%H%M%SZ).age"
+read -rsp 'mosaic-dev database password: ' PGPASSWORD; echo
+export PGPASSWORD
+archive="$HOME/mosaic-secure-backups/mosaic-dev-photos-$(date -u +%Y%m%dT%H%M%SZ).age"
+if bash supabase-poc/hosted-encrypted-backup.sh "$archive"; then
+  bash supabase-poc/inspect-encrypted-backup-toc.sh "$archive" "$MOSAIC_AGE_IDENTITY_FILE"
+fi
 unset PGPASSWORD
 ```
 
-For session pooler, replace `PGHOST` with the exact project-supplied hostname and `PGUSER` with `postgres.hcxtiifzxoaflhjgoglb`. PostgreSQL binary `pg_dump` must support the hosted server's PostgreSQL major version; a failed dump, missing extension, permission denial or failed age validation aborts without publishing an archive. **Do not upload ciphertext or age private keys to GitHub, ChatGPT or Preview.** Escrow the key offline.
+The user confirmed on **2026-10-24** that this saved Session pooler configuration
+worked: `Encrypted snapshot created` plus successful **metadata-only**
+inspection (731 TOC entries, 86 Mosaic-owned, 10 Mosaic-owned data, required
+critical data entries 6/6, none missing). **No restore had yet been performed**
+at that checkpoint. The ciphertext SHA was returned locally but is not a
+substitute for the *separate* fresh-SHA-pinned isolated restore. Keep the
+archive and encryption key on the user's machine.
+
+PostgreSQL `pg_dump` must support the hosted server's major version; a failed
+dump, permission denial, or failed age validation aborts publication.
+**Never upload ciphertext, credentials or age private keys to GitHub,
+ChatGPT, Preview or the repository.** Escrow the key offline.
 
 **Still mandatory after this command:** restore the encrypted archive onto a separately isolated disposable Supabase-compatible target, prove per-owner row counts and hashes including tombstones and Auth identities, verify active RLS/grants/CAS/Diary privacy with signed negative tests, and separately preserve Auth email/hook/SMTP configuration plus any external Storage bytes and global-role requirements. An `age` decrypt + `pg_restore --list` pass alone is not a restore drill, nor is an ordinary personal Settings export. Keep signup invite gate, protected Preview and Production unchanged until all acceptance/rollback checks are green.
 
@@ -410,7 +450,8 @@ The original historical archive retains its fixed six-table record counts.
 For a **fresh** current snapshot, the independently SHA-pinned
 `--fresh-snapshot-sha256` recovery wrapper instead validates seven
 allowlisted Auth/core/Diary tables and proves actual source-to-target COPY
-row equality with a new empty loopback-only local PostgreSQL 17 Supabase stack\nthat mirrors only the already-hosted private Diary schema (not pending category retirement).
+row equality with a new empty loopback-only local PostgreSQL 17 Supabase stack
+that mirrors only the already-hosted private Diary schema (not pending category retirement).
 It does **not** replay old Auth tokens or write to hosted Supabase.
 See `PRIVATE_CORE_RECOVERY.md` for its exact scope and prerequisites.
 It is still only a partial database restore: managed Auth/SMTP configuration,
