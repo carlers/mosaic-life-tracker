@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   PREFIX, uploadCiphertext, watchCiphertext, verifyCiphertext,
-  pruneCommitted, downloadCiphertext,
+  pruneCommitted, downloadCiphertext, assertCommandAllowed,
 } from '../private-media-offsite.mjs';
 
 const FIXED = new Date('2026-10-25T12:00:00.000Z');
@@ -99,3 +99,42 @@ test('download rejects corrupt ciphertext and leaves no partial recoverable file
   await assert.rejects(downloadCiphertext({ r2, id: marker.id, destination: out, now: FIXED }), /missing object/);
   await assert.rejects(readFile(out), /ENOENT/);
 }));
+
+
+test('a same-size source mutation during upload cannot be committed as a restore point', async () => fixture(async (archive) => {
+  const r2 = fakeR2();
+  const put = r2.putObject;
+  let changed = false;
+  r2.putObject = async (key, body, options) => {
+    await put(key, body, options);
+    if (!changed && key.endsWith('.agechunk')) {
+      changed = true;
+      const original = await readFile(archive);
+      await writeFile(archive, Buffer.alloc(original.length, 0x5a));
+    }
+  };
+  await assert.rejects(uploadCiphertext({ r2, archive, now: FIXED, chunkBytes: 9 }), /source changed|source bytes changed/);
+  assert.equal([...r2.data.keys()].filter(k => k.endsWith('/COMPLETED')).length, 0);
+}));
+
+test('prune fails without deletion for missing historical chunks or unexpected objects', async () => fixture(async (archive) => {
+  const r2 = fakeR2();
+  const old = await uploadCiphertext({ r2, archive, now: new Date('2026-01-01T12:00:00.000Z') });
+  await uploadCiphertext({ r2, archive, now: FIXED });
+  const before = new Set(r2.data.keys());
+  r2.data.delete(old.parts[0].key);
+  await assert.rejects(pruneCommitted({ r2, now: FIXED }), /inventory incomplete/);
+  assert.deepEqual(new Set(r2.data.keys()), new Set([...before].filter(k => k !== old.parts[0].key)));
+  r2.data.set(old.parts[0].key, Buffer.from('repaired'));
+  r2.data.set(`${PREFIX}/snapshots/${old.id}/unexpected`, Buffer.from('unknown'));
+  await assert.rejects(pruneCommitted({ r2, now: FIXED }), /inventory incomplete/);
+  assert.ok(r2.data.has(`${PREFIX}/snapshots/${old.id}/unexpected`));
+}));
+
+test('disabled backup never disables read-only recovery or watch', () => {
+  const env = { MEDIA_DR_SOURCE_PROJECT: 'mosaic-dev', MEDIA_DR_ENABLED: 'false' };
+  assert.throws(() => assertCommandAllowed(env, '--backup'), /disabled/);
+  assert.doesNotThrow(() => assertCommandAllowed(env, '--watch'));
+  assert.doesNotThrow(() => assertCommandAllowed(env, '--download'));
+  assert.throws(() => assertCommandAllowed({ ...env, MEDIA_DR_SOURCE_PROJECT: 'prod' }, '--download'), /Wrong Scratch/);
+});

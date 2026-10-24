@@ -73,13 +73,39 @@ export async function uploadCiphertext({ r2, archive, now = new Date(), prefix =
   } finally {
     await fh.close();
   }
-  if (bytes !== info.size || (await stat(archive)).size !== bytes) {
+  // Re-read the source after all remote writes. Identical size is not proof of
+  // identical bytes: a same-size local overwrite could silently combine two
+  // generations into a remote archive that age cannot decrypt.
+  const after = await stat(archive);
+  if (bytes !== info.size || !after.isFile() || after.size !== bytes ||
+      after.dev !== info.dev || after.ino !== info.ino ||
+      after.mtimeMs !== info.mtimeMs || after.ctimeMs !== info.ctimeMs) {
     throw new Error('Encrypted source changed during upload');
+  }
+  const expected = full.digest('hex');
+  const check = createHash('sha256');
+  const source = await open(archive, 'r');
+  try {
+    let offset = 0;
+    const buffer = Buffer.alloc(Math.min(chunkBytes, 1024 * 1024));
+    while (offset < info.size) {
+      const { bytesRead } = await source.read(buffer, 0, Math.min(buffer.length, info.size - offset), offset);
+      if (bytesRead <= 0) throw new Error('Encrypted source truncated during verification');
+      check.update(buffer.subarray(0, bytesRead));
+      offset += bytesRead;
+    }
+  } finally {
+    await source.close();
+  }
+  const verifiedStat = await stat(archive);
+  if (check.digest('hex') !== expected || verifiedStat.mtimeMs !== info.mtimeMs ||
+      verifiedStat.ctimeMs !== info.ctimeMs || verifiedStat.size !== bytes) {
+    throw new Error('Encrypted source bytes changed during upload');
   }
   const marker = {
     format: 'mosaic-supabase-private-media-offsite', version: 1, id,
     sourceProject: SOURCE_PROJECT, bucket: BUCKET,
-    completedAt: now.toISOString(), bytes, cipherSha256: full.digest('hex'), parts,
+    completedAt: now.toISOString(), bytes, cipherSha256: expected, parts,
   };
   const markerBytes = Buffer.from(JSON.stringify(marker));
   await r2.putObject(committedKey(prefix, id), markerBytes, { metadata: { 'marker-sha256': hash(markerBytes) } });
@@ -168,6 +194,20 @@ export async function pruneCommitted({ r2, prefix = PREFIX, now = new Date(), lo
   if (ids.size === 0 || [...ids].some((id) => !committed.has(id))) {
     throw new Error('Incomplete offsite snapshot: pruning refused');
   }
+  // Validate every historical generation BEFORE deleting anything. A completed
+  // marker without its entire declared part set, or an extra unexpected object,
+  // is not a safely prunable archive, even if the newest snapshot is valid.
+  for (const id of [...committed].sort()) {
+    const marker = validateMarker(
+      JSON.parse((await r2.getObject(committedKey(prefix, id))).toString('utf8')),
+      prefix, id,
+    );
+    const observed = all.filter((key) => key.startsWith(`${snapPrefix(prefix, id)}/`));
+    const expected = new Set([committedKey(prefix, id), ...marker.parts.map((part) => part.key)]);
+    if (observed.length !== expected.size || observed.some((key) => !expected.has(key))) {
+      throw new Error('Offsite snapshot object inventory incomplete or unexpected: pruning refused');
+    }
+  }
   const newest = [...ids].sort().at(-1);
   await verifyCiphertext({ r2, prefix, id: newest, now });
   const retained = selectRetainedSnapshotIds([...committed], { now, daily: 7, weekly: 4, monthly: 6, lockDays });
@@ -215,11 +255,23 @@ function clientFromEnv(env) {
   });
 }
 
-async function cli(env = process.env, argv = process.argv.slice(2)) {
-  if (env.MEDIA_DR_SOURCE_PROJECT !== SOURCE_PROJECT || env.MEDIA_DR_ENABLED !== 'true') {
-    throw new Error('Offsite job disabled or wrong Scratch target');
+export function assertCommandAllowed(env, command) {
+  if (env.MEDIA_DR_SOURCE_PROJECT !== SOURCE_PROJECT) {
+    throw new Error('Wrong Scratch recovery target');
   }
-  if (!['--backup', '--watch', '--download'].includes(argv[0])) throw new Error('Invalid offsite command');
+  if (!['--backup', '--watch', '--download'].includes(command)) {
+    throw new Error('Invalid offsite command');
+  }
+  // A disabled/failed source schedule MUST NOT also block disaster recovery.
+  // Read-only diagnostics and authenticated ciphertext download remain possible
+  // with their independent read-only R2 credentials on a trusted operator host.
+  if (command === '--backup' && env.MEDIA_DR_ENABLED !== 'true') {
+    throw new Error('Protected offsite backup job disabled');
+  }
+}
+
+async function cli(env = process.env, argv = process.argv.slice(2)) {
+  assertCommandAllowed(env, argv[0]);
   const r2 = clientFromEnv(env);
   if (argv[0] === '--watch') {
     const result = await watchCiphertext({ r2 });
