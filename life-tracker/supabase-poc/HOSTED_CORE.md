@@ -483,6 +483,72 @@ the historical stale six-table snapshot, or if nonempty Storage objects
 exist without independent encrypted media-binary escrow/restore.
 
 
+## 2026-10-24 — approved isolated Scratch photo schema and signed-hosted acceptance
+
+The operator's **fresh 2026-10-24 age-encrypted archive has been independently
+restored**, with seven Auth/core/Diary tables and **410 exact source-versus-local-PG17
+rows**. Original-password GoTrue sign-in, owner lease, populated-owner
+task/category reads and foreign-owner read denial all passed on the **new**
+disposable Fedora stack. Original sessions and old writer leases were not
+replayed. This is **not** complete managed Auth/SMTP/Storage media disaster
+recovery; keep the existing encrypted .age archive and local target private.
+
+On the exact isolated mosaic-dev project `hcxtiifzxoaflhjgoglb`, a verified
+read-only preflight confirmed 81 accounts, 63 task rows, 54 categories,
+1 Diary, zero Storage objects/buckets and Storage RLS on. The reviewed,
+source-controlled `20261023_candidate_private_personal_photos.sql` was then
+applied via the connected Supabase migration API as **migration
+`20261024061914_candidate_private_personal_photos_owner_rls_and_diary_cas_20261024`**.
+Readback confirmed one private `mosaic-personal-photos` bucket, strict WebP
+5 MiB limit, only three authenticated owner-UUID Storage
+SELECT/INSERT/DELETE policies, no UPDATE/upsert policy,
+anonymous Diary CAS EXECUTE revoked, and the photo-aware Diary CAS installed.
+**All 81/63/54/1 core counts remained identical; Storage objects remained 0.**
+This is an explicitly gated **Scratch schema-only** migration; no Production
+data, `dev`/`main`, or protected Preview was promoted.
+
+**Next gate — real hosted signed private Storage acceptance, not yet performed:**
+Run the source-controlled `supabase-poc/verify-hosted-private-photo.py` on
+the trusted Fedora host. This standard-library script is hard-pinned to the
+mosaic-dev HTTPS API URL and refuses arbitrary arguments, endpoints or
+redirects. It asks for the **publishable** project API key and credentials
+for two **distinct existing Supabase test accounts** in local terminal
+prompts (never send email, password, token, or key to the assistant).
+With two separately signed GoTrue JWTs it uploads only one fresh random,
+small WebP object into the first owner's prefix, proves binary readback,
+rejects foreign/anonymous upload/read/delete and public URL/immutable overwrite,
+and deletes the synthetic object before exit. The script has no admin credential,
+never reads other owners' records or invokes Auth admin actions; it prints
+only fixed `HOSTED_PRIVATE_PHOTO_*_PASS` markers. A failed test is a
+hard-stop for Preview/production acceptance, not a reason to disable RLS.
+
+```sh
+cd "$HOME/mosaic-photo-dr-review/life-tracker"
+# Pull latest isolated stable only if this worktree is on that branch;
+# an existing SHA-pinned standalone worktree should use a new detached checkout
+# or download the reviewed script from exact approved source instead.
+python3 supabase-poc/verify-hosted-private-photo.py
+```
+
+**Before running, verify this script exists at your checked-out source SHA.**
+If absent, use the Git-reviewed isolated stable branch containing it; do not
+hand-create ad hoc Storage policies in the Supabase Dashboard. A publishable
+key is available in Supabase Dashboard → mosaic-dev → Settings → API Keys.
+Optionally set `MOSAIC_SUPABASE_PUBLISHABLE_KEY` privately in the local shell;
+do not save account passwords. Two existing accounts are required; if only
+one is available, stop safely rather than creating test Auth users with
+unreviewed SQL. All signed tests are scoped to a fresh random object that is
+removed on exit. Confirm Storage object count returns to **zero**.
+
+The remaining rollout blocker **after the hosted signed checks** is an
+independent encrypted Storage-**object-byte** backup and restore method
+before real users create photos. PostgreSQL logical dumps alone do not
+back up private Storage blobs. Media-aware user ZIP exports also require
+device/manual acceptance and are not a backend-wide DR replacement. Only
+after signing off that media recovery gate should the reviewer approve the
+exact immutable protected Supabase v0.47.0 Preview job. Do not promote
+Production or claim the private Bucket List/settings MVP is complete.
+
 ## CI-backed, opt-in Supabase prebuilt Preview deployment (#1250)
 
 The same `Supabase Core App Lab` that produces the isolated, nondeployable
