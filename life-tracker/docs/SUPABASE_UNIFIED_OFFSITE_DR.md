@@ -58,8 +58,13 @@ The Ubuntu 24.04 runner ships PostgreSQL 16, so the disabled backup workflow
 pins `ubuntu-24.04` and installs `postgresql-client-17` from PostgreSQL's
 signed PGDG apt repository before starting the source capture. The source
 entrypoint independently refuses a `pg_dump` or `pg_restore` client other than
-PostgreSQL 17. This repository-only correction has not executed a hosted R2
-backup; an actual Actions runner installation still needs first-live-run proof.
+PostgreSQL 17. The GitHub workflow emits a signed Deb822 `pgdg.sources` file with separate
+`Types`, `URIs`, `Suites`, `Components` and `Signed-By` lines, installs only
+the PostgreSQL 17 client, and checks both executable paths before reading
+source credentials. Any package/key/source-format failure stops the workflow
+without producing a `COMPLETED` recovery marker. This repository-only correction
+has not executed a hosted R2 backup; an actual Actions runner installation
+still needs first-live-run proof.
 
 ## Protected configuration — not yet independently verified or authorized
 
