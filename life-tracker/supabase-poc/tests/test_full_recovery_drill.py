@@ -162,15 +162,15 @@ class FullRecoveryTests(unittest.TestCase):
                         )
                 elif cmd == "python3":
                     self.assertNotIn("PGUSER", env)
-                    if "verify-private-core-signin.py" in args[1]:
+                    if pathlib.Path(args[1]).name == "verify-private-core-signin.py":
                         self.assertFalse(output)
                         stages.append("signed-owner")
-                    elif "verify-hosted-private-photo.py" in args[1]:
+                    elif pathlib.Path(args[1]).name == "verify-hosted-private-photo.py":
                         self.assertFalse(output)
                         stages.append("signed-photo")
                         if fail_on == "signed-photo":
                             raise m.DrillFailure("Synthetic hosted photo lab failure")
-                    elif "private-photo-snapshot.py" in args[1]:
+                    elif pathlib.Path(args[1]).name == "private-photo-snapshot.py":
                         self.assertTrue(output)
                         self.assertEqual(env.get("MOSAIC_SUPABASE_SOURCE_STORAGE_KEY"),
                                          "sb_secret_synthetic-only")
@@ -178,7 +178,7 @@ class FullRecoveryTests(unittest.TestCase):
                         pathlib.Path(args[2]).write_bytes(b"age-encrypted-test-fixture")
                         stages.append("whole-media-snapshot")
                         return "SUPABASE_PRIVATE_MEDIA_ENCRYPTED_SNAPSHOT_PASS: objects=0 bytes=0"
-                    elif "restore-private-photo-snapshot.py" in args[1]:
+                    elif pathlib.Path(args[1]).name == "restore-private-photo-snapshot.py":
                         self.assertTrue(output)
                         self.assertNotIn("MOSAIC_SUPABASE_SOURCE_STORAGE_KEY", env)
                         self.assertEqual(args[3], str(local))

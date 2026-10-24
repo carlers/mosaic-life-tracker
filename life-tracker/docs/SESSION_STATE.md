@@ -1,18 +1,16 @@
 # Session checkpoint
 
-Updated: 2026-10-25 UTC
-Current task: #1027 full private photo-bucket encrypted backup and independently restored Storage in ONE command.
+Updated: 2026-10-25
+Issue: #1027, isolated Supabase recovery branch.
 
-## Verifiable baseline
-- Isolated stable `feature/1027-supabase-recovery-20261020@e6bdd496e5c18779431bd4f3ba429d4d758b2ea6`; exact Quality #40109644118, Synthetic #40109644087, Real GoTrue #40109644143 **SUCCESS**, Core App #40109644053 protected Preview **waiting**. `dev@95ecd0b`, `main@319421a` remain Appwrite; no Production promotion.
-- Operator completed the FIRST **live ONE-COMMAND** full encrypted PG backup, authenticated TOC, seven table independently restored exact row comparison, restored original-password owner/foreign denial, two-hosted-owner private WebP security, independently encrypted/restored synthetic media and all cleanup: final `MOSAIC_FULL_DR_COMBINED_EXISTING_GATES_PASS`. Independent hosted Storage SQL confirmed **0 leftover objects** and existing auth/tasks/categories/Diary rows unchanged. The saved IPv4 pooler config and age identity on Fedora must never be reset or requested again.
-- **Critical truth**: the live one-command run did NOT back up/restore the **entire private Storage bucket**; it only checked a synthetic photo, and the real hosted Scratch bucket is EMPTY. Full media binary DR beyond synthetic is the current authorized implementation request. Old worktree session checkpoint was stale and claimed earlier failure; owner success and GitHub issue #1027 comment are newer evidence.
+## Verified result
+- Real Fedora one-command recovery drill at stable commit 1cef0482 passed every stage, including encrypted database backup and restore, signed identity isolation, private photo security, complete photo-bucket encrypted snapshot, independent local media restore, synthetic nonempty image recovery, and disposable-environment cleanup.
+- The source bucket contained zero actual photo objects. The nonempty recovery evidence is synthetic, not existing user media.
+- No more local commands are required to accept this drill; protected Preview and Production were not promoted.
+- Quality Gate #40113243226 failed in a unit-test matcher: a substring matched the destination restore executable as if it were the source snapshot executable. Runtime keeps source-only credentials out of the destination. Synthetic and real Auth recovery labs succeeded.
 
-## Current scoped work
-- Branch `chatgpt/1027-whole-bucket-dr-20261025` from isolated stable: add `supabase-poc/restore-private-photo-snapshot.py`, restore complete age+tar private Storage archive after verifying all owner paths and SHA-256, upload/download every object into freshly-created loopback-only disposable local Supabase Storage with target's own service JWT and private WebP bucket; verify all bytes and row count. Never upload to source. If source is empty, encrypt and independently recover a separate nonempty **synthetic** WebP tar to local Storage without claiming any real media existed. Extend `full-recovery-drill.py` with a stage within **the same one-command operation** and a hidden backend-only hosted key prompt, reuse existing source `private-photo-snapshot.py`. Require bounded source/target identity, no external SQL mutation, no client or env service-key leak.
-- Simulated multiple-owner encrypted media restore, empty inventory, tamper denial, local endpoint restriction, nonempty synthetic run, and late-stage cleanup in focused CI. Update Media DR and full recovery docs.
-- Current scope source+destination Stage in single command; protected scheduled **offsite** backup retention/alert pipeline, managed Auth/SMTP, true real nonempty owner-media acceptance remain separately gated (not automatically deployed). No Preview/dev/main/Production approval or release.
+## Current task
+Correct that test matcher to compare exact executable names, retain a negative assertion for destination credential isolation, and rerun focused plus canonical acceptance. Keep the change scoped to tests and durable checkpoint.
 
 ## Next action
-- Run focused CI; repair, PR squash into isolated stable; canonical Quality/Core App/GoTrue/Synthetic checks. Then one real Fedora run with single source-pinned full command; backend-only key is prompted privately once inside same command, alongside historical restored-auth prompts. Success must include `SUPABASE_PRIVATE_MEDIA_ALL_BUCKET_ISOLATED_RESTORE_PASS`, `SUPABASE_PRIVATE_MEDIA_NONEMPTY_ENCRYPTED_RESTORE_PASS`, `MOSAIC_FULL_DR_WHOLE_BUCKET_MEDIA_RESTORE_PASS`, and final combined drill PASS.
-- Later: protected scheduled offsite whole-bucket encrypted retention, monitored restore drills, full managed Auth/SMTP configuration escrow and actual nonempty owner media, device/offline ZIP, personal Bucket List/settings, prior-writer fence and reversible providers. Preserve 1–2 Fedora commands maximum per operator handoff.
+Merge only after focused green and confirm stable CI. Keep issue #1027 open for scheduled encrypted offsite media retention, managed platform recovery, real populated photo restoration, remaining personal-feature parity, and protected rollout approvals. Do not request a repeat operator drill.
