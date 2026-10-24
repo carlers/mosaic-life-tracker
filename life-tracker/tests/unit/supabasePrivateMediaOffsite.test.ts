@@ -11,7 +11,7 @@ describe('Supabase offsite private photo ciphertext, watchdog and retention', ()
       env: { PATH: process.env.PATH ?? '', HOME: '/nonexistent' },
     });
     expect(result.status, result.stderr || result.stdout || result.error?.message).toBe(0);
-    expect(result.stdout).toContain('# pass 6');
+    expect(result.stdout).toContain('# pass 9');
     expect(result.stdout).toContain('# fail 0');
   });
 });

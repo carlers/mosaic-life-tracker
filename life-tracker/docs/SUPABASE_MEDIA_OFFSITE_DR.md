@@ -15,7 +15,8 @@ private identity **before** the Node uploader can publish it.
 
 The uploader sends only 8 MiB-or-smaller **encrypted** ciphertext pieces to
 R2 (`mosaic-supabase-media/v1/snapshots/<UTC-ID>/parts/`). Each upload is
-retrieved and SHA-256 verified. A minimal, metadata-only `COMPLETED` object
+retrieved and SHA-256 verified. Source file metadata and a second complete
+source SHA-256 read must still match before a marker may be published. A minimal, metadata-only `COMPLETED` object
 with ordered part digests, aggregate ciphertext checksum, exact Scratch
 identity and timestamp is written **last** and independently read back.
 Uncommitted prefixes are never restore points. If source, upload or verification
@@ -27,7 +28,9 @@ authenticity is rechecked by the existing restore path on the trusted recovery
 host; a remote ciphertext digest alone is not a decrypt/restore drill.
 
 The `--download <UTC-ID> <new-absolute.age>` operation reconstructs verified
-ciphertext to a 0600 no-clobber local file. Subsequently run the existing
+ciphertext to a 0600 no-clobber local file. It and read-only `--watch` remain
+available with R2 read-only credentials even if backup scheduling is disabled;
+a disaster cannot require re-enabling the writer. Subsequently run the existing
 `restore-private-photo-snapshot.py` against an **independently provisioned new
 loopback-only Supabase target** under the one-command DR protocol. This tool
 never uploads any recovered bytes to hosted Scratch and cannot modify target
@@ -61,8 +64,9 @@ Retention reuses the existing Appwrite DR selection code (minimum 7 daily,
 4 weekly, 6 monthly and all last-30-day snapshot IDs). **Deletion is disabled
 by default**; only set `SUPABASE_MEDIA_DR_PRUNE_ENABLED=true` after reviewing
 provider-level R2 prefix/bucket lock protection and setting
-`SUPABASE_MEDIA_DR_R2_LOCK_CONFIRMED=true`. An incomplete or unknown snapshot
-object refuses pruning entirely, and valid snapshots are deleted only after a
+`SUPABASE_MEDIA_DR_R2_LOCK_CONFIRMED=true`. An incomplete, missing-part or unknown snapshot
+object refuses pruning entirely; every historical committed marker and declared
+part list is validated before deletion, and valid snapshots are deleted only after a
 newest completed offsite restore point passes full-byte verification. R2
 S3 Object Lock headers are not a supported mechanism on R2: set and inspect
 native R2 bucket lock rules for the *whole* `mosaic-supabase-media/v1/`
