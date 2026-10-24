@@ -1,17 +1,16 @@
 # Session checkpoint
 
-Updated: 2026-10-25
-Current task: #1027 live recovery acceptance and canonical test repair.
-Issue: #1027, isolated Supabase recovery branch.
+Updated: 2026-10-25 Asia/Manila
+Current task: #1027 protected offsite encrypted private Supabase photo-bucket DR source.
 
-## Verified result
-- Real Fedora one-command recovery drill at stable commit 1cef0482 passed every stage, including encrypted database backup and restore, signed identity isolation, private photo security, complete photo-bucket encrypted snapshot, independent local media restore, synthetic nonempty image recovery, and disposable-environment cleanup.
-- The source bucket contained zero actual photo objects. The nonempty recovery evidence is synthetic, not existing user media.
-- No more local commands are required to accept this drill; protected Preview and Production were not promoted.
-- Quality Gate #40113243226 failed in a unit-test matcher: a substring matched the destination restore executable as if it were the source snapshot executable. Runtime keeps source-only credentials out of the destination. Synthetic and real Auth recovery labs succeeded.
+## Verified baseline
+- Real Fedora one-command database/Auth/two-owner/empty-hosted-bucket and nonempty **synthetic** local Storage recovery passed at isolated `1cef0482fccc087a6c4331167bcdf184b0e5bd0c`. No repeat operator action for that gate.
+- Stable isolated recovery `6e4ca7696d83bbc435088c8a44df637817ef7a96` fixed the offline matcher; exact Quality, Synthetic and GoTrue SUCCESS. Core App's protected Preview was WAITING reviewer approval. No release or Production authorization.
 
-## Current task
-Correct that test matcher to compare exact executable names, retain a negative assertion for destination credential isolation, and rerun focused plus canonical acceptance. Keep the change scoped to tests and durable checkpoint.
+## Scoped work
+- Implement opt-in offsite Scratch private media capture through existing exact-origin, age-verified source snapshot and chunked R2 encrypted-byte upload. Verify each remote chunk and only then commit; add full-byte freshness watcher, no-clobber ciphertext recovery and guarded completed-snapshot 7d/4w/6m retention.
+- Add **disabled** scheduled backup/watch workflows requiring `main`, a repository enable switch and protected environment secrets, plus negative offline tests and the runbook `docs/SUPABASE_MEDIA_OFFSITE_DR.md`.
+- No Supabase hosted/storage mutation, provider credential provisioning, Vercel Preview approval, dev/main/Production promotion or application version bump (backend-only tooling).
 
 ## Next action
-Merge only after focused green and confirm stable CI. Keep issue #1027 open for scheduled encrypted offsite media retention, managed platform recovery, real populated photo restoration, remaining personal-feature parity, and protected rollout approvals. Do not request a repeat operator drill.
+- Get task-head `[verify:focused]` green, squash-merge via PR into isolated stable `feature/1027-supabase-recovery-20261020` and check fresh canonical exact-SHA jobs. Do not activate scheduler or R2 retention without protected environment configuration and separate approval. Independently test nonempty hosted data/restore, actual notifications and R2 lock, managed Auth/SMTP, personal feature parity, old-PWA write fencing and provider reversibility later. Keep #1027 open.
