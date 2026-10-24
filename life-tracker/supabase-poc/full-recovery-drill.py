@@ -34,7 +34,8 @@ STAGES = (
     "03 SHA-pinned isolated PostgreSQL 17 restore and exact COPY parity",
     "04 original-password local GoTrue owner and foreign-owner isolation",
     "05 hosted signed two-account private photo and encrypted byte restore",
-    "06 dispose only this run's private recovery stack and temporary worktree",
+    "06 encrypt full hosted private Storage inventory and restore to isolated local Storage",
+    "07 dispose only this run's private recovery stack and temporary worktree",
 )
 
 
@@ -261,12 +262,45 @@ def run(args):
                             cwd=tracker, env=clean_env(), stdin=tty, output=False, timeout=240)
             print("MOSAIC_FULL_DR_HOSTED_PHOTO_ENCRYPTED_RESTORE_PASS")
         stage_run(STAGES[4], photos)
+        def whole_bucket():
+            # The source-only key is NEVER sent to local target, CLI args,
+            # PostgreSQL, Github or the frontend. Prompt at most once inside
+            # the same original one-command operator session.
+            key = os.environ.get("MOSAIC_SUPABASE_SOURCE_STORAGE_KEY", "")
+            if not key:
+                key = getpass.getpass(
+                    "Scratch backend-only Storage key for whole-bucket encrypted backup (hidden): "
+                )
+            if not (key.startswith("sb_secret_") or key.startswith("eyJ")) or any(
+                char.isspace() for char in key
+            ):
+                raise DrillFailure("Backend-only Storage key required for complete media capture")
+            media = archive_dir / ("mosaic-whole-private-media-" + secrets.token_hex(12) + ".age")
+            media_env = clean_env() | {"MOSAIC_SUPABASE_SOURCE_STORAGE_KEY": key}
+            try:
+                proof = guarded_run(["python3", script("private-photo-snapshot.py"), str(media)],
+                                    cwd=tracker, env=media_env, timeout=900)
+                if ("SUPABASE_PRIVATE_MEDIA_ENCRYPTED_SNAPSHOT_PASS:" not in proof or
+                    not media.is_file() or not media.stat().st_size):
+                    raise DrillFailure("Complete encrypted hosted media snapshot not verified")
+            finally:
+                media_env.pop("MOSAIC_SUPABASE_SOURCE_STORAGE_KEY", None)
+                key = ""
+            out = guarded_run(["python3", script("restore-private-photo-snapshot.py"),
+                               str(media), str(private)],
+                              cwd=tracker, env=clean_env(), timeout=900)
+            for marker in ("SUPABASE_PRIVATE_MEDIA_ALL_BUCKET_ISOLATED_RESTORE_PASS:",
+                           "SUPABASE_PRIVATE_MEDIA_NONEMPTY_ENCRYPTED_RESTORE_PASS"):
+                if marker not in out:
+                    raise DrillFailure("Complete isolated Storage object-byte recovery not verified")
+            print("MOSAIC_FULL_DR_WHOLE_BUCKET_MEDIA_RESTORE_PASS", flush=True)
+        stage_run(STAGES[5], whole_bucket)
     finally:
         # If an earlier stage failed, keep its name as the primary diagnostic;
         # otherwise any cleanup error belongs to the cleanup stage.
         if sys.exc_info()[0] is None:
-            ACTIVE_STAGE = STAGES[5]
-        print("MOSAIC_FULL_DR_STAGE_BEGIN: " + STAGES[5], flush=True)
+            ACTIVE_STAGE = STAGES[6]
+        print("MOSAIC_FULL_DR_STAGE_BEGIN: " + STAGES[6], flush=True)
         # This owns ONLY an exact freshly generated private project, network and
         # temporary detached worktree. Preserve age ciphertext as DR evidence.
         errors = []
@@ -298,11 +332,11 @@ def run(args):
         if not temp.exists() or not any(temp.iterdir()):
             temp.rmdir() if temp.exists() else None
         if errors:
-            ACTIVE_STAGE = STAGES[5]
+            ACTIVE_STAGE = STAGES[6]
             raise DrillFailure("Isolated resource cleanup incomplete: " + ", ".join(errors))
-        print("MOSAIC_FULL_DR_STAGE_PASS: " + STAGES[5], flush=True)
+        print("MOSAIC_FULL_DR_STAGE_PASS: " + STAGES[6], flush=True)
     print("MOSAIC_FULL_DR_COMBINED_EXISTING_GATES_PASS")
-    print("NOT_FULL_RECOVERY: managed Auth/SMTP, all-owner scheduled Storage DR and separate-target nonempty media restore remain release gates")
+    print("NOT_FULL_RECOVERY: live whole-bucket restore verified, but managed Auth/SMTP and protected scheduled offsite Storage retention remain separate gates")
 
 
 def main():

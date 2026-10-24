@@ -26,7 +26,7 @@ class FullRecoveryTests(unittest.TestCase):
         captured = io.StringIO()
         with patch.object(sys, "argv", ["rehearse", "--plan"]), patch("sys.stdout", captured):
             m.main()
-        self.assertEqual(captured.getvalue().count("MOSAIC_FULL_DR_PLAN: "), 6)
+        self.assertEqual(captured.getvalue().count("MOSAIC_FULL_DR_PLAN: "), 7)
         self.assertIn("MOSAIC_FULL_DR_PLAN_NO_CLOUD_OR_SECRETS_PASS", captured.getvalue())
 
     def test_nested_life_tracker_checkout_git_root_and_real_worktree(self):
@@ -162,13 +162,31 @@ class FullRecoveryTests(unittest.TestCase):
                         )
                 elif cmd == "python3":
                     self.assertNotIn("PGUSER", env)
-                    self.assertFalse(output)
                     if "verify-private-core-signin.py" in args[1]:
+                        self.assertFalse(output)
                         stages.append("signed-owner")
                     elif "verify-hosted-private-photo.py" in args[1]:
+                        self.assertFalse(output)
                         stages.append("signed-photo")
                         if fail_on == "signed-photo":
                             raise m.DrillFailure("Synthetic hosted photo lab failure")
+                    elif "private-photo-snapshot.py" in args[1]:
+                        self.assertTrue(output)
+                        self.assertEqual(env.get("MOSAIC_SUPABASE_SOURCE_STORAGE_KEY"),
+                                         "sb_secret_synthetic-only")
+                        self.assertNotIn("PGPASSWORD", env)
+                        pathlib.Path(args[2]).write_bytes(b"age-encrypted-test-fixture")
+                        stages.append("whole-media-snapshot")
+                        return "SUPABASE_PRIVATE_MEDIA_ENCRYPTED_SNAPSHOT_PASS: objects=0 bytes=0"
+                    elif "restore-private-photo-snapshot.py" in args[1]:
+                        self.assertTrue(output)
+                        self.assertNotIn("MOSAIC_SUPABASE_SOURCE_STORAGE_KEY", env)
+                        self.assertEqual(args[3], str(local))
+                        stages.append("whole-media-restore")
+                        if fail_on == "whole-media-restore":
+                            raise m.DrillFailure("Synthetic independent media restore failure")
+                        return ("SUPABASE_PRIVATE_MEDIA_ALL_BUCKET_ISOLATED_RESTORE_PASS: objects=0 bytes=0\n"
+                                "SUPABASE_PRIVATE_MEDIA_NONEMPTY_ENCRYPTED_RESTORE_PASS")
                     else:
                         raise AssertionError(args)
                 elif cmd == "supabase" and args[1] == "stop":
@@ -193,7 +211,8 @@ class FullRecoveryTests(unittest.TestCase):
                  patch.object(m, "exact_source", return_value=None), \
                  patch.object(m.shutil, "which", return_value="/usr/bin/synthetic"), \
                  patch.object(m, "guarded_run", side_effect=pretend), \
-                 patch.object(m.getpass, "getpass", return_value="fixture-password"), \
+                 patch.object(m.getpass, "getpass", side_effect=lambda prompt: (
+                     "sb_secret_synthetic-only" if "Storage key" in prompt else "fixture-password")), \
                  patch.object(builtins, "open", side_effect=open_tty), \
                  patch("sys.stdout", output):
                 if fail_on:
@@ -204,6 +223,9 @@ class FullRecoveryTests(unittest.TestCase):
             self.assertEqual(stages[:3], ["snapshot", "inspect", "restore"])
             self.assertIn("signed-owner", stages)
             self.assertIn("signed-photo", stages)
+            if fail_on != "signed-photo":
+                self.assertIn("whole-media-snapshot", stages)
+                self.assertIn("whole-media-restore", stages)
             self.assertIn("stop", stages)
             self.assertIn("network", stages)
             self.assertTrue(any(archive_dir.glob("mosaic-dr-*.age")))
@@ -218,6 +240,9 @@ class FullRecoveryTests(unittest.TestCase):
 
     def test_failure_after_restore_does_not_fake_pass_or_skip_cleanup(self):
         self.exercise(fail_on="signed-photo")
+
+    def test_failure_during_whole_bucket_restore_cleans_disposable_target(self):
+        self.exercise(fail_on="whole-media-restore")
 
     def test_unsafe_metadata_or_private_directory_refuses(self):
         with self.assertRaises(m.DrillFailure):
