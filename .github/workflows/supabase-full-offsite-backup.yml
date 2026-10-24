@@ -55,7 +55,7 @@ jobs:
           sudo curl --fail --silent --show-error --location \
             --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
             https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          printf '%s\\n' \
+          printf '%s\n' \
             'Types: deb' \
             'URIs: https://apt.postgresql.org/pub/repos/apt' \
             'Suites: noble-pgdg' \
@@ -66,6 +66,6 @@ jobs:
           sudo apt-get install -y -qq postgresql-client-17
           test -x /usr/lib/postgresql/17/bin/pg_dump
           test -x /usr/lib/postgresql/17/bin/pg_restore
-          printf '%s\\n' '/usr/lib/postgresql/17/bin' >> "$GITHUB_PATH"
+          printf '%s\n' '/usr/lib/postgresql/17/bin' >> "$GITHUB_PATH"
       - name: Capture encrypted PostgreSQL and whole private Storage then publish ONE verified R2 marker
         run: node supabase-poc/unified-offsite.mjs --backup
