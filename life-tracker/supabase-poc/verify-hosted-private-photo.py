@@ -171,7 +171,45 @@ def encrypted_roundtrip(blob):
         raise ValueError("Encrypted Storage fixture backup/restore failed") from exc
 
 
+def cleanup_previous_probe():
+    # Only the 2026-10-24 09:44 UTC probe; never touch ordinary user files.
+    _, token_owner = (None, None)
+    key = (os.getenv("MOSAIC_SUPABASE_PUBLISHABLE_KEY") or DEFAULT_PUBLISHABLE_KEY).strip()
+    owner, token_owner = signed_owner(key, 1)
+    payload = json.dumps({"prefix": owner + "/", "limit": 100, "offset": 0}).encode()
+    code, raw = request("/storage/v1/object/list/" + BUCKET, key, token_owner,
+                        "POST", payload, "application/json")
+    if code != 200:
+        raise ValueError("Owner-only fixture list unavailable")
+    items = json.loads(raw)
+    if not isinstance(items, list) or len(items) >= 100:
+        raise ValueError("Private fixture listing cannot be trusted")
+    candidates = [
+        x["name"] for x in items if isinstance(x, dict)
+        and isinstance(x.get("name"), str)
+        and re.fullmatch(r"probe_[0-9a-f]{24}[.]webp", x["name"])
+        and str(x.get("created_at", "")).startswith("2026-10-24T09:44:")
+    ]
+    if len(candidates) != 1:
+        raise ValueError("Exactly one owner-signed probe from the incident minute required")
+    obj = storage_path(owner, candidates[0][:-5])
+    private = storage_path(owner, candidates[0][:-5], authenticated=True)
+    code, data = request(private, key, token_owner)
+    if code != 200 or data != WEBP:
+        raise ValueError("Not the original synthetic WebP; refusing deletion")
+    code, _ = request(obj, key, token_owner, "DELETE")
+    if not 200 <= code < 300:
+        raise ValueError("Fixture Storage API deletion not confirmed")
+    code, _ = request(private, key, token_owner)
+    if 200 <= code < 300:
+        raise ValueError("Fixture still accessible after deletion")
+    print("HOSTED_PRIVATE_PHOTO_LEFTOVER_CLEANUP_PASS")
+
+
 def main():
+    if sys.argv[1:] == ["--cleanup-20261024-probe"]:
+        cleanup_previous_probe()
+        return
     if len(sys.argv) != 1:
         raise ValueError("No arguments permitted; this test is bound to Scratch")
     print("Hosted private-photo security lab: mosaic-dev only; no admin credentials.")
@@ -242,22 +280,29 @@ def main():
         print("HOSTED_PRIVATE_PHOTO_IMMUTABLE_BYTES_PASS")
         print("HOSTED_PRIVATE_PHOTO_ENCRYPTED_BYTE_RESTORE_PASS")
     finally:
-        # Always attempt to remove only our random object, even when an upload
-        # response was lost. Never list/delete arbitrary user photos.
-        if attempted_restore_upload:
-            status, _ = request(restore_object, key, token_a, "DELETE")
-            if not (200 <= status < 300) and not (status in (400, 404) and not restored_uploaded):
-                raise ValueError("Encrypted photo restore fixture cleanup failed")
-            status, _ = request(restore_private, key, token_a)
-            if 200 <= status < 300:
-                raise ValueError("Restored private photo fixture remains after cleanup")
-        if attempted_upload:
-            status, _ = request(object_path, key, token_a, "DELETE")
-            if not (200 <= status < 300) and not (status in (400, 404) and not uploaded):
-                raise ValueError("Private photo fixture cleanup failed; inspect bucket manually")
-            status, _ = request(private_path, key, token_a)
-            if 200 <= status < 300:
-                raise ValueError("Private fixture remains after cleanup")
+        # Attempt BOTH isolated fixture cleanups even if the first raises or
+        # its response is interrupted. A previous run left the original object.
+        cleanup_errors = []
+        for attempted, confirmed, obj, private in (
+            (attempted_upload, uploaded, object_path, private_path),
+            (attempted_restore_upload, restored_uploaded, restore_object, restore_private),
+        ):
+            if not attempted:
+                continue
+            try:
+                code, _ = request(obj, key, token_a, "DELETE")
+                if not (200 <= code < 300 or (code in (400, 404) and not confirmed)):
+                    cleanup_errors.append("delete not confirmed")
+            except (OSError, RuntimeError, ValueError):
+                cleanup_errors.append("delete interrupted")
+            try:
+                code, _ = request(private, key, token_a)
+                if 200 <= code < 300:
+                    cleanup_errors.append("fixture still accessible")
+            except (OSError, RuntimeError, ValueError):
+                cleanup_errors.append("readback interrupted")
+        if cleanup_errors:
+            raise ValueError("One or more private fixture cleanups were not verified")
         if attempted_upload and attempted_restore_upload:
             print("HOSTED_PRIVATE_PHOTO_FIXTURE_CLEANUP_PASS")
     print("NOT_FULL_RECOVERY: synthetic encrypted bytes verified; backend-wide scheduled Storage backups, managed Auth and device tests remain separate.")
