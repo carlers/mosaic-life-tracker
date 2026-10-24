@@ -49,6 +49,35 @@ malformed/tampered archive, missing escrow identity and output overwrite.
 It never treats an attempted download or a metadata-only `storage.objects`
 query as successful binary recovery.
 
+## Complete bucket restore into a separate disposable Supabase Storage target
+
+`restore-private-photo-snapshot.py` now provides the destination half of
+the encrypted Storage backup: verify the entire archive/manifest/individual
+checksums before writing, restore only to a **new loopback-only
+`mosaic_dr_<nonce>`** local Supabase Storage target, enforce private
+WebP-only bucket settings, use that disposable target's **own** local
+service-role credential (never the hosted source backend key), upload each
+immutable owner-path file and download/read byte parity, then compare the
+disposable database's Storage object count.
+
+`full-recovery-drill.py` orchestrates source capture and independent
+target restore inside **the same one-command Fedora recovery run** as the
+encrypted database backup and signed two-account photo security checks.
+All local disposable Storage is deleted only after tests complete.
+The hosted Scratch private bucket is currently **empty**; an empty complete
+snapshot is still legitimately restorable but must never be called proof
+that real user images were recovered. An additional nonempty *synthetic*
+archive is independently encrypted/decrypted/restored into disposable
+Storage and its temporary ciphertext is removed. When the real bucket
+contains actual files, the same complete restore path verifies each one.
+
+This is still **NOT scheduled, retained offsite, remotely decrypted on a
+separate trusted disaster-recovery host, or managed Auth/SMTP recovery**.
+Do not activate Production or protected Preview because a one-time snapshot
+passed. A protected backend-only source Storage key must be available
+privately for the complete hosted inventory: a browser publishable key or
+account JWT cannot substitute for backup across all private owners.
+
 ## Required before user-facing photo recovery acceptance
 
 1. Establish a guarded scheduled source snapshot and independently durable

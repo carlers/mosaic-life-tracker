@@ -12,7 +12,7 @@ describe('full encrypted DB + signed privacy + hosted photo one-command drill', 
       env: { PATH: process.env.PATH ?? '', HOME: '/nonexistent' },
     });
     expect(run.status, run.stderr || run.error?.message).toBe(0);
-    expect(run.stderr).toContain('Ran 7 tests');
+    expect(run.stderr).toContain('Ran 8 tests');
     expect(run.stderr).toContain('OK');
   });
 
@@ -23,7 +23,7 @@ describe('full encrypted DB + signed privacy + hosted photo one-command drill', 
     });
     expect(run.status, run.stderr).toBe(0);
     expect(run.stdout).toContain('MOSAIC_FULL_DR_PLAN_NO_CLOUD_OR_SECRETS_PASS');
-    expect(run.stdout.match(/MOSAIC_FULL_DR_PLAN:/g)).toHaveLength(6);
+    expect(run.stdout.match(/MOSAIC_FULL_DR_PLAN:/g)).toHaveLength(7);
     expect(run.stdout).not.toContain('PGPASSWORD');
   });
 });
