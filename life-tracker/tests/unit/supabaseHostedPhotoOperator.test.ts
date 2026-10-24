@@ -124,7 +124,7 @@ describe('hosted signed private-photo operator guard', () => {
       'calls=[]',
       'def fake(path,key,token=None,method="GET",body=None,mime=None):',
       '  calls.append((method,path))',
-      '  if "/list/" in path: return 200,json.dumps([{"name":"probe_"+"a"*24+".webp","created_at":"2026-10-24T09:44:35Z"},{"name":"personal.webp","created_at":"2026-10-24T09:44:35Z"}]).encode()',
+      '  if "/list/" in path: return 200,json.dumps(([{"name":"probe_"+"a"*24+".webp","created_at":"2026-10-24T09:44:35Z"}] if "DELETE" not in [x[0] for x in calls] else [])+[{"name":"personal.webp","created_at":"2026-10-24T09:44:35Z"}]).encode()',
       '  if method=="DELETE":return 200,b""',
       '  return (400,b"") if any(x[0]=="DELETE" for x in calls) else (200,p.WEBP)',
       'with patch.object(p,"signed_owner",return_value=(owner,"token")),patch.object(p,"request",side_effect=fake):',
