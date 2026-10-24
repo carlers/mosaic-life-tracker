@@ -52,7 +52,16 @@ both archives and root completion markers. Do not enable pruning until native
 R2 lock is read back and independently tested. Failed captures can leave
 orphan parts; investigate them rather than silently deleting them.
 
-## Protected configuration — not yet provisioned or authorized
+## GitHub runner PostgreSQL client preflight
+
+The Ubuntu 24.04 runner ships PostgreSQL 16, so the disabled backup workflow
+pins `ubuntu-24.04` and installs `postgresql-client-17` from PostgreSQL's
+signed PGDG apt repository before starting the source capture. The source
+entrypoint independently refuses a `pg_dump` or `pg_restore` client other than
+PostgreSQL 17. This repository-only correction has not executed a hosted R2
+backup; an actual Actions runner installation still needs first-live-run proof.
+
+## Protected configuration — not yet independently verified or authorized
 
 This is **one dedicated Supabase backup bucket in the same existing Cloudflare
 R2 account as Appwrite**; it is not a second Cloudflare account. Appwrite's
@@ -114,3 +123,14 @@ The current complete one-command Fedora drill is **already proven** for the
 previously accepted PostgreSQL/Auth, empty hosted bucket and nonempty synthetic
 Storage case. Do NOT demand a repeat of that historical drill to validate only
 new source. The *new combined-R2 restore* is a separate unperformed gate.
+
+## Operator-reported setup checkpoint (2026-10-25)
+
+The owner reports completing the dedicated R2 bucket, 30-day bucket-lock rule,
+two bucket-scoped R2 tokens and `mosaic-supabase-dr` protected GitHub
+environment/variables. The current GitHub connector lacks environment-secret,
+Actions-variable and Cloudflare-bucket administration/read access. Therefore
+this configuration has **not** been independently verified; do not infer a live
+successful backup or matching secret values from the owner's setup report.
+Keep `SUPABASE_DR_ENABLED=false`, pruning disabled and the backup workflows off
+`main` until separately authorized and verified.

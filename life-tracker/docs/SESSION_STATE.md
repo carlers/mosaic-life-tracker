@@ -13,5 +13,9 @@ Current task: #1027 unified Supabase offsite database/Auth-row + media encrypted
 - Add dormant daily GitHub Actions source+read-only watcher, eight negative and positive offline Node tests via Vitest wrapper, reviewed runbook and docs navigation. Use only new dedicated Supabase bucket under existing Cloudflare account; never use Appwrite DR credentials or mutate hosted source.
 - This is **not** managed-Supabase/Auth/SMTP configuration DR, cross-service atomic snapshot or real full hosted R2 restore acceptance.
 
+## Operator setup report / runner correction (2026-10-25)
+- User reports completing R2 bucket, provider lock, two scoped R2 credentials and protected GitHub settings. Available connected GitHub access does NOT expose secrets, variables, environment rules or Cloudflare R2 configuration; treat them as unverified, with no live snapshot or permissions proof.
+- Source-only correction: unified backup workflow now pins ubuntu-24.04 and installs official signed PGDG PostgreSQL 17 client (GitHub runner image preinstalls PG16). Still fully disabled; no new remote backup or main/Production writes.
+
 ## Next action
 - Require `[verify:focused]` green task branch, PR squash into isolated stable, exact SHA canonical CI and Supabase labs. Keep new and legacy scheduled workflows **disabled**, no R2 environment creation, no DB/Storage hosted mutation, no protected Preview/dev/main/Production promotion. Next external gate is dedicated R2 bucket/key escrow and first real encrypted unified upload and complete independent restore with delivered alert test, only after explicit review/approval. Keep #1027 open.
