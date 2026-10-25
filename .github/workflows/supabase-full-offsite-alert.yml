@@ -1,0 +1,73 @@
+name: Supabase Scratch Unified DR Failure Alert
+
+# Inert on non-default branches. The workflow_run path stays disabled until
+# a separate protected operator rollout sets SUPABASE_DR_ALERT_ENABLED=true.
+# Manual TEST sends no backup request, source writes or R2 object modifications.
+on:
+  workflow_run:
+    workflows:
+      - Supabase Scratch Unified Encrypted Offsite Backup
+      - Supabase Scratch Unified Offsite Recovery Watch
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type TEST_SCRATCH_DR_ALERT for ONE synthetic delivery test'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    if: >-
+      ${{
+        github.ref == 'refs/heads/main' &&
+        (
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'workflow_run' && vars.SUPABASE_DR_ALERT_ENABLED == 'true')
+        )
+      }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: mosaic-supabase-dr
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      SUPABASE_DR_ALERT_BREVO_API_KEY: ${{ secrets.SUPABASE_DR_ALERT_BREVO_API_KEY }}
+      SUPABASE_DR_ALERT_SENDER: ${{ vars.SUPABASE_DR_ALERT_SENDER }}
+      SUPABASE_DR_ALERT_RECIPIENT: ${{ vars.SUPABASE_DR_ALERT_RECIPIENT }}
+      SUPABASE_DR_ALERT_PROBE_CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Check out reviewed immutable Scratch-only notifier (no untrusted code)
+        uses: actions/checkout@v4
+        with:
+          ref: 1b84c2b66bf0d90170a7b1bafed21dcdd1fd4199
+          persist-credentials: false
+      - name: Verify exact accepted source checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '1b84c2b66bf0d90170a7b1bafed21dcdd1fd4199'
+          test -f supabase-poc/dr-alert.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Send protected failure alert or explicitly confirmed synthetic delivery probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GITHUB_EVENT_NAME" in
+            workflow_run)
+              node supabase-poc/dr-alert.mjs --event
+              ;;
+            workflow_dispatch)
+              node supabase-poc/dr-alert.mjs --probe
+              ;;
+            *)
+              echo 'Unsupported alert trigger' >&2
+              exit 1
+              ;;
+          esac
