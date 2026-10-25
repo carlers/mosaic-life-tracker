@@ -144,14 +144,14 @@ Keep `SUPABASE_DR_ENABLED=false`, pruning disabled and the backup workflows off
 
 The protected main-branch manual backup (Actions run #40157401249) and
 read-only byte/freshness watcher (run #40166002937) both PASSED for the same
-immutable recovery ID: \`20261025T031343499Z\`. This does **not** prove
+immutable recovery ID: `20261025T031343499Z`. This does **not** prove
 decryption or independent restoration. The separate existing historical Fedora
 drill restored a different directly captured archive and should not be repeated
 as a substitute for this exact-R2 acceptance.
 
-The newly reviewed source-only \`supabase-poc/restore-unified-r2.py\` orchestrates
+The newly reviewed source-only `supabase-poc/restore-unified-r2.py` orchestrates
 one *local trusted Fedora* invocation. It reuses only the existing private
-\`~/.config/mosaic/supabase-backup.agekey\`, \`~/mosaic-secure-backups\`,
+`~/.config/mosaic/supabase-backup.agekey`, `~/mosaic-secure-backups`,
 Docker/Supabase CLI, and existing proven local recovery/GoTrue/Storage drivers.
 It does **not** require the hosted PostgreSQL password or live Storage
 backend secret, and performs no hosted Supabase writes or additional backups.
@@ -159,9 +159,9 @@ backend secret, and performs no hosted Supabase writes or additional backups.
 **One operator command**, after the checked-in restoration driver has passed
 the accepted branch's CI:
 
-\`\`\`bash
+```bash
 bash -o pipefail -c 'repo="$HOME/mosaic-photo-dr-review/life-tracker"; git -C "$repo" fetch --quiet origin feature/1027-supabase-recovery-20261020 && sha="$(git -C "$repo" rev-parse FETCH_HEAD)" && git -C "$repo" show "$sha:life-tracker/supabase-poc/restore-unified-r2.py" | python3 - --run --source-sha "$sha"'
-\`\`\`
+```
 
 Enter the Cloudflare R2 account ID plus the **dedicated Supabase bucket
 read-only** Access Key ID and secret privately at the tty. Do not use
@@ -181,7 +181,7 @@ to have restored hosted user media. It stops only that disposable local stack,
 removes its bridge/worktree and never touches hosted Scratch or Production.
 
 Required final marker:
-\`MOSAIC_R2_EXACT_SNAPSHOT_DISPOSABLE_RESTORE_PASS: 20261025T031343499Z\`.
+`MOSAIC_R2_EXACT_SNAPSHOT_DISPOSABLE_RESTORE_PASS: 20261025T031343499Z`.
 A partial success cannot count as full DR acceptance. On failure the runner
 prints a sanitized failed-stage marker; inspect the private target on the
 trusted machine without transmitting credentials. The ciphertext evidence
@@ -194,4 +194,4 @@ The following remain separate release gates regardless of this result:
 managed Supabase Auth/SMTP/OAuth/JWT configuration DR, live photo-bearing
 owner byte restore once photos exist, native bucket lock/credential escrow
 proof, delivered alert test and an explicitly approved recurring schedule.
-Keep \`SUPABASE_DR_ENABLED=false\` and pruning disabled until those gates.
+Keep `SUPABASE_DR_ENABLED=false` and pruning disabled until those gates.
