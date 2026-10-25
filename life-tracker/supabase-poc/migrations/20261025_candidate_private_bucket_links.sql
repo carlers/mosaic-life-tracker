@@ -58,6 +58,30 @@ CREATE TABLE public.mosaic_candidate_bucket_task_links (
     REFERENCES public.mosaic_candidate_tasks(owner_id, id)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 );
+-- Reject new active links to soft-deleted targets; preserve existing
+-- tombstones and historical missing links only in the private quarantine ledger.
+CREATE FUNCTION mosaic_candidate_private.require_live_bucket_link_targets()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $live_link$
+BEGIN
+  IF NOT NEW.is_deleted AND (
+    NOT EXISTS (SELECT 1 FROM public.mosaic_candidate_buckets
+      WHERE owner_id=NEW.owner_id AND id=NEW.bucket_list_id AND NOT is_deleted)
+    OR NOT EXISTS (SELECT 1 FROM public.mosaic_candidate_tasks
+      WHERE owner_id=NEW.owner_id AND id=NEW.task_id AND NOT is_deleted)
+  ) THEN
+    RAISE EXCEPTION 'Active link requires two owned live targets'
+      USING errcode='23503';
+  END IF;
+  RETURN NEW;
+END;
+$live_link$;
+REVOKE ALL ON FUNCTION mosaic_candidate_private.require_live_bucket_link_targets()
+  FROM PUBLIC, anon, authenticated;
+CREATE TRIGGER mosaic_bucket_links_active_targets
+  BEFORE INSERT OR UPDATE ON public.mosaic_candidate_bucket_task_links
+  FOR EACH ROW EXECUTE FUNCTION mosaic_candidate_private.require_live_bucket_link_targets();
+
 CREATE INDEX mosaic_bucket_task_links_cursor_idx
   ON public.mosaic_candidate_bucket_task_links(owner_id, change_seq);
 CREATE INDEX mosaic_bucket_task_links_owned_bucket_idx
