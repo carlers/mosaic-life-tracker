@@ -122,6 +122,8 @@ describe('source-only signed Bucket List and task-link owner create/CAS',()=>{
     ]){
       await expect(setup([[[bad],201]]).create.createBucket(bucket,identity)).rejects.toThrow();
     }
+    await expect(setup([[{...linkRow,task_id:'t'.repeat(70)}]]).create.readBucketLinkMaster(link.id,identity))
+      .rejects.toThrow(/Invalid Mosaic candidate document ID/);
     const wrong={...linkRow,task_id:'task_wrong'};
     await expect(setup([[[wrong],201]]).create.createBucketLink(link,identity,references))
       .rejects.toThrow(/changed historical reference/);
