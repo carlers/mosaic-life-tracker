@@ -67,7 +67,13 @@ export function summarizeToc(source) {
   }
   const completeCritical = criticalData.filter(([schema, name]) =>
     dataPresent(schema, name)).length;
+  const personalCandidateDataTables = entries.filter((entry) => entry.kind === 'TABLE DATA' &&
+    entry.schema === 'public' && entry.name?.startsWith('mosaic_candidate_'))
+    .map(entry => 'public.' + entry.name);
   return {
+    privateDiaryDataEntryPresent: dataPresent('public', 'mosaic_candidate_diary'),
+    personalSettingsDataEntryPresent: dataPresent('public', 'mosaic_candidate_settings'),
+    personalCandidateDataTables,
     status: missing.length ? 'INCOMPLETE_METADATA' : 'METADATA_ONLY_NOT_RESTORED',
     archiveTocEntries: entries.length,
     mosaicOwnedEntries: mosaic.length,

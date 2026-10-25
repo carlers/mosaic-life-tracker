@@ -341,3 +341,34 @@ test into Proton and require **owner-confirmed inbox receipt** before
 enabling `SUPABASE_DR_ALERT_ENABLED=true`. The prior successful Gmail
 sender test does not prove the agreed Gmail-free sender route; scheduled
 backup and pruning remain disabled.
+
+## Future personal data completeness gate — isolated source, no hosted changes
+
+Before future hosted Settings writes or a new production unified offsite
+generation, `unified-offsite.mjs --backup` now completely authenticates
+`database.age` with age and independently inspects the PostgreSQL 17 TOC
+**before** any private Storage read, R2 ciphertext upload or `COMPLETED`
+publication. The TOC must contain exactly the three personal candidate
+TABLE DATA entries (tasks, categories, Diary) for the historical/default
+`seven` restore mode. This preserves the already successful October 25
+seven-table snapshot and allows a future seven-table capture while hosted
+Settings has not been installed.
+
+When actual Settings TABLE DATA appears, `seven` **fails closed** rather
+than publishing a falsely restorable seven-table marker. A distinct
+reviewed, opt-in `SUPABASE_DR_RECOVERY_PROFILE=eight-personal-settings`
+is then required, with all four tasks/categories/Diary/Settings TABLE DATA
+entries. Unknown candidate collections (such as future Bucket List or task
+links), duplicate or incomplete manifests are rejected under both modes
+until the encrypted full-restore allowlist includes them. New completion
+markers explicitly bind `recoveryProfile`; historical v1 markers without
+the field remain readable and verifiable as historical ciphertext.
+
+**No default branch workflow or hosted secret/variable was changed**, so
+`SUPABASE_DR_RECOVERY_PROFILE` is currently unset and existing operational
+backup and prune flags stay false. This guard does not itself restore R2,
+authorize a hosted Settings SQL migration, or prove a future live eight-table
+R2 restore point. The signed disposable age-encrypted eight-table restore
+lab is separately green. All added code is isolated source only; the
+owner's next Fedora handoff remains ONE complete pre-social acceptance run
+after all personal domains and provider portability are implemented.

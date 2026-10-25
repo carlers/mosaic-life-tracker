@@ -11,7 +11,7 @@ describe('Supabase unified encrypted PostgreSQL + private Storage offsite recove
       env: { PATH: process.env.PATH ?? '', HOME: '/nonexistent' },
     });
     expect(result.status, result.stderr || result.stdout || result.error?.message).toBe(0);
-    expect(result.stdout).toContain('# pass 8');
+    expect(result.stdout).toContain('# pass 10');
     expect(result.stdout).toContain('# fail 0');
   });
 });

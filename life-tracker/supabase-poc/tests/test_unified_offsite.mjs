@@ -46,6 +46,25 @@ test('one completed marker publishes database AND media; both remote files recov
   await assert.rejects(downloadUnified({ r2, id: m.id, directory: dir, now: NOW }), /EEXIST/);
 }));
 
+test('historical markers remain verifiable, new markers advertise precise recovery profile', async () => fixture(async ({ database, media }) => {
+  const r2 = fakeR2();
+  const newPoint = await publishUnified({ r2, database, media, now: NOW, recoveryProfile: 'eight-personal-settings' });
+  assert.equal(newPoint.recoveryProfile, 'eight-personal-settings');
+  assert.equal((await verifyUnified({ r2, id: newPoint.id, now: NOW })).recoveryProfile, 'eight-personal-settings');
+  const key = `${PREFIX_ROOT}${newPoint.id}/COMPLETED`;
+  const oldMarker = JSON.parse(r2.objects.get(key).toString('utf8'));
+  delete oldMarker.recoveryProfile;
+  r2.objects.set(key, Buffer.from(JSON.stringify(oldMarker)));
+  assert.equal((await verifyUnified({ r2, id: newPoint.id, now: NOW })).recoveryProfile, undefined);
+}));
+
+test('unrecognized recovery profile fails before publishing any remote objects', async () => fixture(async ({ database, media }) => {
+  const r2 = fakeR2();
+  await assert.rejects(publishUnified({ r2, database, media, now: NOW,
+    recoveryProfile: 'claim-restored-but-unsupported' }), /Unapproved/);
+  assert.equal(r2.objects.size, 0);
+}));
+
 test('database capture fails -> never publishes a full restore point', async () => fixture(async ({ database, media }) => {
   const r2 = fakeR2();
   const get = r2.getObject;
