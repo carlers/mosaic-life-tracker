@@ -95,9 +95,27 @@ age -d -i "$tmp/identity.agekey" "$tmp/archive.age" >/dev/null
 sha="$(sha256sum "$tmp/archive.age" | cut -d' ' -f1)"
 [[ "$sha" =~ ^[a-f0-9]{64}$ ]] || exit 1
 echo MOSAIC_SETTINGS_EIGHT_TABLE_ENCRYPTED_SOURCE_PASS
-# Execute the exact TOC/profile guard used before real R2 publication on a
-# complete synthetic 8-table PostgreSQL 17 age archive; no hosted credentials.
-bash "$here/inspect-encrypted-backup-toc.sh" "$tmp/archive.age" "$tmp/identity.agekey" |
+# The age archive was created by PostgreSQL 17 in the disposable source
+# container. ubuntu-24.04's host pg_restore may be PostgreSQL 16 and refuses
+# v1.16 custom archives, falsely marking an intact age backup as unreadable.
+# Run the *existing* full-byte-age+TOC inspector unchanged, with its pg_restore
+# command bound to the SAME PG17 client that created this synthetic archive.
+docker exec "$db" pg_restore --version | grep -Eq '^pg_restore \\(PostgreSQL\\) 17\\.'
+mkdir -m 700 "$tmp/pg17-tools"
+cat > "$tmp/pg17-tools/pg_restore" <<'PG17_READER'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${MOSAIC_EIGHT_SETTINGS_PG17_CONTAINER:-}" =~ ^[a-f0-9]{12,64}$ ]] || {
+  echo 'Missing exact disposable PostgreSQL 17 container identity' >&2
+  exit 2
+}
+exec docker exec -i "$MOSAIC_EIGHT_SETTINGS_PG17_CONTAINER" pg_restore "$@"
+PG17_READER
+chmod 700 "$tmp/pg17-tools/pg_restore"
+# No plaintext disk copy, no hosted PostgreSQL access, no weakened TOC/profile.
+# Both age decrypts still stream through the same existing inspector.
+MOSAIC_EIGHT_SETTINGS_PG17_CONTAINER="$db" PATH="$tmp/pg17-tools:$PATH" \
+  bash "$here/inspect-encrypted-backup-toc.sh" "$tmp/archive.age" "$tmp/identity.agekey" |
   node "$here/tests/inspect-eight-table-profile-ci.mjs"
 echo MOSAIC_SETTINGS_EIGHT_TABLE_TOC_PROFILE_PASS
 supabase stop --no-backup >/dev/null
