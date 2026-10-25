@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 staged owner-private Bucket List and task-link SQL/RLS/CAS source contract (draft).
+Current task: #1027 draft PR #1328 Bucket List/task-link signed local SQL and strict old-mode encrypted DR refusal.
 
 ## Accepted
 - Appwrite Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7 and dev 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged. Supabase personal candidate isolated; hosted Settings migration UNAPPLIED.
@@ -15,7 +15,8 @@ Current task: #1027 staged owner-private Bucket List and task-link SQL/RLS/CAS s
 
 ## Source-only next SQL work (not yet accepted)
 - PR #1327 merged on recovery branch d5a9c905ca2a4863f2fea264efd6278230a577c3; commit record confirms focused Quality and prior Settings full Quality, Eight-Table, GoTrue, Synthetic and Core App technical gates successful. Protected hosted Preview still requires approval.
-- Draft task branch stages two **UNAPPLIED** private bucket/link tables with owner-composite FKs, signed-owner-only RLS, authority/revision triggers, CAS RPCs and disposable catalog validation source. No signed execution or DR acceptance claimed yet.
+- Draft PR #1328 stages two **UNAPPLIED** private bucket/link tables with owner-composite FKs, signed-owner-only RLS, authority/revision triggers, CAS RPCs, catalog validation and a signed GoTrue two-owner fixture in the disposable Core App workflow. Lease release and deleted-target negatives included. Real SQL/CI acceptance unverified; no hosted data change.
+- Older 6/7/8-table restore modes now reject Bucket/link TABLE DATA and all unreviewed public candidate personal tables instead of silently omitting them. Two additional mock-manifest regressions (11 total) and Vitest assertion added. No ten-table restore enabled.
 
 ## Next action
-- First execute staged bucket/link SQL in disposable CI, review composite FK compatibility and signed two-owner foreign/stale/lease-negative cases; implement encrypted ten-table restore before hosted installation. Then owner-link CAS/pull, source ZIP/Settings reconciliation and the one final pre-social Fedora acceptance. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora.
+- Verify exact task-sha focused Quality and disposable Core App SQL/GoTrue runs; diagnose/redesign any failure before accepting PR #1328 into recovery. Next implement and prove encrypted ten-table exact-copy independent restore and uploader profile before any hosted schema. Then owner-link CAS/pull, ZIP/Settings reconciliation, bidirectional provider dry run and only one final pre-social Fedora acceptance. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora.
