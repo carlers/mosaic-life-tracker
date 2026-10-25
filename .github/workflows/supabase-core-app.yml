@@ -9,6 +9,7 @@ on:
       - 'refactor/1027-supabase-hosted-*'
       - 'codex/1027-supabase-recovery-*'
       - 'feature/1027-supabase-recovery-*'
+      - 'chatgpt/1027-bucket-links-private-sql-*'
 permissions:
   contents: read
 concurrency:
@@ -52,6 +53,7 @@ jobs:
           cp supabase-poc/migrations/20261022_candidate_private_diary_realtime.sql supabase/migrations/20261020000005_diary_realtime.sql
           cp supabase-poc/migrations/20261023_candidate_private_personal_photos.sql supabase/migrations/20261023000000_personal_photos.sql
           cp supabase-poc/migrations/20261025_candidate_private_personal_settings.sql supabase/migrations/20261025000000_personal_settings.sql
+          cp supabase-poc/migrations/20261025_candidate_private_bucket_links.sql supabase/migrations/20261025000001_private_bucket_links.sql
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -126,6 +128,21 @@ jobs:
           export MOSAIC_SB_LOCAL_URL=http://127.0.0.1:54321
           export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
           node supabase-poc/tests/personal-settings-signed-local.mjs
+      - name: Prove private Bucket List/link SQL with signed two-owner GoTrue
+        run: |
+          set -euo pipefail
+          mapfile -t local_db < <(docker ps --filter name=supabase_db_ --format '{{.ID}}')
+          test "${#local_db[@]}" -eq 1
+          docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres \
+            < supabase-poc/validation/20261025_private_bucket_links_contract.sql
+          supabase status -o env > "$RUNNER_TEMP/mosaic-bucket-local.env"
+          set -a
+          source "$RUNNER_TEMP/mosaic-bucket-local.env"
+          set +a
+          : "${PUBLISHABLE_KEY:?Local publishable key required}"
+          export MOSAIC_SB_LOCAL_URL=http://127.0.0.1:54321
+          export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
+          node supabase-poc/tests/personal-bucket-links-signed-local.mjs
       - name: Exercise signed real UI and server authority
         run: |
           set -euo pipefail

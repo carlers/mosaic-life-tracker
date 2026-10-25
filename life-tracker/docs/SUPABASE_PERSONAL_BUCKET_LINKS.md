@@ -37,3 +37,13 @@ Add owner-scoped pull/create/CAS, RxDB checkpoints and conflict reviews;
 prove full ZIP/offline/reimport parity and a fenced, reversible provider
 migration. **Never apply a hosted schema before full data DR coverage.**
 No further Fedora command until the full one-pass pre-social bundle.
+
+## Unapplied two-table SQL candidate (draft; NOT accepted)
+
+The isolated source branch stages `supabase-poc/migrations/20261025_candidate_private_bucket_links.sql` with owner-private Bucket List and ready task-link tables, composite (owner, target ID) foreign keys, authenticated owner-only read/create RLS, writer-lease/revision triggers, and strict expected-revision CAS for mutable fields only. No direct client UPDATE/DELETE and no reference redirection are granted. The accompanying catalog assertions are source-only until executed against disposable PostgreSQL.
+
+The 255-character historical Appwrite task references are not coerced to candidate task IDs; incomplete, foreign, deleted, or long target references **must** remain in an external encrypted quarantine inventory during any future import. That quarantine/export replay is not implemented here. A link cannot be inserted as ready unless its same-owner bucket and task already exist and are non-deleted, with compatible IDs. Core App CI now installs these files into a **disposable local** Supabase database and runs owner/RLS/catalog/CAS/lease/tombstone negative tests. **These tests are not accepted without an exact green CI run.** The separate ten-table age-encrypted exact-byte source-to-independent-target recovery profile is still missing; no hosted schema or application writer may be enabled.
+
+## Strict protection of historical encrypted restore modes
+
+The disposable restore parser now rejects either new Bucket List / link TABLE DATA object under the six-table historical, fresh seven-table Diary, or eight-table Settings profile. It also rejects any other unexpected `public.mosaic_candidate_*` TABLE DATA object instead of silently dropping future user data. Two new Python cases cover each old mode and previously unknown personal tables, bringing that guarded restore contract to eleven cases. This protection **does not** implement a new ten-table recovery mode: the full signed ten-table source/archive/independent-target gate, matching uploader profile, exact COPY row parity and completed R2 object format remain required. Old accepted R2 snapshot bytes and their native retention lock are unchanged.
