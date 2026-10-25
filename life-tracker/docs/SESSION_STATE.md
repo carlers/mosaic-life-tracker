@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 source-only owner-private Bucket List + task-link mapping contract.
+Current task: #1027 staged owner-private Bucket List and task-link SQL/RLS/CAS source contract (draft).
 
 ## Accepted
 - Appwrite Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7 and dev 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged. Supabase personal candidate isolated; hosted Settings migration UNAPPLIED.
@@ -13,5 +13,9 @@ Current task: #1027 source-only owner-private Bucket List + task-link mapping co
 ## Current source-only task
 - Source-only private Bucket List + task link mapper preserves owner-verified exact legacy IDs, source fields, tombstones, and long historical task references. Missing, foreign or deleted targets are quarantined rather than dropped. Nine mapping/privacy regressions; no new SQL, live writer or data migration. Settings RxDB source-only PR #1325 and canonical TS fix #1326 remain present.
 
+## Source-only next SQL work (not yet accepted)
+- PR #1327 merged on recovery branch d5a9c905ca2a4863f2fea264efd6278230a577c3; commit record confirms focused Quality and prior Settings full Quality, Eight-Table, GoTrue, Synthetic and Core App technical gates successful. Protected hosted Preview still requires approval.
+- Draft task branch stages two **UNAPPLIED** private bucket/link tables with owner-composite FKs, signed-owner-only RLS, authority/revision triggers, CAS RPCs and disposable catalog validation source. No signed execution or DR acceptance claimed yet.
+
 ## Next action
-- Accept exact recovery-branch canonical Quality/Core/Eight-Table/GoTrue after Settings CAS repair #1326, then this Bucket source-only contract. Next implement signed private Bucket List/link SQL+DR ten-table profile and owner-link CAS/pull, reconcile source ZIP/Settings, then one final pre-social Fedora acceptance. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora.
+- First execute staged bucket/link SQL in disposable CI, review composite FK compatibility and signed two-owner foreign/stale/lease-negative cases; implement encrypted ten-table restore before hosted installation. Then owner-link CAS/pull, source ZIP/Settings reconciliation and the one final pre-social Fedora acceptance. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora.
