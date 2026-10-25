@@ -35,6 +35,11 @@ BEGIN
           ))<>2
       THEN RAISE EXCEPTION 'Revision or authority trigger missing: %',kind; END IF;
   END LOOP;
+  IF (SELECT count(*) FROM pg_trigger
+       WHERE tgrelid='public.mosaic_candidate_bucket_task_links'::regclass
+         AND NOT tgisinternal
+         AND tgfoid='mosaic_candidate_private.require_live_bucket_link_targets()'::regprocedure)<>1
+    THEN RAISE EXCEPTION 'Live-target quarantine guard absent'; END IF;
   IF (SELECT count(*) FROM pg_constraint
       WHERE conrelid='public.mosaic_candidate_bucket_task_links'::regclass
         AND contype='f'
