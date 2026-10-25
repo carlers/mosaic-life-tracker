@@ -50,6 +50,21 @@ class Contract(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'eight-table'):
                     manifest(ALL)
 
+    def test_old_modes_refuse_new_bucket_or_link_data_without_ten_table_recovery(self):
+        for flavor in (None, 'diary', 'settings'):
+            for domain in m.PRIVATE_BUCKET_LINKS:
+                with self.subTest(mode=flavor, table=domain), mode(flavor):
+                    allowed = m.selected_data_tables()
+                    with self.assertRaisesRegex(ValueError, 'ten-table'):
+                        manifest(allowed + [domain])
+
+    def test_unknown_personal_data_never_silently_disappears(self):
+        for flavor in (None, 'diary', 'settings'):
+            with self.subTest(mode=flavor), mode(flavor):
+                allowed = m.selected_data_tables()
+                with self.assertRaisesRegex(ValueError, 'Unknown personal table'):
+                    manifest(allowed + ['public.mosaic_candidate_unreviewed'])
+
     def test_eight_requires_sha(self):
         with patch.dict(os.environ, {'MOSAIC_PERSONAL_SETTINGS_RESTORE':'1'}, clear=True):
             with self.assertRaisesRegex(ValueError, 'fresh archive SHA'):
