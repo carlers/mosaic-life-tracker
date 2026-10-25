@@ -82,7 +82,13 @@ describe('source-only owner-bound Supabase Bucket List and task-link preservatio
       buckets:owned.buckets,
       tasks:new Map([[taskId,{userId:alice.legacyUserId,isDeleted:true}]]),
     })).toBe('quarantined');
-    expect(classifyCandidateLinkReferences(link,alice,owned)).toBe('ready');
+    expect(classifyCandidateLinkReferences(link,alice,owned)).toBe('quarantined');
+    const shortLink={...link,taskId:'task_123'};
+    const shortOwned={
+      buckets:owned.buckets,
+      tasks:new Map([['task_123',{userId:alice.legacyUserId,isDeleted:false}]]),
+    };
+    expect(classifyCandidateLinkReferences(shortLink,alice,shortOwned)).toBe('ready');
   });
   it('rejects invalid or oversized historical fields before any cloud mapping',()=>{
     for(const id of ['', '_bad','bad-hyphen','A'.repeat(37)]){

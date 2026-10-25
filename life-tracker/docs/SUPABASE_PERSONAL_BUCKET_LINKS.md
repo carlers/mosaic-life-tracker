@@ -15,6 +15,8 @@ pre-social data-preservation gate, not a feature release.
 - Historical Appwrite task IDs can be longer than candidate task IDs.
   A link's `taskId` is preserved up to the original schema maximum (255);
   forcing a 36-character future task ID would silently lose history.
+  **A long original task reference is quarantined, not imported as ready,**
+  until a separately verified target-ID mapping preserves its meaning.
   No cross-owner relationships are ever allowed.
 - `classifyCandidateLinkReferences` returns **ready**, **quarantined** or
   **tombstone** given the signed owner's complete source target inventory.

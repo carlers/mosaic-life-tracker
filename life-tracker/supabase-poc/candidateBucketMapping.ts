@@ -140,6 +140,10 @@ export function classifyCandidateLinkReferences(
 ): 'ready' | 'quarantined' | 'tombstone' {
   toCandidateBucketLinkWrite(link, identity);
   if (link.isDeleted) return 'tombstone';
+  // Current signed candidate task SQL IDs are limited to 36 characters.
+  // Preserve longer historical Appwrite link IDs but never call them ready
+  // for an insert until a separately verified target-ID mapping exists.
+  if (!ROW_ID.test(link.taskId)) return 'quarantined';
   const bucket = references.buckets.get(link.bucketListId);
   const task = references.tasks.get(link.taskId);
   if (!bucket || !task ||
