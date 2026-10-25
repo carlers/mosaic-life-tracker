@@ -1,28 +1,31 @@
 #!/usr/bin/env bash
-# Restores only exactly reviewed 6/7/8 TABLE DATA objects into a brand-new
+# Restores only exactly reviewed 6/7/8/10 TABLE DATA objects into a brand-new
 # local Supabase project. Does NOT modify existing local/hosted projects.
 set -euo pipefail
 umask 077
 
 if [[ ( $# -ne 2 && $# -ne 4 ) || "$1" != /* || "$2" != /* || ! -f "$1" || ! -f "$2" ]]; then
-  echo 'Usage: bash supabase-poc/run-private-core-recovery.sh /ABSOLUTE/backup.age /ABSOLUTE/key.agekey [--fresh-snapshot-sha256|--fresh-personal-settings-sha256 64-lowercase-hex-digest]' >&2
+  echo 'Usage: bash supabase-poc/run-private-core-recovery.sh /ABSOLUTE/backup.age /ABSOLUTE/key.agekey [--fresh-snapshot-sha256|--fresh-personal-settings-sha256|--fresh-personal-bucket-links-sha256 64-lowercase-hex-digest]' >&2
   exit 2
 fi
 # Never accept an ambient override: a fresh source is an explicit operator
 # action after independently recording the checksum of a newly encrypted dump.
-if [[ ${MOSAIC_FRESH_SNAPSHOT_SHA256+x} || ${MOSAIC_PERSONAL_SETTINGS_RESTORE+x} ]]; then
+if [[ ${MOSAIC_FRESH_SNAPSHOT_SHA256+x} || ${MOSAIC_PERSONAL_SETTINGS_RESTORE+x} || ${MOSAIC_BUCKET_LINKS_RESTORE+x} ]]; then
   echo 'Refusing inherited archive/table-mode approval variable' >&2
   exit 2
 fi
 if [[ $# -eq 4 ]]; then
-  if [[ ( "$3" != "--fresh-snapshot-sha256" && "$3" != "--fresh-personal-settings-sha256" ) ||
+  if [[ ( "$3" != "--fresh-snapshot-sha256" && "$3" != "--fresh-personal-settings-sha256" && "$3" != "--fresh-personal-bucket-links-sha256" ) ||
        ! "$4" =~ ^[a-f0-9]{64}$ ]]; then
     echo 'Fresh snapshot requires exact lowercase digest and reviewed table mode' >&2
     exit 2
   fi
   export MOSAIC_FRESH_SNAPSHOT_SHA256="$4"
-  if [[ "$3" == "--fresh-personal-settings-sha256" ]]; then
+  if [[ "$3" == "--fresh-personal-settings-sha256" || "$3" == "--fresh-personal-bucket-links-sha256" ]]; then
     export MOSAIC_PERSONAL_SETTINGS_RESTORE=1
+  fi
+  if [[ "$3" == "--fresh-personal-bucket-links-sha256" ]]; then
+    export MOSAIC_BUCKET_LINKS_RESTORE=1
   fi
 fi
 [[ "$(uname -s)" == Linux ]] || { echo 'Local Linux required' >&2; exit 2; }
@@ -103,6 +106,11 @@ if [[ $# -eq 4 ]]; then
   if [[ ${MOSAIC_PERSONAL_SETTINGS_RESTORE:-} == 1 ]]; then
     printf -v stamp '2026102000%04d' "$index"
     cp "$here/migrations/20261025_candidate_private_personal_settings.sql" "supabase/migrations/$stamp"_personal_settings.sql
+    index=$((index+1))
+  fi
+  if [[ ${MOSAIC_BUCKET_LINKS_RESTORE:-} == 1 ]]; then
+    printf -v stamp '2026102000%04d' "$index"
+    cp "$here/migrations/20261025_candidate_private_bucket_links.sql" "supabase/migrations/$stamp"_private_bucket_links.sql
   fi
 fi
 python3 "$here/configure-private-disposable-stack.py" init "$scratch" "$project"
