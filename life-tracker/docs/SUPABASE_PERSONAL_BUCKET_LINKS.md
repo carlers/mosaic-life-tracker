@@ -75,3 +75,31 @@ verified Bucket and task target inventories, and missing/deleted/foreign/long
 references are retained in quarantine for review. Do not attach the new read
 adapter to the shipped Appwrite shared collections or enable writes before
 signed ten-table disaster recovery and tested provider fencing.
+
+## Source-only owner Bucket List CREATE/master and CAS transport
+
+The isolated candidate transport now validates an independently supplied
+legacy-owner-to-Supabase-owner map, reads owner-filtered current master, and
+creates Bucket goals and task links only with a signed session and no upsert.
+A duplicate INSERT performs a new signed owner master read; inaccessible or
+malformed conflicts cannot be acknowledged. Link CREATE demands original
+short IDs, an explicitly reviewed complete owner target inventory and a
+ready/tombstone classification. Missing, foreign, deleted-active and
+unrepresentable historical references are **not** written and remain eligible
+for the external private quarantine ledger (which is still unimplemented).
+Even a tombstone link requires known same-owner target identities.
+
+The strictly allowlisted owner revision CAS RPCs support Bucket title,
+description, achieved state/date, updatedAt and logical deletion; links
+support only updatedAt and deletion. Caller-supplied immutable Bucket/task
+reference IDs must match the returned master after link CAS. Forbidden
+owner/reference/revision patches, bad timestamps, stale or typed-null
+conflicts and in-flight account replacements are refused. The
+`supabaseCandidateBucketCreateCas.test.ts` fixture covers these source-only
+contracts without cloud writes. No code activates the live Mosaic RxDB
+provider, hosted Bucket SQL, Appwrite dual writers or imports unknown links.
+
+**Still required**: exact green focused Quality and disposable signed SQL,
+PG17 ten-table encrypted restore, owner-scoped RxDB checkpoint/backfill with
+blocked conflict reviews, complete ZIP/media replay and bidirectional
+single-writer provider migration; held Production approvals remain.
