@@ -37,3 +37,9 @@ Add owner-scoped pull/create/CAS, RxDB checkpoints and conflict reviews;
 prove full ZIP/offline/reimport parity and a fenced, reversible provider
 migration. **Never apply a hosted schema before full data DR coverage.**
 No further Fedora command until the full one-pass pre-social bundle.
+
+## Unapplied two-table SQL candidate (draft; NOT accepted)
+
+The isolated source branch stages `supabase-poc/migrations/20261025_candidate_private_bucket_links.sql` with owner-private Bucket List and ready task-link tables, composite (owner, target ID) foreign keys, authenticated owner-only read/create RLS, writer-lease/revision triggers, and strict expected-revision CAS for mutable fields only. No direct client UPDATE/DELETE and no reference redirection are granted. The accompanying catalog assertions are source-only until executed against disposable PostgreSQL.
+
+The 255-character historical Appwrite task references are not coerced to candidate task IDs; incomplete, foreign, deleted, or long target references remain in an external encrypted quarantine inventory. A link cannot be inserted as ready unless its same-owner bucket and task already exist, with short compatible IDs. **Next gate:** wire these files into disposable local migrations, run signed two-owner/negative RLS and CAS tests, and implement ten-table encrypted exact-byte source-to-fresh-restore checks. Only then consider hosted installation. No application writer is enabled.
