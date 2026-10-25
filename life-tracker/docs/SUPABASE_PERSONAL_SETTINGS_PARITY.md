@@ -87,3 +87,27 @@ PG17 restore** in CI, plus full R2/Storage integration and signed second-owner
 parity. The user requested **no Fedora commands until one complete
 pre-social operator acceptance bundle is ready**. This source-only capability
 is not that final operator command.
+
+## Disposable real eight-table age recovery lab
+
+New `supabase-poc/eight-table-restore-lab.sh` and
+`.github/workflows/supabase-eight-table-restore.yml` run without
+hosted credentials on an isolated GitHub runner. The test prepares
+PostgreSQL 17 + signed GoTrue and inserts **synthetic nonempty Settings
+rows**, including a deletion tombstone and revision; it captures all
+eight data objects in one age-encrypted full database archive.
+
+It then stops the source, invokes the same strict checked
+`run-private-core-recovery.sh --fresh-personal-settings-sha256`
+against **a newly created independent** loopback-only PG17 instance,
+proves exact eight-table COPY row parity and authenticated original
+password sign-in, RLS owner read, foreign-owner denial, revision and
+tombstone preservation. Both local stacks, bridge, encrypted temporary
+archive and synthetic credentials are cleaned up on exit.
+
+This is a CI-only disposable source/target with no live owner data,
+not yet a verified Settings snapshot in the actual R2 bucket. It can
+be accepted only when the exact stable-branch real lab run is green.
+Hosted Settings installation, signed runtime replication and unified
+R2 operational allowlists remain later distinct gates. No Fedora
+command should be issued until the full pre-social acceptance bundle.

@@ -1,0 +1,41 @@
+name: Supabase Eight-Table Settings Restore Lab
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'feature/1027-supabase-recovery-*'
+permissions:
+  contents: read
+concurrency:
+  group: supabase-eight-table-settings-restore
+  cancel-in-progress: true
+jobs:
+  full-synthetic-eight-table:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: '2.81.3'
+      - name: Install disposable age tool
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq age
+      - name: Validate private synthetic CI restore sources
+        run: |
+          set -euo pipefail
+          bash -n supabase-poc/eight-table-restore-lab.sh
+          bash -n supabase-poc/run-private-core-recovery.sh
+          node --check supabase-poc/tests/eight-table-restore-fixture.mjs
+          python3 -m py_compile supabase-poc/restore_private_core_to_disposable.py
+      - name: Prove age-encrypted nonempty personal Settings 8-table restore with signed GoTrue
+        env:
+          MOSAIC_REAL_AUTH_RECOVERY_LAB: '1'
+        run: bash supabase-poc/eight-table-restore-lab.sh
