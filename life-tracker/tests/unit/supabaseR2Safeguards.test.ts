@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const lock = fileURLToPath(new URL('../../supabase-poc/tests/test_r2_lock_audit.py', import.meta.url));
@@ -24,6 +25,26 @@ describe('Supabase Scratch R2 native lock and failure email safeguards', () => {
     });
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('MOSAIC_SUPABASE_R2_LOCK_PLAN_GET_ONLY_NO_WRITES_PASS');
+  });
+
+  it('requires a protected, SHA-pinned default-branch alert job and opt-in automated delivery', () => {
+    const workflow = readFileSync(
+      fileURLToPath(new URL('../../../.github/workflows/supabase-full-offsite-alert.yml', import.meta.url)),
+      'utf8',
+    );
+    expect(workflow).toContain('workflow_run:');
+    expect(workflow).toContain('Supabase Scratch Unified Encrypted Offsite Backup');
+    expect(workflow).toContain('Supabase Scratch Unified Offsite Recovery Watch');
+    expect(workflow).toContain('types: [completed]');
+    expect(workflow).toContain("github.ref == 'refs/heads/main'");
+    expect(workflow).toContain("vars.SUPABASE_DR_ALERT_ENABLED == 'true'");
+    expect(workflow).toContain('environment: mosaic-supabase-dr');
+    expect(workflow).toContain('ref: 1b84c2b66bf0d90170a7b1bafed21dcdd1fd4199');
+    expect(workflow).toContain('persist-credentials: false');
+    expect(workflow).toContain('permissions:\\n  contents: read'.replace('\\n', '\n'));
+    expect(workflow).toContain('TEST_SCRATCH_DR_ALERT');
+    expect(workflow).not.toContain('supabase-poc/unified-offsite.mjs --backup');
+    expect(workflow).not.toContain('deleteObject');
   });
 
   it('only emits provider email for trusted failed main run or confirmed synthetic probe', () => {

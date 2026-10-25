@@ -266,3 +266,37 @@ No new active main alert workflow is installed in this source-only task.
 There have been zero live test emails and zero R2 objects deleted.
 Any main integration, protected secret changes, automatic schedules or
 pruning require their respective explicit approvals and acceptance gates.
+
+### Reviewed default-branch delivery workflow (not yet promoted or enabled)
+
+The source-only `.github/workflows/supabase-full-offsite-alert.yml` is
+prepared on the isolated recovery branch, not main. GitHub's documented
+`workflow_run` completed trigger only works once a workflow exists on
+the default branch:
+https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run
+
+Its privileged job checks out **only** the already-tested immutable
+`1b84c2b66bf0d90170a7b1bafed21dcdd1fd4199` alert implementation,
+without persisted checkout credentials, and runs in the protected
+`mosaic-supabase-dr` environment with only `contents: read` permissions.
+It never executes the triggering run's code, artifacts or cache. The
+`workflow_run` path needs protected
+`SUPABASE_DR_ALERT_ENABLED=true`; leave the flag undefined/false until
+a delivered mailbox probe succeeds. The `workflow_dispatch` path permits
+ONE explicit `TEST_SCRATCH_DR_ALERT` synthetic test regardless of that
+flag, on `main` only, after the protected secrets have been configured.
+
+Before any promotion: owner must separately approve the narrow
+stable→dev→main workflow rollout (main rebuild possible). GitHub
+`mosaic-supabase-dr` must contain Brevo secret
+`SUPABASE_DR_ALERT_BREVO_API_KEY` and two protected variables
+`SUPABASE_DR_ALERT_SENDER` (verified active sender) and
+`SUPABASE_DR_ALERT_RECIPIENT` (private intended alert inbox).
+Never include addresses or API keys in the repository or in chat.
+After this workflow is installed on main, run the synthetic probe through
+GitHub Actions, verify returned `MOSAIC_SUPABASE_DR_ALERT_PROBE_ACCEPTED_NOT_DELIVERY_PROOF`,
+then independently check the actual inbox and provider delivery logs.
+Only then separately approve enabling automatic failure alerts.
+Keep `SUPABASE_DR_ENABLED=false`, pruning disabled and Production backend
+unchanged. This notification workflow does not itself fix missed backups;
+daily schedule and a future failure-delivery escalation require acceptance.
