@@ -224,7 +224,11 @@ export function createCandidateCreateTransport(options: {
     },
     readBucketLinkMaster: async (id: string, identity: CandidateIdentity): Promise<CandidateBucketLinkRow | null> => {
       const row = await master('bucket_task_links', id, identity) as CandidateBucketLinkRow | null;
-      if (row) fromCandidateBucketLinkRow(row, identity);
+      if (row) {
+        checkedId(row.bucket_list_id);
+        checkedId(row.task_id);
+        fromCandidateBucketLinkRow(row, identity);
+      }
       // This does not mark a historical referenced task as migrated/ready.
       return row;
     },
