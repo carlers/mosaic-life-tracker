@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#1027: restore only reviewed 6/7/8 data objects into disposable PG17.
+"""#1027: restore only reviewed 6/7/8/10 data objects into disposable PG17.
 
 Requires a *new*, empty and initialized Supabase CLI database container.
 No hostname, port or database URL accepted; Docker exec targets one verified
@@ -41,11 +41,18 @@ PRIVATE_BUCKET_LINKS = [
 def selected_data_tables():
     fresh = os.environ.get("MOSAIC_FRESH_SNAPSHOT_SHA256") is not None
     settings = os.environ.get("MOSAIC_PERSONAL_SETTINGS_RESTORE")
+    buckets = os.environ.get("MOSAIC_BUCKET_LINKS_RESTORE")
     if settings is not None and settings != "1":
         raise ValueError("Invalid Settings restore authorization")
+    if buckets is not None and buckets != "1":
+        raise ValueError("Invalid Bucket/link restore authorization")
     if settings == "1" and not fresh:
         raise ValueError("Settings restore requires explicit fresh archive SHA")
-    return CORE + (FRESH_DIARY if fresh else []) + (PERSONAL_SETTINGS if settings == "1" else [])
+    if buckets == "1" and (settings != "1" or not fresh):
+        raise ValueError("Bucket/link restore requires explicit ten-table Settings+SHA mode")
+    return (CORE + (FRESH_DIARY if fresh else [])
+            + (PERSONAL_SETTINGS if settings == "1" else [])
+            + (PRIVATE_BUCKET_LINKS if buckets == "1" else []))
 
 def validate_source_counts(counts, synthetic=False):
     selected = selected_data_tables()
@@ -120,7 +127,7 @@ def assert_target(container):
     """)
     if check != "t":
         raise ValueError("Disposable target missing fresh initialized schema")
-    for tbl in FRESH_DIARY + PERSONAL_SETTINGS:
+    for tbl in FRESH_DIARY + PERSONAL_SETTINGS + PRIVATE_BUCKET_LINKS:
         if tbl in selected_data_tables():
             if sql(container, "SELECT to_regclass('" + tbl + "') IS NOT NULL") != "t":
                 raise ValueError("Disposable target missing an initialized personal data table")
@@ -313,7 +320,8 @@ def restore(archive, identity, container):
         # Disable only application triggers. Managed native Auth triggers remain.
         owner_tables = ("public.mosaic_candidate_categories", "public.mosaic_candidate_tasks") + (
             tuple(FRESH_DIARY) if FRESH_DIARY[0] in selected_data_tables() else ()
-        ) + (tuple(PERSONAL_SETTINGS) if PERSONAL_SETTINGS[0] in selected_data_tables() else ())
+        ) + (tuple(PERSONAL_SETTINGS) if PERSONAL_SETTINGS[0] in selected_data_tables() else ()
+        ) + (tuple(PRIVATE_BUCKET_LINKS) if PRIVATE_BUCKET_LINKS[0] in selected_data_tables() else ())
         for tbl in owner_tables:
             sql(container, "ALTER TABLE " + tbl + " DISABLE TRIGGER USER")
         restore_one(container, manifest, "auth.users")
