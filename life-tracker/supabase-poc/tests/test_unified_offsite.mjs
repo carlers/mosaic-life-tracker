@@ -5,7 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PREFIX, SOURCE, publishUnified, verifyUnified, watchUnified,
   downloadUnified, pruneUnified, assertFullSource } from '../unified-offsite.mjs';
-const NOW = new Date('2026-10-25T12:00:00.000Z');
+// Production marker.completedAt uses the actual wall clock. Never mock the
+// verifier's 60s future skew or 36h freshness guard to accommodate stale tests.
+const NOW = new Date();
+const daysAgo = days => new Date(NOW.getTime() - days * 86400000);
+const daysLater = days => new Date(NOW.getTime() + days * 86400000);
 const PREFIX_ROOT = `${PREFIX}/snapshots/`;
 function fakeR2() {
   const objects = new Map();
@@ -62,7 +66,7 @@ test('media capture fails after database upload -> still no complete checkpoint'
 test('independent full-byte watch rejects corrupt media, corrupt database, future and stale generations', async () => fixture(async ({ database, media }) => {
   const r2 = fakeR2();
   const m = await publishUnified({ r2, database, media, now: NOW, chunkBytes: 9 });
-  await assert.rejects(watchUnified({ r2, now: new Date('2026-10-29T00:00:00Z') }), /stale/);
+  await assert.rejects(watchUnified({ r2, now: daysLater(4) }), /stale/);
   for (const kind of ['database', 'media']) {
     const key = m.archives[kind].parts[0].key;
     const saved = r2.objects.get(key);
@@ -70,7 +74,7 @@ test('independent full-byte watch rejects corrupt media, corrupt database, futur
     await assert.rejects(verifyUnified({ r2, id: m.id, now: NOW }), /corrupt/);
     r2.objects.set(key, saved);
   }
-  await assert.rejects(verifyUnified({ r2, id: m.id, now: new Date('2026-10-20T00:00:00Z') }), /future/);
+  await assert.rejects(verifyUnified({ r2, id: m.id, now: daysAgo(5) }), /future/);
 }));
 
 test('corrupt download wipes both archive files and its new recovery directory', async () => fixture(async ({ temp, database, media }) => {
@@ -84,7 +88,7 @@ test('corrupt download wipes both archive files and its new recovery directory',
 
 test('retention blocks missing historical media, unknown files and orphan generations before deletion', async () => fixture(async ({ database, media }) => {
   const r2 = fakeR2();
-  const old = await publishUnified({ r2, database, media, now: new Date('2026-01-01T12:00:00Z') });
+  const old = await publishUnified({ r2, database, media, now: daysAgo(300) });
   await publishUnified({ r2, database, media, now: NOW });
   const oldKey = old.archives.media.parts[0].key;
   const oldBytes = r2.objects.get(oldKey);
