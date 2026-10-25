@@ -1,22 +1,17 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 protected Scratch Supabase unified encrypted PostgreSQL/Auth + private Storage disaster recovery. For previous implementation/proof details, use the latest issue #1027 resume comment and exact live Git/CI state.
+Current task: #1027 personal non-social Supabase Settings parity foundation, source-only.
 
-## Accepted recovery evidence
-- Scratch project hcxtiifzxoaflhjgoglb only. Live manually dispatched main backup Actions #40157401249 committed one completed unified encrypted database/media R2 recovery generation: 20261025T031343499Z. Separate reader-only Actions watch #40166002937 SHA-256 verified all remote ciphertext bytes and 36h freshness. Inert daily schedule and pruning remain OFF.
-- Owner's trusted Fedora exact-snapshot R2 restore PASSED all seven stages with original-password local GoTrue sign-in, positive owner task/category read, cross-owner denial, seven-table PG17 byte parity, whole Storage archive restore, synthetic nonempty WebP and isolated stack/network/worktree cleanup. The hosted source had zero real photos. The full exact R2 chain is accepted for covered domains, NOT complete managed Supabase platform/SMTP/OAuth/JWT recovery.
-- Recovery branch feature/1027-supabase-recovery-20261020@48636c9ae4b80fcc0e3edf75fbf7a79f683eac46 passed full Quality Gate #40167282093, Synthetic #40167282120, Real GoTrue #40167282112. Protected Core App Lab #40167282121 awaits Preview gate. Appwrite Production main@0519489042c53ed0bcdaebe10664417091c4d7d8 and dev@256bea48847b795dc33f7c5247e9312a75915812 remain unchanged by restore work.
+## Accepted upstream state
+- Appwrite Cloud is still Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7, dev 497919bed4b6ce85b826f2d86fc767920344ec17. Supabase code is isolated on feature/1027-supabase-recovery-20261020.
+- Real Scratch encrypted unified R2 DB/media snapshot 20261025T031343499Z uploaded, independently byte-watched, fully age-authenticated and recovered on Fedora into isolated PG17/GoTrue/Storage with owner isolation and synthetic media. All-future-prefix native Cloudflare 30d lock GET readback passed. Managed Auth/SMTP/escrow and real photo-bearing hosted-source DR remain separate.
+- Main guarded Brevo failure-alert workflow exists, but automatic DR alerts, daily backups, and pruning remain disabled. Raw Proton sender mail invisible despite Brevo Delivered/open; Gmail rewritten Brevo managed From reached Proton. Owner requested Gmail-free managed Brevo From with Proton Reply-To and opened vendor support. Source-only Reply-To change merged through PR #1312 to isolated branch; main source not repinned or deployed.
 
-## Current source-only safeguards
-- Cloudflare native R2 lock audit: new supabase-poc/r2-lock-audit.py performs only authenticated GET of dedicated bucket lock rules. Requires an enabled 30d Age or Indefinite prefix covering all current/future mosaic-supabase/v1/snapshots/ keys. Provider GET readback operator **PASSED**: MOSAIC_SUPABASE_NATIVE_R2_LOCK_30D_READBACK_PASS. No DELETE or lock modification attempted; config token should be revoked.
-- Failure email: new supabase-poc/dr-alert.mjs accepts exact trusted main Scratch backup/watch failure events only, rejects other/fork/success events, has typed TEST_SCRATCH_DR_ALERT probe and sanitized Brevo payload. Prepared guarded workflow_run + manual synthetic test workflow on isolated branch only; no main workflow/alert secrets installed and NO email delivery claimed.
-- Unit and offline negative tests wrap both tools; task branch final focused acceptance required, then squash to stable for full canonical. Release version NONE. Do not promote to dev/main, touch production/cloud data, enable recurring schedules/pruning or assert native retention/alert receipt without separate proof.
-- Next real gates: independently received protected Brevo alert email, backup key/identity escrow, managed Supabase Auth/SMTP/OAuth/JWT configurations and real photo-containing source once one exists. Keep #1027 open; do not repeat historical successful Fedora disaster-recovery run.
-
-## Gmail-free Brevo alert delivery preparation (2026-10-25)
-- Owner confirmed the previous Proton→Proton sender test was marked Delivered/Open but invisible, while Brevo's rewritten Gmail→managed Brevo From reached Proton. Owner approves only authenticated Brevo-managed From with independent Proton Reply-To, no Gmail dependence. New source-only optional `SUPABASE_DR_ALERT_REPLY_TO` validates input and adds Brevo replyTo header; tests cover positive, absent and invalid cases. Main workflow still pins old implementation; no Production or protected environment change.
-- Brevo requires verification to create a sender. Do not invent a Brevo-owned mailbox or assume forcing replacement for Proton is supported; obtain Brevo vendor guidance for transactional managed sender substitution. Until real Proton receipt on the agreed route: automatic alerts OFF, daily backup/prune OFF, #1027 OPEN.
+## Current scoped task
+- Add isolated candidateSettingsMapping.ts for full-fidelity opaque string Settings rows, explicit legacy owner↔Supabase UUID validation, preserved tombstones, and fail-closed rejected provider-specific profile image/friend carousel identities.
+- Add migration 20261025_candidate_private_personal_settings.sql with RLS owner-only SELECT/INSERT and exact revision-checked CAS; this migration is UNAPPLIED and hosted data NOT modified. New Settings tables are NOT yet in encrypted backup/restore allowlists. Do not install until signed local PostgreSQL two-owner security and DR parity are proven.
+- Unit mappings and Settings runbook/README index included in scoped task checkpoint. No Product/app code or public runtime capability changed. Settings and Bucket List/task links remain major pre-cutover personal parity blockers.
 
 ## Next action
-- Run focused DR notifier tests and stable recovery-branch canonical acceptance for optional Proton Reply-To source. Request Brevo managed-sender guidance before any pin/Production workflow change; single genuine Proton recipient test only after a verified Gmail-free provider sender exists.
+- Accept focused CI on a reviewed task branch, squash source-only to the isolated recovery branch after tests; verify canonical Quality and restoration labs. Next implement signed local SQL/CAS RLS/DR coverage before any hosted migration and then wire full owner-scoped settings pilot. No dev/main or Production promotion without new approval.
