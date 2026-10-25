@@ -147,7 +147,7 @@ describe('source-only signed Bucket List and task-link owner create/CAS',()=>{
     const h=setup([[updated,200]]);
     await expect(h.cas.compareAndSet({
       domain:'bucket_task_links',ownerId:identity.supabaseUserId,documentId:link.id,
-      expectedRevision:rev,patch:{is_deleted:true,updated_at:link.updatedAt},
+      expectedRevision:rev,expectedLinkReferences:{bucketListId:bucket.id,taskId:link.taskId},patch:{is_deleted:true,updated_at:link.updatedAt},
     })).resolves.toEqual({state:'applied',revision:next,row:updated});
     expect(h.fetcher).toHaveBeenCalledTimes(1);
     const [url]=h.fetcher.mock.calls[0] as unknown as [string,RequestInit];
@@ -176,7 +176,7 @@ describe('source-only signed Bucket List and task-link owner create/CAS',()=>{
     ]){
       await expect(h.cas.compareAndSet({
         domain:'bucket_task_links',ownerId:identity.supabaseUserId,documentId:link.id,
-        expectedRevision:rev,patch:patch as Record<string,string|boolean|number|null>,
+        expectedRevision:rev,expectedLinkReferences:{bucketListId:bucket.id,taskId:link.taskId},patch:patch as Record<string,string|boolean|number|null>,
       })).rejects.toThrow();
     }
     await expect(h.cas.compareAndSet({...args,documentId:'bad-id',patch:{title:'safe'}}))
@@ -186,7 +186,7 @@ describe('source-only signed Bucket List and task-link owner create/CAS',()=>{
 
   it('treats null/typed-null and stale CAS as conflicts without retry or success',async()=>{
     const args={domain:'bucket_task_links' as const,ownerId:identity.supabaseUserId,
-      documentId:link.id,expectedRevision:rev,patch:{is_deleted:true}};
+      documentId:link.id,expectedRevision:rev,expectedLinkReferences:{bucketListId:bucket.id,taskId:link.taskId},patch:{is_deleted:true}};
     expect(await setup([[null,200]]).cas.compareAndSet(args)).toEqual({state:'conflict'});
     const typed={owner_id:null,id:null,is_deleted:null,change_seq:null,
       bucket_list_id:null,task_id:null};
@@ -195,6 +195,11 @@ describe('source-only signed Bucket List and task-link owner create/CAS',()=>{
       .rejects.toThrow();
     await expect(setup([[{...linkRow,change_seq:next,task_id:'bad-ref'},200]])
       .cas.compareAndSet(args)).rejects.toThrow(/references/);
+    await expect(setup([[{...linkRow,change_seq:next,task_id:'task_456'},200]])
+      .cas.compareAndSet(args)).rejects.toThrow(/immutable historical references/);
+    await expect(setup().cas.compareAndSet({
+      ...args,expectedLinkReferences:undefined,
+    })).rejects.toThrow(/requires verified original/);
   });
 
   it('rejects signed account replacement and never retries a failed write',async()=>{
