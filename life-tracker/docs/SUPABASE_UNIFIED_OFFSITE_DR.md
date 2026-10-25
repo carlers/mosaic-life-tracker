@@ -300,3 +300,44 @@ Only then separately approve enabling automatic failure alerts.
 Keep `SUPABASE_DR_ENABLED=false`, pruning disabled and Production backend
 unchanged. This notification workflow does not itself fix missed backups;
 daily schedule and a future failure-delivery escalation require acceptance.
+
+### Proton reply address without Gmail — vendor constraint (2026-10-25)
+
+The owner confirmed ONE genuine test delivered into Proton when Brevo
+rewrote a verified Gmail sender into a managed Brevo domain. A Proton
+sender→Proton recipient test previously showed Delivered/First opening in
+Brevo but never appeared in the Proton mailbox. Proton was willing to accept
+an authenticated Brevo-managed From; **do not** infer that a raw Proton
+From can be spoofed safely. The owner approves managed Brevo From and
+Proton Reply-To, and explicitly does **not** want Gmail dependence.
+
+`supabase-poc/dr-alert.mjs` now supports an *optional* protected environment
+variable `SUPABASE_DR_ALERT_REPLY_TO`. When set to a well-formed Proton
+address it adds Brevo's standard `replyTo` object to the transactional JSON
+without modifying `sender` or `to`. Malformed values fail before a request;
+no email addresses or secrets are logged. Absent value retains existing
+behavior. Brevo reference:
+https://developers.brevo.com/reference/send-transac-email
+
+**This is source-only; the accepted default-branch workflow is SHA-pinned
+to the previous version and DOES NOT yet use the change.** Before any
+release, verify a sender address independently provisioned and authorized
+by Brevo. Do **not** simply fabricate `@brevosend.com` or attempt to
+verify one: Brevo's sender creation requires access to the address to receive
+an OTP. Its Gmail sender rewrite is automatic, not a user-owned mailbox.
+The missing vendor decision is whether Brevo can force equivalent managed
+sender replacement for a VERIFIED Proton sender in their transactional API.
+Ask Brevo support with PRIVATE sender/event timestamps, without including
+mailboxes or message IDs in public GitHub:
+https://help.brevo.com/hc/en-us/articles/360020434360-Contact-the-support-team
+If unsupported, no $0 proven no-Gmail Brevo-managed sender configuration
+exists yet; preserve existing safe default and revisit another authorized
+provider. Paid Proton SMTP/custom-domain/Bridge is outside the user's
+zero-cost requirement.
+
+Once supported, obtain explicit approval for narrow alert-source pin and
+protected GitHub workflow env-variable change, run ONE labeled synthetic
+test into Proton and require **owner-confirmed inbox receipt** before
+enabling `SUPABASE_DR_ALERT_ENABLED=true`. The prior successful Gmail
+sender test does not prove the agreed Gmail-free sender route; scheduled
+backup and pruning remain disabled.
