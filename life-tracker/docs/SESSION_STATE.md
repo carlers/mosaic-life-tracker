@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Task: #1027 protected Scratch Supabase unified encrypted PostgreSQL/Auth + private Storage disaster recovery. For previous implementation/proof details, use the latest issue #1027 resume comment and exact live Git/CI state.
+Current task: #1027 protected Scratch Supabase unified encrypted PostgreSQL/Auth + private Storage disaster recovery. For previous implementation/proof details, use the latest issue #1027 resume comment and exact live Git/CI state.
 
 ## Accepted recovery evidence
 - Scratch project hcxtiifzxoaflhjgoglb only. Live manually dispatched main backup Actions #40157401249 committed one completed unified encrypted database/media R2 recovery generation: 20261025T031343499Z. Separate reader-only Actions watch #40166002937 SHA-256 verified all remote ciphertext bytes and 36h freshness. Inert daily schedule and pruning remain OFF.
@@ -13,3 +13,6 @@ Task: #1027 protected Scratch Supabase unified encrypted PostgreSQL/Auth + priva
 - Failure email: new supabase-poc/dr-alert.mjs accepts exact trusted main Scratch backup/watch failure events only, rejects other/fork/success events, has typed TEST_SCRATCH_DR_ALERT probe and sanitized Brevo payload. No main workflow/alert secrets installed and NO email delivery claimed.
 - Unit and offline negative tests wrap both tools; task branch final focused acceptance required, then squash to stable for full canonical. Release version NONE. Do not promote to dev/main, touch production/cloud data, enable recurring schedules/pruning or assert native retention/alert receipt without separate proof.
 - Next real gates: Cloudflare account API readback with owner-held separate bucket-configuration token (not R2 S3 key), independently received alert email, backup key/identity escrow, managed Supabase Auth/SMTP/OAuth/JWT configurations and real photo-containing source once one exists. Keep #1027 open; do not repeat historical successful Fedora disaster-recovery run.
+
+## Next action
+- Get exact task focused and stable canonical acceptance for native GET lock audit and Brevo alert notifier. Then request one Cloudflare account API readback from trusted Fedora, and provision/verify alert delivery only after explicitly approved protected main workflow; never enable schedules/pruning or claim inbox delivery in advance.
