@@ -103,3 +103,19 @@ provider, hosted Bucket SQL, Appwrite dual writers or imports unknown links.
 PG17 ten-table encrypted restore, owner-scoped RxDB checkpoint/backfill with
 blocked conflict reviews, complete ZIP/media replay and bidirectional
 single-writer provider migration; held Production approvals remain.
+
+## Signed remote-link length boundary and stacked branch reconciliation
+
+The historical source mapper intentionally permits original Appwrite task
+references up to 255 characters for lossless export. The **remote Supabase
+candidate** contract does not: a signed remote link with a task reference
+longer than 36 characters must be refused **before a pull checkpoint advances**
+or an owner master is acknowledged. Both new read and master paths enforce
+this boundary and include malformed remote-response tests. Historical source
+records remain intact for a later private quarantine process.
+
+The late owner-first SECURITY DEFINER lookup fix from draft #1328 has been
+reconciled through the dependent #1329 and #1330 **task branches** via internal
+PRs #1331 and #1332. Those internal merges do not accept #1328/#1329/#1330
+into stable recovery or authorize any hosted database, Preview or Production
+release. Final exact CI evidence remains mandatory before acceptance.
