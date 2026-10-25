@@ -80,7 +80,7 @@ test('independent verified Proton reply-to is sent with selected authenticated p
 });
 
 test('malformed reply-to is rejected before provider request, not silently dropped', async () => {
-  for (const bad of ['proton', 'a@b.com\\r\\nBcc:evil@example.invalid', '<spoof@proton.me>']) {
+  for (const bad of ['proton', 'a@b.com' + String.fromCharCode(13, 10) + 'Bcc:evil@example.invalid', '<spoof@proton.me>']) {
     await assert.rejects(deliverAlert(probeAlert('TEST_SCRATCH_DR_ALERT'),
       { ...env, SUPABASE_DR_ALERT_REPLY_TO: bad },
       () => { throw Error('SHOULD_NOT_CONNECT'); }),
