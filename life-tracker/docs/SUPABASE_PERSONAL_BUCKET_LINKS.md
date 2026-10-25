@@ -55,3 +55,23 @@ A second isolated source branch introduces an explicit ten-object recovery choic
 The separate `supabase-ten-table-restore.yml` workflow uses disposable GitHub PostgreSQL 17 / GoTrue identities to seed all ten tables with real signed owner sessions, achieved Bucket data, ready links and a link tombstone. Its source is encrypted with `age`; the authenticated original-archive TOC and explicit `ten-personal-bucket-links` inventory gate must pass, along with seven/eight downgrade rejection. The restore runner builds a **new isolated target** and compares exact per-table COPY bytes and row counts before allowing original-password signed owner readback, foreign-owner denial, CAS non-mutation and tombstone/revision verification.
 
 **Status:** implementation source exists; exact workflow success has not been confirmed. No hosted Supabase schema was applied, no R2 ten-table snapshot created, and no production/Preview writer enabled. This disposable database/Auth proof is **not** a complete R2/Storage/attachment backup, ZIP/import parity, account mapping, or cross-provider reversibility acceptance.
+
+## Signed Bucket List/link incremental READ adapter (source-only)
+
+The existing owner-signed, session-epoch-fenced candidate HTTP change transport
+now recognizes `buckets` and `bucket_task_links` as **read-only** domains.
+`pullCandidateBuckets` and `pullCandidateBucketLinks` validate every returned
+owner, source field, deleted tombstone and strictly increasing `bigint` server
+revision before yielding any advanced checkpoint. Requests include the exact
+Supabase Auth owner filter, ordered revision cursor and bounded page limit.
+Malformed/foreign/duplicate/out-of-order rows, session replacement, invalid
+identities and oversized pages refuse the entire batch. Six isolated unit
+regressions prove contract behavior using injected HTTP responses; they do not
+prove hosted signed SQL or activate RxDB replication.
+
+A signed same-owner link row is **not by itself migration authorization**:
+`classifyCandidateLinkReferences` still requires complete independently
+verified Bucket and task target inventories, and missing/deleted/foreign/long
+references are retained in quarantine for review. Do not attach the new read
+adapter to the shipped Appwrite shared collections or enable writes before
+signed ten-table disaster recovery and tested provider fencing.
