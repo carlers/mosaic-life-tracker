@@ -152,3 +152,14 @@ versus-eight profile enforcement remain unchanged. Never drop the TOC gate,
 accept an error as an empty inventory, or publish from an unverified archive.
 Actual signed test and full restore must still pass in canonical CI before
 calling this change accepted. No hosted PostgreSQL or R2 mutation occurs.
+
+## Signed Settings incremental READ (source only)
+
+The existing verified Supabase HTTP session, bearer token, and epoch guard
+now support a read-only Settings domain. pullCandidateSettings validates every
+owner/key/value/tombstone and monotone bigint revision before moving its
+checkpoint; it refuses foreign owners, unsupported avatar/social keys,
+invalid or reordered values, oversize pages and account changes in flight.
+Opaque string preferences remain byte-exact. The write-domain union and
+Appwrite Production runtime are unchanged. Hosted Settings SQL remains
+unapplied; no Settings writer, RxDB subscription or provider cutover is enabled.

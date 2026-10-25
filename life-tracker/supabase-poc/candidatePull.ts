@@ -6,7 +6,8 @@
  * change_seq > after, ORDER BY change_seq ASC, LIMIT batchSize.
  * Even then, validate all remote rows before returning an advanced checkpoint.
  */
-import type { TaskDocument, CategoryDocument, DiaryDocument } from '../src/db/schema';
+import type { TaskDocument, CategoryDocument, DiaryDocument, SettingsDocument } from '../src/db/schema';
+import { fromCandidateSettingRow, type CandidateSettingRow } from './candidateSettingsMapping';
 import {
   fromCandidateCategoryRow,
   fromCandidateTaskRow,
@@ -20,11 +21,13 @@ import {
 } from './candidateMapping';
 
 export type CandidateDomain = 'tasks' | 'categories' | 'diary';
+/** New Settings domain is read-only until the migration writer is approved. */
+export type CandidateReadDomain = CandidateDomain | 'settings';
 export type CandidateCheckpoint = { changeSeq: string };
 
 export interface CandidateChangeTransport {
   listChanges<R>(options: {
-    domain: CandidateDomain;
+    domain: CandidateReadDomain;
     ownerId: string;
     afterExclusive: string;
     batchSize: number;
@@ -38,7 +41,7 @@ function assertCheckpoint(cursor: CandidateCheckpoint | undefined): bigint {
 }
 
 export async function pullCandidateChanges<Row extends CandidateRow, Doc>(options: {
-  domain: CandidateDomain;
+  domain: CandidateReadDomain;
   transport: CandidateChangeTransport;
   identity: CandidateIdentity;
   checkpoint?: CandidateCheckpoint;
@@ -111,5 +114,17 @@ export function pullCandidateDiary(options: {
 }): Promise<{ documents: Array<DiaryDocument & { _deleted: false }>; checkpoint: CandidateCheckpoint | undefined }> {
   return pullCandidateChanges<CandidateDiaryRow, DiaryDocument>({
     ...options, domain: 'diary', convert: fromCandidateDiaryRow,
+  });
+}
+
+/** Source-only, signed Settings pull; no Settings cloud writer or RxDB side effect. */
+export function pullCandidateSettings(options: {
+  transport: CandidateChangeTransport;
+  identity: CandidateIdentity;
+  checkpoint?: CandidateCheckpoint;
+  batchSize: number;
+}): Promise<{ documents: Array<SettingsDocument & { _deleted: false }>; checkpoint: CandidateCheckpoint | undefined }> {
+  return pullCandidateChanges<CandidateSettingRow, SettingsDocument>({
+    ...options, domain: 'settings', convert: fromCandidateSettingRow,
   });
 }

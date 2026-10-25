@@ -6,7 +6,7 @@
  * service-role/secret keys to client code. Every request rechecks account epoch.
  */
 import { parseCandidateRevision } from './candidateMapping';
-import type { CandidateChangeTransport, CandidateDomain } from './candidatePull';
+import type { CandidateChangeTransport, CandidateReadDomain } from './candidatePull';
 
 export interface CandidateVerifiedSession {
   userId: string;
@@ -51,10 +51,11 @@ export function createCandidateHttpTransport(options: {
     throw new Error('Missing or invalid candidate publishable key');
 
   const fetcher = options.fetcher ?? fetch;
-  const tables: Record<CandidateDomain, string> = {
+  const tables: Record<CandidateReadDomain, string> = {
     tasks: 'mosaic_candidate_tasks',
     categories: 'mosaic_candidate_categories',
     diary: 'mosaic_candidate_diary',
+    settings: 'mosaic_candidate_settings',
   };
 
   async function checkedSession(ownerId: string): Promise<CandidateVerifiedSession> {
@@ -70,7 +71,7 @@ export function createCandidateHttpTransport(options: {
     async listChanges<Row>({
       domain, ownerId, afterExclusive, batchSize,
     }: {
-      domain: CandidateDomain;
+      domain: CandidateReadDomain;
       ownerId: string;
       afterExclusive: string;
       batchSize: number;
