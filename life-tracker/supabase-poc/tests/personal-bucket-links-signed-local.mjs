@@ -67,8 +67,18 @@ const ownedBucket={owner_id:alice.owner,id:bId,title:'Plan 🌙',
  updated_at:stamp,is_deleted:false};
 const pre=await req('/rest/v1/'+buckets+'?select=id');
 ok(denied(pre),'anonymous Bucket SELECT accepted');
-const noLeaseBob=await insert(bob,buckets,{...ownedBucket,owner_id:bob.owner,id:'bob_'+suffix});
-ok(noLeaseBob.status===201,'second signed owner own Bucket INSERT refused');
+// A signed identity alone is not authority: the server must also observe a
+// live, matching writer lease. Reacquiring it must permit the same owner.
+let lease=await data(await req('/rest/v1/rpc/mosaic_core_session',{
+ method:'POST',token:bob.token,body:{p_action:'release'}}),'release Bob lease');
+ok(lease.released===true,'Bob lease release was not acknowledged');
+let noLease=await insert(bob,buckets,{...ownedBucket,owner_id:bob.owner,id:'bob_'+suffix});
+ok(denied(noLease),'signed owner inserted Bucket after lease release');
+lease=await data(await req('/rest/v1/rpc/mosaic_core_session',{
+ method:'POST',token:bob.token,body:{p_action:'acquire'}}),'restore Bob lease');
+ok(lease.ownerId===bob.owner,'restored lease owner mismatch');
+let ownedBob=await insert(bob,buckets,{...ownedBucket,owner_id:bob.owner,id:'bob_'+suffix});
+ok(ownedBob.status===201,'second signed owner own Bucket INSERT refused');
 r=await insert(alice,buckets,ownedBucket);
 ok(r.status===201,'owner Bucket INSERT failed '+r.status);
 const bucketRow=(await data(r,'Bucket create'))[0];
@@ -129,4 +139,17 @@ const changed=await data(await req('/rest/v1/'+links+
  '&change_seq=gt.'+linkRow.change_seq,{token:alice.token}),'link cursor');
 ok(changed.length===1&&changed[0].id===lId&&changed[0].is_deleted===true,
  'link deletion not replayed by cursor');
+// Even a fully authenticated session may not continue to update after its
+// own authority is released. Never acknowledge a tombstone or CAS then.
+lease=await data(await req('/rest/v1/rpc/mosaic_core_session',{
+ method:'POST',token:alice.token,body:{p_action:'release'}}),'release Alice lease');
+ok(lease.released===true,'Alice lease release not acknowledged');
+r=await cas(alice,'bucket',bId,updated.change_seq,{title:'after-release'});
+ok(denied(r),'released owner CAS mutated Bucket');
+r=await insert(alice,links,{owner_id:alice.owner,id:'after_release_'+suffix,
+ bucket_list_id:bId,task_id:tId,created_at:stamp,updated_at:stamp,is_deleted:false});
+ok(denied(r),'released owner created task link');
+const persisted=(await read(alice,buckets,alice.owner)).find(v=>v.id===bId);
+ok(persisted?.title==='Updated 🏊'&&persisted.change_seq===updated.change_seq,
+ 'released owner changed persisted Bucket revision');
 console.log('MOSAIC_BUCKET_LINK_SIGNED_TWO_OWNER_PASS');
