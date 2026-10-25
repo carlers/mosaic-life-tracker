@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertProfileToc, assertRecoveryProfile, SEVEN, EIGHT_SETTINGS } from '../../supabase-poc/recovery-profile.mjs';
+import { assertProfileToc, assertRecoveryProfile, SEVEN, EIGHT_SETTINGS, TEN_BUCKET_LINKS } from '../../supabase-poc/recovery-profile.mjs';
 
 const seven = {
   status: 'METADATA_ONLY_NOT_RESTORED',
@@ -44,6 +44,32 @@ describe('authenticated unified R2 personal table inventory gate', () => {
         ...seven, personalCandidateDataTables: [...seven.personalCandidateDataTables, name],
       }, SEVEN)).toThrow(/outside explicitly restorable/);
     }
+  });
+
+  it('requires exact two Bucket/link TABLE DATA entries for ten-table encrypted recovery', () => {
+    const ten = {
+      ...seven, personalSettingsDataEntryPresent: true,
+      bucketListDataEntryPresent: true, bucketTaskLinksDataEntryPresent: true,
+      personalCandidateDataTables: [...seven.personalCandidateDataTables,
+        'public.mosaic_candidate_settings','public.mosaic_candidate_buckets',
+        'public.mosaic_candidate_bucket_task_links'],
+    };
+    expect(assertProfileToc(ten,TEN_BUCKET_LINKS)).toBe(TEN_BUCKET_LINKS);
+    for (const profile of [SEVEN,EIGHT_SETTINGS]) {
+      expect(() => assertProfileToc(ten,profile)).toThrow(/outside explicitly restorable/);
+    }
+    for (const missing of ['public.mosaic_candidate_buckets',
+                           'public.mosaic_candidate_bucket_task_links']) {
+      const absent={...ten,personalCandidateDataTables:ten.personalCandidateDataTables.filter(v=>v!==missing)};
+      expect(() => assertProfileToc(absent,TEN_BUCKET_LINKS)).toThrow(/outside explicitly restorable/);
+    }
+    expect(() => assertProfileToc({...ten,bucketListDataEntryPresent:false},TEN_BUCKET_LINKS))
+      .toThrow(/not restorable/);
+    expect(() => assertProfileToc({...ten,bucketTaskLinksDataEntryPresent:false},TEN_BUCKET_LINKS))
+      .toThrow(/not restorable/);
+    expect(() => assertProfileToc({...ten,personalCandidateDataTables:[
+      ...ten.personalCandidateDataTables,'public.mosaic_candidate_unknown',
+    ]},TEN_BUCKET_LINKS)).toThrow(/outside explicitly restorable/);
   });
 
   it('refuses missing Diary even when ordinary core manifest exists', () => {
