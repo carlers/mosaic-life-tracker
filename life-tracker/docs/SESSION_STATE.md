@@ -14,6 +14,6 @@ Current task: #1027 pre-social personal Supabase parity and recoverability. Prod
 - Nine offline negative/positive tests, shell syntax, focused Quality and canonical stable still required. Real nonempty eight-table age→independent PG17 signed restore in CI must pass before any hosted Settings SQL/write. R2 full producer already backs up complete database; this change only extends the data-only restore allowlist.
 - Never reinterpret the existing accepted seven-table R2 snapshot as Settings proof.
 
-## Owner terminal protocol and next action
+## Next action
 - Owner demands **NO more Fedora commands until all pre-social personal-feature parity, offline/ZIP/import, encrypted full recovery, bidirectional Appwrite Cloud/Oracle↔Supabase migration rehearsals are finished in connected CI**. Then prepare ONE SHA-pinned resumable private pre-social command; no repeated manual drills or extra credential setup. Prior private recovery proofs are retained. Device checks and explicit protected Production cutover approvals remain separate. See docs/OPERATOR_ONEPASS.md and issue #1027.
 - Next: accept focused & stable CI for eight-table allowlist, build actual synthetic encrypted eight-table disposable Auth/Settings restore, then signed Settings incremental transport. Do not modify hosted Scratch, `dev`, `main`, Production, user data, R2 objects or schedules.
