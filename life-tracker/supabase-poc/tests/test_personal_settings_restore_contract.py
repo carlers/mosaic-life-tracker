@@ -1,6 +1,8 @@
 """No-network strict source/restore mode regression for private Settings."""
 import os
 import sys
+import hashlib
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -146,6 +148,30 @@ class Contract(unittest.TestCase):
             bad = dict(counts); bad['public.mosaic_candidate_bucket_task_links'] = 250001
             with self.assertRaises(ValueError):
                 m.validate_source_counts(bad)
+
+    def test_synthetic_backup_sha_pin_is_checked_before_any_container_operation(self):
+        raw = b'only disposable fake ciphertext; no personal data'
+        good = hashlib.sha256(raw).hexdigest()
+        with tempfile.TemporaryDirectory() as folder:
+            archive = Path(folder) / 'backup.age'
+            archive.write_bytes(raw)
+            for digest, accepted in [('0' * 64, False), (good, True)]:
+                with self.subTest(accepted=accepted), patch.dict(os.environ, {
+                    'MOSAIC_FRESH_SNAPSHOT_SHA256':digest,
+                    'MOSAIC_PERSONAL_SETTINGS_RESTORE':'1',
+                    'MOSAIC_BUCKET_LINKS_RESTORE':'1',
+                    'GITHUB_ACTIONS':'true',
+                    'MOSAIC_REAL_AUTH_RECOVERY_LAB':'1',
+                }, clear=True):
+                    with patch.object(m, 'assert_target',
+                                      side_effect=ValueError('Reached disposable target')) as target:
+                        with self.assertRaisesRegex(ValueError,
+                            'Reached disposable target' if accepted else 'SHA256'):
+                            m.restore(archive, archive, 'synthetic_only')
+                        if accepted:
+                            target.assert_called_once_with('synthetic_only')
+                        else:
+                            target.assert_not_called()
 
     def test_auth_integrity_and_personal_row_bound(self):
         with mode('settings'):

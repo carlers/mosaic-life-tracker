@@ -308,7 +308,9 @@ def approved_source_sha256():
 def restore(archive, identity, container):
     synthetic = (os.getenv("GITHUB_ACTIONS") == "true" and
                  os.getenv("MOSAIC_REAL_AUTH_RECOVERY_LAB") == "1")
-    if not synthetic and sha256(archive) != approved_source_sha256():
+    # Even a disposable CI run must prove the exact operator-supplied encrypted
+    # bytes match its reviewed digest. Synthetic data is not an SHA bypass.
+    if sha256(archive) != approved_source_sha256():
         raise ValueError("Encrypted archive SHA256 does not match approved source pin")
     # Use ONLY PostgreSQL 17 tools inside the verified local Docker target.
     # Host pg_restore may be PG15/16 and cannot reliably decode PG17 archives.
