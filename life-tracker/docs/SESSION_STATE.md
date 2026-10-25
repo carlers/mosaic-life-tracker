@@ -15,7 +15,7 @@ Current task: #1027 draft PR #1328 Bucket List/task-link signed local SQL and st
 
 ## Source-only next SQL work (not yet accepted)
 - PR #1327 merged on recovery branch d5a9c905ca2a4863f2fea264efd6278230a577c3; commit record confirms focused Quality and prior Settings full Quality, Eight-Table, GoTrue, Synthetic and Core App technical gates successful. Protected hosted Preview still requires approval.
-- Draft PR #1328 stages two **UNAPPLIED** private bucket/link tables with owner-composite FKs, signed-owner-only RLS, authority/revision triggers, CAS RPCs, catalog validation and a signed GoTrue two-owner fixture in the disposable Core App workflow. Lease release and deleted-target negatives included. Real SQL/CI acceptance unverified; no hosted data change.
+- Draft PR #1328 stages two **UNAPPLIED** private bucket/link tables with owner-composite FKs, signed-owner-only RLS, authority/revision triggers, CAS RPCs, catalog validation and a signed GoTrue two-owner fixture in the disposable Core App workflow. Lease release and deleted-target negatives included. The link target SECURITY DEFINER trigger now refuses a foreign signed owner **before** probing target existence; matching signed negative cases cover both present and absent foreign targets. Real SQL/CI acceptance unverified; no hosted data change.
 - Older 6/7/8-table restore modes now reject Bucket/link TABLE DATA and all unreviewed public candidate personal tables instead of silently omitting them. Two additional mock-manifest regressions (11 total) and Vitest assertion added. No ten-table restore enabled.
 
 ## Next action
