@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 source-only Settings RxDB pilot adapter; no runtime writer.
+Current task: #1027 repair candidate Settings RxDB CAS patch type for canonical build; no runtime writer.
 
 ## Accepted
 - Appwrite Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7 and dev 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged. Supabase personal candidate isolated; hosted Settings migration UNAPPLIED.
@@ -15,4 +15,4 @@ Current task: #1027 source-only Settings RxDB pilot adapter; no runtime writer.
 - Add substantive unit tests for source-only Settings pilot including create and revision CAS, tombstone pull, foreign identity, explicit conflict and key immutability, no physical delete or implicit owner/provider switch.
 
 ## Next action
-- Focused CI and isolated stable full Quality/8-table/GoTrue/Core gates. Next build gated complete Settings owner-private collection migration/backfill and exclusive-writer runtime, then Bucket List/task links, full personal DR and reversible provider return. ONE final Fedora acceptance only when all pre-social work is ready. No Production cutover/social authorization.
+- Canonical stable CI after source-only #1325 Settings pilot: eight-table/GoTrue/Synthetic green, but production TS build #40204386400 and dependent Core App #40204386389 failed on inferred optional-undefined CAS patch fields. Repair with explicit typed CAS record and concrete category optional fields. Focused then stable CI required before promoting follow-up Bucket mapping. No hosted/app/Production writer and NO Fedora.
