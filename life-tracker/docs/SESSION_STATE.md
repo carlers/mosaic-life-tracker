@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 source-only Settings RxDB pilot adapter; no runtime writer.
+Current task: #1027 Bucket List/task-link owner-private mapping foundation, no hosted tables.
 
 ## Accepted
 - Appwrite Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7 and dev 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged. Supabase personal candidate isolated; hosted Settings migration UNAPPLIED.
@@ -11,8 +11,8 @@ Current task: #1027 source-only Settings RxDB pilot adapter; no runtime writer.
 - Main Brevo automated alerts, unattended backup and pruning disabled, Proton sender replacement case pending with support.
 
 ## Current source-only task
-- After accepted #1324 typed Settings CREATE/CAS/master source transport, extend isolated generic RxDB pilot to domain=settings using signed owner pull/create/master/CAS and native RxDB checkpoints. Preserve byte-exact opaque values, tombstones, unknown portable keys, local pending edits and parked conflict reviews. Reject owner/key swaps, spoofed revisions, provider-specific avatar/social settings and session changes. Existing Production Appwrite and candidate core runtime remain unchanged: NO Settings writer enabled.
-- Add substantive unit tests for source-only Settings pilot including create and revision CAS, tombstone pull, foreign identity, explicit conflict and key immutability, no physical delete or implicit owner/provider switch.
+- Separate Bucket List and task-link mapping: preserve historical IDs, long task reference IDs, tombstones, source timestamps, and explicit verified legacy→Supabase owner mapping. Quarantine missing/foreign/deleted target references rather than silently dropping them. No hosted SQL, app writer or data migration. Nine unit tests for both domains, ownership and link integrity.
+- Prior #1325 Settings native RxDB pilot is accepted into isolated recovery source but remains disabled for Appwrite shared local collections and hosted settings; do not treat it as a public settings release.
 
 ## Next action
-- Focused CI and isolated stable full Quality/8-table/GoTrue/Core gates. Next build gated complete Settings owner-private collection migration/backfill and exclusive-writer runtime, then Bucket List/task links, full personal DR and reversible provider return. ONE final Fedora acceptance only when all pre-social work is ready. No Production cutover/social authorization.
+- Focused CI then merge source-only Bucket mapping into isolated recovery branch after accepted #1325 stable tests; canonical Quality/8-table/GoTrue/Core. Next private Bucket SQL/CAS and full ten-table DR, signed link transport and safe Settings migration/backfill. No hosted SQL, Appwrite Production changes or Fedora request until one final pre-social bundle.
