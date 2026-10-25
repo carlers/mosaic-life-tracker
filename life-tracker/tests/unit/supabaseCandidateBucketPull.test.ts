@@ -43,7 +43,7 @@ function harness(rows: unknown[] = [bucketRow]) {
   const transport = createCandidateHttpTransport({
     baseUrl: 'https://synthetic.supabase.co',
     publishableKey: 'sb_publishable_synthetic_only', session,
-    fetcher: fetcher as typeof fetch,
+    fetcher: fetcher as unknown as typeof fetch,
   });
   return { fetcher, session, transport };
 }
@@ -75,7 +75,8 @@ describe('source-only signed Bucket List and link incremental read (#1027)', () 
     });
     expect(result.documents).toEqual([{ ...link, _deleted: false }]);
     expect(result.checkpoint).toEqual({ changeSeq: linkRow.change_seq });
-    expect(new URL(h.fetcher.mock.calls[0][0]).pathname)
+    const [signedUrl] = h.fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new URL(signedUrl).pathname)
       .toBe('/rest/v1/mosaic_candidate_bucket_task_links');
     // A returned row is NOT proof that a local target exists. Its classification
     // must be explicit and owner-scoped before any future import/link writer.
