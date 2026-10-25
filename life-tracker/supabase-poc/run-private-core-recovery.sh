@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
-# Restores only a reviewed snapshot's six core data tables into a brand-new
+# Restores only exactly reviewed 6/7/8 TABLE DATA objects into a brand-new
 # local Supabase project. Does NOT modify existing local/hosted projects.
 set -euo pipefail
 umask 077
 
 if [[ ( $# -ne 2 && $# -ne 4 ) || "$1" != /* || "$2" != /* || ! -f "$1" || ! -f "$2" ]]; then
-  echo 'Usage: bash supabase-poc/run-private-core-recovery.sh /ABSOLUTE/backup.age /ABSOLUTE/key.agekey [--fresh-snapshot-sha256 64-lowercase-hex-digest]' >&2
+  echo 'Usage: bash supabase-poc/run-private-core-recovery.sh /ABSOLUTE/backup.age /ABSOLUTE/key.agekey [--fresh-snapshot-sha256|--fresh-personal-settings-sha256 64-lowercase-hex-digest]' >&2
   exit 2
 fi
 # Never accept an ambient override: a fresh source is an explicit operator
 # action after independently recording the checksum of a newly encrypted dump.
-if [[ ${MOSAIC_FRESH_SNAPSHOT_SHA256+x} ]]; then
-  echo 'Refusing inherited fresh-snapshot approval variable' >&2
+if [[ ${MOSAIC_FRESH_SNAPSHOT_SHA256+x} || ${MOSAIC_PERSONAL_SETTINGS_RESTORE+x} ]]; then
+  echo 'Refusing inherited archive/table-mode approval variable' >&2
   exit 2
 fi
 if [[ $# -eq 4 ]]; then
-  if [[ "$3" != "--fresh-snapshot-sha256" || ! "$4" =~ ^[a-f0-9]{64}$ ]]; then
-    echo 'Fresh snapshot requires the exact lowercase SHA-256 of the encrypted archive' >&2
+  if [[ ( "$3" != "--fresh-snapshot-sha256" && "$3" != "--fresh-personal-settings-sha256" ) ||
+       ! "$4" =~ ^[a-f0-9]{64}$ ]]; then
+    echo 'Fresh snapshot requires exact lowercase digest and reviewed table mode' >&2
     exit 2
   fi
   export MOSAIC_FRESH_SNAPSHOT_SHA256="$4"
+  if [[ "$3" == "--fresh-personal-settings-sha256" ]]; then
+    export MOSAIC_PERSONAL_SETTINGS_RESTORE=1
+  fi
 fi
 [[ "$(uname -s)" == Linux ]] || { echo 'Local Linux required' >&2; exit 2; }
 for cmd in docker supabase python3 age; do
@@ -96,6 +100,10 @@ if [[ $# -eq 4 ]]; then
     cp "$here/migrations/$migration.sql" "supabase/migrations/$stamp"_"$migration.sql"
     index=$((index+1))
   done
+  if [[ ${MOSAIC_PERSONAL_SETTINGS_RESTORE:-} == 1 ]]; then
+    printf -v stamp '2026102000%04d' "$index"
+    cp "$here/migrations/20261025_candidate_private_personal_settings.sql" "supabase/migrations/$stamp"_personal_settings.sql
+  fi
 fi
 python3 "$here/configure-private-disposable-stack.py" init "$scratch" "$project"
 # No user backup is decrypted before stack identity, empty-target and loopback
