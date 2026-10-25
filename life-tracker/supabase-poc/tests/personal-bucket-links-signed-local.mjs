@@ -103,6 +103,13 @@ r=await insert(alice,links,{owner_id:alice.owner,id:'tomb_target_'+suffix,
  bucket_list_id:deletedBucket,task_id:tId,created_at:stamp,updated_at:stamp,
  is_deleted:false});
 ok(r.status===409||r.status===400,'active link to deleted Bucket accepted');
+// A definer trigger must reject a spoofed owner before checking whether its
+// referenced target exists, otherwise foreign target existence leaks.
+for(const taskRef of [tId,'never_existed_'+suffix]){
+ r=await insert(bob,links,{owner_id:alice.owner,id:'spoof_'+taskRef,
+  bucket_list_id:bId,task_id:taskRef,created_at:stamp,updated_at:stamp});
+ ok(denied(r),'spoofed owner link disclosed target existence');
+}
 r=await insert(bob,links,{owner_id:bob.owner,id:'cross_'+suffix,
  bucket_list_id:bId,task_id:tId,created_at:stamp,updated_at:stamp});
 ok(r.status===409 || r.status===400,'foreign-owner link target accepted');
