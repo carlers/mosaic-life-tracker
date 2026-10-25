@@ -73,6 +73,8 @@ export function summarizeToc(source) {
   return {
     privateDiaryDataEntryPresent: dataPresent('public', 'mosaic_candidate_diary'),
     personalSettingsDataEntryPresent: dataPresent('public', 'mosaic_candidate_settings'),
+    bucketListDataEntryPresent: dataPresent('public', 'mosaic_candidate_buckets'),
+    bucketTaskLinksDataEntryPresent: dataPresent('public', 'mosaic_candidate_bucket_task_links'),
     personalCandidateDataTables,
     status: missing.length ? 'INCOMPLETE_METADATA' : 'METADATA_ONLY_NOT_RESTORED',
     archiveTocEntries: entries.length,
