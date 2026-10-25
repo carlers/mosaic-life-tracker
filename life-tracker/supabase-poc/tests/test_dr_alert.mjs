@@ -59,9 +59,33 @@ test('transport sends minimal Brevo transactional plain text without source data
   });
   assert.equal(payload.sender.email, env.SUPABASE_DR_ALERT_SENDER);
   assert.equal(payload.to[0].email, env.SUPABASE_DR_ALERT_RECIPIENT);
+  assert.equal(payload.replyTo, undefined);
   assert.equal(options.headers['api-key'], env.SUPABASE_DR_ALERT_BREVO_API_KEY);
   assert.equal(options.method, 'POST');
   assert.ok(!JSON.stringify(payload).includes('postgres.'));
+});
+
+test('independent verified Proton reply-to is sent with selected authenticated provider sender', async () => {
+  const withReply = { ...env, SUPABASE_DR_ALERT_REPLY_TO: 'reply@proton.me' };
+  let payload;
+  await deliverAlert(probeAlert('TEST_SCRATCH_DR_ALERT'), withReply, async (_url, init) => {
+    payload = JSON.parse(init.body);
+    return { status: 201 };
+  });
+  assert.equal(payload.sender.email, withReply.SUPABASE_DR_ALERT_SENDER);
+  assert.deepEqual(payload.replyTo, { email: 'reply@proton.me', name: 'Mosaic DR' });
+  assert.equal(payload.to[0].email, withReply.SUPABASE_DR_ALERT_RECIPIENT);
+  assert.ok(!payload.subject.includes('reply@proton.me'));
+  assert.ok(!payload.textContent.includes('reply@proton.me'));
+});
+
+test('malformed reply-to is rejected before provider request, not silently dropped', async () => {
+  for (const bad of ['proton', 'a@b.com\\r\\nBcc:evil@example.invalid', '<spoof@proton.me>']) {
+    await assert.rejects(deliverAlert(probeAlert('TEST_SCRATCH_DR_ALERT'),
+      { ...env, SUPABASE_DR_ALERT_REPLY_TO: bad },
+      () => { throw Error('SHOULD_NOT_CONNECT'); }),
+      /reply-to setting invalid/);
+  }
 });
 
 test('no protected Brevo key/recipient/sender -> never send', async () => {

@@ -52,6 +52,10 @@ export async function deliverAlert(message, env, fetchImpl = fetch) {
   const key = env.SUPABASE_DR_ALERT_BREVO_API_KEY;
   const sender = env.SUPABASE_DR_ALERT_SENDER;
   const recipient = env.SUPABASE_DR_ALERT_RECIPIENT;
+  // Optional independent reply address; never force a third-party free-mail From.
+  const replyTo = env.SUPABASE_DR_ALERT_REPLY_TO;
+  if (replyTo != null && replyTo !== '' && !EMAIL.test(replyTo))
+    throw new Error('Protected DR alert reply-to setting invalid');
   if (!key || key.length < 20 || /\s/.test(key) ||
       !EMAIL.test(sender || '') || !EMAIL.test(recipient || '')) {
     throw new Error('Protected Brevo alert settings missing');
@@ -59,6 +63,7 @@ export async function deliverAlert(message, env, fetchImpl = fetch) {
   const payload = {
     sender: { email: sender, name: 'Mosaic DR' },
     to: [{ email: recipient }],
+    ...(replyTo ? { replyTo: { email: replyTo, name: 'Mosaic DR' } } : {}),
     subject: message.subject,
     textContent: message.body,
   };
