@@ -1,0 +1,44 @@
+name: Supabase Ten-Table Private Bucket Restore Lab
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'chatgpt/1027-ten-table-disposable-restore-*'
+      - 'feature/1027-supabase-recovery-*'
+permissions:
+  contents: read
+concurrency:
+  group: supabase-ten-table-private-restore-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  signed-ten-table-recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: '2.81.3'
+      - name: Install isolated age executable
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq age
+      - name: Validate complete ten-table disposable sources
+        run: |
+          set -euo pipefail
+          bash -n supabase-poc/ten-table-restore-lab.sh
+          bash -n supabase-poc/run-private-core-recovery.sh
+          node --check supabase-poc/tests/ten-table-restore-fixture.mjs
+          node --check supabase-poc/tests/inspect-ten-table-profile-ci.mjs
+          python3 -m py_compile supabase-poc/restore_private_core_to_disposable.py
+          python3 supabase-poc/tests/test_personal_settings_restore_contract.py
+      - name: Prove PG17 age-encrypted ten-table exact-copy restore and signed two-owner RLS
+        env:
+          MOSAIC_REAL_AUTH_RECOVERY_LAB: '1'
+        run: bash supabase-poc/ten-table-restore-lab.sh
