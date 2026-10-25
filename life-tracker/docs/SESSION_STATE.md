@@ -15,5 +15,8 @@ Current task: #1027 provider-neutral personal Settings parity and eight-table en
 - This task adds a disposable GitHub eight-table restoration workflow. It seeds real synthetic Settings through signed GoTrue, encrypts a full PG17 archive with age, stops the source, restores into a different isolated PG17 through the reviewed operator restore driver and checks real signed owner/tombstone/privacy; cleans resources. Do not claim it passed until actual stable CI evidence.
 - Hosted SQL remains unapplied; source-only feature, no Production, dev/main, provider, data, alert, schedule or pruning changes.
 
+## 2026-10-25 deterministic unified R2 fixture time repair
+- Fixed Oct 25 noon `NOW` in offsite synthetic tests drifted >60s from production real `completedAt`, triggering correctly strict future rejection and failing stable Quality #40192610581. Derive test NOW and stale/future dates from the actual current clock; NO changes to production 60s future guard, 36h freshness, retention, native lock or R2 objects. New eight-table signed age restore lab #40193150240 runs separately.
+
 ## Next action
 - Run focused CI, merge source-only lab into isolated recovery branch and verify the exact new full synthetic encrypted eight-table lab plus canonical Quality/GoTrue. Resolve failures. Then extend operational R2 backup/watch/restore to new personal data and implement owner-scoped Settings sync; continue Bucket List and migration portability before one final Fedora command.
