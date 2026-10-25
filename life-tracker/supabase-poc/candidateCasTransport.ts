@@ -142,19 +142,27 @@ export function createCandidateCasTransport(options: {
 
   return {
     async compareAndSet<Row extends CandidateCasRow>({
-      domain, ownerId, documentId, expectedRevision, patch,
+      domain, ownerId, documentId, expectedRevision, patch, expectedLinkReferences,
     }: {
       domain: CasDomain;
       ownerId: string;
       documentId: string;
       expectedRevision: string;
       patch: CandidatePatch;
+      /** Required for links: caller's independently reviewed source identity. */
+      expectedLinkReferences?: { bucketListId: string; taskId: string };
     }): Promise<CandidateCasOutcome<Row>> {
       // Check input before sending anything to the network.
       if (!Object.prototype.hasOwnProperty.call(RPC, domain) ||
         !documentId || documentId.length > 255 || Array.from(documentId).some(char => char.charCodeAt(0) < 32) ||
         ((domain === 'buckets' || domain === 'bucket_task_links') && !SHORT_ROW_ID.test(documentId))) {
         throw new Error('Invalid candidate CAS row identity');
+      }
+      if (domain === 'bucket_task_links' &&
+          (!expectedLinkReferences ||
+           !SHORT_ROW_ID.test(expectedLinkReferences.bucketListId) ||
+           !SHORT_ROW_ID.test(expectedLinkReferences.taskId))) {
+        throw new Error('Bucket link CAS requires verified original target references');
       }
       const revision = parseCandidateRevision(expectedRevision);
       if (revision < 1n) throw new Error('Candidate CAS requires an existing row revision');
@@ -212,6 +220,12 @@ export function createCandidateCasTransport(options: {
       }
       if (domain === 'buckets' || domain === 'bucket_task_links')
         verifyBucketCasRow(domain, row);
+      if (domain === 'bucket_task_links') {
+        const returned = row as unknown as Record<string, unknown>;
+        if (returned.bucket_list_id !== expectedLinkReferences?.bucketListId ||
+            returned.task_id !== expectedLinkReferences?.taskId)
+          throw new Error('Bucket link CAS changed immutable historical references');
+      }
       return {
         state: 'applied', revision: parseCandidateRevision(row.change_seq).toString(),
         row: row as Row,
