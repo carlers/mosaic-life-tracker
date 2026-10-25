@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#1027: restore explicitly selected 6/7/8 approved data objects into disposable PG17.
+"""#1027: restore only reviewed 6/7/8 data objects into disposable PG17.
 
 Requires a *new*, empty and initialized Supabase CLI database container.
 No hostname, port or database URL accepted; Docker exec targets one verified
@@ -31,6 +31,12 @@ CORE = [
 # SHA-pinned snapshot adds private Diary and checks every restored COPY byte.
 FRESH_DIARY = ["public.mosaic_candidate_diary"]
 PERSONAL_SETTINGS = ["public.mosaic_candidate_settings"]
+# These new private domains are NOT currently restorable under 6/7/8.
+# A future ten-table profile must explicitly select, order and verify both.
+PRIVATE_BUCKET_LINKS = [
+    "public.mosaic_candidate_buckets",
+    "public.mosaic_candidate_bucket_task_links",
+]
 
 def selected_data_tables():
     fresh = os.environ.get("MOSAIC_FRESH_SNAPSHOT_SHA256") is not None
@@ -179,6 +185,13 @@ def copy_manifest(container):
         # TABLE DATA object but the operator selected an old archive mode.
         if name in PERSONAL_SETTINGS and name not in allowed:
             raise ValueError("Settings-bearing source requires eight-table restore")
+        if name in PRIVATE_BUCKET_LINKS and name not in allowed:
+            raise ValueError("Bucket/link-bearing source requires approved ten-table restore")
+        # A new personal TABLE DATA object can never be silently ignored by an
+        # older recovery mode. Unknown tables require reviewed schema + DR
+        # coverage first, rather than a partially successful user restore.
+        if name.startswith("public.mosaic_candidate_") and name not in allowed:
+            raise ValueError("Unknown personal table requires reviewed restore profile")
         if name not in allowed:
             continue
         if name in selected:
