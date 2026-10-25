@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 repair candidate Settings RxDB CAS patch type for canonical build; no runtime writer.
+Current task: #1027 source-only owner-private Bucket List + task-link mapping contract.
 
 ## Accepted
 - Appwrite Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7 and dev 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged. Supabase personal candidate isolated; hosted Settings migration UNAPPLIED.
@@ -11,8 +11,7 @@ Current task: #1027 repair candidate Settings RxDB CAS patch type for canonical 
 - Main Brevo automated alerts, unattended backup and pruning disabled, Proton sender replacement case pending with support.
 
 ## Current source-only task
-- After accepted #1324 typed Settings CREATE/CAS/master source transport, extend isolated generic RxDB pilot to domain=settings using signed owner pull/create/master/CAS and native RxDB checkpoints. Preserve byte-exact opaque values, tombstones, unknown portable keys, local pending edits and parked conflict reviews. Reject owner/key swaps, spoofed revisions, provider-specific avatar/social settings and session changes. Existing Production Appwrite and candidate core runtime remain unchanged: NO Settings writer enabled.
-- Add substantive unit tests for source-only Settings pilot including create and revision CAS, tombstone pull, foreign identity, explicit conflict and key immutability, no physical delete or implicit owner/provider switch.
+- Source-only private Bucket List + task link mapper preserves owner-verified exact legacy IDs, source fields, tombstones, and long historical task references. Missing, foreign or deleted targets are quarantined rather than dropped. Nine mapping/privacy regressions; no new SQL, live writer or data migration. Settings RxDB source-only PR #1325 and canonical TS fix #1326 remain present.
 
 ## Next action
-- Canonical stable CI after source-only #1325 Settings pilot: eight-table/GoTrue/Synthetic green, but production TS build #40204386400 and dependent Core App #40204386389 failed on inferred optional-undefined CAS patch fields. Repair with explicit typed CAS record and concrete category optional fields. Focused then stable CI required before promoting follow-up Bucket mapping. No hosted/app/Production writer and NO Fedora.
+- Accept exact recovery-branch canonical Quality/Core/Eight-Table/GoTrue after Settings CAS repair #1326, then this Bucket source-only contract. Next implement signed private Bucket List/link SQL+DR ten-table profile and owner-link CAS/pull, reconcile source ZIP/Settings, then one final pre-social Fedora acceptance. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora.
