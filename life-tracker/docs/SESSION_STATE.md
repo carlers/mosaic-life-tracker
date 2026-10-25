@@ -11,7 +11,7 @@ Current task: #1027 personal non-social Supabase Settings parity foundation, sou
 ## Current scoped task
 - Add isolated candidateSettingsMapping.ts for full-fidelity opaque string Settings rows, explicit legacy owner↔Supabase UUID validation, preserved tombstones, and fail-closed rejected provider-specific profile image/friend carousel identities.
 - Add migration 20261025_candidate_private_personal_settings.sql with RLS owner-only SELECT/INSERT and exact revision-checked CAS; this migration is UNAPPLIED and hosted data NOT modified. New Settings tables are NOT yet in encrypted backup/restore allowlists. Do not install until signed local PostgreSQL two-owner security and DR parity are proven.
-- Unit mappings and Settings runbook/README index included in scoped task checkpoint. No Product/app code or public runtime capability changed. Settings and Bucket List/task links remain major pre-cutover personal parity blockers.
+- Unit mappings and Settings runbook/README index included; current follow-up adds disposable Core App Lab actual PostgreSQL Settings schema and signed two-owner CAS/RLS/lease tests. No app/public runtime or hosted schema changed.
 
 ## Next action
 - Accept focused CI on a reviewed task branch, squash source-only to the isolated recovery branch after tests; verify canonical Quality and restoration labs. Next implement signed local SQL/CAS RLS/DR coverage before any hosted migration and then wire full owner-scoped settings pilot. No dev/main or Production promotion without new approval.

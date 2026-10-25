@@ -41,3 +41,20 @@ No public/anonymous writes or social reads are part of this contract.
 
 No hosted SQL, R2 data, Production, Appwrite, dev/main, alerts, scheduling or
 pruning change is authorized by this source-only acceptance.
+
+## Disposable signed database CI harness (additional source-only gate)
+
+The Supabase Core App Lab now copies the UNAPPLIED Settings SQL into its
+*disposable* local Supabase CLI migration directory, checks table RLS,
+restricted privileges, authority/revision triggers and owner-key uniqueness
+against actual PostgreSQL, then uses freshly registered local GoTrue users
+and signed sessions over loopback PostgREST to exercise: no-lease write denial,
+owned create/read, cross-owner read/insert/CAS denial, anonymous denial,
+direct UPDATE/DELETE denial, duplicate key conflict, exact change-seq CAS,
+stale/replayed conflicts, forbidden patch fields, tombstone and revision
+cursor replay, and lease release denial.
+
+Passing CI proves only isolated local signed behavior. Do not apply Settings
+SQL to hosted Scratch until the encrypted PG backup/restore allowlists are
+updated and verified; no live dataset is recoverable through the old seven-
+table DR allowlist for this new domain. No production/user data is modified.
