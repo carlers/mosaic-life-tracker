@@ -1,22 +1,22 @@
 # Session checkpoint
 
-Updated: 2026-10-25 Asia/Manila
-Current task: #1027 draft PR #1328 Bucket List/task-link signed local SQL and strict old-mode encrypted DR refusal.
+Updated: 2026-10-26 Asia/Manila
+Current task: #1027 ten-table Supabase personal DR acceptance, before Bucket/Settings provider rollout.
 
-## Accepted
-- Appwrite Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7 and dev 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged. Supabase personal candidate isolated; hosted Settings migration UNAPPLIED.
-- Real historical seven-table encrypted Scratch R2 20261025T031343499Z verified and restored on Fedora; native >=30-day lock readback proved. Do not repeat. NEXT Fedora command only when all pre-social features and bidirectional migration bundled.
-- Synthetic eight-table PG17 age/TOC/Settings/RLS exact restore real CI #40199736849 PASSED after PR #1322 client compatibility fix, Quality #40199736896, Synthetic #40199736838 and GoTrue #40199736855 passed.
-- PR #1323 source-only verified owner Settings change stream and bigint pull checkpoint, focused CI #40200595607 passed; recovery branch 776ea6c83ed9656326d5aa09c9780df281f6f640, canonical Quality/GoTrue/eight-table/Core running.
-- Main Brevo automated alerts, unattended backup and pruning disabled, Proton sender replacement case pending with support.
+## Accepted and protected
+- Production Appwrite `main` and `dev` remain unchanged by this work. No hosted Supabase Bucket/Settings schema, app writer, automatic alerts/pruning, or social cutover.
+- Real historical seven-table encrypted Scratch R2 backup 20261025T031343499Z independently verified/restored on Fedora, with native >=30-day retention lock. DO NOT repeat Fedora until one final complete pre-social command.
+- Prior disposable eight-table Settings/GoTrue/PG17 exact restore CI accepted; cannot substitute for ten-table or hosted backup.
+- PR #1328 SQL/RLS/CAS + signed two-owner GoTrue Core App passed Quality #40216685875 and Core #40216685860, then **squash-merged only to isolated feature/1027 recovery** at `088d280de7ae059042603390164ea18d446306d3`.
 
-## Current source-only task
-- Source-only private Bucket List + task link mapper preserves owner-verified exact legacy IDs, source fields, tombstones, and long historical task references. Missing, foreign or deleted targets are quarantined rather than dropped. Nine mapping/privacy regressions; no new SQL, live writer or data migration. Settings RxDB source-only PR #1325 and canonical TS fix #1326 remain present.
-
-## Source-only next SQL work (not yet accepted)
-- PR #1327 merged on recovery branch d5a9c905ca2a4863f2fea264efd6278230a577c3; commit record confirms focused Quality and prior Settings full Quality, Eight-Table, GoTrue, Synthetic and Core App technical gates successful. Protected hosted Preview still requires approval.
-- Draft PR #1328 stages two **UNAPPLIED** private bucket/link tables with owner-composite FKs, signed-owner-only RLS, authority/revision triggers, CAS RPCs, catalog validation and a signed GoTrue two-owner fixture in the disposable Core App workflow. Lease release and deleted-target negatives included. The link target SECURITY DEFINER trigger now refuses a foreign signed owner **before** probing target existence; matching signed negative cases cover both present and absent foreign targets. Real SQL/CI acceptance unverified; no hosted data change.
-- Older 6/7/8-table restore modes now reject Bucket/link TABLE DATA and all unreviewed public candidate personal tables instead of silently omitting them. Two additional mock-manifest regressions (11 total) and Vitest assertion added. No ten-table restore enabled.
+## Current isolated stack
+- Draft PR #1329 (task branch `chatgpt/1027-ten-table-disposable-restore-20261025`): explicit SHA-pinned ten-table profile, strict old-mode rejection, full-byte age/PG17 TOC and exact COPY byte/count independent restore, original-password signed owner and tombstone readback.
+- #1329 earlier SHA `7eecc83ea700fa36bd34fb67615abbbb885df07e`: Quality #40217835511 PASS; ten-table lab #40217835594 FAIL before DB on TOC-order-dependent rejection.
+- Fixed complete-TOC mode detection; 16 ordering tests plus a new strict synthetic SHA-pin regression. Actual ten-table lab #40219350564 **PASS** at `1ae142fe801f55484490f93702df40bd2f872c31`. That SHA's focused Quality #40219350546 FAIL **only** because this checkpoint made the default handoff 3124 > 3000 token budget; new source also rejects a mismatched encrypted snapshot SHA before local Docker, even in CI.
+- Draft PR #1330 (task branch `chatgpt/1027-bucket-signed-read-20261025`): source-only owner-authenticated Bucket/link incremental pull, no-upsert create/master, CAS, bigint checkpoints, account-switch protection, strict original reference IDs and preserved tombstones. Earlier focused Quality #40218135814 PASS at `006493151f63964b5d6361934e442e2045df12d0`; later source changes require exact final checks.
+- Source-only task branch reconciliation #1331/#1332 already brought owner-first foreign-target SQL guard through #1329/#1330. No Product/Production writer activation.
 
 ## Next action
-- Verify exact task-sha focused Quality and disposable Core App SQL/GoTrue runs; diagnose/redesign any failure before accepting PR #1328 into recovery. Next implement and prove encrypted ten-table exact-copy independent restore and uploader profile before any hosted schema. Then owner-link CAS/pull, ZIP/Settings reconciliation, bidirectional provider dry run and only one final pre-social Fedora acceptance. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora.
+- Verify this condensed-checkpoint #1329 exact SHA focused Quality + actual ten-table CI, repair if needed; then squash #1329 to isolated recovery and confirm full canonical CI (do not apply hosted schema).
+- Reconcile #1330 base against accepted recovery, run focused/contract tests and squash only after green. Then complete Bucket/Settings RxDB ownership checkpoints and persistent encrypted quarantine for long/missing/foreign links, full ZIP/photo/R2 Storage replay, fenced reversible Appwrite ↔ Supabase migration tests, one final consolidated Fedora acceptance.
+- Hosted schema, Production/provider cutover, `dev`/`main` promotion, backup schedules/pruning, and 1.0 need separate explicit approval. Never claim unverified gates passed.

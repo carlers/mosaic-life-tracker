@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#1027: restore only reviewed 6/7/8 data objects into disposable PG17.
+"""#1027: restore only reviewed 6/7/8/10 data objects into disposable PG17.
 
 Requires a *new*, empty and initialized Supabase CLI database container.
 No hostname, port or database URL accepted; Docker exec targets one verified
@@ -41,11 +41,18 @@ PRIVATE_BUCKET_LINKS = [
 def selected_data_tables():
     fresh = os.environ.get("MOSAIC_FRESH_SNAPSHOT_SHA256") is not None
     settings = os.environ.get("MOSAIC_PERSONAL_SETTINGS_RESTORE")
+    buckets = os.environ.get("MOSAIC_BUCKET_LINKS_RESTORE")
     if settings is not None and settings != "1":
         raise ValueError("Invalid Settings restore authorization")
+    if buckets is not None and buckets != "1":
+        raise ValueError("Invalid Bucket/link restore authorization")
     if settings == "1" and not fresh:
         raise ValueError("Settings restore requires explicit fresh archive SHA")
-    return CORE + (FRESH_DIARY if fresh else []) + (PERSONAL_SETTINGS if settings == "1" else [])
+    if buckets == "1" and (settings != "1" or not fresh):
+        raise ValueError("Bucket/link restore requires explicit ten-table Settings+SHA mode")
+    return (CORE + (FRESH_DIARY if fresh else [])
+            + (PERSONAL_SETTINGS if settings == "1" else [])
+            + (PRIVATE_BUCKET_LINKS if buckets == "1" else []))
 
 def validate_source_counts(counts, synthetic=False):
     selected = selected_data_tables()
@@ -120,7 +127,7 @@ def assert_target(container):
     """)
     if check != "t":
         raise ValueError("Disposable target missing fresh initialized schema")
-    for tbl in FRESH_DIARY + PERSONAL_SETTINGS:
+    for tbl in FRESH_DIARY + PERSONAL_SETTINGS + PRIVATE_BUCKET_LINKS:
         if tbl in selected_data_tables():
             if sql(container, "SELECT to_regclass('" + tbl + "') IS NOT NULL") != "t":
                 raise ValueError("Disposable target missing an initialized personal data table")
@@ -176,27 +183,31 @@ def copy_manifest(container):
     entry = re.compile(r"^\s*\d+;\s+\d+\s+\d+\s+TABLE DATA\s+(\S+)\s+(\S+)\s+")
     allowed = selected_data_tables()
     selected = {}
+    unapproved_personal = set()
     for line in lines:
         match = entry.match(line)
         if not match:
             continue
         name = match.group(1) + "." + match.group(2)
-        # Never silently drop Settings when a new source contains an eighth
-        # TABLE DATA object but the operator selected an old archive mode.
-        if name in PERSONAL_SETTINGS and name not in allowed:
-            raise ValueError("Settings-bearing source requires eight-table restore")
-        if name in PRIVATE_BUCKET_LINKS and name not in allowed:
-            raise ValueError("Bucket/link-bearing source requires approved ten-table restore")
-        # A new personal TABLE DATA object can never be silently ignored by an
-        # older recovery mode. Unknown tables require reviewed schema + DR
-        # coverage first, rather than a partially successful user restore.
+        # Scan the entire authenticated manifest before rejecting unapproved
+        # personal objects. A seven-table Diary entry precedes Settings in a
+        # real eight-table dump; rejecting the first unexpected entry obscures
+        # the stricter missing Settings/Bucket recovery mode. The end result
+        # still rejects ALL unapproved data, regardless of archive TOC order.
         if name.startswith("public.mosaic_candidate_") and name not in allowed:
-            raise ValueError("Unknown personal table requires reviewed restore profile")
+            unapproved_personal.add(name)
+            continue
         if name not in allowed:
             continue
         if name in selected:
             raise ValueError("Duplicate required core TABLE DATA object")
         selected[name] = line
+    if any(name in unapproved_personal for name in PRIVATE_BUCKET_LINKS):
+        raise ValueError("Bucket/link-bearing source requires approved ten-table restore")
+    if any(name in unapproved_personal for name in PERSONAL_SETTINGS):
+        raise ValueError("Settings-bearing source requires eight-table restore")
+    if unapproved_personal:
+        raise ValueError("Unknown personal table requires reviewed restore profile")
     if set(selected) != set(allowed):
         raise ValueError("Missing required core TABLE DATA object")
     return selected
@@ -297,7 +308,9 @@ def approved_source_sha256():
 def restore(archive, identity, container):
     synthetic = (os.getenv("GITHUB_ACTIONS") == "true" and
                  os.getenv("MOSAIC_REAL_AUTH_RECOVERY_LAB") == "1")
-    if not synthetic and sha256(archive) != approved_source_sha256():
+    # Even a disposable CI run must prove the exact operator-supplied encrypted
+    # bytes match its reviewed digest. Synthetic data is not an SHA bypass.
+    if sha256(archive) != approved_source_sha256():
         raise ValueError("Encrypted archive SHA256 does not match approved source pin")
     # Use ONLY PostgreSQL 17 tools inside the verified local Docker target.
     # Host pg_restore may be PG15/16 and cannot reliably decode PG17 archives.
@@ -313,7 +326,8 @@ def restore(archive, identity, container):
         # Disable only application triggers. Managed native Auth triggers remain.
         owner_tables = ("public.mosaic_candidate_categories", "public.mosaic_candidate_tasks") + (
             tuple(FRESH_DIARY) if FRESH_DIARY[0] in selected_data_tables() else ()
-        ) + (tuple(PERSONAL_SETTINGS) if PERSONAL_SETTINGS[0] in selected_data_tables() else ())
+        ) + (tuple(PERSONAL_SETTINGS) if PERSONAL_SETTINGS[0] in selected_data_tables() else ()
+        ) + (tuple(PRIVATE_BUCKET_LINKS) if PRIVATE_BUCKET_LINKS[0] in selected_data_tables() else ())
         for tbl in owner_tables:
             sql(container, "ALTER TABLE " + tbl + " DISABLE TRIGGER USER")
         restore_one(container, manifest, "auth.users")

@@ -372,3 +372,18 @@ R2 restore point. The signed disposable age-encrypted eight-table restore
 lab is separately green. All added code is isolated source only; the
 owner's next Fedora handoff remains ONE complete pre-social acceptance run
 after all personal domains and provider portability are implemented.
+
+## Draft ten-table personal Bucket/link R2 profile — UNACCEPTED
+
+The source-only `ten-personal-bucket-links` profile requires **both** reviewed
+Bucket List and task-link TABLE DATA entries, plus the previously required
+Settings/Diary/task/category and core Auth/authority inventory. Existing seven-
+and eight-table recovery profiles refuse these extra data entries rather than
+publishing or restoring a silently incomplete archive. A dedicated disposable
+PostgreSQL 17 encrypted source-to-target laboratory test is defined in
+`.github/workflows/supabase-ten-table-restore.yml`. It must complete green
+against its exact accepted SHA before this new profile can be considered
+recoverable. The test is not evidence of a new real-world completed R2
+generation, nonempty private-media recoverability, or the external operator
+one-pass approval. The hosted source has not received the Bucket/link tables;
+do not enable the new R2 profile, any automated backup schedule, or pruning.
