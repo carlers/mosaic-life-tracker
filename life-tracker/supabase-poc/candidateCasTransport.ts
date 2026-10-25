@@ -14,6 +14,7 @@ import {
 import type { CandidateDomain } from './candidatePull';
 
 type CandidatePatch = Record<string, string | boolean | number | null>;
+type CasDomain = CandidateDomain | 'settings';
 type CandidateCasRow = {
   owner_id: string;
   id: string;
@@ -25,7 +26,7 @@ export type CandidateCasOutcome<Row extends CandidateCasRow> =
   | { state: 'applied'; revision: string; row: Row }
   | { state: 'conflict' };
 
-const ALLOWED: Record<CandidateDomain, readonly string[]> = {
+const ALLOWED: Record<CasDomain, readonly string[]> = {
   tasks: [
     'title', 'completed', 'category_id', 'order_index', 'tags', 'task_date',
     'memo', 'image', 'completed_at', 'updated_at', 'source',
@@ -35,14 +36,16 @@ const ALLOWED: Record<CandidateDomain, readonly string[]> = {
     'name', 'color', 'order_index', 'visibility', 'icon', 'retired_on', 'updated_at', 'is_deleted',
   ],
   diary: ['content', 'emoji', 'updated_at', 'is_deleted'],
+  settings: ['setting_value', 'updated_at', 'is_deleted'],
 };
-const RPC: Record<CandidateDomain, string> = {
+const RPC: Record<CasDomain, string> = {
   tasks: 'mosaic_candidate_cas_task',
   categories: 'mosaic_candidate_cas_category',
   diary: 'mosaic_candidate_cas_diary',
+  settings: 'mosaic_candidate_cas_setting',
 };
 
-function validatePatch(domain: CandidateDomain, patch: CandidatePatch): void {
+function validatePatch(domain: CasDomain, patch: CandidatePatch): void {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch) ||
     ![Object.prototype, null].includes(Object.getPrototypeOf(patch))) {
     throw new Error('Candidate CAS patch must be an object');
@@ -52,6 +55,12 @@ function validatePatch(domain: CandidateDomain, patch: CandidatePatch): void {
   if (!allowlist || !keys.length || keys.some(key => !allowlist.includes(key))) {
     throw new Error('Candidate CAS patch contains an unapproved field');
   }
+  if (domain === 'settings' && keys.some(key => {
+    const value: unknown = patch[key];
+    return key === 'is_deleted' ? typeof value !== 'boolean' :
+      typeof value !== 'string' || (key === 'setting_value' && value.length > 65536) ||
+      (key === 'updated_at' && (value.length > 50 || !Number.isFinite(Date.parse(value))));
+  })) throw new Error('Invalid Settings CAS patch value');
   if (keys.some(key => {
     const value: unknown = patch[key];
     return value !== null &&
@@ -93,7 +102,7 @@ export function createCandidateCasTransport(options: {
     async compareAndSet<Row extends CandidateCasRow>({
       domain, ownerId, documentId, expectedRevision, patch,
     }: {
-      domain: CandidateDomain;
+      domain: CasDomain;
       ownerId: string;
       documentId: string;
       expectedRevision: string;
