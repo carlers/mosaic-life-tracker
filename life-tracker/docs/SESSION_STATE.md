@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 source-only signed Bucket List/link incremental READ follow-up, dependent on draft #1329 and #1328.
+Current task: #1027 source-only owner Bucket List/link read, CREATE/master and strict CAS follow-up, stacked after draft #1329 and #1328.
 
 ## Accepted
 - Appwrite Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7 and dev 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged. Supabase personal candidate isolated; hosted Settings migration UNAPPLIED.
@@ -25,6 +25,10 @@ Current task: #1027 source-only signed Bucket List/link incremental READ follow-
 ## Bucket List/link read-only follow-up (not accepted)
 - Isolated signed candidate transport now lists `buckets` and `bucket_task_links`, owner-binds JWT and URL query, fences session changes, validates all fields/revisions and retains RxDB logical tombstones. No runtime writer, hosted schema, or provider switch. Six focused mock HTTP regressions added; tests not yet CI-accepted.
 - #1328 owner-spoof target probe was identified and repaired on its own branch after #1329 fork; reconcile the stacked branches before any stable merge. PR #1328 final focused checkpoint SHA a97cd1c66d0eb489826f4e75ee097bf44acb2ee9; other CI runs unverified.
+
+## Signed Bucket/link owner transport expansion (unverified CI)
+- Source-only `candidateCreateTransport` supports signed owner master and no-upsert Bucket/link creates, with full verified target inventory required before link inserts; long/missing/foreign/deleted-active links remain quarantined, not rewritten. `candidateCasTransport` supports explicit revision owner RPCs with immutable reference matching before acknowledgement. No live RxDB wiring or hosted schema.
+- New Bucket read and write unit fixtures include strict bigint cursors, logical tombstones, signed owner filters, account switch, ambiguous/409 HTTP and stale/typed-null CAS negatives. Focused static source inspection passed nine targeted invariants, but **no npm/Vitest/PG/GitHub Actions execution is confirmed**. Version impact NONE (no user-visible feature activated).
 
 ## Next action
 - Verify #1328 focused Quality and Core App disposable signed SQL tests, repair until green; then verify #1329 exact focused Quality and real ten-table encrypted PG17/GoTrue recovery lab. Accept the stacked PRs in order into isolated recovery only after gates; subsequently owner-link CAS/pull, ZIP/Settings reconciliation, bidirectional provider dry run, and one final pre-social Fedora acceptance. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora.
