@@ -163,3 +163,26 @@ invalid or reordered values, oversize pages and account changes in flight.
 Opaque string preferences remain byte-exact. The write-domain union and
 Appwrite Production runtime are unchanged. Hosted Settings SQL remains
 unapplied; no Settings writer, RxDB subscription or provider cutover is enabled.
+
+## Source-only signed owner Settings CREATE and CAS transport
+
+The existing candidate verified-session CREATE/master and revision-CAS
+transports now support an isolated **Settings** domain, deliberately NOT
+wired into the shipped Appwrite or new RxDB runtime. New Settings creates
+map exact legacy owner/key/opaque string and tombstone, never client-owned
+change_seq nor upsert. 409 conflicts force a fresh owner-filtered GET;
+an invisible duplicate key is a failure, not an insert success.
+An invalid remote owner/setting/unsupported avatar or friend reference
+cannot be treated as an accepted master. Transport rechecks server-verified
+session epoch and bearer both before and after the request.
+
+Settings CAS only accepts setting_value (string, <= 65536), updated_at
+(valid timestamp string) and is_deleted (boolean) and refuses owner/ID/key
+or revision spoofing before network. It invokes the existing owner-only
+mosaic_candidate_cas_setting RPC, expects a strictly newer revision and
+normalizes NULL/typed-null conflicts without acking an edit. No physical
+delete or direct UPDATE permission is introduced. Offline tests cover
+positive and negative create/CAS. Existing Core App Lab already proves
+actual signed two-owner SQL grant/lease/RLS/CAS; this extension itself is
+client transport only. Hosted Settings still unapplied; private full eight-
+table DR gates must precede any live Settings user data.

@@ -3,7 +3,8 @@
  * No upsert and no blind retry: 409 requires a fresh owner-scoped master read.
  * Not wired to Mosaic's shipped RxDB or Appwrite sync.
  */
-import type { CategoryDocument, TaskDocument, DiaryDocument } from '../src/db/schema';
+import type { CategoryDocument, TaskDocument, DiaryDocument, SettingsDocument } from '../src/db/schema';
+import { fromCandidateSettingRow, toCandidateSettingWrite, type CandidateSettingRow, type CandidateSettingWrite } from './candidateSettingsMapping';
 import {
   parseCandidateRevision, toCandidateTaskWrite, toCandidateCategoryWrite,
   toCandidateDiaryWrite,
@@ -16,13 +17,14 @@ import {
   type CandidateSessionProvider, type CandidateVerifiedSession,
 } from './candidateHttpTransport';
 
-type Domain = 'tasks' | 'categories' | 'diary';
-type Row = CandidateTaskRow | CandidateCategoryRow | CandidateDiaryRow;
-type Write = CandidateTaskWrite | CandidateCategoryWrite | CandidateDiaryWrite;
+type Domain = 'tasks' | 'categories' | 'diary' | 'settings';
+type Row = CandidateTaskRow | CandidateCategoryRow | CandidateDiaryRow | CandidateSettingRow;
+type Write = CandidateTaskWrite | CandidateCategoryWrite | CandidateDiaryWrite | CandidateSettingWrite;
 const TABLE: Record<Domain, string> = {
   tasks: 'mosaic_candidate_tasks',
   categories: 'mosaic_candidate_categories',
   diary: 'mosaic_candidate_diary',
+  settings: 'mosaic_candidate_settings',
 };
 const ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -189,5 +191,18 @@ export function createCandidateCreateTransport(options: {
       master('diary', id, identity) as Promise<CandidateDiaryRow | null>,
     createDiary: async (doc: DiaryDocument, identity: CandidateIdentity) =>
       create('diary', toCandidateDiaryWrite(doc, identity), identity) as Promise<CandidateCreateOutcome<CandidateDiaryRow>>,
+    // Source-only Settings transport: owner-only, no upsert, no runtime activation.
+    readSettingMaster: async (id: string, identity: CandidateIdentity): Promise<CandidateSettingRow | null> => {
+      const row = await master('settings', id, identity) as CandidateSettingRow | null;
+      if (row) fromCandidateSettingRow(row, identity);
+      return row;
+    },
+    createSetting: async (doc: SettingsDocument, identity: CandidateIdentity): Promise<CandidateCreateOutcome<CandidateSettingRow>> => {
+      const write = toCandidateSettingWrite(doc, identity);
+      const result = await create('settings', write, identity) as CandidateCreateOutcome<CandidateSettingRow>;
+      // A forged or invalid result is not a successful create or conflict.
+      fromCandidateSettingRow(result.row, identity);
+      return result;
+    },
   };
 }
