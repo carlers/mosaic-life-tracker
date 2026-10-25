@@ -183,27 +183,31 @@ def copy_manifest(container):
     entry = re.compile(r"^\s*\d+;\s+\d+\s+\d+\s+TABLE DATA\s+(\S+)\s+(\S+)\s+")
     allowed = selected_data_tables()
     selected = {}
+    unapproved_personal = set()
     for line in lines:
         match = entry.match(line)
         if not match:
             continue
         name = match.group(1) + "." + match.group(2)
-        # Never silently drop Settings when a new source contains an eighth
-        # TABLE DATA object but the operator selected an old archive mode.
-        if name in PERSONAL_SETTINGS and name not in allowed:
-            raise ValueError("Settings-bearing source requires eight-table restore")
-        if name in PRIVATE_BUCKET_LINKS and name not in allowed:
-            raise ValueError("Bucket/link-bearing source requires approved ten-table restore")
-        # A new personal TABLE DATA object can never be silently ignored by an
-        # older recovery mode. Unknown tables require reviewed schema + DR
-        # coverage first, rather than a partially successful user restore.
+        # Scan the entire authenticated manifest before rejecting unapproved
+        # personal objects. A seven-table Diary entry precedes Settings in a
+        # real eight-table dump; rejecting the first unexpected entry obscures
+        # the stricter missing Settings/Bucket recovery mode. The end result
+        # still rejects ALL unapproved data, regardless of archive TOC order.
         if name.startswith("public.mosaic_candidate_") and name not in allowed:
-            raise ValueError("Unknown personal table requires reviewed restore profile")
+            unapproved_personal.add(name)
+            continue
         if name not in allowed:
             continue
         if name in selected:
             raise ValueError("Duplicate required core TABLE DATA object")
         selected[name] = line
+    if any(name in unapproved_personal for name in PRIVATE_BUCKET_LINKS):
+        raise ValueError("Bucket/link-bearing source requires approved ten-table restore")
+    if any(name in unapproved_personal for name in PERSONAL_SETTINGS):
+        raise ValueError("Settings-bearing source requires eight-table restore")
+    if unapproved_personal:
+        raise ValueError("Unknown personal table requires reviewed restore profile")
     if set(selected) != set(allowed):
         raise ValueError("Missing required core TABLE DATA object")
     return selected
@@ -304,7 +308,9 @@ def approved_source_sha256():
 def restore(archive, identity, container):
     synthetic = (os.getenv("GITHUB_ACTIONS") == "true" and
                  os.getenv("MOSAIC_REAL_AUTH_RECOVERY_LAB") == "1")
-    if not synthetic and sha256(archive) != approved_source_sha256():
+    # Even a disposable CI run must prove the exact operator-supplied encrypted
+    # bytes match its reviewed digest. Synthetic data is not an SHA bypass.
+    if sha256(archive) != approved_source_sha256():
         raise ValueError("Encrypted archive SHA256 does not match approved source pin")
     # Use ONLY PostgreSQL 17 tools inside the verified local Docker target.
     # Host pg_restore may be PG15/16 and cannot reliably decode PG17 archives.
