@@ -101,6 +101,54 @@ managed Auth/configuration safeguards, mobile/offline/ZIP acceptance, and
 the separately protected Preview approval. Neither the single synthetic
 photo round-trip nor this one-pass snapshot source replaces those gates.
 
+## Next Fedora handoff: ONE consolidated pre-social acceptance run (owner directive 2026-10-25)
+
+**Do not give the owner another Fedora command during routine personal-Supabase
+development.** This overrides the prior habit of individual backup, local-RLS,
+photo, Auth, settings, Bucket List, or migration drills: finish all achievable
+connected/CI work first. The owner wants **one final pre-social trusted-machine
+acceptance invocation**, rather than dozens of incremental manual steps.
+
+Before requesting the next Fedora action, finish and accept in isolated source:
+1. Personal non-social task/category/calendar/Diary/photo/Settings/Bucket List
+   and task-link parity, portable owner IDs, private signed two-owner auth,
+   offline/PWA/ZIP/TodoMate backfill and pending drafts.
+2. Encrypted full database/Storage/attachments DR with updated table allowlists,
+   independent R2 byte/auth verification and a complete disposable restore;
+   the existing seven-table successful snapshot and native 30-day lock should
+   be **reused as evidence**, not redundantly repeated. Cover any newly added
+   data including settings and bucket links before enabling hosted writers.
+3. Reviewed provider return/migration rehearsal for Appwrite Cloud, Appwrite
+   Oracle (if actually available) and Supabase in both directions; independently
+   verify mapping, writer fencing, tombstones, counts/hashes, attachments,
+   unsynced/offline edits and reverse deltas. Stop safely when Appwrite quota,
+   Oracle capacity or account ownership prevent acceptance.
+4. Automated canonical GitHub Actions, trusted Preview and available connected
+   checks, including repairing failures without privileged local handoffs.
+
+**Build, then actually CI-test, one SHA-pinned, resumable operator runner** for
+only the still-unverified private requirements. It should preflight exact Git
+source/backend and approved inputs, reuse saved private age/R2 reader/pooler
+configuration, prompt secrets invisibly once per distinct credential, and
+execute the entire remaining pre-social stage graph in one terminal session:
+full snapshot/verify/isolated restore, signed original-password owner isolation,
+private personal rows and nonempty media, migration/return dry runs and cleanup.
+Do not create unrelated backend writers or silently hard-delete/mutate live
+data. Emit fixed `MOSAIC_PRESOCIAL_STAGE_BEGIN/PASS/FAIL` markers and one
+final `MOSAIC_PRESOCIAL_ACCEPTANCE_PASS` only for genuinely verified gates;
+no summary marker for simulated or skipped checks. Fail safely with
+resume-capable private reports when a stage cannot be completed.
+
+**ONE copy-paste command** is the default. A second is permitted only for a
+documented, unavoidable trust/environment dependency, not as a staged testing
+habit. No script should be presented until the fully implemented and reviewed
+pre-social bundle is ready. In-person device acceptance and separate protected
+Production promotion/cutover approvals still apply; the runner is never a
+blanket authorization to change Production, release 1.0, access other users,
+enable social, or bypass RLS/DR. Do not represent a dry-run as a real Production
+migration. Keep issue #1027 and the operator's stated preference authoritative
+across future chats.
+
 ## Agent handoff contract
 
 1. Search/verify live repository branch + exact CI/hosted inventory first.
