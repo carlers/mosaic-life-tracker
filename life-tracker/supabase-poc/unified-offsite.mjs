@@ -11,6 +11,7 @@ import { basename, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createR2Client } from '../appwrite-functions/dr-backup/r2.mjs';
 import { parseCompletedMarkerKey, selectRetainedSnapshotIds } from '../appwrite-functions/dr-backup/retention.mjs';
+import { assertRecoveryProfile, assertProfileToc, SEVEN } from './recovery-profile.mjs';
 
 export const PREFIX = 'mosaic-supabase/v1';
 export const SOURCE = 'hcxtiifzxoaflhjgoglb';
@@ -39,7 +40,9 @@ function markerStructure(marker, id) {
       !Number.isFinite(Date.parse(marker.completedAt)) ||
       Date.parse(marker.startedAt) > Date.parse(marker.completedAt) ||
       identity(new Date(marker.startedAt)) !== id ||
-      !marker.archives || Object.keys(marker.archives).sort().join() !== KINDS.join()) {
+      !marker.archives || Object.keys(marker.archives).sort().join() !== KINDS.join() ||
+      (marker.recoveryProfile != null &&
+       ![SEVEN, 'eight-personal-settings'].includes(marker.recoveryProfile))) {
     throw new Error('Invalid completed full recovery manifest');
   }
   for (const kind of KINDS) {
@@ -118,7 +121,8 @@ async function uploadArchive({ r2, id, kind, archive, chunkBytes }) {
 }
 
 /** Publish exactly one root completion marker, after both encrypted archives verify. */
-export async function publishUnified({ r2, database, media, now = new Date(), chunkBytes = CHUNK }) {
+export async function publishUnified({ r2, database, media, now = new Date(), chunkBytes = CHUNK, recoveryProfile = SEVEN }) {
+  assertRecoveryProfile(recoveryProfile);
   if (!Number.isSafeInteger(chunkBytes) || chunkBytes < 1 || chunkBytes > CHUNK) {
     throw new Error('Invalid encrypted R2 chunk size');
   }
@@ -134,7 +138,7 @@ export async function publishUnified({ r2, database, media, now = new Date(), ch
   const completedAt = new Date();
   const marker = markerStructure({
     format: 'mosaic-supabase-full-offsite', version: 1, id,
-    sourceProject: SOURCE, bucket: BUCKET,
+    sourceProject: SOURCE, bucket: BUCKET, recoveryProfile,
     startedAt: now.toISOString(),
     completedAt: completedAt < now ? now.toISOString() : completedAt.toISOString(),
     archives,
@@ -264,6 +268,7 @@ export function assertFullSource(env, command) {
   if (env.SUPABASE_DR_SOURCE_PROJECT !== SOURCE) throw new Error('Unexpected Supabase source project');
   if (!['--backup', '--watch', '--download'].includes(command)) throw new Error('Unsupported recovery command');
   if (command === '--backup') {
+    assertRecoveryProfile(env.SUPABASE_DR_RECOVERY_PROFILE || SEVEN);
     if (env.SUPABASE_DR_ENABLED !== 'true' ||
         !/^[-a-z0-9]+\.pooler\.supabase\.com$/.test(env.SUPABASE_DR_PGHOST || '') ||
         env.SUPABASE_DR_PGUSER !== `postgres.${SOURCE}` ||
@@ -336,6 +341,20 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
     if (!result.includes('Encrypted snapshot created (archive SHA-256):')) {
       throw new Error('Encrypted PostgreSQL snapshot lacks full-byte verification');
     }
+    // Independently authenticate ALL database.age ciphertext first, then inspect
+    // PostgreSQL 17 TOC. Refuse any unsupported personal TABLE DATA before
+    // spending a Storage read or emitting a single R2 upload/COMPLETED object.
+    const profile = assertRecoveryProfile(env.SUPABASE_DR_RECOVERY_PROFILE || SEVEN);
+    const inspected = checkedChild('bash', [join(path, 'inspect-encrypted-backup-toc.sh'), pg, ageKey], {
+      PATH: env.PATH || '', HOME: home,
+    }, 12);
+    const startJson = inspected.indexOf('{');
+    const endJson = inspected.lastIndexOf('}');
+    if (startJson < 0 || endJson <= startJson) throw new Error('Authenticated archive TOC missing');
+    let summary;
+    try { summary = JSON.parse(inspected.slice(startJson, endJson + 1)); }
+    catch { throw new Error('Invalid authenticated PostgreSQL archive summary'); }
+    assertProfileToc(summary, profile);
     const mediaResult = checkedChild('python3', [join(path, 'private-photo-snapshot.py'), media], {
       PATH: env.PATH || '', HOME: home,
       MOSAIC_SUPABASE_SOURCE_STORAGE_KEY: env.SUPABASE_DR_SOURCE_STORAGE_KEY,
@@ -343,7 +362,7 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
     if (!mediaResult.includes('SUPABASE_PRIVATE_MEDIA_ENCRYPTED_SNAPSHOT_PASS')) {
       throw new Error('Encrypted private media snapshot not authenticated');
     }
-    const committed = await publishUnified({ r2, database: pg, media, now: started });
+    const committed = await publishUnified({ r2, database: pg, media, now: started, recoveryProfile: profile });
     await verifyUnified({ r2, id: committed.id });
     console.log('MOSAIC_SUPABASE_FULL_OFFSITE_COMMITTED_PASS: ' + committed.id);
     if (env.SUPABASE_DR_PRUNE_ENABLED === 'true') {
