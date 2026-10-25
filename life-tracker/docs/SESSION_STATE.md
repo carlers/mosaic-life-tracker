@@ -18,5 +18,9 @@ Current task: #1027 provider-neutral personal Settings parity and eight-table en
 ## 2026-10-25 deterministic unified R2 fixture time repair
 - Fixed Oct 25 noon `NOW` in offsite synthetic tests drifted >60s from production real `completedAt`, triggering correctly strict future rejection and failing stable Quality #40192610581. Derive test NOW and stale/future dates from the actual current clock; NO changes to production 60s future guard, 36h freshness, retention, native lock or R2 objects. New eight-table signed age restore lab #40193150240 runs separately.
 
+## 2026-10-25 live eight-table lab CI evidence
+- New lab #40193150240 ran real signed Settings synthetic source, complete age encryption+auth, strict SHA-pinned 8-table separate PG17 restore with exact source/target COPY parity: those markers PASSED. Final foreign-CAS check failed only due PostgREST's all-null composite RPC result (same shape recognized by accepted `personal-settings-signed-local.mjs`), not evidence of row mutation. Fix assertion to accept ONLY true no-row null/all-null composite and independently reread original owner row afterward, demanding exact value, tombstone, revision remain unchanged. Entire real lab remains NOT ACCEPTED until full rerun green.
+- Stable Quality clock fixture repaired in PR #1318 without changing R2 freshness/pruning logic.
+
 ## Next action
 - Run focused CI, merge source-only lab into isolated recovery branch and verify the exact new full synthetic encrypted eight-table lab plus canonical Quality/GoTrue. Resolve failures. Then extend operational R2 backup/watch/restore to new personal data and implement owner-scoped Settings sync; continue Bucket List and migration portability before one final Fedora command.

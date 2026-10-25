@@ -107,6 +107,20 @@ if (phase==='seed') {
     body:{p_id:settingId,p_expected_seq:revision,
       p_patch:{is_deleted:false,setting_value:'forged'}},
   }),'foreign Settings CAS');
-  check(forge===null,'Restored Settings foreign owner wrote');
+  // A PostgreSQL composite RPC can serialize "no affected row" as an
+  // object whose every field is null. The existing signed Settings lab
+  // already recognizes this format. Never accept a populated foreign row.
+  const denied = forge===null || (forge && typeof forge==='object' &&
+    !Array.isArray(forge) && Object.keys(forge).length>0 &&
+    Object.values(forge).every(value=>value===null));
+  check(denied,'Restored Settings foreign-owner CAS returned real row');
+  // Verify the actual stored owner row AGAIN after the adversarial write;
+  // response shape alone must not be mistaken for proof of isolation.
+  const after=await good(call('/rest/v1/mosaic_candidate_settings?select=*&id=eq.'+
+    encodeURIComponent(settingId),{token:user.token}),'post-foreign owned read');
+  check(Array.isArray(after) && after.length===1 &&
+    after[0].owner_id===ownerId && after[0].setting_value===value &&
+    after[0].is_deleted===true && String(after[0].change_seq)===revision,
+    'Foreign-owner CAS changed the restored Settings contents/revision');
   console.log('MOSAIC_SETTINGS_SIGNED_EIGHT_TABLE_RESTORED_PASS');
 }

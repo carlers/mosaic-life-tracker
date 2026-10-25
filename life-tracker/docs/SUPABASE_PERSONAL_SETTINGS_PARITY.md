@@ -111,3 +111,15 @@ be accepted only when the exact stable-branch real lab run is green.
 Hosted Settings installation, signed runtime replication and unified
 R2 operational allowlists remain later distinct gates. No Fedora
 command should be issued until the full pre-social acceptance bundle.
+
+## Signed post-restore adversarial readback contract
+
+PostgreSQL `RETURNS public.mosaic_candidate_settings` with no updated
+foreign-owner row may return a PostgREST object containing one null value
+per composite column rather than JSON `null`. The lab must refuse
+a **populated** foreign CAS result, then independently reread the
+restored owner's row using that owner's new signed session and verify
+the exact original value, `is_deleted` tombstone and `change_seq`
+remain unchanged. This is stronger than trusting the RPC response alone.
+The eight-table live CI lab is **not** accepted until that signed
+post-attack re-read succeeds in the complete run.
