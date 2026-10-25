@@ -100,7 +100,7 @@ echo MOSAIC_SETTINGS_EIGHT_TABLE_ENCRYPTED_SOURCE_PASS
 # v1.16 custom archives, falsely marking an intact age backup as unreadable.
 # Run the *existing* full-byte-age+TOC inspector unchanged, with its pg_restore
 # command bound to the SAME PG17 client that created this synthetic archive.
-docker exec "$db" pg_restore --version | grep -Eq '^pg_restore \\(PostgreSQL\\) 17\\.'
+docker exec "$db" pg_restore --version | grep -Eq '^pg_restore \(PostgreSQL\) 17\.'
 mkdir -m 700 "$tmp/pg17-tools"
 cat > "$tmp/pg17-tools/pg_restore" <<'PG17_READER'
 #!/usr/bin/env bash
