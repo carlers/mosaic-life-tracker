@@ -118,6 +118,7 @@ describe('source-only signed Bucket List and link incremental read (#1027)', () 
     for (const bad of [
       { ...linkRow, owner_id: other.supabaseUserId },
       { ...linkRow, task_id: '../foreign' },
+      { ...linkRow, task_id: 't'.repeat(70) },
       { ...linkRow, is_deleted: null },
     ]) {
       await expect(pullCandidateBucketLinks({
