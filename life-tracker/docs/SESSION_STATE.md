@@ -1,26 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 unified Supabase offsite database/Auth-row + media encrypted backup foundation.
+Current task: #1027 protected Scratch Supabase unified encrypted PostgreSQL/Auth + private Storage disaster recovery. For previous implementation/proof details, use the latest issue #1027 resume comment and exact live Git/CI state.
 
-## Verified source baseline
-- Previous Fedora one-command encrypted Scratch PG17/GoTrue and entire hosted photo-bucket local restore PASSED; hosted source had zero real photo objects, but nonempty synthetic WebP recovered. Do not repeat this historical accepted drill.
-- Existing independent Appwrite `dr-backup` Function captures all Auth users, TablesDB schema/rows, all Storage buckets/files, R2 ciphertext with one manifest, immutable completion and independent restore. Supabase media-only R2 was separately source implemented in PR #1299 and hardened #1300; it does not protect offsite PostgreSQL records.
-- Isolated stable recovery branch before this new scoped change: `5aac40208765190f9eaba60b30fe8c30c48b8f4c`. `dev`/`main` are independent Appwrite deployments. No Production approval.
+## Accepted recovery evidence
+- Scratch project hcxtiifzxoaflhjgoglb only. Live manually dispatched main backup Actions #40157401249 committed one completed unified encrypted database/media R2 recovery generation: 20261025T031343499Z. Separate reader-only Actions watch #40166002937 SHA-256 verified all remote ciphertext bytes and 36h freshness. Inert daily schedule and pruning remain OFF.
+- Owner's trusted Fedora exact-snapshot R2 restore PASSED all seven stages with original-password local GoTrue sign-in, positive owner task/category read, cross-owner denial, seven-table PG17 byte parity, whole Storage archive restore, synthetic nonempty WebP and isolated stack/network/worktree cleanup. The hosted source had zero real photos. The full exact R2 chain is accepted for covered domains, NOT complete managed Supabase platform/SMTP/OAuth/JWT recovery.
+- Recovery branch feature/1027-supabase-recovery-20261020@48636c9ae4b80fcc0e3edf75fbf7a79f683eac46 passed full Quality Gate #40167282093, Synthetic #40167282120, Real GoTrue #40167282112. Protected Core App Lab #40167282121 awaits Preview gate. Appwrite Production main@0519489042c53ed0bcdaebe10664417091c4d7d8 and dev@256bea48847b795dc33f7c5247e9312a75915812 remain unchanged by restore work.
 
-## Current source-only work
-- Add one `mosaic-supabase/v1` generation with two authenticated age archives (PostgreSQL custom dump/Auth data and complete Scratch-private photos). Both full-byte remote readbacks must succeed before the only root `COMPLETED` marker can publish; watcher verifies both, no-clobber download preserves both. Retention 7 daily / 4 weekly / 6 monthly and all 30-day-locked data with orphan refusal and opt-in pruning.
-- Add dormant daily GitHub Actions source+read-only watcher, eight negative and positive offline Node tests via Vitest wrapper, reviewed runbook and docs navigation. Use only new dedicated Supabase bucket under existing Cloudflare account; never use Appwrite DR credentials or mutate hosted source.
-- This is **not** managed-Supabase/Auth/SMTP configuration DR, cross-service atomic snapshot or real full hosted R2 restore acceptance.
-
-## Operator setup report / runner correction (2026-10-25)
-- User reports completing R2 bucket, provider lock, two scoped R2 credentials and protected GitHub settings. Available connected GitHub access does NOT expose secrets, variables, environment rules or Cloudflare R2 configuration; treat them as unverified, with no live snapshot or permissions proof.
-- Source-only correction: unified backup workflow now pins ubuntu-24.04 and installs official signed PGDG PostgreSQL 17 client (GitHub runner image preinstalls PG16). Still fully disabled; no new remote backup or main/Production writes.
+## Current source-only safeguards
+- Cloudflare native R2 lock audit: new supabase-poc/r2-lock-audit.py performs only authenticated GET of dedicated bucket lock rules. Requires an enabled 30d Age or Indefinite prefix covering all current/future mosaic-supabase/v1/snapshots/ keys. Provider readback not yet run; no DELETE or lock modification will be attempted.
+- Failure email: new supabase-poc/dr-alert.mjs accepts exact trusted main Scratch backup/watch failure events only, rejects other/fork/success events, has typed TEST_SCRATCH_DR_ALERT probe and sanitized Brevo payload. No main workflow/alert secrets installed and NO email delivery claimed.
+- Unit and offline negative tests wrap both tools; task branch final focused acceptance required, then squash to stable for full canonical. Release version NONE. Do not promote to dev/main, touch production/cloud data, enable recurring schedules/pruning or assert native retention/alert receipt without separate proof.
+- Next real gates: Cloudflare account API readback with owner-held separate bucket-configuration token (not R2 S3 key), independently received alert email, backup key/identity escrow, managed Supabase Auth/SMTP/OAuth/JWT configurations and real photo-containing source once one exists. Keep #1027 open; do not repeat historical successful Fedora disaster-recovery run.
 
 ## Next action
-- Require `[verify:focused]` green task branch, PR squash into isolated stable, exact SHA canonical CI and Supabase labs. Keep new and legacy scheduled workflows **disabled**, no R2 environment creation, no DB/Storage hosted mutation, no protected Preview/dev/main/Production promotion. Next external gate is dedicated R2 bucket/key escrow and first real encrypted unified upload and complete independent restore with delivered alert test, only after explicit review/approval. Keep #1027 open.
-
-## 2026-10-25 exact-R2 independent restore handoff
-- **Observed live:** main manual Scratch unified offsite backup #40157401249 SUCCESS with immutable recovery point `20261025T031343499Z`; independent read-only R2 watcher #40166002937 SUCCESS for the same point. Both DB/Auth and private Storage encrypted remote bytes were validated with all chunks; no age decryption or isolated restoration from those exact bytes has happened yet.
-- **Authorized scope:** one new source-only Fedora runner for downloading this exact ID with dedicated R2 read-only keys entered at private tty, authenticating both age archives and restoring via already proven private PG17/GoTrue/Storage local scripts, verifying owner isolation and synthetic media. Never capture a fresh hosted source, write hosted photo fixtures, promote provider, alter main/dev, or enable schedules/pruning.
-- **Next acceptance:** task focused CI and stable full canonical/lab gates; then one exact Git-pinned operator command from the updated unified runbook. Require actual `MOSAIC_R2_EXACT_SNAPSHOT_DISPOSABLE_RESTORE_PASS` from Fedora before accepting this R2 recovery. Real source currently has zero stored photos; full managed Auth/SMTP/OAuth still separate.
+- Get exact task focused and stable canonical acceptance for native GET lock audit and Brevo alert notifier. Then request one Cloudflare account API readback from trusted Fedora, and provision/verify alert delivery only after explicitly approved protected main workflow; never enable schedules/pruning or claim inbox delivery in advance.
