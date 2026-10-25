@@ -173,6 +173,35 @@ class Contract(unittest.TestCase):
                         else:
                             target.assert_not_called()
 
+    def test_legacy_six_table_disposable_pin_is_explicit_and_not_a_bypass(self):
+        cipher = b'CI-generated six-table encrypted snapshot fixture'
+        digest = hashlib.sha256(cipher).hexdigest()
+        with tempfile.TemporaryDirectory() as folder:
+            archive = Path(folder) / 'snapshot.age'
+            archive.write_bytes(cipher)
+            good = {'GITHUB_ACTIONS':'true',
+                    'MOSAIC_REAL_AUTH_RECOVERY_LAB':'1',
+                    'MOSAIC_SYNTHETIC_ARCHIVE_SHA256':digest}
+            with patch.dict(os.environ, good, clear=True):
+                self.assertEqual(m.selected_data_tables(), m.CORE)
+                with patch.object(m, 'assert_target',
+                                  side_effect=ValueError('Reached verified disposable target')) as target:
+                    with self.assertRaisesRegex(ValueError, 'Reached verified disposable target'):
+                        m.restore(archive, archive, 'ci_db')
+                    target.assert_called_once_with('ci_db')
+            for bad in [
+                {**good, 'MOSAIC_SYNTHETIC_ARCHIVE_SHA256':'0'*64},
+                {**good, 'MOSAIC_SYNTHETIC_ARCHIVE_SHA256':'invalid'},
+                {**good, 'GITHUB_ACTIONS':'false'},
+                {**good, 'MOSAIC_REAL_AUTH_RECOVERY_LAB':'0'},
+                {**good, 'MOSAIC_FRESH_SNAPSHOT_SHA256':digest},
+            ]:
+                with self.subTest(bad=bad), patch.dict(os.environ, bad, clear=True):
+                    with patch.object(m, 'assert_target') as target:
+                        with self.assertRaisesRegex(ValueError, 'SHA256|synthetic'):
+                            m.restore(archive, archive, 'ci_db')
+                        target.assert_not_called()
+
     def test_auth_integrity_and_personal_row_bound(self):
         with mode('settings'):
             counts = dict.fromkeys(ALL, 0)
