@@ -1,0 +1,94 @@
+name: Supabase Scratch Unified Encrypted Offsite Backup
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type SCRATCH_ONE_OFF_BACKUP for one manual run; schedules remain disabled'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mosaic-supabase-full-dr
+  cancel-in-progress: false
+
+jobs:
+  full-offsite-backup:
+    # Scratch-only, disabled until a separately reviewed default-branch rollout.
+    if: >-
+      ${{
+        github.ref == 'refs/heads/main' &&
+        (
+          (github.event_name == 'schedule' && vars.SUPABASE_DR_ENABLED == 'true') ||
+          (github.event_name == 'workflow_dispatch' && inputs.confirmation == 'SCRATCH_ONE_OFF_BACKUP')
+        )
+      }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    environment: mosaic-supabase-dr
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      SUPABASE_DR_ENABLED: 'true'
+      SUPABASE_DR_SOURCE_PROJECT: hcxtiifzxoaflhjgoglb
+      SUPABASE_DR_PGHOST: ${{ secrets.SUPABASE_DR_PGHOST }}
+      SUPABASE_DR_PGPORT: '5432'
+      SUPABASE_DR_PGUSER: postgres.hcxtiifzxoaflhjgoglb
+      SUPABASE_DR_PGDATABASE: postgres
+      SUPABASE_DR_PGPASSWORD: ${{ secrets.SUPABASE_DR_PGPASSWORD }}
+      SUPABASE_DR_SOURCE_STORAGE_KEY: ${{ secrets.SUPABASE_DR_SOURCE_STORAGE_KEY }}
+      SUPABASE_DR_AGE_IDENTITY: ${{ secrets.SUPABASE_DR_AGE_IDENTITY }}
+      SUPABASE_DR_R2_ACCOUNT_ID: ${{ secrets.SUPABASE_DR_R2_ACCOUNT_ID }}
+      SUPABASE_DR_R2_ACCESS_KEY_ID: ${{ secrets.SUPABASE_DR_R2_WRITE_ACCESS_KEY_ID }}
+      SUPABASE_DR_R2_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_DR_R2_WRITE_SECRET_ACCESS_KEY }}
+      SUPABASE_DR_R2_BUCKET: ${{ vars.SUPABASE_DR_R2_BUCKET }}
+      SUPABASE_DR_PRUNE_ENABLED: 'false'
+      SUPABASE_DR_R2_LOCK_CONFIRMED: 'false'
+    steps:
+      # Never execute main-branch application code for this isolated DR pilot.
+      # Pin the approved, CI-accepted Scratch-only recovery implementation.
+      - uses: actions/checkout@v4
+        with:
+          ref: 18e7f2c28e833dd9bc6f8b66174d37dbd3c908e8
+          persist-credentials: false
+      - name: Verify exact recovery source SHA and dedicated R2 destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '18e7f2c28e833dd9bc6f8b66174d37dbd3c908e8'
+          test "$SUPABASE_DR_R2_BUCKET" = 'mosaic-supabase-backups'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install age and signed PostgreSQL 17 client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age curl ca-certificates
+          # Ubuntu 24.04 runners ship PostgreSQL 16, not 17. Use the official
+          # PostgreSQL project's signed PGDG apt repository for the exact client.
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error --location \
+            --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          printf '%s\n' \
+            'Types: deb' \
+            'URIs: https://apt.postgresql.org/pub/repos/apt' \
+            'Suites: noble-pgdg' \
+            'Components: main' \
+            'Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc' \
+            | sudo tee /etc/apt/sources.list.d/pgdg.sources >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          test -x /usr/lib/postgresql/17/bin/pg_dump
+          test -x /usr/lib/postgresql/17/bin/pg_restore
+          printf '%s\n' '/usr/lib/postgresql/17/bin' >> "$GITHUB_PATH"
+      - name: Capture encrypted PostgreSQL and whole private Storage then publish ONE verified R2 marker
+        run: node supabase-poc/unified-offsite.mjs --backup
