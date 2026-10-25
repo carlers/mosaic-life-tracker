@@ -58,3 +58,32 @@ Passing CI proves only isolated local signed behavior. Do not apply Settings
 SQL to hosted Scratch until the encrypted PG backup/restore allowlists are
 updated and verified; no live dataset is recoverable through the old seven-
 table DR allowlist for this new domain. No production/user data is modified.
+
+## Strict eighth-table encrypted restore capability — not a hosted write
+
+The historical six-table and accepted newer seven-table private encrypted
+restore modes retain their original source pins, unchanged. The real
+2026-10-25 R2 backup never contained a Settings table and cannot be claimed
+as eight-table recovery.
+
+For a **future independently recorded SHA-256 of a new encrypted archive
+actually containing Settings**, the reviewed disposable restore wrapper now
+accepts `--fresh-personal-settings-sha256 EXACT_64_HEX` and installs the
+reviewed Settings migration **only in its new loopback-only PG17 target**.
+It requires all EIGHT archive TABLE DATA objects, refuses nonempty restored
+Settings/Diary targets, restores Settings under protected trigger suspension,
+then verifies source/target row counts and byte-exact COPY streams including
+tombstones and revisions. It excludes stale sessions and writer leases.
+
+Fail-closed safeguard: if the source contains `mosaic_candidate_settings`
+TABLE DATA but the caller selects an older six/seven mode, **refuse** the
+archive instead of silently dropping Settings. Invalid or ambient mode
+overrides are rejected. Nine offline tests cover exact mode/manifest/rows;
+the old restored October 25 snapshot remains unchanged.
+
+**Still required before applying hosted Settings SQL:** a nonempty,
+age-encrypted eight-table **local synthetic source → independent disposable
+PG17 restore** in CI, plus full R2/Storage integration and signed second-owner
+parity. The user requested **no Fedora commands until one complete
+pre-social operator acceptance bundle is ready**. This source-only capability
+is not that final operator command.
