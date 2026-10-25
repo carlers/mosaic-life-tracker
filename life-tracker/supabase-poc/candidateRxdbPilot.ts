@@ -354,6 +354,14 @@ export function createCandidateRxdbPilot<D extends Document>(
         row.assumedMasterState.userId !== identity.legacyUserId)
         throw new Error('Foreign assumed RxDB master');
       const assumed = row.assumedMasterState as Replicated<D> | undefined;
+      // Validate the whole next/assumed setting *before* ANY remote master
+      // read or create. The transport also checks, but must not be invoked
+      // for avatar/file IDs, friend references or unportable value types.
+      // A rejected pending RxDB write remains local and unacknowledged.
+      if (domain === 'settings') {
+        canonical(domain, next, identity);
+        if (assumed) canonical(domain, assumed, identity);
+      }
       // Refuse Diary visibility escalation before canonicalizing a local
       // draft; preserve that draft for explicit review, never acknowledge it.
       if (domain === 'diary' && (next as DiaryDocument).visibility !== 'private')
