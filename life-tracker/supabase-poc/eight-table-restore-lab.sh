@@ -95,6 +95,11 @@ age -d -i "$tmp/identity.agekey" "$tmp/archive.age" >/dev/null
 sha="$(sha256sum "$tmp/archive.age" | cut -d' ' -f1)"
 [[ "$sha" =~ ^[a-f0-9]{64}$ ]] || exit 1
 echo MOSAIC_SETTINGS_EIGHT_TABLE_ENCRYPTED_SOURCE_PASS
+# Execute the exact TOC/profile guard used before real R2 publication on a
+# complete synthetic 8-table PostgreSQL 17 age archive; no hosted credentials.
+bash "$here/inspect-encrypted-backup-toc.sh" "$tmp/archive.age" "$tmp/identity.agekey" |
+  node "$here/tests/inspect-eight-table-profile-ci.mjs"
+echo MOSAIC_SETTINGS_EIGHT_TABLE_TOC_PROFILE_PASS
 supabase stop --no-backup >/dev/null
 unset MOSAIC_SB_LOCAL_URL MOSAIC_SB_LOCAL_PUBLISHABLE_KEY
 unset MOSAIC_SETTINGS_RESTORE_URL MOSAIC_SETTINGS_RESTORE_KEY
