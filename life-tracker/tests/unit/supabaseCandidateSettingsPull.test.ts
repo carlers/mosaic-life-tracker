@@ -71,7 +71,7 @@ describe('source-only Settings signed cursor read', () => {
     for (const rows of [
       [row,{...row,id:'s_124'}],
       [row,{...row,id:'s_124',change_seq:'9007199254740992'}],
-      [{...row,change_seq:9007199254740993}],
+      [{...row,change_seq:Number.MAX_SAFE_INTEGER + 1}],
     ]) {
       const h=harness(rows);
       await expect(pullCandidateSettings({
