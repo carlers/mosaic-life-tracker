@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 dependent draft PR #1329 ten-table encrypted disposable restore, atop unaccepted SQL draft PR #1328.
+Current task: #1027 source-only signed Bucket List/link incremental READ follow-up, dependent on draft #1329 and #1328.
 
 ## Accepted
 - Appwrite Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7 and dev 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged. Supabase personal candidate isolated; hosted Settings migration UNAPPLIED.
@@ -21,6 +21,10 @@ Current task: #1027 dependent draft PR #1329 ten-table encrypted disposable rest
 ## Ten-table dependent recovery source (not yet CI accepted)
 - Draft PR #1329 branches from #1328 only: explicit SHA-pinned ten-table mode and restored row allowlist; old 6/7/8 profiles keep fail-closed protection. TOC uploader profile requires both Bucket/link entries; not enabled on hosted.
 - New GitHub disposable PG17/age workflow seeds synthetic signed Settings and Bucket/link rows, rejects old modes, restores exact ten-table COPY/row parity on new target and verifies original-password two-owner privacy, achieved Bucket and link tombstones. Fifteen Python manifest/mode cases and expanded Vitest TOC checks are staged. **Real ten-table CI and full R2 media recovery unverified.**
+
+## Bucket List/link read-only follow-up (not accepted)
+- Isolated signed candidate transport now lists `buckets` and `bucket_task_links`, owner-binds JWT and URL query, fences session changes, validates all fields/revisions and retains RxDB logical tombstones. No runtime writer, hosted schema, or provider switch. Six focused mock HTTP regressions added; tests not yet CI-accepted.
+- #1328 owner-spoof target probe was identified and repaired on its own branch after #1329 fork; reconcile the stacked branches before any stable merge. PR #1328 final focused checkpoint SHA a97cd1c66d0eb489826f4e75ee097bf44acb2ee9; other CI runs unverified.
 
 ## Next action
 - Verify #1328 focused Quality and Core App disposable signed SQL tests, repair until green; then verify #1329 exact focused Quality and real ten-table encrypted PG17/GoTrue recovery lab. Accept the stacked PRs in order into isolated recovery only after gates; subsequently owner-link CAS/pull, ZIP/Settings reconciliation, bidirectional provider dry run, and one final pre-social Fedora acceptance. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora.
