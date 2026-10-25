@@ -86,6 +86,13 @@ ok((await read(bob,links,alice.owner)).length===0,'cross-owner link read leak');
 r=await insert(alice,links,{owner_id:alice.owner,id:'missing_'+suffix,
  bucket_list_id:bId,task_id:'not_found_'+suffix,created_at:stamp,updated_at:stamp});
 ok(r.status===409 || r.status===400,'dangling target link inserted');
+const deletedBucket='deleted_'+suffix;
+r=await insert(alice,buckets,{...ownedBucket,id:deletedBucket,is_deleted:true});
+ok(r.status===201,'seed tombstone Bucket failed '+r.status);
+r=await insert(alice,links,{owner_id:alice.owner,id:'tomb_target_'+suffix,
+ bucket_list_id:deletedBucket,task_id:tId,created_at:stamp,updated_at:stamp,
+ is_deleted:false});
+ok(r.status===409||r.status===400,'active link to deleted Bucket accepted');
 r=await insert(bob,links,{owner_id:bob.owner,id:'cross_'+suffix,
  bucket_list_id:bId,task_id:tId,created_at:stamp,updated_at:stamp});
 ok(r.status===409 || r.status===400,'foreign-owner link target accepted');
