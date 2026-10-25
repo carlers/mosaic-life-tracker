@@ -123,3 +123,19 @@ the exact original value, `is_deleted` tombstone and `change_seq`
 remain unchanged. This is stronger than trusting the RPC response alone.
 The eight-table live CI lab is **not** accepted until that signed
 post-attack re-read succeeds in the complete run.
+
+## Authenticated full TOC/profile verification in disposable eight-table CI
+
+The real age-encrypted Settings recovery lab now additionally invokes the
+same `inspect-encrypted-backup-toc.sh` and
+`recovery-profile.mjs` used by the unified R2 backup uploader on its
+synthetic nonempty PostgreSQL 17 source archive. It demands the explicit
+eight-personal-settings restore profile, refuses the historical seven mode
+against that exact same archive, and emits
+`MOSAIC_SETTINGS_EIGHT_TABLE_TOC_PROFILE_PASS` only if all TOC invariants
+match. The lab still performs independent exact-COPY restore and fresh signed
+owner/tombstone/foreign-owner verification afterward.
+
+This is **disposable CI evidence**, not a new actual hosted R2 Settings
+backup or live Settings writer authorization. User's next Fedora request
+remains a single consolidated pre-social acceptance command.
