@@ -1,6 +1,6 @@
 # Supabase unified encrypted offsite recovery — source-only (#1027)
 
-**Status: newly implemented source, DISABLED, not independently restored from R2.**
+**Status (2026-10-25): verified protected Scratch R2 backup, independent watcher and exact-snapshot Fedora local restore PASSED. Recurring backup and pruning remain OFF.**
 This adds **one completed recovery generation** for both Scratch `mosaic-dev`
 PostgreSQL/Auth-row data and its full private `mosaic-personal-photos` object
 inventory, analogous in scope to the Appwrite Function's data-plus-media snapshot.
@@ -62,9 +62,9 @@ PostgreSQL 17. The GitHub workflow emits a signed Deb822 `pgdg.sources` file wit
 `Types`, `URIs`, `Suites`, `Components` and `Signed-By` lines, installs only
 the PostgreSQL 17 client, and checks both executable paths before reading
 source credentials. Any package/key/source-format failure stops the workflow
-without producing a `COMPLETED` recovery marker. This repository-only correction
-has not executed a hosted R2 backup; an actual Actions runner installation
-still needs first-live-run proof.
+without producing a `COMPLETED` recovery marker. The PostgreSQL 17 runner correction was successfully exercised in protected
+Scratch Actions backup #40157401249, independently checked by read-only watch
+#40166002937 and restored from the exact encrypted R2 generation on Fedora.
 
 ## Protected configuration — not yet independently verified or authorized
 
@@ -188,10 +188,81 @@ trusted machine without transmitting credentials. The ciphertext evidence
 remains encrypted and outside Git. The runner's offline Python test covers
 successful orchestration, wrong age identity, R2 integrity mismatch, failed
 local login and media failures with cleanup, in addition to strict key/source
-preflight. The local real test is **not** yet performed by CI.
+preflight. The operator independently ran the exact SHA-pinned Fedora command and supplied
+successful stage 01-07 logs and the final exact snapshot disposable restore
+PASS marker (R2 generation 20261025T031343499Z). This proves only the covered
+Scratch data recovery, not all managed platform services.
 
 The following remain separate release gates regardless of this result:
 managed Supabase Auth/SMTP/OAuth/JWT configuration DR, live photo-bearing
 owner byte restore once photos exist, native bucket lock/credential escrow
 proof, delivered alert test and an explicitly approved recurring schedule.
 Keep `SUPABASE_DR_ENABLED=false` and pruning disabled until those gates.
+
+## Remaining safeguards: provider-native lock and delivered failure alert
+
+The exact offsite snapshot 20261025T031343499Z has already passed encrypted
+upload, independent reader-byte watch and a real isolated Fedora restore.
+Do NOT repeat that accepted recovery drill solely for these safeguards.
+Provider-native lock readback, independent key/password-manager escrow
+and actual mailbox alert receipt have NOT yet been proven. Keep recurring
+backup, retention pruning and the lock-confirmed variable disabled.
+
+### Provider-native Cloudflare R2 lock audit (strict GET only)
+
+Cloudflare bucket lock API reference:
+https://developers.cloudflare.com/api/resources/r2/subresources/buckets/subresources/locks/methods/get/
+
+The isolated-source auditor supabase-poc/r2-lock-audit.py uses only GET
+against the exact dedicated Cloudflare account/bucket lock endpoint.
+It requires an enabled Age >= 2592000 seconds (30 days) or Indefinite
+rule that applies to ALL current and future mosaic-supabase/v1/snapshots/
+objects, including completion markers and both archives. Disabled,
+shorter, one-snapshot-only or Date-only rules are rejected.
+
+The operator may run ONE exact Git-fetched source-pinned command on
+trusted Fedora after branch CI acceptance:
+
+```bash
+bash -o pipefail -c 'repo="$HOME/mosaic-photo-dr-review/life-tracker"; git -C "$repo" fetch --quiet origin feature/1027-supabase-recovery-20261020 && sha="$(git -C "$repo" rev-parse FETCH_HEAD)" && git -C "$repo" show "$sha:life-tracker/supabase-poc/r2-lock-audit.py" | python3 - --run'
+```
+
+It privately prompts for the Cloudflare account ID and a distinct
+Cloudflare account API token allowed to inspect R2 bucket configuration.
+Existing R2 S3 Access Keys CANNOT read the Cloudflare configuration API;
+do not paste any token into chat or repository. Success reports
+MOSAIC_SUPABASE_NATIVE_R2_LOCK_30D_READBACK_PASS.
+No DELETE, PUT, rule edit, upload, overwrites or mutating proof are
+performed: this is a native readback, not a destructive deletion-denial test.
+The age identity successfully decrypted the complete encrypted archive on
+Fedora, but independent offline custody and recovery access after loss of
+Cloudflare/GitHub accounts remain administrative escrow checks.
+
+### Brevo failed-run delivery (not yet active)
+
+supabase-poc/dr-alert.mjs is a source-only fail-closed Brevo SMTP API
+transactional notifier for the TWO exact main-branch Scratch unified
+encrypted backup and independent full-byte watch workflows. It accepts
+only trusted GitHub completed workflow_run events whose repository,
+main branch, workflow name, expected run URL and failure/timed_out/
+cancelled conclusion all match. Success/unrelated/fork events are ignored.
+No user row/media data, passwords or tokens enter the alert payload.
+The --probe option needs explicit TEST_SCRATCH_DR_ALERT confirmation;
+it sends a distinctly labeled synthetic test WITHOUT causing backup failures.
+
+Before enabled deployment, provision protected mosaic-supabase-dr GitHub
+secret SUPABASE_DR_ALERT_BREVO_API_KEY and protected alert sender/recipient
+settings SUPABASE_DR_ALERT_SENDER and SUPABASE_DR_ALERT_RECIPIENT.
+Never commit these values. One verified active Mosaic Brevo sender exists,
+but the intended alert inbox and actual receipt are NOT confirmed.
+A future narrow, protected main workflow must pin an exact accepted source SHA,
+use only those environment secrets, and validate source workflow identity.
+Brevo HTTP 201/202 is just provider acceptance, NOT delivered email proof.
+Independently confirm actual inbox receipt, unsubscribe/suppression/bounces,
+retry/escalation and failure behavior before calling alerting reliable.
+Workflow-red alone is not an externally delivered alarm.
+
+No new active main alert workflow is installed in this source-only task.
+There have been zero live test emails and zero R2 objects deleted.
+Any main integration, protected secret changes, automatic schedules or
+pruning require their respective explicit approvals and acceptance gates.
