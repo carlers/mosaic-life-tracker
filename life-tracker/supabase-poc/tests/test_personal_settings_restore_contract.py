@@ -53,6 +53,18 @@ class Contract(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'eight-table'):
                     manifest(ALL)
 
+    def test_manifest_order_cannot_hide_a_newer_personal_profile(self):
+        # A fresh archive carries Diary *before* Settings. A generic Diary
+        # refusal must not hide the stricter reviewed Settings profile.
+        with mode(None), self.assertRaisesRegex(ValueError, 'eight-table'):
+            manifest(list(reversed(ALL)))
+        with mode(None), self.assertRaisesRegex(ValueError, 'eight-table'):
+            manifest(ALL)
+        with mode('diary'), self.assertRaisesRegex(ValueError, 'ten-table'):
+            manifest(m.CORE + m.FRESH_DIARY + m.PRIVATE_BUCKET_LINKS)
+        with mode('settings'), self.assertRaisesRegex(ValueError, 'ten-table'):
+            manifest(list(reversed(TEN)))
+
     def test_old_modes_refuse_new_bucket_or_link_data_without_ten_table_recovery(self):
         for flavor in (None, 'diary', 'settings'):
             for domain in m.PRIVATE_BUCKET_LINKS:
