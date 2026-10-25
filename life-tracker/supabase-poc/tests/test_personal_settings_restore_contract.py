@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 import restore_private_core_to_disposable as m
 
 ALL = m.CORE + m.FRESH_DIARY + m.PERSONAL_SETTINGS
+TEN = ALL + m.PRIVATE_BUCKET_LINKS
 
 
 def table_data(names):
@@ -20,10 +21,12 @@ def table_data(names):
 
 def mode(name=None):
     env = {}
-    if name in ('diary', 'settings'):
+    if name in ('diary', 'settings', 'ten'):
         env['MOSAIC_FRESH_SNAPSHOT_SHA256'] = 'a' * 64
-    if name == 'settings':
+    if name in ('settings', 'ten'):
         env['MOSAIC_PERSONAL_SETTINGS_RESTORE'] = '1'
+    if name == 'ten':
+        env['MOSAIC_BUCKET_LINKS_RESTORE'] = '1'
     return patch.dict(os.environ, env, clear=True)
 
 
@@ -91,6 +94,46 @@ class Contract(unittest.TestCase):
     def test_duplicate_settings_entry_refused(self):
         with mode('settings'), self.assertRaisesRegex(ValueError, 'Duplicate'):
             manifest(ALL + m.PERSONAL_SETTINGS)
+
+    def test_explicit_ten_requires_all_authorized_data_objects(self):
+        with mode('ten'):
+            self.assertEqual(m.selected_data_tables(), TEN)
+            self.assertEqual(list(manifest(TEN)), TEN)
+
+    def test_ten_rejects_missing_and_duplicate_bucket_link_data(self):
+        with mode('ten'):
+            for name in m.PRIVATE_BUCKET_LINKS:
+                with self.subTest(table=name):
+                    with self.assertRaisesRegex(ValueError, 'Missing required'):
+                        manifest([t for t in TEN if t != name])
+                    with self.assertRaisesRegex(ValueError, 'Duplicate required'):
+                        manifest(TEN + [name])
+
+    def test_ten_requires_exact_explicit_settings_and_sha_mode(self):
+        for env in [
+            {'MOSAIC_BUCKET_LINKS_RESTORE':'1'},
+            {'MOSAIC_BUCKET_LINKS_RESTORE':'1',
+             'MOSAIC_FRESH_SNAPSHOT_SHA256':'a'*64},
+            {'MOSAIC_BUCKET_LINKS_RESTORE':'0',
+             'MOSAIC_PERSONAL_SETTINGS_RESTORE':'1',
+             'MOSAIC_FRESH_SNAPSHOT_SHA256':'a'*64},
+        ]:
+            with self.subTest(env=env), patch.dict(os.environ, env, clear=True):
+                with self.assertRaisesRegex(ValueError, 'Bucket/link'):
+                    m.selected_data_tables()
+
+    def test_ten_preserves_bounded_signed_auth_count_and_tombstone_rows(self):
+        with mode('ten'):
+            counts = dict.fromkeys(TEN, 0)
+            for key in ('auth.users','auth.identities',
+                        'mosaic_candidate_private.core_authorities'):
+                counts[key] = 2
+            counts['public.mosaic_candidate_buckets'] = 4
+            counts['public.mosaic_candidate_bucket_task_links'] = 5
+            self.assertEqual(m.validate_source_counts(counts), counts)
+            bad = dict(counts); bad['public.mosaic_candidate_bucket_task_links'] = 250001
+            with self.assertRaises(ValueError):
+                m.validate_source_counts(bad)
 
     def test_auth_integrity_and_personal_row_bound(self):
         with mode('settings'):
