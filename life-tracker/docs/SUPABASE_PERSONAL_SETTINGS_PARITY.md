@@ -139,3 +139,16 @@ owner/tombstone/foreign-owner verification afterward.
 This is **disposable CI evidence**, not a new actual hosted R2 Settings
 backup or live Settings writer authorization. User's next Fedora request
 remains a single consolidated pre-social acceptance command.
+
+## PostgreSQL 17 authenticated TOC in synthetic eight-table lab
+
+The R2 publication gate validates an entire age archive and inspects its pg_dump
+TOC. An Ubuntu 24.04 default PostgreSQL 16 `pg_restore` cannot interpret
+archives emitted by disposable PostgreSQL 17 (`unsupported version 1.16`).
+For the disposable eight-table CI lab only, the existing TOC inspector now
+runs `pg_restore --list` inside the exact PG17 source container through a
+strict private executable wrapper; authentication, TOC identity and seven-
+versus-eight profile enforcement remain unchanged. Never drop the TOC gate,
+accept an error as an empty inventory, or publish from an unverified archive.
+Actual signed test and full restore must still pass in canonical CI before
+calling this change accepted. No hosted PostgreSQL or R2 mutation occurs.
