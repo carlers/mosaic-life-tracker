@@ -284,7 +284,9 @@ export function createCandidateRxdbPilot<D extends Document>(
     return null;
   }
 
-  function makeOwnerPatch(local: Replicated<D>, master: Replicated<D>) {
+  function makeOwnerPatch(
+    local: Replicated<D>, master: Replicated<D>,
+  ): Record<string, string | number | boolean | null> | null {
     if (domain === 'tasks') {
       const current = toCandidateTaskWrite(local as TaskDocument, identity);
       const previous = toCandidateTaskWrite(master as TaskDocument, identity);
@@ -324,11 +326,20 @@ export function createCandidateRxdbPilot<D extends Document>(
         is_deleted: current.is_deleted,
       };
     }
-    const { owner_id: _owner, id: _id, ...patch } =
-      toCandidateCategoryWrite(local as CategoryDocument, identity);
-    void _owner;
-    void _id;
-    return patch;
+    const category = toCandidateCategoryWrite(local as CategoryDocument, identity);
+    // Fixed concrete category CAS shape; optional retirement is deliberately
+    // absent rather than an own-property with undefined. PostgREST must never
+    // receive a patch whose JSON shape depends on TypeScript union inference.
+    return {
+      name: category.name,
+      color: category.color,
+      order_index: category.order_index,
+      visibility: category.visibility,
+      icon: category.icon,
+      updated_at: category.updated_at,
+      is_deleted: category.is_deleted,
+      ...(category.retired_on !== undefined ? { retired_on: category.retired_on } : {}),
+    };
   }
 
   async function push(rows: RxReplicationWriteToMasterRow<D>[]): Promise<Replicated<D>[]> {
