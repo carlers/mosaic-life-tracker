@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 signed Settings source-only CREATE/CAS transport; no runtime writer.
+Current task: #1027 source-only Settings RxDB pilot adapter; no runtime writer.
 
 ## Accepted
 - Appwrite Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7 and dev 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged. Supabase personal candidate isolated; hosted Settings migration UNAPPLIED.
@@ -11,8 +11,8 @@ Current task: #1027 signed Settings source-only CREATE/CAS transport; no runtime
 - Main Brevo automated alerts, unattended backup and pruning disabled, Proton sender replacement case pending with support.
 
 ## Current source-only task
-- Extend existing signed candidate CREATE/master with Settings typed mapping and supported owner-private create only, no upsert or auto retry and conflict master check.
-- Extend signed CAS RPC allowlist with strictly typed and bounded Settings value/updated timestamp/is_deleted, still no direct UPDATE/DELETE, refuse owner/key/client revision changes. Unit tests cover owner/session switch, invalid server/master data, stale CAS, wrong types and conflict. No app/RxDB writer activated.
+- After accepted #1324 typed Settings CREATE/CAS/master source transport, extend isolated generic RxDB pilot to domain=settings using signed owner pull/create/master/CAS and native RxDB checkpoints. Preserve byte-exact opaque values, tombstones, unknown portable keys, local pending edits and parked conflict reviews. Reject owner/key swaps, spoofed revisions, provider-specific avatar/social settings and session changes. Existing Production Appwrite and candidate core runtime remain unchanged: NO Settings writer enabled.
+- Add substantive unit tests for source-only Settings pilot including create and revision CAS, tombstone pull, foreign identity, explicit conflict and key immutability, no physical delete or implicit owner/provider switch.
 
 ## Next action
-- Focused tests then stable canonical on isolated branch. Gated RxDB Settings integration, owner-private Bucket List/task links, full offsite DR profile, migration/rollback and single final Fedora pre-social validation remain before separately approved public Supabase cutover and social.
+- Focused CI and isolated stable full Quality/8-table/GoTrue/Core gates. Next build gated complete Settings owner-private collection migration/backfill and exclusive-writer runtime, then Bucket List/task links, full personal DR and reversible provider return. ONE final Fedora acceptance only when all pre-social work is ready. No Production cutover/social authorization.

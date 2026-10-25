@@ -186,3 +186,25 @@ positive and negative create/CAS. Existing Core App Lab already proves
 actual signed two-owner SQL grant/lease/RLS/CAS; this extension itself is
 client transport only. Hosted Settings still unapplied; private full eight-
 table DR gates must precede any live Settings user data.
+
+
+## Source-only Settings RxDB replica adapter (NOT activated)
+
+The generic isolated `candidateRxdbPilot.ts` now supports the explicit
+`settings` domain **only when instantiated by a test or future gated owner
+bridge**. Existing Appwrite Production and the current Supabase core runtime
+still start only their previously authorized task/category/Diary domains.
+The adapter delegates to the already-signed Settings owner-scoped incremental
+pull, create-master and expected-revision CAS transports. It never invents
+a checkpoint or edits an owner key: it validates the server-side revision,
+keeps tombstones as ordinary `isDeleted` documents (RxDB `_deleted=false`),
+refuses foreign/profile-avatar/social rows, parks divergent conflicts for
+explicit owner review, and does not directly acknowledge unresolved local edits.
+Unknown but valid preference keys are preserved byte-for-byte.
+
+The *live* owner Settings collection also contains provider-specific avatar
+and social values. Do NOT attach this replica directly to the shipped shared
+Settings collection or enable it alongside Appwrite without first building
+a separately verified, complete feature-migration/owner-writer-fence strategy.
+This source-only adapter's CI tests do not constitute an approved hosted
+Settings writer, user-data backfill or two-device/offline acceptance.

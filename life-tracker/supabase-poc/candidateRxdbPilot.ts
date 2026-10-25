@@ -1,5 +1,6 @@
 /**
- * Isolated #967 RxDB replication pilot: tasks/categories only.
+ * Isolated #967 RxDB replication pilot: tasks/categories/Diary and portable Settings.
+ * Settings is strictly source-only and is NOT activated by the existing core bridge.
  *
  * Imported by the gated app-owned core bridge, not by Mosaic's shipped
  * Appwrite replication or automatic database bootstrap.
@@ -17,7 +18,8 @@ import type {
 } from 'rxdb';
 import { replicateRxCollection } from 'rxdb/plugins/replication';
 import { Subject } from 'rxjs';
-import type { TaskDocument, CategoryDocument, DiaryDocument } from '../src/db/schema';
+import type { TaskDocument, CategoryDocument, DiaryDocument, SettingsDocument } from '../src/db/schema';
+import { fromCandidateSettingRow, toCandidateSettingWrite, type CandidateSettingRow } from './candidateSettingsMapping';
 import {
   fromCandidateCategoryRow, fromCandidateTaskRow, fromCandidateDiaryRow,
   parseCandidateRevision, toCandidateCategoryWrite, toCandidateTaskWrite, toCandidateDiaryWrite,
@@ -25,15 +27,15 @@ import {
   type CandidateIdentity,
 } from './candidateMapping';
 import {
-  pullCandidateCategories, pullCandidateTasks, pullCandidateDiary,
-  type CandidateChangeTransport, type CandidateCheckpoint, type CandidateDomain,
+  pullCandidateCategories, pullCandidateTasks, pullCandidateDiary, pullCandidateSettings,
+  type CandidateChangeTransport, type CandidateCheckpoint, type CandidateReadDomain,
 } from './candidatePull';
 import type { createCandidateCreateTransport } from './candidateCreateTransport';
 import type { createCandidateCasTransport } from './candidateCasTransport';
 import { CandidateAuthError, type CandidateSessionProvider } from './candidateHttpTransport';
 
-type Document = TaskDocument | CategoryDocument | DiaryDocument;
-type Row = CandidateTaskRow | CandidateCategoryRow | CandidateDiaryRow;
+type Document = TaskDocument | CategoryDocument | DiaryDocument | SettingsDocument;
+type Row = CandidateTaskRow | CandidateCategoryRow | CandidateDiaryRow | CandidateSettingRow;
 type Replicated<D extends Document> = WithDeletedAndAttachments<D>;
 type Writer = ReturnType<typeof createCandidateCreateTransport>;
 type Cas = ReturnType<typeof createCandidateCasTransport>;
@@ -51,7 +53,7 @@ export type CandidateConflictReason =
   | 'cas-conflict' | 'unconfirmed-write' | 'protected-field-change';
 
 export interface CandidateConflictReview<D extends Document> {
-  domain: CandidateDomain;
+  domain: CandidateReadDomain;
   documentId: string;
   reason: CandidateConflictReason;
   /** Snapshot at the rejected push. Still pending in local RxDB. */
@@ -68,9 +70,9 @@ export type CandidateConflictReviewEvent<D extends Document> =
   | { type: 'cleared'; documentId: string };
 
 export class CandidatePendingConflictError extends Error {
-  readonly domain: CandidateDomain;
+  readonly domain: CandidateReadDomain;
   readonly documentId: string;
-  constructor(domain: CandidateDomain, documentId: string) {
+  constructor(domain: CandidateReadDomain, documentId: string) {
     super('Supabase candidate remote conflict requires explicit local-edit resolution');
     this.domain = domain;
     this.documentId = documentId;
@@ -79,7 +81,7 @@ export class CandidatePendingConflictError extends Error {
 }
 
 export interface CandidateRxdbPilotOptions<D extends Document> {
-  domain: CandidateDomain;
+  domain: CandidateReadDomain;
   identity: CandidateIdentity;
   session: CandidateSessionProvider;
   changes: CandidateChangeTransport;
@@ -89,13 +91,13 @@ export interface CandidateRxdbPilotOptions<D extends Document> {
   collection?: RxCollection<D>;
 }
 
-function assertedDomain(value: CandidateDomain): void {
-  if (value !== 'tasks' && value !== 'categories' && value !== 'diary')
+function assertedDomain(value: CandidateReadDomain): void {
+  if (value !== 'tasks' && value !== 'categories' && value !== 'diary' && value !== 'settings')
     throw new Error('Unsupported candidate RxDB replication domain');
 }
 
 /** Compare fields that Mosaic actually stores; ignore SQL-only revision/time. */
-function canonical(domain: CandidateDomain, doc: Document, owner: CandidateIdentity): string {
+function canonical(domain: CandidateReadDomain, doc: Document, owner: CandidateIdentity): string {
   return JSON.stringify(domain === 'tasks'
     ? toCandidateTaskWrite(doc as TaskDocument, owner)
     : domain === 'categories'
@@ -107,7 +109,9 @@ function canonical(domain: CandidateDomain, doc: Document, owner: CandidateIdent
           ...(doc as CategoryDocument),
           retiredOn: (doc as CategoryDocument).retiredOn ?? '',
         }, owner)
-      : toCandidateDiaryWrite(doc as DiaryDocument, owner));
+      : domain === 'diary'
+        ? toCandidateDiaryWrite(doc as DiaryDocument, owner)
+        : toCandidateSettingWrite(doc as SettingsDocument, owner));
 }
 
 export function createCandidateRxdbPilot<D extends Document>(
@@ -189,7 +193,9 @@ export function createCandidateRxdbPilot<D extends Document>(
       ? fromCandidateTaskRow(row as CandidateTaskRow, identity)
       : domain === 'categories'
         ? fromCandidateCategoryRow(row as CandidateCategoryRow, identity)
-        : fromCandidateDiaryRow(row as CandidateDiaryRow, identity)) as D,
+        : domain === 'diary'
+          ? fromCandidateDiaryRow(row as CandidateDiaryRow, identity)
+          : fromCandidateSettingRow(row as CandidateSettingRow, identity)) as D,
     _deleted: false,
   });
 
@@ -226,7 +232,9 @@ export function createCandidateRxdbPilot<D extends Document>(
       ? await pullCandidateTasks({ identity, transport: changes, checkpoint, batchSize })
       : domain === 'categories'
         ? await pullCandidateCategories({ identity, transport: changes, checkpoint, batchSize })
-        : await pullCandidateDiary({ identity, transport: changes, checkpoint, batchSize });
+        : domain === 'diary'
+          ? await pullCandidateDiary({ identity, transport: changes, checkpoint, batchSize })
+          : await pullCandidateSettings({ identity, transport: changes, checkpoint, batchSize });
     const after = await guardedSession();
     if (after.sessionEpoch !== before.sessionEpoch || after.accessToken !== before.accessToken) {
       clearAllReviews();
@@ -245,7 +253,9 @@ export function createCandidateRxdbPilot<D extends Document>(
       ? await writer.readTaskMaster(id, identity)
       : domain === 'categories'
         ? await writer.readCategoryMaster(id, identity)
-        : await writer.readDiaryMaster(id, identity);
+        : domain === 'diary'
+          ? await writer.readDiaryMaster(id, identity)
+          : await writer.readSettingMaster(id, identity);
     return row ? checkedRow(row) : null;
   }
 
@@ -256,7 +266,9 @@ export function createCandidateRxdbPilot<D extends Document>(
       ? await writer.createTask(doc as TaskDocument, identity)
       : domain === 'categories'
         ? await writer.createCategory(doc as CategoryDocument, identity)
-        : await writer.createDiary(doc as DiaryDocument, identity);
+        : domain === 'diary'
+          ? await writer.createDiary(doc as DiaryDocument, identity)
+          : await writer.createSetting(doc as SettingsDocument, identity);
     const remote = checkedRow(result.row);
     if (result.revision !== remote.revision)
       throw new Error('Candidate inserted row had inconsistent revision');
@@ -298,6 +310,18 @@ export function createCandidateRxdbPilot<D extends Document>(
         content: current.content, emoji: current.emoji,
         photos: current.photos,
         updated_at: current.updated_at, is_deleted: current.is_deleted,
+      };
+    }
+    if (domain === 'settings') {
+      const current = toCandidateSettingWrite(local as SettingsDocument, identity);
+      const previous = toCandidateSettingWrite(master as SettingsDocument, identity);
+      // A settings key names one unique owner preference. Never change it with
+      // CAS, even if another device or local cache changed the row contents.
+      if (current.setting_key !== previous.setting_key) return null;
+      return {
+        setting_value: current.setting_value,
+        updated_at: current.updated_at,
+        is_deleted: current.is_deleted,
       };
     }
     const { owner_id: _owner, id: _id, ...patch } =
