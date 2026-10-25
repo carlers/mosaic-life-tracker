@@ -64,6 +64,12 @@ CREATE FUNCTION mosaic_candidate_private.require_live_bucket_link_targets()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $live_link$
 BEGIN
+  -- This SECURITY DEFINER trigger executes before other named BEFORE triggers.
+  -- Check the signed principal FIRST: never probe the existence of a foreign
+  -- Bucket or task (including the deleted state) for a spoofed owner_id.
+  IF auth.uid() IS NULL OR NEW.owner_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Wrong signed link owner' USING errcode='42501';
+  END IF;
   IF NOT NEW.is_deleted AND (
     NOT EXISTS (SELECT 1 FROM public.mosaic_candidate_buckets
       WHERE owner_id=NEW.owner_id AND id=NEW.bucket_list_id AND NOT is_deleted)
