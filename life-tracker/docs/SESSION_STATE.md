@@ -1,7 +1,7 @@
 # Session checkpoint
 
 Updated: 2026-10-25 Asia/Manila
-Current task: #1027 draft PR #1328 Bucket List/task-link signed local SQL and strict old-mode encrypted DR refusal.
+Current task: #1027 dependent draft PR #1329 ten-table encrypted disposable restore, atop unaccepted SQL draft PR #1328.
 
 ## Accepted
 - Appwrite Production main bef14fb791a361e8c1f902a5c4adf4536e57aae7 and dev 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged. Supabase personal candidate isolated; hosted Settings migration UNAPPLIED.
@@ -18,5 +18,9 @@ Current task: #1027 draft PR #1328 Bucket List/task-link signed local SQL and st
 - Draft PR #1328 stages two **UNAPPLIED** private bucket/link tables with owner-composite FKs, signed-owner-only RLS, authority/revision triggers, CAS RPCs, catalog validation and a signed GoTrue two-owner fixture in the disposable Core App workflow. Lease release and deleted-target negatives included. Real SQL/CI acceptance unverified; no hosted data change.
 - Older 6/7/8-table restore modes now reject Bucket/link TABLE DATA and all unreviewed public candidate personal tables instead of silently omitting them. Two additional mock-manifest regressions (11 total) and Vitest assertion added. No ten-table restore enabled.
 
+## Ten-table dependent recovery source (not yet CI accepted)
+- Draft PR #1329 branches from #1328 only: explicit SHA-pinned ten-table mode and restored row allowlist; old 6/7/8 profiles keep fail-closed protection. TOC uploader profile requires both Bucket/link entries; not enabled on hosted.
+- New GitHub disposable PG17/age workflow seeds synthetic signed Settings and Bucket/link rows, rejects old modes, restores exact ten-table COPY/row parity on new target and verifies original-password two-owner privacy, achieved Bucket and link tombstones. Fifteen Python manifest/mode cases and expanded Vitest TOC checks are staged. **Real ten-table CI and full R2 media recovery unverified.**
+
 ## Next action
-- Verify exact task-sha focused Quality and disposable Core App SQL/GoTrue runs; diagnose/redesign any failure before accepting PR #1328 into recovery. Next implement and prove encrypted ten-table exact-copy independent restore and uploader profile before any hosted schema. Then owner-link CAS/pull, ZIP/Settings reconciliation, bidirectional provider dry run and only one final pre-social Fedora acceptance. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora.
+- Verify #1328 focused Quality and Core App disposable signed SQL tests, repair until green; then verify #1329 exact focused Quality and real ten-table encrypted PG17/GoTrue recovery lab. Accept the stacked PRs in order into isolated recovery only after gates; subsequently owner-link CAS/pull, ZIP/Settings reconciliation, bidirectional provider dry run, and one final pre-social Fedora acceptance. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora. No hosted/app/Production writer, scheduling, pruning, social or routine Fedora.
