@@ -154,6 +154,15 @@ export function pullCandidateBucketLinks(options: {
   batchSize: number;
 }): Promise<{ documents: Array<BucketTaskLinkDocument & { _deleted: false }>; checkpoint: CandidateCheckpoint | undefined }> {
   return pullCandidateChanges<CandidateBucketLinkRow, BucketTaskLinkDocument>({
-    ...options, domain: 'bucket_task_links', convert: fromCandidateBucketLinkRow,
+    ...options, domain: 'bucket_task_links',
+    convert: (row, owner) => {
+      const doc = fromCandidateBucketLinkRow(row, owner);
+      // The source mapper accepts historic 255-char references for lossless
+      // quarantine, but the reviewed candidate table only accepts 36-char IDs.
+      // A malformed server link must not advance RxDB's change checkpoint.
+      if (!/^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/.test(doc.taskId))
+        throw new Error('Signed candidate link reference exceeds reviewed target ID; quarantine required');
+      return doc;
+    },
   });
 }
