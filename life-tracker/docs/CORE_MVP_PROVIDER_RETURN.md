@@ -361,3 +361,44 @@ activate an authoritative time-bound writer-freeze lease. Production
 requires its own explicit approval. Never treat a locally constructed
 preflight input as a genuine server-admin snapshot or loosen ACLs
 simply to make an offline fixture pass.
+
+## Read-only live-admin ACL collection foundation (2026-10-26)
+
+`scripts/appwrite-source-grant-readback.mjs` builds upon the
+source-only `appwriteWriterFreezePreflight.ts` contract. It accepts
+only an explicit GET-only backend admin requester and verified target
+parameters (endpoint/project/database/Cloud-or-Oracle deployment),
+reviewed original owner account, full independent per-domain owner
+row counts, Function count, and a separately authenticated owner photo
+file-ID witness. It reads **all six personal Appwrite table definitions
+and their full owner row permissions**, private task-image bucket
+configuration and the entire bucket's file ACL index (not just an
+active-only ZIP), plus all Functions and their scopes.
+
+Every row page is owner-filtered by `user_id`, sorted by `$id`, and
+uses bounded keyset cursors, explicit server `total:true` and
+`ttl:0` to bypass TablesDB query caching. Every Storage file and
+Function page is also bounded and strictly ordered; all mandatory
+owner counts and expected file IDs must match. It checks two complete
+independent scans and refuses unexpected metadata, foreign rows,
+missing owner media IDs, pagination/count changes, or altered ACLs
+between scans, even when the record counts remain identical.
+Only immutable ACL metadata is returned to the caller; task, Diary,
+setting and photo contents are never emitted.
+
+**It is not activated in the app, no admin credentials are provisioned,
+and NO admin or user data was contacted.** The current existing
+Production ACL grants would still fail the downstream write-fence
+preflight, and the tool intentionally does not call it automatically.
+The operator must separately establish that the file IDs belong to
+the signed owner and that no other owner files were omitted: Appwrite
+file ACLs alone cannot prove owner membership. Consequently the
+response reports `ownerFileMembershipIndependentlyAuthenticated:false`,
+`authenticatedSourceLeaseIssued:false`,
+`privilegedWriterKeysRevoked:false`, and
+`providerCutoverEligible:false`, irrespective of a stable GET scan.
+Actual server ACL freeze/rollback, API key disablement,
+old signed-PWA HTTP 403 denials and authoritative time-bound writer
+lease require separate signed Scratch rehearsal and approvals.
+The scanner is deliberately a callable library, not a background
+job, scheduled task, Production command or unreviewed CLI.
