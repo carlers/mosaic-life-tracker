@@ -78,7 +78,7 @@ export async function runSignedAuthProbe(config, { fetcher = fetch, nonce = rand
       throw new Error(label + ' expected 401/403, got HTTP ' + response.status);
   }
   const tables = [
-    'mosaic_candidate_tasks', 'mosaic_candidate_categories',
+    'mosaic_candidate_tasks', 'mosaic_candidate_categories', 'mosaic_candidate_diary',
     'mosaic_candidate_settings', 'mosaic_candidate_buckets',
     'mosaic_candidate_bucket_task_links',
   ];
@@ -98,15 +98,8 @@ export async function runSignedAuthProbe(config, { fetcher = fetch, nonce = rand
   }
 
   const absentId = 'probe_' + nonce.replaceAll('-', '');
-  assertDenied(await request('/rest/v1/mosaic_candidate_tasks?id=eq.' + absentId, {
-    token: alice.token, method: 'PATCH', body: { title: 'denied_probe' },
-  }), 'Direct UPDATE');
-  totals.deniedTableWrites++;
-  assertDenied(await request('/rest/v1/mosaic_candidate_categories?id=eq.' + absentId, {
-    token: bob.token, method: 'DELETE',
-  }), 'Hard DELETE');
-  totals.deniedTableWrites++;
-  for (const table of tables.slice(2)) {
+  // Never create or alter a row: a fresh absent nonce must be rejected at the grant layer.
+  for (const table of tables) {
     for (const method of ['PATCH', 'DELETE']) {
       assertDenied(await request('/rest/v1/' + table + '?id=eq.' + absentId, {
         token: alice.token, method,
@@ -114,12 +107,6 @@ export async function runSignedAuthProbe(config, { fetcher = fetch, nonce = rand
       }), 'Direct ' + table + ' ' + method);
       totals.deniedTableWrites++;
     }
-  }
-
-  assertDenied(await request('/rest/v1/mosaic_candidate_tasks?select=id&limit=1'),
-    'Anonymous SELECT');
-  totals.deniedAnonymousCalls++;
-  for (const table of tables.slice(2)) {
     assertDenied(await request('/rest/v1/' + table + '?select=id&limit=1'),
       'Anonymous private ' + table);
     totals.deniedAnonymousCalls++;
@@ -128,6 +115,7 @@ export async function runSignedAuthProbe(config, { fetcher = fetch, nonce = rand
   for (const [user, rpc, patch] of [
     [alice, 'mosaic_candidate_cas_task', { title: 'probe' }],
     [bob, 'mosaic_candidate_cas_category', { name: 'probe' }],
+    [alice, 'mosaic_candidate_cas_diary', { content: 'probe' }],
     [alice, 'mosaic_candidate_cas_setting', { setting_value: 'probe' }],
     [bob, 'mosaic_candidate_cas_bucket', { title: 'probe' }],
     [alice, 'mosaic_candidate_cas_bucket_link', { is_deleted: true }],

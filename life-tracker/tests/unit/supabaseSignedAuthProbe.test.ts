@@ -32,7 +32,7 @@ function fixture({
       });
     }
     if (path === '/auth/v1/user') return json({ id: alice || sameUser ? aliceId : bobId });
-    const privateTables = ['mosaic_candidate_settings', 'mosaic_candidate_buckets',
+    const privateTables = ['mosaic_candidate_diary', 'mosaic_candidate_settings', 'mosaic_candidate_buckets',
       'mosaic_candidate_bucket_task_links'];
     if (path.startsWith('/rest/v1/rpc/')) {
       if (!alice && !bob) {
@@ -64,15 +64,33 @@ describe('isolated Supabase genuine-signed-user denial-path harness (#967)', () 
     const { fetcher, calls } = fixture();
     const result = await runSignedAuthProbe(config, { fetcher, nonce });
     expect(result).toEqual({
-      signedUsers: 2, ownReads: 10, foreignReads: 10, deniedTableWrites: 8,
-      deniedAnonymousCalls: 9, rpcConflicts: 5, rejectedRpcFields: 5,
+      signedUsers: 2, ownReads: 12, foreignReads: 12, deniedTableWrites: 12,
+      deniedAnonymousCalls: 12, rpcConflicts: 6, rejectedRpcFields: 6,
     });
     expect(calls.every(c => c.url.startsWith(origin + '/'))).toBe(true);
     expect(calls.every(c => c.init.credentials === 'omit' &&
       c.init.redirect === 'error')).toBe(true);
     expect(calls.filter(c => c.init.method === 'POST' &&
-      c.url.includes('rpc/'))).toHaveLength(15);
+      c.url.includes('rpc/'))).toHaveLength(18);
     expect(JSON.stringify(calls)).not.toContain('sb_secret_');
+  });
+
+  it('checks signed/anonymous reads and both forbidden direct writes for all six domains', async () => {
+    const { fetcher, calls } = fixture();
+    await runSignedAuthProbe(config, { fetcher, nonce });
+    const tables = [
+      'mosaic_candidate_tasks', 'mosaic_candidate_categories', 'mosaic_candidate_diary',
+      'mosaic_candidate_settings', 'mosaic_candidate_buckets',
+      'mosaic_candidate_bucket_task_links',
+    ];
+    for (const table of tables) {
+      const requests = calls.filter(c => new URL(c.url).pathname === '/rest/v1/' + table);
+      expect(requests.filter(c => c.init.method === 'PATCH')).toHaveLength(1);
+      expect(requests.filter(c => c.init.method === 'DELETE')).toHaveLength(1);
+      expect(requests.filter(c => !('Authorization' in (c.init.headers as Record<string, string>)) &&
+        c.init.method === 'GET')).toHaveLength(1);
+      expect(requests.filter(c => new URL(c.url).searchParams.has('owner_id'))).toHaveLength(2);
+    }
   });
 
   it('rejects non-isolated targets, secret keys, duplicate account and unverified identities', async () => {
@@ -103,10 +121,10 @@ describe('isolated Supabase genuine-signed-user denial-path harness (#967)', () 
     })).rejects.toThrow(/Foreign-owner/);
     await expect(runSignedAuthProbe(config, {
       fetcher: fixture({ allowUpdate: true }).fetcher, nonce,
-    })).rejects.toThrow(/Direct UPDATE/);
+    })).rejects.toThrow(/Direct mosaic_candidate_tasks PATCH/);
   });
 
-  it('fails closed when any new private domain leaks a foreign row or anonymous access', async () => {
+  it('fails closed when any private domain leaks a foreign row or anonymous access', async () => {
     await expect(runSignedAuthProbe(config, {
       fetcher: fixture({ leakPrivateForeign: true }).fetcher, nonce,
     })).rejects.toThrow(/Foreign-owner/);
