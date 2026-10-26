@@ -1,20 +1,18 @@
 # Session checkpoint
 
 Updated: 2026-10-26 Asia/Manila
-Current task: #1027 offline independent encrypted owner-history readback, branch `chatgpt/1027-owner-history-decrypt-proof-20261026`.
+Current task: #1027 isolated Bucket/link source versus target replay parity contract, task branch `chatgpt/1027-bucket-replay-compare-20261026`.
 
-## Accepted isolated source and safety
-- Production remains Appwrite. Git `main` bef14fb791a361e8c1f902a5c4adf4536e57aae7 and `dev` 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged; no hosted private Supabase schemas, live writers, SMTP alerts, backup pruning, social rollout, R2 mutation or provider cutover.
-- Historical Scratch seven-table R2 age backup 20261025T031343499Z was restored on Fedora with native >=30-day retention. No additional Fedora micro-tests: owner requires exactly ONE final bundled pre-social migration/DR acceptance command.
-- Isolated recovery `470460839204db297b4913a2cf7ea87a72d9ac38` includes signed Bucket SQL (#1328), 10-table PG17 age restore (#1329), owner Bucket read/create/CAS (#1330), isolated Bucket/links RxDB (#1333), complete-owner link classifier (#1334), encrypted private history writer (#1335), and guarded two-pass owner-history Appwrite read (#1337). All source-only, none activated.
-- #1337 prior incremental task #1336 focused verified only a checkpoint file; corrected single coherent PR #1337 SHA b41bbf62b6789afaf6b8ae970fab173bf3f0e4c3 focused Quality #40254080629 PASSED including 11 new unit tests; stable `47046083` Quality #40254253091 PASSED, encryption #40254246329 and synthetic #40254246357 PASS, other restore/Core technical workflows at last check pending; protected hosted Preview awaits separately approved promotion.
+## Accepted/protected
+- Appwrite remains Production. Git `main` bef14fb791a361e8c1f902a5c4adf4536e57aae7 and `dev` 497919bed4b6ce85b826f2d86fc767920344ec17 unchanged; hosted Supabase Settings/Bucket SQL UNAPPLIED; no live writer, provider cutover, SMTP/alerts, pruning, social or actual R2 user mutation.
+- Real historical seven-table Scratch R2 age archive 20261025T031343499Z restored on Fedora with native >=30-day retention readback. Owner requires no piecemeal Fedora runs; next trusted workstation invocation ONE final all-pre-social migration/DR acceptance command.
+- Isolated recovery `69281974f459c76cde52d83b99d5fb6d91396ea7`: accepted private Bucket SQL #1328, ten-table encrypted PG17/GoTrue DR #1329, signed read/create/CAS #1330, isolated Bucket/link RxDB #1333, full owner-link source quarantine classifier #1334, offline age encrypted ledger #1335, source owner Appwrite two-pass signed reader #1337 and independently pinned offline age decrypt/owner-history verification #1338. All source-only.
+- #1337 full-diff focused Quality #40254080629 passed 11 new owner-history tests; stable `47046083` Quality #40254253091 passed. #1338 focused Quality #40254768480, real age encryption/decryption #40254768481 passed; stable `69281974` age lab #40254879494 and synthetic #40254879474 passed, other canonical/DR jobs running at checkpoint. Protected hosted Preview still approval-gated.
 
-## Current implementation (source only)
-- `supabase-poc/verify-encrypted-owner-history.mjs` offline reads previously encrypted 0600 age archive from a private source directory. Checks independently supplied ciphertext, original manifest, complete source snapshot and target identity SHA256 pins, exact signed-owner mapping and counts, reads/decrypts with private age identity only to memory, never writes plaintext, returns only verified metadata.
-- Checks original link identity fields, exact order/uniqueness, 255-char legacy task IDs, tombstones, quarantine reason validity, rejects foreign/malformed/duplicate rows even when encrypted manifest SHA matches.
-- Extended real synthetic age lab tests positive exact decrypt, wrong archive/source/target/count/owner hashes and a separately age-encrypted duplicate link. Exact task CI pending; **no live user data or hosted backend contacted**.
-- Still missing actual SERVER-issued read-only/fenced provider lease, authenticated full owner content+media archive, genuine encrypted private retention/readback, source→destination replay and count/hash proof, reversible migration and two-device offline sync.
+## Current work
+- `candidateBucketReplayParity.ts` source-only exact replay comparator: validates independent owner full source manifest digest and expected counts, requires all Bucket goals + admissible ready/tombstone links to match mapped candidate SQL rows exactly, rejects foreign/extra/duplicate/missing/altered/revisionless target rows. Quarantined long/dangling/deleted-target links must remain in encrypted source ledger and absent from live target table.
+- `tests/unit/supabaseCandidateBucketReplayParity.test.ts`: negative identity, tombstone, timestamp, link ref, revision, count, extra/quarantined target and source-pin cases. No backend calls or deployment. Focused Quality not yet verified. Output deliberately `providerCutoverEligible:false`.
 
 ## Next action
-- Verify exact focused and age lab CI; repair and squash to isolated recovery only on green; confirm full canonical CI, excluding protected Preview approval.
-- Complete trusted source writer fences + full owner auth/content/media provenance, signed historical replay/ZIP/photo parity, real ten-table PostgreSQL/Auth/Storage DR, reversible Appwrite Cloud/Oracle ↔ Supabase exclusive-writer dry runs and one final pre-social Fedora acceptance. No dev/main/Production promotion without separate explicit approval.
+- Run exact SHA full-diff focused Quality on this task; repair then squash isolated recovery only when green, re-run canonical technical jobs and protected Preview gate without unapproved hosted deployment.
+- Finish live trusted SERVER-exclusive writer/old-PWA fencing, independently complete source task/category/Diary/Settings history plus media, immutable owner-mapping/backfill/ZIP and two-device sync, signed target read, actual encrypted ten-table R2/Storage DR and reversible Appwrite Cloud/Oracle ↔ Supabase writer switching. Only then ONE consolidated Fedora acceptance; Production migration needs explicit approval.

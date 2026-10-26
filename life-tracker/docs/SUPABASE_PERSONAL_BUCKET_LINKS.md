@@ -272,3 +272,32 @@ correct ciphertext and manifest checksum. This is a readback primitive
 only; a genuine migration still needs separately authenticated
 source-proof generation, retention of real ciphertext, target replay,
 cross-provider owner mapping and authoritative writer freezes.
+
+## Independent source-versus-restored Bucket/link field parity (source only)
+
+`candidateBucketReplayParity.ts` accepts the authenticated complete-owner
+source tasks/goal/link inventory, the separately pinned SHA256 of the
+encrypted historical manifest, and two **already signed, owner-filtered and
+fully paginated** target Supabase table snapshots. It reclassifies original
+links using the source inventory and recomputes the full source manifest
+digest before comparing any remote records.
+
+Every owned Bucket goal, including tombstones, must appear exactly once
+with unchanged original title/description, achieved state/date, IDs and
+timestamps. Every ready/task-linked link and admissible soft-deleted link
+must appear exactly once with unchanged original task and Bucket
+references, owner, created/updated timestamps and tombstone state.
+Quarantined long/dangling/deleted-target links MUST remain in the
+encrypted historical source ledger and MUST NOT be silently imported
+into the live SQL link table. Missing, extra, foreign, duplicate,
+revisionless or modified remote target rows fail closed, including a
+target that reports the correct total count but altered link references.
+The result includes deterministic field SHA256 and match counts but
+**always** reports `providerCutoverEligible:false`.
+
+This is pure comparison code without networking or imported rows; the
+caller still must prove signed two-owner target readbacks, writer
+exclusivity, original complete source provenance, real encrypted
+quarantine persistence, task/Settings/media parity and reverse replay.
+It neither authorizes hosted Supabase writer installation nor makes a
+Production provider switch ready.
