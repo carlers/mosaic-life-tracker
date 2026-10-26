@@ -118,6 +118,31 @@ offline drafts. It must not be run against Scratch or Production as a mutation;
 actual writer freeze/rollback requires separately approved guarded server code,
 a complete live source snapshot and signed, authenticated negative probes.
 
+## Old installed-PWA denial evidence and queued draft replay (source only, 2026-10-26)
+
+`supabase-poc/appwriteOldPwaWriteDenialEvidence.ts` now verifies a detached
+Ed25519 observer-signed 42-observation manifest: each of the six owner-personal
+Appwrite tables and private photo Storage must show create/update/delete
+rejection for both a still-authenticated installed old PWA and a queued-offline
+draft replay. Distinct request nonces, exact source installation, independently
+pinned historical PWA build hash, frozen owner/generation/lease, timestamp
+window, HTTP 403 and all 21 externally pinned queued draft identifiers are
+required. An **independent** observer key must differ from the server lease
+signer, and the full denial manifest SHA must match the
+`signedWriteDenialSha256` inside the separately Ed25519-authenticated frozen
+seven-domain source lease. Tampered, missing, duplicate, foreign,
+unauthenticated, HTTP 401/429/2xx and stale receipts fail closed.
+
+This module only verifies an offline signed *claim*. It neither sends network
+requests nor controls Appwrite row/Storage/Function permissions and cannot
+independently establish that the claimed HTTP responses occurred. It does not
+prove any owner drafts were safely preserved; real signed client negative
+probes, separate operator-approved server writer cutoff/credential revocation
+and exact encrypted offline outbox escrow remain mandatory. The verifier
+explicitly keeps `actualBackendWriterFreezeConfirmed`,
+`actualHttp403IndependentlyAuthenticated` and
+`providerCutoverEligible` false. No actual PWA or Production backend changed.
+
 ## Next Fedora handoff: ONE consolidated pre-social acceptance run (owner directive 2026-10-25)
 
 **Do not give the owner another Fedora command during routine personal-Supabase
