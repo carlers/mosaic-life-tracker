@@ -14,7 +14,7 @@ import {
 import type { CandidateDomain } from './candidatePull';
 
 type CandidatePatch = Record<string, string | boolean | number | null>;
-type CasDomain = CandidateDomain | 'settings';
+type CasDomain = CandidateDomain | 'settings' | 'buckets' | 'bucket_task_links';
 type CandidateCasRow = {
   owner_id: string;
   id: string;
@@ -37,12 +37,16 @@ const ALLOWED: Record<CasDomain, readonly string[]> = {
   ],
   diary: ['content', 'emoji', 'updated_at', 'is_deleted'],
   settings: ['setting_value', 'updated_at', 'is_deleted'],
+  buckets: ['title', 'description', 'achieved', 'achieved_at', 'updated_at', 'is_deleted'],
+  bucket_task_links: ['updated_at', 'is_deleted'],
 };
 const RPC: Record<CasDomain, string> = {
   tasks: 'mosaic_candidate_cas_task',
   categories: 'mosaic_candidate_cas_category',
   diary: 'mosaic_candidate_cas_diary',
   settings: 'mosaic_candidate_cas_setting',
+  buckets: 'mosaic_candidate_cas_bucket',
+  bucket_task_links: 'mosaic_candidate_cas_bucket_link',
 };
 
 function validatePatch(domain: CasDomain, patch: CandidatePatch): void {
@@ -67,6 +71,44 @@ function validatePatch(domain: CasDomain, patch: CandidatePatch): void {
       !(typeof value === 'string' || typeof value === 'boolean' ||
       (typeof value === 'number' && Number.isFinite(value)));
   })) throw new Error('Invalid candidate CAS patch value');
+  if (domain === 'buckets' || domain === 'bucket_task_links') {
+    for (const key of keys) {
+      const value: unknown = patch[key];
+      const boolField = key === 'achieved' || key === 'is_deleted';
+      if (boolField) {
+        if (typeof value !== 'boolean') throw new Error('Invalid Bucket boolean CAS value');
+      } else if (typeof value !== 'string' ||
+          (key === 'title' && value.length > 255) ||
+          (key === 'description' && value.length > 2000) ||
+          (key === 'achieved_at' && (value.length > 50 ||
+            (value !== '' && !Number.isFinite(Date.parse(value))))) ||
+          (key === 'updated_at' && (value.length < 1 || value.length > 50 ||
+            !Number.isFinite(Date.parse(value))))) {
+        throw new Error('Invalid Bucket CAS string/timestamp value');
+      }
+    }
+  }
+}
+
+const SHORT_ROW_ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
+function verifyBucketCasRow(domain: 'buckets' | 'bucket_task_links', raw: CandidateCasRow): void {
+  const row = raw as unknown as Record<string, unknown>;
+  const validDate = (value: unknown, optional = false): boolean =>
+    typeof value === 'string' && value.length <= 50 &&
+    (optional && value === '' || value.length > 0 && Number.isFinite(Date.parse(value)));
+  if (domain === 'buckets') {
+    if (typeof row.title !== 'string' || row.title.length > 255 ||
+        typeof row.description !== 'string' || row.description.length > 2000 ||
+        typeof row.achieved !== 'boolean' || !validDate(row.achieved_at, true) ||
+        !validDate(row.created_at) || !validDate(row.updated_at)) {
+      throw new Error('Invalid returned Bucket CAS master fields');
+    }
+  } else if (typeof row.bucket_list_id !== 'string' ||
+             !SHORT_ROW_ID.test(row.bucket_list_id) ||
+             typeof row.task_id !== 'string' || !SHORT_ROW_ID.test(row.task_id) ||
+             !validDate(row.created_at) || !validDate(row.updated_at)) {
+    throw new Error('Invalid returned Bucket link CAS references');
+  }
 }
 
 export function createCandidateCasTransport(options: {
@@ -100,18 +142,27 @@ export function createCandidateCasTransport(options: {
 
   return {
     async compareAndSet<Row extends CandidateCasRow>({
-      domain, ownerId, documentId, expectedRevision, patch,
+      domain, ownerId, documentId, expectedRevision, patch, expectedLinkReferences,
     }: {
       domain: CasDomain;
       ownerId: string;
       documentId: string;
       expectedRevision: string;
       patch: CandidatePatch;
+      /** Required for links: caller's independently reviewed source identity. */
+      expectedLinkReferences?: { bucketListId: string; taskId: string };
     }): Promise<CandidateCasOutcome<Row>> {
       // Check input before sending anything to the network.
       if (!Object.prototype.hasOwnProperty.call(RPC, domain) ||
-        !documentId || documentId.length > 255 || Array.from(documentId).some(char => char.charCodeAt(0) < 32)) {
+        !documentId || documentId.length > 255 || Array.from(documentId).some(char => char.charCodeAt(0) < 32) ||
+        ((domain === 'buckets' || domain === 'bucket_task_links') && !SHORT_ROW_ID.test(documentId))) {
         throw new Error('Invalid candidate CAS row identity');
+      }
+      if (domain === 'bucket_task_links' &&
+          (!expectedLinkReferences ||
+           !SHORT_ROW_ID.test(expectedLinkReferences.bucketListId) ||
+           !SHORT_ROW_ID.test(expectedLinkReferences.taskId))) {
+        throw new Error('Bucket link CAS requires verified original target references');
       }
       const revision = parseCandidateRevision(expectedRevision);
       if (revision < 1n) throw new Error('Candidate CAS requires an existing row revision');
@@ -166,6 +217,14 @@ export function createCandidateCasTransport(options: {
         typeof row.is_deleted !== 'boolean' ||
         parseCandidateRevision(row.change_seq) <= revision) {
         throw new Error('Candidate CAS returned foreign or nonadvancing row');
+      }
+      if (domain === 'buckets' || domain === 'bucket_task_links')
+        verifyBucketCasRow(domain, row);
+      if (domain === 'bucket_task_links') {
+        const returned = row as unknown as Record<string, unknown>;
+        if (returned.bucket_list_id !== expectedLinkReferences?.bucketListId ||
+            returned.task_id !== expectedLinkReferences?.taskId)
+          throw new Error('Bucket link CAS changed immutable historical references');
       }
       return {
         state: 'applied', revision: parseCandidateRevision(row.change_seq).toString(),

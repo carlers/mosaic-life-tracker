@@ -10,7 +10,7 @@ describe('strict 6/7/8/10-table Supabase recovery and future personal-domain ref
       encoding:'utf8',timeout:15000,env:{PATH:process.env.PATH ?? '',HOME:'/nonexistent'},
     });
     expect(p.status,p.stderr || p.error?.message).toBe(0);
-    expect(p.stderr).toContain('Ran 17 tests');
+    expect(p.stderr).toContain('Ran 18 tests');
     expect(p.stderr).toContain('OK');
   });
   it('retains valid guarded private restore shell',()=>{

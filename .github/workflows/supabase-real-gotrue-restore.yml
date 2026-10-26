@@ -6,6 +6,7 @@ on:
       - 'chatgpt/1027-real-gotrue-restore-*'
       - 'chatgpt/1027-private-realdata-disposable-restore-*'
       - 'feature/1027-supabase-recovery-*'
+      - 'chatgpt/1027-bucket-signed-read-*'
 permissions:
   contents: read
 concurrency:

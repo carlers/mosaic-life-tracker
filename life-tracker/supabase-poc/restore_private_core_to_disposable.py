@@ -298,6 +298,16 @@ def approved_source_sha256():
     a separately recorded exact encrypted-file digest, never an implicit bypass.
     """
     new = os.environ.get("MOSAIC_FRESH_SNAPSHOT_SHA256")
+    ci_pin = os.environ.get("MOSAIC_SYNTHETIC_ARCHIVE_SHA256")
+    if ci_pin is not None:
+        # The legacy generated-data six-table GoTrue lab has no fresh Diary
+        # table, so setting MOSAIC_FRESH_SNAPSHOT_SHA256 would incorrectly
+        # select seven-table restore. It still must bind EXACT encrypted bytes.
+        if (os.environ.get("GITHUB_ACTIONS") != "true" or
+            os.environ.get("MOSAIC_REAL_AUTH_RECOVERY_LAB") != "1" or
+            new is not None or not re.fullmatch(r"[a-f0-9]{64}", ci_pin)):
+            raise ValueError("Invalid disposable synthetic archive SHA256 pin")
+        return ci_pin
     if new is None:
         return EXPECTED_AGE_SHA256
     if not re.fullmatch(r"[a-f0-9]{64}", new):

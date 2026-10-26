@@ -56,6 +56,8 @@ export function createCandidateHttpTransport(options: {
     categories: 'mosaic_candidate_categories',
     diary: 'mosaic_candidate_diary',
     settings: 'mosaic_candidate_settings',
+    buckets: 'mosaic_candidate_buckets',
+    bucket_task_links: 'mosaic_candidate_bucket_task_links',
   };
 
   async function checkedSession(ownerId: string): Promise<CandidateVerifiedSession> {

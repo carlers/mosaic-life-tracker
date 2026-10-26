@@ -3,8 +3,12 @@
  * No upsert and no blind retry: 409 requires a fresh owner-scoped master read.
  * Not wired to Mosaic's shipped RxDB or Appwrite sync.
  */
-import type { CategoryDocument, TaskDocument, DiaryDocument, SettingsDocument } from '../src/db/schema';
+import type { CategoryDocument, TaskDocument, DiaryDocument, SettingsDocument, BucketListDocument, BucketTaskLinkDocument } from '../src/db/schema';
 import { fromCandidateSettingRow, toCandidateSettingWrite, type CandidateSettingRow, type CandidateSettingWrite } from './candidateSettingsMapping';
+import { fromCandidateBucketRow, fromCandidateBucketLinkRow, toCandidateBucketWrite,
+  toCandidateBucketLinkWrite, classifyCandidateLinkReferences,
+  type CandidateBucketRow, type CandidateBucketLinkRow, type CandidateBucketWrite,
+  type CandidateBucketLinkWrite } from './candidateBucketMapping';
 import {
   parseCandidateRevision, toCandidateTaskWrite, toCandidateCategoryWrite,
   toCandidateDiaryWrite,
@@ -17,14 +21,16 @@ import {
   type CandidateSessionProvider, type CandidateVerifiedSession,
 } from './candidateHttpTransport';
 
-type Domain = 'tasks' | 'categories' | 'diary' | 'settings';
-type Row = CandidateTaskRow | CandidateCategoryRow | CandidateDiaryRow | CandidateSettingRow;
-type Write = CandidateTaskWrite | CandidateCategoryWrite | CandidateDiaryWrite | CandidateSettingWrite;
+type Domain = 'tasks' | 'categories' | 'diary' | 'settings' | 'buckets' | 'bucket_task_links';
+type Row = CandidateTaskRow | CandidateCategoryRow | CandidateDiaryRow | CandidateSettingRow | CandidateBucketRow | CandidateBucketLinkRow;
+type Write = CandidateTaskWrite | CandidateCategoryWrite | CandidateDiaryWrite | CandidateSettingWrite | CandidateBucketWrite | CandidateBucketLinkWrite;
 const TABLE: Record<Domain, string> = {
   tasks: 'mosaic_candidate_tasks',
   categories: 'mosaic_candidate_categories',
   diary: 'mosaic_candidate_diary',
   settings: 'mosaic_candidate_settings',
+  buckets: 'mosaic_candidate_buckets',
+  bucket_task_links: 'mosaic_candidate_bucket_task_links',
 };
 const ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -202,6 +208,56 @@ export function createCandidateCreateTransport(options: {
       const result = await create('settings', write, identity) as CandidateCreateOutcome<CandidateSettingRow>;
       // A forged or invalid result is not a successful create or conflict.
       fromCandidateSettingRow(result.row, identity);
+      return result;
+    },
+    // Isolated Bucket List owner transport. No default runtime/collection.
+    readBucketMaster: async (id: string, identity: CandidateIdentity): Promise<CandidateBucketRow | null> => {
+      const row = await master('buckets', id, identity) as CandidateBucketRow | null;
+      if (row) fromCandidateBucketRow(row, identity);
+      return row;
+    },
+    createBucket: async (doc: BucketListDocument, identity: CandidateIdentity): Promise<CandidateCreateOutcome<CandidateBucketRow>> => {
+      const write = toCandidateBucketWrite(doc, identity);
+      const result = await create('buckets', write, identity) as CandidateCreateOutcome<CandidateBucketRow>;
+      fromCandidateBucketRow(result.row, identity);
+      return result;
+    },
+    readBucketLinkMaster: async (id: string, identity: CandidateIdentity): Promise<CandidateBucketLinkRow | null> => {
+      const row = await master('bucket_task_links', id, identity) as CandidateBucketLinkRow | null;
+      if (row) {
+        checkedId(row.bucket_list_id);
+        checkedId(row.task_id);
+        fromCandidateBucketLinkRow(row, identity);
+      }
+      // This does not mark a historical referenced task as migrated/ready.
+      return row;
+    },
+    createBucketLink: async (
+      doc: BucketTaskLinkDocument, identity: CandidateIdentity,
+      verifiedReferences: {
+        buckets: ReadonlyMap<string, { userId: string; isDeleted: boolean }>;
+        tasks: ReadonlyMap<string, { userId: string; isDeleted: boolean }>;
+      },
+    ): Promise<CandidateCreateOutcome<CandidateBucketLinkRow>> => {
+      // Owner mapping and original IDs must be validated before any request.
+      const write = toCandidateBucketLinkWrite(doc, identity);
+      // Historical Appwrite links may contain 255-char task IDs. These must
+      // stay in the migration quarantine, not be rewritten to a short ID.
+      checkedId(write.task_id);
+      const bucket = verifiedReferences.buckets.get(doc.bucketListId);
+      const task = verifiedReferences.tasks.get(doc.taskId);
+      if (!bucket || !task || bucket.userId !== identity.legacyUserId ||
+          task.userId !== identity.legacyUserId)
+        throw new Error('Bucket link missing trusted same-owner targets; quarantine required');
+      const status = classifyCandidateLinkReferences(doc, identity, verifiedReferences);
+      if (status === 'quarantined')
+        throw new Error('Unresolved historical Bucket link must remain in quarantine');
+      // Tombstone links may retain tombstoned but known same-owner targets.
+      const result = await create('bucket_task_links', write, identity) as CandidateCreateOutcome<CandidateBucketLinkRow>;
+      fromCandidateBucketLinkRow(result.row, identity);
+      if (result.row.bucket_list_id !== write.bucket_list_id ||
+          result.row.task_id !== write.task_id)
+        throw new Error('Bucket link master returned a changed historical reference');
       return result;
     },
   };

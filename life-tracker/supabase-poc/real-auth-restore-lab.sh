@@ -70,6 +70,11 @@ age-keygen -o "$tmp/key" >"$tmp/key.log" 2>&1
 age -r "$(age-keygen -y "$tmp/key")" "$tmp/source.dump" >"$tmp/backup.age"
 age -d -i "$tmp/key" "$tmp/backup.age" >"$tmp/recovered.dump"
 cmp -s "$tmp/source.dump" "$tmp/recovered.dump"
+# Both disposable restore paths use exactly this one authenticated archive.
+# Six-table CI cannot use the fresh-snapshot switch: it would require Diary.
+synthetic_sha="$(sha256sum "$tmp/backup.age" | cut -d' ' -f1)"
+[[ "$synthetic_sha" =~ ^[a-f0-9]{64}$ ]] || exit 1
+export MOSAIC_SYNTHETIC_ARCHIVE_SHA256="$synthetic_sha"
 docker cp "$tmp/recovered.dump" "$db:/tmp/mosaic-auth-recovery.dump"
 docker exec "$db" pg_restore --list /tmp/mosaic-auth-recovery.dump |
  node "$root/supabase-poc/inspect-archive-toc.mjs" >"$tmp/metadata.json"
