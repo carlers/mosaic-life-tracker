@@ -76,6 +76,33 @@ test('ten-table private Settings/Bucket/link recovery publishes fully authentica
     [PREFIX_ROOT + point.id + '/COMPLETED']);
 }));
 
+test('watcher fails closed on newer wrong/legacy profile while preserving historical ad-hoc watch', async () => fixture(async ({ database, media }) => {
+  const r2 = fakeR2();
+  const required = 'ten-personal-bucket-links';
+  const eight = 'eight-personal-settings';
+  const older = await publishUnified({ r2, database, media, now: NOW, recoveryProfile: eight });
+  assert.equal((await watchUnified({ r2, now: NOW, expectedRecoveryProfile: eight })).id, older.id);
+  await assert.rejects(watchUnified({ r2, now: NOW, expectedRecoveryProfile: required }),
+    /recovery profile mismatch/);
+  await assert.rejects(watchUnified({ r2, now: NOW, expectedRecoveryProfile: 'unknown-profile' }),
+    /Unapproved/);
+
+  const later = new Date(NOW.getTime() + 1000);
+  const current = await publishUnified({ r2, database, media, now: later, recoveryProfile: required });
+  assert.notEqual(current.id, older.id);
+  assert.equal((await watchUnified({ r2, now: NOW, expectedRecoveryProfile: required })).id, current.id);
+  await assert.rejects(watchUnified({ r2, now: NOW, expectedRecoveryProfile: eight }),
+    /recovery profile mismatch/);
+
+  const key = PREFIX_ROOT + current.id + '/COMPLETED';
+  const legacy = JSON.parse(r2.objects.get(key).toString('utf8'));
+  delete legacy.recoveryProfile;
+  r2.objects.set(key, Buffer.from(JSON.stringify(legacy)));
+  await assert.rejects(watchUnified({ r2, now: NOW, expectedRecoveryProfile: required }),
+    /recovery profile mismatch/);
+  assert.equal((await watchUnified({ r2, now: NOW })).id, current.id);
+}));
+
 test('ten-table marker cannot be mislabeled as a false profile or partially corrupted and reused', async () => fixture(async ({ database, media }) => {
   const r2 = fakeR2();
   const point = await publishUnified({ r2, database, media, now: NOW,
