@@ -69,6 +69,8 @@ export type FrozenPersonalSnapshot = {
   leaseId: string;
   generation: string;
   originalOwnerCounts: Record<PersonalDomain, number>;
+  /** Same server-authoritative lease also covers owner Bucket/link counts. */
+  sourceOwnerCounts: Record<'tasks' | 'buckets' | 'links', number>;
   fingerprintSha256: Record<PersonalDomain, string>;
   rows: Record<PersonalDomain, FrozenPersonalRow[]>;
   /** Hash of this provisional readback, not authenticated source provenance. */
@@ -289,14 +291,15 @@ export async function readFrozenAppwritePersonalSource(
     settings: first.settings.fingerprint,
   };
   const originalOwnerCounts = { ...firstLease.personalCounts };
+  const sourceOwnerCounts = { ...firstLease.ownerCounts };
   return {
     identity: { ...options.identity }, sourceDeploymentId: deployment,
     leaseId: firstLease.leaseId, generation: firstLease.generation,
-    originalOwnerCounts, fingerprintSha256,
+    originalOwnerCounts, sourceOwnerCounts, fingerprintSha256,
     rows: { tasks: first.tasks.rows, categories: first.categories.rows,
       diary: first.diary.rows, settings: first.settings.rows },
     scanSha256: digest({ deployment, owner, generation: firstLease.generation,
-      originalOwnerCounts, fingerprintSha256 }),
+      originalOwnerCounts, sourceOwnerCounts, fingerprintSha256 }),
     completeSourceArchive: false,
     providerCutoverEligible: false,
   };

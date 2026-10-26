@@ -126,6 +126,7 @@ describe('frozen signed personal Appwrite source readback (#1027)', () => {
     expect(data.rows.tasks[0].originalPermissions).toEqual(['read("user:legacy_owner")']);
     expect(data.rows.tasks[0].serverCreatedAt).toBe(when);
     expect(data.originalOwnerCounts).toEqual(baseLease.personalCounts);
+    expect(data.sourceOwnerCounts).toEqual(baseLease.ownerCounts);
     expect(data.fingerprintSha256.settings).toMatch(/^[a-f0-9]{64}$/);
     expect(data.scanSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(data.completeSourceArchive).toBe(false);
