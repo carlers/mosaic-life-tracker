@@ -11,7 +11,7 @@ describe('exact completed Supabase R2 PostgreSQL + private Storage recovery', ()
       encoding: 'utf8', timeout: 25_000, env: { PATH: process.env.PATH ?? '', HOME: '/nonexistent' },
     });
     expect(result.status, result.stderr || result.error?.message).toBe(0);
-    expect(result.stderr).toContain('Ran 9 tests');
+    expect(result.stderr).toContain('Ran 13 tests');
     expect(result.stderr).toContain('OK');
   });
 
