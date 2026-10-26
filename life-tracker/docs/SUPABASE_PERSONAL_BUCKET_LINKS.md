@@ -149,3 +149,31 @@ historical-data migration or a hosted writer. Before enabling it, first
 stage and verify owner-specific target inventories, durable encrypted
 quarantine, offline/restart/cross-device convergence, provider-exclusive
 authority and private media/ZIP recovery.
+
+## Signed historical link inventory classification (source-only)
+
+`candidateBucketHistoryAudit.ts` accepts only a *complete*, separately
+verified one-owner list of task identities, Bucket goals and **all** links
+(including deletion tombstones), together with independently obtained exact
+owner record counts. It rejects foreign-owner rows, duplicate source IDs,
+malformed references, incomplete counts and excessive inventories before
+returning any classification. Output preserves each original link ID, owner,
+reference, timestamp and deleted flag without rewriting its task ID.
+
+The three dispositions are ready, tombstone and quarantined. Active links
+whose owner targets are absent or deleted, links with historical task IDs
+longer than the 36-character Supabase target, and even tombstone links with
+missing targets are retained for quarantine. A foreign *reference* appears
+only as missing from the owner-only target inventory; the audit never fetches
+or includes another owner's record. Deterministic output order allows
+independent comparison; the module does not serialize, encrypt, save, upload
+or import any private rows. Ten unit tests cover source-owner limits and
+non-lossy classification.
+
+**Not yet complete:** the operator must supply a signed, full owner-history
+source snapshot and counts (the active-only user ZIP is insufficient), bind
+those to an independently authenticated encrypted archive digest, write and
+authenticate a private encrypted quarantine ledger, replay it with matching
+owner target mappings, and prove exact link count/hash parity after a
+two-provider reversible migration. This module must never be mistaken for
+the durable encrypted ledger or actual migration tool.
