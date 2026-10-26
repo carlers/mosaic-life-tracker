@@ -1,6 +1,6 @@
 /**
- * Isolated #967 RxDB replication pilot: tasks/categories/Diary and portable Settings.
- * Settings is strictly source-only and is NOT activated by the existing core bridge.
+ * Isolated #967/#1027 RxDB pilot: private tasks/categories/Diary/Settings/Bucket List and links.
+ * Settings, Bucket List and links are strictly source-only and not activated by the core bridge.
  *
  * Imported by the gated app-owned core bridge, not by Mosaic's shipped
  * Appwrite replication or automatic database bootstrap.
@@ -18,7 +18,9 @@ import type {
 } from 'rxdb';
 import { replicateRxCollection } from 'rxdb/plugins/replication';
 import { Subject } from 'rxjs';
-import type { TaskDocument, CategoryDocument, DiaryDocument, SettingsDocument } from '../src/db/schema';
+import type { TaskDocument, CategoryDocument, DiaryDocument, SettingsDocument, BucketListDocument, BucketTaskLinkDocument } from '../src/db/schema';
+import { fromCandidateBucketRow, fromCandidateBucketLinkRow, toCandidateBucketWrite, toCandidateBucketLinkWrite,
+  type CandidateBucketRow, type CandidateBucketLinkRow } from './candidateBucketMapping';
 import { fromCandidateSettingRow, toCandidateSettingWrite, type CandidateSettingRow } from './candidateSettingsMapping';
 import {
   fromCandidateCategoryRow, fromCandidateTaskRow, fromCandidateDiaryRow,
@@ -28,17 +30,20 @@ import {
 } from './candidateMapping';
 import {
   pullCandidateCategories, pullCandidateTasks, pullCandidateDiary, pullCandidateSettings,
+  pullCandidateBuckets, pullCandidateBucketLinks,
   type CandidateChangeTransport, type CandidateCheckpoint, type CandidateReadDomain,
 } from './candidatePull';
 import type { createCandidateCreateTransport } from './candidateCreateTransport';
 import type { createCandidateCasTransport } from './candidateCasTransport';
 import { CandidateAuthError, type CandidateSessionProvider } from './candidateHttpTransport';
 
-type Document = TaskDocument | CategoryDocument | DiaryDocument | SettingsDocument;
-type Row = CandidateTaskRow | CandidateCategoryRow | CandidateDiaryRow | CandidateSettingRow;
+type Document = TaskDocument | CategoryDocument | DiaryDocument | SettingsDocument | BucketListDocument | BucketTaskLinkDocument;
+type Row = CandidateTaskRow | CandidateCategoryRow | CandidateDiaryRow | CandidateSettingRow | CandidateBucketRow | CandidateBucketLinkRow;
 type Replicated<D extends Document> = WithDeletedAndAttachments<D>;
 type Writer = ReturnType<typeof createCandidateCreateTransport>;
 type Cas = ReturnType<typeof createCandidateCasTransport>;
+export type CandidateVerifiedBucketLinkTargets = Parameters<Writer['createBucketLink']>[2];
+const SHORT_REFERENCE = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
 
 export interface CandidateReplicaScan {
   phase: 'remote' | 'local';
@@ -89,10 +94,17 @@ export interface CandidateRxdbPilotOptions<D extends Document> {
   cas: Cas;
   /** Must be an isolated test collection, never a currently Appwrite-replicated collection. */
   collection?: RxCollection<D>;
+  /**
+   * Explicit, trusted *complete owner* target inventory for each attempted
+   * link push. A missing, long, deleted-active or foreign reference is parked,
+   * not guessed/rewritten. A verified session is rechecked after every await.
+   */
+  verifyBucketLinkTargets?: (doc: BucketTaskLinkDocument) => Promise<CandidateVerifiedBucketLinkTargets>;
 }
 
 function assertedDomain(value: CandidateReadDomain): void {
-  if (value !== 'tasks' && value !== 'categories' && value !== 'diary' && value !== 'settings')
+  if (value !== 'tasks' && value !== 'categories' && value !== 'diary' && value !== 'settings' &&
+      value !== 'buckets' && value !== 'bucket_task_links')
     throw new Error('Unsupported candidate RxDB replication domain');
 }
 
@@ -111,7 +123,9 @@ function canonical(domain: CandidateReadDomain, doc: Document, owner: CandidateI
         }, owner)
       : domain === 'diary'
         ? toCandidateDiaryWrite(doc as DiaryDocument, owner)
-        : toCandidateSettingWrite(doc as SettingsDocument, owner));
+        : domain === 'settings' ? toCandidateSettingWrite(doc as SettingsDocument, owner)
+        : domain === 'buckets' ? toCandidateBucketWrite(doc as BucketListDocument, owner)
+        : toCandidateBucketLinkWrite(doc as BucketTaskLinkDocument, owner));
 }
 
 export function createCandidateRxdbPilot<D extends Document>(
@@ -195,7 +209,11 @@ export function createCandidateRxdbPilot<D extends Document>(
         ? fromCandidateCategoryRow(row as CandidateCategoryRow, identity)
         : domain === 'diary'
           ? fromCandidateDiaryRow(row as CandidateDiaryRow, identity)
-          : fromCandidateSettingRow(row as CandidateSettingRow, identity)) as D,
+          : domain === 'settings'
+            ? fromCandidateSettingRow(row as CandidateSettingRow, identity)
+            : domain === 'buckets'
+              ? fromCandidateBucketRow(row as CandidateBucketRow, identity)
+              : fromCandidateBucketLinkRow(row as CandidateBucketLinkRow, identity)) as D,
     _deleted: false,
   });
 
@@ -204,6 +222,12 @@ export function createCandidateRxdbPilot<D extends Document>(
       typeof row.is_deleted !== 'boolean' ||
       parseCandidateRevision(row.change_seq) < 1n) {
       throw new Error('Malformed or foreign Supabase candidate master');
+    }
+    if (domain === 'bucket_task_links') {
+      const link = row as CandidateBucketLinkRow;
+      if (!SHORT_REFERENCE.test(link.bucket_list_id) ||
+          !SHORT_REFERENCE.test(link.task_id))
+        throw new Error('Remote Bucket link has an unrepresentable historical target reference');
     }
     return {
       row,
@@ -234,7 +258,11 @@ export function createCandidateRxdbPilot<D extends Document>(
         ? await pullCandidateCategories({ identity, transport: changes, checkpoint, batchSize })
         : domain === 'diary'
           ? await pullCandidateDiary({ identity, transport: changes, checkpoint, batchSize })
-          : await pullCandidateSettings({ identity, transport: changes, checkpoint, batchSize });
+          : domain === 'settings'
+            ? await pullCandidateSettings({ identity, transport: changes, checkpoint, batchSize })
+            : domain === 'buckets'
+              ? await pullCandidateBuckets({ identity, transport: changes, checkpoint, batchSize })
+              : await pullCandidateBucketLinks({ identity, transport: changes, checkpoint, batchSize });
     const after = await guardedSession();
     if (after.sessionEpoch !== before.sessionEpoch || after.accessToken !== before.accessToken) {
       clearAllReviews();
@@ -255,11 +283,17 @@ export function createCandidateRxdbPilot<D extends Document>(
         ? await writer.readCategoryMaster(id, identity)
         : domain === 'diary'
           ? await writer.readDiaryMaster(id, identity)
-          : await writer.readSettingMaster(id, identity);
+          : domain === 'settings'
+            ? await writer.readSettingMaster(id, identity)
+            : domain === 'buckets'
+              ? await writer.readBucketMaster(id, identity)
+              : await writer.readBucketLinkMaster(id, identity);
     return row ? checkedRow(row) : null;
   }
 
-  async function create(doc: Replicated<D>): Promise<Revisioned | null> {
+  async function create(doc: Replicated<D>, references?: CandidateVerifiedBucketLinkTargets): Promise<Revisioned | null> {
+    if (domain === 'bucket_task_links' && !references)
+      throw new Error('Bucket task-link insert requires independently verified targets');
     if (domain === 'tasks' && ((doc as TaskDocument).reactions ?? '') !== '')
       recordConflict(doc, null, null, 'protected-field-change');
     const result = domain === 'tasks'
@@ -268,7 +302,12 @@ export function createCandidateRxdbPilot<D extends Document>(
         ? await writer.createCategory(doc as CategoryDocument, identity)
         : domain === 'diary'
           ? await writer.createDiary(doc as DiaryDocument, identity)
-          : await writer.createSetting(doc as SettingsDocument, identity);
+          : domain === 'settings'
+            ? await writer.createSetting(doc as SettingsDocument, identity)
+            : domain === 'buckets'
+              ? await writer.createBucket(doc as BucketListDocument, identity)
+              : await writer.createBucketLink(doc as BucketTaskLinkDocument, identity,
+                  references as CandidateVerifiedBucketLinkTargets);
     const remote = checkedRow(result.row);
     if (result.revision !== remote.revision)
       throw new Error('Candidate inserted row had inconsistent revision');
@@ -314,6 +353,24 @@ export function createCandidateRxdbPilot<D extends Document>(
         updated_at: current.updated_at, is_deleted: current.is_deleted,
       };
     }
+    if (domain === 'buckets') {
+      const current = toCandidateBucketWrite(local as BucketListDocument, identity);
+      const previous = toCandidateBucketWrite(master as BucketListDocument, identity);
+      if (current.created_at !== previous.created_at) return null;
+      return {
+        title: current.title, description: current.description, achieved: current.achieved,
+        achieved_at: current.achieved_at, updated_at: current.updated_at,
+        is_deleted: current.is_deleted,
+      };
+    }
+    if (domain === 'bucket_task_links') {
+      const current = toCandidateBucketLinkWrite(local as BucketTaskLinkDocument, identity);
+      const previous = toCandidateBucketLinkWrite(master as BucketTaskLinkDocument, identity);
+      if (current.created_at !== previous.created_at ||
+          current.bucket_list_id !== previous.bucket_list_id ||
+          current.task_id !== previous.task_id) return null;
+      return { updated_at: current.updated_at, is_deleted: current.is_deleted };
+    }
     if (domain === 'settings') {
       const current = toCandidateSettingWrite(local as SettingsDocument, identity);
       const previous = toCandidateSettingWrite(master as SettingsDocument, identity);
@@ -340,6 +397,30 @@ export function createCandidateRxdbPilot<D extends Document>(
       is_deleted: category.is_deleted,
       ...(category.retired_on !== undefined ? { retired_on: category.retired_on } : {}),
     };
+  }
+
+  async function verifiedLinkReferences(
+    doc: Replicated<D>, fence: () => Promise<void>,
+  ): Promise<CandidateVerifiedBucketLinkTargets> {
+    const link = doc as BucketTaskLinkDocument;
+    const refs = options.verifyBucketLinkTargets;
+    if (!refs) throw new Error('Isolated Bucket link replica has no trusted target inventory');
+    const value = toCandidateBucketLinkWrite(link, identity);
+    // The source mapper retains 255-character historic Appwrite IDs for
+    // quarantine. They are NEVER silently sent to the 36-char SQL table.
+    if (!SHORT_REFERENCE.test(value.task_id))
+      throw new Error('Historical Bucket link is unrepresentable; quarantine before replication');
+    const checked = await refs(link);
+    await fence();
+    if (!checked || !(checked.buckets instanceof Map) || !(checked.tasks instanceof Map))
+      throw new Error('Bucket link target inventory is absent or incomplete');
+    const bucket = checked.buckets.get(link.bucketListId);
+    const task = checked.tasks.get(link.taskId);
+    if (!bucket || !task ||
+        bucket.userId !== identity.legacyUserId || task.userId !== identity.legacyUserId ||
+        (!link.isDeleted && (bucket.isDeleted || task.isDeleted)))
+      throw new Error('Bucket link has missing, foreign or retired targets; quarantine required');
+    return checked;
   }
 
   async function push(rows: RxReplicationWriteToMasterRow<D>[]): Promise<Replicated<D>[]> {
@@ -369,9 +450,21 @@ export function createCandidateRxdbPilot<D extends Document>(
       // read or create. The transport also checks, but must not be invoked
       // for avatar/file IDs, friend references or unportable value types.
       // A rejected pending RxDB write remains local and unacknowledged.
-      if (domain === 'settings') {
+      if (domain === 'settings' || domain === 'buckets' || domain === 'bucket_task_links') {
         canonical(domain, next, identity);
         if (assumed) canonical(domain, assumed, identity);
+      }
+      // A link with unresolved targets must park its local draft, not write it
+      // or advance the native RxDB checkpoint. Only a trusted owner callback
+      // can supply the complete target inventory for a real link write.
+      let linkReferences: CandidateVerifiedBucketLinkTargets | undefined;
+      if (domain === 'bucket_task_links') {
+        try {
+          linkReferences = await verifiedLinkReferences(next, fence);
+        } catch (error) {
+          if (error instanceof CandidateAuthError) throw error;
+          recordConflict(next, assumed ?? null, null, 'protected-field-change');
+        }
       }
       // Refuse Diary visibility escalation before canonicalizing a local
       // draft; preserve that draft for explicit review, never acknowledge it.
@@ -384,7 +477,7 @@ export function createCandidateRxdbPilot<D extends Document>(
         // The remote master unexpectedly disappeared after an acknowledged
         // revision. Do not recreate a missing/tombstoned record silently.
         if (assumed) recordConflict(next, assumed, null, 'missing-master');
-        await create(next);
+        await create(next, linkReferences);
         await fence();
         clearReview(next.id);
         continue;
@@ -409,6 +502,12 @@ export function createCandidateRxdbPilot<D extends Document>(
         documentId: next.id,
         expectedRevision: master.revision,
         patch,
+        ...(domain === 'bucket_task_links' ? {
+          expectedLinkReferences: {
+            bucketListId: (next as BucketTaskLinkDocument).bucketListId,
+            taskId: (next as BucketTaskLinkDocument).taskId,
+          },
+        } : {}),
       });
       await fence();
       if (result.state === 'conflict') {
@@ -532,9 +631,23 @@ export function createCandidateRxdbPilot<D extends Document>(
     }
     const patch = makeOwnerPatch(local, master.document);
     if (!patch) recordConflict(local, review.base, master, 'protected-field-change');
+    if (domain === 'bucket_task_links') {
+      try {
+        await verifiedLinkReferences(local, fence);
+      } catch (error) {
+        if (error instanceof CandidateAuthError) throw error;
+        recordConflict(local, review.base, master, 'protected-field-change');
+      }
+    }
     const result = await cas.compareAndSet<Row>({
       domain, ownerId: identity.supabaseUserId, documentId,
       expectedRevision: master.revision, patch,
+      ...(domain === 'bucket_task_links' ? {
+        expectedLinkReferences: {
+          bucketListId: (local as BucketTaskLinkDocument).bucketListId,
+          taskId: (local as BucketTaskLinkDocument).taskId,
+        },
+      } : {}),
     });
     await fence();
     if (result.state === 'conflict') {
@@ -645,6 +758,8 @@ export function createCandidateRxdbPilot<D extends Document>(
 
   function start(collection = options.collection) {
     if (!collection) throw new Error('Isolated RxDB candidate collection required');
+    if (domain === 'bucket_task_links' && !options.verifyBucketLinkTargets)
+      throw new Error('Bucket link replication requires reviewed owner target inventory');
     const stream = new Subject<RxReplicationPullStreamItem<D, CandidateCheckpoint>>();
     // No realtime guarantee yet. Caller must reSync() on foreground and
     // reconnect; RxDB itself persists checkpoints and retries failed pushes.
