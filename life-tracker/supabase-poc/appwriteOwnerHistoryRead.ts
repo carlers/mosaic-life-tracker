@@ -142,8 +142,8 @@ export async function readFrozenAppwriteOwnerHistory(
   const deployment = APPWRITE_ENDPOINT + '|' + APPWRITE_PROJECT_ID + '|' +
     APPWRITE_DATABASE_ID + '|' + options.sourceDeploymentId;
   const getAccount = options.getAccount ?? (() => guardedAccount.get());
-  const listRows = options.listRows ?? (input => guardedTablesDB.listRows(input)
-    as Promise<Page>);
+  const listRows = options.listRows ?? (async input =>
+    (await guardedTablesDB.listRows(input)) as Page);
   const initial: SourceSession = {
     ownerId: (await getAccount()).$id,
     sessionEpoch: await options.getSessionEpoch(),
