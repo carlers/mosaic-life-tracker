@@ -531,3 +531,18 @@ does **not** install hosted Settings/Bucket SQL, upload/restore original
 photo bytes, enforce the backend-exclusive server lock, migrate historical
 rows or activate any user-facing feature. The protected hosted Preview
 approval and explicit Production/provider transition are separate gates.
+
+
+## Gated six-domain final Sync Now completion fence (2026-10-26)
+
+The isolated non-shipped six-domain pilot must not emit **100%** merely
+because the last Bucket-task-link RxDB resync returned. Its complete-owner
+anti-entropy scan and final readback already cover every portable private
+domain; the final progress callback now runs **after** the last signed
+owner/session/lease freshness check and the last pending-conflict recheck.
+A late conflict raised by final settlement fails closed without a false
+success UI, and an Auth owner switch before final settlement never emits
+completion. Both paths have lifecycle regression tests. This does not make
+simulated CI equal actual hosted two-owner HTTP proof or enable the app;
+full ten-table age + Storage R2 DR and protected Preview activation remain
+separate accepted release gates.

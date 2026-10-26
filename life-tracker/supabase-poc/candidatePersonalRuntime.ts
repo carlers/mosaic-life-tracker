@@ -262,11 +262,16 @@ export function createCandidatePersonalRuntime(options: CandidatePersonalRuntime
             await owned.runs[i].state.awaitInSync();
             await confirm();
             completed++;
-            emit('finalize','Confirming '+specs[i].domain+' freshness');
+            // The final 100% belongs to the verified outcome, not to the
+            // final resync attempt. Re-check authority and all six conflict
+            // sets BEFORE announcing a successful Sync Now completion.
+            if(i<total-1)
+              emit('finalize','Confirming '+specs[i].domain+' freshness');
           }
+          await confirm();
           if(specs.some(spec=>spec.conflicts()))
             throw new Error('Six-domain personal conflicts remain unresolved');
-          await confirm();
+          emit('finalize','All six personal data groups verified');
         },
         pause, stop,
         getPendingConflictCounts(){
