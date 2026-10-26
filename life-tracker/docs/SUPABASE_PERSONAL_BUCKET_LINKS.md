@@ -250,3 +250,25 @@ this independently issued count witness; the lease and witness are copied
 before scanning so a mutable callback cannot change the expected totals in
 place. This does **not** make a browser-supplied fake lease authoritative:
 the missing server-coordinated writer fence remains a hard blocker.
+
+## Independently pinned offline age decrypt + quarantine readback
+
+The source-only `verify-encrypted-owner-history.mjs` refuses any
+unverified ciphertext without four independent hashes: exact age
+ciphertext SHA256, decrypted original manifest SHA256, original full
+source archive SHA256, and sorted owner target-identity SHA256. It also
+requires the exact original owner mapping and complete owner counts.
+Private 0600 encrypted archive and age identity must live in an
+owner-owned private directory (no symlinks); the tool checks ciphertext
+hash **before** age decryption, suppresses stderr, never writes
+plaintext or emits link data, clears the decrypted byte buffer, then
+validates sorted, unique, same-owner historical links and exact original
+IDs, timestamps, tombstones and documented quarantine dispositions.
+
+A green synthetic age encrypt+decrypt lab includes mismatched manifest,
+owner/source, count and target fingerprints as well as an independently
+re-encrypted duplicate-link archive: the latter MUST fail despite a
+correct ciphertext and manifest checksum. This is a readback primitive
+only; a genuine migration still needs separately authenticated
+source-proof generation, retention of real ciphertext, target replay,
+cross-provider owner mapping and authoritative writer freezes.

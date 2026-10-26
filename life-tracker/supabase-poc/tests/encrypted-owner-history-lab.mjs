@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { encryptOwnerHistory } from '../encrypted-owner-history.mjs';
+import { verifyEncryptedOwnerHistory } from '../verify-encrypted-owner-history.mjs';
 
 assert.equal(process.env.GITHUB_ACTIONS, 'true');
 assert.match(process.env.RUNNER_TEMP ?? '', /^\/home\/runner\/work\/_temp$/);
@@ -49,6 +50,55 @@ try {
   const decrypted = check(['/usr/bin/age', '-d', '-i', key, out]);
   assert.deepEqual(decrypted, Buffer.from(JSON.stringify(payload), 'utf8'));
   assert.equal(JSON.parse(decrypted.toString('utf8')).links[2].source.taskId.length, 255);
+  const expectedManifestSha256 = createHash('sha256')
+    .update(Buffer.from(JSON.stringify(payload), 'utf8')).digest('hex');
+  const proof = {
+    archivePath: out, identityPath: key,
+    expectedCipherSha256: result.sha256,
+    expectedManifestSha256,
+    expectedSourceArchiveSha256: payload.sourceArchiveSha256,
+    expectedTargetIdentitySha256: payload.targetIdentitySha256,
+    expectedOwner: payload.owner, expectedCounts: payload.sourceCounts,
+  };
+  const verified = await verifyEncryptedOwnerHistory(proof);
+  assert.deepEqual(verified.counts, payload.sourceCounts);
+  assert.deepEqual(verified.dispositionCounts, {
+    ready: 1, tombstone: 1, quarantined: 1,
+  });
+  await assert.rejects(verifyEncryptedOwnerHistory({
+    ...proof, expectedManifestSha256: '0'.repeat(64),
+  }), /manifest/);
+  await assert.rejects(verifyEncryptedOwnerHistory({
+    ...proof, expectedOwner: { ...payload.owner, legacyUserId: 'foreign_owner' },
+  }), /source witness/);
+  await assert.rejects(verifyEncryptedOwnerHistory({
+    ...proof, expectedSourceArchiveSha256: '1'.repeat(64),
+  }), /source witness/);
+  await assert.rejects(verifyEncryptedOwnerHistory({
+    ...proof, expectedTargetIdentitySha256: '1'.repeat(64),
+  }), /source witness/);
+  await assert.rejects(verifyEncryptedOwnerHistory({
+    ...proof, expectedCounts: { ...payload.sourceCounts, links: 2 },
+  }), /source witness/);
+  const duplicate = {
+    ...payload,
+    links: [payload.links[0], payload.links[1], {
+      ...payload.links[0], source: { ...payload.links[0].source },
+    }],
+  };
+  const dupePath = join(tmp, 'duplicate-history.age');
+  const dupeResult = await encryptOwnerHistory(duplicate, {
+    recipient, destination: dupePath,
+  });
+  await assert.rejects(verifyEncryptedOwnerHistory({
+    ...proof, archivePath: dupePath,
+    expectedCipherSha256: dupeResult.sha256,
+    expectedManifestSha256: createHash('sha256')
+      .update(Buffer.from(JSON.stringify(duplicate),'utf8')).digest('hex'),
+  }), /duplicate/);
+  await rm(dupePath);
+  // No extra decrypted files, source records or private identifiers are
+  // persisted by the readback tool, even for rejected archives.
   await assert.rejects(encryptOwnerHistory(payload, {
     recipient, destination: out,
   }), { code: 'EEXIST' });

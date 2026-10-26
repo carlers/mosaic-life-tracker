@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'chatgpt/1027-history-encrypted-ledger-*'
+      - 'chatgpt/1027-owner-history-decrypt-*'
       - 'feature/1027-supabase-recovery-*'
   workflow_dispatch:
 
@@ -33,5 +34,6 @@ jobs:
       - name: Prove synthetic owner-only archive encryption and exact decrypt
         run: |
           node --check supabase-poc/encrypted-owner-history.mjs
+          node --check supabase-poc/verify-encrypted-owner-history.mjs
           node --check supabase-poc/tests/encrypted-owner-history-lab.mjs
           node supabase-poc/tests/encrypted-owner-history-lab.mjs
