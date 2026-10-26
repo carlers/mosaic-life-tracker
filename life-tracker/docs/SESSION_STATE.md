@@ -1,6 +1,6 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1027 fail-closed expected recovery profile in R2 independent watchdog, task branch chatgpt/1027-r2-watch-profile-fence-20261027.
+Current task: #1027 repair canonical node:test wrapper after accepted profile regression adds a thirteenth case, task branch chatgpt/1027-offsite-gate-count-repair-20261027.
 
 ## Accepted
 - Recovery feature/1027-supabase-recovery-20261020@a493f555da2ab6b8c915d98c175ab842f93a7570; exact full Quality #40341254320, signed local two-owner GoTrue and 8/10 table original age/media labs PASS. Non-shipped six-domain Sync Now false 100% fix accepted.
@@ -10,11 +10,9 @@ Current task: #1027 fail-closed expected recovery profile in R2 independent watc
 - Earlier anon and null-owner hosted SQL negatives passed but are NOT real signed HTTP two-owner proof; connected provider lacks access to credential pairs for two preexisting disposable test accounts. Do not impersonate real users, create hosted accounts, or claim hosted signed test pass.
 
 ## Scoped source task
-- Baseline isolated recovery feature/1027-supabase-recovery-20261020@673365df848858e0a6718376a01f4120bceb34da; six-domain non-inserting signed probe PR #1372 merged, focused Quality #40414468301 and full canonical #40414626515 SUCCESS. Live hosted two-disposable-account negative probe still unrun.
-- Latest ten-table generation 20261026T153242858Z independently restored by owner in Fedora; no repeat required. Original pre-ten main `.github/workflows/supabase-full-offsite-watch.yml` is pinned to older 18e7f2c... source and has no explicit expected ten-table profile. Recurring backup/watch remain disabled, so do not modify main or schedules.
-- Source-only add optional expected recovery profile to full ciphertext watch and CLI via `SUPABASE_DR_RECOVERY_PROFILE`, require exact newest COMPLETED marker profile BEFORE streaming remote R2 bytes, reject absent, older or mismatched profile; preserve historical ad-hoc watch when no expected profile specified. Synthetic test newest mismatch/legacy/reversed success. No R2/SQL/media/hosted/Production actions.
+- Isolated recovery source feature/1027-supabase-recovery-20261020@06c299a69f72cf2f688c7b4e479c7e57f215afe5 includes accepted focused-only R2 ten-profile watchdog PR #1373, but full canonical Quality #40415836451 failed. Root cause: `tests/unit/supabaseUnifiedOffsite.test.ts` expects literal `# pass 12` even though all 13 real underlying node:test recovery cases PASS after adding the new profile mismatch regression; all other Quality jobs passed.
+- Replace hardcoded total with a verified parse of node:test's complete `# tests N`, `# pass N`, `# fail 0` summary, minimum prior coverage 12. Never weaken actual test failure detection or skip security checks. Source-only focused+canonical acceptance; no hosted/SQL/R2/Appwrite/dev/main/Production mutations.
 
 ## Next action
-- Focused task CI, diff review, squash accepted source to isolated recovery, exact full canonical and applicable offline Labs.
-- Only after exact source accepted, separately stage main-only protected watchdog workflow pin and ten-profile configuration through stable Preview→dev→main approval sequence; do not merge or enable schedule without user approval.
-- Separate remaining blockers: signed hosted two-owner test in protected environment, positive writer lease, original Appwrite data/media/outbox and writer freeze, six-domain device/offline/ZIP, managed Auth/SMTP, explicit Production provider cutover.
+- Focused task CI then squash reviewed repair into isolated recovery, rerun exact full canonical + applicable restoration labs. Only after the new source SHA is accepted, re-pin the separately staged `chatgpt/1027-ten-profile-watch-workflow-20261027` review candidate from dev, run workflow-only focused/full Preview, then require explicit approval for dev/main promotions. Never change main watcher/schedules early.
+- Remaining signed hosted two-owner + positive lease, original Appwrite owner/media/outbox and server writer fence, six-domain Preview/device/offline/ZIP, managed Auth/SMTP and Production provider cutover gates remain separate.
