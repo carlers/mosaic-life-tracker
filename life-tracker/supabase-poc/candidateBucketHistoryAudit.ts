@@ -97,7 +97,8 @@ export function packOwnerBucketHistory(
   if (!/^[a-f0-9]{64}$/.test(input.sourceArchiveSha256))
     throw new Error('Full owner source needs an independently checked encrypted SHA256');
   const links = classifyOwnerBucketLinkHistory(input);
-  const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id, 'en');
+  const byId = (a: { id: string }, b: { id: string }) =>
+    a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   const targetIds = {
     tasks: input.tasks.map(t => ({ id: t.id, userId: t.userId, isDeleted: t.isDeleted })).sort(byId),
     buckets: input.buckets.map(b => ({ id: b.id, userId: b.userId, isDeleted: b.isDeleted })).sort(byId),
