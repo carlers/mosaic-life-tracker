@@ -1,6 +1,6 @@
 # Session checkpoint
-Updated: 2026-10-26 Asia/Manila
-Current task: #1027 extend signed two-account NONMUTATING hosted HTTP probe to five personal SQL domains, task branch chatgpt/1027-hosted-five-domain-signed-readonly-probe-20261026.
+Updated: 2026-10-27 Asia/Manila
+Current task: #1027 extend existing non-inserting signed hosted two-account security probe to all six personal tables, task branch chatgpt/1027-six-domain-signed-noinsert-probe-20261027.
 
 ## Accepted
 - Recovery feature/1027-supabase-recovery-20261020@a493f555da2ab6b8c915d98c175ab842f93a7570; exact full Quality #40341254320, signed local two-owner GoTrue and 8/10 table original age/media labs PASS. Non-shipped six-domain Sync Now false 100% fix accepted.
@@ -10,8 +10,10 @@ Current task: #1027 extend signed two-account NONMUTATING hosted HTTP probe to f
 - Earlier anon and null-owner hosted SQL negatives passed but are NOT real signed HTTP two-owner proof; connected provider lacks access to credential pairs for two preexisting disposable test accounts. Do not impersonate real users, create hosted accounts, or claim hosted signed test pass.
 
 ## Scoped source task
-- Existing signed-auth-probe.mjs pins ONLY the exact mosaic-dev origin, requires two existing disposable GoTrue email/password pairs with PUBLIC publishable key; no database inserts or signup. Extend it from tasks/categories to also Settings/Bucket List/links: both owners SELECT/foreign empty; anonymous SELECT and RPC denied; signed direct UPDATE/DELETE denied on synthetic absent ID; missing-row CAS returns null, owner_id injection rejected with 4xx. Counters only, no secrets/records logged. Test fixtures for leaked new private owner row, anonymous private read or anonymous CAS accepted, and absence of row INSERT/signup. Does not prove positive owner writes, server lease persistence or device sync. Existing 3 cases expand to 5.
-- Task focused Quality then squash into isolated recovery, full canonical per repo workflow; no hosted data/SQL/R2/Appwrite/dev/main/Production actions.
+- Baseline isolated recovery feature/1027-supabase-recovery-20261020@232f8e060a8e809af576bae5ed4e704a10a899aa; PR #1371 and full canonical Quality #40354093168 PASS.
+- Existing exact pinned signed probe only covers tasks/categories/Settings/Buckets/links. Add Diary, test both direct PATCH and DELETE denials for all six, and anonymous SELECT and privileged RPC denial on all six; keep owner and cross-owner signed reads, conflict NULL, and owner_id rejection. Each write target is a random nonexistent ID. No row inserts, signup, data reads to logs, service-role credentials or hosted mutation.
+- At this checkpoint, previous GHCR-throttled eight-table disposable restore #40354093121 attempt 3 and real GoTrue restore #40354093139 attempt 3 PASS; ten-table retry #40354092941 pending. Independent actual post-DDL ten-table R2 age/PG17/Auth/media physical restore stays accepted. Supabase mosaic-dev remains only isolated target; no app deployment or provider cutover.
 
 ## Next action
-- To RUN live two-account signed probe, provide/connect existing disposable mosaic-dev credentials inside a protected execution environment; do not share credentials or private email in chat. Positive signed INSERT/CAS and old Appwrite writer fence remain separate safe approvals. After native/hosted two-owner acceptance and original owner/media/outbox migration, proceed to six-domain real preview/device/photo/ZIP/offline gates and separately authorized Production provider cutover.
+- Run focused CI on this task branch, review exact diff, squash to isolated recovery after green, then canonical acceptance. No dev/main/Production or live hosted mutation.
+- Live two-account signed hosted HTTP proof still needs existing disposable account credentials in a protected executor, never in chat. Positive writer lease, Appwrite original owner/media/outbox escrow, frozen old-PWA writer denial, complete six-domain Preview/device/offline/ZIP gates, and explicit Production authorization remain separate.
