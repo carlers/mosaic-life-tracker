@@ -187,8 +187,8 @@ describe('read-only frozen owner source history for Appwrite cloud/oracle (#1027
   it('rejects inconsistent totals and malformed tombstones', async () => {
     const total = harness();
     total.listRows.mockResolvedValueOnce({
-      rows: [fullTask('task_1'), fullTask('task_2')], total: 4,
-    }).mockResolvedValueOnce({ rows: [fullTask('task_3')], total: 3 });
+      rows: [fullTask('task_1'), fullTask('task_2')], total: 3,
+    }).mockResolvedValueOnce({ rows: [fullTask('task_3')], total: 4 });
     await expect(readFrozenAppwriteOwnerHistory(total.options))
       .rejects.toThrow(/changing signed Appwrite owner history total/);
     const invalid = harness();
