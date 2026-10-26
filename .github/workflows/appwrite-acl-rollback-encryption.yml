@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'chatgpt/1027-appwrite-acl-archive-*'
+      - 'chatgpt/1027-appwrite-freeze-dryrun-*'
       - 'feature/1027-supabase-recovery-*'
   workflow_dispatch:
 
