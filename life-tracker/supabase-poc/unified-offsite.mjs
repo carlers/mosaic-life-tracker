@@ -307,7 +307,8 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
   }
   if (argv[0] === '--download') {
     if (argv.length !== 3) throw new Error('Invalid recovery download invocation');
-    await downloadUnified({ r2, id: argv[1], directory: argv[2] });
+    const marker = await downloadUnified({ r2, id: argv[1], directory: argv[2] });
+    console.log('MOSAIC_SUPABASE_FULL_OFFSITE_RECOVERY_PROFILE_PASS: ' + (marker.recoveryProfile || SEVEN));
     console.log('MOSAIC_SUPABASE_FULL_OFFSITE_CIPHERTEXT_DOWNLOAD_PASS');
     return;
   }
