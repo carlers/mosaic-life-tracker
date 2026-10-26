@@ -1,6 +1,7 @@
 /** #1027 source-only owner-private historical task-link classification.
  * No network, data export, logging, file IO, or runtime activation.
  */
+import { createHash } from 'node:crypto';
 import type { BucketListDocument, BucketTaskLinkDocument, TaskDocument } from '../src/db/schema';
 import { validateCandidateIdentity, type CandidateIdentity } from './candidateMapping';
 import { toCandidateBucketWrite, toCandidateBucketLinkWrite } from './candidateBucketMapping';
@@ -80,4 +81,38 @@ export function classifyOwnerBucketLinkHistory(input: {
       reasons,
     };
   });
+}
+
+/**
+ * Pure manifest constructor for the separately age-encrypted offline operator
+ * path. `sourceArchiveSha256` MUST come from the independently authenticated
+ * complete owner source artifact, not from a regular active-only user ZIP.
+ * The hash here binds target identities, not their full task contents.
+ */
+export function packOwnerBucketHistory(
+  input: Parameters<typeof classifyOwnerBucketLinkHistory>[0] & {
+    sourceArchiveSha256: string;
+  },
+) {
+  if (!/^[a-f0-9]{64}$/.test(input.sourceArchiveSha256))
+    throw new Error('Full owner source needs an independently checked encrypted SHA256');
+  const links = classifyOwnerBucketLinkHistory(input);
+  const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id, 'en');
+  const targetIds = {
+    tasks: input.tasks.map(t => ({ id: t.id, userId: t.userId, isDeleted: t.isDeleted })).sort(byId),
+    buckets: input.buckets.map(b => ({ id: b.id, userId: b.userId, isDeleted: b.isDeleted })).sort(byId),
+  };
+  const targetIdentitySha256 = createHash('sha256')
+    .update(JSON.stringify(targetIds), 'utf8').digest('hex');
+  return {
+    format: 'mosaic-owner-bucket-link-history' as const, version: 1 as const,
+    owner: {
+      legacyUserId: input.identity.legacyUserId,
+      supabaseUserId: input.identity.supabaseUserId,
+    },
+    sourceArchiveSha256: input.sourceArchiveSha256,
+    sourceCounts: { ...input.expectedCounts },
+    targetIdentitySha256,
+    links,
+  };
 }
