@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createCandidatePersonalRuntime, PERSONAL_SOURCE_DOMAINS }
-  from '../../supabase-poc/candidatePersonalRuntime';
+import {
+  createCandidatePersonalRuntime, PERSONAL_SOURCE_DOMAINS,
+  type CandidatePersonalRuntimeOptions,
+} from '../../supabase-poc/candidatePersonalRuntime';
 
 const OWNER='11111111-1111-4111-8111-111111111111';
 const OTHER='22222222-2222-4222-8222-222222222222';
@@ -70,14 +72,21 @@ function fixture(){
     bucket:{ownerId:OWNER,isDeleted:false},
     task:{ownerId:OWNER,isDeleted:false},
   }));
-  const options={
-    selectedBackend:'supabase' as const,
-    featureProfile:'personal-review-only' as const,
+  const options:CandidatePersonalRuntimeOptions={
+    selectedBackend:'supabase',
+    featureProfile:'personal-review-only',
     identity:{legacyUserId:'sb_original_owner',supabaseUserId:OWNER},
     baseUrl:'https://isolated.test.supabase.co',
     publishableKey:'sb_publishable_synthetic_only',
     session,guard,
-    collections:collections as never,
+    collections:{
+      tasks:collections.tasks as never,
+      categories:collections.categories as never,
+      diary:collections.diary as never,
+      portableSettings:collections.portableSettings as never,
+      bucketList:collections.bucketList as never,
+      bucketTaskLinks:collections.bucketTaskLinks as never,
+    },
     verifyBucketLinkTargets:references as never,
   };
   const runtime=createCandidatePersonalRuntime(options);

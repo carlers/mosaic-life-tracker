@@ -34,8 +34,11 @@ type Domain = 'tasks' | 'categories' | 'diary' | 'settings' | 'buckets' | 'bucke
 export const PERSONAL_SOURCE_DOMAINS: readonly Domain[] = Object.freeze([
   'tasks','categories','diary','settings','buckets','bucket_task_links',
 ]);
-type Run = ReturnType<ReturnType<typeof createCandidateRxdbPilot<TaskDocument>>['start']>;
-type Pilot = ReturnType<typeof createCandidateRxdbPilot<TaskDocument>>;
+type Run = {
+  state: {awaitInitialReplication():Promise<unknown>;awaitInSync():Promise<unknown>};
+  resync():void;
+  stop():Promise<unknown>;
+};
 
 export interface CandidatePersonalGuard extends CandidateCoreGuard {
   /** Server-reviewed hosted SQL/RLS/Storage and complete independent DR. */
