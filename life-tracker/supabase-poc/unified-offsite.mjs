@@ -161,8 +161,12 @@ async function readMarker(r2, id) {
 }
 
 /** Independent complete remote-byte check; no age secret needed for watchdog. */
-export async function verifyUnified({ r2, id, now = new Date(), maxAgeHours = null, outputs = {} }) {
+export async function verifyUnified({ r2, id, now = new Date(), maxAgeHours = null, outputs = {}, expectedRecoveryProfile = null }) {
+  if (expectedRecoveryProfile !== null) assertRecoveryProfile(expectedRecoveryProfile);
   const marker = await readMarker(r2, id);
+  if (expectedRecoveryProfile !== null && marker.recoveryProfile !== expectedRecoveryProfile) {
+    throw new Error('Newest completed recovery profile mismatch');
+  }
   const age = now.getTime() - Date.parse(marker.completedAt);
   if (age < -60_000 || (maxAgeHours != null && (!Number.isFinite(maxAgeHours) ||
       maxAgeHours <= 0 || age > maxAgeHours * 3_600_000))) {
@@ -194,11 +198,13 @@ export async function verifyUnified({ r2, id, now = new Date(), maxAgeHours = nu
   return marker;
 }
 
-export async function watchUnified({ r2, now = new Date(), maxAgeHours = 36 }) {
+export async function watchUnified({ r2, now = new Date(), maxAgeHours = 36,
+  expectedRecoveryProfile = null }) {
   const keys = await r2.listObjects(`${PREFIX}/snapshots/`);
   const ids = keys.map((key) => parseCompletedMarkerKey(key, PREFIX)).filter(Boolean).sort();
   if (!ids.length) throw new Error('No completed full Supabase recovery generation');
-  const marker = await verifyUnified({ r2, id: ids.at(-1), now, maxAgeHours });
+  const marker = await verifyUnified({ r2, id: ids.at(-1), now, maxAgeHours,
+    expectedRecoveryProfile });
   return { id: marker.id, completedAt: marker.completedAt };
 }
 
@@ -301,7 +307,8 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
   const r2 = r2FromEnv(env);
   if (argv[0] === '--watch') {
     if (argv.length !== 1) throw new Error('Invalid watch invocation');
-    const state = await watchUnified({ r2 });
+    const state = await watchUnified({ r2,
+      expectedRecoveryProfile: env.SUPABASE_DR_RECOVERY_PROFILE || null });
     console.log('MOSAIC_SUPABASE_FULL_OFFSITE_FRESH_PASS: ' + state.id);
     return;
   }
