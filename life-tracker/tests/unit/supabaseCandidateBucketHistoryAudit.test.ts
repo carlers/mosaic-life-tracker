@@ -34,6 +34,9 @@ describe('owner-private complete-history link classification (#1027)', () => {
     expect(rows).toEqual([{ source: link, disposition: 'ready', reasons: [] }]);
     expect(rows[0].source).not.toBe(source);
     expect(source).toEqual(link);
+    const unexpected = { ...link, unrelatedForeignField: 'must-not-export' };
+    const sealed = classify({ links: [unexpected] });
+    expect(sealed[0].source).not.toHaveProperty('unrelatedForeignField');
   });
   it('keeps tombstone links even when both owned target records were retired', () => {
     const deleted = { ...link, isDeleted: true };
