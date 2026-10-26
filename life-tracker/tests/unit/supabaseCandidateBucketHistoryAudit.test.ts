@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BucketListDocument, BucketTaskLinkDocument } from '../../src/db/schema';
 import type { CandidateIdentity } from '../../supabase-poc/candidateMapping';
-import { classifyOwnerBucketLinkHistory } from '../../supabase-poc/candidateBucketHistoryAudit';
+import { classifyOwnerBucketLinkHistory, packOwnerBucketHistory } from '../../supabase-poc/candidateBucketHistoryAudit';
 
 const identity: CandidateIdentity = {
   legacyUserId: 'legacy_owner',
@@ -34,6 +34,9 @@ describe('owner-private complete-history link classification (#1027)', () => {
     expect(rows).toEqual([{ source: link, disposition: 'ready', reasons: [] }]);
     expect(rows[0].source).not.toBe(source);
     expect(source).toEqual(link);
+    const unexpected = { ...link, unrelatedForeignField: 'must-not-export' };
+    const sealed = classify({ links: [unexpected] });
+    expect(sealed[0].source).not.toHaveProperty('unrelatedForeignField');
   });
   it('keeps tombstone links even when both owned target records were retired', () => {
     const deleted = { ...link, isDeleted: true };
@@ -113,5 +116,56 @@ describe('owner-private complete-history link classification (#1027)', () => {
     } })).toThrow();
     expect(() => classify({ expectedCounts: { tasks: -1, buckets: 1, links: 1 } }))
       .toThrow();
+  });
+});
+
+describe('sealed owner-only historical encryption manifest source', () => {
+  it('binds source archive SHA, exact full counts, owner and all original links', () => {
+    const original = { ...link, id: 'link_2', taskId: 't'.repeat(255), isDeleted: true };
+    const payload = packOwnerBucketHistory({
+      identity, tasks: [{ ...task, id: original.taskId }], buckets: [bucket],
+      links: [original, link], expectedCounts: { tasks: 1, buckets: 1, links: 2 },
+      sourceArchiveSha256: 'a'.repeat(64),
+    });
+    expect(payload.format).toBe('mosaic-owner-bucket-link-history');
+    expect(payload.version).toBe(1);
+    expect(payload.owner).toEqual(identity);
+    expect(payload.sourceCounts).toEqual({ tasks: 1, buckets: 1, links: 2 });
+    expect(payload.targetIdentitySha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(payload.links.map(item => item.source.id)).toEqual(['link_1', 'link_2']);
+    expect(payload.links[1]).toMatchObject({
+      source: original, disposition: 'quarantined',
+      reasons: ['long-task-reference'],
+    });
+    expect(payload.links[1].source.taskId).toHaveLength(255);
+  });
+
+  it('never builds a manifest from unpinned source, incomplete records or foreign data', () => {
+    const request = {
+      identity, tasks: [task], buckets: [bucket], links: [link],
+      expectedCounts: { tasks: 1, buckets: 1, links: 1 },
+      sourceArchiveSha256: 'a'.repeat(64),
+    };
+    expect(() => packOwnerBucketHistory({
+      ...request, sourceArchiveSha256: 'not-a-signed-source',
+    })).toThrow(/encrypted SHA256/);
+    expect(() => packOwnerBucketHistory({
+      ...request, expectedCounts: { tasks: 1, buckets: 1, links: 0 },
+    })).toThrow(/Incomplete signed historical/);
+    expect(() => packOwnerBucketHistory({
+      ...request, links: [{ ...link, userId: foreign }],
+    })).toThrow(/foreign/);
+  });
+
+  it('computes deterministic target identity digest independent of input order', () => {
+    const alt = { ...task, id: 'task_2', isDeleted: true };
+    const req = {
+      identity, tasks: [task, alt], buckets: [bucket], links: [link],
+      expectedCounts: { tasks: 2, buckets: 1, links: 1 },
+      sourceArchiveSha256: 'b'.repeat(64),
+    };
+    expect(packOwnerBucketHistory(req)).toEqual(packOwnerBucketHistory({
+      ...req, tasks: [alt, task],
+    }));
   });
 });

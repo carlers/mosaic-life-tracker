@@ -177,3 +177,34 @@ authenticate a private encrypted quarantine ledger, replay it with matching
 owner target mappings, and prove exact link count/hash parity after a
 two-provider reversible migration. This module must never be mistaken for
 the durable encrypted ledger or actual migration tool.
+
+## Offline age-encrypted owner link history (source-only synthetic proof)
+
+`packOwnerBucketHistory` constructs a deterministic, allowlisted
+`mosaic-owner-bucket-link-history` v1 envelope from the complete verified
+owner records: it includes the exact previously authenticated encrypted
+source SHA256, source counts, owner mapping, target-identity digest and **all**
+original links (including tombstones and quarantined long/dangling IDs).
+Only declared link fields are included; unexpected attributes never enter
+the export. This is NOT itself proof the input source was authenticated:
+the actual operator must independently verify the full source archive and
+signed owner inventories.
+
+The Node-only `encrypted-owner-history.mjs` takes that reviewed envelope
+and an age X25519 recipient, requires an existing owner-owned private 0700
+directory, streams plaintext only through memory/child stdin to the age
+executable, checks its ciphertext header, fsyncs the 0600 temporary output,
+then publishes via exclusive hardlink so an existing archive cannot be
+overwritten. It returns only encrypted-byte count and SHA256, never link
+contents or credentials. Failures clear the plaintext buffer and remove
+temporary ciphertext. The disposable
+`supabase-bucket-history-encryption.yml` lab generates a synthetic recipient,
+proves real age encryption/decryption and exact preserved 255-character
+references, and rejects foreign owner, malformed counts, invalid recipients,
+missing binary and target overwrite without leaking private data.
+
+**Not yet complete:** real signed full-history owner extraction, independent
+source age/archive digest authentication, durable encrypted inventory
+publication/retention, and independently verified replay/backfill across
+Appwrite Cloud/Oracle and Supabase. No hosted schema/writer, R2 object,
+Production or user ZIP semantics have changed.
