@@ -101,6 +101,23 @@ managed Auth/configuration safeguards, mobile/offline/ZIP acceptance, and
 the separately protected Preview approval. Neither the single synthetic
 photo round-trip nor this one-pass snapshot source replaces those gates.
 
+## Source-only old-PWA writer freeze plan (2026-10-26)
+
+The offline `buildAppwriteFreezeDryRunPlan` function validates the exact original
+owner ACL archive snapshot and independently supplied source witness, then
+proposes whole-installation table, owner-row, Storage, file and enabled-Function
+permission changes with original values retained in memory for review. It
+makes **zero** backend/API calls. An unchanged already-read-only snapshot
+produces no mutations but still refuses cutover. The real synthetic age lab
+tests all grant classes, repeatability, no mutation of source and false
+execution/rollback eligibility. Global grant changes affect other owners.
+
+The proposal does **not** disable existing API keys/webhooks, authenticate a
+server-side write fence, prove 21 old-PWA HTTP 403 responses or preserve queued
+offline drafts. It must not be run against Scratch or Production as a mutation;
+actual writer freeze/rollback requires separately approved guarded server code,
+a complete live source snapshot and signed, authenticated negative probes.
+
 ## Next Fedora handoff: ONE consolidated pre-social acceptance run (owner directive 2026-10-25)
 
 **Do not give the owner another Fedora command during routine personal-Supabase

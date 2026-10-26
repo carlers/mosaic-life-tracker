@@ -267,3 +267,67 @@ export async function verifyOwnerAclRollbackArchive(options){
     providerCutoverEligible:false,
   };
 }
+/**
+ * OFFLINE-only proposal for a whole-installation Appwrite legacy-writer cutoff.
+ * Returns exact in-memory before/after grant changes ONLY after the original
+ * owner ACL archive validates. It makes no Appwrite requests and is deliberately
+ * not executable: unenumerated API keys, old PWA outboxes, webhooks and other
+ * owners make a proposed grant diff insufficient to freeze real writers.
+ */
+export function buildAppwriteFreezeDryRunPlan(readback,sourceWitnessSha256){
+  const original=buildOwnerAclRollbackEnvelope(readback,sourceWitnessSha256);
+  const steps=[];
+  const mutation=/^(?:create|update|delete|write)\("/;
+  const propose=(resource,resourceId,parentId,permissions)=>{
+    const after=permissions.filter(value=>!mutation.test(value));
+    if(after.length!==permissions.length)steps.push({
+      resource,resourceId,parentId,
+      before:{permissions:[...permissions]},
+      after:{permissions:after},
+    });
+  };
+  for(const table of original.state.tableGrants){
+    propose('table',table.id,null,table.permissions);
+    for(const row of table.ownerRows)
+      propose('owner-row',row.id,table.id,row.permissions);
+  }
+  const bucket=original.state.photoBucket;
+  propose('bucket',bucket.id,null,bucket.permissions);
+  for(const file of bucket.ownerFiles)
+    propose('owner-file',file.id,bucket.id,file.permissions);
+  // Disable EVERY enabled Function in a proposed global freeze: declared
+  // scopes alone do not reveal runtime webhooks, secrets or other write paths.
+  for(const fn of original.state.functionGrants){
+    if(fn.enabled)steps.push({
+      resource:'function',resourceId:fn.id,parentId:null,
+      before:{enabled:true,scopes:[...fn.scopes]},
+      after:{enabled:false,scopes:[...fn.scopes]},
+    });
+  }
+  const key=step=>[step.resource,step.parentId??'',step.resourceId].join('|');
+  steps.sort((a,b)=>key(a).localeCompare(key(b),'en'));
+  const canonical={
+    format:'mosaic-appwrite-source-freeze-dry-run',version:1,
+    ownerLegacyId:original.ownerLegacyId,
+    sourceDeploymentId:original.sourceDeploymentId,
+    sourceWitnessSha256:original.sourceWitnessSha256,
+    originalAdminGrantSnapshotSha256:original.adminGrantSnapshotSha256,
+    steps,
+  };
+  return {
+    ...canonical,planSha256:hash(JSON.stringify(canonical)),
+    plannedChanges:steps.length,
+    // Global table and Function grants affect other accounts and must never
+    // be applied as an implicit per-owner revocation.
+    impactsOtherOwners:true,
+    privateGrantDetails:true,
+    apiKeyAndWebhookRevocationUnverified:true,
+    queuedOldPwaDraftsUnverified:true,
+    serverWriteFenceAuthenticated:false,
+    oldClient403Proved:false,
+    approvedForExecution:false,
+    approvedForRollback:false,
+    providerCutoverEligible:false,
+  };
+}
+
