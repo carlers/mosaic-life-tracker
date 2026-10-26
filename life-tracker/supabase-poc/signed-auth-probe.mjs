@@ -2,6 +2,8 @@
  * Disposable signed-session Supabase Auth/Data API denial-path probe (#967).
  * No fixtures are inserted, no provider is switched, and no runtime imports this.
  * Owner-positive RLS, actual CAS winners and RxDB remain separate acceptance gates.
+ * Only existing signed disposable accounts, SELECTs, absent-row writes and
+ * denied RPCs. Never inserts rows, registers accounts or prints credentials.
  */
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -75,8 +77,13 @@ export async function runSignedAuthProbe(config, { fetcher = fetch, nonce = rand
     if (response.status !== 401 && response.status !== 403)
       throw new Error(label + ' expected 401/403, got HTTP ' + response.status);
   }
+  const tables = [
+    'mosaic_candidate_tasks', 'mosaic_candidate_categories',
+    'mosaic_candidate_settings', 'mosaic_candidate_buckets',
+    'mosaic_candidate_bucket_task_links',
+  ];
   for (const [user, foreign] of [[alice, bob], [bob, alice]]) {
-    for (const table of ['mosaic_candidate_tasks', 'mosaic_candidate_categories']) {
+    for (const table of tables) {
       const own = await request('/rest/v1/' + table + '?select=id,owner_id&limit=1',
         { token: user.token });
       if (!own.ok || !Array.isArray(await own.json()))
@@ -99,16 +106,33 @@ export async function runSignedAuthProbe(config, { fetcher = fetch, nonce = rand
     token: bob.token, method: 'DELETE',
   }), 'Hard DELETE');
   totals.deniedTableWrites++;
+  for (const table of tables.slice(2)) {
+    for (const method of ['PATCH', 'DELETE']) {
+      assertDenied(await request('/rest/v1/' + table + '?id=eq.' + absentId, {
+        token: alice.token, method,
+        ...(method === 'PATCH' ? { body: { is_deleted: true } } : {}),
+      }), 'Direct ' + table + ' ' + method);
+      totals.deniedTableWrites++;
+    }
+  }
 
   assertDenied(await request('/rest/v1/mosaic_candidate_tasks?select=id&limit=1'),
     'Anonymous SELECT');
   totals.deniedAnonymousCalls++;
+  for (const table of tables.slice(2)) {
+    assertDenied(await request('/rest/v1/' + table + '?select=id&limit=1'),
+      'Anonymous private ' + table);
+    totals.deniedAnonymousCalls++;
+  }
 
-  for (const [user, rpc] of [
-    [alice, 'mosaic_candidate_cas_task'], [bob, 'mosaic_candidate_cas_category'],
+  for (const [user, rpc, patch] of [
+    [alice, 'mosaic_candidate_cas_task', { title: 'probe' }],
+    [bob, 'mosaic_candidate_cas_category', { name: 'probe' }],
+    [alice, 'mosaic_candidate_cas_setting', { setting_value: 'probe' }],
+    [bob, 'mosaic_candidate_cas_bucket', { title: 'probe' }],
+    [alice, 'mosaic_candidate_cas_bucket_link', { is_deleted: true }],
   ]) {
-    const missing = { p_id: absentId, p_expected_seq: '1',
-      p_patch: rpc.endsWith('_task') ? { title: 'probe' } : { name: 'probe' } };
+    const missing = { p_id: absentId, p_expected_seq: '1', p_patch: patch };
     const result = await request('/rest/v1/rpc/' + rpc, {
       token: user.token, method: 'POST', body: missing,
     });
