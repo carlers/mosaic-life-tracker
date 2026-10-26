@@ -5,6 +5,7 @@ Reads only the protected Supabase R2 bucket. Never reads/writes hosted Supabase,
 Appwrite or Production, never exports plaintext outside fresh local containers.
 """
 import argparse
+from datetime import datetime
 import getpass
 import hashlib
 import importlib.util
@@ -19,6 +20,12 @@ import tempfile
 
 PROJECT = "hcxtiifzxoaflhjgoglb"
 SNAPSHOT = "20261025T031343499Z"
+PROFILES = {
+    "seven": ("--fresh-snapshot-sha256", 7),
+    "eight-personal-settings": ("--fresh-personal-settings-sha256", 8),
+    "ten-personal-bucket-links": ("--fresh-personal-bucket-links-sha256", 10),
+}
+SNAPSHOT_ID = re.compile(r"[0-9]{8}T[0-9]{9}Z\Z")
 BRANCH = "feature/1027-supabase-recovery-20261020"
 REPO = Path.home() / "mosaic-photo-dr-review/life-tracker"
 BUCKET = "mosaic-supabase-backups"
@@ -109,7 +116,24 @@ def checked_sha(path):
     return value.hexdigest()
 
 
-def run(sha):
+def checked_selection(snapshot, profile):
+    if not isinstance(snapshot, str) or not SNAPSHOT_ID.fullmatch(snapshot):
+        raise Refused("Invalid exact completed R2 snapshot identity")
+    try:
+        if datetime.strptime(snapshot, "%Y%m%dT%H%M%S%fZ").strftime(
+                "%Y%m%dT%H%M%S%f")[:-3] + "Z" != snapshot:
+            raise ValueError("Noncanonical timestamp")
+    except ValueError as exc:
+        raise Refused("Malformed completed R2 snapshot timestamp") from exc
+    if profile not in PROFILES:
+        raise Refused("Unreviewed R2 personal recovery profile")
+    if snapshot == SNAPSHOT and profile != "seven":
+        raise Refused("Historical seven-table R2 generation cannot claim extra personal tables")
+    return PROFILES[profile]
+
+
+def run(sha, snapshot=SNAPSHOT, profile="seven"):
+    restore_flag, expected_tables = checked_selection(snapshot, profile)
     global ACTIVE_STAGE
     home = Path.home()
     key = home / ".config/mosaic/supabase-backup.agekey"
@@ -137,7 +161,7 @@ def run(sha):
         spec = importlib.util.spec_from_file_location("mosaic_existing_private_dr", scripts / "full-recovery-drill.py")
         existing = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(existing)
-        downloaded = archives / ("mosaic-r2-" + SNAPSHOT + "-" + secrets.token_hex(10))
+        downloaded = archives / ("mosaic-r2-" + snapshot + "-" + secrets.token_hex(10))
 
         def download():
             account, access, secret = read_credentials()
@@ -150,13 +174,14 @@ def run(sha):
             }
             try:
                 result = command(["node", str(scripts / "unified-offsite.mjs"),
-                                  "--download", SNAPSHOT, str(downloaded)],
+                                  "--download", snapshot, str(downloaded)],
                                  cwd=tracker, env=env, timeout=1800)
             finally:
                 env.pop("SUPABASE_DR_R2_SECRET_ACCESS_KEY", None)
                 secret = ""
-            if "MOSAIC_SUPABASE_FULL_OFFSITE_CIPHERTEXT_DOWNLOAD_PASS" not in result:
-                raise Refused("Complete dual-archive readback pass marker absent")
+            if "MOSAIC_SUPABASE_FULL_OFFSITE_CIPHERTEXT_DOWNLOAD_PASS" not in result or (
+                "MOSAIC_SUPABASE_FULL_OFFSITE_RECOVERY_PROFILE_PASS: " + profile) not in result.splitlines():
+                raise Refused("R2 completed marker profile or full encrypted readback unconfirmed")
             private_file(downloaded, directory=True)
             for path in (downloaded / "database.age", downloaded / "media.age"):
                 private_file(path)
@@ -182,9 +207,9 @@ def run(sha):
         def restore_database():
             nonlocal local, network
             result = command(["bash", str(scripts / "run-private-core-recovery.sh"),
-                              str(database), str(key), "--fresh-snapshot-sha256", checked_sha(database)],
+                              str(database), str(key), restore_flag, checked_sha(database)],
                              cwd=tracker, timeout=1500)
-            if "DISPOSABLE_CORE_RESTORE_PASS: 7 data tables" not in result or \
+            if "DISPOSABLE_CORE_RESTORE_PASS: " + str(expected_tables) + " data tables" not in result or \
                     "exact source/target rows verified" not in result:
                 raise Refused("Exact row-byte parity restoration marker missing")
             local, network = existing.parse_local(result, home)
@@ -240,7 +265,7 @@ def run(sha):
             ACTIVE_STAGE = STAGES[6]
             raise Refused("Local disposable cleanup incomplete: " + ", ".join(errors))
         print("MOSAIC_R2_RESTORE_STAGE_PASS: " + STAGES[6], flush=True)
-    print("MOSAIC_R2_EXACT_SNAPSHOT_DISPOSABLE_RESTORE_PASS: " + SNAPSHOT, flush=True)
+    print("MOSAIC_R2_EXACT_SNAPSHOT_DISPOSABLE_RESTORE_PASS: " + snapshot, flush=True)
     print("MOSAIC_R2_RESTORE_NOT_FULL_MANAGED_PLATFORM: SMTP/OAuth/JWT and photo-bearing source remain separate", flush=True)
 
 
@@ -250,9 +275,11 @@ def main():
     mode.add_argument("--plan", action="store_true")
     mode.add_argument("--run", action="store_true")
     parser.add_argument("--source-sha")
+    parser.add_argument("--snapshot-id")
+    parser.add_argument("--recovery-profile", choices=tuple(PROFILES))
     args = parser.parse_args()
     if args.plan:
-        if args.source_sha:
+        if args.source_sha or args.snapshot_id or args.recovery_profile:
             raise Refused("Offline plan forbids source override")
         for part in STAGES:
             print("MOSAIC_R2_RESTORE_PLAN: " + part)
@@ -260,7 +287,12 @@ def main():
         return
     if not SHA.fullmatch(args.source_sha or ""):
         raise Refused("Exact reviewed source SHA required")
-    run(args.source_sha)
+    if (args.snapshot_id is None) != (args.recovery_profile is None):
+        raise Refused("Non-historical R2 restore requires both exact snapshot and profile")
+    snapshot = args.snapshot_id if args.snapshot_id is not None else SNAPSHOT
+    profile = args.recovery_profile if args.recovery_profile is not None else "seven"
+    checked_selection(snapshot, profile)
+    run(args.source_sha, snapshot, profile)
 
 
 def cli():

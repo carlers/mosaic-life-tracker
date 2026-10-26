@@ -59,7 +59,7 @@ class OffsiteRestoreTests(unittest.TestCase):
             with self.assertRaises(m.Refused):
                 m.private_file(link)
 
-    def exercise(self, fail=None):
+    def exercise(self, fail=None, snapshot=m.SNAPSHOT, profile="seven"):
         with tempfile.TemporaryDirectory(prefix='mosaic-offsite-mock-') as root:
             home = Path(root)
             key = home/'.config/mosaic/supabase-backup.agekey'
@@ -74,7 +74,12 @@ class OffsiteRestoreTests(unittest.TestCase):
             local = home/'.mosaic-private-recovery-AbCd1234'
             local.mkdir(mode=0o700)
             stages = []
-            capture = {}
+            capture = {
+                'snapshot': snapshot,
+                'profile': 'seven' if fail == 'profile' else profile,
+                'restore_flag': m.PROFILES[profile][0],
+                'tables': m.PROFILES[profile][1],
+            }
 
             def fake_command(argv, *, cwd=None, env=None, timeout=120, stdin=None, visible=False):
                 cmd = argv[0]
@@ -98,7 +103,7 @@ def parse_local(out, home):
                         shutil.rmtree(argv[-1])
                     return ''
                 if cmd == 'node':
-                    self.assertEqual(argv[2:4], ['--download', m.SNAPSHOT])
+                    self.assertEqual(argv[2:4], ['--download', capture.get('snapshot', m.SNAPSHOT)])
                     self.assertEqual(env.get('SUPABASE_DR_R2_BUCKET'), m.BUCKET)
                     self.assertEqual(env.get('SUPABASE_DR_R2_ACCESS_KEY_ID'), 'A'*32)
                     self.assertEqual(env.get('SUPABASE_DR_R2_SECRET_ACCESS_KEY'), 'b'*40)
@@ -112,18 +117,18 @@ def parse_local(out, home):
                     stages.append('read-R2')
                     if fail == 'remote-mismatch':
                         raise m.Refused('R2 digest mismatch')
-                    return 'MOSAIC_SUPABASE_FULL_OFFSITE_CIPHERTEXT_DOWNLOAD_PASS'
+                    return 'MOSAIC_SUPABASE_FULL_OFFSITE_RECOVERY_PROFILE_PASS: ' + capture.get('profile', 'seven') + '\nMOSAIC_SUPABASE_FULL_OFFSITE_CIPHERTEXT_DOWNLOAD_PASS'
                 if cmd == 'bash':
                     if argv[1].endswith('inspect-encrypted-backup-toc.sh'):
                         stages.append('TOC')
                         return 'VALID_TOC'
                     if argv[1].endswith('run-private-core-recovery.sh'):
-                        self.assertEqual(argv[-2], '--fresh-snapshot-sha256')
+                        self.assertEqual(argv[-2], capture.get('restore_flag', '--fresh-snapshot-sha256'))
                         self.assertTrue(re.fullmatch('[a-f0-9]{64}', argv[-1]))
                         self.assertEqual(Path(argv[2]).name, 'database.age')
                         self.assertNotIn('PGHOST', env or {})
                         stages.append('postgres-restore')
-                        return 'DISPOSABLE_CORE_RESTORE_PASS: 7 data tables; exact source/target rows verified'
+                        return 'DISPOSABLE_CORE_RESTORE_PASS: ' + str(capture.get('tables', 7)) + ' data tables; exact source/target rows verified'
                 if cmd == 'python3':
                     if argv[1].endswith('verify-private-core-signin.py'):
                         self.assertTrue(visible)
@@ -172,10 +177,10 @@ def parse_local(out, home):
                  patch.object(builtins, 'open', side_effect=safe_open), \
                  patch('sys.stdout', out):
                 if fail is None:
-                    m.run('c'*40)
+                    m.run('c'*40, snapshot, profile)
                 else:
                     with self.assertRaises(m.Refused):
-                        m.run('c'*40)
+                        m.run('c'*40, snapshot, profile)
             self.assertIn('read-R2', stages)
             self.assertIn('stop', stages) if 'postgres-restore' in stages else None
             self.assertIn('network-cleanup', stages) if 'postgres-restore' in stages else None
@@ -204,6 +209,42 @@ def parse_local(out, home):
 
     def test_local_media_failure_cleans_private_stack(self):
         self.exercise('media')
+
+
+    def test_new_completed_eight_table_source_restores_owner_history(self):
+        self.exercise(snapshot='20261026T081234567Z', profile='eight-personal-settings')
+
+    def test_new_completed_ten_table_source_restores_all_original_private_domains(self):
+        self.exercise(snapshot='20261026T081235567Z', profile='ten-personal-bucket-links')
+
+    def test_incorrect_remote_profile_fails_before_any_age_decrypt_or_postgres_restore(self):
+        self.exercise(fail='profile', snapshot='20261026T081235567Z',
+                      profile='ten-personal-bucket-links')
+
+    def test_exact_generation_and_explicit_profile_are_both_required(self):
+        for snapshot, profile in [
+            ('20261026T081234567Z', 'ten-personal-bucket-links'),
+            ('20261026T081234567Z', 'eight-personal-settings'),
+            ('20261026T081234567Z', 'seven'),
+        ]:
+            self.assertEqual(m.checked_selection(snapshot, profile), m.PROFILES[profile])
+        for snapshot, profile in [
+            ('../escape', 'seven'), ('20260230T081235567Z', 'seven'),
+            ('20261026T081235000Z/wrong', 'seven'),
+            (m.SNAPSHOT, 'ten-personal-bucket-links'),
+            ('20261026T081235000Z', 'unreviewed'),
+        ]:
+            with self.subTest(snapshot=snapshot, profile=profile):
+                with self.assertRaises(m.Refused):
+                    m.checked_selection(snapshot, profile)
+        for args in [
+            ['--run','--source-sha','a'*40,'--snapshot-id','20261026T081235567Z'],
+            ['--run','--source-sha','a'*40,'--recovery-profile','ten-personal-bucket-links'],
+            ['--plan','--recovery-profile','seven'],
+        ]:
+            with self.subTest(args=args), patch.object(sys,'argv',['restore',*args]):
+                with self.assertRaises(m.Refused):
+                    m.main()
 
 
 if __name__ == '__main__':

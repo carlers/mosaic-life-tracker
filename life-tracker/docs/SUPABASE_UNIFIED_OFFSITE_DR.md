@@ -407,3 +407,31 @@ merely by source CI: a separately protected fresh seven-table pre-migration
 capture + independent full restore, followed by owner-approved hosted SQL and
 a new ten-table whole-source/Storage R2 generation + independent full restore
 are still required. Never enable scheduled backup or pruning by accident.
+
+
+## Exact-generation isolated R2 restore for new personal profiles (2026-10-26)
+
+The previously accepted one-command private `restore-unified-r2.py --run`
+continues to restore the immutable October 25 seven-table snapshot by default.
+To validate a **newly published** pre-change seven-, eight- or post-install
+ten-table generation, the same operator-only runner now requires an explicit
+completed immutable `--snapshot-id` and `--recovery-profile` pair, never
+just one. The private R2 reader downloads exactly that completed marker's
+**two** authenticated ciphertext streams; it compares the verified R2
+completion marker profile to the requested profile BEFORE any decryption or
+local SQL restore. Wrong, missing or malformed generation IDs, unsupported
+profiles and attempts to relabel the historical snapshot fail before data
+restore. All source+media age bytes are then independently authenticated,
+and the previously reviewed dedicated 7/8/10-table restore flags enforce
+**exact** source table inventory and COPY byte parity on a new loopback-only
+PG17/Auth/Storage stack, with original-password owner and foreign-owner
+negative checks. The environment remains stripped of hosted credentials;
+private R2 read-only keys are still prompted on Fedora, and all disposable
+stacks are cleaned. An offline test rehearses all selection, integrity, denial
+and cleanup paths; the real independent external recovery remains an
+unperformed rollout prerequisite.
+
+No command is requested from the operator at this source milestone; complete
+automatable protected backup/hosted checks first, then consolidate the final
+full personal-data Fedora acceptance into ONE verified invocation. No new
+hosted data, R2 objects, Production, or schedules were created.
