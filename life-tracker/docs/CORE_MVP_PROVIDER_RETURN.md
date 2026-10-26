@@ -402,3 +402,52 @@ old signed-PWA HTTP 403 denials and authoritative time-bound writer
 lease require separate signed Scratch rehearsal and approvals.
 The scanner is deliberately a callable library, not a background
 job, scheduled task, Production command or unreviewed CLI.
+
+## Offline encrypted exact-Appwrite-permission rollback escrow (#1027)
+
+`supabase-poc/appwrite-acl-rollback-archive.mjs` stages a **source-only,
+offline, revertibility primitive** from the separately verified,
+double-scanned Appwrite administrative grants collected by
+`scripts/appwrite-source-grant-readback.mjs`. It preserves the
+**original** permissions on all six personal table definitions and
+every enumerated owner row, original private photo bucket settings and
+each witnessed owner file ACL, and original Function enabled/scopes
+values. Complete frozen per-domain counts, Function inventory,
+global bucket-file count and known owner-media ID membership are
+validated again. It rejects unknown fields, foreign/duplicate rows,
+malformed ACLs, incomplete inventories and any post-readback drift from
+the collector's original SHA256.
+
+The caller must additionally supply a **separately authenticated
+source-witness SHA256**; that pin is included in the encrypted payload,
+but a caller-provided hash is never mistaken for a server signature or
+source authority. The private state is copied synchronously, then
+encrypted with an age X25519 recipient **without writing plaintext
+files or logging original grants**, to a 0600 ciphertext in an
+existing, owner-owned private 0700 directory. The ciphertext is
+fsynced and published via an exclusive no-overwrite hard link, then
+the directory is fsynced. A separate decrypt verifier demands
+independently pinned ciphertext SHA, original plaintext SHA, admin
+grant snapshot SHA, source-witness SHA, exact owner and original
+Appwrite installation. It validates all grants and original counts
+again after decrypt and returns only metadata, never ACL records.
+
+The disposable GitHub Actions ACL escrow lab uses a **synthetic**
+pre-cutoff set of permissive grants, a generated age key and real
+encrypt→decrypt, original byte equality, overwrite refusal, checksum
+drift, malformed/foreign/duplicate rows and even a re-encrypted
+malicious manifest with matching hashes. No real Appwrite project,
+credential or user record is accessed. The module is a library with
+**no automatic ACL restoration**.
+
+**Not a migration freeze or Production approval.** Before use on any
+real operator source, separately prove the admin inventory is
+authenticated and complete (including Storage owner membership),
+independent writer authority/revoked privileged API keys, signed
+authenticated old-PWA 403 denials, captured offline device outboxes,
+Scratch freeze/rollback/reconnect acceptance and encrypted escrow
+retention. A 401 does not prove a write-fence. The decryption function
+explicitly returns `sourceLeaseAuthenticated:false`,
+`aclRestoreAuthorized:false` and `providerCutoverEligible:false`.
+If an owner's ACL inventory exceeds the in-memory size bound, fail
+closed and design a streamed authenticated export; do not truncate.

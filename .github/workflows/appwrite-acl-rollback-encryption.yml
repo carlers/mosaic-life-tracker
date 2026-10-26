@@ -1,0 +1,37 @@
+name: Appwrite Private ACL Rollback Encryption Lab
+
+on:
+  push:
+    branches:
+      - 'chatgpt/1027-appwrite-acl-archive-*'
+      - 'feature/1027-supabase-recovery-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appwrite-acl-rollback-age-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-private-acl-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install age cryptography for disposable synthetic test
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq age
+      - name: Verify original ACL backup encrypt/decrypt, tamper and non-overwrite
+        run: |
+          node --check supabase-poc/appwrite-acl-rollback-archive.mjs
+          node --check supabase-poc/tests/appwrite-acl-rollback-age-lab.mjs
+          node supabase-poc/tests/appwrite-acl-rollback-age-lab.mjs
