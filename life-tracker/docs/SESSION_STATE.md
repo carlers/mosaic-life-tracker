@@ -11,7 +11,7 @@ Current task: #1027 source-only frozen Appwrite full-owner history reader, task 
 
 ## Current change
 - `supabase-poc/appwriteOwnerHistoryRead.ts`: dormant **read-only** guarded Appwrite SDK owner-row scanner. Requires trusted server writer-fence lease including independent exact frozen per-owner row counts, exact installation ID, verified account and app owner generation, checks each around every page. Scans tasks (identity/tombstone only), Bucket List, links twice with owner filter, keyset ID paging and exact server total; refuses foreign/duplicate/incomplete/mutated/long-overflow responses and account/lease rotation. Keeps soft tombstones and all valid 255-character historical task IDs. No ZIP, Provider or Production writer activation.
-- New behavioral fixture `tests/unit/supabaseAppwriteOwnerHistoryRead.test.ts` mocks signed page/lease/owner situations; final focused Quality gate not yet verified. Source count and two passes do not independently authenticate an owner archive.
+- New behavioral fixture `tests/unit/supabaseAppwriteOwnerHistoryRead.test.ts` mocks signed page/lease/owner situations. Earlier focused #40253325876 blocked by missing mandatory checkpoint heading; next #40253695560 exposed a TypeScript callback-cast syntax error (fixed here). Real source behavior/type verification pending new exact SHA. Source count and two passes do not independently authenticate an owner archive.
 - `packOwnerBucketHistory` and offline age ciphertext writer remain accepted foundations, but **real frozen writer lease, authenticated complete full-owner source archive, source byte hash, media history, isolated backfill/replay and reverse provider migration** are all still pending.
 
 ## Next action
