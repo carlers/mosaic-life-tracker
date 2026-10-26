@@ -107,7 +107,8 @@ describe('Ed25519-pinned Appwrite source writer authority (#1027)',()=>{
       f.makeSigned(f.payload,otherKey),f.pins)).toThrow(/Untrusted/);
     const valid=f.makeSigned();
     expect(()=>verifyPinnedAppwriteFrozenLease({
-      ...valid,signature:valid.signature.slice(0,-1)+'A',
+      ...valid,signature:(valid.signature[0]==='A'?'B':'A')+
+        valid.signature.slice(1),
     },f.pins)).toThrow(/Untrusted/);
     expect(()=>verifyPinnedAppwriteFrozenLease({
       ...valid,payload:{...f.payload,ownerCounts:{...ownerCounts,links:2}},
