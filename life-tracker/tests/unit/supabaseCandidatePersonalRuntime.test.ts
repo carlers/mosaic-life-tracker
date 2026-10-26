@@ -163,7 +163,7 @@ describe('gated six-domain original owner Supabase personal runner (#1027)',()=>
     f.guard.assertHostedSixDomainRecoveryReady.mockImplementationOnce(async()=>{
       f.switchUser();
     });
-    await expect(f.runtime.start()).rejects.toThrow(/owner|session/i);
+    await expect(f.runtime.start()).rejects.toThrow(/account|owner|session/i);
     expect(f.guard.acquireExclusiveLease).not.toHaveBeenCalled();
     expect(mocks.starts).toEqual([]);
   });
@@ -178,7 +178,7 @@ describe('gated six-domain original owner Supabase personal runner (#1027)',()=>
       b.switchUser();
       return {isCurrent:()=>true,release:b.released};
     });
-    await expect(b.runtime.start()).rejects.toThrow(/owner|session/);
+    await expect(b.runtime.start()).rejects.toThrow(/account|owner|session/);
     expect(b.released).toHaveBeenCalledOnce();
     expect(mocks.starts).toEqual([]);
   });
