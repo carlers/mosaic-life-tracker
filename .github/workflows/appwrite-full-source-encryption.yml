@@ -1,0 +1,37 @@
+name: Appwrite Full Owner Source Encryption Lab
+
+on:
+  push:
+    branches:
+      - 'chatgpt/1027-appwrite-full-source-archive-*'
+      - 'feature/1027-supabase-recovery-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appwrite-full-source-age-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-owner-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install disposable X25519 encryption
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq age
+      - name: Test source age encrypt, exact decrypt, tamper and no-overwrite
+        run: |
+          node --check supabase-poc/appwrite-full-source-archive.mjs
+          node --check supabase-poc/tests/appwrite-full-source-age-lab.mjs
+          node supabase-poc/tests/appwrite-full-source-age-lab.mjs
