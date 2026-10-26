@@ -1,5 +1,8 @@
 # Source-only owner-private Bucket List and task-link migration (#1027)
 
+> **Hosted status — 2026-10-26:** After user-authorized fresh full encrypted R2 source `20261026T121358327Z` passed independent real physical seven-table PostgreSQL/Auth/Storage restoration, the reviewed `20261025_candidate_private_bucket_links.sql` was applied to `mosaic-dev` (`hcxtiifzxoaflhjgoglb`) as `20261026133344_candidate_private_bucket_links_20261026`. The reviewed `20261025_private_bucket_links_contract.sql` catalog verification passed: owner-only RLS, signed revision/lease triggers, no anonymous or direct update/delete, CAS function grants, composite (owner,bucket) and (owner,task) FKs, and live owned-target guard. Both new tables contain ZERO rows until lossless migration is authorized; foreign/long/deleted original task references MUST remain quarantined in the complete encrypted source and never be silently rewritten. **No historical Appwrite Bucket Lists or task links have migrated.** Real signed hosted two-owner HTTP/negative testing, ten-table complete encrypted offsite generation + independent restore, active six-domain app sync, device/ZIP and old writer freeze remain blocking. Supabase performance advisor notes missing covering index for link task FK (nonsecurity optimization).
+
+
 **Status (2026-10-25): no hosted SQL/table, sync transport, RxDB writer or live
 migration exists.** This mapping and referential-integrity contract is a
 pre-social data-preservation gate, not a feature release.

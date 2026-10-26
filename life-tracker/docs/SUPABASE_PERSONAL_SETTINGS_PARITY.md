@@ -1,5 +1,8 @@
 # Isolated Supabase personal Settings parity — #1027
 
+> **Hosted status — 2026-10-26:** The user approved additive `mosaic-dev` private Settings SQL after fresh verified encrypted seven-table R2 backup and independent real Fedora PostgreSQL/Auth/Storage restore. The exact reviewed source `20261025_candidate_private_personal_settings.sql` has now been applied to Supabase `hcxtiifzxoaflhjgoglb` as migration `20261026133252_candidate_private_personal_settings_20261026`, and `20261025_private_settings_contract.sql` catalog verification PASSED. Live `public.mosaic_candidate_settings` is empty; authenticated owner-only SELECT/INSERT, no anonymous grants or direct UPDATE/DELETE, owner lease/sequence triggers and reviewed CAS function are present. **This is hosted schema installation only:** historical preferences remain in Appwrite/ZIP and have not been copied, signed two-owner hosted HTTP tests and real six-domain Sync Now/device acceptance remain open. Production/dev/main are unchanged. After the additive ten-table schema, a NEW full ten-table private R2 backup and independently restored generation is still required; do not reuse the seven-table format.
+
+
 **Status (2026-10-25): Source only; SQL has NOT been installed; no cloud
 writer or provider switch is enabled.** This is not Production readiness.
 
