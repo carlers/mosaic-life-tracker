@@ -255,3 +255,41 @@ links or disable confirmation to make the acceptance pass.
 An anonymous Vercel protection/SSO redirect was observed preserving a synthetic URL fragment, making one-time credential fragments unsafe to email for the protected Supabase Preview. The isolated v0.32.3 source is therefore held until its original hash-bearing templates are replaced. From the archived, uncommitted Codex handoff, `chatgpt/1027-recover-email-code-entry-20261021` reimplements the intended flow (not a byte-for-byte recovery): code displayed in the email body (`{{ .Token }}`), exact clean route links, and an explicitly entered email/OTP sent exclusively in an HTTPS GoTrue verification POST body. The server-verified token owner and email must match before actions; active Appwrite/Supabase browser account families and RxDB writers remain isolated. Already-issued legacy hash callbacks keep early URL cleanup and session-only revocation, but must not be used in new email templates.
 
 `supabase-poc/email-policy.mjs` rejects a credential-bearing or unexpected template before a hosted policy operation, and disposable hosted runners additionally verify generated code, redact code/hash in diagnostics and test URL/referrer leakage, one-time replay and unaffected active owners. External Vercel operator deployment helpers from the expired Codex VM are **not recovered into this Git tree**. Deployment of repaired v0.32.3 still requires separately verified SHA-bound artifact selection, authenticated clean email-policy readback, old-alias preservation on failure and real deployed browser acceptance. Recorded earlier Codex hosted run `ff73923158367002a1923739` applies to the unavailable original workspace, not independently to this reconstructed source. No live Auth policy or Preview alias changes are authorized by this source patch alone.
+
+## Full personal Appwrite source-content snapshot (source-only, 2026-10-26)
+
+`supabase-poc/appwritePersonalSourceRead.ts` is a dormant READ-ONLY
+capture path for the **original raw owner columns** of all tasks,
+categories, Diary entries and settings, including logical tombstones.
+It complements (does not replace) the three-domain task-identity,
+Bucket and task-link reader. It preserves literal task memo/image
+references, Diary photo-ID JSON, optional null versus absent values,
+unsupported Appwrite-specific settings and original server/permission
+metadata in memory. It does **not** rewrite account IDs, create
+timestamps, convert social references, import SQL, or download photo
+bytes. Unexpected Appwrite application fields or nested values abort,
+rather than being dropped to match an older RxDB schema.
+
+The caller must supply an independently server-enforced, unexpired
+read-only source lease that binds the exact Appwrite endpoint, project,
+database, Cloud/Oracle deployment, owner, generation, and frozen counts
+for **all seven** personal row domains. It checks the signed
+`Account.get`, app session epoch and immutable lease-count witness
+around every owner-filtered `TablesDB.listRows` page and both complete
+passes of the four content domains. Pages advance by a strictly
+monotonic `$id` cursor; local owner checks, exact returned `total`
+and deterministic byte-length-prefixed SHA256 hashes reject missing,
+reordered, duplicated, foreign or mutated rows—even when totals remain
+unchanged. Memory/row/page limits fail closed instead of silently
+returning a truncated snapshot.
+
+The resulting provisional `scanSha256` is **not** an independently
+authenticated source archive hash; `completeSourceArchive:false` and
+`providerCutoverEligible:false` remain explicit. A genuine migration
+requires a real **server-side old-writer/offline-PWA fence**, an
+independently authenticated encrypted full-content archive, linked
+photo Storage object byte hashes and permissions, and a verified
+same-lease join to the Bucket/link history before any target SQL
+replay. The existing user ZIP is active-only and cannot prove these
+invariants. No hosted schema, Appwrite data or live Supabase writer was
+changed to create this contract.
