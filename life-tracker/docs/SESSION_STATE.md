@@ -11,6 +11,6 @@ Current task: #1027 offline original Appwrite private media age escrow on chatgp
 - Offline original-owner WebP BYTE age escrow from independently pinned complete owner file inventory, matching seven-reader source archive ciphertext and original ACL witness. Validates 0600 private source, exact per-file hash, no extra/missing files, no links, no plaintext archive, no-overwrite 0600 encrypted output and independently pinned decryption. 16 MiB source bytes max, fails closed rather than truncating.
 - Real synthetic disposable X25519 tests three original WebP-shaped objects incl unreferenced orphan, fresh private decrypt/digest, tampering and forged ciphertext/foreign owner refusal. No actual original Appwrite bytes captured and no trusted freeze or cutover evidence claimed.
 
-## Next
+## Next action
 - Accept focused Quality + dedicated age CI, squash into recovery and verify stable full canonical. Protected hosted Preview remains approval-gated.
 - Remaining real trusted source freeze incl old queued PWA HTTP 403, key/Function shutdown and rollback, authenticated actual original Storage and R2, hosted private Settings/Bucket signed approval, two-owner reverse migration and device/offline/ZIP acceptance. No social, dev/main/Production, live backend mutation or Fedora work now.
