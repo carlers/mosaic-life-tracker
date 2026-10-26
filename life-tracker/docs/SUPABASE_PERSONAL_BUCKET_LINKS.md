@@ -208,3 +208,45 @@ source age/archive digest authentication, durable encrypted inventory
 publication/retention, and independently verified replay/backfill across
 Appwrite Cloud/Oracle and Supabase. No hosted schema/writer, R2 object,
 Production or user ZIP semantics have changed.
+
+## Source-only signed Appwrite full-owner read snapshot (2026-10-26)
+
+`appwriteOwnerHistoryRead.ts` is a dormant, read-only collector for the
+pre-social task-identity, Bucket and Bucket-task-link inventories. In
+contrast to the active-only user ZIP, it queries all owner rows by
+`user_id` (including `deleted=true`) using the guarded signed Appwrite
+TablesDB and Account SDK surfaces, keyset paging by `$id`, an explicit
+`total:true` count and bounded page size. It makes two independent,
+complete pageset passes and refuses changed counts, shifted records,
+duplicate/out-of-order IDs, malformed historical fields, foreign rows and
+absent tombstone metadata. It includes exact original 255-character
+Appwrite task references; it NEVER rewrites IDs, omits deleted rows,
+persists a checkpoint, writes a database or calls the Supabase backend.
+
+A caller must supply a **server-enforced read-only owner source lease**
+with exact Appwrite endpoint, project, database and installation identity,
+unexpired generation/lease IDs, plus the app's authenticated owner session
+epoch. Both remote account verification and authoritative lease checks
+run around every signed page, including both passes; an account switch or
+an expired/changed lease invalidates the entire result. The actual lease
+issuer/old-PWA server fence is *not yet implemented*. The caller cannot
+self-authorize this via a local UI flag. Signed access alone cannot make
+a concurrent-write snapshot consistent.
+
+The result is a **preliminary readback**, not yet an independently
+authenticated historical source archive: the task domain carries identity,
+tombstone and count, not full task content; Appwrite's own pagination
+`total` does not independently prove a frozen backend inventory. Only a
+separately signed and authenticated full source snapshot (including task
+content and media) may supply `packOwnerBucketHistory.sourceArchiveSha256`.
+Unit tests use injected synthetic Appwrite responses and fail-closed lease,
+owner, pagination, tombstone and two-pass-mutation cases. No real Cloud
+or Oracle owner has been read or migrated.
+
+The source reader also requires each lease's exact server-frozen owner row
+counts for tasks, Bucket goals and links, distinct from the Appwrite
+`listRows.total` value. All pages and both complete passes must agree with
+this independently issued count witness; the lease and witness are copied
+before scanning so a mutable callback cannot change the expected totals in
+place. This does **not** make a browser-supplied fake lease authoritative:
+the missing server-coordinated writer fence remains a hard blocker.
