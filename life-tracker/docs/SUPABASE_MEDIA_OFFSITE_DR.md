@@ -92,3 +92,39 @@ channel; a red GitHub Actions run alone is **not** a proven delivered alert.
 5. Require separate approval for any `dev`, `main`, protected Preview or
    Production changes. Do not repeat previously accepted Fedora whole-bucket
    synthetic drill merely to accept a source-only scheduled workflow.
+
+## Owner-wide historical photo reference/byte parity (source-only)
+
+`supabase-poc/candidatePhotoMigrationAudit.ts` checks **all historical**
+task `image` and Diary `photos` references, including soft-deleted rows,
+against an independently captured complete original Appwrite owner Storage
+inventory and a separately restored Supabase Storage object inventory.
+It invokes the seven-domain owner history join first: signed identity,
+Cloud/Oracle installation, source writer-freeze generation, content
+fingerprints and task/link tombstones must still match. Every index must
+have separately authenticated counts and externally pinned SHA256
+metadata. The reader accepts only exact original file IDs and byte-size
+and SHA256 claims, with expected target paths
+`<Supabase Auth UUID>/<Mosaic file ID>.webp`. No public Storage URLs
+are generated.
+
+Every representable original owner blob, even if no current task/Diary
+references it (e.g., an old avatar), must be restored byte-identically;
+unexpected, foreign, duplicate, missing or changed target objects are
+refused rather than deleted or overwritten. Original references with
+missing Storage bytes or legacy IDs longer than the 36-character target
+limit are **reported as unresolved**, never normalized or silently
+removed from the independently encrypted source. Malformed historical
+Diary photo JSON, duplicate photo IDs, and more than five photo IDs in
+one entry fail closed rather than being truncated to five. The
+result always includes `fullEncryptedSourceAuthenticated:false`
+and `providerCutoverEligible:false`; matching metadata alone cannot
+prove genuine binary provenance or enable a provider switch.
+
+**Still required:** a real trusted Appwrite Storage/owner-count and
+frozen-writer witness, independently authenticated original Appwrite
+photo-byte archive, authorized owner mapping, actual Source/Supabase
+encrypted Storage manifests and nonempty independent restore, signed
+owner/foreign Storage tests, ZIP/offline/device replay and a safe
+reverse-provider dry run. This comparator is no-network and source-only,
+not a media migrator or an approved hosted backup job.
