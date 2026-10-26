@@ -1,5 +1,6 @@
 # Session checkpoint
-Updated 2026-10-26 Asia/Manila; issue #1027. User authorized mosaic-dev-only additive personal Settings/Bucket/link SQL AFTER fresh encrypted pre-change backup, independent full restore and security validation, NOT Production or main/dev/Preview bypass.
+Updated: 2026-10-26 Asia/Manila
+Current task: issue #1027 ten-profile external R2 independent restore, `chatgpt/1027-dynamic-ten-table-r2-restore-20261026`. User authorized mosaic-dev-only additive personal Settings/Bucket/link SQL AFTER fresh encrypted pre-change backup, independent full restore and security validation, NOT Production or main/dev/Preview bypass.
 
 ## Accepted baseline
 - Isolated recovery `feature/1027-supabase-recovery-20261020@a52be5303959e606c8d89f73a0bfab347db6fa55`, v0.47.0. `dev@497919bed4b6ce85b826f2d86fc767920344ec17`, `main@bef14fb791a361e8c1f902a5c4adf4536e57aae7`, still Appwrite. Exact-SHA full Quality #40314863846 and source age/synthetic PASS; GoTrue/eight-/ten-table/Core App at checkpoint running; check live CI.
