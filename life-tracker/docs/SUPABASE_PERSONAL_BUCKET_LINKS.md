@@ -327,3 +327,31 @@ encrypted R2 restore. It does not make Settings/Bucket hosted, implement replay,
 authorize Supabase Production or execute a provider switch. Remaining live
 R2/Storage, ZIP, quarantine and real bidirectional migrations stay separate.
 Only ONE final full pre-social Fedora acceptance command after all automated gates.
+
+## Offline original Appwrite private media BYTE escrow (2026-10-26)
+
+The source-only Appwrite appwrite-original-media-age.mjs stages a complete,
+independently pinned single-owner Storage inventory and exact original WebP
+bytes into no-plaintext-file age X25519 ciphertext. It requires private 0700
+directories, 0600 files, rejects symlinks, and validates owner IDs, expected
+size/SHA256, extra/missing staged originals and original-file changes.
+It publishes immutable 0600 no-overwrite ciphertext. Separate readback
+checks pinned full ciphertext and decrypted plaintext SHA256, each file byte
+digest/count, original Appwrite installation, complete seven-reader source
+archive ciphertext SHA and original ACL witness SHA. Results contain metadata
+only; no image bytes are returned.
+
+The isolated real age lab uses THREE synthetic WebP-shaped originals including
+an unreferenced orphan. It tests byte equality, preserved existing archives,
+forged re-encryption, wrong owner/pins/digests, extra original staged files and
+symlink rejection. No real user data or cloud API is accessed.
+
+The source-only in-memory bound is 16 MiB original bytes and 32 MiB encrypted
+plaintext input. Larger users must use a separately reviewed streaming capture,
+not truncation or implicit passing evidence.
+
+This does NOT authenticate actual source owner membership, issue a trusted
+Appwrite writer fence, download originals, upload to R2, prove full DR,
+migrate Storage to Supabase or authorize provider cutover. Input membership
+and SHA pins must come from a separately authenticated complete source. The
+owner still requires ONE final consolidated pre-social Fedora acceptance.

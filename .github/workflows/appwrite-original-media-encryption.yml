@@ -1,0 +1,37 @@
+name: Appwrite Original Owner Media Byte Encryption Lab
+
+on:
+  push:
+    branches:
+      - 'chatgpt/1027-appwrite-original-media-age-*'
+      - 'feature/1027-supabase-recovery-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appwrite-original-media-age-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-private-media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install disposable age X25519 encryption
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq age
+      - name: Prove original file bytes, private ciphertext and tamper refusals
+        run: |
+          node --check supabase-poc/appwrite-original-media-age.mjs
+          node --check supabase-poc/tests/appwrite-original-media-age-lab.mjs
+          node supabase-poc/tests/appwrite-original-media-age-lab.mjs
