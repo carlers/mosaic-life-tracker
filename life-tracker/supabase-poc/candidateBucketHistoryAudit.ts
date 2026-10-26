@@ -75,7 +75,12 @@ export function classifyOwnerBucketLinkHistory(input: {
     if (!link.isDeleted && bucket?.isDeleted) reasons.push('deleted-bucket');
     if (!link.isDeleted && task?.isDeleted) reasons.push('deleted-task');
     return {
-      source: { ...link },
+      source: {
+        id: link.id, userId: link.userId,
+        bucketListId: link.bucketListId, taskId: link.taskId,
+        createdAt: link.createdAt, updatedAt: link.updatedAt,
+        isDeleted: link.isDeleted,
+      },
       disposition: reasons.length ? 'quarantined' :
         link.isDeleted ? 'tombstone' : 'ready',
       reasons,
