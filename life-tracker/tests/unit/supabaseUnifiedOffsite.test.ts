@@ -11,7 +11,11 @@ describe('Supabase unified encrypted PostgreSQL + private Storage offsite recove
       env: { PATH: process.env.PATH ?? '', HOME: '/nonexistent' },
     });
     expect(result.status, result.stderr || result.stdout || result.error?.message).toBe(0);
-    expect(result.stdout).toContain('# pass 12');
+    const total = result.stdout.match(/^# tests (\d+)$/m);
+    const passed = result.stdout.match(/^# pass (\d+)$/m);
+    expect(total, 'Missing node:test summary').not.toBeNull();
+    expect(Number(total?.[1])).toBeGreaterThanOrEqual(12);
+    expect(passed?.[1], 'Some node:test cases did not pass').toBe(total?.[1]);
     expect(result.stdout).toContain('# fail 0');
   });
 });
