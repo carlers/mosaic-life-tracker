@@ -320,3 +320,44 @@ digest is not a signed encrypted full-source backup. A trusted
 server-enforced fence and independently encrypted full owner-content
 plus Storage binary archive must be validated before the joined
 readback is accepted as migration provenance.
+
+## Appwrite direct old-PWA write-denial preflight (#1027)
+
+The existing Appwrite manifest gives personal TablesDB tables the
+`create("users")` permission with `rowSecurity:true`. Thus a new
+frontend read-only flag, DNS change, Supabase lease or stopped Function
+**cannot** stop already-installed old Appwrite PWAs: the old client may
+still create rows via table grants and update/delete existing owner
+rows via per-row ACL. The owner task/Diary photo Storage bucket
+`task_images` similarly allows `create("users")`, and enabled
+`message-action` has privileged `rows.write` scopes.
+
+`supabase-poc/appwriteWriterFreezePreflight.ts` is a dormant **read-only
+administrative preflight**, not a permission migration. It refuses to
+recognize any source as provisionally read-only until an independently
+obtained, complete admin inventory covers all six current personal
+TablesDB tables and the private Storage bucket, with exact frozen owner
+row/file counts and **no remaining client create/update/delete**
+table, row, bucket or file ACLs. It also requires a complete Function
+inventory with **no enabled privileged write-capable Function**, and
+a full seven-surface × three-operation matrix of authenticated old
+client HTTP 403 denials tied to the exact owner, source deployment and
+frozen generation. A 401 from an expired session is **not** proof of
+write denial. Missing, duplicated or foreign owner rows/receipts
+cause fail-closed refusal; deterministic metadata hashes support an
+independent audit.
+
+**Critically:** the source-only preflight never connects to Appwrite,
+changes user permissions, disables Functions, rotates API keys or
+issues a server-signed exclusive lease. Its output explicitly states
+`serverFreezeAuthorityAuthenticated:false`,
+`privilegedWriterCredentialsRevoked:false` and
+`providerCutoverEligible:false`. An authorized operator must first
+provision/restore an encrypted ACL rollback ledger, stage and verify
+the actual grants in an independent Scratch installation, prove
+old-PWA offline reconnect behavior and privilege/function denial,
+audit all admin credentials and old signed sessions, and only then
+activate an authoritative time-bound writer-freeze lease. Production
+requires its own explicit approval. Never treat a locally constructed
+preflight input as a genuine server-admin snapshot or loosen ACLs
+simply to make an offline fixture pass.
