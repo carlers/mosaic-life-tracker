@@ -18,7 +18,7 @@ function validate(payload) {
       payload.version !== 1 ||
       typeof payload.owner?.legacyUserId !== 'string' || !payload.owner.legacyUserId ||
       typeof payload.owner?.supabaseUserId !== 'string' || !payload.owner.supabaseUserId ||
-      !SHA.test(payload.sourceArchiveSha256) ||
+      !SHA.test(payload.sourceArchiveSha256) || !SHA.test(payload.targetIdentitySha256) ||
       !Array.isArray(payload.links) || payload.links.length > MAX_LINKS ||
       payload.sourceCounts?.links !== payload.links.length)
     throw new Error('Refusing unverified historical owner inventory envelope');
