@@ -6,8 +6,8 @@ import { mkdtemp, chmod, readFile, readdir, rm, stat, writeFile } from 'node:fs/
 import { join } from 'node:path';
 import { MOSAIC_DATABASE, MOSAIC_BUCKET } from '../../infrastructure/mosaic-backend.mjs';
 import {
-  buildOwnerAclRollbackEnvelope, encryptOwnerAclRollback,
-  verifyOwnerAclRollbackArchive,
+  buildOwnerAclRollbackEnvelope, buildAppwriteFreezeDryRunPlan,
+  encryptOwnerAclRollback, verifyOwnerAclRollbackArchive,
 } from '../appwrite-acl-rollback-archive.mjs';
 
 assert.equal(process.env.GITHUB_ACTIONS,'true');
@@ -70,6 +70,64 @@ try{
   assert.equal(encrypted.adminGrantSnapshotSha256,scanned.adminGrantSnapshotSha256);
   assert.equal((await stat(archivePath)).mode&0o777,0o600);
   const source=buildOwnerAclRollbackEnvelope(scanned,sourceWitnessSha256);
+
+  // Global and owner-row permissions plus every enabled Function are
+  // represented as reversible proposed changes, NEVER issued as API calls.
+  const originalReadbackJson=JSON.stringify(scanned);
+  const dryRun=buildAppwriteFreezeDryRunPlan(scanned,sourceWitnessSha256);
+  assert.equal(dryRun.plannedChanges,16);
+  assert.equal(dryRun.steps.filter(x=>x.resource==='table').length,6);
+  assert.equal(dryRun.steps.filter(x=>x.resource==='owner-row').length,6);
+  assert.equal(dryRun.steps.filter(x=>x.resource==='bucket').length,1);
+  assert.equal(dryRun.steps.filter(x=>x.resource==='owner-file').length,1);
+  assert.equal(dryRun.steps.filter(x=>x.resource==='function').length,2);
+  assert.deepEqual(dryRun.steps.find(x=>x.resource==='owner-row').after.permissions,
+    ['read("user:disposable_owner")']);
+  for(const step of dryRun.steps){
+    if(step.after.permissions)
+      assert.equal(step.after.permissions.some(p=>
+        /^(?:create|update|delete|write)\("/.test(p)),false);
+    if(step.resource==='function')assert.equal(step.after.enabled,false);
+  }
+  assert.equal(dryRun.originalAdminGrantSnapshotSha256,
+    scanned.adminGrantSnapshotSha256);
+  assert.match(dryRun.planSha256,/^[a-f0-9]{64}$/);
+  assert.equal(dryRun.approvedForExecution,false);
+  assert.equal(dryRun.approvedForRollback,false);
+  assert.equal(dryRun.serverWriteFenceAuthenticated,false);
+  assert.equal(dryRun.oldClient403Proved,false);
+  assert.equal(dryRun.providerCutoverEligible,false);
+  assert.equal(JSON.stringify(scanned),originalReadbackJson);
+  assert.deepEqual(buildAppwriteFreezeDryRunPlan(scanned,sourceWitnessSha256),
+    dryRun);
+  // An already read-only original inventory never becomes a cutover permit.
+  const alreadyFrozen=structuredClone(scanned);
+  for(const table of alreadyFrozen.tableGrants){
+    table.permissions=[];
+    for(const row of table.ownerRows)
+      row.permissions=['read("user:disposable_owner")'];
+  }
+  alreadyFrozen.photoBucket.permissions=[];
+  for(const file of alreadyFrozen.photoBucket.ownerFiles)
+    file.permissions=['read("user:disposable_owner")'];
+  for(const fn of alreadyFrozen.functionGrants)fn.enabled=false;
+  const readOnlyState={
+    tableGrants:alreadyFrozen.tableGrants,
+    photoBucket:alreadyFrozen.photoBucket,
+    expectedOwnerCounts:alreadyFrozen.expectedOwnerCounts,
+    functionGrants:alreadyFrozen.functionGrants,
+    expectedFunctionCount:alreadyFrozen.expectedFunctionCount,
+    completeBucketObjectCount:alreadyFrozen.completeBucketObjectCount,
+    unattributedBucketFileCount:alreadyFrozen.unattributedBucketFileCount,
+  };
+  alreadyFrozen.adminGrantSnapshotSha256=hash(JSON.stringify(readOnlyState));
+  const emptyPlan=buildAppwriteFreezeDryRunPlan(alreadyFrozen,sourceWitnessSha256);
+  assert.equal(emptyPlan.plannedChanges,0);
+  assert.equal(emptyPlan.providerCutoverEligible,false);
+  const forgedPlanSource=structuredClone(scanned);
+  forgedPlanSource.tableGrants[0].ownerRows[0].permissions.push('write("users")');
+  assert.throws(()=>buildAppwriteFreezeDryRunPlan(
+    forgedPlanSource,sourceWitnessSha256),/changed after double scan/);
   assert.deepEqual(cli('/usr/bin/age',['-d','-i',identityPath,archivePath]),
     Buffer.from(JSON.stringify(source),'utf8'));
   const proof={
