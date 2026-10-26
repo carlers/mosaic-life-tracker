@@ -208,3 +208,32 @@ Settings collection or enable it alongside Appwrite without first building
 a separately verified, complete feature-migration/owner-writer-fence strategy.
 This source-only adapter's CI tests do not constitute an approved hosted
 Settings writer, user-data backfill or two-device/offline acceptance.
+
+## Complete-owner Settings history replay and exact target readback (offline, 2026-10-26)
+
+New `candidateSettingsHistoryReplay.ts` prepares a **complete-owner,
+source-only** replay partition. It requires externally authenticated original
+Settings count (including tombstones), deterministic original six-field row
+digest, seven-domain original scan SHA and full encrypted original-source
+ciphertext SHA. It rejects foreign/duplicate IDs, duplicated preference keys,
+missing entries, incorrect tombstones, changed or oversized original values,
+invalid timestamps and any changed original content hash. Unsupported
+`profileImageId` and `friend_carousel_prefs` stay deferred,
+preserved ONLY in the previously encrypted full owner source, and are
+represented by original IDs/keys/tombstone status and field SHA—NOT imported
+or silently dropped. All five other example preference keys, including unknown
+future keys and deleted values, remain byte-exact Supabase-mapped rows.
+
+The companion readback verifier accepts only an **independently complete
+signed and owner-fenced Supabase target snapshot**, requires a separate
+pin of the exact plan hash, validates authoritative int8 revisions and
+server timestamps, disallows extra/duplicate/wrong-owner/unsupported rows
+and compares original ID, key, opaque value, timestamp and tombstone fields.
+It returns counts/digests only and never sets real source-authority,
+target-authentication, media/social migration or provider-cutover flags true.
+Unit tests cover complete and reordered originals, duplicate preference keys,
+tampering, unknown future settings, source omissions and foreign/modified
+target revisions. This still is **not** a hosted Settings migration or
+encrypted live deferred-history retention proof. No active RxDB Settings
+replicator, Appwrite backend, Supabase hosted SQL, Production, R2 or Fedora
+changes occurred.
