@@ -1,18 +1,16 @@
 # Session checkpoint
 Updated: 2026-10-26 Asia/Manila
-Current task: #1027 diagnose local exact R2 isolated restore stage 04 on chatgpt/1027-r2-safe-stage-diagnostics-20261026.
+Current task: #1027 scoped safe field-only R2 credential format diagnostics; branch `chatgpt/1027-r2-credential-field-diagnostic-20261026`.
 
-## Accepted baseline
-- Isolated recovery feature/1027-supabase-recovery-20261020@6ded0ea34438d64be98d6b939371b86d592e1cef. Stable full canonical, real GoTrue, 7/8/10 private table synthetic, age/Storage/ACL/Bucket restore labs PASS. Protected hosted Preview still reviewer gated; dev/main/Production unchanged.
-- User authorized only mosaic-dev additive personal Settings/Bucket/link hosted SQL AFTER fresh private encrypted full source+media and independent real restore. Exact fresh R2 backup generation 20261026T121358327Z from protected main manual Actions #40320887302 SUCCESS and separately independent full ciphertext watch #40166002937 attempt2 SUCCESS.
-- User Fedora one-command operator restore stage 01/02/03 PASS (private source SHA, complete encrypted ciphertext R2 download, both original PostgreSQL and Storage age authenticated, TOC inspected). Stage 04 local disposable PG17 restoration FAILED. Cleanup stage 07 PASS. No completed physical restore, no hosted DDL applied.
-- Current restore-unified-r2.py hides stdout/stderr of the local subprocess intentionally, reporting only generic 'Guarded local recovery subprocess failed'; cannot know if Docker preflight, container initialization, PostgreSQL row restore/manifest or byte parity failed. Do not guess at real root cause.
+## Accepted state
+- Recovery source `feature/1027-supabase-recovery-20261020@48ac0e8e7384433afe73cf61a8811a9145d8441d`, v0.47.0; dev/main/Production untouched. PR #1363 merged local Stage-04 fixed allowlisted restore checkpoints; 16 synthetic tests plus full exact-SHA Quality #40323677974 PASSED, eight table/age labs green; other exact-SHA labs may still be running.
+- User approved additive Settings/Bucket/link SQL on hosted `mosaic-dev` **only after** fresh private complete-age backup and independent signed real physical PostgreSQL/Auth/Storage recovery; no Production/Preview or provider-switch approval.
+- Fresh protected R2 generation `20261026T121358327Z`: backup #40320887302 SUCCESS and independent ciphertext watch #40166002937 attempt2 SUCCESS. User Fedora original attempted archive: stage 01/02/03 passed, stage 04 physical PG17 failed; cleanup stage 07 PASS. No signed physical recovery/hosted DDL.
+- User retried exact newer diagnostic restore but stage 02 FAILED with `Dedicated R2 reader credentials malformed`, then stage 07 cleanup PASS; no network download, no physical recovery proof. Earlier accepted same-age R2 download proves this generation is accessible with valid read-only ID/secret. Only local credential-field format validation failed; no indication yet which field. Do NOT ask for API token/key/secret in chat or logs.
 
-## Current scoped source repair
-- Emit allowlisted FIXED non-sensitive local substage tokens inside run-private-core-recovery.sh and restore_private_core_to_disposable.py; outer private R2 wrapper parses exact checkpoint tokens on failure, NEVER echoes raw stdout, stderr, secrets, source fields/SQL or private file paths. Preserve failure abort and cleanup. Test positive classification, unknown marker injection, generic error privacy and full old/new stage graph.
-- Clean inherited MOSAIC_FRESH_SNAPSHOT_SHA256, MOSAIC_PERSONAL_SETTINGS_RESTORE, MOSAIC_BUCKET_LINKS_RESTORE, MOSAIC_SYNTHETIC_ARCHIVE_SHA256 from private child process env. Only reviewed restore profile sets new scoped grants internally. No source-table/owner-count acceptance or security waivers, no R2 or hosted changes.
-- Source-only repair, synthetic focused Quality then stable full canonical/real recovery jobs. Distinguish diagnostic capability from verified root-cause repair. Operator repeats at most one concise exact-SHA private restore command only after accepted CI and when necessary.
+## Current change
+- Split `read_credentials()` combined validation failure into safe field-only static errors: account ID, dedicated read-only Access Key ID, dedicated read-only Secret Access Key. Keep exact original formatting constraints, hidden prompts, no credential value/length disclosure, no trimming hidden keys. Do not relax cloud credentials, owner/age/PG17/Storage/cleanup gates. Synthetic no-network tests cover normal valid account+secret, each invalid field/empty/whitespace, and prohibit secret reflection. Existing offline restore suite expanded 16 to 18 cases, canonical wrapper updated.
+- Source-only; no cloud backend, R2, Production, dev/main, user-data or Fedora modifications. Run task focused Quality, merge scoped source, then verify exact canonical before ONE operator rerun of same snapshot command with correctly copied read-only credentials.
 
-## Next action
-- Run focused CI, repair, squash isolated recovery, full exact-SHA canonical. Then one operator-safe invocation on already downloaded fresh immutable 20261026T121358327Z generation for actual substage evidence; do not proceed hosted migration until the entire original-password signed isolated restore and photo proof succeeds.
-- After actual physical recovery PASS apply only already-approved additive mosaic-dev personal SQL, run live signed two-owner RLS/CAS/Storage negatives, capture fresh TEN-table R2 generation and independently verify new target. No Production cutover/dev/main/Preview approval implied.
+## Follow-up
+- If download succeeds, local Stage 04 fixed safe checkpoint will pinpoint previous physical restore fault. Resolve and re-run strictly locally before already-approved hosted additive migrations; follow with live signed two-owner RLS and complete ten-table R2 recovery. Preserve sole one-command operator workflow, do not repeat older accepted backups or leak credentials.
