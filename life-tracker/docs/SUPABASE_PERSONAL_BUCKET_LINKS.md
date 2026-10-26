@@ -301,3 +301,29 @@ exclusivity, original complete source provenance, real encrypted
 quarantine persistence, task/Settings/media parity and reverse replay.
 It neither authorizes hosted Supabase writer installation nor makes a
 Production provider switch ready.
+
+## Complete original Appwrite personal source escrow (2026-10-26, source only)
+
+appwriteFullOwnerSourceArchive.ts seals both owner-signed double-pass scanners into
+one exact original source inventory: task content/tombstones and identity,
+categories, Diary, Settings, Bucket goals, links (including 255-character
+legacy dangling refs), original raw field presence/null and source ACLs.
+It rejects owner, lease, generation, count, and content divergences, copies
+rows before asynchronous escrow, and requires a separately pinned seven-reader
+digest. A local digest alone is NOT independently signed source authority.
+
+appwrite-full-source-archive.mjs encrypts the complete reviewed manifest into
+one X25519 age archive; no plaintext is written. Requires private owned 0700
+directory and exclusive 0600 output. Independent readback checks pinned
+cipher/plain digests, exact owner/source/lease/generation, all original
+row hashes and tombstones, then returns metadata ONLY. Bounded 64 MiB
+plaintext inputs fail closed instead of truncated migration. A dedicated
+real-age synthetic CI lab checks encryption, decryption, original tombstone
+and long-link fidelity, old-file preservation, tampered and foreign rows.
+
+This implementation does NOT read real Appwrite owners, freeze old PWA writers,
+authenticate an actual trusted server signer, preserve image BYTES or finalize
+encrypted R2 restore. It does not make Settings/Bucket hosted, implement replay,
+authorize Supabase Production or execute a provider switch. Remaining live
+R2/Storage, ZIP, quarantine and real bidirectional migrations stay separate.
+Only ONE final full pre-social Fedora acceptance command after all automated gates.

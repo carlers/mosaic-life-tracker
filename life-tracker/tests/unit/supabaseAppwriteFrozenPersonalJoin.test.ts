@@ -5,6 +5,7 @@ import type {
   FrozenPersonalSnapshot, FrozenPersonalRow,
 } from '../../supabase-poc/appwritePersonalSourceRead';
 import { joinFrozenAppwriteOwnerSources } from '../../supabase-poc/appwriteFrozenPersonalJoin';
+import { packFrozenAppwriteOwnerSource } from '../../supabase-poc/appwriteFullOwnerSourceArchive';
 
 const id = { legacyUserId: 'owner_1',
   supabaseUserId: '11111111-1111-4111-8111-111111111111' };
@@ -179,5 +180,60 @@ describe('same frozen source lease across seven pre-social owner domains (#1027)
     x.personal.completeSourceArchive = true as never;
     expect(() => joinFrozenAppwriteOwnerSources(x))
       .toThrow(/separately fenced preliminary snapshots/);
+  });
+});
+describe('sealed original seven-reader owner archive (#1027)', () => {
+  it('keeps raw field absence, null, tombstones, permissions and every source domain', () => {
+    const x = fixtures();
+    const before = joinFrozenAppwriteOwnerSources(x);
+    const payload = packFrozenAppwriteOwnerSource({
+      ...x, expectedSevenDomainScanSha256: before.sevenDomainScanSha256,
+    });
+    expect(payload.format).toBe('mosaic-appwrite-full-owner-source');
+    expect(payload.counts).toEqual(before.counts);
+    expect(payload.sevenDomainScanSha256).toBe(before.sevenDomainScanSha256);
+    expect(payload.rows.tasks[1].isDeleted).toBe(true);
+    expect(payload.rows.tasks[1].columns.memo).toBeNull();
+    expect(Object.hasOwn(payload.rows.tasks[1].columns,'image')).toBe(false);
+    expect(payload.rows.tasks[0].originalPermissions).toEqual([
+      'read("user:owner_1")',
+    ]);
+    expect(payload.rows.links[0].taskId).toBe('task_1');
+    expect(payload.rows.taskIdentities).toEqual(x.history.tasks);
+    expect(payload.storageBytesIncluded).toBe(false);
+    expect(payload.sourceServerAuthorityAuthenticated).toBe(false);
+    expect(payload.providerCutoverEligible).toBe(false);
+    x.personal.rows.tasks[1].columns.memo = 'later unsafe edit';
+    x.history.links[0].taskId = 'later_unsafe_edit';
+    expect(payload.rows.tasks[1].columns.memo).toBeNull();
+    expect(payload.rows.links[0].taskId).toBe('task_1');
+  });
+  it('rejects changed pins, foreign owners, incomplete copies and tampered columns', () => {
+    const x = fixtures();
+    const expected = joinFrozenAppwriteOwnerSources(x).sevenDomainScanSha256;
+    expect(() => packFrozenAppwriteOwnerSource({
+      ...x, expectedSevenDomainScanSha256:'0'.repeat(64),
+    })).toThrow(/pinned scan digest/);
+    x.personal.rows.tasks[0].columns.memo = 'altered';
+    expect(() => packFrozenAppwriteOwnerSource({
+      ...x, expectedSevenDomainScanSha256:expected,
+    })).toThrow(/content changed/);
+    const foreign = fixtures();
+    foreign.history.owner.legacyUserId = 'foreign';
+    expect(() => packFrozenAppwriteOwnerSource({
+      ...foreign, expectedSevenDomainScanSha256:expected,
+    })).toThrow(/identity mapping/);
+  });
+  it('retains 255-character historical dangling links as original source data', () => {
+    const x = fixtures();
+    x.history.links[0].taskId = 'a'.repeat(255);
+    x.history.fingerprints.links = rowHash(x.history.links);
+    const expected = joinFrozenAppwriteOwnerSources(x).sevenDomainScanSha256;
+    const payload = packFrozenAppwriteOwnerSource({
+      ...x, expectedSevenDomainScanSha256:expected,
+    });
+    expect(payload.rows.links[0].taskId).toHaveLength(255);
+    expect(payload.rows.links[0].isDeleted).toBe(false);
+    expect(payload.providerCutoverEligible).toBe(false);
   });
 });

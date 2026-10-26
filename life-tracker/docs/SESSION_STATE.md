@@ -1,16 +1,17 @@
 # Session checkpoint
 Updated: 2026-10-26 Asia/Manila
-Current task: #1027 source-only whole-installation old-PWA grant cutoff dry-run, task branch `chatgpt/1027-appwrite-freeze-dryrun-plan-20261026`.
+Current task: #1027 encrypted complete Appwrite owner source archive, branch `chatgpt/1027-appwrite-full-source-archive-20261026`.
 
-## Baseline and accepted evidence
-- Isolated recovery `feature/1027-supabase-recovery-20261020@59c62a6bb3ee0c6374a67694fc833a08b6e55765`, source-only; `main@bef14fb791a361e8c1f902a5c4adf4536e57aae7` and `dev@497919bed4b6ce85b826f2d86fc767920344ec17` untouched.
-- #1348 accepted independently decryptable original ACL age escrow; #1350 accepted Ed25519 seven-domain signed source lease verifier. Full exact recovery SHA Quality, GoTrue, synthetic, Settings 8-table, Bucket 10-table and both real age workflows successful (Oct 26); Core App Preview reviewer approval pending.
-- Appwrite Scratch `6a96e82d000d1310b3be` remains paused; no remote writer/network/provider changes. Prior real Fedora Scratch seven-table R2 age restore/native >=30-day retention passed; do not repeat. Only ONE consolidated final all-pre-social Fedora command after fully prepared automation.
+## Baseline
+- Isolated recovery `feature/1027-supabase-recovery-20261020@7fafae713743517831f00fa00986fb0130efc310`, v0.47.0. Main `bef14fb791a361e8c1f902a5c4adf4536e57aae7` and dev `497919bed4b6ce85b826f2d86fc767920344ec17` stay on Appwrite v0.43.8. No Production or branch promotion.
+- #1348 original ACL escrow, #1350 Ed25519 seven-reader signed lease verification, #1351 no-write ACL freeze plan passed focused and stable full Quality (attempt 2) and all prior age/restore tests. Core App technical success; protected hosted Preview approval still held.
+- Appwrite Scratch paused; past real Fedora seven-table R2 age restore/native >=30-day retention PASSED and MUST NOT be repeated. Only ONE final SHA-pinned pre-social Fedora acceptance when all automated code is ready.
 
-## Current source-only scope
-- `supabase-poc/appwrite-acl-rollback-archive.mjs` adds `buildAppwriteFreezeDryRunPlan`: validate complete exact original snapshot/source witness before deriving reviewable, sorted before/after changes for six table grants, all owner row grants, private Storage bucket/files, and every enabled Function. No live Apply/restore calls. Deliberately false signed 403, key/webhook revocation, server authority and cutover flags.
-- Extend real-age synthetic ACL escrow lab with positive mutation-matrix assertions, original-state preservation, deterministic digest, zero-step never-eligible case and changed-snapshot rejection. Document whole-installation impact on other owners.
+## Current task scope
+- Pure complete original 7-reader owner snapshot packer verifies one lease across full tasks/categories/Diary/Settings, historical task identities, goals/links incl tombstones, original permission/field nulls and long/dangling source refs.
+- No-network age X25519 0600 no-overwrite archive/encrypted readback requiring independently pinned ciphertext/plain SHA, source/owner/lease/generation/counts and every original domain hash. No Photo BYTES, real freeze or authenticated source authority is claimed.
+- Add original-source unit tamper/fidelity tests, dedicated real synthetic age lab/workflow; document release and single-Fedora gate.
 
 ## Next action
-- Obtain complete focused CI on task commit; repair actual failures before isolated stable squash. Verify full canonical afterward; never auto-approve protected Preview.
-- Still missing: authorized server-exclusive Scratch writer freeze/key and Function revocation plus signed old-PWA 403/offline outbox proofs; authenticated complete original owner rows/private image BYTES and R2 escrow; hosted private Supabase SQL approval, two-owner target/reverse Appwrite Cloud/Oracle↔Supabase migration, ten-table Auth/Storage DR and device/ZIP/offline parity. Production requires separate approval. No partial Fedora commands, social, backup pruning or dev/main changes.
+- Run full-diff task focused CI and real age lab, repair failures, squash only into isolated recovery. Verify new exact-SHA canonical acceptance; protected Preview remains reviewer-controlled.
+- Real server-exclusive owner writer freeze incl stale-PWA queued writes, credential/Function closure, original private image bytes, full R2 Auth/Storage restore, hosted Settings/Bucket signed acceptance, two-owner replay/reverse provider migration and device/ZIP offline acceptance remain. No dev/main, Production, hosted SQL, pruning, alerts or social changes.
