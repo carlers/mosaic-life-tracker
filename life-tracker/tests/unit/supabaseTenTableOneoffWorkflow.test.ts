@@ -10,7 +10,7 @@ const workflow = readFileSync(fileURLToPath(
 
 describe('mosaic-dev ten-table encrypted offsite workflow boundaries (#1027)', () => {
   it('is a single human-confirmed main-only event, never a schedule', () => {
-    expect(workflow).toMatch(/^on:\n  workflow_dispatch:\n/m);
+    expect(workflow).toMatch(/^on:\n {2}workflow_dispatch:\n/m);
     for (const automatic of [
       'schedule:', 'push:', 'pull_request:', 'workflow_run:',
       'repository_dispatch:', 'workflow_call:',
