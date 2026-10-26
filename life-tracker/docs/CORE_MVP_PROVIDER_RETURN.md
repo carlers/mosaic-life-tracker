@@ -293,3 +293,30 @@ same-lease join to the Bucket/link history before any target SQL
 replay. The existing user ZIP is active-only and cannot prove these
 invariants. No hosted schema, Appwrite data or live Supabase writer was
 changed to create this contract.
+
+## Cross-source seven-domain owner join — source-only integrity guard
+
+`supabase-poc/appwriteFrozenPersonalJoin.ts` verifies that the
+full-content tasks/categories/Diary/Settings readback and the existing
+task-identity/Bucket/task-link history readback were issued for the
+**same original owner mapping, Appwrite Cloud/Oracle installation,
+read-only writer-freeze lease ID and generation**. The personal scanner
+now retains the server-issued counts of the three historical domains
+alongside its four original content-domain counts. Every page-set's
+owner IDs, sorted IDs, tombstones and original deterministic SHA256
+are rechecked even when the counts match. The two task inventories
+must agree *exactly* on identity and deletion state; it cannot join a
+deleted task in the historical link inventory to a live task in the
+full-content snapshot. Changes to private Diary photo references,
+task metadata, settings or original row permissions also break the
+joined witness rather than being silently accepted.
+
+It yields a reproducible `sevenDomainScanSha256` and six-domain count
+summary while explicitly returning
+`fullEncryptedSourceAuthenticated:false` and
+`providerCutoverEligible:false`. This **does not make the caller's
+read-only lease authentic or stop an old PWA writer**, and a local
+digest is not a signed encrypted full-source backup. A trusted
+server-enforced fence and independently encrypted full owner-content
+plus Storage binary archive must be validated before the joined
+readback is accepted as migration provenance.
