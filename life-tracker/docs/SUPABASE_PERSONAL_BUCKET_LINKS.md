@@ -242,3 +242,11 @@ content and media) may supply `packOwnerBucketHistory.sourceArchiveSha256`.
 Unit tests use injected synthetic Appwrite responses and fail-closed lease,
 owner, pagination, tombstone and two-pass-mutation cases. No real Cloud
 or Oracle owner has been read or migrated.
+
+The source reader also requires each lease's exact server-frozen owner row
+counts for tasks, Bucket goals and links, distinct from the Appwrite
+`listRows.total` value. All pages and both complete passes must agree with
+this independently issued count witness; the lease and witness are copied
+before scanning so a mutable callback cannot change the expected totals in
+place. This does **not** make a browser-supplied fake lease authoritative:
+the missing server-coordinated writer fence remains a hard blocker.
