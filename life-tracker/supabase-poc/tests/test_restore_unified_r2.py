@@ -89,7 +89,8 @@ class OffsiteRestoreTests(unittest.TestCase):
                 'tables': m.PROFILES[profile][1],
             }
 
-            def fake_command(argv, *, cwd=None, env=None, timeout=120, stdin=None, visible=False):
+            def fake_command(argv, *, cwd=None, env=None, timeout=120,
+                             stdin=None, visible=False, private_restore=False):
                 cmd = argv[0]
                 if cmd == 'git' and 'worktree' in argv:
                     if 'add' in argv:
@@ -131,6 +132,7 @@ def parse_local(out, home):
                         stages.append('TOC')
                         return 'VALID_TOC'
                     if argv[1].endswith('run-private-core-recovery.sh'):
+                        self.assertTrue(private_restore)
                         self.assertEqual(argv[-2], capture.get('restore_flag', '--fresh-snapshot-sha256'))
                         self.assertTrue(re.fullmatch('[a-f0-9]{64}', argv[-1]))
                         self.assertEqual(Path(argv[2]).name, 'database.age')
