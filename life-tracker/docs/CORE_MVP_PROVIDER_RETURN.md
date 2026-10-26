@@ -492,3 +492,42 @@ privileged Functions/API keys are disabled. The production
 until a trusted signer/lease issuer is deployed in disposable
 Scratch, an independent admin+old-PWA 403 audit succeeds, and the
 encrypted original ACL rollback archive can be read back safely.
+
+## Six-domain personal Supabase runner — isolated harness only (2026-10-26)
+
+`supabase-poc/candidatePersonalRuntime.ts` now assembles the previously tested,
+owner-scoped task/category/Diary/portable Settings/Bucket List/link RxDB
+replicas into **one** six-domain candidate harness. This is not imported by
+the shipped `supabaseCoreBootstrap`, `SupabaseAuthProvider`, or feature
+profile. Its only accepted input profile is `personal-review-only`; core
+build profiles remain unchanged.
+
+Unlike an ordinary optional Settings adapter, its startup requires **all**
+six distinct RxDB collections, a separately isolated portable Settings
+collection (never the shared avatar/social Settings collection), full
+signed source owner mapping, a real backend-exclusive Appwrite writer fence,
+fully hosted private six-domain SQL/Storage/DR readiness, independently
+retained original owner Settings/media/outbox escrow, and verified same-owner
+Bucket task targets. Each server-guarantee callback must be supplied by a
+*trusted future caller*, and the signed account/session is rechecked between
+all asynchronous guards and replication starts. These callbacks are NOT
+implemented as server authority here and must not be replaced by boolean
+browser flags or claimed as real live readiness.
+
+The candidate runner shares one writer lease across all six domains; startup
+failures cancel all started replicas and release authority only after confirmed
+stops. Uncertain cancellation/lease release **retains and blocks** that
+authority. Manual Sync Now performs refresh, full signed owner anti-entropy,
+and final settlement on all six groups, including tombstones, never reporting
+100% while any group differs or conflicts remain. Re-entrant startup,
+revoked leases and changed Auth owners fail closed. Link writes require a
+fresh externally verified target lookup through the existing isolated
+adapter.
+
+A dedicated synthetic lifecycle test suite covers startup/preflight order,
+cross-owner changes, partial-start teardown, no-double-writer guarantee,
+paused retained lease, all six progress groups, conflicts and drift. It
+does **not** install hosted Settings/Bucket SQL, upload/restore original
+photo bytes, enforce the backend-exclusive server lock, migrate historical
+rows or activate any user-facing feature. The protected hosted Preview
+approval and explicit Production/provider transition are separate gates.
