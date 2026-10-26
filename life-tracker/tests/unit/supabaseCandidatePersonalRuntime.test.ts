@@ -230,6 +230,35 @@ describe('gated six-domain original owner Supabase personal runner (#1027)',()=>
     await expect(run.verifyLocalReplica(()=>{})).rejects.toThrow(/conflicts/);
     await run.stop();
   });
+  it('never emits 100 if a conflict arrives during the last group settlement',async()=>{
+    const f=fixture(),run=await f.runtime.start();
+    // Six initial + six refresh awaitInSync + six final awaitInSync.
+    // Only the last settlement produces a late Bucket link conflict.
+    for(let i=0;i<17;i++)mocks.waitSync.mockImplementationOnce(async()=>{});
+    mocks.waitSync.mockImplementationOnce(async()=>{
+      mocks.conflicts.add('bucket_task_links');
+    });
+    const progress:Array<{phase?:string;percent:number}>=[];
+    await expect(run.verifyLocalReplica(x=>progress.push(x))).rejects.toThrow(
+      /conflicts remain unresolved/
+    );
+    expect(mocks.verifies).toEqual([...PERSONAL_SOURCE_DOMAINS]);
+    expect(progress.length).toBeGreaterThan(0);
+    expect(progress.every(x=>x.percent<100)).toBe(true);
+    await run.stop();
+  });
+  it('never emits 100 when the signed owner changes in the final settlement',async()=>{
+    const f=fixture(),run=await f.runtime.start();
+    for(let i=0;i<17;i++)mocks.waitSync.mockImplementationOnce(async()=>{});
+    mocks.waitSync.mockImplementationOnce(async()=>f.switchUser());
+    const progress:Array<{percent:number}>=[];
+    await expect(run.verifyLocalReplica(x=>progress.push(x))).rejects.toThrow(
+      /account|owner|session/i
+    );
+    expect(progress.length).toBeGreaterThan(0);
+    expect(progress.every(x=>x.percent<100)).toBe(true);
+    await run.stop();
+  });
   it('refuses refresh after owner change, old lease expiry and repeated startup',async()=>{
     const f=fixture(),run=await f.runtime.start();
     await expect(f.runtime.start()).rejects.toThrow(/already started/);
