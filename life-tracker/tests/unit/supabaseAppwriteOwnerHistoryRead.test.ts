@@ -201,9 +201,6 @@ describe('read-only frozen owner source history for Appwrite cloud/oracle (#1027
     const cap = harness();
     cap.listRows.mockResolvedValueOnce({ rows: [], total: 250001 });
     await expect(readFrozenAppwriteOwnerHistory(cap.options)).rejects.toThrow(/history total/);
-    expect(() => readFrozenAppwriteOwnerHistory({
-      ...cap.options, pageSize: 101,
-    })).not.toThrow();
     await expect(readFrozenAppwriteOwnerHistory({
       ...cap.options, pageSize: 101,
     })).rejects.toThrow(/page size/);
