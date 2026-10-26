@@ -27,6 +27,7 @@ const payload = {
   owner: { legacyUserId: 'synthetic_owner',
     supabaseUserId: '11111111-1111-4111-8111-111111111111' },
   sourceArchiveSha256: 'a'.repeat(64),
+  targetIdentitySha256: 'b'.repeat(64),
   sourceCounts: { tasks: 2, buckets: 1, links: 3 },
   links: [
     { source: source('link_1', 'task_1', false), disposition: 'ready', reasons: [] },
