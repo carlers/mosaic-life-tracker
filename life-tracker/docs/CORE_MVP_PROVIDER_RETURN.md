@@ -451,3 +451,44 @@ explicitly returns `sourceLeaseAuthenticated:false`,
 `aclRestoreAuthorized:false` and `providerCutoverEligible:false`.
 If an owner's ACL inventory exceeds the in-memory size bound, fail
 closed and design a streamed authenticated export; do not truncate.
+
+## Ed25519-pinned seven-domain source reader authority (#1027)
+
+`supabase-poc/appwriteSignedFrozenAuthority.ts` closes the gap where a
+caller could return an arbitrary in-memory `readOnly:true` lease to
+the seven-domain Appwrite readers. It **requires a detached Ed25519
+signature** on a strict canonical JSON source freeze witness, checked
+against an **independently pinned SPKI public-key SHA256**. The
+signature binds the actual Appwrite endpoint/project/database and
+Cloud/Oracle source identity, signed owner, time-limited lease ID and
+generation, unique nonce, exact frozen owner counts for all seven
+domains including tombstones, plus the previously authenticated ACL
+inventory SHA256, signed old-client denial matrix SHA256 and actual
+server write-fence receipt SHA256. Unknown fields, changed signatures,
+other signers, expired/replayed leases, long lifetimes or mismatched
+owner/counts/deployment fail closed.
+
+The higher-level `readPinnedAppwriteSevenDomainSource` passes the
+**verified lease only** into both existing signed-owner history and
+full-content readbacks; each fetches and cryptographically rechecks
+the current server receipt around every Appwrite page, then validates
+the joined counts, original identities, tombstones and content
+fingerprints. An altered signature or changed signed generation
+aborts a scan rather than returning a partial snapshot. This library
+contains NO Ed25519 private signing key, credential, backend writer,
+privilege revocation, issuance endpoint, CI secret or automatic app
+activation. Unit fixtures generate a disposable Ed25519 key pair and
+synthetic signed owner-only Appwrite page replies; they do not call
+the actual provider.
+
+**Scope boundary:** the signature only proves that its externally
+pinned authority key signed the stated witness. It does **not** prove
+that the real Appwrite server actually revoked table/row/Storage
+rights, that an issued write-fence receipt is genuine, that old
+installed PWAs cannot reconnect with queued writes, or that
+privileged Functions/API keys are disabled. The production
+`actualBackendWriterFreezeConfirmed:false` and
+`providerCutoverEligible:false` flags remain hard release gates
+until a trusted signer/lease issuer is deployed in disposable
+Scratch, an independent admin+old-PWA 403 audit succeeds, and the
+encrypted original ACL rollback archive can be read back safely.
