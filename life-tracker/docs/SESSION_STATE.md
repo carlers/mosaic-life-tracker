@@ -12,5 +12,5 @@ Current task: #1027 scoped safe field-only R2 credential format diagnostics; bra
 - Split `read_credentials()` combined validation failure into safe field-only static errors: account ID, dedicated read-only Access Key ID, dedicated read-only Secret Access Key. Keep exact original formatting constraints, hidden prompts, no credential value/length disclosure, no trimming hidden keys. Do not relax cloud credentials, owner/age/PG17/Storage/cleanup gates. Synthetic no-network tests cover normal valid account+secret, each invalid field/empty/whitespace, and prohibit secret reflection. Existing offline restore suite expanded 16 to 18 cases, canonical wrapper updated.
 - Source-only; no cloud backend, R2, Production, dev/main, user-data or Fedora modifications. Run task focused Quality, merge scoped source, then verify exact canonical before ONE operator rerun of same snapshot command with correctly copied read-only credentials.
 
-## Follow-up
+## Next action
 - If download succeeds, local Stage 04 fixed safe checkpoint will pinpoint previous physical restore fault. Resolve and re-run strictly locally before already-approved hosted additive migrations; follow with live signed two-owner RLS and complete ten-table R2 recovery. Preserve sole one-command operator workflow, do not repeat older accepted backups or leak credentials.
