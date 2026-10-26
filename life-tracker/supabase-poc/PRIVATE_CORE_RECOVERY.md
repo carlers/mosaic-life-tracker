@@ -187,3 +187,16 @@ To stop the successful disposable stack when finished, run
 This discards the local rehearsal; it never deletes the original encrypted
 backup. The private directory can then be removed only after verifying its
 exact path and no other project data.
+
+## Disposable real GoTrue reset Storage readiness (2026-10-26)
+
+The signed real GoTrue / exact-age PG17 recovery CI harness runs TWO
+`supabase db reset --local` operations. Supabase CLI v2.81.3 may request
+`/storage/v1/bucket` during reset. Its previous startup excluded the Storage
+API, intermittently producing an HTTP timeout after the second reset even
+though seeded Auth and PostgreSQL were valid. The reviewed harness now
+**starts ephemeral Storage** rather than ignoring or bypassing its health
+check. It still requires the entire Auth/age/private owner restore and
+foreign-owner/expired-session negative suite to pass. No hosted Storage
+credentials, user images or Production data are involved. Acceptance
+requires a real successful exact-SHA CI run, not merely `bash -n`.
