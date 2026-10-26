@@ -58,6 +58,49 @@ test('historical markers remain verifiable, new markers advertise precise recove
   assert.equal((await verifyUnified({ r2, id: newPoint.id, now: NOW })).recoveryProfile, undefined);
 }));
 
+
+test('ten-table private Settings/Bucket/link recovery publishes fully authenticated paired archives', async () => fixture(async ({ temp, database, media }) => {
+  const r2 = fakeR2();
+  const selected = 'ten-personal-bucket-links';
+  const point = await publishUnified({ r2, database, media, now: NOW,
+    recoveryProfile: selected, chunkBytes: 13 });
+  assert.equal(point.recoveryProfile, selected);
+  assert.equal((await verifyUnified({ r2, id: point.id, now: NOW })).recoveryProfile, selected);
+  assert.equal((await watchUnified({ r2, now: NOW })).id, point.id);
+  const dir = join(temp, 'recovered-ten');
+  const downloaded = await downloadUnified({ r2, id: point.id, directory: dir, now: NOW });
+  assert.equal(downloaded.recoveryProfile, selected);
+  assert.deepEqual(await readFile(join(dir, 'database.age')), await readFile(database));
+  assert.deepEqual(await readFile(join(dir, 'media.age')), await readFile(media));
+  assert.deepEqual([...r2.objects.keys()].filter(k => k.endsWith('/COMPLETED')),
+    [PREFIX_ROOT + point.id + '/COMPLETED']);
+}));
+
+test('ten-table marker cannot be mislabeled as a false profile or partially corrupted and reused', async () => fixture(async ({ database, media }) => {
+  const r2 = fakeR2();
+  const point = await publishUnified({ r2, database, media, now: NOW,
+    recoveryProfile: 'ten-personal-bucket-links' });
+  const markerKey = PREFIX_ROOT + point.id + '/COMPLETED';
+  const original = r2.objects.get(markerKey);
+  for (const bad of [
+    { ...point, recoveryProfile: 'future-unreviewed-table' },
+    { ...point, recoveryProfile: 'TEN-PERSONAL-BUCKET-LINKS' },
+    { ...point, archives: { ...point.archives, media: {
+      ...point.archives.media, sha256: '0'.repeat(64),
+    } } },
+    { ...point, archives: { ...point.archives, media: {
+      ...point.archives.media, parts: point.archives.media.parts.slice(1),
+    } } },
+  ]) {
+    r2.objects.set(markerKey, Buffer.from(JSON.stringify(bad)));
+    await assert.rejects(verifyUnified({ r2, id: point.id, now: NOW }),
+      /Invalid completed|Invalid encrypted|size mismatch|corrupt|digest mismatch/);
+  }
+  r2.objects.set(markerKey, original);
+  assert.equal((await verifyUnified({ r2, id: point.id, now: NOW })).recoveryProfile,
+    'ten-personal-bucket-links');
+}));
+
 test('unrecognized recovery profile fails before publishing any remote objects', async () => fixture(async ({ database, media }) => {
   const r2 = fakeR2();
   await assert.rejects(publishUnified({ r2, database, media, now: NOW,

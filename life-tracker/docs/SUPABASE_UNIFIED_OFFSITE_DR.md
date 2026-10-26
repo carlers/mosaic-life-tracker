@@ -387,3 +387,23 @@ recoverable. The test is not evidence of a new real-world completed R2
 generation, nonempty private-media recoverability, or the external operator
 one-pass approval. The hosted source has not received the Bucket/link tables;
 do not enable the new R2 profile, any automated backup schedule, or pruning.
+
+
+## Ten-personal-table unified R2 publication contract (2026-10-26)
+
+The previous unified offsite publisher accepted seven- and eight-table TOC
+profiles, but **rejected a ten-table recovery marker after encrypted objects
+had already uploaded**, because its marker verifier lagged the distinct
+`ten-personal-bucket-links` restore profile. The profile acceptance list now
+shares `recovery-profile.mjs`'s exact exported identifiers. Synthetic R2
+publication tests require one paired database+private-media `COMPLETED` marker,
+full remote encrypted-byte verification, complete download, correct ten-table
+profile readback, and failure on invalid profile or damaged archive manifest.
+Old historical markers remain readable.
+
+**This is backup-format support only.** Hosted `mosaic-dev` still lacks Settings,
+Bucket List and task-link tables. A new ten-table live snapshot is not certified
+merely by source CI: a separately protected fresh seven-table pre-migration
+capture + independent full restore, followed by owner-approved hosted SQL and
+a new ten-table whole-source/Storage R2 generation + independent full restore
+are still required. Never enable scheduled backup or pruning by accident.
