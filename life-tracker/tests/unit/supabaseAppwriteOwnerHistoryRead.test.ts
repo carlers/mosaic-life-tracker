@@ -34,6 +34,7 @@ const lease: SourceLease = {
   leaseId: 'external_frozen_read_lease',
   generation: 'generation_17', expiresAt: '2999-01-01T00:00:00Z',
   readOnly: true,
+  ownerCounts: { tasks: 3, buckets: 1, links: 2 },
 };
 type Raw = Record<string, unknown>;
 function harness() {
@@ -53,7 +54,9 @@ function harness() {
   const calls: Array<{ tableId: string; queries: unknown[]; total: true }> = [];
   const getAccount = vi.fn(async () => ({ $id: accountId }));
   const getSessionEpoch = vi.fn(async () => epoch);
-  const getSourceLease = vi.fn(async () => ({ ...currentLease }));
+  const getSourceLease = vi.fn(async () => ({
+    ...currentLease, ownerCounts: { ...currentLease.ownerCounts },
+  }));
   const listRows = vi.fn(async (request: {
     databaseId: string; tableId: string; queries: string[]; total: true;
   }) => {
@@ -166,6 +169,20 @@ describe('read-only frozen owner source history for Appwrite cloud/oracle (#1027
     });
     await expect(readFrozenAppwriteOwnerHistory(duplicated.options))
       .rejects.toThrow(/Duplicate|cursor/);
+  });
+  it('requires an independent authoritative frozen owner count, not merely an Appwrite list total', async () => {
+    const hidden = harness();
+    hidden.listRows.mockResolvedValueOnce({
+      rows: [fullTask('task_1'), fullTask('task_2')], total: 2,
+    });
+    await expect(readFrozenAppwriteOwnerHistory(hidden.options))
+      .rejects.toThrow(/trusted frozen source row count/);
+    const forged = harness();
+    forged.getSourceLease.mockResolvedValueOnce({
+      ...lease, ownerCounts: { tasks: 2, buckets: 1, links: 2 },
+    });
+    await expect(readFrozenAppwriteOwnerHistory(forged.options))
+      .rejects.toThrow(/fence changed or expired/);
   });
   it('rejects inconsistent totals and malformed tombstones', async () => {
     const total = harness();
