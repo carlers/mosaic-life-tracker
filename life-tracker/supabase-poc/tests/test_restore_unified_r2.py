@@ -33,6 +33,47 @@ class OffsiteRestoreTests(unittest.TestCase):
                 with self.assertRaises(m.Refused):
                     m.main()
 
+    def test_private_reader_credentials_validate_without_network_or_secret_echo(self):
+        import builtins
+        original_open = builtins.open
+        def account_tty(account):
+            def fake_open(path, *args, **kw):
+                if path == '/dev/tty':
+                    return io.StringIO(account + '\n')
+                return original_open(path, *args, **kw)
+            return fake_open
+
+        with patch('builtins.open', side_effect=account_tty('a'*32)), \
+             patch.object(m.getpass, 'getpass', side_effect=['A'*32, 's'*40]):
+            self.assertEqual(m.read_credentials(), ('a'*32, 'A'*32, 's'*40))
+
+    def test_private_reader_reports_only_invalid_field_not_value(self):
+        import builtins
+        original_open = builtins.open
+        scenarios = [
+            ('bad-account', 'A'*32, 's'*40, 'account ID'),
+            ('a'*32, 'R2 API TOKEN copied with spaces', 's'*40, 'Access Key ID'),
+            ('a'*32, '', 's'*40, 'Access Key ID'),
+            ('a'*32, 'A'*32, '', 'Secret Access Key'),
+            ('a'*32, 'A'*32, 'invalid pasted whitespace secret', 'Secret Access Key'),
+            ('a'*32, 'A'*32, 'x'*257, 'Secret Access Key'),
+        ]
+        for account, access, secret, field in scenarios:
+            with self.subTest(field=field):
+                def fake_open(path, *args, **kw):
+                    if path == '/dev/tty':
+                        return io.StringIO(account + '\n')
+                    return original_open(path, *args, **kw)
+                with patch('builtins.open', side_effect=fake_open), \
+                     patch.object(m.getpass, 'getpass', side_effect=[access, secret]):
+                    with self.assertRaisesRegex(m.Refused, field) as caught:
+                        m.read_credentials()
+                    diagnostic = str(caught.exception)
+                    self.assertNotIn(secret, diagnostic) if secret else None
+                    self.assertNotIn(access, diagnostic) if access else None
+                    self.assertNotIn(account, diagnostic)
+                    self.assertNotIn('password', diagnostic.lower())
+
     def test_environment_cannot_inherit_cloud_source_or_r2_credentials(self):
         with patch.dict(os.environ, {
             'PGHOST': 'production-source', 'SUPABASE_DR_R2_SECRET_ACCESS_KEY': 'secret',

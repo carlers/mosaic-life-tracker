@@ -456,3 +456,20 @@ shell configuration from leaking extra authorization into the subprocess.
 This is a diagnostic addition, NOT a claim to have repaired the unknown
 underlying failure; actual independently restored owner login+media proof
 still must pass on Fedora before deploying the approved `mosaic-dev` DDL.
+
+
+## Read-only R2 credential prompt safety, 2026-10-26
+
+A real retry of the same fresh generation `20261026T121358327Z` failed at
+stage 02 **before network download** because at least one of the three private
+Cloudflare R2 reader prompts did not meet the pre-existing format checks.
+The underlying generic message did not distinguish the account ID, the
+read-only **S3 Access Key ID**, or the **S3 Secret Access Key**. The reader now
+reports only which field failed in a constant safe error. It never reports
+values, length, raw terminal text or SQL/age credentials. The three fields
+must come from the SAME dedicated R2 read-only S3 credential set; a
+Cloudflare API token is not an S3 Access Key ID or Secret. Hidden keys must
+not be pasted with surrounding spaces. The previous successful authenticated
+R2 download remains valid evidence; no new snapshot, schema action or old
+positive check should be repeated solely to resolve a prompt typo. The
+Stage 04 physical restore remains unverified until a future operator pass.

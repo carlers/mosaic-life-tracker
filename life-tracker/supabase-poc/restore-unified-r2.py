@@ -132,9 +132,15 @@ def read_credentials():
         account_id = tty.readline().strip()
     access = getpass.getpass("Dedicated Supabase R2 READ-ONLY Access Key ID (hidden): ")
     secret = getpass.getpass("Dedicated Supabase R2 READ-ONLY Secret Access Key (hidden): ")
-    if not ACCOUNT.fullmatch(account_id) or not ACCESS.fullmatch(access) or \
-            not 16 <= len(secret) <= 256 or any(c.isspace() for c in secret):
-        raise Refused("Dedicated R2 reader credentials malformed")
+    # These checks run entirely offline, before any R2 request. Explain only
+    # WHICH prompt failed, never a key, a secret, its length or its contents.
+    # Do not silently trim the two hidden keys: whitespace means a bad paste.
+    if not ACCOUNT.fullmatch(account_id):
+        raise Refused("R2 account ID format invalid (use account ID, not an API token)")
+    if not ACCESS.fullmatch(access):
+        raise Refused("R2 READ-ONLY Access Key ID format invalid (not an API token)")
+    if not 16 <= len(secret) <= 256 or any(c.isspace() for c in secret):
+        raise Refused("R2 READ-ONLY Secret Access Key format invalid")
     return account_id, access, secret
 
 
