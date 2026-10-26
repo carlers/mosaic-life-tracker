@@ -14,6 +14,6 @@ Current task: #1027 source-only frozen Appwrite full-owner history reader, task 
 - New behavioral fixture `tests/unit/supabaseAppwriteOwnerHistoryRead.test.ts` mocks signed page/lease/owner situations; final focused Quality gate not yet verified. Source count and two passes do not independently authenticate an owner archive.
 - `packOwnerBucketHistory` and offline age ciphertext writer remain accepted foundations, but **real frozen writer lease, authenticated complete full-owner source archive, source byte hash, media history, isolated backfill/replay and reverse provider migration** are all still pending.
 
-## Next
+## Next action
 - Verify focused Quality at exact task SHA; repair issues, squash into isolated recovery, then full stable canonical CI; never approve hosted Preview or deploy from an unfinished branch.
 - Implement trusted server-enforced exclusive writer lease, authenticated complete source with full task contents/media, private age snapshot + independent hash/replay, portable Settings/Bucket offline/device convergence, reversible Appwrite Cloud/Oracle ↔ Supabase single-writer migration and actual ten-table R2/Storage recovery. Then ONE SHA-pinned Fedora acceptance only.
