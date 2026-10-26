@@ -119,3 +119,33 @@ reconciled through the dependent #1329 and #1330 **task branches** via internal
 PRs #1331 and #1332. Those internal merges do not accept #1328/#1329/#1330
 into stable recovery or authorize any hosted database, Preview or Production
 release. Final exact CI evidence remains mandatory before acceptance.
+
+## Isolated Bucket List and task-link RxDB replica (source only)
+
+`candidateRxdbPilot.ts` now accepts `buckets` and `bucket_task_links`
+for explicitly constructed **isolated** RxDB collections. It never starts
+either domain in shipped Mosaic or the current core Supabase bridge. Pull
+uses signed owner-only pages, native durable RxDB `bigint` checkpoints and
+logical `isDeleted` tombstones (not physical RxDB deletion). Push performs
+a session/epoch fence around signed master reads, no-upsert creates and
+revision CAS; immutable creation dates and original task/bucket references
+cannot be changed, and divergent edits remain parked for explicit review.
+No timestamp-based master overwrite is silently accepted.
+
+Task-link writes require a caller-supplied independently reviewed **complete**
+owner target inventory on every push attempt; absent, foreign, deleted-active
+or >36-character historical target IDs are quarantined rather than
+shortened, retried blindly or acknowledged. Even tombstone links must
+reference known same-owner targets. Asynchronous inventory lookups are
+followed by a new signed session check; logout/account switching fails
+closed. CAS supplies the original two target IDs and refuses a response
+with changed references. Starting a task-link replica requires the target
+inventory callback; specifying a collection is not sufficient.
+
+Unit tests cover positive owner create, update, signed revision pull, original
+reference integrity, tombstone replay and rejection of foreign, missing,
+invalid, long and account-switched targets. This code is not a verified
+historical-data migration or a hosted writer. Before enabling it, first
+stage and verify owner-specific target inventories, durable encrypted
+quarantine, offline/restart/cross-device convergence, provider-exclusive
+authority and private media/ZIP recovery.
