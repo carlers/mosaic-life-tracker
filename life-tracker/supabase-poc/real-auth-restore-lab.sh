@@ -45,7 +45,11 @@ if found != 1 or found_pg17 != 1:
   raise SystemExit('Expected one local email confirmation and PG17 setting')
 p.write_text(''.join(lines))
 PY
-supabase start --exclude realtime,storage,functions,studio,mail,analytics,pooler >/dev/null
+# A local db reset calls GET /storage/v1/bucket while rebuilding migrations.
+# Excluding Storage made second resets race a nonexistent/unready API. Keep
+# Storage running in this disposable stack; never bypass its health check.
+# All services and data remain generated on the ephemeral GitHub runner.
+supabase start --exclude realtime,functions,studio,mail,analytics,pooler >/dev/null
 supabase db reset --local >/dev/null
 get_db() {
   ids="$(docker ps --filter name=supabase_db_ --format '{{.ID}}')"
