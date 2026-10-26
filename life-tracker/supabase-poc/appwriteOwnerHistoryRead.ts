@@ -37,6 +37,8 @@ export type SourceLease = {
   leaseId: string;
   generation: string;
   expiresAt: string;
+  /** Exact frozen counts from the independent server-side writer coordinator. */
+  ownerCounts: Record<Domain, number>;
   /** Authoritative server-side writer fence, NOT a browser toggle. */
   readOnly: true;
 };
@@ -149,7 +151,14 @@ export async function readFrozenAppwriteOwnerHistory(
   if (initial.ownerId !== options.identity.legacyUserId ||
       !Number.isSafeInteger(initial.sessionEpoch) || initial.sessionEpoch < 0)
     throw new Error('Appwrite full-history signed account does not match reviewed owner');
-  const firstLease = await options.getSourceLease();
+  const rawLease = await options.getSourceLease();
+  if (!rawLease?.ownerCounts || typeof rawLease.ownerCounts !== 'object')
+    throw new Error('Trusted history lease omitted independently frozen source owner counts');
+  // Copy the witness: a callback must not mutate the original lease object
+  // in place between asynchronous pages to bypass frozen-count/epoch checks.
+  const firstLease: SourceLease = {
+    ...rawLease, ownerCounts: { ...rawLease.ownerCounts },
+  };
   function checkLease(lease: SourceLease) {
     if (!lease || lease.readOnly !== true ||
         lease.ownerId !== options.identity.legacyUserId ||
@@ -160,7 +169,13 @@ export async function readFrozenAppwriteOwnerHistory(
         !Number.isFinite(Date.parse(lease.expiresAt)) ||
         Date.parse(lease.expiresAt) <= Date.now() ||
         lease.leaseId !== firstLease.leaseId ||
-        lease.generation !== firstLease.generation)
+        lease.generation !== firstLease.generation ||
+        !lease.ownerCounts || typeof lease.ownerCounts !== 'object' ||
+        (['tasks', 'buckets', 'links'] as const).some(domain =>
+          !Number.isSafeInteger(lease.ownerCounts[domain]) ||
+          lease.ownerCounts[domain] < 0 ||
+          lease.ownerCounts[domain] > MAX_ROWS ||
+          lease.ownerCounts[domain] !== firstLease.ownerCounts[domain]))
       throw new Error('Signed Appwrite history source writer fence changed or expired');
   }
   checkLease(firstLease);
@@ -200,6 +215,8 @@ export async function readFrozenAppwriteOwnerHistory(
           (total !== undefined && response.total !== total))
         throw new Error('Incomplete or changing signed Appwrite owner history total');
       total = response.total;
+      if (total !== firstLease.ownerCounts[domain])
+        throw new Error('Appwrite owner history differs from trusted frozen source row count');
       if (pages++ > Math.ceil(total / pageSize) + 1)
         throw new Error('Historical source exceeded its bounded page limit');
       for (const raw of response.rows) {
