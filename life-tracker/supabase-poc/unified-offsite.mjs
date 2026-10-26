@@ -11,7 +11,7 @@ import { basename, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createR2Client } from '../appwrite-functions/dr-backup/r2.mjs';
 import { parseCompletedMarkerKey, selectRetainedSnapshotIds } from '../appwrite-functions/dr-backup/retention.mjs';
-import { assertRecoveryProfile, assertProfileToc, SEVEN } from './recovery-profile.mjs';
+import { assertRecoveryProfile, assertProfileToc, SEVEN, EIGHT_SETTINGS, TEN_BUCKET_LINKS } from './recovery-profile.mjs';
 
 export const PREFIX = 'mosaic-supabase/v1';
 export const SOURCE = 'hcxtiifzxoaflhjgoglb';
@@ -42,7 +42,7 @@ function markerStructure(marker, id) {
       identity(new Date(marker.startedAt)) !== id ||
       !marker.archives || Object.keys(marker.archives).sort().join() !== KINDS.join() ||
       (marker.recoveryProfile != null &&
-       ![SEVEN, 'eight-personal-settings'].includes(marker.recoveryProfile))) {
+       ![SEVEN, EIGHT_SETTINGS, TEN_BUCKET_LINKS].includes(marker.recoveryProfile))) {
     throw new Error('Invalid completed full recovery manifest');
   }
   for (const kind of KINDS) {
