@@ -355,3 +355,29 @@ Appwrite writer fence, download originals, upload to R2, prove full DR,
 migrate Storage to Supabase or authorize provider cutover. Input membership
 and SHA pins must come from a separately authenticated complete source. The
 owner still requires ONE final consolidated pre-social Fedora acceptance.
+
+## Complete-owner Bucket replay partition (offline only, 2026-10-26)
+
+`candidateBucketLinkReplayPlan.ts` now builds an exact owner-mapped,
+deterministically ordered **offline import proposal** from a complete original
+owner task/Bucket/link inventory and the already verified private age history
+receipt. It requires independently pinned source-archive, encrypted historical
+ciphertext and decrypted manifest digests; matches exact source owner counts,
+target-identity fingerprints and original ready/tombstone/quarantined
+dispositions before materializing any target rows. The proposal carries all
+Bucket rows including tombstones, only representable ready/admissible-deleted
+link rows, and private IDs/reasons/field hashes for every excluded link.
+Quarantined originals themselves remain intact in the existing encrypted
+historical source archive. The complete link count must equal proposed
+writes plus quarantined references: no silent missing link or guessed
+mapping is permitted.
+
+Unit tests cover one-owner/foreign-owner boundaries, long/dangling/deleted
+references, exact source/reference preservation, array-order invariance,
+tamper and manifest/cipher/target-fingerprint/receipt mismatches, missing
+data and unchanged source objects. This is an import **plan**, NOT an
+authorized uploader, independently authenticated source provenance,
+durable confirmed archive retention, actual SQL readback or real provider
+migration; its cutover flag is explicitly false. Real source-authority
+signing, old-PWA writer freeze, encrypted offsite quarantine retention and
+reverse replay remain required. No hosted database change or Fedora action.
