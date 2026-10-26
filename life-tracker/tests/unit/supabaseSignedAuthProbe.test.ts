@@ -12,7 +12,10 @@ const config = {
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
-function fixture({ leakForeign = false, allowUpdate = false, sameUser = false } = {}) {
+function fixture({
+  leakForeign = false, allowUpdate = false, sameUser = false,
+  leakPrivateForeign = false, allowPrivateAnonRead = false, allowPrivateAnonRpc = false,
+} = {}) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const fetcher = async (url: string, init: RequestInit) => {
     calls.push({ url, init });
@@ -29,15 +32,27 @@ function fixture({ leakForeign = false, allowUpdate = false, sameUser = false } 
       });
     }
     if (path === '/auth/v1/user') return json({ id: alice || sameUser ? aliceId : bobId });
+    const privateTables = ['mosaic_candidate_settings', 'mosaic_candidate_buckets',
+      'mosaic_candidate_bucket_task_links'];
     if (path.startsWith('/rest/v1/rpc/')) {
-      if (!alice && !bob) return json({ code: '42501' }, 403);
+      if (!alice && !bob) {
+        if (allowPrivateAnonRpc && path.endsWith('mosaic_candidate_cas_bucket_link'))
+          return json(null);
+        return json({ code: '42501' }, 403);
+      }
       const body = JSON.parse(String(init.body));
       return 'owner_id' in body.p_patch ? json({ code: '22023' }, 400) : json(null);
     }
     if (init.method === 'PATCH' || init.method === 'DELETE')
       return allowUpdate ? new Response(null, { status: 204 }) : json({ code: '42501' }, 403);
-    if (!alice && !bob) return json({ code: '42501' }, 403);
-    if (leakForeign && new URL(url).searchParams.has('owner_id'))
+    if (!alice && !bob) {
+      if (allowPrivateAnonRead && path.includes('/rest/v1/mosaic_candidate_settings'))
+        return json([]);
+      return json({ code: '42501' }, 403);
+    }
+    const isForeign = new URL(url).searchParams.has('owner_id');
+    if (isForeign && (leakForeign ||
+      (leakPrivateForeign && privateTables.some(table => path.endsWith('/' + table)))))
       return json([{ id: 'foreign' }]);
     return json([]);
   };
@@ -49,14 +64,14 @@ describe('isolated Supabase genuine-signed-user denial-path harness (#967)', () 
     const { fetcher, calls } = fixture();
     const result = await runSignedAuthProbe(config, { fetcher, nonce });
     expect(result).toEqual({
-      signedUsers: 2, ownReads: 4, foreignReads: 4, deniedTableWrites: 2,
-      deniedAnonymousCalls: 3, rpcConflicts: 2, rejectedRpcFields: 2,
+      signedUsers: 2, ownReads: 10, foreignReads: 10, deniedTableWrites: 8,
+      deniedAnonymousCalls: 9, rpcConflicts: 5, rejectedRpcFields: 5,
     });
     expect(calls.every(c => c.url.startsWith(origin + '/'))).toBe(true);
     expect(calls.every(c => c.init.credentials === 'omit' &&
       c.init.redirect === 'error')).toBe(true);
     expect(calls.filter(c => c.init.method === 'POST' &&
-      c.url.includes('rpc/'))).toHaveLength(6);
+      c.url.includes('rpc/'))).toHaveLength(15);
     expect(JSON.stringify(calls)).not.toContain('sb_secret_');
   });
 
@@ -89,5 +104,29 @@ describe('isolated Supabase genuine-signed-user denial-path harness (#967)', () 
     await expect(runSignedAuthProbe(config, {
       fetcher: fixture({ allowUpdate: true }).fetcher, nonce,
     })).rejects.toThrow(/Direct UPDATE/);
+  });
+
+  it('fails closed when any new private domain leaks a foreign row or anonymous access', async () => {
+    await expect(runSignedAuthProbe(config, {
+      fetcher: fixture({ leakPrivateForeign: true }).fetcher, nonce,
+    })).rejects.toThrow(/Foreign-owner/);
+    await expect(runSignedAuthProbe(config, {
+      fetcher: fixture({ allowPrivateAnonRead: true }).fetcher, nonce,
+    })).rejects.toThrow(/Anonymous private/);
+    await expect(runSignedAuthProbe(config, {
+      fetcher: fixture({ allowPrivateAnonRpc: true }).fetcher, nonce,
+    })).rejects.toThrow(/Anonymous privileged RPC/);
+  });
+  it('never sends signup or a row insert in the signed owner RLS probe', async () => {
+    const { fetcher, calls } = fixture();
+    const summary = await runSignedAuthProbe(config, { fetcher, nonce });
+    expect(summary.signedUsers).toBe(2);
+    expect(calls.every(c => !c.url.includes('/auth/v1/signup') &&
+      (c.init.method !== 'POST' || (c.url.includes('/auth/v1/token') ||
+        c.url.includes('/rest/v1/rpc/'))))).toBe(true);
+    for (const rowWrite of calls.filter(c => c.init.method === 'PATCH' ||
+      c.init.method === 'DELETE')) {
+      expect(rowWrite.url).toContain('id=eq.probe_');
+    }
   });
 });
