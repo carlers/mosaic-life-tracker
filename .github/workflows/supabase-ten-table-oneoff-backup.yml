@@ -59,7 +59,11 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = '51e5b1b4a5077f6ffce2e93fa151709a67c3022b'
+          test "$SUPABASE_DR_SOURCE_PROJECT" = 'hcxtiifzxoaflhjgoglb'
+          test "$SUPABASE_DR_RECOVERY_PROFILE" = 'ten-personal-bucket-links'
           test "$SUPABASE_DR_R2_BUCKET" = 'mosaic-supabase-backups'
+          test "$SUPABASE_DR_PRUNE_ENABLED" = 'false'
+          test "$SUPABASE_DR_R2_LOCK_CONFIRMED" = 'false'
       - uses: actions/setup-node@v4
         with:
           node-version: 22
