@@ -3,6 +3,12 @@
 # local Supabase project. Does NOT modify existing local/hosted projects.
 set -euo pipefail
 umask 077
+safe_stage() {
+  # Fixed, non-sensitive classification only; outer restore never publishes
+  # arbitrary Docker/CLI/SQL stderr or source row data.
+  printf 'MOSAIC_LOCAL_DR_SAFE_STAGE: %s\n' "$1"
+}
+safe_stage SOURCE_PREFLIGHT
 
 if [[ ( $# -ne 2 && $# -ne 4 ) || "$1" != /* || "$2" != /* || ! -f "$1" || ! -f "$2" ]]; then
   echo 'Usage: bash supabase-poc/run-private-core-recovery.sh /ABSOLUTE/backup.age /ABSOLUTE/key.agekey [--fresh-snapshot-sha256|--fresh-personal-settings-sha256|--fresh-personal-bucket-links-sha256 64-lowercase-hex-digest]' >&2
@@ -38,6 +44,7 @@ for forbidden in SUPABASE_ACCESS_TOKEN DATABASE_URL PGHOST PGSERVICE PGUSER PGPA
     exit 2
   fi
 done
+safe_stage DOCKER_LOCAL_GUARD
 endpoint="$(docker context inspect "$(docker context show)" --format '{{.Endpoints.docker.Host}}')"
 [[ "$endpoint" == unix://* ]] || {
   echo 'Refusing remote Docker daemon; use the local Unix socket' >&2
@@ -72,6 +79,7 @@ cleanup() {
 trap cleanup EXIT
 # Supabase's official private development recipe: an independent bridge with
 # host binding fixed to loopback BEFORE any container is created.
+safe_stage NETWORK_INIT
 docker network create --driver bridge \
   -o com.docker.network.bridge.host_binding_ipv4=127.0.0.1 \
   "$private_network" >/dev/null || {
@@ -79,7 +87,9 @@ docker network create --driver bridge \
   exit 1
 }
 cd "$scratch"
+safe_stage STACK_INIT
 supabase init --yes >/dev/null
+safe_stage SCHEMA_PREPARE
 mkdir -p supabase/migrations
 index=0
 for migration in \
@@ -116,6 +126,7 @@ fi
 python3 "$here/configure-private-disposable-stack.py" init "$scratch" "$project"
 # No user backup is decrypted before stack identity, empty-target and loopback
 # publication checks all succeed. Failures auto-destroy only this project.
+safe_stage STACK_START
 supabase start --network-id "$private_network" \
   --exclude realtime,storage,functions,studio,mail,analytics,pooler \
   >"$scratch/start.stdout" 2>"$scratch/start.stderr" || {
@@ -125,11 +136,13 @@ supabase start --network-id "$private_network" \
 # migrations. A subsequent db reset is redundant and may fail when using the
 # independent private Docker network; the restore engine separately verifies
 # the schema and all relevant tables are empty before it reads user data.
+safe_stage LOOPBACK_VERIFY
 python3 "$here/configure-private-disposable-stack.py" check "$scratch" "$project"
 db="$(docker ps --filter "name=supabase_db_$project" --format '{{.ID}}')"
 [[ -n "$db" && "$db" != *$'\n'* ]] || {
   echo 'Unable to uniquely identify the new disposable DB container' >&2; exit 1;
 }
+safe_stage ROW_RESTORE
 python3 "$here/restore_private_core_to_disposable.py" "$archive" "$identity" "$db"
 rm -f "$scratch/start.stdout" "$scratch/start.stderr"
 success=1

@@ -37,12 +37,20 @@ class OffsiteRestoreTests(unittest.TestCase):
         with patch.dict(os.environ, {
             'PGHOST': 'production-source', 'SUPABASE_DR_R2_SECRET_ACCESS_KEY': 'secret',
             'AWS_SECRET_ACCESS_KEY': 'other', 'DATABASE_URL': 'production',
-            'SUPABASE_SERVICE_ROLE_KEY': 'other', 'SAFE_VAR': 'kept'
+            'SUPABASE_SERVICE_ROLE_KEY': 'other',
+            'MOSAIC_FRESH_SNAPSHOT_SHA256': 'stale',
+            'MOSAIC_PERSONAL_SETTINGS_RESTORE': '1',
+            'MOSAIC_BUCKET_LINKS_RESTORE': '1',
+            'MOSAIC_SYNTHETIC_ARCHIVE_SHA256': 'synthetic',
+            'SAFE_VAR': 'kept'
         }):
             env = m.clean_env()
         self.assertEqual(env['SAFE_VAR'], 'kept')
         for name in ('PGHOST', 'SUPABASE_DR_R2_SECRET_ACCESS_KEY', 'AWS_SECRET_ACCESS_KEY',
-                     'DATABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'):
+                     'DATABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
+                     'MOSAIC_FRESH_SNAPSHOT_SHA256',
+                     'MOSAIC_PERSONAL_SETTINGS_RESTORE', 'MOSAIC_BUCKET_LINKS_RESTORE',
+                     'MOSAIC_SYNTHETIC_ARCHIVE_SHA256'):
             self.assertNotIn(name, env)
 
     def test_private_file_refuses_exposed_paths_and_symlinks(self):
@@ -81,7 +89,8 @@ class OffsiteRestoreTests(unittest.TestCase):
                 'tables': m.PROFILES[profile][1],
             }
 
-            def fake_command(argv, *, cwd=None, env=None, timeout=120, stdin=None, visible=False):
+            def fake_command(argv, *, cwd=None, env=None, timeout=120,
+                             stdin=None, visible=False, private_restore=False):
                 cmd = argv[0]
                 if cmd == 'git' and 'worktree' in argv:
                     if 'add' in argv:
@@ -123,6 +132,7 @@ def parse_local(out, home):
                         stages.append('TOC')
                         return 'VALID_TOC'
                     if argv[1].endswith('run-private-core-recovery.sh'):
+                        self.assertTrue(private_restore)
                         self.assertEqual(argv[-2], capture.get('restore_flag', '--fresh-snapshot-sha256'))
                         self.assertTrue(re.fullmatch('[a-f0-9]{64}', argv[-1]))
                         self.assertEqual(Path(argv[2]).name, 'database.age')
@@ -246,6 +256,43 @@ def parse_local(out, home):
                 with self.assertRaises(m.Refused):
                     m.main()
 
+
+    def test_local_restore_failure_reports_only_a_fixed_safe_checkpoint(self):
+        class Failed:
+            returncode = 1
+            stdout = "MOSAIC_LOCAL_DR_SAFE_STAGE: STACK_START\n"
+            stderr = "SECRET_PASSWORD_DO_NOT_EMIT user@email.com /etc/private\n"
+        with patch.object(m.subprocess, 'run', return_value=Failed()):
+            with self.assertRaisesRegex(m.Refused,
+                                        r"safe checkpoint: STACK_START") as ctx:
+                m.command(['bash', '/trusted/local-runner.sh'], private_restore=True)
+            self.assertNotIn('SECRET_PASSWORD_DO_NOT_EMIT', str(ctx.exception))
+            self.assertNotIn('user@email.com', str(ctx.exception))
+
+    def test_unknown_or_forged_diagnostics_never_surface_original_logs(self):
+        class Failed:
+            returncode = 1
+            stdout = ("MOSAIC_LOCAL_DR_SAFE_STAGE: FAKE_USER_EMAIL\n"
+                      "MOSAIC_LOCAL_DR_SAFE_STAGE: ROW_TARGET_GUARD\n"
+                      "raw private SQL source row\n")
+            stderr = "another private account identifier\n"
+        with patch.object(m.subprocess, 'run', return_value=Failed()):
+            with self.assertRaisesRegex(m.Refused,
+                                        r"safe checkpoint: ROW_TARGET_GUARD") as ctx:
+                m.command(['bash', '/trusted/local-runner.sh'], private_restore=True)
+            self.assertNotIn('FAKE_USER_EMAIL', str(ctx.exception))
+            self.assertNotIn('private SQL', str(ctx.exception))
+
+    def test_unreported_failure_refuses_without_printing_hidden_child_output(self):
+        class Failed:
+            returncode = 13
+            stdout = "untrusted payload with tokens\n"
+            stderr = "confidential owner data\n"
+        with patch.object(m.subprocess, 'run', return_value=Failed()):
+            with self.assertRaisesRegex(m.Refused,
+                                        r"safe checkpoint: UNREPORTED") as ctx:
+                m.command(['bash', '/trusted/local-runner.sh'], private_restore=True)
+            self.assertNotIn('confidential owner', str(ctx.exception))
 
 if __name__ == '__main__':
     unittest.main()

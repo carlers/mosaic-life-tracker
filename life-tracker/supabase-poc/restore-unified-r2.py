@@ -58,10 +58,37 @@ def private_file(path, directory=False):
 
 def clean_env():
     banned = ("PG", "SUPABASE", "MOSAIC_SUPABASE", "SUPABASE_DR", "R2_", "AWS_", "DATABASE_URL")
-    return {k: v for k, v in os.environ.items() if not k.startswith(banned)}
+    # Restore authorization modes belong ONLY to the exact archived-profile
+    # wrapper. Never inherit stale shell/CI mode grants from a workstation.
+    restore_modes = ("MOSAIC_FRESH_SNAPSHOT_SHA256",
+                     "MOSAIC_PERSONAL_SETTINGS_RESTORE",
+                     "MOSAIC_BUCKET_LINKS_RESTORE",
+                     "MOSAIC_SYNTHETIC_ARCHIVE_SHA256")
+    return {k: v for k, v in os.environ.items()
+            if not k.startswith(banned) and k not in restore_modes}
 
 
-def command(args, *, cwd=None, env=None, timeout=120, stdin=None, visible=False):
+LOCAL_RESTORE_CHECKPOINTS = frozenset((
+    "SOURCE_PREFLIGHT", "DOCKER_LOCAL_GUARD", "NETWORK_INIT",
+    "STACK_INIT", "SCHEMA_PREPARE", "STACK_START",
+    "LOOPBACK_VERIFY", "ROW_RESTORE",
+    "ROW_TARGET_GUARD", "ROW_ARCHIVE_TMPFS",
+    "ROW_SOURCE_MANIFEST", "ROW_SOURCE_COPY",
+    "ROW_NATIVE_AUTH", "ROW_APPLICATION_DATA", "ROW_BYTE_PARITY",
+))
+
+
+def _safe_restore_checkpoint(stdout, stderr):
+    # Never relay a subprocess's stdout, stderr, SQL diagnostics, names, paths,
+    # credentials or row values. Only trusted fixed enumerated stage tokens.
+    found = re.findall(r"(?m)^MOSAIC_LOCAL_DR_SAFE_STAGE: ([A-Z_]+)\s*$",
+                       (stdout or "") + "\n" + (stderr or ""))
+    return next((step for step in reversed(found) if step in LOCAL_RESTORE_CHECKPOINTS),
+                "UNREPORTED")
+
+
+def command(args, *, cwd=None, env=None, timeout=120, stdin=None,
+            visible=False, private_restore=False):
     try:
         r = subprocess.run(args, cwd=cwd, env=env or clean_env(),
                            stdin=stdin, stdout=None if visible else subprocess.PIPE,
@@ -70,6 +97,9 @@ def command(args, *, cwd=None, env=None, timeout=120, stdin=None, visible=False)
     except (OSError, subprocess.SubprocessError) as exc:
         raise Refused("Guarded local recovery subprocess unavailable") from exc
     if r.returncode:
+        if private_restore:
+            raise Refused("Guarded local recovery failed at safe checkpoint: " +
+                          _safe_restore_checkpoint(r.stdout, r.stderr))
         raise Refused("Guarded local recovery subprocess failed")
     return r.stdout or ""
 
@@ -208,7 +238,7 @@ def run(sha, snapshot=SNAPSHOT, profile="seven"):
             nonlocal local, network
             result = command(["bash", str(scripts / "run-private-core-recovery.sh"),
                               str(database), str(key), restore_flag, checked_sha(database)],
-                             cwd=tracker, timeout=1500)
+                             cwd=tracker, timeout=1500, private_restore=True)
             if "DISPOSABLE_CORE_RESTORE_PASS: " + str(expected_tables) + " data tables" not in result or \
                     "exact source/target rows verified" not in result:
                 raise Refused("Exact row-byte parity restoration marker missing")

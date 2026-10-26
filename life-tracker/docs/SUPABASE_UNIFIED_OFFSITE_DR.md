@@ -435,3 +435,24 @@ No command is requested from the operator at this source milestone; complete
 automatable protected backup/hosted checks first, then consolidate the final
 full personal-data Fedora acceptance into ONE verified invocation. No new
 hosted data, R2 objects, Production, or schedules were created.
+
+
+## 2026-10-26 actual Fedora seven-table R2 restore stage-04 failure — fail closed
+
+Actual fresh R2 generation `20261026T121358327Z` passed protected full paired
+ciphertext backup publication, independent R2 watcher, and trusted Fedora
+stages 01-03 including full age authentication. Stage 04 isolated local PG17
+restore failed; stage 07 cleanup passed. The current evidence does NOT prove
+a recovered PostgreSQL/GoTrue/Storage state; do NOT install hosted SQL yet.
+
+The original outer runner suppressed all subprocess logs, properly avoiding
+leaking private account rows and secrets but hiding the failure's substage.
+The new source emits ONLY a fixed enumerated, non-sensitive checkpoint for
+isolated Docker guard, loopback stack initialization, local schema, exact
+archive manifest, Auth data restore, owner rows, and byte parity. The outer
+wrapper never displays raw local child stdout/stderr and refuses unknown stage
+labels. Inherited restoration mode variables are scrubbed to prevent stale
+shell configuration from leaking extra authorization into the subprocess.
+This is a diagnostic addition, NOT a claim to have repaired the unknown
+underlying failure; actual independently restored owner login+media proof
+still must pass on Fedora before deploying the approved `mosaic-dev` DDL.
