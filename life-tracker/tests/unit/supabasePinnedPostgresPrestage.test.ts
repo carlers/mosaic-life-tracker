@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -58,7 +58,7 @@ case "$1" in
         echo "$MOCK_PLATFORM"
         ;;
       '{{json .RepoDigests}}')
-        echo "[\\\"docker.io/supabase/postgres@$MOCK_REPO_DIGEST\\\"]"
+        echo '["docker.io/supabase/postgres@'"$MOCK_REPO_DIGEST"'"]'
         ;;
       *) exit 1 ;;
     esac
