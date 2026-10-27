@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { assertProject, connect, inspect, isCasConflict, PROJECT } from '../../supabase-poc/hosted-core.mjs';
+import { assertProject, connect, inspect, isCasConflict, PROJECT,
+  PERSONAL_TABLES, sixDomainFixtureRows } from '../../supabase-poc/hosted-core.mjs';
 import { exerciseHostedUi } from '../../supabase-poc/hosted-core-ui.mjs';
 import { assertCredentialFreeEmailTemplates, inspectEmailPolicy, previewEmailPolicy, EMAIL_ROUTES, EMAIL_TEMPLATES, EMAIL_PREVIEW, EMAIL_PREVIEW_SHA, requireDeployedPreviewAccess } from '../../supabase-poc/email-policy.mjs';
 
@@ -7,6 +8,33 @@ const project = { id: PROJECT, name: 'mosaic-dev', status: 'ACTIVE_HEALTHY' };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 
 describe('hosted core verification safety boundary', () => {
+  it('six-domain hosted fixtures remain separate, marker-derived, owner-bound and FK-consistent', () => {
+    const run = 'a'.repeat(24);
+    const alice = '11111111-1111-4111-8111-111111111111';
+    const bob = '22222222-2222-4222-8222-222222222222';
+    const a = sixDomainFixtureRows(run, 'a', alice, `ht_${run}_a`);
+    const b = sixDomainFixtureRows(run, 'b', bob, `ht_${run}_b`);
+    expect(PERSONAL_TABLES).toEqual([
+      'tasks','categories','diary','settings','buckets','bucket_task_links',
+    ]);
+    expect(a.map(([domain]) => domain)).toEqual(PERSONAL_TABLES.slice(2));
+    expect(b.map(([domain]) => domain)).toEqual(PERSONAL_TABLES.slice(2));
+    for (const [rows, owner, suffix] of [[a,alice,'a'],[b,bob,'b']] as const) {
+      const ids = rows.map(([,row]) => row.id);
+      expect(new Set(ids).size).toBe(4);
+      expect(rows.every(([,row]) => row.owner_id === owner &&
+        row.id.endsWith('_' + suffix) && row.id.length <= 36 &&
+        row.is_deleted === false)).toBe(true);
+      expect(rows[3][1]).toMatchObject({
+        bucket_list_id: rows[2][1].id, task_id: `ht_${run}_${suffix}`,
+      });
+    }
+    expect(new Set([...a,...b].map(([,row]) => row.id)).size).toBe(8);
+    expect(() => sixDomainFixtureRows(run, 'a', bob, `ht_${run}_b`))
+      .toThrow('Invalid six-domain fixture identity');
+    expect(() => sixDomainFixtureRows('unmarked', 'a', alice, `ht_${run}_a`))
+      .toThrow('Invalid six-domain fixture identity');
+  });
   it('limits email policy edits to the isolated callbacks and preserves existing redirect entries', () => {
     // Explicitly bind policy to the independently accepted immutable Preview, not the stale alias.
     expect(EMAIL_ROUTES).toEqual([
