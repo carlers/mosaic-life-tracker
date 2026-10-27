@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runSignedAuthProbe, ISOLATED_PROJECT_REF } from '../../supabase-poc/signed-auth-probe.mjs';
+import { runSignedAuthProbe, isMissingCasRow, ISOLATED_PROJECT_REF } from '../../supabase-poc/signed-auth-probe.mjs';
 
 const origin = 'https://' + ISOLATED_PROJECT_REF + '.supabase.co';
 const aliceId = '11111111-1111-4111-8111-111111111111';
@@ -17,6 +17,7 @@ function fixture({
   leakPrivateForeign = false, allowPrivateAnonRead = false, allowPrivateAnonRpc = false,
   populateOwned = false, missingOwnedTable = null, leakUnfiltered = false, leakExactId = false,
   pageThroughOwned = false, leakOnLaterPage = false, duplicateInPage = false,
+  rpcTypedNull = false, rpcMixedNull = false,
 } = {}) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const fetcher = async (url: string, init: RequestInit) => {
@@ -43,7 +44,11 @@ function fixture({
         return json({ code: '42501' }, 403);
       }
       const body = JSON.parse(String(init.body));
-      return 'owner_id' in body.p_patch ? json({ code: '22023' }, 400) : json(null);
+      return 'owner_id' in body.p_patch ? json({ code: '22023' }, 400) :
+        rpcTypedNull || rpcMixedNull ? json({
+          owner_id: null, id: rpcMixedNull ? 'partial-row' : null,
+          change_seq: null, is_deleted: null, title: null,
+        }) : json(null);
     }
     if (init.method === 'PATCH' || init.method === 'DELETE')
       return allowUpdate ? new Response(null, { status: 204 }) : json({ code: '42501' }, 403);
@@ -98,6 +103,26 @@ describe('isolated Supabase genuine-signed-user denial-path harness (#967)', () 
     expect(calls.filter(c => c.init.method === 'POST' &&
       c.url.includes('rpc/'))).toHaveLength(18);
     expect(JSON.stringify(calls)).not.toContain('sb_secret_');
+  });
+
+  it('handles complete typed-null RPC conflicts but rejects partial non-null rows', async () => {
+    expect(isMissingCasRow(null)).toBe(true);
+    expect(isMissingCasRow({ owner_id: null, id: null,
+      change_seq: null, is_deleted: null, title: null })).toBe(true);
+    for (const invalid of [{ id: null }, {}, [], { owner_id: null, id: 'unexpected',
+      change_seq: null, is_deleted: null }, { owner_id: null, id: null,
+      change_seq: 1, is_deleted: null }]) {
+      expect(isMissingCasRow(invalid)).toBe(false);
+    }
+    const counts = await runSignedAuthProbe(config, {
+      fetcher: fixture({ populateOwned: true, rpcTypedNull: true }).fetcher,
+      nonce, requireOwnedFixtures: true,
+    });
+    expect(counts.rpcConflicts).toBe(6);
+    await expect(runSignedAuthProbe(config, {
+      fetcher: fixture({ populateOwned: true, rpcMixedNull: true }).fetcher,
+      nonce, requireOwnedFixtures: true,
+    })).rejects.toThrow(/all-null conflict/);
   });
 
   it('checks signed/anonymous reads and both forbidden direct writes for all six domains', async () => {

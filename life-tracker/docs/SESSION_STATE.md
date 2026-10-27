@@ -1,12 +1,12 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1027 safe hosted two-owner six-domain test preparation; awaiting privately authenticated execution.
+Current task: #1027 repair six-domain negative permission test after owner-approved live run.
 
 ## Active #1027 gate
-- Accepted isolated base `feature/1027-supabase-recovery-20261020@e824d7eefdf09cea13d5cf4d6028048730523e06`; main remains Appwrite v0.43.8.
-- Current task `chatgpt/1027-hosted-six-owner-fixture-20261027`: extend signed `hosted-core.mjs --six-domains` so two server-marked Auth accounts are provisioned by the existing trusted private operator, six signed domains created and audited by exact ID, CAS/lease tested, all tombstoned, frozen and banned with readback. Synthetic CI is **not** hosted acceptance. Owner approved this isolated disposable test only.
-- Next: hosted two-owner RLS/CAS/lease, Appwrite source/outbox/media plus old-client writer fence, offline/ZIP/device, Auth/email and explicit cutover approval. Fedora restore already passed.
-- No hosted writes, dev/main or Production cutover; previous Fedora restore accepted.
+- Isolated recovery source `feature/1027-supabase-recovery-20261020@c2d597176165972c39832872ea23dbd93d78ab73`; canonical Quality #40443086517 and all eight recovery/preservation labs PASS; main remains Appwrite v0.43.8.
+- Owner-approved `--six-domains` signed hosted run `341212469279944360d3048f`: 2 Auth accounts retired, frozen/banned; independent SQL confirms exactly 6 tombstones and **0 live rows** across six domains. Probe failed before owner audit/CAS when Diary direct PATCH used nonexistent `order_index` (HTTP 400). No full hosted security pass yet.
+- Repair tests exact owned IDs with shared `is_deleted` (401/403 only, not 400); strict no-row RPC accepts complete typed-null results but rejects partial disclosures.
+- Next: focused task gate, squash to isolated branch, canonical gate, one verified pinned operator rerun. Then Appwrite writer fence/source/outbox/media, offline/ZIP/device, Auth/email and separate cutover approval; prior Fedora restore stays accepted.
 
 ## Historical checkpoint (2026-10-23 onward)
 ## Accepted
