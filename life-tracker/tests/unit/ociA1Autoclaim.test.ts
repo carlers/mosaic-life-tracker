@@ -10,9 +10,10 @@ import {
 const compartmentId = 'ocid1.compartment.oc1..synthetic';
 const imageId = 'ocid1.image.oc1..synthetic';
 const subnetId = 'ocid1.subnet.oc1..synthetic';
-const ad = 'AP-SINGAPORE-1-AD-1';
+const ad = 'oqqR:AP-SINGAPORE-1-AD-1';
+const reportAd = 'AP-SINGAPORE-1-AD-1';
 const cap = (status = 'AVAILABLE', count = 1) => ({
-  results: [{ availabilityDomain: ad, status, availableCount: count }],
+  results: [{ availabilityDomain: reportAd, status, availableCount: count }],
 });
 const context = {
   repository: 'carlers/mosaic-life-tracker',
@@ -26,7 +27,7 @@ const config = {
   freeTierConfirmed: 'CONFIRMED', quotaConfirmed: 'CONFIRMED',
 };
 const results = {
-  'compute instance list': { data: [] },
+  'compute instance list': { data: [], availabilityDomain: ad },
   'compute image get': { data: {
     'operating-system': 'Canonical Ubuntu',
     'operating-system-version': '24.04',
@@ -42,6 +43,7 @@ function mockOci(overrides = {}) {
     if (exe === 'python') {
       expect(args[0]).toBe('-c');
       expect(args[1]).toContain('list_call_get_all_results');
+      expect(args[1]).toContain('identity.list_availability_domains');
       expect(opts.env.MOSAIC_A1_INVENTORY_COMPARTMENT).toBe(compartmentId);
       return { status: 0,
         stdout: JSON.stringify({ ...results, ...overrides }['compute instance list']), stderr: '' };
@@ -68,9 +70,12 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     expect(field('--boot-volume-size-in-gbs')).toBe('50');
     expect(field('--assign-public-ip')).toBe('false');
     expect(field('--compartment-id')).toBe(compartmentId);
+    expect(field('--availability-domain')).toBe(ad);
     expect(field('--image-id')).toBe(imageId);
     expect(field('--subnet-id')).toBe(subnetId);
     expect(() => buildLaunchArgs(config, 'PHX-AD-1')).toThrow();
+    expect(() => buildLaunchArgs(config, reportAd)).toThrow(/availability domain/);
+    expect(() => buildLaunchArgs(config, 'AP-SINGAPORE-1-AD-2')).toThrow();
   });
   it('does not call any provisioning command when capacity is absent or mode observe', () => {
     const spawn = vi.fn();
@@ -108,7 +113,7 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     expect(existingA1({ data: [] })).toBe(false);
     expect(() => existingA1({})).toThrow();
     const spawn = mockOci({ 'compute instance list': {
-      data: [{ shape: SPEC.shape, lifecycleState: 'STOPPED' }],
+      data: [{ shape: SPEC.shape, lifecycleState: 'STOPPED' }], availabilityDomain: ad,
     } });
     expect(claimA1({ mode: 'launch', enabled: true, context, config,
       capacity: () => cap(), spawn }).outcome).toBe('already_present');
@@ -121,6 +126,9 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
       { status: 0, stdout: '{}' },
       { status: 0, stdout: '{"data":[{"shape":null}]}' },
       { status: 0, stdout: '{"data":[{"shape":"VM.Standard.A1.Flex"}]}' },
+      { status: 0, stdout: '{"data":[]}' },
+      { status: 0, stdout: '{"data":[],"availabilityDomain":"AP-SINGAPORE-1-AD-1"}' },
+      { status: 0, stdout: '{"data":[],"availabilityDomain":"Other:AP-SINGAPORE-1-AD-2"}' },
       { status: 1, stdout: '', stderr: 'SECRET_SIGNING_KEY=no-log' },
     ]) {
       const spawn = vi.fn((exe, args, opts) =>
@@ -132,7 +140,8 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     expect(() => existingA1({ data: [{ shape: null }] })).toThrow(/verify/);
     expect(() => existingA1({ data: [{ shape: SPEC.shape }] })).toThrow(/verify/);
     expect(readInstanceInventory(compartmentId, () =>
-      ({ status: 0, stdout: '{"data":[]}' }))).toEqual({ data: [] });
+      ({ status: 0, stdout: JSON.stringify({ data: [], availabilityDomain: ad }) })))
+      .toEqual({ data: [], availabilityDomain: ad });
   });
   it('refuses wrong image, incompatible architecture and missing subnet', () => {
     expect(() => validateImageAndSubnet(
@@ -152,6 +161,8 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
       capacity: () => cap('POSSIBLE', null), spawn }).outcome).toBe('instance_created');
     expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
     expect(spawn.mock.calls).toHaveLength(5);
+    const launchArgs = spawn.mock.calls.find(([, args]) => args.includes('launch'))[1];
+    expect(launchArgs[launchArgs.indexOf('--availability-domain') + 1]).toBe(ad);
   });
   it('does not retry launch failure or output sensitive OCI CLI stderr', () => {
     const spawn = mockOci();
@@ -168,7 +179,7 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
   it('ignores advisory capacity on a trusted launch and detects an existing VM first', () => {
     const capacity = vi.fn(() => cap('POSSIBLE', null));
     const spawn = mockOci({ 'compute instance list':
-      { data: [{ shape: SPEC.shape, lifecycleState: 'PROVISIONING' }] } });
+      { data: [{ shape: SPEC.shape, lifecycleState: 'PROVISIONING' }], availabilityDomain: ad } });
     expect(claimA1({ mode: 'launch', enabled: true, context, config,
       capacity, spawn }).outcome).toBe('already_present');
     expect(capacity).not.toHaveBeenCalled();
@@ -176,7 +187,7 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
   });
   it('allows replacing a fully terminated historical A1 but not a stopped instance', () => {
     const spawn = mockOci({ 'compute instance list':
-      { data: [{ shape: SPEC.shape, lifecycleState: 'TERMINATED' }] } });
+      { data: [{ shape: SPEC.shape, lifecycleState: 'TERMINATED' }], availabilityDomain: ad } });
     expect(claimA1({ mode: 'launch', enabled: true, context, config,
       capacity: () => cap('OUT_OF_HOST_CAPACITY', 0), spawn }).outcome).toBe('instance_created');
     expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);

@@ -1,5 +1,11 @@
 # Session checkpoint
 
+## #975 tenancy-qualified Singapore AD correction — 2026-10-27
+
+Task branch `chatgpt/975-tenant-prefixed-ad-20261027` starts from stable OCI Preview `refactor/975-github-a1-autoclaim-20261019@7783b6b438d2b964f2e15db49cec349ba1463547`; it corrects the candidate's bare `AP-SINGAPORE-1-AD-1` LaunchInstance argument to the exact tenant-prefixed name returned by OCI's identity SDK. Inventory and verified domain are still fail-closed; all prior strict resource, identity, confirmation, single-attempt, privacy, manual observe-only and error-classification safeguards remain. Include new domain regressions and focused/full canonical and trusted Preview checks before activating. Owner verified PAYG and 0 Singapore A1/volume/backup/container usage, plus effective 2 A1 OCPU/12 GiB/50 GiB limits and bot group membership through read-only SDK Cloud Shell. Live scheduler main remains pinned to the OLD controller and must not be repinned without separate go-live authorization; no Oracle infrastructure or Production changes. Issue #975 open.
+
+---
+
 ## #975 isolated OCI A1 controller correction — October 27, 2026
 
 Task branch `chatgpt/975-a1-direct-launch-safety-20261027` starts at accepted pinned OCI controller commit `6fe15940fae40adc7d4728a6ea26ea6c289314c9`. This is **not** the live standalone scheduler, which remains pinned to the old source, or the current application `dev`/Production. Scope: replace advisory positive-count precondition with one direct LaunchInstance request, but only after strict scheduled trusted-main context, literal owner confirmations, lifecycle-aware full A1 inventory, and image/subnet/SSH validation. Preserve exact A1 sizing, private IP, one no-retry attempt, fail-closed ambiguous failures, and secret-safe logs. Manual dispatch always remains read-only. Task requires focused CI and separate OCI quota/IAM/billing review before an owner-approved update to the public scheduler's immutable controller SHA. No account/billing/OCI data or app release changes. Issue #975 stays open.

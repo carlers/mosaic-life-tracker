@@ -45,9 +45,13 @@ export function readInstanceInventory(compartmentId, spawn = spawnSync) {
     'import json, os, oci',
     'config = oci.config.from_file()',
     'client = oci.core.ComputeClient(config, retry_strategy=oci.retry.NoneRetryStrategy())',
+    'identity = oci.identity.IdentityClient(config, retry_strategy=oci.retry.NoneRetryStrategy())',
     'instances = oci.pagination.list_call_get_all_results(',
     '    client.list_instances, compartment_id=os.environ["MOSAIC_A1_INVENTORY_COMPARTMENT"]).data',
-    'print(json.dumps({"data": [{"shape": item.shape, "lifecycleState": item.lifecycle_state} for item in instances]}))',
+    'domains = identity.list_availability_domains(compartment_id=config["tenancy"]).data',
+    'matches = [x.name for x in domains if isinstance(x.name, str) and x.name.endswith(":AP-SINGAPORE-1-AD-1")]',
+    'if len(matches) != 1: raise ValueError("Missing unique Singapore availability domain")',
+    'print(json.dumps({"data": [{"shape": x.shape, "lifecycleState": x.lifecycle_state} for x in instances], "availabilityDomain": matches[0]}))',
   ].join('\n');
   const result = spawn('python', ['-c', python], {
     encoding: 'utf8', timeout: 90000, maxBuffer: 2 * 1024 * 1024,
@@ -62,6 +66,8 @@ export function readInstanceInventory(compartmentId, spawn = spawnSync) {
   try { inventory = JSON.parse(result.stdout); }
   catch { throw new Error('OCI inventory JSON unavailable'); }
   if (!Array.isArray(inventory?.data) ||
+      typeof inventory?.availabilityDomain !== 'string' ||
+      !/^[A-Za-z0-9_-]+:AP-SINGAPORE-1-AD-1$/.test(inventory.availabilityDomain) ||
       !inventory.data.every(item => typeof item?.shape === 'string' && item.shape.length > 0 &&
         typeof item?.lifecycleState === 'string' && item.lifecycleState.length > 0)) {
     throw new Error('OCI inventory metadata invalid');
@@ -100,7 +106,7 @@ export function validateImageAndSubnet(image, compatibility, subnet, subnetId) {
 }
 
 export function buildLaunchArgs(config, ad) {
-  if (typeof ad !== 'string' || !/(^|:)AP-SINGAPORE-1-AD-1$/i.test(ad)) {
+  if (typeof ad !== 'string' || !/^[A-Za-z0-9_-]+:AP-SINGAPORE-1-AD-1$/.test(ad)) {
     throw new Error('Unexpected Singapore availability domain');
   }
   return [
@@ -201,7 +207,7 @@ export function claimA1({
     oci(['network', 'subnet', 'get'], ['--subnet-id', config.subnetId], spawn),
     config.subnetId,
   );
-  return { ...status, outcome: launchOnce(config, 'AP-SINGAPORE-1-AD-1', spawn) };
+  return { ...status, outcome: launchOnce(config, inventory.availabilityDomain, spawn) };
 }
 
 export function runFromEnv(env = process.env) {
