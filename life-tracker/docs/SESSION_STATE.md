@@ -1,13 +1,16 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1027 isolate fresh Supabase portable Settings without activating six-domain cloud writes.
+Current task: #1027 unblock unchanged disposal-only Supabase labs from anonymous GHCR image-pull 429.
 
-## Verified baseline / current work
-- Stable isolated recovery `feature/1027-supabase-recovery-20261020@79e83581c1662098634939ca636181f641f01f79`; full Quality #40519843273, Core App Lab #40519843283 signed UI and Preview deliver PASS, all eight backup/restore labs PASS.
-- Immutable protected Supabase Preview `https://mosaic-life-tracker-peuppzcdz-carls-projects-72516fde.vercel.app` Vercel READY at exact source; owner personally accepted sign-in, tasks, categories, Diary and Sync Now. No approval for dev/main/Production cutover.
-- Genuine hosted signed 6-domain RLS/CAS probe `951e8da7665d2cac71a42dfb` PASSED: 2 signed owners, all 6 CAS race winners, strict isolation, no live fixture rows. Do not repeat.
-- This task adds a NEW Supabase-only `portableSettings` RxDB collection with a stricter non-social key schema, distinct from legacy `settings`; includes explicit owner-identity collection resolver and account-erasure cleanup. Existing settings, Appwrite data, preview feature profile and cloud writers are untouched. No old data automatically imported. The real six-domain source runner still requires independently attested Appwrite escrow, old-client writer fence, target-link proof and authoritative lease.
-- Next: focused gate, isolated squash, exact full canonical & applicable local labs, protected Preview only if separately approved. Then bind a signed fresh-owner profile with schema+Bucket target parity and real two-device/ZIP acceptance before any release promotion.
+## Accepted and verified
+- Stable isolated source `feature/1027-supabase-recovery-20261020@7687138398941ba8d537ac501577030dab9ae242`. PR #1397 added NEW Supabase-only empty portableSettings RxDB store, distinct from legacy social/avatar `settings`; no original Appwrite data copied and no six-domain production writers activated. Focused Quality #40525814743 and full canonical Quality #40526049828 SUCCESS, including browser shards.
+- Previous protected immutable Supabase Preview remains `https://mosaic-life-tracker-peuppzcdz-carls-projects-72516fde.vercel.app` at `79e83581...`, Vercel READY. Owner manually passed sign-in, tasks, categories, Diary, Sync Now. This newest source is NOT deployed; dev/main/Production unchanged.
+- Live hosted six-domain signed RLS/CAS probe `951e8da7665d2cac71a42dfb` PASSED, with 2 retired users and zero live rows. No reason to rerun the hosted ownership test or historical Fedora/R2 restore.
+
+## Active CI unblock and next gate
+- Four independent disposable database labs at exact `7687138` failed before tests could run: ten-table restore #40526049611, real GoTrue restore #40526049727 (attempt 2), eight-table Settings restore #40526049805 (attempt 2), Core App Lab #40526049967. Logs show GHCR anonymous `ghcr.io/supabase/postgres:17.6.1.095` `toomanyrequests`, NOT assertion/database failures. Other five cryptographic/synthetic labs passed. No security gate is green without executing.
+- New source-only CI patch authenticates GHCR pulls via the standard short-lived `GITHUB_TOKEN`, with top-level `packages: read` and existing `contents: read` and no PAT/secret logging. Scope limited to the four affected workflows plus unit contract. All migrations, restore, signed JWT, RLS, Auth and browser tests remain unchanged and mandatory.
+- After focused CI, squash into isolated stable recovery branch; require canonical and actual 4 disposable jobs to pass. If GHCR continues denying, record real infrastructure blocker without weakening tests. No protected Preview bypass or dev/main/Production cutover. Then resume fresh-owner guarded six-domain Settings/Bucket List app integration, offline/ZIP/photo/device acceptance, and original Appwrite escrow/old PWA server fencing.
 
 ## Historical checkpoint (2026-10-23 onward)
 ## Accepted
