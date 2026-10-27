@@ -1031,7 +1031,10 @@ test('six-domain lifecycle @personal-ui: preferences, Bucket links, offline edit
     expect((await rows(owner, 'tasks')).find(x => x.title === 'Pack hiking boots')?.is_deleted).toBe(false);
     await first.getByRole('button', { name: 'I lived it', exact: true }).click();
     await expect.poll(async () => (await rows(owner, 'buckets')).find(x => x.id === goal.id)?.achieved).toBe(true);
-    await first.goto(app + '/settings');
+    await first.goto(app + '/home');
+    await expect(first.getByRole('button', { name: 'Online', exact: true })).toBeVisible();
+    await first.getByRole('button', { name: 'Me', exact: true }).click();
+    await first.getByRole('button', { name: 'Settings', exact: true }).click();
     await first.getByRole('button', { name: 'Sign Out', exact: true }).click();
     await expect(first.getByLabel('Email Address')).toBeVisible();
     await signIn(first, foreign);
