@@ -6,7 +6,7 @@ Current task: #1027 safe hosted two-owner six-domain test preparation; awaiting 
 - Accepted isolated base `feature/1027-supabase-recovery-20261020@e824d7eefdf09cea13d5cf4d6028048730523e06`; main remains Appwrite v0.43.8.
 - Current task `chatgpt/1027-hosted-six-owner-fixture-20261027`: extend signed `hosted-core.mjs --six-domains` so two server-marked Auth accounts are provisioned by the existing trusted private operator, six signed domains created and audited by exact ID, CAS/lease tested, all tombstoned, frozen and banned with readback. Synthetic CI is **not** hosted acceptance. Owner approved this isolated disposable test only.
 - Next: hosted two-owner RLS/CAS/lease, Appwrite source/outbox/media plus old-client writer fence, offline/ZIP/device, Auth/email and explicit cutover approval. Fedora restore already passed.
-- No new Auth accounts, hosted writes, dev/main release, or Production cutover. Next: protected real two-owner fixture proof, real frozen Appwrite old-writer/outbox/media parity, device/offline/ZIP/email acceptance, then separately approved cutover. No routine Fedora prompts.
+- No hosted writes, dev/main or Production cutover; previous Fedora restore accepted.
 
 ## Historical checkpoint (2026-10-23 onward)
 ## Accepted
