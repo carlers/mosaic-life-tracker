@@ -48,6 +48,21 @@ end;
 $$;
 revoke all on function mosaic_candidate_private.require_core_authority() from public, anon, authenticated;
 
+-- Check authority before business validation (including category/link targets)
+-- and revision allocation. PostgreSQL orders BEFORE triggers by their names.
+do $authority_order$
+declare tab text; existing_name text;
+begin
+  foreach tab in array array['mosaic_candidate_tasks','mosaic_candidate_categories',
+    'mosaic_candidate_diary','mosaic_candidate_settings','mosaic_candidate_buckets',
+    'mosaic_candidate_bucket_task_links'] loop
+    select tgname into strict existing_name from pg_trigger
+      where tgrelid=('public.' || tab)::regclass and not tgisinternal
+        and tgfoid='mosaic_candidate_private.require_core_authority()'::regprocedure;
+    execute format('alter trigger %I on public.%I rename to mosaic_000_personal_authority', existing_name, tab);
+  end loop;
+end $authority_order$;
+
 -- Restrictive policies add to, never replace, exact private path ownership and
 -- immutable object policies. Other buckets retain their own existing policies.
 create policy mosaic_personal_photo_authority_insert on storage.objects
