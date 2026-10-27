@@ -983,6 +983,7 @@ test('signed owner Diary UI @diary-ui: create a private entry, recover on anothe
     await second.reload();
     await expect(second.getByRole('tab', { name: 'Diary', exact: true })).toBeVisible();
     await second.getByRole('tab', { name: 'Diary', exact: true }).click();
+    await second.getByText(content, { exact: true }).first().click();
     await expect(second.getByRole('button', { name: 'View diary photo' }).first()).toBeEnabled();
     await second.goto(app + '/settings');
     await second.getByRole('button', { name: 'Backup & Restore', exact: true }).click();
