@@ -1,4 +1,16 @@
 # Session checkpoint
+Updated: 2026-10-27 Asia/Manila
+Current task: #1388 Calendar View task-heavy month scroll reachability.
+
+## #1388 — Calendar task preview scroll regression
+- Authorized: separate frontend-only repair/Preview, no protected `dev` or `main` promotion.
+- Baseline: `dev@5cdd830dd904bd096bd1b84ae6688e47e9b1b864`; stable Preview target `fix/calendar-long-grid-scroll-20261027`; task branch `chatgpt/1388-calendar-long-grid-v04310-20261027`.
+- Correction: enforce a definite full-height CalendarCarousel scroll viewport, keep zoomed horizontal lanes from shrinking into a competing vertical scroll owner, and add real-browser last-task reachability checks for dense 7-day and zoomed sticky calendar grids.
+- Version candidate: `0.43.10` (distinct from concurrent `0.43.9` route-swipe Preview). No schema/backend/data changes.
+- Validation status at task commit: browser regression and focused CI pending; do not claim a reproduced device failure or passing canonical acceptance before their actual results.
+- Next: run `[verify:browser]` on task commit; repair any failing assertion; squash into stable Preview after green; verify exact-SHA canonical gate, Vercel READY and required mobile touch/device scrolling before further promotion.
+
+## Previous workstream snapshot (2026-10-23)
 Updated: 2026-10-23 Asia/Manila
 Current task: #1276 UI release candidate from dev to main; reconcile main-only CI trust history first.
 
