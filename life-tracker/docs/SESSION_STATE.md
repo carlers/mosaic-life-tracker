@@ -1,16 +1,14 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1027 unblock unchanged disposal-only Supabase labs from anonymous GHCR image-pull 429.
+Current task: #1027 six-domain Sync Now post-settlement anti-entropy for future personal runner.
 
-## Accepted and verified
-- Stable isolated source `feature/1027-supabase-recovery-20261020@7687138398941ba8d537ac501577030dab9ae242`. PR #1397 added NEW Supabase-only empty portableSettings RxDB store, distinct from legacy social/avatar `settings`; no original Appwrite data copied and no six-domain production writers activated. Focused Quality #40525814743 and full canonical Quality #40526049828 SUCCESS, including browser shards.
-- Previous protected immutable Supabase Preview remains `https://mosaic-life-tracker-peuppzcdz-carls-projects-72516fde.vercel.app` at `79e83581...`, Vercel READY. Owner manually passed sign-in, tasks, categories, Diary, Sync Now. This newest source is NOT deployed; dev/main/Production unchanged.
-- Live hosted six-domain signed RLS/CAS probe `951e8da7665d2cac71a42dfb` PASSED, with 2 retired users and zero live rows. No reason to rerun the hosted ownership test or historical Fedora/R2 restore.
-
-## Active CI unblock and next gate
-- Four independent disposable database labs at exact `7687138` failed before tests could run: ten-table restore #40526049611, real GoTrue restore #40526049727 (attempt 2), eight-table Settings restore #40526049805 (attempt 2), Core App Lab #40526049967. Logs show GHCR anonymous `ghcr.io/supabase/postgres:17.6.1.095` `toomanyrequests`, NOT assertion/database failures. Other five cryptographic/synthetic labs passed. No security gate is green without executing.
-- New source-only CI patch authenticates GHCR pulls via the standard short-lived `GITHUB_TOKEN`, with top-level `packages: read` and existing `contents: read` and no PAT/secret logging. Scope limited to the four affected workflows plus unit contract. All migrations, restore, signed JWT, RLS, Auth and browser tests remain unchanged and mandatory.
-- After focused CI, squash into isolated stable recovery branch; require canonical and actual 4 disposable jobs to pass. If GHCR continues denying, record real infrastructure blocker without weakening tests. No protected Preview bypass or dev/main/Production cutover. Then resume fresh-owner guarded six-domain Settings/Bucket List app integration, offline/ZIP/photo/device acceptance, and original Appwrite escrow/old PWA server fencing.
+## Verified state / active gate
+- Isolated recovery stable source `feature/1027-supabase-recovery-20261020@617cc71e1e6ff5da4e4a94098329a13be0dad350`: PR #1398 authenticated GHCR public registry pulls through short-lived `GITHUB_TOKEN` with packages:read; focused Quality #40528599393 and full canonical #40528830606 PASS. GHCR still rate-limits PG17 image `ghcr.io/supabase/postgres:17.6.1.095` despite authenticated login, preventing execution of Core App and real GoTrue/eight-/ten-table restoration labs. Five other offline cryptographic/synthetic labs pass; do NOT present blocked labs as passing. Avoid repeated blind retries; no weakening gates.
+- Earlier stable source `79e83581` immutable Vercel protected Preview was personally tested by owner: sign-in, tasks, categories, Diary, Sync Now PASS. Latest source `617cc71e` is NOT deployed or promoted. dev/main/Production unchanged.
+- Hosted true signed six-domain two-owner CAS/RLS fixture run `951e8da7665d2cac71a42dfb` PASSED, 2 test users retired, all 12 rows tombstoned, zero live. Historical encrypted database/media Fedora and R2 backups/DR already accepted; no repeat.
+- Distinct Supabase-only empty `portableSettings` RxDB collection accepted in PR #1397, **not yet** synced to application or copied from Appwrite. Six-domain protected runtime `candidatePersonalRuntime` remains source-only and gated on true owner escrow, backend old-client writer fencing, exclusive lease and Bucket references.
+- New scoped source hardening: initial six-domain owner audit can become stale during final resync. Re-verify all six domains *after* final settlement before announcing 100%, preserve offline drafts, logical tombstones and replication cursors. Add regression denying a late owner edit on second pass.
+- Next: focused Quality, squash on isolated stable and canonical suite; local disposable labs remain infrastructure-blocked if GHCR persists. Later: fresh-owner Settings/Bucket UI, real device/offline/ZIP/photo convergence, Appwrite full owner escrow and server old-client writer cutoff; cutover separately approved only after all gates.
 
 ## Historical checkpoint (2026-10-23 onward)
 ## Accepted

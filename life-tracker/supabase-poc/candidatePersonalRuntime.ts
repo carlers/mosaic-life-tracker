@@ -271,6 +271,28 @@ export function createCandidatePersonalRuntime(options: CandidatePersonalRuntime
           await confirm();
           if(specs.some(spec=>spec.conflicts()))
             throw new Error('Six-domain personal conflicts remain unresolved');
+          // A second device or an offline local draft can change an earlier
+          // domain while the final resync settles the later ones. The first
+          // scan is no longer a current proof. Re-audit every owner replica,
+          // including logical tombstones and the signed remote revision tail.
+          // No cursor is advanced and no conflict/draft is overwritten.
+          onProgress({
+            phase:'finalize',
+            completed:total*3-1,
+            total:total*3,
+            percent:Math.round((total*3-1)/(total*3)*100),
+            label:'Rechecking settled personal data',
+            groupTotal:total,
+            pendingGroups:specs.map(spec=>spec.domain),
+          });
+          for(const spec of specs){
+            await confirm();
+            await spec.verify(()=>{});
+            await confirm();
+          }
+          if(specs.some(spec=>spec.conflicts()))
+            throw new Error('Six-domain personal conflicts remain unresolved');
+          await confirm();
           emit('finalize','All six personal data groups verified');
         },
         pause, stop,

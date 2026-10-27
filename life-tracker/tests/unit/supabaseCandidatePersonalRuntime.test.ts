@@ -14,6 +14,7 @@ const mocks=vi.hoisted(()=>({
   startsFailOn:'',
   stopFailOn:'',
   verifyFailOn:'',
+  verifyFailOnSecondPass:'',
   conflicts:new Set<string>(),
   waitSync:vi.fn(async()=>{}),
 }));
@@ -39,6 +40,9 @@ vi.mock('../../supabase-poc/candidateRxdbPilot',()=>({
     },
     verifyLocalReplica:async (callback:(x:unknown)=>void)=>{
       mocks.verifies.push(options.domain);
+      if(mocks.verifyFailOnSecondPass===options.domain &&
+         mocks.verifies.filter(domain=>domain===options.domain).length===2)
+        throw new Error('Synthetic post-settlement drift '+options.domain);
       if(mocks.verifyFailOn===options.domain)
         throw new Error('Synthetic owner replica drift '+options.domain);
       callback({phase:'remote',pages:1,rows:1,checked:0,total:1});
@@ -106,6 +110,7 @@ beforeEach(()=>{
   mocks.startsFailOn='';
   mocks.stopFailOn='';
   mocks.verifyFailOn='';
+  mocks.verifyFailOnSecondPass='';
 });
 describe('gated six-domain original owner Supabase personal runner (#1027)',()=>{
   it('shares exactly one fenced owner authority across ALL six personal domains',async()=>{
@@ -214,9 +219,25 @@ describe('gated six-domain original owner Supabase personal runner (#1027)',()=>
     const f=fixture(),run=await f.runtime.start();
     const progress:Array<{phase?:string;percent:number}>=[];
     await run.verifyLocalReplica(x=>progress.push(x));
-    expect(mocks.verifies).toEqual([...PERSONAL_SOURCE_DOMAINS]);
+    expect(mocks.verifies).toEqual([...PERSONAL_SOURCE_DOMAINS,...PERSONAL_SOURCE_DOMAINS]);
     expect(progress.at(-1)).toMatchObject({phase:'finalize',percent:100});
     expect(progress.slice(0,-1).every(x=>x.percent<100)).toBe(true);
+    await run.stop();
+  });
+  it('refuses a late owner edit arriving after the first scan during final resync',async()=>{
+    const f=fixture(),run=await f.runtime.start();
+    mocks.verifyFailOnSecondPass='settings';
+    const progress:Array<{phase:string;percent:number}>=[];
+    await expect(run.verifyLocalReplica(x=>progress.push(x))).rejects.toThrow(
+      /post-settlement drift settings/
+    );
+    expect(mocks.resyncs).toEqual([...PERSONAL_SOURCE_DOMAINS,...PERSONAL_SOURCE_DOMAINS]);
+    expect(mocks.verifies).toEqual([
+      ...PERSONAL_SOURCE_DOMAINS,'tasks','categories','diary','settings',
+    ]);
+    expect(progress.some(x=>x.phase==='finalize'&&x.percent===94)).toBe(true);
+    expect(progress.every(x=>x.percent<100)).toBe(true);
+    expect(f.runtime.getPhase()).toBe('active');
     await run.stop();
   });
   it('leaves local offline drafts alone and cannot finalize if a domain drifts or conflicts',async()=>{
