@@ -1,3 +1,4 @@
+import { CandidateBucketTargetsPendingError } from '../../supabase-poc/candidateBucketMapping';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabasePersonalAuthority } from '../../src/lib/supabasePersonalAuthority';
 const owner = '11111111-1111-4111-8111-111111111111';
@@ -40,7 +41,7 @@ describe('personal app authority', () => {
     const f = fixture();
     f.fetcher.mockImplementation(async () => new Response('[]'));
     await expect(f.verifyBucketLinkTargets({ id: 'link', userId: identity.legacyUserId,
-      bucketListId: 'bucket', taskId: 'task', isDeleted: false } as never)).rejects.toThrow('not synchronized');
+      bucketListId: 'bucket', taskId: 'task', isDeleted: false } as never)).rejects.toBeInstanceOf(CandidateBucketTargetsPendingError);
     expect(f.fetcher).toHaveBeenCalledTimes(2);
   });
 });

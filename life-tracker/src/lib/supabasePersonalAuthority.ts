@@ -3,7 +3,7 @@ import type { CandidateSessionProvider } from '../../supabase-poc/candidateHttpT
 import type { CandidateCoreGuard } from '../../supabase-poc/candidateCoreRuntime';
 import { createCandidateCreateTransport } from '../../supabase-poc/candidateCreateTransport';
 import { fromCandidateTaskRow } from '../../supabase-poc/candidateMapping';
-import { fromCandidateBucketRow } from '../../supabase-poc/candidateBucketMapping';
+import { CandidateBucketTargetsPendingError, fromCandidateBucketRow } from '../../supabase-poc/candidateBucketMapping';
 import { resolveCandidatePersonalCollections } from './supabasePersonalCollections';
 import type { AppSupabasePersonalBootstrapOptions } from './supabasePersonalBootstrap';
 
@@ -55,7 +55,7 @@ export function createSupabasePersonalAuthority(options: {
       ]);
       // Newly created local targets may not have reached the server yet. The
       // replication retry retains the link without acknowledging its push.
-      if (!bucketRow || !taskRow) throw new Error('Bucket link targets are not synchronized yet');
+      if (!bucketRow || !taskRow) throw new CandidateBucketTargetsPendingError();
       const bucket = fromCandidateBucketRow(bucketRow, identity);
       const task = fromCandidateTaskRow(taskRow, identity);
       return { buckets: new Map([[bucket.id, bucket]]), tasks: new Map([[task.id, task]]) };

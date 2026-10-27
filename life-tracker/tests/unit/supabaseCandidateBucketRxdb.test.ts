@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BucketListDocument, BucketTaskLinkDocument } from '../../src/db/schema';
 import {
-  toCandidateBucketWrite, toCandidateBucketLinkWrite,
+  CandidateBucketTargetsPendingError, toCandidateBucketWrite, toCandidateBucketLinkWrite,
 } from '../../supabase-poc/candidateBucketMapping';
 import type { CandidateIdentity } from '../../supabase-poc/candidateMapping';
 import {
@@ -151,6 +151,17 @@ describe('source-only owner-private Bucket task-link RxDB pilot (#1027)', () => 
     expect(h.targets).toHaveBeenCalledWith(link);
     expect(h.writer.createBucketLink).toHaveBeenCalledWith(link, owner, references());
     expect(h.cas.compareAndSet).not.toHaveBeenCalled();
+  });
+
+  it('retries an explicitly pending target without parking or acknowledging the link', async () => {
+    const h = setup('bucket_task_links');
+    h.targets.mockRejectedValueOnce(new CandidateBucketTargetsPendingError());
+    await expect(h.push(link)).rejects.toBeInstanceOf(CandidateBucketTargetsPendingError);
+    expect(h.pilot.listPendingConflicts()).toEqual([]);
+    expect(h.writer.readBucketLinkMaster).not.toHaveBeenCalled();
+    expect(h.writer.createBucketLink).not.toHaveBeenCalled();
+    await expect(h.push(link)).resolves.toEqual([]);
+    expect(h.writer.createBucketLink).toHaveBeenCalledWith(link, owner, references());
   });
 
   it('parks missing, deleted-active, foreign and long target IDs before remote master lookup', async () => {
