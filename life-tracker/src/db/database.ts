@@ -12,6 +12,7 @@ import {
   categoriesSchema,
   diarySchema,
     settingsSchema,
+  portableSettingsSchema,
   bucketListSchema,
   bucketTaskLinksSchema,
   friendshipsSchema,
@@ -28,7 +29,7 @@ import {
   type SyncMetaDocument,
 } from './schema';
 import { markStartup } from '../lib/startupMetrics';
-import { coreDatabaseName } from '../lib/coreBackendConfig';
+import { CORE_BACKEND, coreDatabaseName } from '../lib/coreBackendConfig';
 import {
   tasksMigrationStrategies,
   friendshipsMigrationStrategies,
@@ -59,6 +60,8 @@ export interface AppDatabaseCollections {
   categories: RxCollection<CategoryDocument>;
   diary: RxCollection<DiaryDocument>;
   settings: RxCollection<SettingsDocument>;
+  /** Isolated, empty-on-creation Supabase-only collection. Not shared with settings. */
+  portableSettings?: RxCollection<SettingsDocument>;
   bucketList: RxCollection<BucketListDocument>;
   bucketTaskLinks: RxCollection<BucketTaskLinkDocument>;
   friendships: RxCollection<FriendshipDocument>;
@@ -102,6 +105,12 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
         schema: settingsSchema,
         migrationStrategies: settingsMigrationStrategies,
       },
+      // Never add or copy this collection in the Appwrite installation.
+      // The core-diary Supabase app still uses device-local db.settings;
+      // owner-private cloud migration is separately gated.
+      ...(CORE_BACKEND.driver === 'supabase'
+        ? { portableSettings: { schema: portableSettingsSchema } }
+        : {}),
       friendships: {
         schema: friendshipsSchema,
         migrationStrategies: friendshipsMigrationStrategies,
@@ -198,6 +207,7 @@ export async function purgeAccountFromDatabase(
     database.categories,
     database.diary,
     database.settings,
+    ...(database.portableSettings ? [database.portableSettings] : []),
     database.bucketList,
     database.bucketTaskLinks,
     database.friendships,

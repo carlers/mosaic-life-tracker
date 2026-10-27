@@ -276,6 +276,31 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
   },
   indexes: [['userId', 'key', 'isDeleted']],
 };
+/**
+ * #1027 Supabase-only, new empty RxDB collection for portable preferences.
+ * The legacy shared Settings store contains avatar/social metadata and MUST
+ * never be passed to the six-domain owner-private replication runner.
+ * This schema alone does NOT authorize migration or cloud writers.
+ */
+export const portableSettingsSchema: RxJsonSchema<SettingsDocument> = {
+  version: 0,
+  primaryKey: 'id',
+  type: 'object',
+  required: ['id', 'userId', 'key', 'value', 'isDeleted', 'updatedAt'],
+  properties: {
+    id: { type: 'string', maxLength: 36, pattern: '^[A-Za-z0-9][A-Za-z0-9_]{0,35}$' },
+    userId: { type: 'string', maxLength: 255 },
+    key: {
+      type: 'string', maxLength: 128,
+      pattern: '^(?!(?:profileImageId|friend_carousel_prefs|__proto__|constructor|prototype)$)[A-Za-z][A-Za-z0-9_]{0,127}$',
+    },
+    value: { type: 'string', maxLength: 65536 },
+    isDeleted: { type: 'boolean' },
+    updatedAt: { type: 'string', maxLength: 50 },
+  },
+  indexes: [['userId', 'key', 'isDeleted']],
+};
+
 export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
   version: 1,
   primaryKey: 'id',

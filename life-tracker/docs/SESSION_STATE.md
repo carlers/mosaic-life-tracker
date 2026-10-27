@@ -1,15 +1,13 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1027 fail-closed empty TodoMate Replace for Appwrite and isolated Supabase.
+Current task: #1027 isolate fresh Supabase portable Settings without activating six-domain cloud writes.
 
-## Active #1027 gate
-- Stable isolated recovery source `feature/1027-supabase-recovery-20261020@841bdbd21e5352ba7b0743b7d246d2ca5a8ba548`; canonical Quality #40465970280, Core App Lab core-app #40465970213, eight restore/crypto labs PASS. Preview deploy remains protected/waiting; dev/main/Production unchanged.
-- **Hosted signed security gate PASSED** at `mosaic-dev`, run `951e8da7665d2cac71a42dfb`: two verified Auth owners, six live CAS winners, six stale conflicts, 12 exact foreign-ID denials, 12 signed fixtures, 53 direct write denials and five writer guard denials. Independent SQL: 2 frozen/banned accounts, 12 tombstones, zero live rows across six owner tables. No reason to repeat this signed security drill.
-- New isolated source task closes a remaining source-only Sync Now race: initial read can miss newly added local drafts, and final remote page can become stale after a concurrent CAS. Add second owner-filtered RxDB inventory and read-only remote revision tail; preserve all drafts, foreign-owner caches and checkpoints; fail rather than report false 100%. Existing open PR #1281 is stale and not merged; this adaptation is based on current accepted SHA.
-- Sync Now in-flight owner-audit fence accepted: PR #1394 squash `21380e3306377ab32ca2d1cbc82ced9133922418`, focused #40517856442 and full Quality #40518319132 PASS; eight restore/encryption labs PASS, Core App Lab still running during this checkpoint. No hosted mutation.
-- New source-only import safety: TodoMate Replace must stop before any deletion or safety backup when normalized tasks/categories are both empty; preserve the newer Supabase image-upload code. Stale PR #1254 also proposed an obsolete photo-progress change; only port the still-missing empty-Replace guard with tests for both backend drivers.
-- Next: focused task Quality, squash onto isolated recovery after accepted checks, full canonical/relevant labs. Remaining personal runtime/storage parity, device/offline/ZIP, old PWA fencing and separate cutover authorization unchanged.
-
+## Verified baseline / current work
+- Stable isolated recovery `feature/1027-supabase-recovery-20261020@79e83581c1662098634939ca636181f641f01f79`; full Quality #40519843273, Core App Lab #40519843283 signed UI and Preview deliver PASS, all eight backup/restore labs PASS.
+- Immutable protected Supabase Preview `https://mosaic-life-tracker-peuppzcdz-carls-projects-72516fde.vercel.app` Vercel READY at exact source; owner personally accepted sign-in, tasks, categories, Diary and Sync Now. No approval for dev/main/Production cutover.
+- Genuine hosted signed 6-domain RLS/CAS probe `951e8da7665d2cac71a42dfb` PASSED: 2 signed owners, all 6 CAS race winners, strict isolation, no live fixture rows. Do not repeat.
+- This task adds a NEW Supabase-only `portableSettings` RxDB collection with a stricter non-social key schema, distinct from legacy `settings`; includes explicit owner-identity collection resolver and account-erasure cleanup. Existing settings, Appwrite data, preview feature profile and cloud writers are untouched. No old data automatically imported. The real six-domain source runner still requires independently attested Appwrite escrow, old-client writer fence, target-link proof and authoritative lease.
+- Next: focused gate, isolated squash, exact full canonical & applicable local labs, protected Preview only if separately approved. Then bind a signed fresh-owner profile with schema+Bucket target parity and real two-device/ZIP acceptance before any release promotion.
 
 ## Historical checkpoint (2026-10-23 onward)
 ## Accepted
