@@ -15,6 +15,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 function fixture({
   leakForeign = false, allowUpdate = false, sameUser = false,
   leakPrivateForeign = false, allowPrivateAnonRead = false, allowPrivateAnonRpc = false,
+  populateOwned = false, missingOwnedTable = null, leakUnfiltered = false, leakExactId = false,
 } = {}) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const fetcher = async (url: string, init: RequestInit) => {
@@ -50,10 +51,17 @@ function fixture({
         return json([]);
       return json({ code: '42501' }, 403);
     }
-    const isForeign = new URL(url).searchParams.has('owner_id');
+    const query = new URL(url).searchParams;
+    if (query.has('id'))
+      return leakExactId ? json([{ id: 'foreign-row', owner_id: alice ? bobId : aliceId }]) : json([]);
+    const isForeign = query.has('owner_id');
     if (isForeign && (leakForeign ||
       (leakPrivateForeign && privateTables.some(table => path.endsWith('/' + table)))))
       return json([{ id: 'foreign' }]);
+    if (leakUnfiltered)
+      return json([{ id: 'leaked-row', owner_id: alice ? bobId : aliceId }]);
+    if (populateOwned && !path.endsWith('/' + missingOwnedTable))
+      return json([{ id: alice ? 'fixture-a' : 'fixture-b', owner_id: alice ? aliceId : bobId }]);
     return json([]);
   };
   return { fetcher: fetcher as typeof fetch, calls };
@@ -135,6 +143,49 @@ describe('isolated Supabase genuine-signed-user denial-path harness (#967)', () 
       fetcher: fixture({ allowPrivateAnonRpc: true }).fetcher, nonce,
     })).rejects.toThrow(/Anonymous privileged RPC/);
   });
+
+  it('does not equate an unfiltered foreign-owner leak with an authenticated own read', async () => {
+    await expect(runSignedAuthProbe(config, {
+      fetcher: fixture({ leakUnfiltered: true }).fetcher, nonce,
+    })).rejects.toThrow(/unfiltered table SELECT leaked/);
+  });
+
+  it('strict mode requires existing two-owner fixture rows in all six tables and proves exact-ID denials', async () => {
+    const { fetcher, calls } = fixture({ populateOwned: true });
+    const totals = await runSignedAuthProbe(config, {
+      fetcher, nonce, requireOwnedFixtures: true,
+    });
+    expect(totals).toMatchObject({
+      signedUsers: 2, ownReads: 12, foreignReads: 12,
+      verifiedOwnedFixtures: 12, deniedFixtureById: 12,
+      deniedTableWrites: 12, deniedAnonymousCalls: 12,
+      rpcConflicts: 6, rejectedRpcFields: 6,
+    });
+    const exact = calls.filter(c => c.init.method === 'GET' &&
+      new URL(c.url).searchParams.has('id'));
+    expect(exact).toHaveLength(12);
+    expect(new Set(exact.map(c => new URL(c.url).pathname))).toEqual(new Set([
+      '/rest/v1/mosaic_candidate_tasks', '/rest/v1/mosaic_candidate_categories',
+      '/rest/v1/mosaic_candidate_diary', '/rest/v1/mosaic_candidate_settings',
+      '/rest/v1/mosaic_candidate_buckets', '/rest/v1/mosaic_candidate_bucket_task_links',
+    ]));
+    expect(calls.every(c => c.url.startsWith(origin + '/'))).toBe(true);
+  });
+
+  it('fails strict proof for empty owner domain or a leaked exact-ID foreign row', async () => {
+    await expect(runSignedAuthProbe(config, {
+      fetcher: fixture().fetcher, nonce, requireOwnedFixtures: true,
+    })).rejects.toThrow(/needs an existing owner fixture/);
+    await expect(runSignedAuthProbe(config, {
+      fetcher: fixture({ populateOwned: true, missingOwnedTable: 'mosaic_candidate_settings' }).fetcher,
+      nonce, requireOwnedFixtures: true,
+    })).rejects.toThrow(/needs an existing owner fixture/);
+    await expect(runSignedAuthProbe(config, {
+      fetcher: fixture({ populateOwned: true, leakExactId: true }).fetcher,
+      nonce, requireOwnedFixtures: true,
+    })).rejects.toThrow(/could read an exact fixture row/);
+  });
+
   it('never sends signup or a row insert in the signed owner RLS probe', async () => {
     const { fetcher, calls } = fixture();
     const summary = await runSignedAuthProbe(config, { fetcher, nonce });

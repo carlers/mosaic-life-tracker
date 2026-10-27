@@ -29,12 +29,16 @@ function assertConfig(config) {
     throw new Error('The two disposable accounts must differ');
 }
 
-export async function runSignedAuthProbe(config, { fetcher = fetch, nonce = randomUUID() } = {}) {
+export async function runSignedAuthProbe(config, {
+  fetcher = fetch, nonce = randomUUID(), requireOwnedFixtures = false,
+} = {}) {
   assertConfig(config);
   if (!UUID.test(nonce)) throw new Error('Invalid synthetic document nonce');
+  if (typeof requireOwnedFixtures !== 'boolean') throw new Error('Invalid fixture proof mode');
   const base = new URL(ISOLATED_ORIGIN);
   const totals = { signedUsers: 0, ownReads: 0, foreignReads: 0,
     deniedTableWrites: 0, deniedAnonymousCalls: 0, rpcConflicts: 0, rejectedRpcFields: 0 };
+  if (requireOwnedFixtures) Object.assign(totals, { verifiedOwnedFixtures: 0, deniedFixtureById: 0 });
 
   async function request(path, { token, method = 'GET', body } = {}) {
     return fetcher(new URL(path, base).toString(), {
@@ -82,12 +86,25 @@ export async function runSignedAuthProbe(config, { fetcher = fetch, nonce = rand
     'mosaic_candidate_settings', 'mosaic_candidate_buckets',
     'mosaic_candidate_bucket_task_links',
   ];
+  // Each strict witness is a pre-existing, signed-user-visible record; never seed
+  // or mutate fixture data. Empty tables are NOT proof of cross-owner isolation.
+  const fixtureWitnesses = new Map();
   for (const [user, foreign] of [[alice, bob], [bob, alice]]) {
     for (const table of tables) {
       const own = await request('/rest/v1/' + table + '?select=id,owner_id&limit=1',
         { token: user.token });
-      if (!own.ok || !Array.isArray(await own.json()))
-        throw new Error('Authenticated own-table SELECT did not return an array');
+      if (!own.ok) throw new Error('Authenticated table SELECT was rejected');
+      const visible = await own.json();
+      if (!Array.isArray(visible) || visible.length > 1 ||
+        visible.some(row => !row || typeof row.id !== 'string' || !row.id ||
+          row.owner_id !== user.id)) {
+        throw new Error('Authenticated unfiltered table SELECT leaked a foreign or invalid row');
+      }
+      if (requireOwnedFixtures) {
+        if (visible.length !== 1)
+          throw new Error('Strict hosted RLS proof needs an existing owner fixture in every domain');
+        fixtureWitnesses.set(table + ':' + user.id, visible[0].id);
+      }
       totals.ownReads++;
       const foreignRows = await request('/rest/v1/' + table +
         '?select=id,owner_id&owner_id=eq.' + foreign.id + '&limit=1', { token: user.token });
@@ -95,6 +112,28 @@ export async function runSignedAuthProbe(config, { fetcher = fetch, nonce = rand
         throw new Error('Foreign-owner read was not an empty result');
       totals.foreignReads++;
     }
+  }
+
+  if (requireOwnedFixtures) {
+    for (const table of tables) {
+      const aliceRow = fixtureWitnesses.get(table + ':' + alice.id);
+      const bobRow = fixtureWitnesses.get(table + ':' + bob.id);
+      if (aliceRow === bobRow)
+        throw new Error('Distinct signed owners resolved to the same table fixture');
+      // Check each known-real foreign row by its exact stable primary key,
+      // independently of the existing owner_id-filtered negative assertion.
+      for (const [id, foreign] of [[aliceRow, bob], [bobRow, alice]]) {
+        const search = new URLSearchParams({
+          select: 'id,owner_id', id: 'eq.' + id, limit: '1',
+        });
+        const response = await request('/rest/v1/' + table + '?' + search,
+          { token: foreign.token });
+        if (!response.ok || JSON.stringify(await response.json()) !== '[]')
+          throw new Error('Signed foreign owner could read an exact fixture row');
+        totals.deniedFixtureById++;
+      }
+    }
+    totals.verifiedOwnedFixtures = fixtureWitnesses.size;
   }
 
   const absentId = 'probe_' + nonce.replaceAll('-', '');
@@ -144,6 +183,9 @@ export async function runSignedAuthProbe(config, { fetcher = fetch, nonce = rand
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
+    const args = process.argv.slice(2);
+    if (args.length > 1 || (args.length === 1 && args[0] !== '--require-owned-fixtures'))
+      throw new Error('Unknown signed probe mode');
     const result = await runSignedAuthProbe({
       baseUrl: process.env.MOSAIC_SB_PROBE_URL,
       publishableKey: process.env.MOSAIC_SB_PROBE_PUBLISHABLE_KEY,
@@ -155,7 +197,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         email: process.env.MOSAIC_SB_PROBE_B_EMAIL,
         password: process.env.MOSAIC_SB_PROBE_B_PASSWORD,
       },
-    });
+    }, { requireOwnedFixtures: args[0] === '--require-owned-fixtures' });
     process.stdout.write(JSON.stringify({ ok: true, ...result }) + '\n');
   } catch (error) {
     // Never print token, credential or provider response body.

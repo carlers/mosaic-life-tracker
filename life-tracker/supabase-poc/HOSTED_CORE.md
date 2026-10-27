@@ -675,3 +675,32 @@ settings update, alias operation or Production target is authorized. The exact
 new task commit needs focused acceptance followed by a new isolated-branch
 full canonical run, new artifact, protected reviewer approval and immutable
 Vercel READY identity readback before any Preview URL is called verified.
+
+
+## Non-vacuous signed two-owner RLS proof (2026-10-27, #1027)
+
+The default `npm run supabase:auth:probe` remains a **no-INSERT/no-signup**
+denial-path smoke check against exactly `mosaic-dev`. It now rejects a
+foreign-owned or malformed record returned by an unfiltered authenticated
+table SELECT, even outside strict mode.
+
+For **release acceptance only**, use
+`npm run supabase:auth:probe -- --require-owned-fixtures` with two independently
+confirmed **disposable** users and existing, owner-owned fixture rows in **all
+six personal tables**. This strict mode verifies each signed-in owner's
+unfiltered SELECT returns an actual row owned by that user, then verifies
+the *other* user gets [] when selecting that exact record ID. Missing rows,
+leaked rows, malformed row owners or duplicate cross-owner IDs fail closed.
+It additionally runs the existing owner-id foreign filters, anonymous
+denials, grant-layer PATCH/DELETE denial, null CAS conflict and unsafe-field
+RPC rejection. The script never creates, edits, deletes or retires fixtures.
+It outputs counts only, not user IDs, document IDs, tokens or passwords.
+
+Strict proof cannot pass legitimately on empty tables. Fixture setup,
+ownership attestation and post-test retirement must be managed by the
+separately authorized disposable hosted acceptance runner; never copy real
+user content just to satisfy this gate. The exact-row checks establish
+sampled signed cross-owner isolation, **not** full authorization coverage,
+a live positive CAS write/lease test, account migration, server writer
+cutoff, offline outbox preservation or Production readiness. No real
+hosted two-owner run is claimed by source-unit or CI mock tests.
