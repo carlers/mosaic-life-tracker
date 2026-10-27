@@ -1,14 +1,17 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1027 six-domain Sync Now post-settlement anti-entropy for future personal runner.
+Current task: #1027 recover genuine disposable Supabase labs blocked by GHCR pull rate limits.
 
-## Verified state / active gate
-- Isolated recovery stable source `feature/1027-supabase-recovery-20261020@617cc71e1e6ff5da4e4a94098329a13be0dad350`: PR #1398 authenticated GHCR public registry pulls through short-lived `GITHUB_TOKEN` with packages:read; focused Quality #40528599393 and full canonical #40528830606 PASS. GHCR still rate-limits PG17 image `ghcr.io/supabase/postgres:17.6.1.095` despite authenticated login, preventing execution of Core App and real GoTrue/eight-/ten-table restoration labs. Five other offline cryptographic/synthetic labs pass; do NOT present blocked labs as passing. Avoid repeated blind retries; no weakening gates.
-- Earlier stable source `79e83581` immutable Vercel protected Preview was personally tested by owner: sign-in, tasks, categories, Diary, Sync Now PASS. Latest source `617cc71e` is NOT deployed or promoted. dev/main/Production unchanged.
-- Hosted true signed six-domain two-owner CAS/RLS fixture run `951e8da7665d2cac71a42dfb` PASSED, 2 test users retired, all 12 rows tombstoned, zero live. Historical encrypted database/media Fedora and R2 backups/DR already accepted; no repeat.
-- Distinct Supabase-only empty `portableSettings` RxDB collection accepted in PR #1397, **not yet** synced to application or copied from Appwrite. Six-domain protected runtime `candidatePersonalRuntime` remains source-only and gated on true owner escrow, backend old-client writer fencing, exclusive lease and Bucket references.
-- New scoped source hardening: initial six-domain owner audit can become stale during final resync. Re-verify all six domains *after* final settlement before announcing 100%, preserve offline drafts, logical tombstones and replication cursors. Add regression denying a late owner edit on second pass.
-- Next: focused Quality, squash on isolated stable and canonical suite; local disposable labs remain infrastructure-blocked if GHCR persists. Later: fresh-owner Settings/Bucket UI, real device/offline/ZIP/photo convergence, Appwrite full owner escrow and server old-client writer cutoff; cutover separately approved only after all gates.
+## Accepted source / scope
+- Isolated recovery `feature/1027-supabase-recovery-20261020@8c3a1ab736f848c5d1850d8a3f5010b44ac9b666`: PR #1399 six-domain post-settlement signed owner audit, focused #40530134515 and canonical Quality #40530352778 PASS. Prior PR #1398 short-lived `GITHUB_TOKEN` GHCR login alone did NOT lift rate limits. Latest exact source Core App #40530352955 and real GoTrue/eight-/ten-table restore labs FAILED **before** scenario assertions; do not mark them green. Five other offline cryptographic/synthetic labs PASS.
+- Earlier protected immutable Supabase Preview at `79e83581` Vercel READY, owner accepted sign-in, tasks, categories, Diary, Sync Now. No new Preview deployed or dev/main/Production cutover.
+- Genuine hosted signed six-domain RLS/CAS run `951e8da7665d2cac71a42dfb` PASS, 2 owner test users frozen/banned, 12 tombstones, no live records. Previous Fedora/R2 exact encrypted database/media restore accepted; no repeat.
+- A distinct Supabase-only `portableSettings` local RxDB collection exists but does NOT activate cloud Settings/Bucket List or import historical Appwrite records. Old-client writer fences, original-owner encrypted escrow and bucket reference proof remain mandatory.
+
+## Current isolated CI unblocking patch
+- GHCR still returns `toomanyrequests` for the pinned Supabase PostgreSQL 17.6.1.095 image on hosted runners, even with packages:read login. Do NOT silently switch Postgres versions, disable tests, or retry blindly.
+- The official Supabase Docker Hub `supabase/postgres:17.6.1.095` linux/amd64 manifest has published digest `sha256:4c087262afbfbb47da86e2863a52d7e424eb21ab589f732d77eeaab51be8e521`. Four affected disposable CI labs now pre-stage the exact **digest-pinned** official Docker Hub manifest into the GHCR name the unchanged CLI 2.81.3 expects. They fail closed on pull failure, manifest/OS/arch mismatch or image-ID mismatch. This pins an official same-version alternative; it is NOT evidence that the GHCR manifest bytes match without independent GHCR digest proof. No schema/Auth/RLS/restore assertions or media bytes modified.
+- Run focused regression, squash into isolated recovery, require full canonical and all four **actual** signed disposable labs to pass. If any still fail, report blocker without bypass. No production provider switch or protected environment approval. Afterwards continue genuine fresh-owner Settings/Bucket List integration, two-device offline/ZIP/photo parity, Appwrite source escrow and old-PWA server fencing.
 
 ## Historical checkpoint (2026-10-23 onward)
 ## Accepted
