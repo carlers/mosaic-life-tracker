@@ -55,6 +55,9 @@ async function lease(user) {
     method:'POST',token:user.token,body:{p_action:'acquire'},
   }),'owner authority');
   check(body.ownerId===user.owner,'Signed owner lease mismatch');
+  if (process.env.MOSAIC_ACCOUNT_REGISTRY_LAB==='1') await good(call('/rest/v1/rpc/mosaic_account_status',{
+    method:'POST',token:user.token,body:{p_start_mode:'fresh'},
+  }),'signed fresh-data consent');
 }
 if (phase==='seed') {
   const owner=await newAccount('settings-restore-');

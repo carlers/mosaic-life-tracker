@@ -201,6 +201,10 @@ jobs:
           # unset until exact release evidence and protected rollout are reviewed.
           mapfile -t local_db < <(docker ps --filter name=supabase_db_ --format '{{.ID}}')
           test "${#local_db[@]}" -eq 1
+          docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase-poc/migrations/20261027183840_enforce_personal_writer_consent.sql
+          export MOSAIC_SB_LOCAL_URL=http://127.0.0.1:54321
+          export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
+          node supabase-poc/tests/personal-writer-authority-signed-local.mjs blocked
           docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
           do $evidence_guard$
           declare field text;
@@ -231,6 +235,7 @@ jobs:
           export MOSAIC_CORE_APP_LAB=true
           export MOSAIC_CORE_DIARY_UI_LAB=true
           export MOSAIC_PERSONAL_UI_LAB=true
+          node supabase-poc/tests/personal-writer-authority-signed-local.mjs ready
           npm run build
           export MOSAIC_E2E_BASE_URL=http://127.0.0.1:4174
           npm run preview -- --config "$RUNNER_TEMP/mosaic-core-http.config.mjs" --host 127.0.0.1 --port 4174 --strictPort > "$RUNNER_TEMP/mosaic-diary-vite.log" 2>&1 &

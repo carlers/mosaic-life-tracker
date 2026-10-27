@@ -69,6 +69,16 @@ Realtime additions are preserved by the fourteen-table restore profile. Its
 complete SQL predicate must be TRUE; explicit JSON null source/run fields
 cannot satisfy CHECK through PostgreSQL UNKNOWN semantics.
 
+The personal-writer migration also enforces this boundary at every row INSERT
+and CAS UPDATE and at private-photo INSERT/DELETE. Raw or stale clients need the
+same active mapping, explicit consent, released installation and live lease as
+the current UI. The private no-argument policy function reads only the signed
+caller and locks authority/registry rows through the transaction. No new public
+linking RPC or authenticated table grant is introduced. Owner SELECT remains
+available for export while writes are frozen. Installing this migration with a
+null release marker deliberately blocks writes, including older core clients;
+rollout must stage the snapshot and validated marker before reopening writers.
+
 This first integrated path accepts only server-enrolled independent new data with
 fresh or recovery-pending consent. A recovered/linked principal is deliberately
 refused until verified historical linking and escrow are implemented. Suspended
