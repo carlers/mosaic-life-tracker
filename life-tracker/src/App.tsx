@@ -1,3 +1,12 @@
+import { lazy, Suspense, type ReactNode } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { PwaPrompt } from "./components/ui/PwaPrompt";
+import { AppLayout } from "./components/layout/AppLayout";
+import { AuthPage } from "./pages/AuthPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { PROTECTED_ROUTES, type ProtectedPageId } from './lib/protectedRoutes';
 import { loadChatPage, loadFriendCalendarPage } from "./components/layout/routeModuleLoaders";
 import {
   HomeRoutePage,
