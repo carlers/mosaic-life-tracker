@@ -1,13 +1,11 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1027 non-vacuous signed hosted two-owner RLS release gate (isolated recovery source only).
+Current task: #1027 signed hosted RLS proof on isolated recovery source.
 
-## 2026-10-27 current task — release-gate proof
-
-- Baseline: `feature/1027-supabase-recovery-20261020@8d161c958864283d8a50c454f35dc4e27f9d02cc`; main Production remains v0.43.8 Appwrite. The user authorized work *toward* Supabase Production, not the Production backend cutover.
-- Existing no-INSERT signed probe had a vacuous pass risk with empty tables: unfiltered own SELECT accepted any array, without verifying returned owner. This task rejects malformed/foreign unfiltered rows in all modes and adds an explicit strict flag requiring two *existing* disposable owner fixtures in each of six domains, followed by foreign signed GET using each exact row ID. All tests are mocked until protected hosted accounts and populated fixtures exist.
-- Preserve legacy lightweight no-fixture probe, source-only isolated test harness, no signup/INSERT/privileged keys in client, no Supabase hosted mutations or Appwrite Production writes. Add unit cases for empty/missing/leaked fixtures and exact-row denial; focused CI → stable Recovery Preview canonical acceptance.
-- **Next:** secure real signed hosted strict proof with authorized disposable fixtures, positive CAS and lease, authentic old installed PWA server write fence and owner/media/outbox parity, authenticated device/offline/ZIP/email acceptance, then separately approved provider cutover. No extra Fedora commands until one final consolidated pre-social run.
+## Active #1027 gate
+- Source `feature/1027-supabase-recovery-20261020@8d161c958864283d8a50c454f35dc4e27f9d02cc`; main stays Appwrite v0.43.8.
+- Harden read-only signed probe: reject unfiltered foreign rows; opt-in strict needs existing disposable owner rows in all six tables and checks foreign signed GET by exact ID. CI uses mock HTTP, **not** hosted evidence.
+- No new Auth accounts, hosted writes, dev/main release, or Production cutover. Next: protected real two-owner fixture proof, real frozen Appwrite old-writer/outbox/media parity, device/offline/ZIP/email acceptance, then separately approved cutover. No routine Fedora prompts.
 
 ## Historical checkpoint (2026-10-23 onward)
 ## Accepted
