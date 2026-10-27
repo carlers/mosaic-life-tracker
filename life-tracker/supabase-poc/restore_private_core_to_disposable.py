@@ -37,11 +37,20 @@ PRIVATE_BUCKET_LINKS = [
     "public.mosaic_candidate_buckets",
     "public.mosaic_candidate_bucket_task_links",
 ]
+IDENTITY_REGISTRY = [
+    'mosaic_candidate_private.identity_installation',
+    'mosaic_candidate_private.mosaic_accounts',
+    'mosaic_candidate_private.provider_accounts',
+    'mosaic_candidate_private.identity_audit',
+]
 
 def selected_data_tables():
     fresh = os.environ.get("MOSAIC_FRESH_SNAPSHOT_SHA256") is not None
     settings = os.environ.get("MOSAIC_PERSONAL_SETTINGS_RESTORE")
     buckets = os.environ.get("MOSAIC_BUCKET_LINKS_RESTORE")
+    registry = os.environ.get('MOSAIC_IDENTITY_REGISTRY_RESTORE')
+    if registry is not None and (registry != '1' or buckets != '1' or settings != '1' or not fresh):
+        raise ValueError('Identity registry requires explicit fourteen-table SHA mode')
     if settings is not None and settings != "1":
         raise ValueError("Invalid Settings restore authorization")
     if buckets is not None and buckets != "1":
@@ -52,7 +61,8 @@ def selected_data_tables():
         raise ValueError("Bucket/link restore requires explicit ten-table Settings+SHA mode")
     return (CORE + (FRESH_DIARY if fresh else [])
             + (PERSONAL_SETTINGS if settings == "1" else [])
-            + (PRIVATE_BUCKET_LINKS if buckets == "1" else []))
+            + (PRIVATE_BUCKET_LINKS if buckets == "1" else [])
+            + (IDENTITY_REGISTRY if registry == '1' else []))
 
 def validate_source_counts(counts, synthetic=False):
     selected = selected_data_tables()
@@ -133,6 +143,11 @@ def assert_target(container):
                 raise ValueError("Disposable target missing an initialized personal data table")
             if sql(container, "SELECT count(*) FROM " + tbl) != "0":
                 raise ValueError("Refusing nonempty personal recovery target")
+    if IDENTITY_REGISTRY[0] in selected_data_tables():
+        for table in IDENTITY_REGISTRY:
+            expected = '1' if table == IDENTITY_REGISTRY[0] else '0'
+            if sql(container, 'SELECT count(*) FROM ' + table) != expected:
+                raise ValueError('Refusing nonempty/uninitialized identity registry recovery target')
     for table in CORE + ["auth.sessions", "auth.refresh_tokens",
                          "auth.one_time_tokens", "mosaic_candidate_private.core_sessions"]:
         count = sql(container, "SELECT count(*) FROM " + table)
@@ -189,6 +204,8 @@ def copy_manifest(container):
         if not match:
             continue
         name = match.group(1) + "." + match.group(2)
+        if name in IDENTITY_REGISTRY and name not in allowed:
+            raise ValueError('Identity-bearing source requires approved fourteen-table restore')
         # Scan the entire authenticated manifest before rejecting unapproved
         # personal objects. A seven-table Diary entry precedes Settings in a
         # real eight-table dump; rejecting the first unexpected entry obscures
@@ -344,6 +361,12 @@ def restore(archive, identity, container):
         ) + (tuple(PRIVATE_BUCKET_LINKS) if PRIVATE_BUCKET_LINKS[0] in selected_data_tables() else ())
         for tbl in owner_tables:
             sql(container, "ALTER TABLE " + tbl + " DISABLE TRIGGER USER")
+        registry = IDENTITY_REGISTRY[0] in selected_data_tables()
+        if registry:
+            # Only the verified new empty destination. Prevent generated IDs,
+            # revocation/audit events and duplicate bindings during exact COPY.
+            sql(container, 'ALTER TABLE mosaic_candidate_private.core_authorities DISABLE TRIGGER USER')
+            sql(container, 'DELETE FROM mosaic_candidate_private.identity_installation')
         print("MOSAIC_LOCAL_DR_SAFE_STAGE: ROW_NATIVE_AUTH", flush=True)
         restore_one(container, manifest, "auth.users")
         restore_one(container, manifest, "auth.identities")
@@ -355,6 +378,11 @@ def restore(archive, identity, container):
         print("MOSAIC_LOCAL_DR_SAFE_STAGE: ROW_APPLICATION_DATA", flush=True)
         for name in selected_data_tables()[2:]:
             restore_one(container, manifest, name)
+        if registry:
+            sql(container, "SELECT setval('mosaic_candidate_private.identity_audit_event_id_seq', "
+                "COALESCE((SELECT max(event_id) FROM mosaic_candidate_private.identity_audit), 1), "
+                "EXISTS(SELECT 1 FROM mosaic_candidate_private.identity_audit))")
+            sql(container, 'ALTER TABLE mosaic_candidate_private.core_authorities ENABLE TRIGGER USER')
         for tbl in owner_tables:
             sql(container, "ALTER TABLE " + tbl + " ENABLE TRIGGER USER")
         print("MOSAIC_LOCAL_DR_SAFE_STAGE: ROW_BYTE_PARITY", flush=True)

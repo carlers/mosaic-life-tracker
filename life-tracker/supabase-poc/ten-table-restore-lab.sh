@@ -53,6 +53,9 @@ for migration in \
   cp "$here/migrations/$migration.sql" "supabase/migrations/$stamp"_"$migration.sql"
   i=$((i+1))
 done
+if [[ ${MOSAIC_ACCOUNT_REGISTRY_LAB:-} == 1 ]]; then
+  cp "$here/migrations/20261027170802_mosaic_account_registry.sql" supabase/migrations/20261027170802_mosaic_account_registry.sql
+fi
 python3 - <<'PY'
 from pathlib import Path
 import re
@@ -127,14 +130,20 @@ echo MOSAIC_BUCKET_TEN_TABLE_TOC_PROFILE_PASS
 supabase stop --no-backup >/dev/null
 unset MOSAIC_SB_LOCAL_URL MOSAIC_SB_LOCAL_PUBLISHABLE_KEY
 unset MOSAIC_SETTINGS_RESTORE_URL MOSAIC_SETTINGS_RESTORE_KEY
-report="$(bash "$here/run-private-core-recovery.sh" "$tmp/archive.age" "$tmp/identity.agekey" --fresh-personal-bucket-links-sha256 "$sha")"
+restore_mode=--fresh-personal-bucket-links-sha256
+if [[ ${MOSAIC_ACCOUNT_REGISTRY_LAB:-} == 1 ]]; then restore_mode=--fresh-personal-identity-sha256; fi
+report="$(bash "$here/run-private-core-recovery.sh" "$tmp/archive.age" "$tmp/identity.agekey" "$restore_mode" "$sha")"
 target="$(sed -n 's/^PRIVATE_LOCAL_DIRECTORY: //p' <<< "$report")"
 network="$(sed -n 's/^PRIVATE_DOCKER_NETWORK: //p' <<< "$report")"
 url="$(sed -n 's/^LOCAL_AUTH_API: //p' <<< "$report")"
 [[ "$target" =~ ^/home/runner/\.mosaic-private-recovery-[A-Za-z0-9]{8}$ ]] || exit 1
 [[ "$network" =~ ^mosaic_dr_net_[a-f0-9]{12}$ ]] || exit 1
 [[ "$url" =~ ^http://127\.0\.0\.1:(3[2-9][0-9]{3}|4[0-6][0-9]{3}|47000)$ ]] || exit 1
-grep -Fq 'DISPOSABLE_CORE_RESTORE_PASS: 10 data tables' <<< "$report"
+if [[ ${MOSAIC_ACCOUNT_REGISTRY_LAB:-} == 1 ]]; then
+  grep -Fq 'DISPOSABLE_CORE_RESTORE_PASS: 14 data tables' <<< "$report"
+else
+  grep -Fq 'DISPOSABLE_CORE_RESTORE_PASS: 10 data tables' <<< "$report"
+fi
 grep -Fq 'exact source/target rows verified' <<< "$report"
 echo MOSAIC_BUCKET_TEN_TABLE_EXACT_COPY_RESTORE_PASS
 (cd "$target" && supabase status -o env) > "$tmp/target.env"

@@ -38,6 +38,25 @@ def manifest(names):
 
 
 class Contract(unittest.TestCase):
+    def test_registry_requires_all_four_objects_and_rejects_older_modes(self):
+        names = TEN + m.IDENTITY_REGISTRY
+        for flavor in (None, 'diary', 'settings', 'ten'):
+            with mode(flavor), self.assertRaisesRegex(ValueError, 'fourteen-table'):
+                manifest(names)
+        with patch.dict(os.environ, {
+            'MOSAIC_FRESH_SNAPSHOT_SHA256': 'a'*64,
+            'MOSAIC_PERSONAL_SETTINGS_RESTORE': '1',
+            'MOSAIC_BUCKET_LINKS_RESTORE': '1',
+            'MOSAIC_IDENTITY_REGISTRY_RESTORE': '1',
+        }, clear=True):
+            self.assertEqual(m.selected_data_tables(), names)
+            self.assertEqual(list(manifest(names)), names)
+            for name in m.IDENTITY_REGISTRY:
+                with self.assertRaisesRegex(ValueError, 'Missing required'):
+                    manifest([t for t in names if t != name])
+                with self.assertRaisesRegex(ValueError, 'Duplicate required'):
+                    manifest(names + [name])
+
     def test_six_historical_unchanged(self):
         with mode():
             self.assertEqual(m.selected_data_tables(), m.CORE)

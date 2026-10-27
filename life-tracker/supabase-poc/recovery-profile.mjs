@@ -6,6 +6,9 @@
 export const SEVEN = 'seven';
 export const EIGHT_SETTINGS = 'eight-personal-settings';
 export const TEN_BUCKET_LINKS = 'ten-personal-bucket-links';
+export const FOURTEEN_IDENTITY = 'fourteen-personal-identity';
+const REGISTRY = ['identity_installation', 'mosaic_accounts', 'provider_accounts', 'identity_audit']
+  .map(name => 'mosaic_candidate_private.' + name).sort();
 const REQUIRED_PERSONAL = [
   'public.mosaic_candidate_categories',
   'public.mosaic_candidate_diary',
@@ -16,7 +19,7 @@ const REQUIRED_TEN = [...REQUIRED_EIGHT, 'public.mosaic_candidate_buckets',
   'public.mosaic_candidate_bucket_task_links'].sort();
 
 export function assertRecoveryProfile(value) {
-  if (value !== SEVEN && value !== EIGHT_SETTINGS && value !== TEN_BUCKET_LINKS)
+  if (value !== SEVEN && value !== EIGHT_SETTINGS && value !== TEN_BUCKET_LINKS && value !== FOURTEEN_IDENTITY)
     throw new Error('Unapproved unified R2 personal recovery profile');
   return value;
 }
@@ -32,11 +35,16 @@ export function assertProfileToc(report, requested = SEVEN) {
     throw new Error('Authenticated PostgreSQL archive core metadata incomplete');
   }
   const observed = report.personalCandidateDataTables;
+  const registry = report.identityRegistryDataTables ?? [];
+  if (!Array.isArray(registry) || JSON.stringify([...registry].sort()) !==
+      JSON.stringify(requested === FOURTEEN_IDENTITY ? REGISTRY : []))
+    throw new Error('Identity registry requires exact fourteen-table recovery profile');
   if (observed.some(name => typeof name !== 'string') ||
       new Set(observed).size !== observed.length) {
     throw new Error('Duplicate or malformed personal data table inventory');
   }
-  const required = requested === TEN_BUCKET_LINKS ? REQUIRED_TEN :
+  const includesBuckets = requested === TEN_BUCKET_LINKS || requested === FOURTEEN_IDENTITY;
+  const required = includesBuckets ? REQUIRED_TEN :
     requested === EIGHT_SETTINGS ? REQUIRED_EIGHT : REQUIRED_PERSONAL;
   const actual = [...observed].sort();
   if (JSON.stringify(actual) !== JSON.stringify(required)) {
@@ -44,9 +52,9 @@ export function assertProfileToc(report, requested = SEVEN) {
   }
   if (report.privateDiaryDataEntryPresent !== true ||
       report.personalSettingsDataEntryPresent !== (requested !== SEVEN) ||
-      (requested === TEN_BUCKET_LINKS && (report.bucketListDataEntryPresent !== true ||
+      (includesBuckets && (report.bucketListDataEntryPresent !== true ||
         report.bucketTaskLinksDataEntryPresent !== true)) ||
-      (requested !== TEN_BUCKET_LINKS && (report.bucketListDataEntryPresent === true ||
+      (!includesBuckets && (report.bucketListDataEntryPresent === true ||
         report.bucketTaskLinksDataEntryPresent === true))) {
     throw new Error('Encrypted PostgreSQL archive is not restorable under selected profile');
   }

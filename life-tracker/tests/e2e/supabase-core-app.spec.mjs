@@ -75,6 +75,14 @@ async function signIn(page, owner) {
   await page.getByLabel('Email Address').fill(owner.email);
   await page.getByLabel('Password', { exact: true }).fill(owner.password);
   await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+  const accountStart = page.getByRole('heading', { name: 'Start your Mosaic account', exact: true });
+  await expect(accountStart.or(page.getByRole('tab', { name: 'Calendar', exact: true })))
+    .toBeVisible({ timeout: 30_000 });
+  if (await accountStart.isVisible()) {
+    await expect(page.getByRole('button', { name: 'Continue with new data' })).toBeDisabled();
+    await page.getByRole('radio', { name: 'I am starting a new Mosaic account.' }).check();
+    await page.getByRole('button', { name: 'Continue with new data' }).click();
+  }
   await expect(page.getByRole('tab', { name: 'Calendar', exact: true })).toBeVisible({ timeout: 30_000 });
 }
 async function rows(owner, domain) {

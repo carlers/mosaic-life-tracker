@@ -56,6 +56,7 @@ authorization, Scratch checks, or release gates.
 | Domain | Canonical owner |
 |---|---|
 | Product behavior and architecture, with stable numbered § references | [Project reference](PROJECT_REFERENCE.md) |
+| Supabase Mosaic identity, explicit account start and pending historical recovery | [Account identity](MOSAIC_ACCOUNT_IDENTITY.md) |
 | Theme, semantic tokens, contrast, component checklists | [Theme guide](THEMING.md) |
 | Sync races and edge-case evidence | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md) |
 | Irreversible account deletion, privacy fencing, and DR non-resurrection | [Account erasure](ACCOUNT_ERASURE.md) |

@@ -70,6 +70,7 @@ jobs:
           cp supabase-poc/migrations/20261023_candidate_private_personal_photos.sql supabase/migrations/20261023000000_personal_photos.sql
           cp supabase-poc/migrations/20261025_candidate_private_personal_settings.sql supabase/migrations/20261025000000_personal_settings.sql
           cp supabase-poc/migrations/20261025_candidate_private_bucket_links.sql supabase/migrations/20261025000001_private_bucket_links.sql
+          cp supabase-poc/migrations/20261027170802_mosaic_account_registry.sql supabase/migrations/20261027170802_mosaic_account_registry.sql
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -175,6 +176,7 @@ jobs:
           export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
           export MOSAIC_CORE_APP_LAB=true
           export MOSAIC_CORE_SHORT_JWT=true
+          node supabase-poc/tests/account-registry-signed-local.mjs
           npm run build
           # Service workers reject the development self-signed certificate even
           # when a page accepts it. Loopback HTTP is a browser secure context.

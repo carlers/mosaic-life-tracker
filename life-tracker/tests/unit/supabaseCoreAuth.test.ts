@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseCoreAuthCoordinator } from '../../src/lib/supabaseCoreAuth';
 import { CandidateSessionDeniedError } from '../../supabase-poc/candidateAuthSession';
+import { SupabaseAccountStartRequiredError } from '../../src/lib/supabaseAccountRegistry';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
@@ -81,6 +82,28 @@ function fixture() {
 beforeEach(() => vi.clearAllMocks());
 
 describe('app-owned signed Supabase core Auth+RxDB lifecycle (#1027)', () => {
+  it('waits for explicit account consent without exposing an owner or starting any writer', async () => {
+    const f = fixture();
+    f.resolveIdentity.mockRejectedValueOnce(new SupabaseAccountStartRequiredError());
+    await expect(f.coordinator.signIn('new@example.org', 'separate password')).rejects.toThrow('Choose how');
+    expect(f.coordinator.getPhase()).toBe('awaiting-consent');
+    expect(f.coordinator.getAuthenticatedOwner()).toBeNull();
+    expect(mocks.bootstrap).not.toHaveBeenCalled();
+    expect(f.session.signOut).not.toHaveBeenCalled();
+    expect(await f.coordinator.resumeAfterConsent()).toEqual(f.identity);
+    expect(f.resolveIdentity).toHaveBeenCalledTimes(2);
+    expect(f.bridge.start).toHaveBeenCalledOnce();
+  });
+
+  it('cancels an unconsented session without ever starting replication', async () => {
+    const f = fixture();
+    f.resolveIdentity.mockRejectedValue(new SupabaseAccountStartRequiredError());
+    await expect(f.coordinator.restore()).rejects.toThrow('Choose how');
+    expect(await f.coordinator.signOut()).toBe(true);
+    expect(f.coordinator.getPhase()).toBe('signed-out');
+    expect(mocks.bootstrap).not.toHaveBeenCalled();
+    await expect(f.coordinator.resumeAfterConsent()).rejects.toThrow('No pending');
+  });
   it('stays passive and publishes no cached owner until signed Auth and trusted mapping succeed', async () => {
     const f = fixture();
     expect(f.coordinator.getPhase()).toBe('signed-out');

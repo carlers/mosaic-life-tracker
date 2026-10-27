@@ -23,11 +23,12 @@ import {
   createAppSupabaseCoreBootstrap,
   type AppSupabaseCoreBootstrapOptions,
 } from './supabaseCoreBootstrap';
+import { SupabaseAccountStartRequiredError } from './supabaseAccountRegistry';
 
 type SessionManager = ReturnType<typeof createCandidateAuthSession>;
 type CoreBootstrap = ReturnType<typeof createAppSupabaseCoreBootstrap>;
 type CoreRun = Awaited<ReturnType<CoreBootstrap['start']>>;
-type Phase = 'signed-out' | 'authenticating' | 'active' | 'paused' | 'stopping' | 'blocked';
+type Phase = 'signed-out' | 'authenticating' | 'awaiting-consent' | 'active' | 'paused' | 'stopping' | 'blocked';
 
 export interface SupabaseCoreAuthOptions extends Omit<
   AppSupabaseCoreBootstrapOptions,
@@ -154,6 +155,12 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
       const blocked = pendingBootstrap?.getPhase() === 'blocked' ||
         (error instanceof Error && /cleanup unconfirmed|writer lease retained/.test(error.message));
       active = null;
+      if (!pendingBootstrap && !blocked && error instanceof SupabaseAccountStartRequiredError) {
+        // A verified session may choose NEW data before any database writer is
+        // constructed. No owner/cache is exposed and no password is retained.
+        phase = 'awaiting-consent';
+        throw error;
+      }
       // A restore outage does not revoke the durable refresh family or its
       // previously verified local-data hint. No writer/remote owner is exposed.
       try {
@@ -195,7 +202,11 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
   async function signOut(): Promise<boolean> {
     if (phase === 'blocked')
       throw new Error('Supabase core writer state is uncertain; cannot permit another provider');
-    if (phase === 'signed-out') return session.signOut();
+    if (phase === 'signed-out' || phase === 'awaiting-consent') {
+      const revoked = await session.signOut();
+      phase = 'signed-out';
+      return revoked;
+    }
     if ((phase !== 'active' && phase !== 'paused') || !active)
       throw new Error('Supabase core account operation already in progress');
     phase = 'stopping';
@@ -289,6 +300,11 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
 
   return {
     signIn,
+    async resumeAfterConsent() {
+      if (phase !== 'awaiting-consent') throw new Error('No pending account choice');
+      phase = 'signed-out';
+      return startSigned(() => session.getVerifiedSession());
+    },
     restore,
     suspend,
     signOut,
