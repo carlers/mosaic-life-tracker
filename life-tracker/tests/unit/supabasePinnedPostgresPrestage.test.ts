@@ -18,7 +18,7 @@ describe('digest-pinned official Supabase PG17 CI prestage (#1027)', () => {
   it.each(workflows)('%s prestages PG before unchanged real disposable tests', (name, realStep) => {
     const workflow = readFileSync(new URL('../../../.github/workflows/' + name, import.meta.url), 'utf8');
     expect(workflow).toContain('uses: docker/login-action@v4');
-    const step = workflow.indexOf('run: bash supabase-poc/ci/prestage-pinned-postgres.sh');
+    const step = workflow.indexOf('bash supabase-poc/ci/prestage-pinned-postgres.sh');
     expect(step).toBeGreaterThan(workflow.indexOf('uses: docker/login-action@v4'));
     expect(workflow.indexOf('- name: ' + realStep)).toBeGreaterThan(step);
     expect(workflow).toMatch(/permissions:\s*\n\s*contents: read\s*\n\s*packages: read/);
@@ -37,7 +37,7 @@ describe('digest-pinned official Supabase PG17 CI prestage (#1027)', () => {
     expect(content).toContain('docker.io/supabase/postgres:17.6.1.095');
     expect(content).toContain('docker pull --platform linux/amd64');
     expect(content).toContain('docker image inspect');
-    expect(content).toContain('docker tag "$source_image" "$target_image"');
+    expect(content).toContain('docker tag "$source_image" "$local_name"');
     expect(content).not.toMatch(/\b(?:docker build|curl|wget|eval|sudo|--insecure)\b/);
     expect(spawnSync('bash', ['-n', helper], { encoding: 'utf8' }).status).toBe(0);
   });
