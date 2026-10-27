@@ -50,23 +50,23 @@ describe('isolated portable personal Settings collection (#1027)', () => {
     state.driver = 'supabase';
     expect(() => resolveCandidatePersonalCollections({
       ...db, portableSettings: undefined,
-    })).toThrow(/distinct/);
+    }, OWNER)).toThrow(/distinct/);
     expect(() => resolveCandidatePersonalCollections({
       ...db, portableSettings: db.settings,
-    })).toThrow(/distinct/);
+    }, OWNER)).toThrow(/distinct/);
     expect(() => resolveCandidatePersonalCollections({
       ...db, portableSettings: {
         ...db.portableSettings, database: {},
       } as never,
-    })).toThrow(/distinct/);
+    }, OWNER)).toThrow(/distinct/);
     expect(() => resolveCandidatePersonalCollections({
       ...db, portableSettings: {
         ...db.portableSettings, name: 'settings',
       } as never,
-    })).toThrow(/distinct/);
+    }, OWNER)).toThrow(/distinct/);
     expect(() => resolveCandidatePersonalCollections({
       ...db, bucketTaskLinks: db.tasks as never,
-    })).toThrow(/distinct/);
+    }, OWNER)).toThrow(/distinct/);
   });
 
   it('uses a separate schema excluding known social and avatar keys and honoring signed bounds', () => {
