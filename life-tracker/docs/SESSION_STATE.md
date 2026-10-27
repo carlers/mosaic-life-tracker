@@ -1,7 +1,13 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1027 repair canonical node:test wrapper after accepted profile regression adds a thirteenth case, task branch chatgpt/1027-offsite-gate-count-repair-20261027.
+Current task: #1027 signed hosted RLS proof on isolated recovery source.
 
+## Active #1027 gate
+- Source `feature/1027-supabase-recovery-20261020@8d161c958864283d8a50c454f35dc4e27f9d02cc`; main stays Appwrite v0.43.8.
+- Harden read-only signed probe: reject unfiltered foreign rows; opt-in strict needs existing disposable owner rows in all six tables and checks foreign signed GET by exact ID. CI uses mock HTTP, **not** hosted evidence.
+- No new Auth accounts, hosted writes, dev/main release, or Production cutover. Next: protected real two-owner fixture proof, real frozen Appwrite old-writer/outbox/media parity, device/offline/ZIP/email acceptance, then separately approved cutover. No routine Fedora prompts.
+
+## Historical checkpoint (2026-10-23 onward)
 ## Accepted
 - Recovery feature/1027-supabase-recovery-20261020@a493f555da2ab6b8c915d98c175ab842f93a7570; exact full Quality #40341254320, signed local two-owner GoTrue and 8/10 table original age/media labs PASS. Non-shipped six-domain Sync Now false 100% fix accepted.
 - User-approved hosted mosaic-dev additive Settings/Bucket/task links installed with owner RLS, triggers, signed CAS, two foreign keys. Existing user rows and Appwrite Production data unchanged, no original history imported or six-domain app activated.
