@@ -7,6 +7,7 @@ on:
       - 'feature/1027-supabase-recovery-*'
 permissions:
   contents: read
+  packages: read
 concurrency:
   group: supabase-ten-table-private-restore-${{ github.ref }}
   cancel-in-progress: true
@@ -25,6 +26,14 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: '2.81.3'
+      # Authenticated pulls prevent anonymous GHCR 429 on ephemeral runners.
+      # GITHUB_TOKEN is short-lived and grants package READ only, not write.
+      - name: Authenticate GHCR for disposable Supabase images
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Install isolated age executable
         run: |
           sudo apt-get update -qq

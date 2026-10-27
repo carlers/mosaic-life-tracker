@@ -12,6 +12,7 @@ on:
       - 'chatgpt/1027-bucket-links-private-sql-*'
 permissions:
   contents: read
+  packages: read
 concurrency:
   group: supabase-core-app-${{ github.ref }}
   cancel-in-progress: true
@@ -32,6 +33,14 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.81.3
+      # Authenticated pulls prevent anonymous GHCR 429 on ephemeral runners.
+      # GITHUB_TOKEN is short-lived and grants package READ only, not write.
+      - name: Authenticate GHCR for disposable Supabase images
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Install app and browser dependencies
         run: |
           npm ci --prefer-offline --no-audit
