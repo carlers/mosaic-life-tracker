@@ -46,9 +46,15 @@ async function lease(user){
   method:'POST',token:user.token,body:{p_action:'acquire'}}),'owner authority');
  check(authority.ownerId===user.ownerId,'Wrong owner authority');
 }
+const registryEnabled=process.env.MOSAIC_ACCOUNT_REGISTRY_LAB==='1';
+async function registry(user,mode=null){
+ return good(request('/rest/v1/rpc/mosaic_account_status',{method:'POST',token:user.token,
+  body:{p_start_mode:mode}}),'account registry');
+}
 const prefix='ci_'+randomBytes(7).toString('hex');
 if(phase==='seed'){
  const user=await newOwner();await lease(user);
+ const accountRegistry=registryEnabled?await registry(user,'recovery-pending'):null;
  const now='2026-10-25T12:00:00Z';
  const category='cat_'+prefix,task='task_'+prefix,bucket='bucket_'+prefix;
  const liveLink='link_live_'+prefix,deadLink='link_tomb_'+prefix;
@@ -89,7 +95,7 @@ if(phase==='seed'){
  check(tomb.is_deleted===true&&BigInt(tomb.change_seq)>BigInt(links[1].change_seq),
   'Link deletion revision missing');
  await writeFile(path,JSON.stringify({email:user.email,password:user.password,
-  ownerId:user.ownerId,category,task,bucket,liveLink,deadLink,
+  ownerId:user.ownerId,category,task,bucket,liveLink,deadLink,accountRegistry,
   bucketRevision:String(achieved.change_seq),liveRevision:String(links[0].change_seq),
   tombRevision:String(tomb.change_seq)}),{mode:0o600,flag:'wx'});
  console.log('MOSAIC_BUCKET_TEN_TABLE_SIGNED_SOURCE_PASS');
@@ -101,6 +107,12 @@ if(phase==='seed'){
  check(signed.user?.id===ownerId&&typeof signed.access_token==='string',
   'Restored Bucket owner password failed');
  const owner={ownerId,token:signed.access_token};await lease(owner);
+ if(registryEnabled){
+  check(JSON.stringify(await registry(owner))===JSON.stringify(expected.accountRegistry),
+   'Restored identity/installation/provenance/consent changed');
+  check(JSON.stringify(await registry(owner,'recovery-pending'))===JSON.stringify(expected.accountRegistry),
+   'Restored pending consent was not idempotent');
+ }
  const ownerPath='?select=*&owner_id=eq.'+encodeURIComponent(ownerId);
  const buckets=await good(request('/rest/v1/mosaic_candidate_buckets'+ownerPath,
   {token:owner.token}),'restored owner Buckets');

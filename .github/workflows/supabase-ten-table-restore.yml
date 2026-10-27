@@ -57,4 +57,5 @@ jobs:
       - name: Prove PG17 age-encrypted ten-table exact-copy restore and signed two-owner RLS
         env:
           MOSAIC_REAL_AUTH_RECOVERY_LAB: '1'
+          MOSAIC_ACCOUNT_REGISTRY_LAB: '1'
         run: bash supabase-poc/ten-table-restore-lab.sh

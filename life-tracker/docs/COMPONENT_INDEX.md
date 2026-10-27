@@ -9,6 +9,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 | Module | Source |
 |---|---|
+| AccountStartView | [src/components/auth/AccountStartView.tsx](../src/components/auth/AccountStartView.tsx) |
 | EmailActionView | [src/components/auth/EmailActionView.tsx](../src/components/auth/EmailActionView.tsx) |
 
 ## components/explore

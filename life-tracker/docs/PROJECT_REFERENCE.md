@@ -928,6 +928,15 @@ Appwrite recovery callbacks retain their established flow. Hosted email
 templates/redirects and actual mail delivery are separate release gates;
 admin-generated disposable links establish signed callback behavior only.
 
+### 23.11 Provider-neutral Mosaic account registry
+
+The isolated Supabase candidate resolves its signed owner through a private
+versioned provider/installation registry. The application asks for explicit fresh
+or recovery-pending new-data consent before starting writers. Email/password
+equality and user metadata never authorize account linking. Historical claiming
+remains separate; see [account identity](MOSAIC_ACCOUNT_IDENTITY.md) for schema,
+consent, fourteen-table encrypted recovery and rollout requirements.
+
 ## 24. Test Suite
 
 ### 24.1 Overview

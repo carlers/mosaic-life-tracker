@@ -71,6 +71,10 @@ export function summarizeToc(source) {
     entry.schema === 'public' && entry.name?.startsWith('mosaic_candidate_'))
     .map(entry => 'public.' + entry.name);
   return {
+    identityRegistryDataTables: entries.filter(entry => entry.kind === 'TABLE DATA' &&
+      entry.schema === 'mosaic_candidate_private' &&
+      ['identity_installation', 'mosaic_accounts', 'provider_accounts', 'identity_audit'].includes(entry.name))
+      .map(entry => 'mosaic_candidate_private.' + entry.name),
     privateDiaryDataEntryPresent: dataPresent('public', 'mosaic_candidate_diary'),
     personalSettingsDataEntryPresent: dataPresent('public', 'mosaic_candidate_settings'),
     bucketListDataEntryPresent: dataPresent('public', 'mosaic_candidate_buckets'),

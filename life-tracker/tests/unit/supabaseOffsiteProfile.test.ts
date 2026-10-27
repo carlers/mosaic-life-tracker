@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertProfileToc, assertRecoveryProfile, SEVEN, EIGHT_SETTINGS, TEN_BUCKET_LINKS } from '../../supabase-poc/recovery-profile.mjs';
+import { assertProfileToc, assertRecoveryProfile, SEVEN, EIGHT_SETTINGS, TEN_BUCKET_LINKS, FOURTEEN_IDENTITY } from '../../supabase-poc/recovery-profile.mjs';
 
 const seven = {
   status: 'METADATA_ONLY_NOT_RESTORED',
@@ -17,6 +17,26 @@ const seven = {
 };
 
 describe('authenticated unified R2 personal table inventory gate', () => {
+  it('preserves all registry objects and rejects older or incomplete recovery profiles', () => {
+    const report = { ...seven, personalSettingsDataEntryPresent: true,
+      bucketListDataEntryPresent: true, bucketTaskLinksDataEntryPresent: true,
+      personalCandidateDataTables: [...seven.personalCandidateDataTables,
+        'public.mosaic_candidate_settings', 'public.mosaic_candidate_buckets', 'public.mosaic_candidate_bucket_task_links'],
+      identityRegistryDataTables: ['identity_installation', 'mosaic_accounts', 'provider_accounts', 'identity_audit']
+        .map(name => 'mosaic_candidate_private.' + name),
+    };
+    expect(assertProfileToc(report, FOURTEEN_IDENTITY)).toBe(FOURTEEN_IDENTITY);
+    for (const old of [SEVEN, EIGHT_SETTINGS, TEN_BUCKET_LINKS])
+      expect(() => assertProfileToc(report, old)).toThrow('fourteen-table');
+    for (const entry of report.identityRegistryDataTables) {
+      expect(() => assertProfileToc({ ...report,
+        identityRegistryDataTables: report.identityRegistryDataTables.filter(x => x !== entry),
+      }, FOURTEEN_IDENTITY)).toThrow('fourteen-table');
+    }
+    expect(() => assertProfileToc({ ...report,
+      identityRegistryDataTables: [...report.identityRegistryDataTables, report.identityRegistryDataTables[0]],
+    }, FOURTEEN_IDENTITY)).toThrow('fourteen-table');
+  });
   it('preserves seven-table legacy profile and explicitly accepts complete eight-table input', () => {
     expect(assertProfileToc(seven, SEVEN)).toBe(SEVEN);
     const eighth = {

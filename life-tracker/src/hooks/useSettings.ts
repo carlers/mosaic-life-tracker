@@ -3,14 +3,14 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import { makeSettingsRowId, MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
-import { upsertLocalDoc } from '../lib/localUpsert';
+import { useOwnerMutationGuard } from './useOwnerMutationGuard';
 import type { SettingsDocument } from '../db/schema';
 
 export { makeSettingsRowId };
 const DEBUG = import.meta.env.DEV;
 const legacyCleanupByUser = new Map<string, Promise<void>>();
 
-async function cleanupLegacySettingsRows(userId: string): Promise<void> {
+async function cleanupLegacySettingsRows(userId: string, assertOwner: (owner: string) => void): Promise<void> {
   const existing = legacyCleanupByUser.get(userId);
   if (existing) return existing;
 
@@ -20,6 +20,8 @@ async function cleanupLegacySettingsRows(userId: string): Promise<void> {
       .exec();
     for (const doc of all) {
       if (doc.id.length <= MAX_ROW_ID_LENGTH) continue;
+      assertOwner(userId);
+      if (doc.userId !== userId) throw new Error('Settings owner changed during cleanup');
       if (DEBUG) {
         console.warn(
           '[useSettings] Removing oversized legacy settings row:',
@@ -55,6 +57,9 @@ function mapSettingsDocs(docs: SettingsDocument[]): Record<string, unknown> {
 
 export function useSettings() {
   const { user } = useAuth();
+  const assertOwner = useOwnerMutationGuard();
+  const cleanupLegacy = useCallback((owner: string) =>
+    cleanupLegacySettingsRows(owner, assertOwner), [assertOwner]);
 
   const { data: settings, isLoading } = useRxCollection<
     SettingsDocument,
@@ -64,7 +69,7 @@ export function useSettings() {
     selector: { userId: user?.$id ?? '', isDeleted: false },
     map: mapSettingsDocs,
     logPrefix: '[useSettings]',
-    beforeSubscribe: cleanupLegacySettingsRows,
+    beforeSubscribe: cleanupLegacy,
     startupMark: 'home:settings-ready',
   });
 
@@ -80,8 +85,11 @@ export function useSettings() {
         typeof value === 'string' ? value : JSON.stringify(value);
       const now = new Date().toISOString();
       const doc = await getDatabase().settings.findOne(id).exec();
+      assertOwner(uid);
       if (doc) {
-        await upsertLocalDoc('settings', id, {
+        if (doc.userId !== uid || doc.key !== key)
+          throw new Error('Settings identity collision; nothing was changed.');
+        await doc.incrementalPatch({
           value: stringValue,
           isDeleted: false,
           updatedAt: now,
@@ -95,10 +103,17 @@ export function useSettings() {
           isDeleted: false,
           updatedAt: now,
         };
-        await upsertLocalDoc('settings', id, newSetting);
+        try {
+          await getDatabase().settings.insert(newSetting);
+        } catch (error) {
+          const raced = await getDatabase().settings.findOne(id).exec();
+          assertOwner(uid);
+          if (!raced || raced.userId !== uid || raced.key !== key) throw error;
+          await raced.incrementalPatch({ value: stringValue, isDeleted: false, updatedAt: now });
+        }
       }
     },
-    [user?.$id]
+    [user?.$id, assertOwner]
   );
 
   const getSetting = useCallback(

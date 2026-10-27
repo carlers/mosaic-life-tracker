@@ -17,6 +17,9 @@ import { markOfflineDataReady } from '../lib/offlineReadiness';
 import { startCoreRealtimeWake } from '../lib/supabaseRealtimeWake';
 import { MOSAIC_FEATURE_PROFILE } from '../lib/backendCapabilities';
 import { registerSupabaseMedia } from '../lib/supabaseMedia';
+import { createSupabaseAccountRegistry, SupabaseAccountStartRequiredError,
+  type AccountStartMode } from '../lib/supabaseAccountRegistry';
+import { AccountStartView } from '../components/auth/AccountStartView';
 
 function reportAuthOutage(error: unknown) {
   if (error instanceof CandidateSessionUnavailableError ||
@@ -41,16 +44,29 @@ function createRuntime(config: Extract<CoreBackendConfig, { driver: 'supabase' }
   } catch { browser = null; }
   const session = browser?.session ?? createCandidateAuthSession({ ...config, logoutScope: 'local' });
   const authority = createSupabaseCoreAuthority({ ...config, session });
+  const registry = createSupabaseAccountRegistry({ ...config, session });
+  let pendingIdentity: CandidateIdentity | null = null;
   const coordinator = createSupabaseCoreAuthCoordinator({
     ...config, selectedBackend: 'supabase-cloud',
     featureProfile: MOSAIC_FEATURE_PROFILE === 'core-diary' ? 'core-diary' : 'core-only',
-    session, guard: authority.guard, resolveIdentity: authority.resolveIdentity,
+    session, guard: authority.guard,
+    async resolveIdentity() {
+      const identity = await authority.resolveIdentity();
+      const account = await registry.read(identity);
+      pendingIdentity = null;
+      if (account.historyState === 'unconfirmed') {
+        pendingIdentity = { ...identity };
+        throw new SupabaseAccountStartRequiredError();
+      }
+      return identity;
+    },
     async assertLocalAppwriteStopped() {
       const { assertAppwriteSyncStoppedForCore } = await import('../db/sync');
       await assertAppwriteSyncStoppedForCore();
     },
   });
-  return { session, authority, coordinator, browser, cached };
+  return { session, authority, coordinator, browser, cached, registry,
+    getPendingIdentity: () => pendingIdentity ? { ...pendingIdentity } : null };
 }
 
 export default function SupabaseAuthProvider({ config, children }: {
@@ -67,6 +83,7 @@ export default function SupabaseAuthProvider({ config, children }: {
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [recoverySuccess, setRecoverySuccess] = useState<'requested' | null>(null);
+  const [needsAccountChoice, setNeedsAccountChoice] = useState(false);
   const busy = useRef(false);
   const mounted = useRef(true);
   const retrySync = useRef(async () => {});
@@ -103,6 +120,15 @@ export default function SupabaseAuthProvider({ config, children }: {
       }
     } catch (error) {
       if (mounted.current) {
+        if (error instanceof SupabaseAccountStartRequiredError) {
+          scopeAccountWork(null);
+          scopeSyncStatusToUser(null);
+          setUser(null);
+          setOffline(false);
+          setNeedsAccountChoice(true);
+          setError(null);
+          return false;
+        }
         const cache = runtime.browser?.getCachedIdentity();
         if (!cache || runtime.coordinator.getPhase() === 'blocked') {
           scopeAccountWork(null);
@@ -444,8 +470,11 @@ export default function SupabaseAuthProvider({ config, children }: {
       }
       if (!identity) return false;
       return await adoptIdentity(identity, email.trim());
-    } catch {
-      if (mounted.current) setError('Could not start the core account. Check sign-in and server authority.');
+    } catch (error) {
+      if (mounted.current) {
+        if (error instanceof SupabaseAccountStartRequiredError) setNeedsAccountChoice(true);
+        else setError('Could not start the core account. Check sign-in and server authority.');
+      }
       return false;
     } finally {
       busy.current = false;
@@ -462,6 +491,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       scopeSyncStatusToUser(null);
       setUser(null);
       setOffline(false);
+      setNeedsAccountChoice(false);
       return true;
     } catch {
       setError('Writer shutdown could not be confirmed. Account switch is blocked.');
@@ -473,10 +503,37 @@ export default function SupabaseAuthProvider({ config, children }: {
     setError('This account operation is not available in the disposable core candidate.');
     return false;
   };
+  async function completeAccountChoice(mode: AccountStartMode): Promise<boolean> {
+    if (busy.current || runtime.coordinator.getPhase() !== 'awaiting-consent') return false;
+    const identity = runtime.getPendingIdentity();
+    if (!identity) return false;
+    busy.current = true;
+    setLoading(true);
+    setError(null);
+    try {
+      await runtime.registry.read(identity, mode);
+      const started = await runtime.coordinator.resumeAfterConsent();
+      if (!started || !mounted.current) {
+        if (started) await runtime.coordinator.suspend();
+        return false;
+      }
+      const adopted = await adoptIdentity(started);
+      if (adopted) setNeedsAccountChoice(false);
+      return adopted;
+    } catch {
+      if (mounted.current) setError('Account start could not be confirmed. Your old data has not been imported. Sign out and try again.');
+      return false;
+    } finally {
+      busy.current = false;
+      if (mounted.current) setLoading(false);
+    }
+  }
+  const historyPending = runtime.registry.snapshot()?.historyState === 'recovery-pending';
   const value: AuthContextValue = {
     accountNotice: 'Disposable Supabase core preview. Preferences stay on this device. ' +
       (runtime.browser ? 'Previously signed-in personal data is available offline. ' : 'This browser requires sign-in after reload. ') +
-      'Existing-account migration is not available yet.',
+      (historyPending ? 'Earlier Mosaic history is recovery-pending. New edits are separate; keep your old app and backups.' :
+        'Old Appwrite history is not linked or imported. Keep any earlier app data and backups.'),
     supportsPasswordRecovery: true,
     isLocalOwnerCurrent: ownerId => mounted.current && user?.$id === ownerId &&
       (!runtime.browser || runtime.browser.isCurrent()),
@@ -508,5 +565,7 @@ export default function SupabaseAuthProvider({ config, children }: {
     updateEmail: unsupported, updatePassword: unsupported,
     async retry() { if (user) await retrySync.current(); },
   };
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{needsAccountChoice
+    ? <AccountStartView busy={isLoading} error={error} onContinue={completeAccountChoice} onCancel={logout} />
+    : children}</AuthContext.Provider>;
 }
