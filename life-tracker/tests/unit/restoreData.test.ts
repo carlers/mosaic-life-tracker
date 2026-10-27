@@ -324,6 +324,32 @@ describe('backup restore', () => {
     expect(state.triggerDownload).toHaveBeenCalledOnce();
   });
 
+  it.each(['appwrite', 'supabase'] as const)(
+    'blocks empty TodoMate Replace on %s before sync, safety backup, or deletion',
+    async (backend) => {
+      state.backend = backend;
+      const existing = {
+        id: 'existing_task', userId: 'user_A', title: 'Preserve me',
+        categoryId: '', date: '2026-09-20',
+        createdAt: '2026-09-20T00:00:00.000Z',
+        updatedAt: '2026-09-20T00:00:00.000Z', isDeleted: false,
+      };
+      state.rows.tasks.set(existing.id, existing);
+      const transfer = jsonBackup({
+        user: { id: 'todomate_empty', email: 'todo@example.com', name: 'TodoMate' },
+        data: { tasks: [], categories: [], diary: [], settings: [], friendships: [] },
+      });
+      await expect(restoreUserData(transfer, currentUser, {
+        mode: 'todomate-replace',
+      }, true)).rejects.toThrow(/empty TodoMate task\/category snapshot/);
+      expect(state.rows.tasks.get(existing.id)).toEqual(existing);
+      expect(state.refreshSync).not.toHaveBeenCalled();
+      expect(state.exportUserData).not.toHaveBeenCalled();
+      expect(state.triggerDownload).not.toHaveBeenCalled();
+      expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+    }
+  );
+
   it('rejects TodoMate Replace for arbitrary user ZIP files before mutation', async () => {
     await expect(restoreUserData(jsonBackup(), currentUser, { mode:'todomate-replace' }))
       .rejects.toThrow(/trusted in-memory TodoMate transfer/i);
