@@ -1,13 +1,12 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1027 resolve transient hosted signed GET after completed CAS and guard tests.
+Current task: #1027 six-domain Sync Now in-flight audit consistency; signed hosted RLS/CAS accepted.
 
 ## Active #1027 gate
-- Isolated recovery base `feature/1027-supabase-recovery-20261020@14d2b4e2ba2c4eb9069b16e40dbbd36640e158f4`; Quality gate #40462741648 retry PASS; signed Core App Lab #40462741653 and eight restore/crypto labs PASS. dev/main Appwrite and Production unchanged.
-- Owner-approved signed hosted probe `341212469279944360d3048f` originally failed malformed PATCH; fixed at base SHA. Its two Auth users are banned/frozen with 6 tombstones, zero live rows.
-- Owner run `e3acf9789cde5740da265f78`: 2 signed identities, 6 real CAS races and 3 writer guard stages reached; failed on transport/redirect between successful session-release and expected task GET, before strict full owner audit. Independent live SQL confirms both Auth accounts banned/frozen, exactly 12 tombstones and **0 live rows** across six domains.
-- This task adds short bounded retries only for read-only GET transport failures in the trusted hosted-core runner; never retry session/CAS/other writes or HTTP denial responses. Adds failure stage markers around release/revocation/identity refresh. No hosted SQL changes.
-- Next: focused task gate, squash into isolated recovery, canonical and relevant lab verification, then one exact-SHA private hosted probe. Do not repeat completed Fedora restore, R2 or personal-account setup. Other Appwrite writer-fencing, media/outbox, device/offline/ZIP/Auth and explicit cutover gates remain.
+- Stable isolated recovery source `feature/1027-supabase-recovery-20261020@841bdbd21e5352ba7b0743b7d246d2ca5a8ba548`; canonical Quality #40465970280, Core App Lab core-app #40465970213, eight restore/crypto labs PASS. Preview deploy remains protected/waiting; dev/main/Production unchanged.
+- **Hosted signed security gate PASSED** at `mosaic-dev`, run `951e8da7665d2cac71a42dfb`: two verified Auth owners, six live CAS winners, six stale conflicts, 12 exact foreign-ID denials, 12 signed fixtures, 53 direct write denials and five writer guard denials. Independent SQL: 2 frozen/banned accounts, 12 tombstones, zero live rows across six owner tables. No reason to repeat this signed security drill.
+- New isolated source task closes a remaining source-only Sync Now race: initial read can miss newly added local drafts, and final remote page can become stale after a concurrent CAS. Add second owner-filtered RxDB inventory and read-only remote revision tail; preserve all drafts, foreign-owner caches and checkpoints; fail rather than report false 100%. Existing open PR #1281 is stale and not merged; this adaptation is based on current accepted SHA.
+- Next: focused regression CI, squash into isolated recovery, exact full canonical and applicable labs. Then advance complete personal runtime/storage parity, offline/ZIP/device tests and Appwrite old-PWA/backfill fence; separately approve any Production cutover or dev/main promotion.
 
 
 ## Historical checkpoint (2026-10-23 onward)

@@ -753,6 +753,40 @@ export function createCandidateRxdbPilot<D extends Document>(
       'Supabase ' + domain + ' local/cloud verification found a difference. ' +
       'Local edits were preserved; no automatic overwrite was attempted.'
     );
+    // The original find() does not include documents created while remote
+    // pages were being read. Re-read the whole owner inventory, including
+    // tombstones, so a late offline draft cannot produce a false 100%.
+    const currentDocs = await collection.find().exec();
+    await assertSameSession();
+    if (currentDocs.length > 100_000)
+      throw new Error('Supabase audit local row cap exceeded');
+    let currentOwnerCount = 0;
+    const currentIds = new Set<string>();
+    for (const doc of currentDocs) {
+      const json = doc.toJSON() as D;
+      if (json.userId !== identity.legacyUserId) continue;
+      const prior = typeof json.id === 'string' ? locals.get(json.id) : undefined;
+      if (!prior || currentIds.has(json.id) ||
+          canonical(domain, json, identity) !== prior.value)
+        throw new Error('Supabase audit local snapshot changed during verification; retry');
+      currentIds.add(json.id);
+      currentOwnerCount++;
+    }
+    if (currentOwnerCount !== localTotal)
+      throw new Error('Supabase audit local snapshot changed during verification; retry');
+    await assertSameSession();
+    // A concurrent device CAS has a newer change_seq even when the original
+    // page was unchanged. This extra signed owner-filtered GET is read-only:
+    // no RxDB checkpoint is moved and no local draft is overwritten.
+    const tail = await changes.listChanges<Row>({
+      domain, ownerId: identity.supabaseUserId,
+      afterExclusive: after.toString(), batchSize: 1,
+    });
+    await assertSameSession();
+    if (!Array.isArray(tail) || tail.length > 1)
+      throw new Error('Supabase audit final owner page invalid');
+    if (tail.length)
+      throw new Error('Supabase audit remote snapshot changed during verification; retry');
     return { pages, rows: checked, localChecked, localTotal };
   }
 
