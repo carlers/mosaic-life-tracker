@@ -200,7 +200,7 @@ jobs:
           test "${#local_db[@]}" -eq 1
           docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
           update mosaic_candidate_private.identity_installation set personal_release_evidence=
-            '{"schema":14,"sourceSha":"0000000000000000000000000000000000000000","signedRun":1,"restoreRun":1}';
+            '{"schema":14,"sourceSha":"0000000000000000000000000000000000000000","signedRun":100,"restoreRun":100}';
           SQL
           : "${PUBLISHABLE_KEY:?Local publishable key required}"
           export VITE_MOSAIC_BACKEND=supabase-cloud
