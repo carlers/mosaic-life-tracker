@@ -3,8 +3,9 @@ Updated: 2026-10-27 Asia/Manila
 Current task: #1027 signed hosted RLS proof on isolated recovery source.
 
 ## Active #1027 gate
-- Source `feature/1027-supabase-recovery-20261020@8d161c958864283d8a50c454f35dc4e27f9d02cc`; main stays Appwrite v0.43.8.
-- Harden read-only signed probe: reject unfiltered foreign rows; opt-in strict needs existing disposable owner rows in all six tables and checks foreign signed GET by exact ID. CI uses mock HTTP, **not** hosted evidence.
+- Accepted isolated base `feature/1027-supabase-recovery-20261020@e824d7eefdf09cea13d5cf4d6028048730523e06`; main remains Appwrite v0.43.8.
+- Task `chatgpt/1027-signed-rls-owner-page-audit-20261027`: read-only six-table probe scans bounded owner pages to detect later foreign/duplicate rows instead of trusting the first row; preserves strict pre-existing fixture exact-ID denials. Mock tests are **not** hosted acceptance.
+- Next: hosted two-owner RLS/CAS/lease, Appwrite source/outbox/media plus old-client writer fence, offline/ZIP/device, Auth/email and explicit cutover approval. Fedora restore already passed.
 - No new Auth accounts, hosted writes, dev/main release, or Production cutover. Next: protected real two-owner fixture proof, real frozen Appwrite old-writer/outbox/media parity, device/offline/ZIP/email acceptance, then separately approved cutover. No routine Fedora prompts.
 
 ## Historical checkpoint (2026-10-23 onward)

@@ -11,6 +11,8 @@ import { randomUUID } from 'node:crypto';
 export const ISOLATED_PROJECT_REF = 'hcxtiifzxoaflhjgoglb';
 const ISOLATED_ORIGIN = 'https://' + ISOLATED_PROJECT_REF + '.supabase.co';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const OWNER_PAGE_SIZE = 200;
+const OWNER_MAX_PAGES = 100; // Bound a read-only audit; never silently truncate.
 
 function assertConfig(config) {
   if (!config || config.baseUrl !== ISOLATED_ORIGIN ||
@@ -91,19 +93,32 @@ export async function runSignedAuthProbe(config, {
   const fixtureWitnesses = new Map();
   for (const [user, foreign] of [[alice, bob], [bob, alice]]) {
     for (const table of tables) {
-      const own = await request('/rest/v1/' + table + '?select=id,owner_id&limit=1',
-        { token: user.token });
-      if (!own.ok) throw new Error('Authenticated table SELECT was rejected');
-      const visible = await own.json();
-      if (!Array.isArray(visible) || visible.length > 1 ||
-        visible.some(row => !row || typeof row.id !== 'string' || !row.id ||
-          row.owner_id !== user.id)) {
-        throw new Error('Authenticated unfiltered table SELECT leaked a foreign or invalid row');
+      // A single first-row witness can hide a foreign row on a later page.
+      // Audit every visible row through bounded, stable, ID-ordered pages.
+      const seenIds = new Set();
+      let firstOwnedId = null;
+      let complete = false;
+      for (let page = 0; page < OWNER_MAX_PAGES; page++) {
+        const own = await request('/rest/v1/' + table +
+          '?select=id,owner_id&order=id.asc&limit=' + OWNER_PAGE_SIZE +
+          '&offset=' + page * OWNER_PAGE_SIZE, { token: user.token });
+        if (!own.ok) throw new Error('Authenticated table SELECT was rejected');
+        const visible = await own.json();
+        if (!Array.isArray(visible) || visible.length > OWNER_PAGE_SIZE ||
+          visible.some(row => !row || typeof row.id !== 'string' || !row.id ||
+            row.owner_id !== user.id || seenIds.has(row.id)) ||
+          new Set(visible.map(row => row.id)).size !== visible.length) {
+          throw new Error('Authenticated unfiltered table SELECT leaked a foreign, duplicate or invalid row');
+        }
+        for (const row of visible) seenIds.add(row.id);
+        if (firstOwnedId === null && visible.length > 0) firstOwnedId = visible[0].id;
+        if (visible.length < OWNER_PAGE_SIZE) { complete = true; break; }
       }
+      if (!complete) throw new Error('Authenticated owner audit exceeded bounded pagination');
       if (requireOwnedFixtures) {
-        if (visible.length !== 1)
+        if (firstOwnedId === null)
           throw new Error('Strict hosted RLS proof needs an existing owner fixture in every domain');
-        fixtureWitnesses.set(table + ':' + user.id, visible[0].id);
+        fixtureWitnesses.set(table + ':' + user.id, firstOwnedId);
       }
       totals.ownReads++;
       const foreignRows = await request('/rest/v1/' + table +
