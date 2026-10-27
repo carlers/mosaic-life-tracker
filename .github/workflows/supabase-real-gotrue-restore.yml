@@ -36,6 +36,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Digest-pinned official Docker Hub fallback for GHCR rate-limited
+      # postgres:17.6.1.095. Fail closed if pull/identity verification fails.
+      - name: Pre-stage verified Supabase PostgreSQL image for local tests
+        run: bash supabase-poc/ci/prestage-pinned-postgres.sh
       - name: Install disposable age encryption tool
         run: |
           sudo apt-get update -qq
