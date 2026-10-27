@@ -58,6 +58,8 @@ function fixture({
     if (isForeign && (leakForeign ||
       (leakPrivateForeign && privateTables.some(table => path.endsWith('/' + table)))))
       return json([{ id: 'foreign' }]);
+    // A correct owner-scoped query cannot return the signed user's own fixture.
+    if (isForeign) return json([]);
     if (leakUnfiltered)
       return json([{ id: 'leaked-row', owner_id: alice ? bobId : aliceId }]);
     if (populateOwned && !path.endsWith('/' + missingOwnedTable))
