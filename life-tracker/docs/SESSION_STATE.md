@@ -1,6 +1,6 @@
 # Session checkpoint
 Updated: 2026-10-28 Asia/Manila
-Current task: #1027 history-preserving personal backup and offline cached photos, isolated v0.48.0 candidate.
+Current task: #1027 complete registry-aware recovery entrypoints after personal backup, isolated v0.48.0 candidate.
 
 ## Baseline and boundaries
 - Started from verified recovery `ababddcee968df3a815b36d96a9d097991c47938`. Live full canonical #40541852789, signed GoTrue #40541852559, Settings #40541852713 and Bucket #40541852967 PASS. Core App #40541852557 core-app and hosted-preview-artifact PASS; preview-deploy WAITING for protected approval. Prior owner-tested Preview remains unchanged.
@@ -13,6 +13,8 @@ Current task: #1027 history-preserving personal backup and offline cached photos
 - Version 5 backups retain tombstones, same-owner IDs, retirement, drafts and available photo bytes. Invalid history/missing references fail before writes; newer local changes win. Offline cached identity reads only cached own photos. Export/mutation guards reject account changes, including A→B→A. Historical Settings/link/Diary IDs remain editable.
 - Backup/media/restore 68 and owner-hook 28 focused tests pass; typecheck and changed-source lint pass. Signed offline cold-reload ZIP byte comparison awaits CI. Local snapshots are not complete server escrow or verified legacy ownership.
 - Read-only mosaic-dev audit: healthy, missing registry/readiness and category-retirement/atomic-delete migrations. Seven privileged-RPC and disabled leaked-password warnings require review. Auth-config read returned HTTP 401; SMTP remains unverified. No hosted write or protected approval.
+
+- Recovery entrypoint review found R2 restore still enumerated only 7/8/10 profiles despite the new fourteen-table marker. Both trusted-machine wrappers now select explicit fourteen-table flags/parity and clear inherited registry grants; old evidence/defaults remain intact. Offline stage/cleanup/profile mismatch regressions cover the real wrapper paths. No new owner run or backup is requested.
 
 ## Next action
 - Require signed personal UI and focused green before merging #1409; stable recovery then runs exact-SHA full canonical. Commit/test backup batch and require offline ZIP signed evidence before its merge.

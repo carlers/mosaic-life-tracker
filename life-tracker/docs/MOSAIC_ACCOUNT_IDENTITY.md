@@ -24,7 +24,13 @@ consent. #1407 governs later reconciliation against the current authority.
 ## Recovery and deployment boundary
 
 The four registry tables require the explicit `fourteen-personal-identity` backup
-profile and `--fresh-personal-identity-sha256` disposable restore mode. Older
+profile and `--fresh-personal-identity-sha256` disposable restore mode.
+Both trusted-machine entrypoints (`restore-unified-r2.py` and
+`full-recovery-drill.py`) accept `--recovery-profile fourteen-personal-identity`.
+They demand fourteen-table parity and clear inherited restore-mode grants;
+the R2 path also requires an exact completed snapshot ID/profile. Defaults
+still target the earlier seven-table evidence and cannot silently omit registry
+data. Do not repeat the already accepted historical Fedora/R2 drill. Older
 profiles reject a registry-bearing archive. The restore preserves exact source
 COPY rows, installation ID, consent, mappings and audit events, resets the audit
 sequence, and never restores sessions, refresh tokens or writer leases. The

@@ -24,6 +24,7 @@ PROFILES = {
     "seven": ("--fresh-snapshot-sha256", 7),
     "eight-personal-settings": ("--fresh-personal-settings-sha256", 8),
     "ten-personal-bucket-links": ("--fresh-personal-bucket-links-sha256", 10),
+    "fourteen-personal-identity": ("--fresh-personal-identity-sha256", 14),
 }
 SNAPSHOT_ID = re.compile(r"[0-9]{8}T[0-9]{9}Z\Z")
 BRANCH = "feature/1027-supabase-recovery-20261020"
@@ -63,6 +64,7 @@ def clean_env():
     restore_modes = ("MOSAIC_FRESH_SNAPSHOT_SHA256",
                      "MOSAIC_PERSONAL_SETTINGS_RESTORE",
                      "MOSAIC_BUCKET_LINKS_RESTORE",
+                     "MOSAIC_IDENTITY_REGISTRY_RESTORE",
                      "MOSAIC_SYNTHETIC_ARCHIVE_SHA256")
     return {k: v for k, v in os.environ.items()
             if not k.startswith(banned) and k not in restore_modes}
