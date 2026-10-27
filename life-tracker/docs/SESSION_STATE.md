@@ -1,4 +1,16 @@
 # Session checkpoint
+Updated: 2026-10-27 Asia/Manila
+Current scoped task: #1386 prepared route swipe previews and Settings subpages.
+
+- Task baseline: protected `dev@5cdd830dd904bd096bd1b84ae6688e47e9b1b864` (v0.43.8); task `chatgpt/1386-prepared-route-swipes-v0439-20261027`; Preview candidate v0.43.9.
+- Frontend-only improvement: share a prepared component/import Promise for each supported route across actual page and gesture preview; cold imports still use route Suspense fallback, and later mounts retry failures.
+- Settings visit warms Preferences, Notification Settings, Release History, and Profile after idle; no blanket preloading at Home startup.
+- Focused regression covers warm/cold/retry and Settings coverage. Still require focused CI, stable Preview canonical/build-size/Vercel checks, and real-device touch/settling evidence. No smoothness gain has yet been measured.
+- No dev/main/Production changes or provider migration authorized. Preserve unrelated checkpoint below.
+
+---
+
+# Session checkpoint
 Updated: 2026-10-23 Asia/Manila
 Current task: #1276 UI release candidate from dev to main; reconcile main-only CI trust history first.
 

@@ -1,16 +1,16 @@
-import React, { lazy, memo, Suspense } from 'react';
+import React, { memo, Suspense } from 'react';
 import {
-  loadAccountPage,
-  loadNotificationsPage,
-  loadExplorePage,
-  loadHomePage,
-  loadMessagesPage,
-  loadSettingsPage,
-  loadPreferencesPage,
-  loadNotificationSettingsPage,
-  loadReleaseHistoryPage,
-  loadProfilePage,
-} from './routeModuleLoaders';
+  HomeRoutePage,
+  AccountRoutePage,
+  SettingsRoutePage,
+  ReleaseHistoryRoutePage,
+  PreferencesRoutePage,
+  NotificationSettingsRoutePage,
+  ProfileRoutePage,
+  ExploreRoutePage,
+  MessagesRoutePage,
+  NotificationsRoutePage,
+} from './routePageComponents';
 
 import type { PROTECTED_ROUTES } from '../../lib/protectedRoutes';
 
@@ -21,39 +21,6 @@ type PreviewPath = Extract<
   (typeof PROTECTED_ROUTES)[number],
   { readonly preview: 'supported' }
 >['path'];
-
-const HomePreview = lazy(() =>
-  loadHomePage().then(({ HomePage }) => ({ default: HomePage }))
-);
-const ExplorePreview = lazy(() =>
-  loadExplorePage().then(({ ExplorePage }) => ({ default: ExplorePage }))
-);
-const NotificationsPreview = lazy(() =>
-  loadNotificationsPage().then(({ NotificationsPage }) => ({
-    default: NotificationsPage,
-  }))
-);
-const MessagesPreview = lazy(() =>
-  loadMessagesPage().then(({ MessagesPage }) => ({ default: MessagesPage }))
-);
-const AccountPreview = lazy(() =>
-  loadAccountPage().then(({ AccountPage }) => ({ default: AccountPage }))
-);
-const SettingsPreview = lazy(() =>
-  loadSettingsPage().then(({ SettingsPage }) => ({ default: SettingsPage }))
-);
-const PreferencesPreview = lazy(() =>
-  loadPreferencesPage().then(({ PreferencesPage }) => ({ default: PreferencesPage }))
-);
-const NotificationSettingsPreview = lazy(() =>
-  loadNotificationSettingsPage().then(({ NotificationSettingsPage }) => ({ default: NotificationSettingsPage }))
-);
-const ReleaseHistoryPreview = lazy(() =>
-  loadReleaseHistoryPage().then(({ ReleaseHistoryPage }) => ({ default: ReleaseHistoryPage }))
-);
-const ProfilePreview = lazy(() =>
-  loadProfilePage().then(({ ProfilePage }) => ({ default: ProfilePage }))
-);
 
 const LABELS: Record<PreviewPath, string> = {
   '/home': 'Home',
@@ -87,16 +54,16 @@ const Fallback: React.FC<{ pathname: PreviewPath }> = ({ pathname }) => (
 
 // A route added to the supported registry must also have a lazy preview.
 const PAGES: Record<PreviewPath, React.ComponentType> = {
-  '/home': HomePreview,
-  '/explore': ExplorePreview,
-  '/notifications': () => <NotificationsPreview preview />,
-  '/messages': MessagesPreview,
-  '/account': AccountPreview,
-  '/settings': SettingsPreview,
-  '/settings/preferences': PreferencesPreview,
-  '/settings/notifications': NotificationSettingsPreview,
-  '/settings/releases': ReleaseHistoryPreview,
-  '/profile': ProfilePreview,
+  '/home': HomeRoutePage,
+  '/explore': ExploreRoutePage,
+  '/notifications': () => <NotificationsRoutePage preview />,
+  '/messages': MessagesRoutePage,
+  '/account': AccountRoutePage,
+  '/settings': SettingsRoutePage,
+  '/settings/preferences': PreferencesRoutePage,
+  '/settings/notifications': NotificationSettingsRoutePage,
+  '/settings/releases': ReleaseHistoryRoutePage,
+  '/profile': ProfileRoutePage,
 };
 
 const PrimaryRoutePreviewComponent: React.FC<{ pathname: string }> = ({ pathname }) => {

@@ -7,69 +7,32 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { AuthPage } from "./pages/AuthPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { PROTECTED_ROUTES, type ProtectedPageId } from './lib/protectedRoutes';
+import { loadChatPage, loadFriendCalendarPage } from "./components/layout/routeModuleLoaders";
 import {
-  loadAccountPage,
-  loadChatPage,
-  loadNotificationsPage,
-  loadExplorePage,
-  loadFriendCalendarPage,
-  loadHomePage,
-  loadMessagesPage,
-  loadPreferencesPage,
-  loadNotificationSettingsPage,
-  loadProfilePage,
-  loadSettingsPage,
-  loadReleaseHistoryPage,
-} from "./components/layout/routeModuleLoaders";
+  HomeRoutePage,
+  AccountRoutePage,
+  SettingsRoutePage,
+  ReleaseHistoryRoutePage,
+  PreferencesRoutePage,
+  NotificationSettingsRoutePage,
+  ProfileRoutePage,
+  ExploreRoutePage,
+  MessagesRoutePage,
+  NotificationsRoutePage,
+} from "./components/layout/routePageComponents";
 
-const HomePage = lazy(() =>
-  loadHomePage().then(({ HomePage }) => ({ default: HomePage })),
-);
 // No preloading path needs Backlogs; direct import avoids a redundant memoized loader.
 const BacklogPage = lazy(() => import('./pages/BacklogPage'));
 const UncompletedTasksPage = lazy(() => import('./pages/UncompletedTasksPage'));
 const BucketListPage = lazy(() => import('./pages/BucketListPage'));
 const BucketListDetailPage = lazy(() => import('./pages/BucketListDetailPage'));
-const AccountPage = lazy(() =>
-  loadAccountPage().then(({ AccountPage }) => ({ default: AccountPage })),
-);
-const SettingsPage = lazy(() =>
-  loadSettingsPage().then(({ SettingsPage }) => ({ default: SettingsPage })),
-);
-const ReleaseHistoryPage = lazy(() =>
-  loadReleaseHistoryPage().then(({ ReleaseHistoryPage }) => ({ default: ReleaseHistoryPage })),
-);
-const PreferencesPage = lazy(() =>
-  loadPreferencesPage().then(({ PreferencesPage }) => ({
-    default: PreferencesPage,
-  })),
-);
-const NotificationSettingsPage = lazy(() =>
-  loadNotificationSettingsPage().then(({ NotificationSettingsPage }) => ({
-    default: NotificationSettingsPage,
-  })),
-);
-const ProfilePage = lazy(() =>
-  loadProfilePage().then(({ ProfilePage }) => ({ default: ProfilePage })),
-);
-const ExplorePage = lazy(() =>
-  loadExplorePage().then(({ ExplorePage }) => ({ default: ExplorePage })),
-);
 const FriendCalendarPage = lazy(() =>
   loadFriendCalendarPage().then(({ FriendCalendarPage }) => ({
     default: FriendCalendarPage,
   })),
 );
-const MessagesPage = lazy(() =>
-  loadMessagesPage().then(({ MessagesPage }) => ({ default: MessagesPage })),
-);
 const ChatPage = lazy(() =>
   loadChatPage().then(({ ChatPage }) => ({ default: ChatPage })),
-);
-const NotificationsPage = lazy(() =>
-  loadNotificationsPage().then(({ NotificationsPage }) => ({
-    default: NotificationsPage,
-  })),
 );
 
 function BacklogRoute() {
@@ -132,21 +95,21 @@ function HomeRouteFallback() {
 }
 
 const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
-  home: <RouteContent label="HomePage" fallback={<HomeRouteFallback />}><HomePage /></RouteContent>,
+  home: <RouteContent label="HomePage" fallback={<HomeRouteFallback />}><HomeRoutePage /></RouteContent>,
   backlog: <RouteContent label="BacklogPage"><BacklogRoute /></RouteContent>,
   bucketList: <RouteContent label="BucketListPage"><BucketListPage /></RouteContent>,
   bucketListDetail: <RouteContent label="BucketListDetailPage"><BucketListDetailPage /></RouteContent>,
-  explore: <RouteContent label="ExplorePage"><ExplorePage /></RouteContent>,
+  explore: <RouteContent label="ExplorePage"><ExploreRoutePage /></RouteContent>,
   friendCalendar: <RouteContent label="FriendCalendarPage"><FriendCalendarPage /></RouteContent>,
-  notifications: <RouteContent label="NotificationsPage"><NotificationsPage /></RouteContent>,
-  messages: <RouteContent label="MessagesPage"><MessagesPage /></RouteContent>,
+  notifications: <RouteContent label="NotificationsPage"><NotificationsRoutePage /></RouteContent>,
+  messages: <RouteContent label="MessagesPage"><MessagesRoutePage /></RouteContent>,
   chat: <RouteContent label="ChatPage"><ChatPage /></RouteContent>,
-  account: <RouteContent label="AccountPage"><AccountPage /></RouteContent>,
-  settings: <RouteContent label="SettingsPage"><SettingsPage /></RouteContent>,
-  releaseHistory: <RouteContent label="ReleaseHistoryPage"><ReleaseHistoryPage /></RouteContent>,
-  preferences: <RouteContent label="PreferencesPage"><PreferencesPage /></RouteContent>,
-  notificationSettings: <RouteContent label="NotificationSettingsPage"><NotificationSettingsPage /></RouteContent>,
-  profile: <RouteContent label="ProfilePage"><ProfilePage /></RouteContent>,
+  account: <RouteContent label="AccountPage"><AccountRoutePage /></RouteContent>,
+  settings: <RouteContent label="SettingsPage"><SettingsRoutePage /></RouteContent>,
+  releaseHistory: <RouteContent label="ReleaseHistoryPage"><ReleaseHistoryRoutePage /></RouteContent>,
+  preferences: <RouteContent label="PreferencesPage"><PreferencesRoutePage /></RouteContent>,
+  notificationSettings: <RouteContent label="NotificationSettingsPage"><NotificationSettingsRoutePage /></RouteContent>,
+  profile: <RouteContent label="ProfilePage"><ProfileRoutePage /></RouteContent>,
 };
 
 function App() {
