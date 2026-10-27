@@ -1,16 +1,15 @@
-import { resolvePrimarySwipeDestination } from '../../lib/primarySwipeNavigation';
 import {
-  loadAccountPage,
-  loadNotificationsPage,
-  loadExplorePage,
-  loadHomePage,
-  loadMessagesPage,
-  loadSettingsPage,
-  loadPreferencesPage,
-  loadNotificationSettingsPage,
-  loadReleaseHistoryPage,
-  loadProfilePage,
-} from './routeModuleLoaders';
+  preloadHomeRoutePage,
+  preloadAccountRoutePage,
+  preloadSettingsRoutePage,
+  preloadReleaseHistoryRoutePage,
+  preloadPreferencesRoutePage,
+  preloadNotificationSettingsRoutePage,
+  preloadProfileRoutePage,
+  preloadExploreRoutePage,
+  preloadMessagesRoutePage,
+  preloadNotificationsRoutePage,
+} from './routePageComponents';
 
 import type { PROTECTED_ROUTES } from '../../lib/protectedRoutes';
 
@@ -22,16 +21,16 @@ type PreloadPath = Extract<
 >['path'];
 
 const PRELOADERS: Record<PreloadPath, () => Promise<unknown>> = {
-  '/home': loadHomePage,
-  '/explore': loadExplorePage,
-  '/notifications': loadNotificationsPage,
-  '/messages': loadMessagesPage,
-  '/account': loadAccountPage,
-  '/settings': loadSettingsPage,
-  '/settings/preferences': loadPreferencesPage,
-  '/settings/notifications': loadNotificationSettingsPage,
-  '/settings/releases': loadReleaseHistoryPage,
-  '/profile': loadProfilePage,
+  '/home': preloadHomeRoutePage,
+  '/explore': preloadExploreRoutePage,
+  '/notifications': preloadNotificationsRoutePage,
+  '/messages': preloadMessagesRoutePage,
+  '/account': preloadAccountRoutePage,
+  '/settings': preloadSettingsRoutePage,
+  '/settings/preferences': preloadPreferencesRoutePage,
+  '/settings/notifications': preloadNotificationSettingsRoutePage,
+  '/settings/releases': preloadReleaseHistoryRoutePage,
+  '/profile': preloadProfileRoutePage,
 };
 
 function isPreloadPath(pathname: string): pathname is PreloadPath {
@@ -52,4 +51,18 @@ export function preloadPrimaryRoute(pathname: string | null) {
   void PRELOADERS[pathname]().catch((error) => {
     console.warn('[PrimaryRoutePreview] preload failed:', error);
   });
+}
+
+// Warm these only once Settings is active; never extend Home's initial closure.
+export const SETTINGS_SUBPAGE_PRELOAD_TARGETS = [
+  '/settings/preferences',
+  '/settings/notifications',
+  '/settings/releases',
+  '/profile',
+] as const satisfies readonly PreloadPath[];
+
+export function preloadSettingsSubpages(): void {
+  for (const pathname of SETTINGS_SUBPAGE_PRELOAD_TARGETS) {
+    preloadPrimaryRoute(pathname);
+  }
 }
