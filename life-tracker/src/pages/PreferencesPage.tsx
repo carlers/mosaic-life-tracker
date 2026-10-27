@@ -236,12 +236,13 @@ function ChoiceGroup<T extends string>({
   );
 }
 
-export const PreferencesPage: React.FC = () => {
+export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previewPathname }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const section = location.pathname.startsWith('/settings/preferences/') ? location.pathname.slice('/settings/preferences/'.length) : null;
+  const renderPathname = previewPathname ?? location.pathname;
+  const section = renderPathname.startsWith('/settings/preferences/') ? renderPathname.slice('/settings/preferences/'.length) : null;
   const titles: Record<string, string> = { tasks: 'Tasks & Categories', calendar: 'Calendar & Day View', diary: 'Diary', navigation: 'Navigation & Input', appearance: 'Appearance & Layout' };
-  useSettingsTargetFocus(location.pathname, location.search);
+  useSettingsTargetFocus(renderPathname, previewPathname ? '' : location.search);
   const {
     mode,
     setAppearanceMode,

@@ -42,7 +42,7 @@ import {
   type BackupActivity,
 } from '../lib/backupActivity';
 
-export const SettingsPage: React.FC = () => {
+export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPathname }) => {
   const { user, logout, deleteAccount } = useAuth();
   const {
     applyUpdate,
@@ -53,10 +53,11 @@ export const SettingsPage: React.FC = () => {
   const { mode: appearanceMode } = useAppearance();
   const navigate = useNavigate();
   const location = useLocation();
-  const view = location.pathname === '/settings/account' ? 'account' : location.pathname === '/settings/data' ? 'data' : location.pathname === '/settings/about' ? 'about' : 'root';
+  const renderPathname = previewPathname ?? location.pathname;
+  const view = renderPathname === '/settings/account' ? 'account' : renderPathname === '/settings/data' ? 'data' : renderPathname === '/settings/about' ? 'about' : 'root';
   const [searchTerm, setSearchTerm] = useState('');
   const searchResults = searchSettings(searchTerm);
-  useSettingsTargetFocus(location.pathname, location.search);
+  useSettingsTargetFocus(renderPathname, previewPathname ? '' : location.search);
   const [isClearDataOpen, setIsClearDataOpen] = useState(false);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');

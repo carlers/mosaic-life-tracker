@@ -116,6 +116,24 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     }
   });
 
+  it('shows destination content in a swipe preview without using the current pathname', () => {
+    const current = render(
+      <MemoryRouter initialEntries={['/settings/account']}>
+        <SettingsPage previewPathname="/settings" />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('searchbox', { name: 'Search settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete Account' })).toBeNull();
+    current.unmount();
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <SettingsPage previewPathname="/settings/account" />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('button', { name: 'Delete Account' })).toBeEnabled();
+    expect(screen.queryByRole('searchbox', { name: 'Search settings' })).toBeNull();
+  });
+
   it('exposes the five destinations and preserves all working actions within them', () => {
     render(
       <MemoryRouter initialEntries={['/settings']}>

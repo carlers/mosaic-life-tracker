@@ -74,6 +74,16 @@ function renderPreference(section: 'appearance' | 'tasks' | 'calendar' | 'naviga
 }
 
 describe('PreferencesPage', () => {
+  it('renders the requested destination rather than the current route during swipe preview', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/preferences/calendar']}>
+        <PreferencesPage previewPathname="/settings/preferences/appearance" />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('radio', { name: /^Light/ })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Show holidays' })).toBeNull();
+  });
+
   it('shows the five category destinations without mounting all controls', () => {
     render(<MemoryRouter initialEntries={['/settings/preferences']}><PreferencesPage /></MemoryRouter>);
     for (const label of ['Appearance & Layout', 'Tasks & Categories', 'Calendar & Day View', 'Diary', 'Navigation & Input']) {
