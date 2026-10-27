@@ -108,7 +108,7 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     expect(existingA1({ data: [] })).toBe(false);
     expect(() => existingA1({})).toThrow();
     const spawn = mockOci({ 'compute instance list': {
-      data: [{ shape: SPEC.shape, 'lifecycle-state': 'STOPPED' }],
+      data: [{ shape: SPEC.shape, lifecycleState: 'STOPPED' }],
     } });
     expect(claimA1({ mode: 'launch', enabled: true, context, config,
       capacity: () => cap(), spawn }).outcome).toBe('already_present');
