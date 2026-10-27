@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BellRing, ChevronLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SettingsRow } from '../components/ui/SettingsRow';
+import { useSettingsTargetFocus } from '../lib/settingsSearch';
 import { MosaicSelect } from '../components/ui/MosaicSelect';
 import { ALERTS_CHANNELS_KEY, ALERTS_SOCIAL_PUSH_DETAILS_SETTING_KEY, NOTIFICATION_CHANNELS, resolveNotificationChannels, type NotificationChannels, type NotificationChannelType } from '../lib/notificationChannels';
 import { useSettings } from '../hooks/useSettings';
@@ -30,7 +31,7 @@ interface RetentionChoiceProps {
 
 function RetentionChoice({ id, label, hint, value, options, format, onChange }: RetentionChoiceProps) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
+    <div data-setting-label={label} className="flex items-center justify-between gap-3 px-4 py-3">
       <div className="min-w-0">
         <label htmlFor={id} className="mosaic-settings-label text-sm font-medium">{label}</label>
         <p className="mosaic-settings-copy text-xs text-gray-400">{hint}</p>
@@ -50,6 +51,7 @@ function RetentionChoice({ id, label, hint, value, options, format, onChange }: 
 export const NotificationSettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  useSettingsTargetFocus(location.pathname, location.search);
   const { user } = useAuth();
   const userId = user?.$id || '';
   const { getSetting, setSetting } = useSettings();
@@ -202,7 +204,7 @@ export const NotificationSettingsPage: React.FC = () => {
         <button type="button" onClick={back}
           className="mosaic-settings-icon rounded-lg p-1 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label={backParent === '/notifications' ? 'Back to Alerts' : 'Back to Settings'}><ChevronLeft size={22}/></button>
-        <h1 className="text-lg font-bold">Notifications</h1>
+        <h1 data-setting-label="Notifications" className="text-lg font-bold">Notifications</h1>
       </header>
       <section className="border-b border-[#333333] py-4">
         <h2 className="px-4 pb-2 font-semibold">Activity history</h2>
@@ -233,7 +235,7 @@ export const NotificationSettingsPage: React.FC = () => {
         </p>
         {retentionError && <p className="px-4 pt-2 text-xs text-red-400" role="alert">{retentionError}</p>}
       </section>
-      <section className="py-3" aria-label="Notification categories">
+      <section data-setting-label="Notification categories" className="py-3" aria-label="Notification categories">
         <h2 className="px-4 pb-2 pt-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
           Activity types
         </h2>
@@ -242,7 +244,7 @@ export const NotificationSettingsPage: React.FC = () => {
           These choices sync across devices. Push also requires permission on each device.
         </p>
         {NOTIFICATION_CHANNELS.map(({ type, label }) => (
-          <div key={type} className="border-b border-[#2A2A2A] px-4 py-3">
+          <div key={type} data-setting-label={label} className="border-b border-[#2A2A2A] px-4 py-3">
             <h3 className="mb-2 text-sm font-medium">{label}</h3>
             <div className="flex gap-4 text-xs text-gray-300">
               {(['feed', 'push'] as const).map(channel => (

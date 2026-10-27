@@ -9,7 +9,7 @@ import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
 import { useProfile } from '../hooks/useProfile';
 import { useMyProfile } from '../hooks/useMyProfile';
 import { buildProfileShareData, shareProfile } from '../lib/profileShare';
-import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
+import { hasExpectedRouteParent, resolveRouteParent } from '../lib/primarySwipeNavigation';
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ export const ProfilePage: React.FC = () => {
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   const handleBack = () => {
-    const parent = '/settings';
+    const parent = resolveRouteParent(location.pathname, location.state) ?? '/settings/account';
     if (hasExpectedRouteParent(location.key, location.state, parent)) {
       navigate(-1);
     } else {

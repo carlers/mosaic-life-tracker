@@ -36,9 +36,10 @@ describe('resolvePrimarySwipeDestination', () => {
     const settings = '/settings';
     const delta = -1;
 
-    for (const child of ['/settings/preferences', '/settings/notifications', '/settings/releases', '/profile']) {
+    for (const child of ['/settings/preferences', '/settings/notifications', '/settings/releases', '/settings/account', '/settings/data', '/settings/about']) {
       expect(resolveSettingsHistoryForward(previous(child), settings, delta, 'POP')).toBe(child);
     }
+    expect(resolveSettingsHistoryForward(previous('/profile', '/settings'), settings, delta, 'POP')).toBe('/profile');
     expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, delta, 'PUSH')).toBeNull();
     expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, delta, 'REPLACE')).toBeNull();
     expect(resolveSettingsHistoryForward(previous('/settings/preferences', '/notifications'), settings, delta, 'POP')).toBeNull();
@@ -51,7 +52,10 @@ describe('resolvePrimarySwipeDestination', () => {
 
   // Regression: §2 (Settings child pages are right-swipe detail routes).
   it('returns Settings from Profile and Preferences on a right swipe', () => {
-    expect(resolvePrimarySwipeDestination('/profile', 'right')).toBe('/settings');
+    expect(resolvePrimarySwipeDestination('/profile', 'right')).toBe('/settings/account');
+    expect(resolvePrimarySwipeDestination('/settings/account', 'right', { parentPath: '/account' })).toBe('/account');
+    expect(resolvePrimarySwipeDestination('/settings/preferences/diary', 'right')).toBe('/settings/preferences');
+    expect(resolvePrimarySwipeDestination('/settings/preferences/diary', 'right', { parentPath: '/settings' })).toBe('/settings');
     expect(resolvePrimarySwipeDestination('/settings/preferences', 'right')).toBe('/settings');
     expect(resolvePrimarySwipeDestination('/settings/releases', 'right')).toBe('/settings');
     expect(resolvePrimarySwipeDestination('/profile', 'left')).toBeNull();
@@ -67,7 +71,10 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(PROTECTED_ROUTES.map((route) => route.path)).toEqual([
       '/home', '/bucket-list/:id', '/bucket-list', '/backlog', '/explore', '/friends/:friendId', '/notifications',
       '/messages', '/messages/:friendId', '/account', '/settings',
-      '/settings/releases', '/settings/preferences', '/settings/notifications', '/settings/screen', '/settings/*', '/profile',
+      '/settings/account', '/settings/data', '/settings/about', '/settings/releases', '/settings/preferences',
+      '/settings/preferences/appearance', '/settings/preferences/tasks', '/settings/preferences/calendar',
+      '/settings/preferences/diary', '/settings/preferences/navigation',
+      '/settings/notifications', '/settings/screen', '/settings/*', '/profile',
     ]);
     expect(new Set(PROTECTED_ROUTES.map((route) => route.path)).size).toBe(PROTECTED_ROUTES.length);
     expect(PRIMARY_ROUTE_PATHS).toEqual([
@@ -92,6 +99,9 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(matchProtectedRoute('/friends/friend_1')?.id).toBe('friendCalendar');
     expect(matchProtectedRoute('/friends/')?.id).toBeUndefined();
     expect(matchProtectedRoute('/settings/preferences')?.id).toBe('preferences');
+    expect(matchProtectedRoute('/settings/preferences/tasks')?.id).toBe('preferenceTasks');
+    expect(resolveRouteParent('/profile')).toBe('/settings/account');
+    expect(resolveRouteParent('/profile', { parentPath: '/settings' })).toBe('/settings');
     expect(matchProtectedRoute('/settings/notifications')?.id).toBe('notificationSettings');
     expect(matchProtectedRoute('/settings/notifcations')?.id).toBe('unknownSettingsRedirect');
     expect(matchProtectedRoute('/login')).toBeNull();

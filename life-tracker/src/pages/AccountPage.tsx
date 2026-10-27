@@ -83,6 +83,7 @@ export const AccountPage: React.FC = () => {
       </div>
       <div className="flex-1 px-4 pt-6 pb-4 space-y-6" data-testid="account-scroll">
         <div className="flex flex-col items-center text-center space-y-3">
+          <button type="button" aria-label="Open account settings" onClick={() => navigate('/settings/account', { state: makeRouteParentState('/account') })} className="flex flex-col items-center text-center space-y-3">
           <Avatar size="lg" className="mosaic-profile-avatar" alt={user?.name || user?.email || 'User'} />
           <div>
             <h2 className="text-xl font-bold text-white">
@@ -90,15 +91,16 @@ export const AccountPage: React.FC = () => {
             </h2>
             <p className="text-sm text-gray-400">{user?.email}</p>
           </div>
+          </button>
           <div className="flex items-center gap-6 text-sm text-gray-400">
-            <div className="flex flex-col items-center">
+            <button type="button" onClick={() => navigate('/explore?section=friends')} className="flex flex-col items-center">
               <span className="font-bold text-white">0</span>
               <span>Following</span>
-            </div>
-            <div className="flex flex-col items-center">
+            </button>
+            <button type="button" onClick={() => navigate('/explore?section=friends')} className="flex flex-col items-center">
               <span className="font-bold text-white">{friends.length}</span>
               <span>Friends</span>
-            </div>
+            </button>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
