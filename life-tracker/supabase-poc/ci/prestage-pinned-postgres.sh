@@ -30,11 +30,16 @@ if [[ -z "$verified_id" || "$verified_platform" != 'linux/amd64' ||
   exit 1
 fi
 
-docker tag "$source_image" "$target_image"
-local_id="$(docker image inspect --format '{{.Id}}' "$target_image")"
-local_platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$target_image")"
-if [[ "$verified_id" != "$local_id" || "$local_platform" != 'linux/amd64' ]]; then
-  echo 'MOSAIC_SUPABASE_POSTGRES_PIN_TAG_MISMATCH' >&2
-  exit 1
-fi
+# The pinned image is also the exact Docker Hub version name requested
+# when the disposable CLI's image registry is switched to docker.io.
+mirror_image='docker.io/supabase/postgres:17.6.1.095'
+for local_name in "$target_image" "$mirror_image"; do
+  docker tag "$source_image" "$local_name"
+  local_id="$(docker image inspect --format '{{.Id}}' "$local_name")"
+  local_platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$local_name")"
+  if [[ "$verified_id" != "$local_id" || "$local_platform" != 'linux/amd64' ]]; then
+    echo 'MOSAIC_SUPABASE_POSTGRES_PIN_TAG_MISMATCH' >&2
+    exit 1
+  fi
+done
 echo 'MOSAIC_SUPABASE_POSTGRES_PIN_PASS'

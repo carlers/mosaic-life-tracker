@@ -24,12 +24,17 @@ describe('digest-pinned official Supabase PG17 CI prestage (#1027)', () => {
     expect(workflow).toMatch(/permissions:\s*\n\s*contents: read\s*\n\s*packages: read/);
     expect(workflow).not.toMatch(/packages:\s*write/);
     expect(workflow).not.toContain('continue-on-error: true');
+    expect(workflow).toContain("echo 'SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io' >> \"$GITHUB_ENV\"");
+    expect(workflow.indexOf('SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io')).toBeGreaterThan(step);
+    expect(workflow.indexOf('SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io'))
+      .toBeLessThan(workflow.indexOf('- name: ' + realStep));
   });
 
   it('uses only the trusted, pinned official amd64 manifest and unchanged local CLI tag', () => {
     const content = readFileSync(helper, 'utf8');
     expect(content).toContain('docker.io/supabase/postgres@' + digest);
     expect(content).toContain('ghcr.io/supabase/postgres:17.6.1.095');
+    expect(content).toContain('docker.io/supabase/postgres:17.6.1.095');
     expect(content).toContain('docker pull --platform linux/amd64');
     expect(content).toContain('docker image inspect');
     expect(content).toContain('docker tag "$source_image" "$target_image"');
@@ -65,7 +70,8 @@ case "$1" in
     ;;
   tag)
     [[ "$2" == *'docker.io/supabase/postgres@'* ]]
-    [[ "$3" == 'ghcr.io/supabase/postgres:17.6.1.095' ]]
+    [[ "$3" == 'ghcr.io/supabase/postgres:17.6.1.095' ||
+       "$3" == 'docker.io/supabase/postgres:17.6.1.095' ]]
     ;;
   *) exit 1 ;;
 esac
@@ -91,7 +97,7 @@ esac
       const good = call('linux/amd64', digest);
       expect(good.status, good.stderr).toBe(0);
       expect(good.stdout).toContain('MOSAIC_SUPABASE_POSTGRES_PIN_PASS');
-      expect(good.calls).toContain('tag');
+      expect(good.calls.filter(step => step === 'tag')).toHaveLength(2);
       for (const [platform, checked] of [['linux/arm64', digest], ['linux/amd64', 'sha256:wrong-digest']]) {
         const bad = call(platform, checked);
         expect(bad.status).not.toBe(0);
