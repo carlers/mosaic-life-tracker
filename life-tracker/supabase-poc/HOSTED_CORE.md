@@ -60,6 +60,23 @@ It uses actual password grants and `/auth/v1/user` verification; positive writes
 and negative requests use signed user tokens, never the administrative key.
 The administrative key is restricted to fixture Auth provisioning/retirement.
 
+The explicitly opted-in `--six-domains` mode runs the same preflight and
+admin-provisioned, server-marked disposable two-owner Auth lifecycle, then
+creates exactly one real signed row for **each owner** in tasks, categories,
+Diary, Settings, Bucket List, and task links. It tests anonymous/direct write
+denials, owner-filtered and exact-row foreign HTTP isolation, bounded full-page
+owner audit through `signed-auth-probe.mjs --require-owned-fixtures`, real
+six-domain signed CAS winners/stale/foreign conflicts, and lease expiry/release/
+freeze/revocation. All fixture writes use signed Auth tokens, not SQL role
+simulation. In `finally`, only run-marked users are restored temporarily to
+their own authority, every six-domain live row is CAS-tombstoned, authority is
+frozen, Auth users are banned, and six-domain zero-live-row readback is required.
+A power loss during execution can leave only run-marked disposable records; do
+not touch other owners. **Requires private SUPABASE_ACCESS_TOKEN on the
+trusted operator workstation**, never in chat, GitHub artifacts or a browser.
+Only run against `mosaic-dev`; the command does not activate deployed Preview
+UI, promote branches, change Auth config or import Production accounts.
+
 The suite checks both task/category ownership despite public visibility
 metadata, foreign and anonymous denial, blocked direct update/physical delete,
 concurrent CAS with exactly one winner, stale conflicts, protected fields,

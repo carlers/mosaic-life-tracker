@@ -4,6 +4,7 @@
  * Credentials and generated passwords stay in memory; output is counts only.
  */
 import { createHash, randomBytes } from 'node:crypto';
+import { runSignedAuthProbe } from './signed-auth-probe.mjs';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { inspectEmailPolicy, previewEmailPolicy, EMAIL_PREVIEW, EMAIL_PREVIEW_SHA, requireDeployedPreviewAccess } from './email-policy.mjs';
@@ -20,6 +21,30 @@ const MIGRATIONS = [
   ['20261020130001', 'core_fresh_identity_authority', '20261020_core_fresh_identity_authority.sql'],
 ];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const PERSONAL_TABLES = Object.freeze([
+  'tasks', 'categories', 'diary', 'settings', 'buckets', 'bucket_task_links',
+]);
+export function sixDomainFixtureRows(runId, suffix, ownerId, taskId) {
+  check(/^[a-f0-9]{24}$/.test(runId) && ['a', 'b'].includes(suffix) &&
+    UUID.test(ownerId) && typeof taskId === 'string' &&
+    taskId === `ht_${runId}_${suffix}`, 'Invalid six-domain fixture identity');
+  const id = type => `h${type}_${runId}_${suffix}`;
+  const stamp = '2026-10-27T00:00:00.000Z';
+  const shared = { owner_id: ownerId, created_at: stamp, updated_at: stamp, is_deleted: false };
+  const bucketId = id('b');
+  const records = [
+    ['diary', { ...shared, id: id('d'), entry_date: suffix === 'a' ? '2026-10-27' : '2026-10-28',
+      content: 'Six-domain disposable hosted probe', emoji: '', photos: '[]' }],
+    ['settings', { owner_id: ownerId, id: id('s'), setting_key: 'calendarZoomDays',
+      setting_value: '7', updated_at: stamp, is_deleted: false }],
+    ['buckets', { ...shared, id: bucketId, title: 'Disposable private goal',
+      description: 'Test only', achieved: false, achieved_at: '' }],
+    ['bucket_task_links', { ...shared, id: id('l'), bucket_list_id: bucketId, task_id: taskId }],
+  ];
+  check(records.every(([,row]) => row.owner_id === ownerId &&
+    /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/.test(row.id)), 'Unsafe disposable fixture ID');
+  return records;
+}
 function check(condition, message) { if (!condition) throw new Error(message); }
 const quote = value => "'" + value.replaceAll("'", "''") + "'";
 const digest = value => createHash('sha256').update(value).digest('hex');
@@ -152,7 +177,13 @@ export async function connect({ token, fetcher = fetch } = {}) {
       after.mailer_autoconfirm === false, 'Auth email configuration readback mismatch');
     return inspectEmailPolicy(after);
   }
-  return { management, sql, dataApi, requireOk, fixtureEmailLink, configurePreviewEmailPolicy };
+  const publishableKey = () => {
+    const key = keys?.find(k => k.type === 'publishable')?.api_key;
+    check(key?.startsWith('sb_publishable_'), 'Verified public key unavailable');
+    return key;
+  };
+  return { management, sql, dataApi, requireOk, fixtureEmailLink,
+    configurePreviewEmailPolicy, publishableKey };
 }
 
 export async function inspect(client) {
@@ -189,23 +220,32 @@ export async function applyEmptyProject(client) {
   return MIGRATIONS.map((m, i) => ({ version: m[0], sha256: digest(sources[i]) }));
 }
 
-export async function runHostedProbe(client, { exerciseUi, onProgress = () => {} } = {}) {
-  const privileges = await client.sql(`select
+export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}, sixDomains = false } = {}) {
+  check(typeof sixDomains === 'boolean' && !(sixDomains && exerciseUi),
+    'Six-domain signed acceptance cannot run with the legacy browser contract');
+  const checkedTables = sixDomains ? PERSONAL_TABLES : PERSONAL_TABLES.slice(0, 2);
+  const checkedFunctions = sixDomains ?
+    ['mosaic_candidate_cas_task', 'mosaic_candidate_cas_category', 'mosaic_candidate_cas_diary',
+      'mosaic_candidate_cas_setting', 'mosaic_candidate_cas_bucket',
+      'mosaic_candidate_cas_bucket_link', 'mosaic_core_session'] :
+    ['mosaic_candidate_cas_task', 'mosaic_candidate_cas_category', 'mosaic_core_session'];
+  const privileges = await client.sql(`select count(*)::int as total,
     bool_and(c.relrowsecurity
       and has_table_privilege('authenticated',c.oid,'SELECT')
       and has_table_privilege('authenticated',c.oid,'INSERT')
       and not has_table_privilege('authenticated',c.oid,'UPDATE,DELETE,TRUNCATE')
       and not has_table_privilege('anon',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE')) as safe
     from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace
-    where n.nspname='public' and c.relname in ('mosaic_candidate_tasks','mosaic_candidate_categories')`);
-  check(privileges[0]?.safe === true, 'Hosted table privileges or RLS differ from required contract');
+    where n.nspname='public' and c.relname in (${checkedTables.map(t => quote('mosaic_candidate_' + t)).join(',')})`);
+  check(Number(privileges[0]?.total) === checkedTables.length && privileges[0]?.safe === true,
+    'Hosted table privileges or RLS differ from required contract');
   const functions = await client.sql(`select p.proname,p.prosecdef,p.proconfig,
       has_function_privilege('anon',p.oid,'EXECUTE') as anon,
       has_function_privilege('authenticated',p.oid,'EXECUTE') as signed
     from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace
     where n.nspname='public' and p.proname in
-      ('mosaic_candidate_cas_task','mosaic_candidate_cas_category','mosaic_core_session')`);
-  check(functions.length === 3 && functions.every(f =>
+      (${checkedFunctions.map(quote).join(',')})`);
+  check(functions.length === checkedFunctions.length && functions.every(f =>
     f.prosecdef && f.proconfig?.includes('search_path=""') && !f.anon && f.signed),
   'Hosted RPC grants/search paths differ from required contract');
   const privateAccess = await client.sql(`select
@@ -216,7 +256,8 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
   onProgress({ stage: 'fixtures', runId });
   const fixtures = [];
   const counts = { verifiedUsers: 0, createdRows: 0, foreignReads: 0, deniedWrites: 0,
-    casWinners: 0, staleConflicts: 0, tombstones: 0, guardDenials: 0, retiredUsers: 0 };
+    casWinners: 0, staleConflicts: 0, tombstones: 0, guardDenials: 0, retiredUsers: 0,
+    strictVerifiedFixtures: 0, strictForeignIdDenials: 0 };
   const ok = client.requireOk;
   const api = client.dataApi;
   const denied = (response, label) => {
@@ -293,7 +334,18 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
       user.task = (await ok(await api('/rest/v1/mosaic_candidate_tasks',
         { token: user.token, body: task }), 'Signed task creation'))[0];
       counts.createdRows += 2;
-      for (const domain of ['tasks', 'categories']) {
+      if (sixDomains) {
+        for (const [domain, record] of sixDomainFixtureRows(runId, suffix, user.id, task.id)) {
+          const inserted = await ok(await api('/rest/v1/mosaic_candidate_' + domain,
+            { token: user.token, body: record }), 'Signed ' + domain + ' creation');
+          check(Array.isArray(inserted) && inserted.length === 1 &&
+            inserted[0].id === record.id && inserted[0].owner_id === user.id &&
+            BigInt(inserted[0].change_seq) > 0n, 'Missing signed owner fixture or revision');
+          user[domain] = inserted[0];
+          counts.createdRows++;
+        }
+      }
+      for (const domain of checkedTables) {
         check((await rows(user, domain)).length === 1, 'Own fixture not readable');
         const foreign = user === a ? b : a;
         check((await rows(foreign, domain, user.id)).length === 0, 'Foreign-owner row disclosure');
@@ -307,24 +359,34 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
       denied(await api('/rest/v1/mosaic_candidate_tasks', { token: (user === a ? b : a).token,
         body: { ...task, id: 'spoof_' + suffix } }), 'Foreign insert');
     }
-    for (const [domain, row, patch] of [
-      ['task', a.task, { title: 'CAS winner' }],
-      ['category', a.category, { name: 'CAS winner' }],
-    ]) {
+    const casCases = [
+      ['task', a.task, { title: 'CAS winner' }, a, b],
+      ['category', a.category, { name: 'CAS winner' }, a, b],
+      ...(sixDomains ? [
+        ['diary', a.diary, { content: 'CAS winner' }, a, b],
+        ['setting', a.settings, { setting_value: '{"probe":true}' }, a, b],
+        ['bucket', b.buckets, { title: 'CAS winner' }, b, a],
+        ['bucket_link', b.bucket_task_links, { is_deleted: true }, b, a],
+      ] : []),
+    ];
+    for (const [domain, row, patch, owner, other] of casCases) {
       onProgress({ stage: 'concurrent-cas', domain, runId });
-      const foreign = await ok(await cas(b, domain, row, patch), 'Foreign CAS result');
+      const foreign = await ok(await cas(other, domain, row, patch), 'Foreign CAS result');
       check(isCasConflict(foreign), 'Foreign CAS did not return a conflict');
-      const race = await Promise.all([cas(a, domain, row, patch), cas(a, domain, row, patch)]);
+      const race = await Promise.all([cas(owner, domain, row, patch), cas(owner, domain, row, patch)]);
       const results = await Promise.all(race.map(r => ok(r, 'Concurrent CAS')));
       check(results.filter(r => !isCasConflict(r)).length === 1, 'CAS must have exactly one winner');
       const winner = results.find(r => !isCasConflict(r));
-      check(winner.owner_id === a.id && winner.id === row.id &&
+      check(winner.owner_id === owner.id && winner.id === row.id &&
         BigInt(winner.change_seq) > BigInt(row.change_seq), 'CAS returned wrong identity or revision');
       counts.casWinners++;
       counts.staleConflicts++;
-      for (const forbidden of [{ owner_id: b.id }, { change_seq: 1 }, { id: 'replaced' },
-        ...(domain === 'task' ? [{ created_at: 'changed' }, { reactions: 'changed' }] : [])]) {
-        const r = await cas(a, domain, winner, forbidden);
+      for (const forbidden of [{ owner_id: other.id }, { change_seq: 1 }, { id: 'replaced' },
+        ...(domain === 'task' ? [{ created_at: 'changed' }, { reactions: 'changed' }] :
+          domain === 'diary' ? [{ entry_date: '2020-01-01' }] :
+          domain === 'setting' ? [{ setting_key: 'hijack' }] :
+          domain === 'bucket_link' ? [{ task_id: 'hijack' }] : [])]) {
+        const r = await cas(owner, domain, winner, forbidden);
         check(r.status === 400, 'Protected CAS field accepted or failed for an unrelated reason');
       }
       denied(await api(`/rest/v1/rpc/mosaic_candidate_cas_${domain}`, {
@@ -366,6 +428,19 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
       { token: a.token, body: { p_action: 'acquire' } }), 'Revoked lease acquisition');
     counts.guardDenials += 2;
     await signIn(a);
+    if (sixDomains) {
+      onProgress({ stage: 'signed-six-domain-owner-audit', runId });
+      const proof = await runSignedAuthProbe({
+        baseUrl: ORIGIN, publishableKey: client.publishableKey(),
+        alice: { email: a.email, password: a.password },
+        bob: { email: b.email, password: b.password },
+      }, { requireOwnedFixtures: true });
+      check(proof.signedUsers === 2 && proof.verifiedOwnedFixtures === 12 &&
+        proof.deniedFixtureById === 12 && proof.deniedTableWrites === 12,
+      'Strict signed two-owner six-domain proof incomplete');
+      counts.strictVerifiedFixtures = proof.verifiedOwnedFixtures;
+      counts.strictForeignIdDenials = proof.deniedFixtureById;
+    }
     if (exerciseUi) {
       onProgress({ stage: 'browser', runId });
       await exerciseUi([await account('ui-a'), await account('ui-b')]);
@@ -380,7 +455,12 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
           where owner_id=${quote(user.id)}::uuid;`);
         await signIn(user);
         await acquire(user);
-        for (const [table, domain] of [['tasks', 'task'], ['categories', 'category']]) {
+        const retireTables = sixDomains ? [
+          ['bucket_task_links', 'bucket_link'], ['buckets', 'bucket'],
+          ['settings', 'setting'], ['diary', 'diary'],
+          ['tasks', 'task'], ['categories', 'category'],
+        ] : [['tasks', 'task'], ['categories', 'category']];
+        for (const [table, domain] of retireTables) {
           for (const row of await rows(user, table)) {
             if (!row.is_deleted) {
               const deleted = await ok(await cas(user, domain, row, { is_deleted: true }), 'Fixture tombstone');
@@ -405,17 +485,17 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
     if (fixtures.length) {
       const retired = await client.sql(`select count(*) as users,
         bool_and(a.backend='frozen' and u.banned_until>now()) as retired,
-        (select count(*) from public.mosaic_candidate_tasks t join auth.users owner on owner.id=t.owner_id
-          where owner.raw_app_meta_data->>'mosaic_disposable_run'=${quote(runId)} and not t.is_deleted) as live_tasks,
-        (select count(*) from public.mosaic_candidate_categories c join auth.users owner on owner.id=c.owner_id
-          where owner.raw_app_meta_data->>'mosaic_disposable_run'=${quote(runId)} and not c.is_deleted) as live_categories
+        ${checkedTables.map(t => `(select count(*) from public.mosaic_candidate_${t} x
+          join auth.users owner on owner.id=x.owner_id
+          where owner.raw_app_meta_data->>'mosaic_disposable_run'=${quote(runId)}
+            and not x.is_deleted) as live_${t}`).join(',')}
         from auth.users u left join mosaic_candidate_private.core_authorities a on a.owner_id=u.id
         where u.raw_app_meta_data->>'mosaic_disposable_run'=${quote(runId)}`);
       check(Number(retired[0]?.users) === fixtures.length && retired[0]?.retired === true &&
-        Number(retired[0].live_tasks) === 0 && Number(retired[0].live_categories) === 0,
+        checkedTables.every(t => Number(retired[0]['live_' + t]) === 0),
       'Fixture retirement readback failed');
       onProgress({ stage: 'retirement-verified', runId, retiredUsers: fixtures.length,
-        liveTasks: 0, liveCategories: 0 });
+        remainingLiveRows: 0, checkedDomains: checkedTables.length });
     }
   }
   if (failure) throw failure;
@@ -426,13 +506,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const mode = process.argv[2] ?? '--inspect';
     check(process.argv.length <= 3 &&
-      ['--inspect', '--apply-empty-project', '--probe', '--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode),
-    'Usage: hosted-core.mjs [--inspect|--apply-empty-project|--probe|--ui|--conflicts|--offline|--ui-preview]');
+      ['--inspect', '--apply-empty-project', '--probe', '--six-domains', '--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode),
+    'Usage: hosted-core.mjs [--inspect|--apply-empty-project|--probe|--six-domains|--ui|--conflicts|--offline|--ui-preview]');
     const preview = mode === '--ui-preview' ? { origin: EMAIL_PREVIEW, sha: EMAIL_PREVIEW_SHA } : null;
     if (preview) requireDeployedPreviewAccess(preview, process.env.MOSAIC_CORE_PREVIEW_SHARE_URL);
     const client = await connect({ token: process.env.SUPABASE_ACCESS_TOKEN });
     const result = mode === '--apply-empty-project' ? await applyEmptyProject(client) :
-      ['--probe', '--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode) ? await runHostedProbe(client, {
+      ['--probe', '--six-domains', '--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode) ? await runHostedProbe(client, {
+        sixDomains: mode === '--six-domains',
         onProgress: progress => process.stdout.write(JSON.stringify(progress) + '\n'),
         ...(['--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode) ? { exerciseUi: async accounts => {
           const { exerciseHostedUi } = await import('./hosted-core-ui.mjs');
