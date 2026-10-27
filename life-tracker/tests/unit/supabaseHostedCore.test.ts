@@ -207,6 +207,24 @@ describe('hosted core verification safety boundary', () => {
     expect(calls.some(c => c.url.includes('/api-keys') || c.url.includes('/admin/users'))).toBe(false);
   });
 
+  it('uses bounded GET retry without repeating unsuccessful mutation POSTs', async () => {
+    let reads = 0, writes = 0;
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith(PROJECT)) {
+        reads++;
+        if (reads <= 2) throw new Error('transient');
+        return json(project);
+      }
+      writes++;
+      throw new Error('unknown-write-outcome');
+    });
+    const client = await connect({ token: 'test-management-credential', fetcher });
+    expect(reads).toBe(3);
+    await expect(client.sql('synthetic', false))
+      .rejects.toThrow('Isolated Supabase request failed (network or redirect)');
+    expect(writes).toBe(1);
+  });
+
   it('does not leak provider responses or network causes into errors', async () => {
     await expect(connect({ token: 'test-management-credential',
       fetcher: async () => json({ message: 'credential-in-provider-response' }, 403),

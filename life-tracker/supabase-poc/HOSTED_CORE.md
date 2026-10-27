@@ -71,6 +71,9 @@ freeze/revocation. All fixture writes use signed Auth tokens, not SQL role
 simulation. Direct PATCH negatives now use the universally present `is_deleted`
 field and an exact owned fixture ID; only HTTP 401/403 counts as denial.
 A malformed request returning 400 is a failing test, not a security verdict.
+
+An interrupted idempotent GET has bounded transport retries; mutations are not retried.
+
 In `finally`, only run-marked users are restored temporarily to
 their own authority, every six-domain live row is CAS-tombstoned, authority is
 frozen, Auth users are banned, and six-domain zero-live-row readback is required.
