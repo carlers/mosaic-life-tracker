@@ -14,6 +14,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const OWNER_PAGE_SIZE = 200;
 const OWNER_MAX_PAGES = 100; // Bound a read-only audit; never silently truncate.
 
+export function isMissingCasRow(row) {
+  return row === null || (row && typeof row === 'object' && !Array.isArray(row) &&
+    ['owner_id', 'id', 'change_seq', 'is_deleted'].every(field =>
+      Object.hasOwn(row, field) && row[field] === null) &&
+    Object.values(row).every(value => value === null));
+}
+
 function assertConfig(config) {
   if (!config || config.baseUrl !== ISOLATED_ORIGIN ||
     !config.publishableKey || config.publishableKey.trim() !== config.publishableKey ||
@@ -178,8 +185,8 @@ export async function runSignedAuthProbe(config, {
     const result = await request('/rest/v1/rpc/' + rpc, {
       token: user.token, method: 'POST', body: missing,
     });
-    if (!result.ok || await result.json() !== null)
-      throw new Error('Missing-row CAS must return explicit null conflict');
+    if (!result.ok || !isMissingCasRow(await result.json()))
+      throw new Error('Missing-row CAS must return an all-null conflict');
     totals.rpcConflicts++;
     const injected = await request('/rest/v1/rpc/' + rpc, {
       token: user.token, method: 'POST',
