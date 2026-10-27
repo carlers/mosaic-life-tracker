@@ -18,10 +18,6 @@ Current task: #1027 resolve transient hosted signed GET after completed CAS and 
 - Protected backup workflow-only user-approved Preview→dev→main PR #1370 accepted, main@dd9cc77f49e83dbd9252daa311fd11de4a86a1bb and dev@ff350076204742ff020a7ad962ba402210d8ea62; main Quality #40346349166 and production Vercel redeploy READY; unchanged app v0.43.8/Appwrite provider. No Supabase provider Production cutover.
 - Earlier anon and null-owner hosted SQL negatives passed but are NOT real signed HTTP two-owner proof; connected provider lacks access to credential pairs for two preexisting disposable test accounts. Do not impersonate real users, create hosted accounts, or claim hosted signed test pass.
 
-## Scoped source task
-- Isolated recovery source feature/1027-supabase-recovery-20261020@06c299a69f72cf2f688c7b4e479c7e57f215afe5 includes accepted focused-only R2 ten-profile watchdog PR #1373, but full canonical Quality #40415836451 failed. Root cause: `tests/unit/supabaseUnifiedOffsite.test.ts` expects literal `# pass 12` even though all 13 real underlying node:test recovery cases PASS after adding the new profile mismatch regression; all other Quality jobs passed.
-- Replace hardcoded total with a verified parse of node:test's complete `# tests N`, `# pass N`, `# fail 0` summary, minimum prior coverage 12. Never weaken actual test failure detection or skip security checks. Source-only focused+canonical acceptance; no hosted/SQL/R2/Appwrite/dev/main/Production mutations.
-
 ## Next action
-- Focused task CI then squash reviewed repair into isolated recovery, rerun exact full canonical + applicable restoration labs. Only after the new source SHA is accepted, re-pin the separately staged `chatgpt/1027-ten-profile-watch-workflow-20261027` review candidate from dev, run workflow-only focused/full Preview, then require explicit approval for dev/main promotions. Never change main watcher/schedules early.
-- Remaining signed hosted two-owner + positive lease, original Appwrite owner/media/outbox and server writer fence, six-domain Preview/device/offline/ZIP, managed Auth/SMTP and Production provider cutover gates remain separate.
+- Focused Quality, squash isolated source, full canonical and relevant labs, one private signed hosted probe.
+- All Production cutover, Appwrite fencing, media/outbox, device/offline/ZIP and Auth gates remain separate.
