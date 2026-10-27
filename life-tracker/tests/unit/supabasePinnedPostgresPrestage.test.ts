@@ -86,7 +86,7 @@ esac
             MOCK_REPO_DIGEST: actualDigest,
           },
         });
-        return { ...result, calls: readFileSync(log, 'utf8').trim().split('\\n') };
+        return { ...result, calls: readFileSync(log, 'utf8').trim().split('\n') };
       };
       const good = call('linux/amd64', digest);
       expect(good.status, good.stderr).toBe(0);
