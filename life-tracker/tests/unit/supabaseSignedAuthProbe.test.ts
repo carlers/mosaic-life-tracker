@@ -16,6 +16,7 @@ function fixture({
   leakForeign = false, allowUpdate = false, sameUser = false,
   leakPrivateForeign = false, allowPrivateAnonRead = false, allowPrivateAnonRpc = false,
   populateOwned = false, missingOwnedTable = null, leakUnfiltered = false, leakExactId = false,
+  pageThroughOwned = false, leakOnLaterPage = false,
 } = {}) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const fetcher = async (url: string, init: RequestInit) => {
@@ -62,6 +63,15 @@ function fixture({
     if (isForeign) return json([]);
     if (leakUnfiltered)
       return json([{ id: 'leaked-row', owner_id: alice ? bobId : aliceId }]);
+    if (pageThroughOwned || leakOnLaterPage) {
+      if (query.get('offset') === '0')
+        return json(Array.from({ length: 200 }, (_, index) => ({
+          id: 'page-owner-' + index, owner_id: alice ? aliceId : bobId,
+        })));
+      if (query.get('offset') === '200')
+        return json([{ id: 'next-page-row',
+          owner_id: leakOnLaterPage ? (alice ? bobId : aliceId) : (alice ? aliceId : bobId) }]);
+    }
     if (populateOwned && !path.endsWith('/' + missingOwnedTable))
       return json([{ id: alice ? 'fixture-a' : 'fixture-b', owner_id: alice ? aliceId : bobId }]);
     return json([]);
@@ -149,6 +159,18 @@ describe('isolated Supabase genuine-signed-user denial-path harness (#967)', () 
   it('does not equate an unfiltered foreign-owner leak with an authenticated own read', async () => {
     await expect(runSignedAuthProbe(config, {
       fetcher: fixture({ leakUnfiltered: true }).fetcher, nonce,
+    })).rejects.toThrow(/unfiltered table SELECT leaked/);
+  });
+
+  it('audits all owner-visible pages and rejects a late foreign-row leak', async () => {
+    const { fetcher, calls } = fixture({ pageThroughOwned: true });
+    const counts = await runSignedAuthProbe(config, { fetcher, nonce });
+    expect(counts.ownReads).toBe(12);
+    const laterPages = calls.filter(c => new URL(c.url).searchParams.get('offset') === '200');
+    expect(laterPages).toHaveLength(12);
+    expect(laterPages.every(c => new URL(c.url).searchParams.get('order') === 'id.asc')).toBe(true);
+    await expect(runSignedAuthProbe(config, {
+      fetcher: fixture({ leakOnLaterPage: true }).fetcher, nonce,
     })).rejects.toThrow(/unfiltered table SELECT leaked/);
   });
 
