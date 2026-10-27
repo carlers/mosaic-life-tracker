@@ -5,7 +5,7 @@ Current task: #1027 repair six-domain negative permission test after owner-appro
 ## Active #1027 gate
 - Isolated recovery source `feature/1027-supabase-recovery-20261020@c2d597176165972c39832872ea23dbd93d78ab73`; canonical Quality #40443086517 and all eight recovery/preservation labs PASS; main remains Appwrite v0.43.8.
 - Owner-approved `--six-domains` signed hosted run `341212469279944360d3048f`: 2 Auth accounts retired, frozen/banned; independent SQL confirms exactly 6 tombstones and **0 live rows** across six domains. Probe failed before owner audit/CAS when Diary direct PATCH used nonexistent `order_index` (HTTP 400). No full hosted security pass yet.
-- Repair tests exact existing owner IDs and shared `is_deleted` field. Only HTTP 401/403 accepted; regressions reject 400 and successful writes.
+- Repair tests exact owned IDs with shared `is_deleted` (401/403 only, not 400); strict no-row RPC accepts complete typed-null results but rejects partial disclosures.
 - Next: focused task gate, squash to isolated branch, canonical gate, one verified pinned operator rerun. Then Appwrite writer fence/source/outbox/media, offline/ZIP/device, Auth/email and separate cutover approval; prior Fedora restore stays accepted.
 
 ## Historical checkpoint (2026-10-23 onward)
