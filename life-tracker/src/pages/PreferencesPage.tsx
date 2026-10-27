@@ -91,7 +91,8 @@ import {
 } from '../lib/holidays';
 import { useHolidayCountries } from '../hooks/useHolidays';
 import { resolveTaskCompletionSortMode, type TaskCompletionSortMode } from '../lib/taskOrder';
-import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
+import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
+import { useSettingsTargetFocus } from '../lib/settingsSearch';
 import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../lib/taskTimeline';
 interface ChoiceCopy {
   label: string;
@@ -156,7 +157,7 @@ function SelectSettingRow({
   placeholder,
 }: SelectSettingRowProps) {
   return (
-    <div className="flex w-full items-center justify-between gap-3 px-4 py-3">
+    <div data-setting-label={label} className="flex w-full items-center justify-between gap-3 px-4 py-3">
       <div className="flex min-w-0 items-center gap-3">
         <div className="mosaic-settings-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2A2A2A]" aria-hidden="true">
           {icon}
@@ -192,7 +193,7 @@ function ChoiceGroup<T extends string>({
   onChange,
 }: ChoiceGroupProps<T>) {
   return (
-    <section className="border-b border-[#333333] px-4 py-5">
+    <section data-setting-label={label} className="border-b border-[#333333] px-4 py-5">
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
         {label}
       </h2>
@@ -238,6 +239,9 @@ function ChoiceGroup<T extends string>({
 export const PreferencesPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const section = location.pathname.startsWith('/settings/preferences/') ? location.pathname.slice('/settings/preferences/'.length) : null;
+  const titles: Record<string, string> = { tasks: 'Tasks & Categories', calendar: 'Calendar & Day View', diary: 'Diary', navigation: 'Navigation & Input', appearance: 'Appearance & Layout' };
+  useSettingsTargetFocus(location.pathname, location.search);
   const {
     mode,
     setAppearanceMode,
@@ -336,7 +340,8 @@ export const PreferencesPage: React.FC = () => {
   };
 
   const handleBack = () => {
-    const parent = '/settings';
+    const fromSearch = section && location.state && typeof location.state === 'object' && 'parentPath' in location.state && location.state.parentPath === '/settings';
+    const parent = fromSearch ? '/settings' : section ? '/settings/preferences' : '/settings';
     if (hasExpectedRouteParent(location.key, location.state, parent)) {
       navigate(-1);
     } else {
@@ -356,10 +361,20 @@ export const PreferencesPage: React.FC = () => {
         >
           <ChevronLeft size={20} aria-hidden="true" />
         </button>
-        <h1 className="text-lg font-bold text-white">Preferences</h1>
+        <h1 className="text-lg font-bold text-white">{section ? (titles[section] ?? 'Preferences') : 'Preferences'}</h1>
       </div>
 
       <div className="flex-1 pb-24">
+        {!section && (
+          <nav aria-label="Preference categories" className="py-2">
+            <SettingsRow icon={<Palette size={18} aria-hidden="true" />} label="Appearance & Layout" onClick={() => navigate('/settings/preferences/appearance', { state: makeRouteParentState('/settings/preferences') })} />
+            <SettingsRow icon={<ListPlus size={18} aria-hidden="true" />} label="Tasks & Categories" onClick={() => navigate('/settings/preferences/tasks', { state: makeRouteParentState('/settings/preferences') })} />
+            <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Calendar & Day View" onClick={() => navigate('/settings/preferences/calendar', { state: makeRouteParentState('/settings/preferences') })} />
+            <SettingsRow icon={<BookOpenText size={18} aria-hidden="true" />} label="Diary" onClick={() => navigate('/settings/preferences/diary', { state: makeRouteParentState('/settings/preferences') })} />
+            <SettingsRow icon={<Keyboard size={18} aria-hidden="true" />} label="Navigation & Input" onClick={() => navigate('/settings/preferences/navigation', { state: makeRouteParentState('/settings/preferences') })} />
+          </nav>
+        )}
+        {section === 'tasks' && (<>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Tasks
@@ -521,6 +536,9 @@ export const PreferencesPage: React.FC = () => {
             }
           />
         </section>
+
+        </>)}
+        {section === 'calendar' && (<>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Calendar
@@ -614,20 +632,6 @@ export const PreferencesPage: React.FC = () => {
               )
             }
           />
-          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Show diary in Day View" showChevron={false} isToggle checked={showDiaryInDayView}
-            onClick={() => void setSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, !showDiaryInDayView)} />
-          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
-            label={`Diary text: ${diaryDayViewHeight === 'compact' ? 'One line' : 'Expanded'}`}
-            showChevron={false} isToggle checked={diaryDayViewHeight === 'expanded'}
-            onClick={() => void setSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, diaryDayViewHeight === 'compact' ? 'expanded' : 'compact')} />
-          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
-            label={`Default diary position: ${diaryDayViewPosition === 'top' ? 'Top' : 'Bottom'}`}
-            showChevron={false} isToggle checked={diaryDayViewPosition === 'bottom'}
-            onClick={() => void setSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, diaryDayViewPosition === 'top' ? 'bottom' : 'top')} />
-          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Show Diary Today shortcut" showChevron={false} isToggle checked={showDiaryTodayShortcut}
-            onClick={() => void setSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, !showDiaryTodayShortcut)} />
           <SettingsRow
             icon={<CalendarDays size={18} className="text-red-400" aria-hidden="true" />}
             label="Show holidays"
@@ -659,6 +663,28 @@ export const PreferencesPage: React.FC = () => {
             }
           />
         </section>
+
+        </>)}
+        {section === 'diary' && (
+          <section className="border-b border-[#333333] py-2" aria-label="Diary">
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show diary in Day View" showChevron={false} isToggle checked={showDiaryInDayView}
+            onClick={() => void setSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, !showDiaryInDayView)} />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label={`Diary text: ${diaryDayViewHeight === 'compact' ? 'One line' : 'Expanded'}`}
+            showChevron={false} isToggle checked={diaryDayViewHeight === 'expanded'}
+            onClick={() => void setSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, diaryDayViewHeight === 'compact' ? 'expanded' : 'compact')} />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label={`Default diary position: ${diaryDayViewPosition === 'top' ? 'Top' : 'Bottom'}`}
+            showChevron={false} isToggle checked={diaryDayViewPosition === 'bottom'}
+            onClick={() => void setSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, diaryDayViewPosition === 'top' ? 'bottom' : 'top')} />
+          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show Diary Today shortcut" showChevron={false} isToggle checked={showDiaryTodayShortcut}
+            onClick={() => void setSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, !showDiaryTodayShortcut)} />
+
+          </section>
+        )}
+        {section === 'navigation' && (<>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Navigation</h2>
           <SettingsRow
@@ -685,6 +711,9 @@ export const PreferencesPage: React.FC = () => {
             onClick={() => void setSetting(ESCAPE_AS_BACK_SETTING_KEY, !escapeAsBack)}
           />
         </section>
+
+        </>)}
+        {section === 'appearance' && (<>
         <ChoiceGroup
           label="Appearance"
           options={APPEARANCE_MODES}
@@ -713,7 +742,7 @@ export const PreferencesPage: React.FC = () => {
             onClick={() => void setSetting(GIPHY_AUTOPLAY_SETTING_KEY, !giphyAutoplay)}
           />
         </section>
-        <section aria-labelledby="preferences-accent-heading" className="border-b border-[#333333] px-4 py-5">
+        <section data-setting-label="Accent color" aria-labelledby="preferences-accent-heading" className="border-b border-[#333333] px-4 py-5">
           <h2 id="preferences-accent-heading" className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Accent color
           </h2>
@@ -783,6 +812,8 @@ export const PreferencesPage: React.FC = () => {
         <p className="px-7 py-4 text-xs leading-relaxed text-gray-500">
           Width preferences apply on tablets and larger screens. Phone layouts stay full width.
         </p>
+
+        </>)}
       </div>
     </div>
   );

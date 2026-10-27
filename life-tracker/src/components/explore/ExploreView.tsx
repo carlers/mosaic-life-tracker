@@ -1,5 +1,6 @@
 import { subscribeFriendshipFailures } from '../../lib/friendshipCommands';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Copy, Check, Users, Inbox } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { SearchBar } from './SearchBar';
@@ -48,6 +49,8 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onRequestUsername,
   onFeedback,
 }) => {
+  const location = useLocation();
+  const friendsSectionRef = useRef<HTMLElement>(null);
   const { profile, isLoading: profileLoading } = useMyProfile();
   const connectivity = useConnectivity();
   const {
@@ -81,6 +84,15 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   useEffect(() => subscribeFriendshipFailures((uid, message) => {
     if (uid === profile?.user_id) onFeedback?.(message);
   }), [profile?.user_id, onFeedback]);
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('section') !== 'friends' || friendsLoading || profileLoading) return;
+    const frame = requestAnimationFrame(() => {
+      friendsSectionRef.current?.scrollIntoView({ block: 'start' });
+      friendsSectionRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [location.search, friendsLoading, profileLoading]);
 
   const myUsername = profile?.username || '';
 
@@ -261,7 +273,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         )}
 
 
-        <section className="space-y-2">
+        <section ref={friendsSectionRef} tabIndex={-1} className="space-y-2 scroll-mt-20">
           <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
             My friends ({friends.length})
           </h2>

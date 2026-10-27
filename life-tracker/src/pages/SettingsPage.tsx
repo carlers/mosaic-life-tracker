@@ -3,15 +3,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   User,
   Shield,
-  ShieldCheck,
   CloudSync,
-  Sticker,
-  Lock,
   SlidersHorizontal,
   Bell,
   Megaphone,
   Info,
-  HelpCircle,
   LogOut,
   Database,
   Trash2,
@@ -20,6 +16,7 @@ import {
   RefreshCw,
   History,
   Import,
+  Search,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
@@ -38,6 +35,7 @@ import { TodoMateImportSheet } from '../components/modals/TodoMateImportSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
 import { useAppearance } from '../hooks/useAppearance';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
+import { searchSettings, useSettingsTargetFocus } from '../lib/settingsSearch';
 import {
   getBackupActivity,
   recordBackupActivity,
@@ -55,6 +53,10 @@ export const SettingsPage: React.FC = () => {
   const { mode: appearanceMode } = useAppearance();
   const navigate = useNavigate();
   const location = useLocation();
+  const view = location.pathname === '/settings/account' ? 'account' : location.pathname === '/settings/data' ? 'data' : location.pathname === '/settings/about' ? 'about' : 'root';
+  const [searchTerm, setSearchTerm] = useState('');
+  const searchResults = searchSettings(searchTerm);
+  useSettingsTargetFocus(location.pathname, location.search);
   const [isClearDataOpen, setIsClearDataOpen] = useState(false);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
@@ -119,7 +121,8 @@ export const SettingsPage: React.FC = () => {
   const handleComingSoon = () => showFeedback('Coming soon');
 
   const handleBack = () => {
-    const parent = '/account';
+    const cameFromMe = view === 'account' && location.state && typeof location.state === 'object' && 'parentPath' in location.state && location.state.parentPath === '/account';
+    const parent = view === 'root' || cameFromMe ? '/account' : '/settings';
     if (hasExpectedRouteParent(location.key, location.state, parent)) {
       navigate(-1);
     } else {
@@ -283,87 +286,60 @@ export const SettingsPage: React.FC = () => {
         >
           <ChevronLeft size={20} aria-hidden="true" />
         </button>
-        <h1 className="text-lg font-bold text-white">Settings</h1>
+        <h1 className="text-lg font-bold text-white">{view === 'root' ? 'Settings' : view === 'account' ? 'Account' : view === 'data' ? 'Data & Sync' : 'About Mosaic'}</h1>
       </div>
       <div className="flex-1 pb-24">
-        <section aria-labelledby="settings-account-heading" className="py-2">
-          <h2 id="settings-account-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Account & preferences</h2>
-          <SettingsRow
-            icon={<User size={18} className="text-blue-500" aria-hidden="true" />}
-            label="Profile"
-            onClick={() => navigate('/profile', { state: makeRouteParentState('/settings') })}
-          />
-          <SettingsRow
-            icon={<Shield size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Account"
-            value={user?.email}
-            onClick={() => setIsAccountSettingsOpen(true)}
-          />
-          <SettingsRow
-            icon={<SlidersHorizontal size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Preferences"
-            value={
-              appearanceMode === 'system'
-                ? 'System'
-                : appearanceMode === 'dark'
-                  ? 'Dark'
-                  : appearanceMode === 'light'
-                    ? 'Light'
-                    : 'Black'
-            }
-            onClick={() =>
-              navigate('/settings/preferences', {
-                state: makeRouteParentState('/settings'),
-              })
-            }
-          />
-          <SettingsRow
-            icon={<Bell size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Notifications"
-            onClick={() => navigate('/settings/notifications', {
-              state: makeRouteParentState('/settings'),
-            })}
-          />
-        </section>
-        <section aria-labelledby="settings-upcoming-heading" className="border-t border-[#333333] py-2">
-          <h2 id="settings-upcoming-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Coming soon</h2>
-          <SettingsRow
-            icon={<Lock size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Privacy"
-            value="Coming soon"
-            onClick={handleComingSoon}
-          />
-          <SettingsRow
-            icon={<ShieldCheck size={18} className="text-gray-400" aria-hidden="true" />}
-            label="App Permissions"
-            value="Coming soon"
-            onClick={handleComingSoon}
-          />
-          <SettingsRow
-            icon={<Megaphone size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Announcements"
-            value="Coming soon"
-            onClick={handleComingSoon}
-          />
-          <SettingsRow
-            icon={<Sticker size={18} className="text-gray-400" aria-hidden="true" />}
-            label="My stickers"
-            value="Coming soon"
-            onClick={handleComingSoon}
-          />
-          <SettingsRow
-            icon={<Info size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Information"
-            value="Coming soon"
-            onClick={handleComingSoon}
-          />
-          <SettingsRow
-            icon={<HelpCircle size={18} className="text-gray-400" aria-hidden="true" />}
-            label="FAQs"
-            value="Coming soon"
-            onClick={handleComingSoon}
-          />
-        </section>
+        {view === 'root' && (
+          <div className="px-4 pt-4">
+            <label htmlFor="settings-search" className="sr-only">Search settings</label>
+            <div className="flex items-center gap-2 rounded-xl border border-[#333333] bg-[#1E1E1E] px-3">
+              <Search size={18} className="text-gray-400" aria-hidden="true" />
+              <input id="settings-search" type="search" autoComplete="off" value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search settings"
+                className="min-w-0 w-full bg-transparent py-3 text-white outline-none placeholder:text-gray-400" />
+            </div>
+            {searchTerm.trim() ? (
+              <section className="pt-4" aria-label="Settings search results">
+                {searchResults.length === 0 && <p className="px-2 py-4 text-sm text-gray-400">No settings found.</p>}
+                {searchResults.map((entry) => (
+                  <button type="button" key={entry.path + entry.label} onClick={() => navigate(entry.path + '?setting=' + encodeURIComponent(entry.label), { state: makeRouteParentState('/settings') })}
+                    className="block w-full rounded-lg px-3 py-3 text-left text-white hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                    <span className="block font-medium">{entry.label}</span>
+                    <span className="block text-xs text-gray-400">{entry.breadcrumb}</span>
+                  </button>
+                ))}
+              </section>
+            ) : (
+              <nav className="pt-2" aria-label="Settings sections">
+                <SettingsRow icon={<Shield size={18} aria-hidden="true" />} label="Account" onClick={() => navigate('/settings/account', { state: makeRouteParentState('/settings') })} />
+                <SettingsRow icon={<SlidersHorizontal size={18} aria-hidden="true" />} label="Preferences" value={appearanceMode === 'system' ? 'System' : appearanceMode === 'dark' ? 'Dark' : appearanceMode === 'light' ? 'Light' : 'Black'} onClick={() => navigate('/settings/preferences', { state: makeRouteParentState('/settings') })} />
+                <SettingsRow icon={<Bell size={18} aria-hidden="true" />} label="Notifications" onClick={() => navigate('/settings/notifications', { state: makeRouteParentState('/settings') })} />
+                <SettingsRow icon={<CloudSync size={18} aria-hidden="true" />} label="Data & Sync" onClick={() => navigate('/settings/data', { state: makeRouteParentState('/settings') })} />
+                <SettingsRow icon={<Info size={18} aria-hidden="true" />} label="About Mosaic" onClick={() => navigate('/settings/about', { state: makeRouteParentState('/settings') })} />
+              </nav>
+            )}
+          </div>
+        )}
+        {view === 'account' && (
+          <>
+            <section className="py-2" aria-label="Account">
+              <SettingsRow icon={<User size={18} aria-hidden="true" />} label="Profile" onClick={() => navigate('/profile', { state: makeRouteParentState('/settings/account') })} />
+              <SettingsRow icon={<Shield size={18} aria-hidden="true" />} label="Account email" value={user?.email} onClick={() => setIsAccountSettingsOpen(true)} />
+              <SettingsRow icon={<Shield size={18} aria-hidden="true" />} label="Change password" onClick={() => setIsChangePasswordOpen(true)} />
+            </section>
+            <section className="border-t border-[#333333] py-2" aria-label="Account deletion">
+              <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-red-400">Danger Zone</h2>
+              <SettingsRow icon={<Trash2 size={18} className="text-red-500" aria-hidden="true" />} label="Delete Account" isDestructive showChevron={false} onClick={() => setIsDeleteAccountOpen(true)} />
+            </section>
+            <div className="px-4 pt-4 pb-8">
+              <button type="button" data-setting-label="Sign Out" onClick={handleLogout}
+                className="w-full py-2.5 bg-[#1E1E1E] border border-[#333333] rounded-xl text-red-500 font-medium hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60 flex items-center justify-center gap-2">
+                <LogOut size={18} aria-hidden="true" />Sign Out
+              </button>
+            </div>
+          </>
+        )}
+        {view === 'data' && (<>
         <section aria-labelledby="settings-data-heading" className="border-t border-[#333333] py-2">
           <h2 id="settings-data-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Data & sync</h2>
 
@@ -394,10 +370,24 @@ export const SettingsPage: React.FC = () => {
             onClick={() => setIsTodoMateImportOpen(true)}
           />
         </section>
-        <section aria-labelledby="settings-about-heading" className="border-t border-[#333333] py-2">
-          <h2 id="settings-about-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">About & updates</h2>
 
-          <details className="group text-white" data-testid="app-version-details">
+          <section className="border-t border-[#333333] py-2" aria-label="Device data">
+            <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">This device</h2>
+          <SettingsRow
+            icon={<Database size={18} className="text-red-500" aria-hidden="true" />}
+            label="Clear Local Data"
+            isDestructive={true}
+            showChevron={false}
+            onClick={() => setIsClearDataOpen(true)}
+          />
+
+          </section>
+        </>)}
+        {view === 'about' && (<>
+        <section aria-labelledby="settings-about-heading" className="border-t border-[#333333] py-2">
+          <h2 id="settings-about-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">About Mosaic</h2>
+
+          <details data-setting-label="Version" className="group text-white" data-testid="app-version-details">
             <summary className="flex cursor-pointer list-none items-center justify-between rounded-sm px-4 py-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60 [&::-webkit-details-marker]:hidden">
               <span className="text-base font-medium">Version</span>
               <span className="flex items-center gap-2">
@@ -459,36 +449,11 @@ export const SettingsPage: React.FC = () => {
               )}
             </div>
           )}
+          <SettingsRow icon={<Megaphone size={18} aria-hidden="true" />} label="Announcements" value="Coming soon" onClick={handleComingSoon} />
+          <a data-setting-label="GitHub repository" href="https://github.com/carlers/mosaic-life-tracker" target="_blank" rel="noopener noreferrer" className="block px-4 py-3 text-base font-medium text-white hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60">GitHub repository</a>
         </section>
-        <section aria-labelledby="settings-deletion-heading" className="border-t border-[#333333] py-2">
-          <h2 id="settings-deletion-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Data deletion</h2>
 
-          <SettingsRow
-            icon={<Trash2 size={18} className="text-red-500" aria-hidden="true" />}
-            label="Delete Account"
-            isDestructive={true}
-            showChevron={false}
-            onClick={() => setIsDeleteAccountOpen(true)}
-          />
-          <SettingsRow
-            icon={<Database size={18} className="text-red-500" aria-hidden="true" />}
-            label="Clear Local Data"
-            isDestructive={true}
-            showChevron={false}
-            onClick={() => setIsClearDataOpen(true)}
-          />
-        </section>
-        <div className="px-4 pt-4 pb-8">
-          <button
-            type="button"
-            onClick={handleLogout}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="w-full py-2.5 bg-[#1E1E1E] border border-[#333333] rounded-xl text-red-500 font-medium hover:bg-[#2A2A2A] transition-colors flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-          >
-            <LogOut size={18} aria-hidden="true" />
-            Sign Out
-          </button>
-        </div>
+        </>)}
       </div>
       <BottomSheet
         isOpen={isDeleteAccountOpen}
