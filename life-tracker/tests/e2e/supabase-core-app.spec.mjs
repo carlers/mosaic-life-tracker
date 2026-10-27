@@ -979,6 +979,71 @@ test('signed owner Diary UI @diary-ui: create a private entry, recover on anothe
   }
 });
 
+test('six-domain lifecycle @personal-ui: preferences, Bucket links, offline edits and account switch', async ({ browser }) => {
+  test.skip(hosted || process.env.MOSAIC_PERSONAL_UI_LAB !== 'true', 'Disposable signed personal UI only');
+  const owner = await account(), foreign = await account();
+  const contexts = await Promise.all([0, 1].map(() => newBrowserContext(browser, { ignoreHTTPSErrors: true })));
+  try {
+    const [first, second] = await Promise.all(contexts.map(c => c.newPage()));
+    await signIn(first, owner);
+    await first.getByRole('button', { name: 'Open menu' }).click();
+    await first.getByRole('button', { name: 'Categories', exact: true }).click();
+    await first.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await first.getByLabel('Name', { exact: true }).fill('Dream steps');
+    await first.getByRole('button', { name: 'Add Category', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'categories')).some(x => x.name === 'Dream steps')).toBe(true);
+    await first.goto(app + '/bucket-list');
+    await first.getByRole('button', { name: 'Add aspiration', exact: true }).click();
+    await first.getByLabel('What would you love to do?').fill('Visit the mountains');
+    await first.getByRole('button', { name: 'Add to my Bucket List' }).click();
+    await first.getByRole('button', { name: 'Visit the mountains', exact: true }).click();
+    await first.getByRole('button', { name: 'New task', exact: true }).click();
+    await first.getByLabel('Task', { exact: true }).fill('Pack hiking boots');
+    await first.getByLabel('Category', { exact: true }).selectOption({ label: 'Dream steps' });
+    await first.getByRole('button', { name: 'Create and link task' }).click();
+    await expect.poll(async () => (await rows(owner, 'bucket_task_links')).filter(x => !x.is_deleted).length,
+      { timeout: 30000 }).toBe(1);
+    const goal = (await rows(owner, 'buckets')).find(x => x.title === 'Visit the mountains');
+    expect(goal).toBeTruthy();
+    await signIn(second, owner);
+    await second.goto(app + '/bucket-list/' + goal.id);
+    await expect(second.getByRole('button', { name: 'Unlink Pack hiking boots' })).toBeVisible({ timeout: 25000 });
+    await contexts[0].setOffline(true);
+    await first.getByRole('button', { name: 'Edit aspiration' }).click();
+    await first.getByLabel('Your dream').fill('Visit the mountains offline');
+    await first.getByRole('button', { name: 'Save changes', exact: true }).click();
+    expect((await rows(owner, 'buckets')).find(x => x.id === goal.id).title).toBe('Visit the mountains');
+    await contexts[0].setOffline(false);
+    await first.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect.poll(async () => (await rows(owner, 'buckets')).find(x => x.id === goal.id)?.title,
+      { timeout: 25000 }).toBe('Visit the mountains offline');
+    await second.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect(second.getByRole('heading', { name: 'Visit the mountains offline', exact: true })).toBeVisible();
+    await first.goto(app + '/settings/preferences');
+    await first.getByRole('switch', { name: 'Show task creation time' }).click();
+    await expect.poll(async () => (await rows(owner, 'settings')).find(x => x.setting_key === 'showTaskCreatedTime')?.setting_value,
+      { timeout: 25000 }).toBe('true');
+    await second.goto(app + '/settings/preferences');
+    await expect(second.getByRole('switch', { name: 'Show task creation time' })).toHaveAttribute('aria-checked', 'true');
+    await first.goto(app + '/bucket-list/' + goal.id);
+    await first.getByRole('button', { name: 'Unlink Pack hiking boots' }).click();
+    await expect.poll(async () => (await rows(owner, 'bucket_task_links'))[0]?.is_deleted).toBe(true);
+    expect((await rows(owner, 'tasks')).find(x => x.title === 'Pack hiking boots')?.is_deleted).toBe(false);
+    await first.getByRole('button', { name: 'I lived it', exact: true }).click();
+    await expect.poll(async () => (await rows(owner, 'buckets')).find(x => x.id === goal.id)?.achieved).toBe(true);
+    await first.goto(app + '/settings');
+    await first.getByRole('button', { name: 'Sign Out', exact: true }).click();
+    await expect(first.getByLabel('Email Address')).toBeVisible();
+    await signIn(first, foreign);
+    await first.goto(app + '/bucket-list');
+    await expect(first.getByText('Visit the mountains offline', { exact: true })).toHaveCount(0);
+    await first.goto(app + '/settings/preferences');
+    await expect(first.getByRole('switch', { name: 'Show task creation time' })).toHaveAttribute('aria-checked', 'false');
+    for (const domain of ['tasks', 'categories', 'diary', 'settings', 'buckets', 'bucket_task_links'])
+      expect(await rows(foreign, domain)).toEqual([]);
+  } finally { await Promise.allSettled(contexts.map(c => c.close())); }
+});
+
 test('signed private Storage @photo-storage: owner-only upload/read/delete, immutable bytes and no public access', async () => {
   test.skip(hosted || process.env.MOSAIC_CORE_DIARY_UI_LAB !== 'true',
     'Only local disposable Supabase Storage may exercise owner-private object permissions');

@@ -35,6 +35,8 @@ assert(first.version === 1 && first.providerUserId === a.owner &&
 assert(first.mosaicAccountId !== other.mosaicAccountId && first.installationId === other.installationId,
   'User metadata/email/name cannot merge accounts');
 const pending = await json(await status(a, 'recovery-pending'));
+const readiness = await json(await call('/rest/v1/rpc/mosaic_personal_readiness', a.token, {}));
+assert(readiness.personalReady === false, 'Installing schema alone must not approve personal release');
 assert(pending.historyState === 'recovery-pending' && pending.consentVersion === 1 &&
   pending.mosaicAccountId === first.mosaicAccountId, 'Pending consent must preserve canonical ID');
 assert(JSON.stringify(await json(await status(a, 'recovery-pending'))) === JSON.stringify(pending),

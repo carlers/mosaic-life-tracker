@@ -35,7 +35,7 @@ class FakeSocket {
   }
 }
 const publishableKey = 'sb_publishable_test_test_test';
-function harness(includeDiary = false) {
+function harness(includeDiary = false, includePersonal = false) {
   const signed = { userId: owner, accessToken: 'signed-owner-token', sessionEpoch: 3 };
   const session = { getVerifiedSession: vi.fn(async () => ({ ...signed })) };
   const onWake = vi.fn(async () => {});
@@ -43,7 +43,7 @@ function harness(includeDiary = false) {
   const stop = startCoreRealtimeWake({
     baseUrl: 'https://hcxtiifzxoaflhjgoglb.supabase.co',
     publishableKey, session, onWake, isActive: () => active,
-    includeDiary,
+    includeDiary, includePersonal,
     socketFactory: url => new FakeSocket(url) as unknown as WebSocket,
     isOnline: () => true,
     isVisible: () => true,
@@ -56,6 +56,20 @@ async function getSocket() {
 }
 
 describe('Supabase signed owner realtime wake (#1187)', () => {
+  it('wakes all six personal domains with owner-filtered INSERT/UPDATE only', async () => {
+    const h=harness(false,true),socket=await getSocket();
+    socket.open();
+    const join=socket.frames.find(frame=>frame.event==='phx_join')!;
+    const config=join.payload.config as {postgres_changes:Array<{event:string;table:string;filter:string}>};
+    expect(new Set(config.postgres_changes.map(entry=>entry.table))).toEqual(new Set([
+      'mosaic_candidate_tasks','mosaic_candidate_categories','mosaic_candidate_diary',
+      'mosaic_candidate_settings','mosaic_candidate_buckets','mosaic_candidate_bucket_task_links',
+    ]));
+    expect(config.postgres_changes).toHaveLength(12);
+    expect(config.postgres_changes.every(entry=>entry.filter==='owner_id=eq.'+owner &&
+      ['INSERT','UPDATE'].includes(entry.event))).toBe(true);
+    h.stop();
+  });
   beforeEach(() => {
     FakeSocket.sockets = [];
     vi.useRealTimers();

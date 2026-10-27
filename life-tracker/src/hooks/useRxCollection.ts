@@ -4,7 +4,7 @@ import { useAuth } from './useAuth';
 import type { SyncedCollectionName } from '../db/replicationIds';
 import { markStartup, type StartupMark } from '../lib/startupMetrics';
 
-type CollectionName = SyncedCollectionName;
+type CollectionName = SyncedCollectionName | 'portableSettings';
 
 interface UseRxCollectionOptions<TDoc, TData> {
   /**

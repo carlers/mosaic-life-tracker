@@ -6,7 +6,7 @@
  * The core-only profile is intentionally not activated on the shipped app:
  * Supabase Auth + single-writer sync integration still require acceptance.
  */
-export type MosaicFeatureProfile = 'full' | 'core-only' | 'core-diary';
+export type MosaicFeatureProfile = 'full' | 'core-only' | 'core-diary' | 'personal';
 export type MosaicCapability =
   | 'core' | 'diary' | 'bucketList' | 'social' | 'alerts' | 'chat'
   | 'sharedTasks' | 'taskImages';
@@ -28,12 +28,16 @@ const PROFILE_CAPABILITIES: Record<MosaicFeatureProfile, Readonly<Record<MosaicC
     core: true, diary: true, bucketList: false, social: false,
     alerts: false, chat: false, sharedTasks: false, taskImages: true,
   }),
+  personal: Object.freeze({
+    core: true, diary: true, bucketList: true, social: false,
+    alerts: false, chat: false, sharedTasks: false, taskImages: true,
+  }),
 };
 
 export function resolveFeatureProfile(value: unknown): MosaicFeatureProfile {
   // Treat an unknown or missing profile as the existing Appwrite app, not
   // as consent to switch providers or erase data.
-  return value === 'core-only' || value === 'core-diary' ? value : 'full';
+  return value === 'core-only' || value === 'core-diary' || value === 'personal' ? value : 'full';
 }
 
 export const MOSAIC_FEATURE_PROFILE: MosaicFeatureProfile =

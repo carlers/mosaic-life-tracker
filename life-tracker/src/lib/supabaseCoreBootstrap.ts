@@ -177,14 +177,18 @@ export function createAppSupabaseCoreBootstrap(options: AppSupabaseCoreBootstrap
           ensureActive();
           return established.subscribeConflicts(listener);
         },
-        async refreshConflict(domain: 'tasks' | 'categories' | 'diary', id: string) {
+        async refreshConflict(domain: import('../../supabase-poc/candidatePersonalRuntime').PersonalDomain, id: string) {
           ensureActive();
+          if (domain !== 'tasks' && domain !== 'categories' && domain !== 'diary')
+            throw new Error('Unsupported core conflict domain');
           const result = await established.refreshConflict(domain, id);
           ensureActive();
           return result;
         },
-        async keepLocalConflict(domain: 'tasks' | 'categories' | 'diary', id: string, revision: string) {
+        async keepLocalConflict(domain: import('../../supabase-poc/candidatePersonalRuntime').PersonalDomain, id: string, revision: string) {
           ensureActive();
+          if (domain !== 'tasks' && domain !== 'categories' && domain !== 'diary')
+            throw new Error('Unsupported core conflict domain');
           const result = await established.keepLocalConflict(domain, id, revision);
           ensureActive();
           return result;

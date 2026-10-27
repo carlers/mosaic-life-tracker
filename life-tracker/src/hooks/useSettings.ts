@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import { makeSettingsRowId, MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
 import { useOwnerMutationGuard } from './useOwnerMutationGuard';
 import type { SettingsDocument } from '../db/schema';
+import { USE_PORTABLE_SETTINGS, settingsCollectionForKey } from '../lib/personalSettings';
 
 export { makeSettingsRowId };
 const DEBUG = import.meta.env.DEV;
@@ -46,6 +47,7 @@ async function cleanupLegacySettingsRows(userId: string, assertOwner: (owner: st
 function mapSettingsDocs(docs: SettingsDocument[]): Record<string, unknown> {
   const settingsMap: Record<string, unknown> = {};
   for (const doc of docs) {
+    if (doc.isDeleted) { settingsMap[doc.key] = undefined; continue; }
     try {
       settingsMap[doc.key] = JSON.parse(doc.value);
     } catch {
@@ -61,7 +63,7 @@ export function useSettings() {
   const cleanupLegacy = useCallback((owner: string) =>
     cleanupLegacySettingsRows(owner, assertOwner), [assertOwner]);
 
-  const { data: settings, isLoading } = useRxCollection<
+  const { data: localSettings, isLoading: localLoading } = useRxCollection<
     SettingsDocument,
     Record<string, unknown>
   >({
@@ -72,6 +74,13 @@ export function useSettings() {
     beforeSubscribe: cleanupLegacy,
     startupMark: 'home:settings-ready',
   });
+  const { data: portableSettings, isLoading: portableLoading } = useRxCollection<SettingsDocument, Record<string, unknown>>({
+    collection: 'portableSettings', selector: { userId: user?.$id ?? '' },
+    map: mapSettingsDocs, logPrefix: '[useSettings:portable]', enabled: USE_PORTABLE_SETTINGS,
+  });
+  const settings = useMemo(() => USE_PORTABLE_SETTINGS ? { ...localSettings, ...portableSettings } : localSettings,
+    [localSettings, portableSettings]);
+  const isLoading = localLoading || portableLoading;
 
   const setSetting = useCallback(
     async (key: string, value: unknown) => {
@@ -84,7 +93,9 @@ export function useSettings() {
       const stringValue =
         typeof value === 'string' ? value : JSON.stringify(value);
       const now = new Date().toISOString();
-      const doc = await getDatabase().settings.findOne(id).exec();
+      const collection = getDatabase()[settingsCollectionForKey(key)];
+      if (!collection) throw new Error('Personal Settings collection is unavailable');
+      const doc = await collection.findOne(id).exec();
       assertOwner(uid);
       if (doc) {
         if (doc.userId !== uid || doc.key !== key)
@@ -104,9 +115,9 @@ export function useSettings() {
           updatedAt: now,
         };
         try {
-          await getDatabase().settings.insert(newSetting);
+          await collection.insert(newSetting);
         } catch (error) {
-          const raced = await getDatabase().settings.findOne(id).exec();
+          const raced = await collection.findOne(id).exec();
           assertOwner(uid);
           if (!raced || raced.userId !== uid || raced.key !== key) throw error;
           await raced.incrementalPatch({ value: stringValue, isDeleted: false, updatedAt: now });

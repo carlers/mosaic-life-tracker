@@ -1,5 +1,5 @@
 /**
- * #1027 preparatory wiring of the ACTUAL app RxDB personal collections.
+ * #1027 isolated wiring of the actual app RxDB personal collections.
  * Does not start replication, copy local/Appwrite data, or authenticate.
  * The caller must separately provide all five server-backed escrow/owner
  * guards and a current exclusive writer lease to createCandidatePersonalRuntime.

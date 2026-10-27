@@ -141,6 +141,13 @@ async function collectCollections(userId: string): Promise<RawCollections> {
     db.bucketList.find({ selector: { userId, isDeleted: false } }).exec(),
     db.bucketTaskLinks.find({ selector: { userId, isDeleted: false } }).exec(),
   ]);
+  const { USE_PORTABLE_SETTINGS, mergePersonalSettings } = await import('./personalSettings');
+  if (USE_PORTABLE_SETTINGS && !db.portableSettings)
+    throw new Error('Portable preferences are unavailable; export cannot omit them');
+  const allSettings = USE_PORTABLE_SETTINGS
+    ? mergePersonalSettings(settings.map(d => toDoc<SettingsDocument>(d)),
+      (await db.portableSettings!.find({ selector: { userId } }).exec()).map(d => toDoc<SettingsDocument>(d)))
+    : settings.map(d => toDoc<SettingsDocument>(d));
   return {
     bucketList: bucketList.map((d) => toDoc<BucketListDocument>(d)),
     bucketTaskLinks: bucketTaskLinks.filter(link => tasks.some(t=>t.id===link.taskId) && bucketList.some(g=>g.id===link.bucketListId))
@@ -148,7 +155,7 @@ async function collectCollections(userId: string): Promise<RawCollections> {
     tasks: tasks.map((d) => toDoc<TaskDocument>(d)),
     categories: categories.map((d) => toDoc<CategoryDocument>(d)),
     diary: diary.map((d) => toDoc<DiaryDocument>(d)),
-    settings: settings.map((d) => toDoc<SettingsDocument>(d)),
+    settings: allSettings.filter(row => !row.isDeleted),
     friendships: friendships.map((d) => toDoc<FriendshipDocument>(d)),
   };
 }

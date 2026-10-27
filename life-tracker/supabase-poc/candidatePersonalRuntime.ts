@@ -1,9 +1,9 @@
 /**
  * #1027 explicit SIX-domain Supabase owner-private preview runner.
- * NOT imported from the shipped app. Never infer readiness from feature flags.
- * Existing core-only app still starts only tasks/categories/Diary.
+ * The app personal profile invokes this through its guarded bootstrap.
+ * Never infer readiness from feature flags.
  *
- * A future protected caller must provide genuine server-authenticated guards,
+ * The protected caller must provide genuine server-authenticated guards,
  * an isolated PORTABLE Settings collection (not the shared avatar/social
  * Settings collection), full original-owner escrow, all six hosted tables
  * with independent DR, and independently verified Bucket task references.
@@ -30,12 +30,17 @@ import {
 } from './candidateRxdbPilot';
 import type { CandidateCoreGuard, CandidateCoreWriterLease } from './candidateCoreRuntime';
 
-type Domain = 'tasks' | 'categories' | 'diary' | 'settings' | 'buckets' | 'bucket_task_links';
+export type PersonalDomain = 'tasks' | 'categories' | 'diary' | 'settings' | 'buckets' | 'bucket_task_links';
+type Domain = PersonalDomain;
 export const PERSONAL_SOURCE_DOMAINS: readonly Domain[] = Object.freeze([
   'tasks','categories','diary','settings','buckets','bucket_task_links',
 ]);
 type Run = {
-  state: {awaitInitialReplication():Promise<unknown>;awaitInSync():Promise<unknown>};
+  state: {
+    awaitInitialReplication():Promise<unknown>;awaitInSync():Promise<unknown>;
+    active$: {subscribe(listener:(active:boolean)=>void):{unsubscribe():void}};
+    error$: {subscribe(listener:()=>void):{unsubscribe():void}};
+  };
   resync():void;
   stop():Promise<unknown>;
 };
@@ -43,8 +48,10 @@ type Run = {
 export interface CandidatePersonalGuard extends CandidateCoreGuard {
   /** Server-reviewed hosted SQL/RLS/Storage and complete independent DR. */
   assertHostedSixDomainRecoveryReady(owner: CandidateIdentity): Promise<void>;
-  /** Complete independently authenticated owner history and deferred media,
-   * Settings and offline outbox MUST be durably preserved before any writer. */
+  /** Historical migration requires complete independently authenticated owner
+   * escrow/outbox. Independent new-data accounts instead require a signed,
+   * server-enrolled separate namespace and explicit fresh/pending consent;
+   * that proof never authorizes historical import or linking. */
   assertOriginalOwnerEscrowAndOutboxReady(owner: CandidateIdentity): Promise<void>;
   /** Attests this is a distinct filtered owner-private, portable-only RxDB
    * Settings collection, never the shared avatar/social Settings collection. */
@@ -72,7 +79,7 @@ export interface CandidatePersonalRuntimeOptions {
   fetcher?: typeof fetch;
 }
 
-/** Runs in a separate reviewed harness only; old client/runtime stays intact. */
+/** Shared by signed labs and the explicitly guarded personal app bootstrap. */
 export function createCandidatePersonalRuntime(options: CandidatePersonalRuntimeOptions) {
   if(!options || options.selectedBackend!=='supabase' ||
      options.featureProfile!=='personal-review-only')
@@ -106,6 +113,10 @@ export function createCandidatePersonalRuntime(options: CandidatePersonalRuntime
       start:()=>pilot.start(collection),
       verify:(onScan:(x:CandidateReplicaScan)=>void)=>pilot.verifyLocalReplica(onScan),
       conflicts:()=>pilot.listPendingConflicts().length,
+      reviews:()=>pilot.listPendingConflicts(),
+      subscribe:(listener:()=>void)=>pilot.conflictEvents$.subscribe(listener),
+      refresh:(id:string)=>pilot.refreshPendingConflict(id),
+      keepLocal:(id:string,revision:string)=>pilot.resolveKeepLocal(id,revision),
     };
   }
   const specs=[
@@ -177,18 +188,23 @@ export function createCandidatePersonalRuntime(options: CandidatePersonalRuntime
       authority={lease,signed:before,runs};
       phase='active';
       const owned=authority;
+      let reviewWork:Promise<unknown>=Promise.resolve();
+      let closing=false;
       const confirm=async()=>{
-        if(phase!=='active'||authority!==owned||!owned.lease.isCurrent())
+        if(closing||phase!=='active'||authority!==owned||!owned.lease.isCurrent())
           throw new Error('Six-domain personal runner no longer owns writer');
         await assertSession(owned.signed,owned.lease);
-        if(phase!=='active'||authority!==owned)
+        if(closing||phase!=='active'||authority!==owned)
           throw new Error('Six-domain runner stopped during verification');
       };
       const pause=async()=>{
+        if(authority===owned&&phase==='paused')return;
         if(authority!==owned||phase!=='active')
           throw new Error('Six-domain personal writer is not active');
         // Shut down ALL local RxDB writers before release; no rollback or
         // competing provider is permitted if even one cancellation fails.
+        closing=true;
+        await reviewWork;
         phase='blocked';
         const stopped=await Promise.allSettled(owned.runs.map(run=>run.stop()));
         if(stopped.some(r=>r.status==='rejected'))
@@ -200,11 +216,37 @@ export function createCandidatePersonalRuntime(options: CandidatePersonalRuntime
         if(phase==='active')await pause();
         if(phase!=='paused')throw new Error('Six-domain writer lease retained after unsafe stop');
         phase='blocked';
-        await owned.lease.release();
+        try { await owned.lease.release(); }
+        catch(error) { phase='paused'; throw error; }
         authority=null;
         phase='idle';
       };
+      const review=<T>(action:()=>Promise<T>):Promise<T>=>{
+        const next=reviewWork.then(async()=>{
+          await confirm();
+          const result=await action();
+          await confirm();
+          return result;
+        });
+        reviewWork=next.catch(()=>{});
+        return next;
+      };
+      const specFor=(domain:Domain)=>{
+        const spec=specs.find(item=>item.domain===domain);
+        if(!spec)throw new Error('Unsupported personal conflict domain');
+        return spec;
+      };
       return {
+        replicationStates:owned.runs.map(run=>run.state),
+        getPendingConflicts:()=>Object.fromEntries(specs.map(spec=>[spec.domain,spec.reviews()])),
+        subscribeConflicts(listener:()=>void){
+          const subscriptions=specs.map(spec=>spec.subscribe(listener));
+          listener();
+          return ()=>subscriptions.forEach(subscription=>subscription.unsubscribe());
+        },
+        refreshConflict:(domain:Domain,id:string)=>review(()=>specFor(domain).refresh(id)),
+        keepLocalConflict:(domain:Domain,id:string,revision:string)=>
+          review(()=>specFor(domain).keepLocal(id,revision)),
         async awaitInitialReplication(){
           await confirm();
           for(const run of owned.runs)await run.state.awaitInitialReplication();

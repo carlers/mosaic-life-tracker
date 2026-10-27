@@ -7,9 +7,13 @@ const OWNER = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
 const mocks = vi.hoisted(() => ({
   bootstrap: vi.fn(),
+  personalBootstrap: vi.fn(),
 }));
 vi.mock('../../src/lib/supabaseCoreBootstrap', () => ({
   createAppSupabaseCoreBootstrap: mocks.bootstrap,
+}));
+vi.mock('../../src/lib/supabasePersonalBootstrap', () => ({
+  createAppSupabasePersonalBootstrap: mocks.personalBootstrap,
 }));
 
 type Signed = { userId: string; accessToken: string; sessionEpoch: number };
@@ -82,6 +86,23 @@ function fixture() {
 beforeEach(() => vi.clearAllMocks());
 
 describe('app-owned signed Supabase core Auth+RxDB lifecycle (#1027)', () => {
+  it('routes all six personal replication states through Auth, refresh and logout', async () => {
+    const f=fixture();
+    const states=Array.from({length:6},()=>({}));
+    Object.assign(f.run,{replicationStates:states});
+    mocks.personalBootstrap.mockReturnValue(f.bridge);
+    const personal=vi.fn(async()=>({guard:f.guard,verifyBucketLinkTargets:vi.fn()}) as never);
+    const coordinator=createSupabaseCoreAuthCoordinator({...f.options,featureProfile:'personal',personal});
+    await coordinator.signIn('independent@example.org','independent password');
+    expect(personal).toHaveBeenCalledWith(f.identity);
+    expect(mocks.bootstrap).not.toHaveBeenCalled();
+    expect(coordinator.getReplicationStates()).toEqual(states);
+    await coordinator.refreshAndRestart();
+    expect(f.run.pause).toHaveBeenCalledOnce();
+    expect(personal).toHaveBeenCalledTimes(2);
+    await coordinator.signOut();
+    expect(coordinator.getReplicationStates()).toBeNull();
+  });
   it('waits for explicit account consent without exposing an owner or starting any writer', async () => {
     const f = fixture();
     f.resolveIdentity.mockRejectedValueOnce(new SupabaseAccountStartRequiredError());

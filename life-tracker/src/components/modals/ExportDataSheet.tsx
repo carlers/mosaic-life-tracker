@@ -349,8 +349,10 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
 
           {restorePreview && CORE_BACKEND.driver === 'supabase' && (
             <p role="status" className="rounded-xl border border-amber-900/40 p-3 text-xs text-amber-200">
-              Supabase imports tasks and categories{MOSAIC_FEATURE_PROFILE === 'core-diary' ? ' plus private Diary text' : ''} only.
-              Other ZIP data and photos are not uploaded. Keep the original ZIP for later recovery.
+              {MOSAIC_FEATURE_PROFILE === 'personal'
+                ? 'Supabase merges tasks, categories, private Diary, portable preferences, Bucket List and task links. Profile and social settings stay in the original ZIP.'
+                : 'Supabase imports tasks and categories' + (MOSAIC_FEATURE_PROFILE === 'core-diary' ? ' plus private Diary' : '') + '. Unsupported domains stay in the original ZIP.'}
+              {' '}Supported private attachments are copied when their bytes are available. Keep the original ZIP for later recovery.
               Import requires a verified signed Supabase sync connection.
             </p>
           )}

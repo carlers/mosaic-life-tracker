@@ -56,7 +56,7 @@ export function useDiary(enabled = true) {
     const selectedVisibility = visibility ?? (doc && !doc.isDeleted ? doc.visibility : 'private');
     // Private Diary photos are part of the Supabase personal MVP.
     // Social visibility remains unsupported and must never be widened here.
-    if (MOSAIC_FEATURE_PROFILE === 'core-diary' && selectedVisibility !== 'private')
+    if (['core-diary', 'personal'].includes(MOSAIC_FEATURE_PROFILE) && selectedVisibility !== 'private')
       throw new Error('Diary entries must remain private on this backend.');
     if (doc) {
       await upsertLocalDoc('diary', doc.id, {

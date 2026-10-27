@@ -23,6 +23,7 @@ export interface CoreRealtimeWakeOptions {
   socketFactory?: (url: string) => WebSocket;
   /** Add the owner-private Diary wake only under the reviewed core-diary profile. */
   includeDiary?: boolean;
+  includePersonal?: boolean;
   /** Test seams; defaults use browser connection/visibility state. */
   isOnline?: () => boolean;
   isVisible?: () => boolean;
@@ -37,8 +38,9 @@ const TOPIC = 'realtime:mosaic-core-sync';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function startCoreRealtimeWake(options: CoreRealtimeWakeOptions): () => void {
-  const tables: readonly string[] = options.includeDiary
-    ? [...CORE_TABLES, 'mosaic_candidate_diary'] : CORE_TABLES;
+  const tables: readonly string[] = options.includePersonal
+    ? [...CORE_TABLES, 'mosaic_candidate_diary', 'mosaic_candidate_settings', 'mosaic_candidate_buckets', 'mosaic_candidate_bucket_task_links']
+    : options.includeDiary ? [...CORE_TABLES, 'mosaic_candidate_diary'] : CORE_TABLES;
   const base = new URL(options.baseUrl);
   if (!((base.protocol === 'https:' && base.hostname === 'hcxtiifzxoaflhjgoglb.supabase.co') ||
       (base.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(base.hostname))) ||

@@ -2,17 +2,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { zipSync } from 'fflate';
 
-type CollectionName = 'tasks' | 'categories' | 'diary' | 'settings' | 'friendships' | 'messages' | 'bucketList' | 'bucketTaskLinks';
+type CollectionName = 'portableSettings' | 'tasks' | 'categories' | 'diary' | 'settings' | 'friendships' | 'messages' | 'bucketList' | 'bucketTaskLinks';
 type Stored = Record<string, unknown>;
 
 const state = vi.hoisted(() => {
-  const rows = { tasks: new Map<string, Stored>(), categories: new Map<string, Stored>(), diary: new Map<string, Stored>(), settings: new Map<string, Stored>(), friendships: new Map<string, Stored>(), messages: new Map<string, Stored>(), bucketList: new Map<string, Stored>(), bucketTaskLinks: new Map<string, Stored>() };
-  return { rows, backend: 'appwrite' as 'appwrite' | 'supabase', accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A'), subscribeTaskPushProgress: vi.fn().mockReturnValue(null) };
+  const rows = { portableSettings: new Map<string, Stored>(), tasks: new Map<string, Stored>(), categories: new Map<string, Stored>(), diary: new Map<string, Stored>(), settings: new Map<string, Stored>(), friendships: new Map<string, Stored>(), messages: new Map<string, Stored>(), bucketList: new Map<string, Stored>(), bucketTaskLinks: new Map<string, Stored>() };
+  return { rows, personal: false, backend: 'appwrite' as 'appwrite' | 'supabase', accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A'), subscribeTaskPushProgress: vi.fn().mockReturnValue(null) };
 });
-function resetRows() { for (const map of Object.values(state.rows)) map.clear(); }
+function resetRows() { state.personal = false; for (const map of Object.values(state.rows)) map.clear(); }
 function wrap(collection: CollectionName, id: string) { const map = state.rows[collection]; return { get id() { return id; }, toJSON: () => ({ ...(map.get(id) ?? {}) }), incrementalPatch: vi.fn(async (patch: Stored) => { map.set(id, { ...(map.get(id) ?? {}), ...patch }); }) }; }
 function dbCollection(collection: CollectionName) { const map = state.rows[collection]; return { findOne: (id: string) => ({ exec: async () => (map.has(id) ? wrap(collection, id) : null) }), findByIds: (ids: string[]) => ({ exec: async () => new Map(ids.filter((id) => map.has(id)).map((id) => [id, wrap(collection, id)])) }), find: () => ({ exec: async () => Array.from(map.keys(), (id) => wrap(collection, id)) }), insert: async (doc: Stored) => { map.set(String(doc.id), { ...doc }); } }; }
-vi.mock('../../src/db/database', () => ({ getDatabase: () => ({ tasks: dbCollection('tasks'), categories: dbCollection('categories'), diary: dbCollection('diary'), settings: dbCollection('settings'), friendships: dbCollection('friendships'), messages: dbCollection('messages'), bucketList: dbCollection('bucketList'), bucketTaskLinks: dbCollection('bucketTaskLinks') }) }));
+vi.mock('../../src/db/database', () => ({ getDatabase: () => ({ portableSettings: dbCollection('portableSettings'), tasks: dbCollection('tasks'), categories: dbCollection('categories'), diary: dbCollection('diary'), settings: dbCollection('settings'), friendships: dbCollection('friendships'), messages: dbCollection('messages'), bucketList: dbCollection('bucketList'), bucketTaskLinks: dbCollection('bucketTaskLinks') }) }));
 vi.mock('../../src/lib/localUpsert', () => ({ upsertLocalDoc: state.upsertLocalDoc }));
 vi.mock('../../src/lib/accountWorkScope', () => ({
   captureAccountWorkGeneration: (userId: string) =>
@@ -24,6 +24,8 @@ vi.mock('../../src/db/taskReplicationPilot', () => ({
   subscribeTaskPushProgress: state.subscribeTaskPushProgress,
 }));
 vi.mock('../../src/lib/coreBackendConfig', () => ({ CORE_BACKEND: { get driver() { return state.backend; } } }));
+vi.mock('../../src/lib/backendCapabilities', () => ({ get MOSAIC_FEATURE_PROFILE() { return state.personal ? 'personal' : 'full'; } }));
+vi.mock('../../src/lib/personalSettings', () => ({ get USE_PORTABLE_SETTINGS() { return state.personal; } }));
 vi.mock('../../src/lib/appSync', () => ({
   assertPersonalImportOwner: async (ownerId: string) => {
     if (await state.getCurrentUserId() !== ownerId)
@@ -50,6 +52,24 @@ function jsonBackup(overrides: Record<string, unknown> = {}) { return new File([
 function zipBackup(overrides: Record<string, unknown>, images: Record<string, string> = {}) { const encoder = new TextEncoder(); const files: Record<string, Uint8Array> = { 'manifest.json': encoder.encode(JSON.stringify(backupPayload(overrides))) }; for (const [fileId, contents] of Object.entries(images)) files[`images/${fileId}.webp`] = encoder.encode(contents); const zipped = zipSync(files); const buffer = zipped.slice().buffer as ArrayBuffer; return new File([buffer], 'backup.zip', { type: 'application/zip' }); }
 
 describe('backup restore', () => {
+  it('merges all supported personal domains while isolating portable settings from profile/social data', async () => {
+    state.backend='supabase';state.personal=true;
+    const now='2026-10-11T00:00:00.000Z';
+    const goal={id:'goal',userId:'user_A',title:'Visit Iceland',description:'',achieved:false,achievedAt:'',createdAt:now,updatedAt:now,isDeleted:false};
+    const task={id:'task',userId:'user_A',title:'Book trip',categoryId:'cat',date:'',completed:false,order:0,visibility:'private',createdAt:now,updatedAt:now,isDeleted:false};
+    const category={id:'cat',userId:'user_A',name:'Travel',color:'#123456',order:0,visibility:'private',updatedAt:now,isDeleted:false};
+    const link={id:'link',userId:'user_A',bucketListId:'goal',taskId:'task',createdAt:now,updatedAt:now,isDeleted:false};
+    const file=jsonBackup({version:4,data:{tasks:[task],categories:[category],diary:[],bucketList:[goal],bucketTaskLinks:[link],
+      settings:['theme','profileImageId','friend_carousel_prefs'].map(key=>({id:'pref_'+key,userId:'user_A',key,
+        value:key==='profileImageId'?'':key==='theme'?'light':'{}',updatedAt:now,isDeleted:false})),friendships:[]}});
+    const first=await restoreUserData(file,currentUser,{mode:'merge'});
+    expect(first.restored).toMatchObject({tasks:1,categories:1,bucketList:1,bucketTaskLinks:1,settings:1});
+    expect([...state.rows.portableSettings.values()].map(row=>row.key)).toEqual(['theme']);
+    expect(state.rows.settings.size).toBe(0);
+    expect(state.rows.bucketTaskLinks.size).toBe(1);
+    const second=await restoreUserData(file,currentUser,{mode:'merge'});
+    expect(second.restored).toMatchObject({tasks:0,categories:0,bucketList:0,bucketTaskLinks:0,settings:0});
+  });
   it('portable v4 restores links to remapped goals and tasks without duplicates', async () => {
     const source='other_account', now='2026-10-11T00:00:00.000Z';
     const goal={id:'old_goal',userId:source,title:'Visit Iceland',description:'',achieved:false,achievedAt:'',createdAt:now,updatedAt:now,isDeleted:false};

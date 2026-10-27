@@ -55,6 +55,7 @@ for migration in \
 done
 if [[ ${MOSAIC_ACCOUNT_REGISTRY_LAB:-} == 1 ]]; then
   cp "$here/migrations/20261027170802_mosaic_account_registry.sql" supabase/migrations/20261027170802_mosaic_account_registry.sql
+  cp "$here/migrations/20261027172600_personal_runtime_readiness.sql" supabase/migrations/20261027172600_personal_runtime_readiness.sql
 fi
 python3 - <<'PY'
 from pathlib import Path

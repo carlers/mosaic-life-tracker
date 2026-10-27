@@ -33,7 +33,7 @@ export function validateBuildEvidence(manifest, expected = {}) {
   }
   if (profile.backend === 'supabase-cloud' &&
       (profile.vercelEnvironment !== 'preview' || profile.appwriteBackend !== 'none' ||
-       !['core-only', 'core-diary'].includes(profile.featureProfile) ||
+       !['core-only', 'core-diary', 'personal'].includes(profile.featureProfile) ||
        profile.supabaseOrigin !== 'https://hcxtiifzxoaflhjgoglb.supabase.co' ||
        !/^[a-f0-9]{64}$/.test(profile.publishableKeySha256 ?? ''))) {
     throw new Error('Incomplete isolated Supabase Preview build profile');
