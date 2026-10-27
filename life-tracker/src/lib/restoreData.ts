@@ -1196,6 +1196,12 @@ export async function restoreUserData(
       (!precompressedImages || !loaded.payload.user.id.startsWith('todomate_'))) {
     throw new Error('TodoMate Replace requires a trusted in-memory TodoMate transfer.');
   }
+  // A failed/empty TodoMate export must not erase valid Mosaic categories or
+  // tasks. This is checked before refresh, safety backup or any local writes.
+  if (options.mode === 'todomate-replace' &&
+      data.tasks.length === 0 && data.categories.length === 0) {
+    throw new Error('Cannot replace Mosaic with an empty TodoMate task/category snapshot.');
+  }
 
   if (CORE_BACKEND.driver === 'supabase' && options.mode === 'replace') {
     throw new Error('Replace Personal Data requires all personal domains. Use Merge for this Supabase preview.');

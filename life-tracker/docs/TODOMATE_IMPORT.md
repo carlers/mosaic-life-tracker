@@ -367,3 +367,10 @@ photos are downloaded in a separate local ZIP at the confirmation gesture;
 keep that ZIP until provider-specific owner-private storage is available.
 The importer reports unavailable remote photos and never claims they were
 synced. This is not real-user cutover or full Appwrite parity.
+
+
+**Empty-transfer safeguard:** TodoMate Replace refuses a transfer containing
+zero tasks and zero categories, before cloud refresh, safety-backup creation,
+or local deletion. An empty export is not a request to clear Mosaic. Use a
+separate explicit clear-data flow instead. This rule applies to both Appwrite
+and the isolated Supabase Preview; it does not claim photo/provider parity.
