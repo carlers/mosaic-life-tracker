@@ -24,6 +24,28 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export const PERSONAL_TABLES = Object.freeze([
   'tasks', 'categories', 'diary', 'settings', 'buckets', 'bucket_task_links',
 ]);
+/**
+ * Negative hosted write assertion. Test a real existing owner row using a
+ * column shared by all six personal tables; invalid-column HTTP 400 is NOT
+ * evidence of denied UPDATE. Never allow a SQL-shape error to pass here.
+ */
+export async function assertDirectTableWritesBlocked(api, owner, domain, rowId) {
+  check(PERSONAL_TABLES.includes(domain) && UUID.test(owner?.id) &&
+    typeof owner.token === 'string' && owner.token.length > 0 &&
+    /^[a-zA-Z0-9][a-zA-Z0-9_]{0,35}$/.test(rowId ?? ''),
+  'Direct-write denial requires a signed user and exact owned fixture row');
+  const path = `/rest/v1/mosaic_candidate_${domain}?id=eq.${rowId}&owner_id=eq.${owner.id}`;
+  for (const method of ['PATCH', 'DELETE']) {
+    const response = await api(path, {
+      token: owner.token, method,
+      ...(method === 'PATCH' ? { body: { is_deleted: true } } : {}),
+    });
+    check(response.status === 401 || response.status === 403,
+      `Direct ${method} ${domain}: expected permission denial, got HTTP ${response.status}`);
+  }
+  return 2;
+}
+
 export function sixDomainFixtureRows(runId, suffix, ownerId, taskId) {
   check(/^[a-f0-9]{24}$/.test(runId) && ['a', 'b'].includes(suffix) &&
     UUID.test(ownerId) && typeof taskId === 'string' &&
@@ -346,15 +368,14 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
         }
       }
       for (const domain of checkedTables) {
-        check((await rows(user, domain)).length === 1, 'Own fixture not readable');
+        const own = await rows(user, domain);
+        check(own.length === 1 && own[0].owner_id === user.id,
+          'Own fixture not readable');
         const foreign = user === a ? b : a;
         check((await rows(foreign, domain, user.id)).length === 0, 'Foreign-owner row disclosure');
         counts.foreignReads++;
         denied(await api(`/rest/v1/mosaic_candidate_${domain}`), 'Anonymous table access');
-        denied(await api(`/rest/v1/mosaic_candidate_${domain}?owner_id=eq.${user.id}`,
-          { token: user.token, method: 'PATCH', body: { order_index: 2 } }), 'Direct update');
-        denied(await api(`/rest/v1/mosaic_candidate_${domain}?owner_id=eq.${user.id}`,
-          { token: user.token, method: 'DELETE' }), 'Physical deletion');
+        counts.deniedWrites += await assertDirectTableWritesBlocked(api, user, domain, own[0].id);
       }
       denied(await api('/rest/v1/mosaic_candidate_tasks', { token: (user === a ? b : a).token,
         body: { ...task, id: 'spoof_' + suffix } }), 'Foreign insert');

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { assertProject, connect, inspect, isCasConflict, PROJECT,
-  PERSONAL_TABLES, sixDomainFixtureRows } from '../../supabase-poc/hosted-core.mjs';
+  PERSONAL_TABLES, sixDomainFixtureRows, assertDirectTableWritesBlocked } from '../../supabase-poc/hosted-core.mjs';
 import { exerciseHostedUi } from '../../supabase-poc/hosted-core-ui.mjs';
 import { assertCredentialFreeEmailTemplates, inspectEmailPolicy, previewEmailPolicy, EMAIL_ROUTES, EMAIL_TEMPLATES, EMAIL_PREVIEW, EMAIL_PREVIEW_SHA, requireDeployedPreviewAccess } from '../../supabase-poc/email-policy.mjs';
 
@@ -8,6 +8,37 @@ const project = { id: PROJECT, name: 'mosaic-dev', status: 'ACTIVE_HEALTHY' };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 
 describe('hosted core verification safety boundary', () => {
+  it('sends schema-valid signed direct mutations for all six domains and rejects HTTP 400', async () => {
+    const owner = { id: '11111111-1111-4111-8111-111111111111', token: 'test-signed-token' };
+    const rowId = 'hfixture_test_1';
+    for (const domain of PERSONAL_TABLES) {
+      const api = vi.fn(async (path: string, opts: { token: string; method: string; body?: unknown }) => {
+        expect(path).toBe(`/rest/v1/mosaic_candidate_${domain}?id=eq.${rowId}&owner_id=eq.${owner.id}`);
+        expect(opts.token).toBe(owner.token);
+        if (opts.method === 'PATCH') {
+          expect(opts.body).toEqual({ is_deleted: true });
+          return { status: 403 };
+        }
+        expect(opts.method).toBe('DELETE');
+        expect(opts.body).toBeUndefined();
+        return { status: 401 };
+      });
+      await expect(assertDirectTableWritesBlocked(api, owner, domain, rowId))
+        .resolves.toBe(2);
+      expect(api).toHaveBeenCalledTimes(2);
+    }
+    const badSchema = vi.fn(async () => ({ status: 400 }));
+    await expect(assertDirectTableWritesBlocked(badSchema, owner, 'diary', rowId))
+      .rejects.toThrow('Direct PATCH diary: expected permission denial, got HTTP 400');
+    expect(badSchema).toHaveBeenCalledTimes(1);
+    const permitted = vi.fn(async () => ({ status: 200 }));
+    await expect(assertDirectTableWritesBlocked(permitted, owner, 'settings', rowId))
+      .rejects.toThrow('expected permission denial, got HTTP 200');
+    expect(permitted).toHaveBeenCalledTimes(1);
+    await expect(assertDirectTableWritesBlocked(permitted, owner, 'outside', rowId))
+      .rejects.toThrow('exact owned fixture row');
+    expect(permitted).not.toHaveBeenCalledTimes(2);
+  });
   it('six-domain hosted fixtures remain separate, marker-derived, owner-bound and FK-consistent', () => {
     const run = 'a'.repeat(24);
     const alice = '11111111-1111-4111-8111-111111111111';

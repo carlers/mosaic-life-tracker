@@ -68,7 +68,10 @@ denials, owner-filtered and exact-row foreign HTTP isolation, bounded full-page
 owner audit through `signed-auth-probe.mjs --require-owned-fixtures`, real
 six-domain signed CAS winners/stale/foreign conflicts, and lease expiry/release/
 freeze/revocation. All fixture writes use signed Auth tokens, not SQL role
-simulation. In `finally`, only run-marked users are restored temporarily to
+simulation. Direct PATCH negatives now use the universally present `is_deleted`
+field and an exact owned fixture ID; only HTTP 401/403 counts as denial.
+A malformed request returning 400 is a failing test, not a security verdict.
+In `finally`, only run-marked users are restored temporarily to
 their own authority, every six-domain live row is CAS-tombstoned, authority is
 frozen, Auth users are banned, and six-domain zero-live-row readback is required.
 A power loss during execution can leave only run-marked disposable records; do
