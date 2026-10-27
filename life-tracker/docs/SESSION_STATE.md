@@ -1,17 +1,15 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1384 Me/Settings information architecture and search. Task branch: `chatgpt/1384-settings-information-architecture-v0440-20261027`.
+Current task: #1384 Settings and Me reorganization, full Preview acceptance repair; task branch `chatgpt/1384-preview-preload-registry-fix-20261027`, based on stable Preview `feature/1384-settings-information-architecture-preview-20261027@4a8eb1dc7b1143cf29b7cca18a1ea1c447507859`.
 
-## Objective and authorized scope
-Owner approved implementation of #1384, including Account, Preferences categories, Notifications, Data & Sync, About Mosaic, local settings search and Me navigation. **Me must not change visually:** no new hover surfaces, borders, overlays, or cues; tapping existing avatar/name and counts opens Account or Explore. Legacy Coming Soon rows retired except Announcements. Preserve all existing settings storage/ownership and account erasure/clear-local confirmation flows. Frontend-only, new Preview candidate version 0.44.0, no dev/main/Production promotion permission.
+## Objective, scope and constraints
+Owner approved Settings categories, search, Me tap-navigation with **no visual change to Me**, and legacy placeholder cleanup. Frontend only, v0.44.0 Preview. No `dev`/`main`/Production promotion or provider/backend/data edits approved.
 
-## Working changes
-- Based on dev `5cdd830dd904bd096bd1b84ae6688e47e9b1b864`. Shared settings route group and navigable subsections in `src/pages/SettingsPage.tsx`, categorized preferences preserving controlled row handlers in `src/pages/PreferencesPage.tsx`, local search registry/deep-link focus in `src/lib/settingsSearch.ts`, data-setting labels on rows.
-- New protected Settings and Preferences category paths map to existing lazy module owners in `src/lib/protectedRoutes.ts` and `src/App.tsx`; profile Back parent updated.
-- Me avatar/name and existing count blocks have semantic click handlers only; Explore target focuses existing friends section. No styled visual embellishments.
-- Version files: package.json, package-lock.json, src/lib/appVersion.ts.
+## Accepted task checkpoint
+- Task PR #1392 squash merged into protected stable Preview SHA `4a8eb1dc7b1143cf29b7cca18a1ea1c447507859`. Final task focused Quality Gate #40506056120 passed. Earlier #40504980671 and #40505469873 passed. Current code includes Account, Data & Sync, About Mosaic, five categorized Preferences pages, local index for individual preferences and Notifications, source-compatible Settings route-preview destination rendering and unchanged Me classes.
+- Stable canonical Quality Gate #40506296566 failed the `build` job at TypeScript `TS2740` because `src/components/layout/primaryRoutePreload.ts` mapped old preview-supported routes only and lacked all eight new supported Settings/Preferences child paths. Stable DOM and dependency-audit jobs passed; browser tests in progress at diagnosis. No successful build/deployment should be inferred from source merge.
 
-## Verification and next action
-- Focused task Quality Gate #40504980671 **passed** at `15fc0ddddbfc37c4e7ca5c0f1f3b2e2abdda84dc`, after correcting old DOM tests that assumed a monolithic Settings/Preferences page; first attempt #40503967565 failed only 21 obsolete DOM assertions. Expanded Notifications search focused gate #40505469873 **passed** at `45a65d137839da70fa5421ce6e542e8f7c15e963`.
-- Added destination-aware lazy swipe previews for Settings and Preferences category routes on this task branch; **final focused CI, canonical size/type/build, browser/device acceptance and stable Preview deployment are not yet proven**. Verify exact SHA and focused Quality Gate, repair any failures before stable-Preview merge; complete canonical/size and trusted Scratch Preview, then request separately approved dev promotion. Preserve #1386 prepared-route work and test screen swiping/back from Me, Settings, all Preferences categories and search, plus account destructive sheets on a disposable Scratch account.
-- No backend/schema/user-data/cloud or protected branch changes in this task. Keep issue #1384 open until accepted.
+## Repair and next action
+- Add exactly the eight route preload entries to existing module importers, preserving lazy bounded warm-loading and exhaustive `PreloadPath` type contract. No other runtime design changes.
+- Run focused verification on coherent repair task commit; squash into existing stable Preview only after green; require new stable exact-SHA full canonical CI, production size budget, official Scratch Vercel READY, and relevant browser/device checks. Keep issue #1384 open and request separate approval before any promotion to `dev` or `main`.
+- Do not weaken typing, size ceilings, security, sync, or release gates.
