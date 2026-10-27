@@ -16,7 +16,7 @@ function fixture({
   leakForeign = false, allowUpdate = false, sameUser = false,
   leakPrivateForeign = false, allowPrivateAnonRead = false, allowPrivateAnonRpc = false,
   populateOwned = false, missingOwnedTable = null, leakUnfiltered = false, leakExactId = false,
-  pageThroughOwned = false, leakOnLaterPage = false,
+  pageThroughOwned = false, leakOnLaterPage = false, duplicateInPage = false,
 } = {}) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const fetcher = async (url: string, init: RequestInit) => {
@@ -63,6 +63,11 @@ function fixture({
     if (isForeign) return json([]);
     if (leakUnfiltered)
       return json([{ id: 'leaked-row', owner_id: alice ? bobId : aliceId }]);
+    if (duplicateInPage)
+      return json([
+        { id: 'duplicate-owner', owner_id: alice ? aliceId : bobId },
+        { id: 'duplicate-owner', owner_id: alice ? aliceId : bobId },
+      ]);
     if (pageThroughOwned || leakOnLaterPage) {
       if (query.get('offset') === '0')
         return json(Array.from({ length: 200 }, (_, index) => ({
@@ -172,6 +177,9 @@ describe('isolated Supabase genuine-signed-user denial-path harness (#967)', () 
     await expect(runSignedAuthProbe(config, {
       fetcher: fixture({ leakOnLaterPage: true }).fetcher, nonce,
     })).rejects.toThrow(/unfiltered table SELECT leaked/);
+    await expect(runSignedAuthProbe(config, {
+      fetcher: fixture({ duplicateInPage: true }).fetcher, nonce,
+    })).rejects.toThrow(/duplicate or invalid row/);
   });
 
   it('strict mode requires existing two-owner fixture rows in all six tables and proves exact-ID denials', async () => {

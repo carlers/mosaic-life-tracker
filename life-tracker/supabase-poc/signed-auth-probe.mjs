@@ -106,7 +106,8 @@ export async function runSignedAuthProbe(config, {
         const visible = await own.json();
         if (!Array.isArray(visible) || visible.length > OWNER_PAGE_SIZE ||
           visible.some(row => !row || typeof row.id !== 'string' || !row.id ||
-            row.owner_id !== user.id || seenIds.has(row.id))) {
+            row.owner_id !== user.id || seenIds.has(row.id)) ||
+          new Set(visible.map(row => row.id)).size !== visible.length) {
           throw new Error('Authenticated unfiltered table SELECT leaked a foreign, duplicate or invalid row');
         }
         for (const row of visible) seenIds.add(row.id);
