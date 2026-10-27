@@ -129,6 +129,7 @@ fi
 if [[ ${MOSAIC_IDENTITY_REGISTRY_RESTORE:-} == 1 ]]; then
   cp "$here/migrations/20261027170802_mosaic_account_registry.sql" supabase/migrations/20261027170802_mosaic_account_registry.sql
   cp "$here/migrations/20261027172600_personal_runtime_readiness.sql" supabase/migrations/20261027172600_personal_runtime_readiness.sql
+  cp "$here/migrations/20261027182613_require_complete_personal_release_evidence.sql" supabase/migrations/20261027182613_require_complete_personal_release_evidence.sql
 fi
 python3 "$here/configure-private-disposable-stack.py" init "$scratch" "$project"
 # No user backup is decrypted before stack identity, empty-target and loopback

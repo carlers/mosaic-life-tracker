@@ -65,7 +65,9 @@ or choosing a browser profile cannot approve readiness. A protected rollout must
 record reviewed schema-14 restore and signed-lab run IDs and their source SHA only
 after the corresponding hosted schema/security/backup gates pass. The disposable
 CI fixture uses a synthetic marker solely inside its local stack. The marker and
-Realtime additions are preserved by the fourteen-table restore profile.
+Realtime additions are preserved by the fourteen-table restore profile. Its
+complete SQL predicate must be TRUE; explicit JSON null source/run fields
+cannot satisfy CHECK through PostgreSQL UNKNOWN semantics.
 
 This first integrated path accepts only server-enrolled independent new data with
 fresh or recovery-pending consent. A recovered/linked principal is deliberately

@@ -72,6 +72,7 @@ jobs:
           cp supabase-poc/migrations/20261025_candidate_private_bucket_links.sql supabase/migrations/20261025000001_private_bucket_links.sql
           cp supabase-poc/migrations/20261027170802_mosaic_account_registry.sql supabase/migrations/20261027170802_mosaic_account_registry.sql
           cp supabase-poc/migrations/20261027172600_personal_runtime_readiness.sql supabase/migrations/20261027172600_personal_runtime_readiness.sql
+          cp supabase-poc/migrations/20261027182613_require_complete_personal_release_evidence.sql supabase/migrations/20261027182613_require_complete_personal_release_evidence.sql
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -199,6 +200,22 @@ jobs:
           mapfile -t local_db < <(docker ps --filter name=supabase_db_ --format '{{.ID}}')
           test "${#local_db[@]}" -eq 1
           docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+          do $evidence_guard$
+          declare field text;
+          begin
+            foreach field in array array['sourceSha','signedRun','restoreRun'] loop
+              begin
+                update mosaic_candidate_private.identity_installation set personal_release_evidence=
+                  jsonb_set('{"schema":14,"sourceSha":"0000000000000000000000000000000000000000","signedRun":100,"restoreRun":100}'::jsonb,
+                            array[field], 'null'::jsonb);
+                raise exception 'Null release evidence was accepted';
+              exception when check_violation then null;
+              end;
+            end loop;
+            if exists(select 1 from mosaic_candidate_private.identity_installation where personal_release_evidence is not null) then
+              raise exception 'Rejected readiness proof changed installation';
+            end if;
+          end $evidence_guard$;
           update mosaic_candidate_private.identity_installation set personal_release_evidence=
             '{"schema":14,"sourceSha":"0000000000000000000000000000000000000000","signedRun":100,"restoreRun":100}';
           SQL

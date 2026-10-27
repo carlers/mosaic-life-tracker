@@ -14,6 +14,7 @@ Current task: #1027 complete registry-aware recovery entrypoints after personal 
 - Backup/media/restore 68 and owner-hook 28 focused tests pass; typecheck and changed-source lint pass. Signed offline cold-reload ZIP byte comparison awaits CI. Local snapshots are not complete server escrow or verified legacy ownership.
 - Read-only mosaic-dev audit: healthy, missing registry/readiness and category-retirement/atomic-delete migrations. Seven privileged-RPC and disabled leaked-password warnings require review. Auth-config read returned HTTP 401; SMTP remains unverified. No hosted write or protected approval.
 
+- Hardened release evidence against SQL UNKNOWN: JSON null source/run fields are rejected rather than satisfying CHECK. Added migration is copied into disposable app/restore installers; real PostgreSQL negative cases must pass in CI.
 - Recovery entrypoint review found R2 restore still enumerated only 7/8/10 profiles despite the new fourteen-table marker. Both trusted-machine wrappers now select explicit fourteen-table flags/parity and clear inherited registry grants; old evidence/defaults remain intact. Offline stage/cleanup/profile mismatch regressions cover the real wrapper paths. No new owner run or backup is requested.
 
 ## Next action
