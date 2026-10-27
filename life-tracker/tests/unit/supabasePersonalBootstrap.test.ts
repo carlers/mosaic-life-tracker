@@ -228,7 +228,7 @@ describe('passive six-domain Mosaic app bridge (#1027)', () => {
       f.switchUser();
       return run;
     });
-    await expect(f.bootstrap.start()).rejects.toThrow(/owner changed while starting/);
+    await expect(f.bootstrap.start()).rejects.toThrow(/matching verified owner/);
     expect(mocks.stop).toHaveBeenCalledOnce();
     expect(f.bootstrap.getPhase()).toBe('blocked');
     await expect(f.bootstrap.start()).rejects.toThrow(/already running/);
