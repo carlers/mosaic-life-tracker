@@ -37,7 +37,10 @@ jobs:
       # Digest-pinned official Docker Hub fallback for GHCR rate-limited
       # postgres:17.6.1.095. Fail closed if pull/identity verification fails.
       - name: Pre-stage verified Supabase PostgreSQL image for local tests
-        run: bash supabase-poc/ci/prestage-pinned-postgres.sh
+        run: |
+          bash supabase-poc/ci/prestage-pinned-postgres.sh
+          # Override setup-cli's GHCR preference for disposable services only.
+          echo 'SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io' >> "$GITHUB_ENV"
       - name: Install isolated age executable
         run: |
           sudo apt-get update -qq
