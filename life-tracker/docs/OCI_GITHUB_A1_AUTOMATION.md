@@ -1,5 +1,15 @@
 # GitHub-hosted A1 capacity claim — DORMANT until approved (#975)
 
+## Singapore tenancy-qualified availability domain correction — 2026-10-27
+
+During the final owner PAYG and hard quota audit, the actual availability-domain name was observed as a tenancy-qualified string ending in `:AP-SINGAPORE-1-AD-1`. Oracle's LaunchInstance documentation expects this fully qualified name, while the first direct-attempt candidate passed the region-only `AP-SINGAPORE-1-AD-1` identifier from advisory capacity reports. The latter risks an OCI `InvalidParameter` refusal.
+
+The follow-up isolated candidate `chatgpt/975-tenant-prefixed-ad-20261027` uses the OCI Python SDK to retrieve the exact uniquely matching AD via `ListAvailabilityDomains` under the authenticated tenancy, alongside existing paginated instance inventory. It fails closed unless an exact valid tenant-prefixed Singapore AD is present; the same value is then passed unchanged to `LaunchInstance`. The advisory capacity identifier remains distinct. The workflow never logs the tenant prefix or any OCIDs.
+
+Owner's **read-only** Cloud Shell SDK audit independently verified Singapore-wide 0 live A1 VMs, 0 GiB boot/block storage and 0 backups, 0 container instances, effective quotas 2 A1 OCPU / 12 GiB RAM / 50 GiB volume, and bot membership in its scoped automation IAM group. Account type is PAYG; current instance size is within Always Free resource allowances provided no other usage consumes eligibility. None of this constitutes a test launch. The live public scheduler continues pinning the previous immutable controller; only an explicit go-live approval after successful focused/full CI and trusted Preview may repin it. GitHub variables `AUTOLAUNCH`/`WATCH_ENABLED` must be disabled by owner after confirming a created VM and actual billing classification.
+
+---
+
 ## Isolated direct-launch correction — October 27, 2026 (#975)
 
 A proposed controller change on `chatgpt/975-a1-direct-launch-safety-20261027` remedies the old capacity-report prefilter. The standalone public scheduler still pins the *unchanged* accepted controller `6fe15940fae40adc7d4728a6ea26ea6c289314c9`; this task branch alone does NOT affect live claiming.
