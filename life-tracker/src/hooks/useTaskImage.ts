@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import { getLocalImageUrl } from '../lib/storage';
 import { CORE_BACKEND } from '../lib/coreBackendConfig';
-import { currentSupabaseMediaOwner } from '../lib/supabaseMedia';
+import { currentSupabaseMediaOwner, getSupabaseMediaRevision, subscribeSupabaseMedia } from '../lib/supabaseMedia';
 
 interface ImageState {
   url: string | null;
@@ -18,10 +18,10 @@ interface CacheEntry {
 const objectUrlCache = new Map<string, CacheEntry>();
 const REVOKE_DELAY_MS = 1500;
 
-function cacheScope(fileId?: string): string {
+function cacheScope(fileId: string | undefined, bindingRevision: number): string {
   if (!fileId) return '';
   return CORE_BACKEND.driver === 'supabase'
-    ? 'supabase:' + (currentSupabaseMediaOwner() ?? 'signed-out') + ':' + fileId
+    ? 'supabase:' + (currentSupabaseMediaOwner() ?? 'signed-out') + ':' + bindingRevision + ':' + fileId
     : fileId;
 }
 
@@ -107,7 +107,11 @@ export function resetTaskImageCacheForTests(): void {
 }
 
 export function useTaskImage(fileId: string | undefined, enabled = true) {
-  const key = cacheScope(fileId);
+  // Media registration happens after Auth renders cached local rows. Retry
+  // when verified authority arrives, even if the owner and file ID stayed the
+  // same. Separate generations also prevent sharing an obsolete in-flight URL.
+  const bindingRevision = useSyncExternalStore(subscribeSupabaseMedia, getSupabaseMediaRevision);
+  const key = cacheScope(fileId, bindingRevision);
   const [tracked, setTracked] = useState({ fileId, key, enabled });
   const [revision, setRevision] = useState({ key, count: 0 });
   const [state, setState] = useState<ImageState>(() => {

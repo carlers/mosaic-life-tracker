@@ -23,6 +23,17 @@ export type SupabaseMediaBinding = {
 };
 
 let binding: SupabaseMediaBinding | null = null;
+let bindingRevision = 0;
+const bindingListeners = new Set<() => void>();
+export const getSupabaseMediaRevision = () => bindingRevision;
+export function subscribeSupabaseMedia(listener: () => void): () => void {
+  bindingListeners.add(listener);
+  return () => { bindingListeners.delete(listener); };
+}
+function notifyBindingChanged() {
+  bindingRevision++;
+  bindingListeners.forEach(listener => listener());
+}
 
 export function registerSupabaseMedia(next: SupabaseMediaBinding): () => void {
   validateCandidateIdentity(next.identity);
@@ -34,7 +45,13 @@ export function registerSupabaseMedia(next: SupabaseMediaBinding): () => void {
     throw new Error('Supabase photo storage requires the explicit verified backend');
   }
   binding = next;
-  return () => { if (binding === next) binding = null; };
+  notifyBindingChanged();
+  return () => {
+    if (binding === next) {
+      binding = null;
+      notifyBindingChanged();
+    }
+  };
 }
 
 export function currentSupabaseMediaOwner(): string | null {
