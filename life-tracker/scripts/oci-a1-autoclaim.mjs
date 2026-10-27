@@ -14,7 +14,6 @@ export const SPEC = Object.freeze({
 });
 
 const COMMANDS = new Set([
-  'compute instance launch',
   'compute image get', 'compute image-shape-compatibility-entry list',
   'network subnet get',
 ]);
@@ -48,7 +47,7 @@ export function readInstanceInventory(compartmentId, spawn = spawnSync) {
     'client = oci.core.ComputeClient(config, retry_strategy=oci.retry.NoneRetryStrategy())',
     'instances = oci.pagination.list_call_get_all_results(',
     '    client.list_instances, compartment_id=os.environ["MOSAIC_A1_INVENTORY_COMPARTMENT"]).data',
-    'print(json.dumps({"data": [{"shape": item.shape} for item in instances]}))',
+    'print(json.dumps({"data": [{"shape": item.shape, "lifecycleState": item.lifecycle_state} for item in instances]}))',
   ].join('\n');
   const result = spawn('python', ['-c', python], {
     encoding: 'utf8', timeout: 90000, maxBuffer: 2 * 1024 * 1024,
@@ -63,7 +62,8 @@ export function readInstanceInventory(compartmentId, spawn = spawnSync) {
   try { inventory = JSON.parse(result.stdout); }
   catch { throw new Error('OCI inventory JSON unavailable'); }
   if (!Array.isArray(inventory?.data) ||
-      !inventory.data.every(item => typeof item?.shape === 'string' && item.shape.length > 0)) {
+      !inventory.data.every(item => typeof item?.shape === 'string' && item.shape.length > 0 &&
+        typeof item?.lifecycleState === 'string' && item.lifecycleState.length > 0)) {
     throw new Error('OCI inventory metadata invalid');
   }
   return inventory;
@@ -71,10 +71,12 @@ export function readInstanceInventory(compartmentId, spawn = spawnSync) {
 
 export function existingA1(instanceList) {
   if (!Array.isArray(instanceList?.data) ||
-      !instanceList.data.every(x => typeof x?.shape === 'string' && x.shape.length > 0)) {
+      !instanceList.data.every(x => typeof x?.shape === 'string' && x.shape.length > 0 &&
+        typeof x?.lifecycleState === 'string' && x.lifecycleState.length > 0)) {
     throw new Error('Cannot verify existing VMs');
   }
-  return instanceList.data.some(x => x.shape === SPEC.shape);
+  // Nonterminated instances in ANY state prevent another A1 allocation.
+  return instanceList.data.some(x => x.shape === SPEC.shape && x.lifecycleState !== 'TERMINATED');
 }
 
 export function validateImageAndSubnet(image, compatibility, subnet, subnetId) {
@@ -126,12 +128,45 @@ function oci(parts, args, spawn) {
   });
   // Never log raw stderr, stdout or OCIDs on error.
   if (result.error || result.status !== 0) {
-    throw new Error(cmd === 'compute instance launch'
-      ? 'OCI declined this one launch attempt (capacity/permission/quota); no fallback or retry.'
-      : 'OCI safety check failed: ' + cmd);
+    throw new Error('OCI safety check failed: ' + cmd);
   }
   try { return JSON.parse(result.stdout); }
   catch { throw new Error('Malformed OCI JSON for ' + cmd); }
+}
+
+// Return only known-safe error categories; never log raw OCI stderr or response IDs.
+export function classifyLaunchFailure(result) {
+  if (result.error || result.signal || !Number.isInteger(result.status)) {
+    throw new Error('OCI launch result uncertain: inspect Console before retry');
+  }
+  const diagnostic = String(result.stderr ?? '').slice(0, 8192);
+  if (/OutOfHostCapacity|Out of host capacity|Out of capacity/i.test(diagnostic)) return 'capacity_unavailable';
+  if (/TooManyRequests|RateLimitExceeded|rate.limit exceeded|\b429\b/i.test(diagnostic)) return 'rate_limited';
+  if (/LimitExceeded|QuotaExceeded/i.test(diagnostic)) {
+    throw new Error('OCI launch denied by service limit or quota; inspect Console');
+  }
+  if (/NotAuthorizedOrNotFound|NotAuthenticated|InvalidParameter|InvalidImage|InvalidShape/i.test(diagnostic)) {
+    throw new Error('OCI launch denied by IAM or invalid configuration');
+  }
+  throw new Error('OCI launch failed with unclassified error: inspect Console');
+}
+
+function launchOnce(config, ad, spawn) {
+  // Exactly one fixed-configuration launch. No retry, fallback shape, or public IPv4.
+  const result = spawn('oci', [
+    'compute', 'instance', 'launch', ...buildLaunchArgs(config, ad),
+    '--region', SPEC.region, '--no-retry', '--output', 'json',
+  ], { encoding: 'utf8', timeout: 90000, maxBuffer: 2 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'], shell: false });
+  if (result.error || result.status !== 0) return classifyLaunchFailure(result);
+  let instance;
+  try { instance = JSON.parse(result.stdout); }
+  catch { throw new Error('Unreadable launch result: inspect Console before retry'); }
+  if (typeof instance?.data?.id !== 'string' || !instance.data.id.length ||
+      instance.data.shape !== SPEC.shape) {
+    throw new Error('Launch returned unexpected metadata: inspect OCI Console, DO NOT retry');
+  }
+  return 'instance_created';
 }
 
 export function claimA1({
@@ -139,22 +174,25 @@ export function claimA1({
   spawn = spawnSync, capacity = capacityCheck,
 } = {}) {
   if (!['observe', 'launch'].includes(mode)) throw new Error('Invalid claim mode');
-  const report = capacity({ profile: null }, spawn);
-  const matching = report.results?.filter(r =>
-    r.availabilityDomain === 'AP-SINGAPORE-1-AD-1' &&
-    r.status === 'AVAILABLE' && Number.isSafeInteger(r.availableCount) &&
-    r.availableCount > 0) ?? [];
-  const status = { ...SPEC, capacity: (report.results ?? []).map(
-    r => ({ ad: r.availabilityDomain, status: r.status })),
-    outcome: matching.length ? 'capacity_possible' : 'capacity_unavailable' };
-  if (!matching.length || mode === 'observe' || !enabled) return status;
+  const status = { ...SPEC, capacity: [], outcome: 'capacity_unavailable' };
+  // Observe-only uses advisory capacity reports, including manual dispatch.
+  if (mode === 'observe' || !enabled) {
+    const report = capacity({ profile: null }, spawn);
+    const matching = report.results?.filter(r =>
+      r.availabilityDomain === 'AP-SINGAPORE-1-AD-1' &&
+      r.status === 'AVAILABLE' && Number.isSafeInteger(r.availableCount) &&
+      r.availableCount > 0) ?? [];
+    return { ...status, capacity: (report.results ?? []).map(r =>
+      ({ ad: r.availabilityDomain, status: r.status })),
+      outcome: matching.length ? 'capacity_possible' : 'capacity_unavailable' };
+  }
   if (!['carlers/mosaic-life-tracker', 'carlers/mosaic-oci-a1-scheduler'].includes(context.repository) ||
       context.ref !== 'refs/heads/main' || context.eventName !== 'schedule') {
     throw new Error('Launch only allowed for scheduled workflow on trusted default branch');
   }
   validateConfig(config);
+  // Inventory is mandatory even if capacity reports say POSSIBLE or unavailable.
   const inventory = readInstanceInventory(config.compartmentId, spawn);
-  // Includes STOPPED and TERMINATED so no second VM is intentionally launched.
   if (existingA1(inventory)) return { ...status, outcome: 'already_present' };
   validateImageAndSubnet(
     oci(['compute', 'image', 'get'], ['--image-id', config.imageId], spawn),
@@ -163,19 +201,13 @@ export function claimA1({
     oci(['network', 'subnet', 'get'], ['--subnet-id', config.subnetId], spawn),
     config.subnetId,
   );
-  // Exactly one launch, no fallback to a billable shape, public IP or larger disk.
-  const instance = oci(['compute', 'instance', 'launch'],
-    buildLaunchArgs(config, matching[0].availabilityDomain), spawn);
-  if (!instance?.data?.id || instance.data.shape !== SPEC.shape) {
-    throw new Error('Launch returned unexpected metadata: inspect OCI Console, DO NOT retry');
-  }
-  return { ...status, outcome: 'instance_created' };
+  return { ...status, outcome: launchOnce(config, 'AP-SINGAPORE-1-AD-1', spawn) };
 }
 
 export function runFromEnv(env = process.env) {
   const enabled = env.MOSAIC_OCI_AUTOLAUNCH === 'true';
   const result = claimA1({
-    mode: enabled ? 'launch' : 'observe', enabled,
+    mode: env.GITHUB_EVENT_NAME === 'workflow_dispatch' ? 'observe' : enabled ? 'launch' : 'observe', enabled,
     context: { repository: env.GITHUB_REPOSITORY, ref: env.GITHUB_REF,
       eventName: env.GITHUB_EVENT_NAME },
     config: {
