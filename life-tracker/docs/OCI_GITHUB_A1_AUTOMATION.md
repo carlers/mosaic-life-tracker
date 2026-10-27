@@ -1,5 +1,15 @@
 # GitHub-hosted A1 capacity claim — DORMANT until approved (#975)
 
+## Isolated direct-launch correction — October 27, 2026 (#975)
+
+A proposed controller change on `chatgpt/975-a1-direct-launch-safety-20261027` remedies the old capacity-report prefilter. The standalone public scheduler still pins the *unchanged* accepted controller `6fe15940fae40adc7d4728a6ea26ea6c289314c9`; this task branch alone does NOT affect live claiming.
+
+The new candidate keeps manual dispatch strictly observe-only, preserves explicit launch opt-in / Always Free and quota confirmation variables, validates dedicated-compartment A1 inventory with lifecycle states and blocks any nonterminated A1, validates Ubuntu 24.04 A1 compatibility and subnet, then attempts exactly one no-retry fixed A1 (2 OCPU, 12 GiB, 50 GiB boot) launch with no public IP. Unlike before, advisory capacity reports are not a launch precondition. A fully `TERMINATED` historical row no longer blocks claiming. Known OCI out-of-capacity and throttle errors are reported separately; IAM, quota and unknown errors fail closed. `instance_created` is emitted only after OCI returns a nonempty instance ID and the exact shape. Public logs never print the instance ID or raw error text. No automatic Appwrite setup occurs.
+
+**Release hold:** Do not re-pin the public scheduler or enable this newly expanded launch behavior until focused/canonical CI, independent OCI quota/billing/IAM evidence, and a fresh owner approval to activate the direct-attempt source. OCI budget alerts do not impose hard spending caps. On a successful claim, independently verify the VM and Always Free cost classification in the Singapore Console; then set both repository variables `MOSAIC_OCI_AUTOLAUNCH=false` and `MOSAIC_OCI_WATCH_ENABLED=false`. Existing hourly ChatGPT monitoring remains independent. Historic text below describes the old, pre-public installation process.
+
+---
+
 **Purpose:** User cannot keep Fedora powered on, wants GitHub to check
 Oracle Singapore A1 capacity on a configurable schedule and, once a slot is likely available,
 claim one *specific* Always Free-sized ARM VM automatically.

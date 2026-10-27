@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   claimA1, SPEC, buildLaunchArgs, existingA1, readInstanceInventory,
-  validateImageAndSubnet, validateConfig,
+  validateImageAndSubnet, validateConfig, classifyLaunchFailure,
 } from '../../scripts/oci-a1-autoclaim.mjs';
 
 const compartmentId = 'ocid1.compartment.oc1..synthetic';
@@ -102,13 +102,13 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     expect(() => validateConfig(config)).toThrow(/public SSH/);
     writeFileSync(sshPublicKeyFile, 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEpUb3JvcGVhY3RybG9uZw== testing@local\n');
   });
-  it('blocks any other A1 instance in dedicated compartment, even stopped or terminated', () => {
-    expect(existingA1({ data: [{ shape: SPEC.shape, 'lifecycle-state': 'STOPPED' }] })).toBe(true);
-    expect(existingA1({ data: [{ shape: SPEC.shape, 'lifecycle-state': 'TERMINATED' }] })).toBe(true);
+  it('blocks nonterminated A1 instances but ignores fully terminated history', () => {
+    expect(existingA1({ data: [{ shape: SPEC.shape, lifecycleState: 'STOPPED' }] })).toBe(true);
+    expect(existingA1({ data: [{ shape: SPEC.shape, lifecycleState: 'TERMINATED' }] })).toBe(false);
     expect(existingA1({ data: [] })).toBe(false);
     expect(() => existingA1({})).toThrow();
     const spawn = mockOci({ 'compute instance list': {
-      data: [{ shape: SPEC.shape, 'lifecycle-state': 'STOPPED' }],
+      data: [{ shape: SPEC.shape, lifecycleState: 'STOPPED' }],
     } });
     expect(claimA1({ mode: 'launch', enabled: true, context, config,
       capacity: () => cap(), spawn }).outcome).toBe('already_present');
@@ -120,6 +120,7 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
       { status: 0, stdout: '' },
       { status: 0, stdout: '{}' },
       { status: 0, stdout: '{"data":[{"shape":null}]}' },
+      { status: 0, stdout: '{"data":[{"shape":"VM.Standard.A1.Flex"}]}' },
       { status: 1, stdout: '', stderr: 'SECRET_SIGNING_KEY=no-log' },
     ]) {
       const spawn = vi.fn((exe, args, opts) =>
@@ -129,6 +130,7 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
       expect(spawn.mock.calls.some(([, args]) => args.includes('launch'))).toBe(false);
     }
     expect(() => existingA1({ data: [{ shape: null }] })).toThrow(/verify/);
+    expect(() => existingA1({ data: [{ shape: SPEC.shape }] })).toThrow(/verify/);
     expect(readInstanceInventory(compartmentId, () =>
       ({ status: 0, stdout: '{"data":[]}' }))).toEqual({ data: [] });
   });
@@ -144,10 +146,10 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
       results['compute image-shape-compatibility-entry list'],
       results['network subnet get'], 'ocid1.subnet.oc1..different')).toThrow();
   });
-  it('one positive capacity report permits exactly one fixed launch and no retry', () => {
+  it('one trusted scheduled attempt launches even without positive capacity telemetry', () => {
     const spawn = mockOci();
     expect(claimA1({ mode: 'launch', enabled: true, context, config,
-      capacity: () => cap(), spawn }).outcome).toBe('instance_created');
+      capacity: () => cap('POSSIBLE', null), spawn }).outcome).toBe('instance_created');
     expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
     expect(spawn.mock.calls).toHaveLength(5);
   });
@@ -160,8 +162,75 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
             [...Object.keys(results)].find(n => args.slice(0, n.split(' ').length).join(' ') === n)
         ]), stderr: '' });
     expect(() => claimA1({ mode: 'launch', enabled: true, context, config,
-      capacity: () => cap(), spawn })).toThrow(/no fallback or retry/);
+      capacity: () => cap(), spawn })).toThrow(/unclassified error/);
     expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
+  });
+  it('ignores advisory capacity on a trusted launch and detects an existing VM first', () => {
+    const capacity = vi.fn(() => cap('POSSIBLE', null));
+    const spawn = mockOci({ 'compute instance list':
+      { data: [{ shape: SPEC.shape, lifecycleState: 'PROVISIONING' }] } });
+    expect(claimA1({ mode: 'launch', enabled: true, context, config,
+      capacity, spawn }).outcome).toBe('already_present');
+    expect(capacity).not.toHaveBeenCalled();
+    expect(spawn.mock.calls.some(([, args]) => args.includes('launch'))).toBe(false);
+  });
+  it('allows replacing a fully terminated historical A1 but not a stopped instance', () => {
+    const spawn = mockOci({ 'compute instance list':
+      { data: [{ shape: SPEC.shape, lifecycleState: 'TERMINATED' }] } });
+    expect(claimA1({ mode: 'launch', enabled: true, context, config,
+      capacity: () => cap('OUT_OF_HOST_CAPACITY', 0), spawn }).outcome).toBe('instance_created');
+    expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
+  });
+  it('classifies OCI failures without leaking diagnostic secrets', () => {
+    expect(classifyLaunchFailure({ status: 1, stderr: '500 InternalError: Out of host capacity' }))
+      .toBe('capacity_unavailable');
+    expect(classifyLaunchFailure({ status: 1, stderr: '429 TooManyRequests' }))
+      .toBe('rate_limited');
+    for (const [error, expected] of [
+      ['LimitExceeded secret-key=private-value', /service limit or quota/],
+      ['NotAuthorizedOrNotFound secret-key=private-value', /IAM or invalid/],
+      ['unknown secret-key=private-value', /unclassified error/],
+    ]) {
+      expect(() => classifyLaunchFailure({ status: 1, stderr: error })).toThrow(expected);
+      expect(() => classifyLaunchFailure({ status: 1, stderr: error })).not.toThrow(/private-value/);
+    }
+    expect(() => classifyLaunchFailure({ status: null, error: new Error('sensitive') }))
+      .toThrow(/uncertain/);
+  });
+  it('returns actual capacity or throttling failure without retrying the OCI launch', () => {
+    for (const [diagnostic, expected] of [
+      ['500 InternalError: Out of host capacity', 'capacity_unavailable'],
+      ['429 TooManyRequests', 'rate_limited'],
+    ]) {
+      const normal = mockOci();
+      const spawn = vi.fn((exe, args, options) => args.includes('launch')
+        ? { status: 1, stdout: '', stderr: diagnostic }
+        : normal(exe, args, options));
+      expect(claimA1({ mode: 'launch', enabled: true, context, config,
+        capacity: () => cap('POSSIBLE', null), spawn }).outcome).toBe(expected);
+      expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
+    }
+  });
+  it('never claims creation without an OCI instance ID and matching shape', () => {
+    for (const data of [
+      { shape: SPEC.shape },
+      { id: '', shape: SPEC.shape },
+      { id: 'ocid1.instance.oc1..synthetic', shape: 'VM.Standard.E2.1.Micro' },
+    ]) {
+      const spawn = mockOci({ 'compute instance launch': { data } });
+      expect(() => claimA1({ mode: 'launch', enabled: true, context, config, spawn }))
+        .toThrow(/unexpected metadata/);
+      expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
+    }
+  });
+  it('keeps manual-dispatch/observe mode from launching even when enabled', () => {
+    const capacity = vi.fn(() => cap());
+    const spawn = vi.fn();
+    expect(claimA1({ mode: 'observe', enabled: true, capacity, spawn,
+      context: { ...context, eventName: 'workflow_dispatch' }, config })
+      .outcome).toBe('capacity_possible');
+    expect(capacity).toHaveBeenCalledTimes(1);
+    expect(spawn).not.toHaveBeenCalled();
   });
   it('permits only the owner dedicated scheduler repository on its default branch schedule', () => {
     const spawn = mockOci();
