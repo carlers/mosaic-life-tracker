@@ -89,6 +89,16 @@ async function signedRequest(current: SupabaseMediaBinding, fileId: string, meth
   return response;
 }
 
+async function missingObject(response: Response): Promise<boolean> {
+  if (response.status === 404) return true;
+  // Storage can wrap its object-not-found result in HTTP 400. Do not treat
+  // arbitrary validation/authorization failures as permission to upload.
+  if (response.status !== 400) return false;
+  const error = await response.clone().json().catch(() => null);
+  return String(error?.statusCode) === '404' &&
+    ['not_found', 'Not Found', 'NoSuchKey'].includes(error?.code ?? error?.error);
+}
+
 async function sameBytes(a: Blob, b: Blob) {
   if (a.size !== b.size) return false;
   const [left, right] = await Promise.all([a.arrayBuffer(), b.arrayBuffer()]);
@@ -108,7 +118,7 @@ export async function putSupabasePhoto(blob: Blob, fileId: string, legacyOwner: 
         throw new Error('Existing private photo differs from the backup');
       return { fileId, uploaded: false };
     }
-    if (existing.status !== 404) throw new Error('Cannot inspect existing private photo');
+    if (!(await missingObject(existing))) throw new Error('Cannot inspect existing private photo');
   }
   const response = await signedRequest(current, fileId, 'POST', blob);
   if (!response.ok) {
@@ -134,7 +144,7 @@ export async function fetchSupabasePhoto(fileId: string, refreshFromCloud = fals
   if (current.canUseRemote?.() === false) return null;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
   const response = await signedRequest(current, fileId, 'GET');
-  if (response.status === 404) return null;
+  if (await missingObject(response)) return null;
   if (!response.ok) throw new Error('Private photo download denied (' + response.status + ')');
   const blob = await response.blob();
   if (!blob.size || blob.size > MAX_PHOTO_BYTES ||

@@ -15,6 +15,6 @@ Current task: #1027 history-preserving personal backup and offline cached photos
 - Read-only mosaic-dev audit: healthy, missing registry/readiness and category-retirement/atomic-delete migrations. Seven privileged-RPC and disabled leaked-password warnings require review. Auth-config read returned HTTP 401; SMTP remains unverified. No hosted write or protected approval.
 
 ## Next action
-- Require signed personal UI and focused green before merging #1409; stable recovery then runs exact-SHA full canonical. Commit/test backup batch and require offline ZIP signed evidence before its merge.
+- #1409 merged at `5e1193c37033aa45081bf6b0fe4e2e14ed293443`: task focused #40557260571 and real signed UI #40557259053 PASS; stable canonical #40558971752 running. Backup focused #40557678499 PASS; signed #40557678467 confirms offline ZIP bytes but failed import/task-photo checks. Repairs preserve validated original WebP bytes, recognize typed Storage 400/404 missing-object envelopes, and wait for signed readiness before upload/import. Require new signed evidence before #1410 merge.
 - Complete trusted historical-owner recovery, SMTP/security/hosted rollout and device acceptance before release. #1406 remains partial: no verified recovered-owner claim/import. Protected Preview requires hosted schema/security/backup gates; no dev/main promotion or self-approval.
 - Reuse accepted Fedora/R2 proof where unchanged. Local PostgreSQL image unpack failed for disk space; use disposable CI for changed signed SQL/restore proof. Existing dirty secondary worktree remains untouched.
