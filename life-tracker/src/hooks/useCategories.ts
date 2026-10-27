@@ -1,24 +1,16 @@
-import { useCallback, useLayoutEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
+import { useOwnerMutationGuard } from './useOwnerMutationGuard';
 import { useRxCollection } from './useRxCollection';
 import type { CategoryDocument } from '../db/schema';
 import { validLocalDateKey } from '../lib/categoryLifecycle';
 
 export function useCategories(enabled = true) {
-  const { user, isLocalOwnerCurrent } = useAuth();
+  const { user } = useAuth();
   const reorderQueue = useRef(Promise.resolve());
   const ownerId = user?.$id;
-  const activeOwnerRef = useRef(ownerId);
-  useLayoutEffect(() => {
-    activeOwnerRef.current = ownerId;
-    return () => { activeOwnerRef.current = undefined; };
-  }, [ownerId]);
-  const assertActiveOwner = useCallback((expectedOwner: string | undefined) => {
-    if (!expectedOwner || activeOwnerRef.current !== expectedOwner ||
-        (isLocalOwnerCurrent && !isLocalOwnerCurrent(expectedOwner)))
-      throw new Error('[useCategories] Account changed during category mutation');
-  }, [isLocalOwnerCurrent]);
+  const assertActiveOwner = useOwnerMutationGuard();
 
   const { data: categories, isLoading } = useRxCollection<CategoryDocument>({
     collection: 'categories',

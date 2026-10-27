@@ -5,7 +5,7 @@ import { createCandidateAuthSession, CandidateSessionUnavailableError } from '..
 import { CandidateAuthUnavailableError } from '../../supabase-poc/candidateVerifiedAuth';
 import { createSupabaseCoreAuthCoordinator } from '../lib/supabaseCoreAuth';
 import { createSupabaseCoreAuthority } from '../lib/supabaseCoreAuthority';
-import { scopeAccountWork } from '../lib/accountWorkScope';
+import { scopeAccountWork, getAccountWorkScope } from '../lib/accountWorkScope';
 import { publishSyncStatus, scopeSyncStatusToUser, type SyncProgress } from '../lib/syncStatus';
 import { registerCoreSync } from '../lib/appSync';
 import { markConnectivityOffline, reportConnectivityResult } from '../lib/connectivity';
@@ -245,15 +245,16 @@ export default function SupabaseAuthProvider({ config, children }: {
 
   useEffect(() => {
     if (!user || !['core-diary', 'personal'].includes(MOSAIC_FEATURE_PROFILE)) return;
-    const identity = runtime.coordinator.getAuthenticatedOwner();
+    const identity = runtime.coordinator.getAuthenticatedOwner() ?? runtime.browser?.getCachedIdentity();
     if (!identity || identity.legacyUserId !== user.$id) return;
     return registerSupabaseMedia({
       identity, baseUrl: config.baseUrl, publishableKey: config.publishableKey,
       getVerifiedSession: () => runtime.session.getVerifiedSession(),
       isCurrent: () => mounted.current && user.$id === identity.legacyUserId &&
-        runtime.coordinator.getPhase() === 'active' &&
-        runtime.coordinator.getAuthenticatedOwner()?.supabaseUserId === identity.supabaseUserId &&
+        getAccountWorkScope().userId === identity.legacyUserId &&
         (!runtime.browser || runtime.browser.isCurrent()),
+      canUseRemote: () => runtime.coordinator.getPhase() === 'active' &&
+        runtime.coordinator.getAuthenticatedOwner()?.supabaseUserId === identity.supabaseUserId,
     });
   }, [config, runtime, user, syncGeneration]);
 

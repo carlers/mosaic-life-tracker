@@ -5,7 +5,9 @@ const storedDocs = vi.hoisted(() => ({ current: [] as Record<string, unknown>[] 
 const upsertMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 vi.mock('../../src/db/database', () => ({
   getDatabase: () => ({
-    diary: { find: () => ({ exec: async () => storedDocs.current }) },
+    diary: { find: () => ({ exec: async () => storedDocs.current.map(doc=>({
+      ...doc,incrementalPatch:doc.incrementalPatch??((patch:object)=>upsertMock('diary',doc.id,patch)),
+    })) }),insert:(doc:{id:string})=>upsertMock('diary',doc.id,doc) },
   }),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({

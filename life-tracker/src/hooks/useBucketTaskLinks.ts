@@ -31,8 +31,14 @@ export function useBucketTaskLinks(enabled = true) {
       throw new Error('This aspiration or task is no longer available.');
     }
     const id = makeBucketTaskLinkId(userId, bucketListId, taskId);
-    const existing = await db.bucketTaskLinks.findOne(id).exec();
+    let existing = await db.bucketTaskLinks.findOne(id).exec();
     assertOwner(userId);
+    if (!existing) {
+      const historical = await db.bucketTaskLinks.find({ selector: { userId, bucketListId, taskId } }).exec();
+      assertOwner(userId);
+      if (historical.length > 1) throw new Error('Multiple links share this relationship; nothing was changed.');
+      existing = historical[0] ?? null;
+    }
     if (existing && (existing.userId !== userId || existing.bucketListId !== bucketListId || existing.taskId !== taskId)) {
       throw new Error('Relationship ID collision; nothing was changed.');
     }

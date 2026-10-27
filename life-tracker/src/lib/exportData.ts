@@ -8,6 +8,7 @@ import { guardedStorage } from './sdk';
 import { APP_VERSION } from './appVersion';
 import { getConnectivitySnapshot } from './connectivity';
 import { parseDiaryPhotos } from './diaryPhotos';
+import { captureAccountWorkGeneration, isAccountWorkCurrent } from './accountWorkScope';
 import type {
   TaskDocument,
   CategoryDocument,
@@ -27,7 +28,7 @@ const APPWRITE_CONFIG = {
 
 const DEBUG = import.meta.env.DEV;
 const APP_NAME = 'Mosaic';
-const EXPORT_VERSION = 4;
+const EXPORT_VERSION = 5;
 
 export interface ExportUser {
   id: string;
@@ -57,6 +58,7 @@ export interface ExportPayload {
   app: { name: string; version: string };
   version: number;
   exportedAt: string;
+  history: { tombstonesIncluded: true; scope: 'current-local-owner-snapshot' };
   user: ExportUser;
   counts: ExportCounts;
   data: {
@@ -111,35 +113,35 @@ async function collectCollections(userId: string): Promise<RawCollections> {
   const [tasks, categories, diary, settings, friendships, bucketList, bucketTaskLinks] = await Promise.all([
     db.tasks
       .find({
-        selector: { userId, isDeleted: false },
+        selector: { userId },
         sort: [{ date: 'asc' }, { createdAt: 'desc' }],
       })
       .exec(),
     db.categories
       .find({
-        selector: { userId, isDeleted: false },
+        selector: { userId },
         sort: [{ order: 'asc' }],
       })
       .exec(),
     db.diary
       .find({
-        selector: { userId, isDeleted: false },
+        selector: { userId },
         sort: [{ date: 'desc' }],
       })
       .exec(),
     db.settings
       .find({
-        selector: { userId, isDeleted: false },
+        selector: { userId },
       })
       .exec(),
     db.friendships
       .find({
-        selector: { userId, isDeleted: false },
+        selector: { userId },
         sort: [{ updatedAt: 'desc' }],
       })
       .exec(),
-    db.bucketList.find({ selector: { userId, isDeleted: false } }).exec(),
-    db.bucketTaskLinks.find({ selector: { userId, isDeleted: false } }).exec(),
+    db.bucketList.find({ selector: { userId } }).exec(),
+    db.bucketTaskLinks.find({ selector: { userId } }).exec(),
   ]);
   const { USE_PORTABLE_SETTINGS, mergePersonalSettings } = await import('./personalSettings');
   if (USE_PORTABLE_SETTINGS && !db.portableSettings)
@@ -150,12 +152,11 @@ async function collectCollections(userId: string): Promise<RawCollections> {
     : settings.map(d => toDoc<SettingsDocument>(d));
   return {
     bucketList: bucketList.map((d) => toDoc<BucketListDocument>(d)),
-    bucketTaskLinks: bucketTaskLinks.filter(link => tasks.some(t=>t.id===link.taskId) && bucketList.some(g=>g.id===link.bucketListId))
-      .map(d => toDoc<BucketTaskLinkDocument>(d)),
+    bucketTaskLinks: bucketTaskLinks.map(d => toDoc<BucketTaskLinkDocument>(d)),
     tasks: tasks.map((d) => toDoc<TaskDocument>(d)),
     categories: categories.map((d) => toDoc<CategoryDocument>(d)),
     diary: diary.map((d) => toDoc<DiaryDocument>(d)),
-    settings: allSettings.filter(row => !row.isDeleted),
+    settings: allSettings,
     friendships: friendships.map((d) => toDoc<FriendshipDocument>(d)),
   };
 }
@@ -227,12 +228,19 @@ export async function exportUserData(
   options: ExportOptions
 ): Promise<ExportResult> {
   const { includeImages, onProgress } = options;
+  const generation = captureAccountWorkGeneration(user.id);
+  const assertOwner = () => {
+    if (generation === null || !isAccountWorkCurrent(user.id, generation))
+      throw new Error('Account changed during export. No backup was returned.');
+  };
+  assertOwner();
   const report = (msg: string) => {
     if (onProgress) onProgress(msg);
   };
   report('Collecting data…');
   if (DEBUG) console.log('[Export] Collecting data for user', user.id);
   const raw = await collectCollections(user.id);
+  assertOwner();
   const parsedSettings = parseSettings(raw.settings);
   const referencedImages = new Set<string>();
   for (const task of raw.tasks) {
@@ -252,6 +260,7 @@ export async function exportUserData(
     app: { name: APP_NAME, version: APP_VERSION },
     version: EXPORT_VERSION,
     exportedAt,
+    history: { tombstonesIncluded: true, scope: 'current-local-owner-snapshot' },
     user,
     counts: {
       tasks: raw.tasks.length,
@@ -290,6 +299,7 @@ export async function exportUserData(
   if (!includeImages) {
     const json = JSON.stringify(payload, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
+    assertOwner();
     if (DEBUG) console.log('[Export] JSON export ready', payload.counts);
     return {
       blob,
@@ -304,6 +314,7 @@ export async function exportUserData(
     index++;
     report(`Fetching photos (${index}/${referencedArray.length})…`);
     const blob = await fetchImageBlob(fileId, user.id);
+    assertOwner();
     if (blob) imageBlobs.set(fileId, blob);
     else missing.push(fileId);
   }
@@ -336,6 +347,7 @@ export async function exportUserData(
     files[`images/${fileId}.webp`] = new Uint8Array(buf);
   }
   const zipped = await zipAsync(files);
+  assertOwner();
   const zipBuffer = zipped.buffer as ArrayBuffer;
   const blob = new Blob([zipBuffer], { type: 'application/zip' });
   if (DEBUG) console.log('[Export] ZIP export ready', payload.counts);

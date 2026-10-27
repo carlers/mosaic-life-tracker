@@ -48,6 +48,21 @@ beforeEach(() => {
 afterEach(() => { release?.(); release = undefined; });
 
 describe('Supabase private task and Diary photo adapter', () => {
+  it('allows cached offline identity to read only its local blobs, never remote media', async () => {
+    cache.get.mockResolvedValue(image());
+    release=registerSupabaseMedia({identity:{legacyUserId:'legacy_user_A',supabaseUserId:OWNER_A},
+      baseUrl:'https://isolated.test.supabase.co',publishableKey:'sb_publishable_synthetic_test_only',
+      getVerifiedSession:async()=>null,isCurrent:()=>current,canUseRemote:()=>false,
+      fetcher:fetcher as unknown as typeof fetch});
+    expect(await fetchSupabasePhoto('offline')).toBeInstanceOf(Blob);
+    expect(cache.get).toHaveBeenCalledWith('supabase:'+OWNER_A+':offline');
+    cache.get.mockResolvedValue(undefined);
+    expect(await fetchSupabasePhoto('uncached')).toBeNull();
+    await expect(putSupabasePhoto(image(),'upload','legacy_user_A')).rejects.toThrow('active signed account');
+    expect(fetcher).not.toHaveBeenCalled();
+    current=false;
+    await expect(fetchSupabasePhoto('offline')).rejects.toThrow('active signed account');
+  });
   it('uses a signed owner-UUID path and immutable private WebP upload, never a public URL', async () => {
     register();
     const result = await putSupabasePhoto(image(), 'img_unique', 'legacy_user_A');
@@ -82,6 +97,18 @@ describe('Supabase private task and Diary photo adapter', () => {
     expect(supabasePhotoCacheKey(OWNER_B, 'img_same')).not.toBe(supabasePhotoCacheKey(OWNER_A, 'img_same'));
     current = false;
     await expect(fetchSupabasePhoto('img_same')).rejects.toThrow(/active signed account/);
+  });
+
+  it('accepts only the typed missing-object envelope before restoring a new object', async () => {
+    register();
+    fetcher.mockResolvedValueOnce(new Response(JSON.stringify({statusCode:'404',error:'not_found'}),{status:400}))
+      .mockResolvedValueOnce(new Response('{}',{status:201}));
+    await expect(putSupabasePhoto(image(),'img_new','legacy_user_A',true))
+      .resolves.toEqual({fileId:'img_new',uploaded:true});
+    expect(fetcher.mock.calls.map(call=>call[1]?.method)).toEqual(['GET','POST']);
+    fetcher.mockClear().mockResolvedValue(new Response(JSON.stringify({statusCode:'403',error:'AccessDenied'}),{status:400}));
+    await expect(putSupabasePhoto(image(),'img_denied','legacy_user_A',true)).rejects.toThrow('Cannot inspect');
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 
   it('preserves original photos if existing data differs instead of overwriting', async () => {

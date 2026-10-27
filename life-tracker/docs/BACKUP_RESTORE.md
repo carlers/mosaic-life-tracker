@@ -19,7 +19,9 @@ Shared-task invitations and memberships (`task_shares`) are server-owned social 
 
 ## Format
 
-- New exports use backup format version 3.
+- New exports use backup format version 5: six-domain logical tombstones, original IDs, category retirement, local drafts and available referenced photos are included. The manifest labels the scope `current-local-owner-snapshot`; it is not certified complete cloud history or ownership evidence.
+- Versions 1–4 remain accepted with their original active-row behavior. Version 5 requires explicit source ownership, deletion flags and valid history timestamps; unresolved task/category or Bucket/task references fail before writes. Same-owner history preserves valid original IDs, including Diary/preferences/links. Unsupported historical IDs require verified migration; retain the archive.
+- Export cancels if the account changes, including a switch away and back. Portable Settings override old device values and tombstones suppress fallback.
 - Version 1 and 2 JSON/ZIP exports produced before Bucket List remain accepted for restore; they contain no aspirations.
 - Backups include app/version metadata, export time, source-user metadata, record counts, the restorable data snapshot, friendship reference data, and image inventory.
 - For tasks, `date: ''` is the explicit unscheduled Backlog placement. Restore preserves this value and validates nonempty calendar dates; a missing `date` field is invalid. Diary dates remain required. Existing v1/v2 backup formats remain accepted.
@@ -38,10 +40,12 @@ Settings and diary IDs are regenerated from the current user plus their logical 
 
 - Adds missing backup records.
 - For the same logical record, the backup replaces current data only when the backup snapshot is newer.
-- A newer current tombstone wins over an older active backup record, so merge does not resurrect a later deletion.
+- A newer current tombstone wins over an older active backup record, so merge does not resurrect a later deletion. The personal Supabase path repeats this comparison inside the atomic local write so a concurrent edit also wins.
 - Records that exist only in current Mosaic data remain untouched.
 
 ### Replace personal data
+
+Supabase does not offer Replace. Its personal profile permits only signed, online Merge of the six supported private domains; profile/social settings remain in the archive.
 
 - The selected backup becomes authoritative for tasks, categories, diary, settings, and Bucket List aspirations.
 - Matching backup records are restored even when the snapshot is older.
@@ -52,7 +56,7 @@ Settings and diary IDs are regenerated from the current user plus their logical 
 
 ## Images
 
-When a ZIP contains image blobs, restore ensures the needed images exist for the current account and rewrites restored references when cross-account portability requires it. Image recovery is idempotent: repeated restores reuse the same destination file where possible, and Merge does not upload images for rows it will skip as newer/equal current data. Missing or failed image recovery never blocks task/category/diary/settings recovery. If a backup belongs to another account and does not contain a referenced image blob, that inaccessible source-account image reference is cleared.
+When a ZIP contains image blobs, restore ensures the needed images exist for the current account and rewrites restored references when cross-account portability requires it. Image recovery is idempotent: repeated restores reuse the same destination file where possible, and Merge does not upload images for rows it will skip as newer/equal current data. On Appwrite, missing or failed image recovery is reported and does not block data recovery. Supabase refuses a failed bundled-photo upload before applying rows, preserving the original archive for retry. If a backup belongs to another account and does not contain a referenced image blob, that inaccessible source-account image reference is cleared.
 
 ## Sync and failure behavior
 

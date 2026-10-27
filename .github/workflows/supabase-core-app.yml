@@ -10,6 +10,8 @@ on:
       - 'codex/1027-supabase-recovery-*'
       - 'feature/1027-supabase-recovery-*'
       - 'chatgpt/1027-bucket-links-private-sql-*'
+      - 'chatgpt/1027-backup-history-*'
+      - 'chatgpt/1027-registry-recovery-entrypoints-*'
 permissions:
   contents: read
   packages: read

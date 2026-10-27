@@ -258,7 +258,16 @@ export async function ensureRestoredImage(
     throw new Error('Cannot restore image: authenticated user changed');
   }
   if (CORE_BACKEND.driver === 'supabase') {
-    const blob = alreadyCompressed ? file : await compressImage(file);
+    let blob: Blob = file;
+    if (!alreadyCompressed && file.type === 'image/webp') {
+      // Backups already contain the compressed original. Validate decoding but
+      // preserve those immutable bytes; recompression changes recovery hashes.
+      if (file.size > 5 * 1024 * 1024) throw new Error('Backup photo exceeds the private Storage limit.');
+      const bitmap = await createImageBitmap(file);
+      try {
+        if (!bitmap.width || !bitmap.height) throw new Error('Backup photo is invalid.');
+      } finally { bitmap.close(); }
+    } else if (!alreadyCompressed) blob = await compressImage(file);
     return putSupabasePhoto(blob, preferredFileId, userId, true);
   }
 

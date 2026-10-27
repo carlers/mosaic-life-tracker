@@ -10,8 +10,8 @@ vi.mock('../../src/hooks/useRxCollection',()=>({useRxCollection:({collection}:{c
   data:collection==='portableSettings'?f.portableData:f.localData,isLoading:false,
 })}));
 vi.mock('../../src/db/database',()=>({getDatabase:()=>({
-  settings:{findOne:()=>({exec:f.lookup}),insert:f.local},
-  portableSettings:{findOne:()=>({exec:f.lookup}),insert:f.portable},
+  settings:{findOne:()=>({exec:f.lookup}),find:()=>({exec:async()=>[]}),insert:f.local},
+  portableSettings:{findOne:()=>({exec:f.lookup}),find:()=>({exec:async()=>[]}),insert:f.portable},
 })}));
 import { useSettings } from '../../src/hooks/useSettings';
 import { mergePersonalSettings } from '../../src/lib/personalSettings';

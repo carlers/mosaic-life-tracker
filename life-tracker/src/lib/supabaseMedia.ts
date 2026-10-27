@@ -17,10 +17,23 @@ export type SupabaseMediaBinding = {
   publishableKey: string;
   getVerifiedSession: () => Promise<VerifiedSession | null>;
   isCurrent: () => boolean;
+  /** Cached identity may read its local blobs after offline cold start only. */
+  canUseRemote?: () => boolean;
   fetcher?: typeof fetch;
 };
 
 let binding: SupabaseMediaBinding | null = null;
+let bindingRevision = 0;
+const bindingListeners = new Set<() => void>();
+export const getSupabaseMediaRevision = () => bindingRevision;
+export function subscribeSupabaseMedia(listener: () => void): () => void {
+  bindingListeners.add(listener);
+  return () => { bindingListeners.delete(listener); };
+}
+function notifyBindingChanged() {
+  bindingRevision++;
+  bindingListeners.forEach(listener => listener());
+}
 
 export function registerSupabaseMedia(next: SupabaseMediaBinding): () => void {
   validateCandidateIdentity(next.identity);
@@ -32,7 +45,13 @@ export function registerSupabaseMedia(next: SupabaseMediaBinding): () => void {
     throw new Error('Supabase photo storage requires the explicit verified backend');
   }
   binding = next;
-  return () => { if (binding === next) binding = null; };
+  notifyBindingChanged();
+  return () => {
+    if (binding === next) {
+      binding = null;
+      notifyBindingChanged();
+    }
+  };
 }
 
 export function currentSupabaseMediaOwner(): string | null {
@@ -58,10 +77,11 @@ function objectPath(current: SupabaseMediaBinding, fileId: string) {
 }
 
 async function signedRequest(current: SupabaseMediaBinding, fileId: string, method: 'GET' | 'POST' | 'DELETE', blob?: Blob) {
-  if (binding !== current || !current.isCurrent()) throw new Error('Supabase photo owner changed');
+  if (binding !== current || !current.isCurrent() || current.canUseRemote?.() === false)
+    throw new Error('Supabase photo remote access requires the active signed account');
   const signed = await current.getVerifiedSession();
   if (!signed || signed.userId !== current.identity.supabaseUserId ||
-      !current.isCurrent() || binding !== current)
+      !current.isCurrent() || binding !== current || current.canUseRemote?.() === false)
     throw new Error('Supabase photo session was not verified');
   const path = objectPath(current, fileId).split('/').map(encodeURIComponent).join('/');
   const endpoint = method === 'GET'
@@ -86,6 +106,16 @@ async function signedRequest(current: SupabaseMediaBinding, fileId: string, meth
   return response;
 }
 
+async function missingObject(response: Response): Promise<boolean> {
+  if (response.status === 404) return true;
+  // Storage can wrap its object-not-found result in HTTP 400. Do not treat
+  // arbitrary validation/authorization failures as permission to upload.
+  if (response.status !== 400) return false;
+  const error = await response.clone().json().catch(() => null);
+  return String(error?.statusCode) === '404' &&
+    ['not_found', 'Not Found', 'NoSuchKey'].includes(error?.code ?? error?.error);
+}
+
 async function sameBytes(a: Blob, b: Blob) {
   if (a.size !== b.size) return false;
   const [left, right] = await Promise.all([a.arrayBuffer(), b.arrayBuffer()]);
@@ -105,7 +135,7 @@ export async function putSupabasePhoto(blob: Blob, fileId: string, legacyOwner: 
         throw new Error('Existing private photo differs from the backup');
       return { fileId, uploaded: false };
     }
-    if (existing.status !== 404) throw new Error('Cannot inspect existing private photo');
+    if (!(await missingObject(existing))) throw new Error('Cannot inspect existing private photo');
   }
   const response = await signedRequest(current, fileId, 'POST', blob);
   if (!response.ok) {
@@ -128,9 +158,10 @@ export async function fetchSupabasePhoto(fileId: string, refreshFromCloud = fals
   const cached = refreshFromCloud ? undefined : await getCachedImage(key).catch(() => undefined);
   if (binding !== current || !current.isCurrent()) return null;
   if (cached) return cached;
+  if (current.canUseRemote?.() === false) return null;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
   const response = await signedRequest(current, fileId, 'GET');
-  if (response.status === 404) return null;
+  if (await missingObject(response)) return null;
   if (!response.ok) throw new Error('Private photo download denied (' + response.status + ')');
   const blob = await response.blob();
   if (!blob.size || blob.size > MAX_PHOTO_BYTES ||

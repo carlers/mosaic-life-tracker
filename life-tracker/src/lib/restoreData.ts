@@ -85,7 +85,7 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const FORBIDDEN_SETTING_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const CROSS_ACCOUNT_PRESERVED_SETTING_KEYS = new Set(['friend_carousel_prefs']);
 const MAX_ROW_ID_LENGTH = 36;
-const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2, 3, 4]);
+const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2, 3, 4, 5]);
 
 interface BackupPayload {
   format?: string;
@@ -145,6 +145,7 @@ export interface BackupPreview {
     images: number;
   };
   imagesIncluded: boolean;
+  tombstones?: number;
   friendshipsReferenceOnly: number;
 }
 
@@ -180,6 +181,7 @@ type LocalDoc = {
   updatedAt?: string;
   toJSON?: () => JsonRecord;
   incrementalPatch: (patch: JsonRecord) => Promise<unknown>;
+  incrementalModify: (modify: (current: JsonRecord) => JsonRecord) => Promise<unknown>;
   [key: string]: unknown;
 };
 
@@ -432,6 +434,28 @@ function normalizeBackup(
   currentUserId: string
 ): NormalizedBackup {
   const sourceUserId = payload.user.id;
+  const preserveHistory = payload.version >= 5;
+  if (preserveHistory && !Array.isArray(payload.data.settings))
+    throw new Error('History backup must retain original Settings rows.');
+  const historyId = (raw: JsonRecord, fallback: string) => {
+    if (!preserveHistory || sourceUserId !== currentUserId) return fallback;
+    const id=asString(raw.id);
+    if (!isValidRowId(id)) throw new Error('Historical row ID requires verified migration; keep the original backup.');
+    return id;
+  };
+  const includedRow = (raw: unknown): raw is JsonRecord => {
+    if (!isRecord(raw)) {
+      if (preserveHistory) throw new Error('History backup contains an invalid row.');
+      return false;
+    }
+    if (!preserveHistory) return raw.isDeleted !== true;
+    if (raw.userId !== sourceUserId)
+      throw new Error('History backup contains an inconsistent source owner.');
+    if (typeof raw.isDeleted !== 'boolean' || typeof raw.updatedAt !== 'string' ||
+        !Number.isFinite(Date.parse(raw.updatedAt)))
+      throw new Error('History backup requires explicit deletion state and timestamp.');
+    return true;
+  };
   const exportedAt = payload.exportedAt;
   const categoryIdMap = new Map<string, string>();
   const taskIdMap = new Map<string, string>();
@@ -439,7 +463,7 @@ function normalizeBackup(
   const taskSourceIds = new Set<string>();
 
   for (const raw of payload.data.categories) {
-    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    if (!includedRow(raw)) continue;
     const sourceId = asString(raw.id);
     if (!sourceId) throw new Error('Backup category is missing an ID.');
     if (categorySourceIds.has(sourceId)) {
@@ -448,13 +472,13 @@ function normalizeBackup(
     categorySourceIds.add(sourceId);
     categoryIdMap.set(
       sourceId,
-      portableRowId('c', currentUserId, sourceUserId, sourceId)
+      historyId(raw, portableRowId('c', currentUserId, sourceUserId, sourceId))
     );
   }
   assertUnique(categoryIdMap.values(), 'category IDs');
 
   for (const raw of payload.data.tasks) {
-    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    if (!includedRow(raw)) continue;
     const sourceId = asString(raw.id);
     if (!sourceId) throw new Error('Backup task is missing an ID.');
     if (taskSourceIds.has(sourceId)) {
@@ -463,14 +487,14 @@ function normalizeBackup(
     taskSourceIds.add(sourceId);
     taskIdMap.set(
       sourceId,
-      portableRowId('t', currentUserId, sourceUserId, sourceId)
+      historyId(raw, portableRowId('t', currentUserId, sourceUserId, sourceId))
     );
   }
   assertUnique(taskIdMap.values(), 'task IDs');
 
   const categories: CategoryDocument[] = [];
   for (const raw of payload.data.categories) {
-    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    if (!includedRow(raw)) continue;
     const sourceId = asString(raw.id);
     const id = categoryIdMap.get(sourceId);
     if (!id) continue;
@@ -489,15 +513,16 @@ function normalizeBackup(
         | 'followers'
         | 'private',
       userId: currentUserId,
-      isDeleted: false,
+      isDeleted: preserveHistory && raw.isDeleted === true,
       icon: asString(raw.icon),
+      ...(preserveHistory && typeof raw.retiredOn === 'string' ? { retiredOn: raw.retiredOn } : {}),
       updatedAt: validIso(raw.updatedAt, exportedAt),
     });
   }
 
   const tasks: TaskDocument[] = [];
   for (const raw of payload.data.tasks) {
-    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    if (!includedRow(raw)) continue;
     const sourceId = asString(raw.id);
     const id = taskIdMap.get(sourceId);
     if (!id) continue;
@@ -508,6 +533,8 @@ function normalizeBackup(
       throw new Error('Backup task has an invalid date.');
     }
     const sourceCategoryId = asString(raw.categoryId);
+    if (preserveHistory && sourceCategoryId && !categoryIdMap.has(sourceCategoryId))
+      throw new Error('History backup task references a missing category; keep the original backup.');
     tasks.push({
       id,
       title,
@@ -528,7 +555,7 @@ function normalizeBackup(
       updatedAt: validIso(raw.updatedAt, exportedAt),
       source: asString(raw.source),
       userId: currentUserId,
-      isDeleted: false,
+      isDeleted: preserveHistory && raw.isDeleted === true,
       routineId: asString(raw.routineId),
       reminderTime: asString(raw.reminderTime),
       reactions: asString(raw.reactions),
@@ -538,14 +565,14 @@ function normalizeBackup(
 
   const diary: DiaryDocument[] = [];
   for (const raw of payload.data.diary) {
-    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    if (!includedRow(raw)) continue;
     const date = asString(raw.date);
     if (!date) throw new Error('Backup diary entry is missing a date.');
     if (!isValidDateKey(date)) {
       throw new Error('Backup diary entry has an invalid date.');
     }
     diary.push({
-      id: makeDiaryRowId(currentUserId, date),
+      id: historyId(raw, makeDiaryRowId(currentUserId, date)),
       date,
       content: asString(raw.content),
       emoji: asString(raw.emoji).slice(0, 32),
@@ -557,18 +584,18 @@ function normalizeBackup(
       userId: currentUserId,
       createdAt: validIso(raw.createdAt, exportedAt),
       updatedAt: validIso(raw.updatedAt, exportedAt),
-      isDeleted: false,
+      isDeleted: preserveHistory && raw.isDeleted === true,
     });
   }
   assertUnique(
-    diary.map((entry) => entry.id),
+    diary.map((entry) => entry.date),
     'diary dates'
   );
 
   const settings: SettingsDocument[] = [];
   if (Array.isArray(payload.data.settings)) {
     for (const raw of payload.data.settings) {
-      if (!isRecord(raw) || raw.isDeleted === true) continue;
+      if (!includedRow(raw)) continue;
       const key = asString(raw.key);
       if (!key) throw new Error('Backup setting is missing a key.');
       if (FORBIDDEN_SETTING_KEYS.has(key)) {
@@ -584,11 +611,11 @@ function normalizeBackup(
       const value =
         typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue ?? null);
       settings.push({
-        id: makeSettingsRowId(currentUserId, key),
+        id: historyId(raw, makeSettingsRowId(currentUserId, key)),
         userId: currentUserId,
         key,
         value,
-        isDeleted: false,
+        isDeleted: preserveHistory && raw.isDeleted === true,
         updatedAt: validIso(raw.updatedAt, exportedAt),
       });
     }
@@ -617,7 +644,7 @@ function normalizeBackup(
     }
   }
   assertUnique(
-    settings.map((setting) => setting.id),
+    settings.map((setting) => setting.key),
     'setting keys'
   );
 
@@ -625,24 +652,24 @@ function normalizeBackup(
   const bucketSourceIds = new Set<string>();
   const goalIdMap = new Map<string,string>();
   for (const raw of payload.data.bucketList ?? []) {
-    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    if (!includedRow(raw)) continue;
     const sourceId = asString(raw.id);
     if (!sourceId || bucketSourceIds.has(sourceId)) throw new Error('Backup has an invalid or duplicate aspiration ID.');
     bucketSourceIds.add(sourceId);
-    const title = asString(raw.title).trim();
+    const title = preserveHistory ? asString(raw.title) : asString(raw.title).trim();
     const description = asString(raw.description);
     if (!title || title.length > 255 || description.length > 2000) throw new Error('Backup aspiration is invalid.');
     const achieved = raw.achieved === true;
     const achievedAt = achieved ? asString(raw.achievedAt) : '';
     if (achieved && (!achievedAt || !Number.isFinite(Date.parse(achievedAt)))) throw new Error('Backup aspiration achievement date is invalid.');
-    const restoredId = portableRowId('b', currentUserId, sourceUserId, sourceId);
+    const restoredId = historyId(raw, portableRowId('b', currentUserId, sourceUserId, sourceId));
     goalIdMap.set(sourceId, restoredId);
     bucketList.push({
       id: restoredId,
       userId: currentUserId, title, description, achieved, achievedAt,
       createdAt: validIso(raw.createdAt, exportedAt),
       updatedAt: validIso(raw.updatedAt, exportedAt),
-      isDeleted: false,
+      isDeleted: preserveHistory && raw.isDeleted === true,
     });
   }
   assertUnique(bucketList.map(item => item.id), 'aspiration IDs');
@@ -650,20 +677,22 @@ function normalizeBackup(
   const bucketTaskLinks: BucketTaskLinkDocument[] = [];
   const seenLinks = new Set<string>();
   for (const raw of payload.data.bucketTaskLinks ?? []) {
-    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    if (!includedRow(raw)) continue;
     const sourceGoalId = asString(raw.bucketListId), sourceTaskId = asString(raw.taskId);
     const goalId = goalIdMap.get(sourceGoalId), taskId = taskIdMap.get(sourceTaskId);
     if (!goalId || !taskId) throw new Error('Backup aspiration link references a missing task or aspiration.');
-    const id = makeBucketTaskLinkId(currentUserId, goalId, taskId);
-    if (seenLinks.has(id)) throw new Error('Backup contains duplicate aspiration links.');
-    seenLinks.add(id);
+    const relationship = makeBucketTaskLinkId(currentUserId, goalId, taskId);
+    const id = historyId(raw, relationship);
+    if (seenLinks.has(relationship)) throw new Error('Backup contains duplicate aspiration links.');
+    seenLinks.add(relationship);
     bucketTaskLinks.push({ id, userId: currentUserId,
-      bucketListId: goalId, taskId, isDeleted: false,
+      bucketListId: goalId, taskId, isDeleted: preserveHistory && raw.isDeleted === true,
       createdAt: validIso(raw.createdAt, exportedAt),
       updatedAt: validIso(raw.updatedAt, exportedAt),
     });
   }
   const normalized = { sourceUserId, tasks, categories, diary, settings, bucketList, bucketTaskLinks };
+  for (const domain of RESTORABLE_COLLECTIONS) assertUnique(normalized[domain].map(row=>row.id), domain+' IDs');
   validateNormalizedBackup(normalized);
   return normalized;
 }
@@ -710,6 +739,8 @@ function validateNormalizedBackup(data: NormalizedBackup): void {
     assertMaxLength('category color', category.color, 20);
     assertMaxLength('category icon', category.icon, 10);
     assertMaxLength('category updated time', category.updatedAt, 50);
+    if (category.retiredOn && !isValidDateKey(category.retiredOn))
+      throw new Error('Backup category retirement date is invalid.');
     if (!Number.isInteger(category.order) || category.order < 0 || category.order > 999999) {
       throw new Error('Backup category order is invalid.');
     }
@@ -995,44 +1026,37 @@ async function applyDocuments(
         ...sourceDoc,
         ...(collectionRestoreMode(mode, collectionName) === 'replace' ? { updatedAt: replaceTimestamp } : {}),
         userId,
-        isDeleted: false,
+        isDeleted: sourceDoc.isDeleted,
       } as RestorableDocument;
 
       const existing = await collection.findOne(doc.id).exec();
       assertOwner?.();
-      if (existing) {
-        const current = readLocalDoc(existing);
-        if (current.userId !== userId) {
+      const shouldKeepCurrent = (current: JsonRecord): boolean => {
+        if (current.userId !== userId)
           throw new Error('Restore ID collides with data owned by another account.');
-        }
-        if (collectionRestoreMode(mode, collectionName) === 'merge') {
-          const currentUpdatedAt = toMs(current.updatedAt);
-          const backupUpdatedAt = toMs(doc.updatedAt);
-          const isEqualCrossAccountImageRetry =
-            currentUpdatedAt === backupUpdatedAt &&
-            isEqualPortableImageRetry(
-              collectionName,
-              doc,
-              current,
-              sourceUserId,
-              userId
-            );
-          if (
-            currentUpdatedAt > backupUpdatedAt ||
-            (currentUpdatedAt === backupUpdatedAt &&
-              !isEqualCrossAccountImageRetry)
-          ) {
-            skippedNewer += 1;
-            continue;
-          }
-        }
+        if (collectionRestoreMode(mode, collectionName) !== 'merge') return false;
+        const currentTime = toMs(current.updatedAt), backupTime = toMs(doc.updatedAt);
+        return currentTime > backupTime || (currentTime === backupTime &&
+          !isEqualPortableImageRetry(collectionName, doc, current, sourceUserId, userId));
+      };
+      if (existing && shouldKeepCurrent(readLocalDoc(existing))) {
+        skippedNewer += 1;
+        continue;
       }
 
       assertOwner?.();
       // Reuse the owner-checked lookup. A second unguarded await could switch
       // accounts between validation and the dispatched local write.
       if (!USE_PORTABLE_SETTINGS) await upsertLocalDoc(collectionName, doc.id, doc);
-      else if (existing) await existing.incrementalPatch(doc as unknown as JsonRecord);
+      else if (existing) {
+        let keptCurrent = false;
+        await existing.incrementalModify(current => {
+          assertOwner?.();
+          keptCurrent = shouldKeepCurrent(current);
+          return keptCurrent ? current : { ...current, ...doc };
+        });
+        if (keptCurrent) { skippedNewer += 1; continue; }
+      }
       else await collection.insert(doc);
       assertOwner?.();
       restored += 1;
@@ -1132,6 +1156,8 @@ export async function inspectBackupFile(
       images: loaded.imageFiles.size,
     },
     imagesIncluded: loaded.payload.images?.included === true,
+    tombstones: RESTORABLE_COLLECTIONS.reduce((count, domain) =>
+      count + normalized[domain].filter(row => row.isDeleted).length, 0),
     friendshipsReferenceOnly: loaded.payload.data.friendships?.length ?? 0,
   };
 }
