@@ -71,8 +71,21 @@ a read fallback until a portable value arrives; a portable tombstone suppresses
 that fallback. Profile images and social carousel preferences stay local. ZIP
 Merge now routes the six supported domains and filters nonportable settings; it
 does not claim account linking or complete historical recovery. Replace remains
-blocked on Supabase. Export includes current portable preferences. Existing ZIP
-active-row exports do not yet constitute a complete tombstone/history escrow.
+blocked on Supabase. Version 5 ZIP/JSON exports include original IDs, logical tombstones, category
+retirement, local drafts, portable preferences and available referenced photo
+bytes. Missing photos are explicit. These are current local owner snapshots,
+not certified complete server history or ownership evidence. Same-owner v5
+Merge preserves IDs and refuses malformed history, missing references or
+ambiguous identities; newer local edits/tombstones win. Cross-account import
+remains an explicit portable copy with deterministic IDs, never account linking.
+Version 1–4 compatibility is unchanged. Keep original archives for unresolved
+history and independently verified later reconciliation.
+
+Offline cold start can read the cached owner's already cached private photos
+and export them. Cached identity never enables remote media reads/writes. New
+photo uploads require connectivity; uncached photos are reported missing. Media
+cache keys include the Supabase UUID. Export and personal mutation callbacks
+stop across owner changes, including an A→B→A transition.
 
 The isolated artifact builder now produces the `personal` profile; its staging
 verifier requires that exact profile and retains the fixed Preview-only project,

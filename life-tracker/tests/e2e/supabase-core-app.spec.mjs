@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { unzipSync } from 'fflate';
 import { EMAIL_PREVIEW, EMAIL_PREVIEW_SHA } from '../../supabase-poc/email-policy.mjs';
 
 const url = process.env.MOSAIC_SB_LOCAL_URL;
@@ -968,12 +969,61 @@ test('signed owner Diary UI @diary-ui: create a private entry, recover on anothe
     // independently obtain the attached image bytes, not only its ID.
     await second.getByText(content, { exact: true }).first().click();
     await expect(second.getByRole('button', { name: 'View diary photo' }).first()).toBeEnabled({ timeout: 20_000 });
+    // Prove a cached private photo survives a cold offline PWA start and is
+    // exported as its exact bytes, without granting cached identity a token.
+    const diaryRow = (await rows(owner, 'diary')).find(row => row.content === content);
+    const photoId = JSON.parse(diaryRow.photos)[0];
+    const cloudPhoto = await api('/storage/v1/object/authenticated/mosaic-personal-photos/' + owner.id + '/' + photoId + '.webp', owner.token);
+    expect(cloudPhoto.ok).toBe(true);
+    const expectedBytes = Buffer.from(await cloudPhoto.arrayBuffer());
+    await second.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+    await second.reload();
+    await expect(second.getByRole('tab', { name: 'Diary', exact: true })).toBeVisible();
+    await contexts[1].setOffline(true);
+    await second.reload();
+    await expect(second.getByRole('tab', { name: 'Diary', exact: true })).toBeVisible();
+    await second.goto(app + '/settings');
+    await second.getByRole('button', { name: 'Backup & Restore', exact: true }).click();
+    const includePhotos = second.getByRole('button', { name: /Include photos/ });
+    if (await includePhotos.getAttribute('aria-pressed') !== 'true') await includePhotos.click();
+    const downloadEvent = second.waitForEvent('download');
+    await second.getByRole('button', { name: 'Download Backup', exact: true }).click();
+    const download = await downloadEvent;
+    const stream = await download.createReadStream();
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    const archiveBytes = Buffer.concat(chunks);
+    const archived = unzipSync(archiveBytes);
+    expect(Buffer.from(archived['images/' + photoId + '.webp'])).toEqual(expectedBytes);
+    const manifest = JSON.parse(new TextDecoder().decode(archived['manifest.json']));
+    expect(manifest.version).toBe(5);
+    expect(manifest.images.missingImages).toEqual([]);
+    expect(manifest.data.diary.some(row => row.id === diaryRow.id)).toBe(true);
+    await contexts[1].setOffline(false);
     await signIn(other, foreign);
     await other.getByRole('tab', { name: 'Diary', exact: true }).click();
     await expect(other.getByText(content, { exact: true })).toHaveCount(0);
     const foreignRows = await api('/rest/v1/mosaic_candidate_diary?select=id,content', foreign.token);
     expect(foreignRows.ok).toBe(true);
     expect(await foreignRows.json()).toEqual([]);
+    // Explicit portable copy into a different signed account is not a mapping
+    // claim. Prove actual ZIP import and private immutable photo byte parity.
+    await other.goto(app + '/settings');
+    await other.getByRole('button', { name: 'Backup & Restore', exact: true }).click();
+    await other.getByLabel('Choose Mosaic backup file').setInputFiles({
+      name: 'offline-history.zip', mimeType: 'application/zip', buffer: archiveBytes,
+    });
+    await expect(other.getByText('1 bundled photo', { exact: true })).toBeVisible();
+    await other.getByRole('button', { name: 'Merge Backup', exact: true }).click();
+    await expect.poll(async () => (await rows(foreign, 'diary')).some(row => row.content === content),
+      { timeout: 30000 }).toBe(true);
+    const copied = (await rows(foreign, 'diary')).find(row => row.content === content);
+    expect(copied.id).not.toBe(diaryRow.id);
+    const copiedPhotoId = JSON.parse(copied.photos)[0];
+    const copiedBytes = await api('/storage/v1/object/authenticated/mosaic-personal-photos/' +
+      foreign.id + '/' + copiedPhotoId + '.webp', foreign.token);
+    expect(copiedBytes.ok).toBe(true);
+    expect(Buffer.from(await copiedBytes.arrayBuffer())).toEqual(expectedBytes);
   } finally {
     await Promise.allSettled(contexts.map(c => c.close()));
   }
@@ -1005,9 +1055,19 @@ test('six-domain lifecycle @personal-ui: preferences, Bucket links, offline edit
       { timeout: 30000 }).toBe(1);
     const goal = (await rows(owner, 'buckets')).find(x => x.title === 'Visit the mountains');
     expect(goal).toBeTruthy();
+    await first.goto(app + '/backlog');
+    await first.getByRole('button', { name: 'Pack hiking boots', exact: true }).press('Shift+Enter');
+    await first.getByRole('button', { name: 'Add Photo', exact: true }).click();
+    await first.getByLabel('Choose photo from device').setInputFiles({
+      name: 'boots.webp', mimeType: 'image/webp', buffer: PHOTO_BYTES,
+    });
+    await expect.poll(async () => (await rows(owner, 'tasks')).find(x => x.title === 'Pack hiking boots')?.image,
+      { timeout: 25000 }).toMatch(/^img_/);
+    await first.goto(app + '/bucket-list/' + goal.id);
     await signIn(second, owner);
     await second.goto(app + '/bucket-list/' + goal.id);
     await expect(second.getByRole('button', { name: 'Unlink Pack hiking boots' })).toBeVisible({ timeout: 25000 });
+    await expect(second.getByRole('button', { name: 'View photo for Pack hiking boots' })).toBeVisible({ timeout: 20000 });
     await contexts[0].setOffline(true);
     await first.getByRole('button', { name: 'Edit aspiration' }).click();
     await first.getByLabel('Your dream').fill('Visit the mountains offline');

@@ -11,7 +11,9 @@ vi.mock('../../src/hooks/useRxCollection', () => ({
   useRxCollection: () => ({ data: fixtures.stored.filter(row => !row.isDeleted), isLoading: false }),
 }));
 vi.mock('../../src/db/database', () => ({
-  getDatabase: () => ({ diary: { find: () => ({ exec: async () => fixtures.stored }) } }),
+  getDatabase: () => ({ diary: { find: () => ({ exec: async () => fixtures.stored.map(doc=>({
+    ...doc,incrementalPatch:(patch:object)=>fixtures.upsert('diary',doc.id,patch),
+  })) }),insert:(doc:{id:string})=>fixtures.upsert('diary',doc.id,doc) } }),
 }));
 vi.mock('../../src/lib/localUpsert', () => ({ upsertLocalDoc: fixtures.upsert }));
 import { useDiary } from '../../src/hooks/useDiary';

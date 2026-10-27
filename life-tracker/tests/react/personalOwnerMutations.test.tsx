@@ -16,18 +16,66 @@ vi.mock('../../src/db/database', () => ({ getDatabase: () => {
     findOne: () => ({ exec: fixture.lookup }),
     find: () => ({ exec: fixture.links }), insert: fixture.insert,
   };
-  return { settings: collection, bucketList: collection, bucketTaskLinks: collection, tasks: collection };
+  return { categories: collection, settings: collection, bucketList: collection, bucketTaskLinks: collection, tasks: collection, diary: collection };
 } }));
 
 import { useSettings } from '../../src/hooks/useSettings';
 import { useBucketList } from '../../src/hooks/useBucketList';
 import { useBucketTaskLinks } from '../../src/hooks/useBucketTaskLinks';
+import { useTasks } from '../../src/hooks/useTasks';
+import { useCategories } from '../../src/hooks/useCategories';
+import { useDiary } from '../../src/hooks/useDiary';
 
 const row = () => ({ id: 'row', userId: 'owner_a', key: 'theme',
   bucketListId: 'bucket', taskId: 'task', isDeleted: false,
   achieved: false, incrementalPatch: fixture.patch });
 
 describe('personal Settings and Bucket local owner fences', () => {
+  it('rejects a stale callback after switching away and returning to the same owner',async()=>{
+    const hook=renderHook(()=>useBucketList());
+    const stale=hook.result.current;
+    fixture.owner='owner_b';hook.rerender();
+    fixture.owner='owner_a';hook.rerender();
+    await expect(stale.createItem('old session')).rejects.toThrow('Account changed');
+    expect(fixture.insert).not.toHaveBeenCalled();
+  });
+  it.each(['task','category'])('rejects an old %s callback after A to B to A',async kind=>{
+    const hook=renderHook(()=>({tasks:useTasks(),categories:useCategories()}));
+    const stale=hook.result.current;
+    fixture.owner='owner_b';hook.rerender();
+    fixture.owner='owner_a';hook.rerender();
+    const write=kind==='task'?stale.tasks.addTask({title:'Old',date:'',categoryId:'',completed:false}):
+      stale.categories.addCategory({name:'Old',color:'#123456',order:0,visibility:'private'});
+    await expect(write).rejects.toThrow('Account changed');
+    expect(fixture.insert).not.toHaveBeenCalled();
+  });
+  it.each(['save','delete'])('fences Diary %s after an awaited owner lookup',async action=>{
+    fixture.links.mockImplementation(async()=>{
+      fixture.current=false;
+      return [{...row(),date:'2026-10-11',photos:'[]',visibility:'private'}];
+    });
+    const hook=renderHook(()=>useDiary());
+    await expect(action==='save'?hook.result.current.saveEntry('2026-10-11','New','private'):
+      hook.result.current.deleteEntry('2026-10-11')).rejects.toThrow('Account changed');
+    expect(fixture.patch).not.toHaveBeenCalled();
+    expect(fixture.insert).not.toHaveBeenCalled();
+  });
+  it('updates the original restored Settings ID by its owner/key instead of inserting a duplicate',async()=>{
+    fixture.lookup.mockResolvedValue(null);
+    fixture.links.mockResolvedValue([{...row(),id:'original_settings_id'}]);
+    const hook=renderHook(()=>useSettings());
+    await hook.result.current.setSetting('theme','light');
+    expect(fixture.patch).toHaveBeenCalledWith(expect.objectContaining({value:'light'}));
+    expect(fixture.insert).not.toHaveBeenCalled();
+  });
+  it('unlinks the original restored relationship ID instead of leaving it live',async()=>{
+    fixture.lookup.mockResolvedValueOnce(row()).mockResolvedValueOnce(row()).mockResolvedValueOnce(null);
+    fixture.links.mockResolvedValue([{...row(),id:'original_link_id'}]);
+    const hook=renderHook(()=>useBucketTaskLinks());
+    await hook.result.current.setLinked('bucket','task',false);
+    expect(fixture.patch).toHaveBeenCalledWith(expect.objectContaining({isDeleted:true}));
+    expect(fixture.insert).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.resetAllMocks();
     fixture.owner = 'owner_a'; fixture.current = true;

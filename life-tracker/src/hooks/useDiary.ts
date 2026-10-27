@@ -3,7 +3,7 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import { makeDiaryRowId } from '../lib/settingsRowId';
-import { upsertLocalDoc } from '../lib/localUpsert';
+import { useOwnerMutationGuard } from './useOwnerMutationGuard';
 import type { DiaryDocument } from '../db/schema';
 import { parseDiaryPhotos, serializeDiaryPhotos } from '../lib/diaryPhotos';
 import { MOSAIC_FEATURE_PROFILE } from '../lib/backendCapabilities';
@@ -20,6 +20,7 @@ function validDiaryDate(date: string): boolean {
 
 export function useDiary(enabled = true) {
   const { user } = useAuth();
+  const assertOwner = useOwnerMutationGuard();
   const { data: entries, isLoading } = useRxCollection<DiaryDocument>({
     collection: 'diary',
     selector: { userId: user?.$id ?? '', isDeleted: false },
@@ -32,9 +33,12 @@ export function useDiary(enabled = true) {
     const docs = await getDatabase().diary.find({
       selector: { userId: uid, date },
     }).exec();
+    assertOwner(uid);
     if (docs.length > 1) throw new Error('Multiple diary entries exist for this day; no change was made.');
+    if (docs[0] && (docs[0].userId !== uid || docs[0].date !== date))
+      throw new Error('Diary identity changed; no change was made.');
     return docs[0] ?? null;
-  }, []);
+  }, [assertOwner]);
 
   const saveEntry = useCallback(async (
     date: string, content: string, visibility?: DiaryVisibility, emoji = '', photos?: string
@@ -47,6 +51,7 @@ export function useDiary(enabled = true) {
       throw new Error('Invalid diary entry.');
     }
     const doc = await findStored(date, uid);
+    assertOwner(uid);
     const savedPhotos = photos === undefined ? parseDiaryPhotos(doc?.photos) : parseDiaryPhotos(photos);
     if (photos !== undefined && serializeDiaryPhotos(savedPhotos) !== photos)
       throw new Error('Invalid diary photo list.');
@@ -59,27 +64,28 @@ export function useDiary(enabled = true) {
     if (['core-diary', 'personal'].includes(MOSAIC_FEATURE_PROFILE) && selectedVisibility !== 'private')
       throw new Error('Diary entries must remain private on this backend.');
     if (doc) {
-      await upsertLocalDoc('diary', doc.id, {
+      await doc.incrementalPatch({
         content, emoji, photos: serializeDiaryPhotos(savedPhotos), visibility: selectedVisibility, updatedAt: now, isDeleted: false,
       });
       return;
     }
     const id = makeDiaryRowId(uid, date);
-    await upsertLocalDoc('diary', id, {
+    await getDatabase().diary.insert({
       id, date, content, emoji, photos: serializeDiaryPhotos(savedPhotos), visibility: selectedVisibility, userId: uid,
       createdAt: now, updatedAt: now, isDeleted: false,
     } satisfies DiaryDocument);
-  }, [user?.$id, findStored]);
+  }, [user?.$id, findStored, assertOwner]);
 
   const deleteEntry = useCallback(async (date: string) => {
     const uid = user?.$id;
     if (!uid) throw new Error('You must be signed in to delete a diary entry.');
     if (!validDiaryDate(date)) throw new Error('Invalid diary date.');
     const doc = await findStored(date, uid);
+    assertOwner(uid);
     if (doc && !doc.isDeleted) {
       await doc.incrementalPatch({ isDeleted: true, updatedAt: new Date().toISOString() });
     }
-  }, [user?.$id, findStored]);
+  }, [user?.$id, findStored, assertOwner]);
 
   const getEntryByDate = useCallback(
     (date: string): DiaryDocument | undefined => entries.find(entry => entry.date === date),

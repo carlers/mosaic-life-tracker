@@ -7,10 +7,10 @@ type Stored = Record<string, unknown>;
 
 const state = vi.hoisted(() => {
   const rows = { portableSettings: new Map<string, Stored>(), tasks: new Map<string, Stored>(), categories: new Map<string, Stored>(), diary: new Map<string, Stored>(), settings: new Map<string, Stored>(), friendships: new Map<string, Stored>(), messages: new Map<string, Stored>(), bucketList: new Map<string, Stored>(), bucketTaskLinks: new Map<string, Stored>() };
-  return { rows, personal: false, backend: 'appwrite' as 'appwrite' | 'supabase', accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A'), subscribeTaskPushProgress: vi.fn().mockReturnValue(null) };
+  return { beforeModify: vi.fn(), rows, personal: false, backend: 'appwrite' as 'appwrite' | 'supabase', accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A'), subscribeTaskPushProgress: vi.fn().mockReturnValue(null) };
 });
-function resetRows() { state.personal = false; for (const map of Object.values(state.rows)) map.clear(); }
-function wrap(collection: CollectionName, id: string) { const map = state.rows[collection]; return { get id() { return id; }, toJSON: () => ({ ...(map.get(id) ?? {}) }), incrementalPatch: vi.fn(async (patch: Stored) => { map.set(id, { ...(map.get(id) ?? {}), ...patch }); }) }; }
+function resetRows() { state.beforeModify.mockReset(); state.personal = false; for (const map of Object.values(state.rows)) map.clear(); }
+function wrap(collection: CollectionName, id: string) { const map = state.rows[collection]; return { get id() { return id; }, toJSON: () => ({ ...(map.get(id) ?? {}) }), incrementalModify: vi.fn(async (modify: (current: Stored) => Stored) => { state.beforeModify(collection, id); map.set(id, modify({ ...(map.get(id) ?? {}) })); }), incrementalPatch: vi.fn(async (patch: Stored) => { map.set(id, { ...(map.get(id) ?? {}), ...patch }); }) }; }
 function dbCollection(collection: CollectionName) { const map = state.rows[collection]; return { findOne: (id: string) => ({ exec: async () => (map.has(id) ? wrap(collection, id) : null) }), findByIds: (ids: string[]) => ({ exec: async () => new Map(ids.filter((id) => map.has(id)).map((id) => [id, wrap(collection, id)])) }), find: () => ({ exec: async () => Array.from(map.keys(), (id) => wrap(collection, id)) }), insert: async (doc: Stored) => { map.set(String(doc.id), { ...doc }); } }; }
 vi.mock('../../src/db/database', () => ({ getDatabase: () => ({ portableSettings: dbCollection('portableSettings'), tasks: dbCollection('tasks'), categories: dbCollection('categories'), diary: dbCollection('diary'), settings: dbCollection('settings'), friendships: dbCollection('friendships'), messages: dbCollection('messages'), bucketList: dbCollection('bucketList'), bucketTaskLinks: dbCollection('bucketTaskLinks') }) }));
 vi.mock('../../src/lib/localUpsert', () => ({ upsertLocalDoc: state.upsertLocalDoc }));
@@ -52,6 +52,51 @@ function jsonBackup(overrides: Record<string, unknown> = {}) { return new File([
 function zipBackup(overrides: Record<string, unknown>, images: Record<string, string> = {}) { const encoder = new TextEncoder(); const files: Record<string, Uint8Array> = { 'manifest.json': encoder.encode(JSON.stringify(backupPayload(overrides))) }; for (const [fileId, contents] of Object.entries(images)) files[`images/${fileId}.webp`] = encoder.encode(contents); const zipped = zipSync(files); const buffer = zipped.slice().buffer as ArrayBuffer; return new File([buffer], 'backup.zip', { type: 'application/zip' }); }
 
 describe('backup restore', () => {
+  it.each([{isDeleted:undefined},{updatedAt:'invalid'},{userId:'foreign'},{categoryId:'absent'},null])('refuses malformed v5 history before writes: %j',async change=>{
+    const row={id:'task',userId:'user_A',title:'History',date:'',createdAt:'2026-10-11T00:00:00Z',
+      updatedAt:'2026-10-11T00:00:00Z',isDeleted:true,...change};
+    const file=jsonBackup({version:5,data:{tasks:[change===null?null:row],categories:[],diary:[],settings:[],bucketList:[],bucketTaskLinks:[],friendships:[]}});
+    await expect(restoreUserData(file,currentUser,{mode:'merge'})).rejects.toThrow('History backup');
+    expect(state.upsertLocalDoc).not.toHaveBeenCalled();
+  });
+  it('preserves an edit arriving between backup comparison and the atomic local write', async () => {
+    state.backend='supabase';state.personal=true;
+    const task={id:'task',userId:'user_A',title:'Old',categoryId:'',date:'',completed:false,
+      createdAt:'2026-10-10T00:00:00Z',updatedAt:'2026-10-10T00:00:00Z',isDeleted:false};
+    state.rows.tasks.set('task',task);
+    state.beforeModify.mockImplementationOnce(()=>state.rows.tasks.set('task',{
+      ...task,title:'Concurrent edit',updatedAt:'2026-10-12T00:00:00Z',isDeleted:true,
+    }));
+    const file=jsonBackup({version:5,data:{tasks:[{...task,title:'Backup',updatedAt:'2026-10-11T00:00:00Z'}],
+      categories:[],diary:[],settings:[],bucketList:[],bucketTaskLinks:[],friendships:[]}});
+    const result=await restoreUserData(file,currentUser,{mode:'merge'});
+    expect(result.restored.tasks).toBe(0);
+    expect(state.rows.tasks.get('task')).toMatchObject({title:'Concurrent edit',isDeleted:true});
+  });
+  it('v5 preserves deletion history, original IDs and retirement without overwriting newer edits', async () => {
+    state.backend='supabase';state.personal=true;
+    const now='2026-10-11T00:00:00.000Z';
+    const task=(id:string)=>({id,userId:'user_A',title:'Deleted trip',categoryId:'cat',date:'',completed:false,
+      order:0,visibility:'private',createdAt:now,updatedAt:now,isDeleted:true});
+    state.rows.tasks.set('newer',{...task('newer'),title:'Newer edit',isDeleted:false,updatedAt:'2026-10-12T00:00:00.000Z'});
+    const file=jsonBackup({version:5,data:{tasks:[task('task'),task('newer')],
+      categories:[{id:'cat',userId:'user_A',name:'Travel',color:'#123456',order:0,visibility:'private',
+        updatedAt:now,isDeleted:true,retiredOn:'2026-10-10'}],
+      diary:[{id:'diary_original',userId:'user_A',date:'2026-10-11',content:'Original',emoji:'',photos:'[]',visibility:'private',createdAt:now,updatedAt:now,isDeleted:true}],
+      settings:[{id:'setting_original',userId:'user_A',key:'theme',value:'dark',updatedAt:now,isDeleted:true}],
+      bucketList:[{id:'goal',userId:'user_A',title:'Visit Iceland',description:'',achieved:false,achievedAt:'',createdAt:now,updatedAt:now,isDeleted:true}],
+      bucketTaskLinks:[{id:'link_original',userId:'user_A',bucketListId:'goal',taskId:'task',createdAt:now,updatedAt:now,isDeleted:true}],friendships:[]}});
+    expect((await inspectBackupFile(file,'user_A')).tombstones).toBe(7);
+    await restoreUserData(file,currentUser,{mode:'merge'});
+    expect(state.rows.tasks.get('task')).toMatchObject({isDeleted:true,categoryId:'cat'});
+    expect(state.rows.tasks.get('newer')).toMatchObject({title:'Newer edit',isDeleted:false});
+    expect(state.rows.categories.get('cat')).toMatchObject({isDeleted:true,retiredOn:'2026-10-10'});
+    expect(state.rows.diary.get('diary_original')?.isDeleted).toBe(true);
+    expect(state.rows.portableSettings.get('setting_original')?.isDeleted).toBe(true);
+    expect(state.rows.bucketTaskLinks.get('link_original')).toMatchObject({isDeleted:true,taskId:'task',bucketListId:'goal'});
+    const repeat=await restoreUserData(file,currentUser,{mode:'merge'});
+    expect(Object.values(repeat.restored).every(count=>count===0)).toBe(true);
+  });
   it('merges all supported personal domains while isolating portable settings from profile/social data', async () => {
     state.backend='supabase';state.personal=true;
     const now='2026-10-11T00:00:00.000Z';

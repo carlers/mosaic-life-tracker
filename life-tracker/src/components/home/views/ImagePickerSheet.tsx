@@ -113,6 +113,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            aria-label="Choose photo from device"
             onChange={handleFileSelect}
             className="hidden"
           />

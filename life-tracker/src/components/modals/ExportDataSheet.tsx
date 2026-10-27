@@ -328,6 +328,9 @@ export const ExportDataSheet: React.FC<ExportDataSheetProps> = ({
                 {restorePreview.counts.diary} diary ·{' '}
                 {restorePreview.counts.settings} preferences
               </p>
+              {restorePreview.version >= 5 && <p className="text-xs text-muted-foreground">
+                Includes {restorePreview.tombstones ?? 0} deletion records. Merge keeps newer current edits and deletions.
+              </p>}
 
               {(restorePreview.counts.images > 0 ||
                 restorePreview.friendshipsReferenceOnly > 0) && (

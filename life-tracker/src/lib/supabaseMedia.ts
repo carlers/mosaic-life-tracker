@@ -17,6 +17,8 @@ export type SupabaseMediaBinding = {
   publishableKey: string;
   getVerifiedSession: () => Promise<VerifiedSession | null>;
   isCurrent: () => boolean;
+  /** Cached identity may read its local blobs after offline cold start only. */
+  canUseRemote?: () => boolean;
   fetcher?: typeof fetch;
 };
 
@@ -58,10 +60,11 @@ function objectPath(current: SupabaseMediaBinding, fileId: string) {
 }
 
 async function signedRequest(current: SupabaseMediaBinding, fileId: string, method: 'GET' | 'POST' | 'DELETE', blob?: Blob) {
-  if (binding !== current || !current.isCurrent()) throw new Error('Supabase photo owner changed');
+  if (binding !== current || !current.isCurrent() || current.canUseRemote?.() === false)
+    throw new Error('Supabase photo remote access requires the active signed account');
   const signed = await current.getVerifiedSession();
   if (!signed || signed.userId !== current.identity.supabaseUserId ||
-      !current.isCurrent() || binding !== current)
+      !current.isCurrent() || binding !== current || current.canUseRemote?.() === false)
     throw new Error('Supabase photo session was not verified');
   const path = objectPath(current, fileId).split('/').map(encodeURIComponent).join('/');
   const endpoint = method === 'GET'
@@ -128,6 +131,7 @@ export async function fetchSupabasePhoto(fileId: string, refreshFromCloud = fals
   const cached = refreshFromCloud ? undefined : await getCachedImage(key).catch(() => undefined);
   if (binding !== current || !current.isCurrent()) return null;
   if (cached) return cached;
+  if (current.canUseRemote?.() === false) return null;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
   const response = await signedRequest(current, fileId, 'GET');
   if (response.status === 404) return null;

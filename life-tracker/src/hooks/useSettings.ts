@@ -95,8 +95,14 @@ export function useSettings() {
       const now = new Date().toISOString();
       const collection = getDatabase()[settingsCollectionForKey(key)];
       if (!collection) throw new Error('Personal Settings collection is unavailable');
-      const doc = await collection.findOne(id).exec();
+      let doc = await collection.findOne(id).exec();
       assertOwner(uid);
+      if (!doc) {
+        const historical = await collection.find({ selector: { userId: uid, key } }).exec();
+        assertOwner(uid);
+        if (historical.length > 1) throw new Error('Multiple Settings rows share this key; nothing was changed.');
+        doc = historical[0] ?? null;
+      }
       if (doc) {
         if (doc.userId !== uid || doc.key !== key)
           throw new Error('Settings identity collision; nothing was changed.');
