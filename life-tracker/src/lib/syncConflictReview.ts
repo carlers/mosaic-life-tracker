@@ -1,6 +1,6 @@
 /** Provider-neutral, current-account review surface. Drafts stay in RxDB. */
 export interface SyncConflict {
-  domain: 'tasks' | 'categories' | 'diary';
+  domain: import('../../supabase-poc/candidatePersonalRuntime').PersonalDomain;
   documentId: string;
   title: string;
   revision: string | null;

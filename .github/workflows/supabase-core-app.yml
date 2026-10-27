@@ -71,6 +71,7 @@ jobs:
           cp supabase-poc/migrations/20261025_candidate_private_personal_settings.sql supabase/migrations/20261025000000_personal_settings.sql
           cp supabase-poc/migrations/20261025_candidate_private_bucket_links.sql supabase/migrations/20261025000001_private_bucket_links.sql
           cp supabase-poc/migrations/20261027170802_mosaic_account_registry.sql supabase/migrations/20261027170802_mosaic_account_registry.sql
+          cp supabase-poc/migrations/20261027172600_personal_runtime_readiness.sql supabase/migrations/20261027172600_personal_runtime_readiness.sql
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -189,19 +190,28 @@ jobs:
             sleep 1
           done
           tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --workers=1 --reporter=line,github
-      - name: Exercise signed core-diary actual UI and second-device replication
+      - name: Exercise signed six-domain personal UI and second-device replication
         run: |
           set -euo pipefail
           source "$RUNNER_TEMP/mosaic-core-local.env"
+          # Synthetic LOCAL release attestation only. The hosted marker stays
+          # unset until exact release evidence and protected rollout are reviewed.
+          mapfile -t local_db < <(docker ps --filter name=supabase_db_ --format '{{.ID}}')
+          test "${#local_db[@]}" -eq 1
+          docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+          update mosaic_candidate_private.identity_installation set personal_release_evidence=
+            '{"schema":14,"sourceSha":"0000000000000000000000000000000000000000","signedRun":100,"restoreRun":100}';
+          SQL
           : "${PUBLISHABLE_KEY:?Local publishable key required}"
           export VITE_MOSAIC_BACKEND=supabase-cloud
-          export VITE_MOSAIC_FEATURE_PROFILE=core-diary
+          export VITE_MOSAIC_FEATURE_PROFILE=personal
           export VITE_SUPABASE_URL=http://127.0.0.1:54321
           export VITE_SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
           export MOSAIC_SB_LOCAL_URL="$VITE_SUPABASE_URL"
           export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
           export MOSAIC_CORE_APP_LAB=true
           export MOSAIC_CORE_DIARY_UI_LAB=true
+          export MOSAIC_PERSONAL_UI_LAB=true
           npm run build
           export MOSAIC_E2E_BASE_URL=http://127.0.0.1:4174
           npm run preview -- --config "$RUNNER_TEMP/mosaic-core-http.config.mjs" --host 127.0.0.1 --port 4174 --strictPort > "$RUNNER_TEMP/mosaic-diary-vite.log" 2>&1 &
@@ -209,7 +219,7 @@ jobs:
             if curl -fsS "$MOSAIC_E2E_BASE_URL/" >/dev/null; then break; fi
             sleep 1
           done
-          tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --grep '@diary-ui|@photo-storage' --workers=1 --reporter=line,github
+          tests/e2e/node_modules/.bin/playwright test tests/e2e/supabase-core-app.spec.mjs --grep '@diary-ui|@photo-storage|@personal-ui' --workers=1 --reporter=line,github
       - name: Exercise actual disposable GoTrue invite hook
         run: |
           set -euo pipefail

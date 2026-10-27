@@ -8,7 +8,7 @@ export function resolveCoreBackendConfig(env: Record<string, unknown>): CoreBack
   if (!selected || selected === 'appwrite-cloud' || selected === 'appwrite-oracle')
     return { driver: 'appwrite' };
   if (selected !== 'supabase-cloud' ||
-      !['core-only', 'core-diary'].includes(String(env.VITE_MOSAIC_FEATURE_PROFILE)))
+      !['core-only', 'core-diary', 'personal'].includes(String(env.VITE_MOSAIC_FEATURE_PROFILE)))
     throw new Error('Supabase requires an explicit core-only or core-diary backend selection');
   const url = new URL(String(env.VITE_SUPABASE_URL ?? ''));
   const local = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);

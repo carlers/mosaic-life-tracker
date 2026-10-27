@@ -21,7 +21,9 @@ import {
   triggerDownload,
   type ExportUser,
 } from './exportData';
+import { USE_PORTABLE_SETTINGS } from './personalSettings';
 import { upsertLocalDoc } from './localUpsert';
+import { classifyCandidateSettingKey } from '../../supabase-poc/candidateSettingsMapping';
 import { parseDiaryPhotos, serializeDiaryPhotos } from './diaryPhotos';
 import {
   hashString,
@@ -53,6 +55,7 @@ type RestorableCollection = (typeof RESTORABLE_COLLECTIONS)[number];
  * them synced. The source ZIP remains the durable archive for those domains. */
 function importDomains(): readonly RestorableCollection[] {
   if (CORE_BACKEND.driver !== 'supabase') return RESTORABLE_COLLECTIONS;
+  if (MOSAIC_FEATURE_PROFILE === 'personal') return RESTORABLE_COLLECTIONS;
   return MOSAIC_FEATURE_PROFILE === 'core-diary'
     ? ['categories', 'tasks', 'diary']
     : ['categories', 'tasks'];
@@ -181,6 +184,7 @@ type LocalDoc = {
 };
 
 type LocalCollection = {
+  insert: (doc: object) => Promise<unknown>;
   findOne: (id: string) => { exec: () => Promise<LocalDoc | null> };
   findByIds: (ids: string[]) => {
     exec: () => Promise<Map<string, LocalDoc>>;
@@ -744,7 +748,9 @@ function toMs(value: unknown): number {
 
 function collectionFor(name: RestorableCollection): LocalCollection {
   const db = getDatabase();
-  return db[name] as unknown as LocalCollection;
+  const collection = db[name === 'settings' && USE_PORTABLE_SETTINGS ? 'portableSettings' : name];
+  if (!collection) throw new Error('Restore collection is unavailable');
+  return collection as unknown as LocalCollection;
 }
 
 function referencedImageIds(data: NormalizedBackup): Set<string> {
@@ -1023,7 +1029,11 @@ async function applyDocuments(
       }
 
       assertOwner?.();
-      await upsertLocalDoc(collectionName, doc.id, doc);
+      // Reuse the owner-checked lookup. A second unguarded await could switch
+      // accounts between validation and the dispatched local write.
+      if (!USE_PORTABLE_SETTINGS) await upsertLocalDoc(collectionName, doc.id, doc);
+      else if (existing) await existing.incrementalPatch(doc as unknown as JsonRecord);
+      else await collection.insert(doc);
       assertOwner?.();
       restored += 1;
     } finally {
@@ -1093,6 +1103,8 @@ function documentsFor(
   data: NormalizedBackup,
   collection: RestorableCollection
 ): RestorableDocument[] {
+  if (collection === 'settings' && USE_PORTABLE_SETTINGS)
+    return data.settings.filter(row => classifyCandidateSettingKey(row.key) === 'personal');
   return data[collection] as RestorableDocument[];
 }
 

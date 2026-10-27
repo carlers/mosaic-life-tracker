@@ -43,3 +43,38 @@ Settings and Bucket mutations additionally recheck the active local account afte
 asynchronous reads, including duplicate-insert recovery and relationship cleanup.
 Previously dispatched writes can finish; no new mutation is dispatched after an
 observed account change. Ambiguous/colliding Settings IDs never rewrite ownership.
+
+## Six-domain application lifecycle
+
+The `personal` feature profile selects the six-domain bootstrap from the existing
+Auth coordinator. Tasks, categories, Diary, portable Settings, Bucket List and
+links share signed session checks, one provider lease, shutdown before refresh or
+logout, conflict review, and full six-group Sync Now verification. Review work is
+drained before releasing the lease. Missing server Bucket/task targets leave a
+local link pending for retry; local IDs alone are never ownership proof.
+
+Startup additionally calls the signed `mosaic_personal_readiness` RPC. The private
+installation's `personal_release_evidence` defaults to null; installing migrations
+or choosing a browser profile cannot approve readiness. A protected rollout must
+record reviewed schema-14 restore and signed-lab run IDs and their source SHA only
+after the corresponding hosted schema/security/backup gates pass. The disposable
+CI fixture uses a synthetic marker solely inside its local stack. The marker and
+Realtime additions are preserved by the fourteen-table restore profile.
+
+This first integrated path accepts only server-enrolled independent new data with
+fresh or recovery-pending consent. A recovered/linked principal is deliberately
+refused until verified historical linking and escrow are implemented. Suspended
+Appwrite history is not fenced or imported by this adapter.
+
+Portable settings use their separate RxDB collection. Existing device values are
+a read fallback until a portable value arrives; a portable tombstone suppresses
+that fallback. Profile images and social carousel preferences stay local. ZIP
+Merge now routes the six supported domains and filters nonportable settings; it
+does not claim account linking or complete historical recovery. Replace remains
+blocked on Supabase. Export includes current portable preferences. Existing ZIP
+active-row exports do not yet constitute a complete tombstone/history escrow.
+
+The isolated artifact builder now produces the `personal` profile; its staging
+verifier requires that exact profile and retains the fixed Preview-only project,
+source SHA and backend checks. No hosted readiness marker or deployment is changed
+by building an artifact. Protected Preview must wait for the hosted prerequisites.

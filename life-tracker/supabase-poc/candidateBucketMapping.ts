@@ -2,6 +2,14 @@
 import type { BucketListDocument, BucketTaskLinkDocument } from '../src/db/schema';
 import { validateCandidateIdentity, type CandidateIdentity } from './candidateMapping';
 
+/** Targets can still be in the independent task/bucket replication queues. */
+export class CandidateBucketTargetsPendingError extends Error {
+  constructor() {
+    super('Bucket link targets are not synchronized yet');
+    this.name = 'CandidateBucketTargetsPendingError';
+  }
+}
+
 const ROW_ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
 // Historic Appwrite Task IDs may be longer than newly created candidate IDs.
 const HISTORIC_TASK_ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,254}$/;

@@ -39,7 +39,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   initialEditing = false, isOpen = true, onExitComplete,
 }) => {
   const { user } = useAuth();
-  const personalOnly = MOSAIC_FEATURE_PROFILE === 'core-diary';
+  const personalOnly = ['core-diary', 'personal'].includes(MOSAIC_FEATURE_PROFILE);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoIds, setPhotoIds] = useState(() => parseDiaryPhotos(entry?.photos));
   const [uploading, setUploading] = useState(false);

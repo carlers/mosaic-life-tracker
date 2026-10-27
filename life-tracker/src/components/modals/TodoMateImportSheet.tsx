@@ -400,7 +400,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
             <div className="space-y-1 text-xs text-gray-400 leading-relaxed">
               {CORE_BACKEND.driver === 'supabase' && (
                 <p role="status">Supabase currently imports tasks and categories
-                  {MOSAIC_FEATURE_PROFILE === 'core-diary' ? ' plus Diary entries' : ' only (Diary remains in TodoMate)'}.
+                  {['core-diary', 'personal'].includes(MOSAIC_FEATURE_PROFILE) ? ' plus Diary entries' : ' only (Diary remains in TodoMate)'}.
                   Keep your existing Mosaic ZIP and any downloaded TodoMate photo ZIP.
                   Import requires an active signed Supabase sync connection.</p>
               )}

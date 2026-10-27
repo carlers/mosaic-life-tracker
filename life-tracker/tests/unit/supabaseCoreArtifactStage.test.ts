@@ -9,7 +9,7 @@ const evidence = {
   source: { sha, ref: 'refs/heads/' + CORE_BRANCH },
   buildProfile: {
     environment: 'untrusted-ci-diagnostic', vercelEnvironment: 'preview',
-    backend: 'supabase-cloud', featureProfile: 'core-diary', appwriteBackend: 'none',
+    backend: 'supabase-cloud', featureProfile: 'personal', appwriteBackend: 'none',
     supabaseOrigin: CORE_SUPABASE_ORIGIN, publishableKeySha256: 'c'.repeat(64),
     giphy: 'disabled', posthog: 'disabled',
   },

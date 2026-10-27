@@ -24,16 +24,21 @@ import {
   type AppSupabaseCoreBootstrapOptions,
 } from './supabaseCoreBootstrap';
 import { SupabaseAccountStartRequiredError } from './supabaseAccountRegistry';
+import type { AppSupabasePersonalBootstrapOptions } from './supabasePersonalBootstrap';
+import type { PersonalDomain } from '../../supabase-poc/candidatePersonalRuntime';
 
 type SessionManager = ReturnType<typeof createCandidateAuthSession>;
-type CoreBootstrap = ReturnType<typeof createAppSupabaseCoreBootstrap>;
+type CoreBootstrap = ReturnType<typeof createAppSupabaseCoreBootstrap> |
+  ReturnType<typeof import('./supabasePersonalBootstrap').createAppSupabasePersonalBootstrap>;
 type CoreRun = Awaited<ReturnType<CoreBootstrap['start']>>;
 type Phase = 'signed-out' | 'authenticating' | 'awaiting-consent' | 'active' | 'paused' | 'stopping' | 'blocked';
 
 export interface SupabaseCoreAuthOptions extends Omit<
   AppSupabaseCoreBootstrapOptions,
-  'identity' | 'session'
+  'identity' | 'session' | 'featureProfile'
 > {
+  featureProfile: 'core-only' | 'core-diary' | 'personal';
+  personal?(identity: CandidateIdentity): Promise<Pick<AppSupabasePersonalBootstrapOptions, 'guard' | 'verifyBucketLinkTargets'>>;
   /**
    * Must return a server-verified, canonical Mosaic owner mapping. A decoded
    * JWT, email, localStorage hint or user_metadata is NOT sufficient.
@@ -66,7 +71,7 @@ function sameSession(
 
 export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptions) {
   if (options.selectedBackend !== 'supabase-cloud' ||
-      !['core-only', 'core-diary'].includes(options.featureProfile))
+      !['core-only', 'core-diary', 'personal'].includes(options.featureProfile))
     throw new Error('Signed Supabase core requires explicit Supabase personal profile selection');
   if (typeof options.resolveIdentity !== 'function')
     throw new Error('Signed Supabase core requires a trusted legacy identity resolver');
@@ -101,9 +106,8 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
     if (identity.supabaseUserId !== signed.userId)
       throw new Error('Supabase core server identity mapping has a different signed owner');
     await verified(signed);
-    const bootstrap = createAppSupabaseCoreBootstrap({
+    const shared = {
       selectedBackend: options.selectedBackend,
-      featureProfile: options.featureProfile,
       baseUrl: options.baseUrl,
       publishableKey: options.publishableKey,
       fetcher: options.fetcher,
@@ -111,7 +115,17 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
       session,
       guard: options.guard,
       assertLocalAppwriteStopped: options.assertLocalAppwriteStopped,
-    });
+    };
+    let bootstrap: CoreBootstrap;
+    if (options.featureProfile === 'personal') {
+      if (!options.personal) throw new Error('Personal runtime requires all readiness guards');
+      const { createAppSupabasePersonalBootstrap } = await import('./supabasePersonalBootstrap');
+      await verified(signed);
+      const personal = await options.personal(identity);
+      await verified(signed);
+      bootstrap = createAppSupabasePersonalBootstrap({ ...shared, ...personal,
+        featureProfile: 'personal-review-only' });
+    } else bootstrap = createAppSupabaseCoreBootstrap({ ...shared, featureProfile: options.featureProfile });
     pendingBootstrap = bootstrap;
     const run = await bootstrap.start();
     try {
@@ -317,19 +331,19 @@ export function createSupabaseCoreAuthCoordinator(options: SupabaseCoreAuthOptio
       if (phase !== 'active' || !active) return () => {};
       return active.run.subscribeConflicts(listener);
     },
-    async refreshConflict(domain: 'tasks' | 'categories' | 'diary', id: string) {
+    async refreshConflict(domain: PersonalDomain, id: string) {
       if (phase !== 'active' || !active) throw new Error('Core conflict account is not active');
       return active.run.refreshConflict(domain, id);
     },
-    async keepLocalConflict(domain: 'tasks' | 'categories' | 'diary', id: string, revision: string) {
+    async keepLocalConflict(domain: PersonalDomain, id: string, revision: string) {
       if (phase !== 'active' || !active) throw new Error('Core conflict account is not active');
       return active.run.keepLocalConflict(domain, id, revision);
     },
     getPhase: () => phase,
     getReplicationStates: () => phase === 'active' && active
-      ? [active.run.taskState, active.run.categoryState,
+      ? ('replicationStates' in active.run ? active.run.replicationStates : [active.run.taskState, active.run.categoryState,
           ...('diaryState' in active.run && active.run.diaryState
-            ? [active.run.diaryState] : [])] : null,
+            ? [active.run.diaryState] : [])]) : null,
     /** No access token or Supabase refresh credential escapes this snapshot. */
     getAuthenticatedOwner: () => phase === 'active' && active
       ? { ...active.identity } : null,

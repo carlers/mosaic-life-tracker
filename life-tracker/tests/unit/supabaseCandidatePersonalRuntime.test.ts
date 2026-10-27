@@ -17,6 +17,7 @@ const mocks=vi.hoisted(()=>({
   verifyFailOnSecondPass:'',
   conflicts:new Set<string>(),
   waitSync:vi.fn(async()=>{}),
+  review:vi.fn(async (...args:string[])=>({state:'refreshed',id:args[1]})),
 }));
 vi.mock('../../supabase-poc/candidateRxdbPilot',()=>({
   createCandidateRxdbPilot: (options:{domain:string;verifyBucketLinkTargets?:unknown})=>({
@@ -50,6 +51,9 @@ vi.mock('../../supabase-poc/candidateRxdbPilot',()=>({
       return {pages:1,rows:1,localChecked:1,localTotal:1};
     },
     listPendingConflicts:()=>mocks.conflicts.has(options.domain)?[{id:'dirty'}]:[],
+    conflictEvents$:{subscribe:vi.fn(()=>({unsubscribe:vi.fn()}))},
+    refreshPendingConflict:(id:string)=>mocks.review(options.domain,id),
+    resolveKeepLocal:(id:string,revision:string)=>mocks.review(options.domain,id,revision),
   }),
 }));
 function fixture(){
@@ -113,6 +117,42 @@ beforeEach(()=>{
   mocks.verifyFailOnSecondPass='';
 });
 describe('gated six-domain original owner Supabase personal runner (#1027)',()=>{
+  it('reviews Settings and Bucket conflicts under the same lease and blocks review after pause',async()=>{
+    const f=fixture(),run=await f.runtime.start();
+    expect(run.replicationStates).toHaveLength(6);
+    mocks.conflicts.add('settings');
+    expect(run.getPendingConflicts().settings).toHaveLength(1);
+    await run.refreshConflict('settings','setting');
+    await run.keepLocalConflict('buckets','goal','42');
+    expect(mocks.review.mock.calls).toEqual([['settings','setting'],['buckets','goal','42']]);
+    await run.pause();
+    await run.pause();
+    await expect(run.keepLocalConflict('bucket_task_links','link','43')).rejects.toThrow('no longer owns');
+    expect(mocks.review).toHaveBeenCalledTimes(2);
+    await run.stop();
+    expect(f.released).toHaveBeenCalledOnce();
+  });
+  it('drains dispatched conflict review before releasing the writer and can retry release',async()=>{
+    const f=fixture(),run=await f.runtime.start();
+    let finish!:()=>void;
+    mocks.review.mockImplementationOnce(async()=>{
+      await new Promise<void>(resolve=>{finish=resolve;});
+      return {state:'refreshed',id:'goal'};
+    });
+    const pending=run.refreshConflict('buckets','goal');
+    await vi.waitFor(()=>expect(finish).toBeTypeOf('function'));
+    const stopped=run.stop();
+    expect(f.released).not.toHaveBeenCalled();
+    finish();
+    await expect(pending).rejects.toThrow('no longer owns');
+    await stopped;
+    expect(f.released).toHaveBeenCalledOnce();
+    const g=fixture(),next=await g.runtime.start();
+    g.released.mockRejectedValueOnce(new Error('offline'));
+    await expect(next.stop()).rejects.toThrow('offline');
+    await next.stop();
+    expect(g.released).toHaveBeenCalledTimes(2);
+  });
   it('shares exactly one fenced owner authority across ALL six personal domains',async()=>{
     const f=fixture();
     const run=await f.runtime.start();

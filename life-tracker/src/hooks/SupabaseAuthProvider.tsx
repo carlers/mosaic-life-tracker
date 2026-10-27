@@ -48,7 +48,12 @@ function createRuntime(config: Extract<CoreBackendConfig, { driver: 'supabase' }
   let pendingIdentity: CandidateIdentity | null = null;
   const coordinator = createSupabaseCoreAuthCoordinator({
     ...config, selectedBackend: 'supabase-cloud',
-    featureProfile: MOSAIC_FEATURE_PROFILE === 'core-diary' ? 'core-diary' : 'core-only',
+    featureProfile: MOSAIC_FEATURE_PROFILE === 'personal' ? 'personal' :
+      MOSAIC_FEATURE_PROFILE === 'core-diary' ? 'core-diary' : 'core-only',
+    async personal(identity) {
+      const { createSupabasePersonalAuthority } = await import('../lib/supabasePersonalAuthority');
+      return createSupabasePersonalAuthority({ ...config, session, identity, guard: authority.guard });
+    },
     session, guard: authority.guard,
     async resolveIdentity() {
       const identity = await authority.resolveIdentity();
@@ -239,7 +244,7 @@ export default function SupabaseAuthProvider({ config, children }: {
   }, [runtime, user, restoreAccount]);
 
   useEffect(() => {
-    if (!user || MOSAIC_FEATURE_PROFILE !== 'core-diary') return;
+    if (!user || !['core-diary', 'personal'].includes(MOSAIC_FEATURE_PROFILE)) return;
     const identity = runtime.coordinator.getAuthenticatedOwner();
     if (!identity || identity.legacyUserId !== user.$id) return;
     return registerSupabaseMedia({
@@ -322,7 +327,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       await runtime.authority.renew();
       await runtime.coordinator.resync();
       const states = runtime.coordinator.getReplicationStates();
-      const expected = MOSAIC_FEATURE_PROFILE === 'core-diary' ? 3 : 2;
+      const expected = MOSAIC_FEATURE_PROFILE === 'personal' ? 6 : MOSAIC_FEATURE_PROFILE === 'core-diary' ? 3 : 2;
       if (!states || states.length !== expected)
         throw new Error('All supported Supabase import domains must be actively replicating');
       await Promise.all(states.map(async state => {
@@ -339,7 +344,7 @@ export default function SupabaseAuthProvider({ config, children }: {
         throw new Error('Supabase verification needs a free, online signed session');
       verifying = true;
       publishSyncStatus({ isSyncing: true, errors: [], notice: null, progress: {
-        completed: 0, total: MOSAIC_FEATURE_PROFILE === 'core-diary' ? 9 : 6,
+        completed: 0, total: MOSAIC_FEATURE_PROFILE === 'personal' ? 18 : MOSAIC_FEATURE_PROFILE === 'core-diary' ? 9 : 6,
         percent: 0, phase: 'refresh', label: 'Refreshing signed Supabase data',
       } });
       try {
@@ -436,6 +441,7 @@ export default function SupabaseAuthProvider({ config, children }: {
         (!runtime.browser || runtime.browser.isCurrent()),
       onWake: catchUp,
       includeDiary: MOSAIC_FEATURE_PROFILE === 'core-diary',
+      includePersonal: MOSAIC_FEATURE_PROFILE === 'personal',
     });
     const online = () => { void catchUp(); };
     const visible = () => { if (document.visibilityState === 'visible') online(); };
@@ -530,7 +536,9 @@ export default function SupabaseAuthProvider({ config, children }: {
   }
   const historyPending = runtime.registry.snapshot()?.historyState === 'recovery-pending';
   const value: AuthContextValue = {
-    accountNotice: 'Disposable Supabase core preview. Preferences stay on this device. ' +
+    accountNotice: (MOSAIC_FEATURE_PROFILE === 'personal'
+      ? 'Supabase personal preview. Personal preferences and Bucket List sync across devices. '
+      : 'Disposable Supabase core preview. Preferences stay on this device. ') +
       (runtime.browser ? 'Previously signed-in personal data is available offline. ' : 'This browser requires sign-in after reload. ') +
       (historyPending ? 'Earlier Mosaic history is recovery-pending. New edits are separate; keep your old app and backups.' :
         'Old Appwrite history is not linked or imported. Keep any earlier app data and backups.'),

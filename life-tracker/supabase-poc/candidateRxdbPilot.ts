@@ -1,3 +1,4 @@
+import { CandidateBucketTargetsPendingError } from './candidateBucketMapping';
 /**
  * Isolated #967/#1027 RxDB pilot: private tasks/categories/Diary/Settings/Bucket List and links.
  * Settings, Bucket List and links are strictly source-only and not activated by the core bridge.
@@ -462,7 +463,7 @@ export function createCandidateRxdbPilot<D extends Document>(
         try {
           linkReferences = await verifiedLinkReferences(next, fence);
         } catch (error) {
-          if (error instanceof CandidateAuthError) throw error;
+          if (error instanceof CandidateAuthError || error instanceof CandidateBucketTargetsPendingError) throw error;
           recordConflict(next, assumed ?? null, null, 'protected-field-change');
         }
       }
@@ -635,7 +636,7 @@ export function createCandidateRxdbPilot<D extends Document>(
       try {
         await verifiedLinkReferences(local, fence);
       } catch (error) {
-        if (error instanceof CandidateAuthError) throw error;
+        if (error instanceof CandidateAuthError || error instanceof CandidateBucketTargetsPendingError) throw error;
         recordConflict(local, review.base, master, 'protected-field-change');
       }
     }

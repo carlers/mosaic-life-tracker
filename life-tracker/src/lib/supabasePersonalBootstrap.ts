@@ -1,8 +1,10 @@
 /**
- * #1027 six-domain APP collection bridge — preparatory, NOT app-startup wired.
- * No feature flag enables this module. Original owner escrow, offline-outbox
+ * #1027 six-domain app collection bridge, selected by the personal Auth lifecycle.
+ * A feature flag alone cannot authorize it. Original owner escrow, offline-outbox
  * preservation, signed backend lease, historical Appwrite writer fencing and
  * private Bucket target verification are required by the candidate runner.
+ * The independent new-data adapter instead proves a server-enrolled namespace,
+ * explicit consent and protected release readiness; it cannot import history.
  */
 import { validateCandidateIdentity, type CandidateIdentity } from '../../supabase-poc/candidateMapping';
 import {
@@ -139,6 +141,27 @@ export function createAppSupabasePersonalBootstrap(options: AppSupabasePersonalB
           throw new Error('Six-domain app writer no longer owns active session');
       };
       return {
+        replicationStates: established.replicationStates,
+        getPendingConflicts() {
+          assertActive();
+          return established.getPendingConflicts();
+        },
+        subscribeConflicts(listener: () => void) {
+          assertActive();
+          return established.subscribeConflicts(listener);
+        },
+        async refreshConflict(domain: import('../../supabase-poc/candidatePersonalRuntime').PersonalDomain, id: string) {
+          assertActive();
+          const result = await established.refreshConflict(domain, id);
+          assertActive();
+          return result;
+        },
+        async keepLocalConflict(domain: import('../../supabase-poc/candidatePersonalRuntime').PersonalDomain, id: string, revision: string) {
+          assertActive();
+          const result = await established.keepLocalConflict(domain, id, revision);
+          assertActive();
+          return result;
+        },
         async awaitInitialReplication() {
           assertActive();
           await established.awaitInitialReplication();
@@ -159,7 +182,8 @@ export function createAppSupabasePersonalBootstrap(options: AppSupabasePersonalB
           return established.getPendingConflictCounts();
         },
         async pause() {
-          assertActive();
+          if (activeRun !== established)
+            throw new Error('Six-domain app writer no longer owns active session');
           await pause();
         },
         async stop() {
