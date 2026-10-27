@@ -218,14 +218,18 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
         <div className="flex h-full min-h-full items-start will-change-transform">
           {slides.map((date, i) => {
             const inWindow = i >= renderStart && i <= renderEnd;
+            // Neighboring dates are prepared for horizontal swipes, but only
+            // the visible period can own keyboard and vertical scrolling.
+            const scrollActive = inWindow && i === activeIndex;
             return (
               <div
                 key={date.toISOString()}
                 data-calendar-slide-index={i}
-                className={`h-full min-h-0 overflow-x-hidden ${
-                  inWindow
-                    ? 'overflow-y-scroll [scrollbar-gutter:stable]'
-                    : 'overflow-y-hidden'
+                role={scrollActive ? 'region' : undefined}
+                aria-label={scrollActive ? `${viewMode === 'month' ? 'Month' : 'Week'} calendar scroll` : undefined}
+                tabIndex={scrollActive ? 0 : undefined}
+                className={`h-full min-h-0 overflow-x-hidden [scrollbar-gutter:stable] ${
+                  scrollActive ? 'overflow-y-scroll' : 'overflow-y-hidden'
                 }`}
                 style={{
                   flex: '0 0 100%',
