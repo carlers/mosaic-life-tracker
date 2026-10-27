@@ -211,13 +211,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     "label": "Accent color",
     "path": "/settings/preferences/appearance",
     "breadcrumb": "Preferences › Appearance & Layout",
-    "keywords": "color theme palette"
-  },
-  {
-    "label": "UI colors",
-    "path": "/settings/preferences/appearance",
-    "breadcrumb": "Preferences › Appearance & Layout",
-    "keywords": ""
+    "keywords": "color theme palette UI colors"
   },
   {
     "label": "Content width",
@@ -338,6 +332,90 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     "path": "/settings/notifications",
     "breadcrumb": "Notifications",
     "keywords": "alerts push notifications channels"
+  },
+  {
+    "label": "Unread alerts",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "retention unread history"
+  },
+  {
+    "label": "Read alerts",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "retention read history"
+  },
+  {
+    "label": "Notification categories",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "alerts activity in-app push notification categories"
+  },
+  {
+    "label": "Friend requests",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "in-app alert push channel"
+  },
+  {
+    "label": "Accepted requests",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "in-app alert push channel"
+  },
+  {
+    "label": "Messages",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "in-app alert push channel"
+  },
+  {
+    "label": "Message reactions",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "in-app alert push channel"
+  },
+  {
+    "label": "Task reactions",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "in-app alert push channel"
+  },
+  {
+    "label": "Shared-task invitations",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "in-app alert push channel"
+  },
+  {
+    "label": "Friend completions",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "in-app alert push channel"
+  },
+  {
+    "label": "Enable push notifications",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "device push permission"
+  },
+  {
+    "label": "Show task details in notifications",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "push lock screen privacy"
+  },
+  {
+    "label": "Show message and reaction previews in push",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "push sensitive previews privacy"
+  },
+  {
+    "label": "Notify while Mosaic is open",
+    "path": "/settings/notifications",
+    "breadcrumb": "Notifications",
+    "keywords": "foreground alerts"
   }
 ] as const;
 

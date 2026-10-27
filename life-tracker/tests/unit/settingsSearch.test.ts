@@ -9,6 +9,8 @@ describe('Settings search', () => {
     expect(searchSettings('logout')[0]?.label).toBe('Sign Out');
     expect(searchSettings('color').some((item) => item.path === '/settings/preferences/appearance')).toBe(true);
     expect(searchSettings('backup')[0]?.path).toBe('/settings/data');
+    expect(searchSettings('push').some((item) => item.label === 'Enable push notifications')).toBe(true);
+    expect(searchSettings('message reactions').some((item) => item.path === '/settings/notifications')).toBe(true);
     expect(searchSettings('  ')).toEqual([]);
   });
   it('points all indexed entries to registered protected settings routes', () => {
