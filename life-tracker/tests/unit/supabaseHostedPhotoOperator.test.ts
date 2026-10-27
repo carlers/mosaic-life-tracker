@@ -36,7 +36,7 @@ describe('hosted signed private-photo operator guard', () => {
     expect(output).toContain('OPERATOR_GUARDS_PASS');
   });
 
-  it('proves a synthetic owner upload/read/foreign denial + cleanup without network', () => {
+  it.each([false, true])('proves owner upload/read/foreign denial and cleanup (personal authority=%s)', (personal) => {
     const output = run([
       'import sys, importlib.util,io,contextlib',
       'from unittest.mock import patch',
@@ -64,10 +64,19 @@ describe('hosted signed private-photo operator guard', () => {
       '    state["bytes"].pop(obj,None);state["deletes"]+=1;return 200,b""',
       '  if is_private and not is_a: return 403,b""',
       '  return (200,state["bytes"][obj]) if obj in state["bytes"] else (404,b"")',
-      'with patch.object(p,"signed_owner",side_effect=signed),patch.object(p,"request",side_effect=fake),patch.object(p,"encrypted_roundtrip",side_effect=lambda blob: blob),patch.object(sys,"argv",["verify-hosted-private-photo.py"]):',
+      'authority=[]',
+      'def auth(path,key,token,payload):',
+      '  authority.append((path,token,payload))',
+      '  if path.endswith("mosaic_personal_readiness"): return {"personalReady":True,"consentVersion":1,"historyState":"recovery-pending"}',
+      '  if payload=={"p_action":"release"}: return {"released":True}',
+      '  assert payload=={"p_action":"acquire"}',
+      '  return {"ownerId":a if token=="token-a" else b,"backend":"supabase-cloud"}',
+      `argv=["verify-hosted-private-photo.py"]+${personal ? ' ["--personal-authority"]' : '[]'}`,
+      'with patch.object(p,"signed_owner",side_effect=signed),patch.object(p,"request",side_effect=fake),patch.object(p,"json_request",side_effect=auth),patch.object(p,"encrypted_roundtrip",side_effect=lambda blob: blob),patch.object(sys,"argv",argv):',
       '  out=io.StringIO()',
       '  with contextlib.redirect_stdout(out): p.main()',
       'assert state["bytes"]=={} and state["deletes"]==2',
+      `assert len(authority)==${personal ? 6 : 0}`,
       'print(out.getvalue())',
     ].join('\n'));
     for (const marker of [
@@ -78,6 +87,28 @@ describe('hosted signed private-photo operator guard', () => {
       'HOSTED_PRIVATE_PHOTO_ENCRYPTED_BYTE_RESTORE_PASS',
       'HOSTED_PRIVATE_PHOTO_FIXTURE_CLEANUP_PASS',
     ]) expect(output).toContain(marker);
+  });
+  it('refuses missing personal readiness before Storage and releases an acquired lease', () => {
+    const output = run([
+      'import sys,importlib.util',
+      'from unittest.mock import patch',
+      'spec=importlib.util.spec_from_file_location("photo",sys.argv[1])',
+      'p=importlib.util.module_from_spec(spec);spec.loader.exec_module(p)',
+      'owners=[("11111111-1111-4111-8111-111111111111","token-a"),("22222222-2222-4222-8222-222222222222","token-b")]',
+      'calls=[]',
+      'def auth(path,key,token,payload):',
+      '  calls.append((path,payload))',
+      '  if path.endswith("mosaic_personal_readiness"):return {"personalReady":False,"consentVersion":1,"historyState":"fresh"}',
+      '  if payload=={"p_action":"release"}:return {"released":True}',
+      '  return {"ownerId":owners[0][0],"backend":"supabase-cloud"}',
+      'with patch.object(p,"signed_owner",side_effect=owners),patch.object(p,"request",side_effect=AssertionError("Storage must not start")),patch.object(p,"json_request",side_effect=auth),patch.object(sys,"argv",["probe","--personal-authority"]):',
+      '  try:p.main();raise AssertionError("Missing readiness accepted")',
+      '  except ValueError as e:assert "already-consented" in str(e)',
+      'assert calls[-1][1]=={"p_action":"release"}',
+      'assert all(not path.endswith("mosaic_account_status") for path,_ in calls)',
+      'print("PERSONAL_AUTHORITY_FAIL_CLOSED_PASS")',
+    ].join('\n'));
+    expect(output).toContain('PERSONAL_AUTHORITY_FAIL_CLOSED_PASS');
   });
   it('tests real encrypted-file workflow without requiring age or remote credentials in CI', () => {
     const output = run([

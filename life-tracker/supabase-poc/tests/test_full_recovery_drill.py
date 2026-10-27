@@ -167,6 +167,8 @@ class FullRecoveryTests(unittest.TestCase):
                         stages.append("signed-owner")
                     elif pathlib.Path(args[1]).name == "verify-hosted-private-photo.py":
                         self.assertFalse(output)
+                        self.assertEqual(args[2:], ["--personal-authority"]
+                                         if profile == "fourteen-personal-identity" else [])
                         stages.append("signed-photo")
                         if fail_on == "signed-photo":
                             raise m.DrillFailure("Synthetic hosted photo lab failure")

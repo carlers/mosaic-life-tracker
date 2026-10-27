@@ -267,7 +267,9 @@ def run(args):
         def photos():
             print("Enter two distinct hosted Scratch test account logins for private photo security.", flush=True)
             with open("/dev/tty", "r", encoding="utf-8") as tty:
-                guarded_run(["python3", script("verify-hosted-private-photo.py")],
+                photo_args = (["--personal-authority"]
+                              if args.recovery_profile == "fourteen-personal-identity" else [])
+                guarded_run(["python3", script("verify-hosted-private-photo.py"), *photo_args],
                             cwd=tracker, env=clean_env(), stdin=tty, output=False, timeout=240)
             print("MOSAIC_FULL_DR_HOSTED_PHOTO_ENCRYPTED_RESTORE_PASS")
         stage_run(STAGES[4], photos)

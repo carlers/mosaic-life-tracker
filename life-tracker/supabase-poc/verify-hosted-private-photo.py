@@ -39,7 +39,8 @@ class DenyRedirect(HTTPRedirectHandler):
 
 
 def endpoint(path):
-    if path in ("/auth/v1/token?grant_type=password", "/auth/v1/user"):
+    if path in ("/auth/v1/token?grant_type=password", "/auth/v1/user",
+                "/rest/v1/rpc/mosaic_core_session", "/rest/v1/rpc/mosaic_personal_readiness"):
         return ORIGIN + path
     if not path.startswith("/storage/v1/object/") or any(
         x in path for x in ("..", "//", "\\", "#", "?", "@")
@@ -243,8 +244,9 @@ def main():
     if sys.argv[1:] == ["--cleanup-20261024-probe"]:
         cleanup_previous_probe()
         return
-    if len(sys.argv) != 1:
-        raise ValueError("No arguments permitted; this test is bound to Scratch")
+    personal = sys.argv[1:] == ["--personal-authority"]
+    if len(sys.argv) != 1 and not personal:
+        raise ValueError("Only --personal-authority is permitted; target remains Scratch")
     print("Hosted private-photo security lab: mosaic-dev only; no admin credentials.")
     key = (os.getenv("MOSAIC_SUPABASE_PUBLISHABLE_KEY") or DEFAULT_PUBLISHABLE_KEY).strip()
     if not key.startswith("sb_publishable_") or any(c.isspace() for c in key):
@@ -264,7 +266,21 @@ def main():
     restore_private = storage_path(owner_a, restore_name, authenticated=True)
     attempted_restore_upload = False
     restored_uploaded = False
+    acquired = []
     try:
+        if personal:
+            # The operator must use already-consented test accounts. A recovery
+            # probe must never silently choose fresh data or change history.
+            for owner, token in ((owner_a, token_a), (owner_b, token_b)):
+                acquired.append(token)  # release even after uncertain response
+                lease = json_request('/rest/v1/rpc/mosaic_core_session', key, token,
+                                     {'p_action': 'acquire'})
+                if lease.get('ownerId') != owner or lease.get('backend') != 'supabase-cloud':
+                    raise ValueError('Personal photo owner lease mismatch')
+                ready = json_request('/rest/v1/rpc/mosaic_personal_readiness', key, token, {})
+                if (ready.get('personalReady') is not True or ready.get('consentVersion') != 1 or
+                    ready.get('historyState') not in ('fresh', 'recovery-pending')):
+                    raise ValueError('Use released, already-consented personal test accounts')
         # Start from an independently verified unused random test object ID.
         status, _ = request(private_path, key, token_a)
         if status not in (400, 404):
@@ -334,6 +350,14 @@ def main():
                 )
             except (OSError, RuntimeError, ValueError):
                 cleanup_errors.append("signed inventory did not confirm deletion")
+        for token in acquired:
+            try:
+                released = json_request('/rest/v1/rpc/mosaic_core_session', key, token,
+                                        {'p_action': 'release'})
+                if released.get('released') is not True:
+                    cleanup_errors.append('lease release not confirmed')
+            except (OSError, RuntimeError, ValueError):
+                cleanup_errors.append('lease release interrupted')
         if cleanup_errors:
             raise ValueError("One or more private fixture cleanups were not verified")
         if attempted_upload and attempted_restore_upload:

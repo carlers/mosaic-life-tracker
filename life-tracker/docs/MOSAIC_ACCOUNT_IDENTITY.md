@@ -38,6 +38,13 @@ existing encrypted private-data lab now exercises this extension with actual
 GoTrue reauthentication. Its exact CI result is required; local unit tests alone
 do not establish signed recovery.
 
+The fourteen-table full drill selects `--personal-authority` for its hosted
+photo probe. It requires two already-consented test accounts and a released
+installation, acquires their signed leases, and releases them after fixture
+cleanup. It never supplies consent on the owner's behalf. Earlier profile
+defaults remain unchanged. This source compatibility does not authorize a
+new operator drill or repeat previously accepted media tests.
+
 Do not deploy new application bytes against the old hosted schema: the registry
 RPC is required and missing schema fails closed. Hosted additive migration,
 security/advisor review, registry-bearing encrypted backup/restore and protected
