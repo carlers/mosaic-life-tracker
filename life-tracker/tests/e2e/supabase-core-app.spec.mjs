@@ -982,6 +982,8 @@ test('signed owner Diary UI @diary-ui: create a private entry, recover on anothe
     await contexts[1].setOffline(true);
     await second.reload();
     await expect(second.getByRole('tab', { name: 'Diary', exact: true })).toBeVisible();
+    await second.getByRole('tab', { name: 'Diary', exact: true }).click();
+    await expect(second.getByRole('button', { name: 'View diary photo' }).first()).toBeEnabled();
     await second.goto(app + '/settings');
     await second.getByRole('button', { name: 'Backup & Restore', exact: true }).click();
     const includePhotos = second.getByRole('button', { name: /Include photos/ });
@@ -1008,15 +1010,20 @@ test('signed owner Diary UI @diary-ui: create a private entry, recover on anothe
     expect(await foreignRows.json()).toEqual([]);
     // Explicit portable copy into a different signed account is not a mapping
     // claim. Prove actual ZIP import and private immutable photo byte parity.
-    await other.goto(app + '/settings');
+    await other.goto(app + '/home');
+    await expect(other.getByRole('button', { name: 'Online', exact: true })).toBeVisible();
+    await other.getByRole('button', { name: 'Me', exact: true }).click();
+    await other.getByRole('button', { name: 'Settings', exact: true }).click();
     await other.getByRole('button', { name: 'Backup & Restore', exact: true }).click();
     await other.getByLabel('Choose Mosaic backup file').setInputFiles({
       name: 'offline-history.zip', mimeType: 'application/zip', buffer: archiveBytes,
     });
     await expect(other.getByText('1 bundled photo', { exact: true })).toBeVisible();
     await other.getByRole('button', { name: 'Merge Backup', exact: true }).click();
-    await expect.poll(async () => (await rows(foreign, 'diary')).some(row => row.content === content),
-      { timeout: 30000 }).toBe(true);
+    await expect.poll(async () => ({
+      restored: (await rows(foreign, 'diary')).some(row => row.content === content),
+      errors: await other.getByRole('alert').allTextContents(),
+    }), { timeout: 30000 }).toEqual({ restored: true, errors: [] });
     const copied = (await rows(foreign, 'diary')).find(row => row.content === content);
     expect(copied.id).not.toBe(diaryRow.id);
     const copiedPhotoId = JSON.parse(copied.photos)[0];
@@ -1055,14 +1062,19 @@ test('six-domain lifecycle @personal-ui: preferences, Bucket links, offline edit
       { timeout: 30000 }).toBe(1);
     const goal = (await rows(owner, 'buckets')).find(x => x.title === 'Visit the mountains');
     expect(goal).toBeTruthy();
-    await first.goto(app + '/backlog');
+    await first.goto(app + '/home');
+    await expect(first.getByRole('button', { name: 'Online', exact: true })).toBeVisible();
+    await first.getByRole('button', { name: 'Open menu' }).click();
+    await first.getByRole('button', { name: 'Backlogs', exact: true }).click();
     await first.getByRole('button', { name: 'Pack hiking boots', exact: true }).press('Shift+Enter');
     await first.getByRole('button', { name: 'Add Photo', exact: true }).click();
     await first.getByLabel('Choose photo from device').setInputFiles({
       name: 'boots.webp', mimeType: 'image/webp', buffer: PHOTO_BYTES,
     });
-    await expect.poll(async () => (await rows(owner, 'tasks')).find(x => x.title === 'Pack hiking boots')?.image,
-      { timeout: 25000 }).toMatch(/^img_/);
+    await expect.poll(async () => ({
+      image: (await rows(owner, 'tasks')).find(x => x.title === 'Pack hiking boots')?.image,
+      errors: await first.getByRole('alert').allTextContents(),
+    }), { timeout: 25000 }).toEqual({ image: expect.stringMatching(/^img_/), errors: [] });
     await first.goto(app + '/bucket-list/' + goal.id);
     await signIn(second, owner);
     await second.goto(app + '/bucket-list/' + goal.id);

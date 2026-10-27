@@ -99,6 +99,18 @@ describe('Supabase private task and Diary photo adapter', () => {
     await expect(fetchSupabasePhoto('img_same')).rejects.toThrow(/active signed account/);
   });
 
+  it('accepts only the typed missing-object envelope before restoring a new object', async () => {
+    register();
+    fetcher.mockResolvedValueOnce(new Response(JSON.stringify({statusCode:'404',error:'not_found'}),{status:400}))
+      .mockResolvedValueOnce(new Response('{}',{status:201}));
+    await expect(putSupabasePhoto(image(),'img_new','legacy_user_A',true))
+      .resolves.toEqual({fileId:'img_new',uploaded:true});
+    expect(fetcher.mock.calls.map(call=>call[1]?.method)).toEqual(['GET','POST']);
+    fetcher.mockClear().mockResolvedValue(new Response(JSON.stringify({statusCode:'403',error:'AccessDenied'}),{status:400}));
+    await expect(putSupabasePhoto(image(),'img_denied','legacy_user_A',true)).rejects.toThrow('Cannot inspect');
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
   it('preserves original photos if existing data differs instead of overwriting', async () => {
     register();
     fetcher.mockResolvedValue(new Response(new Blob(['different'], { type: 'image/webp' }), {
