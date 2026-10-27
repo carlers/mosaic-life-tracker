@@ -1,12 +1,14 @@
 # Session checkpoint
 Updated: 2026-10-27 Asia/Manila
-Current task: #1027 repair six-domain negative permission test after owner-approved live run.
+Current task: #1027 resolve transient hosted signed GET after completed CAS and guard tests.
 
 ## Active #1027 gate
-- Isolated recovery source `feature/1027-supabase-recovery-20261020@c2d597176165972c39832872ea23dbd93d78ab73`; canonical Quality #40443086517 and all eight recovery/preservation labs PASS; main remains Appwrite v0.43.8.
-- Owner-approved `--six-domains` signed hosted run `341212469279944360d3048f`: 2 Auth accounts retired, frozen/banned; independent SQL confirms exactly 6 tombstones and **0 live rows** across six domains. Probe failed before owner audit/CAS when Diary direct PATCH used nonexistent `order_index` (HTTP 400). No full hosted security pass yet.
-- Repair tests exact owned IDs with shared `is_deleted` (401/403 only, not 400); strict no-row RPC accepts complete typed-null results but rejects partial disclosures.
-- Next: focused task gate, squash to isolated branch, canonical gate, one verified pinned operator rerun. Then Appwrite writer fence/source/outbox/media, offline/ZIP/device, Auth/email and separate cutover approval; prior Fedora restore stays accepted.
+- Isolated recovery base `feature/1027-supabase-recovery-20261020@14d2b4e2ba2c4eb9069b16e40dbbd36640e158f4`; Quality gate #40462741648 retry PASS; signed Core App Lab #40462741653 and eight restore/crypto labs PASS. dev/main Appwrite and Production unchanged.
+- Owner-approved signed hosted probe `341212469279944360d3048f` originally failed malformed PATCH; fixed at base SHA. Its two Auth users are banned/frozen with 6 tombstones, zero live rows.
+- Owner run `e3acf9789cde5740da265f78`: 2 signed identities, 6 real CAS races and 3 writer guard stages reached; failed on transport/redirect between successful session-release and expected task GET, before strict full owner audit. Independent live SQL confirms both Auth accounts banned/frozen, exactly 12 tombstones and **0 live rows** across six domains.
+- This task adds short bounded retries only for read-only GET transport failures in the trusted hosted-core runner; never retry session/CAS/other writes or HTTP denial responses. Adds failure stage markers around release/revocation/identity refresh. No hosted SQL changes.
+- Next: focused task gate, squash into isolated recovery, canonical and relevant lab verification, then one exact-SHA private hosted probe. Do not repeat completed Fedora restore, R2 or personal-account setup. Other Appwrite writer-fencing, media/outbox, device/offline/ZIP/Auth and explicit cutover gates remain.
+
 
 ## Historical checkpoint (2026-10-23 onward)
 ## Accepted

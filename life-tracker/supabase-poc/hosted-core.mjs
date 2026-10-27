@@ -116,13 +116,16 @@ export async function connect({ token, fetcher = fetch } = {}) {
     'SUPABASE_ACCESS_TOKEN is required');
   async function request(base, path, { body, method = body === undefined ? 'GET' : 'POST', headers = {} } = {}) {
     check(path === '' || (path.startsWith('/') && !path.startsWith('//')), 'Invalid API path');
-    let response;
-    const controller = new AbortController();
+    // Only GET transport failures are retried. Never replay CAS/Auth/lease writes.
+    const maxAttempts = method === 'GET' && body === undefined ? 3 : 1;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      let response;
+      const controller = new AbortController();
     // Keep the deadline referenced while proxy sockets are idle. An unref'ed
     // AbortSignal.timeout can let Node exit with an unsettled top-level await,
     // skipping fixture retirement.
-    const deadline = setTimeout(() => controller.abort(), 30_000);
-    try {
+      const deadline = setTimeout(() => controller.abort(), 30_000);
+      try {
       response = await fetcher(base + path, {
         method, redirect: 'error', signal: controller.signal,
         headers: { 'Content-Type': 'application/json', ...headers },
@@ -133,8 +136,13 @@ export async function connect({ token, fetcher = fetch } = {}) {
       try { data = await response.json(); }
       catch { if (controller.signal.aborted) throw new Error(); /* logout can be empty */ }
       return { status: response.status, ok: response.ok, data };
-    } catch { throw new Error('Isolated Supabase request failed (network or redirect)'); }
-    finally { clearTimeout(deadline); }
+      } catch {
+        if (attempt + 1 === maxAttempts)
+          throw new Error('Isolated Supabase request failed (network or redirect)');
+      } finally { clearTimeout(deadline); }
+      await new Promise(resolve => setTimeout(resolve, 200 * (attempt + 1)));
+    }
+    throw new Error('Unreachable bounded GET retry');
   }
   const management = (path, body) => request(MANAGEMENT, path, {
     body, headers: { Authorization: `Bearer ${token}` },
@@ -439,15 +447,19 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
       counts.guardDenials++;
       await acquire(a);
     }
+    onProgress({ stage: 'lease-release', runId });
     await ok(await api('/rest/v1/rpc/mosaic_core_session',
       { token: a.token, body: { p_action: 'release' } }), 'Lease release');
+    onProgress({ stage: 'released-writer-denial', runId });
     denied(await cas(a, 'task', (await rows(a, 'tasks'))[0], { title: 'Released' }), 'Released writer');
     await acquire(a);
+    onProgress({ stage: 'session-revocation', runId });
     await ok(await api('/auth/v1/logout?scope=local', { token: a.token, body: {} }), 'Session revocation');
     denied(await cas(a, 'task', (await rows(a, 'tasks'))[0], { title: 'Revoked' }), 'Revoked writer');
     denied(await api('/rest/v1/rpc/mosaic_core_session',
       { token: a.token, body: { p_action: 'acquire' } }), 'Revoked lease acquisition');
     counts.guardDenials += 2;
+    onProgress({ stage: 'signed-identity-refresh', runId });
     await signIn(a);
     if (sixDomains) {
       onProgress({ stage: 'signed-six-domain-owner-audit', runId });
