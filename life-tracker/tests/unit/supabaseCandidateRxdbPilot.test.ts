@@ -248,6 +248,82 @@ describe('isolated Supabase RxDB native replication bridge (#967)', () => {
     expect(h.compareAndSet).not.toHaveBeenCalled();
   });
 
+  it('refuses a remote CAS committed after the final paginated scan', async () => {
+    const collection = { find: () => ({ exec: async () => [
+      { toJSON: () => initial },
+    ] }) };
+    const h = makeHarness(collection);
+    h.listChanges.mockResolvedValueOnce([row(initial, '1')])
+      .mockResolvedValueOnce([row(changed, '2')]);
+    await expect(h.pilot.verifyLocalReplica())
+      .rejects.toThrow(/remote snapshot changed/);
+    expect(h.listChanges).toHaveBeenNthCalledWith(2, {
+      domain: 'categories', ownerId: alice.supabaseUserId,
+      afterExclusive: '1', batchSize: 1,
+    });
+    expect(h.createCategory).not.toHaveBeenCalled();
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+  });
+
+  it('refuses a new local offline draft added after the first RxDB snapshot', async () => {
+    let reads = 0;
+    const collection = { find: () => ({ exec: async () => {
+      reads++;
+      const original = { toJSON: () => initial };
+      return reads === 1 ? [original] : [
+        original, { toJSON: () => ({ ...initial, id: 'new_local_draft' }) },
+      ];
+    } }) };
+    const h = makeHarness(collection);
+    h.listChanges.mockResolvedValueOnce([row(initial, '1')]);
+    await expect(h.pilot.verifyLocalReplica())
+      .rejects.toThrow(/local snapshot changed/);
+    expect(reads).toBe(2);
+    expect(h.listChanges).toHaveBeenCalledTimes(1);
+    expect(h.createCategory).not.toHaveBeenCalled();
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+  });
+
+  it('rejects a removed owner row or changed local value in the second snapshot', async () => {
+    for (const later of [
+      [] as { toJSON: () => CategoryDocument }[],
+      [{ toJSON: () => changed }],
+    ]) {
+      let reads = 0;
+      const collection = { find: () => ({ exec: async () =>
+        ++reads === 1 ? [{ toJSON: () => initial }] : later,
+      }) };
+      const h = makeHarness(collection);
+      h.listChanges.mockResolvedValueOnce([row(initial, '1')]);
+      await expect(h.pilot.verifyLocalReplica())
+        .rejects.toThrow(/local snapshot changed/);
+      expect(h.listChanges).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('ignores foreign account changes in both snapshots but checks the signed owner tail', async () => {
+    let reads = 0;
+    const collection = { find: () => ({ exec: async () => {
+      reads++;
+      return [
+        { toJSON: () => initial },
+        { toJSON: () => ({ ...initial, id: 'foreign_' + reads, userId: bob.legacyUserId }) },
+      ];
+    } }) };
+    const h = makeHarness(collection);
+    h.listChanges.mockResolvedValueOnce([row(initial, '1')]).mockResolvedValueOnce([]);
+    await expect(h.pilot.verifyLocalReplica()).resolves.toMatchObject({
+      rows: 1, localChecked: 1, localTotal: 1,
+    });
+    expect(reads).toBe(2);
+    expect(h.listChanges).toHaveBeenNthCalledWith(2, {
+      domain: 'categories', ownerId: alice.supabaseUserId,
+      afterExclusive: '1', batchSize: 1,
+    });
+    expect(h.createCategory).not.toHaveBeenCalled();
+    expect(h.compareAndSet).not.toHaveBeenCalled();
+  });
+
   it('refuses behind-checkpoint drift and missing remote rows without overwriting offline drafts', async () => {
     const toJSON = vi.fn(() => initial);
     const collection = { find: () => ({ exec: async () => [{ toJSON }] }) };
