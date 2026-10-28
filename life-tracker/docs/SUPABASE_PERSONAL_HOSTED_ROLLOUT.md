@@ -2,7 +2,7 @@
 
 Status: **21 migrations installed; independently restored fourteen-table AFTER R2 snapshot ACCEPTED. NOT rollout approval.** Final personal writer fence uninstalled; account consent and release evidence unset.
 Target: isolated `mosaic-dev` project `hcxtiifzxoaflhjgoglb`, never implicit Production.
-Latest audited isolated recovery: `feature/1027-supabase-recovery-20261020@f031bf7f2edbee920537cc535ada3427db2b26aa` (PR #1428; canonical Quality #40671071596 and synthetic fourteen-table restore #40671071694 passed). Re-check branch, CI and hosted catalog before executing.
+Latest audited isolated recovery: `feature/1027-supabase-recovery-20261020@664a574d98b0e2b45ffa131b3c0c7cb2cd247895` (PR #1431; canonical Quality #40679406017, protected hosted signed run #40679406417 attempt 2 SUCCESS). Re-check branch, CI and hosted catalog before executing.
 
 ## Why a direct migration is unsafe
 
@@ -18,13 +18,13 @@ substitute for audited, server-owned release evidence.
 
 - Project `mosaic-dev` (`hcxtiifzxoaflhjgoglb`) is ACTIVE_HEALTHY, PostgreSQL 17.11.
 - **21 migration records**, including category retirement, atomic category deletion, identity registry, personal readiness, and complete release-evidence constraint. **Do not replay these five migrations**.
-- 87 Auth users, 87 fresh core authorities, 87 canonical Mosaic accounts, 87 verified provider bindings, 87 identity audit rows, one installation; **zero missing/orphan bindings**.
+- At the original pre-test checkpoint there were 87 Auth/core authority/canonical account/provider bindings, including many already-retired synthetic fixtures. **After** accepted hosted signed run #40679406417, there are **89 Auth accounts: 86 marked disposable fixtures and three unmarked accounts**. The new two synthetic fixture accounts were safely banned/frozen. Verify mapping integrity again before launch; do not count test fixtures as real users.
 - All four private registry tables have RLS enabled and no direct `anon` or `authenticated` SELECT/UPDATE/DELETE grants. Private identity triggers deny direct execution by both roles. Signed-only `mosaic_account_status` and `mosaic_personal_readiness` have empty function search paths and deny anonymous execution.
 - All three Settings/Bucket/Bucket-link Realtime publications are present.
-- **Zero** accounts with recorded consent and **zero** installations with release evidence. The separate `20261027183840_enforce_personal_writer_consent.sql` is **NOT installed** (writer function, consent constraint and Storage restrictive policy absent).
+- Two newly retired disposable fixture accounts recorded test consent; **ZERO unmarked accounts have recorded consent** and **ZERO** installation release markers exist. The separate `20261027183840_enforce_personal_writer_consent.sql` is **NOT installed** (writer function, consent constraint and Storage restrictive policy absent). No synthetic consent is release authorization.
 - A previously encrypted **ten-table BEFORE** R2 generation `20261028T053525682Z` passed complete independent PostgreSQL/Auth/private-media restoration. **Never repeat or prune it.** The registry-bearing **fourteen-table AFTER** snapshot and independent fresh restore have now passed.
 - R2 credential pair verification later passed independently for reader and writer. The owner then **successfully published** the fourteen-table Auth/PostgreSQL + complete private-media R2 generation `20261028T100954899Z`; independent R2 ciphertext watch and full age authentication PASS. **Never repeat that already-completed backup.** The earlier PG17 restore failure was repaired in PR #1428; the owner later verified exact fourteen-table PG17 row parity, original-password signed GoTrue owner/foreign isolation, private-media restore including nonempty synthetic photo, and full cleanup. Final `MOSAIC_R2_EXACT_SNAPSHOT_DISPOSABLE_RESTORE_PASS: 20261028T100954899Z` passed. No new backup/restore action is needed.
-- Security Advisor currently flags nine authenticated-callable privileged RPCs and disabled leaked-password protection; see [privileged review](SUPABASE_PRIVILEGED_CAS_REVIEW.md). Hosted SMTP/reset/redirect allowlist/device acceptance remain unverified.
+- Security Advisor currently flags nine authenticated-callable privileged RPCs and disabled leaked-password protection; see [privileged review](SUPABASE_PRIVILEGED_CAS_REVIEW.md). Hosted read-only Auth policy inspection now **succeeds**, but SMTP actual inbox confirmation/reset, sender/redirect and device acceptance remain unverified.
 
 The earlier pre-DDL inventory (16 migrations and no registry) is historical only, **not** the current state. Re-verify the latest hosted records before each operation.
 
@@ -64,14 +64,17 @@ credentials to CI logs, GitHub issues, ChatGPT or a browser.
    recovery gate is closed** by independently restored encrypted PostgreSQL/Auth
    and full private-media R2 generation `20261028T100954899Z`. Preserve this
    marker and ten-table BEFORE `20261028T053525682Z`; never recapture them.
-   **Still required:** signed two-owner tests on the actual hosted additive
-   schema against disposable marked users:
-   signup/consent, owner-scoped access, foreign exact-ID deny, CAS/stale/conflict,
-   account-switch/epoch/lease, category-delete, ZIP/photo and no email-only
-   account claiming. Preserve cleanup and independent zero-live-fixture audit.
-   Run and review security advisors and SMTP signup, confirmation and password
-   reset email delivery. A synthetic lab marker alone does not attest a hosted
-   release. Treat hosted Auth-config HTTP 401 as unresolved, not success.
+   **COMPLETED current-hosted signed acceptance:** protected GitHub Actions
+   #40679406417 attempt 2 verified two server-marked owners, new-data consent,
+   owner/foreign reads, exact-row denial, CAS/stale/conflict, lease/epoch,
+   category retirement/deletion and spoofed historical claim rejection.
+   Independent read-only readback confirmed both fixture owners frozen/banned
+   and **zero live rows across six personal domains**. Their synthetic audit
+   and consent are retained but never authorize real users.
+   **Still required:** real hosted SMTP confirmation/password-reset inbox
+   delivery, redirect/sender verification, independent ZIP/photo/device and
+   old-client authoritativeness, and advisor/privileged scope approval.
+   Read-only Auth-config inspection passed, not email delivery.
 
 5. **Only after audited gates and separate consent/cutover authorization**:
    install/enable the final six-domain/Storage writer enforcement
@@ -101,9 +104,9 @@ credentials to CI logs, GitHub issues, ChatGPT or a browser.
 ## Current blocker ownership
 
 - **AFTER-state offsite DR — CLOSED:** immutable `20261028T100954899Z` passed read-only download, full age authentication, exact fourteen-table PG17 source/target row recovery, original-password signed owner and foreign-owner tests, private media with nonempty synthetic photo and disposable cleanup. Preserve both it and the independently restored BEFORE `20261028T053525682Z`. No further backup/restore step is required. Hosted SMTP/OAuth/JWT and user-device tests are separate.
-- **Final writer fence and release evidence:** migration `20261027183840_enforce_personal_writer_consent.sql` is not applied, installation release marker is NULL and account consents are unset. Do not activate or set evidence before restored AFTER-state and separately authorized signed tests, consent/cutover and old-writer impact review.
-- **Changed hosted acceptance:** reviewed `--post-registry` signed two-owner mode is implemented and tested. The protected `Supabase Hosted Signed Acceptance` GitHub Actions workflow is now the preferred one-run handoff, with a dedicated restricted/approved `mosaic-supabase-hosted-acceptance` environment and expiring project-scoped secret. It still must run against real `mosaic-dev` before this gate can close. It covers registry/consent/readiness, category retirement/atomic deletion, six-domain RLS/CAS and independent synthetic-fixture retirement. CI cannot substitute for this hosted live execution.
-- **SMTP/password recovery:** disposable local GoTrue email recovery has passed, but hosted sender, redirect allowlist and actual inbox reception remain unverified. Auth Management inspection returned HTTP 401. Leaked-password protection remains disabled.
+- **Final writer fence and release evidence:** migration `20261027183840_enforce_personal_writer_consent.sql` is not applied, installation release marker is NULL, and **unmarked account consents remain unset**. Only retired synthetic fixture accounts recorded test consent. Do not activate or set evidence before separately authorized real-user consent/cutover, old-writer impact and trusted marker review.
+- **Changed hosted acceptance — CLOSED:** approved protected GitHub Actions [#40679406417 attempt 2](https://github.com/carlers/mosaic-life-tracker/actions/runs/40679406417) ran against real `mosaic-dev` and passed signed identity/consent/readiness, atomic category retirement/tombstone and six-domain owner/foreign/CAS/lease tests. Independent hosted audit: both synthetic accounts frozen/banned; zero live rows in all six domains. No actual-user consent or release marker.
+- **SMTP/password recovery:** disposable local GoTrue email recovery has passed; the protected workflow's READ-ONLY Auth Management policy inspection returned PASS. Actual sender, Proton/Gmail inbox delivery, redirect allowlist/templates and password-reset reception remain unverified. Leaked-password protection remains disabled.
 - **Protected Preview:** named reviewer/device/browser verification and old-PWA writer controls remain outstanding; `dev`, `main` and Production are not approved.
 - **Historical Appwrite accounts:** no email-only identity claim or silent import. Original Appwrite Cloud remains unavailable; independently verified linkage is deferred under #1406/#1407.
 
