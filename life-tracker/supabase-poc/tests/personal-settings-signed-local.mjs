@@ -56,6 +56,9 @@ async function acquire(user) {
   }),'local exclusive core authority');
   ok(response.ownerId===user.owner && response.backend==='supabase-cloud',
     'Signed local authority did not bind owner and provider');
+  if (process.env.MOSAIC_ACCOUNT_REGISTRY_LAB==='1') await json(await http('/rest/v1/rpc/mosaic_account_status',{
+    method:'POST',token:user.token,body:{p_start_mode:'fresh'},
+  }),'signed fresh-data consent');
 }
 async function create(user, keyname, idname, value='7', explicitOwner=user.owner) {
   return http('/rest/v1/'+table,{

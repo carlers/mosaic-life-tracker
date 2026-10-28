@@ -24,13 +24,26 @@ consent. #1407 governs later reconciliation against the current authority.
 ## Recovery and deployment boundary
 
 The four registry tables require the explicit `fourteen-personal-identity` backup
-profile and `--fresh-personal-identity-sha256` disposable restore mode. Older
+profile and `--fresh-personal-identity-sha256` disposable restore mode.
+Both trusted-machine entrypoints (`restore-unified-r2.py` and
+`full-recovery-drill.py`) accept `--recovery-profile fourteen-personal-identity`.
+They demand fourteen-table parity and clear inherited restore-mode grants;
+the R2 path also requires an exact completed snapshot ID/profile. Defaults
+still target the earlier seven-table evidence and cannot silently omit registry
+data. Do not repeat the already accepted historical Fedora/R2 drill. Older
 profiles reject a registry-bearing archive. The restore preserves exact source
 COPY rows, installation ID, consent, mappings and audit events, resets the audit
 sequence, and never restores sessions, refresh tokens or writer leases. The
 existing encrypted private-data lab now exercises this extension with actual
 GoTrue reauthentication. Its exact CI result is required; local unit tests alone
 do not establish signed recovery.
+
+The fourteen-table full drill selects `--personal-authority` for its hosted
+photo probe. It requires two already-consented test accounts and a released
+installation, acquires their signed leases, and releases them after fixture
+cleanup. It never supplies consent on the owner's behalf. Earlier profile
+defaults remain unchanged. This source compatibility does not authorize a
+new operator drill or repeat previously accepted media tests.
 
 Do not deploy new application bytes against the old hosted schema: the registry
 RPC is required and missing schema fails closed. Hosted additive migration,
@@ -59,7 +72,19 @@ or choosing a browser profile cannot approve readiness. A protected rollout must
 record reviewed schema-14 restore and signed-lab run IDs and their source SHA only
 after the corresponding hosted schema/security/backup gates pass. The disposable
 CI fixture uses a synthetic marker solely inside its local stack. The marker and
-Realtime additions are preserved by the fourteen-table restore profile.
+Realtime additions are preserved by the fourteen-table restore profile. Its
+complete SQL predicate must be TRUE; explicit JSON null source/run fields
+cannot satisfy CHECK through PostgreSQL UNKNOWN semantics.
+
+The personal-writer migration also enforces this boundary at every row INSERT
+and CAS UPDATE and at private-photo INSERT/DELETE. Raw or stale clients need the
+same active mapping, explicit consent, released installation and live lease as
+the current UI. The private no-argument policy function reads only the signed
+caller and locks authority/registry rows through the transaction. No new public
+linking RPC or authenticated table grant is introduced. Owner SELECT remains
+available for export while writes are frozen. Installing this migration with a
+null release marker deliberately blocks writes, including older core clients;
+rollout must stage the snapshot and validated marker before reopening writers.
 
 This first integrated path accepts only server-enrolled independent new data with
 fresh or recovery-pending consent. A recovered/linked principal is deliberately

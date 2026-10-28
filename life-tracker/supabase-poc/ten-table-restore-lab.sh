@@ -56,6 +56,8 @@ done
 if [[ ${MOSAIC_ACCOUNT_REGISTRY_LAB:-} == 1 ]]; then
   cp "$here/migrations/20261027170802_mosaic_account_registry.sql" supabase/migrations/20261027170802_mosaic_account_registry.sql
   cp "$here/migrations/20261027172600_personal_runtime_readiness.sql" supabase/migrations/20261027172600_personal_runtime_readiness.sql
+  cp "$here/migrations/20261027182613_require_complete_personal_release_evidence.sql" supabase/migrations/20261027182613_require_complete_personal_release_evidence.sql
+  cp "$here/migrations/20261027183840_enforce_personal_writer_consent.sql" supabase/migrations/20261027183840_enforce_personal_writer_consent.sql
 fi
 python3 - <<'PY'
 from pathlib import Path
@@ -83,6 +85,13 @@ docker exec "$db" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres \
   < "$here/validation/20261025_private_settings_contract.sql" >/dev/null
 docker exec "$db" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres \
   < "$here/validation/20261025_private_bucket_links_contract.sql" >/dev/null
+if [[ ${MOSAIC_ACCOUNT_REGISTRY_LAB:-} == 1 ]]; then
+  # Synthetic local marker, never a hosted release approval.
+  docker exec -i "$db" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+  update mosaic_candidate_private.identity_installation set personal_release_evidence=
+    '{"schema":14,"sourceSha":"0000000000000000000000000000000000000000","signedRun":100,"restoreRun":100}';
+SQL
+fi
 supabase status -o env > "$tmp/source.env"
 set -a
 source "$tmp/source.env"

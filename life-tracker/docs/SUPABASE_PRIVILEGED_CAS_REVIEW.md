@@ -26,6 +26,18 @@ Account registry and personal-readiness migrations add self-only signed RPCs, pr
 
 The hosted project currently lacks these migrations and the category retirement/atomic category-delete additions. The atomic deletion RPC must retain signed principal/lease checks, owned category/task scope, server revisions and tombstones. Review the exact additive diff and rollback snapshot before rollout, then verify changed hosted contracts. Existing source/fixture success is not hosted installation evidence.
 
+The personal-writer follow-up closes a client-only gate: all six INSERT/CAS
+triggers now require active verified server enrollment, explicit complete consent,
+release evidence and a live writer lease. Restrictive Storage INSERT/DELETE
+policies add the same requirement to existing immutable owner-path policies.
+`mosaic_candidate_private.has_personal_write_authority()` is SECURITY DEFINER,
+has an empty search path, no arguments, anonymous EXECUTE denied, and authenticated
+EXECUTE solely for stored policies; the private schema stays outside PostgREST.
+It takes shared authority, lease, installation, mapping and account locks. Owner
+reads remain available for export. Source review is not independent approval;
+signed denial/success/lease-release tests and fourteen-table restoration must
+pass before this changed contract is accepted or installed on mosaic-dev.
+
 ## Remaining release gates
 
 1. Independent review of the current privileged surface and changed hosted schema, including abuse/rate controls and the trusted administrative evidence-writing path. Keep direct UPDATE/DELETE and anonymous EXECUTE denied.

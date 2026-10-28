@@ -96,7 +96,7 @@ class FullRecoveryTests(unittest.TestCase):
             with self.assertRaises(m.DrillFailure):
                 m.pooler_config(p)
 
-    def exercise(self, fail_on=None):
+    def exercise(self, fail_on=None, profile="seven"):
         with tempfile.TemporaryDirectory(prefix="mosaic-drill-sim-") as tmp:
             home = pathlib.Path(tmp)
             key = home / ".config/mosaic/supabase-backup.agekey"
@@ -145,7 +145,7 @@ class FullRecoveryTests(unittest.TestCase):
                     if name == "run-private-core-recovery.sh":
                         self.assertNotIn("PGHOST", env)
                         self.assertNotIn("PGPASSWORD", env)
-                        self.assertEqual(args[-2], "--fresh-snapshot-sha256")
+                        self.assertEqual(args[-2], m.PROFILES[profile][0])
                         self.assertTrue(re.fullmatch(r"[a-f0-9]{64}", args[-1]))
                         local.mkdir(mode=0o700)
                         (local / "supabase").mkdir()
@@ -154,7 +154,7 @@ class FullRecoveryTests(unittest.TestCase):
                         )
                         stages.append("restore")
                         return (
-                            "DISPOSABLE_CORE_RESTORE_PASS: 7 data tables, "
+                            f"DISPOSABLE_CORE_RESTORE_PASS: {m.PROFILES[profile][1]} data tables, "
                             "410 exact source/target rows verified\n"
                             "ISOLATED_LOCAL_STACK_READY: mosaic_dr_123456abcdef\n"
                             "PRIVATE_DOCKER_NETWORK: mosaic_dr_net_123456abcdef\n"
@@ -167,6 +167,8 @@ class FullRecoveryTests(unittest.TestCase):
                         stages.append("signed-owner")
                     elif pathlib.Path(args[1]).name == "verify-hosted-private-photo.py":
                         self.assertFalse(output)
+                        self.assertEqual(args[2:], ["--personal-authority"]
+                                         if profile == "fourteen-personal-identity" else [])
                         stages.append("signed-photo")
                         if fail_on == "signed-photo":
                             raise m.DrillFailure("Synthetic hosted photo lab failure")
@@ -205,7 +207,7 @@ class FullRecoveryTests(unittest.TestCase):
                     return io.StringIO("synthetic-input-not-used")
                 return original_open(path, *args, **kwargs)
             output = io.StringIO()
-            args = type("Args", (), {"source_sha": "a" * 40})()
+            args = type("Args", (), {"source_sha": "a" * 40, "recovery_profile": profile})()
             with patch.object(m.Path, "home", return_value=home), \
                  patch.object(m, "REPO", repo), \
                  patch.object(m, "exact_source", return_value=None), \
@@ -236,7 +238,9 @@ class FullRecoveryTests(unittest.TestCase):
                 self.assertNotIn("MOSAIC_FULL_DR_COMBINED_EXISTING_GATES_PASS", output.getvalue())
 
     def test_one_run_through_all_stages_with_private_stack_teardown(self):
-        self.exercise()
+        for profile in m.PROFILES:
+            with self.subTest(profile=profile):
+                self.exercise(profile=profile)
 
     def test_failure_after_restore_does_not_fake_pass_or_skip_cleanup(self):
         self.exercise(fail_on="signed-photo")

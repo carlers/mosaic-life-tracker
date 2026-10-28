@@ -74,6 +74,7 @@ jobs:
           cp supabase-poc/migrations/20261025_candidate_private_bucket_links.sql supabase/migrations/20261025000001_private_bucket_links.sql
           cp supabase-poc/migrations/20261027170802_mosaic_account_registry.sql supabase/migrations/20261027170802_mosaic_account_registry.sql
           cp supabase-poc/migrations/20261027172600_personal_runtime_readiness.sql supabase/migrations/20261027172600_personal_runtime_readiness.sql
+          cp supabase-poc/migrations/20261027182613_require_complete_personal_release_evidence.sql supabase/migrations/20261027182613_require_complete_personal_release_evidence.sql
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -200,7 +201,27 @@ jobs:
           # unset until exact release evidence and protected rollout are reviewed.
           mapfile -t local_db < <(docker ps --filter name=supabase_db_ --format '{{.ID}}')
           test "${#local_db[@]}" -eq 1
+          docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase-poc/migrations/20261027183840_enforce_personal_writer_consent.sql
+          export MOSAIC_SB_LOCAL_URL=http://127.0.0.1:54321
+          export MOSAIC_SB_LOCAL_PUBLISHABLE_KEY="$PUBLISHABLE_KEY"
+          node supabase-poc/tests/personal-writer-authority-signed-local.mjs blocked
           docker exec -i "${local_db[0]}" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+          do $evidence_guard$
+          declare field text;
+          begin
+            foreach field in array array['sourceSha','signedRun','restoreRun'] loop
+              begin
+                update mosaic_candidate_private.identity_installation set personal_release_evidence=
+                  jsonb_set('{"schema":14,"sourceSha":"0000000000000000000000000000000000000000","signedRun":100,"restoreRun":100}'::jsonb,
+                            array[field], 'null'::jsonb);
+                raise exception 'Null release evidence was accepted';
+              exception when check_violation then null;
+              end;
+            end loop;
+            if exists(select 1 from mosaic_candidate_private.identity_installation where personal_release_evidence is not null) then
+              raise exception 'Rejected readiness proof changed installation';
+            end if;
+          end $evidence_guard$;
           update mosaic_candidate_private.identity_installation set personal_release_evidence=
             '{"schema":14,"sourceSha":"0000000000000000000000000000000000000000","signedRun":100,"restoreRun":100}';
           SQL
@@ -214,6 +235,7 @@ jobs:
           export MOSAIC_CORE_APP_LAB=true
           export MOSAIC_CORE_DIARY_UI_LAB=true
           export MOSAIC_PERSONAL_UI_LAB=true
+          node supabase-poc/tests/personal-writer-authority-signed-local.mjs ready
           npm run build
           export MOSAIC_E2E_BASE_URL=http://127.0.0.1:4174
           npm run preview -- --config "$RUNNER_TEMP/mosaic-core-http.config.mjs" --host 127.0.0.1 --port 4174 --strictPort > "$RUNNER_TEMP/mosaic-diary-vite.log" 2>&1 &

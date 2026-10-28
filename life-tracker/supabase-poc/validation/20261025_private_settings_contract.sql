@@ -25,8 +25,10 @@ BEGIN
   IF has_function_privilege('anon','public.mosaic_candidate_cas_setting(text,bigint,jsonb)','EXECUTE')
       OR NOT has_function_privilege('authenticated','public.mosaic_candidate_cas_setting(text,bigint,jsonb)','EXECUTE')
   THEN RAISE EXCEPTION 'Settings CAS grants unsafe'; END IF;
-  IF (SELECT count(*) FROM pg_trigger WHERE tgrelid=rt AND NOT tgisinternal
-      AND tgname IN ('mosaic_candidate_settings_stamp','mosaic_core_settings_authority'))<>2
+  IF (SELECT count(DISTINCT tgfoid) FROM pg_trigger WHERE tgrelid=rt AND NOT tgisinternal
+      AND tgenabled IN ('O','A') AND (tgtype & 23)=23
+      AND tgfoid IN ('mosaic_candidate_private.stamp_row()'::regprocedure,
+                    'mosaic_candidate_private.require_core_authority()'::regprocedure))<>2
   THEN RAISE EXCEPTION 'Settings authority/revision triggers missing'; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conrelid=rt AND contype='u'

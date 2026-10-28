@@ -22,6 +22,12 @@ from pathlib import Path
 
 BRANCH = "feature/1027-supabase-recovery-20261020"
 PROJECT = "hcxtiifzxoaflhjgoglb"
+PROFILES = {
+    "seven": ("--fresh-snapshot-sha256", 7),
+    "eight-personal-settings": ("--fresh-personal-settings-sha256", 8),
+    "ten-personal-bucket-links": ("--fresh-personal-bucket-links-sha256", 10),
+    "fourteen-personal-identity": ("--fresh-personal-identity-sha256", 14),
+}
 REPO = Path.home() / "mosaic-photo-dr-review/life-tracker"
 SCRIPTS = "life-tracker/supabase-poc"
 SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -121,6 +127,8 @@ def clean_env():
         if key.startswith("PG") or key in (
             "DATABASE_URL", "SUPABASE_ACCESS_TOKEN", "SUPABASE_SERVICE_ROLE_KEY",
             "MOSAIC_FRESH_SNAPSHOT_SHA256", "MOSAIC_SUPABASE_SOURCE_STORAGE_KEY",
+            "MOSAIC_PERSONAL_SETTINGS_RESTORE", "MOSAIC_BUCKET_LINKS_RESTORE",
+            "MOSAIC_IDENTITY_REGISTRY_RESTORE", "MOSAIC_SYNTHETIC_ARCHIVE_SHA256",
         ):
             env.pop(key, None)
     return env
@@ -178,6 +186,7 @@ def verify_markers(stdout, expected):
 
 def run(args):
     global ACTIVE_STAGE
+    restore_flag, restore_tables = PROFILES[args.recovery_profile]
     ACTIVE_STAGE = STAGES[0]
     print("MOSAIC_FULL_DR_STAGE_BEGIN: " + STAGES[0], flush=True)
     home = Path.home()
@@ -239,9 +248,9 @@ def run(args):
         def restore():
             nonlocal private, private_net
             out = guarded_run(["bash", script("run-private-core-recovery.sh"), str(archive),
-                               str(backup_key), "--fresh-snapshot-sha256", digest],
+                               str(backup_key), restore_flag, digest],
                               cwd=tracker, env=clean_env(), timeout=1500)
-            if "DISPOSABLE_CORE_RESTORE_PASS: 7 data tables" not in out or "exact source/target rows verified" not in out:
+            if f"DISPOSABLE_CORE_RESTORE_PASS: {restore_tables} data tables" not in out or "exact source/target rows verified" not in out:
                 raise DrillFailure("Independent exact-row restore proof missing")
             private, private_net = parse_local(out, home)
             print("MOSAIC_FULL_DR_SOURCE_TARGET_ROWS_PASS")
@@ -258,7 +267,9 @@ def run(args):
         def photos():
             print("Enter two distinct hosted Scratch test account logins for private photo security.", flush=True)
             with open("/dev/tty", "r", encoding="utf-8") as tty:
-                guarded_run(["python3", script("verify-hosted-private-photo.py")],
+                photo_args = (["--personal-authority"]
+                              if args.recovery_profile == "fourteen-personal-identity" else [])
+                guarded_run(["python3", script("verify-hosted-private-photo.py"), *photo_args],
                             cwd=tracker, env=clean_env(), stdin=tty, output=False, timeout=240)
             print("MOSAIC_FULL_DR_HOSTED_PHOTO_ENCRYPTED_RESTORE_PASS")
         stage_run(STAGES[4], photos)
@@ -345,6 +356,8 @@ def main():
     mode.add_argument("--plan", action="store_true", help="offline stage list; no secrets/cloud activity")
     mode.add_argument("--run", action="store_true", help="execute existing real hosted Scratch and disposable gates")
     parser.add_argument("--source-sha", help="exact reviewed isolated Supabase branch commit")
+    parser.add_argument("--recovery-profile", choices=tuple(PROFILES), default="seven",
+                        help="explicit reviewed table inventory; identity registry requires fourteen-personal-identity")
     args = parser.parse_args()
     if args.plan:
         if args.source_sha:

@@ -1125,6 +1125,12 @@ test('signed private Storage @photo-storage: owner-only upload/read/delete, immu
     'Only local disposable Supabase Storage may exercise owner-private object permissions');
   const owner = await account();
   const foreign = await account();
+  if (process.env.MOSAIC_PERSONAL_UI_LAB === 'true') {
+    for (const user of [owner, foreign]) {
+      expect((await api('/rest/v1/rpc/mosaic_core_session', user.token, { p_action: 'acquire' })).ok).toBe(true);
+      expect((await api('/rest/v1/rpc/mosaic_account_status', user.token, { p_start_mode: 'fresh' })).ok).toBe(true);
+    }
+  }
   const fileId = 'img_' + randomBytes(12).toString('hex');
   const resource = '/storage/v1/object/mosaic-personal-photos/' + owner.id + '/' + fileId + '.webp';
   const authenticated = '/storage/v1/object/authenticated/mosaic-personal-photos/' + owner.id + '/' + fileId + '.webp';

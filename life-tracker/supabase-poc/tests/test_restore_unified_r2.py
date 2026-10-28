@@ -82,6 +82,7 @@ class OffsiteRestoreTests(unittest.TestCase):
             'MOSAIC_FRESH_SNAPSHOT_SHA256': 'stale',
             'MOSAIC_PERSONAL_SETTINGS_RESTORE': '1',
             'MOSAIC_BUCKET_LINKS_RESTORE': '1',
+            'MOSAIC_IDENTITY_REGISTRY_RESTORE': '1',
             'MOSAIC_SYNTHETIC_ARCHIVE_SHA256': 'synthetic',
             'SAFE_VAR': 'kept'
         }):
@@ -91,6 +92,7 @@ class OffsiteRestoreTests(unittest.TestCase):
                      'DATABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
                      'MOSAIC_FRESH_SNAPSHOT_SHA256',
                      'MOSAIC_PERSONAL_SETTINGS_RESTORE', 'MOSAIC_BUCKET_LINKS_RESTORE',
+                     'MOSAIC_IDENTITY_REGISTRY_RESTORE',
                      'MOSAIC_SYNTHETIC_ARCHIVE_SHA256'):
             self.assertNotIn(name, env)
 
@@ -266,11 +268,14 @@ def parse_local(out, home):
         self.exercise(snapshot='20261026T081234567Z', profile='eight-personal-settings')
 
     def test_new_completed_ten_table_source_restores_all_original_private_domains(self):
-        self.exercise(snapshot='20261026T081235567Z', profile='ten-personal-bucket-links')
+        for profile in ['ten-personal-bucket-links', 'fourteen-personal-identity']:
+            with self.subTest(profile=profile):
+                self.exercise(snapshot='20261026T081235567Z', profile=profile)
 
     def test_incorrect_remote_profile_fails_before_any_age_decrypt_or_postgres_restore(self):
-        self.exercise(fail='profile', snapshot='20261026T081235567Z',
-                      profile='ten-personal-bucket-links')
+        for profile in ['ten-personal-bucket-links', 'fourteen-personal-identity']:
+            with self.subTest(profile=profile):
+                self.exercise(fail='profile', snapshot='20261026T081235567Z', profile=profile)
 
     def test_exact_generation_and_explicit_profile_are_both_required(self):
         for snapshot, profile in [

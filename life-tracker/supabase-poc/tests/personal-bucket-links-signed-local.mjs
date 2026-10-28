@@ -30,6 +30,8 @@ async function signup(label){
  const lease=await data(await req('/rest/v1/rpc/mosaic_core_session',
   {method:'POST',token:user.token,body:{p_action:'acquire'}}),'authority');
  ok(lease.ownerId===user.owner,'authority owner mismatch');
+ if(process.env.MOSAIC_ACCOUNT_REGISTRY_LAB==='1') await data(await req('/rest/v1/rpc/mosaic_account_status',
+  {method:'POST',token:user.token,body:{p_start_mode:'fresh'}}),'signed fresh-data consent');
  return user;
 }
 async function insert(user,table,row){
