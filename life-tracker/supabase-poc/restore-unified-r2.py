@@ -72,6 +72,11 @@ def clean_env():
 
 LOCAL_RESTORE_CHECKPOINTS = frozenset((
     "SOURCE_PREFLIGHT", "DOCKER_LOCAL_GUARD", "NETWORK_INIT",
+    "NETWORK_PREREQUISITE_MISSING", "NETWORK_UNRECOGNIZED_REQUEST",
+    "NETWORK_CONTEXT_UNAVAILABLE", "NETWORK_REMOTE_DOCKER_DENIED",
+    "NETWORK_POOL_EXHAUSTED", "NETWORK_PERMISSION_DENIED",
+    "NETWORK_DAEMON_UNAVAILABLE", "NETWORK_CREATE_FAILED",
+    "NETWORK_PROBE_CLEANUP_FAILED",
     "STACK_INIT", "SCHEMA_PREPARE", "STACK_START",
     "LOOPBACK_VERIFY", "ROW_RESTORE",
     "ROW_TARGET_GUARD", "ROW_ARCHIVE_TMPFS",
@@ -200,6 +205,20 @@ def run(sha, snapshot=SNAPSHOT, profile="seven"):
         existing = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(existing)
         downloaded = archives / ("mosaic-r2-" + snapshot + "-" + secrets.token_hex(10))
+
+        # Check local Docker availability and bridge allocation BEFORE asking
+        # for R2 credentials or re-downloading already verified ciphertext.
+        # No source file, cloud secret or real Docker network survives the probe.
+        ACTIVE_STAGE = "01b disposable local Docker network preflight"
+        print("MOSAIC_R2_RESTORE_STAGE_BEGIN: " + ACTIVE_STAGE, flush=True)
+        probe = scripts / "check-private-docker-network.sh"
+        if not probe.is_file():
+            raise Refused("Reviewed Docker network guard missing")
+        probe_result = command(["bash", str(probe), "--probe"], cwd=tracker,
+                               timeout=45, private_restore=True)
+        if "MOSAIC_LOCAL_NETWORK_PREFLIGHT_PASS" not in probe_result.splitlines():
+            raise Refused("Disposable Docker network probe missing success marker")
+        print("MOSAIC_R2_RESTORE_STAGE_PASS: " + ACTIVE_STAGE, flush=True)
 
         def download():
             account, access, secret = read_credentials()

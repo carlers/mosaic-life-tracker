@@ -83,9 +83,9 @@ trap cleanup EXIT
 # Supabase's official private development recipe: an independent bridge with
 # host binding fixed to loopback BEFORE any container is created.
 safe_stage NETWORK_INIT
-docker network create --driver bridge \
-  -o com.docker.network.bridge.host_binding_ipv4=127.0.0.1 \
-  "$private_network" >/dev/null || {
+# The shared guard captures Docker errors privately and emits a fixed,
+# non-sensitive reason; never prune or reuse an existing Docker network.
+bash "$here/check-private-docker-network.sh" --create "$private_network" || {
   echo 'Could not create independent loopback-only Docker bridge' >&2
   exit 1
 }
