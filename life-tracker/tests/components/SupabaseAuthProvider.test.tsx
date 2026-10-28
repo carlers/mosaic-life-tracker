@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { BehaviorSubject, Subject } from 'rxjs';
 import SupabaseAuthProvider from '../../src/hooks/SupabaseAuthProvider';
 import { useAuth } from '../../src/hooks/useAuth';
+import { CandidateSignupInvitationRequiredError } from '../../supabase-poc/candidateAuthSession';
 
 const mock = vi.hoisted(() => ({
   signIn: vi.fn(), signOut: vi.fn(), resync: vi.fn(), signUp: vi.fn(),
@@ -40,6 +41,7 @@ function Consumer() {
     <span>{auth.user?.$id ?? 'signed-out'}</span>
     {auth.error && <p role="alert">{auth.error}</p>}
     <button onClick={() => void auth.login('disposable@example.org', 'synthetic password')}>Sign in</button>
+    <button onClick={() => void auth.signup('disposable@example.org', 'synthetic password', 'Test', 'test_user')}>Sign up</button>
     <button onClick={() => void auth.logout()}>Sign out</button>
   </>;
 }
@@ -65,6 +67,25 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Supabase app AuthContext lifecycle', () => {
+  it('shows invite-only guidance only for typed signup refusal', async () => {
+    mock.signUp.mockRejectedValueOnce(new CandidateSignupInvitationRequiredError());
+    render(<SupabaseAuthProvider config={config}><Consumer /></SupabaseAuthProvider>);
+    fireEvent.click(screen.getByText('Sign up'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This beta requires an invitation. Sign up using an invited email address.');
+    expect(screen.getByText('signed-out')).toBeInTheDocument();
+    expect(mock.scope).not.toHaveBeenCalledWith('canonical_owner');
+  });
+
+  it('never displays untrusted signup exception text or account identifiers', async () => {
+    mock.signUp.mockRejectedValueOnce(new Error('private-password-and-owner-email'));
+    render(<SupabaseAuthProvider config={config}><Consumer /></SupabaseAuthProvider>);
+    fireEvent.click(screen.getByText('Sign up'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Account creation could not be completed.');
+    expect(screen.queryByText(/private-password-and-owner-email/)).toBeNull();
+  });
+
   it('stops a refreshed writer if the provider unmounts while recovery is in flight', async () => {
     const view = render(<SupabaseAuthProvider config={config}><Consumer /></SupabaseAuthProvider>);
     fireEvent.click(screen.getByText('Sign in'));

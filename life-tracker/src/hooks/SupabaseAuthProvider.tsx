@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AuthContext, type AuthContextValue, type MosaicUser } from './authContext';
 import type { CoreBackendConfig } from '../lib/coreBackendConfig';
-import { createCandidateAuthSession, CandidateSessionUnavailableError } from '../../supabase-poc/candidateAuthSession';
+import { createCandidateAuthSession, CandidateSessionUnavailableError, CandidateSignupInvitationRequiredError } from '../../supabase-poc/candidateAuthSession';
 import { CandidateAuthUnavailableError } from '../../supabase-poc/candidateVerifiedAuth';
 import { createSupabaseCoreAuthCoordinator } from '../lib/supabaseCoreAuth';
 import { createSupabaseCoreAuthority } from '../lib/supabaseCoreAuthority';
@@ -556,7 +556,11 @@ export default function SupabaseAuthProvider({ config, children }: {
       try {
         await runtime.session.signUp(email, password, window.location.origin + '/auth/confirm');
         setError('If this address can be registered, a confirmation link has been sent. Confirm your email, then sign in.');
-      } catch { setError('Account creation could not be completed.'); }
+      } catch (error) {
+        setError(error instanceof CandidateSignupInvitationRequiredError
+          ? 'This beta requires an invitation. Sign up using an invited email address.'
+          : 'Account creation could not be completed.');
+      }
       finally { busy.current = false; setLoading(false); }
       return false;
     },
