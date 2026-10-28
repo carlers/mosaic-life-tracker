@@ -117,7 +117,9 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     expect(() => validateConfig({
       ...regional, subnetId: 'ocid1.subnet.oc1.ap-singapore-1.synthetic\\n',
     })).toThrow(/subnet OCID/);
-    const spawn = mockOci();
+    const spawn = mockOci({ 'network subnet get': {
+      data: { id: regional.subnetId, 'lifecycle-state': 'AVAILABLE' },
+    } });
     expect(claimA1({ mode: 'launch', enabled: true, context,
       config: regional, capacity: () => cap('POSSIBLE', null), spawn }).outcome)
       .toBe('instance_created');
