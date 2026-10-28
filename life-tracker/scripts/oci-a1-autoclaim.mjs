@@ -22,7 +22,7 @@ export function validateConfig(config) {
   for (const kind of ['compartment', 'subnet', 'image']) {
     const value = config[kind + 'Id'];
     if (typeof value !== 'string' ||
-        !new RegExp('^ocid1\\.' + kind + '\\.oc1\\.[a-z0-9.]+$').test(value)) {
+        !new RegExp('^ocid1\\.' + kind + '\\.oc1\\.[a-z0-9._-]+$').test(value)) {
       throw new Error('Dedicated ' + kind + ' OCID required');
     }
   }

@@ -1,5 +1,15 @@
 # GitHub-hosted A1 capacity claim — DORMANT until approved (#975)
 
+## October 28, 2026: live scheduled claim repair — regional OCI IDs (#975)
+
+The first six scheduled runs after the authorized live pin to `38aa7fbae05caef832b7a40e18921d8a42e11ab7` failed **before any LaunchInstance** with `Dedicated subnet OCID required`; example [run #40620491155](https://github.com/carlers/mosaic-oci-a1-scheduler/actions/runs/40620491155). The `validateConfig` OCID character class permitted lowercase alphanumerics and dots but rejected the normal hyphens in regional identifiers such as `ocid1.subnet.oc1.ap-singapore-1...` and `ocid1.image.oc1.ap-singapore-1...`. The repair permits hyphens/underscores while retaining strict OCID type prefix, no whitespace and the existing IAM, resource, single-launch, manual dispatch and no-public-IP gates. The unit regression uses realistic regionalized subnet/image OCID-shaped fixtures and tests forbidden prefixes and whitespace.
+
+**Cadence finding:** standalone scheduler is a **public** GitHub repo. Its two cron arrays collectively declare twelve checks/hour, every five minutes at UTC minutes 03,08,13,18,23,28,33,38,43,48,53,58. The job expression includes `github.event.repository.private == false`, so all twelve eligible cron variants run when the watch flag is true, regardless of the `MOSAIC_OCI_FAST_POLL` variable. This is nominal scheduling, not an execution guarantee: only six actual post-activation scheduled runs appeared over roughly eight hours. Do not claim that the automation executed every five minutes. Separate cron semantics cleanup would require its own reviewed change.
+
+The intended correction is implemented on isolated task `chatgpt/975-region-ocid-validator-20261028`, based on the already accepted stable OCI Preview, then tested and delivered through the normal focused/full gates. The standalone scheduler must be repinned to the **new exact accepted controller SHA only after acceptance**. Previous owner approval covered activating this fixed-size guarded A1 claim; do not change quotas, OCI services, secret material, scheduling intervals, or Mosaic dev/main/Production while repairing it. Historical instructions below describe prior source pins and may be superseded by this checkpoint.
+
+---
+
 ## Singapore tenancy-qualified availability domain correction — 2026-10-27
 
 During the final owner PAYG and hard quota audit, the actual availability-domain name was observed as a tenancy-qualified string ending in `:AP-SINGAPORE-1-AD-1`. Oracle's LaunchInstance documentation expects this fully qualified name, while the first direct-attempt candidate passed the region-only `AP-SINGAPORE-1-AD-1` identifier from advisory capacity reports. The latter risks an OCI `InvalidParameter` refusal.
