@@ -16,6 +16,18 @@ describe('fourteen-table post-registry one-pass offsite DR (owner-only, source-p
     expect(out.stderr).toContain('OK');
   });
 
+  it('validates the read-only paired R2 credential probe and fixed secret-safe results offline', () => {
+    const python = fileURLToPath(new URL('../../supabase-poc/tests/test_operator_r2_paired_probe.py', import.meta.url));
+    const node = fileURLToPath(new URL('../../supabase-poc/tests/test_r2_paired_probe.mjs', import.meta.url));
+    const env = { PATH: process.env.PATH ?? '', HOME: '/nonexistent' };
+    const py = spawnSync('python3', [python, '-q'], { encoding: 'utf8', timeout: 25000, env });
+    expect(py.status, py.stderr || py.error?.message).toBe(0);
+    expect(py.stderr).toContain('Ran 6 tests');
+    const js = spawnSync('node', ['--test', node], { encoding: 'utf8', timeout: 30000, env });
+    expect(js.status, js.stderr || js.error?.message || js.stdout).toBe(0);
+    expect(js.stdout).toContain('pass 6');
+  });
+
   it('provides a six-stage plan with no network or credential prompts', () => {
     const out = spawnSync('python3', [runner, '--plan'], {
       encoding: 'utf8', timeout: 10000,

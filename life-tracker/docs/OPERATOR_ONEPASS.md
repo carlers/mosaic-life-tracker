@@ -1,5 +1,19 @@
 # Mosaic operator one-pass commands (#1027)
 
+## 2026-10-28 repeated R2 SignatureDoesNotMatch — credential-only differential
+
+Owner's **two** identical source-pinned Fedora runs (08:31 and 08:39 UTC) failed at the very first **read-only** `R2_PREFLIGHT_LIST`: `HTTP_403_SIGNATURE_MISMATCH`. Stage 01/02 passed (source and credential format, not cloud authentication), and disposable worktree cleanup passed. No PostgreSQL recapture, private Storage recapture or new fourteen-table R2 publication occurred in either attempt. Do not repeat the seven-credential backup yet.
+
+A source audit verified the same exact `appwrite-functions/dr-backup/r2.mjs` Git blob `aab6fb184978f71f8638bb5ffbc77029b2245695` was used by successful ten-table [GitHub Actions run #40638837505](https://github.com/carlers/mosaic-life-tracker/actions/runs/40638837505), which emitted exact R2 `COMMITTED_PASS: 20261028T053525682Z`. Cloudflare [error codes](https://developers.cloudflare.com/r2/api/error-codes/) distinguish signature mismatch from `AccessDenied`: check paired **S3** Access Key ID and Secret Access Key (the same token creation screen), not the Cloudflare API bearer token, wrong account ID, or expired/revoked credentials. Do not revoke prior successful R2 or separate READ-ONLY credentials.
+
+Use the source-only `operator-r2-paired-probe.py` to check **only** the Cloudflare R2 account ID, existing separate READ-ONLY pair and designated WRITE pair in five **hidden** terminal prompts. It imports the exact verified R2 signer, lists `mosaic-supabase/v1/snapshots/` and reads/validates the known ten-table `COMPLETED` marker with **each** key. No S3 PUT, DELETE, lifecycle actions, Supabase, database password, Storage key, Docker or local PG17 work. Detached Git worktree is removed after probe. Only authored `MOSAIC_R2_READER_READ_CHECK_*`, `MOSAIC_R2_WRITER_READ_CHECK_*` and overall PASS/NOT_VERIFIED markers are printed; no raw provider stderr, keys, object names or metadata.
+
+- READ-ONLY PASS + WRITE SIGNATURE_MISMATCH means the writer **ID/secret pair or writer token** needs correction; creation of a scoped `Object Read & Write` token (bucket `mosaic-supabase-backups`) must copy both **from the same generation**, and Secret Access Key is only shown once.
+- Both SIGNATURE_MISMATCH: verify Cloudflare R2 Overview **account ID**, correct token pairs, bucket's jurisdiction/endpoint. The current protected successful bucket uses default endpoint; do not silently change it.
+- Both PASS: only then retry the **existing** full one-pass fourteen-table backup at accepted branch SHA, retaining independent R2 reader/watch and PG17/GoTrue/Storage restore. A successful read-only pair check alone is **not** an R2 write permission proof or a disaster recovery acceptance.
+
+Never share key values in ChatGPT, GitHub, CI logs or shell arguments. Existing ten-table BEFORE generation stays intact; no R2 pruning.
+
 ## 2026-10-28 dedicated R2 write-key publication denied; read-only before-retry gate
 
 After the private signed Fedora PG17.11 bootstrap and complete Scratch database/Auth + exact fourteen-table profile and private Storage capture, the owner run at source `26722d24d8323459c537d3b6ab3c569829e8a03b` failed specifically at `FOURTEEN_R2_R2_PUBLISH_FAILED`. This is **not** a confirmed wrong R2 key: the old stage included bucket LIST, database/media multipart-style PUT/GET, and completion marker PUT/GET with no safe status code. No fourteen-table `COMPLETED` snapshot was proven; preserve the previously restored ten-table BEFORE `20261028T053525682Z`, and do **not** remove any unmarked partial objects.
