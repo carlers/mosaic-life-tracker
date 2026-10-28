@@ -12,6 +12,9 @@ Current task: #1027 post-registry hosted rollout safety/runbook correction on `c
 ## Scoped task / remaining verification
 - Correct two stale rollout/security documents that incorrectly describe category and registry DDL as uninstalled. Clearly distinguish installed five additive migrations from the still-gated final writer fence, and record audited permissions, complete BEFORE recovery, writer-only SigV4 failure, AFTER DR/SMTP/Preview gates.
 - Documentation/version impact NONE. Task commit requests `[verify:focused]`; after green, merge only into isolated recovery and require full canonical Quality Gate. No hosted writes, R2 mutation, privileged credential use or branch promotion.
-- Owner next: create a correctly paired Object Read & Write S3 key ID/secret for `mosaic-supabase-backups` in Cloudflare, keep existing read-only pair, rerun only source-pinned R2 differential. If both PASS, run existing fourteen-table one-pass backup/watch/restore; only full `MOSAIC_FOURTEEN_R2_COMPLETE_OFFSITE_DISPOSABLE_RESTORE_PASS` closes AFTER DR.
+
+## Next action
+
+Owner next: create a correctly paired Object Read & Write S3 key ID/secret for `mosaic-supabase-backups` in Cloudflare, keep existing read-only pair, rerun only source-pinned R2 differential. If both PASS, run existing fourteen-table one-pass backup/watch/restore; only full `MOSAIC_FOURTEEN_R2_COMPLETE_OFFSITE_DISPOSABLE_RESTORE_PASS` closes AFTER DR.
 
 Issue: https://github.com/carlers/mosaic-life-tracker/issues/1027
