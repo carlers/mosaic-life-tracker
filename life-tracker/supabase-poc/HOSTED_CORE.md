@@ -7,6 +7,36 @@ command argument, repository file, issue, or build variable.
 
 ## Protected GitHub Actions execution — preferred over Fedora commands
 
+## Read-only Auth email readiness without rerunning signed test
+
+Use [`Supabase Hosted Email Policy Readiness`](https://github.com/carlers/mosaic-life-tracker/actions/workflows/supabase-hosted-email-policy.yml)
+for the next independent release gate. It uses the *same* protected
+`mosaic-supabase-hosted-acceptance` environment, dedicated short-expiry
+Scratch-only Management PAT, exact isolated branch and an explicit reviewer
+approval. Its runner invokes `hosted-email-audit.mjs --inspect` exactly once.
+
+The auditor reads only `GET /v1/projects/hcxtiifzxoaflhjgoglb/config/auth`.
+It outputs fixed safe PASS/NOT_READY markers for required confirmation,
+the **previous reviewed immutable email Preview** site, exact two redirect
+routes, credential-free code-only templates, custom SMTP, Brevo relay, sender
+presence and a bounded numeric rate-limit. **It does not print sender address,
+SMTP host, password/user, tokens, raw provider response, complete URL,
+email account identifiers or test codes.** It never sends email, provisions
+users, uploads/downloads media, changes SMTP, or deploys. If any reviewed
+configuration is missing, the read-only gate fails visibly rather than
+silently treating access as delivery. Its `MOSAIC_HOSTED_EMAIL_REAL_INBOX_DELIVERY_NOT_TESTED`
+marker must never count as delivery acceptance.
+
+The historical `EMAIL_PREVIEW` constant represents a *previously verified,
+immutable* email Preview, **not** approval to send real-user emails to the new
+release Preview. After the latest source artifact is reviewer-deployed, inspect
+the resulting exact new Preview origin and propose a separately reviewed
+auth-redirect transition before testing real delivered signup/forgot-password
+codes with two controlled inboxes (including Proton). No real-user sender,
+redirect or confirmation policy changes without the separately reviewed plan.
+**Do not rerun** the previously passed signed two-owner job; it creates
+additional synthetic accounts.
+
 **Accepted 2026-10-28:** [protected hosted workflow #40679406417,
 attempt 2](https://github.com/carlers/mosaic-life-tracker/actions/runs/40679406417)
 **SUCCESS** on isolated recovery `664a574d98b0e2b45ffa131b3c0c7cb2cd247895`.
