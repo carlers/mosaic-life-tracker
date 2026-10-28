@@ -1,21 +1,22 @@
 # Session checkpoint
 Updated: 2026-10-28 Asia/Manila
-Current task: #1027 diagnose exact Stage 03 fourteen-table Scratch encrypted R2 recovery failure without repeating accepted ten-table backup or bypassing protected main.
+Current task: #1027 resolve fourteen-table encrypted Supabase Scratch → Cloudflare R2 publication, without changing protected releases.
 
 ## Verified
-- Hosted `mosaic-dev` (`hcxtiifzxoaflhjgoglb`) remains on **21 migrations** after five owner-approved additive registry/readiness changes; 87 Auth accounts/mappings (0 crossed), original personal-data row counts preserved, 3 active/84 frozen, registry RLS with no browser grants. No consent or release evidence and **final writer fence not applied**.
-- Ten-table BEFORE R2 `20261028T053525682Z` independently age-authenticated and full PG17/GoTrue/Storage restored. Never redo it. New fourteen-table AFTER R2 snapshot is **not accepted**.
-- Isolated recovery `feature/1027-supabase-recovery-20261020@e4f356f10ea1744b4193f2fe1b0d702d193765cb` via PR #1422: full canonical #40649583892 SUCCESS, real GoTrue/ten/eight/table specialist labs green; `dev`/`main` unaffected. Protected workflow PR #1421 still DRAFT/BLOCKED by main promotion rules.
-- Owner's first Fedora attempt failed PG17 preflight (system PG18). Fedora `postgresql17` conflicts with PG18; operator instead verified both **official Fedora-signed PG17.11 RPM clients extracted privately**, leaving system PG18 untouched.
-- Second one-pass Fedora attempt passed Stage 01 (exact SHA, private age/pooler/Docker) and Stage 02 (hidden credentials). Stage 03 `unified-offsite.mjs --backup` failed with generic `GUARDED_CHILD_FAILED` and cleanup Stage 06 PASS. **No fourteen-table COMPLETED ID was reported.** Stage 03 might leave unmarked partial R2 ciphertext if it reached upload; no cause or confirmed remote write is known. Never report a fourteen-table backup as created or restored; no user credentials or output should enter GitHub.
+- `mosaic-dev` (`hcxtiifzxoaflhjgoglb`) remains at **21 owner-approved migrations**, 87 original Auth users + verified private provider mappings (0 crossed); original owner-scoped personal data preserved. No consent or release evidence. Final writer fence **NOT installed**.
+- Fully age-authenticated ten-table BEFORE R2 generation `20261028T053525682Z` independently passed exact PG17/GoTrue owner+foreign and whole private-media restore; preserve it, do not repeat.
+- Isolated recovery `feature/1027-supabase-recovery-20261020@26722d24d8323459c537d3b6ab3c569829e8a03b` passed full canonical and real specialist Auth/Settings/Bucket/media labs via PR #1423; `main`/`dev` unchanged. Protected main workflow PR #1421 still DRAFT/BLOCKED by dev→main promotion rule.
+- Owner's latest Fedora run reused private signed PG17.11 clients without changing installed PG18. Stages 01/02 PASS (exact SHA, age/pooler/Docker, hidden credential *format*), Stage 03 failed `FOURTEEN_R2_R2_PUBLISH_FAILED`; Stage 06 cleanup PASS. Auth/14-table TOC and private-media capture reached R2 publishing. **No fourteen-table AFTER R2 completed marker or restore accepted**. Unmarked partial R2 ciphertext is possible; no prune or overwrite.
+- Cloudflare R2 `Object Read & Write` key scoped to the exact destination bucket must support S3 LIST/GET/PUT. Entered writer permissions and HTTP failure remain unverified; original stage covered all R2 operations under one generic failure.
 
 ## Scoped repair
-- Task `chatgpt/1027-fourteen-stage03-safe-diagnostics-20261028` adds fixed-source substage names for age, PG client, PG data capture, authenticated TOC/profile, private Storage, R2 publish/remote verification, and prevents raw provider output leakage. Parent accepts only exact enumerated status markers, preserving a verified `COMPLETED` ID if publication succeeded but the full-byte readback failed. Offline Python and Node tests cover secret redaction, untrusted labels, and marker retention.
-- Do not relax PostgreSQL 17, exact 14-table Auth+Registry TOC, independent R2 watcher, original-password signed local owner isolation, whole-media byte restoration, cleanup, branch checks or release gates.
+- Task `chatgpt/1027-r2-publication-signed-preflight-20261028` adds **read-only** R2 LIST and exact ten-table completed-marker GET using the dedicated writer before PostgreSQL/Storage recapture. A discovered existing fourteen-table `COMPLETED` marker aborts re-upload and reports its ID for independent restore-only verification.
+- New R2 publish checkpoints distinguish generation list, database/media PUT/GET, local parity, marker PUT/GET and independent readback; print only bounded HTTP/S3 classes, never raw provider errors, credentials, SQL, object paths or personal data. No private R2 deletion, hosted DDL, writer-fence or release changes.
+- No-network synthetic R2 preflight, failure, duplicate-marker and redaction tests added, plus **21 Python** contract cases. Focused and canonical CI still pending.
 
 ## Next action
-1. Finish focused CI, squash into isolated recovery, verify canonical/specialist CI; **do not promote** `dev`, `main` or Production.
-2. Provide ONE exact-source pin Fedora invocation reusing private PG17.11 wrapper dir; capture only `MOSAIC_*` safe stage diagnostics, never keys. If a completed snapshot marker is printed on failure, restore THAT same generation rather than republishing.
-3. Require actual fourteen-table encrypted R2 + independent PG17/GoTrue/Storage signed restore acceptance before hosted signed new-RPC, SMTP/device checks or separately approved writer fence/Preview/Production release.
+1. Finish focused CI; squash source-only PR into isolated recovery, validate full canonical plus specialist CI, without promoting `dev`/`main` or Production.
+2. Verify Cloudflare writer key is `Object Read & Write` for `mosaic-supabase-backups` and reader key is separate `Object Read`. Give ONE exact accepted SHA-pinned Fedora invocation reusing private PG17.11 wrappers; prompt credentials only in terminal.
+3. Only a real `MOSAIC_FOURTEEN_R2_COMPLETE_OFFSITE_DISPOSABLE_RESTORE_PASS` closes AFTER DR. Hosted signed new-RPC/SMTP/device and consent/Preview/Production remain separate gates.
 
-See [operator runbook](OPERATOR_ONEPASS.md), [offsite runbook](SUPABASE_UNIFIED_OFFSITE_DR.md), and [issue #1027](https://github.com/carlers/mosaic-life-tracker/issues/1027).
+Runbooks: [operator](OPERATOR_ONEPASS.md), [offsite](SUPABASE_UNIFIED_OFFSITE_DR.md), [#1027](https://github.com/carlers/mosaic-life-tracker/issues/1027).

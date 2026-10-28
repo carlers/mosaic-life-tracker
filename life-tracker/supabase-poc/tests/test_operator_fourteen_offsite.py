@@ -215,6 +215,94 @@ class FourteenOffsiteTests(unittest.TestCase):
         finally:
             m.COMMITTED_SNAPSHOT = before
 
+
+    def test_r2_list_403_is_a_bounded_permission_error_not_secret_output(self):
+        secret = 'private-r2-secret-must-not-appear'
+        response = types.SimpleNamespace(
+            returncode=1, stdout='',
+            stderr='MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: R2_PREFLIGHT_LIST\n'
+                   'MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_R2: HTTP_403_ACCESS_DENIED\n'
+                   'unsafe error details: '+secret+'\n',
+        )
+        with patch.object(m.subprocess, 'run', return_value=response):
+            with self.assertRaises(m.SafeFailure) as caught:
+                m.cmd(['node','trusted-unified-offsite.mjs','--backup'],backup_diagnostic=True)
+        self.assertEqual(str(caught.exception),
+                         'FOURTEEN_R2_R2_PREFLIGHT_LIST_HTTP_403_ACCESS_DENIED_FAILED')
+        self.assertNotIn(secret,str(caught.exception))
+
+    def test_r2_http_codes_are_bounded_and_reject_synthetic_provider_strings(self):
+        for reported in ('HTTP_403_SECRET_BACKDOOR', 'HTTP_999_ACCESS_DENIED',
+                         'HTTP_000_ACCESS_DENIED', 'HTTP_403_ACCESS_DENIED_EXTRA'):
+            with self.subTest(reported=reported),patch.object(m.subprocess,'run',
+                return_value=types.SimpleNamespace(
+                    returncode=1, stdout='',
+                    stderr='MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: R2_DATABASE_PUT\n'
+                           'MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_R2: '+reported+'\n'
+                )):
+                with self.assertRaises(m.SafeFailure) as caught:
+                    m.cmd(['node','trusted-unified-offsite.mjs','--backup'],
+                          backup_diagnostic=True)
+                self.assertEqual(str(caught.exception),'FOURTEEN_R2_R2_DATABASE_PUT_FAILED')
+
+    def test_existing_fourteen_remote_marker_is_review_candidate_not_verified(self):
+        prev_candidate = m.EXISTING_R2_CANDIDATE
+        prev_committed = m.COMMITTED_SNAPSHOT
+        try:
+            m.EXISTING_R2_CANDIDATE = None
+            m.COMMITTED_SNAPSHOT = None
+            candidate = '20261028T075959000Z'
+            response = types.SimpleNamespace(
+                returncode=1,
+                stdout='MOSAIC_SUPABASE_FULL_OFFSITE_EXISTING_FOURTEEN_MARKER: '+candidate+'\n',
+                stderr='MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: R2_EXISTING_COMPLETED_SCAN\n',
+            )
+            with patch.object(m.subprocess, 'run', return_value=response):
+                with self.assertRaisesRegex(m.SafeFailure,'FOURTEEN_R2_R2_EXISTING_COMPLETED_SCAN_FAILED'):
+                    m.cmd(['node','trusted-unified-offsite.mjs','--backup'],
+                          backup_diagnostic=True)
+            self.assertEqual(m.EXISTING_R2_CANDIDATE,candidate)
+            self.assertIsNone(m.COMMITTED_SNAPSHOT)
+        finally:
+            m.EXISTING_R2_CANDIDATE = prev_candidate
+            m.COMMITTED_SNAPSHOT = prev_committed
+
+    def test_ambiguous_remote_markers_cannot_trigger_completed_backup_claim(self):
+        prev_candidate = m.EXISTING_R2_CANDIDATE
+        prev_committed = m.COMMITTED_SNAPSHOT
+        try:
+            m.EXISTING_R2_CANDIDATE = None
+            m.COMMITTED_SNAPSHOT = None
+            response = types.SimpleNamespace(
+                returncode=1,
+                stdout='MOSAIC_SUPABASE_FULL_OFFSITE_EXISTING_FOURTEEN_MARKER: 20261028T075959000Z\n'
+                       'MOSAIC_SUPABASE_FULL_OFFSITE_REMOTE_COMMITTED_PASS: 20261028T080001000Z\n',
+                stderr='MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: R2_COMPLETED_GET\n',
+            )
+            with patch.object(m.subprocess,'run',return_value=response):
+                with self.assertRaisesRegex(m.SafeFailure,'GUARDED_AMBIGUOUS_R2_MARKER'):
+                    m.cmd(['node','trusted-unified-offsite.mjs','--backup'],
+                          backup_diagnostic=True)
+            self.assertIsNone(m.EXISTING_R2_CANDIDATE)
+            self.assertIsNone(m.COMMITTED_SNAPSHOT)
+        finally:
+            m.EXISTING_R2_CANDIDATE = prev_candidate
+            m.COMMITTED_SNAPSHOT = prev_committed
+
+    def test_no_r2_error_parser_for_untrusted_nonbackup_child(self):
+        response = types.SimpleNamespace(
+            returncode=1,
+            stdout='MOSAIC_SUPABASE_FULL_OFFSITE_REMOTE_COMMITTED_PASS: 20261028T080001000Z\n',
+            stderr='MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: R2_DATABASE_PUT\n'
+                   'MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_R2: HTTP_403_ACCESS_DENIED\n',
+        )
+        prev = m.COMMITTED_SNAPSHOT
+        with patch.object(m.subprocess,'run',return_value=response):
+            with self.assertRaises(m.SafeFailure) as caught:
+                m.cmd(['git','rev-parse','HEAD'])
+        self.assertEqual(str(caught.exception),'GUARDED_CHILD_FAILED')
+        self.assertEqual(m.COMMITTED_SNAPSHOT,prev)
+
     def exercise(self,failed_stage=None):
         with tempfile.TemporaryDirectory(prefix='mosaic-fourteen-unit-') as temp:
             home=Path(temp)

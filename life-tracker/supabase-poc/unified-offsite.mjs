@@ -17,12 +17,21 @@ export const PREFIX = 'mosaic-supabase/v1';
 export const SOURCE = 'hcxtiifzxoaflhjgoglb';
 export const BUCKET = 'mosaic-personal-photos';
 const KINDS = ['database', 'media'];
+const BEFORE_FOURTEEN_ID = '20261028T053525682Z';
 const CHUNK = 8 * 1024 * 1024;
 const MAX_PARTS = 10000;
 const HEX = /^[a-f0-9]{64}$/;
 const ID = /^\d{8}T\d{9}Z$/;
 // Fixed, public-safe checkpoints: do not expose provider stderr, SQL, paths or keys.
-export const BACKUP_SAFE_STAGES = Object.freeze(['SOURCE_GATE', 'R2_CONFIGURATION', 'WORKDIR_INIT', 'AGE_IDENTITY', 'PG_CLIENT_VERSION', 'PG_DATABASE_CAPTURE', 'PG_TOC_AUTHENTICATION', 'PG_TOC_PROFILE', 'STORAGE_CAPTURE', 'R2_PUBLISH', 'R2_FULL_READBACK', 'R2_RETENTION']);
+export const BACKUP_SAFE_STAGES = Object.freeze([
+  'SOURCE_GATE', 'R2_CONFIGURATION', 'WORKDIR_INIT', 'AGE_IDENTITY',
+  'PG_CLIENT_VERSION', 'PG_DATABASE_CAPTURE', 'PG_TOC_AUTHENTICATION',
+  'PG_TOC_PROFILE', 'STORAGE_CAPTURE', 'R2_PUBLISH',
+  'R2_PREFLIGHT_LIST', 'R2_BEFORE_MARKER_READ', 'R2_EXISTING_COMPLETED_SCAN',
+  'R2_GENERATION_LIST', 'R2_DATABASE_PUT', 'R2_DATABASE_GET',
+  'R2_MEDIA_PUT', 'R2_MEDIA_GET', 'R2_LOCAL_SOURCE_VERIFY',
+  'R2_COMPLETED_PUT', 'R2_COMPLETED_GET', 'R2_FULL_READBACK', 'R2_RETENTION',
+]);
 let activeBackupSafeStage = 'SOURCE_GATE';
 function markBackupSafeStage(code) {
   if (!BACKUP_SAFE_STAGES.includes(code)) throw new Error('Unrecognized backup checkpoint');
@@ -73,7 +82,7 @@ function markerStructure(marker, id) {
   return marker;
 }
 
-async function uploadArchive({ r2, id, kind, archive, chunkBytes }) {
+async function uploadArchive({ r2, id, kind, archive, chunkBytes, onCheckpoint }) {
   const first = await stat(archive);
   if (!first.isFile() || first.size < 1 || first.size > MAX_PARTS * chunkBytes) {
     throw new Error('Encrypted archive outside safe size bounds');
@@ -89,7 +98,9 @@ async function uploadArchive({ r2, id, kind, archive, chunkBytes }) {
       if (bytesRead !== length) throw new Error('Encrypted archive changed during upload');
       const key = `${snapshot(id)}/${kind}/parts/${String(index).padStart(5, '0')}.agechunk`;
       const partSha = sha(buffer);
+      onCheckpoint('R2_' + kind.toUpperCase() + '_PUT');
       await r2.putObject(key, buffer, { metadata: { 'cipher-sha256': partSha } });
+      onCheckpoint('R2_' + kind.toUpperCase() + '_GET');
       const remote = await r2.getObject(key);
       if (remote.length !== length || sha(remote) !== partSha) {
         throw new Error('Remote ciphertext differs from source');
@@ -102,6 +113,7 @@ async function uploadArchive({ r2, id, kind, archive, chunkBytes }) {
     await file.close();
   }
   const expected = digest.digest('hex');
+  onCheckpoint('R2_LOCAL_SOURCE_VERIFY');
   // Same-size local overwrites are not safe: full source readback precedes commit.
   const second = await stat(archive);
   if (first.size !== second.size || first.ino !== second.ino || first.dev !== second.dev ||
@@ -128,19 +140,21 @@ async function uploadArchive({ r2, id, kind, archive, chunkBytes }) {
 }
 
 /** Publish exactly one root completion marker, after both encrypted archives verify. */
-export async function publishUnified({ r2, database, media, now = new Date(), chunkBytes = CHUNK, recoveryProfile = SEVEN }) {
+export async function publishUnified({ r2, database, media, now = new Date(), chunkBytes = CHUNK,
+  recoveryProfile = SEVEN, onCheckpoint = () => {} }) {
   assertRecoveryProfile(recoveryProfile);
   if (!Number.isSafeInteger(chunkBytes) || chunkBytes < 1 || chunkBytes > CHUNK) {
     throw new Error('Invalid encrypted R2 chunk size');
   }
   const id = identity(now);
   assertId(id);
+  onCheckpoint('R2_GENERATION_LIST');
   if ((await r2.listObjects(`${snapshot(id)}/`)).length > 0) {
     throw new Error('Existing recovery generation must never be overwritten');
   }
   const archives = {};
   for (const [kind, file] of [['database', database], ['media', media]]) {
-    archives[kind] = await uploadArchive({ r2, id, kind, archive: file, chunkBytes });
+    archives[kind] = await uploadArchive({ r2, id, kind, archive: file, chunkBytes, onCheckpoint });
   }
   const completedAt = new Date();
   const marker = markerStructure({
@@ -151,11 +165,63 @@ export async function publishUnified({ r2, database, media, now = new Date(), ch
     archives,
   }, id);
   const raw = Buffer.from(JSON.stringify(marker));
+  onCheckpoint('R2_COMPLETED_PUT');
   await r2.putObject(markerKey(id), raw, { metadata: { 'marker-sha256': sha(raw) } });
+  onCheckpoint('R2_COMPLETED_GET');
   if (sha(await r2.getObject(markerKey(id))) !== sha(raw)) {
     throw new Error('Root completion marker remote readback differs');
   }
   return marker;
+}
+
+
+/**
+ * BEFORE making a new fourteen-table generation, prove the dedicated writer
+ * can LIST the exact historic R2 destination and GET the independently
+ * restored ten-table marker. Detect an existing fourteen-table COMPLETED
+ * candidate and fail closed for independent restore-only review, not re-upload.
+ * Never PUT, DELETE, or expose marker content in this preflight.
+ */
+export async function preflightFourteenDestination({ r2, onCheckpoint = () => {} }) {
+  onCheckpoint('R2_PREFLIGHT_LIST');
+  const keys = await r2.listObjects(`${PREFIX}/snapshots/`);
+  const completed = [...new Set(keys.map((key) =>
+    parseCompletedMarkerKey(key, PREFIX)).filter(Boolean))].sort();
+  if (!completed.includes(BEFORE_FOURTEEN_ID)) {
+    throw new Error('Historical ten-table completed marker not found in dedicated R2 bucket');
+  }
+  onCheckpoint('R2_BEFORE_MARKER_READ');
+  const before = await readMarker(r2, BEFORE_FOURTEEN_ID);
+  if (before.recoveryProfile !== TEN_BUCKET_LINKS) {
+    throw new Error('R2 historical before-state profile mismatch');
+  }
+  for (const id of completed.filter((value) => value > BEFORE_FOURTEEN_ID).reverse()) {
+    onCheckpoint('R2_EXISTING_COMPLETED_SCAN');
+    const marker = await readMarker(r2, id);
+    if (marker.recoveryProfile === FOURTEEN_IDENTITY) {
+      return { existingFourteenId: id };
+    }
+  }
+  return { existingFourteenId: null };
+}
+
+/**
+ * Only report trusted, bounded R2 status classes; NEVER print arbitrary
+ * caught provider errors (which may contain signed URLs or secret strings).
+ */
+export function safeR2HttpClass(error) {
+  const match = /^R2 (?:GET|PUT|HEAD|DELETE) failed with HTTP ([1-5]\d{2})(?: code=([A-Za-z0-9._-]{1,48}))?$/.exec(
+    error instanceof Error ? error.message : '',
+  );
+  if (!match) return null;
+  const allowed = new Map([
+    ['Unauthorized', 'UNAUTHORIZED'], ['AccessDenied', 'ACCESS_DENIED'],
+    ['SignatureDoesNotMatch', 'SIGNATURE_MISMATCH'], ['ExpiredRequest', 'EXPIRED'],
+    ['NoSuchBucket', 'BUCKET_NOT_FOUND'], ['NoSuchKey', 'OBJECT_NOT_FOUND'],
+    ['TooManyRequests', 'RATE_LIMIT'], ['InternalError', 'SERVER_ERROR'],
+    ['ServiceUnavailable', 'SERVICE_UNAVAILABLE'],
+  ]);
+  return 'HTTP_' + match[1] + '_' + (allowed.get(match[2]) || 'OTHER');
 }
 
 async function readMarker(r2, id) {
@@ -329,6 +395,13 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
     return;
   }
   if (argv.length !== 1) throw new Error('Invalid backup invocation');
+  if (env.SUPABASE_DR_RECOVERY_PROFILE === FOURTEEN_IDENTITY) {
+    const preflight = await preflightFourteenDestination({ r2, onCheckpoint: markBackupSafeStage });
+    if (preflight.existingFourteenId) {
+      console.log('MOSAIC_SUPABASE_FULL_OFFSITE_EXISTING_FOURTEEN_MARKER: ' + preflight.existingFourteenId);
+      throw new Error('Existing fourteen-table completion requires read-only verification');
+    }
+  }
   markBackupSafeStage('WORKDIR_INIT');
   const dir = await mkdtemp(join(tmpdir(), 'mosaic-full-offsite-'));
   try {
@@ -387,7 +460,8 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
       throw new Error('Encrypted private media snapshot not authenticated');
     }
     markBackupSafeStage('R2_PUBLISH');
-    const committed = await publishUnified({ r2, database: pg, media, now: started, recoveryProfile: profile });
+    const committed = await publishUnified({ r2, database: pg, media, now: started,
+      recoveryProfile: profile, onCheckpoint: markBackupSafeStage });
     // The marker is atomically published AND read back at this point. Preserve
     // its exact ID if the later independent verifier fails; never republish it.
     console.log('MOSAIC_SUPABASE_FULL_OFFSITE_REMOTE_COMMITTED_PASS: ' + committed.id);
@@ -403,11 +477,15 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
   } finally { await rm(dir, { recursive: true, force: true }); }
 }
 const direct = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (direct) cli().catch(() => {
+if (direct) cli().catch((error) => {
   // The child is a privileged process. The outer operator may relay only this
   // authored enum, never the raw thrown error or credential-bearing streams.
   if (process.argv[2] === '--backup') {
     console.error('MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: ' + activeBackupSafeStage);
+    if (activeBackupSafeStage.startsWith('R2_')) {
+      const safe = safeR2HttpClass(error);
+      if (safe) console.error('MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_R2: ' + safe);
+    }
   }
   console.error('MOSAIC_SUPABASE_FULL_OFFSITE_NOT_VERIFIED');
   process.exitCode = 1;
