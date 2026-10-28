@@ -139,7 +139,7 @@ class OffsiteRestoreTests(unittest.TestCase):
                     if 'add' in argv:
                         scripts = Path(argv[-2])/'life-tracker/supabase-poc'
                         scripts.mkdir(parents=True)
-                        for name in ('unified-offsite.mjs', 'full-recovery-drill.py'):
+                        for name in ('unified-offsite.mjs', 'full-recovery-drill.py', 'check-private-docker-network.sh'):
                             (scripts/name).write_text('')
                         (scripts/'full-recovery-drill.py').write_text('''
 import re
@@ -171,6 +171,13 @@ def parse_local(out, home):
                         raise m.Refused('R2 digest mismatch')
                     return 'MOSAIC_SUPABASE_FULL_OFFSITE_RECOVERY_PROFILE_PASS: ' + capture.get('profile', 'seven') + '\nMOSAIC_SUPABASE_FULL_OFFSITE_CIPHERTEXT_DOWNLOAD_PASS'
                 if cmd == 'bash':
+                    if argv[1].endswith('check-private-docker-network.sh'):
+                        self.assertEqual(argv[2:], ['--probe'])
+                        self.assertTrue(private_restore)
+                        stages.append('network-probe')
+                        if fail == 'network':
+                            raise m.Refused('Guarded local recovery failed at safe checkpoint: NETWORK_DAEMON_UNAVAILABLE')
+                        return 'MOSAIC_LOCAL_NETWORK_PREFLIGHT_PASS'
                     if argv[1].endswith('inspect-encrypted-backup-toc.sh'):
                         stages.append('TOC')
                         return 'VALID_TOC'
@@ -234,13 +241,20 @@ def parse_local(out, home):
                 else:
                     with self.assertRaises(m.Refused):
                         m.run('c'*40, snapshot, profile)
+            if fail == 'network':
+                self.assertEqual(stages, ['network-probe'])
+                self.assertNotIn('read-R2', stages)
+                self.assertNotIn('postgres-restore', stages)
+                self.assertFalse(any(backup.glob('mosaic-r2-*')))
+                self.assertIn('01b disposable local Docker network preflight', out.getvalue())
+                return
             self.assertIn('read-R2', stages)
             self.assertIn('stop', stages) if 'postgres-restore' in stages else None
             self.assertIn('network-cleanup', stages) if 'postgres-restore' in stages else None
             self.assertEqual(local.exists(), 'postgres-restore' not in stages,
                              'Disposable local state must be deleted after a started restore')
             if fail is None:
-                self.assertEqual(stages[:5], ['read-R2', 'age-auth', 'age-auth', 'TOC', 'postgres-restore'])
+                self.assertEqual(stages[:6], ['network-probe', 'read-R2', 'age-auth', 'age-auth', 'TOC', 'postgres-restore'])
                 self.assertIn('signed-auth', stages)
                 self.assertIn('media-restore', stages)
                 self.assertIn('MOSAIC_R2_EXACT_SNAPSHOT_DISPOSABLE_RESTORE_PASS', out.getvalue())
@@ -250,6 +264,9 @@ def parse_local(out, home):
 
     def test_every_stage_and_exact_remote_snapshot(self):
         self.exercise()
+
+    def test_local_network_failure_refuses_before_any_r2_credentials_or_download(self):
+        self.exercise('network')
 
     def test_r2_integrity_failure_refuses_local_recovery(self):
         self.exercise('remote-mismatch')
