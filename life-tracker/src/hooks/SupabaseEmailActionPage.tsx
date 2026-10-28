@@ -11,8 +11,11 @@ export default function SupabaseEmailActionPage({ config }: {
   const [initial] = useState(() => {
     const input = readEmailActionCallback();
     const hash = input?.pathname === window.location.pathname ? input.hash : window.location.hash;
-    return { callback: hash ? parseEmailAction(window.location.pathname, hash) : null,
-      codeEntry: !hash };
+    const callback = hash ? parseEmailAction(window.location.pathname, hash) : null;
+    // The parsed grant is now held only by this isolated route. Do not leave
+    // the raw fragment (which may include a refresh token) in shared memory.
+    clearEmailActionCallback();
+    return { callback, codeEntry: !hash };
   });
   const { callback, codeEntry } = initial;
   const kind = callback?.kind ?? (window.location.pathname === '/auth/confirm' ? 'signup' : 'recovery');

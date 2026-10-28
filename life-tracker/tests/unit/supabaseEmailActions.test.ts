@@ -54,6 +54,57 @@ describe('isolated email verification and password recovery', () => {
     ]) expect(parseEmailAction(path, hash)).toBeNull();
   });
 
+  it('recognizes standard GoTrue bearer redirects without accepting mixed or forged callbacks', () => {
+    const token = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature_fake_for_test';
+    const native = '#type=recovery&access_token=' + token +
+      '&refresh_token=synthetic-secret&token_type=bearer&expires_in=3600';
+    expect(parseEmailAction('/reset-password', native)).toEqual({ kind: 'recovery', accessToken: token });
+    expect(parseEmailAction('/auth/confirm', native.replace('recovery', 'signup')))
+      .toEqual({ kind: 'signup', accessToken: token });
+    for (const hash of [
+      native + '&token_hash=' + callback.tokenHash,
+      native + '&access_token=second',
+      native.replace('token_type=bearer', 'token_type=unknown'),
+      native.replace('type=recovery', 'type=magiclink'),
+      native.replace('refresh_token=synthetic-secret', ''),
+      '#type=recovery&access_token=forged&refresh_token=synthetic-secret&token_type=bearer',
+    ]) expect(parseEmailAction('/reset-password', hash)).toBeNull();
+    expect(parseEmailAction('/home', native)).toBeNull();
+  });
+
+  it('server-verifies a native recovery bearer without token exchange, durable storage or another account', async () => {
+    const token = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature_fake_for_test';
+    const requests: { url: string; init?: RequestInit }[] = [];
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      requests.push({ url, init });
+      if (url.endsWith('/user') && init?.method === 'GET') return json(user);
+      if (url.endsWith('/user') && init?.method === 'PUT') return json(user);
+      if (url.endsWith('/logout?scope=local')) return new Response(null, { status: 204 });
+      throw Error('Unexpected request');
+    });
+    const actions = createSupabaseEmailActions({
+      ...config, callback: { kind: 'recovery', accessToken: token }, fetcher,
+    });
+    await expect(actions.verify()).resolves.toEqual({ kind: 'recovery', email: user.email });
+    expect(requests.map(r => r.init?.method)).toEqual(['GET']);
+    await expect(actions.resetPassword('new secure password')).resolves.toEqual({ revoked: true });
+    expect(requests.map(r => r.init?.method)).toEqual(['GET', 'GET', 'PUT', 'POST']);
+    expect(requests.every(r => !r.url.includes(token) && !r.url.includes('synthetic-secret'))).toBe(true);
+    expect(requests[2].init?.body).toBe(JSON.stringify({ password: 'new secure password' }));
+    await expect(actions.verify()).rejects.toThrow('completed');
+  });
+
+  it('refuses a native bearer when GoTrue denies it and never submits a password', async () => {
+    const fetcher = vi.fn(async () => json({ message: 'JWT expired' }, 401));
+    const actions = createSupabaseEmailActions({
+      ...config, callback: { kind: 'recovery', accessToken: 'fake.jwt.token' }, fetcher,
+    });
+    await expect(actions.verify()).rejects.toThrow('rejected');
+    await expect(actions.resetPassword('secure password')).rejects.toThrow('Verify');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it('requires live account verification before changing a password and revokes only the link session', async () => {
     const { actions, requests } = fixture();
     await expect(actions.resetPassword('a secure new password')).rejects.toThrow('Verify');
