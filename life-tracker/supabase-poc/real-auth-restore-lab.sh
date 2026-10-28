@@ -29,27 +29,39 @@ p = Path('supabase/config.toml')
 lines = p.read_text().splitlines(keepends=True)
 is_email = False
 is_db = False
+is_auth = False
 found = 0
 found_pg17 = 0
+found_site = 0
+found_redirect = 0
 for i, line in enumerate(lines):
   if line.strip().startswith('[') and line.strip().endswith(']'):
     is_email = line.strip() == '[auth.email]'
     is_db = line.strip() == '[db]'
+    is_auth = line.strip() == '[auth]'
   elif is_email and re.fullmatch(r'\s*enable_confirmations\s*=\s*(true|false)\s*', line):
     lines[i] = 'enable_confirmations = false\n'
     found += 1
   elif is_db and re.fullmatch(r'\s*major_version\s*=\s*\d+\s*', line):
     lines[i] = 'major_version = 17\n'
     found_pg17 += 1
-if found != 1 or found_pg17 != 1:
-  raise SystemExit('Expected one local email confirmation and PG17 setting')
+  elif is_auth and re.match(r'\s*site_url\s*=', line):
+    lines[i] = 'site_url = "http://127.0.0.1:5173"\n'
+    found_site += 1
+  elif is_auth and re.match(r'\s*additional_redirect_urls\s*=', line):
+    lines[i] = 'additional_redirect_urls = ["http://127.0.0.1:5173/reset-password", "http://127.0.0.1:5173/auth/confirm"]\n'
+    found_redirect += 1
+if (found, found_pg17, found_site, found_redirect) != (1, 1, 1, 1):
+  raise SystemExit('Expected one local Auth, callback allowlist and PG17 setting')
 p.write_text(''.join(lines))
 PY
 # A local db reset calls GET /storage/v1/bucket while rebuilding migrations.
 # Excluding Storage made second resets race a nonexistent/unready API. Keep
 # Storage running in this disposable stack; never bypass its health check.
 # All services and data remain generated on the ephemeral GitHub runner.
-supabase start --exclude realtime,functions,studio,mail,analytics,pooler >/dev/null
+# Keep local Mailpit running to verify a real GoTrue-generated recovery
+# email and the exact redirect/fragment accepted by Mosaic's isolated route.
+supabase start --exclude realtime,functions,studio,analytics,pooler >/dev/null
 supabase db reset --local >/dev/null
 get_db() {
   ids="$(docker ps --filter name=supabase_db_ --format '{{.ID}}')"
@@ -91,6 +103,9 @@ python3 "$root/supabase-poc/restore_private_core_to_disposable.py" \
   "$tmp/backup.age" "$tmp/key" "$db"
 node "$root/supabase-poc/tests/real-auth-restore-local.mjs" verify
 echo 'REAL_GOTRUE_LOCAL_RESTORE_PASS: password, owner, revisions, denied prior session and signed foreign access'
+export MOSAIC_AUTH_LAB_MAILPIT_URL=http://127.0.0.1:54324
+export MOSAIC_AUTH_LAB_EMAIL_RECOVERY=1
+node --experimental-strip-types "$root/supabase-poc/tests/real-email-recovery-local.mjs"
 
 # Exercise the independent new-stack operator wrapper as a second, real GoTrue
 # generated-data test. First stop this first lab's CLI instance, without

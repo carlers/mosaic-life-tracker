@@ -51,6 +51,7 @@ jobs:
         run: |
           bash -n supabase-poc/real-auth-restore-lab.sh
           node --check supabase-poc/tests/real-auth-restore-local.mjs
+          node --check supabase-poc/tests/real-email-recovery-local.mjs
           python3 -m py_compile supabase-poc/restore_private_core_to_disposable.py supabase-poc/configure-private-disposable-stack.py
       - name: Exercise real local Auth account recovery
         env:
