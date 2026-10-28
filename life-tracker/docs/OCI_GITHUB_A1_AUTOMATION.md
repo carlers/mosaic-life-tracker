@@ -1,3 +1,9 @@
+## Cloudflare 5-minute scheduler — staged only (2026-10-28)
+
+A new fail-closed external cron event path is proposed on `chatgpt/975-cloudflare-dispatch-20261028`. The dedicated scheduler must authenticate an externally dispatched `workflow_dispatch` with HMAC-SHA256, an exact timestamp/nonce, a short freshness window, the dedicated repository/default branch, and a matching GitHub secret before setting `MOSAIC_OCI_EXTERNAL_CRON_VERIFIED=true`. The controller accepts that flag only for the dedicated scheduler on trusted `main`; unsigned manual dispatch remains observe-only. The existing `MOSAIC_OCI_AUTOLAUNCH=true`, free-tier and quota confirmations, inventory, fixed 2 OCPU/12 GiB/50 GiB, private IP, no retry and single-instance checks all remain mandatory. Cloudflare must not be activated until the new controller receives focused/canonical CI acceptance, the scheduler is pinned to that immutable accepted SHA, HMAC secrets have been installed privately on both sides, and the scheduled Worker has been independently observed. No Production or OCI changes are authorized by this source-only staging.
+
+---
+
 # GitHub-hosted A1 capacity claim — DORMANT until approved (#975)
 
 ## October 28, 2026: live scheduled claim repair — regional OCI IDs (#975)

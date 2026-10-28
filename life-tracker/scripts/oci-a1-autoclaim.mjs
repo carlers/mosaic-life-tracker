@@ -192,9 +192,15 @@ export function claimA1({
       ({ ad: r.availabilityDomain, status: r.status })),
       outcome: matching.length ? 'capacity_possible' : 'capacity_unavailable' };
   }
+  // External dispatch can claim ONLY after the trusted GitHub job validates
+  // Cloudflare's time-bounded HMAC. Arbitrary workflow_dispatch remains observe-only.
+  const verifiedExternalCron =
+    context.repository === 'carlers/mosaic-oci-a1-scheduler' &&
+    context.eventName === 'workflow_dispatch' && context.externalCronVerified === true;
   if (!['carlers/mosaic-life-tracker', 'carlers/mosaic-oci-a1-scheduler'].includes(context.repository) ||
-      context.ref !== 'refs/heads/main' || context.eventName !== 'schedule') {
-    throw new Error('Launch only allowed for scheduled workflow on trusted default branch');
+      context.ref !== 'refs/heads/main' ||
+      (context.eventName !== 'schedule' && !verifiedExternalCron)) {
+    throw new Error('Launch only allowed for trusted scheduled workflow or verified external cron');
   }
   validateConfig(config);
   // Inventory is mandatory even if capacity reports say POSSIBLE or unavailable.
@@ -212,10 +218,13 @@ export function claimA1({
 
 export function runFromEnv(env = process.env) {
   const enabled = env.MOSAIC_OCI_AUTOLAUNCH === 'true';
+  const verifiedExternalCron = env.GITHUB_EVENT_NAME === 'workflow_dispatch' &&
+    env.MOSAIC_OCI_EXTERNAL_CRON_VERIFIED === 'true';
   const result = claimA1({
-    mode: env.GITHUB_EVENT_NAME === 'workflow_dispatch' ? 'observe' : enabled ? 'launch' : 'observe', enabled,
+    mode: env.GITHUB_EVENT_NAME === 'workflow_dispatch' && !verifiedExternalCron
+      ? 'observe' : enabled ? 'launch' : 'observe', enabled,
     context: { repository: env.GITHUB_REPOSITORY, ref: env.GITHUB_REF,
-      eventName: env.GITHUB_EVENT_NAME },
+      eventName: env.GITHUB_EVENT_NAME, externalCronVerified: verifiedExternalCron },
     config: {
       compartmentId: env.MOSAIC_OCI_COMPARTMENT_OCID,
       subnetId: env.MOSAIC_OCI_SUBNET_OCID,
