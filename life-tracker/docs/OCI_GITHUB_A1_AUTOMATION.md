@@ -1,3 +1,11 @@
+## 2026-10-28: signed five-minute dispatch confirmed; OCI launch denial diagnostics (#975)
+
+Three Cloudflare-triggered workflow_dispatch jobs 40635476174, 40635958804, and 40636436658 ran at five-minute cadence. HMAC verification, OCI CLI installation and signing setup passed, but LaunchInstance failed with the old combined sanitized error 'OCI launch denied by IAM or invalid configuration'. There is no instance_created report. The exact OCI code is not known.
+
+The isolated change preserves all VM parameters, IAM, quotas, shape, no-public-IP, inventory and retry guards; only separates allowlisted sanitized error categories for invalid parameter/image/shape, API authentication, and authorization/resource unavailability. Raw stderr and OCIDs remain suppressed. Existing capacity, throttling and quota behavior is unchanged. Regression tests cover each category plus secret redaction. Accept via focused CI, canonical OCI Preview and trusted Preview before repinning the dedicated scheduler; inspect the next scheduled run to identify the actual error. No app Production or Oracle infrastructure change.
+
+---
+
 ## Cloudflare 5-minute scheduler — staged only (2026-10-28)
 
 A new fail-closed external cron event path is proposed on `chatgpt/975-cloudflare-dispatch-20261028`. The dedicated scheduler must authenticate an externally dispatched `workflow_dispatch` with HMAC-SHA256, an exact timestamp/nonce, a short freshness window, the dedicated repository/default branch, and a matching GitHub secret before setting `MOSAIC_OCI_EXTERNAL_CRON_VERIFIED=true`. The controller accepts that flag only for the dedicated scheduler on trusted `main`; unsigned manual dispatch remains observe-only. The existing `MOSAIC_OCI_AUTOLAUNCH=true`, free-tier and quota confirmations, inventory, fixed 2 OCPU/12 GiB/50 GiB, private IP, no retry and single-instance checks all remain mandatory. Cloudflare must not be activated until the new controller receives focused/canonical CI acceptance, the scheduler is pinned to that immutable accepted SHA, HMAC secrets have been installed privately on both sides, and the scheduled Worker has been independently observed. No Production or OCI changes are authorized by this source-only staging.

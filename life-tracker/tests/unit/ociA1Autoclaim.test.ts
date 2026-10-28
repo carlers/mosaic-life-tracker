@@ -224,11 +224,16 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
       .toBe('rate_limited');
     for (const [error, expected] of [
       ['LimitExceeded secret-key=private-value', /service limit or quota/],
-      ['NotAuthorizedOrNotFound secret-key=private-value', /IAM or invalid/],
+      ['NotAuthorizedOrNotFound secret-key=private-value', /authorization or referenced resource unavailable/],
+      ['RelatedResourceNotAuthorizedOrNotFound ocid1.subnet.oc1.secret', /authorization or referenced resource unavailable/],
+      ['NotAuthenticated secret-key=private-value', /API authentication failed/],
+      ['InvalidParameter ocid1.instance.oc1.secret', /invalid launch parameter/],
+      ['InvalidImage image-secret', /invalid image/],
+      ['InvalidShape shape-secret', /invalid shape/],
       ['unknown secret-key=private-value', /unclassified error/],
     ]) {
       expect(() => classifyLaunchFailure({ status: 1, stderr: error })).toThrow(expected);
-      expect(() => classifyLaunchFailure({ status: 1, stderr: error })).not.toThrow(/private-value/);
+      expect(() => classifyLaunchFailure({ status: 1, stderr: error })).not.toThrow(/private-value|ocid1|image-secret|shape-secret/);
     }
     expect(() => classifyLaunchFailure({ status: null, error: new Error('sensitive') }))
       .toThrow(/uncertain/);
