@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Restores only exactly reviewed 6/7/8/10 TABLE DATA objects into a brand-new
+# Restores only explicitly reviewed 6/7/8/10/14 TABLE DATA objects into a brand-new
 # local Supabase project. Does NOT modify existing local/hosted projects.
 set -euo pipefail
 umask 077
@@ -107,15 +107,25 @@ for migration in \
   index=$((index+1))
 done
 if [[ $# -eq 4 ]]; then
-  # Live hosted mosaic-dev has private Diary but has NOT applied category
-  # retirement or atomic category-delete migrations (read-only verified).
-  # Match only the currently installed fresh-source schema here, never widen
-  # the restore target with unrelated future feature migrations.
+  # The 14-table AFTER-registry source includes retired_on metadata and
+  # the atomic category-delete trigger. Historic 6/7/8/10 snapshots do not.
+  # Keep these additional migrations restricted to the explicit 14-table
+  # recovery profile; otherwise a valid new category COPY fails schema parity.
   for migration in 20261022_candidate_private_diary_domain; do
     printf -v stamp '2026102000%04d' "$index"
     cp "$here/migrations/$migration.sql" "supabase/migrations/$stamp"_"$migration.sql"
     index=$((index+1))
   done
+  if [[ ${MOSAIC_IDENTITY_REGISTRY_RESTORE:-} == 1 ]]; then
+    for migration in \
+      20261022_candidate_category_retirement \
+      20261022_candidate_private_diary_realtime \
+      20261023_candidate_atomic_category_delete; do
+      printf -v stamp '2026102000%04d' "$index"
+      cp "$here/migrations/$migration.sql" "supabase/migrations/$stamp"_"$migration.sql"
+      index=$((index+1))
+    done
+  fi
   if [[ ${MOSAIC_PERSONAL_SETTINGS_RESTORE:-} == 1 ]]; then
     printf -v stamp '2026102000%04d' "$index"
     cp "$here/migrations/20261025_candidate_private_personal_settings.sql" "supabase/migrations/$stamp"_personal_settings.sql

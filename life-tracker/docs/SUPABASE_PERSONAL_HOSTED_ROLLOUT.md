@@ -1,6 +1,6 @@
 # Hosted six-domain Supabase launch sequence — issue #1027
 
-Status: **five additive hosted migrations installed; fourteen-table AFTER-state recovery still blocked. NOT rollout approval.** This runbook distinguishes installed DDL from the separate, unapproved personal writer fence.
+Status: **five additive hosted migrations installed; immutable fourteen-table AFTER archive committed, but independent PG17 recovery NOT VERIFIED. NOT rollout approval.** Keep final personal writer fence uninstalled.
 Target: isolated `mosaic-dev` project `hcxtiifzxoaflhjgoglb`, never implicit Production.
 Latest audited isolated recovery: `feature/1027-supabase-recovery-20261020@f1dfbd1cf8251c1e71529ead790b8cd9e9e8ba35` (PR #1425, full Quality #40660225092). Always re-check live branch, CI and hosted catalog before executing.
 
@@ -23,7 +23,7 @@ substitute for audited, server-owned release evidence.
 - All three Settings/Bucket/Bucket-link Realtime publications are present.
 - **Zero** accounts with recorded consent and **zero** installations with release evidence. The separate `20261027183840_enforce_personal_writer_consent.sql` is **NOT installed** (writer function, consent constraint and Storage restrictive policy absent).
 - A previously encrypted **ten-table BEFORE** R2 generation `20261028T053525682Z` passed complete independent PostgreSQL/Auth/private-media restoration. **Never repeat or prune it.** The registry-bearing **fourteen-table AFTER** snapshot and restore remain unverified.
-- The five-field R2-only owner diagnostic returned `MOSAIC_R2_READER_READ_CHECK_PASS` and `MOSAIC_R2_WRITER_READ_CHECK_HTTP_403_SIGNATURE_MISMATCH`; the missing correctly paired writer S3 token is a private operator prerequisite before the fourteen-table full backup. **Do not repeat the full capture** until read-only probe of *both* pairs passes. Reader authentication success is not WRITE permission proof.
+- R2 credential pair verification later passed independently for reader and writer. The owner then **successfully published** the fourteen-table Auth/PostgreSQL + complete private-media R2 generation `20261028T100954899Z`; independent R2 ciphertext watch and full age authentication PASS. **Never repeat that already-completed backup.** Fresh PG17 restore failed at database stage 04 and full source/target data/owner/media recovery remains unverified. A source-only repair aligns missing category retirement/atomic-delete migrations in the disposable fourteen-table target, followed by restore-only verification.
 - Security Advisor currently flags nine authenticated-callable privileged RPCs and disabled leaked-password protection; see [privileged review](SUPABASE_PRIVILEGED_CAS_REVIEW.md). Hosted SMTP/reset/redirect allowlist/device acceptance remain unverified.
 
 The earlier pre-DDL inventory (16 migrations and no registry) is historical only, **not** the current state. Re-verify the latest hosted records before each operation.
@@ -99,7 +99,7 @@ credentials to CI logs, GitHub issues, ChatGPT or a browser.
 
 ## Current blocker ownership
 
-- **AFTER-state offsite DR:** Correctly paired dedicated R2 WRITE S3 credentials are required. The owner read-only probe passed reader LIST/GET and failed writer SigV4 authentication. First require both reader and writer to pass the same read-only probe; then perform the existing, already-reviewed fourteen-table encrypted publication, independent watcher, and exact fresh PG17/GoTrue/private-media restore. No full AFTER proof exists yet.
+- **AFTER-state offsite DR:** R2 ciphertext publication and independent reader watch for immutable `20261028T100954899Z` have passed. The fresh PG17 restore failed at database stage 04. Preserve both the completed fourteen-table AFTER snapshot and the verified ten-table BEFORE `20261028T053525682Z`; after reviewed source/CI correction, perform **restore-only** on the exact fourteen-table marker. No new backup/re-upload.
 - **Final writer fence and release evidence:** migration `20261027183840_enforce_personal_writer_consent.sql` is not applied, installation release marker is NULL and account consents are unset. Do not activate or set evidence before restored AFTER-state and separately authorized signed tests, consent/cutover and old-writer impact review.
 - **Changed hosted acceptance:** independent signed two-owner checks on the current 21-migration schema, including grants/RLS/category deletion, remain required.
 - **SMTP/password recovery:** disposable local GoTrue email recovery has passed, but hosted sender, redirect allowlist and actual inbox reception remain unverified. Auth Management inspection returned HTTP 401. Leaked-password protection remains disabled.

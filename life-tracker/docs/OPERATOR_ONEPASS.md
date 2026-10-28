@@ -1,5 +1,34 @@
 # Mosaic operator one-pass commands (#1027)
 
+## 2026-10-28 R2 fourteen-table AFTER committed; restore-only remediation
+
+The owner ran the source-pinned full operator on `243d958523877257ce8418e34f61c9e0ce9ff5d6`.
+The **immutable encrypted fourteen-table PostgreSQL/Auth + whole-private-media** R2
+generation `20261028T100954899Z` is **COMMITTED** (Stage 03 PASS). Independent
+READ-ONLY whole-ciphertext/profile verification (Stage 04) PASS and both
+archives authenticated with the owner's age key; all temporary worktrees and
+disposable resources were cleaned after the subsequent failure.
+
+**Never run the full fourteen-table backup again for this completed snapshot.**
+Its independent fresh PG17 restore stopped at database Stage 04. The source
+hosted category includes `retired_on` plus atomic category-delete triggers,
+but the old fourteen-table disposable restore target lacked those additive
+migrations. The repair must align **only the fourteen-table disposable target**,
+with a synthetic regression restoring nonempty `retired_on`; older 6/7/8/10
+modes must be preserved. A strict, allowlisted checkpoint may be passed
+through nested operator failures, never raw child logs.
+
+Once the correction's focused, canonical and real synthetic fourteen-table CI
+have passed, invoke only the independently pinned `restore-unified-r2.py`
+entrypoint with `--snapshot-id 20261028T100954899Z` and
+`--recovery-profile fourteen-personal-identity`. This path requires only the
+existing age key, distinct R2 **READ-ONLY** key and private original-owner
+sign-in at the appropriate local stage; it does **not** require the writer
+token, PostgreSQL source password, Storage admin secret, a new cloud snapshot,
+or any hosted/deployment mutation. Full AFTER acceptance still requires
+`MOSAIC_R2_EXACT_SNAPSHOT_DISPOSABLE_RESTORE_PASS` and every owner/media stage.
+Correctness is **not yet verified**.
+
 ## 2026-10-28 repeated R2 SignatureDoesNotMatch — credential-only differential
 
 Owner's **two** identical source-pinned Fedora runs (08:31 and 08:39 UTC) failed at the very first **read-only** `R2_PREFLIGHT_LIST`: `HTTP_403_SIGNATURE_MISMATCH`. Stage 01/02 passed (source and credential format, not cloud authentication), and disposable worktree cleanup passed. No PostgreSQL recapture, private Storage recapture or new fourteen-table R2 publication occurred in either attempt. Do not repeat the seven-credential backup yet.
