@@ -1,5 +1,12 @@
 # Session checkpoint
 
+## #975 Cloudflare external cron reliability — source-only staging, 2026-10-28
+
+Owner requested a more reliable five-minute OCI watcher after GitHub recorded only 10 scheduled executions on Oct 27. Isolated branch `chatgpt/975-cloudflare-dispatch-20261028` begins at accepted controller `5673549e34fc68430f96764c13ce994fb91441dd`. Add strict opt-in signed workflow_dispatch provenance so manual dispatch stays observe-only and existing fixed-size/single-instance/free-tier/quota/IAM controls remain unchanged. Pair with standalone scheduler Worker code, confirm both CI paths, then pin only an accepted source SHA; no Cloudflare Worker, OCI resource or Production deployment is activated by this branch. Cloudflare connection/deployment and private secret setup remain separate operator actions; no bypass or global toggles before verified dry run.
+
+---
+
+
 ## #975 post-activation scheduled failure / regionalized OCID fix — 2026-10-28
 
 Public standalone scheduler `carlers/mosaic-oci-a1-scheduler@20aa54f19f924845a72738088f42c328009bcfb1` is pinned to accepted controller `38aa7fbae05caef832b7a40e18921d8a42e11ab7`; six post-activation scheduled runs failed on the `Check capacity and optionally claim ONE A1 instance` step with sanitized `Dedicated subnet OCID required` error. Real Singapore subnet/image OCIDs have region tokens with hyphens, which strict `[a-z0-9.]+` mistakenly rejects; no OCI launch was attempted by these failed runs. Isolated task `chatgpt/975-region-ocid-validator-20261028` widens the region-safe character class, adds negative and positive validation tests, and preserves all launch/identity/size controls. Follow focused CI then squash into `refactor/975-github-a1-autoclaim-20261019` for full canonical/Preview, then repin standalone scheduler after acceptance. User previously explicitly approved activating this exact guarded A1 automation; repair does not authorize other Oracle or Mosaic Production changes. Cron nominally five minutes on public repo (12 slots/h), but GitHub delayed/missed many slots. Keep #975 and separate ChatGPT monitor open; only actual JSON `instance_created` proves claim. Next: verify source/test diff and focused CI, deliver and inspect real logs.

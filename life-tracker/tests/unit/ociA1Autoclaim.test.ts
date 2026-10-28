@@ -259,6 +259,29 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
       expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
     }
   });
+  it('allows only signed external cron dispatch from the dedicated scheduler', () => {
+    const verified = { repository: 'carlers/mosaic-oci-a1-scheduler',
+      ref: 'refs/heads/main', eventName: 'workflow_dispatch', externalCronVerified: true };
+    const spawn = mockOci();
+    expect(claimA1({ mode: 'launch', enabled: true, context: verified, config,
+      capacity: () => cap(), spawn }).outcome).toBe('instance_created');
+    expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
+    for (const override of [
+      { externalCronVerified: undefined }, { externalCronVerified: false },
+      { externalCronVerified: 'true' }, { repository: 'attacker/fork' },
+      { ref: 'refs/heads/dev' },
+    ]) {
+      const denied = vi.fn();
+      expect(() => claimA1({ mode: 'launch', enabled: true,
+        context: { ...verified, ...override }, config, spawn: denied })).toThrow(/verified external cron/);
+      expect(denied).not.toHaveBeenCalled();
+    }
+    const observe = vi.fn(() => cap());
+    const noLaunch = vi.fn();
+    expect(claimA1({ mode: 'observe', enabled: true, context: verified,
+      config, capacity: observe, spawn: noLaunch }).outcome).toBe('capacity_possible');
+    expect(noLaunch).not.toHaveBeenCalled();
+  });
   it('keeps manual-dispatch/observe mode from launching even when enabled', () => {
     const capacity = vi.fn(() => cap());
     const spawn = vi.fn();
