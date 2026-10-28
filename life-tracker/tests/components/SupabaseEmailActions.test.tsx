@@ -67,8 +67,14 @@ describe('provider-neutral email recovery route', () => {
       finish(new Response(JSON.stringify({ access_token: 'disposable-link-access', user })));
     });
     expect(await screen.findByRole('button', { name: 'Verify email link' })).toBeVisible();
-    expect(readEmailActionCallback()?.hash).toContain('b'.repeat(64));
+    // The replacement route has consumed its own credential into isolated
+    // memory; it must not leave the raw hash globally available.
+    expect(readEmailActionCallback()).toBeNull();
     expect(screen.queryByText(/Verified account/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Verify email link' }));
+    expect(await screen.findByRole('status')).toHaveTextContent(user.email);
+    expect(fetcher.mock.calls.some(([, init]) =>
+      String(init?.body).includes('b'.repeat(64)))).toBe(true);
   });
   it('cleans the URL, verifies the visible target and resets without mounting any signed account writer', async () => {
     open();
