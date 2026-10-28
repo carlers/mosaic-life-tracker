@@ -29,6 +29,7 @@ Options:
   --no-env-file                Do not write browser env file.
   --overwrite-env              Replace an existing env output file.
   --platform-only              Only add missing web hostnames to an existing project.
+  --resume-precreated-database  Continue only when precisely the Git-owned empty database exists.
   --print-scopes               Print the temporary API-key scopes and exit.
   --help                       Show this help.
 
@@ -37,7 +38,10 @@ Required temporary API-key scopes:
 
 Safety:
   Normal bootstrap refuses projects that already contain users, databases,
-  Storage buckets, or Functions. If a provisioning run fails after creating
+  Storage buckets, or Functions. The explicit --resume-precreated-database
+  switch requires exactly one matching empty Git-owned database and no other
+  existing resources; never use it for a populated project.
+  If a provisioning run fails after creating
   resources, delete/recreate the disposable empty project before retrying.
 `.trim();
 
