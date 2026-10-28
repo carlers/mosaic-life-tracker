@@ -12,7 +12,7 @@ describe('fourteen-table post-registry one-pass offsite DR (owner-only, source-p
       env: { PATH: process.env.PATH ?? '', HOME: '/nonexistent' },
     });
     expect(out.status, out.stderr || out.error?.message).toBe(0);
-    expect(out.stderr).toContain('Ran 13 tests');
+    expect(out.stderr).toContain('Ran 16 tests');
     expect(out.stderr).toContain('OK');
   });
 

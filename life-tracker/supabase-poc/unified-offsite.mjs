@@ -21,6 +21,13 @@ const CHUNK = 8 * 1024 * 1024;
 const MAX_PARTS = 10000;
 const HEX = /^[a-f0-9]{64}$/;
 const ID = /^\d{8}T\d{9}Z$/;
+// Fixed, public-safe checkpoints: do not expose provider stderr, SQL, paths or keys.
+export const BACKUP_SAFE_STAGES = Object.freeze(['SOURCE_GATE', 'R2_CONFIGURATION', 'WORKDIR_INIT', 'AGE_IDENTITY', 'PG_CLIENT_VERSION', 'PG_DATABASE_CAPTURE', 'PG_TOC_AUTHENTICATION', 'PG_TOC_PROFILE', 'STORAGE_CAPTURE', 'R2_PUBLISH', 'R2_FULL_READBACK', 'R2_RETENTION']);
+let activeBackupSafeStage = 'SOURCE_GATE';
+function markBackupSafeStage(code) {
+  if (!BACKUP_SAFE_STAGES.includes(code)) throw new Error('Unrecognized backup checkpoint');
+  activeBackupSafeStage = code;
+}
 const sha = (value) => createHash('sha256').update(value).digest('hex');
 const identity = (date) => date.toISOString().replace(/[-:.]/g, '');
 const snapshot = (id) => `${PREFIX}/snapshots/${id}`;
@@ -303,7 +310,9 @@ function r2FromEnv(env) {
   });
 }
 export async function cli(env = process.env, argv = process.argv.slice(2)) {
+  if (argv[0] === '--backup') markBackupSafeStage('SOURCE_GATE');
   assertFullSource(env, argv[0]);
+  if (argv[0] === '--backup') markBackupSafeStage('R2_CONFIGURATION');
   const r2 = r2FromEnv(env);
   if (argv[0] === '--watch') {
     if (argv.length !== 1) throw new Error('Invalid watch invocation');
@@ -320,8 +329,10 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
     return;
   }
   if (argv.length !== 1) throw new Error('Invalid backup invocation');
+  markBackupSafeStage('WORKDIR_INIT');
   const dir = await mkdtemp(join(tmpdir(), 'mosaic-full-offsite-'));
   try {
+    markBackupSafeStage('AGE_IDENTITY');
     const home = join(dir, 'home');
     const ageDir = join(home, '.config', 'mosaic');
     await mkdir(ageDir, { recursive: true, mode: 0o700 });
@@ -330,6 +341,7 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
     const path = fileURLToPath(new URL('./', import.meta.url));
     const recipient = checkedChild('age-keygen', ['-y', ageKey], { PATH: env.PATH || '', HOME: home }, 1).trim();
     if (!/^age1[0-9a-z]{40,100}$/.test(recipient)) throw new Error('Invalid age encryption recipient');
+    markBackupSafeStage('PG_CLIENT_VERSION');
     for (const binary of ['pg_dump', 'pg_restore']) {
       const version = checkedChild(binary, ['--version'], { PATH: env.PATH || '' }, 1);
       const match = /PostgreSQL\) (\d+)\./.exec(version);
@@ -345,6 +357,7 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
       MOSAIC_AGE_RECIPIENT: recipient, MOSAIC_AGE_IDENTITY_FILE: ageKey,
     };
     const started = new Date();
+    markBackupSafeStage('PG_DATABASE_CAPTURE');
     const result = checkedChild('bash', [join(path, 'hosted-encrypted-backup.sh'), pg], pgEnv, 35);
     if (!result.includes('Encrypted snapshot created (archive SHA-256):')) {
       throw new Error('Encrypted PostgreSQL snapshot lacks full-byte verification');
@@ -353,6 +366,7 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
     // PostgreSQL 17 TOC. Refuse any unsupported personal TABLE DATA before
     // spending a Storage read or emitting a single R2 upload/COMPLETED object.
     const profile = assertRecoveryProfile(env.SUPABASE_DR_RECOVERY_PROFILE || SEVEN);
+    markBackupSafeStage('PG_TOC_AUTHENTICATION');
     const inspected = checkedChild('bash', [join(path, 'inspect-encrypted-backup-toc.sh'), pg, ageKey], {
       PATH: env.PATH || '', HOME: home,
     }, 12);
@@ -362,7 +376,9 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
     let summary;
     try { summary = JSON.parse(inspected.slice(startJson, endJson + 1)); }
     catch { throw new Error('Invalid authenticated PostgreSQL archive summary'); }
+    markBackupSafeStage('PG_TOC_PROFILE');
     assertProfileToc(summary, profile);
+    markBackupSafeStage('STORAGE_CAPTURE');
     const mediaResult = checkedChild('python3', [join(path, 'private-photo-snapshot.py'), media], {
       PATH: env.PATH || '', HOME: home,
       MOSAIC_SUPABASE_SOURCE_STORAGE_KEY: env.SUPABASE_DR_SOURCE_STORAGE_KEY,
@@ -370,10 +386,16 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
     if (!mediaResult.includes('SUPABASE_PRIVATE_MEDIA_ENCRYPTED_SNAPSHOT_PASS')) {
       throw new Error('Encrypted private media snapshot not authenticated');
     }
+    markBackupSafeStage('R2_PUBLISH');
     const committed = await publishUnified({ r2, database: pg, media, now: started, recoveryProfile: profile });
+    // The marker is atomically published AND read back at this point. Preserve
+    // its exact ID if the later independent verifier fails; never republish it.
+    console.log('MOSAIC_SUPABASE_FULL_OFFSITE_REMOTE_COMMITTED_PASS: ' + committed.id);
+    markBackupSafeStage('R2_FULL_READBACK');
     await verifyUnified({ r2, id: committed.id });
     console.log('MOSAIC_SUPABASE_FULL_OFFSITE_COMMITTED_PASS: ' + committed.id);
     if (env.SUPABASE_DR_PRUNE_ENABLED === 'true') {
+      markBackupSafeStage('R2_RETENTION');
       if (env.SUPABASE_DR_R2_LOCK_CONFIRMED !== 'true') throw new Error('R2 lock verification missing');
       const result = await pruneUnified({ r2 });
       console.log('MOSAIC_SUPABASE_FULL_OFFSITE_RETENTION_PASS: ' + result.removed);
@@ -382,6 +404,11 @@ export async function cli(env = process.env, argv = process.argv.slice(2)) {
 }
 const direct = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (direct) cli().catch(() => {
+  // The child is a privileged process. The outer operator may relay only this
+  // authored enum, never the raw thrown error or credential-bearing streams.
+  if (process.argv[2] === '--backup') {
+    console.error('MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: ' + activeBackupSafeStage);
+  }
   console.error('MOSAIC_SUPABASE_FULL_OFFSITE_NOT_VERIFIED');
   process.exitCode = 1;
 });

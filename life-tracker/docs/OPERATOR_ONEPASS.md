@@ -1,5 +1,13 @@
 # Mosaic operator one-pass commands (#1027)
 
+## 2026-10-28 Stage 03 diagnostics after accepted private PG17.11 bootstrap
+
+The operator verified signed Fedora PG17.11 clients in a **private non-installed** directory (system Fedora PG18 untouched), then completed source/Docker and hidden-credential stages of the fourteen-table run. Stage 03 failed with only `GUARDED_CHILD_FAILED`; no completed fourteen-table marker has been proven. Existing ten-table BEFORE generation remains independently verified and must **not** be re-created. Do not assert R2 received zero writes: an unmarked partial generation is possible if the failed child reached publication.
+
+The isolated source-only repair adds a fixed, enumerated safe failure checkpoint inside `unified-offsite.mjs --backup`: `SOURCE_GATE`, `R2_CONFIGURATION`, `WORKDIR_INIT`, `AGE_IDENTITY`, `PG_CLIENT_VERSION`, `PG_DATABASE_CAPTURE`, `PG_TOC_AUTHENTICATION`, `PG_TOC_PROFILE`, `STORAGE_CAPTURE`, `R2_PUBLISH`, `R2_FULL_READBACK`, or `R2_RETENTION`. The operator's parent accepts **only** an exact trusted stage code; never print subprocess stderr/stdout, SQL, owner data, keys or host paths. Only after R2 publishes and independently reads the paired `COMPLETED` root marker does it emit a recoverable exact snapshot ID. If verification fails after publication, the parent prints `MOSAIC_FOURTEEN_R2_ALREADY_COMMITTED_RETAIN` and must **not** republish: use that exact ID with the existing restore-only path.
+
+Use the latest **canonical and specialist CI-accepted** isolated recovery SHA before one new trusted Fedora command. Its PATH must include both approved private PG17.11 wrapper executables. No package erasure, no altered system services, no weakened R2 or consent/Production fences.
+
 ## 2026-10-28 approved hosted fourteen-table identity state and operator-only R2 path
 
 The owner expressly approved and the five reviewed additive migrations were installed

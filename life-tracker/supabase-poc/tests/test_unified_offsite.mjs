@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdtemp, readFile, writeFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { PREFIX, SOURCE, publishUnified, verifyUnified, watchUnified,
-  downloadUnified, pruneUnified, assertFullSource } from '../unified-offsite.mjs';
+  downloadUnified, pruneUnified, assertFullSource, BACKUP_SAFE_STAGES } from '../unified-offsite.mjs';
 // Production marker.completedAt uses the actual wall clock. Never mock the
 // verifier's 60s future skew or 36h freshness guard to accommodate stale tests.
 const NOW = new Date();
@@ -212,4 +214,29 @@ test('protected source gates require exact Scratch owner and writer enablement, 
   assert.doesNotThrow(() => assertFullSource(disabled, '--watch'));
   assert.doesNotThrow(() => assertFullSource(disabled, '--download'));
   assert.throws(() => assertFullSource({ ...disabled, SUPABASE_DR_SOURCE_PROJECT: 'production' }, '--download'), /Unexpected/);
+});
+
+test('direct backup CLI reports only fixed failure stage, never raw source or private secrets', () => {
+  assert.ok(BACKUP_SAFE_STAGES.includes('SOURCE_GATE'));
+  assert.ok(BACKUP_SAFE_STAGES.includes('PG_DATABASE_CAPTURE'));
+  assert.ok(BACKUP_SAFE_STAGES.includes('STORAGE_CAPTURE'));
+  assert.ok(BACKUP_SAFE_STAGES.includes('R2_FULL_READBACK'));
+  assert.equal(new Set(BACKUP_SAFE_STAGES).size, BACKUP_SAFE_STAGES.length);
+  const marker = 'test-secret-that-must-never-be-logged';
+  const file = fileURLToPath(new URL('../unified-offsite.mjs', import.meta.url));
+  const run = spawnSync(process.execPath, [file, '--backup'], {
+    encoding: 'utf8', timeout: 10000,
+    env: {
+      PATH: process.env.PATH || '',
+      SUPABASE_DR_SOURCE_PROJECT: 'unexpected-production-project',
+      SUPABASE_DR_PGPASSWORD: marker,
+      SUPABASE_DR_SOURCE_STORAGE_KEY: marker,
+      SUPABASE_DR_R2_SECRET_ACCESS_KEY: marker,
+    },
+  });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /^MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: SOURCE_GATE$/m);
+  assert.match(run.stderr, /^MOSAIC_SUPABASE_FULL_OFFSITE_NOT_VERIFIED$/m);
+  assert.ok(!run.stderr.includes(marker));
+  assert.ok(!run.stdout.includes(marker));
 });

@@ -157,6 +157,63 @@ class FourteenOffsiteTests(unittest.TestCase):
                 m.guarded_restore(scripts,Path(root),'a'*40,SECRETS,'20261028T081234567Z')
             self.assertEqual(restored,[('a'*32,READER,'r'*40)])
 
+
+    def test_fixed_backup_stage_can_be_passed_without_exposing_child_stderr(self):
+        secret = 'do-not-echo-private-password-or-object-row'
+        response = types.SimpleNamespace(
+            returncode=1,
+            stdout='no completed marker',
+            stderr='MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: PG_DATABASE_CAPTURE\n'
+                   + 'private stderr ' + secret,
+        )
+        with patch.object(m.subprocess, 'run', return_value=response):
+            with self.assertRaises(m.SafeFailure) as caught:
+                m.cmd(['node','trusted-unified-offsite.mjs','--backup'],backup_diagnostic=True)
+        self.assertEqual(str(caught.exception),'FOURTEEN_R2_PG_DATABASE_CAPTURE_FAILED')
+        self.assertNotIn(secret,str(caught.exception))
+        self.assertEqual(m.COMMITTED_SNAPSHOT,None)
+
+    def test_published_remote_marker_survives_failed_independent_verify(self):
+        before = m.COMMITTED_SNAPSHOT
+        try:
+            m.COMMITTED_SNAPSHOT = None
+            id = '20261028T081234567Z'
+            result = types.SimpleNamespace(
+                returncode=1,
+                stdout='MOSAIC_SUPABASE_FULL_OFFSITE_REMOTE_COMMITTED_PASS: '+id+'\n',
+                stderr='MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: R2_FULL_READBACK\n',
+            )
+            with patch.object(m.subprocess, 'run', return_value=result):
+                with self.assertRaisesRegex(m.SafeFailure,'FOURTEEN_R2_R2_FULL_READBACK_FAILED'):
+                    m.cmd(['node','trusted-unified-offsite.mjs','--backup'],backup_diagnostic=True)
+            self.assertEqual(m.COMMITTED_SNAPSHOT,id)
+        finally:
+            m.COMMITTED_SNAPSHOT = before
+
+    def test_unrecognized_or_duplicate_stage_is_rejected_without_raw_output(self):
+        before = m.COMMITTED_SNAPSHOT
+        try:
+            m.COMMITTED_SNAPSHOT = None
+            for raw in (
+                'MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: PROVIDER_KEY_BROKEN\n',
+                'MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: STORAGE_CAPTURE\n'
+                'MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: PG_DATABASE_CAPTURE\n',
+                'Sensitive PGHOST and password on stderr\n',
+            ):
+                with self.subTest(raw=raw), patch.object(m.subprocess,'run',
+                    return_value=types.SimpleNamespace(returncode=2,stdout='',stderr=raw)):
+                    with self.assertRaises(m.SafeFailure) as caught:
+                        m.cmd(['node','trusted-unified-offsite.mjs','--backup'],
+                              backup_diagnostic=True)
+                    self.assertEqual(str(caught.exception),'GUARDED_CHILD_FAILED')
+                    self.assertEqual(m.COMMITTED_SNAPSHOT,None)
+                with patch.object(m.subprocess,'run',
+                    return_value=types.SimpleNamespace(returncode=2,stdout='',stderr=raw)):
+                    with self.assertRaisesRegex(m.SafeFailure,'GUARDED_CHILD_FAILED'):
+                        m.cmd(['git','safe-preflight'])  # no backup diagnostic permitted
+        finally:
+            m.COMMITTED_SNAPSHOT = before
+
     def exercise(self,failed_stage=None):
         with tempfile.TemporaryDirectory(prefix='mosaic-fourteen-unit-') as temp:
             home=Path(temp)
