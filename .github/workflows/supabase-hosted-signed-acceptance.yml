@@ -1,0 +1,105 @@
+name: Supabase Hosted Signed Acceptance
+# This intentionally runs only when this reviewed workflow changes on the
+# isolated #1027 recovery branch. One protected approval per real hosted run.
+# Manual dispatch is also available wherever GitHub exposes it.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/1027-supabase-recovery-20261020
+    paths:
+      - .github/workflows/supabase-hosted-signed-acceptance.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mosaic-supabase-hosted-signed-acceptance
+  # Never cancel a job that is currently retiring disposable hosted fixtures.
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Verify isolated exact-source acceptance script
+    if: github.repository == 'carlers/mosaic-life-tracker' && github.ref == 'refs/heads/feature/1027-supabase-recovery-20261020'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out exact isolated recovery source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse changed branch, SHA or acceptance entrypoint
+        working-directory: life-tracker
+        env:
+          ACCEPTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = 'refs/heads/feature/1027-supabase-recovery-20261020'
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_SHA"
+          test -r supabase-poc/hosted-core.mjs
+          test -r supabase-poc/hosted-post-registry.mjs
+          test -r supabase-poc/hosted-email.mjs
+          node --check supabase-poc/hosted-core.mjs
+          node --check supabase-poc/hosted-post-registry.mjs
+          node --check supabase-poc/hosted-email.mjs
+          echo MOSAIC_HOSTED_ACCEPTANCE_EXACT_SOURCE_PREFLIGHT_PASS
+
+  signed-acceptance:
+    name: Protected current-Scratch two-owner identity and data test
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Environment must be created/configured by the owner BEFORE storing its
+    # dedicated token: required reviewer plus only the isolated recovery branch.
+    # Never use an unrestricted repository-level secret, Production or Preview env.
+    environment: mosaic-supabase-hosted-acceptance
+    steps:
+      - name: Check out exact reviewed isolated source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify credential availability without printing its value
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.MOSAIC_SUPABASE_HOSTED_MGMT_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" || "${GITHUB_REF}" != 'refs/heads/feature/1027-supabase-recovery-20261020' ]]; then
+            echo MOSAIC_HOSTED_ACCEPTANCE_PROTECTED_TOKEN_OR_BRANCH_NOT_READY >&2
+            exit 1
+          fi
+      - name: Exercise only run-marked two-owner hosted fixtures and mandatory retirement
+        working-directory: life-tracker
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.MOSAIC_SUPABASE_HOSTED_MGMT_TOKEN }}
+          NODE_USE_ENV_PROXY: '1'
+        run: |
+          set -euo pipefail
+          # This can create ONLY its own two server-marked disposable Auth users,
+          # test their consent/privacy/atomic CAS, then freeze/tombstone/ban
+          # them, leaving zero live fixtures. On any assertion failure fail CI.
+          # Never print token, admin project keys or raw provider responses.
+          node supabase-poc/hosted-core.mjs --post-registry
+          echo MOSAIC_HOSTED_POST_REGISTRY_TWO_OWNER_PASS
+      - name: Inspect current hosted email policy without changing it
+        if: success()
+        working-directory: life-tracker
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.MOSAIC_SUPABASE_HOSTED_MGMT_TOKEN }}
+          NODE_USE_ENV_PROXY: '1'
+        run: |
+          set -euo pipefail
+          # Management /config/auth has historically returned HTTP 401.
+          # No SMTP emails are sent and no Auth settings are modified.
+          # Do not forward raw responses or config fields to public CI logs.
+          if node supabase-poc/hosted-email.mjs --inspect-policy >/dev/null 2>&1; then
+            echo MOSAIC_HOSTED_EMAIL_POLICY_READ_PASS
+          else
+            echo MOSAIC_HOSTED_EMAIL_POLICY_READ_BLOCKED
+          fi
