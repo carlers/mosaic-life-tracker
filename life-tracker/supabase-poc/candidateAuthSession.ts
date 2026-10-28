@@ -41,6 +41,14 @@ export class CandidateSessionDeniedError extends CandidateSessionError {
 
 export class CandidateSessionUnavailableError extends CandidateSessionError {}
 
+/** Only a known server-owned invite gate can be identified to the user. */
+export class CandidateSignupInvitationRequiredError extends CandidateSessionDeniedError {
+  constructor() {
+    super();
+    this.name = 'CandidateSignupInvitationRequiredError';
+  }
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function parseAuthTokens(payload: unknown, ownerId: string | null = null): Tokens {
   if (!payload || typeof payload !== 'object') throw new CandidateSessionError('Invalid Auth token response');
@@ -153,6 +161,20 @@ export function createCandidateAuthSession(options: {
     } catch {
       // Do not expose network errors containing a token/email/password.
       throw new CandidateSessionUnavailableError('Supabase Auth network unavailable');
+    }
+    if (response.status === 403 && path.startsWith('/auth/v1/signup')) {
+      // Recognize ONLY the exact installed, static invitation-hook denial.
+      // Never return arbitrary provider text or account identifiers to the UI.
+      let invitationOnly = false;
+      try {
+        const raw = await response.json() as unknown;
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+          const body = raw as Record<string, unknown>;
+          invitationOnly = ['message', 'msg', 'error_description', 'error']
+            .some(key => body[key] === 'Registration is by invitation only.');
+        }
+      } catch { /* Unreadable or unfamiliar denials stay generic. */ }
+      if (invitationOnly) throw new CandidateSignupInvitationRequiredError();
     }
     if (response.status === 401 || response.status === 403)
       throw new CandidateSessionDeniedError();

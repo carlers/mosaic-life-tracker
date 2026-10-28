@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createCandidateAuthSession, CandidateSessionError } from '../../supabase-poc/candidateAuthSession';
+import { createCandidateAuthSession, CandidateSessionError, CandidateSignupInvitationRequiredError } from '../../supabase-poc/candidateAuthSession';
 import { createCandidateHttpTransport } from '../../supabase-poc/candidateHttpTransport';
 
 const A = '11111111-1111-4111-8111-111111111111';
@@ -208,6 +208,45 @@ describe('candidate Supabase session lifecycle (#1027)', () => {
     f.fetcher.mockImplementationOnce(async () => reply({ code: 400, error_code: 'unexpected_service_failure' }, 400));
     await expect(f.session.refresh()).rejects.toThrow('request denied');
     expect(await f.session.getSessionSnapshot()).toEqual(before);
+  });
+
+  it.each(['message', 'msg', 'error_description', 'error'])(
+    'classifies only exact 403 invite-only signup %s without exposing provider data', async field => {
+      const secret = 'never-expose-owner-credential-or-email';
+      const fetcher = vi.fn<typeof fetch>(async () =>
+        reply({ [field]: 'Registration is by invitation only.', confidential: secret }, 403));
+      const session = createCandidateAuthSession({ baseUrl: URL, publishableKey: KEY, fetcher });
+      const result = await session.signUp('new@example.org', 'synthetic-password')
+        .then(() => null, error => error);
+      expect(result).toBeInstanceOf(CandidateSignupInvitationRequiredError);
+      expect(String(result)).not.toContain(secret);
+      expect(String(result)).not.toContain('new@example.org');
+      expect(await session.getSessionSnapshot()).toBeNull();
+      expect(fetcher).toHaveBeenCalledOnce();
+    },
+  );
+
+  it('keeps untrusted, malformed, unrelated or non-signup denials generic', async () => {
+    for (const payload of [
+      { message: 'User already registered', confidential: 'never-leak-this' },
+      { message: 'Registration is by invitation only.\\nsecret data' },
+      { message: { untrusted: 'Registration is by invitation only.' } },
+      {},
+    ]) {
+      const fetcher = vi.fn<typeof fetch>(async () => reply(payload, 403));
+      const session = createCandidateAuthSession({ baseUrl: URL, publishableKey: KEY, fetcher });
+      const result = await session.signUp('not-invited@example.org', 'synthetic-password')
+        .then(() => null, error => error);
+      expect(result).toBeInstanceOf(CandidateSessionError);
+      expect(result).not.toBeInstanceOf(CandidateSignupInvitationRequiredError);
+      expect(String(result)).not.toContain('never-leak-this');
+      expect(await session.getSessionSnapshot()).toBeNull();
+    }
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      reply({ message: 'Registration is by invitation only.' }, 403));
+    const session = createCandidateAuthSession({ baseUrl: URL, publishableKey: KEY, fetcher });
+    await expect(session.requestPasswordRecovery('a@example.org'))
+      .rejects.not.toBeInstanceOf(CandidateSignupInvitationRequiredError);
   });
 
   it('signup and recovery do not treat returned user metadata as an active login', async () => {
