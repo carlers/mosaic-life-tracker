@@ -6,7 +6,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { PREFIX, SOURCE, publishUnified, verifyUnified, watchUnified,
-  downloadUnified, pruneUnified, assertFullSource, BACKUP_SAFE_STAGES } from '../unified-offsite.mjs';
+  downloadUnified, pruneUnified, assertFullSource, BACKUP_SAFE_STAGES,
+  preflightFourteenDestination, safeR2HttpClass } from '../unified-offsite.mjs';
 // Production marker.completedAt uses the actual wall clock. Never mock the
 // verifier's 60s future skew or 36h freshness guard to accommodate stale tests.
 const NOW = new Date();
@@ -239,4 +240,167 @@ test('direct backup CLI reports only fixed failure stage, never raw source or pr
   assert.match(run.stderr, /^MOSAIC_SUPABASE_FULL_OFFSITE_NOT_VERIFIED$/m);
   assert.ok(!run.stderr.includes(marker));
   assert.ok(!run.stdout.includes(marker));
+});
+
+
+test('R2 fourteen destination preflight reads independently proven ten-table marker without writing', async () => fixture(async ({ database, media }) => {
+  const r2 = fakeR2();
+  await publishUnified({
+    r2, database, media,
+    now: new Date('2026-10-28T05:35:25.682Z'),
+    recoveryProfile: 'ten-personal-bucket-links',
+  });
+  let writes = 0;
+  const originalPut = r2.putObject;
+  r2.putObject = async (...args) => { writes++; return originalPut(...args); };
+  const stages = [];
+  assert.deepEqual(
+    await preflightFourteenDestination({ r2, onCheckpoint: stage => stages.push(stage) }),
+    { existingFourteenId: null },
+  );
+  assert.equal(writes, 0);
+  assert.deepEqual(stages, ['R2_PREFLIGHT_LIST', 'R2_BEFORE_MARKER_READ']);
+  await publishUnified({
+    r2, database, media,
+    now: new Date('2026-10-28T07:55:59.000Z'),
+    recoveryProfile: 'fourteen-personal-identity',
+  });
+  writes = 0;
+  stages.length = 0;
+  assert.deepEqual(
+    await preflightFourteenDestination({ r2, onCheckpoint: stage => stages.push(stage) }),
+    { existingFourteenId: '20261028T075559000Z' },
+  );
+  assert.equal(writes, 0);
+  assert.deepEqual(stages,
+    ['R2_PREFLIGHT_LIST', 'R2_BEFORE_MARKER_READ', 'R2_EXISTING_COMPLETED_SCAN']);
+}));
+
+test('fourteen preflight fails closed before cloud writes for missing old marker and denied LIST/GET', async () => {
+  const r2 = fakeR2();
+  let stage = null;
+  await assert.rejects(
+    preflightFourteenDestination({ r2, onCheckpoint: item => { stage = item; } }),
+    /Historical ten-table completed marker not found/,
+  );
+  assert.equal(stage, 'R2_PREFLIGHT_LIST');
+  const denial = new Error('R2 GET failed with HTTP 403 code=AccessDenied');
+  const deniedList = { ...r2, listObjects: async () => { throw denial; } };
+  await assert.rejects(
+    preflightFourteenDestination({ r2: deniedList, onCheckpoint: item => { stage = item; } }),
+    /HTTP 403/,
+  );
+  assert.equal(stage, 'R2_PREFLIGHT_LIST');
+  const missingBefore = { ...r2,
+    listObjects: async () => ['mosaic-supabase/v1/snapshots/20261028T053525682Z/COMPLETED'],
+    getObject: async () => { throw denial; },
+  };
+  await assert.rejects(
+    preflightFourteenDestination({ r2: missingBefore, onCheckpoint: item => { stage = item; } }),
+    /HTTP 403/,
+  );
+  assert.equal(stage, 'R2_BEFORE_MARKER_READ');
+  assert.equal(r2.objects.size, 0);
+});
+
+test('R2 publication tracks exact list, database/media upload/readback, and marker steps', async () => fixture(async ({ database, media }) => {
+  const phases = [
+    ['LIST', 'R2_GENERATION_LIST', (r2) => {
+      r2.listObjects = async () => { throw Error('denied list'); };
+    }],
+    ['DATABASE_PUT', 'R2_DATABASE_PUT', (r2) => {
+      r2.putObject = async () => { throw Error('denied put'); };
+    }],
+    ['DATABASE_GET', 'R2_DATABASE_GET', (r2) => {
+      r2.getObject = async () => { throw Error('denied get'); };
+    }],
+    ['MEDIA_PUT', 'R2_MEDIA_PUT', (r2) => {
+      const put = r2.putObject;
+      r2.putObject = async (key, ...args) => {
+        if (key.includes('/media/')) throw Error('media upload denied');
+        return put(key, ...args);
+      };
+    }],
+    ['MEDIA_GET', 'R2_MEDIA_GET', (r2) => {
+      const get = r2.getObject;
+      r2.getObject = async (key, ...args) => {
+        if (key.includes('/media/')) throw Error('media readback denied');
+        return get(key, ...args);
+      };
+    }],
+    ['MARKER_PUT', 'R2_COMPLETED_PUT', (r2) => {
+      const put = r2.putObject;
+      r2.putObject = async (key, ...args) => {
+        if (key.endsWith('/COMPLETED')) throw Error('marker put denied');
+        return put(key, ...args);
+      };
+    }],
+    ['MARKER_GET', 'R2_COMPLETED_GET', (r2) => {
+      const get = r2.getObject;
+      r2.getObject = async (key, ...args) => {
+        if (key.endsWith('/COMPLETED')) throw Error('marker get denied');
+        return get(key, ...args);
+      };
+    }],
+  ];
+  for (const [label, expected, disrupt] of phases) {
+    const r2 = fakeR2();
+    disrupt(r2);
+    let stage = '';
+    await assert.rejects(publishUnified({
+      r2, database, media,
+      now: new Date('2026-10-28T08:00:00.000Z'),
+      recoveryProfile: 'fourteen-personal-identity',
+      onCheckpoint: value => { stage = value; },
+    }), { message: /denied/ }, label);
+    assert.equal(stage, expected, label);
+    const complete = [...r2.objects.keys()].some(k => k.endsWith('/COMPLETED'));
+    assert.equal(complete, label === 'MARKER_GET', label);
+  }
+}));
+
+test('a successful marker PUT but failed GET is detected on next preflight, preventing duplicate backup', async () => fixture(async ({ database, media }) => {
+  const r2 = fakeR2();
+  await publishUnified({
+    r2, database, media,
+    now: new Date('2026-10-28T05:35:25.682Z'),
+    recoveryProfile: 'ten-personal-bucket-links',
+  });
+  const get = r2.getObject;
+  let deny = true;
+  r2.getObject = async (key, ...args) => {
+    if (deny && key === 'mosaic-supabase/v1/snapshots/20261028T080000000Z/COMPLETED') {
+      throw Error('synthetic temporary marker GET failure');
+    }
+    return get(key, ...args);
+  };
+  let stage = '';
+  await assert.rejects(publishUnified({
+    r2, database, media,
+    now: new Date('2026-10-28T08:00:00.000Z'),
+    recoveryProfile: 'fourteen-personal-identity',
+    onCheckpoint: value => { stage = value; },
+  }), /synthetic temporary marker GET failure/);
+  assert.equal(stage, 'R2_COMPLETED_GET');
+  deny = false;
+  const recovered = await preflightFourteenDestination({ r2 });
+  assert.equal(recovered.existingFourteenId, '20261028T080000000Z');
+}));
+
+test('R2 HTTP classification is bounded, never echoes arbitrary provider text', () => {
+  assert.equal(safeR2HttpClass(new Error('R2 GET failed with HTTP 403 code=AccessDenied')),
+    'HTTP_403_ACCESS_DENIED');
+  assert.equal(safeR2HttpClass(new Error('R2 PUT failed with HTTP 403 code=SignatureDoesNotMatch')),
+    'HTTP_403_SIGNATURE_MISMATCH');
+  assert.equal(safeR2HttpClass(new Error('R2 GET failed with HTTP 404 code=NoSuchBucket')),
+    'HTTP_404_BUCKET_NOT_FOUND');
+  assert.equal(safeR2HttpClass(new Error('R2 PUT failed with HTTP 503 code=ServiceUnavailable')),
+    'HTTP_503_SERVICE_UNAVAILABLE');
+  assert.equal(safeR2HttpClass(new Error('R2 GET failed with HTTP 400 code=Evil_Secret_Provider_Name')),
+    'HTTP_400_OTHER');
+  for (const x of [
+    'R2 GET failed with HTTP 403 code=AccessDenied; secret=123',
+    'Error: R2 GET failed with HTTP 403 code=AccessDenied',
+    'Authorization=Bearer hidden',
+  ]) assert.equal(safeR2HttpClass(new Error(x)), null);
 });

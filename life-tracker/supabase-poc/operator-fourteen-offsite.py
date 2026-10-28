@@ -32,17 +32,32 @@ STAGES = (
 )
 ACTIVE_STAGE = STAGES[0]
 COMMITTED_SNAPSHOT = None
+EXISTING_R2_CANDIDATE = None
 
 
 class SafeFailure(Exception):
     """Only constant, programmer-authored messages may be displayed."""
 
 
-BACKUP_SAFE_STAGES = frozenset(("SOURCE_GATE", "R2_CONFIGURATION", "WORKDIR_INIT", "AGE_IDENTITY", "PG_CLIENT_VERSION", "PG_DATABASE_CAPTURE", "PG_TOC_AUTHENTICATION", "PG_TOC_PROFILE", "STORAGE_CAPTURE", "R2_PUBLISH", "R2_FULL_READBACK", "R2_RETENTION"))
+BACKUP_SAFE_STAGES = frozenset((
+    "SOURCE_GATE", "R2_CONFIGURATION", "WORKDIR_INIT", "AGE_IDENTITY",
+    "PG_CLIENT_VERSION", "PG_DATABASE_CAPTURE", "PG_TOC_AUTHENTICATION",
+    "PG_TOC_PROFILE", "STORAGE_CAPTURE", "R2_PUBLISH", "R2_PREFLIGHT_LIST",
+    "R2_BEFORE_MARKER_READ", "R2_EXISTING_COMPLETED_SCAN", "R2_GENERATION_LIST",
+    "R2_DATABASE_PUT", "R2_DATABASE_GET", "R2_MEDIA_PUT", "R2_MEDIA_GET",
+    "R2_LOCAL_SOURCE_VERIFY", "R2_COMPLETED_PUT", "R2_COMPLETED_GET",
+    "R2_FULL_READBACK", "R2_RETENTION",
+))
+SAFE_HTTP_CLASSES = frozenset((
+    "UNAUTHORIZED", "ACCESS_DENIED", "SIGNATURE_MISMATCH", "EXPIRED",
+    "BUCKET_NOT_FOUND", "OBJECT_NOT_FOUND", "RATE_LIMIT", "SERVER_ERROR",
+    "SERVICE_UNAVAILABLE", "OTHER",
+))
 
 
 def cmd(argv, *, cwd=None, env=None, timeout=90, backup_diagnostic=False):
     """Run trusted fixed argv. Never echo provider errors, credentials or stdout."""
+    global COMMITTED_SNAPSHOT, EXISTING_R2_CANDIDATE
     try:
         result = subprocess.run(
             argv, cwd=cwd, env=env, check=False, timeout=timeout,
@@ -60,15 +75,34 @@ def cmd(argv, *, cwd=None, env=None, timeout=90, backup_diagnostic=False):
                 r"(?m)^MOSAIC_SUPABASE_FULL_OFFSITE_REMOTE_COMMITTED_PASS: ([0-9]{8}T[0-9]{9}Z)\r?$",
                 result.stdout or "",
             )
+            candidate = re.findall(
+                r"(?m)^MOSAIC_SUPABASE_FULL_OFFSITE_EXISTING_FOURTEEN_MARKER: ([0-9]{8}T[0-9]{9}Z)\r?$",
+                result.stdout or "",
+            )
+            if len(committed) > 1 or len(candidate) > 1 or (committed and candidate):
+                raise SafeFailure("GUARDED_AMBIGUOUS_R2_MARKER")
             if len(committed) == 1 and SNAPSHOT.fullmatch(committed[0]):
-                global COMMITTED_SNAPSHOT
                 COMMITTED_SNAPSHOT = committed[0]
+            if len(candidate) == 1 and SNAPSHOT.fullmatch(candidate[0]):
+                EXISTING_R2_CANDIDATE = candidate[0]
             checkpoints = re.findall(
                 r"(?m)^MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: ([A-Z0-9_]+)\r?$",
                 result.stderr or "",
             )
             if len(checkpoints) == 1 and checkpoints[0] in BACKUP_SAFE_STAGES:
-                raise SafeFailure("FOURTEEN_R2_" + checkpoints[0] + "_FAILED")
+                stage_code = checkpoints[0]
+                http_classes = re.findall(
+                    r"(?m)^MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_R2: (HTTP_[0-9]{3}_[A-Z_]+)\r?$",
+                    result.stderr or "",
+                )
+                if len(http_classes) == 1 and stage_code.startswith("R2_"):
+                    http = re.fullmatch(r"HTTP_([45][0-9]{2})_([A-Z_]+)", http_classes[0])
+                    if http and http.group(2) in SAFE_HTTP_CLASSES:
+                        raise SafeFailure(
+                            "FOURTEEN_R2_" + stage_code + "_HTTP_" +
+                            http.group(1) + "_" + http.group(2) + "_FAILED"
+                        )
+                raise SafeFailure("FOURTEEN_R2_" + stage_code + "_FAILED")
         raise SafeFailure("GUARDED_CHILD_FAILED")
     return result.stdout
 
@@ -236,8 +270,9 @@ def guarded_restore(scripts, home, sha, secrets, snapshot):
 
 
 def run(sha):
-    global ACTIVE_STAGE, COMMITTED_SNAPSHOT
+    global ACTIVE_STAGE, COMMITTED_SNAPSHOT, EXISTING_R2_CANDIDATE
     COMMITTED_SNAPSHOT = None
+    EXISTING_R2_CANDIDATE = None
     home = Path.home()
     source_preflight(sha)
     disposable = Path(tempfile.mkdtemp(prefix=".mosaic-fourteen-offsite-", dir=home))
@@ -309,6 +344,8 @@ def cli():
             print("MOSAIC_FOURTEEN_R2_SAFE_REASON: " + str(exc), file=sys.stderr)
         if COMMITTED_SNAPSHOT:
             print("MOSAIC_FOURTEEN_R2_ALREADY_COMMITTED_RETAIN: " + COMMITTED_SNAPSHOT, file=sys.stderr)
+        if EXISTING_R2_CANDIDATE:
+            print("MOSAIC_FOURTEEN_R2_EXISTING_MARKER_REVIEW: " + EXISTING_R2_CANDIDATE, file=sys.stderr)
         print("MOSAIC_FOURTEEN_R2_NOT_VERIFIED", file=sys.stderr)
         raise SystemExit(1)
 
