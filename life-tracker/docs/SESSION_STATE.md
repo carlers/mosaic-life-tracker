@@ -15,4 +15,8 @@ Current task: #1027 **post-accepted hosted signed two-owner tests**, next SMTP a
 - Formal privileged SECURITY DEFINER review, trusted administrative release-evidence signature path, consented fresh/recovery-pending account gates and Appwrite dual-writer protection, followed by separately authorized final writer fence and explicit dev/main/Production approval.
 - Keep #1027 OPEN. Next safe connected work: prepare controlled SMTP inbox and protected Preview verification without altering real user data. Scope test credentials to the protected GitHub environment, revoke/rotate as appropriate.
 
+## Next action
+
+Prepare privately scoped controlled-mailbox SMTP confirmation and password-reset proof, then request exact-SHA protected Preview reviewer/device acceptance. Never infer writer-fence or Production authorization from the hosted test PASS. No new Fedora commands or repeat R2/backups.
+
 Issue: https://github.com/carlers/mosaic-life-tracker/issues/1027
