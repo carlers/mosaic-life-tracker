@@ -5,6 +5,65 @@ not migrate existing users, change Auth configuration, or deploy a frontend.
 Use the environment's `SUPABASE_ACCESS_TOKEN`; never put credentials in a
 command argument, repository file, issue, or build variable.
 
+## Protected GitHub Actions execution — preferred over Fedora commands
+
+The source-checked `Supabase Hosted Signed Acceptance` workflow,
+`.github/workflows/supabase-hosted-signed-acceptance.yml`, runs the exact
+reviewed `--post-registry` mode against **only** hosted `mosaic-dev` after
+a protected-environment approval. It needs no original user password,
+backup age identity, R2 writer/reader S3 keys, SSH, deployment or GitHub
+repository-level secrets.
+
+**One-time owner setup:**
+
+1. On GitHub open **Repository → Settings → Environments** and create
+   `mosaic-supabase-hosted-acceptance`. Configure **Required reviewers**,
+   including the repository owner, and restrict **Deployment branches and
+   tags** to the exact branch
+   `feature/1027-supabase-recovery-20261020`. Choose to prohibit
+   bypassing reviewer protection if available. The project repository is
+   public, so environment-review gates are supported.
+2. At Supabase **Account → Access Tokens**, create a NEW, expiring,
+   **project-scoped** Management API PAT (`sbp_fc...`), limited to
+   `mosaic-dev` (`hcxtiifzxoaflhjgoglb`). The current hosted harness
+   needs Project Settings **Read**, Database **Read-write** (guarded
+   disposable-fixture SQL), API Keys **Read**, API Key Secrets **Read**;
+   optionally Auth Config **Read** for the separate SMTP-policy inspection.
+   These grants are for this automated Scratch test only. Avoid legacy,
+   full-account access, Production scope, migration/edge/deployment rights.
+   Its ability to read project secret keys makes this credential sensitive:
+   prefer short expiry and revoke/rotate after acceptance.
+3. Under that GitHub **environment's secrets** (not repository secrets),
+   add the *single* secret named
+   `MOSAIC_SUPABASE_HOSTED_MGMT_TOKEN`. Paste the new scoped token there
+   privately. **Never** put it in a commit, PR, issue, chat, or `vars`.
+   Configure reviewer and exact-branch restrictions *before* adding the
+   secret. The accepted workflow stages contain no third-party test
+   dependencies and have `contents: read` GitHub token permissions.
+4. The first isolated workflow push creates an Actions run. Before the
+   secret exists, its protected job safely fails token availability or
+   waits for review. After setup, rerun **only** its failed job using an
+   Actions write permission (GitHub UI or the connected agent) and approve
+   the pending environment request. The connected GitHub app currently
+   supports rerunning failed workflow jobs and reading logs, but not direct
+   `workflow_dispatch`; a reviewed accepted workflow-file push can also
+   initiate a new run. Approval must remain explicit.
+
+The workflow checks its exact SHA and branch, checks all three JavaScript
+entrypoints' syntax, and runs the previously accepted signed two-owner
+fixture suite. Existing retirement/zero-live-record audits are **mandatory**;
+on a failure, inspect this exact run before another attempt. Synthetic
+consents, identity-audit entries and tombstones for banned test users
+remain by design; **never** count them as live-user release consent. It
+also attempts only read-only Auth email *policy* inspection; HTTP 401 is
+reported as a separate BLOCKED marker, not silently treated as success.
+No real SMTP email is sent or configured.
+
+**The workflow does not** insert a trusted release marker, apply final
+writer-fence migrations, deploy Preview, promote dev/main/Production, or
+operate on R2/backup keys. Real inbox/reset tests and device/PWA approvals
+remain independent release gates.
+
 Run from `life-tracker/`, with Node 22 and installed app/browser dependencies:
 
 ```sh
