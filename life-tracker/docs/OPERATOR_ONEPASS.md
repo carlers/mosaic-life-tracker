@@ -1,5 +1,70 @@
 # Mosaic operator one-pass commands (#1027)
 
+## 2026-10-28 approved hosted fourteen-table identity state and operator-only R2 path
+
+The owner expressly approved and the five reviewed additive migrations were installed
+on **Scratch-only** `mosaic-dev` (`hcxtiifzxoaflhjgoglb`) with 21 verified migration
+records. The four new private identity tables contain one installation, 87
+canonical accounts, 87 native provider bindings and 87 audit events. Zero
+missing/crossed bindings, four RLS-enabled private registry tables with no
+anonymous/authenticated table grants, all six Realtime publications, 87 intact
+Auth accounts, and unchanged original task/category/Diary/Settings/Bucket/link
+counts were independently read back. All consents remain unset and
+`personal_release_evidence` is NULL. **Do not install the final personal-writer
+enforcement migration** before separate owner consent and restored after-state
+evidence.
+
+The **ten-table BEFORE R2 backup `20261028T053525682Z` is independently
+restored and accepted**. The **new fourteen-table AFTER R2 backup is NOT YET
+performed or restored**, so the identity registry is not yet protected by an
+accepted offsite restore point. [Issue #1027](https://github.com/carlers/mosaic-life-tracker/issues/1027#issuecomment-6462867789)
+holds the exact hosted evidence.
+
+The protected-main fourteen-table manual workflow PR
+[#1421](https://github.com/carlers/mosaic-life-tracker/pull/1421)
+cannot merge under the existing `promotion-pr-preflight` rule (only
+canonical-accepted `dev` source may promote to main). **Do not bypass/disable
+branch protections or promote unrelated dev application bytes.** A separate
+source-only, single-command **trusted Fedora operator alternative** is staged
+as `supabase-poc/operator-fourteen-offsite.py` on the isolated recovery branch.
+
+After exact-source focused and full CI acceptance, its one invocation:
+
+1. Verifies pinned Git source, saved 0600 age identity / 0600 IPv4
+   Scratch pooler, PostgreSQL 17 binaries, and probes/removes its own new
+   disposable Docker bridge **before any source/R2 secret prompt**.
+2. Privately requests one Scratch PostgreSQL password, backend-only
+   `sb_secret_` Storage credential, and dedicated Cloudflare R2 WRITE and
+   separate READ-ONLY credentials. It never logs, persists or passes these
+   secrets as command-line arguments or to the browser.
+3. Reuses the CI-accepted `unified-offsite.mjs --backup` to age-encrypt the
+   **entire** hosted PostgreSQL/Auth database and whole private Storage media,
+   enforce the **exact fourteen-table TOC**, publish the paired remote
+   ciphertext with full per-part R2 readback and exactly one `COMPLETED`
+   marker. Pruning is OFF.
+4. Uses only the distinct R2 READ-ONLY key for the independent full-ciphertext
+   `--watch` verification, requiring exactly the newly completed generation
+   and `fourteen-personal-identity` profile.
+5. Calls the **unchanged** previously proven `restore-unified-r2.py` recovery
+   in process with the already-entered READ-ONLY credentials: full age
+   authentication, isolated PG17 fourteen-table exact source/target row bytes,
+   original-password signed local GoTrue owner and foreign-owner denial,
+   entire private media and synthetic nonempty photo restore, and precise
+   local stack, bridge and detached worktree cleanup.
+6. Prints `MOSAIC_FOURTEEN_R2_COMPLETE_OFFSITE_DISPOSABLE_RESTORE_PASS: <exact-id>`
+   only after every check succeeds. If R2 commit succeeds but any later
+   stage fails, it retains the completed source and prints
+   `MOSAIC_FOURTEEN_R2_ALREADY_COMMITTED_RETAIN: <exact-id>`; **do not
+   rerun/re-upload** the accepted backup. Use the existing standalone exact
+   restore for that identifier after fixing the cause.
+
+This alternate path **does not modify main, dev, protected CI or the hosted
+database** and cannot replace the named protected GitHub workflow long term.
+It is a user-authorized local operation, not a rule exception. It still needs
+a real operator pass and must not claim managed Supabase SMTP/OAuth/JWT
+recovery, account-consent activation, signed hosted new-RPC acceptance,
+Production cutover, or Preview reviewer approval.
+
 **Default**: the assistant completes all safe connected GitHub, Supabase, Vercel
 and CI steps without sending the operator to a terminal. If trusted machine
 access, non-exportable credentials, or physical/device testing is necessary,
