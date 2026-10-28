@@ -151,8 +151,22 @@ export function classifyLaunchFailure(result) {
   if (/LimitExceeded|QuotaExceeded/i.test(diagnostic)) {
     throw new Error('OCI launch denied by service limit or quota; inspect Console');
   }
-  if (/NotAuthorizedOrNotFound|NotAuthenticated|InvalidParameter|InvalidImage|InvalidShape/i.test(diagnostic)) {
-    throw new Error('OCI launch denied by IAM or invalid configuration');
+  // OCI CLI emits stable API error codes inside stderr. Match only allowlisted
+  // identifiers; never print free-form API messages, resource or request IDs.
+  if (/\bNotAuthenticated\b/i.test(diagnostic)) {
+    throw new Error('OCI launch denied: API authentication failed');
+  }
+  if (/\b(?:RelatedResourceNotAuthorizedOrNotFound|NotAuthorizedOrNotFound)\b/i.test(diagnostic)) {
+    throw new Error('OCI launch denied: authorization or referenced resource unavailable');
+  }
+  if (/\bInvalidParameter\b/i.test(diagnostic)) {
+    throw new Error('OCI launch denied: invalid launch parameter');
+  }
+  if (/\bInvalidImage\b/i.test(diagnostic)) {
+    throw new Error('OCI launch denied: invalid image');
+  }
+  if (/\bInvalidShape\b/i.test(diagnostic)) {
+    throw new Error('OCI launch denied: invalid shape');
   }
   throw new Error('OCI launch failed with unclassified error: inspect Console');
 }

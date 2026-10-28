@@ -1,3 +1,9 @@
+## #975 OCI failure diagnosis via signed Cloudflare dispatch (2026-10-28)
+
+Cloudflare five-minute cron deployed and user reported GH dispatch gates true and Worker secret DISPATCH_ENABLED=true. GitHub runs 40635476174, 40635958804, 40636436658 passed HMAC and OCI setup but failed at LaunchInstance with combined safe error. No successful VM claim verified. Isolated task from stable OCI Preview 03e5c8dc6a0109d72604ca65582f692ea9978927 separates known OCI API errors into safe categories without changing any provisioning parameters, quotas, IAM or retry behavior. Run focused then stable Preview canonical and trusted Preview; repin scheduler only after acceptance. Next scheduled run should identify category. Keep GitHub cron until cutover verified; do not alter app dev/main or Production. Track #975.
+
+---
+
 # Session checkpoint
 
 ## #975 Cloudflare external cron reliability — source-only staging, 2026-10-28
