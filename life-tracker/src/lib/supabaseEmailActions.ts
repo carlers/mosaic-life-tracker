@@ -29,7 +29,7 @@ export function parseEmailAction(pathname: string, hash: string): EmailAction | 
       params.getAll('token_type').length === 1 &&
       params.get('token_type')?.toLowerCase() === 'bearer' &&
       tokens[0].length <= 8192 &&
-      /^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(tokens[0]))
+      /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(tokens[0]))
     return { kind, accessToken: tokens[0] };
   return null;
 }
