@@ -166,12 +166,13 @@ class FourteenOffsiteTests(unittest.TestCase):
             stderr='MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: PG_DATABASE_CAPTURE\n'
                    + 'private stderr ' + secret,
         )
+        previous = m.COMMITTED_SNAPSHOT
         with patch.object(m.subprocess, 'run', return_value=response):
             with self.assertRaises(m.SafeFailure) as caught:
                 m.cmd(['node','trusted-unified-offsite.mjs','--backup'],backup_diagnostic=True)
         self.assertEqual(str(caught.exception),'FOURTEEN_R2_PG_DATABASE_CAPTURE_FAILED')
         self.assertNotIn(secret,str(caught.exception))
-        self.assertEqual(m.COMMITTED_SNAPSHOT,None)
+        self.assertEqual(m.COMMITTED_SNAPSHOT,previous)
 
     def test_published_remote_marker_survives_failed_independent_verify(self):
         before = m.COMMITTED_SNAPSHOT

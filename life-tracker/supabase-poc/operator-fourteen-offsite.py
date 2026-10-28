@@ -64,7 +64,7 @@ def cmd(argv, *, cwd=None, env=None, timeout=90, backup_diagnostic=False):
                 global COMMITTED_SNAPSHOT
                 COMMITTED_SNAPSHOT = committed[0]
             checkpoints = re.findall(
-                r"(?m)^MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: ([A-Z_]+)\r?$",
+                r"(?m)^MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: ([A-Z0-9_]+)\r?$",
                 result.stderr or "",
             )
             if len(checkpoints) == 1 and checkpoints[0] in BACKUP_SAFE_STAGES:
