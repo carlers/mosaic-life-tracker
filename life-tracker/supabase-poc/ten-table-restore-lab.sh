@@ -54,6 +54,16 @@ for migration in \
   i=$((i+1))
 done
 if [[ ${MOSAIC_ACCOUNT_REGISTRY_LAB:-} == 1 ]]; then
+  # Match the real hosted 14-table source category columns/triggers. The
+  # former synthetic registry lab omitted retired_on and missed copy failures.
+  for migration in \
+    20261022_candidate_category_retirement \
+    20261022_candidate_private_diary_realtime \
+    20261023_candidate_atomic_category_delete; do
+    printf -v stamp '2026102000%04d' "$i"
+    cp "$here/migrations/$migration.sql" "supabase/migrations/$stamp"_"$migration.sql"
+    i=$((i+1))
+  done
   cp "$here/migrations/20261027170802_mosaic_account_registry.sql" supabase/migrations/20261027170802_mosaic_account_registry.sql
   cp "$here/migrations/20261027172600_personal_runtime_readiness.sql" supabase/migrations/20261027172600_personal_runtime_readiness.sql
   cp "$here/migrations/20261027182613_require_complete_personal_release_evidence.sql" supabase/migrations/20261027182613_require_complete_personal_release_evidence.sql

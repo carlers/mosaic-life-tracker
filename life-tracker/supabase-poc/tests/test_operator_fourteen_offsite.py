@@ -157,6 +157,49 @@ class FourteenOffsiteTests(unittest.TestCase):
                 m.guarded_restore(scripts,Path(root),'a'*40,SECRETS,'20261028T081234567Z')
             self.assertEqual(restored,[('a'*32,READER,'r'*40)])
 
+    def test_restore_only_reports_inner_fixed_checkpoint_without_private_data(self):
+        with tempfile.TemporaryDirectory() as root:
+            scripts=Path(root)/'supabase-poc'
+            scripts.mkdir()
+            refused=type('Refused',(Exception,),{})
+            fake=types.SimpleNamespace(
+                PROFILES={m.PROFILE: ('--fresh-personal-identity-sha256',14)},
+                LOCAL_RESTORE_CHECKPOINTS=frozenset({'SCHEMA_PREPARE','ROW_APPLICATION_DATA'}),
+                Refused=refused,
+                run=lambda *_: (_ for _ in ()).throw(
+                    refused('Guarded local recovery failed at safe checkpoint: ROW_APPLICATION_DATA')),
+            )
+            with patch.object(m,'import_source',return_value=fake):
+                with self.assertRaises(m.SafeFailure) as caught:
+                    m.guarded_restore(scripts,Path(root),'a'*40,SECRETS,'20261028T100954899Z')
+            self.assertEqual(str(caught.exception),
+                'EXACT_FOURTEEN_LOCAL_RESTORE_ROW_APPLICATION_DATA_FAILED')
+            self.assertNotIn('sb_secret_',str(caught.exception))
+
+    def test_restore_refuses_forged_checkpoint_and_arbitrary_sensitive_exception(self):
+        with tempfile.TemporaryDirectory() as root:
+            scripts=Path(root)/'supabase-poc'
+            scripts.mkdir()
+            refused=type('Refused',(Exception,),{})
+            fake=types.SimpleNamespace(
+                PROFILES={m.PROFILE: ('--fresh-personal-identity-sha256',14)},
+                LOCAL_RESTORE_CHECKPOINTS=frozenset({'ROW_APPLICATION_DATA'}),
+                Refused=refused,
+            )
+            for unsafe in [
+                'Guarded local recovery failed at safe checkpoint: ROW_APPLICATION_DATA\\nprivate row',
+                'Guarded local recovery failed at safe checkpoint: OWNER_EMAIL',
+                'user@example.org /tmp/private credential',
+            ]:
+                def reject(*_):
+                    raise refused(unsafe)
+                fake.run=reject
+                with self.subTest(unsafe=unsafe),patch.object(m,'import_source',return_value=fake):
+                    with self.assertRaises(m.SafeFailure) as caught:
+                        m.guarded_restore(scripts,Path(root),'a'*40,SECRETS,'20261028T100954899Z')
+                    self.assertEqual(str(caught.exception),'EXACT_FOURTEEN_LOCAL_RESTORE_NOT_VERIFIED')
+                    self.assertNotIn(unsafe,str(caught.exception))
+
 
     def test_fixed_backup_stage_can_be_passed_without_exposing_child_stderr(self):
         secret = 'do-not-echo-private-password-or-object-row'

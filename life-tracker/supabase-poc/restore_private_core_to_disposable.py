@@ -113,6 +113,37 @@ def sql(container, statement):
     return in_db(container, "psql", "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1",
                  "-U", "postgres", "-d", "postgres", "-c", statement).decode().strip()
 
+def assert_post_retirement_schema(container):
+    """Fourteen-table source has category retirement and atomic tombstone DDL.
+
+    Reject any older local target *before* decrypting/copying owner rows.
+    No category values, private row identifiers or SQL errors are emitted.
+    """
+    result = sql(container, """
+      SELECT
+        EXISTS (
+          SELECT 1 FROM pg_attribute
+          WHERE attrelid='public.mosaic_candidate_categories'::regclass
+            AND attname='retired_on' AND NOT attisdropped
+            AND atttypid='pg_catalog.text'::regtype
+        )
+        AND EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgrelid='public.mosaic_candidate_categories'::regclass
+            AND tgname='mosaic_candidate_category_task_tombstone'
+            AND NOT tgisinternal AND tgenabled IN ('O','A')
+        )
+        AND EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgrelid='public.mosaic_candidate_tasks'::regclass
+            AND tgname='mosaic_candidate_task_live_category_guard'
+            AND NOT tgisinternal AND tgenabled IN ('O','A')
+        );
+    """)
+    if result != 't':
+        raise ValueError('Fourteen-table target missing post-retirement category schema')
+
+
 def assert_target(container):
     name = execute(["docker", "inspect", "--format", "{{.Name}}", container]).decode().strip().lstrip("/")
     synthetic = (os.getenv("GITHUB_ACTIONS") == "true" and
@@ -144,6 +175,7 @@ def assert_target(container):
             if sql(container, "SELECT count(*) FROM " + tbl) != "0":
                 raise ValueError("Refusing nonempty personal recovery target")
     if IDENTITY_REGISTRY[0] in selected_data_tables():
+        assert_post_retirement_schema(container)
         for table in IDENTITY_REGISTRY:
             expected = '1' if table == IDENTITY_REGISTRY[0] else '0'
             if sql(container, 'SELECT count(*) FROM ' + table) != expected:

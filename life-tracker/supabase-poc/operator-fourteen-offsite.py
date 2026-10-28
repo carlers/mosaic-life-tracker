@@ -265,7 +265,21 @@ def guarded_restore(scripts, home, sha, secrets, snapshot):
     )
     try:
         module.run(sha, snapshot, PROFILE)
-    except (module.Refused, OSError, ValueError, subprocess.SubprocessError) as exc:
+    except module.Refused as exc:
+        # The pinned nested restore already strips ALL child stdout/stderr and
+        # accepts only known stage tokens. Pass through only that fixed,
+        # allowlisted stage, never an exception's arbitrary raw diagnostics.
+        safe = re.fullmatch(
+            r"Guarded local recovery failed at safe checkpoint: ([A-Z_]+)",
+            str(exc),
+        )
+        allowed = getattr(module, "LOCAL_RESTORE_CHECKPOINTS", frozenset())
+        if safe and safe.group(1) in allowed:
+            raise SafeFailure(
+                "EXACT_FOURTEEN_LOCAL_RESTORE_" + safe.group(1) + "_FAILED"
+            ) from None
+        raise SafeFailure("EXACT_FOURTEEN_LOCAL_RESTORE_NOT_VERIFIED") from None
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
         raise SafeFailure("EXACT_FOURTEEN_LOCAL_RESTORE_NOT_VERIFIED") from exc
 
 

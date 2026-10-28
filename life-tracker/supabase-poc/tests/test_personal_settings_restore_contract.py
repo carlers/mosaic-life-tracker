@@ -38,6 +38,17 @@ def manifest(names):
 
 
 class Contract(unittest.TestCase):
+    def test_identity_restore_rejects_missing_retirement_column_or_atomic_guards(self):
+        with patch.object(m, 'sql', return_value='f') as check:
+            with self.assertRaisesRegex(ValueError, 'post-retirement category schema'):
+                m.assert_post_retirement_schema('isolated_fixture')
+            query = check.call_args.args[1]
+            for required in ('retired_on', 'mosaic_candidate_category_task_tombstone',
+                             'mosaic_candidate_task_live_category_guard'):
+                self.assertIn(required, query)
+        with patch.object(m, 'sql', return_value='t'):
+            m.assert_post_retirement_schema('isolated_fixture')
+
     def test_registry_requires_all_four_objects_and_rejects_older_modes(self):
         names = TEN + m.IDENTITY_REGISTRY
         for flavor in (None, 'diary', 'settings', 'ten'):

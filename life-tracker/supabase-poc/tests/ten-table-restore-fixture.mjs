@@ -58,10 +58,21 @@ if(phase==='seed'){
  const now='2026-10-25T12:00:00Z';
  const category='cat_'+prefix,task='task_'+prefix,bucket='bucket_'+prefix;
  const liveLink='link_live_'+prefix,deadLink='link_tomb_'+prefix;
- await good(request('/rest/v1/mosaic_candidate_categories',{
+ const categorySeed=await good(request('/rest/v1/mosaic_candidate_categories',{
    method:'POST',token:user.token,
    body:{owner_id:user.ownerId,id:category,name:'Signed private',
      color:'#888888',order_index:0,updated_at:now,is_deleted:false}}),'category seed');
+ if(registryEnabled){
+   check(Array.isArray(categorySeed)&&categorySeed.length===1,
+     'Missing source category row for retirement proof');
+   const retired=await good(request('/rest/v1/rpc/mosaic_candidate_cas_category',{
+     method:'POST',token:user.token,body:{p_id:category,
+       p_expected_seq:String(categorySeed[0].change_seq),
+       p_patch:{retired_on:'2026-10-27',updated_at:now}}}),
+       'source category retirement CAS');
+   check(retired?.retired_on==='2026-10-27',
+     'Source category retirement metadata was not stored');
+ }
  await good(request('/rest/v1/mosaic_candidate_tasks',{
    method:'POST',token:user.token,
    body:{owner_id:user.ownerId,id:task,title:'Task 🌙',
@@ -101,7 +112,7 @@ if(phase==='seed'){
  console.log('MOSAIC_BUCKET_TEN_TABLE_SIGNED_SOURCE_PASS');
 }else{
  const expected=JSON.parse(await readFile(path,'utf8'));
- const {email,password,ownerId,bucket,task,liveLink,deadLink,
+ const {email,password,ownerId,category,bucket,task,liveLink,deadLink,
    bucketRevision,liveRevision,tombRevision}=expected;
  const signed=await signin(email,password);
  check(signed.user?.id===ownerId&&typeof signed.access_token==='string',
@@ -114,6 +125,12 @@ if(phase==='seed'){
    'Restored pending consent was not idempotent');
  }
  const ownerPath='?select=*&owner_id=eq.'+encodeURIComponent(ownerId);
+ if(registryEnabled){
+   const categories=await good(request('/rest/v1/mosaic_candidate_categories'+ownerPath,
+     {token:owner.token}),'restored retired category');
+   check(categories.some(row=>row.id===category&&row.retired_on==='2026-10-27'),
+     'Fourteen-table category retirement metadata did not survive exact restore');
+ }
  const buckets=await good(request('/rest/v1/mosaic_candidate_buckets'+ownerPath,
   {token:owner.token}),'restored owner Buckets');
  const links=await good(request('/rest/v1/mosaic_candidate_bucket_task_links'+ownerPath,
