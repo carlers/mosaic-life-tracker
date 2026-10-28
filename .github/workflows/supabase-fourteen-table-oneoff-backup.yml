@@ -1,0 +1,96 @@
+name: Supabase Scratch Fourteen-Table One-Off Encrypted Backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type SCRATCH_FOURTEEN_TABLE_ONE_OFF_BACKUP for a manual AFTER-identity fourteen-table snapshot (no schedule)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mosaic-supabase-full-dr
+  cancel-in-progress: false
+
+jobs:
+  full-offsite-backup:
+    # No schedules, no cross-branch invocations, no unsupervised changes.
+    # Manual use only AFTER hosted additive identity DDL; uninstalled registry must fail the exact 14-table TOC gate.
+    if: >-
+      ${{
+        github.ref == 'refs/heads/main' &&
+        github.event_name == 'workflow_dispatch' &&
+        inputs.confirmation == 'SCRATCH_FOURTEEN_TABLE_ONE_OFF_BACKUP'
+      }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    environment: mosaic-supabase-dr
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      SUPABASE_DR_ENABLED: 'true'
+      SUPABASE_DR_RECOVERY_PROFILE: 'fourteen-personal-identity'
+      SUPABASE_DR_SOURCE_PROJECT: hcxtiifzxoaflhjgoglb
+      SUPABASE_DR_PGHOST: ${{ secrets.SUPABASE_DR_PGHOST }}
+      SUPABASE_DR_PGPORT: '5432'
+      SUPABASE_DR_PGUSER: postgres.hcxtiifzxoaflhjgoglb
+      SUPABASE_DR_PGDATABASE: postgres
+      SUPABASE_DR_PGPASSWORD: ${{ secrets.SUPABASE_DR_PGPASSWORD }}
+      SUPABASE_DR_SOURCE_STORAGE_KEY: ${{ secrets.SUPABASE_DR_SOURCE_STORAGE_KEY }}
+      SUPABASE_DR_AGE_IDENTITY: ${{ secrets.SUPABASE_DR_AGE_IDENTITY }}
+      SUPABASE_DR_R2_ACCOUNT_ID: ${{ secrets.SUPABASE_DR_R2_ACCOUNT_ID }}
+      SUPABASE_DR_R2_ACCESS_KEY_ID: ${{ secrets.SUPABASE_DR_R2_WRITE_ACCESS_KEY_ID }}
+      SUPABASE_DR_R2_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_DR_R2_WRITE_SECRET_ACCESS_KEY }}
+      SUPABASE_DR_R2_BUCKET: ${{ vars.SUPABASE_DR_R2_BUCKET }}
+      SUPABASE_DR_PRUNE_ENABLED: 'false'
+      SUPABASE_DR_R2_LOCK_CONFIRMED: 'false'
+    steps:
+      # Never execute main-branch application code; pin the reviewed fourteen-table R2 publisher from isolated recovery. Preconditions: separately approved hosted identity DDL and signed before-state DR.
+      # Require the exact CI-accepted code for 14-table TOC, complete private media, and paired R2 marker.
+      - uses: actions/checkout@v4
+        with:
+          ref: 2128be03404181bdabd43e3792fc56a8a3b515be
+          persist-credentials: false
+      - name: Verify exact recovery source SHA and dedicated R2 destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '2128be03404181bdabd43e3792fc56a8a3b515be'
+          test "$SUPABASE_DR_SOURCE_PROJECT" = 'hcxtiifzxoaflhjgoglb'
+          test "$SUPABASE_DR_RECOVERY_PROFILE" = 'fourteen-personal-identity'
+          test "$SUPABASE_DR_R2_BUCKET" = 'mosaic-supabase-backups'
+          test "$SUPABASE_DR_PRUNE_ENABLED" = 'false'
+          test "$SUPABASE_DR_R2_LOCK_CONFIRMED" = 'false'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install age and signed PostgreSQL 17 client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age curl ca-certificates
+          # Ubuntu 24.04 runners ship PostgreSQL 16, not 17. Use the official
+          # PostgreSQL project's signed PGDG apt repository for the exact client.
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error --location \
+            --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          printf '%s\n' \
+            'Types: deb' \
+            'URIs: https://apt.postgresql.org/pub/repos/apt' \
+            'Suites: noble-pgdg' \
+            'Components: main' \
+            'Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc' \
+            | sudo tee /etc/apt/sources.list.d/pgdg.sources >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          test -x /usr/lib/postgresql/17/bin/pg_dump
+          test -x /usr/lib/postgresql/17/bin/pg_restore
+          printf '%s\n' '/usr/lib/postgresql/17/bin' >> "$GITHUB_PATH"
+      - name: Capture encrypted PostgreSQL and whole private Storage then publish ONE verified R2 marker
+        run: node supabase-poc/unified-offsite.mjs --backup
