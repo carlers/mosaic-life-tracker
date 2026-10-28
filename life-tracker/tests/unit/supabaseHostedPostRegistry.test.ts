@@ -36,7 +36,8 @@ function registryFake({ release = false } = {}) {
   };
   const api = async (path, args = {}) => {
     const token = args.token;
-    if (path.startsWith('/rest/v1/mosaic_') && path.includes('?select=*'))
+    if (['mosaic_accounts','provider_accounts','identity_audit','identity_installation']
+      .some(name => path === '/rest/v1/' + name + '?select=*'))
       return denied(404, 'PGRST106');
     if (path === '/auth/v1/user' && args.method === 'PUT') {
       metadataCalls++;

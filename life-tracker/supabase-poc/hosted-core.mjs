@@ -261,6 +261,7 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
       'mosaic_candidate_cas_setting', 'mosaic_candidate_cas_bucket',
       'mosaic_candidate_cas_bucket_link', 'mosaic_core_session'] :
     ['mosaic_candidate_cas_task', 'mosaic_candidate_cas_category', 'mosaic_core_session'];
+  if (postRegistry) checkedFunctions.push('mosaic_account_status', 'mosaic_personal_readiness');
   const privileges = await client.sql(`select count(*)::int as total,
     bool_and(c.relrowsecurity
       and has_table_privilege('authenticated',c.oid,'SELECT')
