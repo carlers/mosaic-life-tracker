@@ -1,5 +1,26 @@
 # Mosaic operator one-pass commands (#1027)
 
+## Accepted fourteen-table AFTER DR: no further Fedora backup/restore
+
+**2026-10-28 SUCCESS.** Immutable encrypted R2 generation
+`20261028T100954899Z` was independently READ-ONLY retrieved, fully
+authenticated with age, and restored as exact fourteen-table PostgreSQL/Auth
+data into a fresh isolated PG17. Original-password signed local GoTrue owner
+and foreign-owner isolation, whole private-media archive and nonempty
+synthetic photo recovery, and cleanup all passed.
+
+Accepted marker:
+`MOSAIC_R2_EXACT_SNAPSHOT_DISPOSABLE_RESTORE_PASS: 20261028T100954899Z`.
+Previously independently restored ten-table BEFORE
+`20261028T053525682Z` remains preserved. **Do not recapture, republish,
+overwrite or prune either snapshot.** No further Fedora DR command is needed.
+
+Remaining acceptance is *hosted* signed registry/consent/category security,
+SMTP/reset delivery, protected Preview/device, old-PWA authority and separately
+approved writer fence/cutover. The older diagnostic and restore-only
+instructions below are historical and must not be repeated for these two
+accepted generations.
+
 ## 2026-10-28 R2 fourteen-table AFTER committed; restore-only remediation
 
 The owner ran the source-pinned full operator on `243d958523877257ce8418e34f61c9e0ce9ff5d6`.

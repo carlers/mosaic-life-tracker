@@ -1,8 +1,8 @@
 # Hosted six-domain Supabase launch sequence — issue #1027
 
-Status: **five additive hosted migrations installed; immutable fourteen-table AFTER archive committed, but independent PG17 recovery NOT VERIFIED. NOT rollout approval.** Keep final personal writer fence uninstalled.
+Status: **21 migrations installed; independently restored fourteen-table AFTER R2 snapshot ACCEPTED. NOT rollout approval.** Final personal writer fence uninstalled; account consent and release evidence unset.
 Target: isolated `mosaic-dev` project `hcxtiifzxoaflhjgoglb`, never implicit Production.
-Latest audited isolated recovery: `feature/1027-supabase-recovery-20261020@f1dfbd1cf8251c1e71529ead790b8cd9e9e8ba35` (PR #1425, full Quality #40660225092). Always re-check live branch, CI and hosted catalog before executing.
+Latest audited isolated recovery: `feature/1027-supabase-recovery-20261020@f031bf7f2edbee920537cc535ada3427db2b26aa` (PR #1428; canonical Quality #40671071596 and synthetic fourteen-table restore #40671071694 passed). Re-check branch, CI and hosted catalog before executing.
 
 ## Why a direct migration is unsafe
 
@@ -22,8 +22,8 @@ substitute for audited, server-owned release evidence.
 - All four private registry tables have RLS enabled and no direct `anon` or `authenticated` SELECT/UPDATE/DELETE grants. Private identity triggers deny direct execution by both roles. Signed-only `mosaic_account_status` and `mosaic_personal_readiness` have empty function search paths and deny anonymous execution.
 - All three Settings/Bucket/Bucket-link Realtime publications are present.
 - **Zero** accounts with recorded consent and **zero** installations with release evidence. The separate `20261027183840_enforce_personal_writer_consent.sql` is **NOT installed** (writer function, consent constraint and Storage restrictive policy absent).
-- A previously encrypted **ten-table BEFORE** R2 generation `20261028T053525682Z` passed complete independent PostgreSQL/Auth/private-media restoration. **Never repeat or prune it.** The registry-bearing **fourteen-table AFTER** snapshot and restore remain unverified.
-- R2 credential pair verification later passed independently for reader and writer. The owner then **successfully published** the fourteen-table Auth/PostgreSQL + complete private-media R2 generation `20261028T100954899Z`; independent R2 ciphertext watch and full age authentication PASS. **Never repeat that already-completed backup.** Fresh PG17 restore failed at database stage 04 and full source/target data/owner/media recovery remains unverified. A source-only repair aligns missing category retirement/atomic-delete migrations in the disposable fourteen-table target, followed by restore-only verification.
+- A previously encrypted **ten-table BEFORE** R2 generation `20261028T053525682Z` passed complete independent PostgreSQL/Auth/private-media restoration. **Never repeat or prune it.** The registry-bearing **fourteen-table AFTER** snapshot and independent fresh restore have now passed.
+- R2 credential pair verification later passed independently for reader and writer. The owner then **successfully published** the fourteen-table Auth/PostgreSQL + complete private-media R2 generation `20261028T100954899Z`; independent R2 ciphertext watch and full age authentication PASS. **Never repeat that already-completed backup.** The earlier PG17 restore failure was repaired in PR #1428; the owner later verified exact fourteen-table PG17 row parity, original-password signed GoTrue owner/foreign isolation, private-media restore including nonempty synthetic photo, and full cleanup. Final `MOSAIC_R2_EXACT_SNAPSHOT_DISPOSABLE_RESTORE_PASS: 20261028T100954899Z` passed. No new backup/restore action is needed.
 - Security Advisor currently flags nine authenticated-callable privileged RPCs and disabled leaked-password protection; see [privileged review](SUPABASE_PRIVILEGED_CAS_REVIEW.md). Hosted SMTP/reset/redirect allowlist/device acceptance remain unverified.
 
 The earlier pre-DDL inventory (16 migrations and no registry) is historical only, **not** the current state. Re-verify the latest hosted records before each operation.
@@ -60,11 +60,12 @@ credentials to CI logs, GitHub issues, ChatGPT or a browser.
    Do **not** run the final personal-writer enforcement migration as part of
    this step. All consents and release evidence are still unset.
 
-4. **Prove the NEW state before release.** Take and independently restore a
-   registry-bearing **fourteen-table** encrypted snapshot (Auth + personal
-   domain rows + four identity registry tables) and all referenced photo bytes
-   with exact source/target counts, digests and owner ACLs. Run signed two-owner
-   tests on the actual hosted additive schema against disposable marked users:
+4. **Prove the NEW state before release.** The **14-table AFTER-state disaster
+   recovery gate is closed** by independently restored encrypted PostgreSQL/Auth
+   and full private-media R2 generation `20261028T100954899Z`. Preserve this
+   marker and ten-table BEFORE `20261028T053525682Z`; never recapture them.
+   **Still required:** signed two-owner tests on the actual hosted additive
+   schema against disposable marked users:
    signup/consent, owner-scoped access, foreign exact-ID deny, CAS/stale/conflict,
    account-switch/epoch/lease, category-delete, ZIP/photo and no email-only
    account claiming. Preserve cleanup and independent zero-live-fixture audit.
@@ -99,7 +100,7 @@ credentials to CI logs, GitHub issues, ChatGPT or a browser.
 
 ## Current blocker ownership
 
-- **AFTER-state offsite DR:** R2 ciphertext publication and independent reader watch for immutable `20261028T100954899Z` have passed. The fresh PG17 restore failed at database stage 04. Preserve both the completed fourteen-table AFTER snapshot and the verified ten-table BEFORE `20261028T053525682Z`; after reviewed source/CI correction, perform **restore-only** on the exact fourteen-table marker. No new backup/re-upload.
+- **AFTER-state offsite DR — CLOSED:** immutable `20261028T100954899Z` passed read-only download, full age authentication, exact fourteen-table PG17 source/target row recovery, original-password signed owner and foreign-owner tests, private media with nonempty synthetic photo and disposable cleanup. Preserve both it and the independently restored BEFORE `20261028T053525682Z`. No further backup/restore step is required. Hosted SMTP/OAuth/JWT and user-device tests are separate.
 - **Final writer fence and release evidence:** migration `20261027183840_enforce_personal_writer_consent.sql` is not applied, installation release marker is NULL and account consents are unset. Do not activate or set evidence before restored AFTER-state and separately authorized signed tests, consent/cutover and old-writer impact review.
 - **Changed hosted acceptance:** independent signed two-owner checks on the current 21-migration schema, including grants/RLS/category deletion, remain required.
 - **SMTP/password recovery:** disposable local GoTrue email recovery has passed, but hosted sender, redirect allowlist and actual inbox reception remain unverified. Auth Management inspection returned HTTP 401. Leaked-password protection remains disabled.
