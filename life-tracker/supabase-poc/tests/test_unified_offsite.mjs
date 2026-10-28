@@ -301,7 +301,7 @@ test('fourteen preflight fails closed before cloud writes for missing old marker
   );
   assert.equal(stage, 'R2_BEFORE_MARKER_READ');
   assert.equal(r2.objects.size, 0);
-}));
+});
 
 test('R2 publication tracks exact list, database/media upload/readback, and marker steps', async () => fixture(async ({ database, media }) => {
   const phases = [
