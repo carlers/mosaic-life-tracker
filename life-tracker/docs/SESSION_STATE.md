@@ -1,21 +1,20 @@
 # Session checkpoint
 Updated: 2026-10-28 Asia/Manila
-Current task: #1027 isolate repeated Cloudflare R2 S3 SignatureDoesNotMatch without making more seven-credential backup attempts.
+Current task: #1027 post-registry hosted rollout safety/runbook correction on `chatgpt/1027-hosted-postregistry-runbook-20261028`.
 
-## Verified
-- Scratch `mosaic-dev` has 21 owner-approved additive migrations, original 87 Auth accounts, private identity mapping with zero owner mismatch, unchanged personal rows. No user consent, release evidence, final writer enforcement or Production cutover.
-- Ten-table BEFORE R2 `20261028T053525682Z` completed immutable encrypted paired Auth/database+media and passed independently restored PG17/GoTrue two-owner and media bytes; **preserve, never repeat or prune**. No fourteen-table AFTER R2 marker/restore accepted.
-- Trusted Fedora private PG17.11 alongside untouched installed PG18 works. Two owner attempts 08:31 and 08:39 UTC on isolated recovery `feature/1027-supabase-recovery-20261020@17ff359cfc1c027102b1623075151ca14f558498`: Stage 01/02 passed; Stage 03 failed at the FIRST R2 read-only LIST: `FOURTEEN_R2_R2_PREFLIGHT_LIST_HTTP_403_SIGNATURE_MISMATCH_FAILED`; Stage 06 cleanup passed. No new source capture or R2 publication in either retry.
-- Crucial independently confirmed: exact R2 signer Git blob `aab6fb184978f71f8638bb5ffbc77029b2245695` at current source is byte-identical to protected ten-table successful GitHub run #40638837505 (source `51e5b1b4a5077f6ffce2e93fa151709a67c3022b`). This strongly favors invalid/mismatched **writer S3 ID + secret** or Cloudflare account context over a newly broken signer; not proof of exact cause. Cloudflare documents `SignatureDoesNotMatch` separately from permissions-only `AccessDenied`.
-- `17ff359` full Quality #40656181679 and real PG17/GoTrue, bucket, Settings, encrypted media specialist labs SUCCESS. Core App protected signed-UI lab still awaiting independent approval. `dev`/`main` unchanged; protected manual main workflow PR #1421 still DRAFT/BLOCKED.
+## Verified recovery state
+- Isolated recovery parent `feature/1027-supabase-recovery-20261020@f1dfbd1cf8251c1e71529ead790b8cd9e9e8ba35`; PR #1425 merged, full Quality #40660225092 SUCCESS. Protected `dev`/`main` and Production not changed.
+- Hosted Scratch `mosaic-dev`: 21 migrations, 87 Auth users, fresh authorities, account mappings and audit events, zero missing/orphan mappings. Four registry tables have RLS and no direct browser table grants; three additional Realtime publications installed. No account consent, no installation release evidence and final writer-fence migration uninstalled.
+- Ten-table encrypted R2 BEFORE `20261028T053525682Z` independently restored and accepted; preserve and never prune/repeat. Fourteen-table encrypted AFTER is NOT committed/restored.
+- Owner R2-only differential: `MOSAIC_R2_READER_READ_CHECK_PASS`, `MOSAIC_R2_WRITER_READ_CHECK_HTTP_403_SIGNATURE_MISMATCH`, cleanup PASS. Cause within writer token/pair remains unverified; do not use another seven-credential full capture until both R2 read-only checks PASS.
+- Security Advisor: 9 signed SECURITY DEFINER warnings (expected privileged APIs require independent review) and disabled leaked-password protection. Hosted SMTP password reset and protected Preview/device checks remain open. Final writer enforcement must not run while consent/evidence are unset.
 
-## Scoped implementation
-- Task `chatgpt/1027-r2-readonly-paired-credentials-20261028` adds `operator-r2-paired-probe.py` + `r2-paired-probe.mjs` for exact-SHA operator read-only diagnostic. Prompts **only** R2 account + separate READ-ONLY and WRITE S3 credential pairs (five hidden fields). Both perform only LIST historic R2 snapshot prefix and GET known-good ten-table `COMPLETED` metadata, no PUT/DELETE, Supabase, DB, Docker or age. Prints fixed allowlisted role-specific results and safely cleans own detached worktree. No plaintext credentials in argv/files/logs.
-- Six Node synthetic and six Python offline tests plus Vitest wrapper; updated operator runbook. **Focused and canonical CI pending.** Do not change full one-pass backup runner or weaken permissions.
+## Scoped task / remaining verification
+- Correct two stale rollout/security documents that incorrectly describe category and registry DDL as uninstalled. Clearly distinguish installed five additive migrations from the still-gated final writer fence, and record audited permissions, complete BEFORE recovery, writer-only SigV4 failure, AFTER DR/SMTP/Preview gates.
+- Documentation/version impact NONE. Task commit requests `[verify:focused]`; after green, merge only into isolated recovery and require full canonical Quality Gate. No hosted writes, R2 mutation, privileged credential use or branch promotion.
 
 ## Next action
-1. Finish focused CI, merge only into isolated recovery; verify full canonical and relevant specialist gates. Do not alter hosted Scratch or protected `dev`/`main`.
-2. Owner first verify Cloudflare R2 S3 Access Key ID and Secret Access Key are from the SAME R2 API token creation; account ID matches bucket owner and WRITE token allows `Object Read & Write` for `mosaic-supabase-backups`. Key secret can't be revealed after creation. Then ONE source-pinned Fedora **R2-only** differential command; do not ask 7 Supabase+R2 fields or redo full capture until both R2 pairs pass.
-3. If reader PASS/writer SIGNATURE_MISMATCH, replace only the writer pair with one correctly issued token, keeping working reader/old backups. If both PASS, run existing fourteen-table one-pass recovery with independent watch and restore. Final writer consent/Preview/Production remain separately gated.
 
-Runbook: [OPERATOR_ONEPASS.md](OPERATOR_ONEPASS.md). Issue [#1027](https://github.com/carlers/mosaic-life-tracker/issues/1027).
+Owner next: create a correctly paired Object Read & Write S3 key ID/secret for `mosaic-supabase-backups` in Cloudflare, keep existing read-only pair, rerun only source-pinned R2 differential. If both PASS, run existing fourteen-table one-pass backup/watch/restore; only full `MOSAIC_FOURTEEN_R2_COMPLETE_OFFSITE_DISPOSABLE_RESTORE_PASS` closes AFTER DR.
+
+Issue: https://github.com/carlers/mosaic-life-tracker/issues/1027
