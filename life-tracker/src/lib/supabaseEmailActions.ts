@@ -2,19 +2,36 @@
  * Email grants are deliberately separate from the browser's active account.
  * They cannot enter RxDB, persistent session storage or the writer coordinator.
  */
-export type EmailAction = { kind: 'signup' | 'recovery'; tokenHash: string };
+export type EmailAction =
+  | { kind: 'signup' | 'recovery'; tokenHash: string; accessToken?: never }
+  | { kind: 'signup' | 'recovery'; accessToken: string; tokenHash?: never };
 export type VerifiedEmailAction = { kind: EmailAction['kind']; email: string };
 
 export function parseEmailAction(pathname: string, hash: string): EmailAction | null {
   const params = new URLSearchParams(hash.replace(/^#/, ''));
   const kind = params.get('type');
-  const tokenHash = params.get('token_hash');
-  if (params.getAll('type').length !== 1 || params.getAll('token_hash').length !== 1 ||
-      !tokenHash || !/^[a-f0-9]{32,128}$/i.test(tokenHash) ||
+  if (params.getAll('type').length !== 1 ||
       (kind !== 'signup' && kind !== 'recovery') ||
       pathname !== (kind === 'signup' ? '/auth/confirm' : '/reset-password'))
     return null;
-  return { kind, tokenHash };
+
+  const hashes = params.getAll('token_hash');
+  const tokens = params.getAll('access_token');
+  // Template-driven links contain a one-time token hash. Standard GoTrue
+  // verification redirects instead carry an already-issued bearer session
+  // in the fragment. Never mix those paths or accept a query credential.
+  if (hashes.length === 1 && tokens.length === 0 &&
+      params.getAll('refresh_token').length === 0 &&
+      /^[a-f0-9]{32,128}$/i.test(hashes[0]))
+    return { kind, tokenHash: hashes[0] };
+  if (hashes.length === 0 && tokens.length === 1 &&
+      params.getAll('refresh_token').length === 1 &&
+      params.getAll('token_type').length === 1 &&
+      params.get('token_type')?.toLowerCase() === 'bearer' &&
+      tokens[0].length <= 8192 &&
+      /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(tokens[0]))
+    return { kind, accessToken: tokens[0] };
+  return null;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -84,15 +101,22 @@ export function createSupabaseEmailActions(options: {
     if (!verifying) {
       const current = callback;
       verifying = (async () => {
-        const result = await request('/auth/v1/verify', 'POST', {
-          token_hash: current.tokenHash, type: current.kind,
-        });
-        // Never adopt identity claims from email parameters or user_metadata.
-        const user = result?.user as { id?: unknown } | undefined;
-        if (typeof result?.access_token !== 'string' || result.access_token.length < 12 ||
-            typeof user?.id !== 'string' || !UUID.test(user.id))
-          throw Error('The email account could not be verified.');
-        grant = await verifyOwner(result.access_token, user.id);
+        if ('accessToken' in current && current.accessToken) {
+          // GoTrue already consumed the single-use email OTP and issued this
+          // short-lived session before redirecting. Verify against /user;
+          // never persist its refresh token or adopt it into app sync.
+          grant = await verifyOwner(current.accessToken);
+        } else if ('tokenHash' in current && current.tokenHash) {
+          const result = await request('/auth/v1/verify', 'POST', {
+            token_hash: current.tokenHash, type: current.kind,
+          });
+          // Never adopt identity claims from email parameters or user_metadata.
+          const user = result?.user as { id?: unknown } | undefined;
+          if (typeof result?.access_token !== 'string' || result.access_token.length < 12 ||
+              typeof user?.id !== 'string' || !UUID.test(user.id))
+            throw Error('The email account could not be verified.');
+          grant = await verifyOwner(result.access_token, user.id);
+        } else throw Error('Invalid email callback.');
         return { kind: current.kind, email: grant.email };
       })();
     }
