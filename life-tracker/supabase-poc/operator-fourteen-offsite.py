@@ -38,16 +38,37 @@ class SafeFailure(Exception):
     """Only constant, programmer-authored messages may be displayed."""
 
 
-def cmd(argv, *, cwd=None, env=None, timeout=90):
+BACKUP_SAFE_STAGES = frozenset(("SOURCE_GATE", "R2_CONFIGURATION", "WORKDIR_INIT", "AGE_IDENTITY", "PG_CLIENT_VERSION", "PG_DATABASE_CAPTURE", "PG_TOC_AUTHENTICATION", "PG_TOC_PROFILE", "STORAGE_CAPTURE", "R2_PUBLISH", "R2_FULL_READBACK", "R2_RETENTION"))
+
+
+def cmd(argv, *, cwd=None, env=None, timeout=90, backup_diagnostic=False):
     """Run trusted fixed argv. Never echo provider errors, credentials or stdout."""
     try:
         result = subprocess.run(
             argv, cwd=cwd, env=env, check=False, timeout=timeout,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE if backup_diagnostic else subprocess.DEVNULL,
+            text=True,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SafeFailure("GUARDED_CHILD_UNAVAILABLE") from exc
     if result.returncode != 0:
+        if backup_diagnostic:
+            # Never display subprocess output. Accept ONLY exact authored marker
+            # lines, never arbitrary provider stderr, paths or user/SQL data.
+            committed = re.findall(
+                r"(?m)^MOSAIC_SUPABASE_FULL_OFFSITE_REMOTE_COMMITTED_PASS: ([0-9]{8}T[0-9]{9}Z)\r?$",
+                result.stdout or "",
+            )
+            if len(committed) == 1 and SNAPSHOT.fullmatch(committed[0]):
+                global COMMITTED_SNAPSHOT
+                COMMITTED_SNAPSHOT = committed[0]
+            checkpoints = re.findall(
+                r"(?m)^MOSAIC_SUPABASE_FULL_OFFSITE_SAFE_STAGE: ([A-Z0-9_]+)\r?$",
+                result.stderr or "",
+            )
+            if len(checkpoints) == 1 and checkpoints[0] in BACKUP_SAFE_STAGES:
+                raise SafeFailure("FOURTEEN_R2_" + checkpoints[0] + "_FAILED")
         raise SafeFailure("GUARDED_CHILD_FAILED")
     return result.stdout
 
@@ -173,7 +194,8 @@ def guarded_publish(scripts, home, connection, age_key, secrets):
         "SUPABASE_DR_R2_LOCK_CONFIRMED": "false",
     }
     result = cmd(["node", str(scripts / "unified-offsite.mjs"), "--backup"],
-                 cwd=scripts.parent, env=env, timeout=4000)
+                 cwd=scripts.parent, env=env, timeout=4000,
+                 backup_diagnostic=True)
     found = re.findall(r"^MOSAIC_SUPABASE_FULL_OFFSITE_COMMITTED_PASS: (\S+)$", result, re.M)
     if len(found) != 1 or not SNAPSHOT.fullmatch(found[0]):
         raise SafeFailure("FOURTEEN_R2_COMPLETE_MARKER_NOT_CONFIRMED")
