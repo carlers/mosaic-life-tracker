@@ -7,6 +7,19 @@ command argument, repository file, issue, or build variable.
 
 ## Protected GitHub Actions execution — preferred over Fedora commands
 
+**Accepted 2026-10-28:** [protected hosted workflow #40679406417,
+attempt 2](https://github.com/carlers/mosaic-life-tracker/actions/runs/40679406417)
+**SUCCESS** on isolated recovery `664a574d98b0e2b45ffa131b3c0c7cb2cd247895`.
+Real signed account/consent/readiness, six-domain RLS/CAS/lease, category
+retirement/atomic tombstone and foreign/forgery denial all passed. Mandatory
+retirement logged `retiredUsers=2`, `remainingLiveRows=0`, `checkedDomains=6`.
+Independent hosted SQL confirmed both test accounts banned/frozen and no live
+records across all six domains. The two synthetic consent/audit histories are
+retained and **not user release evidence**. Management Auth policy inspection
+returned PASS, but **no real SMTP email was sent** and mailbox delivery is
+still unverified. **Do not rerun this accepted signed gate** without a
+separate reason; a rerun would create another two synthetic accounts.
+
 The source-checked `Supabase Hosted Signed Acceptance` workflow,
 `.github/workflows/supabase-hosted-signed-acceptance.yml`, runs the exact
 reviewed `--post-registry` mode against **only** hosted `mosaic-dev` after
