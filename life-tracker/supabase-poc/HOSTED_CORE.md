@@ -10,6 +10,7 @@ Run from `life-tracker/`, with Node 22 and installed app/browser dependencies:
 ```sh
 node supabase-poc/hosted-core.mjs --inspect
 node supabase-poc/hosted-core.mjs --probe
+node supabase-poc/hosted-core.mjs --post-registry
 node supabase-poc/hosted-core.mjs --ui
 node supabase-poc/hosted-core.mjs --conflicts
 node supabase-poc/hosted-core.mjs --offline
@@ -82,6 +83,46 @@ not touch other owners. **Requires private SUPABASE_ACCESS_TOKEN on the
 trusted operator workstation**, never in chat, GitHub artifacts or a browser.
 Only run against `mosaic-dev`; the command does not activate deployed Preview
 UI, promote branches, change Auth config or import Production accounts.
+
+## Current 21-migration hosted post-registry acceptance (not a release)
+
+`node supabase-poc/hosted-core.mjs --post-registry` is an explicit opt-in
+extension of the existing private `mosaic-dev` signed six-domain runner.
+It is not called by default or by ordinary browser CI and **must not** run
+against Production. Before creating any fixture, it validates the exact
+21-migration host state, five staged registry/category migration versions,
+private registry table grants, category retirement/atomic deletion triggers,
+absent trusted release evidence and uninstalled final writer guard. Any drift
+refuses fixture creation rather than weakening a release gate.
+
+The runner provisions only two new server-marked disposable Auth users; it
+performs real signed mapping, anonymous/foreign account claim, forged user
+metadata, independent `fresh` vs `recovery-pending` consent and idempotence
+checks. It verifies `mosaic_personal_readiness.personalReady=false` while
+the separate installation release marker is absent. It then executes all
+existing six-domain owner/foreign/RLS/lease/CAS checks, followed by category
+`retired_on` CAS, non-destructive retirement, atomic category/task
+tombstoning, foreign CAS isolation and server rejection of resurrection or a
+new task assigned to a deleted category. Only run-marked synthetic IDs are
+used; there is no email-based linking, managed email sending or historical
+Appwrite import.
+
+The existing `finally` retires and bans both run-marked accounts, tombstones
+any remaining personal fixtures and independently verifies zero **live** rows.
+The two fixture users, consent audit events and deletion tombstones are
+retained by design for forensic traceability. **Therefore the global number of
+consented records may rise by two retired synthetic accounts**; such rows must
+never be mistaken for live-user acceptance or Production release consent.
+A process kill may interrupt cleanup: inspect the exact run-marked fixture
+identities; do not delete arbitrary Auth users or private rows.
+
+The mode requires the operator's private `SUPABASE_ACCESS_TOKEN` (to provision
+and retire only marked test users) and signed real Auth tokens. It does not
+require R2 writer/reader credentials, an R2 recapture, hosted PostgreSQL
+password, Storage admin secret, final writer-fence application or Vercel
+approval. A successful result proves **only** the currently hosted signed
+contracts exercised; independent SMTP inbox delivery, protected Preview,
+real devices, old PWA writer safety and explicit release approval remain open.
 
 The suite checks both task/category ownership despite public visibility
 metadata, foreign and anonymous denial, blocked direct update/physical delete,

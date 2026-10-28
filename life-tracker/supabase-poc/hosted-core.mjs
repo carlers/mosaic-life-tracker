@@ -5,6 +5,7 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { runSignedAuthProbe } from './signed-auth-probe.mjs';
+import { preflightHostedPostRegistry, checkHostedSignedRegistry, checkHostedAtomicCategory } from './hosted-post-registry.mjs';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { inspectEmailPolicy, previewEmailPolicy, EMAIL_PREVIEW, EMAIL_PREVIEW_SHA, requireDeployedPreviewAccess } from './email-policy.mjs';
@@ -250,15 +251,17 @@ export async function applyEmptyProject(client) {
   return MIGRATIONS.map((m, i) => ({ version: m[0], sha256: digest(sources[i]) }));
 }
 
-export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}, sixDomains = false } = {}) {
-  check(typeof sixDomains === 'boolean' && !(sixDomains && exerciseUi),
-    'Six-domain signed acceptance cannot run with the legacy browser contract');
+export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}, sixDomains = false, postRegistry = false } = {}) {
+  check(typeof sixDomains === 'boolean' && !(sixDomains && exerciseUi) &&
+    typeof postRegistry === 'boolean' && (!postRegistry || (sixDomains && !exerciseUi)),
+    'Post-registry signed acceptance requires non-browser six-domain disposable fixtures');
   const checkedTables = sixDomains ? PERSONAL_TABLES : PERSONAL_TABLES.slice(0, 2);
   const checkedFunctions = sixDomains ?
     ['mosaic_candidate_cas_task', 'mosaic_candidate_cas_category', 'mosaic_candidate_cas_diary',
       'mosaic_candidate_cas_setting', 'mosaic_candidate_cas_bucket',
       'mosaic_candidate_cas_bucket_link', 'mosaic_core_session'] :
     ['mosaic_candidate_cas_task', 'mosaic_candidate_cas_category', 'mosaic_core_session'];
+  if (postRegistry) checkedFunctions.push('mosaic_account_status', 'mosaic_personal_readiness');
   const privileges = await client.sql(`select count(*)::int as total,
     bool_and(c.relrowsecurity
       and has_table_privilege('authenticated',c.oid,'SELECT')
@@ -282,6 +285,9 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
     has_schema_privilege('anon','mosaic_candidate_private','USAGE') as anon,
     has_schema_privilege('authenticated','mosaic_candidate_private','USAGE') as signed`);
   check(!privateAccess[0]?.anon && !privateAccess[0]?.signed, 'Private authority schema is exposed');
+  // The current 21-migration contract must be verified read-only *before*
+  // allocating any additional hosted accounts or data.
+  if (postRegistry) await preflightHostedPostRegistry(client);
   const runId = randomBytes(12).toString('hex');
   onProgress({ stage: 'fixtures', runId });
   const fixtures = [];
@@ -348,6 +354,9 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
     const a = await account('a');
     const b = await account('b');
     check(a.id !== b.id, 'Fixture identities must differ');
+    if (postRegistry) Object.assign(counts, await checkHostedSignedRegistry({
+      api, runId, users: [a, b], onProgress,
+    }));
     for (const user of [a, b]) {
       const suffix = user === a ? 'a' : 'b';
       const category = { owner_id: user.id, id: `hc_${runId}_${suffix}`, name: 'Hosted private list',
@@ -474,6 +483,9 @@ export async function runHostedProbe(client, { exerciseUi, onProgress = () => {}
       counts.strictVerifiedFixtures = proof.verifiedOwnedFixtures;
       counts.strictForeignIdDenials = proof.deniedFixtureById;
     }
+    if (postRegistry) Object.assign(counts, await checkHostedAtomicCategory({
+      api, runId, users: [a, b], rows, cas, onProgress,
+    }));
     if (exerciseUi) {
       onProgress({ stage: 'browser', runId });
       await exerciseUi([await account('ui-a'), await account('ui-b')]);
@@ -539,14 +551,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const mode = process.argv[2] ?? '--inspect';
     check(process.argv.length <= 3 &&
-      ['--inspect', '--apply-empty-project', '--probe', '--six-domains', '--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode),
-    'Usage: hosted-core.mjs [--inspect|--apply-empty-project|--probe|--six-domains|--ui|--conflicts|--offline|--ui-preview]');
+      ['--inspect', '--apply-empty-project', '--probe', '--six-domains', '--post-registry', '--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode),
+    'Usage: hosted-core.mjs [--inspect|--apply-empty-project|--probe|--six-domains|--post-registry|--ui|--conflicts|--offline|--ui-preview]');
     const preview = mode === '--ui-preview' ? { origin: EMAIL_PREVIEW, sha: EMAIL_PREVIEW_SHA } : null;
     if (preview) requireDeployedPreviewAccess(preview, process.env.MOSAIC_CORE_PREVIEW_SHARE_URL);
     const client = await connect({ token: process.env.SUPABASE_ACCESS_TOKEN });
     const result = mode === '--apply-empty-project' ? await applyEmptyProject(client) :
-      ['--probe', '--six-domains', '--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode) ? await runHostedProbe(client, {
-        sixDomains: mode === '--six-domains',
+      ['--probe', '--six-domains', '--post-registry', '--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode) ? await runHostedProbe(client, {
+        sixDomains: mode === '--six-domains' || mode === '--post-registry',
+        postRegistry: mode === '--post-registry',
         onProgress: progress => process.stdout.write(JSON.stringify(progress) + '\n'),
         ...(['--ui', '--conflicts', '--offline', '--ui-preview'].includes(mode) ? { exerciseUi: async accounts => {
           const { exerciseHostedUi } = await import('./hosted-core-ui.mjs');
