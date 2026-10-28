@@ -100,6 +100,29 @@ describe('OCI A1 GitHub staged single-VM claim safety (#975)', () => {
     }
     expect(spawn).not.toHaveBeenCalled();
   });
+  it('accepts regional OCI IDs with hyphenated availability-region labels', () => {
+    const regional = {
+      ...config,
+      compartmentId: 'ocid1.compartment.oc1..synthetic',
+      imageId: 'ocid1.image.oc1.ap-singapore-1.synthetic',
+      subnetId: 'ocid1.subnet.oc1.ap-singapore-1.synthetic',
+    };
+    expect(() => validateConfig(regional)).not.toThrow();
+    expect(() => validateConfig({
+      ...regional, imageId: 'ocid1.instance.oc1.ap-singapore-1.synthetic',
+    })).toThrow(/image OCID/);
+    expect(() => validateConfig({
+      ...regional, subnetId: 'ocid1.subnet.oc1.ap-singapore-1.unsafe value',
+    })).toThrow(/subnet OCID/);
+    expect(() => validateConfig({
+      ...regional, subnetId: 'ocid1.subnet.oc1.ap-singapore-1.synthetic\\n',
+    })).toThrow(/subnet OCID/);
+    const spawn = mockOci();
+    expect(claimA1({ mode: 'launch', enabled: true, context,
+      config: regional, capacity: () => cap('POSSIBLE', null), spawn }).outcome)
+      .toBe('instance_created');
+    expect(spawn.mock.calls.filter(([, args]) => args.includes('launch'))).toHaveLength(1);
+  });
   it('denies missing quota confirmations and unsafe SSH keys', () => {
     expect(() => validateConfig({ ...config, freeTierConfirmed: '' })).toThrow(/quota/);
     expect(() => validateConfig({ ...config, compartmentId: 'ocid1.tenancy.oc1..root' })).toThrow(/OCID/);
