@@ -1,4 +1,19 @@
 # Session checkpoint
+Updated: 2026-10-28 Asia/Manila
+Current task: #1027 source-only protected fourteen-table AFTER-registry encrypted backup and independent R2 watcher staging, in a PR targeting `main`. No deployment or main promotion authorized.
+
+## Current verified boundaries
+- Branch `chatgpt/1027-fourteen-table-offsite-staging-20261028` begins at protected `main@eae6eb99626433d93890ca2284745e0851d6db3b`; reviewed immutable recovery implementation `feature/1027-supabase-recovery-20261020@2128be03404181bdabd43e3792fc56a8a3b515be`, accepted canonical #40643925995, real GoTrue and ten/fourteen-schema synthetic restore. The new workflows are **not executable on main** before an explicit reviewed merge.
+- Owner signed actual fresh BEFORE-state ten-table+whole private-media recovery point `20261028T053525682Z`: encrypted R2 readback, both age authentications, exact PG17 row parity, original-password sign-in, cross-owner denial, full media/synthetic photo byte restore and cleanup PASS. No new backup needed until 14-table registry is installed.
+- Read-only `mosaic-dev` `hcxtiifzxoaflhjgoglb` ACTIVE_HEALTHY, 16 migrations ending `20261026133344`, 87 Auth identities/authorities (3 active, 84 frozen), one live authority lease, zero invalid/duplicate canonical IDs; current 6 personal RLS guards enforce owner SELECT, no direct authenticated UPDATE/DELETE. Four private identity tables + two readiness RPCs UNINSTALLED.
+- New fourteen-table workflow copies the proven one-off 10-table protected pattern, requires `main` + typed confirmation + `mosaic-supabase-dr` reviewer + exact-SHA source + `fourteen-personal-identity` TOC + paired whole DB/media ciphertext verification. Second workflow accepts only R2 read-only credentials and independently verifies latest completed 14-profile bytes. No schedules, pruning, DDL, Auth, Storage or Production mutation at PR creation.
+- Do not merge this PR to `main`, apply hosted additive schema, set the server release marker, enable writer fence, approve protected Preview, promote dev/main application or cut over Production without exact separate approval and existing-user impact acknowledgement. Current Core App lab signed job & artifact passed; its Preview deployment remained reviewer-waiting at last check. Version impact NONE (backend operator-only workflows).
+
+## Next action
+- Finish focused verification of these source-only workflows and their security tests, review PR diff and open a non-auto-merge PR to `main`. Record [the staged fourteen-table AFTER-state process](SUPABASE_FOURTEEN_OFFSITE_GATE.md) in #1027.
+- Once the owner explicitly approves the *exact* main-only protected workflow PR and controlled additive `mosaic-dev` category/registry/readiness schema stage with one active writer lease acknowledged, reconcile live preflight; perform DDL only under reviewed target-specific approval, then dispatch protected 14-table backup and read-only watcher. Independent 14-table Fedora restore, hosted signed security checks and manual signup/reset/device acceptance are next distinct gates. Old writer cutoff remains excluded.
+
+## Previous checkpoint (2026-10-23; historical, not current task)
 Updated: 2026-10-23 Asia/Manila
 Current task: #1276 UI release candidate from dev to main; reconcile main-only CI trust history first.
 

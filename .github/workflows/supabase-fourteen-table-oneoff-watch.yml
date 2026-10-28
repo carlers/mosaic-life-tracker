@@ -1,0 +1,57 @@
+name: Supabase Scratch Fourteen-Table One-Off R2 Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type VERIFY_SCRATCH_FOURTEEN_OFFSITE to verify newest completed fourteen-table R2 ciphertext (manual only)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  watch-full-offsite:
+    if: >-
+      ${{
+        github.ref == 'refs/heads/main' &&
+        github.event_name == 'workflow_dispatch' &&
+        inputs.confirmation == 'VERIFY_SCRATCH_FOURTEEN_OFFSITE'
+      }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: mosaic-supabase-dr
+    concurrency:
+      group: mosaic-supabase-full-dr
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      SUPABASE_DR_SOURCE_PROJECT: hcxtiifzxoaflhjgoglb
+      SUPABASE_DR_RECOVERY_PROFILE: 'fourteen-personal-identity'
+      SUPABASE_DR_R2_ACCOUNT_ID: ${{ secrets.SUPABASE_DR_R2_ACCOUNT_ID }}
+      SUPABASE_DR_R2_ACCESS_KEY_ID: ${{ secrets.SUPABASE_DR_R2_READ_ACCESS_KEY_ID }}
+      SUPABASE_DR_R2_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_DR_R2_READ_SECRET_ACCESS_KEY }}
+      SUPABASE_DR_R2_BUCKET: ${{ vars.SUPABASE_DR_R2_BUCKET }}
+    steps:
+      # Run only reviewed, exact-SHA, Scratch-only code. Uses a separate R2 READ-ONLY key.
+      # The newest COMPLETED generation must match the fourteen-table profile and age limit.
+      - uses: actions/checkout@v4
+        with:
+          ref: 2128be03404181bdabd43e3792fc56a8a3b515be
+          persist-credentials: false
+      - name: Verify exact recovery source SHA and dedicated R2 destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '2128be03404181bdabd43e3792fc56a8a3b515be'
+          test "$SUPABASE_DR_SOURCE_PROJECT" = 'hcxtiifzxoaflhjgoglb'
+          test "$SUPABASE_DR_RECOVERY_PROFILE" = 'fourteen-personal-identity'
+          test "$SUPABASE_DR_R2_BUCKET" = 'mosaic-supabase-backups'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Independently recheck ALL R2 PostgreSQL and media ciphertext bytes and 36h freshness
+        run: node supabase-poc/unified-offsite.mjs --watch
