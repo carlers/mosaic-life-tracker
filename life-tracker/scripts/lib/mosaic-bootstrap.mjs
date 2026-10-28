@@ -486,7 +486,7 @@ async function deployFunction(
   throw new Error(`Function ${functionId} deployment did not become ready`);
 }
 
-async function provisionFunction({
+export async function provisionFunction({
   functions,
   directory,
   functionId,
