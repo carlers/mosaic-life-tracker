@@ -1,6 +1,16 @@
 # Session checkpoint
-Updated: 2026-10-23 Asia/Manila
-Current task: #1276 UI release candidate from dev to main; reconcile main-only CI trust history first.
+Updated: 2026-10-30 Asia/Manila
+Current task: #975 Oracle-first fast release and read-only archived Appwrite source assessment.
+
+## Oracle-first source readiness (2026-10-30)
+- Owner prioritizes existing Appwrite-native Mosaic on self-hosted Oracle over finishing Supabase for the first usable release; no Production cutover, dev/main promotion, real-data import or password rotation approved through this planning alone.
+- Appwrite Cloud connected status is paused. Official native Cloud migration therefore is not yet verified possible. Owner's installed phone has unique offline data; preserve existing PWA and two private photo-inclusive ZIP backups; no blind Replace or project re-target.
+- Oracle disposable test project already has 14 tables, bucket and original Function, so the existing DR restore must refuse it as nonempty. Original encrypted historical Appwrite DR may provide a *fresh-target* recovery source, with permanent-erasure markers; current phone data is newer.
+- Add read-only original R2 historical DR feasibility through `scripts/dr-restore.mjs --preflight-only --latest`, which needs no Appwrite target key, validates entire encrypted archived data+privacy deletions and surviving account hashes, and reports aggregate statuses only. One Fedora prompted wrapper in `scripts/oracle-source-preflight-fedora.sh`, details in `docs/ORACLE_FAST_RELEASE.md`. Exact source execution and backup eligibility unverified until owner runs it.
+- Focused tests/CI and task branch acceptance required before operator command. Following verified historical source: prepare a *new empty* Oracle target or native Cloud migration once Cloud resumes; signed owner/data/photos/Function/HTTPS/SMTP acceptance and current restorable checkpoint, then separate owner approval for any service, data or protected release changes. Do not restart 19-container cold-snapshot audits.
+- Keep prior #1276 checkpoint and its promotion constraints below as historical context.
+
+## Previous task checkpoint — #1276 (2026-10-23)
 
 ## Release preparation (2026-10-23)
 - Owner explicitly requested dev→main user-visible UI rollout now while Supabase remains isolated and Appwrite is reportedly unavailable. This is approval to prepare the protected promotion, **not evidence of healthy backend sync, passing gates, or data safety**.

@@ -54,6 +54,8 @@ export function parseArgs(argv) {
     targetProject: '',
     endpoint: process.env.APPWRITE_TARGET_ENDPOINT || DEFAULT_ENDPOINT,
     verifyOnly: false,
+    preflightOnly: false,
+    latest: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -64,13 +66,22 @@ export function parseArgs(argv) {
       args.endpoint = argv[++index] || '';
     } else if (token === '--verify-only') {
       args.verifyOnly = true;
+    } else if (token === '--preflight-only') {
+      args.preflightOnly = true;
+    } else if (token === '--latest') {
+      args.latest = true;
     } else {
       throw new Error(`Unknown DR restore argument: ${token}`);
     }
   }
-  if (!args.snapshot) throw new Error('Missing --snapshot <backupId>');
-  if (!args.targetProject) {
+  if (!args.snapshot && !args.latest) throw new Error('Missing --snapshot <backupId> or --latest');
+  if (args.snapshot && args.latest) throw new Error('--latest cannot be combined with --snapshot');
+  if (args.latest && !args.preflightOnly) throw new Error('--latest is available only with --preflight-only');
+  if (!args.preflightOnly && !args.targetProject) {
     throw new Error('Missing --target-project <projectId>');
+  }
+  if (args.preflightOnly && args.verifyOnly) {
+    throw new Error('--preflight-only cannot be combined with --verify-only');
   }
   if (!args.endpoint) throw new Error('Missing target Appwrite endpoint');
   return args;
@@ -107,9 +118,9 @@ export function readEncryptionKeyring(env = process.env) {
   return keyring;
 }
 
-export function readRestoreConfig(env = process.env) {
+export function readRestoreConfig(env = process.env, { requireTargetApiKey = true } = {}) {
   const required = [
-    'APPWRITE_TARGET_API_KEY',
+    ...(requireTargetApiKey ? ['APPWRITE_TARGET_API_KEY'] : []),
     'R2_ACCOUNT_ID',
     'R2_ACCESS_KEY_ID',
     'R2_SECRET_ACCESS_KEY',
@@ -171,6 +182,23 @@ async function loadEncryptedObject(
     throw new Error(`Plaintext SHA-256 mismatch for ${key}`);
   }
   return decrypted.plain;
+}
+
+/**
+ * Select newest committed DR generation by timestamp-shaped ID only.
+ * An invalid newest marker is a hard failure at authentication, not a
+ * reason to silently fall back to an older snapshot.
+ */
+export async function latestCommittedSnapshotId(r2, prefix) {
+  const root = `${prefix}/snapshots/`;
+  const keys = await r2.listObjects(root);
+  const ids = keys.flatMap((key) => {
+    if (!key.startsWith(root) || !key.endsWith('/COMPLETED')) return [];
+    const id = key.slice(root.length, -'/COMPLETED'.length);
+    return /^\d{8}T\d{9}Z$/.test(id) ? [id] : [];
+  }).sort();
+  if (!ids.length) throw new Error('No timestamped completed DR snapshot in R2');
+  return ids[ids.length - 1];
 }
 
 export async function loadCommittedSnapshot({
@@ -377,6 +405,43 @@ export async function preflightSnapshot(snapshot) {
       }
     }
   }
+}
+
+/**
+ * Read-only feasibility check for an archived Appwrite DR snapshot.
+ * Every encrypted object and referenced file byte must be authenticated by
+ * preflightSnapshot first. No account, row, file, or raw identifier is logged.
+ * This is NOT a source-delta check, target restore, or write-fence proof.
+ */
+export async function assessArchivedSource(snapshot, deletedUserIds = new Set()) {
+  await preflightSnapshot(snapshot);
+  const manifest = snapshot.manifest;
+  if (!manifest?.auth?.usersKey || !Array.isArray(manifest.databases)
+      || !Array.isArray(manifest.storage)) {
+    throw new Error('DR snapshot lacks required account/database/storage descriptors');
+  }
+  const users = parseJsonLines(await snapshot.readObject(manifest.auth.usersKey));
+  const seen = new Set();
+  let eligible = 0;
+  for (const user of users) {
+    if (typeof user?.id !== 'string' || !user.id || seen.has(user.id)) {
+      throw new Error('DR source account identity missing or duplicated');
+    }
+    seen.add(user.id);
+    if (deletedUserIds.has(user.id)) continue;
+    if (user.mfa || user.hash !== 'argon2' || !user.password) {
+      throw new Error('DR source has an account requiring unsupported credential recovery');
+    }
+    eligible += 1;
+  }
+  return {
+    archivedAccounts: users.length,
+    eligibleAccounts: eligible,
+    maskedAccounts: users.length - eligible,
+    databases: manifest.databases.length,
+    tables: manifest.databases.reduce((sum, db) => sum + (db.tables || []).length, 0),
+    buckets: manifest.storage.length,
+  };
 }
 
 export async function assertSafeTarget({
@@ -922,12 +987,15 @@ export async function runRestoreCli({
   log = console.log,
 } = {}) {
   const args = parseArgs(argv);
-  const config = readRestoreConfig(env);
+  const config = readRestoreConfig(env, { requireTargetApiKey: !args.preflightOnly });
   const r2 = createR2Client(config.r2);
+  const snapshotId = args.latest
+    ? await latestCommittedSnapshotId(r2, config.prefix)
+    : args.snapshot;
   const snapshot = await loadCommittedSnapshot({
     r2,
     prefix: config.prefix,
-    snapshotId: args.snapshot,
+    snapshotId,
     encryptionKeys: config.encryptionKeys,
   });
   const deletedUserIds = await loadPrivacyDeletedUserIds({
@@ -935,8 +1003,21 @@ export async function runRestoreCli({
     prefix: config.prefix,
     encryptionKeys: config.encryptionKeys,
   });
-  if (snapshot.manifest.source?.projectId === args.targetProject) {
+  if (args.targetProject && snapshot.manifest.source?.projectId === args.targetProject) {
     throw new Error('Refusing to restore a snapshot into its source project');
+  }
+
+  if (args.preflightOnly) {
+    const assessment = await assessArchivedSource(snapshot, deletedUserIds);
+    log('MOSAIC_ARCHIVED_APPWRITE_DR_SOURCE_CIPHERTEXT_AUTHENTICATED_PASS');
+    log('MOSAIC_ARCHIVED_APPWRITE_DR_SOURCE_ELIGIBLE_ACCOUNT_COUNT=' + assessment.eligibleAccounts);
+    log('MOSAIC_ARCHIVED_APPWRITE_DR_SOURCE_PRIVACY_MASKED_ACCOUNT_COUNT=' + assessment.maskedAccounts);
+    log('MOSAIC_ARCHIVED_APPWRITE_DR_SOURCE_DATABASE_COUNT=' + assessment.databases);
+    log('MOSAIC_ARCHIVED_APPWRITE_DR_SOURCE_TABLE_COUNT=' + assessment.tables);
+    log('MOSAIC_ARCHIVED_APPWRITE_DR_SOURCE_BUCKET_COUNT=' + assessment.buckets);
+    log('MOSAIC_ARCHIVED_APPWRITE_DR_NO_TARGET_WRITE_OR_ORACLE_ACCESS');
+    log('MOSAIC_ARCHIVED_APPWRITE_DR_NOT_CURRENT_PHONE_DATA_NOT_RESTORED');
+    return assessment;
   }
 
   const clients = createTargetClients({
