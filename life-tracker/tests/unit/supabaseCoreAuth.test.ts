@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseCoreAuthCoordinator } from '../../src/lib/supabaseCoreAuth';
 import { CandidateSessionDeniedError } from '../../supabase-poc/candidateAuthSession';
 import { SupabaseAccountStartRequiredError } from '../../src/lib/supabaseAccountRegistry';
+import { SupabasePersonalReleasePendingError } from '../../src/lib/supabasePersonalAuthority';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
@@ -114,6 +115,22 @@ describe('app-owned signed Supabase core Auth+RxDB lifecycle (#1027)', () => {
     expect(await f.coordinator.resumeAfterConsent()).toEqual(f.identity);
     expect(f.resolveIdentity).toHaveBeenCalledTimes(2);
     expect(f.bridge.start).toHaveBeenCalledOnce();
+  });
+
+  it('clears prerelease Auth without a writer while keeping signout possible', async () => {
+    const f = fixture();
+    mocks.personalBootstrap.mockReturnValue(f.bridge);
+    f.resolveIdentity.mockRejectedValueOnce(new SupabaseAccountStartRequiredError());
+    const personal = vi.fn(async () => ({guard:f.guard,verifyBucketLinkTargets:vi.fn()} as never));
+    const coordinator = createSupabaseCoreAuthCoordinator({...f.options,featureProfile:'personal',personal});
+    await expect(coordinator.signIn('test@example.org','password')).rejects.toThrow('Choose how');
+    expect(coordinator.getPhase()).toBe('awaiting-consent');
+    f.bridge.start.mockRejectedValueOnce(new SupabasePersonalReleasePendingError());
+    await expect(coordinator.resumeAfterConsent()).rejects.toBeInstanceOf(SupabasePersonalReleasePendingError);
+    expect(coordinator.getPhase()).toBe('signed-out');
+    expect(f.session.signOut).toHaveBeenCalledOnce();
+    expect(coordinator.getAuthenticatedOwner()).toBeNull();
+    expect(await coordinator.signOut()).toBe(true);
   });
 
   it('cancels an unconsented session without ever starting replication', async () => {

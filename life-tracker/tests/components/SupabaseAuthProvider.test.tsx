@@ -4,6 +4,7 @@ import { BehaviorSubject, Subject } from 'rxjs';
 import SupabaseAuthProvider from '../../src/hooks/SupabaseAuthProvider';
 import { useAuth } from '../../src/hooks/useAuth';
 import { CandidateSignupInvitationRequiredError } from '../../supabase-poc/candidateAuthSession';
+import { SupabasePersonalReleasePendingError } from '../../src/lib/supabasePersonalAuthority';
 
 const mock = vi.hoisted(() => ({
   signIn: vi.fn(), signOut: vi.fn(), resync: vi.fn(), signUp: vi.fn(),
@@ -73,6 +74,16 @@ describe('Supabase app AuthContext lifecycle', () => {
     fireEvent.click(screen.getByText('Sign up'));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This beta requires an invitation. Sign up using an invited email address.');
+    expect(screen.getByText('signed-out')).toBeInTheDocument();
+    expect(mock.scope).not.toHaveBeenCalledWith('canonical_owner');
+  });
+
+  it('shows an unreleased-personal warning without publishing any signed owner', async () => {
+    mock.signIn.mockRejectedValueOnce(new SupabasePersonalReleasePendingError());
+    render(<SupabaseAuthProvider config={config}><Consumer /></SupabaseAuthProvider>);
+    fireEvent.click(screen.getByText('Sign in'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Personal sync is not released on this Scratch Preview.');
     expect(screen.getByText('signed-out')).toBeInTheDocument();
     expect(mock.scope).not.toHaveBeenCalledWith('canonical_owner');
   });

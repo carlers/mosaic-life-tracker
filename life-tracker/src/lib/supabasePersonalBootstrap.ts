@@ -103,6 +103,11 @@ export function createAppSupabasePersonalBootstrap(options: AppSupabasePersonalB
       const first = await checkedSession();
       // No database access or account copying until local Appwrite is stopped.
       await options.assertLocalAppwriteStopped();
+      // Check signed hosted personal readiness before any runner / writer is
+      // attempted. The runtime rechecks this gate before acquiring its lease.
+      await options.guard.assertHostedSixDomainRecoveryReady(options.identity);
+      if (!unchanged(first, await checkedSession()))
+        throw new Error('Six-domain owner changed before personal release readiness');
       const { waitForDatabaseReady } = await import('./databaseBootstrap');
       await waitForDatabaseReady();
       if (!unchanged(first, await checkedSession()))
