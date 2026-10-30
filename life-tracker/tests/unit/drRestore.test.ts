@@ -1,15 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   assertSafeTarget,
+  assessArchivedSource,
   createImportedUser,
   indexCreateInput,
   loadCommittedSnapshot,
+  latestCommittedSnapshotId,
   loadPrivacyDeletedUserIds,
   parseArgs,
   parseJsonLines,
   planDeferredRowDefaults,
   preflightSnapshot,
   readEncryptionKeyring,
+  readRestoreConfig,
   stableJson,
   restoreSnapshot,
   scrubDeletedUserRow,
@@ -38,7 +41,103 @@ describe('DR restore CLI', () => {
       targetProject: 'dr-project',
       endpoint: 'https://sgp.cloud.appwrite.io/v1',
       verifyOnly: true,
+      preflightOnly: false,
+      latest: false,
     });
+  });
+
+  it('permits source-only ciphertext assessment with no target project or API key', () => {
+    expect(parseArgs(['--snapshot', '20261018T000000000Z', '--preflight-only']))
+      .toEqual({
+        snapshot: '20261018T000000000Z',
+        targetProject: '',
+        endpoint: process.env.APPWRITE_TARGET_ENDPOINT || 'https://sgp.cloud.appwrite.io/v1',
+        verifyOnly: false,
+        preflightOnly: true,
+        latest: false,
+      });
+    expect(() => parseArgs(['--snapshot', 'x', '--preflight-only', '--verify-only']))
+      .toThrow(/cannot be combined/);
+    expect(() => parseArgs(['--snapshot', 'x'])).toThrow(/target-project/);
+    expect(parseArgs(['--preflight-only', '--latest']).latest).toBe(true);
+    expect(() => parseArgs(['--latest'])).toThrow(/preflight-only/);
+    expect(() => parseArgs(['--latest', '--preflight-only', '--snapshot', 'x']))
+      .toThrow(/cannot be combined/);
+
+
+    const env = {
+      R2_ACCOUNT_ID: 'fake-account',
+      R2_ACCESS_KEY_ID: 'fake-read-only-id',
+      R2_SECRET_ACCESS_KEY: 'fake-read-only-secret',
+      R2_BUCKET: 'fake-source-bucket',
+      DR_ENCRYPTION_KEY_B64: Buffer.alloc(32, 3).toString('base64'),
+      DR_KEY_VERSION: 'v1',
+    };
+    expect(readRestoreConfig(env, { requireTargetApiKey: false }).targetApiKey)
+      .toBeUndefined();
+    expect(() => readRestoreConfig(env)).toThrow(/APPWRITE_TARGET_API_KEY/);
+  });
+
+  it('selects newest timestamped committed R2 generation without accepting arbitrary keys', async () => {
+    const root = 'mosaic-dr/v1/snapshots/';
+    const keys = [
+      root + '20261016T110126909Z/COMPLETED',
+      root + '20261017T020003009Z/incomplete-metadata',
+      root + '../../foreign/COMPLETED',
+      root + '20261018T091523102Z/COMPLETED',
+      'foreign-prefix/snapshots/20261019T000000000Z/COMPLETED',
+      root + 'malformed/COMPLETED',
+    ];
+    const r2 = { listObjects: vi.fn().mockResolvedValue(keys) };
+    expect(await latestCommittedSnapshotId(r2 as any, 'mosaic-dr/v1'))
+      .toBe('20261018T091523102Z');
+    expect(r2.listObjects).toHaveBeenCalledWith(root);
+    await expect(latestCommittedSnapshotId({
+      listObjects: vi.fn().mockResolvedValue([root + 'malformed/COMPLETED']),
+    } as any, 'mosaic-dr/v1')).rejects.toThrow(/No timestamped completed/);
+  });
+
+  it('authenticates and assesses archived source without creating users or target clients', async () => {
+    const auth = (users: unknown[]) => ({
+      manifest: {
+        objects: [],
+        auth: { usersKey: 'auth' },
+        databases: [{ id: 'life_tracker', tables: [{ id: 'tasks' }, { id: 'diary' }] }],
+        storage: [],
+      },
+      readObject: vi.fn(async (key: string) => {
+        expect(key).toBe('auth');
+        return Buffer.from(users.map(x => JSON.stringify(x)).join('\n') + '\n');
+      }),
+      readBlob: vi.fn(),
+    });
+    const source = auth([
+      { id: 'old_deleted', hash: 'argon2', password: 'irrelevant-legacy-hash' },
+      { id: 'current_owner', hash: 'argon2', password: 'irrelevant-legacy-hash' },
+    ]);
+    const result = await assessArchivedSource(source as any, new Set(['old_deleted']));
+    expect(result).toEqual({
+      archivedAccounts: 2,
+      eligibleAccounts: 1,
+      maskedAccounts: 1,
+      databases: 1,
+      tables: 2,
+      buckets: 0,
+    });
+    expect(source.readObject).toHaveBeenCalled();
+    expect(source.readBlob).not.toHaveBeenCalled();
+
+    await expect(assessArchivedSource(auth([
+      { id: 'owner', hash: 'bcrypt', password: 'unsupported' },
+    ]) as any)).rejects.toThrow(/unsupported credential/);
+    await expect(assessArchivedSource(auth([
+      { id: 'duplicate', hash: 'argon2', password: 'v' },
+      { id: 'duplicate', hash: 'argon2', password: 'v' },
+    ]) as any)).rejects.toThrow(/duplicated/);
+    await expect(assessArchivedSource({
+      manifest: { objects: [], auth: { usersKey: '' }, databases: [], storage: [] },
+      readObject: vi.fn(), readBlob: vi.fn(),
+    } as any)).rejects.toThrow(/required account/);
   });
 
   it('parses newline-delimited records without inventing empty records', () => {
