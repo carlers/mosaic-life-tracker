@@ -1,6 +1,6 @@
 import { CandidateBucketTargetsPendingError } from '../../supabase-poc/candidateBucketMapping';
 import { describe, expect, it, vi } from 'vitest';
-import { createSupabasePersonalAuthority } from '../../src/lib/supabasePersonalAuthority';
+import { createSupabasePersonalAuthority, SupabasePersonalReleasePendingError } from '../../src/lib/supabasePersonalAuthority';
 const owner = '11111111-1111-4111-8111-111111111111';
 const identity = { legacyUserId: 'sb_' + owner.replaceAll('-', ''), supabaseUserId: owner };
 const approved = () => ({ version: 1, provider: 'supabase-cloud', providerUserId: owner,
@@ -32,6 +32,14 @@ describe('personal app authority', () => {
     f.fetcher.mockImplementation(async () => new Response(JSON.stringify({ ...approved(), ...change })));
     await expect(f.guard.assertHostedSixDomainRecoveryReady(identity)).rejects.toThrow('unavailable');
   });
+  it('types a verified but unreleased readiness result as a safe prerelease error', async () => {
+    const f = fixture();
+    f.fetcher.mockImplementation(async () => new Response(JSON.stringify({ ...approved(), personalReady: false })));
+    await expect(f.guard.assertHostedSixDomainRecoveryReady(identity))
+      .rejects.toBeInstanceOf(SupabasePersonalReleasePendingError);
+    expect(f.fetcher).toHaveBeenCalledOnce();
+  });
+
   it('rejects a release response after a signed session switch', async () => {
     const f = fixture();
     f.fetcher.mockImplementation(async () => { f.change(); return new Response(JSON.stringify(approved())); });

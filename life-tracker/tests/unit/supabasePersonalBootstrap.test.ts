@@ -168,6 +168,16 @@ describe('passive six-domain Mosaic app bridge (#1027)', () => {
     expect(mocks.createRuntime).not.toHaveBeenCalled();
   });
 
+  it('refuses a hosted prerelease before any local writer attempt or lease',async () => {
+    const f=fixture();
+    f.guard.assertHostedSixDomainRecoveryReady.mockRejectedValueOnce(Error('Release evidence absent'));
+    await expect(f.bootstrap.start()).rejects.toThrow('Release evidence absent');
+    expect(f.bootstrap.getPhase()).toBe('idle');
+    expect(mocks.waitForDatabaseReady).not.toHaveBeenCalled();
+    expect(mocks.createRuntime).not.toHaveBeenCalled();
+    expect(f.guard.acquireExclusiveLease).not.toHaveBeenCalled();
+  });
+
   it('stops before opening RxDB when the in-tab Appwrite writer has not stopped',async () => {
     const f=fixture();
     f.assertLocalAppwriteStopped.mockRejectedValueOnce(Error('Appwrite writer still active'));

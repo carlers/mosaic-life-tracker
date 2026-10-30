@@ -5,6 +5,7 @@ import { createCandidateAuthSession, CandidateSessionUnavailableError, Candidate
 import { CandidateAuthUnavailableError } from '../../supabase-poc/candidateVerifiedAuth';
 import { createSupabaseCoreAuthCoordinator } from '../lib/supabaseCoreAuth';
 import { createSupabaseCoreAuthority } from '../lib/supabaseCoreAuthority';
+import { SupabasePersonalReleasePendingError } from '../lib/supabasePersonalAuthority';
 import { scopeAccountWork, getAccountWorkScope } from '../lib/accountWorkScope';
 import { publishSyncStatus, scopeSyncStatusToUser, type SyncProgress } from '../lib/syncStatus';
 import { registerCoreSync } from '../lib/appSync';
@@ -132,6 +133,15 @@ export default function SupabaseAuthProvider({ config, children }: {
           setOffline(false);
           setNeedsAccountChoice(true);
           setError(null);
+          return false;
+        }
+        if (error instanceof SupabasePersonalReleasePendingError) {
+          scopeAccountWork(null);
+          scopeSyncStatusToUser(null);
+          setUser(null);
+          setOffline(false);
+          setNeedsAccountChoice(false);
+          setError('Personal sync is not released on this Scratch Preview. Your account and old data remain unchanged.');
           return false;
         }
         const cache = runtime.browser?.getCachedIdentity();
@@ -480,7 +490,10 @@ export default function SupabaseAuthProvider({ config, children }: {
     } catch (error) {
       if (mounted.current) {
         if (error instanceof SupabaseAccountStartRequiredError) setNeedsAccountChoice(true);
-        else setError('Could not start the core account. Check sign-in and server authority.');
+        else if (error instanceof SupabasePersonalReleasePendingError) {
+          setNeedsAccountChoice(false);
+          setError('Personal sync is not released on this Scratch Preview. Your account and old data remain unchanged.');
+        } else setError('Could not start the core account. Check sign-in and server authority.');
       }
       return false;
     } finally {
@@ -499,6 +512,7 @@ export default function SupabaseAuthProvider({ config, children }: {
       setUser(null);
       setOffline(false);
       setNeedsAccountChoice(false);
+      setError(null);
       return true;
     } catch {
       setError('Writer shutdown could not be confirmed. Account switch is blocked.');
@@ -527,8 +541,13 @@ export default function SupabaseAuthProvider({ config, children }: {
       const adopted = await adoptIdentity(started);
       if (adopted) setNeedsAccountChoice(false);
       return adopted;
-    } catch {
-      if (mounted.current) setError('Account start could not be confirmed. Your old data has not been imported. Sign out and try again.');
+    } catch (error) {
+      if (mounted.current) {
+        if (error instanceof SupabasePersonalReleasePendingError) {
+          setNeedsAccountChoice(false);
+          setError('Personal sync is not released on this Scratch Preview. Your account and old data remain unchanged.');
+        } else setError('Account start could not be confirmed. Your old data has not been imported. Sign out and try again.');
+      }
       return false;
     } finally {
       busy.current = false;

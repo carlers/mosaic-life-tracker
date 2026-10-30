@@ -7,6 +7,14 @@ import { CandidateBucketTargetsPendingError, fromCandidateBucketRow } from '../.
 import { resolveCandidatePersonalCollections } from './supabasePersonalCollections';
 import type { AppSupabasePersonalBootstrapOptions } from './supabasePersonalBootstrap';
 
+/** The signed Scratch account is verified, but personal writing is not released. */
+export class SupabasePersonalReleasePendingError extends Error {
+  constructor() {
+    super('Independent personal account or release evidence is unavailable');
+    this.name = 'SupabasePersonalReleasePendingError';
+  }
+}
+
 /** Fresh Supabase namespace only. Never treats consent as historical proof. */
 export function createSupabasePersonalAuthority(options: {
   baseUrl: string; publishableKey: string; session: CandidateSessionProvider;
@@ -29,9 +37,9 @@ export function createSupabasePersonalAuthority(options: {
         current.sessionEpoch !== signed.sessionEpoch || status?.version !== 1 ||
         status.provider !== 'supabase-cloud' || status.providerUserId !== signed.userId ||
         status.mosaicAccountId !== identity.legacyUserId || status.provenance !== 'server-enrolled' ||
-        !['fresh', 'recovery-pending'].includes(status.historyState) || status.consentVersion !== 1 ||
-        status.personalReady !== true)
+        !['fresh', 'recovery-pending'].includes(status.historyState) || status.consentVersion !== 1)
       throw new Error('Independent personal account or release evidence is unavailable');
+    if (status.personalReady !== true) throw new SupabasePersonalReleasePendingError();
   }
   const writer = createCandidateCreateTransport(options);
   return {
