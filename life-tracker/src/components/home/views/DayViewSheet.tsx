@@ -828,7 +828,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleAddTask = useCallback(
     (title: string, categoryId: string, dateStr: string, completed = false) => {
-      void addTask(
+      void Promise.resolve(addTask(
         {
           title,
           categoryId,
@@ -838,7 +838,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           visibility: dateStr === '' ? 'private' : '',
         },
         addTasksToTop ? 'top' : 'bottom'
-      ).catch(error => showFeedback(error instanceof Error ? error.message : 'Could not create task'));
+      )).catch(error => showFeedback(error instanceof Error ? error.message : 'Could not create task'));
     },
     [addTask, addTasksToTop, showFeedback]
   );

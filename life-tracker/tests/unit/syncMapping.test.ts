@@ -177,6 +177,7 @@ describe('toAppwriteFormat — categories, diary, settings, friendships', () => 
       userId: USER_ID,
       isDeleted: false,
       icon: '',
+      retiredOn: '',
       updatedAt: '2026-05-01T00:00:00.000Z',
     };
     const out = toAppwriteFormat(doc, 'categories', USER_ID);
