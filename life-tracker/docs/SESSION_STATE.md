@@ -1,4 +1,16 @@
 # Session checkpoint
+Updated: 2026-10-31 Asia/Manila
+Current scoped task: #1442 — isolated public Mosaic landing page
+
+## Landing site task checkpoint
+- Parent application dev was `efeec22df14b4cb9d8dc1ffa3d5852e7af4a1775` at task branch creation; main remains protected and app Production untouched.
+- Scope: standalone `landing/` static HTML/CSS and separate Vercel project; no app JS, Appwrite, user data, app-version bump, or protected dev/main promotion.
+- Site provides current project capabilities, source/issue links, conspicuously marked illustrative design, and direct links to existing app. Actual private user screenshots are forbidden.
+- Verify `node landing/test-site.mjs`, PR checks and independent Vercel Preview. Record resulting deployment and outstanding device checks in issue #1442.
+- is-a.dev registration JSON and upstream PR are **human-only**, not AI-authored. Proposed domain is unregistered. This site's successful deploy does not establish SMTP deliverability.
+
+## Previous checkpoint (historical; may be outdated)
+
 Updated: 2026-10-27 Asia/Manila
 Current task: #1384 Settings and Me reorganization, full Preview acceptance repair; task branch `chatgpt/1384-preview-preload-registry-fix-20261027`, based on stable Preview `feature/1384-settings-information-architecture-preview-20261027@4a8eb1dc7b1143cf29b7cca18a1ea1c447507859`.
 
