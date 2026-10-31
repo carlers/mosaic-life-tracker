@@ -66,33 +66,31 @@ export async function scrubDiaryChatQuotes({
         if (!diaries.has(refId)) diaries.set(refId, await getDiary(request, refId));
         diary = diaries.get(refId);
       }
-      const readable = diary &&
-        diary.user_id === row.diary_ref_owner_id &&
-        diary.deleted !== true &&
-        (diary.visibility === 'public' || diary.visibility === 'followers');
-      const revoked = Boolean(refId && !readable);
+      // Private entries may become public again; only deletion, missing
+      // records and mismatched owners irreversibly remove their dates.
+      const permanent = Boolean(refId && (!diary ||
+        diary.user_id !== row.diary_ref_owner_id || diary.deleted === true));
       const needsRedaction = Boolean(row.diary_ref_excerpt ||
-        (revoked && row.diary_ref_date));
+        (permanent && row.diary_ref_date));
       if (needsRedaction) {
         wouldRedact++;
         if (apply) {
           await request('PATCH', TABLES + '/messages/rows/' + encodeURIComponent(row.$id), {
             data: {
               diary_ref_excerpt: '',
-              ...(revoked ? { diary_ref_date: '' } : {}),
+              ...(permanent ? { diary_ref_date: '' } : {}),
               updated_at: new Date().toISOString(),
             },
           });
           redacted++;
         }
       }
-      if (revoked && diary && diary.user_id === row.diary_ref_owner_id &&
+      if (permanent && diary && diary.user_id === row.diary_ref_owner_id &&
           (diary.quote_epoch || 0) === 0 && !fencedIds.has(refId)) {
         fencedIds.add(refId);
         wouldFence++;
         if (apply) {
-          // The first revocation version permanently invalidates historical
-          // references if the owner makes this diary public again later.
+          // Deleted entries must not resurrect after historical replay.
           const result = await request('PATCH', TABLES + '/diary/rows', {
             queries: [
               QUERY('equal', '$id', [refId]),

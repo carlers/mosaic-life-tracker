@@ -66,7 +66,7 @@ export function useDiaryReferencePreviews(
     const onFocus = () => { void refresh(); };
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('focus', onFocus);
-    const interval = window.setInterval(() => { void refresh(); }, 120_000);
+    const interval = window.setInterval(() => { void refresh(); }, 30_000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);

@@ -27,14 +27,14 @@ describe('scratch-only historical diary Chat excerpt backfill', () => {
     const result = await scrubDiaryChatQuotes({ request, log });
     expect(result).toMatchObject({
       apply: false, scanned: 2, wouldRedact: 2, redacted: 0,
-      wouldFence: 1, fenced: 0, completed: true, nextCursor: '',
+      wouldFence: 0, fenced: 0, completed: true, nextCursor: '',
     });
     expect(request.mock.calls.every(([method]) => method === 'GET')).toBe(true);
     expect(JSON.stringify(log.mock.calls)).not.toContain('Copied private diary');
     expect(JSON.stringify(log.mock.calls)).not.toContain('owner_a');
   });
 
-  it('scrubs both copies, retains authored message bodies and fences once', async () => {
+  it('scrubs both copies but preserves dates for reversible private references', async () => {
     const writes: Array<{ path: string; data: any }> = [];
     const request = vi.fn(async (method: string, path: string, body?: any) => {
       if (method === 'GET' && path.includes('/messages/rows?'))
@@ -48,20 +48,40 @@ describe('scratch-only historical diary Chat excerpt backfill', () => {
       throw Error('Unexpected API request');
     });
     const result = await scrubDiaryChatQuotes({ request, apply: true });
-    expect(result).toMatchObject({ redacted: 2, fenced: 1, completed: true });
-    expect(writes).toHaveLength(3);
+    expect(result).toMatchObject({ redacted: 2, fenced: 0, completed: true });
+    expect(writes).toHaveLength(2);
     const messages = writes.filter(w => w.path.includes('/messages/rows/'));
     expect(messages).toHaveLength(2);
     for (const w of messages) {
       expect(w.data).toMatchObject({
-        diary_ref_excerpt: '', diary_ref_date: '',
+        diary_ref_excerpt: '',
       });
+      expect(w.data).not.toHaveProperty('diary_ref_date');
       expect(w.data).not.toHaveProperty('content');
       expect(w.data).not.toHaveProperty('reactions');
       expect(w.data).not.toHaveProperty('user_id');
     }
-    const fence = writes.find(w => w.path.endsWith('/diary/rows'));
-    expect(fence?.data).toEqual({ quote_epoch: 1 });
+    expect(writes.some(w => w.path.endsWith('/diary/rows'))).toBe(false);
+  });
+
+  it('permanently fences deleted quotes and clears their dates', async () => {
+    const writes: Array<{ path: string; data: any }> = [];
+    const request = vi.fn(async (method: string, path: string, body?: any) => {
+      if (method === 'GET' && path.includes('/messages/rows?'))
+        return { rows: [message('msg_deleted_ref')] };
+      if (method === 'GET') return { ...diary, deleted: true };
+      if (method === 'PATCH') {
+        writes.push({ path, data: body.data });
+        return { total: 1 };
+      }
+      throw Error('Unexpected API request');
+    });
+    const result = await scrubDiaryChatQuotes({ request, apply: true });
+    expect(result).toMatchObject({ redacted: 1, fenced: 1 });
+    expect(writes[0].data).toMatchObject({
+      diary_ref_excerpt: '', diary_ref_date: '',
+    });
+    expect(writes[1].data).toEqual({ quote_epoch: 1 });
   });
 
   it('redacts public snapshots without invalidating currently shared quotes', async () => {

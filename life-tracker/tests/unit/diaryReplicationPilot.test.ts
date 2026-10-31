@@ -452,6 +452,37 @@ describe('diary RxDB replication pilot', () => {
     expect(createRowMock).toHaveBeenCalledTimes(1);
   });
 
+  it('fences visibility changes without permanently invalidating quotes', async () => {
+    getRowMock.mockResolvedValue(remoteDiary({
+      visibility: 'followers', content: 'Local entry',
+    }));
+    sendAppActionMock.mockResolvedValue({ ok: true, nextCursor: '' });
+    await __diaryReplicationPilotTestUtils.pushDiary([{
+      newDocumentState: localDiary({
+        visibility: 'private', updatedAt: '2026-10-02T00:00:05.000Z',
+      }),
+    }], 'user_A');
+    expect(sendAppActionMock).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'revoke_diary_references', mode: 'visibility', diaryId: 'diary_a',
+    }));
+  });
+
+  it('uses permanent fencing when a diary is deleted', async () => {
+    getRowMock.mockResolvedValue(remoteDiary({
+      visibility: 'followers', content: 'Local entry',
+    }));
+    sendAppActionMock.mockResolvedValue({ ok: true, nextCursor: '' });
+    await __diaryReplicationPilotTestUtils.pushDiary([{
+      newDocumentState: localDiary({
+        visibility: 'followers', isDeleted: true,
+        updatedAt: '2026-10-02T00:00:05.000Z',
+      }),
+    }], 'user_A');
+    expect(sendAppActionMock).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'revoke_diary_references', mode: 'permanent', diaryId: 'diary_a',
+    }));
+  });
+
   it('uses realtime writes only as an ordered pull catch-up signal', async () => {
     await startDiaryReplicationPilot(
       'user_A',
