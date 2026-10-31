@@ -11,7 +11,7 @@ interface StagedPhoto { id: string; userId: string; blob: Blob }
 let opening: Promise<IDBDatabase> | null = null;
 
 function openDb(): Promise<IDBDatabase> {
-  if (!opening) opening = new Promise((resolve, reject) => {
+  if (!opening) opening = new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
     req.onupgradeneeded = () => req.result.createObjectStore(STORE);
     req.onsuccess = () => resolve(req.result);

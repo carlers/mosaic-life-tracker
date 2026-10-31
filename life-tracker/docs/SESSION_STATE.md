@@ -6,7 +6,8 @@ Updated: 2026-10-31 Asia/Manila
 - The Scratch task_images bucket read-only check verified fileSecurity=true and only create(users) bucket ACL; no Scratch writes have been made. Local account-erasure cleanup now wipes staged chat photos. No scratch schema/Function activation, hosted three-user ACL proof, Production change, or device test has occurred. Feature MUST REMAIN DISABLED until real Scratch bucket-wide read permissions are absent and exact Function/schema/compatibility tests pass. Unsend-vs-in-flight-upload cross-tab race, durable media cleanup and ownership/caching hardening are still release blockers; do not claim secure shipping or Preview acceptance from source-only checks.
 - Source-only focused CI has passed on earlier candidate SHA; latest revisions pending verification. Unsend now keeps staged bytes until remote acknowledgment, and server verifies both rows' media identity before deleting. Cross-device/deleted-media reconciliation remains unverified.
 - New [Chat photos](CHAT_PHOTOS.md) document records hard rollout blockers. Latest Source-only focused CI run and full diagnostic pending. No Scratch migration or Function activation has occurred.
-- Next: focused CI, full TypeScript/build/compat diagnostic; then durable server cleanup, Scratch migration + Function activation and gated Scratch Preview/device acceptance.
+- Full task diagnostic #41195228280 revealed an IndexedDB Promise typing error and a synchronous state reset in ChatPhotoAttachment; fixed without weakening the checks. Remaining broader diagnostics must re-run.
+- Next: full TypeScript/build/compat diagnostic; then durable server cleanup, Scratch migration + Function activation and gated Scratch Preview/device acceptance.
 - Issue: https://github.com/carlers/mosaic-life-tracker/issues/1460
 
 ---
