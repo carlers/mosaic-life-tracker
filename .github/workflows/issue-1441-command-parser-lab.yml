@@ -35,8 +35,12 @@ jobs:
           node parser-lab.mjs --input parser-lab-holdout.jsonl --output results/grammar-holdout.json
       - name: Install pinned Chrono in research folder
         run: |
-          npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund chrono-node@2.10.3
-          node -p "require('chrono-node/package.json').version"
+          # Keep npm completely outside the parent life-tracker package.
+          mkdir -p "$RUNNER_TEMP/chrono-bench"
+          npm install --prefix "$RUNNER_TEMP/chrono-bench" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund chrono-node@2.10.3
+          mkdir -p node_modules
+          ln -s "$RUNNER_TEMP/chrono-bench/node_modules/chrono-node" node_modules/chrono-node
+          node --input-type=module -e "import('chrono-node').then(x => { if (!x.parse) process.exit(1); console.log('Chrono dynamic import ready') })"
       - name: Measure optional Chrono date extension
         run: |
           node parser-lab.mjs --chrono --output results/chrono-168.json

@@ -3,7 +3,7 @@ Updated: 2026-10-31 Asia/Manila
 
 - Research task branch based on accepted benchmark Preview feature/1441-command-model-benchmark-20261031@e5a65c3bc3f9ccaf8dc71af1b27e31d00cbaa3c2. Current dev separately advanced to 343b857fa43d26e7afc7b7f6de81ac479416bba2; no promotion or overwrite.
 - Add JS grammar plus optional pinned Chrono to existing isolated 168-case benchmark and independent 30-case challenge set. No changes to shipped Mosaic, Appwrite, schema or PWA. Version impact NONE.
-- Local Node baseline: 7 tests passed, known corpus 168/168 exact with zero unsafe (tuned, not independent); holdout 16/30 with one unsafe create. These are not Android timings or production safety evidence. Chrono CI results pending remote execution.
+- Local Node baseline: 7 tests passed, known corpus 168/168 exact with zero unsafe (tuned, not independent); holdout 16/30 with one unsafe create. These are not Android timings or production safety evidence. First Chrono run failed at a non-exported package.json import (before any Chrono inference), and npm pulled the parent package dependency graph; repaired to install only Chrono in RUNNER_TEMP, symlink the single library, and verify ESM import. Rerun pending.
 - Request focused task CI plus isolated workflow; stable Preview canonical CI/Vercel delivery only after focused green. Keep issue #1441 open; never promote to dev/main/Production without explicit approval.
 
 ---
