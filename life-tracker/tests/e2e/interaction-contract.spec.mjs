@@ -1624,6 +1624,49 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
   await expect(activeSlide.locator('[data-task-category-id]')).toHaveCount(5);
 });
 
+// Regression: one physical gesture must not fling two dates, regardless of speed,
+// and every release must finish on the actual slide rather than between days.
+test('Day View single-gesture fling and partial release snap to exactly one day', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toHaveAttribute('aria-label', 'Tuesday, September 15, 2026');
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const assertAligned = async () => {
+    await expect.poll(() => swiper.evaluate((element) => {
+      const active = element.querySelector('.swiper-slide-active');
+      if (!active) return Infinity;
+      return Math.abs(active.getBoundingClientRect().left - element.getBoundingClientRect().left);
+    })).toBeLessThan(8);
+  };
+
+  // A fast swipe kept inside the viewport moves at most one calendar day.
+  await drag(page, swiper, -260);
+  await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
+  await assertAligned();
+
+  // A halfway reverse release may settle to either neighbor according to
+  // velocity, but must finish fully aligned and commit that exact visible date.
+  await drag(page, swiper, 200);
+  await assertAligned();
+  const partialIndex = await swiper.evaluate((element) => element.swiper.activeIndex);
+  expect([90, 91]).toContain(partialIndex);
+  await expect.poll(async () => {
+    const heading = (await swiper.locator('.swiper-slide-active [data-day-view-navigation="true"] h3').textContent())?.trim();
+    return await dialog.getAttribute('aria-label') === heading;
+  }).toBe(true);
+
+  // Every new fast gesture advances exactly one date from its own start.
+  await drag(page, swiper, -260);
+  await expect.poll(() => swiper.evaluate((element) => element.swiper.activeIndex)).toBe(partialIndex + 1);
+  await assertAligned();
+  await expect.poll(async () => {
+    const heading = (await swiper.locator('.swiper-slide-active [data-day-view-navigation="true"] h3').textContent())?.trim();
+    return await dialog.getAttribute('aria-label') === heading;
+  }).toBe(true);
+});
+
 test('inactive adjacent Day View keeps category spacing when it becomes active', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();

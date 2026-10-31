@@ -74,6 +74,7 @@ vi.mock('swiper/react', () => ({
 }));
 vi.mock('swiper/modules', () => ({
   Virtual: {},
+  FreeMode: {},
 }));
 
 vi.mock('../../src/components/home/views/DaySlide', () => ({
