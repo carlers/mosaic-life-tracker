@@ -47,7 +47,7 @@ npm run appwrite:preview:prepare -- \
 `--apply` never touches production. It first compares the live scratch backend
 against Git, allows only an explicit small list of known missing resources, then
 runs the **existing ordered, idempotent** migrations 001, 002, 004, 005,
-006, 007 (server-owned task sharing), 009 (owner-granted collaboration edits), and 010 (private Bucket List), and checks the full managed state again. It does not apply migration 003
+006, 007 (server-owned task sharing), 009 (owner-granted collaboration edits), 010 (private Bucket List), 011 (Bucket List links), and 016 (optional chat-photo fields), and checks the full managed state again. It does not apply migration 003
 (the bucket-wide grant removal) implicitly because that is a permission
 change; use the separately reviewed backend migration procedure for it.
 Unexpected schema/permission/Function drift **fails closed**: inspect and

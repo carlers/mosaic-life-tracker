@@ -26,6 +26,8 @@ describe('scratch-only Preview backend preparation', () => {
       'table bucket_list_items: missing',
       'table bucket_task_links: missing',
       'table messages.idx_sender_id: missing index',
+      'table messages.attachment_type: missing column',
+      'table messages.attachment_file_id: missing column',
     ])).toEqual([]);
     expect(classifyScratchDrift([
       'table diary.created_at size: expected 50, got 36',
@@ -53,7 +55,7 @@ describe('scratch-only Preview backend preparation', () => {
       fetchImpl: vi.fn(), log: vi.fn(),
     });
     const migrations = migrate.mock.calls[0][0].migrations.map((m: {id: string}) => m.id);
-    expect(migrations).toEqual(['001-account-deletion','002-diary-created-at','004-notifications','005-notification-retention','006-push-details','007-task-shares','009-share-permissions','010-bucket-list','011-bucket-task-links']);
+    expect(migrations).toEqual(['001-account-deletion','002-diary-created-at','004-notifications','005-notification-retention','006-push-details','007-task-shares','009-share-permissions','010-bucket-list','011-bucket-task-links','016-message-chat-photos']);
     expect(inspect).toHaveBeenCalledTimes(2);
   });
   it('rejects unreviewed drift before any mutation', async () => {

@@ -1,3 +1,11 @@
+# Current checkpoint — chat photo Scratch preparation (#1460)
+
+- v0.46.0 integrated photo Preview is isolated; photo flag is default OFF.
+- Patch includes adding exact migration 016 optional photo fields to Scratch-safe additive reconciliation.
+- Scratch backend deployment, real device privacy testing and full historical compatibility are not yet verified. Production, dev and main remain unchanged.
+
+---
+
 # Task checkpoint — #1460 chat photos v0.46.0 integrated task branch
 Updated: 2026-10-31 Asia/Manila
 
