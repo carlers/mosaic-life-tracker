@@ -565,6 +565,7 @@ describe('round-trip', () => {
       userId: USER_ID,
       isDeleted: false,
       icon: '',
+      retiredOn: '',
       updatedAt: '2026-05-01T00:00:00.000Z',
     };
     expect(roundTrip(doc, 'categories', USER_ID)).toEqual(doc);
