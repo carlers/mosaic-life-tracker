@@ -41,6 +41,7 @@ describe('portable Mosaic backend manifest', () => {
       'messages',
       'notifications',
       'push_subscriptions',
+      'bug_reports',
       'account_deletions',
     ]);
     expect(MOSAIC_TABLES.map((table) => table.id)).not.toContain('routines');
@@ -107,7 +108,7 @@ describe('portable Mosaic backend manifest', () => {
       'idx_sender_id',
       'idx_recipient_id',
     ]);
-    for (const id of ['notifications', 'push_subscriptions', 'account_deletions']) {
+    for (const id of ['notifications', 'push_subscriptions', 'bug_reports', 'account_deletions']) {
       expect(byId[id]).toMatchObject({
         permissions: [],
         rowSecurity: true,
