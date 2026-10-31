@@ -28,6 +28,7 @@ const {
   Role,
 } = require('node-appwrite');
 const { handleScheduledTombstoneGc } = require('./tombstone-gc');
+const { grantChatPhoto, deleteChatPhoto, chatPhotoFileId } = require('./chat-photo-auth');
 const {
   isAccountDeletionPending,
   resumeDeletionJobs,
@@ -202,7 +203,7 @@ async function listAllRows(tablesDB, tableId, baseQueries, log, maxPages = 100) 
   }
   return all;
 }
-async function handleDeliver(tablesDB, senderId, payload, log, error) {
+async function handleDeliver(tablesDB, storage, senderId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.messageId)) {
     error('deliver: invalid messageId');
@@ -223,6 +224,8 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     return { status: 400, body: { error: 'Cannot message yourself' } };
   }
   const vContent = validateOptionalString(p.content, 4000);
+  const vAttachmentType = validateOptionalString(p.attachmentType, 12);
+  const vAttachmentFileId = validateOptionalString(p.attachmentFileId, 36);
   const vTaskRefId = validateOptionalString(p.taskRefId, 255);
   const vTaskRefTitle = validateOptionalString(p.taskRefTitle, 500);
   const vTaskRefDate = validateOptionalString(p.taskRefDate, 50);
@@ -237,6 +240,8 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const vCreatedAt = validateOptionalIso(p.createdAt, 50);
   const optionalChecks = [
     ['content', vContent],
+    ['attachmentType', vAttachmentType],
+    ['attachmentFileId', vAttachmentFileId],
     ['taskRefId', vTaskRefId],
     ['taskRefTitle', vTaskRefTitle],
     ['taskRefDate', vTaskRefDate],
@@ -257,6 +262,11 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     }
   }
   const content = vContent.value;
+  const attachmentType = vAttachmentType.value;
+  const attachmentFileId = vAttachmentFileId.value;
+  const hasAttachment = attachmentType === 'image' && attachmentFileId === chatPhotoFileId(messageId);
+  if ((attachmentType || attachmentFileId) && !hasAttachment)
+    return { status: 400, body: { error: 'Invalid photo reference' } };
   const taskRefId = vTaskRefId.value;
   const taskRefTitle = vTaskRefTitle.value;
   const taskRefDate = vTaskRefDate.value;
@@ -273,7 +283,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const hasTaskRef = taskRefId !== '' || taskRefTitle !== '';
   const hasDiaryRef = diaryRefId !== '';
   const hasReply = replyToId !== '';
-  if (!hasContent && !hasTaskRef && !hasReply && !hasDiaryRef) {
+  if (!hasContent && !hasTaskRef && !hasReply && !hasDiaryRef && !hasAttachment) {
     error('deliver: message has no content');
     return { status: 400, body: { error: 'Message has no content' } };
   }
@@ -338,7 +348,9 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       row.direction !== direction ||
       row.is_unsent === true ||
       row.deleted === true ||
-      row.content !== content
+      row.content !== content ||
+      (row.attachment_type || '') !== attachmentType ||
+      (row.attachment_file_id || '') !== attachmentFileId
     ) {
       return { status: 409, body: { error: 'Existing message conflicts with delivery' } };
     }
@@ -363,6 +375,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       return { status: 403, body: { error: 'recipient row already exists' } };
     }
   }
+  if (hasAttachment) {
+    const denied = await grantChatPhoto(storage, senderId, recipientId, messageId, attachmentFileId);
+    if (denied) return denied;
+  }
   if (existingRecipientRow) {
     log(
       `deliver: recipient row ${recipientRowId} already exists; skipping upsert (idempotent)`
@@ -379,6 +395,8 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
         recipient_id: recipientId,
         direction: 'incoming',
         content,
+        attachment_type: attachmentType,
+        attachment_file_id: attachmentFileId,
         task_ref_id: taskRefId,
         task_ref_title: taskRefTitle,
         task_ref_date: taskRefDate,
@@ -419,6 +437,8 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           recipient_id: recipientId,
           direction: 'outgoing',
           content,
+          attachment_type: attachmentType,
+          attachment_file_id: attachmentFileId,
           task_ref_id: taskRefId,
           task_ref_title: taskRefTitle,
           task_ref_date: taskRefDate,
@@ -460,7 +480,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
 }
 // Explicit, bounded anti-entropy for a single authorized thread. Reconstruct
 // only a provably missing counterpart of a committed, non-unsent owner row.
-async function handleRepairThread(tablesDB, callerId, payload, verified = false) {
+async function handleRepairThread(tablesDB, storage, callerId, payload, verified = false) {
   const partnerId = payload?.partnerId;
   const cursor = payload?.cursor || '';
   const scope = payload?.scope || 'self';
@@ -533,6 +553,8 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
         candidate.direction === peerDirection &&
         candidate.original_message_id === messageId &&
         candidate.content === row.content &&
+         (candidate.attachment_type || '') === (row.attachment_type || '') &&
+         (candidate.attachment_file_id || '') === (row.attachment_file_id || '') &&
         ['task_ref_id', 'task_ref_title', 'task_ref_date', 'task_ref_color',
          'reply_to_id', 'reply_to_content', 'reply_to_sender_id']
           .every((key) => (candidate[key] || '') === (row[key] || ''));
@@ -558,11 +580,17 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
     } catch {
       return { status: 503, body: { error: 'Chat source verification failed' } };
     }
+    if (row.attachment_type || row.attachment_file_id) {
+      if (row.attachment_type !== 'image') return { status: 409, body: { error: 'Invalid photo message' } };
+      const denied = await grantChatPhoto(storage, senderId, recipientId, messageId, row.attachment_file_id);
+      if (denied) return denied;
+    }
     const now = new Date().toISOString();
     const data = {
       user_id: targetOwner, thread_id: threadId,
       sender_id: senderId, recipient_id: recipientId,
       direction: peerDirection, content: row.content,
+      attachment_type: row.attachment_type || '', attachment_file_id: row.attachment_file_id || '',
       task_ref_id: row.task_ref_id || '',
       task_ref_title: row.task_ref_title || '',
       task_ref_date: row.task_ref_date || '',
@@ -617,7 +645,7 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
 }
 
 // Single user-initiated request; strictly bounded and never a background scan.
-async function handleRepairThreadAll(db, callerId, payload) {
+async function handleRepairThreadAll(db, storage, callerId, payload) {
   const partnerId = payload?.partnerId;
   if (!isValidRowId(partnerId) || partnerId === callerId)
     return { status: 400, body: { error: 'Invalid repair partner' } };
@@ -625,7 +653,7 @@ async function handleRepairThreadAll(db, callerId, payload) {
     return { status: 403, body: { error: 'Not friends with this user' } };
   let scope = 'self', cursor = '', repaired = 0;
   for (let page = 0; page < 30; page++) {
-    const result = await handleRepairThread(db, callerId, { partnerId, scope, cursor }, true);
+    const result = await handleRepairThread(db, storage, callerId, { partnerId, scope, cursor }, true);
     if (result.status !== 200) return result;
     repaired += result.body.repaired;
     if (result.body.nextScope === 'done')
@@ -801,7 +829,7 @@ async function cascadeReplyWipe(
   log(`unsend cascade: wiped ${total} reply snapshot(s) for ${senderMessageId}`);
   return total;
 }
-async function handleUnsend(tablesDB, callerId, payload, log, error) {
+async function handleUnsend(tablesDB, storage, callerId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.messageId)) {
     error('unsend: invalid messageId');
@@ -824,6 +852,7 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   }
   const recipientRowId = makeRecipientRowId(messageId);
   let callerRow = null;
+  let peerRow = null;
   try {
     callerRow = await tablesDB.getRow({
       databaseId: DATABASE_ID,
@@ -851,7 +880,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
       return { status: 403, body: { error: 'Recipient mismatch' } };
     }
   } else {
-    let peerRow = null;
     try {
       peerRow = await tablesDB.getRow({
         databaseId: DATABASE_ID,
@@ -880,8 +908,15 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
       return { status: 403, body: { error: 'Recipient mismatch' } };
     }
   }
+  const photoId = (callerRow?.attachment_type === 'image' && callerRow.attachment_file_id) ||
+    (peerRow?.attachment_type === 'image' && peerRow.attachment_file_id) || '';
+  if (photoId) {
+    try { await deleteChatPhoto(storage, callerId, messageId, photoId); }
+    catch { return { status: 503, body: { error: 'Photo deletion pending' } }; }
+  }
   const now = new Date().toISOString();
   const wipe = {
+    attachment_type: '', attachment_file_id: '',
     content: '',
     task_ref_id: '',
     task_ref_title: '',
@@ -1708,7 +1743,7 @@ const handler = async ({ req, res, log, error }) => {
         }
         break;
       case 'deliver':
-        result = await handleDeliver(tablesDB, callerId, payload, log, error);
+        result = await handleDeliver(tablesDB, storage, callerId, payload, log, error);
         if (result.status === 200 && !result.body?.duplicate) {
           await emitActivity(tablesDB, {
             type: 'direct_message', actorId: callerId,
@@ -1718,16 +1753,16 @@ const handler = async ({ req, res, log, error }) => {
         }
         break;
       case 'repair_thread':
-        result = await handleRepairThread(tablesDB, callerId, payload);
+        result = await handleRepairThread(tablesDB, storage, callerId, payload);
         break;
       case 'repair_thread_all':
-        result = await handleRepairThreadAll(tablesDB, callerId, payload);
+        result = await handleRepairThreadAll(tablesDB, storage, callerId, payload);
         break;
       case 'mark_read':
         result = await handleMarkRead(tablesDB, callerId, payload, log, error);
         break;
       case 'unsend':
-        result = await handleUnsend(tablesDB, callerId, payload, log, error);
+        result = await handleUnsend(tablesDB, storage, callerId, payload, log, error);
         break;
       case 'react':
         result = await handleReact(tablesDB, callerId, payload, log, error);
