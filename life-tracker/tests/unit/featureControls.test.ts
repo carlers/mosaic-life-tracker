@@ -18,21 +18,21 @@ describe('operational feature controls', () => {
   it('starts with all supported optional features available', () => {
     expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(14);
     for (const feature of Object.keys(FEATURE_DISABLE_FLAGS) as Array<keyof typeof FEATURE_DISABLE_FLAGS>) {
-      expect(isFeatureEnabled(feature)).toBe(true);
+      expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS[feature])).toBe(true);
     }
   });
 
   it('disables only the matching feature, and re-enables without erasing other states', () => {
     disabled.add(FEATURE_DISABLE_FLAGS.taskPhotoUpload);
-    expect(isFeatureEnabled('taskPhotoUpload')).toBe(false);
-    expect(isFeatureEnabled('diaryPhotoUpload')).toBe(true);
-    expect(isFeatureEnabled('taskSearch')).toBe(true);
-    expect(isFeatureEnabled('todoMateImport')).toBe(true);
-    expect(isFeatureEnabled('friendDiscovery')).toBe(true);
-    expect(isFeatureEnabled('profilePhotoUpload')).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.taskPhotoUpload)).toBe(false);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.diaryPhotoUpload)).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.taskSearch)).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.todoMateImport)).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.friendDiscovery)).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.profilePhotoUpload)).toBe(true);
     disabled.add(FEATURE_DISABLE_FLAGS.todoMateImport);
-    expect(isFeatureEnabled('todoMateImport')).toBe(false);
-    expect(isFeatureEnabled('taskSearch')).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.todoMateImport)).toBe(false);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.taskSearch)).toBe(true);
     disabled.add(FEATURE_DISABLE_FLAGS.holidayIndicators);
     disabled.add(FEATURE_DISABLE_FLAGS.timelineMode);
     disabled.add(FEATURE_DISABLE_FLAGS.calendarPinchZoom);
@@ -40,14 +40,14 @@ describe('operational feature controls', () => {
     disabled.add(FEATURE_DISABLE_FLAGS.profileSharing);
     disabled.add(FEATURE_DISABLE_FLAGS.friendDiscovery);
     disabled.add(FEATURE_DISABLE_FLAGS.stickerPackDiscovery);
-    expect(isFeatureEnabled('profilePhotoUpload')).toBe(false);
-    expect(isFeatureEnabled('taskPhotoUpload')).toBe(false);
-    expect(isFeatureEnabled('diaryPhotoUpload')).toBe(true);
-    expect(isFeatureEnabled('chatSearch')).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.profilePhotoUpload)).toBe(false);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.taskPhotoUpload)).toBe(false);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.diaryPhotoUpload)).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.chatSearch)).toBe(true);
     disabled.clear();
-    expect(isFeatureEnabled('friendDiscovery')).toBe(true);
-    expect(isFeatureEnabled('stickerPackDiscovery')).toBe(true);
-    expect(isFeatureEnabled('todoMateImport')).toBe(true);
-    expect(isFeatureEnabled('taskPhotoUpload')).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.friendDiscovery)).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.stickerPackDiscovery)).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.todoMateImport)).toBe(true);
+    expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.taskPhotoUpload)).toBe(true);
   });
 });

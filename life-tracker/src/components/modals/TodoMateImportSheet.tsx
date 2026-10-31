@@ -33,7 +33,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
   onSuccess,
 }) => {
   const { user } = useAuth();
-  const todoMateImportEnabled = useFeatureEnabled('todoMateImport');
+  const todoMateImportEnabled = useFeatureEnabled('mosaic_disable_todomate_import');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [prepared, setPrepared] = useState<PreparedTodoMateTransfer | null>(null);
@@ -103,7 +103,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
 
   const handlePreview = async () => {
     if (
-      !isFeatureEnabled('todoMateImport') ||
+      !isFeatureEnabled('mosaic_disable_todomate_import') ||
       !currentUser ||
       !email.trim() ||
       !password ||
@@ -165,7 +165,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
 
   const handleImport = async () => {
     if (
-      !isFeatureEnabled('todoMateImport') ||
+      !isFeatureEnabled('mosaic_disable_todomate_import') ||
       !currentUser ||
       !prepared ||
       isPreparing ||

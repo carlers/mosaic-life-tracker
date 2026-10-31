@@ -26,8 +26,8 @@ interface StickerPackSheetProps {
 export const StickerPackSheet: React.FC<StickerPackSheetProps> = ({
   isOpen, onClose, ownerId, onPick, onPickGiphy,
 }) => {
-  const giphySearchEnabled = useFeatureEnabled('giphySearch');
-  const stickerPackDiscoveryEnabled = useFeatureEnabled('stickerPackDiscovery');
+  const giphySearchEnabled = useFeatureEnabled('mosaic_disable_giphy_search');
+  const stickerPackDiscoveryEnabled = useFeatureEnabled('mosaic_disable_sticker_pack_discovery');
   const [tab, setTab] = useState<'installed' | 'discover' | 'giphy'>('installed');
   const currentTab = (tab === 'giphy' && !giphySearchEnabled) || (tab === 'discover' && !stickerPackDiscoveryEnabled) ? 'installed' : tab;
   const [query, setQuery] = useState('');
@@ -47,7 +47,7 @@ export const StickerPackSheet: React.FC<StickerPackSheetProps> = ({
   const activePack = matches.find(pack => pack.id === activePackId) ?? matches[0];
 
   const toggleInstall = (packId: string) => {
-    if (!isFeatureEnabled('stickerPackDiscovery')) return;
+    if (!isFeatureEnabled('mosaic_disable_sticker_pack_discovery')) return;
     const next = installed.includes(packId)
       ? installed.filter(id => id !== packId)
       : [...installed, packId];

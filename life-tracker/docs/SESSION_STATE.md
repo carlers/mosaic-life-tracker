@@ -1,3 +1,14 @@
+# Task checkpoint — #1026 v0.57.0 Home size-fix on exact flag values
+Updated: 2026-11-01 Asia/Manila
+
+- Owner authorized a large batch and previously accepted P1 TodoMate. Seven independent P1 flags in v0.57.0 from accepted TodoMate Preview. No dev/main/Production permission for this batch.
+- First stable v0.57.0 canonical #41232082043 failed blocking Home gzip by 328 bytes (381,328/381,000) and encountered a known intermittent split-panel resize browser failure; other static/DOM checks succeeded. Keyboard-help lazy-chunk attempt #1539 at stable `1bd095c0e9317ebb297623229c497cd9af9fc562` had no impact on Home closure (same 381,328 B), so that performance workaround is reverted completely.
+- This task uses exact PostHog flag **values** at runtime in `useFeatureEnabled` and `isFeatureEnabled`, with a type union derived from the developer-facing `FEATURE_DISABLE_FLAGS` object. That registry is no longer referenced as a runtime value in Home, so Rollup can tree-shake the expanded 14-key object. Preserve original synchronous Day View keyboard help and generated component inventory.
+- Recheck P0 flag compatibility and all seven new flag scopes: Timeline, holidays, pinch, profile photo upload, profile sharing, friend discovery, sticker discovery. Tests explicitly assert typed values and registry mapping. Do not modify feature behavior, user data or any existing remote flags.
+- Task branch: `chatgpt/1026-flag-runtime-sizefix-v0570-20261101` based on accepted-intent Preview stable `1bd095c0...`. Run focused CI, squash into same stable `feature/1026-p1-seven-controls-v0570-20261101`, repeat full canonical size/browser and trusted Vercel READY. After success, provision seven new PostHog keys inactive in verified project 619969, then request owner manual acceptance before promotion.
+
+---
+
 # Task checkpoint — #1026 seven independent P1 switches v0.57.0
 Updated: 2026-11-01 Asia/Manila
 

@@ -57,8 +57,8 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const location = useLocation();
   const renderPathname = previewPathname ?? location.pathname;
   const view = renderPathname === '/settings/account' ? 'account' : renderPathname === '/settings/data' ? 'data' : renderPathname === '/settings/about' ? 'about' : 'root';
-  const settingsSearchEnabled = useFeatureEnabled('settingsSearch');
-  const todoMateImportEnabled = useFeatureEnabled('todoMateImport');
+  const settingsSearchEnabled = useFeatureEnabled('mosaic_disable_settings_search');
+  const todoMateImportEnabled = useFeatureEnabled('mosaic_disable_todomate_import');
   const [searchTerm, setSearchTerm] = useState('');
   const searchResults = searchSettings(searchTerm);
   useSettingsTargetFocus(renderPathname, previewPathname ? '' : location.search);

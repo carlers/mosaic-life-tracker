@@ -52,8 +52,14 @@ Previously sent GIPHY stickers remain displayable. Disabling search never
 removes tasks, settings, or messages.
 
 **Implementation boundary:** Add each new optional feature to the typed
-`FEATURE_DISABLE_FLAGS` registry in `src/lib/featureControls.ts`, use
-`useFeatureEnabled` for rendering, and use `isFeatureEnabled` at any
-command/network initiation boundary. Never call React hooks conditionally.
+`FEATURE_DISABLE_FLAGS` registry in `src/lib/featureControls.ts`. Runtime
+calls pass the corresponding **exact PostHog flag string** to
+`useFeatureEnabled('mosaic_disable_...')` for rendering and
+`isFeatureEnabled('mosaic_disable_...')` at command/network boundaries.
+Both functions accept only registry-defined flag values at compile time; use
+the value from the registry, not its camelCase property name. The registry
+object itself is developer/test-facing and intentionally not a runtime import,
+so new optional controls do not bloat the Home critical dependency closure.
+Never call React hooks conditionally.
 Remote controls are not authorization, backend capability detection, account
 erasure, or a substitute for GitHub CI and Preview acceptance on code changes.

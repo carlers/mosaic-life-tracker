@@ -11,7 +11,7 @@ const LazyExpandedSearch = React.lazy(() => loadSearch().then(
 ));
 
 export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
-  const taskSearchEnabled = useFeatureEnabled('taskSearch');
+  const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
   useEffect(() => {
     if (!taskSearchEnabled) return;
     // Cache the optional search module after Home becomes usable, never on

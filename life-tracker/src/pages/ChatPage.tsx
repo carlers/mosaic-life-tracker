@@ -65,7 +65,7 @@ const ChatMessagesLoadingShell: React.FC = () => (
 );
 
 export const ChatPage: React.FC = () => {
-  const chatSearchEnabled = useFeatureEnabled('chatSearch');
+  const chatSearchEnabled = useFeatureEnabled('mosaic_disable_chat_search');
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -342,7 +342,7 @@ export const ChatPage: React.FC = () => {
   };
 
   const handlePickGiphySticker = async (sticker: GiphySticker) => {
-    if (!isFeatureEnabled('giphySearch')) return;
+    if (!isFeatureEnabled('mosaic_disable_giphy_search')) return;
     setStickerPacksOpen(false);
     try {
       await handleSend(giphyStickerMessage(sticker));

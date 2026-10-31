@@ -6,10 +6,10 @@ import { packStickerMessage } from '../../src/lib/stickerPacks';
 
 const controls = vi.hoisted(() => ({ discoveryEnabled: true }));
 vi.mock('../../src/hooks/useFeatureEnabled', () => ({
-  useFeatureEnabled: (name: string) => name !== 'stickerPackDiscovery' || controls.discoveryEnabled,
+  useFeatureEnabled: (name: string) => name !== 'mosaic_disable_sticker_pack_discovery' || controls.discoveryEnabled,
 }));
 vi.mock('../../src/lib/featureControls', () => ({
-  isFeatureEnabled: (name: string) => name !== 'stickerPackDiscovery' || controls.discoveryEnabled,
+  isFeatureEnabled: (name: string) => name !== 'mosaic_disable_sticker_pack_discovery' || controls.discoveryEnabled,
 }));
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({

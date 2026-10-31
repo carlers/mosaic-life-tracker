@@ -12,7 +12,7 @@ interface Props { onPick: (sticker: GiphySticker) => void }
 type SearchState = { query: string; results: GiphySticker[]; error?: string };
 
 export const GiphyStickerSearch: React.FC<Props> = ({ onPick }) => {
-  const searchEnabled = useFeatureEnabled('giphySearch');
+  const searchEnabled = useFeatureEnabled('mosaic_disable_giphy_search');
   const [query, setQuery] = useState('');
   const [state, setState] = useState<SearchState>({ query: '', results: [] });
   const trimmed = query.trim();
