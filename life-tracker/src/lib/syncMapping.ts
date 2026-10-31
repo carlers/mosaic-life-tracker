@@ -43,6 +43,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'deleted',
     'created_at',
     'updated_at',
+    'quote_epoch',
+    'quote_revoke_revision',
   ]),
   settings: new Set(['user_id', 'key', 'value', 'deleted', 'updated_at']),
   friendships: new Set([
@@ -72,6 +74,7 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'diary_ref_owner_id',
     'diary_ref_date',
     'diary_ref_excerpt',
+    'diary_ref_epoch',
     'reply_to_id',
     'reply_to_content',
     'reply_to_sender_id',
@@ -207,7 +210,8 @@ export function toAppwriteFormat(
       mapped.diary_ref_id = source.diaryRefId;
       mapped.diary_ref_owner_id = source.diaryRefOwnerId || '';
       mapped.diary_ref_date = source.diaryRefDate || '';
-      mapped.diary_ref_excerpt = source.diaryRefExcerpt || '';
+      mapped.diary_ref_excerpt = '';
+      mapped.diary_ref_epoch = source.diaryRefEpoch ?? 0;
     }
     mapped.reply_to_id = source.replyToId || '';
     mapped.reply_to_content = source.replyToContent || '';
@@ -330,6 +334,10 @@ export function fromAppwriteFormat(
     mapped.content = row.content || '';
     mapped.emoji = row.emoji || '';
     mapped.photos = row.photos || '[]';
+    // Quote revocation metadata is server-owned and must never be written
+    // back by the offline RxDB diary client.
+    delete mapped.quote_epoch;
+    delete mapped.quote_revoke_revision;
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.created_at;
@@ -381,7 +389,8 @@ export function fromAppwriteFormat(
       mapped.diaryRefId = mapped.diary_ref_id;
       mapped.diaryRefOwnerId = mapped.diary_ref_owner_id || '';
       mapped.diaryRefDate = mapped.diary_ref_date || '';
-      mapped.diaryRefExcerpt = mapped.diary_ref_excerpt || '';
+      mapped.diaryRefExcerpt = '';
+      mapped.diaryRefEpoch = typeof mapped.diary_ref_epoch === 'number' ? mapped.diary_ref_epoch : 0;
     }
     mapped.replyToId = mapped.reply_to_id || '';
     mapped.replyToContent = mapped.reply_to_content || '';
@@ -406,6 +415,7 @@ export function fromAppwriteFormat(
     delete mapped.diary_ref_owner_id;
     delete mapped.diary_ref_date;
     delete mapped.diary_ref_excerpt;
+    delete mapped.diary_ref_epoch;
     delete mapped.reply_to_id;
     delete mapped.reply_to_content;
     delete mapped.reply_to_sender_id;
