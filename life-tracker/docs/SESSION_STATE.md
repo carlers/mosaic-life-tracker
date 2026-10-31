@@ -1,3 +1,13 @@
+# Task checkpoint — #1477 referenced cloud photo inventory v0.51.0 candidate
+Updated: 2026-10-31 Asia/Manila
+
+- Owner authorized Phase 2 after acceptance/promotion of Phase 1, now merged on `dev@f01a43479baa476d4ed1c8074a430a1065af66f7` v0.50.0 by #1505. No main/Production or phase 3 #1478 promotion/deletion authorized.
+- New task `chatgpt/1477-referenced-cloud-storage-v0510-20261031` uses proposed v0.51.0 MINOR. Scope is a manually triggered, **read-only, owner-referenced cloud photo subtotal**, not exhaustive user billing usage. Auth-confirmed owner rows (tasks/Diary/profile) and file owner update/delete grants; bounded row and file metadata reads; de-dup files; display category and largest sizes, unresolved/partial counts; no thumbnails, bulk bucket list, downloads or writes.
+- Exact full cloud inventory including orphans needs a separately approved server-authoritative index; chat photo work #1460 not integrated. All zero/partial cloud usage must be labeled as incomplete where appropriate. Backend is unchanged.
+- Next: focused CI, stable Preview canonical/budget/size/browser CI, trusted Vercel Scratch READY, then manual disposable three-account authorization/Diary and photo metadata verification. Do not promote Phase 2 to dev without new approval.
+
+---
+
 # Task checkpoint — #1476 approved v0.50.0 Storage promotion, docs-only dev drift
 Updated: 2026-10-31 Asia/Manila
 
