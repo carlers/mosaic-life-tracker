@@ -39,6 +39,8 @@ export interface DiaryDocument {
   emoji?: string;
   /** JSON-encoded ordered IDs; bounded to five owner-private photos. */
   photos?: string;
+  /** Server-owned; on friend reads this invalidates older quoted references. */
+  quoteEpoch?: number;
   visibility: 'public' | 'followers' | 'private';
   userId: string;
   createdAt: string;
@@ -118,6 +120,7 @@ export interface MessageDocument {
   diaryRefOwnerId?: string;
   diaryRefDate?: string;
   diaryRefExcerpt?: string;
+  diaryRefEpoch?: number;
   replyToId: string;
   replyToContent: string;
   replyToSenderId: string;
@@ -312,7 +315,7 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
   ],
 };
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 4,
+  version: 5,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -355,6 +358,7 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     diaryRefOwnerId: { type: 'string', maxLength: 36, default: '' },
     diaryRefDate: { type: 'string', maxLength: 10, default: '' },
     diaryRefExcerpt: { type: 'string', maxLength: 160, default: '' },
+    diaryRefEpoch: { type: 'integer', minimum: 0, default: 0 },
     replyToId: { type: 'string', maxLength: 255, default: '' },
     replyToContent: { type: 'string', maxLength: 300, default: '' },
     replyToSenderId: { type: 'string', maxLength: 255, default: '' },

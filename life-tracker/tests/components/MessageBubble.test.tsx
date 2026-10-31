@@ -95,6 +95,32 @@ describe('MessageBubble', () => {
     expect(container.querySelector('[data-message-id]')).toBeNull();
   });
 
+  it('never renders a stored diary excerpt without a live authorization result', () => {
+    const message = makeMessage({
+      diaryRefId: 'diary_test', diaryRefOwnerId: 'user_B',
+      diaryRefDate: '2026-10-12', diaryRefExcerpt: 'Old sensitive diary text',
+    });
+    const { rerender, container } = render(
+      <MessageBubble message={message} isOutgoing currentUserId="user_A" />
+    );
+    expect(container).not.toHaveTextContent('Old sensitive diary text');
+    expect(container).toHaveTextContent('Diary entry unavailable');
+    expect(container.querySelector('[data-diary-reference]')).toBeNull();
+    const onDiaryRefTap = vi.fn();
+    rerender(
+      <MessageBubble message={message} isOutgoing currentUserId="user_A"
+        diaryReferencePreview={{ date: '2026-10-12', excerpt: 'Currently shared text' }}
+        onDiaryRefTap={onDiaryRefTap} />
+    );
+    expect(container).toHaveTextContent('Currently shared text');
+    expect(container).not.toHaveTextContent('Old sensitive diary text');
+    fireEvent.click(container.querySelector('[data-diary-reference]') as HTMLElement);
+    expect(onDiaryRefTap).toHaveBeenCalledWith(message);
+    rerender(<MessageBubble message={message} isOutgoing currentUserId="user_A" />);
+    expect(container).not.toHaveTextContent('Currently shared text');
+    expect(container).toHaveTextContent('Diary entry unavailable');
+  });
+
   it('read status renders "Seen"', () => {
     const { container } = render(
       <MessageBubble
