@@ -32,4 +32,9 @@ assert(css.includes('prefers-reduced-motion:reduce'), 'Missing motion preference
 assert.equal(config.framework, null, 'Standalone static site only');
 assert(config.headers.some(x=>x.headers?.some(y=>y.key === 'Content-Security-Policy' && y.value.includes("connect-src 'none'"))), 'Missing no-network CSP');
 assert(readFileSync(join(root,'favicon.svg'),'utf8').startsWith('<svg'), 'Missing original Mosaic SVG');
+assert(readFileSync(join(root,'apple-touch-icon.png')).equals(readFileSync(join(root,'../life-tracker/public/apple-touch-icon.png'))), 'Landing PWA icon must equal the Mosaic app icon');
+assert(html.includes('<link rel="icon" href="/apple-touch-icon.png" type="image/png">'), 'Browser must use the Mosaic PWA icon');
+assert(html.includes('<link rel="apple-touch-icon" href="/apple-touch-icon.png">'), 'Apple icon must use the Mosaic PWA icon');
+assert.equal([...html.matchAll(/<img src="\/apple-touch-icon\.png"/g)].length, 2, 'Header and footer must both use actual Mosaic app logo');
+assert.equal([...html.matchAll(/<span>Mosaic<\/span>/g)].length, 2, 'Header and footer must both use Mosaic brand name');
 console.log('MOSAIC_LANDING_STATIC_CONTRACT_PASS');
