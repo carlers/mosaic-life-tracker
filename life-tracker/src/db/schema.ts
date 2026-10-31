@@ -39,6 +39,8 @@ export interface DiaryDocument {
   emoji?: string;
   /** JSON-encoded ordered IDs; bounded to five owner-private photos. */
   photos?: string;
+  /** Server-owned; on friend reads this invalidates older quoted references. */
+  quoteEpoch?: number;
   visibility: 'public' | 'followers' | 'private';
   userId: string;
   createdAt: string;
