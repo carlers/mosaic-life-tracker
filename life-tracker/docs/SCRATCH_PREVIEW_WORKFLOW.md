@@ -20,6 +20,31 @@ mutation requires its exact ID and explicit `--confirm-project`. Never use
 production as an implicit CLI default, clone live users, or reset a non-empty
 project to make a mismatch go away.
 
+## Connected-chat execution (Vercel Sandbox)
+
+Before asking the owner to run a Scratch CLI command, probe **Vercel Sandbox**
+session/create/command tools. The route was verified on 2026-10-31:
+a disposable session in the official Mosaic Vercel project checked out
+the exact reviewed source commit, executed Bash/Git/Node, and reached the
+Frankfurt Appwrite endpoint. Previous Mosaic agents' Sandbox sessions
+are also visible in the Vercel project. Use the
+[Sandbox execution procedure](AI_WORKFLOW.md#vercel-sandbox-execution-in-connected-chat).
+
+Do **not** conclude there is no terminal merely because the connected
+Appwrite tool lacks its write dispatcher. Create an ephemeral exact-SHA
+Sandbox, restrict outbound hosts, discover its checkout directory
+(`/vercel/mosaic-life-tracker` in the verified case), set `cwd`, and
+execute Git-owned commands rather than asking for manual terminal work.
+
+The verified new Sandbox **did not have `APPWRITE_API_KEY`**. Sandbox shell
+execution does not grant Appwrite privileges. Only use a securely provisioned
+Scratch-scoped API key when authorized; check presence only, never echo or
+copy secrets. Do not seek secrets in previously stopped Sandboxes, Production,
+Vercel browser-facing `VITE_*` settings or unrelated accounts. Without a
+scoped credential, continue read-only checks and identify authentication as
+the real blocker. Do not reset shared Scratch, activate a Function over other
+Preview users without compatibility review, or change Production.
+
 ## Readiness command
 
 Provide a scoped Appwrite API key from a secure local environment (never

@@ -39,6 +39,13 @@ additional reading. Current code and Git override stale progress prose.
   completed/remaining work, working files, checks, blockers, and next action concise.
   Do not copy prompts, Git status, or response boilerplate into it.
 - For user-visible features, propose Preview version impact during planning, stamp each successfully delivered Preview candidate before acceptance, and preserve it through dev/main. Increment PATCH only on subsequent user-testable revisions, not internal fixes. Check active branches for collisions and use descriptive merge subject/body; follow [versioning](docs/VERSIONING.md).
+- **Connected-chat terminal rule:** Before telling the owner to run Git, npm or
+  Scratch preparation commands, check whether Vercel Sandbox session/create/command
+  tools are available. When present, use an ephemeral exact-SHA checkout and
+  least-privilege network policy. Distinguish shell access from Appwrite admin
+  authentication; do not invent credentials or bypass Scratch/Production gates.
+  See [Vercel Sandbox execution](docs/AI_WORKFLOW.md#vercel-sandbox-execution-in-connected-chat)
+  and [Scratch readiness](docs/SCRATCH_PREVIEW_WORKFLOW.md).
 - Report outcome, checks, commit, and deployment status briefly. Telemetry is opt-in.
   Connected-chat agents must also follow the read-once, repair-batching, CI-polling, and
   build-size preflight rules in [latency discipline](docs/AI_WORKFLOW.md#connected-chat-latency-discipline);
