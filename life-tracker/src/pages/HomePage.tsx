@@ -187,12 +187,19 @@ export const HomePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (taskSearchEnabled) return;
-    if (isSearchOpen) handleCloseSearch();
-    if (searchDaySheetOpen) {
-      searchDaySheetOpenRef.current = false;
-      setSearchDaySheetOpen(false);
-    }
+    if (taskSearchEnabled || (!isSearchOpen && !searchDaySheetOpen)) return;
+    // React effects must not synchronously set local UI state. A canceled
+    // microtask also cannot close an overlay after the operator restores search.
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      if (isSearchOpen) handleCloseSearch();
+      if (searchDaySheetOpen) {
+        searchDaySheetOpenRef.current = false;
+        setSearchDaySheetOpen(false);
+      }
+    });
+    return () => { active = false; };
   }, [taskSearchEnabled, isSearchOpen, searchDaySheetOpen, handleCloseSearch]);
 
   useEffect(() => {
