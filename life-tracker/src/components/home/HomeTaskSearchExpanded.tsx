@@ -92,6 +92,11 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
   // Reset the visible window synchronously whenever the active criteria change.
   // This avoids showing a previously expanded list for a new query/filter.
   const criteriaKey = JSON.stringify([query, categoryIds, dateFilter, customStart, customEnd]);
+  // Advance the criteria generation even when returning to a previous query.
+  // Otherwise a previously expanded page could be resurrected on revisit.
+  if (pagination.key !== criteriaKey) {
+    setPagination({ key: criteriaKey, limit: RESULT_PAGE_SIZE });
+  }
   const visibleLimit = pagination.key === criteriaKey
     ? pagination.limit
     : RESULT_PAGE_SIZE;
