@@ -1,3 +1,14 @@
+# Task checkpoint — #1476 device storage Phase 1 implementation (in progress)
+Updated: 2026-10-31 Asia/Manila
+
+- Owner authorized implementing Phase 1 after the #1476–#1478 plan review; this **does not** authorize Phases 2/3, promotion to dev/main or Production changes.
+- Baseline `dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459` v0.44.4. Task branch `chatgpt/1476-device-storage-v0480-20261031`; candidate **v0.48.0** (v0.45/0.46/0.47 feature lines already in progress).
+- Scope: lazy Settings → Data & Sync → Storage screen; approximate origin usage/quota and persistence state, measured device-wide downloaded-image cache and owner-only pending-image upload usage; confirmation for clearing **only** downloaded image cache. Keep RxDB, pending uploads, PWA assets, sync and cloud storage unchanged. No backend changes.
+- Exact task SHA, CI results, stable Preview acceptance and browser/device tests remain **unverified** until a committed candidate and checks exist.
+- Next: committed source review, focused CI then squash into a new stable feature Preview for canonical/size/Vercel acceptance; physical device/offline/privacy checks remain manual. Do not promote protected branches without fresh approval.
+
+---
+
 # Task checkpoint — #1443 Preferences replication integrated v0.44.4
 Updated: 2026-10-31 Asia/Manila
 
