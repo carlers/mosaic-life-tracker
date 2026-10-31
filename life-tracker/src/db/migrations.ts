@@ -34,6 +34,10 @@ export const messagesMigrationStrategies = {
     ...oldDoc,
     diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',
   }),
+  // v4 -> v5: keep original message text, but drop previously cached diary excerpts.
+  5: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc, diaryRefEpoch: 0, diaryRefExcerpt: '',
+  }),
 };
 export const categoriesMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({

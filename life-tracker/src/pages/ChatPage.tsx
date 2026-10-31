@@ -21,6 +21,7 @@ import { ChatSearchBar } from '../components/messages/ChatSearchBar';
 import { useMessages } from '../hooks/useMessages';
 import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../lib/featureControls';
+import { useDiaryReferencePreviews } from '../hooks/useDiaryReferencePreviews';
 import { clearDeniedOutgoing, isDeniedOutgoing, subscribeDeniedOutgoing } from '../lib/messageSendDenials';
 import { retryDeniedOutgoing } from '../lib/messageDelivery';
 import { useFriends } from '../hooks/useFriends';
@@ -84,6 +85,8 @@ export const ChatPage: React.FC = () => {
     unsendMessage,
     toggleReaction,
   } = useMessages(friendId ?? null);
+
+  const diaryPreviews = useDiaryReferencePreviews(messages, myUserId, connectivity.status === 'online');
 
   const [denialRevision, setDenialRevision] = useState(0);
   useEffect(() => subscribeDeniedOutgoing(() => setDenialRevision(value => value + 1)), []);
@@ -475,6 +478,7 @@ export const ChatPage: React.FC = () => {
                 <div key={item.key} id={`msg-${item.message.id}`}>
                   <MessageBubble
                     message={item.message}
+                    diaryReferencePreview={diaryPreviews[item.message.id] ?? null}
                     isOutgoing={item.message.direction === 'outgoing'}
                     currentUserId={myUserId}
                     autoplayGiphy={autoplayGiphy}
@@ -486,9 +490,10 @@ export const ChatPage: React.FC = () => {
                     onLongPress={(m) => setActionMessageId(m.id)}
                     onQuoteTap={handleQuoteTap}
                     onDiaryRefTap={m => {
-                      if (!m.diaryRefId || !m.diaryRefOwnerId || !m.diaryRefDate ||
+                      const current = diaryPreviews[m.id];
+                      if (!current || !m.diaryRefId || !m.diaryRefOwnerId ||
                         (m.diaryRefOwnerId !== myUserId && m.diaryRefOwnerId !== friendId)) return;
-                      setSelectedDiaryReference({ id: m.diaryRefId, ownerId: m.diaryRefOwnerId, date: m.diaryRefDate });
+                      setSelectedDiaryReference({ id: m.diaryRefId, ownerId: m.diaryRefOwnerId, date: current.date });
                     }}
                     onReact={handleBubbleReact}
                     onSwipeReply={(m) => {

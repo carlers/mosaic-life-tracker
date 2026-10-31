@@ -43,6 +43,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'deleted',
     'created_at',
     'updated_at',
+    'quote_epoch',
+    'quote_revoke_revision',
   ]),
   settings: new Set(['user_id', 'key', 'value', 'deleted', 'updated_at']),
   friendships: new Set([
@@ -72,6 +74,7 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'diary_ref_owner_id',
     'diary_ref_date',
     'diary_ref_excerpt',
+    'diary_ref_epoch',
     'reply_to_id',
     'reply_to_content',
     'reply_to_sender_id',
@@ -207,7 +210,8 @@ export function toAppwriteFormat(
       mapped.diary_ref_id = source.diaryRefId;
       mapped.diary_ref_owner_id = source.diaryRefOwnerId || '';
       mapped.diary_ref_date = source.diaryRefDate || '';
-      mapped.diary_ref_excerpt = source.diaryRefExcerpt || '';
+      mapped.diary_ref_excerpt = '';
+      mapped.diary_ref_epoch = source.diaryRefEpoch ?? 0;
     }
     mapped.reply_to_id = source.replyToId || '';
     mapped.reply_to_content = source.replyToContent || '';
@@ -293,15 +297,9 @@ export function fromAppwriteFormat(
     mapped.routineId = row.routine_id || '';
     mapped.reminderTime = row.reminder_time || '';
     mapped.reactions = row.reactions || '';
-    delete mapped.is_completed;
-    delete mapped.category_id;
-    delete mapped.created_at;
-    delete mapped.completed_at;
-    delete mapped.updated_at;
-    delete mapped.user_id;
-    delete mapped.deleted;
-    delete mapped.routine_id;
-    delete mapped.reminder_time;
+    for (const key of KNOWN_FIELDS.tasks) {
+      if (key.includes('_') || key === 'deleted') delete mapped[key];
+    }
   } else if (collection === 'categories') {
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
@@ -330,10 +328,11 @@ export function fromAppwriteFormat(
     mapped.content = row.content || '';
     mapped.emoji = row.emoji || '';
     mapped.photos = row.photos || '[]';
-    delete mapped.user_id;
-    delete mapped.deleted;
-    delete mapped.created_at;
-    delete mapped.updated_at;
+    // Quote revocation metadata is server-owned and must never be written
+    // back by the offline RxDB diary client.
+    for (const key of KNOWN_FIELDS.diary) {
+      if (key.includes('_') || key === 'deleted') delete mapped[key];
+    }
   } else if (collection === 'settings') {
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
@@ -354,15 +353,10 @@ export function fromAppwriteFormat(
     mapped.createdAt = mapped.created_at || new Date().toISOString();
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     mapped.isDeleted = mapped.deleted ?? false;
-    delete mapped.user_id;
-    delete mapped.friend_id;
-    delete mapped.friend_username;
-    delete mapped.friend_display_name;
-    delete mapped.friend_avatar_file_id;
-    delete mapped.friend_bio;
-    delete mapped.created_at;
-    delete mapped.updated_at;
-    delete mapped.deleted;
+    // Keep same-named local status while dropping remote-only column names.
+    for (const key of KNOWN_FIELDS.friendships) {
+      if (key.includes('_') || key === 'deleted') delete mapped[key];
+    }
   } else if (collection === 'messages') {
     mapped.id = row.$id || mapped.id;
     mapped.userId = mapped.user_id;
@@ -381,7 +375,8 @@ export function fromAppwriteFormat(
       mapped.diaryRefId = mapped.diary_ref_id;
       mapped.diaryRefOwnerId = mapped.diary_ref_owner_id || '';
       mapped.diaryRefDate = mapped.diary_ref_date || '';
-      mapped.diaryRefExcerpt = mapped.diary_ref_excerpt || '';
+      mapped.diaryRefExcerpt = '';
+      mapped.diaryRefEpoch = typeof mapped.diary_ref_epoch === 'number' ? mapped.diary_ref_epoch : 0;
     }
     mapped.replyToId = mapped.reply_to_id || '';
     mapped.replyToContent = mapped.reply_to_content || '';
@@ -394,28 +389,10 @@ export function fromAppwriteFormat(
     mapped.createdAt = mapped.created_at || new Date().toISOString();
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     mapped.isDeleted = mapped.deleted ?? false;
-    delete mapped.user_id;
-    delete mapped.thread_id;
-    delete mapped.sender_id;
-    delete mapped.recipient_id;
-    delete mapped.task_ref_id;
-    delete mapped.task_ref_title;
-    delete mapped.task_ref_date;
-    delete mapped.task_ref_color;
-    delete mapped.diary_ref_id;
-    delete mapped.diary_ref_owner_id;
-    delete mapped.diary_ref_date;
-    delete mapped.diary_ref_excerpt;
-    delete mapped.reply_to_id;
-    delete mapped.reply_to_content;
-    delete mapped.reply_to_sender_id;
-    delete mapped.is_unsent;
-    delete mapped.original_message_id;
-    delete mapped.read_at;
-    delete mapped.delivery_status;
-    delete mapped.created_at;
-    delete mapped.updated_at;
-    delete mapped.deleted;
+    // Strip remote-only column names; keep local content, reactions and direction.
+    for (const key of KNOWN_FIELDS.messages) {
+      if (key.includes('_') || key === 'deleted') delete mapped[key];
+    }
   }
   return mapped;
 }

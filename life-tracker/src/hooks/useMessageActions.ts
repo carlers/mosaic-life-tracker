@@ -183,6 +183,7 @@ export function useMessageActions(
         taskRefTitle: '',
         taskRefDate: '',
         taskRefColor: '',
+        diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',
         replyToId: '',
         replyToContent: '',
         replyToSenderId: '',
