@@ -300,7 +300,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               <input id="settings-search" type="search" autoComplete="off" value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search settings"
                 className="min-w-0 w-full bg-transparent py-3 text-white outline-none placeholder:text-gray-400" />
-            </div></>
+            </div></>}
             {settingsSearchEnabled && searchTerm.trim() ? (
               <section className="pt-4" aria-label="Settings search results">
                 {searchResults.length === 0 && <p className="px-2 py-4 text-sm text-gray-400">No settings found.</p>}

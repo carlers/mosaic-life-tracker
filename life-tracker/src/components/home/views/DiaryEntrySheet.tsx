@@ -179,7 +179,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
               <button type="button" disabled={busy || uploading || photoIds.length >= 5} onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-2 rounded-lg p-2 text-sm text-gray-300 disabled:opacity-40">
                 <ImagePlus size={19}/> {uploading ? 'Uploading…' : `Add photos (${photoIds.length}/5)`}
-              </button></>
+              </button></>}
               <DiaryPhotoGallery date={date} photoIds={photoIds} editable onChange={setPhotoIds}/>
               <textarea aria-label="Diary text" value={body} onChange={e=>setBody(e.target.value)}
                 placeholder="How was your day?" className="min-h-28 flex-1 resize-none rounded-xl bg-transparent p-2 text-base text-white outline-offset-2"
