@@ -88,6 +88,13 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* The active Home Calendar scrolls inside its month/week slide. Do not let
+   its surrounding page become a second scroll owner behind the fixed bottom
+   navigation. Todo and Diary retain their existing page scrolling. */
+[data-mosaic-main-scroll='true']:has([data-calendar-primary-active='true']) {
+  overflow-y: hidden;
+}
+
 .mosaic-native-color-scheme {
   color-scheme: var(--mosaic-color-scheme);
 }
