@@ -20,10 +20,13 @@ describe('typed diary message references', () => {
   });
 
   it('migrates historical messages without inventing diary context', () => {
-    expect(messagesSchema.version).toBe(4);
+    expect(messagesSchema.version).toBe(5);
     const old = { id: 'msg_legacy', content: 'unchanged' };
     expect(messagesMigrationStrategies[4](old)).toEqual({
       ...old, diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',
+    });
+    expect(messagesMigrationStrategies[5]({ ...old, diaryRefExcerpt: 'sensitive' })).toEqual({
+      ...old, diaryRefEpoch: 0, diaryRefExcerpt: '',
     });
   });
 });
