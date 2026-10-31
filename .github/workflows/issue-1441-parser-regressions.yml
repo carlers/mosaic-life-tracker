@@ -1,0 +1,54 @@
+name: Issue 1441 Parser Regression Corpus
+
+# Synthetic research only: never run automatically on dev, main, or Preview.
+on:
+  push:
+    branches:
+      - chatgpt/1441-parser-regression-20261101
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: life-tracker/benchmarks/command-models
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated date-parser dependency only
+        run: npm install --no-save --no-package-lock --ignore-scripts chrono-node@2.10.3
+      - name: Run all regression contracts and both comparison baselines
+        run: |
+          python3 make_dataset.py
+          node --test parser-lab.test.mjs parser-lab-regression.test.mjs
+          node parser-lab.mjs --input parser-lab-regression.jsonl --output results/regression-grammar.json
+          node parser-lab.mjs --chrono --input parser-lab-regression.jsonl --output results/regression-chrono.json
+          node parser-lab.mjs --chrono --input parser-lab-holdout.jsonl --output results/chrono-holdout.json
+      - name: Display measured safety failures without concealing them
+        run: |
+          node --input-type=module -e '
+          import { readFileSync } from "node:fs";
+          for (const variant of ["grammar", "chrono"]) {
+            const report = JSON.parse(readFileSync("results/regression-" + variant + ".json"));
+            console.log(JSON.stringify({variant,count:report.count,exact:report.exact_count,
+              unsafe:report.unsafe_create_count,groups:report.by_group}));
+            for (const item of report.details.filter(x => x.unsafe_create)) {
+              console.log(JSON.stringify({unsafeInput:item.input,got:item.got,expected:item.expected}));
+            }
+          }'
+      - name: Upload per-command reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parser-regression-1441-${{ github.run_id }}
+          path: life-tracker/benchmarks/command-models/results/*.json
+          retention-days: 14
+          if-no-files-found: warn
