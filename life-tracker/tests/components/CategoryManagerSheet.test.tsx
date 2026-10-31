@@ -13,6 +13,8 @@ import type { CategoryDocument } from '../../src/db/schema';
 const mocks = vi.hoisted(() => ({
   addCategory: vi.fn().mockResolvedValue(undefined),
   updateCategory: vi.fn().mockResolvedValue(undefined),
+  retireCategory: vi.fn().mockResolvedValue(undefined),
+  restoreCategory: vi.fn().mockResolvedValue(undefined),
   deleteCategory: vi.fn().mockResolvedValue(undefined),
   reorderCategories: vi.fn().mockResolvedValue(undefined),
   startDrag: vi.fn(),
@@ -52,6 +54,8 @@ vi.mock('../../src/hooks/useCategories', () => ({
     isLoading: false,
     addCategory: mocks.addCategory,
     updateCategory: mocks.updateCategory,
+    retireCategory: mocks.retireCategory,
+    restoreCategory: mocks.restoreCategory,
     deleteCategory: mocks.deleteCategory,
     reorderCategories: mocks.reorderCategories,
   }),
@@ -105,10 +109,32 @@ describe('CategoryManagerSheet', () => {
     vi.clearAllMocks();
     mocks.addCategory.mockReset().mockResolvedValue(undefined);
     mocks.updateCategory.mockReset().mockResolvedValue(undefined);
+    mocks.retireCategory.mockReset().mockResolvedValue(undefined);
+    mocks.restoreCategory.mockReset().mockResolvedValue(undefined);
     mocks.deleteCategory.mockReset().mockResolvedValue(undefined);
     mocks.reorderCategories.mockReset().mockResolvedValue(undefined);
     visibleCategories = categories;
     visibleTasks = [];
+  });
+
+  it('retires the selected category using an inclusive calendar cutoff', async () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Manage retirement for First' }));
+    fireEvent.change(screen.getByLabelText('Last active date (inclusive)'), {
+      target: { value: '2026-11-01' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Retire category' }));
+    await waitFor(() => expect(mocks.retireCategory).toHaveBeenCalledWith('first', '2026-11-01'));
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+  });
+
+  it('restores the same category without modifying any tasks', async () => {
+    visibleCategories = [{ ...categories[0], retiredOn: '2026-10-31' }, categories[1]];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Manage retirement for First' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore category' }));
+    await waitFor(() => expect(mocks.restoreCategory).toHaveBeenCalledWith('first'));
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
   });
 
   it('starts reordering only from the category grip button', () => {

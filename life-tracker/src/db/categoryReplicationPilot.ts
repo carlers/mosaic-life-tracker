@@ -11,7 +11,7 @@ const pilot = createSimpleOwnerReplicationPilot<CategoryDocument>({
   casTableId: 'categories',
   label: 'Category',
   freshnessLabel: 'category',
-  equalityFields: ["id","userId","name","color","order","visibility","icon","updatedAt","isDeleted"],
+  equalityFields: ["id","userId","name","color","order","visibility","icon","retiredOn","updatedAt","isDeleted"],
 });
 
 export const captureCategoryReplicationPushCheckpoint = pilot.capture;
