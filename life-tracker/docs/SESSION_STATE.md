@@ -1,3 +1,14 @@
+# Task checkpoint — #1460 chat photo Preview candidate (isolated)
+Updated: 2026-10-31 Asia/Manila
+
+- User approved secure single-photo chat attachment implementation after critique; baseline `dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459` v0.44.4; task `chatgpt/1460-chat-photo-foundation-v0450-20261031` targets v0.45.0 MINOR, with **no authorization to promote dev/main or change Production**.
+- Added typed optional message fields, RxDB migration, additive `016-message-chat-photos` Appwrite columns, message mapping, owner-private deterministic local photo staging, Function photo authorization and pair repair/unsend handling, and opt-in composer/viewer behind `VITE_CHAT_PHOTOS_ENABLED === 'true'` (default OFF).
+- No scratch schema/Function activation, hosted three-user ACL proof, Production change, or device test has occurred. Feature MUST REMAIN DISABLED until real Scratch bucket-wide read permissions are absent and exact Function/schema/compatibility tests pass. Unsend-vs-in-flight-upload cross-tab race, durable media cleanup and ownership/caching hardening are still release blockers; do not claim secure shipping or Preview acceptance from source-only checks.
+- Next: focused CI, repair failures, adversarial server/local tests, cross-tab cancellation arbitration and verified cleanup; then Scratch migration + Function activation and only then enable gated Scratch Preview for manual acceptance.
+- Issue: https://github.com/carlers/mosaic-life-tracker/issues/1460
+
+---
+
 # Task checkpoint — #1443 Preferences replication integrated v0.44.4
 Updated: 2026-10-31 Asia/Manila
 

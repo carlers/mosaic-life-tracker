@@ -56,7 +56,7 @@ function buildBubbleLabel(
     parts.push(`in reply to ${replySenderName}`);
   }
   parts.push(message.attachmentType === 'image' ? 'photo' : packStickerSummary(giphyStickerSummary(message.content)));
-  if (message.attachmentType === 'image' && message.content !== '[Photo]') parts.push(message.content);
+  if (message.attachmentType === 'image' && message.content !== '[Photo]') parts.push(message.content.replace(/^\\[Photo\\]\\n?/, ''));
   return parts.join(' ');
 }
 
@@ -287,10 +287,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             </div>
           )}
           {message.attachmentType === 'image' && message.attachmentFileId && (
-            <ChatPhotoAttachment fileId={message.attachmentFileId} userId={currentUserId} caption={message.content === '[Photo]' ? '' : message.content} />
+            <ChatPhotoAttachment fileId={message.attachmentFileId} userId={currentUserId} caption={message.content.replace(/^\\[Photo\\]\\n?/, '')} />
           )}
           {message.attachmentType === 'image' ? (
-            message.content !== '[Photo]' ? <span className="text-sm whitespace-pre-wrap break-words">{message.content}</span> : null
+            message.content !== '[Photo]' ? <span className="text-sm whitespace-pre-wrap break-words">{message.content.replace(/^\\[Photo\\]\\n?/, '')}</span> : null
           ) : packSticker ? (
             <PackStickerImage sticker={packSticker} />
           ) : giphySticker ? (

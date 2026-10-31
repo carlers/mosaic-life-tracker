@@ -225,7 +225,7 @@ export async function sendPhotoMessage(
   try {
     await getDatabase().messages.insert(buildOutgoingMessage({
       userId, friendId, threadId, now, localId,
-      content: caption.trim() || '[Photo]',
+      content: caption.trim() ? '[Photo]\\n' + caption.trim() : '[Photo]',
       attachmentType: 'image', attachmentFileId, replyTo,
     }));
   } catch (error) {

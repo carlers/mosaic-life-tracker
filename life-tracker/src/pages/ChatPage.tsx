@@ -62,6 +62,9 @@ const ChatMessagesLoadingShell: React.FC = () => (
   </div>
 );
 
+// Fail closed until the exact Scratch bucket ACL, Function and historic-client
+// compatibility checks have been verified. Never enable on unreviewed Production.
+const CHAT_PHOTOS_ENABLED = import.meta.env.VITE_CHAT_PHOTOS_ENABLED === 'true';
 export const ChatPage: React.FC = () => {
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
@@ -525,7 +528,7 @@ export const ChatPage: React.FC = () => {
         <MessageComposer
           ref={composerRef}
           onSend={handleSend}
-          onSendPhoto={handleSendPhoto}
+          onSendPhoto={CHAT_PHOTOS_ENABLED ? handleSendPhoto : undefined}
           onSendError={() => setFeedback('Message not saved. Retry.')}
           onOpenStickers={() => { setHasOpenedStickers(true); setStickerPacksOpen(true); }}
           onPrepareStickers={() => { void preloadStickerPackSheet().catch(() => {}); }}
