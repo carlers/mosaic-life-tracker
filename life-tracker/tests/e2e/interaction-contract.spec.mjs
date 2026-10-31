@@ -1599,6 +1599,24 @@ test('Day View single-gesture fling and partial release snap to exactly one day'
   await expect(dialog).toHaveAttribute('aria-label', 'Tuesday, September 15, 2026');
   await waitForStableVerticalPosition(dialog);
   const swiper = dialog.getByTestId('day-swiper');
+  await swiper.evaluate((element) => {
+    const instance = element.swiper;
+    window.__mosaicDaySwipeTrace = [];
+    for (const type of ['touchStart', 'sliderFirstMove', 'touchEnd', 'slideChange', 'transitionStart', 'transitionEnd', 'slideChangeTransitionEnd']) {
+      instance.on(type, () => {
+        window.__mosaicDaySwipeTrace.push({
+          event: type,
+          index: instance.activeIndex,
+          translate: instance.translate,
+          animating: instance.animating,
+          moved: instance.touchEventsData.isMoved,
+          touched: instance.touchEventsData.isTouched,
+          diff: instance.touches.diff,
+          direction: instance.swipeDirection,
+        });
+      });
+    }
+  });
 
   const assertAligned = async () => {
     await expect.poll(() => swiper.evaluate((element) => {
@@ -1610,6 +1628,19 @@ test('Day View single-gesture fling and partial release snap to exactly one day'
 
   // A fast swipe kept inside the viewport moves at most one calendar day.
   await drag(page, swiper, -260);
+  console.log('MOSAIC_DAY_SWIPE_DIAGNOSTIC', JSON.stringify(await swiper.evaluate((element) => ({
+    events: window.__mosaicDaySwipeTrace,
+    swiper: {
+      activeIndex: element.swiper.activeIndex,
+      translate: element.swiper.translate,
+      animating: element.swiper.animating,
+      snap: element.swiper.snapGrid[element.swiper.snapIndex],
+      moved: element.swiper.touchEventsData.isMoved,
+      touched: element.swiper.touchEventsData.isTouched,
+      direction: element.swiper.swipeDirection,
+      diff: element.swiper.touches.diff,
+    },
+  }))));
   await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
   await assertAligned();
 
