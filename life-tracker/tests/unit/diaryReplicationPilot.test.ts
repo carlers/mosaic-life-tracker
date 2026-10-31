@@ -391,9 +391,10 @@ describe('diary RxDB replication pilot', () => {
   });
 
   it('turns a post-read concurrent diary write into an RxDB conflict', async () => {
-    getRowMock.mockResolvedValueOnce(
-      remoteDiary({ content: 'Local entry' })
-    );
+    // The privacy guard re-reads the master CAS token before attempting a
+    // write. Both reads represent unchanged state; the CAS itself conflicts.
+    getRowMock.mockResolvedValueOnce(remoteDiary({ content: 'Local entry' }))
+      .mockResolvedValueOnce(remoteDiary({ content: 'Local entry' }));
     sendAppActionMock.mockResolvedValueOnce({
       status: 'conflict',
       row: remoteDiary({

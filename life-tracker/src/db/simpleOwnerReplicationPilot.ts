@@ -23,6 +23,8 @@ export function createSimpleOwnerReplicationPilot<D extends OwnerDocument>(confi
   label: string;
   freshnessLabel: string;
   equalityFields: ReadonlyArray<keyof D>;
+  /** True iff server-owned state was mutated and the CAS token needs refresh. */
+  beforeWrite?: (next: D, current: D, userId: string) => Promise<boolean>;
 }) {
   type Replicated = WithDeletedAndAttachments<D>;
   type Checkpoint = SimpleOwnerPullCheckpoint;
@@ -106,9 +108,21 @@ export function createSimpleOwnerReplicationPilot<D extends OwnerDocument>(confi
         continue;
       }
       if (!master) throw new Error(config.label + ' replication master token missing for ' + next.id);
+      // An owner-scoped pre-write guard may update server-owned privacy state.
+      // Re-read the server CAS token rather than using its stale value.
+      let writeMaster = master;
+      if (config.beforeWrite && await config.beforeWrite(next as D, current as D, userId)) {
+        const refreshed = await read(next.id, userId);
+        if (!refreshed) throw new Error(config.label + ' row disappeared after privacy guard');
+        if (!equals(refreshed.document, current)) {
+          conflicts.push(refreshed.document);
+          continue;
+        }
+        writeMaster = refreshed;
+      }
 
       const result = await updateOwnerRowWithCas(
-        config.casTableId, next.id, userId, master.serverUpdatedAt,
+        config.casTableId, next.id, userId, writeMaster.serverUpdatedAt,
         toAppwriteFormat(next as unknown as Record<string, unknown>, config.collectionName, userId)
       );
       if (result.status === 'conflict') {
