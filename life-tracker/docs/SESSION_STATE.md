@@ -1,3 +1,13 @@
+# Task checkpoint — #1478 Phase 3B read-only server reference audit, no deletion
+Updated: 2026-11-01 Asia/Manila
+
+- Owner requested completion of Phase 3. Build on stable Phase 3A `feature/1478-lifecycle-policy-foundation-20261101@010111634c3a43ba44f388326d6416193b0bc6f5`; `dev@029b5cb758e1180b595c9b3f6c3822eb3a995675` v0.54.0, main separate. No retroactive Phase 3 dev promotion.
+- Scope: trusted Function **read-only** `get_owner_media_audit` action, owner from `x-appwrite-user-id`, reject owner spoof; fully bounded owner-filtered task/Diary/settings snapshots including deleted/tombstoned references, bounded server bucket file metadata, count only exclusive owner ACLs and separate live/tombstoned/unreferenced-unknown bytes. Do not expose file IDs/names, enable delete, label orphan reclaimable, or claim account billed quota. Missing server-upload provenance, cross-owner refs and old-client replay proof mean `complete:false` and `deletionAuthorized:false` for every response. Documentation/tests protect these invariants.
+- No schema migration or server write. Function source edit requires canonical backend compatibility gate; do NOT activate a shared Scratch Function until additive compatibility plus existing Preview consumer requirements reviewed and explicit rollout decision, then authenticated 3-account Function acceptance. No Production or main writes. No user-facing version change.
+- Task `chatgpt/1478-owner-media-audit-20261101`, stable `feature/1478-owner-media-audit-20261101`. Run focused CI, stable full canonical, trusted Vercel exact SHA. Physical deletion/unlink/mark/grace/recheck worker remains blocked by missing durable provenance and old-PWA write fence; no automatic orphan sweeps or bulk cleanup.
+
+---
+
 # Task checkpoint — #1478 Phase 3 safe lifecycle policy foundation (NON-DESTRUCTIVE)
 Updated: 2026-11-01 Asia/Manila
 

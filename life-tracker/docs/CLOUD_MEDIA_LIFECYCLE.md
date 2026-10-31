@@ -1,10 +1,11 @@
 # Cloud media lifecycle safety contract — #1478 (Phase 3)
 
-**Status:** Server-only, pure classification foundation; NO cloud cleanup action,
-no new schema, no Function handler/route, no endpoint, no scheduled worker and no
-Production changes. Phase 2 remains the only user-visible cloud-media feature.
-The Phase 3 policy module is not wired to `message-action/main.js`, the browser
-or any delete call. Its results must never be interpreted as a deletion grant.
+**Status:** Phase 3A pure classification and Phase 3B bounded read-only server audit are
+implemented on an isolated Preview branch. There is **no cloud cleanup action**,
+no new schema, no scheduled worker and no Production changes. Phase 2 remains
+the only user-visible cloud-media feature. The Phase 3 audit action is not
+activated in Scratch and is not called from the browser. Neither the classification
+kernel nor the read-only audit can authorize deletion.
 
 ## What this first slice establishes
 
@@ -62,3 +63,30 @@ The read-only Phase 2 client scanner in `src/lib/cloudMediaUsage.ts` remains
 unchanged and is not a deletion authority. See `DEVICE_STORAGE.md`,
 `ACCOUNT_ERASURE.md`, `TOMBSTONE_RETENTION.md`,
 `CLIENT_BACKEND_COMPATIBILITY.md` and issue #1478.
+
+## Phase 3B — server-side read-only reference/ACL audit
+
+`appwrite-functions/message-action/owner-media-audit.js` implements
+`get_owner_media_audit` through the existing trusted Function router, using
+only the platform-verified `x-appwrite-user-id` caller. It rejects mismatched
+requested owner IDs before remote queries. It scans server-side owner-filtered
+task/Diary/settings rows **including tombstones**, and bounded bucket metadata.
+The bucket scan never returns names or file IDs to the caller, never returns
+unrelated files, and only considers files with exclusive owner update+delete
+grants. Friend-readable `read(users)` does not make a file owned. Duplicate
+references count once; pending local images and malformed metadata are noted.
+
+Output separates owner-ACL-controlled live references, tombstoned references
+and **unreferenced-but-unverified** entries. None are billed totals or confirmed
+reclaimable storage. In particular, even if a file has only this user's update
+and delete permissions, old clients and missing upload provenance mean it
+cannot be deemed a deletable orphan.
+
+Every response is `deletionAuthorized:false`, `complete:false`. Unknown
+data, an incomplete backend-wide file scan, missing/invalid metadata and
+unresolved app clients are explicitly marked. Pages are capped to avoid
+unbounded global bucket work. The scan is **on-demand** and has no
+startup subscription. This is a technical Function contract only; Scratch
+Function activation, an authenticated browser consumer and device acceptance
+remain gated. Old Function handlers remain unchanged.
+

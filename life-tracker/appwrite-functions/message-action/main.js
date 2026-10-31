@@ -4,6 +4,7 @@ const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
+const { auditOwnerMedia } = require('./owner-media-audit');
 const {
   handleGetNotifications,
   handleGetNotification,
@@ -1641,6 +1642,12 @@ const handler = async ({ req, res, log, error }) => {
     error('Unauthorized: no x-appwrite-user-id header');
     return res.json({ error: 'Unauthorized' }, 401);
   }
+  // Reject forged audit owner IDs before looking up any involved user's
+  // account-erasure job (which would otherwise disclose its existence).
+  if (action === 'get_owner_media_audit' &&
+      payload.ownerId !== undefined && payload.ownerId !== callerId) {
+    return res.json({ error: 'Forbidden' }, 403);
+  }
 
   try {
     if (action !== 'delete_account') {
@@ -1762,6 +1769,14 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'react_to_diary':
         result = await handleReactToDiary(tablesDB, callerId, payload, log, error);
+        break;
+      case 'get_owner_media_audit':
+        result = await auditOwnerMedia({
+          db: tablesDB,
+          storage,
+          callerId,
+          requestedOwnerId: payload.ownerId,
+        });
         break;
       case 'get_owner_diary_reactions':
         result = await handleGetOwnerDiaryReactions(tablesDB, callerId, payload, log);
