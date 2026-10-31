@@ -6,7 +6,7 @@
 
 - Single static photo per 1:1 chat message with optional caption. Client stages compressed WebP bytes in owner-scoped IndexedDB before inserting a pending RxDB message; the photo file ID is deterministic from the message ID. Photo bytes never enter chat message text fields.
 - Optional `attachment_type=image`, `attachment_file_id=chat_*` columns in `messages`, versioned RxDB migration, sync mapping, and server-issued sender/recipient rows. Text-only messages remain valid. Still-supported older PWAs see the `[Photo]` textual fallback.
-- Existing `task_images` bucket is reused **without public/read(users) media grants**. Private photo starts owner-readable; trusted Function validates friendship, file identity, MIME type, size, bucket read ACL, file owner read/update/delete grants, and authorized recipient before allowing recipient read-only access.
+- Existing `task_images` bucket is reused **without public/read(users) media grants**. Private photo starts owner-readable; trusted Function validates friendship, file identity, MIME type, size, bucket read ACL, file owner read/update/delete grants, and authorized recipient before allowing recipient read-only access. The Function requires server-only `buckets.read` scope for bucket metadata, alongside existing `files.read`/`files.write`.
 - Delivery ack requires the server pair receipt. Web Locks serialize in-browser upload/unsend attempts. Owner-staged blobs, local image cache and erasure are account-isolated.
 - Unsend may conceal the message locally before server confirmation; an error is not proof of server-side deletion. No claim to recall copies saved/downloaded by users.
 
