@@ -1,5 +1,16 @@
 # Session checkpoint
 Updated: 2026-10-31 Asia/Manila
+Current task: #1388 Calendar View clipped behind bottom navigation after v0.43.12 verified live.
+
+## v0.43.13 — Direct Calendar viewport height bound
+- Owner confirmed real failed browser URL `https://mosaic-life-tracker-pnxn31kht-carls-projects-72516fde.vercel.app/home`, v0.43.12 main padding 64px and primary-route-content padding 0px. So stale deployment is ruled out.
+- Same real DOM: active month slide at y227–917 (690px height, `clientHeight === scrollHeight`, scrollTop 0), final week row y834–902, fixed navigation y777–841, root main `clientHeight=841`/`scrollHeight=925`; the percentage-height chain expands beyond the visible area despite main bottom padding.
+- Task branch `chatgpt/1388-calendar-viewport-cap-v04313-20261031` based on stable `fix/calendar-long-grid-scroll-20261027@6c797d3e1645b38e834249ae87848d1b90d60d6a`. Frontend-only CalendarCarousel uses the fixed nav's actual top and the native slide viewport's top to clamp its max height; adjusts on resize/layout, preserving slide overflow ownership and keyboard access. Browser test creates an intentionally oversized route ancestor by 140px at 1728×841 and asserts visible viewport boundary, positive native scroll range, wheel scroll and final week visibility. Previous fixtures did not actually recreate the oversized ancestor.
+- Isolated Preview candidate `0.43.13`; latest dev is independently ahead (>0.44.2), so no direct dev promotion without a newly integrated higher-version Preview and user approval. No backend/provider/Production changes.
+- Task CI, stable Preview canonical, Vercel READY and physical user scroll acceptance pending. Do not claim verified until actually tested. Keep issue #1388 open.
+
+## Previous checkpoint
+Updated: 2026-10-31 Asia/Manila
 Current task: #1388 v0.43.12 Calendar cut-off following two failed user Previews.
 
 ## #1388 — Confirmed layout geometry and targeted repair
