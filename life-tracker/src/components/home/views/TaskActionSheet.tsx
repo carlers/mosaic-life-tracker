@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { TaskDateEditor } from './TaskDateEditor';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -63,6 +64,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onMoveToBacklog,
   onLinkToBucketList,
 }) => {
+  const taskPhotoUploadEnabled = useFeatureEnabled('taskPhotoUpload');
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
   const pendingEditRef = useRef(false);
@@ -242,7 +244,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             </button>
           )}
 
-          {!task.image && (
+          {!task.image && taskPhotoUploadEnabled && (
             <button
               type="button"
               onClick={() => {

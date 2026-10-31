@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import {
   giphyEnabled,
   searchGiphyStickers,
@@ -11,12 +12,13 @@ interface Props { onPick: (sticker: GiphySticker) => void }
 type SearchState = { query: string; results: GiphySticker[]; error?: string };
 
 export const GiphyStickerSearch: React.FC<Props> = ({ onPick }) => {
+  const searchEnabled = useFeatureEnabled('giphySearch');
   const [query, setQuery] = useState('');
   const [state, setState] = useState<SearchState>({ query: '', results: [] });
   const trimmed = query.trim();
 
   useEffect(() => {
-    if (!giphyEnabled || trimmed.length < 2) return;
+    if (!searchEnabled || !giphyEnabled || trimmed.length < 2) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       void searchGiphyStickers(query, controller.signal).then(
@@ -29,7 +31,9 @@ export const GiphyStickerSearch: React.FC<Props> = ({ onPick }) => {
       );
     }, 450);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [query, trimmed]);
+  }, [query, trimmed, searchEnabled]);
+
+  if (!searchEnabled) return null;
 
   return (
     <div className="pt-3 pb-4">
