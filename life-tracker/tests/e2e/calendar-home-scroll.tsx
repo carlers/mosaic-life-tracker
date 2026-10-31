@@ -80,7 +80,7 @@ export function FullHeightHomeCalendarProbe() {
       </div>
       {/* Canary for a Home layout with extra content: the page must not become
           a competing native scroller while a Calendar slide is active. */}
-      <div data-testid="outer-home-overflow-sentinel" aria-hidden="true" className="h-24" />
+      <div data-testid="outer-home-overflow-sentinel" aria-hidden="true" className="h-40" />
     </MainLayout>
   );
 }
