@@ -41,6 +41,7 @@ describe('portable Mosaic backend manifest', () => {
       'messages',
       'notifications',
       'push_subscriptions',
+      'bug_reports',
       'account_deletions',
     ]);
     expect(MOSAIC_TABLES.map((table) => table.id)).not.toContain('routines');

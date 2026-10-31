@@ -361,6 +361,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '015-message-diary-references',
       '016-diary-quote-privacy',
       '017-message-chat-photos',
+      '018-bug-reports',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');

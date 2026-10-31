@@ -144,7 +144,8 @@ describe('message-action / scheduled tombstone GC', () => {
     ]);
     // One server-only read checks durable account-deletion jobs before the
     // eight ordinary tombstone-GC table scans.
-    expect(mockDb.listRows).toHaveBeenCalledTimes(10);
+    expect(mockDb.listRows).toHaveBeenCalledTimes(11);
+    expect(mockDb.listRows.mock.calls.some(([query]) => query.tableId === 'bug_reports')).toBe(true);
     expect(response.logs).toContain(
       'account-deletion: scheduled processed=0 failed=0'
     );

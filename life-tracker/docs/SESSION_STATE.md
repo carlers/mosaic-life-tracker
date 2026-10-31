@@ -1,3 +1,14 @@
+# Task checkpoint — #854 Scratch-compatible private bug reports
+Updated: 2026-11-01 Asia/Manila
+
+- Authorized scope: make private bug reporting testable on Scratch while preserving the active chat-photo Function, independent of dev/main/Production.
+- Exact active Scratch Git source before this task: `feature/1460-chat-photos-privacy-v0460-20261101@19c4a716df424b016f87452b19778fb9051bb2b8`. Task branch: `chatgpt/854-scratch-function-compat-20261101`. Bug-report UI remains on `feature/854-private-bug-reports-v0450-20261031`.
+- Private `bug_reports` table already exists on disposable Scratch `6a96e82d000d1310b3be` in fra (8 columns, 2 indexes, zero table permissions, row security).
+- Forward-port only the server handler, retention, migration, manifest, account-erasure policy and tests. Combined migration ID is `018-bug-reports` to avoid collision with the photo/diary branch's 016/017. Preserve photo source and active Function until exact-SHA CI and inactive deployment are reviewed.
+- Complete focused CI, stable integrated Preview canonical CI and Vercel READY. Check active Function source and ID again immediately before Scratch activation; fail closed on concurrent changes. Then verify synthetic authenticated submission, idempotency, private operator retrieval, retention, existing photo and Diary sync. No promotion approved.
+
+---
+
 # Current task: secure chat photo + diary quote privacy Scratch integration
 Updated: 2026-11-01 Asia/Manila
 
