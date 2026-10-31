@@ -47,26 +47,26 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   },
   {
     "label": "Day View display",
-    "path": "/settings/preferences/tasks",
-    "breadcrumb": "Preferences › Tasks & Categories",
+    "path": "/settings/preferences/day-view",
+    "breadcrumb": "Preferences › Day View",
     "keywords": ""
   },
   {
-    "label": "Timeline sort by",
-    "path": "/settings/preferences/tasks",
-    "breadcrumb": "Preferences › Tasks & Categories",
+    "label": "Timeline arrangement",
+    "path": "/settings/preferences/day-view",
+    "breadcrumb": "Preferences › Day View",
     "keywords": ""
   },
   {
     "label": "Timeline order",
-    "path": "/settings/preferences/tasks",
-    "breadcrumb": "Preferences › Tasks & Categories",
+    "path": "/settings/preferences/day-view",
+    "breadcrumb": "Preferences › Day View",
     "keywords": ""
   },
   {
-    "label": "Task completion order",
-    "path": "/settings/preferences/tasks",
-    "breadcrumb": "Preferences › Tasks & Categories",
+    "label": "Categories and Backlogs task order",
+    "path": "/settings/preferences/day-view",
+    "breadcrumb": "Preferences › Day View",
     "keywords": ""
   },
   {
@@ -89,86 +89,86 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   },
   {
     "label": "Always show Add category in Day View",
-    "path": "/settings/preferences/tasks",
-    "breadcrumb": "Preferences › Tasks & Categories",
+    "path": "/settings/preferences/day-view",
+    "breadcrumb": "Preferences › Day View",
     "keywords": ""
   },
   {
     "label": "Show collapse button for categories",
-    "path": "/settings/preferences/tasks",
-    "breadcrumb": "Preferences › Tasks & Categories",
+    "path": "/settings/preferences/day-view",
+    "breadcrumb": "Preferences › Day View",
     "keywords": ""
   },
   {
     "label": "Open day details as",
-    "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "path": "/settings/preferences/day-view",
+    "breadcrumb": "Preferences › Day View",
     "keywords": ""
   },
   {
     "label": "Day panel position",
-    "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "path": "/settings/preferences/day-view",
+    "breadcrumb": "Preferences › Day View",
     "keywords": ""
   },
   {
     "label": "Day panel height",
-    "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "path": "/settings/preferences/day-view",
+    "breadcrumb": "Preferences › Day View",
     "keywords": ""
   },
   {
     "label": "Days visible on small screens",
     "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "breadcrumb": "Preferences › Calendar",
     "keywords": ""
   },
   {
     "label": "Maximum visible tasks per day",
     "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "breadcrumb": "Preferences › Calendar",
     "keywords": ""
   },
   {
     "label": "Pinch to change visible days",
     "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "breadcrumb": "Preferences › Calendar",
     "keywords": ""
   },
   {
     "label": "Keep weekday header visible",
     "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "breadcrumb": "Preferences › Calendar",
     "keywords": "sticky header"
   },
   {
     "label": "Start week on Sunday",
     "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "breadcrumb": "Preferences › Calendar",
     "keywords": ""
   },
   {
     "label": "Show Today tag beside date header",
-    "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "path": "/settings/preferences/day-view",
+    "breadcrumb": "Preferences › Day View",
     "keywords": ""
   },
   {
     "label": "Show holidays",
     "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "breadcrumb": "Preferences › Calendar",
     "keywords": ""
   },
   {
     "label": "Holiday region",
     "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "breadcrumb": "Preferences › Calendar",
     "keywords": ""
   },
   {
     "label": "Holiday types",
     "path": "/settings/preferences/calendar",
-    "breadcrumb": "Preferences › Calendar & Day View",
+    "breadcrumb": "Preferences › Calendar",
     "keywords": ""
   },
   {

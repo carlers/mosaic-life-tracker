@@ -1,3 +1,13 @@
+# Task checkpoint — #951 Day View settings and Timeline sorting v0.49.0
+Updated: 2026-10-31 Asia/Manila
+
+- Owner approved implementation and user-testable Preview of dedicated Day View settings shortcut/page, relevant controls relocated from Tasks & Categories and Calendar without changing preference keys, and Timeline sorting dropdown offering Completed first, Completed last, Creation date with independent Newest/Oldest direction. Related Tasks & Categories / Calendar links remain discoverable.
+- Base `dev@343b857fa43d26e7afc7b7f6de81ac479416bba2` v0.45.0. Forward-port Day View header and Completed-first regression from previously canonical-accepted `fix/951-dayview-header-sorting-v0446-20261031@96e6d15aaeab9a775068b978efeb1f658b4c0124` (not integrated into dev). Other active features reserve 0.46.0 through 0.48.0; candidate version **v0.49.0**. Task `chatgpt/951-dayview-settings-sort-v0490-20261031`; stable Preview `feature/951-dayview-settings-sort-v0490-20261031`.
+- Date-specific settings shortcut closes Day View, navigates to /settings/preferences/day-view, and Back returns to Home with the prior date re-opened. Uses existing Home routed Day View sheet and preference sync; no schema/backend/Production changes. Keep Backlogs and Categories existing manual order; Timeline sorting never persists reordered task data.
+- Focused task checks, stable Preview full canonical, exact-SHA Vercel Scratch READY and manual phone/date-return checks pending. No approval to promote Preview to dev/main/Production. Keep issue #951 open for follow-up.
+
+---
+
 # Task checkpoint — #1466 Home task search incremental results v0.45.0
 Updated: 2026-10-31 Asia/Manila
 

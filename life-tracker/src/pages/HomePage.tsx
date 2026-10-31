@@ -208,7 +208,7 @@ export const HomePage: React.FC = () => {
     navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/home') });
   }, [navigate]);
 
-  const openDatedTask = useCallback((date: Date, id: string) => {
+  const openDatedTask = useCallback((date: Date, id: string | null) => {
     setSearchSelectedDate(date);
     setSearchFocusTaskId(id);
     setSearchSheetKey(current => current + 1);
@@ -218,10 +218,13 @@ export const HomePage: React.FC = () => {
 
   // Open a real dated task from the Bucket List or Uncompleted Tasks.
   useEffect(() => {
-    const state = location.state as { bucketLinkedFocusTaskId?: string; bucketLinkedFocusDate?: string; focusTaskId?: string; focusTaskDate?: string } | null;
-    const taskId = state?.focusTaskId ?? state?.bucketLinkedFocusTaskId;
-    const taskDate = state?.focusTaskDate ?? state?.bucketLinkedFocusDate;
-    if (!taskId || !taskDate) return;
+    const state = location.state as {
+      bucketLinkedFocusTaskId?: string; bucketLinkedFocusDate?: string;
+      focusTaskId?: string; focusTaskDate?: string; openDayViewDate?: string;
+    } | null;
+    const taskId = state?.focusTaskId ?? state?.bucketLinkedFocusTaskId ?? null;
+    const taskDate = state?.openDayViewDate ?? state?.focusTaskDate ?? state?.bucketLinkedFocusDate;
+    if (!taskDate || (!taskId && !state?.openDayViewDate)) return;
     const date = parseISO(taskDate);
     if (!isValid(date)) return;
     // Navigation is an external event. Defer this update to its microtask,
