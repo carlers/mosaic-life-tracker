@@ -241,7 +241,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const location = useLocation();
   const renderPathname = previewPathname ?? location.pathname;
   const section = renderPathname.startsWith('/settings/preferences/') ? renderPathname.slice('/settings/preferences/'.length) : null;
-  const titles: Record<string, string> = { tasks: 'Tasks & Categories', calendar: 'Calendar & Day View', diary: 'Diary', navigation: 'Navigation & Input', appearance: 'Appearance & Layout' };
+  const titles: Record<string, string> = { tasks: 'Tasks & Categories', 'day-view': 'Day View', calendar: 'Calendar', diary: 'Diary', navigation: 'Navigation & Input', appearance: 'Appearance & Layout' };
   useSettingsTargetFocus(renderPathname, previewPathname ? '' : location.search);
   const {
     mode,
@@ -341,8 +341,18 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   };
 
   const handleBack = () => {
-    const fromSearch = section && location.state && typeof location.state === 'object' && 'parentPath' in location.state && location.state.parentPath === '/settings';
-    const parent = fromSearch ? '/settings' : section ? '/settings/preferences' : '/settings';
+    const state = location.state && typeof location.state === 'object' ? location.state as Record<string, unknown> : null;
+    // A Day View shortcut must restore the selected day when leaving settings.
+    if (section === 'day-view' && state?.parentPath === '/home' &&
+        typeof state.dayViewReturnDate === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(state.dayViewReturnDate)) {
+      navigate('/home', { replace: true, state: { openDayViewDate: state.dayViewReturnDate } });
+      return;
+    }
+    const fromSettings = section && state?.parentPath === '/settings';
+    const fromDayView = section && state?.parentPath === '/settings/preferences/day-view';
+    const parent = fromSettings ? '/settings' : fromDayView ? '/settings/preferences/day-view' :
+      section ? '/settings/preferences' : '/settings';
     if (hasExpectedRouteParent(location.key, location.state, parent)) {
       navigate(-1);
     } else {
@@ -370,7 +380,8 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
           <nav aria-label="Preference categories" className="py-2">
             <SettingsRow icon={<Palette size={18} aria-hidden="true" />} label="Appearance & Layout" onClick={() => navigate('/settings/preferences/appearance', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<ListPlus size={18} aria-hidden="true" />} label="Tasks & Categories" onClick={() => navigate('/settings/preferences/tasks', { state: makeRouteParentState('/settings/preferences') })} />
-            <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Calendar & Day View" onClick={() => navigate('/settings/preferences/calendar', { state: makeRouteParentState('/settings/preferences') })} />
+            <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Day View" onClick={() => navigate('/settings/preferences/day-view', { state: makeRouteParentState('/settings/preferences') })} />
+            <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Calendar" onClick={() => navigate('/settings/preferences/calendar', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<BookOpenText size={18} aria-hidden="true" />} label="Diary" onClick={() => navigate('/settings/preferences/diary', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<Keyboard size={18} aria-hidden="true" />} label="Navigation & Input" onClick={() => navigate('/settings/preferences/navigation', { state: makeRouteParentState('/settings/preferences') })} />
           </nav>
@@ -439,45 +450,6 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             onChange={value => void setSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, resolveTimestampLabelStyle(value))}
           />
           <SelectSettingRow
-            id="day-view-default-mode"
-            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Day View display"
-            value={dayViewMode}
-            options={[{ value: 'categories', label: 'Categories' }, { value: 'timeline', label: 'Timeline' }]}
-            onChange={value => void setSetting(DAY_VIEW_MODE_SETTING_KEY, resolveDayViewMode(value))}
-          />
-          <SelectSettingRow
-            id="day-view-timeline-sort-basis"
-            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Timeline sort by"
-            value={timelineSortBasis}
-            options={[{ value: 'completion', label: 'Completion first' }, { value: 'creation', label: 'Creation first' }]}
-            onChange={value => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, resolveTimelineSortBasis(value))}
-          />
-          <SelectSettingRow
-            id="day-view-timeline-direction"
-            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Timeline order"
-            value={timelineDirection}
-            options={[{ value: 'desc', label: 'Newest first' }, { value: 'asc', label: 'Oldest first' }]}
-            onChange={value => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, resolveTimelineDirection(value))}
-          />
-          <SelectSettingRow
-            id="task-completion-sort"
-            icon={<ListFilter size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Task completion order"
-            value={taskSortMode}
-            options={[
-              { value: 'manual', label: 'Manual' },
-              { value: 'completed-first', label: 'Completed first' },
-              { value: 'completed-last', label: 'Completed last' },
-            ]}
-            onChange={(value) => void setSetting(
-              TASK_COMPLETION_SORT_SETTING_KEY,
-              resolveTaskCompletionSortMode(value) as TaskCompletionSortMode
-            )}
-          />
-          <SelectSettingRow
             id="incomplete-task-block-color"
             icon={<Palette size={18} className="text-gray-400" aria-hidden="true" />}
             label="Incomplete calendar task color"
@@ -513,37 +485,54 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             checked={showPendingShares}
             onClick={() => void setSetting(SHOW_PENDING_SHARES_SETTING_KEY, !showPendingShares)}
           />
-          <SettingsRow
-            icon={<ListPlus size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Always show Add category in Day View"
-            showChevron={false}
-            isToggle
-            checked={alwaysShowAddCategory}
-            onClick={() => void setSetting(
-              SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, !alwaysShowAddCategory
-            )}
-          />
-          <SettingsRow
-            icon={<ChevronsUpDown size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Show collapse button for categories"
-            showChevron={false}
-            isToggle
-            checked={showCategoryCollapse}
-            onClick={() =>
-              void setSetting(
-                SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
-                !showCategoryCollapse
-              )
-            }
-          />
+
+
         </section>
 
         </>)}
-        {section === 'calendar' && (<>
-        <section className="border-b border-[#333333] py-2">
-          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
-            Calendar
-          </h2>
+        {section === 'day-view' && (<>
+        <section className="border-b border-[#333333] py-2" aria-label="Day View">
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Display & sorting</h2>
+          <SelectSettingRow
+            id="day-view-default-mode"
+            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Day View display"
+            value={dayViewMode}
+            options={[{ value: 'categories', label: 'Categories' }, { value: 'timeline', label: 'Timeline' }]}
+            onChange={value => void setSetting(DAY_VIEW_MODE_SETTING_KEY, resolveDayViewMode(value))}
+          />
+          <SelectSettingRow
+            id="day-view-timeline-sort-basis"
+            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Timeline arrangement"
+            value={timelineSortBasis}
+            options={[{ value: 'completion', label: 'Completed first' }, { value: 'completion-last', label: 'Completed last' }, { value: 'creation', label: 'Creation date' }]}
+            onChange={value => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, resolveTimelineSortBasis(value))}
+          />
+          <SelectSettingRow
+            id="day-view-timeline-direction"
+            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Timeline order"
+            value={timelineDirection}
+            options={[{ value: 'desc', label: 'Newest first' }, { value: 'asc', label: 'Oldest first' }]}
+            onChange={value => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, resolveTimelineDirection(value))}
+          />
+          <SelectSettingRow
+            id="task-completion-sort"
+            icon={<ListFilter size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Categories and Backlogs task order"
+            value={taskSortMode}
+            options={[
+              { value: 'manual', label: 'Manual' },
+              { value: 'completed-first', label: 'Completed first' },
+              { value: 'completed-last', label: 'Completed last' },
+            ]}
+            onChange={(value) => void setSetting(
+              TASK_COMPLETION_SORT_SETTING_KEY,
+              resolveTaskCompletionSortMode(value) as TaskCompletionSortMode
+            )}
+          />
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Layout & categories</h2>
           <SelectSettingRow
             id="day-detail-presentation" icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Open day details as" value={dayDetailPresentation}
@@ -562,6 +551,52 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             options={[{ value: 'grid', label: 'Match month grid (default)' }, { value: 'screen', label: 'Screen height' }]}
             onChange={value => void setSetting(DAY_PANEL_HEIGHT_SETTING_KEY, resolveDayPanelHeight(value))}
           />
+          <SettingsRow
+            icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show Today tag beside date header"
+            showChevron={false}
+            isToggle
+            checked={showDayViewTodayTag}
+            onClick={() =>
+              void setSetting(
+                SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
+                !showDayViewTodayTag
+              )
+            }
+          />          <SettingsRow
+            icon={<ListPlus size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Always show Add category in Day View"
+            showChevron={false}
+            isToggle
+            checked={alwaysShowAddCategory}
+            onClick={() => void setSetting(
+              SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, !alwaysShowAddCategory
+            )}
+          />          <SettingsRow
+            icon={<ChevronsUpDown size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show collapse button for categories"
+            showChevron={false}
+            isToggle
+            checked={showCategoryCollapse}
+            onClick={() =>
+              void setSetting(
+                SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+                !showCategoryCollapse
+              )
+            }
+          />          <p className="px-4 py-2 text-xs text-gray-400">Categories and Backlogs preserve manual task order within completion groups. Timeline Newest/Oldest sorts dates within groups.</p>
+        </section>
+        <nav aria-label="Related preferences" className="py-2">
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Related settings</h2>
+          <SettingsRow icon={<ListPlus size={18} aria-hidden="true" />} label="Tasks & Categories" onClick={() => navigate('/settings/preferences/tasks', { state: makeRouteParentState('/settings/preferences/day-view') })} />
+          <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Calendar" onClick={() => navigate('/settings/preferences/calendar', { state: makeRouteParentState('/settings/preferences/day-view') })} />
+        </nav>
+        </>)}
+        {section === 'calendar' && (<>
+        <section className="border-b border-[#333333] py-2">
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            Calendar
+          </h2>
           <SelectSettingRow
             id="calendar-zoom-days"
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
@@ -620,19 +655,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
               )
             }
           />
-          <SettingsRow
-            icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Show Today tag beside date header"
-            showChevron={false}
-            isToggle
-            checked={showDayViewTodayTag}
-            onClick={() =>
-              void setSetting(
-                SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
-                !showDayViewTodayTag
-              )
-            }
-          />
+
           <SettingsRow
             icon={<CalendarDays size={18} className="text-red-400" aria-hidden="true" />}
             label="Show holidays"
