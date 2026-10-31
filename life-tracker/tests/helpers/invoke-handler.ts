@@ -185,6 +185,7 @@ const MockQuery = {
   orderAsc: (field: string) => ({ op: 'orderAsc', field }),
   orderDesc: (field: string) => ({ op: 'orderDesc', field }),
   cursorAfter: (id: string) => ({ op: 'cursorAfter', id }),
+  startsWith: (key: string, value: string) => ({ op: 'startsWith', key, value }),
   greaterThan: (key: string, value: unknown) => ({
     op: 'greaterThan',
     key,
