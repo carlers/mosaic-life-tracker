@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, HardDrive, Images, RefreshCw, Trash2 } from 'lucide-react';
+import { ChevronLeft, Cloud, HardDrive, Images, RefreshCw, Trash2 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { useAuth } from '../hooks/useAuth';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { clearAllCachedImages } from '../lib/imageCache';
 import { readDeviceStorageUsage, type DeviceStorageUsage } from '../lib/deviceStorageUsage';
+import type { CloudMediaInventory, CloudMediaKind } from '../lib/cloudMediaUsage';
 
 function formatBytes(bytes: number | null | undefined): string {
   if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) return 'Unavailable';
@@ -24,7 +25,14 @@ export function StoragePage() {
   const { user } = useAuth();
   const ownerId = user?.$id ?? '';
   const ownerRef = useRef(ownerId);
-  useEffect(() => { ownerRef.current = ownerId; }, [ownerId]);
+  const cloudScanRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    ownerRef.current = ownerId;
+    return () => {
+      cloudScanRef.current?.abort();
+      cloudScanRef.current = null;
+    };
+  }, [ownerId]);
   const navigate = useNavigate();
   const location = useLocation();
   const [refreshIndex, setRefreshIndex] = useState(0);
@@ -33,6 +41,7 @@ export function StoragePage() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [cloudReport, setCloudReport] = useState<{ ownerId: string; loading: boolean; error: string; data: CloudMediaInventory | null } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -47,7 +56,42 @@ export function StoragePage() {
   const loading = Boolean(ownerId && report?.key !== requestKey);
   const current = report?.key === requestKey && report.usage?.ownerId === ownerId ? report.usage : null;
   const downloaded = current?.downloadedImages;
+  const visibleCloud = cloudReport?.ownerId === ownerId ? cloudReport : null;
+  const cloudBusy = Boolean(visibleCloud?.loading);
   const canClear = Boolean(ownerId && downloaded && downloaded.count > 0 && !loading && !clearing);
+
+  const handleCloudCheck = async () => {
+    if (!ownerId || cloudBusy) return;
+    const requestOwner = ownerId;
+    cloudScanRef.current?.abort();
+    const controller = new AbortController();
+    cloudScanRef.current = controller;
+    setCloudReport({ ownerId: requestOwner, loading: true, error: '', data: null });
+    try {
+      const { scanOwnerReferencedCloudMedia } = await import('../lib/cloudMediaUsage');
+      if (controller.signal.aborted) return;
+      const data = await scanOwnerReferencedCloudMedia(requestOwner, controller.signal);
+      if (!controller.signal.aborted && ownerRef.current === requestOwner) {
+        setCloudReport({ ownerId: requestOwner, loading: false, error: '', data });
+      }
+    } catch {
+      if (!controller.signal.aborted && ownerRef.current === requestOwner) {
+        setCloudReport({
+          ownerId: requestOwner, loading: false,
+          error: 'Cloud photos could not be checked. Verify your connection and sign-in.',
+          data: null,
+        });
+      }
+    } finally {
+      if (cloudScanRef.current === controller) cloudScanRef.current = null;
+    }
+  };
+
+  const cloudKindName = (kind: CloudMediaKind) =>
+    kind === 'tasks' ? 'Task photos'
+      : kind === 'diary' ? 'Diary photos'
+        : kind === 'profile' ? 'Profile photos'
+          : 'Referenced in multiple places';
 
   const handleBack = () => {
     if (hasExpectedRouteParent(location.key, location.state, '/settings/data')) {
@@ -123,6 +167,62 @@ export function StoragePage() {
               <p className="mt-1 text-xs text-gray-400">Protected offline files — not removed by cache cleanup. Other pending synced work is not included.</p>
             </div>
           </div>
+        </section>
+        <section className="border-b border-[#333333] px-4 py-5" aria-label="Referenced cloud photos">
+          <div className="mb-3 flex items-center gap-2">
+            <Cloud size={18} aria-hidden="true" />
+            <h2 className="font-semibold">Referenced cloud photos</h2>
+          </div>
+          <p className="mb-4 text-sm leading-relaxed text-gray-400">
+            Check photos referenced by your synced tasks, Diary and profile. This is not your
+            full account storage usage or a cloud quota. Unreferenced, missing and chat files are excluded.
+            No files are downloaded or deleted.
+          </p>
+          <button type="button" disabled={!ownerId || cloudBusy}
+            onClick={() => void handleCloudCheck()}
+            className="w-full rounded-xl border border-[#333333] bg-surface px-4 py-3 text-sm font-medium disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+            {cloudBusy ? 'Checking cloud photos…' : 'Check referenced cloud photos'}
+          </button>
+          {cloudBusy && <p role="status" className="mt-3 text-sm text-gray-400">Reading owner-referenced cloud metadata…</p>}
+          {visibleCloud?.error && <p role="status" className="mt-3 text-sm text-red-400">{visibleCloud.error}</p>}
+          {visibleCloud?.data && (
+            <div className="mt-4 space-y-3">
+              <dl className="space-y-2 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <dt>Verified referenced subtotal</dt>
+                  <dd className="font-semibold">{formatBytes(visibleCloud.data.verified.bytes)}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt>Verified files</dt><dd>{visibleCloud.data.verified.count}</dd>
+                </div>
+                {(['tasks', 'diary', 'profile', 'multiple'] as const).map(kind => (
+                  <div className="flex items-center justify-between gap-3" key={kind}>
+                    <dt>{cloudKindName(kind)}</dt>
+                    <dd>{formatBytes(visibleCloud.data!.byKind[kind].bytes)} · {visibleCloud.data!.byKind[kind].count}</dd>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-3">
+                  <dt>Unavailable or unverified files</dt><dd>{visibleCloud.data.unavailable}</dd>
+                </div>
+              </dl>
+              {(visibleCloud.data.truncated || visibleCloud.data.unavailable > 0) && (
+                <p role="status" className="text-xs text-gray-400">Partial inventory: additional referenced files may exist or be unavailable. These totals are not exhaustive.</p>
+              )}
+              {visibleCloud.data.largest.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold">Largest verified photos</h3>
+                  <ol className="space-y-1 text-sm text-gray-400">
+                    {visibleCloud.data.largest.map((entry, index) => (
+                      <li className="flex justify-between gap-3" key={index}>
+                        <span>{cloudKindName(entry.kind)}</span><span>{formatBytes(entry.bytes)}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+              <p className="text-xs text-gray-400">Last checked: {new Date(visibleCloud.data.checkedAt).toLocaleString()} · Read-only, reference-backed estimate.</p>
+            </div>
+          )}
         </section>
         <div className="px-4 py-4">
           <button type="button" disabled={loading || clearing} onClick={() => setRefreshIndex((value) => value + 1)}
