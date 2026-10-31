@@ -33,7 +33,7 @@ describe('diary reference and reaction security', () => {
     expect(accepted.createRow).not.toHaveBeenCalled();
   });
 
-  it('copies the current diary excerpt server-side, not the quoted client text', async () => {
+  it('does not persist diary excerpts even when old clients send them', async () => {
     const db = acceptedDb();
     const result = await invoke({ userId: caller, mockDb: db, body: {
       action: 'deliver', messageId: 'msg_diary_accepted', recipientId: owner,
@@ -46,9 +46,40 @@ describe('diary reference and reaction security', () => {
       tableId: 'messages',
       data: expect.objectContaining({
         diary_ref_id: diary.$id, diary_ref_owner_id: owner,
-        diary_ref_excerpt: 'Original diary content', content: 'My actual reply',
+        diary_ref_excerpt: '', content: 'My actual reply',
       }),
     }));
+  });
+
+  it('returns diary previews only for currently visible entries owned by message participants', async () => {
+    const db = acceptedDb();
+    const message = {
+      $id: 'msg_diary_preview', user_id: caller, deleted: false,
+      sender_id: caller, recipient_id: owner, diary_ref_id: diary.$id,
+      diary_ref_owner_id: owner, diary_ref_date: diary.date,
+    };
+    db.getRow.mockImplementation(({ tableId }: { tableId: string }) =>
+      Promise.resolve(tableId === 'messages' ? message : diary));
+    const allowed = await invoke({ userId: caller, mockDb: db,
+      body: { action: 'get_diary_reference_previews', messageIds: [message.$id] } });
+    expect(allowed.status).toBe(200);
+    expect(allowed.body.previews[message.$id]).toEqual({
+      date: diary.date, excerpt: 'Original diary content',
+    });
+
+    db.getRow.mockImplementation(({ tableId }: { tableId: string }) =>
+      Promise.resolve(tableId === 'messages' ? message : { ...diary, visibility: 'private' }));
+    const denied = await invoke({ userId: caller, mockDb: db,
+      body: { action: 'get_diary_reference_previews', messageIds: [message.$id] } });
+    expect(denied.status).toBe(200);
+    expect(denied.body.previews).toEqual({});
+
+    db.getRow.mockImplementation(({ tableId }: { tableId: string }) =>
+      Promise.resolve(tableId === 'messages' ? { ...message, user_id: 'another' } : diary));
+    const forged = await invoke({ userId: caller, mockDb: db,
+      body: { action: 'get_diary_reference_previews', messageIds: [message.$id] } });
+    expect(forged.status).toBe(200);
+    expect(forged.body.previews).toEqual({});
   });
 
   it('denies cross-owner reaction summaries without querying actor identities', async () => {
