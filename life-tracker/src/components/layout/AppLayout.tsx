@@ -15,6 +15,7 @@ import {
 } from './routeModuleLoaders';
 import {
   preloadPrimaryRoute,
+  preloadSettingsSubpages,
 } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
 import { matchProtectedRoute, protectedRouteSwipeMode, protectedRouteHidesBottomNav } from '../../lib/protectedRoutes';
@@ -278,6 +279,17 @@ export const AppLayout: React.FC = () => {
     const timer = window.setTimeout(preload, 180);
     return () => window.clearTimeout(timer);
   }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, user?.$id]);
+
+  useEffect(() => {
+    if (!user?.$id || path !== '/settings') return;
+    const preload = () => preloadSettingsSubpages();
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(preload, { timeout: 400 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timer = window.setTimeout(preload, 120);
+    return () => window.clearTimeout(timer);
+  }, [path, user?.$id]);
 
   if (!user && isOffline) {
     const headline =
