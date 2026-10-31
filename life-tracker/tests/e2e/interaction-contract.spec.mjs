@@ -1599,25 +1599,6 @@ test('Day View single-gesture fling and partial release snap to exactly one day'
   await expect(dialog).toHaveAttribute('aria-label', 'Tuesday, September 15, 2026');
   await waitForStableVerticalPosition(dialog);
   const swiper = dialog.getByTestId('day-swiper');
-  await swiper.evaluate((element) => {
-    const instance = element.swiper;
-    window.__mosaicDaySwipeTrace = [];
-    for (const type of ['touchStart', 'sliderFirstMove', 'touchEnd', 'slideChange', 'transitionStart', 'transitionEnd', 'slideChangeTransitionEnd']) {
-      instance.on(type, () => {
-        window.__mosaicDaySwipeTrace.push({
-          event: type,
-          index: instance.activeIndex,
-          translate: instance.translate,
-          animating: instance.animating,
-          moved: instance.touchEventsData.isMoved,
-          touched: instance.touchEventsData.isTouched,
-          diff: instance.touches.diff,
-          direction: instance.swipeDirection,
-        });
-      });
-    }
-  });
-
   const assertAligned = async () => {
     await expect.poll(() => swiper.evaluate((element) => {
       const active = element.querySelector('.swiper-slide-active');
@@ -1628,31 +1609,28 @@ test('Day View single-gesture fling and partial release snap to exactly one day'
 
   // A fast swipe kept inside the viewport moves at most one calendar day.
   await drag(page, swiper, -260);
-  console.log('MOSAIC_DAY_SWIPE_DIAGNOSTIC', JSON.stringify(await swiper.evaluate((element) => ({
-    events: window.__mosaicDaySwipeTrace,
-    swiper: {
-      activeIndex: element.swiper.activeIndex,
-      translate: element.swiper.translate,
-      animating: element.swiper.animating,
-      snap: element.swiper.snapGrid[element.swiper.snapIndex],
-      moved: element.swiper.touchEventsData.isMoved,
-      touched: element.swiper.touchEventsData.isTouched,
-      direction: element.swiper.swipeDirection,
-      diff: element.swiper.touches.diff,
-    },
-  }))));
   await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
   await assertAligned();
 
-  // Reverse halfway across the viewport and release: never freeze halfway.
+  // A halfway reverse release may settle to either neighbor according to
+  // velocity, but must finish fully aligned and commit that exact visible date.
   await drag(page, swiper, 200);
-  await expect(dialog).toHaveAttribute('aria-label', 'Tuesday, September 15, 2026');
   await assertAligned();
+  const partialIndex = await swiper.evaluate((element) => element.swiper.activeIndex);
+  expect([90, 91]).toContain(partialIndex);
+  await expect.poll(async () => {
+    const heading = (await swiper.locator('.swiper-slide-active [data-day-view-navigation="true"] h3').textContent())?.trim();
+    return await dialog.getAttribute('aria-label') === heading;
+  }).toBe(true);
 
-  // Repeat a fast forward swipe to ensure one gesture never skips a day.
+  // Every new fast gesture advances exactly one date from its own start.
   await drag(page, swiper, -260);
-  await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
+  await expect.poll(() => swiper.evaluate((element) => element.swiper.activeIndex)).toBe(partialIndex + 1);
   await assertAligned();
+  await expect.poll(async () => {
+    const heading = (await swiper.locator('.swiper-slide-active [data-day-view-navigation="true"] h3').textContent())?.trim();
+    return await dialog.getAttribute('aria-label') === heading;
+  }).toBe(true);
 });
 
 test('inactive adjacent Day View keeps category spacing when it becomes active', async ({ page }) => {

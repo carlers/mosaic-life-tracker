@@ -582,12 +582,14 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     reducedMotion,
     slideCount: slideDates.length,
   });
-  daySwipeConditionsRef.current = {
-    reorderActive: isTaskReorderActive,
-    carried: Boolean(continuousDrag.carried),
-    reducedMotion,
-    slideCount: slideDates.length,
-  };
+  React.useLayoutEffect(() => {
+    daySwipeConditionsRef.current = {
+      reorderActive: isTaskReorderActive,
+      carried: Boolean(continuousDrag.carried),
+      reducedMotion,
+      slideCount: slideDates.length,
+    };
+  }, [isTaskReorderActive, continuousDrag.carried, reducedMotion, slideDates.length]);
 
   const handleDayTouchStart = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
     const state = daySwipeConditionsRef.current;
@@ -631,25 +633,21 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   useEffect(() => {
     const onPointerUp = (event: PointerEvent) => {
       const start = daySwipeStartRef.current;
-      if (start && start.pointerId === event.pointerId) settleDayTouch();
+      if (start && (start.pointerId === event.pointerId || event.isPrimary)) settleDayTouch();
     };
     const onPointerCancel = (event: PointerEvent) => {
       const start = daySwipeStartRef.current;
-      if (start && start.pointerId === event.pointerId) settleDayTouch(true);
+      if (start && (start.pointerId === event.pointerId || event.isPrimary)) settleDayTouch(true);
     };
     const onTouchEnd = (event: TouchEvent) => {
       const start = daySwipeStartRef.current;
-      if (start && start.touchId !== null &&
-          Array.from(event.changedTouches).some(touch => touch.identifier === start.touchId)) {
-        settleDayTouch();
-      }
+      // Swiper Virtual may drop its touch identifier when the source slide
+      // changes underneath the finger. Wait until the final touch lifts.
+      if (start && event.touches.length === 0) settleDayTouch();
     };
     const onTouchCancel = (event: TouchEvent) => {
       const start = daySwipeStartRef.current;
-      if (start && start.touchId !== null &&
-          Array.from(event.changedTouches).some(touch => touch.identifier === start.touchId)) {
-        settleDayTouch(true);
-      }
+      if (start && event.touches.length === 0) settleDayTouch(true);
     };
     // Window capture runs before Swiper's own document touch-end listeners,
     // including when Virtual swaps the active slide during finger tracking.
