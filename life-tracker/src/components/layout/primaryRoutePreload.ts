@@ -1,3 +1,4 @@
+import { resolvePrimarySwipeDestination } from '../../lib/primarySwipeNavigation';
 import {
   preloadHomeRoutePage,
   preloadAccountRoutePage,
