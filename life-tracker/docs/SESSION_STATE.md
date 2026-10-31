@@ -1,3 +1,15 @@
+# Task checkpoint — #1026 seven independent P1 switches v0.57.0
+Updated: 2026-11-01 Asia/Manila
+
+- Owner accepted P1a TodoMate import Preview v0.55.0 and authorized a larger batch of registry features; not authorized to promote this batch to dev/main/Production or modify stored user data.
+- Exact source baseline: `feature/1026-todomate-import-control-v0550-20261101@a753bf6f027722aa08d2b4be2c79d2664e99929f` (TodoMate flag included). Dev remains v0.54.0 at task start. v0.56.0 reserved by concurrent category retirement Preview; allocate v0.57.0 to this new Preview.
+- New independent opt-out controls: Timeline layout fallback, holiday labels, Calendar pinch gesture, profile photo uploads, Profile sharing, friend discovery and sticker-pack discovery. All default available when unset/offline; do not change user preferences, historical media, queued data, installed packs, existing friend relationships, or ongoing social sync. Timeline fallback must not rewrite saved setting; photo removal must remain available. Friend search is blocked at hook initiation; pack install at mutation handler.
+- Code scope: typed registry, affected views/hooks/commands, operator documentation, targeted tests and synchronized v0.57.0. No backend or access-right changes.
+- Delivery: focused task CI, squash to `feature/1026-p1-seven-controls-v0570-20261101`, full canonical CI and Vercel Scratch READY. Register seven new all-user PostHog flags in verified project 619969 **inactive** only after successful Preview acceptance; never activate or modify existing flags without user instruction.
+- Later separately planned: Bucket List, direct messages, social/reactions, alerts, push and task sharing require deeper safe activity suppression; no user data deletion on disable. Original six P0 flags merged dev via PR #1528; TodoMate v0.55.0 not merged to dev.
+
+---
+
 # Task checkpoint — #1026 registry Phase 2a TodoMate import v0.55.0
 Updated: 2026-11-01 Asia/Manila
 

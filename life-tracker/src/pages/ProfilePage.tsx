@@ -7,11 +7,14 @@ import { EditDescriptionSheet } from '../components/modals/EditDescriptionSheet'
 import { ImagePickerSheet } from '../components/home/views/ImagePickerSheet';
 import { SetUsernameSheet } from '../components/modals/SetUsernameSheet';
 import { useProfile } from '../hooks/useProfile';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 import { useMyProfile } from '../hooks/useMyProfile';
 import { buildProfileShareData, shareProfile } from '../lib/profileShare';
 import { hasExpectedRouteParent, resolveRouteParent } from '../lib/primarySwipeNavigation';
 
 export const ProfilePage: React.FC = () => {
+  const profileSharingEnabled = useFeatureEnabled('profileSharing');
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -41,6 +44,7 @@ export const ProfilePage: React.FC = () => {
     }
   };
   const handleShare = async () => {
+    if (!isFeatureEnabled('profileSharing')) return;
     const result = await shareProfile(buildProfileShareData(
       window.location.origin,
       profile?.username,
@@ -65,7 +69,7 @@ export const ProfilePage: React.FC = () => {
             <ChevronLeft size={20} />
           </button>
           <h1 className="text-lg font-bold text-white flex-1">Profile</h1>
-          <button
+          {profileSharingEnabled && <button
             type="button"
             onClick={handleShare}
             onPointerDown={(e) => e.stopPropagation()}
@@ -73,7 +77,7 @@ export const ProfilePage: React.FC = () => {
             aria-label="Share profile"
           >
             <Share2 size={18} />
-          </button>
+          </button>}
         </div>
       </div>
 

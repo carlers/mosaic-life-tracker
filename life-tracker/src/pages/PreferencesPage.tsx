@@ -37,6 +37,7 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
@@ -273,6 +274,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const showTaskCreatedTime = getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
   const showTaskCompletedTime = getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
   const timestampLabelStyle = resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons'));
+  const timelineModeEnabled = useFeatureEnabled('timelineMode');
   const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
   const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
@@ -493,30 +495,30 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         {section === 'day-view' && (<>
         <section className="border-b border-[#333333] py-2" aria-label="Day View">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Display & sorting</h2>
-          <SelectSettingRow
+          {timelineModeEnabled && <SelectSettingRow
             id="day-view-default-mode"
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Day View display"
             value={dayViewMode}
             options={[{ value: 'categories', label: 'Categories' }, { value: 'timeline', label: 'Timeline' }]}
             onChange={value => void setSetting(DAY_VIEW_MODE_SETTING_KEY, resolveDayViewMode(value))}
-          />
-          <SelectSettingRow
+          />}
+          {timelineModeEnabled && <SelectSettingRow
             id="day-view-timeline-sort-basis"
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Timeline arrangement"
             value={timelineSortBasis}
             options={[{ value: 'completion', label: 'Completed first' }, { value: 'completion-last', label: 'Completed last' }, { value: 'creation', label: 'Creation date' }]}
             onChange={value => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, resolveTimelineSortBasis(value))}
-          />
-          <SelectSettingRow
+          />}
+          {timelineModeEnabled && <SelectSettingRow
             id="day-view-timeline-direction"
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Timeline order"
             value={timelineDirection}
             options={[{ value: 'desc', label: 'Newest first' }, { value: 'asc', label: 'Oldest first' }]}
             onChange={value => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, resolveTimelineDirection(value))}
-          />
+          />}
           <SelectSettingRow
             id="task-completion-sort"
             icon={<ListFilter size={18} className="text-gray-400" aria-hidden="true" />}

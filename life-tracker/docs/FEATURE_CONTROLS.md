@@ -16,6 +16,13 @@ project/rollout determines which clients receive the change.
 | Diary photo uploads | `mosaic_disable_diary_photo_upload` | New diary photo selection and save |
 | GIPHY search | `mosaic_disable_giphy_search` | GIPHY tab, search request and new GIPHY sends |
 | TodoMate import | `mosaic_disable_todomate_import` | New TodoMate transfer previews and import starts, while preserving existing data and an import already applying |
+| Timeline mode | `mosaic_disable_timeline_mode` | Hide Timeline controls and fall back to Categories in Day View; retain saved mode and sort settings |
+| Holiday indicators | `mosaic_disable_holiday_indicators` | Hide fetched holidays in Calendar and Day View without changing the user's country/visibility preference |
+| Calendar pinch gestures | `mosaic_disable_calendar_pinch_zoom` | Disable Calendar pinch interaction; retain current zoom preference and explicit layout choices |
+| Profile photo uploads | `mosaic_disable_profile_photo_upload` | Block new profile photo uploads while preserving existing photo and Remove action |
+| Profile sharing | `mosaic_disable_profile_sharing` | Hide Profile's Share action and prevent initiating new share |
+| Friend discovery | `mosaic_disable_friend_discovery` | Hide Explore search and block new lookup requests; leave friends, requests and messaging alone |
+| Sticker-pack discovery | `mosaic_disable_sticker_pack_discovery` | Hide pack Discover and install/remove controls; keep installed packs, sends and GIPHY available |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.
@@ -28,6 +35,15 @@ uses the locally enabled default. Therefore, this is **not** a security or
 instant revocation mechanism.
 
 **TodoMate import contract:** Disabling this switch hides the Settings entry and prevents new transfer previews or new import starts. A transfer already applying must be allowed to finish to avoid a partial migration. No local imported rows, resumable import markers, or offline sync work are deleted by the switch.
+
+**Batch P1 preservation contract:** Operator controls override **presentation or initiation** only.
+Timeline's existing preferences are not overwritten; on re-enable, the stored layout
+restores. Holiday and Calendar user preferences are retained. Profile photo removal
+remains available when new uploads are blocked. Friend discovery does not disable
+existing contacts, requests, account blocking, messages, or their sync. Sticker-pack
+discovery hides the catalog/install actions without deleting installed pack IDs or
+preventing existing stickers from being sent. These controls are not privacy,
+authorization, or data-retention enforcement.
 
 **Data-preservation contract:** Never erase task/diary photos when uploads are
 disabled. Existing images can still be viewed/removed; already queued offline

@@ -48,7 +48,8 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
 }) => {
   const { user } = useAuth();
   const taskPhotoUploadEnabled = useFeatureEnabled('taskPhotoUpload');
-  const canUpload = variant === 'profile' || taskPhotoUploadEnabled;
+  const profilePhotoUploadEnabled = useFeatureEnabled('profilePhotoUpload');
+  const canUpload = variant === 'profile' ? profilePhotoUploadEnabled : taskPhotoUploadEnabled;
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,8 +63,10 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (variant === 'task' && !isFeatureEnabled('taskPhotoUpload')) {
-      setError('Task photo uploads are currently unavailable.');
+    if (!isFeatureEnabled(variant === 'profile' ? 'profilePhotoUpload' : 'taskPhotoUpload')) {
+      setError(variant === 'profile'
+        ? 'New profile photo uploads are currently unavailable.'
+        : 'Task photo uploads are currently unavailable.');
       return;
     }
     setIsUploading(true);
@@ -94,7 +97,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
         <p className="text-sm text-gray-400 text-center">
           {canUpload
             ? 'Images are compressed on-device and sync automatically when online.'
-            : 'New task photo uploads are currently unavailable. Existing photos are preserved.'}
+            : 'New photo uploads are currently unavailable. Existing photos are preserved.'}
         </p>
 
         <SheetErrorBanner message={error} />

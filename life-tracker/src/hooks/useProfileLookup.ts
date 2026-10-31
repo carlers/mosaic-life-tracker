@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { searchProfiles, type ProfileCard } from '../lib/social';
 import { useAuth } from './useAuth';
 import { useConnectivity } from './useConnectivity';
+import { useFeatureEnabled } from './useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 
 export interface UseProfileLookupReturn {
   results: ProfileCard[];
@@ -13,6 +15,7 @@ export interface UseProfileLookupReturn {
 }
 
 export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
+  const discoveryEnabled = useFeatureEnabled('friendDiscovery');
   const { user } = useAuth();
   const userId = user?.$id;
   const connectivity = useConnectivity();
@@ -34,6 +37,7 @@ export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
   }
 
   const setQuery = useCallback((q: string) => {
+    if (!isFeatureEnabled('friendDiscovery')) return;
     setQueryState(q);
     const trimmed = q.trim();
     if (!trimmed) {
@@ -57,13 +61,13 @@ export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
     if (timerRef.current) clearTimeout(timerRef.current);
 
     const trimmed = query.trim();
-    if (!trimmed || !userId) return;
+    if (!discoveryEnabled || !trimmed || !userId) return;
 
     const uid = userId;
     let effectIsActive = true;
 
     timerRef.current = setTimeout(async () => {
-      if (!effectIsActive) return;
+      if (!effectIsActive || !isFeatureEnabled('friendDiscovery')) return;
 
       if (connectivity.status !== 'online') {
         setError('You need to be online to search.');
@@ -88,7 +92,13 @@ export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
       effectIsActive = false;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [connectivity.status, query, userId, debounceMs]);
+  }, [connectivity.status, query, userId, debounceMs, discoveryEnabled]);
 
-  return { results, isSearching, error, query, setQuery, clear };
+  return {
+    results: discoveryEnabled ? results : [],
+    isSearching: discoveryEnabled && isSearching,
+    error: discoveryEnabled ? error : null,
+    query: discoveryEnabled ? query : '',
+    setQuery, clear,
+  };
 }
