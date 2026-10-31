@@ -456,7 +456,8 @@ describe('diary RxDB replication pilot', () => {
     getRowMock.mockResolvedValue(remoteDiary({
       visibility: 'followers', content: 'Local entry',
     }));
-    sendAppActionMock.mockResolvedValue({ ok: true, nextCursor: '' });
+    sendAppActionMock.mockResolvedValueOnce({ ok: true, nextCursor: '' })
+      .mockResolvedValueOnce({ status: 'updated' });
     await __diaryReplicationPilotTestUtils.pushDiary([{
       newDocumentState: localDiary({
         visibility: 'private', updatedAt: '2026-10-02T00:00:05.000Z',
@@ -471,7 +472,8 @@ describe('diary RxDB replication pilot', () => {
     getRowMock.mockResolvedValue(remoteDiary({
       visibility: 'followers', content: 'Local entry',
     }));
-    sendAppActionMock.mockResolvedValue({ ok: true, nextCursor: '' });
+    sendAppActionMock.mockResolvedValueOnce({ ok: true, nextCursor: '' })
+      .mockResolvedValueOnce({ status: 'updated' });
     await __diaryReplicationPilotTestUtils.pushDiary([{
       newDocumentState: localDiary({
         visibility: 'followers', isDeleted: true,
