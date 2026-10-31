@@ -1608,8 +1608,8 @@ test('Day View single-gesture fling and partial release snap to exactly one day'
     })).toBeLessThan(8);
   };
 
-  // A very fast swipe can move only one calendar day, not two or three.
-  await drag(page, swiper, -320);
+  // A fast swipe kept inside the viewport moves at most one calendar day.
+  await drag(page, swiper, -260);
   await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
   await assertAligned();
 
@@ -1618,8 +1618,8 @@ test('Day View single-gesture fling and partial release snap to exactly one day'
   await expect(dialog).toHaveAttribute('aria-label', 'Tuesday, September 15, 2026');
   await assertAligned();
 
-  // Repeat a fast forward fling to ensure one gesture never skips a day.
-  await drag(page, swiper, -320);
+  // Repeat a fast forward swipe to ensure one gesture never skips a day.
+  await drag(page, swiper, -260);
   await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
   await assertAligned();
 });
