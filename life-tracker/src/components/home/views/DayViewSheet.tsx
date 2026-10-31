@@ -1214,7 +1214,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         initialSlide={initialIndex}
         speed={reducedMotion ? 0 : DAY_SWIPER_TRANSITION_SPEED_MS}
         onSlideChange={handleSlideChangeFromUi}
-        onSlideChangeTransitionEnd={handleSwipeSettledFromUi}
+        // FreeMode updates the active slide after transitionStart. Swiper may
+        // emit transitionEnd without slideChangeTransitionEnd, so observe the
+        // general completion signal to commit the visible date after inertia.
+        onTransitionEnd={reducedMotion ? undefined : handleSwipeSettledFromUi}
+        onSlideChangeTransitionEnd={reducedMotion ? handleSwipeSettledFromUi : undefined}
         data-testid="day-swiper"
         data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
         className={`min-w-0 w-full max-w-full overflow-hidden ${renderMode === 'inline' ? '' : 'flex-1'}`}
