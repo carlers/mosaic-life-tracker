@@ -8,6 +8,8 @@ behind a completed promotion.
 
 Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
 
+Cloud storage deletion research: [Cloud media lifecycle safety contract](CLOUD_MEDIA_LIFECYCLE.md) — Phase 3, non-destructive foundation.
+
 ## Task-to-context shortcuts
 
 Read the [agent entrypoint](../AGENTS.md), then the **smallest relevant set** below.

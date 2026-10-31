@@ -1,3 +1,13 @@
+# Task checkpoint — #1478 Phase 3 safe lifecycle policy foundation (NON-DESTRUCTIVE)
+Updated: 2026-11-01 Asia/Manila
+
+- Owner asked to merge Phase 2 to dev and proceed with Phase 3. Phase 2 v0.51.1 had already merged via PR #1522, and subsequent dev advanced independently to `029b5cb758e1180b595c9b3f6c3822eb3a995675` v0.54.0. Do not create a redundant Phase 2 merge or disturb newer dev changes. `main` remains `8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89`.
+- Phase 3 user request authorizes work, but issue #1478 and repo safety gates reserve destructive storage deletion, cloud policy activation and Production for separately reviewed authorization and compatibility evidence. This slice adds pure server-only lifecycle evidence classification and handler tests, not a route, worker, bucket mutation, schema change or user-facing UI. Version impact NONE.
+- Task `chatgpt/1478-lifecycle-policy-foundation-20261101` begins on exact dev `029b5cb758e1180b595c9b3f6c3822eb3a995675`; stable `feature/1478-lifecycle-policy-foundation-20261101`. Read `docs/CLOUD_MEDIA_LIFECYCLE.md` for required ownership-index/coverage/grace/recheck acceptance. Every policy outcome preserves files and never authorizes deletion.
+- Deliver focused task CI, squash stable Preview, full canonical backend/compatibility gate and Vercel non-Production READY. Owner did not authorize this Phase 3 Preview to dev or main. Follow-up server-authoritative provenance and deletion worker need separate review, Scratch three-account/privacy/old-PWA tests and explicit deletion authorization.
+
+---
+
 # Task checkpoint — #1026 Feature Controls dev reconciliation v0.54.0
 Updated: 2026-11-01 Asia/Manila
 
