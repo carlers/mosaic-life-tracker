@@ -19,10 +19,31 @@ describe('Day View timeline projection', () => {
   const newer = task('c', '2026-10-20T10:00:00.000Z');
   const legacy = task('d', '2026-10-20T09:00:00.000Z', true);
   const invalid = task('e', 'not-a-date');
-  it('sorts by completion time for completed tasks and creation otherwise', () => {
+  it('groups completed tasks first and sorts chronologically within each status', () => {
     const original = [older, completed, newer, legacy, invalid];
-    expect(sortTasksByTimeline(original, 'desc').map(t => t.id)).toEqual(['b', 'c', 'd', 'a', 'e']);
-    expect(sortTasksByTimeline(original, 'asc').map(t => t.id)).toEqual(['a', 'd', 'c', 'b', 'e']);
+    expect(sortTasksByTimeline(original, 'desc').map(t => t.id)).toEqual(['b', 'd', 'c', 'a', 'e']);
+    expect(sortTasksByTimeline(original, 'asc').map(t => t.id)).toEqual(['d', 'b', 'a', 'c', 'e']);
+    expect(original.map(t => t.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
+  });
+  it('keeps completed tasks contiguous across completion/creation timestamp collisions', () => {
+    const completedOld = task('completedOld', '2026-10-20T06:00:00.000Z', true, '2026-10-20T07:00:00.000Z');
+    const incompleteMiddle = task('incompleteMiddle', '2026-10-20T11:00:00.000Z');
+    const completedNew = task('completedNew', '2026-10-20T08:00:00.000Z', true, '2026-10-20T14:00:00.000Z');
+    const incompleteNew = task('incompleteNew', '2026-10-20T15:00:00.000Z');
+    const input = [completedOld, incompleteMiddle, completedNew, incompleteNew];
+    expect(sortTasksByTimeline(input, 'desc', 'completion').map(t => t.id))
+      .toEqual(['completedNew', 'completedOld', 'incompleteNew', 'incompleteMiddle']);
+    expect(sortTasksByTimeline(input, 'asc', 'completion').map(t => t.id))
+      .toEqual(['completedOld', 'completedNew', 'incompleteMiddle', 'incompleteNew']);
+    expect(input.map(t => t.id))
+      .toEqual(['completedOld', 'incompleteMiddle', 'completedNew', 'incompleteNew']);
+  });
+  it('supports completed last with oldest completed at the bottom in newest mode', () => {
+    const original = [older, completed, newer, legacy, invalid];
+    expect(sortTasksByTimeline(original, 'desc', 'completion-last').map(t => t.id))
+      .toEqual(['c', 'a', 'e', 'b', 'd']);
+    expect(sortTasksByTimeline(original, 'asc', 'completion-last').map(t => t.id))
+      .toEqual(['a', 'c', 'e', 'd', 'b']);
     expect(original.map(t => t.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
   });
   it('can prioritize creation timestamps without mutating the saved task order', () => {
@@ -61,5 +82,6 @@ describe('Day View timeline projection', () => {
     expect(resolveTimelineDirection('unexpected')).toBe('desc');
     expect(resolveTimelineSortBasis('unexpected')).toBe('completion');
     expect(resolveTimelineSortBasis('creation')).toBe('creation');
+    expect(resolveTimelineSortBasis('completion-last')).toBe('completion-last');
   });
 });

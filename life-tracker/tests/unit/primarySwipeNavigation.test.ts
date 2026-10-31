@@ -72,7 +72,7 @@ describe('resolvePrimarySwipeDestination', () => {
       '/home', '/bucket-list/:id', '/bucket-list', '/backlog', '/explore', '/friends/:friendId', '/notifications',
       '/messages', '/messages/:friendId', '/account', '/settings',
       '/settings/account', '/settings/data', '/settings/about', '/settings/releases', '/settings/preferences',
-      '/settings/preferences/appearance', '/settings/preferences/tasks', '/settings/preferences/calendar',
+      '/settings/preferences/appearance', '/settings/preferences/tasks', '/settings/preferences/day-view', '/settings/preferences/calendar',
       '/settings/preferences/diary', '/settings/preferences/navigation',
       '/settings/notifications', '/settings/screen', '/settings/*', '/profile',
     ]);
@@ -100,6 +100,11 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(matchProtectedRoute('/friends/')?.id).toBeUndefined();
     expect(matchProtectedRoute('/settings/preferences')?.id).toBe('preferences');
     expect(matchProtectedRoute('/settings/preferences/tasks')?.id).toBe('preferenceTasks');
+    expect(matchProtectedRoute('/settings/preferences/day-view')?.id).toBe('preferenceDayView');
+    expect(resolveRouteParent('/settings/preferences/day-view', { parentPath: '/home' })).toBe('/home');
+    expect(resolveRouteParent('/settings/preferences/day-view', { parentPath: '/unsafe' })).toBe('/settings/preferences');
+    expect(resolveRouteParent('/settings/preferences/tasks', { parentPath: '/settings/preferences/day-view' }))
+      .toBe('/settings/preferences/day-view');
     expect(resolveRouteParent('/profile')).toBe('/settings/account');
     expect(resolveRouteParent('/profile', { parentPath: '/settings' })).toBe('/settings');
     expect(matchProtectedRoute('/settings/notifications')?.id).toBe('notificationSettings');
