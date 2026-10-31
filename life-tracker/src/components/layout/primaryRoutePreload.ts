@@ -55,11 +55,15 @@ export function getPrimaryRoutePreloadTargets(pathname: string): string[] {
   );
 }
 
-export function preloadPrimaryRoute(pathname: string | null) {
-  if (!pathname || !isPreloadPath(pathname)) return;
-  void PRELOADERS[pathname]().catch((error) => {
-    console.warn('[PrimaryRoutePreview] preload failed:', error);
-  });
+export function preloadPrimaryRoute(pathname: string | null): Promise<boolean> {
+  if (!pathname || !isPreloadPath(pathname)) return Promise.resolve(false);
+  return PRELOADERS[pathname]().then(
+    () => true,
+    (error: unknown) => {
+      console.warn('[PrimaryRoutePreview] preload failed:', error);
+      return false;
+    }
+  );
 }
 
 // Warm Settings modules only after visiting Settings; do not add them to
