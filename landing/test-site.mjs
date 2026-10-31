@@ -10,7 +10,7 @@ const config = JSON.parse(readFileSync(join(root, 'vercel.json'), 'utf8'));
 const mustHave = ['<html lang="en">', '<title>', 'name="description"', 'id="main"', 'id="features"', 'id="project"', 'id="development"', 'Skip to main content', 'role="img"', 'not an app screenshot'];
 assert(html.includes('class="ui-month-grid"'), 'Missing calendar month illustration');
 assert(html.includes('October 2026'), 'Missing calendar context');
-assert(html.includes('fictional sample tasks'), 'Preview must disclose sample data');
+assert(html.includes('fictional, nonpersonal tasks'), 'Preview must disclose sample data');
 assert(!html.includes('@testy') && !html.includes('Bulk API probe'), 'Unexpected private screenshot content');
 // The site's source-of-truth logo must remain byte-for-byte identical to Mosaic's shipped icon.
 assert.equal(readFileSync(join(root,'favicon.svg'),'utf8'), readFileSync(join(root,'../life-tracker/public/favicon.svg'),'utf8'), 'Landing logo diverged from Mosaic logo');
