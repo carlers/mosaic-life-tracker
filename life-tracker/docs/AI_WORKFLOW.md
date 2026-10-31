@@ -86,12 +86,62 @@ Every squash/promotion merge should have a descriptive `commit_title` and `commi
 | Codex local/IDE | Direct edits and focused terminal checks | Same checkout or pushed task commit |
 | Codex cloud | Direct edits; inspect available network/tools | Pushed commit or exported exact files |
 | Chat with GitHub access | Read exact branch/SHA; edit and inspect Actions only if those tools exist | GitHub reference packet |
+| Chat with Vercel Sandbox | Remote isolated terminal with a reviewed exact-SHA checkout; check credentials independently | Git-owned verification and stopped sandbox |
 | Chat without repository access | Supplied exact files; never claim executed checks | File packet and complete-file installer |
 
 A connector name does not prove write, Actions, or deployment access. Inspect actual
 tools once, use those available, and report specific missing capabilities. Read-only
 connected chats can review/plan; implementation returns the file bundle below.
 No environment change alters scope, data rules, or verification requirements.
+
+## Vercel Sandbox execution in connected Chat
+
+**Required preflight:** If an authorized task needs Git, npm, shell tests or
+Scratch backend CLI operations, inspect the Vercel Sandbox tools before
+claiming that the chat cannot execute commands or asking the owner to run them.
+Look for `list_sessions`, `list_named_sandboxes`, `create_sandboxes_v4`,
+`run_session_command`, `get_session_command_logs` and `stop_session`.
+Never infer capabilities merely from a connector name; probe actual available
+tools once. If an appropriately authorized Sandbox is already running, inspect
+it; otherwise create a disposable one.
+
+**Verified 2026-10-31:** Mosaic Vercel project
+`prj_jysOLDbuO9c5rP8x6Q145DVIw0fc` has prior October 22 and October 31
+Sandbox sessions. A fresh `mosaic-1461-scratch-ops-probe-20261031` sandbox
+cloned public Git source `https://github.com/carlers/mosaic-life-tracker.git`
+at reviewed SHA `faae41b5bf93e72f4c9b6f8ec75bef720966c4b8`,
+`persistent: false`, Frankfurt region, restricted egress to GitHub, npm
+and `fra.cloud.appwrite.io`. A real Bash/Git command confirmed a clean
+checkout at `/vercel/mosaic-life-tracker` and the Scratch Appwrite endpoint
+was reachable (unauthenticated HTTP 401). Default cwd `/vercel` is **not**
+the repository; discover and set the actual cwd before executing commands.
+
+1. Verify latest Git branch/SHA, issue, task permissions, target Vercel project,
+   and Scratch isolation. Create an **ephemeral exact-SHA** sandbox with a
+   narrow network allowlist. Do not use Production for Preview testing.
+2. Use `run_session_command` with explicit cwd for safe Git-owned source,
+   Node, npm, test and readiness commands; retrieve exit codes and logs.
+   Stop the sandbox at handoff. Never leave private information in logs,
+   branches, snapshots or artifacts.
+3. **Shell access is not backend authorization.** A fresh Sandbox does not
+   inherit `APPWRITE_API_KEY` from the Appwrite connector or Vercel Preview:
+   the verified probe had no such key. Check only key **presence**, never
+   output secrets. Do not retrieve credentials from old sandboxes, Production,
+   project build variables or other unauthorized stores. An approved
+   Scratch-scoped secret must be provisioned through a secure, authorized path
+   before executing privileged mutations.
+4. If that credential exists and target/approval checks pass, follow
+   [Scratch Preview Workflow](SCRATCH_PREVIEW_WORKFLOW.md) and
+   [Appwrite backend workflow](APPWRITE_BACKEND_WORKFLOW.md) for additive
+   migrations, inactive exact-SHA Function deployment, explicit activation,
+   controlled historical scrub and synthetic two-account acceptance.
+   Scratch is shared across Preview branches; preserve existing clients,
+   single-writer rules and Production isolation. If the credential is absent,
+   finish safe read-only checks and report **missing credential**, not
+   **missing terminal**, as the specific blocker.
+
+This is a repeatable **execution path**, not a standing grant of secret,
+database, Production or release authority.
 
 ## GitHub connector call budget
 
