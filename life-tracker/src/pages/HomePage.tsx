@@ -14,6 +14,7 @@ import { PersonCarousel } from '../components/home/PersonCarousel';
 import { PersonPane } from '../components/home/PersonPane';
 import { preloadTodoListView } from '../components/home/views/todoListViewModule';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
@@ -39,6 +40,7 @@ function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
+  const taskSearchEnabled = useFeatureEnabled('taskSearch');
   const location = useLocation();
   const {
     persons,
@@ -166,6 +168,7 @@ export const HomePage: React.FC = () => {
   }, []);
 
   const handleOpenSearch = useCallback(() => {
+    if (!taskSearchEnabled) return;
     setActivePersonId('me');
     if (!searchHistoryEntryRef.current) {
       window.history.pushState(
@@ -176,12 +179,21 @@ export const HomePage: React.FC = () => {
       searchHistoryEntryRef.current = true;
     }
     setIsSearchOpen(true);
-  }, []);
+  }, [taskSearchEnabled]);
 
   const handleCloseSearch = useCallback(() => {
     if (searchHistoryEntryRef.current) window.history.back();
     else setIsSearchOpen(false);
   }, []);
+
+  useEffect(() => {
+    if (taskSearchEnabled) return;
+    if (isSearchOpen) handleCloseSearch();
+    if (searchDaySheetOpen) {
+      searchDaySheetOpenRef.current = false;
+      setSearchDaySheetOpen(false);
+    }
+  }, [taskSearchEnabled, isSearchOpen, searchDaySheetOpen, handleCloseSearch]);
 
   useEffect(() => {
     if (!isSearchOpen) return;
@@ -266,7 +278,7 @@ export const HomePage: React.FC = () => {
     const onKeyDown = (event: KeyboardEvent) => {
       // Slash retains its native typing/overlay exclusions before the
       // modifier-gated Home shortcuts share this one listener.
-      if (event.key === '/') {
+      if (event.key === '/' && taskSearchEnabled) {
         if (event.defaultPrevented || event.isComposing ||
           event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
           (event.target instanceof Element && event.target.closest(
@@ -300,7 +312,7 @@ export const HomePage: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [shortcutsEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
+  }, [shortcutsEnabled, taskSearchEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
 
   return (
     <>
@@ -320,7 +332,7 @@ export const HomePage: React.FC = () => {
           trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} />}
         />
 
-        <div inert={isSearchOpen} className="flex-1 min-h-0 flex flex-col relative">
+        <div inert={isSearchOpen && taskSearchEnabled} className="flex-1 min-h-0 flex flex-col relative">
           <div className="flex-shrink-0">
             <PersonCarousel
               persons={persons}
@@ -364,7 +376,7 @@ export const HomePage: React.FC = () => {
         </div>
         </div>
         <div
-          inert={isSearchOpen}
+          inert={isSearchOpen && taskSearchEnabled}
           data-home-panel-slot="true"
           className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
         />

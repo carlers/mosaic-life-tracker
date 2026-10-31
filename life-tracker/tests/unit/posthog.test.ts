@@ -217,6 +217,25 @@ describe('PostHog adapter', () => {
     );
   });
 
+  it('keeps the last remote kill-switch value across a failed refresh without flicker', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      flags: { mosaic_disable_task_search: { enabled: true, variant: null } },
+    }));
+    const adapter = await loadAdapter();
+    await adapter.initializePostHog();
+    await vi.waitFor(() => expect(adapter.getPostHogFeatureFlagState('mosaic_disable_task_search').enabled).toBe(true));
+
+    fetchMock.mockRejectedValueOnce(new Error('offline'));
+    window.dispatchEvent(new Event('online'));
+    // Values stay available during refresh, even if the request fails.
+    expect(adapter.getPostHogFeatureFlagState('mosaic_disable_task_search').enabled).toBe(true);
+    await vi.waitFor(() => expect(adapter.getPostHogFeatureFlagState('mosaic_disable_task_search')).toEqual({
+      enabled: true,
+      isLoaded: true,
+      hasError: true,
+    }));
+  });
+
   it('installs only browser error, rejection, and reconnect listeners', async () => {
     const addEventListener = vi.fn();
     const removeEventListener = vi.fn();

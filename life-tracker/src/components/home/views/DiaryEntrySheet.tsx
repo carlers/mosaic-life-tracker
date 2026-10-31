@@ -6,6 +6,8 @@ import { ReactionRow } from '../../messages/ReactionRow';
 import { EmojiPickerSheet } from '../../messages/EmojiPickerSheet';
 import { parseReactions, hasUserReacted } from '../../../lib/reactionUtils';
 import { useAuth } from '../../../hooks/useAuth';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../../lib/featureControls';
 import { parseDiaryPhotos, serializeDiaryPhotos } from '../../../lib/diaryPhotos';
 import { saveDiaryImage } from '../../../lib/storage';
 import { DiaryPhotoGallery } from './DiaryPhotoGallery';
@@ -39,6 +41,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
 }) => {
   const { user } = useAuth();
+  const diaryPhotoUploadEnabled = useFeatureEnabled('diaryPhotoUpload');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoIds, setPhotoIds] = useState(() => parseDiaryPhotos(entry?.photos));
   const [uploading, setUploading] = useState(false);
@@ -90,6 +93,10 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   };
   const uploadPhotos = async (files: FileList | null) => {
     if (!files?.length || !user?.$id || uploading) return;
+    if (!isFeatureEnabled('diaryPhotoUpload')) {
+      setError('Diary photo uploads are currently unavailable.');
+      return;
+    }
     const selected = Array.from(files).slice(0, 5 - photoIds.length);
     if (!selected.length) { setError('Maximum five diary photos.'); return; }
     setUploading(true); setError('');
@@ -167,12 +174,12 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                   ]}
                 />
               </div>
-              <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+              {diaryPhotoUploadEnabled && <><input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                 aria-label="Choose diary photos" onChange={e => void uploadPhotos(e.target.files)}/>
               <button type="button" disabled={busy || uploading || photoIds.length >= 5} onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-2 rounded-lg p-2 text-sm text-gray-300 disabled:opacity-40">
                 <ImagePlus size={19}/> {uploading ? 'Uploading…' : `Add photos (${photoIds.length}/5)`}
-              </button>
+              </button></>}
               <DiaryPhotoGallery date={date} photoIds={photoIds} editable onChange={setPhotoIds}/>
               <textarea aria-label="Diary text" value={body} onChange={e=>setBody(e.target.value)}
                 placeholder="How was your day?" className="min-h-28 flex-1 resize-none rounded-xl bg-transparent p-2 text-base text-white outline-offset-2"

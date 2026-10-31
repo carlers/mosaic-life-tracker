@@ -1,6 +1,7 @@
 import React, { Suspense, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import type { HomeTaskSearchProps } from './HomeTaskSearchExpanded';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 
 // Keep the search icon, sync status and hamburger in the first Home paint.
 // Only the search form/results and ranking code are deferred until needed.
@@ -10,7 +11,9 @@ const LazyExpandedSearch = React.lazy(() => loadSearch().then(
 ));
 
 export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
+  const taskSearchEnabled = useFeatureEnabled('taskSearch');
   useEffect(() => {
+    if (!taskSearchEnabled) return;
     // Cache the optional search module after Home becomes usable, never on
     // the initial route's critical synchronous import graph.
     if (typeof window === 'undefined') return;
@@ -23,9 +26,9 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
     }
     const id = window.setTimeout(warm, 900);
     return () => window.clearTimeout(id);
-  }, []);
+  }, [taskSearchEnabled]);
 
-  if (props.isOpen) {
+  if (props.isOpen && taskSearchEnabled) {
     return (
       <Suspense fallback={
         <div data-route-swipe-zone="home-to-explore"
@@ -53,7 +56,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
             {props.statusControls}
           </div>
         )}
-        <div data-route-swipe-ignore="true" className="shrink-0">
+        {taskSearchEnabled && <div data-route-swipe-ignore="true" className="shrink-0">
           <button type="button" onClick={props.onOpen}
             onPointerDown={() => { void loadSearch().catch(() => {}); }}
             onMouseEnter={() => { void loadSearch().catch(() => {}); }}
@@ -62,7 +65,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
             aria-label="Search tasks">
             <Search size={20} aria-hidden="true" />
           </button>
-        </div>
+        </div>}
         <div data-route-swipe-ignore="true" className="shrink-0">{props.trailing}</div>
       </div>
     </div>
