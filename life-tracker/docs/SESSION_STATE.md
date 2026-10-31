@@ -1,4 +1,16 @@
 # Session checkpoint
+Updated: 2026-10-31 Asia/Manila
+Current task: #1388 Calendar View full-page task-heavy scroll cut-off; previous accepted Preview v0.43.10 failed real-user acceptance.
+
+## #1388 follow-up — v0.43.11 candidate
+- Owner screenshot on 2026-10-31 shows October 2026's lower calendar weeks cut off at bottom nav, with an outer and inner vertical scrollbar. Treat v0.43.10 as unsuccessful until real device verification; no `dev`/`main` promotion.
+- Starting baseline: stable `fix/calendar-long-grid-scroll-20261027@9a84855b7f293fd6ca5dfef23e7e5af5c376360a`; task `chatgpt/1388-scroll-wheel-repro-v04311-20261031`. Patch candidate `0.43.11` avoids reusing the accepted 0.43.10 identity.
+- Browser contract must render actual MainLayout/Swiper/CalendarBody/bottom navigation, with tall *middle* week and sparse *last* week. Trigger native wheel/touch scroll rather than directly assigning scrollTop; confirm final row is visible above fixed nav at 2048px and mobile 412px, with 7/3-day modes and one vertical scroll owner.
+- Backend/data scope: none. Keep source changes frontend-only and do not merge into protected `dev` or `main` without new explicit approval.
+- Verification intentionally pending until exact-SHA focused, full canonical, and Vercel Preview results are inspected. Physical desktop + phone scroll acceptance remains manual and required.
+- Next: complete diagnostic browser verification and correction, then task PR -> stable Preview canonical + Vercel; share exact Preview link and unresolved manual checks.
+
+## Previous checkpoint
 Updated: 2026-10-27 Asia/Manila
 Current task: #1388 Calendar View task-heavy month scroll reachability.
 

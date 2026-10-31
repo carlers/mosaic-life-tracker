@@ -22,6 +22,16 @@ for (const viewport of [
       const bottomNav = page.getByRole('navigation', { name: 'Main' });
       await expect(finalTask).toHaveCount(1);
       await expect(bottomNav).toBeVisible();
+      const mainScroller = page.locator('[data-mosaic-main-scroll="true"]');
+      await expect.poll(() => mainScroller.evaluate(el => el.scrollHeight - el.clientHeight))
+        .toBeGreaterThan(50);
+      const homeHeader = await page.getByTestId('home-identity-header').boundingBox();
+      if (!homeHeader) throw new Error('Missing Home header');
+      await page.mouse.move(homeHeader.x + 20, homeHeader.y + 20);
+      await page.mouse.wheel(0, 450);
+      expect(await mainScroller.evaluate(el => el.scrollTop))
+        .toBe(0);
+
       const geometry = await slide.evaluate(el => ({
         client: el.clientHeight,
         scroll: el.scrollHeight,
