@@ -1230,7 +1230,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           className="rounded-lg px-2 py-1 text-xs text-gray-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
         >Close</button>
       </div>
-      <Suspense fallback={null}>
+      <Suspense fallback={<p className="text-xs text-gray-300">N: New task in the focused category</p>}>
         <LazyDayKeyboardHelpShortcuts isBacklogView={isBacklogView} />
       </Suspense>
     </div>
