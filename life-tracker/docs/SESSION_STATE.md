@@ -1,3 +1,14 @@
+# Task checkpoint — v0.49.1 Day View bounded momentum + task photo drag, reconciled for approved dev promotion
+Updated: 2026-11-01 Asia/Manila
+
+- Owner accepted the original one-day momentum and native image drag Preview `fix/dayview-single-day-snap-photo-v0447-20261031@73692710122bd47b1ff5b0e28a6e963465701a7e` (canonical #41216695153 SUCCESS, matching trusted Vercel READY), reported smoother real mobile feel, explicitly authorized promotion to `dev` and requested remaining-work audit. No `main` or Production approval.
+- Original candidate `chatgpt/dayview-swipe-forward-v0491-20261101@fb561ee1a95a192ef7584878c6951901baa81462` came from `dev@410e2fdb750dde09ca3f0519e20773e2e8579eca` v0.49.0. Before promotion dev advanced to `7ac1a99427750a95c1d9c3da0593f72c650214e4` via docs-only PR #1501 (Vercel Sandbox execution rule), with no application or version change. Do not overwrite the new docs or promote the stale candidate.
+- Reconciled task `chatgpt/dayview-swipe-reconciled-v0491-20261101` and stable `fix/dayview-swipe-integrated-current-v0491-20261101` start from the new dev head and apply the exact unchanged eight application/test/version blobs from the first integration, plus this updated checkpoint. v0.49.1 PATCH stays above dev v0.49.0. Preserve modern Day View settings shortcut, Timeline Completed-first/last, keyboard/mobile behavior, uncompleted/search work and docs-only Vercel Sandbox procedure.
+- Carried source scope: Swiper FreeMode finger tracking, one-day gesture cap, velocity-dependent complete snap on pointer/touch end/cancel with stale input-ID reset; unchanged held-task cross-day navigation and 181 logical/virtual window; task photo `draggable={false}`/dragstart prevention. Carried regressions: DOM photo interaction, Swiper performance mock, browser repeated/fast/half-released/distant-day swipe, parent-date and held task drag.
+- Require task focused+browser CI, integrated stable full canonical/size/READY, verify exact current dev/Preview tree and no drift, then owner-approved stable Preview → dev PR. No Production operation. After merge, audit remaining touch/device/WebKit/performance issues without unapproved scope expansion.
+
+---
+
 # Task checkpoint — Vercel Sandbox operational path for #1461
 Updated: 2026-10-31 Asia/Manila
 
