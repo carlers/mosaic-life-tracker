@@ -8,6 +8,7 @@ import {
   Bell,
   Megaphone,
   Info,
+  Bug,
   LogOut,
   Database,
   Trash2,
@@ -33,6 +34,7 @@ import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 import { TodoMateImportSheet } from '../components/modals/TodoMateImportSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
+import { BugReportSheet } from '../components/modals/BugReportSheet';
 import { useAppearance } from '../hooks/useAppearance';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { searchSettings, useSettingsTargetFocus } from '../lib/settingsSearch';
@@ -69,6 +71,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isTodoMateImportOpen, setIsTodoMateImportOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [isApplyingUpdate, setIsApplyingUpdate] = useState(false);
   const [updateStage, setUpdateStage] = useState<
@@ -450,6 +453,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               )}
             </div>
           )}
+          <SettingsRow icon={<Bug size={18} aria-hidden="true" />} label="Report a bug" onClick={() => setIsBugReportOpen(true)} />
           <SettingsRow icon={<Megaphone size={18} aria-hidden="true" />} label="Announcements" value="Coming soon" onClick={handleComingSoon} />
           <a data-setting-label="GitHub repository" href="https://github.com/carlers/mosaic-life-tracker" target="_blank" rel="noopener noreferrer" className="block px-4 py-3 text-base font-medium text-white hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60">GitHub repository</a>
         </section>
@@ -594,6 +598,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
         isOpen={isSyncStatusOpen}
         onClose={() => setIsSyncStatusOpen(false)}
       />
+      <BugReportSheet isOpen={isBugReportOpen} onClose={() => setIsBugReportOpen(false)} userId={user?.$id ?? null} />
       {feedback && (
         <div
           role="status"
