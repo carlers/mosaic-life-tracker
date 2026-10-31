@@ -1,3 +1,13 @@
+# Task checkpoint — #1461 diary quote privacy v0.45.1 forward-port for testing
+Updated: 2026-10-31 Asia/Manila
+
+- User authorized readiness for testing; dev is now `343b857fa43d26e7afc7b7f6de81ac479416bba2` v0.45.0 (task search pagination), superseding older v0.44.4 base. Forward-port the full privacy fix without replacing Home task-search changes. Candidate Preview v0.45.1.
+- Prior #1461 source `2661098e50c9ebc55eaaa51486032d1f9a493b79` passed focused 2,134/2,134 tests; new source adds atomic diary-quote epoch fences, current epoch publication for friends, fail-closed pending visibility, Scratch-only dry-run historical redaction, and skip unneeded owner-revision rereads.
+- Required: focused CI for exact forward-port, full canonical stable Preview, Scratch schema migration 016 and Function deployment/activation, historical-data scrub, synthetic two-account Diary/Chat check, Vercel READY and human/device acceptance. Scratch OAuth connector is currently read-only; no Appwrite writes or Production edits performed.
+- No dev/main merge or Production changes authorized.
+
+---
+
 # Task checkpoint — #1466 Home task search incremental results v0.45.0
 Updated: 2026-10-31 Asia/Manila
 

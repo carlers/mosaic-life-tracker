@@ -202,6 +202,15 @@ async function listAllRows(tablesDB, tableId, baseQueries, log, maxPages = 100) 
   }
   return all;
 }
+// A privacy change publishes a server-owned revocation fence first.
+// While its owner CAS is pending, fail closed for all friend diary reads.
+function isDiaryQuoteRevocationPending(diary) {
+  if (!diary?.quote_revoke_revision) return false;
+  const fence = Date.parse(diary.quote_revoke_revision);
+  const published = Date.parse(diary.updated_at || '');
+  return !Number.isFinite(fence) || !Number.isFinite(published) || fence > published;
+}
+
 async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.messageId)) {
@@ -231,6 +240,9 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const vDiaryRefOwnerId = validateOptionalString(p.diaryRefOwnerId, 36);
   const vDiaryRefDate = validateOptionalString(p.diaryRefDate, 10);
   const vDiaryRefExcerpt = validateOptionalString(p.diaryRefExcerpt, 160);
+  const diaryRefEpoch = p.diaryRefEpoch ?? 0;
+  if (!Number.isInteger(diaryRefEpoch) || diaryRefEpoch < 0 || diaryRefEpoch > 2147483647)
+    return { status: 400, body: { error: 'Invalid diary quote epoch' } };
   const vReplyToId = validateOptionalString(p.replyToId, 255);
   const vReplyToContent = validateOptionalString(p.replyToContent, 300);
   const vReplyToSenderId = validateOptionalString(p.replyToSenderId, 255);
@@ -264,7 +276,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const diaryRefId = vDiaryRefId.value;
   const diaryRefOwnerId = vDiaryRefOwnerId.value;
   const diaryRefDate = vDiaryRefDate.value;
-  let diaryRefExcerpt = '';
+  const diaryRefExcerpt = ''; // never store copied diary content in chat
   const replyToId = vReplyToId.value;
   const replyToContent = vReplyToContent.value;
   const replyToSenderId = vReplyToSenderId.value;
@@ -288,11 +300,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       !/^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(diaryRefDate) ||
       hasTaskRef) return { status: 400, body: { error: 'Invalid diary reference' } };
     const diary = await findVisibleFriendDiary(tablesDB, senderId, diaryRefId, diaryRefOwnerId);
-    if (!diary || diary.date !== diaryRefDate)
+    if (!diary || isDiaryQuoteRevocationPending(diary) || diary.date !== diaryRefDate || (diary.quote_epoch || 0) !== diaryRefEpoch)
       return { status: 403, body: { error: 'Diary no longer available' } };
-    diaryRefExcerpt = String(diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
-      String(diary.emoji || '').slice(0, 32) || 'Diary photos';
-  } else if (diaryRefOwnerId || diaryRefDate || vDiaryRefExcerpt.value) {
+    // Live previews are resolved through a separately authorized read.
+  } else if (diaryRefOwnerId || diaryRefDate || vDiaryRefExcerpt.value || diaryRefEpoch) {
     return { status: 400, body: { error: 'Incomplete diary reference' } };
   }
   const recipientRowId = makeRecipientRowId(messageId);
@@ -387,6 +398,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           diary_ref_owner_id: diaryRefOwnerId,
           diary_ref_date: diaryRefDate,
           diary_ref_excerpt: diaryRefExcerpt,
+          diary_ref_epoch: diaryRefEpoch,
         reply_to_id: replyToId,
         reply_to_content: replyToContent,
         reply_to_sender_id: replyToSenderId,
@@ -427,6 +439,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           diary_ref_owner_id: diaryRefOwnerId,
           diary_ref_date: diaryRefDate,
           diary_ref_excerpt: diaryRefExcerpt,
+          diary_ref_epoch: diaryRefEpoch,
           reply_to_id: replyToId,
           reply_to_content: replyToContent,
           reply_to_sender_id: replyToSenderId,
@@ -558,6 +571,29 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
     } catch {
       return { status: 503, body: { error: 'Chat source verification failed' } };
     }
+    // Repair must not reconstruct a diary reference revoked after the source
+    // message was delivered. The missing peer may be an older offline copy.
+    let repairedDiaryDate = '';
+    if (isValidRowId(row.diary_ref_id) &&
+        (row.diary_ref_owner_id === senderId || row.diary_ref_owner_id === recipientId)) {
+      let currentDiary = null;
+      try {
+        currentDiary = await tablesDB.getRow({
+          databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: row.diary_ref_id,
+        });
+      } catch (cause) {
+        if (Number(cause?.code) !== 404)
+          return { status: 503, body: { error: 'Chat diary reference unavailable' } };
+      }
+      if (currentDiary && currentDiary.user_id === row.diary_ref_owner_id &&
+          currentDiary.deleted !== true &&
+          ['public', 'followers'].includes(currentDiary.visibility) &&
+          currentDiary.date === row.diary_ref_date &&
+          !isDiaryQuoteRevocationPending(currentDiary) &&
+          (currentDiary.quote_epoch || 0) === (row.diary_ref_epoch || 0)) {
+        repairedDiaryDate = currentDiary.date;
+      }
+    }
     const now = new Date().toISOString();
     const data = {
       user_id: targetOwner, thread_id: threadId,
@@ -567,6 +603,11 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
       task_ref_title: row.task_ref_title || '',
       task_ref_date: row.task_ref_date || '',
       task_ref_color: row.task_ref_color || '',
+      diary_ref_id: row.diary_ref_id || '',
+      diary_ref_owner_id: row.diary_ref_owner_id || '',
+      diary_ref_date: repairedDiaryDate,
+      diary_ref_excerpt: '',
+      diary_ref_epoch: row.diary_ref_epoch || 0,
       reply_to_id: row.reply_to_id || '',
       reply_to_content: row.reply_to_content || '',
       reply_to_sender_id: row.reply_to_sender_id || '',
@@ -887,6 +928,10 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
     task_ref_title: '',
     task_ref_date: '',
     task_ref_color: '',
+    diary_ref_id: '',
+    diary_ref_owner_id: '',
+    diary_ref_date: '',
+    diary_ref_excerpt: '',
     reply_to_id: '',
     reply_to_content: '',
     reply_to_sender_id: '',
@@ -1292,6 +1337,7 @@ async function findVisibleFriendDiary(tablesDB, callerId, diaryId, ownerId) {
   try { row = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId }); }
   catch { return null; }
   if (row.user_id !== ownerId || row.deleted === true ||
+    isDiaryQuoteRevocationPending(row) ||
     !['public','followers'].includes(row.visibility)) return null;
   return row;
 }
@@ -1340,7 +1386,7 @@ async function handleReactToDiary(tablesDB, callerId, payload, log, error) {
       messageId, recipientId: ownerId,
       content: `Reacted ${valid.value} to your diary`,
       diaryRefId: diaryId, diaryRefOwnerId: ownerId, diaryRefDate: diary.date,
-      createdAt: eventAt,
+      createdAt: eventAt, diaryRefEpoch: diary.quote_epoch || 0,
     }, log, error);
     if (delivery.status !== 200) return delivery;
   }
@@ -1402,6 +1448,141 @@ async function handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload) {
   const buffer = await storage.getFileDownload({ bucketId: DIARY_PHOTOS_BUCKET, fileId });
   return { status: 200, body: { mimeType: 'image/webp', data: Buffer.from(buffer).toString('base64') } };
 }
+// Only the diary owner can revoke references. The epoch invalidates old
+// messages *before* their stored excerpts are scrubbed, including delayed
+// sends and temporarily disconnected readers using the updated client.
+async function handleRevokeDiaryReferences(tablesDB, callerId, payload) {
+  const diaryId = payload?.diaryId;
+  const revision = payload?.revision;
+  const cursor = payload?.cursor || '';
+  if (!isValidRowId(diaryId) || (cursor && !isValidRowId(cursor)) ||
+      typeof revision !== 'string' || revision.length > 50 ||
+      !Number.isFinite(Date.parse(revision)))
+    return { status: 400, body: { error: 'Invalid diary revocation' } };
+  let diary;
+  try {
+    diary = await tablesDB.getRow({
+      databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId,
+    });
+  } catch (cause) {
+    if (Number(cause?.code) === 404)
+      return { status: 404, body: { error: 'Diary unavailable' } };
+    throw cause;
+  }
+  if (diary.user_id !== callerId)
+    return { status: 403, body: { error: 'Not your diary' } };
+  let epoch = diary.quote_epoch || 0;
+  if (diary.quote_revoke_revision !== revision) {
+    const olderOrEqual = Number.isFinite(Date.parse(diary.updated_at || '')) &&
+      Date.parse(revision) <= Date.parse(diary.updated_at);
+    if (olderOrEqual || (diary.quote_revoke_revision &&
+        revision <= diary.quote_revoke_revision)) {
+      return { status: 409, body: { error: 'Stale diary revision' } };
+    }
+    if (!Number.isSafeInteger(epoch) || epoch < 0 || epoch >= 2147483647)
+      return { status: 409, body: { error: 'Invalid diary epoch' } };
+    epoch += 1;
+    // Atomic revision/owner predicate avoids concurrent epoch increments.
+    const applied = await tablesDB.updateRows({
+      databaseId: DATABASE_ID, tableId: DIARY_TABLE,
+      queries: [
+        Query.equal('$id', diaryId),
+        Query.equal('user_id', callerId),
+        Query.equal('$updatedAt', diary.$updatedAt),
+      ],
+      data: { quote_epoch: epoch, quote_revoke_revision: revision },
+    });
+    if (applied.total !== 1)
+      return { status: 409, body: { error: 'Concurrent diary revocation; retry' } };
+  }
+  const queries = [
+    Query.equal('diary_ref_id', diaryId),
+    Query.orderAsc('$id'), Query.limit(50),
+  ];
+  if (cursor) queries.push(Query.cursorAfter(cursor));
+  const result = await tablesDB.listRows({
+    databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, queries,
+  });
+  const rows = result.rows || [];
+  if (rows.length > 50) throw Error('Invalid diary quote scan page');
+  let scrubbed = 0;
+  for (const row of rows) {
+    if (row.diary_ref_owner_id !== callerId ||
+        (row.diary_ref_epoch || 0) >= epoch ||
+        (!row.diary_ref_excerpt && !row.diary_ref_date)) continue;
+    await tablesDB.updateRow({
+      databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: row.$id,
+      data: { diary_ref_excerpt: '', diary_ref_date: '',
+        updated_at: new Date().toISOString() },
+    });
+    scrubbed += 1;
+  }
+  const last = rows.at(-1);
+  return {
+    status: 200,
+    body: {
+      ok: true, epoch, scrubbed,
+      nextCursor: rows.length === 50 && last?.$id ? last.$id : '',
+    },
+  };
+}
+
+// Resolve quote contents from current authorization, never from snapshots.
+async function handleGetDiaryReferencePreviews(tablesDB, callerId, payload) {
+  const ids = payload?.messageIds;
+  if (!Array.isArray(ids) || ids.length > 25 ||
+      ids.some(id => !isValidRowId(id)) || new Set(ids).size !== ids.length)
+    return { status: 400, body: { error: 'Invalid diary message IDs' } };
+  const previews = {};
+  const friendships = new Map();
+  const diaries = new Map();
+  for (const id of ids) {
+    let message;
+    try {
+      message = await tablesDB.getRow({
+        databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: id,
+      });
+    } catch (cause) {
+      if (Number(cause?.code) === 404) continue;
+      throw cause;
+    }
+    if (!message || message.user_id !== callerId || message.deleted === true ||
+        message.is_unsent === true || !isValidRowId(message.diary_ref_id) ||
+        !isValidRowId(message.diary_ref_owner_id) ||
+        !/^\d{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(message.diary_ref_date || '')) continue;
+    const ownerId = message.diary_ref_owner_id;
+    if (ownerId !== message.sender_id && ownerId !== message.recipient_id) continue;
+    if (ownerId !== callerId) {
+      if (!friendships.has(ownerId))
+        friendships.set(ownerId, await verifyFriendship(tablesDB, callerId, ownerId));
+      if (!friendships.get(ownerId)) continue;
+    }
+    if (!diaries.has(message.diary_ref_id)) {
+      let row = null;
+      try {
+        row = await tablesDB.getRow({
+          databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: message.diary_ref_id,
+        });
+      } catch (cause) {
+        if (Number(cause?.code) !== 404) throw cause;
+      }
+      diaries.set(message.diary_ref_id, row);
+    }
+    const diary = diaries.get(message.diary_ref_id);
+    if (!diary || diary.user_id !== ownerId || diary.deleted === true ||
+        isDiaryQuoteRevocationPending(diary) ||
+        !['public', 'followers'].includes(diary.visibility) ||
+        diary.date !== message.diary_ref_date ||
+        (message.diary_ref_epoch || 0) !== (diary.quote_epoch || 0)) continue;
+    previews[id] = {
+      date: diary.date,
+      excerpt: String(diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
+        String(diary.emoji || '').slice(0, 32) || 'Diary photos',
+    };
+  }
+  return { status: 200, body: { previews } };
+}
+
 async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error) {
   const friendUserId = payload?.friendUserId;
   const month = payload?.month;
@@ -1427,10 +1608,12 @@ async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error
   const entries = rows.filter(row =>
     row.user_id === friendUserId && row.deleted !== true &&
     row.date >= month + '-01' && row.date < nextMonth &&
-    (row.visibility === 'public' || row.visibility === 'followers')
+    (row.visibility === 'public' || row.visibility === 'followers') &&
+    !isDiaryQuoteRevocationPending(row)
   ).map(row => ({
     $id: row.$id, user_id: row.user_id, date: row.date,
     content: row.content || '', emoji: row.emoji || '', photos: row.photos || '[]', visibility: row.visibility,
+    quote_epoch: row.quote_epoch || 0,
     created_at: row.created_at || row.$createdAt || '',
     updated_at: row.updated_at || row.$updatedAt || '',
     deleted: false,
@@ -1768,6 +1951,12 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'get_friend_diary_photo':
         result = await handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload);
+        break;
+      case 'revoke_diary_references':
+        result = await handleRevokeDiaryReferences(tablesDB, callerId, payload);
+        break;
+      case 'get_diary_reference_previews':
+        result = await handleGetDiaryReferencePreviews(tablesDB, callerId, payload);
         break;
       case 'get_friend_diary_month':
         result = await handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error);
