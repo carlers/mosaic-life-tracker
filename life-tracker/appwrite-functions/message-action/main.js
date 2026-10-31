@@ -562,6 +562,28 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
     } catch {
       return { status: 503, body: { error: 'Chat source verification failed' } };
     }
+    // Repair must not reconstruct a diary reference revoked after the source
+    // message was delivered. The missing peer may be an older offline copy.
+    let repairedDiaryDate = '';
+    if (isValidRowId(row.diary_ref_id) &&
+        (row.diary_ref_owner_id === senderId || row.diary_ref_owner_id === recipientId)) {
+      let currentDiary = null;
+      try {
+        currentDiary = await tablesDB.getRow({
+          databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: row.diary_ref_id,
+        });
+      } catch (cause) {
+        if (Number(cause?.code) !== 404)
+          return { status: 503, body: { error: 'Chat diary reference unavailable' } };
+      }
+      if (currentDiary && currentDiary.user_id === row.diary_ref_owner_id &&
+          currentDiary.deleted !== true &&
+          ['public', 'followers'].includes(currentDiary.visibility) &&
+          currentDiary.date === row.diary_ref_date &&
+          (currentDiary.quote_epoch || 0) === (row.diary_ref_epoch || 0)) {
+        repairedDiaryDate = currentDiary.date;
+      }
+    }
     const now = new Date().toISOString();
     const data = {
       user_id: targetOwner, thread_id: threadId,
@@ -573,7 +595,7 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
       task_ref_color: row.task_ref_color || '',
       diary_ref_id: row.diary_ref_id || '',
       diary_ref_owner_id: row.diary_ref_owner_id || '',
-      diary_ref_date: row.diary_ref_date || '',
+      diary_ref_date: repairedDiaryDate,
       diary_ref_excerpt: '',
       diary_ref_epoch: row.diary_ref_epoch || 0,
       reply_to_id: row.reply_to_id || '',
