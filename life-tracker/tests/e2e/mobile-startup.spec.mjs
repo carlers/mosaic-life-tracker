@@ -33,6 +33,8 @@ const STARTUP_MARKS = [
   'home:mounted',
   'home:owner-data-ready',
   'home:local-data-ready',
+  'home:neighbor-preload-start',
+  'home:neighbor-module-ready',
 ];
 
 function percentile(values, percentileRank) {
@@ -136,6 +138,8 @@ async function measureOnce(browser, scenario, iteration) {
           databaseCollections: interval('database:collections-start', 'database:collections-ready'),
           appShellModule: interval('app-shell:import-start', 'app-shell:module-ready'),
           localDatabaseToHomeMount: interval('database:ready', 'home:mounted'),
+          homeReadyToNeighborPreload: interval('home:local-data-ready', 'home:neighbor-preload-start'),
+          homeReadyToNeighborModule: interval('home:local-data-ready', 'home:neighbor-module-ready'),
         },
         firstContentfulPaintMs: fixed(
           paint.find((entry) => entry.name === 'first-contentful-paint')?.startTime ?? NaN,
