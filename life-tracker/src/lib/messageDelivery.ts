@@ -266,15 +266,16 @@ export async function unsendOnRemote(
   userId: string,
   messageId: string,
   recipientId: string
-): Promise<void> {
+): Promise<boolean> {
   const generation = captureAccountWorkGeneration(userId);
-  if (generation === null) return;
+  if (generation === null) return false;
   try {
     await sendMessageAction({
       action: 'unsend',
       messageId,
       recipientId,
     });
+    return true;
   } catch (err) {
     if (
       shouldQueueMessageAction(err) &&
@@ -287,6 +288,7 @@ export async function unsendOnRemote(
       });
     }
     console.error('Chat unsend failed:', err);
+    return false;
   }
 }
 export async function reactOnRemote(

@@ -238,8 +238,12 @@ export function useMessageActions(
         // Wait for this browser's upload/delivery lock to settle, then unsend.
         // A canceled local pending row is never automatically retried.
         await withChatPhotoSendLock(uid, id, async () => {
-          await unsendOnRemote(uid, id, recipientId);
-          if (doc.attachmentFileId) await discardChatPhoto(uid, doc.attachmentFileId).catch(() => {});
+          const confirmed = await unsendOnRemote(uid, id, recipientId);
+          // Never destroy the recoverable staged upload while the server may
+          // still display this photo; keep it for retry/reconciliation.
+          if (confirmed && doc.attachmentFileId) {
+            await discardChatPhoto(uid, doc.attachmentFileId).catch(() => {});
+          }
         });
       } else {
         void unsendOnRemote(uid, id, recipientId);

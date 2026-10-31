@@ -908,8 +908,29 @@ async function handleUnsend(tablesDB, storage, callerId, payload, log, error) {
       return { status: 403, body: { error: 'Recipient mismatch' } };
     }
   }
-  const photoId = (callerRow?.attachment_type === 'image' && callerRow.attachment_file_id) ||
-    (peerRow?.attachment_type === 'image' && peerRow.attachment_file_id) || '';
+  // A partial pair may contain the attachment in either row. Query the
+  // counterpart before revocation; never delete based on an unverified peer.
+  if (callerRow && (callerRow.attachment_type === 'image' || callerRow.attachment_file_id)) {
+    try {
+      peerRow = await tablesDB.getRow({
+        databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: recipientRowId,
+      });
+    } catch (cause) {
+      if (Number(cause?.code) !== 404) {
+        return { status: 503, body: { error: 'Chat peer unavailable for photo unsend' } };
+      }
+    }
+  }
+  if (peerRow && (peerRow.user_id !== recipientId ||
+      peerRow.sender_id !== callerId || peerRow.recipient_id !== recipientId ||
+      peerRow.original_message_id !== messageId)) {
+    return { status: 409, body: { error: 'Conflicting photo message pair' } };
+  }
+  const senderPhotoId = callerRow?.attachment_type === 'image' ? callerRow.attachment_file_id : '';
+  const recipientPhotoId = peerRow?.attachment_type === 'image' ? peerRow.attachment_file_id : '';
+  if (senderPhotoId && recipientPhotoId && senderPhotoId !== recipientPhotoId)
+    return { status: 409, body: { error: 'Conflicting photo attachments' } };
+  const photoId = senderPhotoId || recipientPhotoId || '';
   if (photoId) {
     try { await deleteChatPhoto(storage, callerId, messageId, photoId); }
     catch { return { status: 503, body: { error: 'Photo deletion pending' } }; }
