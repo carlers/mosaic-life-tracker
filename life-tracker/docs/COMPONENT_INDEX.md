@@ -134,6 +134,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | Module | Source |
 |---|---|
 | ChatPhotoAttachment | [src/components/messages/ChatPhotoAttachment.tsx](../src/components/messages/ChatPhotoAttachment.tsx) |
+| ChatReplyPhotoThumbnail | [src/components/messages/ChatReplyPhotoThumbnail.tsx](../src/components/messages/ChatReplyPhotoThumbnail.tsx) |
 | ChatSearchBar | [src/components/messages/ChatSearchBar.tsx](../src/components/messages/ChatSearchBar.tsx) |
 | ChatSyncSheet | [src/components/messages/ChatSyncSheet.tsx](../src/components/messages/ChatSyncSheet.tsx) |
 | ConversationRow | [src/components/messages/ConversationRow.tsx](../src/components/messages/ConversationRow.tsx) |

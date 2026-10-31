@@ -6,10 +6,15 @@ import { PackStickerImage } from './PackStickerImage';
 import { GiphyStickerImage } from './GiphyStickerImage';
 import { canonicalReplyStickerContent } from '../../lib/replyStickerContent';
 
+// A text-only reply should not load image storage and SDK code.
+const ChatReplyPhotoThumbnail = React.lazy(() => import('./ChatReplyPhotoThumbnail').then(m => ({ default: m.ChatReplyPhotoThumbnail })));
+
 interface ReplyPreviewProps {
   senderName: string;
   content: string;
   isDeleted?: boolean;
+  photoFileId?: string;
+  photoUserId?: string;
   onCancel?: () => void;
   variant?: 'composer' | 'bubble';
 }
@@ -18,10 +23,14 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
   senderName,
   content,
   isDeleted = false,
+  photoFileId,
+  photoUserId,
   onCancel,
   variant = 'composer',
 }) => {
   const isComposer = variant === 'composer';
+  const hasPhoto = !isDeleted && Boolean(photoFileId && photoUserId);
+  const replyText = hasPhoto ? (content.replace(/^\[Photo\]\n?/, '').trim() || 'Photo') : content;
   const stickerWire = !isDeleted ? canonicalReplyStickerContent(content) : null;
   const packSticker = stickerWire ? parsePackStickerMessage(stickerWire) : null;
   const giphySticker = stickerWire && !packSticker ? parseGiphyStickerMessage(stickerWire) : null;
@@ -31,6 +40,11 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
         isComposer ? 'mb-2' : 'mb-1.5'
       }`}
     >
+      {hasPhoto && photoUserId && photoFileId && (
+        <React.Suspense fallback={<span role="status" className="text-[10px] text-gray-400">Photo</span>}>
+          <ChatReplyPhotoThumbnail userId={photoUserId} fileId={photoFileId} />
+        </React.Suspense>
+      )}
       <div className="flex-1 min-w-0">
         <p className="text-[10px] font-semibold text-emerald-400 truncate">
           {senderName}
@@ -53,7 +67,7 @@ export const ReplyPreview: React.FC<ReplyPreviewProps> = ({
           </div>
         ) : (
           <p className="text-[11px] text-gray-400 line-clamp-2 leading-snug">
-            {content}
+            {replyText}
           </p>
         )}
       </div>

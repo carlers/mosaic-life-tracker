@@ -35,6 +35,8 @@ interface MessageBubbleProps {
   onQuoteTap?: (targetMessageId: string) => void;
   onDiaryRefTap?: (message: MessageDocument) => void;
   diaryReferencePreview?: { date: string; excerpt: string } | null;
+  replyPhotoFileId?: string;
+  replySourceUnsent?: boolean;
   onReact?: (messageId: string, emoji: string) => void;
   onSwipeReply?: (message: MessageDocument) => void;
   gesturesDisabled?: boolean;
@@ -149,6 +151,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   onQuoteTap,
   onDiaryRefTap,
   diaryReferencePreview,
+  replyPhotoFileId,
+  replySourceUnsent,
   onReact,
   onSwipeReply,
   gesturesDisabled,
@@ -264,6 +268,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               <ReplyPreview
                 senderName={replySenderName}
                 content={message.replyToContent}
+                isDeleted={replySourceUnsent}
+                photoFileId={replyPhotoFileId}
+                photoUserId={currentUserId}
                 variant="bubble"
               />
             </button>
@@ -339,6 +346,7 @@ export const MessageBubble = React.memo(
   (prev, next) => {
     return (
       prev.message.id === next.message.id &&
+      prev.currentUserId === next.currentUserId &&
       prev.message.content === next.message.content &&
       prev.message.attachmentType === next.message.attachmentType &&
       prev.message.attachmentFileId === next.message.attachmentFileId &&
@@ -350,6 +358,8 @@ export const MessageBubble = React.memo(
       prev.message.diaryRefExcerpt === next.message.diaryRefExcerpt &&
       prev.diaryReferencePreview?.date === next.diaryReferencePreview?.date &&
       prev.diaryReferencePreview?.excerpt === next.diaryReferencePreview?.excerpt &&
+      prev.replyPhotoFileId === next.replyPhotoFileId &&
+      prev.replySourceUnsent === next.replySourceUnsent &&
       prev.message.replyToId === next.message.replyToId &&
       prev.message.replyToContent === next.message.replyToContent &&
       prev.message.replyToSenderId === next.message.replyToSenderId &&
