@@ -40,6 +40,7 @@ export function classifyScratchDrift(diffs) {
     /^table task_shares\.allow_(title|date)_edit: missing column$/,
     /^table notifications\.idx_notification_created: missing index$/,
     /^table push_subscriptions\.include_task_details: missing column$/,
+    /^table messages\.attachment_(type|file_id): missing column$/,
   ];
   return diffs.filter(diff => !allowed.some(pattern => pattern.test(diff)));
 }
@@ -73,7 +74,8 @@ export async function runPreviewPrepare({
       ['001-account-deletion', '002-diary-created-at',
         '004-notifications', '005-notification-retention',
         '006-push-details', '007-task-shares', '009-share-permissions',
-        '010-bucket-list', '011-bucket-task-links'].includes(m.id));
+        '010-bucket-list', '011-bucket-task-links',
+        '016-message-chat-photos'].includes(m.id));
     // The bucket-security migration remains a separate reviewed action;
     // it can remove a grant and is not a safe implicit Preview prerequisite.
     await migrate({ request, migrations: additions, log });
