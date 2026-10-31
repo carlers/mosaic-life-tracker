@@ -10,8 +10,9 @@ import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Virtual } from 'swiper/modules';
+import { FreeMode, Virtual } from 'swiper/modules';
 import 'swiper/css/virtual';
+import 'swiper/css/free-mode';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -97,6 +98,16 @@ const DAY_SWIPER_FOCUSABLE_ELEMENTS =
 const EMPTY_OWNER_LABELS: ReadonlyMap<string, string> = new Map();
 const DAY_SWIPER_TRANSITION_SPEED_MS = 320;
 const DAY_SWIPER_TRANSITION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
+// Keep touch inertia restrained within the prepared neighboring-day buffer.
+// Sticky snapping retains a single committed date and the existing settle callback.
+const DAY_SWIPER_MOMENTUM = {
+  enabled: true,
+  momentum: true,
+  momentumRatio: 0.2,
+  momentumVelocityRatio: 0.55,
+  momentumBounce: false,
+  sticky: true,
+} as const;
 
 // #11a: hoisted — closes over nothing, so building this once avoids
 // re-allocating the JSX tree on every DayViewSheet render.
@@ -1181,8 +1192,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         key={anchorKey}
         // Preserve all 181 logical dates for direct jumps, but avoid 181 DOM
         // slides (and their synchronous layout) on every sheet open.
-        modules={renderMode === 'sheet' || renderMode === 'panel' ? [Virtual] : undefined}
+        modules={renderMode === 'sheet' || renderMode === 'panel' ? [Virtual, FreeMode] : [FreeMode]}
         virtual={renderMode === 'sheet' || renderMode === 'panel' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
+        freeMode={reducedMotion ? false : DAY_SWIPER_MOMENTUM}
         nested={renderMode !== 'sheet'}
         allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen && !continuousDrag.projection}
         noSwiping={renderMode === 'sheet'}
@@ -1202,7 +1214,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         initialSlide={initialIndex}
         speed={reducedMotion ? 0 : DAY_SWIPER_TRANSITION_SPEED_MS}
         onSlideChange={handleSlideChangeFromUi}
-        onSlideChangeTransitionEnd={handleSwipeSettledFromUi}
+        // FreeMode updates the active slide after transitionStart. Swiper may
+        // emit transitionEnd without slideChangeTransitionEnd, so observe the
+        // general completion signal to commit the visible date after inertia.
+        onTransitionEnd={reducedMotion ? undefined : handleSwipeSettledFromUi}
+        onSlideChangeTransitionEnd={reducedMotion ? handleSwipeSettledFromUi : undefined}
         data-testid="day-swiper"
         data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
         className={`min-w-0 w-full max-w-full overflow-hidden ${renderMode === 'inline' ? '' : 'flex-1'}`}

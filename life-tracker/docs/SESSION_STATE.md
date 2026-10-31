@@ -1,3 +1,15 @@
+# Task checkpoint — Day View sticky momentum Preview v0.44.5
+Updated: 2026-10-31 Asia/Manila
+
+- Owner authorized only an initial Day View swipe momentum feel change; no rendering optimization, library replacement, backend, or protected branch promotion.
+- Source baseline `dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459` v0.44.4. Scoped task `chatgpt/dayview-momentum-0445-20261031`, stable Preview `perf/dayview-momentum-v0445-20261031`; planned v0.44.5 refinement, pending real Preview acceptance.
+- Owner Day View Swiper adds native FreeMode inertia with sticky date snapping, restrained momentum, no bounce, and no inertia under reduced motion. Existing 181 logical dates, Virtual nearby DOM and 7-day render window, date rebase, transition-end parent date propagation, normal and held-task drag ownership, and sheet gesture handling remain unchanged.
+- The original rapid-swipe browser test remains intact; the existing real mouse Day View transition test now also asserts that the visible next date is committed to the parent sheet. Do not infer a device performance improvement from CI.
+- Initial focused failure was a missing `FreeMode` test mock, since repaired. A separate raw Swiper transform/snap-grid discrepancy (21.7px after four synthetic swipes) could not establish behavioral regression without baseline parity; that new internal assertion was removed, not the existing swipe contract.
+- The fourth browser gate exposed a concrete regression: FreeMode displayed the next date but failed to update the BottomSheet selected-date label. Swiper 14 FreeMode can emit `transitionEnd` without `slideChangeTransitionEnd`; route only FreeMode settlement to `onTransitionEnd`, retaining original event for reduced-motion mode. Require fresh focused/browser tests, stable exact-SHA canonical and Vercel READY, then physical Android/PWA first/fast/swipe-back and held-task retest. No dev/main/Production promotion.
+
+---
+
 # Task checkpoint — #1443 Preferences replication integrated v0.44.4
 Updated: 2026-10-31 Asia/Manila
 

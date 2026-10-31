@@ -1587,15 +1587,15 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
     activeSlide.locator('[data-day-view-navigation="true"]')
   ).toHaveCount(1);
   await expect(activeSlide.locator('[data-task-category-id]')).toHaveCount(5);
+
 });
 
 test('inactive adjacent Day View keeps category spacing when it becomes active', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
 
-  const dialog = page.getByRole('dialog', {
-    name: 'Tuesday, September 15, 2026',
-  });
+  // The accessible name changes with the committed date after animation.
+  const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await waitForStableVerticalPosition(dialog);
 
@@ -1623,6 +1623,7 @@ test('inactive adjacent Day View keeps category spacing when it becomes active',
 
   const activeSlide = dialog.locator('.swiper-slide-active');
   await expect(activeSlide).toContainText('Wednesday, September 16, 2026');
+  await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
 
   const activeCategories = activeSlide.locator('[data-task-category-id]');
   const firstAfter = await activeCategories.nth(0).boundingBox();
