@@ -22,6 +22,7 @@ import {
 } from "./components/layout/routePageComponents";
 
 // No preloading path needs Backlogs; direct import avoids a redundant memoized loader.
+const StoragePage = lazy(() => import('./pages/StoragePage').then((m) => ({ default: m.StoragePage })));
 const BacklogPage = lazy(() => import('./pages/BacklogPage'));
 const UncompletedTasksPage = lazy(() => import('./pages/UncompletedTasksPage'));
 const BucketListPage = lazy(() => import('./pages/BucketListPage'));
@@ -108,6 +109,7 @@ const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
   settings: <RouteContent label="SettingsPage"><SettingsRoutePage /></RouteContent>,
   settingsAccount: <RouteContent label="SettingsAccountPage"><SettingsRoutePage /></RouteContent>,
   settingsData: <RouteContent label="SettingsDataPage"><SettingsRoutePage /></RouteContent>,
+  settingsStorage: <RouteContent label="StoragePage"><StoragePage /></RouteContent>,
   settingsAbout: <RouteContent label="SettingsAboutPage"><SettingsRoutePage /></RouteContent>,
   releaseHistory: <RouteContent label="ReleaseHistoryPage"><ReleaseHistoryRoutePage /></RouteContent>,
   preferences: <RouteContent label="PreferencesPage"><PreferencesRoutePage /></RouteContent>,

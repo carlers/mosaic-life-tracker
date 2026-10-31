@@ -89,6 +89,41 @@ export async function getPendingImage(
   return entry.blob;
 }
 
+/** Inspect only this user's staged uploads without deleting or reading file contents.
+ * A cursor avoids materializing the complete collection of Blob values at once.
+ */
+export async function getPendingImageUsageForUser(
+  ownerUserId: string
+): Promise<{ bytes: number; count: number }> {
+  if (!ownerUserId) throw new Error('Pending-image usage requires an owner.');
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).openCursor();
+    let bytes = 0;
+    let count = 0;
+    let visited = 0;
+    request.onerror = () => reject(request.error ?? new Error('Pending-image scan failed.'));
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) {
+        resolve({ bytes, count });
+        return;
+      }
+      // Fail closed rather than scanning an unbounded legacy queue on a UI screen.
+      if (++visited > 10000) {
+        reject(new Error('Pending-image inventory is too large to display safely.'));
+        return;
+      }
+      const item = cursor.value as PendingImageEntry;
+      if (item.ownerUserId === ownerUserId) {
+        count += 1;
+        bytes += item.blob.size;
+      }
+      cursor.continue();
+    };
+  });
+}
+
 export async function deletePendingImage(
   fileId: string,
   expectedOwnerUserId?: string

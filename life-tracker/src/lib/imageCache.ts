@@ -200,6 +200,17 @@ export async function deleteCachedImage(fileId: string): Promise<void> {
   await deleteEntries(await openDB(), [fileId]);
 }
 
+/** Exact bytes of downloaded blobs at the time of this on-demand scan.
+ * This is a device-wide cache and is intentionally not presented as per-account.
+ */
+export async function getImageCacheUsage(): Promise<{ bytes: number; count: number }> {
+  const { entries } = await readEntries(await openDB());
+  return {
+    bytes: entries.reduce((sum, entry) => sum + entry.blob.size, 0),
+    count: entries.length,
+  };
+}
+
 export async function clearAllCachedImages(): Promise<void> {
   const db = await openDB();
   const tx = db.transaction([BLOB_STORE, METADATA_STORE], 'readwrite');

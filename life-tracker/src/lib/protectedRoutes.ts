@@ -60,6 +60,7 @@ export const PROTECTED_ROUTES = [
   { id: 'settings', path: '/settings', kind: 'detail', tab: 'account', parent: '/account', swipeMode: 'full', preview: 'supported' },
   { id: 'settingsAccount', path: '/settings/account', kind: 'detail', tab: 'account', parent: '/settings', alternateParents: ['/account'], swipeMode: 'full', preview: 'supported' },
   { id: 'settingsData', path: '/settings/data', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
+  { id: 'settingsStorage', path: '/settings/data/storage', kind: 'detail', tab: 'account', parent: '/settings/data', swipeMode: 'full', preview: 'none' },
   { id: 'settingsAbout', path: '/settings/about', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
   { id: 'releaseHistory', path: '/settings/releases', kind: 'detail', tab: 'account', parent: '/settings', preview: 'supported' },
   { id: 'preferences', path: '/settings/preferences', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
