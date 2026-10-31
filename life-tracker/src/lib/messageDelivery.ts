@@ -11,6 +11,7 @@ import type { MessageDocument } from '../db/schema';
 import { getConnectivitySnapshot } from './connectivity';
 import { APPWRITE_MESSAGE_ACTION_FUNCTION_ID } from './appwriteConfig';
 import { sendAppAction } from './appAction';
+import { uploadPendingChatPhoto, removeStagedChatPhoto } from './chatPhotoStorage';
 import {
   captureAccountWorkGeneration,
   isAccountWorkCurrent,
@@ -191,6 +192,13 @@ export async function retryDeniedOutgoing(userId: string, messageId: string): Pr
 }
 
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
+  if (doc.attachmentType === 'image') {
+    await uploadPendingChatPhoto(doc.userId, doc.id, doc.attachmentFileId || '');
+    const current = await getDatabase().messages.findOne(doc.id).exec();
+    if (!current || current.isUnsent || current.isDeleted) {
+      throw Object.assign(new Error('Photo send canceled'), { code: 409 });
+    }
+  }
   const result = await sendMessageAction({
     action: 'deliver',
     messageId: doc.id,
@@ -218,6 +226,9 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
     result.threadId !== doc.threadId ||
     (result.messageId != null && result.messageId !== doc.id)
   ) throw new Error('Delivery not confirmed');
+  if (doc.attachmentType === 'image' && doc.attachmentFileId) {
+    await removeStagedChatPhoto(doc.userId, doc.attachmentFileId).catch(() => {});
+  }
 }
 export async function markReadOnRemote(
   userId: string,
