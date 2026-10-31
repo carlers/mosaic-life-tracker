@@ -36,6 +36,7 @@ import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
 import { useAppearance } from '../hooks/useAppearance';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { searchSettings, useSettingsTargetFocus } from '../lib/settingsSearch';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import {
   getBackupActivity,
   recordBackupActivity,
@@ -55,6 +56,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const location = useLocation();
   const renderPathname = previewPathname ?? location.pathname;
   const view = renderPathname === '/settings/account' ? 'account' : renderPathname === '/settings/data' ? 'data' : renderPathname === '/settings/about' ? 'about' : 'root';
+  const settingsSearchEnabled = useFeatureEnabled('settingsSearch');
   const [searchTerm, setSearchTerm] = useState('');
   const searchResults = searchSettings(searchTerm);
   useSettingsTargetFocus(renderPathname, previewPathname ? '' : location.search);
@@ -292,14 +294,14 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
       <div className="flex-1 pb-24">
         {view === 'root' && (
           <div className="px-4 pt-4">
-            <label htmlFor="settings-search" className="sr-only">Search settings</label>
+            {settingsSearchEnabled && <><label htmlFor="settings-search" className="sr-only">Search settings</label>
             <div className="flex items-center gap-2 rounded-xl border border-[#333333] bg-[#1E1E1E] px-3">
               <Search size={18} className="text-gray-400" aria-hidden="true" />
               <input id="settings-search" type="search" autoComplete="off" value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search settings"
                 className="min-w-0 w-full bg-transparent py-3 text-white outline-none placeholder:text-gray-400" />
-            </div>
-            {searchTerm.trim() ? (
+            </div></>
+            {settingsSearchEnabled && searchTerm.trim() ? (
               <section className="pt-4" aria-label="Settings search results">
                 {searchResults.length === 0 && <p className="px-2 py-4 text-sm text-gray-400">No settings found.</p>}
                 {searchResults.map((entry) => (
