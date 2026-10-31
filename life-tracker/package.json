@@ -1,7 +1,7 @@
 {
   "name": "life-tracker",
   "private": true,
-  "version": "0.54.0",
+  "version": "0.58.0",
   "type": "module",
   "engines": { "node": "22.x" },
   "scripts": {
@@ -50,6 +50,7 @@
     "appwrite:preview:compat": "node scripts/check-scratch-client-compat.mjs",
     "appwrite:status": "node scripts/appwrite-status.mjs",
     "appwrite:preview:prepare": "node scripts/appwrite-preview-prepare.mjs",
+    "appwrite:preview:quote-scrub": "node scripts/scrub-diary-chat-quotes.mjs",
     "appwrite:preview:seed": "node scripts/appwrite-preview-seed.mjs",
     "appwrite:migrate": "node scripts/appwrite-migrate.mjs",
     "appwrite:function:deploy": "node scripts/appwrite-function.mjs deploy",

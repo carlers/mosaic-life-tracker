@@ -31,6 +31,7 @@ interface MessageBubbleProps {
   onLongPress?: (message: MessageDocument) => void;
   onQuoteTap?: (targetMessageId: string) => void;
   onDiaryRefTap?: (message: MessageDocument) => void;
+  diaryReferencePreview?: { date: string; excerpt: string } | null;
   onReact?: (messageId: string, emoji: string) => void;
   onSwipeReply?: (message: MessageDocument) => void;
   gesturesDisabled?: boolean;
@@ -143,6 +144,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   onLongPress,
   onQuoteTap,
   onDiaryRefTap,
+  diaryReferencePreview,
   onReact,
   onSwipeReply,
   gesturesDisabled,
@@ -262,18 +264,20 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               />
             </button>
           )}
-          {message.diaryRefId && (
+          {message.diaryRefId && diaryReferencePreview ? (
             <button type="button" data-diary-reference={message.diaryRefId}
               onClick={event => { event.stopPropagation(); onDiaryRefTap?.(message); }}
               onPointerDown={event => event.stopPropagation()}
-              aria-label={`Open diary entry from ${message.diaryRefDate}`}
+              aria-label={`Open diary entry from ${diaryReferencePreview.date}`}
               className="mb-2 flex w-full min-w-0 flex-col rounded-lg border border-surfaceHighlight bg-surface px-3 py-2 text-left focus-visible:outline focus-visible:outline-2">
               <span className="max-w-full truncate text-xs font-medium text-white">
-                {message.diaryRefExcerpt || 'Diary entry'}
+                {diaryReferencePreview.excerpt}
               </span>
-              <span className="mt-1 text-[10px] text-gray-400">Diary · {message.diaryRefDate}</span>
+              <span className="mt-1 text-[10px] text-gray-400">Diary · {diaryReferencePreview.date}</span>
             </button>
-          )}
+          ) : message.diaryRefId ? (
+            <div className="mb-2 rounded-lg border border-surfaceHighlight bg-surface px-3 py-2 text-xs text-gray-400" role="status">Diary entry unavailable</div>
+          ) : null}
           {message.taskRefId && (
             <div className="mb-1.5">
               <TaskRefCard
@@ -331,6 +335,8 @@ export const MessageBubble = React.memo(
       prev.message.diaryRefOwnerId === next.message.diaryRefOwnerId &&
       prev.message.diaryRefDate === next.message.diaryRefDate &&
       prev.message.diaryRefExcerpt === next.message.diaryRefExcerpt &&
+      prev.diaryReferencePreview?.date === next.diaryReferencePreview?.date &&
+      prev.diaryReferencePreview?.excerpt === next.diaryReferencePreview?.excerpt &&
       prev.message.replyToId === next.message.replyToId &&
       prev.message.replyToContent === next.message.replyToContent &&
       prev.message.replyToSenderId === next.message.replyToSenderId &&

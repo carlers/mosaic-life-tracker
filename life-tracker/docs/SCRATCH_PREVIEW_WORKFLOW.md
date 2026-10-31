@@ -69,6 +69,17 @@ npm run appwrite:preview:prepare -- \
   --apply
 ```
 
+Migration 016 adds the optional Diary quote epoch/fence columns, Messages quote epoch, and the diary-reference lookup index. It is additive, approved for Scratch reconciliation, and must be applied before activating the corresponding Function.
+
+For the #1461 diary privacy test only, the separate maintenance command is dry-run by default and targets **only disposable Frankfurt Scratch**:
+
+```bash
+npm run appwrite:preview:quote-scrub -- --project 6a96e82d000d1310b3be --endpoint https://fra.cloud.appwrite.io/v1
+npm run appwrite:preview:quote-scrub -- --project 6a96e82d000d1310b3be --endpoint https://fra.cloud.appwrite.io/v1 --confirm-project 6a96e82d000d1310b3be --apply
+```
+
+The command scans bounded batches and removes copied diary excerpt snapshots from Chat records. It preserves reference dates for temporarily private entries so previously shared quotes can reappear only after fresh visibility and friendship authorization; missing/deleted/owner-mismatched entries are permanently fenced. It preserves independently authored message bodies and reactions. If the output reports `completed: false`, rerun with `--cursor <nextCursor>` until the scan completes. Do not run this script against Production; release requires separately approved data handling and installed-PWA compatibility checks.
+
 `--apply` never touches production. It first compares the live scratch backend
 against Git, allows only an explicit small list of known missing resources, then
 runs the **existing ordered, idempotent** migrations 001, 002, 004, 005,
