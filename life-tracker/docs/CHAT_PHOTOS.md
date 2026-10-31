@@ -1,6 +1,8 @@
-# Chat photo attachments — v0.46.0 isolated candidate (#1460)
+# Chat photo attachments — v0.46.1 reply thumbnail Preview candidate (#1460)
 
-**Status: NOT ENABLED / NOT ACCEPTED.** Source work is on `chatgpt/1460-chat-photo-foundation-v0450-20261031`, not protected `dev` or `main`. `VITE_CHAT_PHOTOS_ENABLED` defaults to `false` and MUST remain false until Scratch tests pass. No Production rollout is authorized by #1460.
+**Status:** v0.46.0 chat photos were tested and accepted on Scratch Preview. This v0.46.1 frontend-only iteration adds source-derived photo thumbnails to composer and inline reply quotes, with no additional upload, ACL grant or remote schema. The feature remains guarded by `VITE_CHAT_PHOTOS_ENABLED`, enabled only on the dedicated Scratch Preview branch. No protected dev/main/Production promotion is authorized.
+
+Reply thumbnails use the existing authenticated, account-scoped photo loader. The source message must be available in the current conversation; deleted or unsent source media is not displayed. Incoming recipient row IDs are normalized to the original message identity when creating a new reply so both participants can resolve its photo. Older replies whose source is unavailable retain their text snapshot without inferring new media permissions.
 
 ## Contract and boundaries
 

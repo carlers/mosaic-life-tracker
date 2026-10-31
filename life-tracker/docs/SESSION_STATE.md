@@ -1,11 +1,10 @@
-# Current task: secure chat photo + diary quote privacy Scratch integration
+# Current task: #1460 chat photo reply thumbnails — v0.46.1 Preview
 Updated: 2026-11-01 Asia/Manila
 
-- Isolated local integration combines chat photo candidate at 4dabdd4d24e4313bfc1625945e3c80a8f0826343 with Scratch-active #1461 quote privacy at faae41b5bf93e72f4c9b6f8ec75bef720966c4b8.
-- Retains both migrations: 016-diary-quote-privacy and 017-message-chat-photos. Local RxDB messages v5 migrates both typed photo metadata and privacy epoch.
-- Verified sandbox: TypeScript and production build pass; lint no errors; 1247 unit + 220 Function handler tests pass; historical pinned source contract passes (one published baseline).
-- Scratch project 6a96e82d000d1310b3be: optional attachment_type and attachment_file_id columns AVAILABLE; task_images fileSecurity=true, create(users)-only bucket permission. The Scratch Function is concurrently updated by #1461 and must not be replaced with photo-only backend.
-- Not yet complete: full canonical CI, inactive Function deployment and activation, hosted ACL proof with three test identities, Android+desktop acceptance, flag-enabled exact-SHA Preview, promotion approvals. No Production/dev/main change authorized.
-- Issue https://github.com/carlers/mosaic-life-tracker/issues/1460
+- User accepted v0.46.0 Scratch photo Preview and requested image thumbnails in reply quotes. Source of truth: `feature/1460-chat-photos-privacy-v0460-20261101` at `19c4a716df424b016f87452b19778fb9051bb2b8`. Scratch schema and `message-action` Function activated, canonical CI passed, Production/dev/main unchanged.
+- Frontend-only v0.46.1 task: show compressed existing photo in composer and inline quoted replies, resolve original IDs from local conversation across sender/recipient copies, never render deleted/unsent photo thumbnails, lazy-load thumbnail storage code and revoke URL on cleanup.
+- No new media upload, Appwrite migration, Function replacement or backend write. Preserve original photo compression WebP (1024px max dimension, target 0.15 MB, max 262144 bytes) and owner-based ACL. Source absent/offline with no cached image -> textual/unavailable fallback.
+- Deliver isolated source commit, focused tests, canonical CI and exact-SHA READY Scratch Preview. Outstanding: manual browser/device photo-reply test, original cross-device ACL acceptance. Do not promote to dev/main/Production without explicit approval.
+- Issue: https://github.com/carlers/mosaic-life-tracker/issues/1460
 
 ---

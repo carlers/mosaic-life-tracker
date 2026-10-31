@@ -26,6 +26,9 @@ interface MessageComposerProps {
   disabled?: boolean;
   placeholder?: string;
   replyTo?: ReplyToContext | null;
+  replyPhotoFileId?: string;
+  replySourceUnsent?: boolean;
+  replyPhotoUserId?: string;
   onCancelReply?: () => void;
 }
 
@@ -50,6 +53,9 @@ export const MessageComposer = forwardRef<
       disabled = false,
       placeholder = 'Message…',
       replyTo = null,
+      replyPhotoFileId,
+      replySourceUnsent,
+      replyPhotoUserId,
       onCancelReply,
     },
     ref
@@ -123,6 +129,9 @@ export const MessageComposer = forwardRef<
           <ReplyPreview
             senderName={replyTo.senderName}
             content={replyTo.content}
+            isDeleted={replySourceUnsent}
+            photoFileId={replyPhotoFileId}
+            photoUserId={replyPhotoUserId}
             onCancel={onCancelReply}
             variant="composer"
           />
