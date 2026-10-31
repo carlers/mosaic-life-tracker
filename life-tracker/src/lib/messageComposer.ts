@@ -190,7 +190,7 @@ export async function sendTaskReactionMessage(
 /** Private DM response to a diary entry, with independent typed reference fields. */
 export async function sendDiaryReplyMessage(
   userId: string, friendId: string,
-  diary: Pick<import('../db/schema').DiaryDocument, 'id' | 'userId' | 'date' | 'content' | 'emoji' | 'photos' | 'quoteEpoch'>,
+  diary: Pick<import('../db/schema').DiaryDocument, 'id' | 'userId' | 'date' | 'content' | 'emoji' | 'photos'> & { quoteEpoch?: number },
   content: string
 ): Promise<void> {
   await insertAndDeliverOutgoing(userId, friendId, ({ threadId, now, localId }) =>
