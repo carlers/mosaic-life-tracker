@@ -10,6 +10,7 @@ import {
   Info,
   LogOut,
   Database,
+  HardDrive,
   Trash2,
   ChevronLeft,
   FileDown,
@@ -374,6 +375,11 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
 
           <section className="border-t border-[#333333] py-2" aria-label="Device data">
             <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">This device</h2>
+          <SettingsRow
+            icon={<HardDrive size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Storage"
+            onClick={() => navigate("/settings/data/storage", { state: makeRouteParentState("/settings/data") })}
+          />
           <SettingsRow
             icon={<Database size={18} className="text-red-500" aria-hidden="true" />}
             label="Clear Local Data"
