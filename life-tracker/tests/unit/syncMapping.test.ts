@@ -443,9 +443,13 @@ describe('fromAppwriteFormat', () => {
         newer_unknown_server_column: 'forward-compatible',
       };
       const mapped = fromAppwriteFormat(row, 'messages');
+      // Historical rows have no optional photo attributes; keep them absent.
       expect(Object.keys(mapped).sort()).toEqual(
-        Object.keys(messagesSchema.properties).sort()
+        Object.keys(messagesSchema.properties).filter(key =>
+          key !== 'attachmentType' && key !== 'attachmentFileId').sort()
       );
+      expect(mapped).not.toHaveProperty('attachmentType');
+      expect(mapped).not.toHaveProperty('attachmentFileId');
       expect(mapped.content).toBe('persisted message');
       expect(mapped.deliveryStatus).toBe('delivered');
       expect(mapped.isDeleted).toBe(false);

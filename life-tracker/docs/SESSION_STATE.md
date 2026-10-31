@@ -8,7 +8,8 @@ Updated: 2026-10-31 Asia/Manila
 - Git-owned `message-action` config adds server-only `buckets.read` for the photo ACL gate; the active Scratch Function still needs reviewed deployment/activation.
 - New [Chat photos](CHAT_PHOTOS.md) document records hard rollout blockers. Latest Source-only focused CI run and full diagnostic pending. No Scratch migration or Function activation has occurred.
 - Full task diagnostic #41195228280 revealed an IndexedDB Promise typing error and a synchronous state reset in ChatPhotoAttachment; fixed without weakening the checks. Remaining broader diagnostics must re-run.
-- Next: full TypeScript/build/compat diagnostic; then durable server cleanup, Scratch migration + Function activation and gated Scratch Preview/device acceptance.
+- Latest full Quality Gate a90bdbc, run 41195626192: build, DOM/browser tests and dependency audit passed; two unit tests failed because Function scope overlay and legacy-mapper tests were not updated for optional chat photo fields. This commit fixes those mirrors.
+- Next: full diagnostic and compatibility, durable media cleanup, Scratch migration and Function readiness; keep photo feature OFF.
 - Issue: https://github.com/carlers/mosaic-life-tracker/issues/1460
 
 ---
