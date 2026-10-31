@@ -42,8 +42,8 @@ import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { editSharedTask } from '../../../lib/taskShareQueue';
 import { parseSharedPlacement, placementKey, planSharedTaskMove } from '../../../lib/sharedTaskPlacement';
-import { MemoSheet } from './MemoSheet';
-import { ImagePickerSheet } from './ImagePickerSheet';
+const LazyMemoSheet = lazy(() => import('./MemoSheet').then(m => ({ default: m.MemoSheet })));
+const LazyImagePickerSheet = lazy(() => import('./ImagePickerSheet').then(m => ({ default: m.ImagePickerSheet })));
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
@@ -1694,8 +1694,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       {isBucketLinkOpen && (
         <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
       )}
-      <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
+      <Suspense fallback={null}>
+      <LazyMemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
+      </Suspense>
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
         onClose={handleCloseVisibility} task={activeTask} category={activeTaskCategory}
         onSave={handleVisibilitySave} />
@@ -1746,7 +1748,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           </Suspense>
         ) : isViewingImageLoading ? <ImageViewerLoadingFallback /> : imageViewerUnavailable
       )}
-      <ImagePickerSheet
+      <Suspense fallback={null}>
+      <LazyImagePickerSheet
         isOpen={!!imagePickerTaskId}
         onClose={handleCloseImagePicker}
         variant="task"
@@ -1755,6 +1758,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onSave={handleImagePickerSave}
         onRemove={handleImagePickerRemove}
       />
+      </Suspense>
       {deleteFeedback && (
         <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {deleteFeedback}
