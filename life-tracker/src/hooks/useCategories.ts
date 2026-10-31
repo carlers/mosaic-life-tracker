@@ -3,7 +3,6 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { CategoryDocument } from '../db/schema';
-import { validLocalDateKey } from '../lib/categoryLifecycle';
 
 export function useCategories(enabled = true) {
   const { user } = useAuth();
@@ -60,7 +59,8 @@ export function useCategories(enabled = true) {
         throw new Error('Category deletion is temporarily unavailable to protect tasks');
       }
       if (updates.retiredOn !== undefined &&
-          updates.retiredOn !== '' && !validLocalDateKey(updates.retiredOn)) {
+          updates.retiredOn !== '' &&
+          !(await import('../lib/categoryLifecycle')).validLocalDateKey(updates.retiredOn)) {
         throw new Error('Choose a valid last-active date');
       }
       const db = getDatabase();
@@ -97,7 +97,6 @@ export function useCategories(enabled = true) {
   );
 
   const retireCategory = useCallback(async (id: string, lastActiveDate: string) => {
-    if (!validLocalDateKey(lastActiveDate)) throw new Error('Choose a valid last-active date');
     await updateCategory(id, { retiredOn: lastActiveDate });
   }, [updateCategory]);
 

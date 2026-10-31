@@ -3,7 +3,6 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
-import { canAddNewTaskToCategory } from '../lib/categoryLifecycle';
 
 import { hasCachedOwnedSharedTask, markOwnerCompletionPending, restoreOwnerCompletionPending } from '../lib/ownerCompletionPending';
 import {
@@ -41,6 +40,7 @@ export function useTasks(enabled = true) {
         return;
       }
       const db = getDatabase();
+      const { canAddNewTaskToCategory } = await import('../lib/categoryLifecycle');
       const target = await db.categories.findOne(task.categoryId).exec();
       if (!target || target.userId !== uid || !canAddNewTaskToCategory(target, task.date)) {
         throw new Error('Choose an active category for this date');
@@ -83,6 +83,7 @@ export function useTasks(enabled = true) {
           throw new Error('Task no longer belongs to this account');
         }
         if (updates.categoryId && updates.categoryId !== doc.categoryId) {
+          const { canAddNewTaskToCategory } = await import('../lib/categoryLifecycle');
           const target = await db.categories.findOne(updates.categoryId).exec();
           if (!target || target.userId !== uid ||
               !canAddNewTaskToCategory(target, updates.date ?? doc.date)) {
@@ -187,6 +188,7 @@ export function useTasks(enabled = true) {
         const docsById = new Map(
           affectedDayTasks.map((task) => [task.id, task])
         );
+        const { canAddNewTaskToCategory } = await import('../lib/categoryLifecycle');
         for (const assignment of assignments) {
           const existing = docsById.get(assignment.id);
           const target = categoryDocs.find(c => c?.id === assignment.categoryId);
@@ -236,7 +238,8 @@ export function useTasks(enabled = true) {
             !category || category.isDeleted || category.userId !== uid) {
           throw new Error('Task or category changed while dragging');
         }
-        if (task.categoryId !== categoryId && !canAddNewTaskToCategory(category, date)) {
+        if (task.categoryId !== categoryId &&
+            !(await import('../lib/categoryLifecycle')).canAddNewTaskToCategory(category, date)) {
           throw new Error('Cannot move a task into a retired category on this date');
         }
         const siblings = await db.tasks.find({ selector: {
@@ -322,6 +325,7 @@ export function useTasks(enabled = true) {
             },
           })
           .exec();
+        const { canAddNewTaskToCategory } = await import('../lib/categoryLifecycle');
         const destination = orderedCategories.find(category => category.id === destinationCategoryId);
         if (affectedDayTasks.some(task => selectedTaskIds.includes(task.id) &&
             task.categoryId !== destinationCategoryId) &&
