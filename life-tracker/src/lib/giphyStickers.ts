@@ -3,6 +3,8 @@
  * proxied, cached by Mosaic, or inserted into its own pack catalog.
  * https://developers.giphy.com/docs/api/
  */
+import { isFeatureEnabled } from './featureControls';
+
 const KEY = import.meta.env.VITE_GIPHY_API_KEY?.trim() || '';
 const GIF_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const WIRE = /^\[Sticker: ([^\]\r\n]{1,40})\]\n\[gp1:([a-zA-Z0-9_-]{1,64})\]$/;
@@ -125,6 +127,7 @@ async function request(url: URL, signal?: AbortSignal): Promise<unknown> {
 }
 
 export async function searchGiphyStickers(query: string, signal?: AbortSignal): Promise<GiphySticker[]> {
+  if (!isFeatureEnabled('giphySearch')) return [];
   if (query.trim().length < 2) return [];
   const url = new URL('https://api.giphy.com/v1/stickers/search');
   // Respect the user's search words without silently adding "sticker" or other terms.

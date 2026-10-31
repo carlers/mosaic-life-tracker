@@ -6,6 +6,8 @@ live Git branches, issues, PRs, Actions, and deployments establish current statu
 The dated [session checkpoint](SESSION_STATE.md) is a handoff snapshot and can lag
 behind a completed promotion.
 
+Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
+
 ## Task-to-context shortcuts
 
 Read the [agent entrypoint](../AGENTS.md), then the **smallest relevant set** below.

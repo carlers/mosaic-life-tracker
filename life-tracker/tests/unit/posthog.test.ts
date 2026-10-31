@@ -217,6 +217,36 @@ describe('PostHog adapter', () => {
     );
   });
 
+  it('keeps the last remote kill-switch value across a failed refresh without flicker', async () => {
+    // Unit tests have no browser window: capture the actual online listener
+    // registered by the adapter instead of relying on a DOM event.
+    const listeners = new Map<string, () => void>();
+    vi.stubGlobal('window', {
+      addEventListener: (name: string, callback: () => void) => { listeners.set(name, callback); },
+      removeEventListener: vi.fn(),
+      setInterval: vi.fn(() => 7),
+      clearInterval: vi.fn(),
+    });
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      flags: { mosaic_disable_task_search: { enabled: true, variant: null } },
+    }));
+    const adapter = await loadAdapter();
+    await adapter.initializePostHog();
+    await vi.waitFor(() => expect(adapter.getPostHogFeatureFlagState('mosaic_disable_task_search').enabled).toBe(true));
+
+    fetchMock.mockRejectedValueOnce(new Error('offline'));
+    const reconnect = listeners.get('online');
+    expect(reconnect).toBeDefined();
+    reconnect?.();
+    // Values stay available during refresh, even if the request fails.
+    expect(adapter.getPostHogFeatureFlagState('mosaic_disable_task_search').enabled).toBe(true);
+    await vi.waitFor(() => expect(adapter.getPostHogFeatureFlagState('mosaic_disable_task_search')).toEqual({
+      enabled: true,
+      isLoaded: true,
+      hasError: true,
+    }));
+  });
+
   it('installs only browser error, rejection, and reconnect listeners', async () => {
     const addEventListener = vi.fn();
     const removeEventListener = vi.fn();

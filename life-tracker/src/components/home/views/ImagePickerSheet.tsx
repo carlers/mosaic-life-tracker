@@ -3,7 +3,9 @@ import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { SheetErrorBanner } from '../../ui/SheetErrorBanner';
 import { Upload, X, Loader2 } from 'lucide-react';
-import { saveImage, saveProfileImage } from '../../../lib/storage';
+import { saveTaskImage, saveProfileImage } from '../../../lib/storage';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../../lib/featureControls';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSheetReset } from '../../../hooks/useSheetReset';
 
@@ -45,6 +47,8 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   onRemove,
 }) => {
   const { user } = useAuth();
+  const taskPhotoUploadEnabled = useFeatureEnabled('taskPhotoUpload');
+  const canUpload = variant === 'profile' || taskPhotoUploadEnabled;
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,12 +62,16 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (variant === 'task' && !isFeatureEnabled('taskPhotoUpload')) {
+      setError('Task photo uploads are currently unavailable.');
+      return;
+    }
     setIsUploading(true);
     setError('');
     try {
       const userId = user?.$id;
       if (!userId) throw new Error('Not authenticated');
-      const fileId = await (variant === 'profile' ? saveProfileImage(file, userId) : saveImage(file, userId));
+      const fileId = await (variant === 'profile' ? saveProfileImage(file, userId) : saveTaskImage(file, userId));
       await onSave(fileId);
       onClose();
     } catch (err) {
@@ -84,13 +92,15 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
     <BottomSheet isOpen={isOpen} onClose={onClose} title={title} height="auto">
       <div className="pt-2 pb-8 px-4 space-y-4">
         <p className="text-sm text-gray-400 text-center">
-          Images are compressed on-device and sync automatically when online.
+          {canUpload
+            ? 'Images are compressed on-device and sync automatically when online.'
+            : 'New task photo uploads are currently unavailable. Existing photos are preserved.'}
         </p>
 
         <SheetErrorBanner message={error} />
 
         <div className="flex flex-col gap-3">
-          <Button
+          {canUpload && <Button
             variant="primary"
             className="w-full gap-2 py-3"
             onClick={() => fileInputRef.current?.click()}
@@ -107,7 +117,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
                 Choose from Device
               </>
             )}
-          </Button>
+          </Button>}
 
           <input
             ref={fileInputRef}
