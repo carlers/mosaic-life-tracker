@@ -1,4 +1,14 @@
 # Session checkpoint
+Updated: 2026-10-31 Asia/Manila
+Current task: #1443 Appwrite settings replication recovery after Cloud restoration (task branch only).
+
+## Active issue #1443 — Preferences freshness stall
+- The user reports tasks and offline backlog now sync across phone/laptop, while manual Sync Now is stuck at “Waiting for Preferences” and settings diverge.
+- Baseline: protected `dev@5cdd830dd904bd096bd1b84ae6688e47e9b1b864` / v0.43.8; isolated task `chatgpt/fix-preferences-legacy-replication-20261031`, planned PATCH v0.43.9. No Production or protected-branch mutation approved.
+- Inspected `src/hooks/useSettings.ts`, `src/db/settingsReplicationPilot.ts`, `src/db/sync.ts` and current Appwrite settings schemas. Physical deletion of oversized legacy local settings rows is a confirmed retry-loop risk because the settings push rejects all `_deleted` rows; device-specific root cause remains unverified without local replication error evidence. Production settings table has recent successful updates, so do not assert total remote outage.
+- Scoped candidate: migrate legacy rows to valid deterministic IDs before local removal, preserve canonical newer values and owner constraints; acknowledge only oversized impossible-remote physical deletes on the push side; keep valid-ID physical deletes rejected. Add unit regression tests for migration failure, precedence, isolation and queue progression.
+- Next: request focused CI on the exact task commit, repair failures, then one full stable-Preview canonical + Vercel READY and Scratch synthetic-user multi-device acceptance. Do not promote to `dev` or `main` or alter Production without explicit approval. Previously active release and recovery work remains independent.
+
 Updated: 2026-10-23 Asia/Manila
 Current task: #1276 UI release candidate from dev to main; reconcile main-only CI trust history first.
 
