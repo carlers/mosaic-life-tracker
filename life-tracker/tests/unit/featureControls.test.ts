@@ -22,6 +22,20 @@ describe('operational feature controls', () => {
     }
   });
 
+  it('binds every operator control to a unique, canonical, non-empty PostHog key', () => {
+    const flagKeys = Object.values(FEATURE_DISABLE_FLAGS);
+    expect(flagKeys).toHaveLength(14);
+    expect(new Set(flagKeys).size).toBe(flagKeys.length);
+    for (const flag of flagKeys) {
+      expect(flag).toMatch(/^mosaic_disable_[a-z]+(?:_[a-z]+)*$/);
+      // The exact registry value must be the one evaluated remotely.
+      disabled.add(flag);
+      expect(isFeatureEnabled(flag)).toBe(false);
+      disabled.delete(flag);
+      expect(isFeatureEnabled(flag)).toBe(true);
+    }
+  });
+
   it('disables only the matching feature, and re-enables without erasing other states', () => {
     disabled.add(FEATURE_DISABLE_FLAGS.taskPhotoUpload);
     expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.taskPhotoUpload)).toBe(false);

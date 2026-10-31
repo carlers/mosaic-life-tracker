@@ -1,3 +1,14 @@
+# Task checkpoint — #1026 v0.57.0 operator registry integrity / artifact provenance
+Updated: 2026-11-01 Asia/Manila
+
+- Owner requested big P1 registry batch, including seven optional flags on top of accepted P1a TodoMate Preview. New controls: Timeline, holiday indicators, Calendar pinch, new profile photo uploads, Profile share, friend search, sticker pack discovery. No main/dev/Production authorization.
+- v0.57.0 stable Preview `feature/1026-p1-seven-controls-v0570-20261101@90292d3aa479c3b5707a75174710bf0dab5325d5`: focused task #41233158490 SUCCESS, full Quality Gate #41233322208 attempt 1 passed blocking Home budget (380,931/381,000 gzip B), checks/unit/DOM and browser shard 1. Browser shard 2 failed one unrelated intermittent long-held Day View drag contract; rerun of only that shard on attempt 2 passed and canonical acceptance succeeded.
+- Trusted Preview Delivery #41234009487 FAILED CLOSED because build artifact from run attempt 1 is not accepted for canonical attempt 2; receiver requires same exact run attempt. No Vercel READY claim, and no new PostHog switches were created. This is a provenance boundary, not a failed bundle or feature test.
+- This bounded repair adds durable unit regression: all 14 operator flags are canonical, unique and individually reversible using their exact PostHog keys. New task branch `chatgpt/1026-registry-integrity-delivery-v0570-20261101` off previous stable SHA. A focused-successful task and fresh stable Preview squash generate a new complete one-attempt canonical CI + trusted Vercel artifact. No CI / artifact security policy relaxation and no version change.
+- After exact CI full SUCCESS and Vercel READY, create seven new flags in verified PostHog project 619969 with `active:false` and 100% target condition, check readback, link to issue #1026, and leave P1 for manual acceptance. Existing seven flags remain untouched.
+
+---
+
 # Task checkpoint — #1026 v0.57.0 Home size-fix on exact flag values
 Updated: 2026-11-01 Asia/Manila
 
