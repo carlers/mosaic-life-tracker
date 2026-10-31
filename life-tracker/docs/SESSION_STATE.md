@@ -1,4 +1,7 @@
 
+- Guarded Scratch-only activation command added at scripts/appwrite-chat-photo-scratch-ready.mjs; requires exact reviewed SHA, pinned historical checks and a locally held Scratch-scoped API key. Not executed and does not change Production. [verify:focused]
+
+
 - 2026-10-31: Added Git-owned bounded 14-day cleanup for owner-only chat uploads with no sender row, scheduled through existing message-action maintenance; source unit tests cover non-chat, recipient-granted, recent, legitimate, and bucket-drift denial. Not deployed to Scratch. [verify:focused]
 
 # Current checkpoint — chat photo Scratch preparation (#1460)
