@@ -166,13 +166,13 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 }) => {
   const {
     categories = [],
+    isLoading: categoriesLoading,
     addCategory,
     updateCategory,
     reorderCategories,
   } = useCategories();
   const { tasks = [], isLoading: tasksLoading } = useTasks();
   const { user } = useAuth();
-  const { isLoading: categoriesLoading } = useCategories(false);
   const [orphanLimit, setOrphanLimit] = useState(25);
   const orphanedTasks = useMemo(() =>
     categoriesLoading || tasksLoading ? [] :
@@ -342,6 +342,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             </CategoryRow>
           ))}
         </Reorder.Group>
+        <p className="mt-3 text-xs text-gray-400">
+          Category deletion is temporarily unavailable to protect existing tasks.
+        </p>
 
         {isAdding ? (
           <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">

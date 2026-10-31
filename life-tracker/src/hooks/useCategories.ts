@@ -85,7 +85,8 @@ export function useCategories(enabled = true) {
   );
 
   const deleteCategory = useCallback(
-    async (_id: string) => {
+    async (id: string) => {
+      if (!id) throw new Error('Invalid category');
       throw new Error('Category deletion is temporarily unavailable to protect tasks');
     },
     []
