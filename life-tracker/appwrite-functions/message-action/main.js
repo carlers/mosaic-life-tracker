@@ -231,6 +231,9 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const vDiaryRefOwnerId = validateOptionalString(p.diaryRefOwnerId, 36);
   const vDiaryRefDate = validateOptionalString(p.diaryRefDate, 10);
   const vDiaryRefExcerpt = validateOptionalString(p.diaryRefExcerpt, 160);
+  const diaryRefEpoch = p.diaryRefEpoch ?? 0;
+  if (!Number.isInteger(diaryRefEpoch) || diaryRefEpoch < 0 || diaryRefEpoch > 2147483647)
+    return { status: 400, body: { error: 'Invalid diary quote epoch' } };
   const vReplyToId = validateOptionalString(p.replyToId, 255);
   const vReplyToContent = validateOptionalString(p.replyToContent, 300);
   const vReplyToSenderId = validateOptionalString(p.replyToSenderId, 255);
@@ -288,10 +291,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       !/^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(diaryRefDate) ||
       hasTaskRef) return { status: 400, body: { error: 'Invalid diary reference' } };
     const diary = await findVisibleFriendDiary(tablesDB, senderId, diaryRefId, diaryRefOwnerId);
-    if (!diary || diary.date !== diaryRefDate)
+    if (!diary || diary.date !== diaryRefDate || (diary.quote_epoch || 0) !== diaryRefEpoch)
       return { status: 403, body: { error: 'Diary no longer available' } };
     // Live previews are resolved through a separately authorized read.
-  } else if (diaryRefOwnerId || diaryRefDate || vDiaryRefExcerpt.value) {
+  } else if (diaryRefOwnerId || diaryRefDate || vDiaryRefExcerpt.value || diaryRefEpoch) {
     return { status: 400, body: { error: 'Incomplete diary reference' } };
   }
   const recipientRowId = makeRecipientRowId(messageId);
@@ -386,6 +389,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           diary_ref_owner_id: diaryRefOwnerId,
           diary_ref_date: diaryRefDate,
           diary_ref_excerpt: diaryRefExcerpt,
+          diary_ref_epoch: diaryRefEpoch,
         reply_to_id: replyToId,
         reply_to_content: replyToContent,
         reply_to_sender_id: replyToSenderId,
@@ -426,6 +430,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           diary_ref_owner_id: diaryRefOwnerId,
           diary_ref_date: diaryRefDate,
           diary_ref_excerpt: diaryRefExcerpt,
+          diary_ref_epoch: diaryRefEpoch,
           reply_to_id: replyToId,
           reply_to_content: replyToContent,
           reply_to_sender_id: replyToSenderId,
@@ -570,6 +575,7 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
       diary_ref_owner_id: row.diary_ref_owner_id || '',
       diary_ref_date: row.diary_ref_date || '',
       diary_ref_excerpt: '',
+      diary_ref_epoch: row.diary_ref_epoch || 0,
       reply_to_id: row.reply_to_id || '',
       reply_to_content: row.reply_to_content || '',
       reply_to_sender_id: row.reply_to_sender_id || '',
@@ -1347,7 +1353,7 @@ async function handleReactToDiary(tablesDB, callerId, payload, log, error) {
       messageId, recipientId: ownerId,
       content: `Reacted ${valid.value} to your diary`,
       diaryRefId: diaryId, diaryRefOwnerId: ownerId, diaryRefDate: diary.date,
-      createdAt: eventAt,
+      createdAt: eventAt, diaryRefEpoch: diary.quote_epoch || 0,
     }, log, error);
     if (delivery.status !== 200) return delivery;
   }
@@ -1453,7 +1459,8 @@ async function handleGetDiaryReferencePreviews(tablesDB, callerId, payload) {
     const diary = diaries.get(message.diary_ref_id);
     if (!diary || diary.user_id !== ownerId || diary.deleted === true ||
         !['public', 'followers'].includes(diary.visibility) ||
-        diary.date !== message.diary_ref_date) continue;
+        diary.date !== message.diary_ref_date ||
+        (message.diary_ref_epoch || 0) !== (diary.quote_epoch || 0)) continue;
     previews[id] = {
       date: diary.date,
       excerpt: String(diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
