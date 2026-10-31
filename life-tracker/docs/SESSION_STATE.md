@@ -1,5 +1,16 @@
 # Session checkpoint
 Updated: 2026-10-31 Asia/Manila
+Current task: #1388 v0.43.12 Calendar cut-off following two failed user Previews.
+
+## #1388 — Confirmed layout geometry and targeted repair
+- Owner's actual browser measured viewport height 841, fixed nav top 777, native calendar slide top 227 bottom 917, client/scrollHeight both 690, final row bottom 902, main scrollHeight 925 against clientHeight 841. Active/visible index both 30. **Root defect**: Home's percentage-height layout is taller than its usable area; the calendar itself has zero scroll range because its viewport extends underneath the fixed bottom navigation.
+- Task branch: `chatgpt/1388-calendar-height-allocation-v04312-20261031`, based on stable `fix/calendar-long-grid-scroll-20261027@f2e2babd99de0554e80c92b1dc3e4746263bf558`. Repair applies the fixed-nav bottom inset at the Home main containing block, not at a nested percentage-height child; fixes PersonPane's flex minimum height and adds browser regression at exact 841px viewport with a crowded middle week.
+- Version candidate `0.43.12` for isolated user-testable Preview only; latest `dev` is already at 0.44.2, so this tree must never be directly promoted without fresh integration/version reconciliation and explicit approval. No backend, schema, data, Scratch or Production changes.
+- Focused and canonical CI, Vercel deployment, and actual user scroll acceptance are pending at task write. Do not claim passing results prematurely.
+- Next: focused browser CI and repair, merge task PR into isolated stable Preview after green, full canonical, trusted Preview READY, then user manual acceptance before any protected merge.
+
+## Previous checkpoint
+Updated: 2026-10-31 Asia/Manila
 Current task: #1388 Calendar View full-page task-heavy scroll cut-off; previous accepted Preview v0.43.10 failed real-user acceptance.
 
 ## #1388 follow-up — v0.43.11 candidate

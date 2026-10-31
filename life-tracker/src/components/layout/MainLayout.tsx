@@ -90,7 +90,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </Suspense>
       )}
 
-      <main data-mosaic-main-scroll="true" className={`flex-1 min-h-0 ${hideBottomNav ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+      <main data-mosaic-main-scroll="true" className={`flex-1 min-h-0 ${hideBottomNav ? 'overflow-hidden' : 'overflow-y-auto'} ${activeTab === 'home' && !hideBottomNav ? contentInsetClass : ''}`}>
         <div
           data-testid="primary-route-width-frame"
           data-content-width-mode={contentWidthMode}
@@ -141,7 +141,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   hideBottomNav
                     ? 'h-full min-h-0 overflow-hidden'
                     : activeTab === 'home'
-                      ? 'h-full min-h-0 ' + contentInsetClass
+                      ? 'h-full min-h-0'
                       : 'min-h-full ' + contentInsetClass
                 }
               >

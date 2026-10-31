@@ -150,7 +150,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
 
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col">
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={

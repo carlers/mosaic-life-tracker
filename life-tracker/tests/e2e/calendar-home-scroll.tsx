@@ -16,15 +16,25 @@ export function FullHeightHomeCalendarProbe() {
   const selectedMonth = calendar.slides[calendar.activeIndex] ?? new Date();
   const year = selectedMonth.getFullYear();
   const month = selectedMonth.getMonth();
+  const scenario = new URLSearchParams(window.location.search).get('scenario');
+  const reported = scenario === 'reported';
   const tasks = useMemo<TaskDocument[]>(() => {
     const middle = format(new Date(year, month, 15), 'yyyy-MM-dd');
     const last = format(new Date(year, month + 1, 0), 'yyyy-MM-dd');
-    return Array.from({ length: 65 }, (_, index) => ({
+    // Screenshot-like October: crowded Oct 15, with 4 sparse weeks below.
+    const observedDays = [
+      ...Array(3).fill(13), ...Array(3).fill(14),
+      ...Array(14).fill(15), ...Array(4).fill(16), ...Array(3).fill(17), 31,
+    ];
+    const count = reported ? observedDays.length : 65;
+    return Array.from({ length: count }, (_, index) => ({
       id: `scroll_fixture_${index}`,
       userId: 'user_1',
-      title: index === 64 ? 'Final sparse week task' : `Middle crowded week task ${index + 1}`,
+      title: index === count - 1 ? 'Final sparse week task' : `Middle crowded week task ${index + 1}`,
       categoryId: 'test',
-      date: index === 64 ? last : middle,
+      date: reported
+        ? format(new Date(year, month, observedDays[index]), 'yyyy-MM-dd')
+        : index === count - 1 ? last : middle,
       order: index,
       completed: false,
       completedAt: '',
@@ -34,7 +44,7 @@ export function FullHeightHomeCalendarProbe() {
       memo: '',
       isDeleted: false,
     }));
-  }, [year, month]);
+  }, [year, month, reported]);
   const mode = new URLSearchParams(window.location.search).get('mode');
   const zoomPreference = mode === 'zoom' ? 3 : 7;
   const stickyWeekdayHeader = mode === 'zoom';
@@ -42,13 +52,13 @@ export function FullHeightHomeCalendarProbe() {
     <MainLayout activeTab="home" onTabChange={() => {}} routeKey="home">
       <div className="mosaic-home-workspace flex h-full min-h-0 min-w-0">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="shrink-0 h-12" data-testid="home-identity-header">Home search and friends</div>
+          <div className={reported ? 'shrink-0 h-24' : 'shrink-0 h-12'} data-testid="home-identity-header">Home search and friends</div>
           <div className="flex-1 min-h-0 relative flex flex-col">
             <Swiper className="absolute inset-0" noSwiping noSwipingClass="swiper-no-swiping">
               <SwiperSlide className="h-full">
                 <div className="flex flex-col h-full">
-                  <div className="shrink-0 h-12" data-testid="home-profile-header">Account profile</div>
-                  <div className="shrink-0 h-12" data-testid="home-calendar-header">
+                  <div className={reported ? 'shrink-0 h-16' : 'shrink-0 h-12'} data-testid="home-profile-header">Account profile</div>
+                  <div className={reported ? 'shrink-0 h-14' : 'shrink-0 h-12'} data-testid="home-calendar-header">
                     <button onClick={calendar.handleToggle} type="button" data-testid="switch-calendar-mode">Switch week/month</button>
                   </div>
                   <CalendarBody
