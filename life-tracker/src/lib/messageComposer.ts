@@ -62,7 +62,7 @@ export function buildOutgoingMessage(
     diaryRefId: input.diaryRefId || '',
     diaryRefOwnerId: input.diaryRefOwnerId || '',
     diaryRefDate: input.diaryRefDate || '',
-    diaryRefExcerpt: input.diaryRefExcerpt || '',
+    diaryRefExcerpt: '', // no persisted diary text snapshots
     replyToId: input.replyTo?.id || '',
     replyToContent: input.replyTo
       ? truncateForSnapshot(input.replyTo.content)
@@ -191,13 +191,11 @@ export async function sendDiaryReplyMessage(
   diary: Pick<import('../db/schema').DiaryDocument, 'id' | 'userId' | 'date' | 'content' | 'emoji' | 'photos'>,
   content: string
 ): Promise<void> {
-  const excerpt = (diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
-    (diary.emoji ? diary.emoji : diary.photos && diary.photos !== '[]' ? 'Diary photos' : 'Diary entry');
   await insertAndDeliverOutgoing(userId, friendId, ({ threadId, now, localId }) =>
     buildOutgoingMessage({
       userId, friendId, threadId, now, localId, content,
       diaryRefId: diary.id, diaryRefOwnerId: diary.userId,
-      diaryRefDate: diary.date, diaryRefExcerpt: excerpt,
+      diaryRefDate: diary.date,
     })
   );
 }
