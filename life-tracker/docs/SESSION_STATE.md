@@ -1,3 +1,14 @@
+# Task checkpoint — #1477 Phase 2 cloud-media Preview reconciliation to dev v0.50.2
+Updated: 2026-11-01 Asia/Manila
+
+- Owner tested Phase 2 v0.51.0 Preview and reported it works; requested continued progress. This is acceptance of behavior, not explicit authorization to promote Phase 2 to `dev`. Do not merge to dev/main or modify Production without the corresponding explicit approval.
+- Accepted Phase 2 stable Preview `feature/1477-referenced-cloud-storage-v0510-20261031@2923aff25dfce8520fbf1b854349d7411d0f280c` had canonical Quality Gate #41219856793 success and Trusted Preview Delivery #41220187478 success, exact-SHA Vercel READY. It was based on `dev@f01a43479baa476d4ed1c8074a430a1065af66f7` v0.50.0.
+- Current `dev@afdca35ac2f0287b04a24f19af21a73d4a1b9838` v0.50.2 adds Day View fixes and accepted Calendar scroll; preserve those changes. This task `chatgpt/1477-cloud-media-forward-v0510-20261101` forward-ports only accepted #1477 feature blobs, retains the original v0.51.0 version, and carries all current dev docs/source. Stable integrated Preview `feature/1477-cloud-media-integrated-v0510-20261101` requires focused/canonical CI and exact-SHA Vercel Scratch READY before any dev promotion.
+- Scope remains **read-only, authenticated owner-referenced media subtotal**. No exhaustive provider storage quota/orphan inventory, no cloud deletion, no broad file enumeration, and no backend mutation.
+- Outstanding: manual three-account signed-in Scratch denial tests and offline/account-change verification. Further backend-authoritative inventory work requires separate authorization; #1478 destructive cleanup remains deferred.
+
+---
+
 # Task checkpoint — #1388 Calendar scroll v0.50.2 integrated candidate
 Updated: 2026-11-01 Asia/Manila
 
