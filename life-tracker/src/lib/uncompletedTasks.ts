@@ -49,3 +49,15 @@ export function groupUncompletedTasks(
   }
   return sections.filter(section => section.tasks.length > 0);
 }
+
+/** Filter the already owner-scoped, sorted projection without changing section order. */
+export function filterUncompletedSections(
+  sections: readonly UncompletedSection[], query: string,
+): UncompletedSection[] {
+  const needle = query.trim().toLocaleLowerCase();
+  if (!needle) return sections as UncompletedSection[];
+  return sections.map(section => ({
+    ...section,
+    tasks: section.tasks.filter(task => task.title.toLocaleLowerCase().includes(needle)),
+  })).filter(section => section.tasks.length > 0);
+}

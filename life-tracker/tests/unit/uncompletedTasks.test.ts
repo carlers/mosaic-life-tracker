@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TaskDocument } from '../../src/db/schema';
-import { groupUncompletedTasks, isScheduledDateKey } from '../../src/lib/uncompletedTasks';
+import { filterUncompletedSections, groupUncompletedTasks, isScheduledDateKey } from '../../src/lib/uncompletedTasks';
 
 function task(id: string, date: string, changes: Partial<TaskDocument> = {}): TaskDocument {
   return {
@@ -51,5 +51,39 @@ describe('uncompleted owner projection', () => {
     const sections = groupUncompletedTasks([task('bad', '2026-02-30')], 'owner', today);
     expect(sections[0].id).toBe('unknown');
     expect(sections[0].tasks[0].date).toBe('2026-02-30');
+  });
+});
+
+describe('uncompleted title search', () => {
+  const today = '2026-10-21';
+  const original = groupUncompletedTasks([
+    task('Late PAPER', '2026-10-19'),
+    task('paper tomorrow', '2026-10-22'),
+    task('Write homework', today),
+    task('No-date paper', ''),
+    task('Literal [paper]', '2026-10-18'),
+    task('not visible paper', today, { userId: 'other' }),
+    task('completed paper', today, { completed: true }),
+    task('deleted paper', today, { isDeleted: true }),
+    task('bad paper date', '2026-02-30'),
+  ], 'owner', today);
+
+  it('filters titles case-insensitively without rank sorting, mutation or owner leaks', () => {
+    const before = original.map(section => [section.id, section.tasks.map(t => t.id)]);
+    const visible = filterUncompletedSections(original, '  PAPER ');
+    expect(visible.map(section => [section.id, section.tasks.map(t => t.id)])).toEqual([
+      ['overdue', ['Late PAPER', 'Literal [paper]']],
+      ['upcoming', ['paper tomorrow']],
+      ['backlog', ['No-date paper']],
+      ['unknown', ['bad paper date']],
+    ]);
+    expect(original.map(section => [section.id, section.tasks.map(t => t.id)])).toEqual(before);
+  });
+
+  it('matches literal punctuation, omits empty groups, and returns all groups for blank query', () => {
+    expect(filterUncompletedSections(original, '[paper]').flatMap(section => section.tasks.map(t => t.id)))
+      .toEqual(['Literal [paper]']);
+    expect(filterUncompletedSections(original, 'not present')).toEqual([]);
+    expect(filterUncompletedSections(original, '  ')).toBe(original);
   });
 });
