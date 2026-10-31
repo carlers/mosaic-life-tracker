@@ -5,7 +5,7 @@ Updated: 2026-10-31 Asia/Manila
 - Source baseline `dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459` v0.44.4. Scoped task `chatgpt/dayview-momentum-0445-20261031`, stable Preview `perf/dayview-momentum-v0445-20261031`; planned v0.44.5 refinement, pending real Preview acceptance.
 - Owner Day View Swiper adds native FreeMode inertia with sticky date snapping, restrained momentum, no bounce, and no inertia under reduced motion. Existing 181 logical dates, Virtual nearby DOM and 7-day render window, date rebase, transition-end parent date propagation, normal and held-task drag ownership, and sheet gesture handling remain unchanged.
 - Existing rapid-swipe browser test now checks settled snap alignment and parent date commit. Require focused/browser checks, stable exact-SHA canonical and Vercel READY, then physical Android/PWA first/fast/swipe-back and held-task retest. Do not infer a device performance improvement from CI.
-- Initial task gesture/focused CI detected a Swiper module test-double mismatch in `DayViewSheetPerformance.test.tsx` (`FreeMode` missing from the existing mocked module); add that export without altering application behavior, then require fresh focused/browser verification before stable Preview. No dev/main/Production modification without separate approval.
+- First focused DOM failure came from a missing `FreeMode` mock, repaired. Browser rapid-swipe probe captured an unsnapped 21.7px offset after its zero-time synthetic touch moves; pace only that four-swipe gesture through real frame-like intervals (all other gesture fixtures unchanged), retain the exact snap/parent-date assertion, and require fresh browser+focused green before Preview. No dev/main/Production modification without separate approval.
 
 ---
 

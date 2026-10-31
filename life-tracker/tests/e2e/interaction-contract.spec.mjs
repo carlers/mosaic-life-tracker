@@ -12,7 +12,7 @@ test.use({
     'Mozilla/5.0 (Linux; Android 15; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 SamsungBrowser/28.0',
 });
 
-async function drag(page, locator, deltaX) {
+async function drag(page, locator, deltaX, touchStepDelayMs = 0) {
   const box = await locator.boundingBox();
   if (!box) throw new Error('Missing drag target bounds');
   const startX = deltaX < 0 ? box.x + box.width * 0.82 : box.x + box.width * 0.18;
@@ -33,6 +33,9 @@ async function drag(page, locator, deltaX) {
         },
       ],
     });
+    // A real finger produces movement over frames; the optional delay lets
+    // inertia tests give Swiper valid time deltas instead of zero-time samples.
+    if (touchStepDelayMs) await page.waitForTimeout(touchStepDelayMs);
   }
   await session.send('Input.dispatchTouchEvent', {
     type: 'touchEnd',
@@ -1577,10 +1580,10 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
   const swiper = page.getByTestId('day-swiper');
   // 181 logical days must not mean 181 mounted layout nodes.
   await expect.poll(() => swiper.locator('.swiper-slide').count()).toBeLessThan(20);
-  await drag(page, swiper, -260);
-  await drag(page, swiper, -260);
-  await drag(page, swiper, -260);
-  await drag(page, swiper, -260);
+  await drag(page, swiper, -260, 12);
+  await drag(page, swiper, -260, 12);
+  await drag(page, swiper, -260, 12);
+  await drag(page, swiper, -260, 12);
 
   const activeSlide = swiper.locator('.swiper-slide-active');
   await expect(
