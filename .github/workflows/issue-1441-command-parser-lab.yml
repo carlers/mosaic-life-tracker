@@ -1,0 +1,64 @@
+name: Issue 1441 Chrono Parser Research
+# Synthetic, branch-only research; no secrets or production dependencies.
+on:
+  push:
+    branches:
+      - chatgpt/1441-command-parser-lab-20261031
+permissions:
+  contents: read
+jobs:
+  grammar-chrono:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: life-tracker/benchmarks/command-models
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prepare unchanged synthetic corpus
+        run: python make_dataset.py
+      - name: Run parser contract tests
+        run: node --test parser-lab.test.mjs
+      - name: Measure original Python baseline
+        run: python benchmark.py --adapter rules --limit 0 --output results/original-rules-168.json
+      - name: Measure zero-dependency grammar on both corpora
+        run: |
+          node parser-lab.mjs --output results/grammar-168.json
+          node parser-lab.mjs --input parser-lab-holdout.jsonl --output results/grammar-holdout.json
+      - name: Install pinned Chrono in research folder
+        run: |
+          # Keep npm completely outside the parent life-tracker package.
+          mkdir -p "$RUNNER_TEMP/chrono-bench"
+          npm install --prefix "$RUNNER_TEMP/chrono-bench" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund chrono-node@2.10.3
+          mkdir -p node_modules
+          ln -s "$RUNNER_TEMP/chrono-bench/node_modules/chrono-node" node_modules/chrono-node
+          node --input-type=module -e "import('chrono-node').then(x => { if (!x.parse) process.exit(1); console.log('Chrono dynamic import ready') })"
+      - name: Measure optional Chrono date extension
+        run: |
+          node parser-lab.mjs --chrono --output results/chrono-168.json
+          node parser-lab.mjs --chrono --input parser-lab-holdout.jsonl --output results/chrono-holdout.json
+      - name: Summarize all comparable outputs
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            for(const x of ["original-rules-168","grammar-168","chrono-168","grammar-holdout","chrono-holdout"]) {
+              const p=JSON.parse(fs.readFileSync("results/"+x+".json","utf8")),m=p.metrics??p;
+              console.log(x+": "+m.exact_count+"/"+m.count+" exact; "+m.unsafe_create_count+" unsafe");
+            }
+          '
+      - name: Upload per-case comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: command-parser-lab-${{ github.run_id }}
+          path: life-tracker/benchmarks/command-models/results/*.json
+          retention-days: 14
+          if-no-files-found: warn

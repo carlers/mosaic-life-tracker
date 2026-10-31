@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { predict, compare } from './parser-lab.mjs';
+import { readFileSync } from 'node:fs';
+const cases = readFileSync(new URL('./cases.jsonl',import.meta.url),'utf8').trim().split('\n').map(JSON.parse);
+test('benchmark corpus unchanged',()=>assert.equal(cases.length,168));
+test('canonical create',()=>assert.deepEqual(predict('Add submit essay to School today'),{status:'create_task',title:'submit essay',category:'School',date:'2026-10-31'}));
+test('natural speech',()=>assert.deepEqual(predict('Can you add buy milk to my Personal list tomorrow?'),{status:'create_task',title:'buy milk',category:'Personal',date:'2026-11-01'}));
+test('Taglish',()=>assert.deepEqual(predict('Paki-add buy milk sa Personal bukas'),{status:'create_task',title:'buy milk',category:'Personal',date:'2026-11-01'}));
+test('reject ambiguous title boundary',()=>assert.equal(predict('Add move to Home to Home tomorrow').status,'needs_review'));
+test('reject unsupported and invalid days',()=>{assert.notEqual(predict('Delete all my tasks').status,'create_task');assert.notEqual(predict('Add homework to School on 2026-02-30').status,'create_task')});
+test('unchanged baseline dataset only',()=>{const r=compare(cases);assert.equal(r.count,168);assert.equal(r.unsafe_create_count,0);assert.ok(r.exact_count>=109);});
