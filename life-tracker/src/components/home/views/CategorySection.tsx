@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useId, useRef, useState } from 'react';
 import { CategoryPillActionContext } from './categoryPillActionContext';
 import { ColorPalettePicker } from '../../ui/ColorPalettePicker';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Archive, CheckSquare, ChevronDown, MoreHorizontal, Plus, Square } from 'lucide-react';
+import { CheckSquare, ChevronDown, MoreHorizontal, Plus, Square } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
 import { TaskItem } from './TaskItem';
 import {
@@ -428,9 +428,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         >
           {selectionMode
             ? allCategoryTasksSelected ? <CheckSquare size={18} /> : <Square size={18} />
-            : canAddTasks
-              ? <Plus data-testid="category-add-icon" size={18} />
-              : <Archive size={18} />}
+            : <Plus data-testid="category-add-icon" size={18} />}
         </span>
       </button>
       {!canAddTasks && !selectionMode && (
