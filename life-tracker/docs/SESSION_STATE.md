@@ -1,3 +1,14 @@
+# Task checkpoint — #1461 Diary chat quote privacy v0.44.5 candidate
+Updated: 2026-10-31 Asia/Manila
+
+- User authorized implementation after read-only critique. Issue #1461; `chatgpt/1461-diary-quote-privacy-v0445-20261031` based on `dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459` v0.44.4. No `dev`/`main`/Production promotion.
+- Candidate changes: stop storing new diary excerpts (client, delivery, repair); only show currently authorized live previews in Chat; clear old local cached excerpts; add server-owned diary quote epochs and a version marker for new messages; revoke epochs and paged-scrub server message copies before owner privacy/deletion replication writes; keep independent chat text and reactions intact. Additive migration 016 defines server-only fields and message diary-reference index.
+- Focused tests cover preview ownership/visibility, stale-epoch send, owner revocation, both chat copies and fail-closed bubble rendering; manual tests not performed.
+- **Not yet release-ready:** focused CI is pending, server/epoch race and historical preexisting-private-entry backfill still require review, older PWA compatibility and rollback must be tested; Scratch schema, exact Function code, two-account Diary sync and Preview login have **not** been deployed/verified. No production data or credentials used.
+- Next: run focused CI, repair source failures; design and test remaining historical cleanup and race guarantees; then, only with isolated scratch readiness, run full stable Preview acceptance. Do not ship this task branch as a privacy fix before these gates pass.
+
+---
+
 # Task checkpoint — #1443 Preferences replication integrated v0.44.4
 Updated: 2026-10-31 Asia/Manila
 
