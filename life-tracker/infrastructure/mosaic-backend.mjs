@@ -195,6 +195,8 @@ export const MOSAIC_TABLES = [
       { key: 'recipient_id', type: 'varchar', size: 255, required: true },
       { key: 'direction', type: 'varchar', size: 20, required: true },
       { key: 'content', type: 'varchar', size: 4000, required: false, default: '' },
+      { key: 'attachment_type', type: 'varchar', size: 12, required: false, default: '' },
+      { key: 'attachment_file_id', type: 'varchar', size: 36, required: false, default: '' },
       { key: 'task_ref_id', type: 'varchar', size: 255, required: false, default: '' },
       { key: 'task_ref_title', type: 'varchar', size: 500, required: false, default: '' },
       { key: 'task_ref_date', type: 'varchar', size: 50, required: false, default: '' },

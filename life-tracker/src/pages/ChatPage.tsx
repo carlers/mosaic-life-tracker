@@ -62,6 +62,9 @@ const ChatMessagesLoadingShell: React.FC = () => (
   </div>
 );
 
+// Fail closed until the exact Scratch bucket ACL, Function and historic-client
+// compatibility checks have been verified. Never enable on unreviewed Production.
+const CHAT_PHOTOS_ENABLED = import.meta.env.VITE_CHAT_PHOTOS_ENABLED === 'true';
 export const ChatPage: React.FC = () => {
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
@@ -77,6 +80,7 @@ export const ChatPage: React.FC = () => {
     messages,
     isLoading,
     sendMessage,
+    sendPhoto,
     markAllRead,
     unsendMessage,
     toggleReaction,
@@ -324,6 +328,13 @@ export const ChatPage: React.FC = () => {
     setReplyTo(null);
   };
 
+  const handleSendPhoto = async (file: File, caption: string) => {
+    closeSearch();
+    const reply = replyTo ? { id: replyTo.id, senderId: replyTo.senderId, content: replyTo.content } : undefined;
+    await sendPhoto(file, caption, reply);
+    setReplyTo(null);
+  };
+
   const handlePickSticker = async (packId: string, stickerId: string) => {
     setStickerPacksOpen(false);
     try {
@@ -517,6 +528,7 @@ export const ChatPage: React.FC = () => {
         <MessageComposer
           ref={composerRef}
           onSend={handleSend}
+          onSendPhoto={CHAT_PHOTOS_ENABLED ? handleSendPhoto : undefined}
           onSendError={() => setFeedback('Message not saved. Retry.')}
           onOpenStickers={() => { setHasOpenedStickers(true); setStickerPacksOpen(true); }}
           onPrepareStickers={() => { void preloadStickerPackSheet().catch(() => {}); }}

@@ -15,6 +15,9 @@ import { packStickerSummary, parsePackStickerMessage } from '../../lib/stickerPa
 import { PackStickerImage } from './PackStickerImage';
 import { giphyStickerSummary, parseGiphyStickerMessage } from '../../lib/giphyStickers';
 import { GiphyStickerImage } from './GiphyStickerImage';
+// Keep the image viewer/photoswipe code outside text-only chat's initial chunk.
+const ChatPhotoAttachment = React.lazy(() => import('./ChatPhotoAttachment').then(m => ({ default: m.ChatPhotoAttachment })));
+
 
 export type MessageStatusKind = 'pending' | 'delivered' | 'read' | 'not-sent';
 
@@ -54,7 +57,8 @@ function buildBubbleLabel(
   if (message.replyToId) {
     parts.push(`in reply to ${replySenderName}`);
   }
-  parts.push(packStickerSummary(giphyStickerSummary(message.content)));
+  parts.push(message.attachmentType === 'image' ? 'photo' : packStickerSummary(giphyStickerSummary(message.content)));
+  if (message.attachmentType === 'image' && message.content !== '[Photo]') parts.push(message.content.replace(/^\[Photo\]\n?/, ''));
   return parts.join(' ');
 }
 
@@ -284,7 +288,14 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               />
             </div>
           )}
-          {packSticker ? (
+          {message.attachmentType === 'image' && message.attachmentFileId && (
+            <React.Suspense fallback={<span className="text-xs text-gray-400">Loading photo…</span>}>
+              <ChatPhotoAttachment fileId={message.attachmentFileId} userId={currentUserId} caption={message.content.replace(/^\[Photo\]\n?/, '')} />
+            </React.Suspense>
+          )}
+          {message.attachmentType === 'image' ? (
+            message.content !== '[Photo]' ? <span className="text-sm whitespace-pre-wrap break-words">{message.content.replace(/^\[Photo\]\n?/, '')}</span> : null
+          ) : packSticker ? (
             <PackStickerImage sticker={packSticker} />
           ) : giphySticker ? (
             <GiphyStickerImage id={giphySticker.id} label={giphySticker.label}
@@ -325,6 +336,8 @@ export const MessageBubble = React.memo(
     return (
       prev.message.id === next.message.id &&
       prev.message.content === next.message.content &&
+      prev.message.attachmentType === next.message.attachmentType &&
+      prev.message.attachmentFileId === next.message.attachmentFileId &&
       // Remote delivery can repair the quoted snapshot independently of the
       // message body; the thumbnail must update after that sync.
       prev.message.diaryRefId === next.message.diaryRefId &&
