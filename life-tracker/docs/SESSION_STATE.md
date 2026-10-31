@@ -1,3 +1,13 @@
+# Task checkpoint — #1441 independent command-model benchmark
+Updated: 2026-10-31 Asia/Manila
+
+- Baseline: dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459 v0.44.4. Research-only deliverable, refs #1441, with 168 synthetic commands, 48-case stratified model comparison, source tests and independent model download workflow.
+- New harness: benchmarks/command-models/{make_dataset.py,benchmark.py,test_benchmark.py,README.md}; GitHub Actions task-branch matrix only. No app dependencies or production user data, model inference opt-in in CI.
+- Local baseline (unpublished test platform): rules parsed 109/168 exactly (64.88%) and had 2 unsafe false actions; balanced sample 32/48 (66.67%) and 0 unsafe. Five Python unit contracts passed. Actual model scores pending GitHub network runner.
+- Version impact NONE. Inspect task branch [verify:focused], model benchmark workflow logs and JSON artifacts, then prepare stable Preview canonical as allowed by repo workflow. Never promote to dev/main or modify Production without approval.
+
+---
+
 # Task checkpoint — #1443 Preferences replication integrated v0.44.4
 Updated: 2026-10-31 Asia/Manila
 
