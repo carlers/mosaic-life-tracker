@@ -721,14 +721,14 @@ describe('DayViewSheet nested task actions', () => {
     ['Memo', 'memo-sheet'],
     ['Add Photo', 'image-picker-sheet'],
     ['Visibility', 'visibility-sheet'],
-  ])('opens %s without falling back to the bare day sheet', (label, testId) => {
+  ])('opens %s without falling back to the bare day sheet', async (label, testId) => {
     fixture.task.image = label === 'Add Photo' ? '' : 'image_1';
 
     renderSheet();
     fireEvent.click(screen.getByText('Open actions'));
     fireEvent.click(screen.getByText(label));
 
-    expect(screen.getByTestId(testId)).toBeInTheDocument();
+    expect(await screen.findByTestId(testId)).toBeInTheDocument();
     expect(
       document.querySelector('[role="dialog"][aria-hidden="true"]')
     ).not.toBeNull();

@@ -44,7 +44,7 @@ import { editSharedTask } from '../../../lib/taskShareQueue';
 import { parseSharedPlacement, placementKey, planSharedTaskMove } from '../../../lib/sharedTaskPlacement';
 const LazyMemoSheet = lazy(() => import('./MemoSheet').then(m => ({ default: m.MemoSheet })));
 const LazyImagePickerSheet = lazy(() => import('./ImagePickerSheet').then(m => ({ default: m.ImagePickerSheet })));
-import { TaskVisibilitySheet } from './TaskVisibilitySheet';
+const LazyTaskVisibilitySheet = React.lazy(() => import('./TaskVisibilitySheet').then(m => ({ default: m.TaskVisibilitySheet })));
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import { useAuth } from '../../../hooks/useAuth';
@@ -1698,9 +1698,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       <LazyMemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
       </Suspense>
-      <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
+      <Suspense fallback={null}>
+      <LazyTaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
         onClose={handleCloseVisibility} task={activeTask} category={activeTaskCategory}
         onSave={handleVisibilitySave} />
+      </Suspense>
       <ConfirmSheet
         isOpen={isDeleteConfirmOpen}
         onClose={() => {
