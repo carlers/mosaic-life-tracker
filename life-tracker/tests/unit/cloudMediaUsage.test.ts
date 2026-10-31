@@ -87,6 +87,49 @@ describe('owner-verified referenced cloud media inventory', () => {
     expect(result.largest).toEqual([]);
   });
 
+  it('does not continue requesting metadata after a session is cancelled during a page', async () => {
+    const controller = new AbortController();
+    let release!: (value: { rows: Array<Record<string, unknown>> }) => void;
+    const blockedPage = new Promise<{ rows: Array<Record<string, unknown>> }>((resolve) => {
+      release = resolve;
+    });
+    mocks.rows.mockImplementationOnce(() => blockedPage);
+    const scan = scanOwnerReferencedCloudMedia('owner_a', controller.signal);
+    await vi.waitFor(() => expect(mocks.rows).toHaveBeenCalledTimes(1));
+    controller.abort();
+    release({ rows: [{ $id: 'task_1', user_id: 'owner_a', image: 'img_one' }] });
+    await expect(scan).rejects.toThrow('cancelled');
+    expect(mocks.rows).toHaveBeenCalledTimes(1);
+    expect(mocks.file).not.toHaveBeenCalled();
+  });
+
+  it('revalidates the session before scanning additional account tables', async () => {
+    mocks.account.mockResolvedValueOnce({ $id: 'owner_a' })
+      .mockResolvedValueOnce({ $id: 'owner_a' })
+      .mockResolvedValueOnce({ $id: 'owner_b' });
+    await expect(scanOwnerReferencedCloudMedia('owner_a')).rejects.toThrow('Account changed');
+    expect(mocks.rows).toHaveBeenCalledTimes(1);
+    expect(mocks.file).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule further file metadata requests after cancellation', async () => {
+    mocks.rows.mockImplementation(async ({ tableId }: { tableId: string }) =>
+      ({ rows: tableId === 'tasks' ? Array.from({ length: 8 }, (_, i) => ({
+        $id: `task_${i}`, user_id: 'owner_a', image: `img_${i}`, deleted: false,
+      })) : [] }));
+    const releases: Array<(value: { sizeOriginal: number; $permissions: string[] }) => void> = [];
+    mocks.file.mockImplementation(() => new Promise(resolve => {
+      releases.push(resolve);
+    }));
+    const controller = new AbortController();
+    const scan = scanOwnerReferencedCloudMedia('owner_a', controller.signal);
+    await vi.waitFor(() => expect(mocks.file).toHaveBeenCalledTimes(4));
+    controller.abort();
+    for (const release of releases) release({ sizeOriginal: 100, $permissions: grants('owner_a') });
+    await expect(scan).rejects.toThrow('cancelled');
+    expect(mocks.file).toHaveBeenCalledTimes(4);
+  });
+
   it('rejects an unknown account before contacting Appwrite', async () => {
     await expect(scanOwnerReferencedCloudMedia('')).rejects.toThrow('requires an owner');
     expect(mocks.account).not.toHaveBeenCalled();

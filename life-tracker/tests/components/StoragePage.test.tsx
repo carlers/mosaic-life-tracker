@@ -64,13 +64,31 @@ describe('Storage page safe device cleanup', () => {
     );
     expect(mocks.cloud).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Check referenced cloud photos' }));
-    await waitFor(() => expect(mocks.cloud).toHaveBeenCalledExactlyOnceWith('owner-a'));
+    await waitFor(() => expect(mocks.cloud).toHaveBeenCalledExactlyOnceWith('owner-a', expect.any(AbortSignal)));
     expect(await screen.findByText('Verified referenced subtotal')).toBeInTheDocument();
     expect(screen.getAllByText('100 B').length).toBeGreaterThan(0);
     expect(screen.getByText(/Unreferenced, missing and chat files are excluded/)).toBeInTheDocument();
     mocks.currentUser = 'owner-b';
     rerender(<MemoryRouter initialEntries={['/settings/data/storage']}><StoragePage /></MemoryRouter>);
     expect(screen.queryByText('Verified referenced subtotal')).toBeNull();
+  });
+
+  it('aborts the active scan when the signed-in account changes', async () => {
+    let observedSignal: AbortSignal | undefined;
+    mocks.cloud.mockImplementationOnce((_ownerId: string, signal: AbortSignal) => {
+      observedSignal = signal;
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new Error('cancelled')), { once: true });
+      });
+    });
+    const { rerender } = render(<MemoryRouter initialEntries={['/settings/data/storage']}><StoragePage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Check referenced cloud photos' }));
+    await waitFor(() => expect(observedSignal).toBeDefined());
+    mocks.currentUser = 'owner-b';
+    rerender(<MemoryRouter initialEntries={['/settings/data/storage']}><StoragePage /></MemoryRouter>);
+    await waitFor(() => expect(observedSignal?.aborted).toBe(true));
+    expect(screen.queryByText('Verified referenced subtotal')).toBeNull();
+    expect(screen.queryByText('Cloud photos could not be checked. Verify your connection and sign-in.')).toBeNull();
   });
 
   it('reports cloud file failures as partial without offering cloud deletion', async () => {

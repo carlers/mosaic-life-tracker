@@ -40,10 +40,26 @@ function readProfileImageId(value: unknown): unknown {
   }
 }
 
-export async function scanOwnerReferencedCloudMedia(ownerId: string): Promise<CloudMediaInventory> {
+/** Cancelled scans stop issuing follow-up metadata reads and cannot publish a partial result.
+ * In-flight Appwrite requests cannot be aborted by the SDK; the signal is checked
+ * immediately after each settled call and before starting another request.
+ */
+export async function scanOwnerReferencedCloudMedia(
+  ownerId: string,
+  signal?: AbortSignal
+): Promise<CloudMediaInventory> {
+  const ensureActive = () => {
+    if (signal?.aborted) throw new Error('Cloud media inventory cancelled.');
+  };
+  ensureActive();
   if (!ownerId) throw new Error('Cloud media inventory requires an owner.');
-  const account = await guardedAccount.get();
-  if (account.$id !== ownerId) throw new Error('Account changed during cloud inventory.');
+  const verifyOwner = async () => {
+    ensureActive();
+    const account = await guardedAccount.get();
+    ensureActive();
+    if (account.$id !== ownerId) throw new Error('Account changed during cloud inventory.');
+  };
+  await verifyOwner();
 
   const references = new Map<string, Set<Exclude<CloudMediaKind, 'multiple'>>>();
   const add = (fileId: unknown, kind: 'tasks' | 'diary' | 'profile') => {
@@ -61,6 +77,7 @@ export async function scanOwnerReferencedCloudMedia(ownerId: string): Promise<Cl
   ] as const) {
     let cursor: string | null = null;
     for (let page = 0; page < MAX_PAGES; page++) {
+      await verifyOwner();
       const queries = [
         Query.equal('user_id', ownerId),
         Query.equal('deleted', false),
@@ -74,6 +91,7 @@ export async function scanOwnerReferencedCloudMedia(ownerId: string): Promise<Cl
         queries,
         total: false,
       });
+      ensureActive();
       const rows = response.rows;
       for (const raw of rows) {
         const row = raw as unknown as Record<string, unknown>;
@@ -96,6 +114,7 @@ export async function scanOwnerReferencedCloudMedia(ownerId: string): Promise<Cl
     }
   }
 
+  await verifyOwner();
   const ids = Array.from(references.keys()).sort();
   if (ids.length > MAX_FILES) truncated = true;
   const chosen = ids.slice(0, MAX_FILES);
@@ -113,6 +132,7 @@ export async function scanOwnerReferencedCloudMedia(ownerId: string): Promise<Cl
 
   const worker = async () => {
     while (index < chosen.length) {
+      ensureActive();
       const fileId = chosen[index++];
       try {
         const meta = await guardedStorage.getFile({
@@ -120,6 +140,7 @@ export async function scanOwnerReferencedCloudMedia(ownerId: string): Promise<Cl
           fileId,
         });
         // A friend's read grant is never evidence that this account owns a file.
+        ensureActive();
         const grants = meta.$permissions;
         if (!Array.isArray(grants) || !grants.includes(requiredUpdate) ||
             !grants.includes(requiredDelete) ||
@@ -134,14 +155,13 @@ export async function scanOwnerReferencedCloudMedia(ownerId: string): Promise<Cl
         byKind[kind].bytes += meta.sizeOriginal;
         largest.push({ kind, bytes: meta.sizeOriginal });
       } catch {
+        ensureActive();
         unavailable++;
       }
     }
   };
   await Promise.all(Array.from({ length: Math.min(PARALLEL_METADATA_REQUESTS, chosen.length) }, () => worker()));
-  if ((await guardedAccount.get()).$id !== ownerId) {
-    throw new Error('Account changed during cloud inventory.');
-  }
+  await verifyOwner();
   largest.sort((a, b) => b.bytes - a.bytes);
   return {
     ownerId,
