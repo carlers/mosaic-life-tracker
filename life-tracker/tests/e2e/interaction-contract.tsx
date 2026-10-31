@@ -369,6 +369,7 @@ export function InteractionHarness() {
     ? Math.max(0, Math.min(200, Number(searchParams.get('perfTaskCount')) || 0))
     : 50;
   const stickyCalendarProbe = searchParams.get('stickyCalendar') === '3';
+  const calendarScrollProbe = searchParams.get('calendarScrollProbe') === '1';
   const compactDiaryMode = searchParams.get('compactDiary') === '1';
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
   const performanceCalendarPath = searchParams.get('calendarPath') === '1';
@@ -456,10 +457,15 @@ export function InteractionHarness() {
     return { date, dateStr: format(date, 'yyyy-MM-dd') };
   }), []);
 
-  const calendarTasksByDate = React.useMemo(
-    () => new Map([[format(todoSelectedDate, 'yyyy-MM-dd'), todoTasks]]),
-    [todoSelectedDate, todoTasks]
-  );
+  const calendarTasksByDate = React.useMemo(() => {
+    // A task-heavy final calendar week exposes whether the last preview can
+    // actually be reached inside the native month scroller.
+    const activeMonth = calendar.slides[calendar.activeIndex] ?? new Date();
+    const date = calendarScrollProbe
+      ? new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0)
+      : todoSelectedDate;
+    return new Map([[format(date, 'yyyy-MM-dd'), todoTasks]]);
+  }, [calendar.activeIndex, calendar.slides, calendarScrollProbe, todoSelectedDate, todoTasks]);
 
   useHorizontalArrowNavigation({
     enabled: friendIndex === 0,

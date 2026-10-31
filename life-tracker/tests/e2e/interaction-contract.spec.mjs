@@ -474,6 +474,41 @@ test('sticky Calendar weekdays stay pinned and aligned at 3-day zoom', async ({ 
   }).toBeLessThanOrEqual(3);
 });
 
+// Regression #1388: the real month grid must keep its last task reachable
+// when a single date makes the grid substantially taller than its viewport.
+// Check both the default week fit and the zoomed sticky-header layout.
+for (const zoom of ['7-day', '3-day sticky']) {
+  test(`Calendar ${zoom} scroll reaches the final preview of a task-heavy month`, async ({ page }) => {
+    const mode = zoom === '3-day sticky' ? '&stickyCalendar=3' : '';
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&perfTaskCount=100&calendarScrollProbe=1${mode}`);
+    const slide = page.getByTestId('calendar-region').locator('[data-calendar-slide-index="30"]');
+    const lastTask = slide.locator('[title="Task 5.20"]');
+    await expect(lastTask).toHaveCount(1);
+
+    await expect.poll(() => slide.evaluate(node => node.scrollHeight - node.clientHeight))
+      .toBeGreaterThan(100);
+    await slide.evaluate(node => { node.scrollTop = node.scrollHeight; });
+    const reachability = await slide.evaluate(node => {
+      const task = node.querySelector('[title="Task 5.20"]');
+      if (!task) throw new Error('Missing final task preview');
+      const viewport = node.getBoundingClientRect();
+      const taskBounds = task.getBoundingClientRect();
+      return {
+        remaining: node.scrollHeight - node.clientHeight - node.scrollTop,
+        scrolled: node.scrollTop,
+        taskTop: taskBounds.top,
+        taskBottom: taskBounds.bottom,
+        viewportTop: viewport.top,
+        viewportBottom: viewport.bottom,
+      };
+    });
+    expect(reachability.scrolled).toBeGreaterThan(100);
+    expect(reachability.remaining).toBeLessThanOrEqual(1);
+    expect(reachability.taskTop).toBeGreaterThanOrEqual(reachability.viewportTop - 1);
+    expect(reachability.taskBottom).toBeLessThanOrEqual(reachability.viewportBottom + 1);
+  });
+}
+
 test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const friendIndex = page.getByTestId('friend-index');

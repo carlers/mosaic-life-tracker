@@ -84,6 +84,44 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
     emblaRef(node);
   }, [emblaRef]);
 
+  // The outer Home height can be larger than the visible area when an
+  // ancestor resolves a percentage height past the fixed bottom navigation.
+  // Clamp the *native slide scroll viewport* to the measured unobstructed
+  // region. Otherwise a slide may have scrollHeight === clientHeight while
+  // the last calendar weeks are hidden behind the navigation bar.
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const navigation = document.querySelector<HTMLElement>('nav[aria-label="Main"]');
+    if (!navigation) return;
+
+    const clampToVisibleHeight = () => {
+      const navTop = navigation.getBoundingClientRect().top;
+      const viewportTop = viewport.getBoundingClientRect().top;
+      const available = Math.max(0, Math.floor(navTop - viewportTop));
+      const limit = `${available}px`;
+      if (viewport.style.maxHeight !== limit) viewport.style.maxHeight = limit;
+    };
+
+    clampToVisibleHeight();
+    const frame = window.requestAnimationFrame(clampToVisibleHeight);
+    const observer = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(clampToVisibleHeight)
+      : null;
+    if (viewport.parentElement) observer?.observe(viewport.parentElement);
+    observer?.observe(navigation);
+    window.addEventListener('resize', clampToVisibleHeight);
+    window.visualViewport?.addEventListener('resize', clampToVisibleHeight);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener('resize', clampToVisibleHeight);
+      window.visualViewport?.removeEventListener('resize', clampToVisibleHeight);
+      viewport.style.maxHeight = '';
+    };
+  }, [activeIndex, viewMode]);
+
   const handleZoomMount = useCallback((node: HTMLDivElement, days: number) => {
     const max = Math.max(0, node.scrollWidth - node.clientWidth);
     const offset = Math.min(7 - days, weekdayOffsetRef.current);
@@ -209,7 +247,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   }, [activeIndex, isZoomTransitioning, onNext, onPrev, onZoomNavigate, zoomDays]);
 
   return (
-    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden py-2">
+    <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden py-2">
       <div
         className="swiper-no-swiping min-h-0 min-w-0 flex-1 overflow-clip"
         data-route-swipe-horizontal-owner="true"
@@ -218,14 +256,18 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
         <div className="flex h-full min-h-full items-start will-change-transform">
           {slides.map((date, i) => {
             const inWindow = i >= renderStart && i <= renderEnd;
+            // Neighboring dates are prepared for horizontal swipes, but only
+            // the visible period can own keyboard and vertical scrolling.
+            const scrollActive = inWindow && i === activeIndex;
             return (
               <div
                 key={date.toISOString()}
                 data-calendar-slide-index={i}
-                className={`h-full min-h-0 overflow-x-hidden ${
-                  inWindow
-                    ? 'overflow-y-scroll [scrollbar-gutter:stable]'
-                    : 'overflow-y-hidden'
+                role={scrollActive ? 'region' : undefined}
+                aria-label={scrollActive ? `${viewMode === 'month' ? 'Month' : 'Week'} calendar scroll` : undefined}
+                tabIndex={scrollActive ? 0 : undefined}
+                className={`h-full min-h-0 overflow-x-hidden [scrollbar-gutter:stable] ${
+                  scrollActive ? 'overflow-y-scroll' : 'overflow-y-hidden'
                 }`}
                 style={{
                   flex: '0 0 100%',
