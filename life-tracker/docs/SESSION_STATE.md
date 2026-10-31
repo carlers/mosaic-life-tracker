@@ -1,3 +1,12 @@
+# Test/CI checkpoint — v0.50.1 photo selection regression and trusted Preview artifact recovery
+Updated: 2026-11-01 Asia/Manila
+
+- Original v0.50.1 integrated Preview `fix/dayview-swipe-integrated-v0501-20261101@f32f47f368acc66c9ee44bbda6fda8b8be9c19c0` passed full canonical [Quality Gate #41220167638](https://github.com/carlers/mosaic-life-tracker/actions/runs/41220167638) on attempt 2; on attempt 1 only an unrelated split-panel resize-paint assertion failed, while all swipe and DOM tests passed. Trusted Preview Delivery #41220838346 failed closed because the build artifact is labeled attempt 1 while canonical accepted attempt 2; no exact-SHA Vercel READY yet.
+- Source changes from accepted user-tested swipe/photo Preview remain unchanged. Add a missing user-visible regression: task photo selection mode must toggle selection instead of opening the viewer while still suppressing browser-native image drag. This is a focused test-only enhancement, **no runtime or v0.50.1 version change**, not a status-only CI retry commit. Task `chatgpt/dayview-swipe-selection-regression-v0501-20261101` targets the same stable v0.50.1 Preview.
+- Run task focused gate, squash into stable v0.50.1 Preview, then require fresh exact-SHA canonical (including its own matching build artifact) and Trusted Vercel READY. Recheck dev still `f01a43479baa476d4ed1c8074a430a1065af66f7` and verify promotion source/dev trees; owner approved dev merge only. Do not bypass publisher artifact verification, modify auth/backend or Production.
+
+---
+
 # Task checkpoint — Accepted Day View one-day momentum and photo drag, v0.50.1 forward-port for authorized dev merge
 Updated: 2026-11-01 Asia/Manila
 

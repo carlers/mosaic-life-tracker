@@ -53,4 +53,47 @@ describe('TaskItem task photo', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View image' }));
     expect(onViewImage).toHaveBeenCalledWith(task);
   });
+  it('selects the photo in selection mode instead of opening the viewer, without enabling native drag', () => {
+    const task = {
+      id: 'task-photo-select',
+      title: 'Selectable photo',
+      image: 'photo-id',
+      memo: '',
+      reactions: '',
+      completed: false,
+      updatedAt: '2026-09-15T00:00:00.000Z',
+    } as unknown as TaskDocument;
+    const onViewImage = vi.fn();
+    const onToggleSelection = vi.fn();
+
+    render(
+      <TaskItem
+        task={task}
+        categoryColor="#888888"
+        currentUserId="user_1"
+        onToggle={vi.fn()}
+        onOpenActions={vi.fn()}
+        onOpenMemo={vi.fn()}
+        onEditStart={vi.fn()}
+        onViewImage={onViewImage}
+        isEditing={false}
+        editValue=""
+        onEditChange={vi.fn()}
+        onEditSave={vi.fn()}
+        onEditCancel={vi.fn()}
+        selectionMode
+        onToggleSelection={onToggleSelection}
+        disableLayoutAnimation
+      />,
+    );
+
+    const image = screen.getByRole('img', { name: 'Selectable photo' });
+    expect(image).toHaveAttribute('draggable', 'false');
+    const dragStart = new Event('dragstart', { bubbles: true, cancelable: true });
+    expect(image.dispatchEvent(dragStart)).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'View image' }));
+    expect(onToggleSelection).toHaveBeenCalledTimes(1);
+    expect(onViewImage).not.toHaveBeenCalled();
+  });
+
 });
