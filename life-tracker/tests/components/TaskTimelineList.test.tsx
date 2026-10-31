@@ -11,6 +11,7 @@ const categories = [
 function renderTimeline() {
   const onAddTask = vi.fn();
   const onSortBasisChange = vi.fn();
+  const onDirectionChange = vi.fn();
   render(
     <TaskTimelineList
       dateStr="2026-10-20"
@@ -31,10 +32,11 @@ function renderTimeline() {
       direction="desc"
       sortBasis="completion"
       onSortBasisChange={onSortBasisChange}
+      onDirectionChange={onDirectionChange}
       timestampDisplay={{ showCreated: false, showCompleted: false, labelStyle: 'icons' }}
     />
   );
-  return { onAddTask, onSortBasisChange };
+  return { onAddTask, onSortBasisChange, onDirectionChange };
 }
 
 describe('Timeline category menus', () => {
@@ -76,10 +78,24 @@ describe('Timeline category menus', () => {
     expect(screen.getByRole('combobox', { name: 'New task category: Personal' })).toBeInTheDocument();
   });
 
-  it('keeps timeline sorting basis as an independent state choice', () => {
+  it('keeps the direction control in the timeline sorting group', () => {
+    const { onDirectionChange } = renderTimeline();
+    const sorting = screen.getByRole('group', { name: 'Timeline sorting' });
+    const direction = screen.getByRole('button', { name: 'Timeline newest first; switch to oldest' });
+    expect(sorting).toContainElement(direction);
+    fireEvent.click(direction);
+    expect(onDirectionChange).toHaveBeenCalledWith('asc');
+    expect(screen.getByRole('combobox', { name: 'Arrange timeline tasks: Completed first' })).toBeInTheDocument();
+  });
+
+  it('offers completed last and creation date without duplicating sort controls', async () => {
     const { onSortBasisChange } = renderTimeline();
-    fireEvent.click(screen.getByRole('button', { name: 'Creation first' }));
+    const arrange = screen.getByRole('combobox', { name: 'Arrange timeline tasks: Completed first' });
+    fireEvent.click(arrange);
+    fireEvent.click(await screen.findByRole('option', { name: 'Completed last' }));
+    expect(onSortBasisChange).toHaveBeenCalledWith('completion-last');
+    fireEvent.click(arrange);
+    fireEvent.click(await screen.findByRole('option', { name: 'Creation date' }));
     expect(onSortBasisChange).toHaveBeenCalledWith('creation');
-    expect(screen.getByRole('button', { name: 'Completion first' })).toHaveAttribute('aria-pressed', 'true');
   });
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -69,7 +69,7 @@ function choosePreference(label: string, option: string) {
   fireEvent.click(screen.getByRole('option', { name: option }));
 }
 
-function renderPreference(section: 'appearance' | 'tasks' | 'calendar' | 'navigation' | 'diary') {
+function renderPreference(section: 'appearance' | 'tasks' | 'day-view' | 'calendar' | 'navigation' | 'diary') {
   return render(<MemoryRouter initialEntries={['/settings/preferences/' + section]}><PreferencesPage /></MemoryRouter>);
 }
 
@@ -84,9 +84,9 @@ describe('PreferencesPage', () => {
     expect(screen.queryByRole('switch', { name: 'Show holidays' })).toBeNull();
   });
 
-  it('shows the five category destinations without mounting all controls', () => {
+  it('shows six category destinations without mounting all controls', () => {
     render(<MemoryRouter initialEntries={['/settings/preferences']}><PreferencesPage /></MemoryRouter>);
-    for (const label of ['Appearance & Layout', 'Tasks & Categories', 'Calendar & Day View', 'Diary', 'Navigation & Input']) {
+    for (const label of ['Appearance & Layout', 'Tasks & Categories', 'Day View', 'Calendar', 'Diary', 'Navigation & Input']) {
       expect(screen.getByRole('button', { name: label })).toBeEnabled();
     }
     expect(screen.queryByRole('switch', { name: 'Reduce animations' })).toBeNull();
@@ -157,12 +157,6 @@ describe('PreferencesPage', () => {
 
   it('keeps calendar and day-panel preferences editable', () => {
     renderPreference('calendar');
-    choosePreference('Open day details as', 'Side panel when space allows');
-    choosePreference('Day panel position', 'Left');
-    choosePreference('Day panel height', 'Screen height');
-    expect(mocks.setSetting).toHaveBeenCalledWith('dayDetailPresentation', 'panel');
-    expect(mocks.setSetting).toHaveBeenCalledWith('dayPanelSide', 'left');
-    expect(mocks.setSetting).toHaveBeenCalledWith('dayPanelHeight', 'screen');
     expect(screen.getByRole('combobox', { name: /^Days visible on small screens:/ })).toHaveTextContent('7 days');
     choosePreference('Days visible on small screens', '3 days');
     choosePreference('Days visible on small screens', '4 days');
@@ -175,12 +169,10 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('stickyCalendarWeekdayHeader', true);
     expect(screen.getByRole('switch', { name: 'Start week on Sunday' })).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(screen.getByRole('switch', { name: 'Start week on Sunday' }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Show Today tag beside date header' }));
     fireEvent.click(screen.getByRole('switch', { name: 'Show holidays' }));
     choosePreference('Holiday region', 'Philippines');
     choosePreference('Holiday types', 'Public holidays only');
     expect(mocks.setSetting).toHaveBeenCalledWith('weekStartsOnSunday', false);
-    expect(mocks.setSetting).toHaveBeenCalledWith('showDayViewTodayTag', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('showHolidays', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayRegion', 'PH');
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
@@ -190,18 +182,12 @@ describe('PreferencesPage', () => {
     renderPreference('tasks');
     const continuous = screen.getByRole('switch', { name: 'Keep adding in same category' });
     const taskPosition = screen.getByRole('switch', { name: 'Add new tasks to top' });
-    const collapse = screen.getByRole('switch', { name: 'Show collapse button for categories' });
     expect(continuous).toHaveAttribute('aria-checked', 'false');
     expect(taskPosition).toHaveAttribute('aria-checked', 'false');
-    expect(collapse).toHaveAttribute('aria-checked', 'false');
-    choosePreference('Task completion order', 'Completed last');
-    expect(mocks.setSetting).toHaveBeenCalledWith('taskCompletionSort', 'completed-last');
     fireEvent.click(continuous);
     fireEvent.click(taskPosition);
-    fireEvent.click(collapse);
     expect(mocks.setSetting).toHaveBeenCalledWith('continueAddingTasks', true);
     expect(mocks.setSetting).toHaveBeenCalledWith('addTasksToTop', true);
-    expect(mocks.setSetting).toHaveBeenCalledWith('showCategoryCollapseButton', true);
   });
 
   it('keeps navigation and diary options in their dedicated pages', () => {
@@ -216,7 +202,7 @@ describe('PreferencesPage', () => {
   });
 
   it('defaults to hiding the persistent Day View category action and saves explicit opt-in', () => {
-    const { unmount } = renderPreference('tasks');
+    const { unmount } = renderPreference('day-view');
     const toggle = screen.getByRole('switch', { name: 'Always show Add category in Day View' });
     expect(toggle).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(toggle);
@@ -226,11 +212,52 @@ describe('PreferencesPage', () => {
     mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
       key === 'showAddCategoryInDayView' ? true : defaultValue
     );
-    renderPreference('tasks');
+    renderPreference('day-view');
     const enabled = screen.getByRole('switch', { name: 'Always show Add category in Day View' });
     expect(enabled).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(enabled);
     expect(mocks.setSetting).toHaveBeenCalledWith('showAddCategoryInDayView', false);
+  });
+
+  it('keeps Day View sorting, layout, categories and related settings together', () => {
+    renderPreference('day-view');
+    choosePreference('Timeline arrangement', 'Completed last');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayTimelineSortBasis', 'completion-last');
+    choosePreference('Categories and Backlogs task order', 'Completed last');
+    expect(mocks.setSetting).toHaveBeenCalledWith('taskCompletionSort', 'completed-last');
+    choosePreference('Open day details as', 'Side panel when space allows');
+    choosePreference('Day panel position', 'Left');
+    choosePreference('Day panel height', 'Screen height');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayDetailPresentation', 'panel');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayPanelSide', 'left');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayPanelHeight', 'screen');
+    fireEvent.click(screen.getByRole('switch', { name: 'Show Today tag beside date header' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Show collapse button for categories' }));
+    expect(mocks.setSetting).toHaveBeenCalledWith('showDayViewTodayTag', true);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showCategoryCollapseButton', true);
+    expect(screen.getByRole('button', { name: 'Tasks & Categories' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Calendar' })).toBeEnabled();
+    expect(screen.queryByRole('switch', { name: 'Show holidays' })).toBeNull();
+  });
+
+  it('returns directly to the selected calendar day after opening Day View settings', () => {
+    const HomeProbe = () => {
+      const location = useLocation();
+      return <div data-testid="home-return-day">{String((location.state as { openDayViewDate?: string } | null)?.openDayViewDate)}</div>;
+    };
+    render(
+      <MemoryRouter initialEntries={[{
+        pathname: '/settings/preferences/day-view',
+        state: { parentPath: '/home', dayViewReturnDate: '2026-10-20' },
+      }]}>
+        <Routes>
+          <Route path="/settings/preferences/day-view" element={<PreferencesPage />} />
+          <Route path="/home" element={<HomeProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByTestId('home-return-day')).toHaveTextContent('2026-10-20');
   });
 
   it('keeps pinch gestures opt-in for malformed stored values', () => {
