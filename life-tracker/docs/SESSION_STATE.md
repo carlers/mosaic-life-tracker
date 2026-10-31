@@ -1,3 +1,13 @@
+# Task checkpoint — #1443 Preferences sync v0.44.4 integrated Preview
+Updated: 2026-10-31 Asia/Manila
+
+- Owner authorized accepted preferences-sync fix promotion into `dev`; live `dev@a9f1650f9b262705413b64e3d5b2288b53620e83` is already v0.44.2 with accepted #1386 route-swiping changes. Old accepted fix `fix/1443-preferences-sync-v0441-20261031@0552192a987b0fd31276b4f9af0f45c362f3c101` is v0.44.1 and cannot be promoted directly without version regression.
+- Independently active #1386 cold-start Preview reserves v0.44.3. Forward-port only five tested preferences-sync implementation/regression files unchanged onto current dev and assign new available PATCH v0.44.4. Preserve v0.44.2 UI/settings navigation and existing runtime behavior outside the fix.
+- Current task `chatgpt/1443-sync-forward-port-v0444-20261031`; stable `fix/1443-preferences-sync-v0444-20261031`. Focused verification required before squash to stable, then full canonical gate and isolated Scratch Vercel Preview READY before approved stable-Preview-to-dev PR. No main or Production approval; retain issue #1443 open pending real device preference sync acceptance.
+- Previous v0.44.1 fix targeted physically deleted oversized legacy settings IDs poisoning the settings RxDB push; migration first preserves older values under canonical valid IDs and retains newer canonical values, then invalid-ID deletion is local-only. No backend schema/Function changes. Original fix had 27/27 targeted unit tests, full canonical and Trusted Preview Vercel READY.
+
+---
+
 # Task checkpoint — #1386 swipe first-frame / Settings compatibility
 Updated: 2026-10-31 Asia/Manila
 
