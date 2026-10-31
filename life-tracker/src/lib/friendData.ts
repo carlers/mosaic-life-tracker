@@ -45,6 +45,7 @@ function mapCategoryRow(row: AppwriteRow): CategoryDocument {
     userId: (row.user_id as string) || '',
     isDeleted: (row.deleted as boolean) ?? false,
     icon: (row.icon as string) || '',
+    retiredOn: (row.retired_on as string) || '',
     // `updated_at` was added to the friend's categories table by the D6
     // migration. If the friend has not yet run the migration script, the
     // column is absent from the response and we fall back to '' — same

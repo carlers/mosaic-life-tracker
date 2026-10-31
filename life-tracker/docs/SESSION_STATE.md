@@ -1,3 +1,14 @@
+# Task checkpoint — #857 Appwrite date-effective Retire/Restore v0.56.0
+
+- Reconciled from old v0.53.0 task source `38cfe3b549b76c94d81a409e9229c841879201d2` onto exact newer dev `029b5cb758e1180b595c9b3f6c3822eb3a995675` v0.54.0 (feature-controls, no overlapping feature files), resolving v0.55.0 reservation and preserving all accepted dev changes.
+- Owner accepted v0.51.2 P0 on Scratch and requested completing category lifecycle. Phase A is on dev, not main/Production.
+- Non-destructive date-effective Retire/Restore source: categories RxDB v2, Appwrite additive `retired_on` migration 016 and owner-CAS allowlist, Day View/Backlogs/Timeline historic projection, guard new assignments while allowing edits to existing tasks and friend-calendar parity.
+- Old isolated source focused #41230316530 SUCCESS. Must run fresh focused gate on reconciled exact task SHA, stable canonical gate, Scratch signed Preview, and Vercel READY; no dev/main/Production promotion without separate owner acceptance.
+- Scratch target `6a96e82d000d1310b3be` has optional `categories.retired_on` available; inactive Function deployment `6ae635955eb56c6c1818` from exact unchanged function sources, not activated pending ready check.
+- Follow-up #857 Move+Delete and Delete All remain blocked behind server-authoritative concurrent-write/old-PWA guard, dependency cleanup, and owner-fenced transaction evidence.
+
+---
+
 # Task checkpoint — #1026 Feature Controls dev reconciliation v0.54.0
 Updated: 2026-11-01 Asia/Manila
 

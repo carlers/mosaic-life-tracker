@@ -14,7 +14,7 @@ const TABLE_FIELDS = {
   ]),
   categories: new Set([
     'name', 'color', 'order', 'visibility', 'user_id', 'deleted', 'icon',
-    'updated_at',
+    'retired_on', 'updated_at',
   ]),
   diary: new Set([
     'date', 'content', 'emoji', 'photos', 'visibility', 'user_id', 'updated_at', 'deleted',
