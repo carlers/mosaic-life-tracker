@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
-import { TaskDateEditor } from './TaskDateEditor';
+const LazyTaskDateEditor = React.lazy(() => import('./TaskDateEditor').then(m => ({ default: m.TaskDateEditor })));
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
 import {
@@ -125,9 +125,9 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
       backdropBlur
     >
       {dateMode ? (
-        <TaskDateEditor key={task.id} initialDate={task.date}
+        <React.Suspense fallback={null}><LazyTaskDateEditor key={task.id} initialDate={task.date}
           onCancel={() => setDateMode(false)}
-          onSave={async date => { await onChangeDate(date); dismiss(); }} />
+          onSave={async date => { await onChangeDate(date); dismiss(); }} /></React.Suspense>
       ) : <div className="pt-2 pb-8 px-4">
         {/* Grid */}
         <div className="grid grid-cols-2 gap-3 mb-6">

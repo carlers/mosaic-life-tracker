@@ -8,7 +8,7 @@ import type { SharedCompletionCommand, SharedTaskItem } from '../../../lib/taskS
 import { BottomSheet } from '../../ui/BottomSheet';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import { getCategoryLabelColor } from '../../../constants/colors';
-import { TaskDateEditor } from './TaskDateEditor';
+const LazyTaskDateEditor = React.lazy(() => import('./TaskDateEditor').then(m => ({ default: m.TaskDateEditor })));
 import { TaskRowDropSurface } from './TaskReorderSurfaces';
 
 const TASK_TAP_WINDOW = 200;
@@ -295,14 +295,14 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
         title={dateMode ? 'Change Date' : current?.title || 'Shared task'}
         height="auto" backdropBlur preventDismiss={busy}>
         {current && dateMode && current.allowDateEdit === true && onChangeDate ? (
-          <TaskDateEditor key={current.id} initialDate={current.date}
+          <React.Suspense fallback={null}><LazyTaskDateEditor key={current.id} initialDate={current.date}
             onCancel={() => setDateMode(false)}
             onSave={async date => {
               await onChangeDate(current, date);
               setDateMode(false);
               setSelected(null);
             }}
-          />
+          /></React.Suspense>
         ) : <div className="px-4 pb-8 pt-2">
           <div className="mb-4 text-xs text-gray-400">
             <span className="inline-flex items-center gap-1"><UsersRound size={13} />
