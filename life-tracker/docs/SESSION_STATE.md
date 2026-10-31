@@ -1,3 +1,14 @@
+# Task checkpoint — Accepted Day View one-day momentum and photo drag, v0.50.1 forward-port for authorized dev merge
+Updated: 2026-11-01 Asia/Manila
+
+- Owner accepted original `fix/dayview-single-day-snap-photo-v0447-20261031@73692710122bd47b1ff5b0e28a6e963465701a7e` after physical mobile use; its full canonical #41216695153 and trusted Preview deployment passed. Owner expressly requested a `dev` promotion plus remaining-work review; no `main` or Production approval.
+- `dev` advanced to v0.49.0 with Day View settings/sorting and Uncompleted task search, then documentation-only #1501, then Storage v0.50.0 via PR #1505 to `dev@f01a43479baa476d4ed1c8074a430a1065af66f7`. No intervening change touches `src/components/home/views/DayViewSheet.tsx`, `TaskItem.tsx`, the accepted gesture/image regression files, or their tests. The previous v0.49.1 integration `fix/dayview-swipe-integrated-current-v0491-20261101@665d931b979b6627dc40a5d6ead8179a7d666198` passed full canonical #41219378958, but became stale on new dev/version before promotion; do not merge it.
+- New task `chatgpt/dayview-swipe-forward-v0501-20261101`, stable `fix/dayview-swipe-integrated-v0501-20261101` from exact latest dev v0.50.0. Reapply the **same accepted app/test blobs** from the successfully integrated v0.49.1 candidate with unchanged functionality; update only three version metadata files to v0.50.1 and this checkpoint on current dev. Preserve Storage page/services, new documentation/Vercel Sandbox rule, Day View settings/Timeline Completed first/last, search and cross-device behavior.
+- User-facing fix: Swiper FreeMode finger tracking and velocity-responsive one-day-capped snap from release/cancel, stale Swiper pointer ID cleanup, parent date reconciliation and held-drag protection; disable HTML native task photo dragging, retain click and selection. Browser gesture, DOM photo and test mock regression coverage unchanged.
+- Require focused+browser Quality Gate, squash to current-dev-derived stable Preview, canonical/size and exact-SHA trusted Scratch Vercel READY, check dev drift and PR promotion provenance/identical tree, then merge to dev under existing owner approval. No Production. Remaining work review is read-only; #858 ongoing performance, #1008 WebKit, #855 older unverified distant-date issue, #856 continuous drag issue historical status, and integrated real-device checks.
+
+---
+
 # Task checkpoint — #1476 approved v0.50.0 Storage promotion, docs-only dev drift
 Updated: 2026-10-31 Asia/Manila
 

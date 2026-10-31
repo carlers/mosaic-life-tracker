@@ -67,6 +67,8 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode,
         <img
           src={imageUrl}
           alt={task.title}
+          draggable={false}
+          onDragStart={(event) => event.preventDefault()}
           onError={handleImageError}
           loading="lazy"
           decoding="async"
