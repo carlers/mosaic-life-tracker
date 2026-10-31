@@ -36,6 +36,7 @@ import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
+import { MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
 import {
   loadAcceptedFriendIds,
   sanitizeFriendCarouselValue,
@@ -279,6 +280,10 @@ async function pushSettings(
       continue;
     }
     if (next._deleted) {
+      // Pre-hash legacy setting IDs exceeded Appwrite's row ID limit. A local
+      // cleanup of these impossible remote IDs must not poison RxDB's push queue.
+      // Valid remote-capable rows still require an isDeleted tombstone.
+      if (next.id.length > MAX_ROW_ID_LENGTH) continue;
       throw new Error(
         `Settings replication cannot physically delete ${next.id}; use isDeleted tombstones`
       );
