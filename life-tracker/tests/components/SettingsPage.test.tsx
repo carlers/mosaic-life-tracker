@@ -162,6 +162,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(screen.getByRole('button', { name: 'Backup & Restore' })).toBeEnabled();
     expect(screen.getByLabelText('Backup activity')).toHaveTextContent('Last backup: Never');
     expect(screen.getByRole('button', { name: 'Import from TodoMate' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Storage' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Clear Local Data' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     fireEvent.click(screen.getByRole('button', { name: 'About Mosaic' }));

@@ -1,3 +1,13 @@
+# Task checkpoint — #1476 approved v0.50.0 Storage promotion, docs-only dev drift
+Updated: 2026-10-31 Asia/Manila
+
+- Owner accepted Phase 1 and authorized dev merge, then Phase 2 #1477. No main/Production authorization.
+- Accepted v0.50.0 Storage Preview `feature/1476-storage-integrated-v0500-20261031@971eeb2d92ceedfa733a72691368f2f8dcc76f77` passed full Quality Gate #41218156275, Trusted Preview Delivery and exact-SHA Scratch Vercel READY. Owner accepted functionality originally at v0.48.0; version reallocated after dev reached v0.49.0.
+- Promotion PR #1502 passed preflight but dev advanced to `7ac1a99427750a95c1d9c3da0593f72c650214e4` (documentation-only workflow #1501). GitHub refused merge with SESSION_STATE conflict. New task `chatgpt/1476-storage-doc-reconcile-v0500-20261031` forward-ports the **same accepted v0.50.0 app source and version**, preserving latest dev AGENTS/workflow/Scratch instructions and this checkpoint. Stable `feature/1476-storage-final-v0500-20261031` must pass focused/canonical/Preview before dev promotion.
+- Phase 2 #1477 to follow successful dev promotion; owner-scoped read-only media metadata only, never cloud deletion or fabricated account quotas.
+
+---
+
 # Task checkpoint — Vercel Sandbox operational path for #1461
 Updated: 2026-10-31 Asia/Manila
 

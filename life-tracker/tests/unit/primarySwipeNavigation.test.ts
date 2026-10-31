@@ -71,7 +71,7 @@ describe('resolvePrimarySwipeDestination', () => {
     expect(PROTECTED_ROUTES.map((route) => route.path)).toEqual([
       '/home', '/bucket-list/:id', '/bucket-list', '/backlog', '/explore', '/friends/:friendId', '/notifications',
       '/messages', '/messages/:friendId', '/account', '/settings',
-      '/settings/account', '/settings/data', '/settings/about', '/settings/releases', '/settings/preferences',
+      '/settings/account', '/settings/data', '/settings/data/storage', '/settings/about', '/settings/releases', '/settings/preferences',
       '/settings/preferences/appearance', '/settings/preferences/tasks', '/settings/preferences/day-view', '/settings/preferences/calendar',
       '/settings/preferences/diary', '/settings/preferences/navigation',
       '/settings/notifications', '/settings/screen', '/settings/*', '/profile',
@@ -93,6 +93,8 @@ describe('resolvePrimarySwipeDestination', () => {
       .toBe('/backlog?view=uncompleted');
     expect(protectedRouteSwipeMode('/backlog')).toBe('full');
     expect(protectedRouteSwipeMode('/settings/releases')).toBe('full');
+    expect(matchProtectedRoute('/settings/data/storage')?.id).toBe('settingsStorage');
+    expect(resolveRouteParent('/settings/data/storage')).toBe('/settings/data');
     // Detail routes inherit swipe-back; nested horizontal gesture owners opt into edge-back.
     expect(protectedRouteSwipeMode('/profile')).toBe('full');
     expect(matchProtectedRoute('/messages/user_1')?.id).toBe('chat');
