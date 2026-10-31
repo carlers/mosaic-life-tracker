@@ -25,7 +25,14 @@ export function StoragePage() {
   const { user } = useAuth();
   const ownerId = user?.$id ?? '';
   const ownerRef = useRef(ownerId);
-  useEffect(() => { ownerRef.current = ownerId; }, [ownerId]);
+  const cloudScanRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    ownerRef.current = ownerId;
+    return () => {
+      cloudScanRef.current?.abort();
+      cloudScanRef.current = null;
+    };
+  }, [ownerId]);
   const navigate = useNavigate();
   const location = useLocation();
   const [refreshIndex, setRefreshIndex] = useState(0);
@@ -56,21 +63,27 @@ export function StoragePage() {
   const handleCloudCheck = async () => {
     if (!ownerId || cloudBusy) return;
     const requestOwner = ownerId;
+    cloudScanRef.current?.abort();
+    const controller = new AbortController();
+    cloudScanRef.current = controller;
     setCloudReport({ ownerId: requestOwner, loading: true, error: '', data: null });
     try {
       const { scanOwnerReferencedCloudMedia } = await import('../lib/cloudMediaUsage');
-      const data = await scanOwnerReferencedCloudMedia(requestOwner);
-      if (ownerRef.current === requestOwner) {
+      if (controller.signal.aborted) return;
+      const data = await scanOwnerReferencedCloudMedia(requestOwner, controller.signal);
+      if (!controller.signal.aborted && ownerRef.current === requestOwner) {
         setCloudReport({ ownerId: requestOwner, loading: false, error: '', data });
       }
     } catch {
-      if (ownerRef.current === requestOwner) {
+      if (!controller.signal.aborted && ownerRef.current === requestOwner) {
         setCloudReport({
           ownerId: requestOwner, loading: false,
           error: 'Cloud photos could not be checked. Verify your connection and sign-in.',
           data: null,
         });
       }
+    } finally {
+      if (cloudScanRef.current === controller) cloudScanRef.current = null;
     }
   };
 

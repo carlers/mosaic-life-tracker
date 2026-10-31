@@ -31,6 +31,12 @@ storage-provider overhead are excluded. The scanner must bound rows, pages,
 concurrent metadata requests and file IDs; show unknown/failed and truncated
 status rather than silently calling incomplete results exact.
 
+Scans now accept a cancellation signal; account switches and page unmounts abort
+the scan. The Appwrite browser SDK cannot abort requests already in flight,
+but the scanner rejects their results and stops issuing new requests. The
+authenticated owner is revalidated between table pages and before/after file
+metadata scans. A cancelled scan must never publish its partial subtotal.
+
 The feature does not provide deletion. Complete account-wide cloud storage inventory
 requires a separately reviewed server-authoritative owner index or endpoint,
 three-account Scratch privacy acceptance and the normal backend gates (#1477).

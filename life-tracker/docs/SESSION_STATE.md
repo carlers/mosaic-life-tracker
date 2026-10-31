@@ -1,3 +1,15 @@
+# Task checkpoint — #1477 cloud inventory account-switch cancellation, v0.51.1 Preview
+
+Updated: 2026-11-01 Asia/Manila
+
+- Owner accepted Phase 2 v0.51.0 Preview and requested continued work; explicit dev promotion approval remains pending. Original [PR #1515] for v0.51.0 is open, and dev stays at `afdca35ac2f0287b04a24f19af21a73d4a1b9838` v0.50.2.
+- Audited `feature/1477-cloud-media-integrated-v0510-20261101@49bc641c3ab1f69d0caafadda15836d9afc81f53` (canonical #41222048575 SUCCESS, trusted delivery #41222304087 SUCCESS, Vercel READY).
+- Found a remaining account-switch race: scan performed owner verification only at start/end, allowing new metadata requests after switching account. New PATCH v0.51.1 task `chatgpt/1477-cloud-inventory-cancellation-v0511-20261101` and stable Preview `feature/1477-cloud-inventory-cancellation-v0511-20261101` harden it with abort propagation and repeated account checks. In-flight SDK calls are allowed to settle, but cancelled results must not publish and no further requests issue after cancellation.
+- New unit/DOM tests cover aborted page, mid-scan account swap, aborted file fanout, and UI account switch. Preserve read-only file inventory, no schema/Function, cloud deletion, production mutation, or phase 3 authorization.
+- Required: task focused gate, squash stable Preview, canonical/size/browser gate and exact-SHA Vercel READY. Manual disposable 3-account Scratch denial and device offline checks remain unverified. Do not merge PR #1515 or replacement into dev/main without explicit user approval.
+
+---
+
 # Task checkpoint — #1477 Phase 2 cloud-media Preview reconciliation to dev v0.50.2
 Updated: 2026-11-01 Asia/Manila
 
