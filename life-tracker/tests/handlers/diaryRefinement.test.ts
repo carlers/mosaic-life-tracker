@@ -141,6 +141,73 @@ describe('diary reference and reaction security', () => {
       args.tableId === 'messages' && (args.data as Record<string, unknown>).content !== undefined)).toBe(false);
   });
 
+  it('restores live quotes on re-publication without restoring copied text', async () => {
+    const db = makeMockDb();
+    const revision = '2026-10-13T12:00:00.000Z';
+    const original = { ...diary, quote_epoch: 0, quote_revoke_revision: '',
+      updated_at: '2026-10-12T12:00:00.000Z',
+      $updatedAt: '2026-10-12T12:00:02.000Z' };
+    const message = { $id: 'msg_reversible', user_id: caller, deleted: false,
+      sender_id: caller, recipient_id: owner, diary_ref_id: diary.$id,
+      diary_ref_owner_id: owner, diary_ref_date: diary.date,
+      diary_ref_epoch: 0, diary_ref_excerpt: 'Old stored text' };
+    db.getRow.mockResolvedValue(original);
+    db.updateRows.mockResolvedValue({ total: 1, rows: [] });
+    db.listRows.mockResolvedValue({ rows: [message] });
+    const hidden = await invoke({ userId: owner, mockDb: db, body: {
+      action: 'revoke_diary_references', mode: 'visibility',
+      diaryId: diary.$id, revision,
+    } });
+    expect(hidden.status).toBe(200);
+    expect(hidden.body.epoch).toBe(0);
+    expect(db.updateRows).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'diary',
+      data: { quote_epoch: 0, quote_revoke_revision: revision },
+    }));
+    const messageUpdate = db.updateRow.mock.calls[0][0].data;
+    expect(messageUpdate).toMatchObject({ diary_ref_excerpt: '' });
+    expect(messageUpdate).not.toHaveProperty('diary_ref_date');
+    // A fenced-but-unpublished private change must not reveal content.
+    db.getRow.mockImplementation(({ tableId }: { tableId: string }) =>
+      Promise.resolve(tableId === 'messages' ? message :
+        { ...original, quote_revoke_revision: revision }));
+    const during = await invoke({ userId: caller, mockDb: db, body: {
+      action: 'get_diary_reference_previews', messageIds: [message.$id],
+    } });
+    expect(during.body.previews).toEqual({});
+    // The same reference stays hidden while private, without changing epoch.
+    db.getRow.mockImplementation(({ tableId }: { tableId: string }) =>
+      Promise.resolve(tableId === 'messages' ? { ...message, diary_ref_excerpt: '' } :
+        { ...original, visibility: 'private', updated_at: revision,
+          quote_revoke_revision: revision }));
+    const privateResult = await invoke({ userId: caller, mockDb: db, body: {
+      action: 'get_diary_reference_previews', messageIds: [message.$id],
+    } });
+    expect(privateResult.body.previews).toEqual({});
+    // Publication shows current content only, after another authorization check.
+    db.getRow.mockImplementation(({ tableId }: { tableId: string }) =>
+      Promise.resolve(tableId === 'messages' ? { ...message, diary_ref_excerpt: '' } :
+        { ...original, content: 'Newly published content', visibility: 'public',
+          updated_at: '2026-10-14T00:00:00.000Z',
+          quote_revoke_revision: revision }));
+    const restored = await invoke({ userId: caller, mockDb: db, body: {
+      action: 'get_diary_reference_previews', messageIds: [message.$id],
+    } });
+    expect(restored.body.previews[message.$id]).toEqual({
+      date: diary.date, excerpt: 'Newly published content',
+    });
+  });
+
+  it('rejects invalid visibility revocation modes', async () => {
+    const db = makeMockDb();
+    const result = await invoke({ userId: owner, mockDb: db, body: {
+      action: 'revoke_diary_references', mode: 'unknown', diaryId: diary.$id,
+      revision: '2026-10-13T12:00:00.000Z',
+    } });
+    expect(result.status).toBe(400);
+    expect(db.updateRows).not.toHaveBeenCalled();
+  });
+
   it('rejects unauthorized diary quote revocation', async () => {
     const db = makeMockDb();
     db.getRow.mockResolvedValue(diary);

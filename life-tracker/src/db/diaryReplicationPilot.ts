@@ -20,6 +20,8 @@ const pilot = createSimpleOwnerReplicationPilot<DiaryDocument>({
     for (let page = 0; page < 100; page++) {
       const response = await sendAppAction({
         action: 'revoke_diary_references', diaryId: next.id,
+        // Visibility is reversible; deletion permanently invalidates old quotes.
+        mode: next.isDeleted && !current.isDeleted ? 'permanent' : 'visibility',
         revision: next.updatedAt, cursor,
       });
       if (response.ok !== true || typeof response.nextCursor !== 'string')
