@@ -41,6 +41,7 @@ export interface OutgoingMessageInput {
   diaryRefOwnerId?: string;
   diaryRefDate?: string;
   diaryRefExcerpt?: string;
+  diaryRefEpoch?: number;
   replyTo?: ReplyContext;
 }
 
@@ -63,6 +64,7 @@ export function buildOutgoingMessage(
     diaryRefOwnerId: input.diaryRefOwnerId || '',
     diaryRefDate: input.diaryRefDate || '',
     diaryRefExcerpt: '', // no persisted diary text snapshots
+    diaryRefEpoch: input.diaryRefEpoch ?? 0,
     replyToId: input.replyTo?.id || '',
     replyToContent: input.replyTo
       ? truncateForSnapshot(input.replyTo.content)
@@ -188,7 +190,7 @@ export async function sendTaskReactionMessage(
 /** Private DM response to a diary entry, with independent typed reference fields. */
 export async function sendDiaryReplyMessage(
   userId: string, friendId: string,
-  diary: Pick<import('../db/schema').DiaryDocument, 'id' | 'userId' | 'date' | 'content' | 'emoji' | 'photos'>,
+  diary: Pick<import('../db/schema').DiaryDocument, 'id' | 'userId' | 'date' | 'content' | 'emoji' | 'photos' | 'quoteEpoch'>,
   content: string
 ): Promise<void> {
   await insertAndDeliverOutgoing(userId, friendId, ({ threadId, now, localId }) =>
@@ -196,6 +198,7 @@ export async function sendDiaryReplyMessage(
       userId, friendId, threadId, now, localId, content,
       diaryRefId: diary.id, diaryRefOwnerId: diary.userId,
       diaryRefDate: diary.date,
+      diaryRefEpoch: diary.quoteEpoch ?? 0,
     })
   );
 }
