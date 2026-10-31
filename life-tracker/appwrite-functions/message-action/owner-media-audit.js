@@ -12,6 +12,11 @@ const PAGE_SIZE = 100;
 const MAX_ROW_PAGES_PER_TABLE = 10;
 const MAX_BUCKET_PAGES = 10;
 const TABLES = ['tasks', 'diary', 'settings'];
+const FILE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
+function validFileId(id) {
+  return typeof id === 'string' && FILE_ID.test(id) &&
+    !id.startsWith('localimg_');
+}
 
 function soleOwnerControl(permissions, ownerId) {
   if (!Array.isArray(permissions)) return false;
@@ -108,9 +113,15 @@ async function auditOwnerMedia({ db, storage, callerId, requestedOwnerId }) {
   const index = ownerReferenceIndex(callerId, tables);
   const bucket = await bucketFiles(storage);
   const controls = new Map();
+  let invalidMetadata = 0;
   for (const file of bucket.items) {
-    if (!file || typeof file.$id !== 'string' ||
-        !soleOwnerControl(file.$permissions, callerId)) continue;
+    if (!file || !soleOwnerControl(file.$permissions, callerId)) continue;
+    // Fail closed on invalid IDs, even when the ACL appears owner-controlled.
+    // These must never be presented as usable or reclaimable storage.
+    if (!validFileId(file.$id)) {
+      invalidMetadata++;
+      continue;
+    }
     // Duplicate IDs or inconsistent metadata cannot be verified.
     if (controls.has(file.$id)) throw new Error('Duplicate storage metadata');
     controls.set(file.$id, file);
@@ -126,7 +137,6 @@ async function auditOwnerMedia({ db, storage, callerId, requestedOwnerId }) {
   const pendingRemoval = emptyCount();
   const unreferencedUnverified = emptyCount();
   let missingOrUnverifiedReferences = 0;
-  let invalidMetadata = 0;
   const noProvenance = { authoritative: false };
   const noCoverage = {}; // No authoritative upload ledger or old-client fence.
   for (const [fileId, refs] of refsById) {
