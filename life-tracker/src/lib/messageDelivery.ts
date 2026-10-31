@@ -203,7 +203,7 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
     diaryRefId: doc.diaryRefId || '',
     diaryRefOwnerId: doc.diaryRefOwnerId || '',
     diaryRefDate: doc.diaryRefDate || '',
-    diaryRefExcerpt: doc.diaryRefExcerpt || '',
+    diaryRefExcerpt: '',
     replyToId: doc.replyToId || '',
     replyToContent: doc.replyToContent || '',
     replyToSenderId: doc.replyToSenderId || '',
