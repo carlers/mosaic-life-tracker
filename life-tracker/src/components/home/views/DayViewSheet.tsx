@@ -22,6 +22,7 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
+import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { FirstCategoryPrompt } from './FirstCategoryPrompt';
 import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
 const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
@@ -338,8 +339,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [validCategoryIds, sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor, setSetting]);
   const assignSharedCategory = useCallback(async (item: SharedTaskItem, categoryId: string) => {
     if (categoryId && !validCategoryIds.has(categoryId)) throw new Error('Category unavailable');
+    if (categoryId && !canAddNewTaskToCategory(categories.find(cat => cat.id === categoryId)!, item.date)) {
+      throw new Error('Cannot assign shared task to a retired category on this date');
+    }
     await setSetting(placementKey(item.id), categoryId ? { categoryId, order: 0 } : null);
-  }, [setSetting, validCategoryIds]);
+  }, [setSetting, validCategoryIds, categories]);
   const copySharedToMine = useCallback(async (item: SharedTaskItem, categoryId: string) => {
     if (!validCategoryIds.has(categoryId)) throw new Error('Choose one of your categories');
     await addTask({ title: item.title, categoryId, date: item.date,
@@ -1644,7 +1648,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             isOpen={isBulkCategoryOpen}
             categories={categories.filter(
               (category) =>
-                category.userId === currentUserId && !category.isDeleted
+                category.userId === currentUserId &&
+                canAddNewTaskToCategory(category, activeDateStr)
             )}
             isWorking={isBulkWorking}
             onClose={() => setIsBulkCategoryOpen(false)}

@@ -7,6 +7,7 @@ import {
   sortTaskPlacementByCompletion,
 } from '../../../lib/taskOrder';
 import { buildRenderedTasksByCategory } from './taskReorder';
+import { categoriesForDay } from '../../../lib/categoryLifecycle';
 
 interface ReadOnlySlideProps extends DaySlideProps {
   livePlacement: import('../../../lib/taskOrder').TaskPlacement;
@@ -43,16 +44,25 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     () => tasks.map(materializeTaskDocument),
     [tasks]
   );
+  const visibleCategories = React.useMemo(() => {
+    const occupiedShares = (props.sharedItems ?? [])
+      .filter(item => item.status === 'accepted' && item.date === props.dateStr)
+      .map(item => props.sharedCategoryFor?.(item) ?? '')
+      .filter(Boolean);
+    return categoriesForDay(categories, materializedTasks, props.dateStr, occupiedShares)
+      .map(item => item.category);
+  }, [categories, materializedTasks, props.dateStr, props.sharedItems, props.sharedCategoryFor]);
+  const allCategoriesRendered = visibleCategories.length === categories.length;
   const categoryIds = React.useMemo(
-    () => categories.map((category) => category.id),
-    [categories]
+    () => visibleCategories.map((category) => category.id),
+    [visibleCategories]
   );
   const livePlacement = React.useMemo(
     () => buildTaskPlacement(materializedTasks, categoryIds),
     [categoryIds, materializedTasks]
   );
 
-  if (categories.length === 0 && !props.sharedItems?.length && !props.diaryEnabled && !props.emptyCategoryPrompt && !props.footerCategoryPrompt) {
+  if (visibleCategories.length === 0 && !props.sharedItems?.length && !props.diaryEnabled && !props.emptyCategoryPrompt && !props.footerCategoryPrompt) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">No categories yet</p>
@@ -63,6 +73,9 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   const sharedProps = {
     ...props,
     tasks: materializedTasks,
+    categories: visibleCategories,
+    reorderEnabled: allCategoriesRendered && props.reorderEnabled,
+    onReorderCategories: allCategoriesRendered ? props.onReorderCategories : undefined,
   };
 
   if (!reorderRuntimeActive) {
