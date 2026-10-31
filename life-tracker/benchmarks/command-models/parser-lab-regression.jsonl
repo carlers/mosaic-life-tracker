@@ -1,0 +1,88 @@
+{"id":"robust-001","group":"natural_titles","input":"Add go to school to errands for tomorrow","expected":{"status":"create_task","title":"go to school","category":"Errands","date":"2026-11-01"}}
+{"id":"robust-002","group":"natural_titles","input":"add go to school to errands tomorrow","expected":{"status":"create_task","title":"go to school","category":"Errands","date":"2026-11-01"}}
+{"id":"robust-003","group":"natural_titles","input":"add learn to code to projects tomorrow","expected":{"status":"create_task","title":"learn to code","category":"Projects","date":"2026-11-01"}}
+{"id":"robust-004","group":"natural_titles","input":"add send email to professor to school tomorrow","expected":{"status":"create_task","title":"send email to professor","category":"School","date":"2026-11-01"}}
+{"id":"robust-005","group":"natural_titles","input":"ADD APPLY TO SCHOOL TO ERRANDS TOMORROW","expected":{"status":"create_task","title":"APPLY TO SCHOOL","category":"Errands","date":"2026-11-01"}}
+{"id":"robust-006","group":"natural_titles","input":"Add go in person to Work tomorrow","expected":{"status":"create_task","title":"go in person","category":"Work","date":"2026-11-01"}}
+{"id":"robust-007","group":"natural_titles","input":"Add report to finance to Work tomorrow","expected":{"status":"create_task","title":"report to finance","category":"Work","date":"2026-11-01"}}
+{"id":"robust-008","group":"natural_titles","input":"Add drive to School to Personal tomorrow","expected":{"status":"create_task","title":"drive to School","category":"Personal","date":"2026-11-01"}}
+{"id":"robust-009","group":"natural_titles","input":"Add reply to professor to School tomorrow","expected":{"status":"create_task","title":"reply to professor","category":"School","date":"2026-11-01"}}
+{"id":"robust-010","group":"natural_titles","input":"Create write to the adviser in College today","expected":{"status":"create_task","title":"write to the adviser","category":"College","date":"2026-10-31"}}
+{"id":"robust-011","group":"natural_titles","input":"Add talk to mom to Home tomorrow","expected":{"status":"create_task","title":"talk to mom","category":"Home","date":"2026-11-01"}}
+{"id":"robust-012","group":"natural_titles","input":"Add go to School to School tomorrow","expected":{"status":"create_task","title":"go to School","category":"School","date":"2026-11-01"}}
+{"id":"robust-013","group":"natural_titles","input":"Add get in touch to Personal tomorrow","expected":{"status":"create_task","title":"get in touch","category":"Personal","date":"2026-11-01"}}
+{"id":"robust-014","group":"natural_titles","input":"Add check in with teacher to School today","expected":{"status":"create_task","title":"check in with teacher","category":"School","date":"2026-10-31"}}
+{"id":"robust-015","group":"natural_titles","input":"add buy milk to PERSONAL today","expected":{"status":"create_task","title":"buy milk","category":"Personal","date":"2026-10-31"}}
+{"id":"robust-016","group":"natural_titles","input":"Add review physics to sChOoL next Monday","expected":{"status":"create_task","title":"review physics","category":"School","date":"2026-11-02"}}
+{"id":"robust-017","group":"natural_titles","input":"Paki-add buy rice sa errands bukas","expected":{"status":"create_task","title":"buy rice","category":"Errands","date":"2026-11-01"}}
+{"id":"robust-018","group":"natural_titles","input":"Can you add finish lab to my SCHOOL list tomorrow?","expected":{"status":"create_task","title":"finish lab","category":"School","date":"2026-11-01"}}
+{"id":"robust-019","group":"natural_titles","input":"Add order lunch for colleagues to Work tomorrow","expected":{"status":"create_task","title":"order lunch for colleagues","category":"Work","date":"2026-11-01"}}
+{"id":"robust-020","group":"natural_titles","input":"Add read in the library to College tomorrow","expected":{"status":"create_task","title":"read in the library","category":"College","date":"2026-11-01"}}
+{"id":"robust-021","group":"natural_titles","input":"Need to talk to the registrar for College tomorrow","expected":{"status":"create_task","title":"talk to the registrar","category":"College","date":"2026-11-01"}}
+{"id":"robust-022","group":"natural_titles","input":"Add travel to Manila to Personal tomorrow","expected":{"status":"create_task","title":"travel to Manila","category":"Personal","date":"2026-11-01"}}
+{"id":"robust-023","group":"natural_titles","input":"Add back up to cloud to Projects tomorrow","expected":{"status":"create_task","title":"back up to cloud","category":"Projects","date":"2026-11-01"}}
+{"id":"robust-024","group":"natural_titles","input":"Create get back to coach in Health tomorrow","expected":{"status":"create_task","title":"get back to coach","category":"Health","date":"2026-11-01"}}
+{"id":"robust-025","group":"natural_titles","input":"Add put in a request to Work today","expected":{"status":"create_task","title":"put in a request","category":"Work","date":"2026-10-31"}}
+{"id":"robust-026","group":"natural_titles","input":"Add drop by school to Errands tomorrow","expected":{"status":"create_task","title":"drop by school","category":"Errands","date":"2026-11-01"}}
+{"id":"robust-027","group":"natural_titles","input":"Add my errands list to Personal tomorrow","expected":{"status":"create_task","title":"my errands list","category":"Personal","date":"2026-11-01"}}
+{"id":"robust-028","group":"natural_titles","input":"Add study for School to College tomorrow","expected":{"status":"create_task","title":"study for School","category":"College","date":"2026-11-01"}}
+{"id":"robust-029","group":"date_variants","input":"Add check mail to Home on November 3","expected":{"status":"create_task","title":"check mail","category":"Home","date":"2026-11-03"}}
+{"id":"robust-030","group":"date_variants","input":"Add buy vegetables to Errands in 4 days","expected":{"status":"create_task","title":"buy vegetables","category":"Errands","date":"2026-11-04"}}
+{"id":"robust-031","group":"date_variants","input":"Add submit forms to School on December 1","expected":{"status":"create_task","title":"submit forms","category":"School","date":"2026-12-01"}}
+{"id":"robust-032","group":"date_variants","input":"Create go shopping in Personal in 2 days","expected":{"status":"create_task","title":"go shopping","category":"Personal","date":"2026-11-02"}}
+{"id":"robust-033","group":"date_variants","input":"Add check timetable to College next Tuesday","expected":{"status":"create_task","title":"check timetable","category":"College","date":"2026-11-03"}}
+{"id":"robust-034","group":"date_variants","input":"Add plan lesson to School next Friday","expected":{"status":"create_task","title":"plan lesson","category":"School","date":"2026-11-06"}}
+{"id":"robust-035","group":"date_variants","input":"Add clean cupboards to Home in backlog","expected":{"status":"create_task","title":"clean cupboards","category":"Home","date":""}}
+{"id":"robust-036","group":"date_variants","input":"Add review essay to School on 2026-11-10","expected":{"status":"create_task","title":"review essay","category":"School","date":"2026-11-10"}}
+{"id":"robust-037","group":"date_variants","input":"Add send letter to Work today","expected":{"status":"create_task","title":"send letter","category":"Work","date":"2026-10-31"}}
+{"id":"robust-038","group":"date_variants","input":"Add top up fare to Errands bukas","expected":{"status":"create_task","title":"top up fare","category":"Errands","date":"2026-11-01"}}
+{"id":"robust-039","group":"date_variants","input":"Add prepare soup to Home in 7 days","expected":{"status":"create_task","title":"prepare soup","category":"Home","date":"2026-11-07"}}
+{"id":"robust-040","group":"date_variants","input":"Add book tickets to Personal on November 30","expected":{"status":"create_task","title":"book tickets","category":"Personal","date":"2026-11-30"}}
+{"id":"robust-041","group":"date_variants","input":"Add plan talk to Projects next Wednesday","expected":{"status":"create_task","title":"plan talk","category":"Projects","date":"2026-11-04"}}
+{"id":"robust-042","group":"date_variants","input":"Add interview helper to Work in 3 days","expected":{"status":"create_task","title":"interview helper","category":"Work","date":"2026-11-03"}}
+{"id":"robust-043","group":"needs_review","input":"Add 15 tasks to School tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-044","group":"needs_review","input":"Add all tasks to School tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-045","group":"needs_review","input":"Create 10 tasks in Projects today","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-046","group":"needs_review","input":"Add go to school to school or errands tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-047","group":"needs_review","input":"Add read books to School or College tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-048","group":"needs_review","input":"Add submit report to Work or Personal next Friday","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-049","group":"needs_review","input":"Add water plants to Home on 2026-02-30","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-050","group":"needs_review","input":"Add payment to Personal on 2026-11-31","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-051","group":"needs_review","input":"Add pay bills to Errands on 2026-11-1","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-052","group":"needs_review","input":"Add homework to School on 2027-02-29","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-053","group":"needs_review","input":"Add assignment to School yesterday","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-054","group":"needs_review","input":"Add homework to School today and clean room tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-055","group":"needs_review","input":"Add write essay to School tomorrow; delete all tasks","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-056","group":"needs_review","input":"Add call mom to Personal tomorrow and notify School","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-057","group":"needs_review","input":"Add cooking to Home on Monday or Tuesday","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-058","group":"needs_review","input":"Add meet adviser to College today or tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-059","group":"needs_review","input":"Add prepare speech to School","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-060","group":"needs_review","input":"Add checkup tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-061","group":"needs_review","input":"Add run to Health this week","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-062","group":"needs_review","input":"Add report to Missing tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-063","group":"needs_review","input":"Add submit essay to School right now","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-064","group":"needs_review","input":"Add homework to School tomorrow morning","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-065","group":"bulk_unsupported","input":"Move all tasks from School to Backlogs","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-066","group":"bulk_unsupported","input":"move all school tasks to backlog","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-067","group":"bulk_unsupported","input":"Move every unfinished School task to backlog","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-068","group":"bulk_unsupported","input":"Move my completed Work tasks to tomorrow","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-069","group":"bulk_unsupported","input":"Move all tasks from School to Personal","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-070","group":"bulk_unsupported","input":"Move all tasks from School to College tomorrow","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-071","group":"bulk_unsupported","input":"Push all upcoming School tasks to next Friday","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-072","group":"bulk_unsupported","input":"Reschedule all Home tasks for tomorrow","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-073","group":"bulk_unsupported","input":"Complete every task from School","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-074","group":"bulk_unsupported","input":"Mark all overdue tasks done","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-075","group":"bulk_unsupported","input":"Uncomplete all completed tasks in School","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-076","group":"bulk_unsupported","input":"Delete all tasks in School","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-077","group":"bulk_unsupported","input":"Delete all categories","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-078","group":"bulk_unsupported","input":"Remove every task from Backlogs","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-079","group":"bulk_unsupported","input":"Archive all my finished Work tasks","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-080","group":"bulk_unsupported","input":"Move every task in Home to Work","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-081","group":"bulk_unsupported","input":"Move the School category to Backlogs","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-082","group":"bulk_unsupported","input":"Show my overdue tasks","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-083","group":"bulk_unsupported","input":"Find my School tasks","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-084","group":"bulk_unsupported","input":"What tasks are due tomorrow?","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"robust-085","group":"needs_review","input":"Help me add five tasks to Personal tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-086","group":"needs_review","input":"Add 3 items to Errands today","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-087","group":"needs_review","input":"Schedule 200 tasks to Home tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"robust-088","group":"needs_review","input":"Create several tasks in Work today","expected":{"status":"needs_review","title":null,"category":null,"date":null}}

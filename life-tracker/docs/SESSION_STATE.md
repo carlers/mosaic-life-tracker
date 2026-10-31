@@ -1,3 +1,14 @@
+# Task checkpoint — #1441 additional parser regression benchmark
+Updated: 2026-11-01 Asia/Manila
+
+- User approved further testing before shipping command parser or any bulk/microphone feature; scope limited to isolated benchmark fixtures/tests/workflow/docs. Base: accepted isolated parser lab stable Preview feature/1441-command-parser-lab-20261031@ea5ff2921c448a0bbe3699b65088fd2fa23951ed (PR #1491). dev is newer and not part of this test branch.
+- New 88-case synthetic fixture separately checks 28 natural/preposition titles, 14 date variants, 26 ambiguous/quantity cases, and 20 unsupported bulk/query cases.
+- Measured in Vercel Sandbox Node v24: grammar 50/88 exact (6 unsafe), Chrono 57/88 exact (6 unsafe). All date variants 14/14 with Chrono, but natural titles only 7/28. No product implementation, AI dependencies, voice input, Appwrite/schema or task data touched.
+- Research contracts assert fixture integrity, normalized capitalization, no bulk movement interpreted as create and honest reporting of unsafe interpretations. Any six unsafe creates block production use. Keep the original holdout and 168 fixture unchanged; do not tune this new fixture without adding separate tests.
+- Version impact NONE (tests/research/docs only). Work branch chatgpt/1441-parser-regression-20261101; target stable Preview feature/1441-parser-regression-20261101. Request [verify:focused] on coherent commit; then stable Preview canonical and exact-SHA Vercel READY. No dev/main/Production promotion.
+
+---
+
 # Task checkpoint — #1441 Chrono grammar benchmark follow-up
 Updated: 2026-10-31 Asia/Manila
 
