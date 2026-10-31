@@ -13,7 +13,7 @@ Reports expire after **30 days**, with bounded hourly server cleanup. Only a sep
 Do not reuse `task_images` to attach screenshots. A future image phase requires separate review of private storage, retention, metadata removal and DR erasure. Keep PostHog's minimal exception adapter independent and replay/autocapture disabled.
 
 ## Deployment
-1. On the **explicitly confirmed disposable Scratch project**, reconcile migration `016-bug-reports` through the managed Appwrite migration workflow; verify table permissions, columns, indexes and status.
+1. On the **explicitly confirmed disposable Scratch project**, reconcile migration `016-bug-reports` through `appwrite:preview:prepare --apply` (or the explicitly selected managed migration); verify table permissions, columns, indexes and status. No permission drift is implicitly repaired.
 2. Deploy the reviewed exact-SHA `message-action` Function **inactive**, then explicitly activate in Scratch and verify an authenticated synthetic report, duplicate retry, cross-account rejection, rate limiting and private operator retrieval.
 3. Check the exact-SHA Preview canonical suite, size budgets and Vercel READY, then manual PWA/theme/keyboard acceptance. No Production migration, Function activation or `dev`/`main` promotion without separate approval.
 4. Read reports only from an operator terminal with appropriately scoped project credentials: `APPWRITE_ENDPOINT=... APPWRITE_PROJECT_ID=... APPWRITE_API_KEY=... npm run bug-reports:inbox -- --project PROJECT_ID --confirm-project PROJECT_ID [--report-id bug_...]`. This deliberately has no browser admin UI. Console output is sensitive; never paste raw reports into public GitHub Issues or CI logs.
