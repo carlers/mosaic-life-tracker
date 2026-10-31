@@ -230,6 +230,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (!canAddTasks && isAdding) {
+      setIsAdding(false);
+      setNewTitle('');
+    }
+  }, [canAddTasks, isAdding]);
+
   const handleOpen = () => {
     if (!canAddTasks) return;
     setIsCollapsed(false);
