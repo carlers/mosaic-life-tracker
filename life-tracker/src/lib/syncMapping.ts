@@ -43,6 +43,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'deleted',
     'created_at',
     'updated_at',
+    'quote_epoch',
+    'quote_revoke_revision',
   ]),
   settings: new Set(['user_id', 'key', 'value', 'deleted', 'updated_at']),
   friendships: new Set([
@@ -332,6 +334,10 @@ export function fromAppwriteFormat(
     mapped.content = row.content || '';
     mapped.emoji = row.emoji || '';
     mapped.photos = row.photos || '[]';
+    // Quote revocation metadata is server-owned and must never be written
+    // back by the offline RxDB diary client.
+    delete mapped.quote_epoch;
+    delete mapped.quote_revoke_revision;
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.created_at;
