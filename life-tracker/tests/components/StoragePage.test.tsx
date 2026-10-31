@@ -64,7 +64,7 @@ describe('Storage page safe device cleanup', () => {
     );
     expect(mocks.cloud).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Check referenced cloud photos' }));
-    await waitFor(() => expect(mocks.cloud).toHaveBeenCalledExactlyOnceWith('owner-a'));
+    await waitFor(() => expect(mocks.cloud).toHaveBeenCalledExactlyOnceWith('owner-a', expect.any(AbortSignal)));
     expect(await screen.findByText('Verified referenced subtotal')).toBeInTheDocument();
     expect(screen.getAllByText('100 B').length).toBeGreaterThan(0);
     expect(screen.getByText(/Unreferenced, missing and chat files are excluded/)).toBeInTheDocument();
