@@ -9,6 +9,8 @@ import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
 import { ArrowDownUp, Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
+import { useAuth } from '../../hooks/useAuth';
+import { findTasksWithoutActiveCategory } from '../../lib/categoryOrphans';
 import {
   labelForVisibility,
   visibilityIcon,
@@ -59,7 +61,6 @@ interface CategoryRowProps {
   cat: CategoryDocument;
   overriddenCount: number;
   onEditStart: (cat: CategoryDocument) => void;
-  onDeleteRequest: (id: string) => void;
   onReorderEnd: () => void;
   disabled: boolean;
   isEditing: boolean;
@@ -71,7 +72,6 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   cat,
   overriddenCount,
   onEditStart,
-  onDeleteRequest,
   onReorderEnd,
   disabled,
   isEditing,
@@ -132,10 +132,11 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           <Pencil size={16} />
         </button>
         <button
-          onClick={() => onDeleteRequest(cat.id)}
-          disabled={disabled}
-          className="p-2 text-gray-400"
-          aria-label="Delete category"
+          type="button"
+          disabled
+          title="Deletion temporarily unavailable to protect tasks"
+          className="p-2 text-gray-500"
+          aria-label="Delete category (temporarily unavailable)"
         >
           <Trash2 size={16} />
         </button>
@@ -167,10 +168,16 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     categories = [],
     addCategory,
     updateCategory,
-    deleteCategory,
     reorderCategories,
   } = useCategories();
-  const { tasks = [] } = useTasks();
+  const { tasks = [], isLoading: tasksLoading } = useTasks();
+  const { user } = useAuth();
+  const { isLoading: categoriesLoading } = useCategories(false);
+  const [orphanLimit, setOrphanLimit] = useState(25);
+  const orphanedTasks = useMemo(() =>
+    categoriesLoading || tasksLoading ? [] :
+      findTasksWithoutActiveCategory(tasks, categories, user?.$id),
+    [tasks, categories, user?.$id, categoriesLoading, tasksLoading]);
   const { save, reset, isSaving, error } = useSheetSaveAction();
 
   const [isAdding, setIsAdding] = useState(false);
@@ -183,7 +190,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [editColor, setEditColor] = useState('#3B82F6');
   const [editVisibility, setEditVisibility] = useState<Visibility>('private');
 
-  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [orderedIds, setOrderedIds] = useState(() =>
     categories.map((cat) => cat.id)
   );
@@ -214,7 +220,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     if (!isOpen) {
       resetForm();
       setEditingId(null);
-      setDeleteId(null);
     }
   }
 
@@ -231,14 +236,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       () => addCategory({ name: newName.trim(), color: newColor, visibility: newVisibility, order: categories.length, icon: '' }),
       resetForm,
       'Could not add category. Try again.'
-    );
-  };
-
-  const handleConfirmDelete = () => {
-    if (deleteId) void save(
-      () => deleteCategory(deleteId),
-      () => setDeleteId(null),
-      'Could not delete category. Try again.'
     );
   };
 
@@ -293,12 +290,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setEditName(c.name);
                 setEditColor(c.color);
                 setEditVisibility(c.visibility);
-              }}
-              onDeleteRequest={(id) => {
-                reset();
-                setEditingId(null);
-                setIsAdding(false);
-                setDeleteId(id);
               }}
               onReorderEnd={() => {
                 if (!isSaving) {
@@ -390,21 +381,30 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
           </Button>
         )}
 
-        {deleteId && (
-          <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
-            <p className="text-white">Delete this category?</p>
-            <p className="text-sm text-gray-400">
-              Tasks in this category will be moved to the default category.
+        {!categoriesLoading && !tasksLoading && user?.$id && orphanedTasks.length > 0 && (
+          <details className="mt-4 rounded-lg border border-[#333333] bg-[#1A1A1A] p-3">
+            <summary className="cursor-pointer text-sm text-white">
+              Tasks without an active category ({orphanedTasks.length})
+            </summary>
+            <p className="mt-2 text-xs text-gray-400">
+              These tasks are preserved. Category deletion is disabled while recovery is prepared.
             </p>
-            <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setDeleteId(null)} className="flex-1" disabled={isSaving}>
-                Cancel
+            <ul className="mt-3 space-y-2" aria-label="Tasks without an active category">
+              {orphanedTasks.slice(0, orphanLimit).map(task => (
+                <li key={task.id} className="rounded-md bg-[#111111] px-3 py-2">
+                  <p className="text-sm text-white break-words">{task.title}</p>
+                  <p className="text-xs text-gray-400">
+                    {task.date || 'Backlogs'} · {task.completed ? 'Completed' : 'Not completed'}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            {orphanedTasks.length > orphanLimit && (
+              <Button variant="ghost" onClick={() => setOrphanLimit(limit => limit + 25)}>
+                Show more preserved tasks
               </Button>
-              <Button variant="danger" onClick={handleConfirmDelete} className="flex-1" disabled={isSaving}>
-                Delete
-              </Button>
-            </div>
-          </div>
+            )}
+          </details>
         )}
       </div>
     </BottomSheet>
