@@ -24,33 +24,28 @@ export function StoragePage() {
   const { user } = useAuth();
   const ownerId = user?.$id ?? '';
   const ownerRef = useRef(ownerId);
-  ownerRef.current = ownerId;
+  useEffect(() => { ownerRef.current = ownerId; }, [ownerId]);
   const navigate = useNavigate();
   const location = useLocation();
-  const [usage, setUsage] = useState<DeviceStorageUsage | null>(null);
   const [refreshIndex, setRefreshIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const requestKey = `${ownerId}:${refreshIndex}`;
+  const [report, setReport] = useState<{ key: string; usage: DeviceStorageUsage | null } | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setFeedback('');
-    if (!ownerId) {
-      setUsage(null);
-      setLoading(false);
-      return () => { active = false; };
+    if (ownerId) {
+      void readDeviceStorageUsage(ownerId)
+        .then((usage) => { if (active) setReport({ key: requestKey, usage }); })
+        .catch(() => { if (active) setReport({ key: requestKey, usage: null }); });
     }
-    void readDeviceStorageUsage(ownerId)
-      .then((result) => { if (active) setUsage(result); })
-      .catch(() => { if (active) setUsage(null); })
-      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [ownerId, refreshIndex]);
+  }, [ownerId, requestKey]);
 
-  const current = usage?.ownerId === ownerId ? usage : null;
+  const loading = Boolean(ownerId && report?.key !== requestKey);
+  const current = report?.key === requestKey && report.usage?.ownerId === ownerId ? report.usage : null;
   const downloaded = current?.downloadedImages;
   const canClear = Boolean(ownerId && downloaded && downloaded.count > 0 && !loading && !clearing);
 
