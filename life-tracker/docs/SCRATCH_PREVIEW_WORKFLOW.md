@@ -20,6 +20,32 @@ mutation requires its exact ID and explicit `--confirm-project`. Never use
 production as an implicit CLI default, clone live users, or reset a non-empty
 project to make a mismatch go away.
 
+## Connected-chat execution (Appwrite Updated and Vercel Sandbox)
+
+**Verified 2026-11-01:** the connected **Appwrite Updated** plugin exposes
+`appwrite_call_write_tool`, unlike the original Appwrite plugin snapshot.
+Use `appwrite_get_context` and `appwrite_search_tools` to discover the
+exact supported operator calls and target. Invoke reviewed, authorized
+Scratch-only write operations with `confirm_write: true` and explicit
+`project_id: 6a96e82d000d1310b3be`. The connector authenticates without
+a user-supplied administrative API key. Consult Git-owned migrations,
+manifest and Function source before *any* direct connector mutation;
+record the resulting deployment ID and verify live resource readbacks.
+Neither connector availability nor this example authorizes Production
+writes, destructive schema changes, or replacing a concurrent Preview's
+Function without compatibility checks.
+
+For #1461, connected write calls applied **migration 016** (three optional
+columns and one index), uploaded exact Git source
+`faae41b5bf93e72f4c9b6f8ec75bef720966c4b8` as an inactive Function
+archive, then activated READY deployment `6ae62cd64088853b59a1` after
+the previous active-ID preflight. All four resources read back available.
+The reviewed historical-quote scrub was run as a read-only, bounded
+connector scan of 614 Scratch messages; zero diary references or excerpts
+were present, so no scrub writes were needed. A no-user-id smoke
+execution completed but two-user signed-in/device acceptance remains
+unverified. Record newer shared Scratch state before subsequent activations.
+
 ## Connected-chat execution (Vercel Sandbox)
 
 Before asking the owner to run a Scratch CLI command, probe **Vercel Sandbox**
@@ -30,8 +56,9 @@ Frankfurt Appwrite endpoint. Previous Mosaic agents' Sandbox sessions
 are also visible in the Vercel project. Use the
 [Sandbox execution procedure](AI_WORKFLOW.md#vercel-sandbox-execution-in-connected-chat).
 
-Do **not** conclude there is no terminal merely because the connected
-Appwrite tool lacks its write dispatcher. Create an ephemeral exact-SHA
+If the original Appwrite plugin lacks its write dispatcher, check the
+separately connected **Appwrite Updated** plugin first. Do **not** conclude
+there is no terminal merely because the connected Appwrite tool is read-only. Create an ephemeral exact-SHA
 Sandbox, restrict outbound hosts, discover its checkout directory
 (`/vercel/mosaic-life-tracker` in the verified case), set `cwd`, and
 execute Git-owned commands rather than asking for manual terminal work.

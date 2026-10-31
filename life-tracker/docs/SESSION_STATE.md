@@ -1,3 +1,14 @@
+# Task checkpoint — #1461 Diary quote privacy Scratch backend activated (Appwrite Updated)
+Updated: 2026-11-01 Asia/Manila
+
+- Owner authorized completing Scratch readiness; no dev/main or Production promotion. Correct target: `6a96e82d000d1310b3be` Frankfurt, `life_tracker`, `message-action` Function `6aa8057f002a4c306fdd`.
+- Verified **Appwrite Updated** connector exposes `appwrite_call_write_tool` with `confirm_write: true`; earlier read-only-plugin/API-key blocker resolved without acquiring a standalone key.
+- Live migration 016: `diary.quote_epoch` (optional integer/0), `diary.quote_revoke_revision` (optional varchar(50)/empty), `messages.diary_ref_epoch` (optional integer/0), and `messages.idx_diary_ref_id` (key on diary_ref_id) all confirmed `available`.
+- Exact function source `fix/1461-diary-quote-privacy-v0451-20261031@faae41b5bf93e72f4c9b6f8ec75bef720966c4b8` packaged from pinned Vercel Sandbox; inactive deployment `6ae62cd64088853b59a1` built READY and was explicitly activated after verifying prior `6ad04931c34b463de0b4`. Readback: new ID active, schedule disabled, task events unchanged. Temporary Sandboxes stopped.
+- Dry-run full message scan: 614 messages, 13 pages; zero diary refs/excerpts, zero redactions/fences required. No live message edits. Activated Function executed a nonexistent-diary synthetic request: HTTP 404 controlled response. This is *not* proof of signed-in owner/viewer authorization.
+- READY Vercel Preview: `dpl_9mNacpBDtkvRCMMhxYSusern9ZBa`, https://mosaic-life-tracker-ornedoek9-carls-projects-72516fde.vercel.app (exact source SHA above). Prior focused CI passed on #1482/#1484; manual two-user signed-in revocation, browser/phone and old-client/offline checks still pending. User-visible Preview not yet accepted; issue #1461 remains open.
+- Current repository documentation updates have **no application code/version impact**. Do not infer user approval to merge Preview feature to dev or deploy to Production. Detailed records: issue #1461 checkpoint comment 6547179139.
+
 # Task checkpoint — #1477 accepted cloud inventory privacy patch v0.51.1 forward-port to dev v0.50.3
 Updated: 2026-11-01 Asia/Manila
 
