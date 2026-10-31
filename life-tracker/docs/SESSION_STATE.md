@@ -1,4 +1,14 @@
 # Session checkpoint
+Updated: 2026-10-31 Asia/Manila
+Current task: #1443 Appwrite preferences replica stall; isolated `chatgpt/1443-preferences-sync-v0441-20261031`.
+
+## #1443 — current isolated work
+- User reports task/other-group cloud recovery but Sync Now stalls at “Waiting for Preferences” and phone/laptop settings disagree.
+- Base: `dev@efeec22df14b4cb9d8dc1ffa3d5852e7af4a1775`, version 0.44.0 (Settings redesign has since entered dev). This task plans a PATCH version 0.44.1. No `dev`/`main` promotion or Production mutation authorized.
+- Confirmed code defect: `useSettings` physically deletes oversized legacy settings IDs, but the settings RxDB push rejects any `_deleted` record and can indefinitely retry. Exact device cause requires local logs; Production Appwrite settings table is enabled and recently received writes.
+- Candidate fix: copy older invalid-ID preferences into the valid deterministic owner/key ID before local-only cleanup, retain newer canonical values, fail closed on mismatched owners/ID collisions, and skip the impossible-remote deletion in the settings push while rejecting normal physical deletion. Add focused regression tests.
+- Next: verify exact task diff and focused CI, then squash into a stable `fix/*` Preview branch if green and obtain full canonical and Vercel Scratch readiness. Device/hosted synthetic account test still necessary before calling cross-device settings repaired; no automatic `dev`/`main` promotion.
+
 Updated: 2026-10-27 Asia/Manila
 Current task: #1384 Settings and Me reorganization, full Preview acceptance repair; task branch `chatgpt/1384-preview-preload-registry-fix-20261027`, based on stable Preview `feature/1384-settings-information-architecture-preview-20261027@4a8eb1dc7b1143cf29b7cca18a1ea1c447507859`.
 
