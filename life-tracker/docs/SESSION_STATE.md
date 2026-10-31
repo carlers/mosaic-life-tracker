@@ -5,6 +5,7 @@ Updated: 2026-10-31 Asia/Manila
 - Current task branch: `chatgpt/1026-feature-controls-v0460-20261031` from exact dev baseline. P0 controls: Settings search, task search, chat search, new task photo uploads, new Diary photo uploads, GIPHY search; default existing behavior ON and independent PostHog `mosaic_disable_*` opt-out flags. Preserve existing photos, offline pending images, profile photos, historical GIPHY, all data/sync.
 - Source updates touch registry/hook, PostHog refresh/identity semantics, search controls, media entry points and operation boundaries, feature tests, documentation and synchronized version files.
 - Initial task focused CI #41196456766 failed the docs index requirement for the new operator guide; repair adds its index entry. Further focused and canonical checks remain pending. No remote PostHog configuration should be modified until exact project/rollout verified. Run focused CI, inspect failures, then stable Preview canonical + Vercel Scratch READY. Device validation and explicit owner approval before any dev/main promotion.
+- Stable Preview PR #1462 landed at d835497d; canonical run #41196942793 found a React Hooks lint issue in Home search shutdown while build and DOM tests passed. The repair uses a cancellation-safe microtask and requires another focused/canonical acceptance cycle.
 - Known limitation: a cold offline PWA cannot receive new remote disables; flags do not enforce authorization. PostHog refreshes every five minutes and on reconnection. This is a UI/feature availability tool, not a security mechanism.
 
 ---
