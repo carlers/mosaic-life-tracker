@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const storageMocks = vi.hoisted(() => ({
   cache: vi.fn(),
@@ -18,6 +18,8 @@ beforeEach(() => {
     },
   });
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('on-demand device storage reporting', () => {
   it('reports browser estimates separately from device-wide cached media and owner uploads', async () => {

@@ -92,7 +92,7 @@ export function StoragePage() {
         </button>
         <h1 className="text-lg font-bold">Storage</h1>
       </header>
-      <main className="flex-1 pb-24">
+      <div className="flex-1 pb-24">
         <section className="border-b border-[#333333] px-4 py-5" aria-label="Device storage">
           <div className="mb-3 flex items-center gap-2"><HardDrive size={18} aria-hidden="true" /><h2 className="font-semibold">This device</h2></div>
           {loading && <p role="status" className="text-sm text-gray-400">Measuring storage…</p>}
@@ -134,7 +134,7 @@ export function StoragePage() {
             className="rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-500/60">Refresh usage</button>
           {feedback && <p role="status" className="mt-3 text-sm text-gray-300">{feedback}</p>}
         </div>
-      </main>
+      </div>
       <BottomSheet isOpen={confirmClear} onClose={() => { if (!clearing) setConfirmClear(false); }}
         title="Clear downloaded images" height="auto" isLocked={clearing} preventDismiss={clearing}>
         <div className="px-4 pb-8 pt-2">
