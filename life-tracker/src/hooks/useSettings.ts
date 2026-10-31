@@ -2,33 +2,19 @@ import { useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
-import { makeSettingsRowId, MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
+import { makeSettingsRowId } from '../lib/settingsRowId';
+import { migrateOversizedSettingsRows } from '../lib/settingsLegacyCleanup';
 import { upsertLocalDoc } from '../lib/localUpsert';
 import type { SettingsDocument } from '../db/schema';
 
 export { makeSettingsRowId };
-const DEBUG = import.meta.env.DEV;
 const legacyCleanupByUser = new Map<string, Promise<void>>();
 
 async function cleanupLegacySettingsRows(userId: string): Promise<void> {
   const existing = legacyCleanupByUser.get(userId);
   if (existing) return existing;
 
-  const cleanup = (async () => {
-    const all = await getDatabase()
-      .settings.find({ selector: { userId } })
-      .exec();
-    for (const doc of all) {
-      if (doc.id.length <= MAX_ROW_ID_LENGTH) continue;
-      if (DEBUG) {
-        console.warn(
-          '[useSettings] Removing oversized legacy settings row:',
-          doc.id
-        );
-      }
-      await doc.remove();
-    }
-  })();
+  const cleanup = migrateOversizedSettingsRows(userId);
 
   legacyCleanupByUser.set(userId, cleanup);
   try {
