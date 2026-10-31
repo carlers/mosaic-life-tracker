@@ -1,3 +1,13 @@
+# Task checkpoint — #1461 accepted reversible diary quote privacy forward-port v0.58.0
+Updated: 2026-11-01 Asia/Manila
+
+- Owner accepted v0.45.2 reversible diary quote Preview and authorized merge to dev, not main/Production. Accepted stable SHA bba52bebe30bf6c40b9e9a05b08dbaf67128aa22, canonical #41229542989 succeeded, trusted Preview READY; Scratch Function 6ae6337ade2cc07d0df2 active.
+- Forward-port original v0.45.1 diary quote privacy plus reversible v0.45.2 from common base 343b857fa43d26e7afc7b7f6de81ac479416bba2 onto dev@029b5cb758e1180b595c9b3f6c3822eb3a995675 v0.54.0. v0.55.0/v0.56.0/v0.57.0 reserved by other Previews; candidate v0.58.0. Preserve newer feature controls, task search, storage, categories and Day View; combine both ChatPage imports. No main/Production changes.
+- Visibility revocation fences and scrubs excerpts without date/epoch loss, republishing restores authorized current content; permanent deletion invalidates. Offline/nonfriends fail closed. Additive migration 016 exists on Scratch; integrated Function source requires deployment compatibility check.
+- Deliver focused tests, build/PWA/size, exact stable candidate canonical and READY Vercel, Scratch compatibility, read-only promotion preflight and nondrivergent authorized Preview-to-dev PR.
+
+---
+
 # Task checkpoint — #1026 Feature Controls dev reconciliation v0.54.0
 Updated: 2026-11-01 Asia/Manila
 
