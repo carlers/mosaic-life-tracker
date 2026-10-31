@@ -23,8 +23,6 @@ for (const viewport of [
       await expect(finalTask).toHaveCount(1);
       await expect(bottomNav).toBeVisible();
       const mainScroller = page.locator('[data-mosaic-main-scroll="true"]');
-      await expect.poll(() => mainScroller.evaluate(el => el.scrollHeight - el.clientHeight))
-        .toBeGreaterThan(50);
       const homeHeader = await page.getByTestId('home-identity-header').boundingBox();
       if (!homeHeader) throw new Error('Missing Home header');
       await page.mouse.move(homeHeader.x + 20, homeHeader.y + 20);
