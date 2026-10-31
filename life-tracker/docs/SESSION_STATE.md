@@ -1,3 +1,6 @@
+
+- 2026-10-31: Added Git-owned bounded 14-day cleanup for owner-only chat uploads with no sender row, scheduled through existing message-action maintenance; source unit tests cover non-chat, recipient-granted, recent, legitimate, and bucket-drift denial. Not deployed to Scratch. [verify:focused]
+
 # Current checkpoint — chat photo Scratch preparation (#1460)
 
 - v0.46.0 integrated photo Preview is isolated; photo flag is default OFF.
