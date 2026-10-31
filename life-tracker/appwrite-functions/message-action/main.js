@@ -1352,7 +1352,7 @@ async function findVisibleFriendDiary(tablesDB, callerId, diaryId, ownerId) {
   return row;
 }
 
-async function handleReactToDiary(tablesDB, callerId, payload, log, error) {
+async function handleReactToDiary(tablesDB, storage, callerId, payload, log, error) {
   const { friendUserId: ownerId, diaryId, emoji, op } = payload || {};
   const valid = validateEmoji(emoji);
   if (!valid.ok || (op !== 'add' && op !== 'remove'))
@@ -1392,7 +1392,7 @@ async function handleReactToDiary(tablesDB, callerId, payload, log, error) {
   if (op === 'add') {
     // One durable activity message per add transition. Retries reuse its ID.
     const messageId = 'msg_dr_' + sha256Hex(rowId + '|' + eventAt).slice(0, 27);
-    const delivery = await handleDeliver(tablesDB, callerId, {
+    const delivery = await handleDeliver(tablesDB, storage, callerId, {
       messageId, recipientId: ownerId,
       content: `Reacted ${valid.value} to your diary`,
       diaryRefId: diaryId, diaryRefOwnerId: ownerId, diaryRefDate: diary.date,
@@ -1817,7 +1817,7 @@ const handler = async ({ req, res, log, error }) => {
         result = await handleGetFriendTask(tablesDB, callerId, payload, log, error);
         break;
       case 'react_to_diary':
-        result = await handleReactToDiary(tablesDB, callerId, payload, log, error);
+        result = await handleReactToDiary(tablesDB, storage, callerId, payload, log, error);
         break;
       case 'get_owner_diary_reactions':
         result = await handleGetOwnerDiaryReactions(tablesDB, callerId, payload, log);
