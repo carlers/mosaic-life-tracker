@@ -73,6 +73,6 @@ export function useDiaryReferencePreviews(
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('focus', onFocus);
     };
-  }, [referenceIds, referenceRevisions, userId, online]);
+  }, [referenceIds, referenceRevisions, scope, userId, online]);
   return online && state.scope === scope ? state.previews : {};
 }

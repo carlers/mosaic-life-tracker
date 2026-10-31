@@ -213,7 +213,7 @@ export async function fetchFriendAlertTask(
 }
 
 /** Only authenticated, mutually accepted friends can request a bounded month. */
-export type FriendDiaryDocument = DiaryDocument & { reactions?: string };
+export type FriendDiaryDocument = DiaryDocument & { reactions?: string; quoteEpoch?: number };
 
 export async function fetchFriendDiaryMonth(
   currentUserId: string, friendUserId: string, month: string
