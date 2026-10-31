@@ -77,6 +77,7 @@ export const ChatPage: React.FC = () => {
     messages,
     isLoading,
     sendMessage,
+    sendPhoto,
     markAllRead,
     unsendMessage,
     toggleReaction,
@@ -324,6 +325,13 @@ export const ChatPage: React.FC = () => {
     setReplyTo(null);
   };
 
+  const handleSendPhoto = async (file: File, caption: string) => {
+    closeSearch();
+    const reply = replyTo ? { id: replyTo.id, senderId: replyTo.senderId, content: replyTo.content } : undefined;
+    await sendPhoto(file, caption, reply);
+    setReplyTo(null);
+  };
+
   const handlePickSticker = async (packId: string, stickerId: string) => {
     setStickerPacksOpen(false);
     try {
@@ -517,6 +525,7 @@ export const ChatPage: React.FC = () => {
         <MessageComposer
           ref={composerRef}
           onSend={handleSend}
+          onSendPhoto={handleSendPhoto}
           onSendError={() => setFeedback('Message not saved. Retry.')}
           onOpenStickers={() => { setHasOpenedStickers(true); setStickerPacksOpen(true); }}
           onPrepareStickers={() => { void preloadStickerPackSheet().catch(() => {}); }}

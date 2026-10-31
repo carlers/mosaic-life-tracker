@@ -8,6 +8,7 @@ import {
 } from '../lib/messageDelivery';
 import {
   sendTextMessage,
+  sendPhotoMessage,
   sendTaskReplyMessage,
   sendTaskReactionMessage,
   sendDiaryReplyMessage,
@@ -23,6 +24,7 @@ export type { ReplyContext };
 
 export interface UseMessageActionsReturn {
   sendMessage: (content: string, replyTo?: ReplyContext) => Promise<void>;
+  sendPhoto: (file: File, caption?: string, replyTo?: ReplyContext) => Promise<void>;
   sendDiaryReply: (diary: DiaryDocument, content: string) => Promise<void>;
   sendTaskReply: (
     task: TaskDocument,
@@ -72,6 +74,12 @@ export function useMessageActions(
     },
     [user?.$id, friendId]
   );
+
+  const sendPhoto = useCallback(async (file: File, caption = '', replyTo?: ReplyContext) => {
+    const uid = user?.$id;
+    if (!uid || !friendId) throw new Error('Chat photo requires a signed-in user and friend.');
+    await sendPhotoMessage(uid, friendId, file, caption, replyTo);
+  }, [user?.$id, friendId]);
 
   const sendTaskReply = useCallback(
     async (task: TaskDocument, content: string, categoryColor: string) => {
@@ -243,6 +251,7 @@ export function useMessageActions(
 
   return {
     sendMessage,
+    sendPhoto,
     sendDiaryReply,
     sendTaskReply,
     sendTaskReaction,
