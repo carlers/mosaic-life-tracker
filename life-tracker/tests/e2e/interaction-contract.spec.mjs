@@ -1587,6 +1587,17 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
     activeSlide.locator('[data-day-view-navigation="true"]')
   ).toHaveCount(1);
   await expect(activeSlide.locator('[data-task-category-id]')).toHaveCount(5);
+  // Inertial paging must finish at an actual day snap, then commit that day
+  // to the parent sheet rather than leaving a transient active date behind.
+  await expect.poll(() => swiper.evaluate((node) => {
+    const instance = node.swiper;
+    if (!instance || instance.animating) return false;
+    const snap = instance.snapGrid[instance.snapIndex];
+    return typeof snap === 'number' && Math.abs(instance.translate + snap) < 2;
+  })).toBe(true);
+  const dateHeading = (await activeSlide.locator('[data-day-view-navigation="true"] h3').textContent())?.trim();
+  expect(dateHeading).toBeTruthy();
+  await expect(page.getByRole('dialog')).toHaveAttribute('aria-label', dateHeading);
 });
 
 test('inactive adjacent Day View keeps category spacing when it becomes active', async ({ page }) => {
