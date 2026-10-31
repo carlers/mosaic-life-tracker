@@ -1378,42 +1378,7 @@ test('DayView reopens on another and the same date after teardown', async ({ pag
   await expect(dialog.locator('.swiper-slide-active'))
     .toContainText('Saturday, November 14, 2026');
   await waitForStableVerticalPosition(dialog);
-  const farSwiper = dialog.getByTestId('day-swiper');
-  await farSwiper.evaluate((element) => {
-    const swiper = element.swiper;
-    window.__mosaicFarDateTrace = [];
-    for (const name of ['touchStart', 'sliderFirstMove', 'slideChange', 'touchEnd', 'transitionStart', 'transitionEnd']) {
-      swiper.on(name, () => window.__mosaicFarDateTrace.push({
-        event: name, index: swiper.activeIndex, animating: swiper.animating,
-        pointerId: swiper.touchEventsData.pointerId, touchId: swiper.touchEventsData.touchId,
-        moved: swiper.touchEventsData.isMoved, touched: swiper.touchEventsData.isTouched,
-        direction: swiper.swipeDirection, diff: swiper.touches.diff,
-      }));
-    }
-    for (const name of ['pointerdown', 'pointerup', 'touchend']) {
-      window.addEventListener(name, (event) => window.__mosaicFarDateTrace.push({
-        event: 'window-' + name, pointerId: event.pointerId,
-        active: swiper.activeIndex, touched: swiper.touchEventsData.isTouched,
-        moved: swiper.touchEventsData.isMoved,
-      }), { capture: true });
-    }
-  });
-  await drag(page, farSwiper, -260);
-  console.log('MOSAIC_FAR_DAY_GESTURE_DIAGNOSTIC', JSON.stringify(await farSwiper.evaluate((element) => ({
-    trace: window.__mosaicFarDateTrace,
-    current: {
-      activeIndex: element.swiper.activeIndex,
-      pointerId: element.swiper.touchEventsData.pointerId,
-      touchId: element.swiper.touchEventsData.touchId,
-      isTouched: element.swiper.touchEventsData.isTouched,
-      isMoved: element.swiper.touchEventsData.isMoved,
-      swipeDirection: element.swiper.swipeDirection,
-      translate: element.swiper.translate,
-      animating: element.swiper.animating,
-      reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-      freeMode: element.swiper.params.freeMode,
-    },
-  }))));
+  await drag(page, dialog.getByTestId('day-swiper'), -260);
   await expect(dialog.locator('.swiper-slide-active'))
     .toContainText('Sunday, November 15, 2026');
 });

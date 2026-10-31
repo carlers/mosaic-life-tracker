@@ -604,7 +604,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         : null;
   }, []);
 
-  const settleDayTouch = useCallback((cancelled = false) => {
+  const settleDayTouch = useCallback(() => {
     const start = daySwipeStartRef.current;
     daySwipeStartRef.current = null;
     const swiper = swiperRef.current;
@@ -615,8 +615,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
     const distance = Math.abs(swiper.touches.diff);
     const velocity = distance / Math.max(1, Date.now() - start.time);
-    const advance = !cancelled &&
-      (distance >= swiper.width * 0.45 || (distance >= 20 && velocity >= 0.65));
+    // A horizontal pointercancel is common when Virtual swaps the finger's
+    // source slide. Treat it as release, not as a request to undo the gesture.
+    const advance = distance >= swiper.width * 0.45 || (distance >= 20 && velocity >= 0.65);
     const offset = advance ? (swiper.swipeDirection === 'next' ? 1 : -1) : 0;
     const destination = Math.min(Math.max(start.index + offset, 0), state.slideCount - 1);
     const duration = Math.round(Math.max(180, 320 - Math.min(velocity, 2) * 70));
@@ -643,7 +644,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     };
     const onPointerCancel = (event: PointerEvent) => {
       const start = daySwipeStartRef.current;
-      if (start && (start.pointerId === event.pointerId || event.isPrimary)) settleDayTouch(true);
+      if (start && (start.pointerId === event.pointerId || event.isPrimary)) settleDayTouch();
     };
     const onTouchEnd = (event: TouchEvent) => {
       const start = daySwipeStartRef.current;
@@ -653,7 +654,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     };
     const onTouchCancel = (event: TouchEvent) => {
       const start = daySwipeStartRef.current;
-      if (start && event.touches.length === 0) settleDayTouch(true);
+      if (start && event.touches.length === 0) settleDayTouch();
     };
     // Window capture runs before Swiper's own document touch-end listeners,
     // including when Virtual swaps the active slide during finger tracking.
