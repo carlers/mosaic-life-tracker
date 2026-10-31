@@ -23,6 +23,7 @@ import { migratePushDetails } from './migrate-push-details.mjs';
 import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
 import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
+import { migrateBugReportsBackend } from './migrate-bug-reports.mjs';
 
 export const APPWRITE_MIGRATIONS = [
   {
@@ -83,6 +84,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '015-message-diary-references', description: 'Typed private message diary references', run: ({ request, log, sleep }) => migrateMessageDiaryReferences({ request, log, sleep }) },
   { id: '016-diary-quote-privacy', description: 'Durable diary quote revocation epochs and lookup index', run: ({ request, log, sleep }) => migrateDiaryQuotePrivacy({ request, log, sleep }) },
   { id: '017-message-chat-photos', description: 'Optional private chat media identifiers', run: ({ request, log, sleep }) => migrateMessageChatPhotos({ request, log, sleep }) },
+  { id: '018-bug-reports', description: 'Server-only private bug report inbox', run: ({ request, log }) => migrateBugReportsBackend({ request, log }) },
 ];
 
 export function selectMigrations(argv = []) {
