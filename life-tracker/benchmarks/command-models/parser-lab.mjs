@@ -8,11 +8,15 @@ export const AS_OF = new Date(2026, 9, 31, 12, 0); // fixed local reference; nev
 export const CATEGORIES = ['School', 'Personal', 'Work', 'Health', 'Home', 'Errands', 'College', 'Projects'];
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const WHEN = '(?:today|tomorrow|bukas|ngayon|in backlog|next (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|on \\d{4}-\\d{2}-\\d{2})';
-const EXTRA_WHEN = '(?:on (?:january|february|march|april|may|june|july|august|september|october|november|december) \\d{1,2}(?:,? \\d{4})?|in \\d{1,2} days?)';
-const ANCHOR_WHEN = new RegExp(`\\s+(?<when>${WHEN})$`, 'i');
-const ANCHOR_CHRONO = new RegExp(`\\s+(?<when>${EXTRA_WHEN})$`, 'i');
+const EXTRA_WHEN = '(?:on (?:january|february|march|april|may|june|july|august|september|october|november|december) \\d{1,2}(?:,? \\d{4})?|in (?:\\d{1,2}|one|two|three|four|five|six|seven) (?:days?|weeks?))';
+// Only a date at the end is eligible; "for" inside task titles is preserved.
+const ANCHOR_WHEN = new RegExp('\\s+(?<when>(?:for\\s+)?' + WHEN + ')$', 'i');
+const ANCHOR_CHRONO = new RegExp('\\s+(?<when>(?:for\\s+)?' + EXTRA_WHEN + ')$', 'i');
 const START = [
   /^(?:add|create|put|schedule)\s+/i,
+  /^please add\s+/i,
+  /^remind me to\s+/i,
+  /^i should\s+/i,
   /^need to\s+/i,
   /^i gotta\s+/i,
   /^please put\s+/i,
@@ -34,7 +38,7 @@ function strictIso(s) {
   return d.getFullYear() === y && d.getMonth() === m - 1 && d.getDate() === day ? s : null;
 }
 function dateOf(expression, ref, chrono) {
-  const w = expression.toLowerCase();
+  const w = expression.replace(/^for\s+/i, '').toLowerCase();
   if (['today', 'ngayon'].includes(w)) return fmt(ref);
   if (['tomorrow', 'bukas'].includes(w)) return fmt(addDays(ref, 1));
   if (w === 'in backlog') return '';
@@ -43,8 +47,8 @@ function dateOf(expression, ref, chrono) {
     const offset = (WEEKDAYS.indexOf(w.slice(5)) - ref.getDay() + 7) % 7;
     return fmt(addDays(ref, offset || 7));
   }
-  if (!chrono || !new RegExp(`^${EXTRA_WHEN}$`, 'i').test(expression)) return null;
-  const phrase = expression.replace(/^on\s+/i, '');
+  if (!chrono || !new RegExp('^' + EXTRA_WHEN + '$', 'i').test(w)) return null;
+  const phrase = w.replace(/^on\s+/i, '');
   const parsed = chrono.parse(phrase, ref, {forwardDate: true});
   if (parsed.length !== 1 || parsed[0].index !== 0 || parsed[0].text.trim().toLowerCase() !== phrase.toLowerCase() || parsed[0].end) return null;
   const date = parsed[0].start.date();
@@ -52,25 +56,41 @@ function dateOf(expression, ref, chrono) {
   if (!Number.isFinite(date.getTime()) || date < addDays(ref, 0) || date > max) return null;
   return fmt(date);
 }
-function categoryMatch(prefix) {
+function categoryMatch(prefix, categories) {
+  if (!Array.isArray(categories) || categories.length === 0 ||
+      categories.some(c => typeof c !== 'string' || !c.trim() || c.length > 255)) return null;
   const options = [];
-  for (const category of CATEGORIES) {
-    const categoryEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const suffix = new RegExp(`^(?<title>.+?)\\s+(?:to|in|for|under|sa)\\s+(?:my\\s+)?${categoryEscaped}(?:\\s+list)?$`, 'i');
-    const matched = prefix.match(suffix);
+  const trimmed = prefix.trim();
+  for (const category of categories) {
+    const escaped = category.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
+    const suffix = new RegExp('^(?<title>.+)\\s+(?:to|in|for|under|sa)\\s+(?:my\\s+)?' + escaped + '(?:\\s+list)?$', 'i');
+    const matched = trimmed.match(suffix);
     if (!matched) continue;
     const title = matched.groups.title.trim();
-    // Multiple category-like prepositions make boundaries ambiguous: review, don't guess.
-    const anyCategory = CATEGORIES.map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-    if (new RegExp(`\\b(?:to|in|for|under|sa)\\s+(?:my\\s+)?(?:${anyCategory})\\b`, 'i').test(title)) continue;
-    if (title && !/\b(?:to|in|under|sa)\b/i.test(title)) options.push({ title, category });
+
+    // A command to move a named category must not be created as a task.
+    if (/^(?:move|delete|remove|complete|archive|reschedule|mark)\s+to\b/i.test(title)) continue;
+    // A bare media-to-media conversion phrase without an action is ambiguous.
+    if (/^(?:text|audio|speech|image|video)\s+to\s+(?:text|audio|speech|image|video)$/i.test(title)) continue;
+    // Quantity or collective instructions must not create one task literally
+    // named "15 tasks", "all tasks" or "several items".
+    if (/^(?:(?:\d+|one|two|three|four|five|six|seven|ten|all|every|many|several|multiple|some|few|a dozen)\s+(?:[\w-]+\s+){0,3}(?:tasks?|items?|errands?|assignments?|reminders?|todos?|chores?|entries?)\b)/i.test(title)) continue;
+    if (/^(?:move|delete|remove|complete|archive|reschedule|mark)\s+(?:all|every|some|my|\d+)\b/i.test(title)) continue;
+    if (/\b(?:and\s+(?:delete|remove|complete|move|reschedule|buy|send|call|finish|pay|clean|submit|study|vacuum)|;\s*\S)/i.test(title)) continue;
+
+    // Rightmost complete destination category is matched. Words including
+    // "to", "in", and other category names remain part of task titles.
+    // Duplicate owned category labels are ambiguous and require review.
+    if (title && title.length <= 255) options.push({ title, category });
   }
   return options.length === 1 ? options[0] : null;
 }
-export function predict(text, {chrono = null, reference = AS_OF} = {}) {
+export function predict(text, {chrono = null, reference = AS_OF, categories = CATEGORIES} = {}) {
   if (typeof text !== 'string' || text.length > 1024) return result();
   const original = text.trim().replace(/[.!?]+$/,'').trim();
   if (/^(?:add|create|put)\s+(?:income|expense|transaction|budget)\b/i.test(original)) return result('unsupported');
+  // The single-task parser never accepts edits, bulk actions or read-only queries.
+  if (/^(?:move|delete|remove|complete|mark|reschedule|archive|show|find|open|search|what|how)\b/i.test(original)) return result('unsupported');
   const initial = START.find(pattern => pattern.test(original));
   if (!initial) return result(/\b(?:add|create|need to|gotta|task)\b/i.test(original) ? 'needs_review' : 'unsupported');
   const body = original.replace(initial,'').trim();
@@ -81,7 +101,7 @@ export function predict(text, {chrono = null, reference = AS_OF} = {}) {
   const day = dateOf(phrase, reference, chrono);
   if (day === null) return result();
   const prefix = body.slice(0, match.index).trim();
-  const category = categoryMatch(prefix);
+  const category = categoryMatch(prefix, categories);
   if (!category) return result();
   return result('create_task', category.title, category.category, day);
 }

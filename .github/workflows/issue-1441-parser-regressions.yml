@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - chatgpt/1441-parser-regression-20261101
+      - chatgpt/1441-parser-hardening-20261101
 
 permissions:
   contents: read
@@ -22,16 +23,18 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
       - name: Install isolated date-parser dependency only
         run: npm install --no-save --no-package-lock --ignore-scripts chrono-node@2.10.3
       - name: Run all regression contracts and both comparison baselines
         run: |
           python3 make_dataset.py
-          node --test parser-lab.test.mjs parser-lab-regression.test.mjs
+          node --test parser-lab.test.mjs parser-lab-regression.test.mjs parser-lab-hardening.test.mjs
           node parser-lab.mjs --input parser-lab-regression.jsonl --output results/regression-grammar.json
           node parser-lab.mjs --chrono --input parser-lab-regression.jsonl --output results/regression-chrono.json
           node parser-lab.mjs --chrono --input parser-lab-holdout.jsonl --output results/chrono-holdout.json
+          node parser-lab.mjs --chrono --input parser-lab-fresh-challenge.jsonl --output results/fresh-hardening.json
+          node parser-lab.mjs --chrono --input cases.jsonl --output results/chrono-original.json
       - name: Display measured safety failures without concealing them
         run: |
           node --input-type=module -e '
