@@ -11,12 +11,14 @@ import { AuthContext } from '../../src/hooks/authContext';
 import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import type { TaskDocument } from '../../src/db/schema';
 
-function FullHeightHomeCalendarProbe() {
+export function FullHeightHomeCalendarProbe() {
   const calendar = useCalendarState();
   const selectedMonth = calendar.slides[calendar.activeIndex] ?? new Date();
+  const year = selectedMonth.getFullYear();
+  const month = selectedMonth.getMonth();
   const tasks = useMemo<TaskDocument[]>(() => {
-    const middle = format(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 15), 'yyyy-MM-dd');
-    const last = format(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0), 'yyyy-MM-dd');
+    const middle = format(new Date(year, month, 15), 'yyyy-MM-dd');
+    const last = format(new Date(year, month + 1, 0), 'yyyy-MM-dd');
     return Array.from({ length: 65 }, (_, index) => ({
       id: `scroll_fixture_${index}`,
       userId: 'user_1',
@@ -32,7 +34,7 @@ function FullHeightHomeCalendarProbe() {
       memo: '',
       isDeleted: false,
     }));
-  }, [selectedMonth.getFullYear(), selectedMonth.getMonth()]);
+  }, [year, month]);
   const mode = new URLSearchParams(window.location.search).get('mode');
   const zoomPreference = mode === 'zoom' ? 3 : 7;
   const stickyWeekdayHeader = mode === 'zoom';
