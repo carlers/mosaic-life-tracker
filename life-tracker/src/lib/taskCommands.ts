@@ -109,3 +109,46 @@ export function parseTaskCommand(text: string, categoryNames: readonly string[],
   if (!category) return draft();
   return draft('create_task', category.title, category.category, date);
 }
+
+
+/**
+ * Conservative *editable* draft extraction for incomplete commands.
+ * Never upgrades an unsupported/bulk command to a create action.
+ * The returned fields are suggestions; all values still require explicit
+ * confirmation and owner-resolved category IDs.
+ */
+export function parseTaskCommandPreview(text: string, categoryNames: readonly string[],
+  now = new Date()): ParsedTaskCommand {
+  const full = parseTaskCommand(text, categoryNames, now);
+  if (full.status !== 'needs_review') return full;
+  const original = text.trim().replace(/[.!?]+$/, '').trim();
+  const start = starts.find(re => re.test(original));
+  if (!start || original.length > 1024) return full;
+  let body = original.replace(start, '').trim();
+  // Remove an entire *anchored* date only; malformed dates remain review-only.
+  let date: string | null = null;
+  const ending = body.match(anchorWhen) ?? body.match(anchorChrono);
+  if (ending?.groups?.when && ending.index !== undefined) {
+    date = parseDate(ending.groups.when, now);
+    body = body.slice(0, ending.index);
+  }
+  if (/(?:\b(?:today|tomorrow|yesterday|bukas|ngayon|next|soon|later|tonight|morning)\b|\b\d{4}-\d\d-\d\d\b)$/i.test(body)) return full;
+  const known = categoryFromPrefix(body, categoryNames);
+  if (known) return draft('needs_review', known.title, known.category, date);
+  // A previously unknown category may appear after the final explicit
+  // destination clause, not merely because its name appears in the title.
+  const proposed = body.match(/^(.+)\s+(?:to|in|under|sa)\s+(?:my\s+)?(.+)$/i);
+  if (!proposed) return full;
+  const title = proposed[1].trim();
+  const category = proposed[2].trim().replace(/\s+list$/i, '');
+  if (!title || title.length > 255 || !category || category.length > 80 ||
+      !/^[\p{L}\p{N}][\p{L}\p{N} _&+.'()-]*$/u.test(category) ||
+      /\b(?:or|and)\b/i.test(category) ||
+      /^(?:\d+|all|every|several|multiple|some|many)\s+/i.test(title) ||
+      /\b(?:and\s+(?:delete|remove|complete|move|reschedule|buy|send|call|finish|pay|clean|submit|study|vacuum)|;)/i.test(title)) {
+    return full;
+  }
+  // Avoid auto-preparing a new category for an uncertain multi-category phrase.
+  if (/\s+(?:to|in|under|sa)\s+\w+\s+or\s+\w+$/i.test(body)) return full;
+  return draft('needs_review', title, category, date);
+}

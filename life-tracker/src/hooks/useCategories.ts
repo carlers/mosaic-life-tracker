@@ -42,6 +42,7 @@ export function useCategories(enabled = true) {
       };
       try {
         await db.categories.insert(newCat);
+        return newCat.id;
       } catch (error) {
         console.error('[useCategories] Error inserting category:', error);
         throw error;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseTaskCommand, isValidCommandDate } from '../../src/lib/taskCommands';
+import { parseTaskCommand, parseTaskCommandPreview, isValidCommandDate } from '../../src/lib/taskCommands';
 
 const names = ['School', 'Personal', 'Work', 'Health', 'Home', 'Errands', 'College', 'Projects'];
 const fixed = new Date(2026, 9, 31, 12, 0);
@@ -63,5 +63,23 @@ describe('Home natural-language task draft parser', () => {
     expect(isValidCommandDate('2028-02-29')).toBe(true);
     expect(parseTaskCommand('Add call mom to Personal tomorrow', names,
       new Date(2026, 11, 31, 12))).toMatchObject({ date: '2027-01-01' });
+  });
+});
+
+
+describe('partial review extraction', () => {
+  it('keeps task title and category when date is omitted', () => {
+    expect(parseTaskCommandPreview('add do physics to school', names, fixed)).toEqual({
+      status:'needs_review',title:'do physics',category:'School',date:null
+    });
+  });
+  it('extracts unknown destination as a review suggestion, never a create action', () => {
+    expect(parseTaskCommandPreview('add review galaxies to Astronomy tomorrow',names,fixed))
+      .toEqual({status:'needs_review',title:'review galaxies',category:'Astronomy',date:'2026-11-01'});
+  });
+  it('rejects unsafe bulk and ambiguous destination suggestions', () => {
+    expect(parseTaskCommandPreview('Move all tasks to Backlogs',names,fixed).status).toBe('unsupported');
+    expect(parseTaskCommandPreview('Add 15 tasks to School',names,fixed).title).toBeNull();
+    expect(parseTaskCommandPreview('Add homework to School or College tomorrow',names,fixed).category).toBeNull();
   });
 });

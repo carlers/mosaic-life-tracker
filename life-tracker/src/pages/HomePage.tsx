@@ -55,10 +55,13 @@ export const HomePage: React.FC = () => {
     isLoading: carouselLoading,
   } = useFriendCarousel();
   const { user } = useAuth();
+  const activeCommandOwner = useRef<string | null>(user?.$id ?? null);
+  useEffect(() => { activeCommandOwner.current = user?.$id ?? null; }, [user?.$id]);
   const { tasks: ownerTasks = [], isLoading: tasksLoading, addTask } = useTasks();
   const {
     categories: ownerCategories = [],
     isLoading: categoriesLoading,
+    addCategory,
   } = useCategories();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
@@ -269,22 +272,18 @@ export const HomePage: React.FC = () => {
     setIsCommandOpen(true);
   }, []);
   const handleCreateCommandTask = useCallback(async (
-    task: { title: string; categoryId: string; date: string },
+    task: { title: string; categoryId: string; date: string; newCategoryName?: string },
     position: 'top' | 'bottom'
   ) => {
-    const uid = user?.$id;
-    if (!uid || tasksLoading || categoriesLoading ||
-      !ownerCategories.some(category => category.id === task.categoryId &&
-        category.userId === uid && !category.isDeleted)) {
-      throw new Error('Current owner and category must be available');
-    }
-    const created = await addTask({
-      ...task,
-      completed: false,
-      visibility: task.date === '' ? 'private' : '',
-    }, position);
-    if (!created) throw new Error('Task was not created');
-  }, [addTask, categoriesLoading, ownerCategories, tasksLoading, user?.$id]);
+    const { createCommandTask } = await import('../lib/taskCommandCreation');
+    await createCommandTask({
+      uid: user?.$id ?? null,
+      ownerValid: () => activeCommandOwner.current === user?.$id,
+      loading: tasksLoading || categoriesLoading,
+      categories: ownerCategories,
+      addCategory, addTask, task, position,
+    });
+  }, [addCategory, addTask, categoriesLoading, ownerCategories, tasksLoading, user?.$id]);
 
   const handleSearchDateChange = useCallback((date: Date) => {
     setSearchSelectedDate(date);

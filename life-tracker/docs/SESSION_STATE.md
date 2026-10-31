@@ -1,3 +1,15 @@
+# Task checkpoint — #1441 typed command Preview refinement v0.52.1
+Updated: 2026-11-01 Asia/Manila
+
+- Owner tested v0.52.0 Preview and requested Mosaic dropdown, partial commands, create-missing-category option, voice and UI improvements. Scope single-task creation with explicit confirmation; no bulk execution, cloud model, backend/schema change or dev/main/Production promotion.
+- Base accepted Preview feature/1441-typed-command-preview-v0520-20261101@d101c05bcde0b5750b801da881e2118bc614bc4c. Candidate v0.52.1 PATCH (next testable revision of same feature); dev has diverged. Keep independent stable Preview branch for v0.52.1.
+- Added conservative parseTaskCommandPreview with title/category extraction and absent-date preservation; MosaicSelect category; Today/Tomorrow/Backlogs shortcuts and explicit date; unknown category explicit private creation on confirmation via useCategories hook; isolated on-demand command mutation module and voice hook with consent, browser API fallback, session cleanup. No write on parse.
+- Focused local Vitest 22/22 passed (parser, UI, owner/category creation); lint and production build with blocking PWA/Home size budgets passed. Canonical CI and exact-SHA Vercel Preview readiness remain to verify after commit.
+- Manual/device: browser microphone privacy and permission, Chrome Android PWA, account switch, offline task creation/sync and category visibility. Browser speech may use remote provider; no offline guarantee. Original 168+30+88+40 synthetic results cannot verify user-input accuracy.
+- Never promote Preview to dev or main without separate explicit approval.
+
+---
+
 # Task checkpoint — #1441 interactive typed command Preview v0.52.0
 Updated: 2026-11-01 Asia/Manila
 
