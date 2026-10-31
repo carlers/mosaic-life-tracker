@@ -1,3 +1,13 @@
+# Task checkpoint — #951 Day View header and sorting v0.44.6
+Updated: 2026-10-31 Asia/Manila
+
+- Approved owner scope: hide keyboard-help question mark on mobile (Day View + Backlogs), move Timeline newest/oldest next to its Sort by controls, and make Timeline Completed first a true status-first chronological grouping. Preserve Categories-mode completion-order preference, all task data/manual order, diary/shared behavior, date swipes and keyboard shortcuts.
+- Base `dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459` (v0.44.4). `v0.44.5` is reserved by concurrent Day View momentum and diary quote work; allocate v0.44.6. Task `chatgpt/951-dayview-header-sorting-v0446-20261031`; intended stable Preview `fix/951-dayview-header-sorting-v0446-20261031`.
+- Frontend-only, no backend/schema changes. Update pure Timeline chronology and component interaction tests, Preferences labels and three version files. Task focused Quality Gate requested before task → stable Preview squash; full canonical/size/Vercel READY and mobile visual/manual acceptance are outstanding. No dev/main/Production promotion approved.
+- #951 originally specifies mixed completion/creation chronology; this revision makes status grouping explicit without touching Categories-mode #402 or legacy timestamp fallback. Do not claim device acceptance without evidence.
+
+---
+
 # Task checkpoint — #1443 Preferences replication integrated v0.44.4
 Updated: 2026-10-31 Asia/Manila
 

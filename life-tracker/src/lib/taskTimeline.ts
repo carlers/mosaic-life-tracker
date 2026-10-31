@@ -53,6 +53,10 @@ export function sortTasksByTimeline(
 ): TaskDocument[] {
   const multiplier = direction === 'asc' ? 1 : -1;
   return [...tasks].sort((a, b) => {
+    // Group completed tasks before incomplete tasks regardless of timestamp.
+    if (basis === 'completion' && a.completed !== b.completed) {
+      return a.completed ? -1 : 1;
+    }
     const left = effectiveTaskTimestamp(a, basis);
     const right = effectiveTaskTimestamp(b, basis);
     const lt = left ? validTaskTime(left.value)! : null;
