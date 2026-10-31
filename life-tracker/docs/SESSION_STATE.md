@@ -1,3 +1,11 @@
+# Scratch Function bridge for #857, preserving #1460 runtime (2026-11-01)
+
+- Parent: Git-owned #1460 privacy-preview function source 19c4a716df424b016f87452b19778fb9051bb2b8; archived Scratch deployment `6ae63655cb10b393c5e3` source files match this exact git tree (verified all 15 Git blobs).
+- Additive Appwrite owner-write-cas `categories.retired_on` allowlist extension only, retaining all #1460 chat-photo auth/orphan actions and source. Optional remote column already exists on Scratch.
+- Branch is a Scratch integration artifact; do NOT substitute it for canonical frontend v0.56.0 stable code or merge #1460 unrelated feature into dev/main. Need focused CI, inactive exact-source deployment, read-back active deployment guard and signed synthetic Scratch verification before activation.
+
+---
+
 # Current task: secure chat photo + diary quote privacy Scratch integration
 Updated: 2026-11-01 Asia/Manila
 
