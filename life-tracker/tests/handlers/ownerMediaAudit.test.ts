@@ -146,9 +146,13 @@ describe('Phase 3B read-only server owner media audit', () => {
 
   it('returns partial coverage if the bounded global storage scan fills its page cap', async () => {
     const db = makeMockDb(), storage = makeMockStorage();
-    const fullPage = Array.from({length:100}, (_,i) =>
-      f('img_' + String(i).padStart(3,'0'), 1, permissions(stranger)));
-    storage.listFiles.mockResolvedValue({ files: fullPage });
+    let page = 0;
+    storage.listFiles.mockImplementation(async () => {
+      const current = page++;
+      return { files: Array.from({ length: 100 }, (_, i) =>
+        f('img_' + String(current * 100 + i).padStart(4, '0'),
+          1, permissions(stranger))) };
+    });
     const r = await respond(db,storage);
     expect(r.status).toBe(200);
     expect(r.body.truncated).toBe(true);
