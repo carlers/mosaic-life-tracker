@@ -40,3 +40,50 @@ The six unsafe cases are synthetic quantity/batch requests starting with Add/Cre
 This is a diagnostic research benchmark, not a shipping acceptance test; do not adjust
 expected answers to make the score pass. Model and inference research remain isolated
 from app dependencies, and actual user/device performance was not measured.
+
+
+## Conservative title + bulk-intent hardening (2026-11-01)
+
+This is **research only**, with zero changes to the Mosaic PWA, browser bundle,
+RxDB or backend. The grammar keeps prepositions and category words inside
+titles, selects a final complete category clause, tolerates the anchored
+connector "for tomorrow", and classifies explicit global edit/query commands
+as unsupported rather than treating them as a task. Counts such as "15 tasks"
+are instead sent for review. Bare media conversion phrases such as "text to
+speech" remain review-only. No command is executed by this parser.
+
+The benchmark now also accepts a **caller-supplied category-name array**
+for tests of multiword names, case-insensitivity, duplicate names and
+regex metacharacters. This is not proof of ownership-aware category
+resolution in the production app: a real command handler must obtain
+the current user's live category IDs and reject duplicate display names.
+
+The original 168-case corpus, the 30-case holdout and 88-case regression
+fixture are **unchanged**. A new 40-case author-generated synthetic challenge
+was created separately and evaluated after the initial hardening logic
+was written (20 creates, 12 review, 8 unsupported). It must not be
+described as independently human-sourced or as real-world accuracy evidence.
+
+**Measured in isolated Vercel Sandbox, Node v24 with Chrono 2.10.3:**
+168/168 original, 30/30 historical holdout, 88/88 regression and
+40/40 new challenge exact; 0 incorrect actionable creates in all four sets.
+The first three sets had already influenced parser improvements, and the
+new set is still synthetic with familiar command grammar; **100% does not
+establish generalization**. Without Chrono: 168/168, 23/30 and 81/88 exact,
+all with zero incorrect actionable creates. Chrono remains a benchmark-only
+dependency. Real speech transcription, incomplete account synchronization,
+arbitrary multiword owner categories, actual Android memory/startup, and
+cross-user privacy were not verified here.
+
+To reproduce, from this folder (install Chrono only in the isolated
+benchmark directory):
+
+    python3 make_dataset.py
+    npm install --no-save --no-package-lock --ignore-scripts chrono-node@2.10.3
+    node --test parser-lab.test.mjs parser-lab-regression.test.mjs parser-lab-hardening.test.mjs
+    node parser-lab.mjs --chrono --input parser-lab-fresh-challenge.jsonl --output results/fresh-hardening.json
+
+**Shipping gate remains closed**: the parser is not integrated into the app,
+no writes are triggered, and truly unseen human-authored commands plus target
+device testing are still required. Bulk task manipulation remains a separate
+review/confirmation/undo milestone, not an executable grammar action.

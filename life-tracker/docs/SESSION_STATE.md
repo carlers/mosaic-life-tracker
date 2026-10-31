@@ -1,3 +1,14 @@
+# Task checkpoint — #1441 experimental parser hardening, new challenge
+Updated: 2026-11-01 Asia/Manila
+
+- Source base: stable Preview feature/1441-parser-regression-20261101@5577f63aad77c1e07db78363ba8ff0be076a730f (accepted research branch); dev has diverged. Issue #1441 open, post-1.0/P3. Isolated research only: no UI, RxDB, schema, voice, hosted models or production dependency.
+- Hardened isolated grammar preserves natural task titles containing "to"/known category names, accepts anchored "for tomorrow", classifies unsupported bulk actions, rejects quantity instructions as a single create, limits title to 255 chars, tests dynamic case-insensitive multiword/duplicate category labels. No database mutation occurs.
+- Existing 168/30/88 datasets immutable; new 40-case synthetic fresh challenge separate. Node/Chrono run: original 168/168 exact, historical holdout 30/30, previous regression 88/88, fresh challenge 40/40, zero incorrect actionable creates. **Not an external or human-authored generalization benchmark.** Without Chrono: 168/168, 23/30, 81/88 exact, zero unsafe.
+- Add targeted contract tests and extend task-only GitHub Actions; CI, stable Preview Vercel READY and issue checkpoint still need verification at delivery. Version impact NONE.
+- No promotion to dev/main/Production. Future milestones: real owner-category/permissions parser integration, human-authored out-of-distribution sample and device tests, then separately authorized bulk action planner and confirmation.
+
+---
+
 # Task checkpoint — #1441 additional parser regression benchmark
 Updated: 2026-11-01 Asia/Manila
 
