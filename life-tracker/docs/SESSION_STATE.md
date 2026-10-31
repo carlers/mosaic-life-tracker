@@ -1,3 +1,14 @@
+# Task checkpoint — Day View v0.49.1 swipe momentum and photo drag approved dev integration
+Updated: 2026-11-01 Asia/Manila
+
+- Owner accepted Day View gesture and image-drag Preview `fix/dayview-single-day-snap-photo-v0447-20261031@73692710122bd47b1ff5b0e28a6e963465701a7e` (full canonical #41216695153 SUCCESS; trusted Vercel READY), then explicitly authorized promotion to `dev` and requested follow-up audit. No authorization for `main` or Production.
+- Integration baseline `dev@410e2fdb750dde09ca3f0519e20773e2e8579eca` v0.49.0 has independently accepted #951 Day View settings + Timeline sorting, Search improvements and other newer features; its owner Day View did not yet contain v0.44.5 FreeMode momentum or v0.44.7 bounded-release hardening. Do **not** replace the modern DayViewSheet with the stale Preview file. This task `chatgpt/dayview-swipe-forward-v0491-20261101` and stable `fix/dayview-swipe-integrated-v0491-20261101` forward-port only momentum imports/options, exact accepted bounded pointer/touch release handler, date-settle event wiring, TaskItem photo native-drag prevention, and existing complete browser/DOM regressions. Retain the newer settings gear, mobile-help state, Completed-first/last arrangement and sort direction controls unchanged.
+- Integration candidate v0.49.1 PATCH is above dev v0.49.0 (old accepted Preview was v0.44.7); synchronize package.json, lockfile and appVersion metadata. Do not assume old Preview can merge directly with version regression or unrelated changes.
+- Required: task [verify:browser] focused+two browser shards; squash to integrated stable Preview, exact-SHA full canonical/size and Vercel Scratch READY; recheck live dev SHA/version and source tree, then owner-approved stable Preview → dev merge. No Production change. Physical Android/PWA acceptance of original Preview was reported good by owner; integrated combined changes still require awareness of remaining manual checks.
+- After promotion, audit remaining swipe/performance work without starting unrelated optimization. Preserve held-task cross-day gesture navigation and 181 logical slide / nearby-virtual DOM invariants.
+
+---
+
 # Task checkpoint — #951 Day View v0.49.0 integrated promotion candidate
 Updated: 2026-10-31 Asia/Manila
 
