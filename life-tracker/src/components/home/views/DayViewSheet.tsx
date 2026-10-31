@@ -1697,6 +1697,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       <Suspense fallback={null}>
       <LazyMemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
+      </Suspense>
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
         onClose={handleCloseVisibility} task={activeTask} category={activeTaskCategory}
         onSave={handleVisibilitySave} />
@@ -1747,7 +1748,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           </Suspense>
         ) : isViewingImageLoading ? <ImageViewerLoadingFallback /> : imageViewerUnavailable
       )}
-      </Suspense>
       <Suspense fallback={null}>
       <LazyImagePickerSheet
         isOpen={!!imagePickerTaskId}
