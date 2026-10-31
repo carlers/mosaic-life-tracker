@@ -10,10 +10,15 @@ export function useDiaryReferencePreviews(
   userId: string,
   online: boolean,
 ): Record<string, DiaryReferencePreview> {
-  const referenceIds = useMemo(() =>
+  const references = useMemo(() =>
     messages.filter(m => m.diaryRefId && !m.isUnsent && !m.isDeleted &&
-      m.deliveryStatus === 'delivered').map(m => m.id).join('|'), [messages]);
-  const scope = userId + ':' + (online ? 'online' : 'offline') + ':' + referenceIds;
+      m.deliveryStatus === 'delivered'), [messages]);
+  const referenceIds = useMemo(() => references.map(m => m.id).join('|'), [references]);
+  // A server revocation updates both message copies, so Realtime invalidates
+  // the quote cache without waiting for a periodic refresh.
+  const referenceRevisions = useMemo(() =>
+    references.map(m => m.id + ':' + m.updatedAt).join('|'), [references]);
+  const scope = userId + ':' + (online ? 'online' : 'offline') + ':' + referenceRevisions;
   const [state, setState] = useState<{ scope: string; previews: Record<string, DiaryReferencePreview> }>({
     scope: '', previews: {},
   });
@@ -61,13 +66,13 @@ export function useDiaryReferencePreviews(
     const onFocus = () => { void refresh(); };
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('focus', onFocus);
-    const interval = window.setInterval(() => { void refresh(); }, 30_000);
+    const interval = window.setInterval(() => { void refresh(); }, 120_000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('focus', onFocus);
     };
-  }, [referenceIds, userId, online]);
+  }, [referenceIds, referenceRevisions, userId, online]);
   return online && state.scope === scope ? state.previews : {};
 }
