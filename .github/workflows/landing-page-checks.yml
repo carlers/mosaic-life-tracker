@@ -1,0 +1,19 @@
+name: Landing page static checks
+on:
+  pull_request:
+    paths:
+      - landing/**
+      - .github/workflows/landing-page-checks.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check public static site contracts
+        run: node landing/test-site.mjs
