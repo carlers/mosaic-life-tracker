@@ -14,6 +14,7 @@ historical prose or a checkpoint as the state of a feature.
 
 | Working on… | Read first | Verify against |
 |---|---|---|
+| Testing typed natural-language task creation | [Command Preview guide](COMMAND_INPUT_PREVIEW.md) | Home command sheet, owner-local tasks and parser safety tests |
 | Locating UI source from a feature description | [Source map](REPO_MAP.md), [generated component/page index](COMPONENT_INDEX.md) (optional) | Exact branch-SHA files; map is only a starting hint |
 | Sync races, offline startup, owner isolation | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md), [project reference](PROJECT_REFERENCE.md) §§18, 19, 24.18 | `src/lib/` sync implementation, relevant unit/DOM regressions |
 | Appwrite schema, Functions, or scratch previews | [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md), [Scratch readiness](SCRATCH_PREVIEW_WORKFLOW.md) | `infrastructure/`, `appwrite-functions/`, migrations and actual target project |

@@ -30,6 +30,7 @@ export interface HomeTaskSearchProps {
   isLoading?: boolean;
   now?: Date;
   onOpen: () => void;
+  onOpenCommand: () => void;
   onClose: () => void;
   onSelectTask: (task: TaskDocument) => void;
   trailing: ReactNode;

@@ -1,3 +1,14 @@
+# Task checkpoint — #1441 interactive typed command Preview v0.52.0
+Updated: 2026-11-01 Asia/Manila
+
+- Owner authorized a testable implementation **to Preview only**. Scope is single confirmed owner-local task creation from typed natural language; no microphone, bulk actions, model inference or backend change.
+- Based on dev@45b529a99b3bd7fe88223d4b3108f1a7e0ee96a1 (v0.50.3); separate research parser branch feature/1441-parser-hardening-20261101@7253f197. Another Preview uses v0.51.1, so proposed v0.52.0 avoids collision. Recheck branch/version on delivery.
+- Lazy HomeCommandSheet and taskCommands parser with Chrono 2.10.3; editable review, owner/category verification at submit, one task via useTasks.addTask, no writes on parse/cancel, backlog defaults to private.
+- Added 30+88+40 unit regression fixtures and UI confirmation/category/launcher tests. Sandbox Vitest 12/12, lint and production build with startup/Home size gates passed. Focused CI revealed missing appVersion/index contracts; repaired all three, and npm run contracts:check passed. Repaired focused CI, canonical Preview and exact-SHA deployment still pending.
+- Appwrite scratch/Production not changed; frontend-only change. Manual mobile/PWA/Android Back, account switches and offline-sync acceptance remain owner checks. No automatic promotion to dev/main/Production.
+
+---
+
 # Task checkpoint — Day View one-day swipe momentum and photo drag, v0.50.3 reconciled dev promotion
 Updated: 2026-11-01 Asia/Manila
 
