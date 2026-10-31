@@ -264,7 +264,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const diaryRefId = vDiaryRefId.value;
   const diaryRefOwnerId = vDiaryRefOwnerId.value;
   const diaryRefDate = vDiaryRefDate.value;
-  let diaryRefExcerpt = '';
+  const diaryRefExcerpt = ''; // never store copied diary content in chat
   const replyToId = vReplyToId.value;
   const replyToContent = vReplyToContent.value;
   const replyToSenderId = vReplyToSenderId.value;
@@ -290,8 +290,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     const diary = await findVisibleFriendDiary(tablesDB, senderId, diaryRefId, diaryRefOwnerId);
     if (!diary || diary.date !== diaryRefDate)
       return { status: 403, body: { error: 'Diary no longer available' } };
-    diaryRefExcerpt = String(diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
-      String(diary.emoji || '').slice(0, 32) || 'Diary photos';
+    // Live previews are resolved through a separately authorized read.
   } else if (diaryRefOwnerId || diaryRefDate || vDiaryRefExcerpt.value) {
     return { status: 400, body: { error: 'Incomplete diary reference' } };
   }
@@ -567,6 +566,10 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
       task_ref_title: row.task_ref_title || '',
       task_ref_date: row.task_ref_date || '',
       task_ref_color: row.task_ref_color || '',
+      diary_ref_id: row.diary_ref_id || '',
+      diary_ref_owner_id: row.diary_ref_owner_id || '',
+      diary_ref_date: row.diary_ref_date || '',
+      diary_ref_excerpt: '',
       reply_to_id: row.reply_to_id || '',
       reply_to_content: row.reply_to_content || '',
       reply_to_sender_id: row.reply_to_sender_id || '',
@@ -887,6 +890,10 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
     task_ref_title: '',
     task_ref_date: '',
     task_ref_color: '',
+    diary_ref_id: '',
+    diary_ref_owner_id: '',
+    diary_ref_date: '',
+    diary_ref_excerpt: '',
     reply_to_id: '',
     reply_to_content: '',
     reply_to_sender_id: '',
@@ -1402,6 +1409,60 @@ async function handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload) {
   const buffer = await storage.getFileDownload({ bucketId: DIARY_PHOTOS_BUCKET, fileId });
   return { status: 200, body: { mimeType: 'image/webp', data: Buffer.from(buffer).toString('base64') } };
 }
+// Resolve quote contents from current authorization, never from snapshots.
+async function handleGetDiaryReferencePreviews(tablesDB, callerId, payload) {
+  const ids = payload?.messageIds;
+  if (!Array.isArray(ids) || ids.length > 25 ||
+      ids.some(id => !isValidRowId(id)) || new Set(ids).size !== ids.length)
+    return { status: 400, body: { error: 'Invalid diary message IDs' } };
+  const previews = {};
+  const friendships = new Map();
+  const diaries = new Map();
+  for (const id of ids) {
+    let message;
+    try {
+      message = await tablesDB.getRow({
+        databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: id,
+      });
+    } catch (cause) {
+      if (Number(cause?.code) === 404) continue;
+      throw cause;
+    }
+    if (!message || message.user_id !== callerId || message.deleted === true ||
+        message.is_unsent === true || !isValidRowId(message.diary_ref_id) ||
+        !isValidRowId(message.diary_ref_owner_id) ||
+        !/^\d{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(message.diary_ref_date || '')) continue;
+    const ownerId = message.diary_ref_owner_id;
+    if (ownerId !== message.sender_id && ownerId !== message.recipient_id) continue;
+    if (ownerId !== callerId) {
+      if (!friendships.has(ownerId))
+        friendships.set(ownerId, await verifyFriendship(tablesDB, callerId, ownerId));
+      if (!friendships.get(ownerId)) continue;
+    }
+    if (!diaries.has(message.diary_ref_id)) {
+      let row = null;
+      try {
+        row = await tablesDB.getRow({
+          databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: message.diary_ref_id,
+        });
+      } catch (cause) {
+        if (Number(cause?.code) !== 404) throw cause;
+      }
+      diaries.set(message.diary_ref_id, row);
+    }
+    const diary = diaries.get(message.diary_ref_id);
+    if (!diary || diary.user_id !== ownerId || diary.deleted === true ||
+        !['public', 'followers'].includes(diary.visibility) ||
+        diary.date !== message.diary_ref_date) continue;
+    previews[id] = {
+      date: diary.date,
+      excerpt: String(diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
+        String(diary.emoji || '').slice(0, 32) || 'Diary photos',
+    };
+  }
+  return { status: 200, body: { previews } };
+}
+
 async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error) {
   const friendUserId = payload?.friendUserId;
   const month = payload?.month;
@@ -1768,6 +1829,9 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'get_friend_diary_photo':
         result = await handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload);
+        break;
+      case 'get_diary_reference_previews':
+        result = await handleGetDiaryReferencePreviews(tablesDB, callerId, payload);
         break;
       case 'get_friend_diary_month':
         result = await handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error);
