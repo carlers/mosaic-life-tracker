@@ -275,7 +275,7 @@ async function pullMessages(
 
   const documents: ReplicatedMessage[] = [];
   for (const row of rows) {
-    const remote = toReplicatedMessage(row);
+    const remote = { ...toReplicatedMessage(row), diaryRefExcerpt: '' };
     documents.push(
       await mergeRemoteWithLocalIntent(collection, userId, remote)
     );
