@@ -451,7 +451,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Timeline sort by"
             value={timelineSortBasis}
-            options={[{ value: 'completion', label: 'Completion first' }, { value: 'creation', label: 'Creation first' }]}
+            options={[{ value: 'completion', label: 'Completed first' }, { value: 'creation', label: 'Creation date' }]}
             onChange={value => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, resolveTimelineSortBasis(value))}
           />
           <SelectSettingRow

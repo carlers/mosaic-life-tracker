@@ -13,7 +13,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Virtual } from 'swiper/modules';
 import 'swiper/css/virtual';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
+import { CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
@@ -1131,7 +1131,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           <div className="flex justify-end gap-2 px-4 py-2">
             <button type="button" ref={keyboardHelpTriggerRef} onClick={showKeyboardHelp}
               aria-label="Show keyboard shortcuts" aria-expanded={keyboardHelpOpen}
-              className="rounded-lg px-2.5 py-1.5 text-gray-300 hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              className="hidden md:inline-flex rounded-lg px-2.5 py-1.5 text-gray-300 hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             ><CircleHelp size={17} aria-hidden="true" /></button>
             <button type="button" onClick={handleToggleSelectMode}
               aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
@@ -1291,7 +1291,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                             tabIndex={i === activeIndex ? 0 : -1}
                             aria-label="Show keyboard shortcuts"
                             aria-expanded={i === activeIndex ? keyboardHelpOpen : false}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#444444] bg-surfaceHighlight text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                            className="hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#444444] bg-surfaceHighlight text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                           ><CircleHelp size={16} aria-hidden="true" /></button>
                           <button
                             type="button"
@@ -1307,19 +1307,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           >
                             <ListOrdered size={16} aria-hidden="true" />
                           </button>
-                          {dayViewMode === 'timeline' && (
-                            <button
-                              type="button"
-                              tabIndex={i === activeIndex ? 0 : -1}
-                              aria-label={timelineDirection === 'desc' ? 'Timeline newest first; switch to oldest' : 'Timeline oldest first; switch to newest'}
-                              title={timelineDirection === 'desc' ? 'Newest first' : 'Oldest first'}
-                              onClick={() => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, timelineDirection === 'desc' ? 'asc' : 'desc')}
-                              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full border border-[#444444] bg-surfaceHighlight px-2 text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                            >
-                              {timelineDirection === 'desc' ? <ArrowDownWideNarrow size={16} aria-hidden="true" /> : <ArrowUpNarrowWide size={16} aria-hidden="true" />}
-                              <span className="hidden min-[420px]:inline text-[11px] font-semibold">{timelineDirection === 'desc' ? 'Newest' : 'Oldest'}</span>
-                            </button>
-                          )}
                           <button
                             type="button"
                             onClick={handleToggleSelectMode}
@@ -1367,6 +1354,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           selectedTaskIds={selectedTaskIds}
                           onToggleTaskSelection={handleToggleTaskSelection}
                           direction={timelineDirection}
+                          onDirectionChange={next => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, next)}
                           sortBasis={timelineSortBasis}
                           onSortBasisChange={basis => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, basis)}
                           timestampDisplay={timestampDisplay}
