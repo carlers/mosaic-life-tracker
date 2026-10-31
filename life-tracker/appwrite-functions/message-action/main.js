@@ -1448,13 +1448,17 @@ async function handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload) {
   const buffer = await storage.getFileDownload({ bucketId: DIARY_PHOTOS_BUCKET, fileId });
   return { status: 200, body: { mimeType: 'image/webp', data: Buffer.from(buffer).toString('base64') } };
 }
-// Only the diary owner can revoke references. The epoch invalidates old
-// messages *before* their stored excerpts are scrubbed, including delayed
-// sends and temporarily disconnected readers using the updated client.
+// Only the diary owner can revoke references. A visibility fence blocks
+// previews until the private write is published, without invalidating the
+// reference. Permanent deletion increments the epoch and removes its date.
 async function handleRevokeDiaryReferences(tablesDB, callerId, payload) {
   const diaryId = payload?.diaryId;
   const revision = payload?.revision;
   const cursor = payload?.cursor || '';
+  // Old clients without a mode retain their original permanent behavior.
+  const mode = payload?.mode ?? 'permanent';
+  if (!['visibility', 'permanent'].includes(mode))
+    return { status: 400, body: { error: 'Invalid revocation mode' } };
   if (!isValidRowId(diaryId) || (cursor && !isValidRowId(cursor)) ||
       typeof revision !== 'string' || revision.length > 50 ||
       !Number.isFinite(Date.parse(revision)))
@@ -1481,8 +1485,8 @@ async function handleRevokeDiaryReferences(tablesDB, callerId, payload) {
     }
     if (!Number.isSafeInteger(epoch) || epoch < 0 || epoch >= 2147483647)
       return { status: 409, body: { error: 'Invalid diary epoch' } };
-    epoch += 1;
-    // Atomic revision/owner predicate avoids concurrent epoch increments.
+    if (mode === 'permanent') epoch += 1;
+    // Atomic revision/owner predicate keeps the visibility fence ordered.
     const applied = await tablesDB.updateRows({
       databaseId: DATABASE_ID, tableId: DIARY_TABLE,
       queries: [
@@ -1508,11 +1512,12 @@ async function handleRevokeDiaryReferences(tablesDB, callerId, payload) {
   let scrubbed = 0;
   for (const row of rows) {
     if (row.diary_ref_owner_id !== callerId ||
-        (row.diary_ref_epoch || 0) >= epoch ||
-        (!row.diary_ref_excerpt && !row.diary_ref_date)) continue;
+        (mode === 'permanent' && (row.diary_ref_epoch || 0) >= epoch) ||
+        (!row.diary_ref_excerpt && (mode !== 'permanent' || !row.diary_ref_date))) continue;
     await tablesDB.updateRow({
       databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: row.$id,
-      data: { diary_ref_excerpt: '', diary_ref_date: '',
+      data: { diary_ref_excerpt: '',
+        ...(mode === 'permanent' ? { diary_ref_date: '' } : {}),
         updated_at: new Date().toISOString() },
     });
     scrubbed += 1;

@@ -1,3 +1,14 @@
+# Task checkpoint — #1461 reversible diary quotes v0.45.2 Preview
+Updated: 2026-11-01 Asia/Manila
+
+- Owner accepted v0.45.1 privacy Preview and authorized reversible quote visibility. A private entry must hide its existing Chat reference; on later public/followers access, current authorized content reappears. Deletion remains irreversible. No dev/main/Production promotion approved.
+- This patch starts at exact accepted Preview `fix/1461-diary-quote-privacy-v0451-20261031@faae41b5bf93e72f4c9b6f8ec75bef720966c4b8`, candidate version **0.45.2**. Current dev has advanced beyond this feature line; eventual dev promotion requires forward-porting and increasing-version reconciliation with new verification.
+- Privacy change uses a pre-publish server fence but does **not** bump the permanent quote epoch or delete the original reference date; all copied excerpts are scrubbed. After publication, only current, server-authorized public/follower content is rendered, with bounded Chat refresh; private/offline/unfriended views fail closed. Deletion/default legacy revocation still bumps epoch and wipes dates. Historical scrub follows the same distinction.
+- Existing quotes irreversibly revoked by older v0.45.1 clients may be unrecoverable without explicit re-sharing; do not reconstruct ambiguous deleted history. Tests cover visibility→private→public, deletion, invalid mode, owner sync routing and historical scrub.
+- Scratch backend `6a96e82d000d1310b3be` already has migration 016. Publish updated `message-action` only after code checks, READY inactive deploy, active-ID preflight, and shared Scratch compatibility check. Separate two-user/manual device acceptance remains required.
+
+---
+
 # Task checkpoint — #1461 diary quote privacy v0.45.1 forward-port for testing
 Updated: 2026-10-31 Asia/Manila
 
