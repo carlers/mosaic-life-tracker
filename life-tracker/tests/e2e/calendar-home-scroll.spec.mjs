@@ -57,3 +57,54 @@ for (const viewport of [
     });
   }
 }
+
+test('observed October density with real header heights can scroll past middle task stack', async ({ page }) => {
+  await page.setViewportSize({ width: 2048, height: 1068 });
+  await page.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/calendar-home-scroll.html?fixture=observed`);
+  const slide = page.locator('[data-calendar-slide-index="30"]');
+  const lastTask = slide.locator('[title="Final sparse week task"]');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await expect(lastTask).toHaveCount(1);
+  const report = () => page.evaluate(() => {
+    const slide = document.querySelector('[data-calendar-slide-index="30"]');
+    const grid = slide?.querySelector('[role="grid"]');
+    const nav = document.querySelector('nav[aria-label="Main"]');
+    const main = document.querySelector('[data-mosaic-main-scroll="true"]');
+    if (!(slide instanceof HTMLElement) || !(grid instanceof HTMLElement)) return { error: 'slide or grid missing' };
+    const box = (el) => el?.getBoundingClientRect().toJSON();
+    return {
+      slide: { client: slide.clientHeight, scroll: slide.scrollHeight, top: slide.scrollTop,
+        overflow: getComputedStyle(slide).overflowY, box: box(slide) },
+      grid: { client: grid.clientHeight, scroll: grid.scrollHeight, box: box(grid) },
+      nav: box(nav), main: main && { client: main.clientHeight, scroll: main.scrollHeight,
+        top: main.scrollTop, overflow: getComputedStyle(main).overflowY },
+      last: box(slide.querySelector('[title="Final sparse week task"]')),
+      activeSlides: Array.from(document.querySelectorAll('[role="region"][aria-label="Month calendar scroll"]')).map(el => ({
+        index: el.dataset.calendarSlideIndex, height: el.clientHeight, scroll: el.scrollHeight
+      })),
+    };
+  });
+  const start = await report();
+  console.log('CALENDAR_REAL_DENSITY_START', JSON.stringify(start));
+  expect(start.slide.scroll - start.slide.client,
+    `Last calendar week extends beyond native scroller: ${JSON.stringify(start)}`).toBeGreaterThan(20);
+
+  const mid = slide.locator('[data-calendar-day="2026-10-15"]');
+  const target = await mid.boundingBox();
+  const viewport = await slide.boundingBox();
+  if (!target || !viewport) throw Error('Missing calendar task stack or slide bounds');
+  await page.mouse.move(
+    target.x + Math.min(target.width / 2, 25),
+    Math.max(viewport.y + 20, Math.min(target.y + Math.min(target.height / 2, 60), viewport.y + viewport.height - 25)),
+  );
+  for (let n = 0; n < 8; n++) await page.mouse.wheel(0, 470);
+  const end = await report();
+  console.log('CALENDAR_REAL_DENSITY_END', JSON.stringify(end));
+  expect(end.slide.top, `Native calendar never scrolled: ${JSON.stringify(end)}`).toBeGreaterThan(20);
+  const last = await lastTask.boundingBox();
+  const bounds = await nav.boundingBox();
+  if (!last || !bounds) throw Error('Missing final week/nav bounds');
+  expect(last.y).toBeGreaterThanOrEqual(viewport.y - 1);
+  expect(last.y + last.height).toBeLessThanOrEqual(bounds.y + 1);
+});
