@@ -88,6 +88,7 @@ export const MOSAIC_TABLES = [
     { key: 'user_id', type: 'varchar', size: 255, required: true },
     { key: 'deleted', type: 'boolean', required: false, default: false },
     { key: 'icon', type: 'varchar', size: 10, required: false },
+    { key: 'retired_on', type: 'varchar', size: 10, required: false, default: '' },
     { key: 'updated_at', type: 'varchar', size: 50, required: false },
   ]),
   ownerTable('diary', 'diary', [
