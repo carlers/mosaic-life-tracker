@@ -57,3 +57,45 @@ for (const viewport of [
     });
   }
 }
+
+test('Calendar fits fixed navigation after reported 841px viewport height with a crowded middle week', async ({ page }) => {
+  await page.setViewportSize({ width: 1728, height: 841 });
+  await page.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/calendar-home-scroll.html?scenario=reported`);
+
+  const slide = page.locator('[data-calendar-slide-index="30"]');
+  const lastTask = slide.locator('[title="Final sparse week task"]');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const main = page.locator('[data-mosaic-main-scroll="true"]');
+  await expect(lastTask).toHaveCount(1);
+
+  const geometry = await slide.evaluate(el => {
+    const grid = el.querySelector('[role="grid"]');
+    const nav = document.querySelector('nav[aria-label="Main"]');
+    return {
+      slideBottom: el.getBoundingClientRect().bottom,
+      navTop: nav?.getBoundingClientRect().top,
+      clientHeight: el.clientHeight,
+      scrollHeight: el.scrollHeight,
+      gridHeight: grid?.getBoundingClientRect().height,
+    };
+  });
+  expect(geometry.slideBottom,
+    `Calendar viewport extends behind fixed navigation: ${JSON.stringify(geometry)}`)
+    .toBeLessThanOrEqual(geometry.navTop + 1);
+  expect(await main.evaluate(el => el.scrollTop)).toBe(0);
+  expect(geometry.scrollHeight - geometry.clientHeight,
+    `Crowded middle week must scroll within slide: ${JSON.stringify(geometry)}`)
+    .toBeGreaterThan(20);
+
+  const box = await slide.boundingBox();
+  if (!box) throw Error('Missing calendar scroll viewport');
+  await page.mouse.move(box.x + box.width / 2, box.y + Math.min(160, box.height / 3));
+  for (let i = 0; i < 10; i++) await page.mouse.wheel(0, 420);
+  await expect.poll(() => slide.evaluate(el => el.scrollTop)).toBeGreaterThan(20);
+  const last = await lastTask.boundingBox();
+  const bar = await nav.boundingBox();
+  if (!last || !bar) throw Error('Missing final week or navigation');
+  expect(last.y + last.height).toBeLessThanOrEqual(bar.y + 1);
+  expect(await main.evaluate(el => el.scrollTop)).toBe(0);
+});
