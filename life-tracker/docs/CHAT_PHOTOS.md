@@ -1,4 +1,4 @@
-# Chat photo attachments — v0.45.0 isolated candidate (#1460)
+# Chat photo attachments — v0.46.0 isolated candidate (#1460)
 
 **Status: NOT ENABLED / NOT ACCEPTED.** Source work is on `chatgpt/1460-chat-photo-foundation-v0450-20261031`, not protected `dev` or `main`. `VITE_CHAT_PHOTOS_ENABLED` defaults to `false` and MUST remain false until Scratch tests pass. No Production rollout is authorized by #1460.
 
