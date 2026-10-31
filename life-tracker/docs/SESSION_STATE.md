@@ -1,3 +1,14 @@
+# Task checkpoint — #1026 registry Phase 2a TodoMate import v0.55.0
+Updated: 2026-11-01 Asia/Manila
+
+- Owner accepted P0 remote controls and explicitly approved promotion to dev. The reconciled v0.54.0 feature branch was promoted at `dev@029b5cb758e1180b595c9b3f6c3822eb3a995675` via PR #1528, canonical #41229765904 and trusted Vercel READY #41230066900. Post-merge dev promotion CI #41230245510 succeeded. No main/Production approval.
+- Continue #1026 registry expansion in a bounded next phase. The first P1 toggle targets only TodoMate import. Branch `chatgpt/1026-todomate-import-flag-v0550-20261101` from exact v0.54.0 dev. New Preview candidate v0.55.0 (no known v0.55 conflicts at preflight).
+- Add `mosaic_disable_todomate_import` to the existing kill-switch registry; hide Settings import entry, block opening new import previews and applying prepared imports, disable controls while off. Preserve already applying imports, existing imported records, recovery markers and offline sync; no credentials persisted or external service configuration modified.
+- Focused component and registry tests, stable Preview squash, full canonical CI + Vercel Scratch READY required before user acceptance. Never promote Phase 2a into dev or main without separate owner instruction. Do not mutate remote PostHog until the correct project and default-inactive flag settings are checked.
+- Later isolated P1 candidates: Timeline presentation fallback; friend discovery; Bucket List; social/background systems only after deep boundary and privacy review.
+
+---
+
 # Task checkpoint — #1026 Feature Controls dev reconciliation v0.54.0
 Updated: 2026-11-01 Asia/Manila
 

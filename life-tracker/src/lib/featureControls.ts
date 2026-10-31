@@ -15,6 +15,7 @@ export const FEATURE_DISABLE_FLAGS = {
   taskPhotoUpload: 'mosaic_disable_task_photo_upload',
   diaryPhotoUpload: 'mosaic_disable_diary_photo_upload',
   giphySearch: 'mosaic_disable_giphy_search',
+  todoMateImport: 'mosaic_disable_todomate_import',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;

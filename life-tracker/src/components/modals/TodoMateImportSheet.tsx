@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../lib/featureControls';
 import { useSheetReset } from '../../hooks/useSheetReset';
 import { usePropSync } from '../../hooks/usePropSync';
 import { restoreUserData } from '../../lib/restoreData';
@@ -31,6 +33,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
   onSuccess,
 }) => {
   const { user } = useAuth();
+  const todoMateImportEnabled = useFeatureEnabled('todoMateImport');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [prepared, setPrepared] = useState<PreparedTodoMateTransfer | null>(null);
@@ -100,6 +103,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
 
   const handlePreview = async () => {
     if (
+      !isFeatureEnabled('todoMateImport') ||
       !currentUser ||
       !email.trim() ||
       !password ||
@@ -161,6 +165,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
 
   const handleImport = async () => {
     if (
+      !isFeatureEnabled('todoMateImport') ||
       !currentUser ||
       !prepared ||
       isPreparing ||
@@ -282,6 +287,9 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
     >
       <div className="px-4 pt-2 pb-8 space-y-5">
         <SheetErrorBanner message={error} />
+        {!todoMateImportEnabled && (
+          <p role="status" className="text-sm text-gray-400">New TodoMate imports are currently unavailable. An import already in progress will finish.</p>
+        )}
 
         {recoveryNotice && (
           <div
@@ -344,7 +352,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
         <Button
           variant="primary"
           className="w-full gap-2 py-3"
-          disabled={busy || !currentUser || !email.trim() || !password}
+          disabled={!todoMateImportEnabled || busy || !currentUser || !email.trim() || !password}
           onClick={() => void handlePreview()}
         >
           {isPreparing ? (
@@ -421,7 +429,7 @@ export const TodoMateImportSheet: React.FC<TodoMateImportSheetProps> = ({
           <Button
             variant="primary"
             className="w-full py-3"
-            disabled={busy || !currentUser}
+            disabled={!todoMateImportEnabled || busy || !currentUser}
             onClick={() => void handleImport()}
           >
             {isImporting ? 'Importing…' : 'Import into Mosaic'}
