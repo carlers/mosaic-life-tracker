@@ -26,6 +26,9 @@ import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { FirstCategoryPrompt } from './FirstCategoryPrompt';
 import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
 const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
+const LazyBulkTaskActionSheet = lazy(() => import('./BulkTaskActionSheet').then(m => ({ default: m.BulkTaskActionSheet })));
+const LazyBulkCategoryPickerSheet = lazy(() => import('./BulkCategoryPickerSheet').then(m => ({ default: m.BulkCategoryPickerSheet })));
+const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(m => ({ default: m.BulkVisibilitySheet })));
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { TaskActionSheet } from './TaskActionSheet';
@@ -42,9 +45,6 @@ import { parseSharedPlacement, placementKey, planSharedTaskMove } from '../../..
 import { MemoSheet } from './MemoSheet';
 import { ImagePickerSheet } from './ImagePickerSheet';
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
-import { BulkTaskActionSheet } from './BulkTaskActionSheet';
-import { BulkCategoryPickerSheet } from './BulkCategoryPickerSheet';
-import { BulkVisibilitySheet } from './BulkVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import { useAuth } from '../../../hooks/useAuth';
@@ -1628,7 +1628,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         )}
       </AnimatePresence>
       <AnimatePresence>
-        <BulkTaskActionSheet
+        <Suspense fallback={null}>
+        <LazyBulkTaskActionSheet
             isOpen={isBulkActionOpen}
             count={selectedTasks.length}
             isWorking={isBulkWorking}
@@ -1644,7 +1645,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
           />
 
-        <BulkCategoryPickerSheet
+        <LazyBulkCategoryPickerSheet
             isOpen={isBulkCategoryOpen}
             categories={categories.filter(
               (category) =>
@@ -1655,7 +1656,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onClose={() => setIsBulkCategoryOpen(false)}
             onSelect={handleBulkMoveCategory}
           />
-        <BulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
+        <LazyBulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
+        </Suspense>
       </AnimatePresence>
       <TaskActionSheet
         isOpen={isActionSheetOpen && !!activeTask}
