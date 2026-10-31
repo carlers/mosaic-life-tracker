@@ -5,6 +5,7 @@ import {
   deleteCachedImage,
   enforceImageCacheBudget,
   getCachedImage,
+  getImageCacheUsage,
 } from '../../src/lib/imageCache';
 
 type Store = Map<IDBValidKey, unknown>;
@@ -197,6 +198,12 @@ describe('imageCache — bounded IndexedDB blob cache', () => {
       'img_safe',
       expect.any(DOMException)
     );
+  });
+
+  it('reports exact cached blob sizes separately from browser origin estimates', async () => {
+    await cacheImage('img_one', new Blob(['abc']));
+    await cacheImage('img_two', new Blob(['defgh']));
+    expect(await getImageCacheUsage()).toEqual({ bytes: 8, count: 2 });
   });
 
   it('returns undefined for an uncached fileId', async () => {
