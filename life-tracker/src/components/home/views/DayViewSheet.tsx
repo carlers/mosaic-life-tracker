@@ -31,7 +31,7 @@ const LazyBulkCategoryPickerSheet = lazy(() => import('./BulkCategoryPickerSheet
 const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(m => ({ default: m.BulkVisibilitySheet })));
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
-const LazyTaskActionSheet = lazy(() => import('./TaskActionSheet').then(m => ({ default: m.TaskActionSheet })));
+import { TaskActionSheet } from './TaskActionSheet';
 const { Component: LazyLinkTaskToBucketSheet, preload: preloadLinkTaskToBucketSheet } =
   createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
 const { Component: LazyShareTaskSheet, preload: preloadShareTaskSheet } =
@@ -1659,8 +1659,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         <LazyBulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
         </Suspense>
       </AnimatePresence>
-      <Suspense fallback={null}>
-      <LazyTaskActionSheet
+      <TaskActionSheet
         isOpen={isActionSheetOpen && !!activeTask}
         onClose={handleCloseActions}
         task={activeTask}
@@ -1695,7 +1694,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       {isBucketLinkOpen && (
         <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
       )}
-      </Suspense>
       <Suspense fallback={null}>
       <LazyMemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
