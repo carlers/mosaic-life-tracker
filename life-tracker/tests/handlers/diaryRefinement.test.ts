@@ -82,6 +82,71 @@ describe('diary reference and reaction security', () => {
     expect(forged.body.previews).toEqual({});
   });
 
+  it('rejects stale quote epochs and permits a current one', async () => {
+    const stale = acceptedDb();
+    stale.getRow.mockImplementation(({ tableId }: { tableId: string }) =>
+      tableId === 'diary' ? Promise.resolve({ ...diary, quote_epoch: 1 }) : Promise.reject(missing));
+    const body = { action: 'deliver', messageId: 'msg_stale_epoch', recipientId: owner,
+      content: 'reply', diaryRefId: diary.$id, diaryRefOwnerId: owner,
+      diaryRefDate: diary.date, diaryRefEpoch: 0 };
+    expect((await invoke({ userId: caller, mockDb: stale, body })).status).toBe(403);
+    expect(stale.createRow).not.toHaveBeenCalled();
+    const accepted = await invoke({ userId: caller, mockDb: stale,
+      body: { ...body, messageId: 'msg_fresh_epoch', diaryRefEpoch: 1 } });
+    expect(accepted.status).toBe(200);
+    expect(stale.createRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'messages', data: expect.objectContaining({ diary_ref_epoch: 1 }),
+    }));
+  });
+
+  it('revokes diary quote versions and scrubs both copies without deleting chat bodies', async () => {
+    const db = makeMockDb();
+    const currentDiary = { ...diary, quote_epoch: 0,
+      quote_revoke_revision: '', updated_at: '2026-10-12T12:00:00.000Z' };
+    const messages = [
+      { $id: 'msg_quote_a', diary_ref_id: diary.$id, diary_ref_owner_id: owner,
+        diary_ref_epoch: 0, diary_ref_excerpt: 'Sensitive original text',
+        diary_ref_date: diary.date },
+      { $id: 'rmsg_quote_b', diary_ref_id: diary.$id, diary_ref_owner_id: owner,
+        diary_ref_epoch: 0, diary_ref_excerpt: 'Sensitive original text',
+        diary_ref_date: diary.date },
+    ];
+    db.getRow.mockResolvedValue(currentDiary);
+    db.listRows.mockResolvedValue({ rows: messages });
+    const revision = '2026-10-13T12:00:00.000Z';
+    const result = await invoke({ userId: owner, mockDb: db, body: {
+      action: 'revoke_diary_references', diaryId: diary.$id, revision,
+    } });
+    expect(result.status).toBe(200);
+    expect(result.body.scrubbed).toBe(2);
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'diary', data: expect.objectContaining({
+        quote_epoch: 1, quote_revoke_revision: revision,
+      }),
+    }));
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'messages', rowId: 'msg_quote_a',
+      data: expect.objectContaining({ diary_ref_excerpt: '', diary_ref_date: '' }),
+    }));
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'messages', rowId: 'rmsg_quote_b',
+      data: expect.objectContaining({ diary_ref_excerpt: '', diary_ref_date: '' }),
+    }));
+    expect(db.updateRow.mock.calls.some(([args]: [Record<string, unknown>]) =>
+      args.tableId === 'messages' && (args.data as Record<string, unknown>).content !== undefined)).toBe(false);
+  });
+
+  it('rejects unauthorized diary quote revocation', async () => {
+    const db = makeMockDb();
+    db.getRow.mockResolvedValue(diary);
+    const result = await invoke({ userId: caller, mockDb: db, body: {
+      action: 'revoke_diary_references', diaryId: diary.$id,
+      revision: '2026-10-13T12:00:00.000Z',
+    } });
+    expect(result.status).toBe(403);
+    expect(db.updateRow).not.toHaveBeenCalled();
+  });
+
   it('denies cross-owner reaction summaries without querying actor identities', async () => {
     const db = makeMockDb();
     db.getRow.mockResolvedValueOnce(diary);
