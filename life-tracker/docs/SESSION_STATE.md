@@ -1,3 +1,13 @@
+# Task checkpoint — #854 private bug reporting v0.45.0
+Updated: 2026-10-31 Asia/Manila
+
+- Authorized scope: private text-only in-app bug reporting, opt-in diagnostics, existing app API Function and private new backend table; no screenshot uploads, automatic GitHub publication, Production changes or dev/main promotion.
+- Base dev: `4aec8d63ef460cbc56a8f895f0f609a2152ea459` (v0.44.4). New task branch `chatgpt/854-private-bug-reports-v0450-20261031`, proposed stable Preview `feature/854-private-bug-reports-v0450-20261031`, v0.45.0.
+- Scope includes report idempotency/rate bounds, private operator inbox, 30-day server retention, manifest migration 016, account-erasure coverage, Settings entry, tests and documentation. Account-identity source is Function header, table grants none.
+- Next action: finish source review/commit, run exact task focused CI, repair failures, then stable Preview canonical/size and Scratch-only managed migration/Function activation and synthetic acceptance. Separate authorization is required before promotion. Local live Scratch credential access is not assumed.
+
+---
+
 # Task checkpoint — #1443 Preferences replication integrated v0.44.4
 Updated: 2026-10-31 Asia/Manila
 

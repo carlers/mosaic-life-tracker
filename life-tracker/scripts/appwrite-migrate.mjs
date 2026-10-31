@@ -9,6 +9,7 @@ import {
 import { migrateBucketTaskLinksBackend } from './migrate-bucket-task-links.mjs';
 import { migrateBucketListBackend } from './migrate-bucket-list.mjs';
 import { migrateAccountDeletionBackend } from './migrate-account-deletion.mjs';
+import { migrateBugReportsBackend } from './migrate-bug-reports.mjs';
 import { migrateDiaryCreatedAtBackend } from './migrate-diary-created-at.mjs';
 import { migrateDiaryEmojiBackend } from './migrate-diary-emoji.mjs';
 import { migrateDiaryPhotosBackend } from './migrate-diary-photos.mjs';
@@ -79,6 +80,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '013-diary-photos', description: 'Private diary photo references', run: ({ request, log, sleep }) => migrateDiaryPhotosBackend({ request, log, sleep }) },
   { id: '014-diary-reactions', description: 'Server-owned diary reaction ledger', run: ({ request, log }) => migrateDiaryReactionsBackend({ request, log }) },
   { id: '015-message-diary-references', description: 'Typed private message diary references', run: ({ request, log, sleep }) => migrateMessageDiaryReferences({ request, log, sleep }) },
+  { id: '016-bug-reports', description: 'Private, time-limited user reports', run: ({ request, log }) => migrateBugReportsBackend({ request, log }) },
 ];
 
 export function selectMigrations(argv = []) {
