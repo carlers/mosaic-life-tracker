@@ -377,8 +377,11 @@ export function fromAppwriteFormat(
     mapped.recipientId = mapped.recipient_id || '';
     mapped.direction = mapped.direction || 'outgoing';
     mapped.content = mapped.content || '';
-    mapped.attachmentType = mapped.attachment_type === 'image' ? 'image' : '';
-    mapped.attachmentFileId = mapped.attachmentType === 'image' ? mapped.attachment_file_id || '' : '';
+    // Preserve old text-only remote shapes rather than synthesizing media fields.
+    if (mapped.attachment_type === 'image' && mapped.attachment_file_id) {
+      mapped.attachmentType = 'image';
+      mapped.attachmentFileId = mapped.attachment_file_id;
+    }
     mapped.taskRefId = mapped.task_ref_id || '';
     mapped.taskRefTitle = mapped.task_ref_title || '';
     mapped.taskRefDate = mapped.task_ref_date || '';
