@@ -98,8 +98,8 @@ const DAY_SWIPER_FOCUSABLE_ELEMENTS =
 const EMPTY_OWNER_LABELS: ReadonlyMap<string, string> = new Map();
 const DAY_SWIPER_TRANSITION_SPEED_MS = 320;
 const DAY_SWIPER_TRANSITION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
-// Keep touch inertia restrained within the prepared neighboring-day buffer.
-// Sticky snapping retains a single committed date and the existing settle callback.
+// FreeMode follows the finger; Day View owns the release target so a gesture
+// cannot fling across multiple dates or leave a slide between snap points.
 const DAY_SWIPER_MOMENTUM = {
   enabled: true,
   momentum: true,
@@ -168,6 +168,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   'use no memo';
   const isBacklogView = renderMode === 'backlog';
   const sheetContentRef = useRef<HTMLDivElement>(null);
+  const daySwipeStartRef = useRef<{ index: number; time: number } | null>(null);
   const didInitialCategoryFocusRef = useRef(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const keyboardHelpCloseRef = useRef<HTMLButtonElement>(null);
@@ -574,6 +575,32 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     if (!settled || !continuousDrag.onSettled(settled, swiper)) return;
     handleSwipeSettled(swiper);
   }, [continuousDrag.onSettled, handleSwipeSettled, slideDateStrs]);
+
+  const handleDayTouchStart = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
+    daySwipeStartRef.current = swiper.touchEventsData.isTouched
+      ? { index: swiper.activeIndex, time: Date.now() }
+      : null;
+  }, []);
+
+  const handleDayTouchEnd = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
+    const start = daySwipeStartRef.current;
+    daySwipeStartRef.current = null;
+    // Cross-day task drags own their own programmatic Swiper transitions.
+    if (!start || !swiper.touchEventsData.isMoved || !swiper.swipeDirection || isTaskReorderActive || continuousDrag.carried) return;
+
+    const distance = Math.abs(swiper.touches.diff);
+    const velocity = distance / Math.max(1, Date.now() - start.time);
+    const advance = distance >= swiper.width * 0.45 || (distance >= 20 && velocity >= 0.65);
+    const offset = advance ? (swiper.swipeDirection === 'next' ? 1 : -1) : 0;
+    const destination = Math.min(Math.max(start.index + offset, 0), slideDates.length - 1);
+    const duration = reducedMotion ? 0 : Math.round(Math.max(180, 320 - Math.min(velocity, 2) * 70));
+
+    // Swiper emits touchEnd BEFORE FreeMode applies its unbounded momentum.
+    // Retire only this ordinary swipe so FreeMode does not overwrite the
+    // bounded, velocity-sensitive slideTo. Swiper still owns finger tracking.
+    swiper.touchEventsData.isTouched = false;
+    swiper.slideTo(destination, duration);
+  }, [continuousDrag.carried, isTaskReorderActive, reducedMotion, slideDates.length]);
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) => {
@@ -1214,6 +1241,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         initialSlide={initialIndex}
         speed={reducedMotion ? 0 : DAY_SWIPER_TRANSITION_SPEED_MS}
         onSlideChange={handleSlideChangeFromUi}
+        onTouchStart={handleDayTouchStart}
+        onTouchEnd={handleDayTouchEnd}
         // FreeMode updates the active slide after transitionStart. Swiper may
         // emit transitionEnd without slideChangeTransitionEnd, so observe the
         // general completion signal to commit the visible date after inertia.

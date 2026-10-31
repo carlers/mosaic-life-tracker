@@ -1590,6 +1590,40 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
 
 });
 
+// Regression: one physical gesture must not fling two dates, regardless of speed,
+// and every release must finish on the actual slide rather than between days.
+test('Day View single-gesture fling and partial release snap to exactly one day', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toHaveAttribute('aria-label', 'Tuesday, September 15, 2026');
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+
+  const assertAligned = async () => {
+    await expect.poll(() => swiper.evaluate((element) => {
+      const active = element.querySelector('.swiper-slide-active');
+      if (!active) return Infinity;
+      return Math.abs(active.getBoundingClientRect().left - element.getBoundingClientRect().left);
+    })).toBeLessThan(8);
+  };
+
+  // A very fast swipe can move only one calendar day, not two or three.
+  await drag(page, swiper, -320);
+  await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
+  await assertAligned();
+
+  // Reverse halfway across the viewport and release: never freeze halfway.
+  await drag(page, swiper, 200);
+  await expect(dialog).toHaveAttribute('aria-label', 'Tuesday, September 15, 2026');
+  await assertAligned();
+
+  // Repeat a fast forward fling to ensure one gesture never skips a day.
+  await drag(page, swiper, -320);
+  await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
+  await assertAligned();
+});
+
 test('inactive adjacent Day View keeps category spacing when it becomes active', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();

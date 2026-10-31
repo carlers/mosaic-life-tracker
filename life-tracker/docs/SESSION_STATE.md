@@ -1,3 +1,14 @@
+# Task checkpoint — Day View bounded momentum, complete snap and image drag v0.44.7
+Updated: 2026-10-31 Asia/Manila
+
+- Owner accepted v0.44.5 momentum Preview, then requested a hard ±1-day maximum per gesture, reliable release snap from mid-slide on mobile, and disabled native browser drag of task photos. No broad optimization or backend change authorized.
+- Base: accepted Preview `perf/dayview-momentum-v0445-20261031@1fe65eb204a5ed9db63188a5258e9f44b5c43a79`; integration `dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459` unchanged. Independent issue #951 reserved v0.44.6 on a separate stable Preview; choose v0.44.7 for this user-testable refinement. Task `chatgpt/dayview-single-day-snap-photo-v0447-20261031`; stable `fix/dayview-single-day-snap-photo-v0447-20261031`.
+- Owner Day View retains Swiper FreeMode finger-following and the Virtual date/render buffers but intercepts only ordinary touch/mouse swipe release, preventing unbounded FreeMode momentum. Snap using a velocity-dependent Swiper `slideTo` to start index or adjacent date; parent date continues updating on transition-end. This deliberately uses pinned Swiper 14's `touchEnd` emission before its internal FreeMode release. Held task drag and programmatic day navigation still use their original paths; no change to Friend Day View.
+- Mark rendered task photo `draggable={false}` and cancel its native dragstart while retaining the button's click/selection action.
+- Added real browser fling/half-release alignment and single-day tests, and a DOM image dragstart/click regression. Require focused+browser gate, then exact stable canonical/size/Vercel READY and physical mobile touch acceptance; no validated device claim or automatic dev/main/Production promotion. Future dev integration must reconcile separate v0.44.6 preview content/version first.
+
+---
+
 # Task checkpoint — Day View sticky momentum Preview v0.44.5
 Updated: 2026-10-31 Asia/Manila
 
