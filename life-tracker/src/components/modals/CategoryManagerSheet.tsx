@@ -228,7 +228,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 
   const handleSaveNew = () => {
     if (newName.trim()) void save(
-      () => addCategory({ name: newName.trim(), color: newColor, visibility: newVisibility, order: categories.length, icon: '' }),
+      async () => { await addCategory({ name: newName.trim(), color: newColor, visibility: newVisibility, order: categories.length, icon: '' }); },
       resetForm,
       'Could not add category. Try again.'
     );
