@@ -65,7 +65,31 @@ export async function removeStagedChatPhoto(userId: string, fileId: string): Pro
   tx.objectStore(STORE).delete(fileId);
   await done;
 }
+export async function clearStagedChatPhotosForUser(userId: string): Promise<void> {
+  if (!userId) return;
+  const db = await openDb();
+  const tx = db.transaction(STORE, 'readwrite');
+  const done = settled(tx);
+  const request = tx.objectStore(STORE).getAll();
+  request.onsuccess = () => {
+    for (const entry of request.result as StagedPhoto[]) {
+      if (entry.userId === userId) tx.objectStore(STORE).delete(entry.id);
+    }
+  };
+  await done;
+}
+
 export async function discardChatPhoto(userId: string, fileId: string): Promise<void> {
+  // Owner-signed best-effort deletion covers an upload that completed just
+  // before local cancellation. The trusted Function independently handles
+  // delivered photo revocation and idempotent 404s.
+  if (userId && /^chat_[A-Za-z0-9_]{1,27}$/.test(fileId)) {
+    try {
+      const file = await guardedStorage.getFile({ bucketId: APPWRITE_STORAGE_BUCKET_ID, fileId });
+      if (file.$permissions?.includes(Permission.delete(Role.user(userId))))
+        await guardedStorage.deleteFile({ bucketId: APPWRITE_STORAGE_BUCKET_ID, fileId });
+    } catch { /* Offline cancellation retains the remote retry requirement. */ }
+  }
   await removeStagedChatPhoto(userId, fileId);
   await deleteCachedImage('chat:' + userId + ':' + fileId);
 }
