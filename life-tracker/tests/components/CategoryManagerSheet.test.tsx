@@ -44,10 +44,12 @@ const categories: CategoryDocument[] = [
 ];
 
 let visibleCategories = categories;
+let visibleTasks: Array<{ id: string; title: string; date: string; completed: boolean; categoryId: string; userId: string; isDeleted: boolean }> = [];
 
 vi.mock('../../src/hooks/useCategories', () => ({
   useCategories: () => ({
     categories: visibleCategories,
+    isLoading: false,
     addCategory: mocks.addCategory,
     updateCategory: mocks.updateCategory,
     deleteCategory: mocks.deleteCategory,
@@ -56,7 +58,11 @@ vi.mock('../../src/hooks/useCategories', () => ({
 }));
 
 vi.mock('../../src/hooks/useTasks', () => ({
-  useTasks: () => ({ tasks: [] }),
+  useTasks: () => ({ tasks: visibleTasks, isLoading: false }),
+}));
+
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { $id: 'user' } }),
 }));
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
@@ -102,6 +108,7 @@ describe('CategoryManagerSheet', () => {
     mocks.deleteCategory.mockReset().mockResolvedValue(undefined);
     mocks.reorderCategories.mockReset().mockResolvedValue(undefined);
     visibleCategories = categories;
+    visibleTasks = [];
   });
 
   it('starts reordering only from the category grip button', () => {
@@ -473,20 +480,23 @@ describe('CategoryManagerSheet', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Save Changes' })).toBeNull());
   });
 
-  it('retains the delete confirmation when deletion rejects and allows retry', async () => {
-    mocks.deleteCategory.mockRejectedValueOnce(new Error('write failed'));
+  it('disables category deletion and makes orphaned owner tasks discoverable without modifying them', () => {
+    visibleTasks = [
+      { id: 'orphan', title: 'Preserved assignment', date: '2026-10-30', completed: false, categoryId: 'removed', userId: 'user', isDeleted: false },
+      { id: 'valid', title: 'Current assignment', date: '2026-10-30', completed: false, categoryId: 'first', userId: 'user', isDeleted: false },
+      { id: 'foreign', title: 'Foreign assignment', date: '2026-10-30', completed: false, categoryId: 'removed', userId: 'other', isDeleted: false },
+    ];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Delete category' })[0]);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-
-    await screen.findByRole('alert');
-    expect(screen.getByRole('alert')).toHaveTextContent(/could not delete category/i);
-    expect(screen.getByText('Delete this category?')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    await waitFor(() => expect(mocks.deleteCategory).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.queryByText('Delete this category?')).toBeNull());
+    expect(screen.getAllByRole('button', { name: /Delete category \(temporarily unavailable\)/ })).toHaveLength(2);
+    for (const button of screen.getAllByRole('button', { name: /Delete category \(temporarily unavailable\)/ })) {
+      expect(button).toBeDisabled();
+    }
+    fireEvent.click(screen.getByText('Tasks without an active category (1)'));
+    expect(screen.getByText('Preserved assignment')).toBeInTheDocument();
+    expect(screen.queryByText('Foreign assignment')).toBeNull();
+    expect(screen.queryByText('Current assignment')).toBeNull();
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+    expect(mocks.updateCategory).not.toHaveBeenCalled();
   });
 
   it('focuses the edited category input, including when switching edited categories', () => {

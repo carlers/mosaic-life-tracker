@@ -60,12 +60,13 @@ describe('category mutation error propagation', () => {
     });
   });
 
-  it('rejects failed category deletion instead of hiding confirmation', async () => {
-    fixture.incrementalPatch.mockRejectedValueOnce(new Error('write rejected'));
+  it('rejects all deletion requests before any local write, including the general update API', async () => {
     const { result } = renderHook(() => useCategories());
     await act(async () => {
-      await expect(result.current.deleteCategory('cat_1')).rejects.toThrow('write rejected');
+      await expect(result.current.deleteCategory('cat_1')).rejects.toThrow(/temporarily unavailable/i);
+      await expect(result.current.updateCategory('cat_1', { isDeleted: true })).rejects.toThrow(/temporarily unavailable/i);
     });
+    expect(fixture.incrementalPatch).not.toHaveBeenCalled();
   });
 
   it('fails closed on unauthenticated category creation', async () => {
