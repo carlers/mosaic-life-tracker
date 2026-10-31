@@ -14,3 +14,30 @@ The first version of Storage lives under Settings → Data & Sync and loads only
 ## Acceptance boundaries
 
 Unit test browser-estimate fallbacks and owner-scoped pending data; DOM test confirmation/no unrelated store changes. Validate cache clearing, offline PWA opening, cached-photo loss/re-download, account switch, concurrent tabs and pending uploads on a physical device. CI/Preview evidence must be recorded before marking accepted. A clean browser estimate never substitutes for queued-sync health.
+
+## Phase 2 — read-only, owner-referenced cloud media
+
+On explicit user request, the Storage page may query the authenticated owner's current
+synced task, Diary and profile-setting rows, then retrieve metadata for **only** the
+referenced, owner-controlled Appwrite photo files. Appwrite `read(users)` is **not**
+ownership; require an owner row and explicit owner update/delete file grants.
+No bucket-wide `listFiles`, friend/shared media projection, image download or
+server mutation is permitted.
+
+Displayed bytes are a **verified referenced-media subtotal**, not a cloud billing
+measurement, account allowance or exhaustive inventory. Files without a live
+reference (orphaned/archived files), pending offline uploads, future chat media and
+storage-provider overhead are excluded. The scanner must bound rows, pages,
+concurrent metadata requests and file IDs; show unknown/failed and truncated
+status rather than silently calling incomplete results exact.
+
+Scans now accept a cancellation signal; account switches and page unmounts abort
+the scan. The Appwrite browser SDK cannot abort requests already in flight,
+but the scanner rejects their results and stops issuing new requests. The
+authenticated owner is revalidated between table pages and before/after file
+metadata scans. A cancelled scan must never publish its partial subtotal.
+
+The feature does not provide deletion. Complete account-wide cloud storage inventory
+requires a separately reviewed server-authoritative owner index or endpoint,
+three-account Scratch privacy acceptance and the normal backend gates (#1477).
+Permanent file deletion is separately deferred under #1478.
