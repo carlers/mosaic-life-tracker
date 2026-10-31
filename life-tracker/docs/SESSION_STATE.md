@@ -1,3 +1,14 @@
+# Task checkpoint — #1473 Uncompleted Tasks title search (v0.47.0 candidate)
+Updated: 2026-10-31 Asia/Manila
+
+- User authorized implementing title-only inline search in `/backlog?view=uncompleted`; task branch `chatgpt/1473-uncompleted-search-v0470-20261031` starts from verified `dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459` v0.44.4. Issue #1473; no dev/main/Production promotion authorized.
+- The existing owner-only, grouped, sorted Uncompleted Tasks projection remains source of truth. Title-only literal case-insensitive filtering happens on grouped local tasks, preserving section/row order and date-invalid grouping; no new subscriptions, backend calls, dependencies, schema, or task data writes.
+- The same-history-entry route state stores the query and owner ID with `replace` so task navigation and browser/Android Back can restore the filtered list, while a fresh page visit starts collapsed and another owner cannot adopt saved state. Parent-route state is retained.
+- Source: `src/pages/UncompletedTasksPage.tsx`, `src/lib/uncompletedTasks.ts`; focused unit and component regressions in the corresponding existing test files.
+- Planned v0.47.0 is provisional, above independent active v0.45.0 and v0.46.0 work; check current branch reservations again before stable Preview. Run focused Quality Gate on coherent task commit, then stable Preview canonical build/size/Vercel Scratch READY and manual mobile/back/keyboard/appearance checks. Do not claim any check before it runs.
+
+---
+
 # Task checkpoint — #1443 Preferences replication integrated v0.44.4
 Updated: 2026-10-31 Asia/Manila
 
