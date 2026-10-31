@@ -30,6 +30,7 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
     <button
       type="button"
       onClick={onClick}
+      data-setting-label={label}
       onPointerDown={(e) => e.stopPropagation()}
       disabled={disabled}
       role={isToggle ? 'switch' : undefined}
