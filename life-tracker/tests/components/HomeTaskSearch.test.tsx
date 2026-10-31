@@ -157,7 +157,7 @@ describe('HomeTaskSearch', () => {
     expect(new Set(visibleResults().map(row => row.getAttribute('aria-label'))).size).toBe(100);
 
     fireEvent.click(visibleResults()[99]);
-    expect(onSelectTask).toHaveBeenCalledWith(expect.objectContaining({ id: 'match-099' }));
+    expect(onSelectTask).toHaveBeenCalledWith(expect.objectContaining({ id: 'match-99' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Load more tasks' }));
     expect(visibleResults()).toHaveLength(125);
