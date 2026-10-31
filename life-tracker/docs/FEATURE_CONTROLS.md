@@ -15,6 +15,7 @@ project/rollout determines which clients receive the change.
 | Task photo uploads | `mosaic_disable_task_photo_upload` | New task photo selection and save |
 | Diary photo uploads | `mosaic_disable_diary_photo_upload` | New diary photo selection and save |
 | GIPHY search | `mosaic_disable_giphy_search` | GIPHY tab, search request and new GIPHY sends |
+| TodoMate import | `mosaic_disable_todomate_import` | New TodoMate transfer previews and import starts, while preserving existing data and an import already applying |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.
@@ -25,6 +26,8 @@ evaluation is nonblocking and existing values are retained across same-identity
 refresh failures; an offline cold start has no authoritative remote snapshot and
 uses the locally enabled default. Therefore, this is **not** a security or
 instant revocation mechanism.
+
+**TodoMate import contract:** Disabling this switch hides the Settings entry and prevents new transfer previews or new import starts. A transfer already applying must be allowed to finish to avoid a partial migration. No local imported rows, resumable import markers, or offline sync work are deleted by the switch.
 
 **Data-preservation contract:** Never erase task/diary photos when uploads are
 disabled. Existing images can still be viewed/removed; already queued offline

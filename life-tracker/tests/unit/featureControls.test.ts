@@ -16,7 +16,7 @@ describe('operational feature controls', () => {
   beforeEach(() => disabled.clear());
 
   it('starts with all supported optional features available', () => {
-    expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(6);
+    expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(7);
     for (const feature of Object.keys(FEATURE_DISABLE_FLAGS) as Array<keyof typeof FEATURE_DISABLE_FLAGS>) {
       expect(isFeatureEnabled(feature)).toBe(true);
     }
@@ -27,7 +27,12 @@ describe('operational feature controls', () => {
     expect(isFeatureEnabled('taskPhotoUpload')).toBe(false);
     expect(isFeatureEnabled('diaryPhotoUpload')).toBe(true);
     expect(isFeatureEnabled('taskSearch')).toBe(true);
+    expect(isFeatureEnabled('todoMateImport')).toBe(true);
+    disabled.add(FEATURE_DISABLE_FLAGS.todoMateImport);
+    expect(isFeatureEnabled('todoMateImport')).toBe(false);
+    expect(isFeatureEnabled('taskSearch')).toBe(true);
     disabled.clear();
+    expect(isFeatureEnabled('todoMateImport')).toBe(true);
     expect(isFeatureEnabled('taskPhotoUpload')).toBe(true);
   });
 });
