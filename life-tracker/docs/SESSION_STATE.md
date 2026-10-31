@@ -1,3 +1,14 @@
+# Task checkpoint — #1476 accepted Storage Phase 1 reconciliation with dev v0.49.0
+Updated: 2026-10-31 Asia/Manila
+
+- User accepted Phase 1 and expressly approved promotion to dev, then authorized Phase 2 #1477. No main/Production promotion authorized.
+- Accepted Phase 1 Preview `feature/1476-device-storage-v0480-20261031@6c5be7925ac754b4c44cb68731112c762bc51b58`, canonical #41208741830 successful and Vercel READY. First integrated candidate `feature/1476-device-storage-integrated-v0480-20261031@7bd777a3d96405ccdf262377ce592bc8f4c8a15b` targeted dev v0.47.1; dev advanced to v0.49.0 while its canonical gate ran.
+- To avoid a version rollback or losing concurrent #951 Day View settings/sorting, carry accepted Storage behavior and tests onto `dev@410e2fdb750dde09ca3f0519e20773e2e8579eca` v0.49.0. Use new **v0.50.0** candidate in `chatgpt/1476-storage-forward-v0500-20261031` and `feature/1476-storage-integrated-v0500-20261031`. Preserve Day View changes to App/routes/search/navigation tests; add only Storage integration at explicit anchors.
+- This frontend-only change needs focused gate, stable Preview canonical/size/browser acceptance and exact-SHA Vercel Scratch READY, plus nondivergent approval PR to dev. Do not bypass gates or merge an older source tree.
+- Phase 2 #1477 remains owner-restricted read-only metadata; do not claim full cloud billing size or enable #1478 deletion.
+
+---
+
 # Task checkpoint — #951 Day View v0.49.0 integrated promotion candidate
 Updated: 2026-10-31 Asia/Manila
 
