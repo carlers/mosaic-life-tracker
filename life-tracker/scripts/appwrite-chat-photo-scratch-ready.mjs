@@ -6,7 +6,7 @@
  * the reviewed exact Git SHA and pinned historical-client compatibility.
  */
 import { execFileSync } from 'node:child_process';
-import { parseBackendTarget, flagValue } from './lib/appwrite-backend.mjs';
+import { parseBackendTarget, flagValue, assertConfirmedProject } from './lib/appwrite-backend.mjs';
 import { assertScratchPreviewTarget, SCRATCH_ID, SCRATCH_ENDPOINT, runPreviewPrepare } from './appwrite-preview-prepare.mjs';
 import { runAppwriteMigrateCli } from './appwrite-migrate.mjs';
 import { runAppwriteFunctionCli, activateFunctionVersion } from './appwrite-function.mjs';
@@ -15,6 +15,7 @@ import { createBootstrapServices } from './lib/mosaic-bootstrap.mjs';
 export function parseChatPhotoScratchArgs(argv, env = process.env) {
   const target = parseBackendTarget(argv, env);
   assertScratchPreviewTarget(argv, target);
+  assertConfirmedProject(argv, target.projectId);
   const sha = flagValue(argv, '--git-sha');
   if (!/^[a-f0-9]{40}$/i.test(sha)) throw Error('Pass exact --git-sha <40-char commit SHA>');
   if (target.projectId !== SCRATCH_ID || target.endpoint !== SCRATCH_ENDPOINT)
@@ -69,19 +70,19 @@ export async function prepareChatPhotoScratch({
   });
   if (!deployed.deploymentId) throw Error('No reviewed ready Function deployment');
 
-  let activated = false;
+  let activationAttempted = false;
   try {
+    activationAttempted = true;
     await configureDeployActivate({
       argv: ['activate', ...func, '--deployment', deployed.deploymentId], env, log,
     });
-    activated = true;
     const finalState = await ready({
       argv: [...common, '--expected-deployment', deployed.deploymentId], env, log,
     });
     if (finalState.diffs.length)
       throw Error('Scratch readiness mismatch after Function activation');
   } catch (cause) {
-    if (activated) {
+    if (activationAttempted) {
       log('Readiness rejected; restoring prior Scratch Function deployment.');
       await activateFunctionVersion({
         functions, functionId: '6aa8057f002a4c306fdd', deploymentId: previous,
