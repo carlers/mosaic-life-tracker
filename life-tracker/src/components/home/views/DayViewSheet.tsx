@@ -627,6 +627,12 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     swiper.touchEventsData.isTouched = false;
     swiper.touchEventsData.isMoved = false;
     swiper.touchEventsData.startMoving = false;
+    // Core's onTouchEnd may never run after a Virtual slide changes underneath
+    // the touch, so also clear its retained input IDs and FreeMode samples.
+    // Otherwise Swiper rejects the next pointerdown as a different pointer.
+    swiper.touchEventsData.pointerId = null;
+    swiper.touchEventsData.touchId = null;
+    swiper.touchEventsData.velocities.length = 0;
     swiper.slideTo(destination, duration);
   }, [swiperRef]);
 
