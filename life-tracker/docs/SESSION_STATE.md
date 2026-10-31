@@ -1,3 +1,14 @@
+# Task checkpoint — #1476 accepted Storage Phase 1 forward-port to dev
+Updated: 2026-10-31 Asia/Manila
+
+- Owner accepted Phase 1 and explicitly authorized promotion to `dev`, followed by Phase 2 #1477 work. Do **not** promote `dev` to `main` or modify Production.
+- Accepted baseline `feature/1476-device-storage-v0480-20261031@6c5be7925ac754b4c44cb68731112c762bc51b58` v0.48.0; canonical #41208741830 SUCCESS, Trusted Preview Delivery #41209000817 SUCCESS and exact-SHA Vercel Preview READY. Owner accepted Phase 1.
+- Current integration baseline `dev@215bbe86b39ea779120d2882a6086e0756f55d5c` v0.47.1 already includes #1466 and #1473 Home/Uncompleted Task search. Forward-port only the accepted Phase 1 source/test/documentation blobs and v0.48.0 version metadata; preserve all newer dev search code and earlier checkpoints.
+- Isolated task branch `chatgpt/1476-device-storage-forward-v0480-20261031`. Run focused gate, squash into a new `feature/1476-device-storage-integrated-v0480-20261031` stable Preview, and require canonical/size/browser and trusted Vercel Scratch READY before approved `dev` PR. Reject concurrent dev drift until reconciled.
+- Next Phase 2 #1477 is read-only authenticated cloud media usage; no implicit cloud deletion, backend production modification or #1478 authorization.
+
+---
+
 # Task checkpoint — #1473 Uncompleted Task search v0.47.1 integrated Preview candidate
 Updated: 2026-10-31 Asia/Manila
 

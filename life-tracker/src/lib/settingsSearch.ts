@@ -298,6 +298,12 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     "keywords": "migration"
   },
   {
+    "label": "Storage",
+    "path": "/settings/data/storage",
+    "breadcrumb": "Data & Sync › Storage",
+    "keywords": "device disk quota cache downloaded images pending uploads"
+  },
+  {
     "label": "Clear Local Data",
     "path": "/settings/data",
     "breadcrumb": "Data & Sync",
