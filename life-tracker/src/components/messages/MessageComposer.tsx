@@ -86,7 +86,8 @@ export const MessageComposer = forwardRef<
 
     const handleSend = async () => {
       const trimmed = value.trim();
-      if ((!trimmed && !photo) || disabled || sendingRef.current) return;
+      if ((!trimmed && !photo) || disabled || sendingRef.current ||
+          Boolean(photo && trimmed.length > MAX_LENGTH - 8)) return;
       sendingRef.current = true;
       try {
         // Do not discard the draft before its durable local insert succeeds.
@@ -110,7 +111,8 @@ export const MessageComposer = forwardRef<
       }
     };
 
-    const remaining = MAX_LENGTH - value.length;
+    // The old-client '[Photo]\\n' fallback occupies eight message characters.
+    const remaining = MAX_LENGTH - (photo ? 8 : 0) - value.length;
     const showCounter = remaining < CHAR_COUNT_THRESHOLD;
 
     return (
@@ -185,7 +187,7 @@ export const MessageComposer = forwardRef<
               e.preventDefault();
               e.stopPropagation();
             }}
-            disabled={(!value.trim() && !photo) || disabled}
+            disabled={(!value.trim() && !photo) || disabled || remaining < 0}
             className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
             aria-label="Send"
           >

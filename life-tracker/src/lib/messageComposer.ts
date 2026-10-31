@@ -217,6 +217,7 @@ export async function sendPhotoMessage(
   replyTo?: ReplyContext
 ): Promise<void> {
   if (!userId || !friendId) throw new Error('Photo chat requires an account and recipient.');
+  if (caption.trim().length > 3992) throw new Error('Photo caption exceeds the message limit.');
   const threadId = await makeThreadId(userId, friendId);
   const now = new Date().toISOString();
   const localId = makeLocalMessageId();
