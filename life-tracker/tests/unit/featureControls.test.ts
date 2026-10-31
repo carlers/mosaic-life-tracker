@@ -16,7 +16,7 @@ describe('operational feature controls', () => {
   beforeEach(() => disabled.clear());
 
   it('starts with all supported optional features available', () => {
-    expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(7);
+    expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(14);
     for (const feature of Object.keys(FEATURE_DISABLE_FLAGS) as Array<keyof typeof FEATURE_DISABLE_FLAGS>) {
       expect(isFeatureEnabled(feature)).toBe(true);
     }
@@ -28,10 +28,25 @@ describe('operational feature controls', () => {
     expect(isFeatureEnabled('diaryPhotoUpload')).toBe(true);
     expect(isFeatureEnabled('taskSearch')).toBe(true);
     expect(isFeatureEnabled('todoMateImport')).toBe(true);
+    expect(isFeatureEnabled('friendDiscovery')).toBe(true);
+    expect(isFeatureEnabled('profilePhotoUpload')).toBe(true);
     disabled.add(FEATURE_DISABLE_FLAGS.todoMateImport);
     expect(isFeatureEnabled('todoMateImport')).toBe(false);
     expect(isFeatureEnabled('taskSearch')).toBe(true);
+    disabled.add(FEATURE_DISABLE_FLAGS.holidayIndicators);
+    disabled.add(FEATURE_DISABLE_FLAGS.timelineMode);
+    disabled.add(FEATURE_DISABLE_FLAGS.calendarPinchZoom);
+    disabled.add(FEATURE_DISABLE_FLAGS.profilePhotoUpload);
+    disabled.add(FEATURE_DISABLE_FLAGS.profileSharing);
+    disabled.add(FEATURE_DISABLE_FLAGS.friendDiscovery);
+    disabled.add(FEATURE_DISABLE_FLAGS.stickerPackDiscovery);
+    expect(isFeatureEnabled('profilePhotoUpload')).toBe(false);
+    expect(isFeatureEnabled('taskPhotoUpload')).toBe(false);
+    expect(isFeatureEnabled('diaryPhotoUpload')).toBe(true);
+    expect(isFeatureEnabled('chatSearch')).toBe(true);
     disabled.clear();
+    expect(isFeatureEnabled('friendDiscovery')).toBe(true);
+    expect(isFeatureEnabled('stickerPackDiscovery')).toBe(true);
     expect(isFeatureEnabled('todoMateImport')).toBe(true);
     expect(isFeatureEnabled('taskPhotoUpload')).toBe(true);
   });

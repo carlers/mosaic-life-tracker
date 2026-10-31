@@ -198,6 +198,7 @@ export async function uploadPendingImage(
 // Profiles and task photos share the same upload, staging, and permissions
 // contract; retain the profile-specific missing-user diagnostic.
 export async function saveProfileImage(file: File, userId: string): Promise<string> {
+  if (!isFeatureEnabled('profilePhotoUpload')) throw new Error('New profile photo uploads are currently unavailable.');
   if (!userId) throw new Error('Cannot save profile image: no authenticated user');
   return saveImage(file, userId);
 }
