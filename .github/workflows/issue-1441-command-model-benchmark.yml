@@ -1,0 +1,106 @@
+name: Issue 1441 Command-Model Benchmark
+
+# Isolated, public-fixture-only, credential-free research. This workflow runs on
+# the dedicated task branch once; it is not a release gate and never runs on dev/main.
+on:
+  push:
+    branches:
+      - chatgpt/1441-command-model-benchmark-20261031
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue-1441-command-model-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rules:
+    name: Rule baseline (no downloads)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: life-tracker/benchmarks/command-models
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Generate synthetic fixture and validate parser
+        run: |
+          python make_dataset.py
+          python -m unittest -v test_benchmark
+      - name: Run 168 case baseline and stratified comparison sample
+        run: |
+          python benchmark.py --adapter rules --limit 0 --output results/rules-full.json
+          python benchmark.py --adapter rules --limit 48 --output results/rules-48.json
+      - name: Upload rule results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: command-bench-rules-${{ github.run_id }}
+          path: life-tracker/benchmarks/command-models/results/*.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  models:
+    name: Model inference - ${{ matrix.adapter }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        adapter: [model2vec, minilm, smollm]
+    defaults:
+      run:
+        working-directory: life-tracker/benchmarks/command-models
+    env:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      TOKENIZERS_PARALLELISM: 'false'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install candidate-specific packages, not Mosaic app dependencies
+        shell: bash
+        env:
+          CANDIDATE: ${{ matrix.adapter }}
+        run: |
+          python -m pip install --upgrade pip
+          if [[ "$CANDIDATE" == "model2vec" ]]; then
+            python -m pip install 'model2vec>=0.5,<1'
+          else
+            # CPU-only PyTorch avoids multi-GB CUDA wheels on GitHub Linux.
+            python -m pip install --index-url https://download.pytorch.org/whl/cpu 'torch==2.6.0'
+            if [[ "$CANDIDATE" == "minilm" ]]; then
+              python -m pip install 'sentence-transformers>=4,<6'
+            else
+              python -m pip install 'transformers>=4.49,<5'
+            fi
+          fi
+          python -m pip freeze > "packages-$CANDIDATE.txt"
+      - name: Generate synthetic fixture
+        run: python make_dataset.py
+      - name: Run balanced 48-case model benchmark (with explicit public-model download)
+        env:
+          CANDIDATE: ${{ matrix.adapter }}
+        run: |
+          python benchmark.py --adapter "$CANDIDATE" --limit 48 --allow-download \
+            --cache-dir "$RUNNER_TEMP/command-models" --output "results/$CANDIDATE-48.json"
+      - name: Upload result and environment manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: command-bench-${{ matrix.adapter }}-${{ github.run_id }}
+          path: |
+            life-tracker/benchmarks/command-models/results/*.json
+            life-tracker/benchmarks/command-models/packages-*.txt
+          if-no-files-found: warn
+          retention-days: 14
