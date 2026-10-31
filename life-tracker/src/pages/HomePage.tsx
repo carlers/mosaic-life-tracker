@@ -15,11 +15,15 @@ import { PersonPane } from '../components/home/PersonPane';
 import { preloadTodoListView } from '../components/home/views/todoListViewModule';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
 import { useTasks } from '../hooks/useTasks';
+import { useAuth } from '../hooks/useAuth';
 import { useCategories } from '../hooks/useCategories';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
+
+const LazyHomeCommandSheet = React.lazy(() => import('../components/home/HomeCommandSheet')
+  .then(module => ({ default: module.HomeCommandSheet })));
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -50,7 +54,8 @@ export const HomePage: React.FC = () => {
     hidden,
     isLoading: carouselLoading,
   } = useFriendCarousel();
-  const { tasks: ownerTasks = [], isLoading: tasksLoading } = useTasks();
+  const { user } = useAuth();
+  const { tasks: ownerTasks = [], isLoading: tasksLoading, addTask } = useTasks();
   const {
     categories: ownerCategories = [],
     isLoading: categoriesLoading,
@@ -61,6 +66,8 @@ export const HomePage: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [commandMounted, setCommandMounted] = useState(false);
   const [searchDaySheetOpen, setSearchDaySheetOpen] = useState(false);
   const [searchSelectedDate, setSearchSelectedDate] = useState<Date | null>(
     null
@@ -257,6 +264,28 @@ export const HomePage: React.FC = () => {
     setSearchFocusTaskId(null);
   }, []);
 
+  const handleOpenCommand = useCallback(() => {
+    setCommandMounted(true);
+    setIsCommandOpen(true);
+  }, []);
+  const handleCreateCommandTask = useCallback(async (
+    task: { title: string; categoryId: string; date: string },
+    position: 'top' | 'bottom'
+  ) => {
+    const uid = user?.$id;
+    if (!uid || tasksLoading || categoriesLoading ||
+      !ownerCategories.some(category => category.id === task.categoryId &&
+        category.userId === uid && !category.isDeleted)) {
+      throw new Error('Current owner and category must be available');
+    }
+    const created = await addTask({
+      ...task,
+      completed: false,
+      visibility: task.date === '' ? 'private' : '',
+    }, position);
+    if (!created) throw new Error('Task was not created');
+  }, [addTask, categoriesLoading, ownerCategories, tasksLoading, user?.$id]);
+
   const handleSearchDateChange = useCallback((date: Date) => {
     setSearchSelectedDate(date);
     setSearchFocusTaskId(null);
@@ -265,7 +294,7 @@ export const HomePage: React.FC = () => {
   // Home accelerators reuse the exact existing controls/actions so that Sync
   // opens its status sheet, rather than silently initiating a network write.
   useEffect(() => {
-    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
+    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen || isCommandOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       // Slash retains its native typing/overlay exclusions before the
       // modifier-gated Home shortcuts share this one listener.
@@ -303,7 +332,7 @@ export const HomePage: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [shortcutsEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
+  }, [shortcutsEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, isCommandOpen, handleOpenBacklog, handleOpenSearch]);
 
   return (
     <>
@@ -317,13 +346,14 @@ export const HomePage: React.FC = () => {
           categories={ownerCategories}
           isLoading={tasksLoading || categoriesLoading}
           onOpen={handleOpenSearch}
+          onOpenCommand={handleOpenCommand}
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
           trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} />}
         />
 
-        <div inert={isSearchOpen} className="flex-1 min-h-0 flex flex-col relative">
+        <div inert={isSearchOpen || isCommandOpen} className="flex-1 min-h-0 flex flex-col relative">
           <div className="flex-shrink-0">
             <PersonCarousel
               persons={persons}
@@ -346,7 +376,7 @@ export const HomePage: React.FC = () => {
             longSwipesMs={250}
             noSwiping
             noSwipingClass="swiper-no-swiping"
-            allowTouchMove={!isSettingsOpen && !isSearchOpen}
+            allowTouchMove={!isSettingsOpen && !isSearchOpen && !isCommandOpen}
             onSlideChange={handleSlideChange}
             className="absolute inset-0"
           >
@@ -367,7 +397,7 @@ export const HomePage: React.FC = () => {
         </div>
         </div>
         <div
-          inert={isSearchOpen}
+          inert={isSearchOpen || isCommandOpen}
           data-home-panel-slot="true"
           className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
         />
@@ -384,6 +414,20 @@ export const HomePage: React.FC = () => {
             onToggleVisibility={toggleVisibility}
             onReset={resetOrder}
           />
+      )}
+
+      {commandMounted && (
+        <React.Suspense fallback={null}>
+          <LazyHomeCommandSheet
+            key={user?.$id ?? 'signed-out'}
+            isOpen={isCommandOpen}
+            onClose={() => setIsCommandOpen(false)}
+            ownerId={user?.$id ?? null}
+            categories={ownerCategories}
+            isLoading={tasksLoading || categoriesLoading}
+            onCreate={handleCreateCommandTask}
+          />
+        </React.Suspense>
       )}
 
       {searchSelectedDate && (

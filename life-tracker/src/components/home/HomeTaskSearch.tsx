@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect } from 'react';
-import { Search } from 'lucide-react';
+import { Search, WandSparkles } from 'lucide-react';
 import type { HomeTaskSearchProps } from './HomeTaskSearchExpanded';
 
 // Keep the search icon, sync status and hamburger in the first Home paint.
@@ -53,6 +53,13 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
             {props.statusControls}
           </div>
         )}
+        <div data-route-swipe-ignore="true" className="shrink-0">
+          <button type="button" onClick={props.onOpenCommand}
+            aria-label="Create task from command"
+            className="mosaic-action-icon rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+            <WandSparkles size={20} aria-hidden="true" />
+          </button>
+        </div>
         <div data-route-swipe-ignore="true" className="shrink-0">
           <button type="button" onClick={props.onOpen}
             onPointerDown={() => { void loadSearch().catch(() => {}); }}

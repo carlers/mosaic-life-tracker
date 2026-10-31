@@ -1,0 +1,40 @@
+{"id":"fresh-001","group":"fresh_create","input":"Add review the School prospectus to Personal for tomorrow","expected":{"status":"create_task","title":"review the School prospectus","category":"Personal","date":"2026-11-01"}}
+{"id":"fresh-002","group":"fresh_create","input":"Add go from Work to School to Errands tomorrow","expected":{"status":"create_task","title":"go from Work to School","category":"Errands","date":"2026-11-01"}}
+{"id":"fresh-003","group":"fresh_create","input":"Add go to the gym to Health tomorrow","expected":{"status":"create_task","title":"go to the gym","category":"Health","date":"2026-11-01"}}
+{"id":"fresh-004","group":"fresh_create","input":"Add text my friend to Personal tomorrow","expected":{"status":"create_task","title":"text my friend","category":"Personal","date":"2026-11-01"}}
+{"id":"fresh-005","group":"fresh_create","input":"Add take 12 photos to Projects today","expected":{"status":"create_task","title":"take 12 photos","category":"Projects","date":"2026-10-31"}}
+{"id":"fresh-006","group":"fresh_create","input":"Add file my taxes to Work on November 21","expected":{"status":"create_task","title":"file my taxes","category":"Work","date":"2026-11-21"}}
+{"id":"fresh-007","group":"fresh_create","input":"Paki-add review notes sa School bukas","expected":{"status":"create_task","title":"review notes","category":"School","date":"2026-11-01"}}
+{"id":"fresh-008","group":"fresh_create","input":"Please add visit the adviser to College for tomorrow","expected":{"status":"create_task","title":"visit the adviser","category":"College","date":"2026-11-01"}}
+{"id":"fresh-009","group":"fresh_create","input":"I should send a reply to Work on November 18","expected":{"status":"create_task","title":"send a reply","category":"Work","date":"2026-11-18"}}
+{"id":"fresh-010","group":"fresh_create","input":"Remind me to go to work for Personal tomorrow","expected":{"status":"create_task","title":"go to work","category":"Personal","date":"2026-11-01"}}
+{"id":"fresh-011","group":"fresh_create","input":"Add read from Work to College tomorrow","expected":{"status":"create_task","title":"read from Work","category":"College","date":"2026-11-01"}}
+{"id":"fresh-012","group":"fresh_create","input":"Create walk to the library in Personal in three days","expected":{"status":"create_task","title":"walk to the library","category":"Personal","date":"2026-11-03"}}
+{"id":"fresh-013","group":"fresh_create","input":"Add submit details to School next Thursday","expected":{"status":"create_task","title":"submit details","category":"School","date":"2026-11-05"}}
+{"id":"fresh-014","group":"fresh_create","input":"Add bring my laptop to School tomorrow","expected":{"status":"create_task","title":"bring my laptop","category":"School","date":"2026-11-01"}}
+{"id":"fresh-015","group":"fresh_create","input":"Add check the Home inventory to Work today","expected":{"status":"create_task","title":"check the Home inventory","category":"Work","date":"2026-10-31"}}
+{"id":"fresh-016","group":"fresh_create","input":"Add apply to school to Errands for tomorrow","expected":{"status":"create_task","title":"apply to school","category":"Errands","date":"2026-11-01"}}
+{"id":"fresh-017","group":"fresh_create","input":"Add pay 500 pesos to Personal on November 10","expected":{"status":"create_task","title":"pay 500 pesos","category":"Personal","date":"2026-11-10"}}
+{"id":"fresh-018","group":"fresh_create","input":"Add visit to museum to Errands tomorrow","expected":{"status":"create_task","title":"visit to museum","category":"Errands","date":"2026-11-01"}}
+{"id":"fresh-019","group":"fresh_create","input":"Add move house to Home tomorrow","expected":{"status":"create_task","title":"move house","category":"Home","date":"2026-11-01"}}
+{"id":"fresh-020","group":"fresh_create","input":"Add learn how to cook to Home tomorrow","expected":{"status":"create_task","title":"learn how to cook","category":"Home","date":"2026-11-01"}}
+{"id":"fresh-021","group":"fresh_review","input":"Add 8 errands to Errands tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-022","group":"fresh_review","input":"Add four assignments to School tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-023","group":"fresh_review","input":"Add two reminders to Work today","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-024","group":"fresh_review","input":"Add five tasks to Home next Friday","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-025","group":"fresh_review","input":"Add text to video to Projects tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-026","group":"fresh_review","input":"Add homework to School tomorrow and send email","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-027","group":"fresh_review","input":"Add buy milk to Errands on February 31","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-028","group":"fresh_review","input":"Add homework to School for soon","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-029","group":"fresh_review","input":"Add math to School on 2026-13-01","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-030","group":"fresh_review","input":"Add visit College to School or College tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-031","group":"fresh_review","input":"Add note to Projects in tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-032","group":"fresh_review","input":"Add A to School and Personal tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"fresh-033","group":"fresh_unsupported","input":"Move all my School tasks into Backlogs","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"fresh-034","group":"fresh_unsupported","input":"Delete every School task","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"fresh-035","group":"fresh_unsupported","input":"Complete all overdue tasks","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"fresh-036","group":"fresh_unsupported","input":"Show all School tasks","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"fresh-037","group":"fresh_unsupported","input":"Find my overdue tasks","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"fresh-038","group":"fresh_unsupported","input":"Open the diary","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"fresh-039","group":"fresh_unsupported","input":"Archive all finished chores","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"fresh-040","group":"fresh_unsupported","input":"Reschedule School tasks to Friday","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
