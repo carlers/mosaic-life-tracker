@@ -1,5 +1,17 @@
 # Session checkpoint
 Updated: 2026-10-31 Asia/Manila
+Current scoped task: #1442 — landing page visual fidelity refinement
+
+## Refinement task
+- Owner accepted live independent site and supplied an actual Mosaic month-view screenshot. Use it for appearance/layout **only**; screenshot includes private account/task/photo data and must not be published.
+- Existing same-site stable Preview base `feature/1442-public-landing-site-preview-20261031@907febb4d6d27372c9f6e8f7593af98b89362174`; new scoped task changes only `landing/index.html`, `landing/styles.css`, `landing/test-site.mjs`, `landing/README.md` and checkpoint.
+- Brand source is exactly `life-tracker/public/favicon.svg`; keep unchanged. Public UI illustration mirrors black month view, person carousel, colored tasks, nav and magenta controls, using wholly invented task labels.
+- Run focused landing contracts, same-task CI, stable Preview canonical and independent Vercel deployment. No application version bump or PWA `dev`/`main` promotion; is-a.dev registration remains human-only.
+- Manual phone/desktop layout review remains owner acceptance; no real user screenshot published.
+
+## Previous checkpoint
+
+Updated: 2026-10-31 Asia/Manila
 Current scoped task: #1442 — isolated public Mosaic landing page
 
 ## Landing site task checkpoint

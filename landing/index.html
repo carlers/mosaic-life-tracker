@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#111016">
+  <meta name="theme-color" content="#000000">
   <meta name="description" content="Mosaic is an offline-first life tracker for tasks, calendars, and the people around them. Explore the app and its development.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Mosaic — Your days, in one place">
@@ -44,23 +44,71 @@
         </div>
         <div class="hero-footnote"><span class="line-marker" aria-hidden="true"></span> Built for the little things and the big picture.</div>
       </div>
-      <div class="preview-stage">
+
+      <div class="preview-stage" aria-label="Mosaic month view illustration">
         <div class="preview-orbit" aria-hidden="true"></div>
-        <div class="app-preview" role="img" aria-label="Illustrative calendar and task layout with sample items. This is a design illustration, not an actual app screenshot.">
-          <div class="preview-top"><div class="preview-mark"><img src="/favicon.svg" alt="" width="16" height="16"><span>mosaic</span></div><div class="preview-month">October 2026 <span aria-hidden="true">⌄</span></div><div class="preview-user" aria-hidden="true">M</div></div>
-          <div class="preview-main">
-            <div class="preview-heading"><div><span class="preview-small">YOUR CALENDAR</span><strong>Make every day count.</strong></div><div class="preview-filter">This week <span aria-hidden="true">⌄</span></div></div>
-            <div class="week-grid" aria-hidden="true">
-              <div class="day"><span>M</span><strong>26</strong></div><div class="day"><span>T</span><strong>27</strong></div><div class="day"><span>W</span><strong>28</strong></div><div class="day"><span>T</span><strong>29</strong></div><div class="day"><span>F</span><strong>30</strong></div><div class="day current"><span>S</span><strong>31</strong></div><div class="day"><span>S</span><strong>01</strong></div>
-            </div>
-            <div class="preview-section-title"><strong>Saturday, Oct 31</strong><span>3 things on your mind</span></div>
-            <div class="sample-task"><span class="task-check purple"></span><span class="sample-body"><strong>Make a plan for the week</strong><small>Personal</small></span><span class="sample-chip">Today</span></div>
-            <div class="sample-task"><span class="task-check green"></span><span class="sample-body"><strong>Read a few more pages</strong><small>Everyday</small></span></div>
-            <div class="sample-task"><span class="task-check"></span><span class="sample-body"><strong>Catch up with a friend</strong><small>People</small></span></div>
-            <div class="preview-bottom"><div class="preview-pill"></div><div class="preview-pill short"></div><div class="preview-pill tiny"></div></div>
+        <div class="app-preview mosaic-ui-preview" role="img" aria-label="Illustrative reproduction of Mosaic's actual desktop month-calendar layout using fictional, nonpersonal tasks. This is not an app screenshot.">
+          <div class="ui-utility-bar" aria-hidden="true">
+            <span class="ui-wifi">⌁</span><span class="ui-cloud">☁</span>
+            <span class="ui-square-action ui-search-symbol">⌕</span><span class="ui-square-action ui-menu-symbol">☰</span>
+          </div>
+          <div class="ui-person-tabs" aria-hidden="true">
+            <span class="ui-person-tab selected"><span class="ui-tab-avatar">M</span>Me</span>
+            <span class="ui-person-tab"><span class="ui-tab-avatar">F</span>Friends</span>
+            <span class="ui-friends-symbol">♧</span>
+          </div>
+          <div class="ui-person-header" aria-hidden="true">
+            <span class="ui-person-avatar">M</span>
+            <span><strong>My space</strong><small>@mosaic</small></span>
+          </div>
+          <div class="ui-calendar-controls" aria-hidden="true">
+            <span class="ui-view-choices"><span class="active">▣</span><span>☷</span><span>▤</span></span>
+            <strong>October 2026</strong>
+            <span class="ui-month-movement"><span>M</span><span>‹</span><span>›</span></span>
+          </div>
+          <div class="ui-month-grid" aria-hidden="true">
+            <span class="ui-weekday">Sun</span><span class="ui-weekday">Mon</span><span class="ui-weekday">Tue</span><span class="ui-weekday">Wed</span><span class="ui-weekday">Thu</span><span class="ui-weekday">Fri</span><span class="ui-weekday">Sat</span>
+            <div class="ui-day muted"><span class="ui-date">27</span></div>
+            <div class="ui-day muted"><span class="ui-date">28</span></div>
+            <div class="ui-day muted"><span class="ui-date">29</span></div>
+            <div class="ui-day muted"><span class="ui-date">30</span></div>
+            <div class="ui-day"><span class="ui-date">1</span><span class="ui-task sage">Plan the month</span></div>
+            <div class="ui-day"><span class="ui-date">2</span></div>
+            <div class="ui-day saturday"><span class="ui-date">3</span></div>
+            <div class="ui-day sunday"><span class="ui-date">4</span></div>
+            <div class="ui-day"><span class="ui-date">5</span><span class="ui-task aqua">Morning walk</span></div>
+            <div class="ui-day"><span class="ui-date">6</span><span class="ui-task slate">Review notes</span><span class="ui-task slate">Study session</span></div>
+            <div class="ui-day"><span class="ui-date">7</span><span class="ui-task aqua">Read a chapter</span><span class="ui-task sage">Sketch ideas</span></div>
+            <div class="ui-day"><span class="ui-date">8</span><span class="ui-task aqua">Project check-in</span></div>
+            <div class="ui-day"><span class="ui-date">9</span></div>
+            <div class="ui-day saturday"><span class="ui-date">10</span></div>
+            <div class="ui-day sunday"><span class="ui-date">11</span></div>
+            <div class="ui-day"><span class="ui-date">12</span></div>
+            <div class="ui-day"><span class="ui-date">13</span><span class="ui-task aqua">Afternoon focus</span><span class="ui-task lilac">Plan weekend</span></div>
+            <div class="ui-day"><span class="ui-date">14</span><span class="ui-task slate">Organize workspace</span></div>
+            <div class="ui-day"><span class="ui-date">15</span><span class="ui-task butter">Creative time</span><span class="ui-task slate">Weekly review</span></div>
+            <div class="ui-day"><span class="ui-date">16</span><span class="ui-task coral">Catch up</span></div>
+            <div class="ui-day saturday"><span class="ui-date">17</span><span class="ui-task sage">Rest &amp; recharge</span></div>
+            <div class="ui-day sunday"><span class="ui-date">18</span></div>
+            <div class="ui-day"><span class="ui-date">19</span><span class="ui-task lilac">Practice something new</span></div>
+            <div class="ui-day"><span class="ui-date">20</span></div>
+            <div class="ui-day"><span class="ui-date">21</span></div>
+            <div class="ui-day"><span class="ui-date">22</span><span class="ui-task slate">Finish a small goal</span></div>
+            <div class="ui-day"><span class="ui-date">23</span></div>
+            <div class="ui-day saturday"><span class="ui-date">24</span></div>
+            <div class="ui-day sunday"><span class="ui-date">25</span></div>
+            <div class="ui-day"><span class="ui-date">26</span></div>
+            <div class="ui-day"><span class="ui-date">27</span></div>
+            <div class="ui-day"><span class="ui-date">28</span></div>
+            <div class="ui-day"><span class="ui-date">29</span></div>
+            <div class="ui-day"><span class="ui-date">30</span></div>
+            <div class="ui-day saturday today"><span class="ui-date">31</span></div>
+          </div>
+          <div class="ui-bottom-navigation" aria-hidden="true">
+            <span class="current"><span class="ui-nav-icon">⌂</span>Home</span><span><span class="ui-nav-icon">◉</span>Explore</span><span><span class="ui-nav-icon">♧</span>Alerts</span><span><span class="ui-nav-icon">◯</span>Chat</span><span><span class="ui-nav-icon">♙</span>Me</span>
           </div>
         </div>
-        <p class="preview-disclaimer">Illustrative layout · sample content · not an app screenshot</p>
+        <p class="preview-disclaimer">Mosaic-inspired month view · fictional sample tasks · not an app screenshot</p>
       </div>
     </section>
 

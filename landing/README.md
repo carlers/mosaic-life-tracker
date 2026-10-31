@@ -11,8 +11,11 @@ directory as static files (e.g. `python3 -m http.server 8765 --directory landing
 The Vercel project **must** have Root Directory set to `landing`,
 Framework Preset **Other**, with no install or build step.
 
-The interface illustration is explicitly labeled as illustrative, uses generic
-sample items, and is **not** represented as an authentic app screenshot.
+The hero preview follows the actual Mosaic black-theme **month calendar** layout,
+including friend/person selection, calendar view switcher, colored task bars and
+bottom navigation. It is built entirely from HTML/CSS and uses clearly fictional
+sample entries. The provided real-world reference screenshot contains personal
+content and is **not** published or included in this repository.
 Before registration, capture an actual screenshot of this public landing site;
 never capture private Mosaic tasks, Diary entries or messages.
 
