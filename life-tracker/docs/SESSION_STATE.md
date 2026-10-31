@@ -1,3 +1,13 @@
+# Task checkpoint — #1460 chat photos v0.46.0 integrated task branch
+Updated: 2026-10-31 Asia/Manila
+
+- Authorized: prepare a secure Scratch-backed user-testable Preview. New integrated task branch based on dev@343b857fa43d26e7afc7b7f6de81ac479416bba2 (v0.45.0 task search). Photo candidate version v0.46.0; do not promote dev/main or mutate Production.
+- Source includes optional message attachment fields, migration 016, owner-only staged media, Function authorization, photo composer/viewer and tests. Prior exact task SHA 61c561983fd5225b1f271de912f64ade495d8329 passed full source CI on 04fca878 before version-only change, but this forward-port requires fresh exact-SHA verification.
+- Backend not activated on Scratch; feature disabled unless VITE_CHAT_PHOTOS_ENABLED=true on reviewed Preview build. Open blockers: durable cleanup, historical-client compatibility, three-user Scratch ACL/device tests. Do not assert acceptance until those pass.
+- Issue: https://github.com/carlers/mosaic-life-tracker/issues/1460
+
+---
+
 # Task checkpoint — #1466 Home task search incremental results v0.45.0
 Updated: 2026-10-31 Asia/Manila
 

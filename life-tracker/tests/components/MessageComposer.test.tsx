@@ -191,3 +191,24 @@ describe('MessageComposer', () => {
   });
 
 });
+
+describe('photo composer opt-in', () => {
+  it('does not surface a photo picker without an authorized photo action', () => {
+    render(<MessageComposer onSend={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Attach photo' })).not.toBeInTheDocument();
+  });
+  it('retains the caption and selected photo until the local send resolves', async () => {
+    const onSendPhoto = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:photo-preview') });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    render(<MessageComposer onSend={vi.fn()} onSendPhoto={onSendPhoto} />);
+    const input = screen.getByLabelText('Choose chat photo') as HTMLInputElement;
+    const file = new File(['photo'], 'example.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [file] } });
+    const textarea = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: '  caption  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(onSendPhoto).toHaveBeenCalledWith(file, 'caption'));
+    await waitFor(() => expect(textarea).toHaveValue(''));
+  });
+});

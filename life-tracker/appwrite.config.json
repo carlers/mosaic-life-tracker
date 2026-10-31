@@ -22,6 +22,7 @@
         "rows.read",
         "rows.write",
         "tables.read",
+        "buckets.read",
         "files.read",
         "files.write",
         "execution.write"

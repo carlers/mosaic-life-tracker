@@ -11,6 +11,8 @@ import type { MessageDocument } from '../db/schema';
 import { getConnectivitySnapshot } from './connectivity';
 import { APPWRITE_MESSAGE_ACTION_FUNCTION_ID } from './appwriteConfig';
 import { sendAppAction } from './appAction';
+import { uploadPendingChatPhoto, removeStagedChatPhoto } from './chatPhotoStorage';
+import { withChatPhotoSendLock } from './chatPhotoLock';
 import {
   captureAccountWorkGeneration,
   isAccountWorkCurrent,
@@ -191,11 +193,21 @@ export async function retryDeniedOutgoing(userId: string, messageId: string): Pr
 }
 
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
+  const execute = async (): Promise<void> => {
+  if (doc.attachmentType === 'image') {
+    await uploadPendingChatPhoto(doc.userId, doc.id, doc.attachmentFileId || '');
+    const current = await getDatabase().messages.findOne(doc.id).exec();
+    if (!current || current.isUnsent || current.isDeleted) {
+      throw Object.assign(new Error('Photo send canceled'), { code: 409 });
+    }
+  }
   const result = await sendMessageAction({
     action: 'deliver',
     messageId: doc.id,
     recipientId: doc.recipientId,
     content: doc.content,
+    attachmentType: doc.attachmentType || '',
+    attachmentFileId: doc.attachmentFileId || '',
     taskRefId: doc.taskRefId,
     taskRefTitle: doc.taskRefTitle,
     taskRefDate: doc.taskRefDate,
@@ -216,6 +228,12 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
     result.threadId !== doc.threadId ||
     (result.messageId != null && result.messageId !== doc.id)
   ) throw new Error('Delivery not confirmed');
+  if (doc.attachmentType === 'image' && doc.attachmentFileId) {
+    await removeStagedChatPhoto(doc.userId, doc.attachmentFileId).catch(() => {});
+  }
+  };
+  if (doc.attachmentType === 'image') return withChatPhotoSendLock(doc.userId, doc.id, execute);
+  return execute();
 }
 export async function markReadOnRemote(
   userId: string,
@@ -248,15 +266,16 @@ export async function unsendOnRemote(
   userId: string,
   messageId: string,
   recipientId: string
-): Promise<void> {
+): Promise<boolean> {
   const generation = captureAccountWorkGeneration(userId);
-  if (generation === null) return;
+  if (generation === null) return false;
   try {
     await sendMessageAction({
       action: 'unsend',
       messageId,
       recipientId,
     });
+    return true;
   } catch (err) {
     if (
       shouldQueueMessageAction(err) &&
@@ -269,6 +288,7 @@ export async function unsendOnRemote(
       });
     }
     console.error('Chat unsend failed:', err);
+    return false;
   }
 }
 export async function reactOnRemote(

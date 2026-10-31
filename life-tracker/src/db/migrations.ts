@@ -29,6 +29,8 @@ export const messagesMigrationStrategies = {
     originalMessageId: '',
     reactions: '',
   }),
+  // v4 -> v5: older text messages acquire no photo attachment.
+  5: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, attachmentType: '', attachmentFileId: '' }),
   // v3 -> v4: optional, typed diary reference metadata; never rewrite body text.
   4: (oldDoc: Record<string, unknown>) => ({
     ...oldDoc,
