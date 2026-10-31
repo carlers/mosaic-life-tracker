@@ -74,7 +74,7 @@ describe('Phase 3 cloud media lifecycle kernel (no delete capability)', () => {
     });
     expect(assessMediaLifecycle(evidence({file: {
       $id: fileId, $permissions: ['read("users")','update("user:other")','delete("user:other")'],
-    }})).toMatchObject({state: 'unknown-protected',reason:'ambiguous-file-grants'});
+    }}))).toMatchObject({state: 'unknown-protected',reason:'ambiguous-file-grants'});
   });
 
   it('protects files when unknown or other-user references may exist', () => {
