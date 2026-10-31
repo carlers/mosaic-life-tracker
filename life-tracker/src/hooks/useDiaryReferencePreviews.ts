@@ -13,14 +13,17 @@ export function useDiaryReferencePreviews(
   const referenceIds = useMemo(() =>
     messages.filter(m => m.diaryRefId && !m.isUnsent && !m.isDeleted &&
       m.deliveryStatus === 'delivered').map(m => m.id).join('|'), [messages]);
-  const [previews, setPreviews] = useState<Record<string, DiaryReferencePreview>>({});
+  const scope = userId + ':' + (online ? 'online' : 'offline') + ':' + referenceIds;
+  const [state, setState] = useState<{ scope: string; previews: Record<string, DiaryReferencePreview> }>({
+    scope: '', previews: {},
+  });
   useEffect(() => {
     let cancelled = false;
     let inFlight = false;
     const refresh = async () => {
       if (!userId || !online || document.hidden || inFlight) return;
       inFlight = true;
-      setPreviews({}); // Never display stale content while checking authorization.
+      setState({ scope, previews: {} }); // Clear before checking authorization.
       try {
         const ids = referenceIds ? referenceIds.split('|') : [];
         const next: Record<string, DiaryReferencePreview> = {};
@@ -43,17 +46,16 @@ export function useDiaryReferencePreviews(
             }
           }
         }
-        if (!cancelled) setPreviews(next);
+        if (!cancelled) setState({ scope, previews: next });
       } catch {
-        if (!cancelled) setPreviews({});
+        if (!cancelled) setState({ scope, previews: {} });
       } finally {
         inFlight = false;
       }
     };
-    setPreviews({});
     void refresh();
     const onVisibility = () => {
-      if (document.hidden) setPreviews({});
+      if (document.hidden) setState({ scope, previews: {} });
       else void refresh();
     };
     const onFocus = () => { void refresh(); };
@@ -67,5 +69,5 @@ export function useDiaryReferencePreviews(
       window.removeEventListener('focus', onFocus);
     };
   }, [referenceIds, userId, online]);
-  return online ? previews : {};
+  return online && state.scope === scope ? state.previews : {};
 }
