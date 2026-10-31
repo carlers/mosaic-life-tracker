@@ -177,6 +177,19 @@ describe('Phase 3B read-only server owner media audit', () => {
     expect(r.body.deletionAuthorized).toBe(false);
   });
 
+  it('never counts malformed or pending-only storage identifiers as a usage subtotal', async () => {
+    const db = makeMockDb(), storage = makeMockStorage();
+    storage.listFiles.mockResolvedValue({ files: [
+      f('bad/id', 75), f('localimg_staged', 200), f('good_id', 50),
+    ] });
+    const result = await respond(db, storage);
+    expect(result.status).toBe(200);
+    expect(result.body.invalidMetadata).toBe(2);
+    expect(result.body.aclControlledUnreferencedUnknown).toEqual({ files: 1, bytes: 50 });
+    expect(JSON.stringify(result.body)).not.toContain('bad/id');
+    expect(result.body.deletionAuthorized).toBe(false);
+  });
+
   it('fails closed and does not return an inventory if storage pagination fails', async () => {
     const db = makeMockDb(),storage = makeMockStorage();
     storage.listFiles.mockRejectedValue(new Error('provider offline'));

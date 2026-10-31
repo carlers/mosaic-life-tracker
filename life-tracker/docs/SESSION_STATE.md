@@ -1,3 +1,12 @@
+# Task checkpoint — #1478 Phase 3B metadata validation and canonical artifact retry
+Updated: 2026-11-01 Asia/Manila
+
+- Integrated Phase 3B Preview `af8c00b98ef5e0e8c79350400b0d144c7c2703eb` passed focused [#41232656721](https://github.com/carlers/mosaic-life-tracker/actions/runs/41232656721) and full canonical [#41232762519](https://github.com/carlers/mosaic-life-tracker/actions/runs/41232762519) attempt 2. A pre-existing Day View category drop browser check failed once, passed unchanged on retry; no related source/test weakened.
+- Trusted Preview Delivery #41233448821 rejected because CI rerun attempt 2 lacked its matching build artifact (the build artifact was uploaded on attempt 1). Preserve the artifact-integrity gate. Material hardening: reject malformed or local-only file identifiers even when server bucket ACL metadata includes owner update/delete; count invalid entries as unknown, never report usable/reclaimable bytes. New test protects this.
+- New task `chatgpt/1478-audit-invalid-id-hardening-20261101` begins at `af8c00b98ef5e0e8c79350400b0d144c7c2703eb`; rerun focused CI, merge into stable `feature/1478-owner-media-audit-20261101`, obtain fresh canonical attempt-1 build artifact and trusted Vercel exact SHA. No Function activation, dev/main/Production writes or file deletion.
+
+---
+
 # Task checkpoint — #1478 Phase 3B read-only server reference audit, no deletion
 Updated: 2026-11-01 Asia/Manila
 
