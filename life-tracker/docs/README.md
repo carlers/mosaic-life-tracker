@@ -51,6 +51,7 @@ authorization, Scratch checks, or release gates.
 | Irreversible account deletion, privacy fencing, and DR non-resurrection | [Account erasure](ACCOUNT_ERASURE.md) |
 | Tombstones, garbage collection, and stale-client recovery | [Retention procedure](TOMBSTONE_RETENTION.md) |
 | User-controlled backup format and restore behavior | [Backup and restore](BACKUP_RESTORE.md) |
+| Device cache reporting and safe media eviction | [Device storage](DEVICE_STORAGE.md) |
 | Private Bucket List and canonical task links | [Bucket List links](BUCKET_LIST_LINKS.md) |
 | One-way TodoMate personal-data import and mapping | [TodoMate import](TODOMATE_IMPORT.md) |
 

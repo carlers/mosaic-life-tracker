@@ -58,13 +58,23 @@ export const PROTECTED_ROUTES = [
   // Existing Settings navigation uses full-width swipes. Preserve this
   // behavior rather than silently changing its gesture threshold.
   { id: 'settings', path: '/settings', kind: 'detail', tab: 'account', parent: '/account', swipeMode: 'full', preview: 'supported' },
+  { id: 'settingsAccount', path: '/settings/account', kind: 'detail', tab: 'account', parent: '/settings', alternateParents: ['/account'], swipeMode: 'full', preview: 'supported' },
+  { id: 'settingsData', path: '/settings/data', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
+  { id: 'settingsStorage', path: '/settings/data/storage', kind: 'detail', tab: 'account', parent: '/settings/data', swipeMode: 'full', preview: 'none' },
+  { id: 'settingsAbout', path: '/settings/about', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
   { id: 'releaseHistory', path: '/settings/releases', kind: 'detail', tab: 'account', parent: '/settings', preview: 'supported' },
   { id: 'preferences', path: '/settings/preferences', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
+  { id: 'preferenceAppearance', path: '/settings/preferences/appearance', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/settings'], swipeMode: 'full', preview: 'supported' },
+  { id: 'preferenceTasks', path: '/settings/preferences/tasks', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/settings', '/settings/preferences/day-view'], swipeMode: 'full', preview: 'supported' },
+  { id: 'preferenceDayView', path: '/settings/preferences/day-view', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/home'], swipeMode: 'full', preview: 'supported' },
+  { id: 'preferenceCalendar', path: '/settings/preferences/calendar', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/settings', '/settings/preferences/day-view'], swipeMode: 'full', preview: 'supported' },
+  { id: 'preferenceDiary', path: '/settings/preferences/diary', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/settings'], swipeMode: 'full', preview: 'supported' },
+  { id: 'preferenceNavigation', path: '/settings/preferences/navigation', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/settings'], swipeMode: 'full', preview: 'supported' },
   { id: 'notificationSettings', path: '/settings/notifications', kind: 'detail', tab: 'account', parent: '/settings', alternateParents: ['/notifications'], swipeMode: 'full', preview: 'supported' },
   { id: 'screenRedirect', path: '/settings/screen', kind: 'redirect', tab: 'account', parent: '/settings', redirectTo: '/settings/preferences', preview: 'none' },
   // Catch mistyped nested Settings URLs inside the guarded shell.
   { id: 'unknownSettingsRedirect', path: '/settings/*', kind: 'redirect', tab: 'account', parent: '/settings', redirectTo: '/settings', preview: 'none' },
-  { id: 'profile', path: '/profile', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
+  { id: 'profile', path: '/profile', kind: 'detail', tab: 'account', parent: '/settings/account', alternateParents: ['/settings'], swipeMode: 'full', preview: 'supported' },
 ] as const satisfies readonly ProtectedRoute[];
 
 export type ProtectedRouteEntry = (typeof PROTECTED_ROUTES)[number];

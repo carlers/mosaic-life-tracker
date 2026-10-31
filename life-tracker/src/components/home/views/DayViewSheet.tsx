@@ -10,10 +10,13 @@ import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Virtual } from 'swiper/modules';
+import { FreeMode, Virtual } from 'swiper/modules';
 import 'swiper/css/virtual';
+import 'swiper/css/free-mode';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
+import { CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered, Settings2 } from 'lucide-react';
+import { useInRouterContext, useNavigate } from 'react-router-dom';
+import { makeRouteParentState } from '../../../lib/primarySwipeNavigation';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
@@ -91,12 +94,48 @@ const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))
 );
 
+// A separate router-bound control keeps non-router Day View embeds and unit tests valid.
+const DayViewSettingsShortcut: React.FC<{
+  date: Date;
+  onClose: () => void;
+  disabled: boolean;
+}> = ({ date, onClose, disabled }) => {
+  const navigate = useNavigate();
+  return (
+    <button type="button" disabled={disabled}
+      aria-label="Open Day View settings" title="Day View settings"
+      onClick={() => {
+        onClose();
+        navigate('/settings/preferences/day-view', {
+          state: {
+            ...makeRouteParentState('/home'),
+            dayViewReturnDate: format(date, 'yyyy-MM-dd'),
+          },
+        });
+      }}
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--mosaic-border)] bg-surfaceHighlight text-secondary transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent)] disabled:opacity-40"
+    >
+      <Settings2 size={16} aria-hidden="true" />
+    </button>
+  );
+};
+
 const DAY_SWIPER_FOCUSABLE_ELEMENTS =
   'input, select, option, textarea, video, label, button:not([data-day-swipe-through="true"])';
 // Do not invalidate every DaySlide when the owned-share projection is empty.
 const EMPTY_OWNER_LABELS: ReadonlyMap<string, string> = new Map();
 const DAY_SWIPER_TRANSITION_SPEED_MS = 320;
 const DAY_SWIPER_TRANSITION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
+// FreeMode follows the finger; Day View owns the release target so a gesture
+// cannot fling across multiple dates or leave a slide between snap points.
+const DAY_SWIPER_MOMENTUM = {
+  enabled: true,
+  momentum: true,
+  momentumRatio: 0.2,
+  momentumVelocityRatio: 0.55,
+  momentumBounce: false,
+  sticky: true,
+} as const;
 
 // #11a: hoisted — closes over nothing, so building this once avoids
 // re-allocating the JSX tree on every DayViewSheet render.
@@ -156,7 +195,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // The React Compiler cannot safely infer dependencies across these state machines.
   'use no memo';
   const isBacklogView = renderMode === 'backlog';
+  const hasRouter = useInRouterContext();
   const sheetContentRef = useRef<HTMLDivElement>(null);
+  const daySwipeStartRef = useRef<{ index: number; time: number; pointerId: number | null; touchId: number | null } | null>(null);
   const didInitialCategoryFocusRef = useRef(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const keyboardHelpCloseRef = useRef<HTMLButtonElement>(null);
@@ -563,6 +604,102 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     if (!settled || !continuousDrag.onSettled(settled, swiper)) return;
     handleSwipeSettled(swiper);
   }, [continuousDrag.onSettled, handleSwipeSettled, slideDateStrs]);
+
+  const daySwipeConditionsRef = useRef({
+    reorderActive: isTaskReorderActive,
+    carried: Boolean(continuousDrag.carried),
+    reducedMotion,
+    slideCount: slideDates.length,
+  });
+  React.useLayoutEffect(() => {
+    daySwipeConditionsRef.current = {
+      reorderActive: isTaskReorderActive,
+      carried: Boolean(continuousDrag.carried),
+      reducedMotion,
+      slideCount: slideDates.length,
+    };
+  }, [isTaskReorderActive, continuousDrag.carried, reducedMotion, slideDates.length]);
+
+  const handleDayTouchStart = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
+    const state = daySwipeConditionsRef.current;
+    daySwipeStartRef.current =
+      !state.reducedMotion && !state.reorderActive && !state.carried && swiper.touchEventsData.isTouched
+        ? {
+            index: swiper.activeIndex,
+            time: Date.now(),
+            pointerId: swiper.touchEventsData.pointerId,
+            touchId: swiper.touchEventsData.touchId,
+          }
+        : null;
+  }, []);
+
+  const settleDayTouch = useCallback(() => {
+    const start = daySwipeStartRef.current;
+    daySwipeStartRef.current = null;
+    const swiper = swiperRef.current;
+    const state = daySwipeConditionsRef.current;
+    // Held-task dragging has its own repeated cross-day navigation protocol.
+    if (!start || !swiper || swiper.destroyed || state.reorderActive || state.carried ||
+        !swiper.touchEventsData.isMoved || !swiper.swipeDirection) return;
+
+    const distance = Math.abs(swiper.touches.diff);
+    const velocity = distance / Math.max(1, Date.now() - start.time);
+    // A horizontal pointercancel is common when Virtual swaps the finger's
+    // source slide. Treat it as release, not as a request to undo the gesture.
+    const advance = distance >= swiper.width * 0.45 || (distance >= 20 && velocity >= 0.65);
+    const offset = advance ? (swiper.swipeDirection === 'next' ? 1 : -1) : 0;
+    const destination = Math.min(Math.max(start.index + offset, 0), state.slideCount - 1);
+    const duration = Math.round(Math.max(180, 320 - Math.min(velocity, 2) * 70));
+
+    // Swiper Virtual can lose its own touchEnd when the active slide changes
+    // beneath the finger. Finish from capture before that happens,
+    // then prevent a second unbounded FreeMode release.
+    swiper.touchEventsData.isTouched = false;
+    swiper.touchEventsData.isMoved = false;
+    swiper.touchEventsData.startMoving = false;
+    // Core's onTouchEnd may never run after a Virtual slide changes underneath
+    // the touch, so also clear its retained input IDs and FreeMode samples.
+    // Otherwise Swiper rejects the next pointerdown as a different pointer.
+    swiper.touchEventsData.pointerId = null;
+    swiper.touchEventsData.touchId = null;
+    swiper.touchEventsData.velocities.length = 0;
+    swiper.slideTo(destination, duration);
+  }, [swiperRef]);
+
+  useEffect(() => {
+    const onPointerUp = (event: PointerEvent) => {
+      const start = daySwipeStartRef.current;
+      if (start && (start.pointerId === event.pointerId || event.isPrimary)) settleDayTouch();
+    };
+    const onPointerCancel = (event: PointerEvent) => {
+      const start = daySwipeStartRef.current;
+      if (start && (start.pointerId === event.pointerId || event.isPrimary)) settleDayTouch();
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      const start = daySwipeStartRef.current;
+      // Swiper Virtual may drop its touch identifier when the source slide
+      // changes underneath the finger. Wait until the final touch lifts.
+      if (start && event.touches.length === 0) settleDayTouch();
+    };
+    const onTouchCancel = (event: TouchEvent) => {
+      const start = daySwipeStartRef.current;
+      if (start && event.touches.length === 0) settleDayTouch();
+    };
+    // Window capture runs before Swiper's own document touch-end listeners,
+    // including when Virtual swaps the active slide during finger tracking.
+    window.addEventListener('pointerup', onPointerUp, true);
+    window.addEventListener('pointercancel', onPointerCancel, true);
+    window.addEventListener('touchend', onTouchEnd, true);
+    window.addEventListener('touchcancel', onTouchCancel, true);
+    return () => {
+      window.removeEventListener('pointerup', onPointerUp, true);
+      window.removeEventListener('pointercancel', onPointerCancel, true);
+      window.removeEventListener('touchend', onTouchEnd, true);
+      window.removeEventListener('touchcancel', onTouchCancel, true);
+    };
+  }, [settleDayTouch]);
+
+  const handleDayTouchEnd = useCallback(() => settleDayTouch(), [settleDayTouch]);
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) => {
@@ -1131,7 +1268,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           <div className="flex justify-end gap-2 px-4 py-2">
             <button type="button" ref={keyboardHelpTriggerRef} onClick={showKeyboardHelp}
               aria-label="Show keyboard shortcuts" aria-expanded={keyboardHelpOpen}
-              className="rounded-lg px-2.5 py-1.5 text-gray-300 hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              className="hidden md:inline-flex rounded-lg px-2.5 py-1.5 text-gray-300 hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             ><CircleHelp size={17} aria-hidden="true" /></button>
             <button type="button" onClick={handleToggleSelectMode}
               aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
@@ -1181,8 +1318,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         key={anchorKey}
         // Preserve all 181 logical dates for direct jumps, but avoid 181 DOM
         // slides (and their synchronous layout) on every sheet open.
-        modules={renderMode === 'sheet' || renderMode === 'panel' ? [Virtual] : undefined}
+        modules={renderMode === 'sheet' || renderMode === 'panel' ? [Virtual, FreeMode] : [FreeMode]}
         virtual={renderMode === 'sheet' || renderMode === 'panel' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
+        freeMode={reducedMotion ? false : DAY_SWIPER_MOMENTUM}
         nested={renderMode !== 'sheet'}
         allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen && !continuousDrag.projection}
         noSwiping={renderMode === 'sheet'}
@@ -1202,7 +1340,13 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         initialSlide={initialIndex}
         speed={reducedMotion ? 0 : DAY_SWIPER_TRANSITION_SPEED_MS}
         onSlideChange={handleSlideChangeFromUi}
-        onSlideChangeTransitionEnd={handleSwipeSettledFromUi}
+        onTouchStart={handleDayTouchStart}
+        onTouchEnd={handleDayTouchEnd}
+        // FreeMode updates the active slide after transitionStart. Swiper may
+        // emit transitionEnd without slideChangeTransitionEnd, so observe the
+        // general completion signal to commit the visible date after inertia.
+        onTransitionEnd={reducedMotion ? undefined : handleSwipeSettledFromUi}
+        onSlideChangeTransitionEnd={reducedMotion ? handleSwipeSettledFromUi : undefined}
         data-testid="day-swiper"
         data-bottom-sheet-native-horizontal-swipe={renderMode === 'sheet' ? 'true' : undefined}
         className={`min-w-0 w-full max-w-full overflow-hidden ${renderMode === 'inline' ? '' : 'flex-1'}`}
@@ -1284,6 +1428,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         </div>
                         <div className="justify-self-end flex items-center gap-1.5">
                           {i === activeIndex && renderMode !== 'panel' && <React.Suspense fallback={null}><DayLayoutMenu /></React.Suspense>}
+                          {i === activeIndex && hasRouter && (
+                            <DayViewSettingsShortcut date={date} onClose={onClose}
+                              disabled={isBackgroundLocked || editingTaskId !== null || isTaskReorderActive || Boolean(continuousDrag.carried)} />
+                          )}
                           <button
                             type="button"
                             ref={i === activeIndex ? keyboardHelpTriggerRef : undefined}
@@ -1291,7 +1439,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                             tabIndex={i === activeIndex ? 0 : -1}
                             aria-label="Show keyboard shortcuts"
                             aria-expanded={i === activeIndex ? keyboardHelpOpen : false}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#444444] bg-surfaceHighlight text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                            className="hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#444444] bg-surfaceHighlight text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                           ><CircleHelp size={16} aria-hidden="true" /></button>
                           <button
                             type="button"
@@ -1307,19 +1455,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           >
                             <ListOrdered size={16} aria-hidden="true" />
                           </button>
-                          {dayViewMode === 'timeline' && (
-                            <button
-                              type="button"
-                              tabIndex={i === activeIndex ? 0 : -1}
-                              aria-label={timelineDirection === 'desc' ? 'Timeline newest first; switch to oldest' : 'Timeline oldest first; switch to newest'}
-                              title={timelineDirection === 'desc' ? 'Newest first' : 'Oldest first'}
-                              onClick={() => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, timelineDirection === 'desc' ? 'asc' : 'desc')}
-                              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full border border-[#444444] bg-surfaceHighlight px-2 text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                            >
-                              {timelineDirection === 'desc' ? <ArrowDownWideNarrow size={16} aria-hidden="true" /> : <ArrowUpNarrowWide size={16} aria-hidden="true" />}
-                              <span className="hidden min-[420px]:inline text-[11px] font-semibold">{timelineDirection === 'desc' ? 'Newest' : 'Oldest'}</span>
-                            </button>
-                          )}
                           <button
                             type="button"
                             onClick={handleToggleSelectMode}
@@ -1367,6 +1502,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           selectedTaskIds={selectedTaskIds}
                           onToggleTaskSelection={handleToggleTaskSelection}
                           direction={timelineDirection}
+                          onDirectionChange={next => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, next)}
                           sortBasis={timelineSortBasis}
                           onSortBasisChange={basis => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, basis)}
                           timestampDisplay={timestampDisplay}

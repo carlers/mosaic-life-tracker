@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { useDatabaseBootstrap } from '../../hooks/useDatabaseBootstrap';
 import { retryDatabaseBootstrap } from '../../lib/databaseBootstrap';
-import { markStartup } from '../../lib/startupMetrics';
+import { markStartup, subscribeStartupMark } from '../../lib/startupMetrics';
 import { PrimaryRoutePreview } from './PrimaryRoutePreview';
 import {
   getLoadedAppDataShell,
@@ -15,6 +15,7 @@ import {
 } from './routeModuleLoaders';
 import {
   preloadPrimaryRoute,
+  preloadSettingsSubpages,
 } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
 import { matchProtectedRoute, protectedRouteSwipeMode, protectedRouteHidesBottomNav } from '../../lib/protectedRoutes';
@@ -262,22 +263,58 @@ export const AppLayout: React.FC = () => {
       preloadPrimaryRoute('/messages');
     }
 
+    const nextRoutes = destinations.filter((destination) => destination !== '/messages');
+    if (nextRoutes.length === 0) return;
+
+    let frame: number | null = null;
+    let timer: number | null = null;
+    let disposed = false;
     const preload = () => {
-      for (const destination of destinations) {
-        if (destination !== '/messages') {
-          preloadPrimaryRoute(destination);
-        }
-      }
+      if (disposed) return;
+      if (path === '/home') markStartup('home:neighbor-preload-start');
+      void Promise.all(nextRoutes.map((destination) => preloadPrimaryRoute(destination)))
+        .then((ready) => {
+          if (!disposed && path === '/home' && ready.every(Boolean)) {
+            markStartup('home:neighbor-module-ready');
+          }
+        });
+    };
+    const scheduleAfterPaint = () => {
+      if (disposed || frame !== null || timer !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        timer = window.setTimeout(() => {
+          timer = null;
+          preload();
+        }, 0);
+      });
     };
 
+    // Cold Home must win CPU and local-data startup before neighbor scripts.
+    // Other routes schedule next-frame imports instead of waiting for an
+    // arbitrary 500ms idle deadline, so immediate first swipes are prepared.
+    const unsubscribe = path === '/home'
+      ? subscribeStartupMark('home:local-data-ready', scheduleAfterPaint)
+      : (scheduleAfterPaint(), () => {});
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, path, user?.$id]);
+
+  useEffect(() => {
+    if (!user?.$id || path !== '/settings') return;
+    const preload = () => preloadSettingsSubpages();
     if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(preload, { timeout: 500 });
+      const idleId = window.requestIdleCallback(preload, { timeout: 400 });
       return () => window.cancelIdleCallback(idleId);
     }
-
-    const timer = window.setTimeout(preload, 180);
+    const timer = window.setTimeout(preload, 120);
     return () => window.clearTimeout(timer);
-  }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, user?.$id]);
+  }, [path, user?.$id]);
 
   if (!user && isOffline) {
     const headline =

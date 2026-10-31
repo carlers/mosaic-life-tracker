@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CalendarPlus2, CheckCircle2, ListFilter, Plus } from 'lucide-react';
+import { ListFilter, Plus, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import type { DaySlideProps } from './DaySlideContent';
@@ -7,6 +7,7 @@ import { TaskItem } from './TaskItem';
 import { TaskTimestampMeta } from './TaskTimestampMeta';
 import {
   sortTasksByTimeline,
+  resolveTimelineSortBasis,
   type TaskTimestampDisplay,
   type TimelineDirection,
   type TimelineSortBasis,
@@ -23,6 +24,7 @@ type Props = Pick<DaySlideProps,
   direction: TimelineDirection;
   sortBasis: TimelineSortBasis;
   onSortBasisChange: (basis: TimelineSortBasis) => void;
+  onDirectionChange: (direction: TimelineDirection) => void;
   timestampDisplay: TaskTimestampDisplay;
   showOtherContentNotice?: boolean;
 };
@@ -52,6 +54,7 @@ export const TaskTimelineList: React.FC<Props> = ({
   direction,
   sortBasis,
   onSortBasisChange,
+  onDirectionChange,
   timestampDisplay,
   showOtherContentNotice = false,
   emptyCategoryPrompt,
@@ -120,24 +123,29 @@ export const TaskTimelineList: React.FC<Props> = ({
           ]}
         />
       </div>
-      <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline sort basis">
+      <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline sorting">
         <span className="text-xs text-gray-400">Sort by</span>
-        <div className="inline-flex items-center rounded-full border border-[#444444] bg-surfaceHighlight p-0.5">
-          <button type="button"
-            aria-pressed={sortBasis === 'completion'}
-            onClick={() => onSortBasisChange('completion')}
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${sortBasis === 'completion' ? 'bg-surface text-white shadow-sm' : 'text-gray-400'}`}
-          >
-            <CheckCircle2 size={13} aria-hidden="true" /> Completion first
-          </button>
-          <button type="button"
-            aria-pressed={sortBasis === 'creation'}
-            onClick={() => onSortBasisChange('creation')}
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${sortBasis === 'creation' ? 'bg-surface text-white shadow-sm' : 'text-gray-400'}`}
-          >
-            <CalendarPlus2 size={13} aria-hidden="true" /> Creation first
-          </button>
-        </div>
+        <MosaicSelect
+          label="Arrange timeline tasks"
+          value={sortBasis}
+          onChange={value => onSortBasisChange(resolveTimelineSortBasis(value))}
+          variant="compact"
+          options={[
+            { value: 'completion', label: 'Completed first' },
+            { value: 'completion-last', label: 'Completed last' },
+            { value: 'creation', label: 'Creation date' },
+          ]}
+        />
+        <button
+          type="button"
+          aria-label={direction === 'desc' ? 'Timeline newest first; switch to oldest' : 'Timeline oldest first; switch to newest'}
+          title={direction === 'desc' ? 'Newest first' : 'Oldest first'}
+          onClick={() => onDirectionChange(direction === 'desc' ? 'asc' : 'desc')}
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full border border-[#444444] bg-surfaceHighlight px-2 text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        >
+          {direction === 'desc' ? <ArrowDownWideNarrow size={16} aria-hidden="true" /> : <ArrowUpNarrowWide size={16} aria-hidden="true" />}
+          <span className="text-[11px] font-semibold">{direction === 'desc' ? 'Newest' : 'Oldest'}</span>
+        </button>
       </div>
       {filtered.length === 0 &&
         <p className="py-8 text-center text-sm text-gray-400">No tasks match the timeline filters.</p>}

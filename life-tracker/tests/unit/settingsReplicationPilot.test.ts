@@ -314,6 +314,49 @@ describe('settings RxDB replication pilot', () => {
     expect(updateProfileAvatarMock).not.toHaveBeenCalled();
   });
 
+  it('acknowledges only oversized legacy physical deletions, allowing later settings to sync', async () => {
+    getRowMock.mockRejectedValueOnce(Object.assign(new Error('not found'), { code: 404 }));
+
+    const oversized = localSetting({
+      id: 'legacy_' + 'x'.repeat(40),
+      _deleted: true,
+    });
+    const pending = localSetting({
+      id: 'valid_setting',
+      value: 'light',
+    });
+
+    await expect(
+      __settingsReplicationPilotTestUtils.pushSettings(
+        [{ newDocumentState: oversized }, { newDocumentState: pending }],
+        'user_A'
+      )
+    ).resolves.toEqual([]);
+
+    // The impossible cloud row cannot generate a remote read or write.
+    expect(getRowMock).toHaveBeenCalledTimes(1);
+    expect(getRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({ rowId: 'valid_setting' })
+    );
+    expect(createRowMock).toHaveBeenCalledTimes(1);
+    expect(createRowMock).toHaveBeenCalledWith(
+      expect.objectContaining({ rowId: 'valid_setting' })
+    );
+  });
+
+  it('still rejects physical deletion of a remote-capable settings row', async () => {
+    await expect(
+      __settingsReplicationPilotTestUtils.pushSettings(
+        [{ newDocumentState: localSetting({ _deleted: true }) }],
+        'user_A'
+      )
+    ).rejects.toThrow('use isDeleted tombstones');
+
+    expect(getRowMock).not.toHaveBeenCalled();
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
   it('creates a missing remote row with createRow', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })

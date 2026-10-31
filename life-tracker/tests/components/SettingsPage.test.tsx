@@ -104,8 +104,8 @@ describe('SettingsPage navigation, updates, and data controls', () => {
   it('cancels feedback timeout when leaving Settings', () => {
     vi.useFakeTimers();
     try {
-      const { unmount } = render(<MemoryRouter><SettingsPage /></MemoryRouter>);
-      fireEvent.click(screen.getByRole('button', { name: /App Permissions/i }));
+      const { unmount } = render(<MemoryRouter initialEntries={['/settings/about']}><SettingsPage /></MemoryRouter>);
+      fireEvent.click(screen.getByRole('button', { name: /Announcements/i }));
       expect(screen.getByRole('status')).toHaveTextContent('Coming soon');
       expect(vi.getTimerCount()).toBeGreaterThan(0);
       unmount();
@@ -116,46 +116,68 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     }
   });
 
-  it('separates working settings from future destinations and keeps data actions discoverable', () => {
-    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
-
-    const available = screen.getByRole('region', { name: 'Account & preferences' });
-    expect(within(available).getByRole('button', { name: /Profile/i })).toBeEnabled();
-    expect(within(available).getByRole('button', { name: /Account/i })).toBeEnabled();
-    expect(within(available).getByRole('button', { name: /Preferences/i })).toBeEnabled();
-    expect(within(available).getByRole('button', { name: /Notifications/i })).toBeEnabled();
-
-    const upcoming = screen.getByRole('region', { name: 'Coming soon' });
-    for (const label of ['Privacy', 'App Permissions', 'Announcements',
-      'My stickers', 'Information', 'FAQs']) {
-      expect(within(upcoming).getByRole('button', {
-        name: new RegExp(label + ' Coming soon', 'i'),
-      })).toBeInTheDocument();
-    }
-    fireEvent.click(within(upcoming).getByRole('button', { name: /App Permissions/i }));
-    expect(screen.getByRole('status')).toHaveTextContent('Coming soon');
-
-    const data = screen.getByRole('region', { name: 'Data & sync' });
-    expect(within(data).getByRole('button', { name: 'Sync Status' })).toBeEnabled();
-    expect(within(data).getByRole('button', { name: 'Backup & Restore' })).toBeEnabled();
-    expect(within(data).getByLabelText('Backup activity')).toHaveTextContent('Last backup: Never');
-    expect(within(data).getByRole('button', { name: 'Import from TodoMate' })).toBeEnabled();
-
-    const about = screen.getByRole('region', { name: 'About & updates' });
-    expect(within(about).getByText('Version')).toBeInTheDocument();
-    expect(within(about).getByRole('button', { name: 'Release history' })).toBeEnabled();
-    expect(within(about).getByRole('button', { name: /Check for Updates/i })).toBeEnabled();
-    const safety = screen.getByRole('region', { name: 'Data deletion' });
-    expect(within(safety).getByRole('button', { name: 'Delete Account' })).toBeEnabled();
-    expect(within(safety).getByRole('button', { name: 'Clear Local Data' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Sign Out' })).toBeEnabled();
+  it('shows destination content in a swipe preview without using the current pathname', () => {
+    const current = render(
+      <MemoryRouter initialEntries={['/settings/account']}>
+        <SettingsPage previewPathname="/settings" />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('searchbox', { name: 'Search settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete Account' })).toBeNull();
+    current.unmount();
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <SettingsPage previewPathname="/settings/account" />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('button', { name: 'Delete Account' })).toBeEnabled();
+    expect(screen.queryByRole('searchbox', { name: 'Search settings' })).toBeNull();
   });
 
-  it('navigates to release history from Settings', () => {
+  it('exposes the five destinations and preserves all working actions within them', () => {
     render(
       <MemoryRouter initialEntries={['/settings']}>
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/account" element={<SettingsPage />} />
+          <Route path="/settings/data" element={<SettingsPage />} />
+          <Route path="/settings/about" element={<SettingsPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('searchbox', { name: 'Search settings' })).toBeInTheDocument();
+    for (const name of ['Account', 'Preferences', 'Notifications', 'Data & Sync', 'About Mosaic']) {
+      expect(screen.getByRole('button', { name: new RegExp('^' + name) })).toBeEnabled();
+    }
+    expect(screen.queryByRole('button', { name: /App Permissions/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Account' }));
+    expect(screen.getByRole('button', { name: 'Profile' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Account email/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Change password' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Delete Account' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Sign Out' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Data & Sync' }));
+    expect(screen.getByRole('button', { name: 'Sync Status' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Backup & Restore' })).toBeEnabled();
+    expect(screen.getByLabelText('Backup activity')).toHaveTextContent('Last backup: Never');
+    expect(screen.getByRole('button', { name: 'Import from TodoMate' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Storage' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Clear Local Data' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'About Mosaic' }));
+    expect(screen.getByText('Version')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Release history' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Check for Updates/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Announcements Coming soon/i })).toBeEnabled();
+    expect(screen.getByRole('link', { name: 'GitHub repository' })).toHaveAttribute('href', 'https://github.com/carlers/mosaic-life-tracker');
+  });
+
+  it('navigates to release history from Settings', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings/about']}>
+        <Routes>
+          <Route path="/settings/about" element={<SettingsPage />} />
           <Route path="/settings/releases" element={<p>Release history destination</p>} />
         </Routes>
       </MemoryRouter>
@@ -166,7 +188,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
 
   it('shows the app version and a dedicated update control', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/settings/about']}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -191,16 +213,10 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(
       screen.getByRole('button', { name: /Check for Updates/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Backup & Restore' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Import from TodoMate' })
-    ).toBeInTheDocument();
   });
 
   it('expands and collapses the full deployment commit message within Version details', () => {
-    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/settings/about']}><SettingsPage /></MemoryRouter>);
     const versionDetails = screen.getByTestId('app-version-details');
     fireEvent.click(screen.getByText('Version').closest('summary')!);
     expect(versionDetails).toHaveAttribute('open');
@@ -218,7 +234,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
 
   it('opens the TodoMate transfer surface from Settings', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/settings/data']}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -230,7 +246,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
 
   it('shows and updates the last backup and restore activity', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/settings/data']}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -260,7 +276,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
       return 'update-available';
     });
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/settings/about']}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -288,7 +304,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
       return 'update-in-progress';
     });
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/settings/about']}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -303,7 +319,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
   it('turns the update row into the install action when a worker is ready', async () => {
     updateMocks.updateAvailable = true;
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/settings/about']}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -318,7 +334,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
   // distinct from the local-only clear action.
   it('requires DELETE before requesting permanent account deletion', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/settings/account']}>
         <SettingsPage />
       </MemoryRouter>
     );
@@ -353,7 +369,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
   // Regression: §24.13 (app-update checks are independent from data sync).
   it('offers a dedicated update check and reports an up-to-date result', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/settings/about']}>
         <SettingsPage />
       </MemoryRouter>
     );

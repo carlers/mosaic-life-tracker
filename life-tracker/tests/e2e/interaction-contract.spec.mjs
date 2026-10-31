@@ -474,6 +474,41 @@ test('sticky Calendar weekdays stay pinned and aligned at 3-day zoom', async ({ 
   }).toBeLessThanOrEqual(3);
 });
 
+// Regression #1388: the real month grid must keep its last task reachable
+// when a single date makes the grid substantially taller than its viewport.
+// Check both the default week fit and the zoomed sticky-header layout.
+for (const zoom of ['7-day', '3-day sticky']) {
+  test(`Calendar ${zoom} scroll reaches the final preview of a task-heavy month`, async ({ page }) => {
+    const mode = zoom === '3-day sticky' ? '&stickyCalendar=3' : '';
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy&perfTaskCount=100&calendarScrollProbe=1${mode}`);
+    const slide = page.getByTestId('calendar-region').locator('[data-calendar-slide-index="30"]');
+    const lastTask = slide.locator('[title="Task 5.20"]');
+    await expect(lastTask).toHaveCount(1);
+
+    await expect.poll(() => slide.evaluate(node => node.scrollHeight - node.clientHeight))
+      .toBeGreaterThan(100);
+    await slide.evaluate(node => { node.scrollTop = node.scrollHeight; });
+    const reachability = await slide.evaluate(node => {
+      const task = node.querySelector('[title="Task 5.20"]');
+      if (!task) throw new Error('Missing final task preview');
+      const viewport = node.getBoundingClientRect();
+      const taskBounds = task.getBoundingClientRect();
+      return {
+        remaining: node.scrollHeight - node.clientHeight - node.scrollTop,
+        scrolled: node.scrollTop,
+        taskTop: taskBounds.top,
+        taskBottom: taskBounds.bottom,
+        viewportTop: viewport.top,
+        viewportBottom: viewport.bottom,
+      };
+    });
+    expect(reachability.scrolled).toBeGreaterThan(100);
+    expect(reachability.remaining).toBeLessThanOrEqual(1);
+    expect(reachability.taskTop).toBeGreaterThanOrEqual(reachability.viewportTop - 1);
+    expect(reachability.taskBottom).toBeLessThanOrEqual(reachability.viewportBottom + 1);
+  });
+}
+
 test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const friendIndex = page.getByTestId('friend-index');
@@ -1587,6 +1622,49 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
     activeSlide.locator('[data-day-view-navigation="true"]')
   ).toHaveCount(1);
   await expect(activeSlide.locator('[data-task-category-id]')).toHaveCount(5);
+});
+
+// Regression: one physical gesture must not fling two dates, regardless of speed,
+// and every release must finish on the actual slide rather than between days.
+test('Day View single-gesture fling and partial release snap to exactly one day', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toHaveAttribute('aria-label', 'Tuesday, September 15, 2026');
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const assertAligned = async () => {
+    await expect.poll(() => swiper.evaluate((element) => {
+      const active = element.querySelector('.swiper-slide-active');
+      if (!active) return Infinity;
+      return Math.abs(active.getBoundingClientRect().left - element.getBoundingClientRect().left);
+    })).toBeLessThan(8);
+  };
+
+  // A fast swipe kept inside the viewport moves at most one calendar day.
+  await drag(page, swiper, -260);
+  await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
+  await assertAligned();
+
+  // A halfway reverse release may settle to either neighbor according to
+  // velocity, but must finish fully aligned and commit that exact visible date.
+  await drag(page, swiper, 200);
+  await assertAligned();
+  const partialIndex = await swiper.evaluate((element) => element.swiper.activeIndex);
+  expect([90, 91]).toContain(partialIndex);
+  await expect.poll(async () => {
+    const heading = (await swiper.locator('.swiper-slide-active [data-day-view-navigation="true"] h3').textContent())?.trim();
+    return await dialog.getAttribute('aria-label') === heading;
+  }).toBe(true);
+
+  // Every new fast gesture advances exactly one date from its own start.
+  await drag(page, swiper, -260);
+  await expect.poll(() => swiper.evaluate((element) => element.swiper.activeIndex)).toBe(partialIndex + 1);
+  await assertAligned();
+  await expect.poll(async () => {
+    const heading = (await swiper.locator('.swiper-slide-active [data-day-view-navigation="true"] h3').textContent())?.trim();
+    return await dialog.getAttribute('aria-label') === heading;
+  }).toBe(true);
 });
 
 test('inactive adjacent Day View keeps category spacing when it becomes active', async ({ page }) => {
