@@ -31,7 +31,7 @@ const LazyBulkCategoryPickerSheet = lazy(() => import('./BulkCategoryPickerSheet
 const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(m => ({ default: m.BulkVisibilitySheet })));
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
-import { TaskActionSheet } from './TaskActionSheet';
+const LazyTaskActionSheet = lazy(() => import('./TaskActionSheet').then(m => ({ default: m.TaskActionSheet })));
 const { Component: LazyLinkTaskToBucketSheet, preload: preloadLinkTaskToBucketSheet } =
   createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
 const { Component: LazyShareTaskSheet, preload: preloadShareTaskSheet } =
@@ -42,8 +42,8 @@ import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { editSharedTask } from '../../../lib/taskShareQueue';
 import { parseSharedPlacement, placementKey, planSharedTaskMove } from '../../../lib/sharedTaskPlacement';
-import { MemoSheet } from './MemoSheet';
-import { ImagePickerSheet } from './ImagePickerSheet';
+const LazyMemoSheet = lazy(() => import('./MemoSheet').then(m => ({ default: m.MemoSheet })));
+const LazyImagePickerSheet = lazy(() => import('./ImagePickerSheet').then(m => ({ default: m.ImagePickerSheet })));
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
@@ -1659,7 +1659,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         <LazyBulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
         </Suspense>
       </AnimatePresence>
-      <TaskActionSheet
+      <Suspense fallback={null}>
+      <LazyTaskActionSheet
         isOpen={isActionSheetOpen && !!activeTask}
         onClose={handleCloseActions}
         task={activeTask}
@@ -1694,7 +1695,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       {isBucketLinkOpen && (
         <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
       )}
-      <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
+      </Suspense>
+      <Suspense fallback={null}>
+      <LazyMemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
         onClose={handleCloseVisibility} task={activeTask} category={activeTaskCategory}
@@ -1746,7 +1749,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           </Suspense>
         ) : isViewingImageLoading ? <ImageViewerLoadingFallback /> : imageViewerUnavailable
       )}
-      <ImagePickerSheet
+      </Suspense>
+      <Suspense fallback={null}>
+      <LazyImagePickerSheet
         isOpen={!!imagePickerTaskId}
         onClose={handleCloseImagePicker}
         variant="task"
@@ -1755,6 +1760,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onSave={handleImagePickerSave}
         onRemove={handleImagePickerRemove}
       />
+      </Suspense>
       {deleteFeedback && (
         <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {deleteFeedback}
