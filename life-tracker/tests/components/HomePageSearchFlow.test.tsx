@@ -65,6 +65,12 @@ vi.mock('../../src/hooks/useFriendCarousel', () => ({
   }),
 }));
 
+// Home reads the signed-in owner when confirming commands. Keep this
+// test harness scoped to its existing owner without a live AuthProvider.
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { $id: 'user_A' } }),
+}));
+
 vi.mock('../../src/hooks/useTasks', () => ({
   useTasks: () => ({ tasks: [ownerTask], isLoading: false }),
 }));
