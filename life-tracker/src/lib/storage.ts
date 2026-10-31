@@ -1,5 +1,6 @@
 import { Permission, Role } from 'appwrite';
 import { isUnauthorizedError, OfflineError } from './authEvents';
+import { isFeatureEnabled } from './featureControls';
 import { guardedStorage, guardedAccount } from './sdk';
 import { getCachedImage, cacheImage, deleteCachedImage } from './imageCache';
 import { getConnectivitySnapshot } from './connectivity';
@@ -127,6 +128,7 @@ async function uploadImageWithId(
 /** Task attachments are visible through the authorized friend calendar. */
 /** Diary photos retain owner-only storage ACL, unlike friend-readable task photos. */
 export async function saveDiaryImage(file: File, userId: string): Promise<string> {
+  if (!isFeatureEnabled('diaryPhotoUpload')) throw new Error('Diary photo uploads are currently unavailable.');
   if (!userId) throw new Error('Sign in before adding a diary photo.');
   if (getConnectivitySnapshot().status !== 'online') throw new Error('Connect to upload diary photos.');
   const blob = await compressImage(file);
@@ -158,6 +160,12 @@ export async function saveImage(
     if (!transient) throw error;
     return createPendingImage(userId, compressedBlob);
   }
+}
+
+/** New task uploads can be disabled without blocking existing pending replay. */
+export async function saveTaskImage(file: File, userId: string): Promise<string> {
+  if (!isFeatureEnabled('taskPhotoUpload')) throw new Error('Task photo uploads are currently unavailable.');
+  return saveImage(file, userId);
 }
 
 export async function uploadPendingImage(

@@ -19,6 +19,8 @@ import { EmojiPickerSheet } from '../components/messages/EmojiPickerSheet';
 import { ScrollToBottomButton } from '../components/messages/ScrollToBottomButton';
 import { ChatSearchBar } from '../components/messages/ChatSearchBar';
 import { useMessages } from '../hooks/useMessages';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 import { clearDeniedOutgoing, isDeniedOutgoing, subscribeDeniedOutgoing } from '../lib/messageSendDenials';
 import { retryDeniedOutgoing } from '../lib/messageDelivery';
 import { useFriends } from '../hooks/useFriends';
@@ -63,6 +65,7 @@ const ChatMessagesLoadingShell: React.FC = () => (
 );
 
 export const ChatPage: React.FC = () => {
+  const chatSearchEnabled = useFeatureEnabled('chatSearch');
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -149,6 +152,10 @@ export const ChatPage: React.FC = () => {
     setSearchQuery,
   } = useChatSearch();
 
+  useEffect(() => {
+    if (!chatSearchEnabled && isSearching) closeSearch();
+  }, [chatSearchEnabled, isSearching, closeSearch]);
+
   const {
     scrollRef,
     contentRef,
@@ -165,9 +172,10 @@ export const ChatPage: React.FC = () => {
   });
 
   const openSearch = useCallback(() => {
+    if (!chatSearchEnabled) return;
     captureSearchPosition();
     startSearch();
-  }, [captureSearchPosition, startSearch]);
+  }, [chatSearchEnabled, captureSearchPosition, startSearch]);
 
   const { reactToMessage } = useChatReactions({
     toggleReaction,
@@ -334,6 +342,7 @@ export const ChatPage: React.FC = () => {
   };
 
   const handlePickGiphySticker = async (sticker: GiphySticker) => {
+    if (!isFeatureEnabled('giphySearch')) return;
     setStickerPacksOpen(false);
     try {
       await handleSend(giphyStickerMessage(sticker));
@@ -417,13 +426,13 @@ export const ChatPage: React.FC = () => {
             className="p-2 text-sm text-gray-400 disabled:opacity-50">
             {syncingChat === chatKey ? 'Syncing' : 'Sync'}
           </button>
-          <button
+          {chatSearchEnabled && <button
             onClick={openSearch}
             className="p-2 text-gray-400"
             aria-label="Search"
           >
             <Search size={20} />
-          </button>
+          </button>}
         </div>
       </div>
       {isSearching && (
