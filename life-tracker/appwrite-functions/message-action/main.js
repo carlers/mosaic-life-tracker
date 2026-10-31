@@ -1415,6 +1415,77 @@ async function handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload) {
   const buffer = await storage.getFileDownload({ bucketId: DIARY_PHOTOS_BUCKET, fileId });
   return { status: 200, body: { mimeType: 'image/webp', data: Buffer.from(buffer).toString('base64') } };
 }
+// Only the diary owner can revoke references. The epoch invalidates old
+// messages *before* their stored excerpts are scrubbed, including delayed
+// sends and temporarily disconnected readers using the updated client.
+async function handleRevokeDiaryReferences(tablesDB, callerId, payload) {
+  const diaryId = payload?.diaryId;
+  const revision = payload?.revision;
+  const cursor = payload?.cursor || '';
+  if (!isValidRowId(diaryId) || (cursor && !isValidRowId(cursor)) ||
+      typeof revision !== 'string' || revision.length > 50 ||
+      !Number.isFinite(Date.parse(revision)))
+    return { status: 400, body: { error: 'Invalid diary revocation' } };
+  let diary;
+  try {
+    diary = await tablesDB.getRow({
+      databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId,
+    });
+  } catch (cause) {
+    if (Number(cause?.code) === 404)
+      return { status: 404, body: { error: 'Diary unavailable' } };
+    throw cause;
+  }
+  if (diary.user_id !== callerId)
+    return { status: 403, body: { error: 'Not your diary' } };
+  let epoch = diary.quote_epoch || 0;
+  if (diary.quote_revoke_revision !== revision) {
+    const olderOrEqual = Number.isFinite(Date.parse(diary.updated_at || '')) &&
+      Date.parse(revision) <= Date.parse(diary.updated_at);
+    if (olderOrEqual || (diary.quote_revoke_revision &&
+        revision <= diary.quote_revoke_revision)) {
+      return { status: 409, body: { error: 'Stale diary revision' } };
+    }
+    if (!Number.isSafeInteger(epoch) || epoch < 0 || epoch >= 2147483647)
+      return { status: 409, body: { error: 'Invalid diary epoch' } };
+    epoch += 1;
+    await tablesDB.updateRow({
+      databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId,
+      data: { quote_epoch: epoch, quote_revoke_revision: revision },
+    });
+  }
+  const queries = [
+    Query.equal('diary_ref_id', diaryId),
+    Query.orderAsc('$id'), Query.limit(50),
+  ];
+  if (cursor) queries.push(Query.cursorAfter(cursor));
+  const result = await tablesDB.listRows({
+    databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, queries,
+  });
+  const rows = result.rows || [];
+  if (rows.length > 50) throw Error('Invalid diary quote scan page');
+  let scrubbed = 0;
+  for (const row of rows) {
+    if (row.diary_ref_owner_id !== callerId ||
+        (row.diary_ref_epoch || 0) >= epoch ||
+        (!row.diary_ref_excerpt && !row.diary_ref_date)) continue;
+    await tablesDB.updateRow({
+      databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: row.$id,
+      data: { diary_ref_excerpt: '', diary_ref_date: '',
+        updated_at: new Date().toISOString() },
+    });
+    scrubbed += 1;
+  }
+  const last = rows.at(-1);
+  return {
+    status: 200,
+    body: {
+      ok: true, epoch, scrubbed,
+      nextCursor: rows.length === 50 && last?.$id ? last.$id : '',
+    },
+  };
+}
+
 // Resolve quote contents from current authorization, never from snapshots.
 async function handleGetDiaryReferencePreviews(tablesDB, callerId, payload) {
   const ids = payload?.messageIds;
@@ -1836,6 +1907,9 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'get_friend_diary_photo':
         result = await handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload);
+        break;
+      case 'revoke_diary_references':
+        result = await handleRevokeDiaryReferences(tablesDB, callerId, payload);
         break;
       case 'get_diary_reference_previews':
         result = await handleGetDiaryReferencePreviews(tablesDB, callerId, payload);
