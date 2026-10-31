@@ -134,4 +134,51 @@ describe('HomeTaskSearch', () => {
     ).toBeNull();
     expect(screen.getByRole('img', { name: 'Completed' })).toBeInTheDocument();
   });
+  it('reveals 50 more results per click, retains selection, and resets on filter changes', async () => {
+    const many = Array.from({ length: 125 }, (_, index) =>
+      task(
+        `match-${index}`,
+        `Result task ${String(index).padStart(3, '0')}`,
+        '2026-09-24',
+        'work'
+      )
+    );
+    const onSelectTask = vi.fn();
+    renderSearch({ tasks: many, onSelectTask });
+    const search = await screen.findByRole('searchbox', { name: 'Search my tasks' });
+    fireEvent.change(search, { target: { value: 'Result task' } });
+
+    expect(await screen.findByText('Showing 50 of 125 matches')).toBeInTheDocument();
+    const visibleResults = () => screen.getAllByRole('button', { name: /Open task Result task/i });
+    expect(visibleResults()).toHaveLength(50);
+    fireEvent.click(screen.getByRole('button', { name: 'Load more tasks' }));
+    expect(screen.getByText('Showing 100 of 125 matches')).toBeInTheDocument();
+    expect(visibleResults()).toHaveLength(100);
+    expect(new Set(visibleResults().map(row => row.getAttribute('aria-label'))).size).toBe(100);
+
+    fireEvent.click(visibleResults()[99]);
+    expect(onSelectTask).toHaveBeenCalledWith(expect.objectContaining({ id: 'match-99' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load more tasks' }));
+    expect(visibleResults()).toHaveLength(125);
+    expect(screen.queryByRole('button', { name: 'Load more tasks' })).toBeNull();
+    expect(screen.getByText('125 matches')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }));
+    expect(screen.getByText('Showing 50 of 125 matches')).toBeInTheDocument();
+    expect(visibleResults()).toHaveLength(50);
+    fireEvent.click(screen.getByRole('button', { name: 'Load more tasks' }));
+    expect(visibleResults()).toHaveLength(100);
+
+    fireEvent.change(search, { target: { value: 'Result task 1' } });
+    expect(await screen.findByText('25 matches')).toBeInTheDocument();
+    expect(visibleResults()).toHaveLength(25);
+    expect(screen.queryByRole('button', { name: 'Load more tasks' })).toBeNull();
+
+    fireEvent.change(search, { target: { value: 'Result task' } });
+    expect(await screen.findByText('Showing 50 of 125 matches')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(await screen.findByText('Search by task title or choose a filter.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more tasks' })).toBeNull();
+  });
 });

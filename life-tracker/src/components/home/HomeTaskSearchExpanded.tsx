@@ -1,6 +1,8 @@
 import React, {
   useDeferredValue,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -34,7 +36,7 @@ export interface HomeTaskSearchProps {
   statusControls?: ReactNode;
 }
 
-const RESULT_LIMIT = 50;
+const RESULT_PAGE_SIZE = 50;
 
 const DATE_FILTERS: Array<{
   value: TaskSearchDateFilter;
@@ -73,6 +75,9 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
     useState<TaskSearchDateFilter>('any');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+  const [pagination, setPagination] = useState({ key: '', limit: RESULT_PAGE_SIZE });
+  const resultsScrollRef = useRef<HTMLDivElement>(null);
+  const restoreScrollTopRef = useRef<number | null>(null);
   const deferredQuery = useDeferredValue(query);
 
   const categoryIds = useMemo(
@@ -84,6 +89,25 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
     [categories]
   );
 
+  // Reset the visible window synchronously whenever the active criteria change.
+  // This avoids showing a previously expanded list for a new query/filter.
+  const criteriaKey = JSON.stringify([query, categoryIds, dateFilter, customStart, customEnd]);
+  // Advance the criteria generation even when returning to a previous query.
+  // Otherwise a previously expanded page could be resurrected on revisit.
+  if (pagination.key !== criteriaKey) {
+    setPagination({ key: criteriaKey, limit: RESULT_PAGE_SIZE });
+  }
+  const visibleLimit = pagination.key === criteriaKey
+    ? pagination.limit
+    : RESULT_PAGE_SIZE;
+
+  useLayoutEffect(() => {
+    const scrollTop = restoreScrollTopRef.current;
+    if (scrollTop === null) return;
+    if (resultsScrollRef.current) resultsScrollRef.current.scrollTop = scrollTop;
+    restoreScrollTopRef.current = null;
+  }, [visibleLimit]);
+
   const searchOptions = useMemo(
     () => ({
       query: deferredQuery,
@@ -92,7 +116,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
       customStart,
       customEnd,
       now,
-      limit: RESULT_LIMIT,
+      limit: visibleLimit,
     }),
     [
       deferredQuery,
@@ -101,6 +125,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
       customStart,
       customEnd,
       now,
+      visibleLimit,
     ]
   );
   const hasCriteria = hasTaskSearchCriteria(searchOptions);
@@ -118,6 +143,13 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
     setDateFilter('any');
     setCustomStart('');
     setCustomEnd('');
+    setPagination({ key: '', limit: RESULT_PAGE_SIZE });
+    restoreScrollTopRef.current = null;
+  };
+
+  const loadMore = () => {
+    restoreScrollTopRef.current = resultsScrollRef.current?.scrollTop ?? null;
+    setPagination({ key: criteriaKey, limit: visibleLimit + RESULT_PAGE_SIZE });
   };
 
   const handleClose = () => {
@@ -229,7 +261,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
           data-route-swipe-ignore="true"
           className="home-search-panel-enter absolute left-4 right-4 top-full z-50 pt-2"
         >
-          <div className="max-h-[min(72dvh,42rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[#333333] bg-surface shadow-2xl">
+          <div ref={resultsScrollRef} className="max-h-[min(72dvh,42rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[#333333] bg-surface shadow-2xl">
             <div className="border-b border-[#2A2A2A] px-3 py-3">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="mosaic-general-text text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -430,6 +462,15 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
                       );
                     })}
                   </div>
+                  {searchOutput.results.length < searchOutput.total && (
+                    <button
+                      type="button"
+                      onClick={loadMore}
+                      className="mosaic-general-text mt-2 w-full rounded-xl border border-[#333333] bg-[#1E1E1E] px-3 py-2.5 text-sm font-medium text-gray-300 hover:bg-[#333333] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                    >
+                      Load more tasks
+                    </button>
+                  )}
                 </>
               )}
             </div>

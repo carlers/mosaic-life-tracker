@@ -116,5 +116,13 @@ describe('filterAndRankTasks', () => {
 
     expect(result.total).toBe(75);
     expect(result.results).toHaveLength(50);
+
+    const nextPage = filterAndRankTasks(tasks, {
+      query: 'task', categoryIds: [], dateFilter: 'any', now, limit: 100,
+    });
+    expect(nextPage.total).toBe(75);
+    expect(nextPage.results).toHaveLength(75);
+    expect(nextPage.results.slice(0, 50).map(item => item.id))
+      .toEqual(result.results.map(item => item.id));
   });
 });
