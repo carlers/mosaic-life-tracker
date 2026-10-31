@@ -4,7 +4,7 @@ Updated: 2026-10-31 Asia/Manila
 - Owner authorized implementing Phase 1 after the #1476–#1478 plan review; this **does not** authorize Phases 2/3, promotion to dev/main or Production changes.
 - Baseline `dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459` v0.44.4. Task branch `chatgpt/1476-device-storage-v0480-20261031`; candidate **v0.48.0** (v0.45/0.46/0.47 feature lines already in progress).
 - Scope: lazy Settings → Data & Sync → Storage screen; approximate origin usage/quota and persistence state, measured device-wide downloaded-image cache and owner-only pending-image upload usage; confirmation for clearing **only** downloaded image cache. Keep RxDB, pending uploads, PWA assets, sync and cloud storage unchanged. No backend changes.
-- Exact task SHA, CI results, stable Preview acceptance and browser/device tests remain **unverified** until a committed candidate and checks exist.
+- Task focused Quality Gate #41208210346 succeeded at f8386ff; stable Preview squash PR #1479 produced 4e885e7. First full canonical #41208322572 found one stale route-inventory unit expectation; the build and browser contracts passed. Repair task `chatgpt/1476-preview-repair-v0480-20261031` updates the route test without changing product code. Fresh focused/canonical acceptance and Vercel READY remain pending; physical-device acceptance remains separate.
 - Next: committed source review, focused CI then squash into a new stable feature Preview for canonical/size/Vercel acceptance; physical device/offline/privacy checks remain manual. Do not promote protected branches without fresh approval.
 
 ---
