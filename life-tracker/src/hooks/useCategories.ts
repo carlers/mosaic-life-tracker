@@ -52,6 +52,11 @@ export function useCategories(enabled = true) {
 
   const updateCategory = useCallback(
     async (id: string, updates: Partial<CategoryDocument>) => {
+      // #1186: never tombstone a category from an offline-capable client.
+      // Another device may hold unsynced tasks even when this device sees none.
+      if (updates.isDeleted === true) {
+        throw new Error('Category deletion is temporarily unavailable to protect tasks');
+      }
       const db = getDatabase();
       try {
         const doc = await db.categories.findOne(id).exec();
@@ -81,9 +86,10 @@ export function useCategories(enabled = true) {
 
   const deleteCategory = useCallback(
     async (id: string) => {
-      await updateCategory(id, { isDeleted: true });
+      if (!id) throw new Error('Invalid category');
+      throw new Error('Category deletion is temporarily unavailable to protect tasks');
     },
-    [updateCategory]
+    []
   );
 
   const reorderCategories = useCallback(
