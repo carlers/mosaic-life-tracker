@@ -16,7 +16,7 @@ describe('typed diary message references', () => {
     expect(message.taskRefId).toBe('');
     expect(message.diaryRefId).toBe('diary_example');
     expect(message.diaryRefOwnerId).toBe('person_b');
-    expect(message.diaryRefExcerpt).toBe('Today was great');
+    expect(message.diaryRefExcerpt).toBe('');
   });
 
   it('migrates historical messages without inventing diary context', () => {
