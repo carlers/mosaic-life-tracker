@@ -196,6 +196,8 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
     messageId: doc.id,
     recipientId: doc.recipientId,
     content: doc.content,
+    attachmentType: doc.attachmentType || '',
+    attachmentFileId: doc.attachmentFileId || '',
     taskRefId: doc.taskRefId,
     taskRefTitle: doc.taskRefTitle,
     taskRefDate: doc.taskRefDate,

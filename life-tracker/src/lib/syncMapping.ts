@@ -64,6 +64,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'recipient_id',
     'direction',
     'content',
+    'attachment_type',
+    'attachment_file_id',
     'task_ref_id',
     'task_ref_title',
     'task_ref_date',
@@ -198,6 +200,10 @@ export function toAppwriteFormat(
     mapped.recipient_id = source.recipientId || '';
     mapped.direction = source.direction || 'outgoing';
     mapped.content = source.content || '';
+    if (source.attachmentType === 'image' && source.attachmentFileId) {
+      mapped.attachment_type = 'image';
+      mapped.attachment_file_id = source.attachmentFileId;
+    }
     mapped.task_ref_id = source.taskRefId || '';
     mapped.task_ref_title = source.taskRefTitle || '';
     mapped.task_ref_date = source.taskRefDate || '';
@@ -371,6 +377,8 @@ export function fromAppwriteFormat(
     mapped.recipientId = mapped.recipient_id || '';
     mapped.direction = mapped.direction || 'outgoing';
     mapped.content = mapped.content || '';
+    mapped.attachmentType = mapped.attachment_type === 'image' ? 'image' : '';
+    mapped.attachmentFileId = mapped.attachmentType === 'image' ? mapped.attachment_file_id || '' : '';
     mapped.taskRefId = mapped.task_ref_id || '';
     mapped.taskRefTitle = mapped.task_ref_title || '';
     mapped.taskRefDate = mapped.task_ref_date || '';
@@ -398,6 +406,8 @@ export function fromAppwriteFormat(
     delete mapped.thread_id;
     delete mapped.sender_id;
     delete mapped.recipient_id;
+    delete mapped.attachment_type;
+    delete mapped.attachment_file_id;
     delete mapped.task_ref_id;
     delete mapped.task_ref_title;
     delete mapped.task_ref_date;

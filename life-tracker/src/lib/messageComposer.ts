@@ -33,6 +33,8 @@ export interface OutgoingMessageInput {
   now: string;
   localId: string;
   content: string;
+  attachmentType?: 'image' | '';
+  attachmentFileId?: string;
   taskRefId?: string;
   taskRefTitle?: string;
   taskRefDate?: string;
@@ -55,6 +57,8 @@ export function buildOutgoingMessage(
     recipientId: input.friendId,
     direction: 'outgoing',
     content: input.content,
+    attachmentType: input.attachmentType || '',
+    attachmentFileId: input.attachmentFileId || '',
     taskRefId: input.taskRefId || '',
     taskRefTitle: input.taskRefTitle || '',
     taskRefDate: input.taskRefDate || '',

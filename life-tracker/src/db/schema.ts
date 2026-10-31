@@ -110,6 +110,9 @@ export interface MessageDocument {
   recipientId: string;
   direction: 'outgoing' | 'incoming';
   content: string;
+  /** Optional chat photo reference, never a client-selected URL. */
+  attachmentType?: 'image' | '';
+  attachmentFileId?: string;
   taskRefId: string;
   taskRefTitle: string;
   taskRefDate: string;
@@ -312,7 +315,7 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
   ],
 };
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 4,
+  version: 5,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -347,6 +350,8 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     recipientId: { type: 'string', maxLength: 255 },
     direction: { type: 'string', maxLength: 20, enum: ['outgoing', 'incoming'] },
     content: { type: 'string', maxLength: 4000 },
+    attachmentType: { type: 'string', enum: ['', 'image'], maxLength: 12, default: '' },
+    attachmentFileId: { type: 'string', maxLength: 36, default: '' },
     taskRefId: { type: 'string', maxLength: 255, default: '' },
     taskRefTitle: { type: 'string', maxLength: 500, default: '' },
     taskRefDate: { type: 'string', maxLength: 50, default: '' },
