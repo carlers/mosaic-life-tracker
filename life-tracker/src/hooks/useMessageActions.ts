@@ -1,5 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
+import { withChatPhotoSendLock } from '../lib/chatPhotoLock';
+import { discardChatPhoto } from '../lib/chatPhotoStorage';
 import { useAuth } from './useAuth';
 import { makeThreadId, makeRecipientRowId } from '../lib/threads';
 import {
@@ -232,7 +234,16 @@ export function useMessageActions(
           cascadeQueryErr
         );
       }
-      unsendOnRemote(uid, id, recipientId);
+      if (doc.attachmentType === 'image') {
+        // Wait for this browser's upload/delivery lock to settle, then unsend.
+        // A canceled local pending row is never automatically retried.
+        await withChatPhotoSendLock(uid, id, async () => {
+          await unsendOnRemote(uid, id, recipientId);
+          if (doc.attachmentFileId) await discardChatPhoto(uid, doc.attachmentFileId).catch(() => {});
+        });
+      } else {
+        void unsendOnRemote(uid, id, recipientId);
+      }
     },
     [user?.$id]
   );

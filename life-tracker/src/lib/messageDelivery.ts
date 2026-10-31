@@ -12,6 +12,7 @@ import { getConnectivitySnapshot } from './connectivity';
 import { APPWRITE_MESSAGE_ACTION_FUNCTION_ID } from './appwriteConfig';
 import { sendAppAction } from './appAction';
 import { uploadPendingChatPhoto, removeStagedChatPhoto } from './chatPhotoStorage';
+import { withChatPhotoSendLock } from './chatPhotoLock';
 import {
   captureAccountWorkGeneration,
   isAccountWorkCurrent,
@@ -192,6 +193,7 @@ export async function retryDeniedOutgoing(userId: string, messageId: string): Pr
 }
 
 async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
+  const execute = async (): Promise<void> => {
   if (doc.attachmentType === 'image') {
     await uploadPendingChatPhoto(doc.userId, doc.id, doc.attachmentFileId || '');
     const current = await getDatabase().messages.findOne(doc.id).exec();
@@ -229,6 +231,9 @@ async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
   if (doc.attachmentType === 'image' && doc.attachmentFileId) {
     await removeStagedChatPhoto(doc.userId, doc.attachmentFileId).catch(() => {});
   }
+  };
+  if (doc.attachmentType === 'image') return withChatPhotoSendLock(doc.userId, doc.id, execute);
+  return execute();
 }
 export async function markReadOnRemote(
   userId: string,
