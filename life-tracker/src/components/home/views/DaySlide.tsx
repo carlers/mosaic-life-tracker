@@ -7,7 +7,7 @@ import {
   sortTaskPlacementByCompletion,
 } from '../../../lib/taskOrder';
 import { buildRenderedTasksByCategory } from './taskReorder';
-import { categoriesForDay } from '../../../lib/categoryLifecycle';
+import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 
 interface ReadOnlySlideProps extends DaySlideProps {
   livePlacement: import('../../../lib/taskOrder').TaskPlacement;
@@ -45,12 +45,17 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     [tasks]
   );
   const visibleCategories = React.useMemo(() => {
-    const occupiedShares = (props.sharedItems ?? [])
-      .filter(item => item.status === 'accepted' && item.date === props.dateStr)
-      .map(item => props.sharedCategoryFor?.(item) ?? '')
-      .filter(Boolean);
-    return categoriesForDay(categories, materializedTasks, props.dateStr, occupiedShares)
-      .map(item => item.category);
+    const occupied = new Set(materializedTasks
+      .filter(task => !task.isDeleted && task.date === props.dateStr)
+      .map(task => task.categoryId));
+    for (const item of props.sharedItems ?? []) {
+      if (item.status === 'accepted' && item.date === props.dateStr) {
+        const assigned = props.sharedCategoryFor?.(item);
+        if (assigned) occupied.add(assigned);
+      }
+    }
+    return categories.filter(category => !category.isDeleted &&
+      (canAddNewTaskToCategory(category, props.dateStr) || occupied.has(category.id)));
   }, [categories, materializedTasks, props.dateStr, props.sharedItems, props.sharedCategoryFor]);
   const allCategoriesRendered = visibleCategories.length === categories.length;
   const categoryIds = React.useMemo(
