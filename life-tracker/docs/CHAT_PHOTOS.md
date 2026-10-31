@@ -21,3 +21,15 @@
 ## Verification
 
 Complete focused tests, full canonical Quality Gate and production build, real Scratch schema/Function readiness, trusted active deployment, hosted authenticated Preview and actual manual device tests. The feature flag stays disabled and previous Function deployment preserved until compatibility and privacy are proven. Protected dev/main promotion and Production backend/schema changes require separate approval. Refs #745, #914, #936, #937 and #1460.
+
+## One-command Scratch backend activation
+
+Run only from the exact accepted Preview checkout at its reviewed full SHA, with a Scratch-scoped key held in local environment (never paste secrets into chat). After canonical CI succeeds, the guarded command performs pinned historical-client compatibility, migration 016, Function configuration, inactive source deployment, explicit activation and readiness recheck; a readiness failure rolls the deployment back.
+
+```bash
+cd life-tracker
+export APPWRITE_API_KEY="<your scratch-scoped key>"
+npm run appwrite:photo:scratch-ready -- --project 6a96e82d000d1310b3be --endpoint https://fra.cloud.appwrite.io/v1 --confirm-project 6a96e82d000d1310b3be --git-sha "$(git rev-parse HEAD)"
+```
+
+Never set the Preview feature flag before the command reports `SCRATCH_PHOTO_BACKEND_READY` and hosted A/B/C authorization checks are complete. The Scratch hourly schedule remains disabled.
