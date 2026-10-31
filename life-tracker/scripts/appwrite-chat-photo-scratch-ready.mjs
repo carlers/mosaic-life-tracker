@@ -60,7 +60,7 @@ export async function prepareChatPhotoScratch({
   if (!previous) throw Error('Scratch message-action has no rollback deployment');
 
   // Ordered migration 016 is additive, repeatable and checks existing columns.
-  await migrate({ argv: [...common, '--only', '016-message-chat-photos'], env, log });
+  await migrate({ argv: [...common, '--only', '017-message-chat-photos'], env, log });
   await configureDeployActivate({ argv: ['configure', ...func], env, log });
   const before = await ready({ argv: common, env, log });
   if (before.diffs.length) throw Error('Scratch schema/Function drift; refusing activation');

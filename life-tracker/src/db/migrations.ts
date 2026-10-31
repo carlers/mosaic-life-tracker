@@ -29,12 +29,14 @@ export const messagesMigrationStrategies = {
     originalMessageId: '',
     reactions: '',
   }),
-  // v4 -> v5: older text messages acquire no photo attachment.
-  5: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, attachmentType: '', attachmentFileId: '' }),
   // v3 -> v4: optional, typed diary reference metadata; never rewrite body text.
   4: (oldDoc: Record<string, unknown>) => ({
     ...oldDoc,
     diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',
+  }),
+  // v4 -> v5: keep original message text, but drop previously cached diary excerpts.
+  5: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc, diaryRefEpoch: 0, diaryRefExcerpt: '', attachmentType: '', attachmentFileId: '',
   }),
 };
 export const categoriesMigrationStrategies = {

@@ -14,7 +14,7 @@
 
 1. **Durable cleanup:** server unsend currently deletes a file before clearing both message rows, with no durable crash-recovery cleanup marker. Partially uploaded photos may also be orphaned by failed deliveries; the existing bounded message-action queue can exhaust. Define and test server-owned reconciliation before enabling.
 2. **Historical compatibility:** run `node scripts/check-backend-consumer-compat.mjs --all`, then a genuine old/new installed-PWA rehearsal (#914) including old writer behavior, offline queues, typed photo fields and unsend.
-3. **Scratch readiness:** verify exact Scratch project `6a96e82d000d1310b3be`, real bucket ACL, additive migration `016-message-chat-photos`, exact reviewed current shared `message-action` deployment and its active Function ID, registered Preview origin and Diary sync. Use Git-owned migration and Function deploy scripts; never edit Console schema or silently overwrite unrelated shared-Scratch deployments.
+3. **Scratch readiness:** verify exact Scratch project `6a96e82d000d1310b3be`, real bucket ACL, additive migration `017-message-chat-photos`, exact reviewed current shared `message-action` deployment and its active Function ID, registered Preview origin and Diary sync. Use Git-owned migration and Function deploy scripts; never edit Console schema or silently overwrite unrelated shared-Scratch deployments.
 4. **Adversarial hosted checks:** three disposable accounts A/B/C. A/B accepted friends, C outsider; deny C and anonymous photo reads; ensure B cannot update/delete A's file; confirm identical sender/recipient metadata and media bytes; ensure unreadable/absent files never count delivered.
 5. **Device tests:** installed Android PWA and desktop, offline/restart/slow upload/cancel/account switch, concurrent tabs and devices, reactions/unsend/repair, scroll/layout/pinch-to-zoom and media memory.
 
@@ -24,7 +24,7 @@ Complete focused tests, full canonical Quality Gate and production build, real S
 
 ## One-command Scratch backend activation
 
-Run only from the exact accepted Preview checkout at its reviewed full SHA, with a Scratch-scoped key held in local environment (never paste secrets into chat). After canonical CI succeeds, the guarded command performs pinned historical-client compatibility, migration 016, Function configuration, inactive source deployment, explicit activation and readiness recheck; a readiness failure rolls the deployment back.
+Run only from the exact accepted Preview checkout at its reviewed full SHA, with a Scratch-scoped key held in local environment (never paste secrets into chat). After canonical CI succeeds, the guarded command performs pinned historical-client compatibility, migration 017, Function configuration, inactive source deployment, explicit activation and readiness recheck; a readiness failure rolls the deployment back.
 
 ```bash
 cd life-tracker

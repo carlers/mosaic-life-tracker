@@ -21,7 +21,7 @@ describe('typed chat photo metadata', () => {
   it('migrates old messages without inventing attachments', () => {
     expect(messagesSchema.version).toBe(5);
     expect(messagesMigrationStrategies[5]({ content: 'old' })).toEqual({
-      content: 'old', attachmentType: '', attachmentFileId: '',
+      content: 'old', diaryRefEpoch: 0, diaryRefExcerpt: '', attachmentType: '', attachmentFileId: '',
     });
   });
   it('does not emit attachment fields for text-only messages', () => {

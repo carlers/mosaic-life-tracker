@@ -106,6 +106,8 @@ export const MOSAIC_TABLES = [
     },
     { key: 'updated_at', type: 'varchar', size: 50, required: true },
     { key: 'deleted', type: 'boolean', required: false, default: false },
+    { key: 'quote_epoch', type: 'integer', required: false, default: 0 },
+    { key: 'quote_revoke_revision', type: 'varchar', size: 50, required: false, default: '' },
   ]),
   ownerTable('settings', 'settings', [
     { key: 'user_id', type: 'varchar', size: 255, required: true },
@@ -205,6 +207,7 @@ export const MOSAIC_TABLES = [
       { key: 'diary_ref_owner_id', type: 'varchar', size: 36, required: false, default: '' },
       { key: 'diary_ref_date', type: 'varchar', size: 10, required: false, default: '' },
       { key: 'diary_ref_excerpt', type: 'varchar', size: 160, required: false, default: '' },
+      { key: 'diary_ref_epoch', type: 'integer', required: false, default: 0 },
       { key: 'read_at', type: 'varchar', size: 50, required: false, default: '' },
       { key: 'delivery_status', type: 'varchar', size: 20, required: false, default: 'delivered' },
       { key: 'created_at', type: 'varchar', size: 50, required: false, default: '' },
@@ -227,6 +230,7 @@ export const MOSAIC_TABLES = [
       { key: 'idx_thread_created', type: 'key', attributes: ['thread_id', 'created_at'] },
       { key: 'idx_sender_id', type: 'key', attributes: ['sender_id'] },
       { key: 'idx_recipient_id', type: 'key', attributes: ['recipient_id'] },
+      { key: 'idx_diary_ref_id', type: 'key', attributes: ['diary_ref_id'] },
     ]
   ),
   {

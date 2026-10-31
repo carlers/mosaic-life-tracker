@@ -121,6 +121,7 @@ export interface MessageDocument {
   diaryRefOwnerId?: string;
   diaryRefDate?: string;
   diaryRefExcerpt?: string;
+  diaryRefEpoch?: number;
   replyToId: string;
   replyToContent: string;
   replyToSenderId: string;
@@ -360,6 +361,7 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     diaryRefOwnerId: { type: 'string', maxLength: 36, default: '' },
     diaryRefDate: { type: 'string', maxLength: 10, default: '' },
     diaryRefExcerpt: { type: 'string', maxLength: 160, default: '' },
+    diaryRefEpoch: { type: 'integer', minimum: 0, default: 0 },
     replyToId: { type: 'string', maxLength: 255, default: '' },
     replyToContent: { type: 'string', maxLength: 300, default: '' },
     replyToSenderId: { type: 'string', maxLength: 255, default: '' },

@@ -41,7 +41,7 @@ describe('guarded chat photo Scratch backend activation', () => {
       runCompatibility: () => { calls.push('compat'); },
       services: () => ({ functions }) as never,
       migrate: async ({ argv }: { argv: string[] }) => {
-        expect(argv).toContain('016-message-chat-photos'); calls.push('migrate');
+        expect(argv).toContain('017-message-chat-photos'); calls.push('migrate');
       },
       configureDeployActivate: async ({ argv }: { argv: string[] }) => {
         calls.push(argv[0]);

@@ -16,7 +16,7 @@ describe('typed diary message references', () => {
     expect(message.taskRefId).toBe('');
     expect(message.diaryRefId).toBe('diary_example');
     expect(message.diaryRefOwnerId).toBe('person_b');
-    expect(message.diaryRefExcerpt).toBe('Today was great');
+    expect(message.diaryRefExcerpt).toBe('');
   });
 
   it('migrates historical messages without inventing diary context', () => {
@@ -24,6 +24,9 @@ describe('typed diary message references', () => {
     const old = { id: 'msg_legacy', content: 'unchanged' };
     expect(messagesMigrationStrategies[4](old)).toEqual({
       ...old, diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',
+    });
+    expect(messagesMigrationStrategies[5]({ ...old, diaryRefExcerpt: 'sensitive' })).toEqual({
+      ...old, diaryRefEpoch: 0, diaryRefExcerpt: '', attachmentType: '', attachmentFileId: '',
     });
   });
 });

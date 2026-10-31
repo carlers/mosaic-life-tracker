@@ -213,7 +213,7 @@ export async function fetchFriendAlertTask(
 }
 
 /** Only authenticated, mutually accepted friends can request a bounded month. */
-export type FriendDiaryDocument = DiaryDocument & { reactions?: string };
+export type FriendDiaryDocument = DiaryDocument & { reactions?: string; quoteEpoch?: number };
 
 export async function fetchFriendDiaryMonth(
   currentUserId: string, friendUserId: string, month: string
@@ -250,6 +250,7 @@ export async function fetchFriendDiaryMonth(
       content: String(row.content || ''), emoji: String(row.emoji || ''),
       photos: String(row.photos || '[]'), reactions: String(row.reactions || ''),
       visibility: row.visibility as DiaryDocument['visibility'],
+      quoteEpoch: typeof row.quote_epoch === 'number' ? row.quote_epoch : 0,
       createdAt: String(row.created_at || row.$createdAt || ''),
       updatedAt: String(row.updated_at || row.$updatedAt || ''),
       isDeleted: false,
