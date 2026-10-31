@@ -217,7 +217,7 @@ export const CalendarZoomViewport: React.FC<CalendarZoomViewportProps> = ({
       data-calendar-zoom-lane="true"
       onKeyDown={handleKeyDown}
       data-zoom-days={zoomDays}
-      className="max-w-full overflow-x-auto overscroll-x-contain"
+      className="max-w-full shrink-0 overflow-x-auto overscroll-x-contain"
       style={{
         touchAction: navigationLocked ? 'pan-y pinch-zoom' : 'auto',
         scrollSnapType: 'x mandatory',

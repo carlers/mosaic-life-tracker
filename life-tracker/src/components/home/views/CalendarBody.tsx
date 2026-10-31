@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
@@ -204,6 +204,15 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     keyboardRootRef.current = node;
   }, [keyboardRootRef]);
 
+  // Returning from Todo/Diary can leave the outer Home page scrolled.
+  // Month/Week Calendar owns vertical scrolling inside its active slide,
+  // so re-anchor the page before the calendar is painted.
+  useLayoutEffect(() => {
+    if (!isActive) return;
+    const main = calendarHostRef.current?.closest<HTMLElement>('[data-mosaic-main-scroll="true"]');
+    if (main && main.scrollTop !== 0) main.scrollTop = 0;
+  }, [isActive]);
+
   useHorizontalArrowNavigation({
     enabled: isActive && !daySheetOpen && !replyTask,
     onLeft: onPrev,
@@ -242,6 +251,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const calendarContent = (content: React.ReactNode) => (
     <div ref={setCalendarHost} className="flex min-h-0 min-w-0 flex-1 flex-col"
       data-calendar-keyboard-owned="true"
+      data-calendar-primary-active={isActive ? 'true' : undefined}
       onKeyDown={handleGridKeyDown}
       onFocusCapture={handleGridFocus}
       onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
