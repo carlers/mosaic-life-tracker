@@ -1,16 +1,16 @@
 import { resolvePrimarySwipeDestination } from '../../lib/primarySwipeNavigation';
 import {
-  loadAccountPage,
-  loadNotificationsPage,
-  loadExplorePage,
-  loadHomePage,
-  loadMessagesPage,
-  loadSettingsPage,
-  loadPreferencesPage,
-  loadNotificationSettingsPage,
-  loadReleaseHistoryPage,
-  loadProfilePage,
-} from './routeModuleLoaders';
+  preloadHomeRoutePage,
+  preloadAccountRoutePage,
+  preloadSettingsRoutePage,
+  preloadReleaseHistoryRoutePage,
+  preloadPreferencesRoutePage,
+  preloadNotificationSettingsRoutePage,
+  preloadProfileRoutePage,
+  preloadExploreRoutePage,
+  preloadMessagesRoutePage,
+  preloadNotificationsRoutePage,
+} from './routePageComponents';
 
 import type { PROTECTED_ROUTES } from '../../lib/protectedRoutes';
 
@@ -22,24 +22,24 @@ type PreloadPath = Extract<
 >['path'];
 
 const PRELOADERS: Record<PreloadPath, () => Promise<unknown>> = {
-  '/home': loadHomePage,
-  '/explore': loadExplorePage,
-  '/notifications': loadNotificationsPage,
-  '/messages': loadMessagesPage,
-  '/account': loadAccountPage,
-  '/settings': loadSettingsPage,
-  '/settings/account': loadSettingsPage,
-  '/settings/data': loadSettingsPage,
-  '/settings/about': loadSettingsPage,
-  '/settings/preferences/appearance': loadPreferencesPage,
-  '/settings/preferences/tasks': loadPreferencesPage,
-  '/settings/preferences/calendar': loadPreferencesPage,
-  '/settings/preferences/diary': loadPreferencesPage,
-  '/settings/preferences/navigation': loadPreferencesPage,
-  '/settings/preferences': loadPreferencesPage,
-  '/settings/notifications': loadNotificationSettingsPage,
-  '/settings/releases': loadReleaseHistoryPage,
-  '/profile': loadProfilePage,
+  '/home': preloadHomeRoutePage,
+  '/explore': preloadExploreRoutePage,
+  '/notifications': preloadNotificationsRoutePage,
+  '/messages': preloadMessagesRoutePage,
+  '/account': preloadAccountRoutePage,
+  '/settings': preloadSettingsRoutePage,
+  '/settings/account': preloadSettingsRoutePage,
+  '/settings/data': preloadSettingsRoutePage,
+  '/settings/about': preloadSettingsRoutePage,
+  '/settings/preferences/appearance': preloadPreferencesRoutePage,
+  '/settings/preferences/tasks': preloadPreferencesRoutePage,
+  '/settings/preferences/calendar': preloadPreferencesRoutePage,
+  '/settings/preferences/diary': preloadPreferencesRoutePage,
+  '/settings/preferences/navigation': preloadPreferencesRoutePage,
+  '/settings/preferences': preloadPreferencesRoutePage,
+  '/settings/notifications': preloadNotificationSettingsRoutePage,
+  '/settings/releases': preloadReleaseHistoryRoutePage,
+  '/profile': preloadProfileRoutePage,
 };
 
 function isPreloadPath(pathname: string): pathname is PreloadPath {
@@ -60,4 +60,20 @@ export function preloadPrimaryRoute(pathname: string | null) {
   void PRELOADERS[pathname]().catch((error) => {
     console.warn('[PrimaryRoutePreview] preload failed:', error);
   });
+}
+
+// Warm Settings modules only after visiting Settings; do not add them to
+// Home startup. Repeated detail paths share the same prepared importer.
+export const SETTINGS_SUBPAGE_PRELOAD_TARGETS = [
+  '/settings/account',
+  '/settings/data',
+  '/settings/about',
+  '/settings/preferences',
+  '/settings/notifications',
+  '/settings/releases',
+  '/profile',
+] as const satisfies readonly PreloadPath[];
+
+export function preloadSettingsSubpages(): void {
+  for (const pathname of SETTINGS_SUBPAGE_PRELOAD_TARGETS) preloadPrimaryRoute(pathname);
 }
