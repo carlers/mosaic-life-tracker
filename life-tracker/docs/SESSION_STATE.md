@@ -1,5 +1,18 @@
 # Session checkpoint
 Updated: 2026-10-31 Asia/Manila
+Current scoped task: #1442 — use app's exact logo for landing site
+
+## Logo task
+- User explicitly requested the website use the Mosaic app logo.
+- The app's `life-tracker/index.html` actually points its favicon to `/apple-touch-icon.png`; previously landing used `favicon.svg` and custom lowercase `mosaic.` wordmark.
+- Copy exact existing app PNG by **reusing the Git blob SHA** (`3366354105c9cae75e904819ac717e033b16c215`), apply to landing header, footer, browser favicon and Apple touch icon, with the app's `Mosaic` name. Do not fabricate/re-render branding.
+- Keep landing favicon.svg unchanged for compatibility, and add binary parity/static HTML assertions.
+- Scope: landing markup, copied PNG, test, readme, this checkpoint only. Task focused gate -> existing stable Preview canonical -> separate Vercel landing project. No app changes, protected dev/main, SMTP, data or is-a.dev upstream PR.
+- Manual visual acceptance remains pending.
+
+## Previous checkpoint
+
+Updated: 2026-10-31 Asia/Manila
 Current scoped task: #1442 — landing page visual fidelity refinement
 
 ## Refinement task

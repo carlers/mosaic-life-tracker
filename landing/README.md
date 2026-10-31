@@ -35,3 +35,11 @@ and **manually** write and submit any registration JSON and upstream PR.
 is-a.dev discourages AI-created registration PRs, even while allowing AI-built
 websites. Do not automate/fork/create its PR from this repository.
 A domain does not guarantee an email provider accepts the sender or DKIM.
+
+## Branding
+
+The website's header, footer, tab icon and Apple touch icon use the exact
+`apple-touch-icon.png` asset from `life-tracker/public/`, not a recreated
+Mosaic mark or independent marketing logo. The static contract checks
+byte-for-byte equality with the app's PNG. The original SVG remains in the
+landing assets for backward compatibility but is no longer the active icon.
