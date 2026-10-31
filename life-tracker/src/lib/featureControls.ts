@@ -26,8 +26,12 @@ export const FEATURE_DISABLE_FLAGS = {
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;
+export type FeatureDisableFlag = (typeof FEATURE_DISABLE_FLAGS)[FeatureControl];
 
-/** Non-React command boundary; use the hook for UI rendering. */
-export function isFeatureEnabled(feature: FeatureControl): boolean {
-  return !getPostHogFeatureFlagState(FEATURE_DISABLE_FLAGS[feature]).enabled;
+/**
+ * Runtime accepts the typed flag VALUE, not a dynamic lookup in the full registry.
+ * Bundlers can omit the developer-facing registry from eager Home code.
+ */
+export function isFeatureEnabled(flag: FeatureDisableFlag): boolean {
+  return !getPostHogFeatureFlagState(flag).enabled;
 }

@@ -274,7 +274,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const showTaskCreatedTime = getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
   const showTaskCompletedTime = getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
   const timestampLabelStyle = resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons'));
-  const timelineModeEnabled = useFeatureEnabled('timelineMode');
+  const timelineModeEnabled = useFeatureEnabled('mosaic_disable_timeline_mode');
   const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
   const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));

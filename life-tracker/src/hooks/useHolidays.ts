@@ -12,7 +12,7 @@ export function useHolidaysByDate(
   config: HolidayDisplayConfig,
   years: readonly number[]
 ): ReadonlyMap<string, readonly HolidayOccurrence[]> {
-  const holidayIndicatorsEnabled = useFeatureEnabled('holidayIndicators');
+  const holidayIndicatorsEnabled = useFeatureEnabled('mosaic_disable_holiday_indicators');
   const yearsKey = [...new Set(years)]
     .filter((year) => Number.isInteger(year))
     .sort((a, b) => a - b)

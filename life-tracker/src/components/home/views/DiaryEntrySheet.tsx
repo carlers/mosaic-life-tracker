@@ -41,7 +41,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
 }) => {
   const { user } = useAuth();
-  const diaryPhotoUploadEnabled = useFeatureEnabled('diaryPhotoUpload');
+  const diaryPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_diary_photo_upload');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoIds, setPhotoIds] = useState(() => parseDiaryPhotos(entry?.photos));
   const [uploading, setUploading] = useState(false);
@@ -93,7 +93,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   };
   const uploadPhotos = async (files: FileList | null) => {
     if (!files?.length || !user?.$id || uploading) return;
-    if (!isFeatureEnabled('diaryPhotoUpload')) {
+    if (!isFeatureEnabled('mosaic_disable_diary_photo_upload')) {
       setError('Diary photo uploads are currently unavailable.');
       return;
     }

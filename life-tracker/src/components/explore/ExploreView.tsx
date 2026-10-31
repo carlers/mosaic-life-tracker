@@ -50,7 +50,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onRequestUsername,
   onFeedback,
 }) => {
-  const friendDiscoveryEnabled = useFeatureEnabled('friendDiscovery');
+  const friendDiscoveryEnabled = useFeatureEnabled('mosaic_disable_friend_discovery');
   const location = useLocation();
   const friendsSectionRef = useRef<HTMLElement>(null);
   const { profile, isLoading: profileLoading } = useMyProfile();

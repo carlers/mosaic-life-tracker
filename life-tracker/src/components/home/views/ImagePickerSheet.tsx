@@ -47,8 +47,8 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   onRemove,
 }) => {
   const { user } = useAuth();
-  const taskPhotoUploadEnabled = useFeatureEnabled('taskPhotoUpload');
-  const profilePhotoUploadEnabled = useFeatureEnabled('profilePhotoUpload');
+  const taskPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_task_photo_upload');
+  const profilePhotoUploadEnabled = useFeatureEnabled('mosaic_disable_profile_photo_upload');
   const canUpload = variant === 'profile' ? profilePhotoUploadEnabled : taskPhotoUploadEnabled;
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
@@ -63,7 +63,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!isFeatureEnabled(variant === 'profile' ? 'profilePhotoUpload' : 'taskPhotoUpload')) {
+    if (!isFeatureEnabled(variant === 'profile' ? 'mosaic_disable_profile_photo_upload' : 'mosaic_disable_task_photo_upload')) {
       setError(variant === 'profile'
         ? 'New profile photo uploads are currently unavailable.'
         : 'Task photo uploads are currently unavailable.');

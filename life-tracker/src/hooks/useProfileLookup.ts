@@ -15,7 +15,7 @@ export interface UseProfileLookupReturn {
 }
 
 export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
-  const discoveryEnabled = useFeatureEnabled('friendDiscovery');
+  const discoveryEnabled = useFeatureEnabled('mosaic_disable_friend_discovery');
   const { user } = useAuth();
   const userId = user?.$id;
   const connectivity = useConnectivity();
@@ -37,7 +37,7 @@ export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
   }
 
   const setQuery = useCallback((q: string) => {
-    if (!isFeatureEnabled('friendDiscovery')) return;
+    if (!isFeatureEnabled('mosaic_disable_friend_discovery')) return;
     setQueryState(q);
     const trimmed = q.trim();
     if (!trimmed) {
@@ -67,7 +67,7 @@ export function useProfileLookup(debounceMs = 300): UseProfileLookupReturn {
     let effectIsActive = true;
 
     timerRef.current = setTimeout(async () => {
-      if (!effectIsActive || !isFeatureEnabled('friendDiscovery')) return;
+      if (!effectIsActive || !isFeatureEnabled('mosaic_disable_friend_discovery')) return;
 
       if (connectivity.status !== 'online') {
         setError('You need to be online to search.');
