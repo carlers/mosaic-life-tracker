@@ -29,6 +29,7 @@ const {
 } = require('node-appwrite');
 const { handleScheduledTombstoneGc } = require('./tombstone-gc');
 const { grantChatPhoto, deleteChatPhoto, chatPhotoFileId } = require('./chat-photo-auth');
+const { cleanupAbandonedChatPhotos } = require('./chat-photo-orphans');
 const {
   isAccountDeletionPending,
   resumeDeletionJobs,
@@ -1657,6 +1658,14 @@ const handler = async ({ req, res, log, error }) => {
     } catch (err) {
       error(`account-deletion scheduled retry failed: ${err.message}`);
       return res.json({ error: 'Account deletion maintenance failed' }, 500);
+    }
+
+    // Reclaim only old owner-private uploads with no sender message row.
+    // This is deliberately bounded and never scans non-chat filenames.
+    try {
+      await cleanupAbandonedChatPhotos(tablesDB, storage, { log });
+    } catch (cause) {
+      error('chat-photo orphan cleanup failed: ' + cause.message);
     }
 
     // Run ordinary tombstone GC on the same hourly maintenance trigger.
