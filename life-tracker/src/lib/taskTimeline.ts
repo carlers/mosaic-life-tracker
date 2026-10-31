@@ -3,7 +3,7 @@ import type { TaskDocument } from '../db/schema';
 
 export type TimestampLabelStyle = 'icons' | 'text';
 export type TimelineDirection = 'asc' | 'desc';
-export type TimelineSortBasis = 'completion' | 'creation';
+export type TimelineSortBasis = 'completion' | 'completion-last' | 'creation';
 export type DayViewMode = 'categories' | 'timeline';
 
 export interface TaskTimestampDisplay {
@@ -22,7 +22,7 @@ export const resolveTimelineDirection = (value: unknown): TimelineDirection =>
   value === 'asc' ? 'asc' : 'desc';
 
 export const resolveTimelineSortBasis = (value: unknown): TimelineSortBasis =>
-  value === 'creation' ? 'creation' : 'completion';
+  value === 'creation' ? 'creation' : value === 'completion-last' ? 'completion-last' : 'completion';
 
 export function validTaskTime(value: string | undefined): number | null {
   if (!value || !value.trim()) return null;
@@ -53,6 +53,11 @@ export function sortTasksByTimeline(
 ): TaskDocument[] {
   const multiplier = direction === 'asc' ? 1 : -1;
   return [...tasks].sort((a, b) => {
+    // Group completed tasks before incomplete tasks regardless of timestamp.
+    if (basis !== 'creation' && a.completed !== b.completed) {
+      const completedFirst = basis === 'completion';
+      return a.completed === completedFirst ? -1 : 1;
+    }
     const left = effectiveTaskTimestamp(a, basis);
     const right = effectiveTaskTimestamp(b, basis);
     const lt = left ? validTaskTime(left.value)! : null;
