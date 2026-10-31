@@ -204,6 +204,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const commitAdd = (completed = false) => {
+    if (!canAddTasks) return;
     const trimmed = newTitle.trim();
     if (trimmed) {
       onAddTask(trimmed, completed);
@@ -229,13 +230,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       closeInput();
     }
   };
-
-  useEffect(() => {
-    if (!canAddTasks && isAdding) {
-      setIsAdding(false);
-      setNewTitle('');
-    }
-  }, [canAddTasks, isAdding]);
 
   const handleOpen = () => {
     if (!canAddTasks) return;
@@ -562,7 +556,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </form>
       )}
 
-      {!categoryCollapsed && isAdding && (
+      {!categoryCollapsed && isAdding && canAddTasks && (
         <div
           data-testid="pending-task-row"
           className="flex items-start gap-3 rounded-lg pl-0 pr-2 py-2"
