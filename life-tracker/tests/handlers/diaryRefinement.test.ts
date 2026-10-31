@@ -147,6 +147,41 @@ describe('diary reference and reaction security', () => {
     expect(db.updateRow).not.toHaveBeenCalled();
   });
 
+  it('retries an interrupted revocation without incrementing the epoch again', async () => {
+    const db = makeMockDb();
+    const revision = '2026-10-13T12:00:00.000Z';
+    const updatedDiary = { ...diary, quote_epoch: 1,
+      quote_revoke_revision: revision, updated_at: '2026-10-12T12:00:00.000Z' };
+    db.getRow.mockResolvedValue(updatedDiary);
+    db.listRows.mockResolvedValue({ rows: [{
+      $id: 'msg_retry', diary_ref_id: diary.$id, diary_ref_owner_id: owner,
+      diary_ref_epoch: 0, diary_ref_excerpt: 'Old text', diary_ref_date: diary.date,
+    }] });
+    const result = await invoke({ userId: owner, mockDb: db,
+      body: { action: 'revoke_diary_references', diaryId: diary.$id, revision } });
+    expect(result.status).toBe(200);
+    expect(result.body.epoch).toBe(1);
+    expect(result.body.scrubbed).toBe(1);
+    expect(db.updateRow).toHaveBeenCalledTimes(1);
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'messages', rowId: 'msg_retry',
+    }));
+  });
+
+  it('rejects stale revocation revisions and unauthorized cross-owner writes', async () => {
+    const db = makeMockDb();
+    db.getRow.mockResolvedValue({
+      ...diary, quote_epoch: 2, quote_revoke_revision: '2026-10-13T12:00:00.000Z',
+      updated_at: '2026-10-13T12:01:00.000Z',
+    });
+    const stale = await invoke({ userId: owner, mockDb: db,
+      body: { action: 'revoke_diary_references', diaryId: diary.$id,
+        revision: '2026-10-13T12:00:30.000Z' } });
+    expect(stale.status).toBe(409);
+    expect(db.updateRow).not.toHaveBeenCalled();
+    expect(db.listRows).not.toHaveBeenCalled();
+  });
+
   it('denies cross-owner reaction summaries without querying actor identities', async () => {
     const db = makeMockDb();
     db.getRow.mockResolvedValueOnce(diary);
