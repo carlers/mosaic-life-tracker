@@ -15,7 +15,9 @@ import { packStickerSummary, parsePackStickerMessage } from '../../lib/stickerPa
 import { PackStickerImage } from './PackStickerImage';
 import { giphyStickerSummary, parseGiphyStickerMessage } from '../../lib/giphyStickers';
 import { GiphyStickerImage } from './GiphyStickerImage';
-import { ChatPhotoAttachment } from './ChatPhotoAttachment';
+// Keep the image viewer/photoswipe code outside text-only chat's initial chunk.
+const ChatPhotoAttachment = React.lazy(() => import('./ChatPhotoAttachment').then(m => ({ default: m.ChatPhotoAttachment })));
+
 
 export type MessageStatusKind = 'pending' | 'delivered' | 'read' | 'not-sent';
 
@@ -287,7 +289,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             </div>
           )}
           {message.attachmentType === 'image' && message.attachmentFileId && (
-            <ChatPhotoAttachment fileId={message.attachmentFileId} userId={currentUserId} caption={message.content.replace(/^\[Photo\]\n?/, '')} />
+            <React.Suspense fallback={<span className="text-xs text-gray-400">Loading photo…</span>}>
+              <ChatPhotoAttachment fileId={message.attachmentFileId} userId={currentUserId} caption={message.content.replace(/^\[Photo\]\n?/, '')} />
+            </React.Suspense>
           )}
           {message.attachmentType === 'image' ? (
             message.content !== '[Photo]' ? <span className="text-sm whitespace-pre-wrap break-words">{message.content.replace(/^\[Photo\]\n?/, '')}</span> : null
