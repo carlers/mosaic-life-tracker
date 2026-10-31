@@ -1,3 +1,14 @@
+# Task checkpoint — #857 Appwrite date-effective Retire/Restore v0.53.0
+
+- Base protected dev `606f97347ca435247e9bacc4e76a26e2c5d3c78a` (v0.51.2); task branch `chatgpt/857-retire-restore-appwrite-v0530-20261101`.
+- Owner accepted #1186 P0 v0.51.2 Scratch Preview and approved finishing lifecycle. P0 merged to dev #1525, canonical reuse passed; main/Production not approved.
+- Core work: RxDB categories v2 with optional `retiredOn`; Appwrite additive optional `categories.retired_on` via migration 016; guarded mapping/equality/CAS whitelist, pure inclusive owner-date category projection and new-assignment policy.
+- UI: date-effective Day View and Backlogs, existing future tasks retained; Timeline creation, cross-day drag, bulk move and new category assignments guarded; Retire/Restore management with adjustable cutoff.
+- Still required: focused task CI, repair, stable exact-tree v0.53.0 Preview, reviewed Scratch migration and exact Function deployment, host-origin and two-owner signed tests and manual PWA. DO NOT merge into dev/main or mutate Production without separate approval.
+- Retire/Restore does not imply safe destructive delete: #857 Move+Delete and Delete All need separate concurrency/owner-scoped Appwrite operation and dependency cleanup. Existing P0 old-client limitation remains.
+
+---
+
 # Task checkpoint — #1186 P0 category deletion containment and orphan inventory, v0.51.2
 
 - Base protected dev @ 27f78f9c51ca1aa8d37240e2eb454907dbc245d3, v0.51.1; main remains v0.50.3. Current task branch `chatgpt/1186-category-delete-containment-v0512-20261101`.

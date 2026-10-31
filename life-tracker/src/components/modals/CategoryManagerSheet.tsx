@@ -6,7 +6,9 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
-import { ArrowDownUp, Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
+import { Archive, ArrowDownUp, Pencil, Plus, RotateCcw, Trash2, GripVertical } from 'lucide-react';
+import { format } from 'date-fns';
+import { validLocalDateKey } from '../../lib/categoryLifecycle';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
 import { useAuth } from '../../hooks/useAuth';
@@ -61,6 +63,7 @@ interface CategoryRowProps {
   cat: CategoryDocument;
   overriddenCount: number;
   onEditStart: (cat: CategoryDocument) => void;
+  onManageRetirement: (cat: CategoryDocument) => void;
   onReorderEnd: () => void;
   disabled: boolean;
   isEditing: boolean;
@@ -72,6 +75,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   cat,
   overriddenCount,
   onEditStart,
+  onManageRetirement,
   onReorderEnd,
   disabled,
   isEditing,
@@ -114,6 +118,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-white truncate">{cat.name}</span>
             {visibilityIcon(cat.visibility)}
+            {cat.retiredOn && <span className="text-xs text-gray-400">Retired {cat.retiredOn}</span>}
           </div>
           {overriddenCount > 0 && (
             <span className="text-xs text-gray-400">
@@ -130,6 +135,15 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           aria-expanded={isEditing}
         >
           <Pencil size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onManageRetirement(cat)}
+          disabled={disabled}
+          className="p-2 text-gray-400"
+          aria-label={`Manage retirement for ${cat.name}`}
+        >
+          {cat.retiredOn ? <RotateCcw size={16} /> : <Archive size={16} />}
         </button>
         <button
           type="button"
@@ -169,6 +183,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     isLoading: categoriesLoading,
     addCategory,
     updateCategory,
+    retireCategory,
+    restoreCategory,
     reorderCategories,
   } = useCategories();
   const { tasks = [], isLoading: tasksLoading } = useTasks();
@@ -185,6 +201,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [newColor, setNewColor] = useState('#3B82F6');
   const [newVisibility, setNewVisibility] = useState<Visibility>('private');
 
+  const [retireId, setRetireId] = useState<string | null>(null);
+  const [lastActiveDate, setLastActiveDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const retirementTarget = categories.find(category => category.id === retireId);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('#3B82F6');
@@ -220,6 +239,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     if (!isOpen) {
       resetForm();
       setEditingId(null);
+      setRetireId(null);
     }
   }
 
@@ -291,6 +311,13 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setEditColor(c.color);
                 setEditVisibility(c.visibility);
               }}
+              onManageRetirement={(category) => {
+                reset();
+                setEditingId(null);
+                setIsAdding(false);
+                setRetireId(category.id);
+                setLastActiveDate(category.retiredOn || format(new Date(), 'yyyy-MM-dd'));
+              }}
               onReorderEnd={() => {
                 if (!isSaving) {
                   void save(
@@ -342,6 +369,34 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             </CategoryRow>
           ))}
         </Reorder.Group>
+        {retirementTarget && (
+          <div className="mt-4 rounded-xl border border-[#333333] bg-[#1A1A1A] p-3 space-y-3">
+            <p className="text-sm font-semibold text-white">{retirementTarget.retiredOn ? 'Manage retirement' : 'Retire category'}: {retirementTarget.name}</p>
+            <label className="block text-xs text-gray-400" htmlFor="category-last-active-date">Last active date (inclusive)</label>
+            <input id="category-last-active-date" type="date" value={lastActiveDate}
+              onChange={event => setLastActiveDate(event.target.value)}
+              className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
+            <p className="text-xs text-gray-400">The category stays visible on this date and earlier. Existing tasks on later dates and in Backlogs remain accessible; new later tasks use active categories.</p>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => void save(
+                () => retireCategory(retirementTarget.id, lastActiveDate),
+                () => setRetireId(null),
+                'Could not retire category. Try again.'
+              )} disabled={isSaving || !validLocalDateKey(lastActiveDate)}>
+                {retirementTarget.retiredOn ? 'Update last active date' : 'Retire category'}
+              </Button>
+              {retirementTarget.retiredOn && (
+                <Button variant="ghost" disabled={isSaving} onClick={() => void save(
+                  () => restoreCategory(retirementTarget.id),
+                  () => setRetireId(null),
+                  'Could not restore category. Try again.'
+                )}>Restore category</Button>
+              )}
+              <Button variant="ghost" disabled={isSaving} onClick={() => setRetireId(null)}>Cancel</Button>
+            </div>
+            <SheetErrorBanner message={error} />
+          </div>
+        )}
         <p className="mt-3 text-xs text-gray-400">
           Category deletion is temporarily unavailable to protect existing tasks.
         </p>
