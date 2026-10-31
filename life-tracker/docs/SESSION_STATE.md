@@ -1,4 +1,15 @@
-# Task checkpoint — #1461 Diary chat quote privacy v0.44.5 candidate
+`# Task checkpoint — #1461 Diary chat quote privacy v0.44.5 — preparing Scratch testing
+Updated: 2026-10-31 Asia/Manila
+
+- Resumed draft PR #1467 on task branch `chatgpt/1461-diary-quote-privacy-acceptance-v0445-20261031`; dev remains `4aec8d63ef460cbc56a8f895f0f609a2152ea459` v0.44.4.
+- Prior focused CI on coherent SHA `0be09d8f69c9469a8fc2c7d0f367cab5a95693d3`: 2,128/2,128 tests passed, but Scratch Function/schema and full stable Preview not yet verified.
+- This task refinement closes pending-privacy reads and epoch CAS races, publishes quote epochs in friend Diary responses, avoids an extra CAS read on ordinary Diary edits, and introduces a Scratch-only, explicit-apply historical quote scrub with regression tests. Additive schema 016 is now on the reviewed Scratch auto-reconciliation list.
+- Required next gates: focused CI for revised tree; approved Scratch migration 016; dry-run and scoped historical scrub; reviewed exact Git-SHA Function deployment and activation on Scratch; 2-account Diary/Chat scenario acceptance; full canonical stable Preview, matching Vercel READY, authenticated manual/device checks.
+- Preserve independent chat bodies, old offline data, account isolation, and Production. No dev/main promotion, Production mutation, or production release authorization.
+
+---
+
+# Task checkpoint — #1461 Diary chat quote privacy v0.44.5 candidate`
 Updated: 2026-10-31 Asia/Manila
 
 - User authorized implementation after read-only critique. Issue #1461; verification branch `chatgpt/1461-diary-quote-privacy-verify-v0445-20261031` based on `dev@4aec8d63ef460cbc56a8f895f0f609a2152ea459` v0.44.4. No `dev`/`main`/Production promotion.

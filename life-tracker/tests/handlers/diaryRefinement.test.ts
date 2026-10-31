@@ -102,7 +102,8 @@ describe('diary reference and reaction security', () => {
   it('revokes diary quote versions and scrubs both copies without deleting chat bodies', async () => {
     const db = makeMockDb();
     const currentDiary = { ...diary, quote_epoch: 0,
-      quote_revoke_revision: '', updated_at: '2026-10-12T12:00:00.000Z' };
+      quote_revoke_revision: '', updated_at: '2026-10-12T12:00:00.000Z',
+      $updatedAt: '2026-10-12T12:00:02.000Z' };
     const messages = [
       { $id: 'msg_quote_a', diary_ref_id: diary.$id, diary_ref_owner_id: owner,
         diary_ref_epoch: 0, diary_ref_excerpt: 'Sensitive original text',
@@ -112,6 +113,7 @@ describe('diary reference and reaction security', () => {
         diary_ref_date: diary.date },
     ];
     db.getRow.mockResolvedValue(currentDiary);
+    db.updateRows.mockResolvedValue({ total: 1, rows: [] });
     db.listRows.mockResolvedValue({ rows: messages });
     const revision = '2026-10-13T12:00:00.000Z';
     const result = await invoke({ userId: owner, mockDb: db, body: {
@@ -119,10 +121,13 @@ describe('diary reference and reaction security', () => {
     } });
     expect(result.status).toBe(200);
     expect(result.body.scrubbed).toBe(2);
-    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+    expect(db.updateRows).toHaveBeenCalledWith(expect.objectContaining({
       tableId: 'diary', data: expect.objectContaining({
         quote_epoch: 1, quote_revoke_revision: revision,
-      }),
+      }), queries: expect.arrayContaining([
+        expect.objectContaining({ op: 'equal', key: '$updatedAt', value: currentDiary.$updatedAt }),
+        expect.objectContaining({ op: 'equal', key: 'user_id', value: owner }),
+      ]),
     }));
     expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
       tableId: 'messages', rowId: 'msg_quote_a',
@@ -178,6 +183,45 @@ describe('diary reference and reaction security', () => {
       body: { action: 'revoke_diary_references', diaryId: diary.$id,
         revision: '2026-10-13T12:00:30.000Z' } });
     expect(stale.status).toBe(409);
+    expect(db.updateRow).not.toHaveBeenCalled();
+    expect(db.listRows).not.toHaveBeenCalled();
+  });
+
+  it('fails closed while a privacy change is fenced but not yet published', async () => {
+    const db = acceptedDb();
+    const pending = { ...diary, quote_epoch: 1,
+      quote_revoke_revision: '2026-10-13T00:00:00.000Z',
+      updated_at: '2026-10-12T00:00:00.000Z' };
+    const message = { $id: 'msg_fenced', user_id: caller,
+      sender_id: caller, recipient_id: owner, diary_ref_id: diary.$id,
+      diary_ref_owner_id: owner, diary_ref_date: diary.date,
+      diary_ref_epoch: 1 };
+    db.getRow.mockImplementation(({ tableId }: { tableId: string }) =>
+      Promise.resolve(tableId === 'messages' ? message : pending));
+    const preview = await invoke({ userId: caller, mockDb: db,
+      body: { action: 'get_diary_reference_previews', messageIds: ['msg_fenced'] } });
+    expect(preview.status).toBe(200);
+    expect(preview.body.previews).toEqual({});
+    const deliver = await invoke({ userId: caller, mockDb: db,
+      body: { action: 'deliver', messageId: 'msg_fenced_new', recipientId: owner,
+        diaryRefId: diary.$id, diaryRefOwnerId: owner, diaryRefDate: diary.date,
+        diaryRefEpoch: 1, content: 'reply' } });
+    expect(deliver.status).toBe(403);
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
+  it('does not increment or scrub when the epoch CAS loses to another writer', async () => {
+    const db = makeMockDb();
+    db.getRow.mockResolvedValue({
+      ...diary, updated_at: '2026-10-12T12:00:00.000Z',
+      $updatedAt: '2026-10-12T12:00:02.000Z',
+      quote_epoch: 0, quote_revoke_revision: '',
+    });
+    const response = await invoke({ userId: owner, mockDb: db,
+      body: { action: 'revoke_diary_references', diaryId: diary.$id,
+        revision: '2026-10-13T12:00:00.000Z' } });
+    expect(response.status).toBe(409);
+    expect(db.updateRows).toHaveBeenCalledTimes(1);
     expect(db.updateRow).not.toHaveBeenCalled();
     expect(db.listRows).not.toHaveBeenCalled();
   });

@@ -23,7 +23,8 @@ export function createSimpleOwnerReplicationPilot<D extends OwnerDocument>(confi
   label: string;
   freshnessLabel: string;
   equalityFields: ReadonlyArray<keyof D>;
-  beforeWrite?: (next: D, current: D, userId: string) => Promise<void>;
+  /** True iff server-owned state was mutated and the CAS token needs refresh. */
+  beforeWrite?: (next: D, current: D, userId: string) => Promise<boolean>;
 }) {
   type Replicated = WithDeletedAndAttachments<D>;
   type Checkpoint = SimpleOwnerPullCheckpoint;
@@ -110,8 +111,7 @@ export function createSimpleOwnerReplicationPilot<D extends OwnerDocument>(confi
       // An owner-scoped pre-write guard may update server-owned privacy state.
       // Re-read the server CAS token rather than using its stale value.
       let writeMaster = master;
-      if (config.beforeWrite) {
-        await config.beforeWrite(next as D, current as D, userId);
+      if (config.beforeWrite && await config.beforeWrite(next as D, current as D, userId)) {
         const refreshed = await read(next.id, userId);
         if (!refreshed) throw new Error(config.label + ' row disappeared after privacy guard');
         if (!equals(refreshed.document, current)) {

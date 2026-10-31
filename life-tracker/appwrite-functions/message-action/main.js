@@ -202,6 +202,15 @@ async function listAllRows(tablesDB, tableId, baseQueries, log, maxPages = 100) 
   }
   return all;
 }
+// A privacy change publishes a server-owned revocation fence first.
+// While its owner CAS is pending, fail closed for all friend diary reads.
+function isDiaryQuoteRevocationPending(diary) {
+  if (!diary?.quote_revoke_revision) return false;
+  const fence = Date.parse(diary.quote_revoke_revision);
+  const published = Date.parse(diary.updated_at || '');
+  return !Number.isFinite(fence) || !Number.isFinite(published) || fence > published;
+}
+
 async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.messageId)) {
@@ -291,7 +300,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       !/^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(diaryRefDate) ||
       hasTaskRef) return { status: 400, body: { error: 'Invalid diary reference' } };
     const diary = await findVisibleFriendDiary(tablesDB, senderId, diaryRefId, diaryRefOwnerId);
-    if (!diary || diary.date !== diaryRefDate || (diary.quote_epoch || 0) !== diaryRefEpoch)
+    if (!diary || isDiaryQuoteRevocationPending(diary) || diary.date !== diaryRefDate || (diary.quote_epoch || 0) !== diaryRefEpoch)
       return { status: 403, body: { error: 'Diary no longer available' } };
     // Live previews are resolved through a separately authorized read.
   } else if (diaryRefOwnerId || diaryRefDate || vDiaryRefExcerpt.value || diaryRefEpoch) {
@@ -580,6 +589,7 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
           currentDiary.deleted !== true &&
           ['public', 'followers'].includes(currentDiary.visibility) &&
           currentDiary.date === row.diary_ref_date &&
+          !isDiaryQuoteRevocationPending(currentDiary) &&
           (currentDiary.quote_epoch || 0) === (row.diary_ref_epoch || 0)) {
         repairedDiaryDate = currentDiary.date;
       }
@@ -1327,6 +1337,7 @@ async function findVisibleFriendDiary(tablesDB, callerId, diaryId, ownerId) {
   try { row = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId }); }
   catch { return null; }
   if (row.user_id !== ownerId || row.deleted === true ||
+    isDiaryQuoteRevocationPending(row) ||
     !['public','followers'].includes(row.visibility)) return null;
   return row;
 }
@@ -1471,10 +1482,18 @@ async function handleRevokeDiaryReferences(tablesDB, callerId, payload) {
     if (!Number.isSafeInteger(epoch) || epoch < 0 || epoch >= 2147483647)
       return { status: 409, body: { error: 'Invalid diary epoch' } };
     epoch += 1;
-    await tablesDB.updateRow({
-      databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId,
+    // Atomic revision/owner predicate avoids concurrent epoch increments.
+    const applied = await tablesDB.updateRows({
+      databaseId: DATABASE_ID, tableId: DIARY_TABLE,
+      queries: [
+        Query.equal('$id', diaryId),
+        Query.equal('user_id', callerId),
+        Query.equal('$updatedAt', diary.$updatedAt),
+      ],
       data: { quote_epoch: epoch, quote_revoke_revision: revision },
     });
+    if (applied.total !== 1)
+      return { status: 409, body: { error: 'Concurrent diary revocation; retry' } };
   }
   const queries = [
     Query.equal('diary_ref_id', diaryId),
@@ -1551,6 +1570,7 @@ async function handleGetDiaryReferencePreviews(tablesDB, callerId, payload) {
     }
     const diary = diaries.get(message.diary_ref_id);
     if (!diary || diary.user_id !== ownerId || diary.deleted === true ||
+        isDiaryQuoteRevocationPending(diary) ||
         !['public', 'followers'].includes(diary.visibility) ||
         diary.date !== message.diary_ref_date ||
         (message.diary_ref_epoch || 0) !== (diary.quote_epoch || 0)) continue;
@@ -1588,10 +1608,12 @@ async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error
   const entries = rows.filter(row =>
     row.user_id === friendUserId && row.deleted !== true &&
     row.date >= month + '-01' && row.date < nextMonth &&
-    (row.visibility === 'public' || row.visibility === 'followers')
+    (row.visibility === 'public' || row.visibility === 'followers') &&
+    !isDiaryQuoteRevocationPending(row)
   ).map(row => ({
     $id: row.$id, user_id: row.user_id, date: row.date,
     content: row.content || '', emoji: row.emoji || '', photos: row.photos || '[]', visibility: row.visibility,
+    quote_epoch: row.quote_epoch || 0,
     created_at: row.created_at || row.$createdAt || '',
     updated_at: row.updated_at || row.$updatedAt || '',
     deleted: false,

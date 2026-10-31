@@ -15,7 +15,7 @@ const pilot = createSimpleOwnerReplicationPilot<DiaryDocument>({
   beforeWrite: async (next, current, userId) => {
     if (next.userId !== userId ||
         !((next.visibility === 'private' && current.visibility !== 'private') ||
-          (next.isDeleted && !current.isDeleted))) return;
+          (next.isDeleted && !current.isDeleted))) return false;
     let cursor = '';
     for (let page = 0; page < 100; page++) {
       const response = await sendAppAction({
@@ -24,7 +24,7 @@ const pilot = createSimpleOwnerReplicationPilot<DiaryDocument>({
       });
       if (response.ok !== true || typeof response.nextCursor !== 'string')
         throw new Error('Diary quote revocation incomplete');
-      if (!response.nextCursor) return;
+      if (!response.nextCursor) return true;
       if (response.nextCursor === cursor)
         throw new Error('Diary quote revocation made no progress');
       cursor = response.nextCursor;
