@@ -1,3 +1,13 @@
+# Task checkpoint — #1478 v0.60.0 isolated Preview browser gate follow-up
+Updated: 2026-11-01 Asia/Manila
+
+- Owner requested finishing Phase 3; source-only safe photo detach v0.60.0 on stable `fix/1478-safe-photo-detach-v0600-20261101@2e128c5a1bb644a3db89d3dbd56ff4ddee179ce3` from current dev v0.58.0. Task focused #41277027845 SUCCESS; local tests/build/contracts passed.
+- Canonical #41277248247 succeeded in build/checks/DOM/audit and browser shard 1/2, but shard 2/2 hit the existing unrelated split-panel-layout focused-month resize assertion (124.97px offset versus 2px max, 47/48 passed). Preserve the test and artifact-integrity gate; do not treat a retry with mismatched build artifact as accepted delivery.
+- Meaningful follow-up: guard ImagePickerSheet remove with a synchronous in-flight ref and block file-selection while removing (even if an already-open chooser resolves); add component regression for pending, duplicate, failed and retry flows. Reverify focused then squash to the same isolated Preview for a fresh first-attempt canonical and matching trusted Vercel artifact. No version increment for an undelivered candidate.
+- No cloud file deletion, backend changes, Scratch Function activation, dev/main/Production merge. Live three-account/old-client/Scratch and server provenance ledger remain unresolved and cannot be claimed as complete.
+
+---
+
 # Task checkpoint — #1478 Phase 3C safe photo removal, v0.60.0 isolated Preview
 Updated: 2026-11-01 Asia/Manila
 
