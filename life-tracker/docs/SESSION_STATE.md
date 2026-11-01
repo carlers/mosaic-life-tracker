@@ -1,3 +1,11 @@
+# #1026 — Diary and Bucket List optional controls v0.71.0
+
+- Continuation after isolated social-off v0.70.0 Preview source tree 7a6ab2b41cad009f0a49a1ef73a41f0b48fe76a0; owner approved batched controls only, no dev/main/Production promotion.
+- Additionally close the owner-Diary social-reaction display/fetch/interaction path when global social-off is active. Five new independent optional controls: Diary emoji picker and Today shortcut, Bucket List goal-step task creation, new task linking and achievement toggle. Preserve all existing goals, linked steps, task records, emojis, stored personal Diary entries, core task completion and unlink cleanup.
+- Next: Node22 scoped regression tests, lint, version/contracts/build/size, focused CI, stable canonical and trusted Preview, then inactive PostHog flags and owner acceptance. No schema/Function/Production writes.
+
+---
+
 # #1026 — global social-off Preview v0.70.0
 
 - Task starts from exact v0.69.0 productivity tree 098d3eced465c098e334b87ec52170030be44106; full canonical/trusted delivery of that predecessor must be verified independently.

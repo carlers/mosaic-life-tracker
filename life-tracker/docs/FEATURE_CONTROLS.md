@@ -41,6 +41,11 @@ project/rollout determines which clients receive the change.
 | Day View quick layout | `mosaic_disable_day_view_layout_switch` | Hide/guard quick layout switch; retain stored layout |
 | Category reorder | `mosaic_disable_category_reorder` | Pause drag and reverse reorder, preserve category CRUD |
 | Single-user / all social off | `mosaic_disable_all_social` | Hide social navigation, friend calendars, Chat, Alerts and shared-task initiation; suppress foreground friend/message/shared-task subscriptions and pending social outbox flush; retain all records/queues and core personal workflows |
+| Diary emoji picker | `mosaic_disable_diary_emoji_picker` | Hide owner emoji selection/clearing without changing stored emojis or entry editing |
+| Diary Today shortcut | `mosaic_disable_diary_today_shortcut` | Hide optional Diary Today header shortcut while retaining normal Diary access |
+| Bucket List task creation | `mosaic_disable_bucket_step_creation` | Pause new goal-step task creation (also requires task linking); preserve existing linked tasks and completion |
+| Bucket List task linking | `mosaic_disable_bucket_step_linking` | Pause new goal/task associations; retain unlink and all existing links |
+| Bucket List achievement toggle | `mosaic_disable_bucket_achievement` | Hide achievement/reopen action while retaining achieved status and history |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.

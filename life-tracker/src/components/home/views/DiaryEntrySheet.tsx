@@ -42,6 +42,8 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
 }) => {
   const { user } = useAuth();
   const diaryPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_diary_photo_upload');
+  const emojiPickerEnabled = useFeatureEnabled('mosaic_disable_diary_emoji_picker');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoIds, setPhotoIds] = useState(() => parseDiaryPhotos(entry?.photos));
   const [uploading, setUploading] = useState(false);
@@ -51,13 +53,13 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const [reactBusy, setReactBusy] = useState(false);
   const [ownerReactions, setOwnerReactions] = useState<string | null>(null);
   useEffect(() => {
-    if (!onSave || !entry?.id) return;
+    if (!socialEnabled || !onSave || !entry?.id) return;
     let current = true;
     void fetchOwnerDiaryReactions(entry.id)
       .then(reactions => { if (current) setOwnerReactions(reactions); })
       .catch(() => { if (current) setOwnerReactions(null); });
     return () => { current = false; };
-  }, [onSave, entry?.id]);
+  }, [onSave, entry?.id, socialEnabled]);
   const [editing, setEditing] = useState(!!onSave && (initialEditing || !entry));
   const lastContentTap = useRef(0);
   const [body, setBody] = useState(entry?.content || '');
@@ -110,7 +112,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     } finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
   const toggleReaction = async (emoji: string) => {
-    if (!onReact || !entry || reactBusy) return;
+    if (!isFeatureEnabled('mosaic_disable_all_social') || !onReact || !entry || reactBusy) return;
     const op = hasUserReacted(parseReactions(entry.reactions), emoji, user?.$id || '') ? 'remove' : 'add';
     setReactBusy(true); setError('');
     try { await onReact(emoji, op); }
@@ -118,7 +120,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     finally { setReactBusy(false); }
   };
   const sendReply = async () => {
-    if (!onReply || !replyText.trim() || busy) return;
+    if (!isFeatureEnabled('mosaic_disable_all_social') || !onReply || !replyText.trim() || busy) return;
     setBusy(true); setError('');
     try { await onReply(replyText.trim()); setReplyOpen(false); setReplyText(''); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not send reply.'); }
@@ -151,14 +153,14 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
           )}
           {editing ? (
             <>
-              <button type="button" onClick={() => setPicker(value => !value)}
+              {emojiPickerEnabled && <button type="button" onClick={() => { if (isFeatureEnabled("mosaic_disable_diary_emoji_picker")) setPicker(value => !value); }}
                 className="mx-auto my-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-surfaceHighlight text-5xl"
-                aria-label="Choose diary emoji">{emoji || '＋'}</button>
-              {picker && (
+                aria-label="Choose diary emoji">{emoji || '＋'}</button>}
+              {picker && emojiPickerEnabled && (
                 <div className="grid grid-cols-8 gap-1 rounded-xl bg-surfaceHighlight p-2" role="group" aria-label="Choose an emoji">
-                  <button type="button" aria-label="Clear emoji" onClick={() => {setEmoji(''); setPicker(false);}}>✕</button>
+                  <button type="button" aria-label="Clear emoji" onClick={() => {if (!isFeatureEnabled('mosaic_disable_diary_emoji_picker')) return; setEmoji(''); setPicker(false);}}>✕</button>
                   {CHOICES.map(choice => <button type="button" key={choice} className="rounded p-1 text-2xl"
-                    aria-label={`Use ${choice} emoji`} onClick={() => {setEmoji(choice); setPicker(false);}}>{choice}</button>)}
+                    aria-label={`Use ${choice} emoji`} onClick={() => {if (!isFeatureEnabled('mosaic_disable_diary_emoji_picker')) return; setEmoji(choice); setPicker(false);}}>{choice}</button>)}
                 </div>
               )}
               <div className="my-4 flex items-center gap-2">
@@ -198,7 +200,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                 }}
                 onDoubleClick={onSave ? () => setEditing(true) : undefined}>{entry?.content}</div>
               <DiaryPhotoGallery date={date} photoIds={photoIds} friendUserId={friendUserId} diaryId={entry?.id}/>
-              {onSave && ownerReactions && <div className="mt-3 flex flex-col gap-2" aria-label="Diary reactions">
+              {socialEnabled && onSave && ownerReactions && <div className="mt-3 flex flex-col gap-2" aria-label="Diary reactions">
                 <div className="flex flex-wrap gap-2">
                   {parseReactions(ownerReactions).map(item => (
                     <span key={item.emoji} className="rounded-full bg-surfaceHighlight px-2 py-1 text-xs"
@@ -206,7 +208,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                   ))}
                 </div>
               </div>}
-              {onReact && <div className="mt-3 flex flex-col gap-3">
+              {socialEnabled && onReact && <div className="mt-3 flex flex-col gap-3">
                 <ReactionRow reactions={parseReactions(entry?.reactions)} currentUserId={user?.$id ?? ''} isOutgoing={false}
                   onToggle={emoji => void toggleReaction(emoji)} />
                 <div className="flex gap-3">
@@ -221,9 +223,9 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
           {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         </div>
       </BottomSheet>
-      <EmojiPickerSheet isOpen={isOpen && reactionsOpen} onClose={() => setReactionsOpen(false)}
+      <EmojiPickerSheet isOpen={isOpen && socialEnabled && reactionsOpen} onClose={() => setReactionsOpen(false)}
         onPick={emoji => void toggleReaction(emoji)} />
-      <BottomSheet isOpen={isOpen && replyOpen} onClose={() => setReplyOpen(false)} title={`Reply to ${author}`} height="auto">
+      <BottomSheet isOpen={isOpen && socialEnabled && replyOpen} onClose={() => setReplyOpen(false)} title={`Reply to ${author}`} height="auto">
         <div className="px-4 pb-8 pt-3">
           <p className="mb-3 text-sm text-gray-400">Reply privately about the diary from {date}.</p>
           <textarea aria-label="Diary reply" value={replyText} onChange={e => setReplyText(e.target.value)}

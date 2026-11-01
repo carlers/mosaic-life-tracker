@@ -5,6 +5,7 @@ import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
@@ -91,7 +92,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
-  const showDiaryTodayShortcut = getSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, true) === true;
+  const diaryTodayShortcutEnabled = useFeatureEnabled('mosaic_disable_diary_today_shortcut');
+  const showDiaryTodayShortcut = diaryTodayShortcutEnabled && getSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, true) === true;
   const holidayConfig = createHolidayDisplayConfig(
     getSetting(SHOW_HOLIDAYS_SETTING_KEY, false),
     getSetting(HOLIDAY_REGION_SETTING_KEY, ''),
