@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
+const mocks = vi.hoisted(() => ({ pushEnrollmentEnabled: true,
   getPushNotificationState: vi.fn(),
   enablePushNotifications: vi.fn(),
   disablePushNotifications: vi.fn(),
@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   setSetting: vi.fn(),
 }));
 
+vi.mock('../../src/hooks/useFeatureEnabled', () => ({ useFeatureEnabled: () => mocks.pushEnrollmentEnabled }));
+vi.mock('../../src/lib/featureControls', () => ({ isFeatureEnabled: () => mocks.pushEnrollmentEnabled }));
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({
     getSetting: (key: string, fallback?: unknown) => mocks.retentionSettings[key] ?? fallback,
@@ -38,6 +40,7 @@ import { NotificationSettingsPage } from '../../src/pages/NotificationSettingsPa
 
 describe('NotificationSettingsPage', () => {
   beforeEach(() => {
+    mocks.pushEnrollmentEnabled = true;
     mocks.retentionSettings = {};
     mocks.setSetting.mockReset().mockResolvedValue(undefined);
     mocks.getPushNotificationState.mockReset().mockResolvedValue({
@@ -263,6 +266,28 @@ describe('NotificationSettingsPage', () => {
       'alertsSocialPushDetails', true
     ));
     expect(mocks.setPushDetails).not.toHaveBeenCalled();
+  });
+
+
+  it('blocks new push enrollment while leaving existing-device unsubscribe available', async () => {
+    mocks.pushEnrollmentEnabled = false;
+    mocks.getPushNotificationState.mockResolvedValue({ status: 'available', enabled: false, label: 'Ready to enable', detailsEnabled: null });
+    const { unmount } = render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    const disabledToggle = await screen.findByRole('switch', { name: 'Enable push notifications' });
+    await waitFor(() => expect(disabledToggle).toHaveTextContent('New subscriptions temporarily unavailable'));
+    expect(disabledToggle).toBeDisabled();
+    expect(mocks.enablePushNotifications).not.toHaveBeenCalled();
+    unmount();
+
+    mocks.getPushNotificationState.mockResolvedValue({ status: 'enabled', enabled: true, detailsEnabled: false, label: 'Enabled on this device' });
+    mocks.disablePushNotifications.mockResolvedValue({ status: 'available', enabled: false, detailsEnabled: null, label: 'Ready to enable' });
+    render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    const existingToggle = await screen.findByRole('switch', { name: 'Enable push notifications' });
+    await waitFor(() => expect(existingToggle).toBeChecked());
+    expect(existingToggle).toBeEnabled();
+    fireEvent.click(existingToggle);
+    await waitFor(() => expect(mocks.disablePushNotifications).toHaveBeenCalledWith('user_a'));
+    expect(mocks.enablePushNotifications).not.toHaveBeenCalled();
   });
 
 });

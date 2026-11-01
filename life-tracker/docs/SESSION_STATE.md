@@ -1,3 +1,12 @@
+# Feature flags #1026 — three safe initiation controls v0.66.0 in task verification
+Updated: 2026-11-01 Asia/Manila
+
+- 18 previously owner-tested reversible controls promoted to `dev@a3e2045336c57c18392f87da48f63ddf95f6bd30` v0.65.0 by approved PR #1589. Source tree identical to stable Preview `c34f7c36e8441bd203fd604c06c4c65a88fcb0ca`; postmerge Quality Gate #41311108213 succeeded, exact `dev` Vercel READY. Emergency RxDB DB6 v5→v6 migration preserved. No main/Production change.
+- Next isolated v0.66.0 batch based on exact new dev tree: `mosaic_disable_bucket_list_creation` (prevent new aspirations, preserve existing), `mosaic_disable_friend_requests` (block new sends before offline queuing while letting already queued requests flush and existing friends/accept/cancel/block remain), `mosaic_disable_push_enrollment` (reject new device subscriptions before browser permission prompts while permitting existing subscriptions/opt-out and Alerts). Flags are operator initiation-only controls, not service shutdown, revocation, auth or backend capability.
+- Changed UI entry points and direct command boundaries, independent typed registry, data-preserving operator docs and regressions; no migration, existing record deletion, background sync changes, remote PostHog creation/activation or service mutations. Version v0.66.0. Run local targeted tests, lint, Node22 build and size; then task focused CI, stable exact-SHA full canonical, trusted Scratch READY. Register only three distinct INACTIVE flags after validated Preview delivery and request owner test; no dev/main/Production promotion of this new batch without separate approval.
+
+---
+
 # Feature controls #1026 — v0.65.0 reconciliation after emergency DB6 recovery
 Updated: 2026-11-01 Asia/Manila
 

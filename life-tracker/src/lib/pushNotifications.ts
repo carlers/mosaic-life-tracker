@@ -1,4 +1,5 @@
 import { getConnectivitySnapshot } from './connectivity';
+import { isFeatureEnabled } from './featureControls';
 import { sendAppAction } from './appAction';
 
 const PUSH_STATE_DB = 'mosaic_push_state';
@@ -316,6 +317,7 @@ function applicationServerKey(value: string): ArrayBuffer {
 export async function enablePushNotifications(
   userId: string
 ): Promise<PushNotificationState> {
+  if (!isFeatureEnabled('mosaic_disable_push_enrollment')) throw new Error('New push subscriptions are temporarily unavailable.');
   const unsupported = supportState();
   if (unsupported) return unsupported;
   if (!userId) return state('unsupported', 'Sign in to enable notifications');
