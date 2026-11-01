@@ -252,7 +252,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [deleteInventoryError, setDeleteInventoryError] = useState('');
   const [deleteProgress, setDeleteProgress] = useState<number | null>(null);
   const [recoverable, setRecoverable] = useState<RecoverableCategory[]>([]);
+  const [recoveryOwnerId, setRecoveryOwnerId] = useState<string | null>(null);
   const [recoveryCursor, setRecoveryCursor] = useState<string | null>(null);
+  const visibleRecoverable = recoveryOwnerId === user?.$id ? recoverable : [];
   const [recoveryExpanded, setRecoveryExpanded] = useState(false);
   const [recoverError, setRecoverError] = useState('');
   const [recoveryTarget, setRecoveryTarget] = useState<string | null>(null);
@@ -268,13 +270,12 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   useEffect(() => {
     if (!isOpen || !user?.$id) return;
     let cancelled=false;
-    setRecoverable([]);
-    setRecoveryCursor(null);
-    setRecoveryTarget(null);
     void listRecoverableCategories().then(page => {
       if (cancelled) return;
       setRecoverable(page.categories);
+      setRecoveryOwnerId(user.$id);
       setRecoveryCursor(page.nextCursor);
+      setRecoveryTarget(null);
       setRecoverError('');
     }, () => {
       if (!cancelled) setRecoverError('Recovery is unavailable until the server upgrade is complete.');
@@ -443,7 +444,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
           <button type="button" aria-expanded={recoveryExpanded}
             onClick={() => setRecoveryExpanded(value => !value)}
             className="w-full text-left text-sm text-white">
-            Recently deleted ({recoverable.length})
+            Recently deleted ({visibleRecoverable.length})
           </button>
           {recoveryExpanded && (
             <div className="mt-3 space-y-3">
@@ -453,8 +454,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 removed Bucket List links are not automatically restored.
               </p>
               {recoverError && <p role="alert" className="text-xs text-gray-400">{recoverError}</p>}
-              {recoverable.length===0 && !recoverError && <p className="text-xs text-gray-400">No recoverable categories.</p>}
-              {recoverable.map(category => (
+              {visibleRecoverable.length===0 && !recoverError && <p className="text-xs text-gray-400">No recoverable categories.</p>}
+              {visibleRecoverable.map(category => (
                 <div key={category.id} className="space-y-2 rounded-lg bg-surface px-3 py-3">
                   <p className="text-sm text-white">{category.name}</p>
                   <p className="text-xs text-gray-400">Deleted {category.deletedAt}</p>
