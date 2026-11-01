@@ -1,3 +1,14 @@
+# Issue #1441 — B0 read-only bulk command preview v0.53.0 (2026-11-02 Asia/Manila)
+
+- Owner's one-Go authorization covers voice and on-device models, AI evaluation, B0–B3 bulk commands, and secured external MCP. Models must be *individually deletable*. Do not promote to dev/main/Production without further authorization.
+- B0 extends the existing Home command launcher with explicit `move all [uncompleted/completed] tasks from <owner category> to <owner category|Backlogs>` parser and **read-only** review of matching local owner tasks, per-task date/completion, destination/no-ops, limited visible list. No bulk writes, undo, external API, migrations or server calls. The preview explicitly warns that offline-local results are not guaranteed to cover all remote tasks.
+- Exact owner category matching rejects cross-owner, missing, duplicate and ambiguous names. Unknown bulk move grammars cannot degrade into a single-task create operation. Voice and typed input share the same draft command; transcript editing invalidates prior previews. Existing single-task creation remains gated by manual review/confirmation.
+- B0 test proof: local unit 4/4 PASS, updated Home command sheet DOM 11/11 PASS, TS check PASS, production/PWA/size build PASS at a detached exact-parent working checkout. The extra staging files were reconstructed byte-for-byte in GitHub blobs and matched local git hashes. Focused CI, canonical and exact Vercel Preview pending for new commit.
+- v0.52.5 Whisper model deletion already merged as PR #1605 into stable `feature/1441-local-whisper-preview-v0524-20261101@9fbc052900cb35b602510605289f6cd73b1fa54e`; focused #41326728127 and full canonical #41326994014 SUCCESS; exact-SHA Preview deployment `dpl_FJYPgKJCkkGRfp2zXhFDUBorQ2jf` READY. Model deletion remains subject to physical-device acceptance.
+- Next work: deliver B0 through focused CI, squash stable Preview, canonical, READY. Then implement safe B1–B3 with owner-query revalidation, conflict-aware undo, bounded queue and partial errors; improve speech and evaluate optional model with own deletion control; independently authorized Scratch MCP must default to read-only and enforce authorization, replay safety and consent. Forward integration with independently evolving dev must resolve merge/build budget conflicts without weakening gates.
+
+---
+
 # Issue #1441 — optional model storage control v0.52.5 (2026-11-02 Asia/Manila)
 
 - Owner authorized completion of voice, local intent evaluation, safe bulk commands, and external MCP against Scratch Preview only; specifically requires both Whisper and any future local AI model to be individually deletable. Preserve typed commands, no silent model downloads, and no dev/main/Production promotion.

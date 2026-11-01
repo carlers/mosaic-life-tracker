@@ -423,6 +423,7 @@ export const HomePage: React.FC = () => {
             onClose={() => setIsCommandOpen(false)}
             ownerId={user?.$id ?? null}
             categories={ownerCategories}
+            tasks={ownerTasks}
             isLoading={tasksLoading || categoriesLoading}
             onCreate={handleCreateCommandTask}
           />
