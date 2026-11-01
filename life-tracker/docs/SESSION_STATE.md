@@ -1,3 +1,14 @@
+# Task checkpoint — #1478 Phase 3H synthetic-only cleanup candidate
+Updated: 2026-11-01 Asia/Manila
+
+- Owner explicitly deprioritized older PWA compatibility; this does not authorize deleting any existing real user file, Production mutation or dev/main promotion.
+- Source baseline: `feature/1478-synthetic-delete-scratch-20261101@3e9c128551a9b4a795552a1bad297cfb5a0d4fce`. Scratch private 13-column media provenance ledger and additive migrations 020/021 are already installed; prior stable canonical #41321577241 SUCCESS.
+- This branch adds two-step `request_synthetic_cleanup` / `confirm_synthetic_cleanup` handlers strictly gated to exact Scratch ID and disposable owner env value, server-minted purpose `synthetic`, a 12-second challenge grace, bounded graph scans, fingerprint checks, CAS and durable final receipt. No UI/action for real user files, no automated sweeper.
+- Current active Scratch Function `6ae753f41003d59c5bc7` also has newer category-lifecycle and owner-row-create modules not in this storage branch; do not replace the active deployment until exact behavior parity or validated merge. Do not set the test-owner variable except while running disposable three-account validation, and unset afterward.
+- Older PWAs are intentionally out of new acceptance scope but existing browser grants remain; no actual stale-client write fence. Real-user deletion remains gated on complete reference evidence and separate explicit authorization for existing files.
+
+---
+
 # Task checkpoint — #1478 v0.65.0 current-dev media lifecycle integration, Scratch approval
 Updated: 2026-11-01 Asia/Manila
 

@@ -6,6 +6,7 @@ const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
 const { auditOwnerMedia } = require('./owner-media-audit');
 const { reserveMediaUpload, confirmMediaUpload } = require('./media-provenance');
+const { requestSyntheticCleanup, confirmSyntheticCleanup } = require('./synthetic-media-cleanup');
 const { handleSubmitBugReport, handlePublishBugReport, pruneExpiredBugReports } = require('./bug-reports');
 const {
   handleGetNotifications,
@@ -1905,7 +1906,7 @@ const handler = async ({ req, res, log, error }) => {
     return res.json({ error: 'Unauthorized' }, 401);
   }
   // Prevent forged owner reads before probing account-erasure status.
-  if (['get_owner_media_audit', 'reserve_media_upload', 'confirm_media_upload'].includes(action) &&
+  if (['get_owner_media_audit', 'reserve_media_upload', 'confirm_media_upload', 'request_synthetic_cleanup', 'confirm_synthetic_cleanup'].includes(action) &&
       payload.ownerId !== undefined && payload.ownerId !== callerId) {
     return res.json({ error: 'Forbidden' }, 403);
   }
@@ -2037,6 +2038,17 @@ const handler = async ({ req, res, log, error }) => {
       case 'confirm_media_upload':
         result = await confirmMediaUpload({
           db: tablesDB, storage, callerId, fileId: payload.fileId,
+        });
+        break;
+      case 'request_synthetic_cleanup':
+        result = await requestSyntheticCleanup({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+        });
+        break;
+      case 'confirm_synthetic_cleanup':
+        result = await confirmSyntheticCleanup({
+          db: tablesDB, storage, callerId,
+          fileId: payload.fileId, token: payload.confirmationToken,
         });
         break;
       case 'get_owner_media_audit':

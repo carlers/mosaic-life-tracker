@@ -182,3 +182,31 @@ pending offline image data. File deletion, reclamation totals and global
 retention inference are disabled until canonical reference generations,
 old-PWA fencing, and mark/grace/recheck/receipt have passed live authorization
 and crash/restore acceptance.
+
+## Phase 3H — synthetic-only two-step physical cleanup candidate
+
+`request_synthetic_cleanup` and `confirm_synthetic_cleanup` are server-only
+functions protected by two independent runtime conditions: the exact Scratch
+Appwrite project ID and an explicit `MOSAIC_1478_TEST_DELETE_OWNER_ID`
+matching a disposable `m1478_...` account. The variable is absent from
+all portable defaults and must be cleared after acceptance. The upload must
+have the server-minted purpose `synthetic`, not task/Diary/chat/profile.
+
+The first action requires an exact server-owned verified provenance record,
+unchanged Storage fingerprint and owner-only update/delete rights, then scans
+task, Diary, settings, profile and chat references across all owners including
+tombstones, with strict pagination caps. It only stores a hashed challenge and
+a pending state; physical bytes are untouched. The second action requires
+the original opaque confirmation after 12 seconds, scans references again,
+checks the same fingerprint, conditionally marks the record `deleting`,
+then removes exactly that synthetic file and persists an idempotent receipt.
+Interrupted deletions can retry without guessing the file's ownership.
+
+This remains a deliberately restricted test harness. Missing or duplicated
+reference rows, incomplete scans, changed permissions, foreign accounts,
+unverified legacy files and non-Scratch projects all fail closed. No scheduled
+cleanup, all-user sweep, real-media deletion API or cloud reclamation claim.
+The user elected not to support older PWA clients during development, but
+the existing direct Appwrite grants remain technically effective; neither
+older-client fencing nor crash-proof real-media reference epochs are implied
+by this synthetic acceptance.

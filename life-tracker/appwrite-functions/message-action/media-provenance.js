@@ -5,6 +5,7 @@
 const { randomBytes } = require('node:crypto');
 const { Query } = require('node-appwrite');
 const { soleOwnerControl } = require('./owner-media-audit');
+const { eligible } = require('./synthetic-media-cleanup');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const TABLE_ID = 'media_uploads';
@@ -21,7 +22,8 @@ function validUser(userId) {
 
 async function reserveMediaUpload({ db, callerId, purpose, now = Date.now() }) {
   if (!validUser(callerId)) return result(401, { error: 'Unauthorized' });
-  if (!PURPOSES.has(purpose)) return result(400, { error: 'Invalid media purpose' });
+  if (purpose === 'synthetic' && !eligible(callerId)) return result(403, { error: 'Unavailable' });
+  if (!PURPOSES.has(purpose) && purpose !== 'synthetic') return result(400, { error: 'Invalid media purpose' });
   const fileId = 'img_' + randomBytes(16).toString('hex');
   const reservedAt = new Date(now).toISOString();
   const expiresAt = new Date(now + RESERVATION_MS).toISOString();
