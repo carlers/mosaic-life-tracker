@@ -77,6 +77,7 @@ describe('CategorySection', () => {
     );
     fireEvent.click(screen.getByRole('button',{name:'Manage category…'}));
     expect(open).toHaveBeenCalledExactlyOnceWith('work');
+    expect(screen.getByRole('button', {name:'Category options for Work'})).toHaveFocus();
     expect(setMenuOpen).toHaveBeenCalledWith(false);
   });
 

@@ -72,3 +72,52 @@ export async function executeCategoryLifecycle(
   }
   throw new Error('Category migration exceeded its safety limit');
 }
+
+export interface RecoverableCategory {
+  id: string;
+  name: string;
+  deletedAt: string;
+  status: 'delete' | 'restore';
+}
+export async function listRecoverableCategories(cursor?: string): Promise<{
+  categories: RecoverableCategory[]; nextCursor: string | null;
+}> {
+  const result = await sendAppAction({
+    action: 'list_recoverable_categories', ...(cursor ? {cursor} : {}),
+  }, 30000);
+  if (result.ok !== true || !Array.isArray(result.categories) ||
+      !(result.nextCursor === null || typeof result.nextCursor === 'string')) {
+    throw new Error('Invalid recovery inventory');
+  }
+  const categories = result.categories as RecoverableCategory[];
+  if (!categories.every(cat => cat && typeof cat.id === 'string' &&
+      typeof cat.name === 'string' && typeof cat.deletedAt === 'string' &&
+      ['delete','restore'].includes(cat.status))) throw new Error('Invalid recovery category');
+  return {categories,nextCursor:result.nextCursor as string | null};
+}
+
+export async function recoverDeletedCategory(
+  userId: string,
+  categoryId: string,
+  confirmName: string,
+  onProgress: (remaining: number) => void,
+): Promise<void> {
+  for (let attempt=0; attempt<10000;attempt++) {
+    const result=await sendAppAction({
+      action:'recover_deleted_category',categoryId,confirmName,
+    },70000);
+    if (result.ok !== true || !['processing','done'].includes(result.status as string) ||
+        !Number.isSafeInteger(result.remaining)) throw new Error('Invalid recovery response');
+    onProgress(result.remaining as number);
+    if (result.status === 'done') {
+      resyncCategoryReplicationPilot(userId);
+      resyncTaskReplicationPilot(userId);
+      await Promise.all([
+        refreshTaskReplicationPilot(userId,30000),
+        refreshCategoryReplicationPilot(userId,30000),
+      ]);
+      return;
+    }
+  }
+  throw new Error('Category recovery exceeded safety limit');
+}
