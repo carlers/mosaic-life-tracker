@@ -34,4 +34,54 @@ function setup(current: TaskDocument) {
     return modified;
   });
   state.document = { incrementalModify };
-  return { incrementalModify, get: () => ¶»§q«^
+  return { incrementalModify, get: () => persisted,
+    overwrite: (fields: Partial<TaskDocument>) => { persisted = {...persisted, ...fields}; } };
+}
+
+describe('task photo detachment â€” non-destructive local reference change', () => {
+  beforeEach(() => { state.userId = 'owner_A'; state.document = null; });
+
+  it('detaches the expected owner photo without deleting bytes or other task fields', async () => {
+    const document = setup(task());
+    const { result } = renderHook(() => useTasks());
+    await act(async () => result.current.removeTaskPhoto('task_A', 'img_original'));
+    expect(document.incrementalModify).toHaveBeenCalledTimes(1);
+    expect(document.get()).toMatchObject({
+      userId: 'owner_A', title: 'Test', image: '', categoryId: 'cat', isDeleted: false,
+    });
+    expect(document.get().updatedAt).not.toBe('2026-11-01T00:00:00Z');
+  });
+
+  it('preserves the newer photo when a concurrent upload replaces the old reference', async () => {
+    const document = setup(task());
+    document.overwrite({image: 'img_new'});
+    const { result } = renderHook(() => useTasks());
+    await expect(result.current.removeTaskPhoto('task_A', 'img_original'))
+      .rejects.toThrow('Task photo changed');
+    expect(document.get().image).toBe('img_new');
+  });
+
+  it('rejects foreign, deleted, unauthenticated and absent tasks without updates', async () => {
+    const document = setup(task({userId: 'other'}));
+    const { result } = renderHook(() => useTasks());
+    await expect(result.current.removeTaskPhoto('task_A', 'img_original')).rejects.toThrow();
+    expect(document.get().image).toBe('img_original');
+    document.overwrite({userId: 'owner_A', isDeleted: true});
+    await expect(result.current.removeTaskPhoto('task_A', 'img_original')).rejects.toThrow();
+    expect(document.get().image).toBe('img_original');
+    state.document = null;
+    await expect(result.current.removeTaskPhoto('task_A', 'img_original'))
+      .rejects.toThrow('Task is no longer available');
+    state.userId = '';
+    const other = renderHook(() => useTasks());
+    await expect(other.result.current.removeTaskPhoto('task_A', 'img_original'))
+      .rejects.toThrow('Cannot remove an unowned');
+  });
+
+  it('detaches a pending offline image reference without destroying the pending blob', async () => {
+    const document = setup(task({image:'localimg_123'}));
+    const { result } = renderHook(() => useTasks());
+    await act(async () => result.current.removeTaskPhoto('task_A', 'localimg_123'));
+    expect(document.get().image).toBe('');
+  });
+});

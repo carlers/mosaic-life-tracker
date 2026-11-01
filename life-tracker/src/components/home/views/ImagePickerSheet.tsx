@@ -33,4 +33,132 @@ interface ImagePickerSheetProps {
 /**
  * Unified image picker sheet (DUP-7). Replaces the previously separate
  * `ImagePickerSheet` (task-scoped) and `EditProfileImageSheet`
- * (¶»§q«^
+ * (profile-scoped). The two differed only in title, the log prefix, and
+ * how "is there an existing image to remove" was derived â€” all of which
+ * the caller now supplies.
+ */
+export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
+  isOpen,
+  onClose,
+  variant,
+  hasExistingImage,
+  title,
+  onSave,
+  onRemove,
+}) => {
+  const { user } = useAuth();
+  const taskPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_task_photo_upload');
+  const profilePhotoUploadEnabled = useFeatureEnabled('mosaic_disable_profile_photo_upload');
+  const canUpload = variant === 'profile' ? profilePhotoUploadEnabled : taskPhotoUploadEnabled;
+  const [isUploading, setIsUploading] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const removePendingRef = useRef(false);
+  const logPrefix = variant === 'profile' ? '[EditProfileImage]' : '[ImagePicker]';
+
+  useSheetReset(isOpen, () => {
+    setError('');
+    setIsUploading(false);
+    setIsRemoving(false);
+  });
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || isUploading || isRemoving || removePendingRef.current) return;
+    if (!isFeatureEnabled(variant === 'profile' ? 'mosaic_disable_profile_photo_upload' : 'mosaic_disable_task_photo_upload')) {
+      setError(variant === 'profile'
+        ? 'New profile photo uploads are currently unavailable.'
+        : 'Task photo uploads are currently unavailable.');
+      return;
+    }
+    setIsUploading(true);
+    setError('');
+    try {
+      const userId = user?.$id;
+      if (!userId) throw new Error('Not authenticated');
+      const fileId = await (variant === 'profile' ? saveProfileImage(file, userId) : saveTaskImage(file, userId));
+      await onSave(fileId);
+      onClose();
+    } catch (err) {
+      setError('Failed to save image. Please try again.');
+      console.error(`${logPrefix} Upload failed:`, err);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemove = async () => {
+    if (removePendingRef.current || isRemoving || isUploading) return;
+    removePendingRef.current = true;
+    setIsRemoving(true);
+    setError('');
+    try {
+      await onRemove();
+      onClose();
+    } catch (err) {
+      setError('Failed to remove image. Please try again.');
+      console.error(logPrefix + ' Remove failed:', err);
+    } finally {
+      removePendingRef.current = false;
+      setIsRemoving(false);
+    }
+  };
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={title} height="auto">
+      <div className="pt-2 pb-8 px-4 space-y-4">
+        <p className="text-sm text-gray-400 text-center">
+          {canUpload
+            ? 'Images are compressed on-device and sync automatically when online.'
+            : 'New photo uploads are currently unavailable. Existing photos are preserved.'}
+        </p>
+
+        <SheetErrorBanner message={error} />
+
+        <div className="flex flex-col gap-3">
+          {canUpload && <Button
+            variant="primary"
+            className="w-full gap-2 py-3"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading || isRemoving}
+          >
+            {isUploading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Saving photo...
+              </>
+            ) : (
+              <>
+                <Upload size={18} />
+                Choose from Device
+              </>
+            )}
+          </Button>}
+
+          <input
+            ref={fileInputRef}
+            disabled={isUploading || isRemoving}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {hasExistingImage && (
+            <Button
+              variant="danger"
+              className="w-full gap-2 py-3"
+              onClick={handleRemove}
+              disabled={isUploading || isRemoving}
+            >
+              {isRemoving ? <Loader2 size={18} className="animate-spin" /> : <X size={18} />}
+              {isRemoving ? 'Removing photo...' : 'Remove Current Photo'}
+            </Button>
+          )}
+        </div>
+      </div>
+    </BottomSheet>
+  );
+};

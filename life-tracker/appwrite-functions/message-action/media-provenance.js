@@ -29,4 +29,70 @@ async function reserveMediaUpload({ db, callerId, purpose, now = Date.now() }) {
   // owner IDs or allow browser writes to this table.
   await db.createRow({
     databaseId: DATABASE_ID, tableId: TABLE_ID, rowId: fileId,
-    ¶»§q«^
+    data: {
+      owner_id: callerId, file_id: fileId, purpose, status: 'reserved',
+      reserved_at: reservedAt, expires_at: expiresAt,
+    },
+    permissions: [],
+  });
+  return result(200, { fileId, purpose, expiresAt, deletionAuthorized: false });
+}
+
+async function confirmMediaUpload({ db, storage, callerId, fileId, now = Date.now() }) {
+  if (!validUser(callerId)) return result(401, { error: 'Unauthorized' });
+  if (!ID_RE.test(fileId || '')) return result(400, { error: 'Invalid media ID' });
+  let row;
+  try {
+    row = await db.getRow({ databaseId: DATABASE_ID, tableId: TABLE_ID, rowId: fileId });
+  } catch (err) {
+    if (Number(err?.code) === 404) return result(404, { error: 'Media reservation unavailable' });
+    throw err;
+  }
+  if (row?.owner_id !== callerId || row?.file_id !== fileId) {
+    return result(403, { error: 'Forbidden' });
+  }
+  if (row.status !== 'reserved' && row.status !== 'verified') {
+    return result(409, { error: 'Media reservation unavailable' });
+  }
+  const issued = Date.parse(row.reserved_at || '');
+  const expires = Date.parse(row.expires_at || '');
+  if (!Number.isFinite(issued) || !Number.isFinite(expires) ||
+      issued > now || expires - issued !== RESERVATION_MS ||
+      (row.status === 'reserved' && now > expires)) {
+    return result(409, { error: 'Media reservation expired or invalid' });
+  }
+  let file;
+  try {
+    file = await storage.getFile({ bucketId: BUCKET_ID, fileId });
+  } catch (err) {
+    if (Number(err?.code) === 404) return result(409, { error: 'Media upload not complete' });
+    throw err;
+  }
+  const fileCreated = Date.parse(file?.$createdAt || '');
+  if (file?.$id !== fileId || !soleOwnerControl(file.$permissions, callerId) ||
+      !Number.isSafeInteger(file.sizeOriginal) || file.sizeOriginal <= 0 ||
+      file.sizeOriginal > MAX_SIZE ||
+      typeof file.mimeType !== 'string' || !file.mimeType.startsWith('image/') ||
+      !Number.isFinite(fileCreated) || fileCreated < issued - 10_000 ||
+      fileCreated > now + 10_000) {
+    return result(409, { error: 'Media identity or permissions unverified' });
+  }
+  if (row.status === 'verified') {
+    return result(200, { fileId, status: 'verified', deletionAuthorized: false });
+  }
+  const updated = await db.updateRows({
+    databaseId: DATABASE_ID, tableId: TABLE_ID,
+    queries: [Query.equal('$id', fileId), Query.equal('owner_id', callerId),
+      Query.equal('status', 'reserved')],
+    data: { status: 'verified', verified_at: new Date(now).toISOString(),
+      file_created_at: file.$createdAt, size_bytes: file.sizeOriginal },
+  });
+  if (updated?.total !== 1) {
+    // A concurrent confirmation may have won; fail closed rather than
+    // accepting ambiguous multi-row updates or a racing status change.
+    return result(409, { error: 'Media reservation changed' });
+  }
+  return result(200, { fileId, status: 'verified', deletionAuthorized: false });
+}
+
+module.exports = { reserveMediaUpload, confirmMediaUpload, RESERVATION_MS };

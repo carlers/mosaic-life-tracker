@@ -28,4 +28,12 @@ describe('media provenance schema migration', () => {
       {columns:manifest.columns.slice(1)},
       {indexes:[]},
     ]) {
-      const request = vi.fn().mockResolved¶»§q«^
+      const request = vi.fn().mockResolvedValue({
+        $id:'media_uploads',rowSecurity:true,enabled:true,$permissions:[],
+        columns:manifest.columns,indexes:manifest.indexes,...override,
+      });
+      await expect(migrateMediaUploadsBackend({request})).rejects.toThrow(/drift/);
+      expect(request).toHaveBeenCalledTimes(1);
+    }
+  });
+});

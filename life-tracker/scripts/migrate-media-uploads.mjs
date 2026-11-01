@@ -27,4 +27,17 @@ export async function migrateMediaUploadsBackend({
   for (const field of expected.columns) {
     const actual = fields.get(field.key);
     if (!actual || actual.type !== field.type || actual.required !== field.required ||
-        (field.size && actual.size !== field.siz¶»§q«^
+        (field.size && actual.size !== field.size)) {
+      throw new Error('Media provenance column drift: ' + field.key);
+    }
+  }
+  const indexes = new Map((existing.indexes || []).map(index => [index.key, index]));
+  for (const index of expected.indexes) {
+    const actual = indexes.get(index.key);
+    if (!actual || actual.type !== index.type ||
+        JSON.stringify(actual.attributes ?? actual.columns) !== JSON.stringify(index.attributes)) {
+      throw new Error('Media provenance index drift: ' + index.key);
+    }
+  }
+  return { created: false };
+}
