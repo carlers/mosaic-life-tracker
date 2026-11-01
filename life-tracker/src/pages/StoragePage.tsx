@@ -5,6 +5,7 @@ import { BottomSheet } from '../components/ui/BottomSheet';
 import { useAuth } from '../hooks/useAuth';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { clearAllCachedImages } from '../lib/imageCache';
+import { CloudReclaimSection } from '../components/settings/CloudReclaimSection';
 import { readDeviceStorageUsage, type DeviceStorageUsage } from '../lib/deviceStorageUsage';
 import type { CloudMediaInventory, CloudMediaKind } from '../lib/cloudMediaUsage';
 
@@ -224,6 +225,7 @@ export function StoragePage() {
             </div>
           )}
         </section>
+        <CloudReclaimSection key={ownerId} ownerId={ownerId} />
         <div className="px-4 py-4">
           <button type="button" disabled={loading || clearing} onClick={() => setRefreshIndex((value) => value + 1)}
             className="rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-500/60">Refresh usage</button>

@@ -1,3 +1,12 @@
+# Storage management #1478 — v0.75.0 dev-forward integration, 2026-11-02
+
+- Owner authorized finishing storage management after the v0.72.0 isolated Preview accepted, Scratch message-action active deployment 6ae7801f1c827c860c3f READY, canonical #41334937982 SUCCESS, and independently run 21-check live Scratch three-account/new-media/grace/receipt acceptance PASS. Disposable users and test ledger row subsequently removed; existing media/Production unchanged.
+- Integrate v0.72.0 owner-confirmed new-media cleanup and proven ownership ledger onto dev@8dc5074c33250a5d9a449aad4c486fab489e8448 v0.74.0, preserving newer global bottom sheet and category ACL hardening. Distinct migrations 020-category-retirement, 022-media-uploads, 023-synthetic-media-delete; Scratch schema exists already and is not rebuilt. New user-visible Preview version 0.75.0.
+- Run focused tests and canonical full CI and trusted Preview on the integrated exact source; check shared Scratch active Function parity before any server-side rollout. No Production/main or automatic file sweep. Legacy/unknown files remain protected; older PWA support expressly excluded by owner.
+- Remaining: reconcile checked test/CI evidence and manual device acceptance. Do not claim actual Android/iOS hardware checks without a device.
+
+---
+
 # Universal scroll-aware BottomSheet v0.74.0 — version collision reconciliation (2026-11-02)
 
 - Previous v0.73.0 stable Preview `feature/universal-sheet-pull-v0730-20261102@9a5f2deb271d236695e5b7e8a0a7f24403450598` passed focused run #41337496807, canonical run #41337846522 and trusted Preview #41338196300. Exact-SHA Vercel deployment `dpl_EHV4Zzs8CYRtxRE8eQdLyqPsfhKK` READY. Another concurrent stable feature `feature/1026-chat-alerts-controls-v0730-20261102` independently published the same v0.73.0. Preserve the accepted implementation but assign the next unoccupied line v0.74.0; the v0.73.0 branch must not be promoted.

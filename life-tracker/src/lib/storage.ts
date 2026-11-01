@@ -2,7 +2,8 @@ import { Permission, Role } from 'appwrite';
 import { isUnauthorizedError, OfflineError } from './authEvents';
 import { isFeatureEnabled } from './featureControls';
 import { guardedStorage, guardedAccount } from './sdk';
-import { getCachedImage, cacheImage, deleteCachedImage } from './imageCache';
+import { getCachedImage, cacheImage } from './imageCache';
+import { sendAppAction } from './appAction';
 import { getConnectivitySnapshot } from './connectivity';
 import {
   createPendingImage,
@@ -26,27 +27,6 @@ export async function compressImage(file: File): Promise<Blob> {
     useWebWorker: true,
     fileType: 'image/webp',
   });
-}
-
-function generateFileId(): string {
-  if (
-    typeof crypto !== 'undefined' &&
-    typeof crypto.randomUUID === 'function'
-  ) {
-    return `img_${crypto.randomUUID().replace(/-/g, '')}`;
-  }
-  if (
-    typeof crypto !== 'undefined' &&
-    typeof crypto.getRandomValues === 'function'
-  ) {
-    const randomBytes = new Uint8Array(16);
-    crypto.getRandomValues(randomBytes);
-    const hex = Array.from(randomBytes, (b) =>
-      b.toString(16).padStart(2, '0')
-    ).join('');
-    return `img_${hex}`;
-  }
-  return `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
 export async function getCurrentUserId(): Promise<string | null> {
@@ -116,6 +96,31 @@ async function uploadCompressedBlobWithId(
   return fileId;
 }
 
+type RegisteredMediaPurpose = 'tasks' | 'diary' | 'profile';
+
+// Fresh online media IDs are minted by the authenticated server. Backups and
+// pending-image replay retain their original IDs and stay unverified/protected.
+async function reserveNewMediaId(purpose: RegisteredMediaPurpose): Promise<string> {
+  const response = await sendAppAction({ action: 'reserve_media_upload', purpose });
+  const id = response.fileId;
+  if (typeof id !== 'string' || !/^img_[0-9a-f]{32}$/.test(id)) {
+    throw new Error('Media reservation response was invalid.');
+  }
+  return id;
+}
+
+async function uploadNewRegisteredMedia(
+  blob: Blob, userId: string, purpose: RegisteredMediaPurpose, friendReadable: boolean
+): Promise<string> {
+  const fileId = await reserveNewMediaId(purpose);
+  await uploadCompressedBlobWithId(blob, fileId, userId, friendReadable);
+  const result = await sendAppAction({ action: 'confirm_media_upload', fileId });
+  if (result.fileId !== fileId || result.status !== 'verified') {
+    throw new Error('Media upload verification was rejected.');
+  }
+  return fileId;
+}
+
 async function uploadImageWithId(
   file: File,
   fileId: string,
@@ -132,12 +137,13 @@ export async function saveDiaryImage(file: File, userId: string): Promise<string
   if (!userId) throw new Error('Sign in before adding a diary photo.');
   if (getConnectivitySnapshot().status !== 'online') throw new Error('Connect to upload diary photos.');
   const blob = await compressImage(file);
-  return uploadCompressedBlobWithId(blob, generateFileId(), userId, false);
+  return uploadNewRegisteredMedia(blob, userId, 'diary', false);
 }
 
 export async function saveImage(
   file: File,
-  userId: string
+  userId: string,
+  purpose: RegisteredMediaPurpose = 'tasks'
 ): Promise<string> {
   if (!userId) throw new Error('Cannot upload image: no authenticated user');
   const compressedBlob = await compressImage(file);
@@ -145,14 +151,9 @@ export async function saveImage(
     return createPendingImage(userId, compressedBlob);
   }
   try {
-    return await uploadCompressedBlobWithId(
-      compressedBlob,
-      generateFileId(),
-      userId,
-      true
-    );
+    return await uploadNewRegisteredMedia(compressedBlob, userId, purpose, true);
   } catch (error) {
-    const cause = (error as Error & { cause?: unknown }).cause;
+    const cause = (error as Error & { cause?: unknown }).cause ?? error;
     const code = (cause as { code?: number } | null)?.code;
     const transient =
       !isUnauthorizedError(cause) &&
@@ -200,7 +201,7 @@ export async function uploadPendingImage(
 export async function saveProfileImage(file: File, userId: string): Promise<string> {
   if (!isFeatureEnabled('mosaic_disable_profile_photo_upload')) throw new Error('New profile photo uploads are currently unavailable.');
   if (!userId) throw new Error('Cannot save profile image: no authenticated user');
-  return saveImage(file, userId);
+  return saveImage(file, userId, 'profile');
 }
 
 export async function makeProfileImageReadable(fileId: string, userId: string): Promise<void> {
@@ -221,7 +222,7 @@ export async function uploadImage(file: File): Promise<string> {
   if (!userId) {
     throw new Error('Cannot upload image: no authenticated user');
   }
-  return uploadImageWithId(file, generateFileId(), userId);
+  return uploadNewRegisteredMedia(await compressImage(file), userId, 'tasks', false);
 }
 
 export interface EnsuredImage {
@@ -322,19 +323,9 @@ export async function deleteImage(fileId: string): Promise<void> {
     await deletePendingImage(fileId);
     return;
   }
-  try {
-    await guardedStorage.deleteFile({
-      bucketId: APPWRITE_CONFIG.bucketId,
-      fileId: fileId,
-    });
-  } catch (err) {
-    console.warn(
-      '[Storage] Failed to delete image from Appwrite:',
-      fileId,
-      err
-    );
-  }
-  await deleteCachedImage(fileId);
+  // Never delete remote bytes from a browser; stale devices, shared references,
+  // and tombstoned records may still require the file.
+  throw new Error('Direct cloud image deletion is disabled. Remove its record reference instead.');
 }
 
 export function getImagePreviewUrl(fileId: string): string {
