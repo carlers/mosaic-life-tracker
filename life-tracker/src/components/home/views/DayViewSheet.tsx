@@ -31,6 +31,9 @@ const LazyBulkCategoryPickerSheet = lazy(() => import('./BulkCategoryPickerSheet
 const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(m => ({ default: m.BulkVisibilitySheet })));
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
+import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
+const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
+  createPreloadedLazy(() => import('../../modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 import { TaskActionSheet } from './TaskActionSheet';
 const { Component: LazyLinkTaskToBucketSheet, preload: preloadLinkTaskToBucketSheet } =
   createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
@@ -1807,15 +1810,38 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
   const isSheet = (props.renderMode ?? 'sheet') === 'sheet';
   const shellControlsRef = useRef<SheetContentControls | null>(null);
+  const [managerCategoryId, setManagerCategoryId] = useState<string | null>(null);
+  const [managerMounted, setManagerMounted] = useState(false);
+  const [managerSession, setManagerSession] = useState(0);
+  const openCategoryManager = useCallback((categoryId: string) => {
+    setManagerCategoryId(categoryId);
+    setManagerMounted(true);
+    setManagerSession(session => session + 1);
+    void preloadCategoryManagerSheet().catch(() => {});
+  }, []);
+  const categoryManager = managerMounted && (
+    <LazyCategoryManagerSheet
+      key={managerSession}
+      isOpen={managerCategoryId !== null}
+      initialCategoryId={managerCategoryId}
+      onClose={() => setManagerCategoryId(null)}
+    />
+  );
+  const inner = (shellProps: Partial<Pick<React.ComponentProps<typeof DayViewSheetInner>, 'shellControlsRef' | 'onLockChange'>>) => (
+    <CategoryManagerOpenContext.Provider value={openCategoryManager}>
+      <DayViewSheetInner {...props} {...shellProps} />
+    </CategoryManagerOpenContext.Provider>
+  );
   const [lock, setLock] = useState<SheetContentLock>({ background: false, reorder: false });
   const onLockChange = useCallback((next: SheetContentLock) => {
     setLock(current => current.background === next.background && current.reorder === next.reorder
       ? current : next);
   }, []);
 
-  if (!isSheet) return <DayViewSheetInner {...props} />;
+  if (!isSheet) return <>{inner({})}{categoryManager}</>;
 
   return (
+    <>
     <BottomSheet
       isOpen={props.isOpen}
       onClose={() => {
@@ -1838,11 +1864,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
       deferChildrenUntilPaint
       onTransientDismiss={() => shellControlsRef.current?.transientDismiss() ?? false}
     >
-      <DayViewSheetInner
-        {...props}
-        shellControlsRef={shellControlsRef}
-        onLockChange={onLockChange}
-      />
+      {inner({ shellControlsRef, onLockChange })}
     </BottomSheet>
+    {categoryManager}
+    </>
   );
 };
