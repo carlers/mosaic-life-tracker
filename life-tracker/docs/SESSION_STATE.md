@@ -1,3 +1,11 @@
+# #856 / #857 v0.56.1 held Day View edge-drag settle recovery (2026-11-01)
+
+- Stable v0.56.1 exact-SHA `b8b2ba6274f025bac07ea44f23b0548b0732e719`, full canonical #41294126700 build/DOM/checks passed, browser shard 2 failed a repeated held-touch edge navigation scenario on both attempt 1 and rerun attempt 2. Source and fixture for this scenario were unchanged from previous green stable Preview, but repeated failure requires repair.
+- Swiper FreeMode may render its expected next day without emitting the transition-end callback. The existing watchdog unconditionally reverted the visible day and disabled repeats. New guarded recovery checks both `swiper.activeIndex === expectedIndex` and the active rendered `data-date-str === expectedDate`; if both hold, it confirms via existing `onSettledRef` and resumes the cooldown/held navigation. Wrong/blank/half-virtualized targets still fail closed and restore last settled day.
+- Task branch `chatgpt/856-held-cross-day-settle-v0561-20261101`, focused before squash, full canonical and exact Vercel READY required. No release version bump because candidate v0.56.1 not accepted yet. No category backend/provider change.
+
+---
+
 # #857 v0.56.1 category task move TypeScript build repair (2026-11-01)
 
 - Protected Preview `a4945c1941d690e65358a8f6ccbf19a0e3aa1e99`, canonical #41274105881: DOM, browser, checks and audit succeeded, TypeScript build failed on `moveCategoryTasks` returning `Promise<{moved,total}>` to `useSheetSaveAction` which requires `Promise<void>`.
