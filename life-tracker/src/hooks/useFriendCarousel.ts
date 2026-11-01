@@ -4,6 +4,8 @@ import { useMyProfile } from './useMyProfile';
 import { useSettings } from './useSettings';
 import { useAuth } from './useAuth';
 import { useConnectivity } from './useConnectivity';
+import { useFeatureEnabled } from './useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 import {
   fetchProfileByUserId,
   updateFriendBioLocally,
@@ -60,7 +62,8 @@ export interface UseFriendCarouselReturn {
 export function useFriendCarousel(): UseFriendCarouselReturn {
   const { user, isOffline } = useAuth();
   const connectivity = useConnectivity();
-  const canUseNetwork = connectivity.status === 'online' && !isOffline;
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const canUseNetwork = socialEnabled && connectivity.status === 'online' && !isOffline;
   const { friends, isLoading: friendsLoading } = useFriends();
   const { profile, isLoading: profileLoading } = useMyProfile();
   const { settings, isLoading: settingsLoading, setSetting } = useSettings();
@@ -140,7 +143,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
     });
 
     const hiddenSet = new Set(prefs.hidden);
-    const visibleFriends = friends.filter((f) => !hiddenSet.has(f.friendId));
+    const visibleFriends = socialEnabled ? friends.filter((f) => !hiddenSet.has(f.friendId)) : [];
 
     const orderIndex = new Map<string, number>();
     prefs.order.forEach((id, idx) => orderIndex.set(id, idx));
@@ -169,10 +172,11 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
     }
 
     return list;
-  }, [friends, prefs, profile, ownDisplayName, user?.$id, user?.name]);
+  }, [friends, prefs, profile, ownDisplayName, socialEnabled, user?.$id, user?.name]);
 
   const reorder = useCallback(
     async (newFriendOrder: string[]) => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) return;
       const next: CarouselPrefs = {
         order: newFriendOrder,
         hidden: prefs.hidden,
@@ -184,6 +188,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
 
   const toggleVisibility = useCallback(
     async (friendId: string) => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) return;
       const hiddenSet = new Set(prefs.hidden);
       if (hiddenSet.has(friendId)) hiddenSet.delete(friendId);
       else hiddenSet.add(friendId);
@@ -197,6 +202,7 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
   );
 
   const resetOrder = useCallback(async () => {
+    if (!isFeatureEnabled('mosaic_disable_all_social')) return;
     await setSetting(PREFS_KEY, DEFAULT_PREFS);
   }, [setSetting]);
 

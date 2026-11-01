@@ -65,6 +65,7 @@ import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../../lib/featureControls';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
   CONFIRM_TASK_DELETE_SETTING_KEY,
@@ -268,6 +269,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
   const confirmTaskDelete = shouldConfirmTaskDelete(getSetting(CONFIRM_TASK_DELETE_SETTING_KEY));
   const taskTimestampsEnabled = useFeatureEnabled('mosaic_disable_task_timestamps');
+  const bulkActionsEnabled = useFeatureEnabled('mosaic_disable_task_bulk_actions');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const taskDragReorderEnabled = useFeatureEnabled('mosaic_disable_task_drag_reorder');
+  const taskBucketLinkEnabled = useFeatureEnabled('mosaic_disable_task_bucket_link');
   const dayViewDiaryPanelEnabled = useFeatureEnabled('mosaic_disable_day_view_diary_panel');
   const showCreatedTime = taskTimestampsEnabled && getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
   const showCompletedTime = taskTimestampsEnabled && getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
@@ -741,11 +746,19 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       exitSelectMode();
       return;
     }
+    if (!isFeatureEnabled('mosaic_disable_task_bulk_actions')) return;
     setEditingTaskId(null);
     setEditValue('');
     setSelectedTaskIds(new Set());
     setIsSelectMode(true);
   }, [exitSelectMode, isSelectMode]);
+
+  React.useEffect(() => {
+    if (bulkActionsEnabled || !isSelectMode || isBulkWorking) return;
+    let active = true;
+    queueMicrotask(() => { if (active) exitSelectMode(); });
+    return () => { active = false; };
+  }, [bulkActionsEnabled, exitSelectMode, isBulkWorking, isSelectMode]);
 
   const handleCopySelectedTasks = useCallback(async () => {
     if (copyPendingRef.current || isBulkWorking || selectedTasks.length === 0) return;
@@ -1282,11 +1295,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
               aria-label="Show keyboard shortcuts" aria-expanded={keyboardHelpOpen}
               className="hidden md:inline-flex rounded-lg px-2.5 py-1.5 text-gray-300 hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             ><CircleHelp size={17} aria-hidden="true" /></button>
-            <button type="button" onClick={handleToggleSelectMode}
+            {bulkActionsEnabled && <button type="button" onClick={handleToggleSelectMode}
               aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
               aria-pressed={isSelectMode}
               className="rounded-lg px-3 py-1.5 text-sm text-gray-300 focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            >{isSelectMode ? 'Done' : 'Select'}</button>
+            >{isSelectMode ? 'Done' : 'Select'}</button>}
           </div>
           {keyboardHelpPanel}
           <DaySlide
@@ -1316,7 +1329,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onShowKeyboardHelp={showKeyboardHelp}
             selectedTaskIds={selectedTaskIds}
             onToggleTaskSelection={handleToggleTaskSelection}
-            reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
+            reorderEnabled={taskDragReorderEnabled && isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
             reorderRuntimeActive={isOpen}
             onReorderTasks={reorderTasks}
             onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
@@ -1569,6 +1582,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       onToggleTaskSelection={handleToggleTaskSelection}
                       onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
                       reorderEnabled={
+                        taskDragReorderEnabled &&
                         isOpen &&
                         i === activeIndex &&
                         !isSelectMode &&
@@ -1684,23 +1698,23 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         }}
         onChangeDate={handleDateChange}
         onVisibility={handleOpenVisibility}
-        onShare={() => { setShareSheetMounted(true); setIsShareSheetOpen(true); }}
+        onShare={() => { if (!isFeatureEnabled('mosaic_disable_all_social')) return; setShareSheetMounted(true); setIsShareSheetOpen(true); }}
         onAddPhoto={handleOpenImagePicker}
         onViewPhoto={handleOpenImageViewer}
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
         onMoveToBacklog={handleMoveToBacklog}
-        onLinkToBucketList={() => setIsBucketLinkOpen(true)}
+        onLinkToBucketList={() => { if (isFeatureEnabled('mosaic_disable_task_bucket_link')) setIsBucketLinkOpen(true); }}
       />
       {shareSheetMounted && (
         <LazyShareTaskSheet
-          isOpen={isShareSheetOpen && !!activeTask}
+          isOpen={isShareSheetOpen && socialEnabled && !!activeTask}
           onClose={() => setIsShareSheetOpen(false)}
           task={activeTask}
         />
       )}
       {isBucketLinkOpen && (
-        <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
+        <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && taskBucketLinkEnabled && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
       )}
       <Suspense fallback={null}>
       <LazyMemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}

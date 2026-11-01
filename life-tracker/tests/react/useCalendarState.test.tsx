@@ -89,6 +89,14 @@ const emblaFixture = vi.hoisted(() => {
   };
 });
 
+const weekControl = vi.hoisted(() => ({ enabled: true }));
+vi.mock('../../src/hooks/useFeatureEnabled', () => ({
+  useFeatureEnabled: () => weekControl.enabled,
+}));
+vi.mock('../../src/lib/featureControls', () => ({
+  isFeatureEnabled: () => weekControl.enabled,
+}));
+
 vi.mock('embla-carousel-react', () => ({
   default: () => [vi.fn(), emblaFixture.api],
 }));
@@ -96,8 +104,23 @@ vi.mock('embla-carousel-react', () => ({
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 
 describe('useCalendarState render window', () => {
+  it('pauses Week view without losing selected mode, and ignores stale toggles', () => {
+    const { result, rerender } = renderHook(() => useCalendarState());
+    act(() => result.current.handleToggle());
+    expect(result.current.viewMode).toBe('week');
+    weekControl.enabled = false;
+    rerender();
+    expect(result.current.viewMode).toBe('month');
+    act(() => result.current.handleToggle());
+    expect(result.current.viewMode).toBe('month');
+    weekControl.enabled = true;
+    rerender();
+    expect(result.current.viewMode).toBe('week');
+  });
+
   beforeEach(() => {
     emblaFixture.reset();
+    weekControl.enabled = true;
   });
 
   it('keeps the three-slide render window stable during per-frame scroll events', () => {
