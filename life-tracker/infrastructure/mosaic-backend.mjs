@@ -303,6 +303,27 @@ export const MOSAIC_TABLES = [
     ],
   },
   {
+    id: 'bug_reports',
+    name: 'Private Bug Reports',
+    permissions: [],
+    rowSecurity: true,
+    enabled: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'title', type: 'varchar', size: 160, required: true },
+      { key: 'description', type: 'longtext', required: true },
+      { key: 'steps', type: 'longtext', required: false, default: '' },
+      { key: 'diagnostics', type: 'varchar', size: 512, required: false, default: '' },
+      { key: 'body_hash', type: 'varchar', size: 64, required: true },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'expires_at', type: 'varchar', size: 50, required: true },
+    ],
+    indexes: [
+      { key: 'idx_bug_user_created', type: 'key', attributes: ['user_id', 'created_at'] },
+      { key: 'idx_bug_expiry', type: 'key', attributes: ['expires_at'] },
+    ],
+  },
+  {
     id: 'account_deletions',
     name: 'Account Deletions',
     permissions: [],
