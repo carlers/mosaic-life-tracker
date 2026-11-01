@@ -52,7 +52,6 @@ import { useFeedback } from '../../../hooks/useFeedback';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { pendingOwnerCompletionIds, subscribeOwnerCompletionPending } from '../../../lib/ownerCompletionPending';
 import { useDayViewSwiper } from './useDayViewSwiper';
-import { deleteImage } from '../../../lib/storage';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
@@ -242,6 +241,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     addTask,
     toggleTaskCompletion,
     updateTask,
+    removeTaskPhoto,
     deleteTask,
     reorderTasks,
     moveTasksToCategory,
@@ -969,13 +969,23 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     setIsActionSheetOpen(false);
   }, []);
 
+  const [isRemovingPhoto, setIsRemovingPhoto] = useState(false);
+  const removingPhotoRef = useRef(false);
   const handleConfirmDeletePhoto = useCallback(async () => {
-    if (!activeTask?.image) return;
-    await deleteImage(activeTask.image);
-    await updateTask(activeTask.id, { image: '' });
-    setDeletePhotoConfirmOpen(false);
-    setActiveTaskId(null);
-  }, [activeTask, updateTask]);
+    if (!activeTask?.image || removingPhotoRef.current) return;
+    removingPhotoRef.current = true;
+    setIsRemovingPhoto(true);
+    try {
+      await removeTaskPhoto(activeTask.id, activeTask.image);
+      setDeletePhotoConfirmOpen(false);
+      setActiveTaskId(null);
+    } catch {
+      showFeedback('Photo could not be removed. Reopen the task and try again.');
+    } finally {
+      removingPhotoRef.current = false;
+      setIsRemovingPhoto(false);
+    }
+  }, [activeTask, removeTaskPhoto, showFeedback]);
 
   const handleCancelDeletePhoto = useCallback(() => {
     setDeletePhotoConfirmOpen(false);
@@ -993,10 +1003,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleImagePickerRemove = useCallback(async () => {
     if (!imagePickerTask?.image) return;
-    await deleteImage(imagePickerTask.image);
-    await updateTask(imagePickerTask.id, { image: '' });
+    await removeTaskPhoto(imagePickerTask.id, imagePickerTask.image);
     setImagePickerTaskId(null);
-  }, [imagePickerTask, updateTask]);
+  }, [imagePickerTask, removeTaskPhoto]);
 
   const handleCloseImagePicker = useCallback(() => {
     setImagePickerTaskId(null);
@@ -1720,9 +1729,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       <ConfirmSheet
         isOpen={deletePhotoConfirmOpen}
         onClose={handleCancelDeletePhoto}
-        title="Delete Photo"
-        message="This photo will be permanently removed."
-        confirmLabel="Delete"
+        title="Remove Photo"
+        message="The photo will be removed from this task. Its stored file is preserved for other devices and shared references; cloud space is not freed."
+        confirmLabel="Remove"
+        isProcessing={isRemovingPhoto}
+        processingLabel="Removing…"
         destructive
         onConfirm={handleConfirmDeletePhoto}
       />

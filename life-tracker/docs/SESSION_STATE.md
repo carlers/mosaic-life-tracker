@@ -1,3 +1,13 @@
+# Task checkpoint — #1478 Phase 3C safe photo removal, v0.60.0 isolated Preview
+Updated: 2026-11-01 Asia/Manila
+
+- User requested finishing Storage Phase 3; live dev `50d5afb2cf7d04c3739a482736b815008eea1405` v0.58.0 is the base, while chat photos reserved v0.59.0. v0.60.0 is the noncolliding user-testable removal-safety candidate. All newer dev UX retained.
+- Existing task-photo actions called `guardedStorage.deleteFile` before local reference removal, risking lost media on failed local writes, old/offline references, or reused files. This slice atomically removes only the current authenticated owner's expected task-image reference and rejects absent, foreign, deleted and stale photos. Both UI flows report failure and do not claim cloud bytes freed. Browser `deleteImage` rejects remote IDs; pending offline blobs remain preserved even after a task detaches them.
+- No storage bucket mutation, Function activation, schema migration, server-origin ledger, destructive worker, `dev`/`main` or Production change. Prior Phase 3A/B audit remains on separate stable Preview `feature/1478-owner-media-audit-20261101@487b1df8b87dab236d8bf51a34d57b34c438743a`, not yet forward-ported or deployed to Scratch. Its canonical and Vercel passed; this frontend change must pass its own checks.
+- Next: complete focused verification, stable Preview canonical/Trusted Delivery, then owner/device acceptance; separately review server provenance ledger, old-client write restrictions, 3-account Scratch evidence and idempotent mark/grace/recheck before any physical deletion.
+
+---
+
 # Task checkpoint — #1461 integrated v0.58.0 canonical Home-size repair
 Updated: 2026-11-01 Asia/Manila
 

@@ -17,6 +17,7 @@ const swiperFixture = vi.hoisted(() => ({
 const taskMocks = vi.hoisted(() => ({
   moveTasksToCategory: vi.fn().mockResolvedValue(undefined),
   updateTask: vi.fn().mockResolvedValue(undefined),
+  removeTaskPhoto: vi.fn().mockResolvedValue(undefined),
   deleteTask: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -188,6 +189,7 @@ vi.mock('../../src/hooks/useTasks', () => ({
     addTask: vi.fn(),
     toggleTaskCompletion: vi.fn(),
     updateTask: taskMocks.updateTask,
+    removeTaskPhoto: taskMocks.removeTaskPhoto,
     deleteTask: taskMocks.deleteTask,
     reorderTasks: vi.fn(),
     moveTasksToCategory: taskMocks.moveTasksToCategory,
@@ -287,6 +289,7 @@ describe('DayViewSheet nested task actions', () => {
     swiperFixture.touchMoveStopPropagation = undefined;
     taskMocks.moveTasksToCategory.mockClear();
     taskMocks.updateTask.mockReset().mockResolvedValue(undefined);
+    taskMocks.removeTaskPhoto.mockReset().mockResolvedValue(undefined);
     taskMocks.deleteTask.mockReset().mockResolvedValue(undefined);
   });
 
@@ -304,6 +307,33 @@ describe('DayViewSheet nested task actions', () => {
     const message = screen.getByText('This task will be permanently removed.');
     fireEvent.click(within(message.closest('[role="dialog"]') as HTMLElement).getByRole('button', { name: 'Cancel' }));
     expect(taskMocks.deleteTask).not.toHaveBeenCalled();
+  });
+
+  it('removes only a task photo reference and does not claim cloud bytes were deleted', async () => {
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', {name:'Open actions'}));
+    fireEvent.click(screen.getByRole('button', {name:'Remove Photo'}));
+    const message = screen.getByText(/stored file is preserved for other devices/);
+    expect(message).toHaveTextContent('cloud space is not freed');
+    expect(taskMocks.removeTaskPhoto).not.toHaveBeenCalled();
+    fireEvent.click(within(message.closest('[role="dialog"]') as HTMLElement)
+      .getByRole('button', {name:'Remove'}));
+    await waitFor(() =>
+      expect(taskMocks.removeTaskPhoto).toHaveBeenCalledWith('task_1','image_1'));
+    expect(taskMocks.updateTask).not.toHaveBeenCalledWith('task_1', {image:''});
+  });
+
+  it('keeps the removal confirmation open when the conditional reference edit fails', async () => {
+    taskMocks.removeTaskPhoto.mockRejectedValueOnce(new Error('stale photo'));
+    renderSheet();
+    fireEvent.click(screen.getByRole('button', {name:'Open actions'}));
+    fireEvent.click(screen.getByRole('button', {name:'Remove Photo'}));
+    const message = screen.getByText(/stored file is preserved for other devices/);
+    fireEvent.click(within(message.closest('[role="dialog"]') as HTMLElement)
+      .getByRole('button', {name:'Remove'}));
+    await waitFor(() => expect(feedbackMocks.show)
+      .toHaveBeenCalledWith('Photo could not be removed. Reopen the task and try again.'));
+    expect(screen.getByText(/cloud space is not freed/)).toBeInTheDocument();
   });
 
   it('deletes the confirmed task and reports a failed single delete', async () => {

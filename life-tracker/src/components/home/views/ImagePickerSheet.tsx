@@ -27,7 +27,7 @@ interface ImagePickerSheetProps {
   /** Title shown in the sheet header. Callers pass a context-specific label. */
   title: string;
   onSave: (fileId: string) => void | Promise<void>;
-  onRemove: () => void;
+  onRemove: () => void | Promise<void>;
 }
 
 /**
@@ -50,6 +50,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   const taskPhotoUploadEnabled = useFeatureEnabled('taskPhotoUpload');
   const canUpload = variant === 'profile' || taskPhotoUploadEnabled;
   const [isUploading, setIsUploading] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logPrefix = variant === 'profile' ? '[EditProfileImage]' : '[ImagePicker]';
@@ -57,6 +58,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   useSheetReset(isOpen, () => {
     setError('');
     setIsUploading(false);
+    setIsRemoving(false);
   });
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,9 +85,19 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
     }
   };
 
-  const handleRemove = () => {
-    onRemove();
-    onClose();
+  const handleRemove = async () => {
+    if (isRemoving || isUploading) return;
+    setIsRemoving(true);
+    setError('');
+    try {
+      await onRemove();
+      onClose();
+    } catch (err) {
+      setError('Failed to remove image. Please try again.');
+      console.error(`${logPrefix} Remove failed:`, err);
+    } finally {
+      setIsRemoving(false);
+    }
   };
 
   return (
@@ -104,7 +116,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
             variant="primary"
             className="w-full gap-2 py-3"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
+            disabled={isUploading || isRemoving}
           >
             {isUploading ? (
               <>
@@ -132,10 +144,10 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
               variant="danger"
               className="w-full gap-2 py-3"
               onClick={handleRemove}
-              disabled={isUploading}
+              disabled={isUploading || isRemoving}
             >
-              <X size={18} />
-              Remove Current Photo
+              {isRemoving ? <Loader2 size={18} className="animate-spin" /> : <X size={18} />}
+              {isRemoving ? 'Removing photo...' : 'Remove Current Photo'}
             </Button>
           )}
         </div>
