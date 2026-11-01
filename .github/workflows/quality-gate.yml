@@ -16,6 +16,7 @@ on:
     paths:
       - 'AGENTS.md'
       - 'life-tracker/**'
+      - 'landing/**'
       - '.github/workflows/quality-gate.yml'
   workflow_dispatch:
     inputs:
