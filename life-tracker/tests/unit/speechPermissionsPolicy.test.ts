@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
+import { TRUSTED_HIGH_LEVEL_CONFIG_SHA256 } from '../../scripts/lib/prebuilt-candidate-payload.mjs';
+import { PREBUILT_ROUTING_SHA256 } from '../../scripts/lib/prebuilt-receiver-gate.mjs';
 import { readFileSync } from 'node:fs';
 import { preparePreviewRoutes } from '../../scripts/lib/preview-build-routes.mjs';
 import { speechRecognitionErrorMessage } from '../../src/hooks/useBrowserSpeechInput';
@@ -27,6 +30,14 @@ describe('speech and trusted deployment permission policy', () => {
     expect(route?.headers?.['Permissions-Policy']).toBe(expected);
     const fixture = json('tests/fixtures/trusted-preview-routes-v3.json');
     expect(fixture.routes[0].headers['Permissions-Policy']).toBe(expected);
+  });
+
+  it('matches both exact trusted SHA-256 pins rather than disabling integrity gates', () => {
+    const digest = (input: Buffer) => createHash('sha256').update(input).digest('hex');
+    const highLevel = readFileSync(new URL('../../scripts/lib/trusted-prebuilt-vercel.json', import.meta.url));
+    const routes = readFileSync(new URL('../fixtures/trusted-preview-routes-v3.json', import.meta.url));
+    expect(digest(highLevel)).toBe(TRUSTED_HIGH_LEVEL_CONFIG_SHA256);
+    expect(digest(routes)).toBe(PREBUILT_ROUTING_SHA256);
   });
 
   it('distinguishes microphone denial from browser speech service rejection', () => {

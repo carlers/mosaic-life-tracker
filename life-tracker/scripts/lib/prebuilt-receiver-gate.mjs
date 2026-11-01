@@ -17,7 +17,7 @@ export function isGenericPrebuiltBranch(branch) {
 export function isApprovedPrebuiltBranch(branch) {
   return isLegacyPrebuiltPilot(branch) || isGenericPrebuiltBranch(branch);
 }
-export const PREBUILT_ROUTING_SHA256 = 'c1ee8560a43e316a7eb8c0ec163affa4c9941050065fc735c93e678b84b9d848';
+export const PREBUILT_ROUTING_SHA256 = '1e32af5372d2467ef19509262719fab9e023df2f2cc99c56987f2f0c8dd3b0c9';
 const SHA = /^[a-f0-9]{40}$/i;
 const REPO = 'carlers/mosaic-life-tracker';
 const WORKFLOW = '.github/workflows/quality-gate.yml';
