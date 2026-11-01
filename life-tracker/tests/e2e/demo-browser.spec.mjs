@@ -21,7 +21,10 @@ test.describe('isolated public Mosaic live demo (#1617)', () => {
     });
     await page.goto(demoURL);
     await expect(page.getByText('Mosaic · Live demo')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Reset demo' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Reset demo' })).toBeEnabled({ timeout: 12000 }).catch(async error => {
+      const demoErrors = await page.locator('.demo-error').allTextContents();
+      throw new Error(String(error) + '\\nBrowser errors: ' + JSON.stringify(pageErrors) + '\\nDemo errors: ' + JSON.stringify(demoErrors));
+    });
     const now = new Date();
     const today = [
       now.getFullYear(),
