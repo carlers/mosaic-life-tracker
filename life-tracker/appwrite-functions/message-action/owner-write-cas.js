@@ -94,20 +94,40 @@ async function handleOwnerWriteCas(db, callerId, payload) {
   ];
 
   if (tableId === 'categories') {
-    // Disallow resurrecting a server-deleted category through ordinary CAS.
+    // Once a lifecycle operation claims this category, no ordinary category
+    // sync patch can restore, delete or change its state.
     queries.push(Query.equal('deleted', false));
+    queries.push(Query.equal('lifecycle_state', ''));
   }
 
   if (tableId === 'tasks') {
+    const observed = payload?.expectedCompleted;
+    if (observed !== undefined && typeof observed !== 'boolean') {
+      return { status: 400, body: { error: 'Invalid expected completion state' } };
+    }
+    // Tasks cannot be patched through an owner lifecycle lock or restored
+    // after server-owned category deletion. A different target is checked
+    // as well, preventing cross-category writes into locked destinations.
+    const currentTask = await db.getRow({
+      databaseId: DATABASE_ID, tableId: 'tasks', rowId,
+    }).catch(e => { if (e?.code === 404) return null; throw e; });
+    if (!currentTask) return { status: 200, body: { ok: true, status: 'missing' } };
+    if (currentTask.user_id !== callerId) return { status: 403, body: { error: 'Owner mismatch' } };
+    const categories = [...new Set([currentTask.category_id, data.category_id || currentTask.category_id])];
+    for (const id of categories) {
+      const c = await db.getRow({
+        databaseId: DATABASE_ID, tableId: 'categories', rowId: id,
+      }).catch(e => { if (e?.code === 404) return null; throw e; });
+      if (!c || c.user_id !== callerId || c.deleted || c.lifecycle_state) {
+        return { status: 200, body: { ok: true, status: 'conflict', row: currentTask } };
+      }
+    }
+    queries.push(Query.equal('deleted', false));
     // A pre-sharing client may still call this Function even after its direct
     // Appwrite update permission was removed. Its old local bootstrap logic
     // could read a fresh server token, then overwrite collaborator completion
     // with a stale local value. Require a client-observed completion baseline
     // for *every* task with a sharing history, even after the last revoke.
-    const observed = payload?.expectedCompleted;
-    if (observed !== undefined && typeof observed !== 'boolean') {
-      return { status: 400, body: { error: 'Invalid expected completion state' } };
-    }
     if (typeof observed === 'boolean') {
       // Atomic with the normal row revision predicate. This extra condition
       // is cheap for upgraded clients (no additional listRows request).

@@ -79,11 +79,7 @@ describe('message-action / bulk_create_todomate_tasks', () => {
           deleted: false,
           reactions: '',
         }),
-        permissions: [
-          'read("user:user_A")',
-          'update("user:user_A")',
-          'delete("user:user_A")',
-        ],
+        permissions: ['read("user:user_A")'],
       })
     );
   });

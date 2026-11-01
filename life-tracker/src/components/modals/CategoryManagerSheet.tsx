@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
@@ -10,6 +10,7 @@ import { Archive, ArrowDownUp, ArrowRightLeft, Pencil, Plus, RotateCcw, Trash2, 
 import { MosaicSelect } from '../ui/MosaicSelect';
 import { format } from 'date-fns';
 import { validLocalDateKey } from '../../lib/categoryLifecycle';
+import { categoryLifecycleInventory, executeCategoryLifecycle, type CategoryLifecycleInventory } from '../../lib/categoryLifecycleAction';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
 import { useAuth } from '../../hooks/useAuth';
@@ -222,6 +223,11 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [retireId, setRetireId] = useState<string | null>(null);
   const [moveId, setMoveId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState('');
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleteInventory, setDeleteInventory] = useState<CategoryLifecycleInventory | null>(null);
+  const [deleteInventoryError, setDeleteInventoryError] = useState('');
+  const [deleteProgress, setDeleteProgress] = useState<number | null>(null);
   const [moveToId, setMoveToId] = useState('');
   const [lastActiveDate, setLastActiveDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -265,6 +271,16 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       setMoveToId('');
     }
   }
+
+  useEffect(() => {
+    if (!isOpen || !deleteId) return;
+    let cancelled = false;
+    void categoryLifecycleInventory(deleteId).then(
+      inventory => { if (!cancelled) setDeleteInventory(inventory); },
+      () => { if (!cancelled) setDeleteInventoryError('Could not verify tasks on the server. Check sync and retry.'); },
+    );
+    return () => { cancelled = true; };
+  }, [isOpen, deleteId]);
 
   const taskCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -372,6 +388,11 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setRetireId(null);
                 setMoveId(null);
                 setIsAdding(false);
+                setDeleteInventory(null);
+                setDeleteInventoryError('');
+                setDeleteConfirmName('');
+                setDeleteTargetId('');
+                setDeleteProgress(null);
                 setDeleteId(current => current === category.id ? null : category.id);
               }}
               onReorderEnd={() => {
@@ -456,16 +477,46 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               {deleteId === cat.id && (
                 <section className="space-y-3" aria-label={`Category deletion options for ${cat.name}`}>
                   <p className="text-sm font-semibold text-white">Remove {cat.name}</p>
+                  {deleteInventory?.categoryId === cat.id ? (
+                    <p className="text-xs text-gray-400">
+                      {deleteInventory.persistedTaskCount} server-synced task{deleteInventory.persistedTaskCount === 1 ? '' : 's'}
+                      {' '}across all dates and Backlogs, including completed tasks.
+                    </p>
+                  ) : <p className="text-xs text-gray-400">Checking affected tasks on the server…</p>}
+                  {deleteInventoryError && <p role="alert" className="text-xs text-red-400">{deleteInventoryError}</p>}
+                  {deleteProgress !== null && <p role="status" className="text-xs text-gray-300">
+                    Processing category; {deleteProgress} tasks remaining. If interrupted, retry the same operation.
+                  </p>}
+                  <MosaicSelect label="Move tasks to category before deleting" value={deleteTargetId}
+                    onChange={setDeleteTargetId} placeholder="Choose destination"
+                    disabled={isSaving}
+                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && !c.retiredOn)
+                      .map(c => ({value:c.id,label:c.name,color:c.color}))} />
+                  <Input label={`Type ${cat.name} to confirm deletion`} value={deleteConfirmName}
+                    onChange={event => setDeleteConfirmName(event.target.value)} />
                   <p className="text-xs text-gray-400">
-                    {taskCounts[cat.id] || 0} task{taskCounts[cat.id] === 1 ? '' : 's'} on this device,
-                    including completed, future-dated, and Backlogs tasks. Other devices may have unsynced tasks.
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Delete category and tasks is unavailable until old offline clients can no longer
-                    recreate or modify deleted tasks. Retirement preserves the category and its history.
+                    Deleting all tasks also revokes task shares and removes Bucket List task links.
+                    Task and category tombstones are retained for recovery. Do not start while another
+                    device has unsynced changes.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button disabled title="Server-side deletion protection not ready">
+                    <Button disabled={isSaving || !user?.$id || !deleteInventory?.safeToDelete ||
+                        deleteInventory.categoryId !== cat.id || deleteConfirmName !== cat.name ||
+                        !deleteTargetId}
+                      onClick={() => void save(
+                        () => executeCategoryLifecycle(user!.$id, cat.id, cat.name, 'move', deleteTargetId, setDeleteProgress),
+                        () => { setDeleteId(null); setDeleteProgress(null); },
+                        'Migration incomplete. Retry with the same destination to resume safely.'
+                      )}>
+                      Move tasks &amp; delete category
+                    </Button>
+                    <Button disabled={isSaving || !user?.$id || !deleteInventory?.safeToDelete ||
+                        deleteInventory.categoryId !== cat.id || deleteConfirmName !== cat.name}
+                      onClick={() => void save(
+                        () => executeCategoryLifecycle(user!.$id, cat.id, cat.name, 'delete', '', setDeleteProgress),
+                        () => { setDeleteId(null); setDeleteProgress(null); },
+                        'Deletion incomplete. Retry Delete All to resume safely.'
+                      )}>
                       Delete category and all tasks
                     </Button>
                     <Button variant="ghost" disabled={isSaving} onClick={() => {
@@ -475,6 +526,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                     }}>Retire instead</Button>
                     <Button variant="ghost" disabled={isSaving} onClick={() => setDeleteId(null)}>Cancel</Button>
                   </div>
+                  <SheetErrorBanner message={error} />
                 </section>
               )}
               {retireId === cat.id && (
