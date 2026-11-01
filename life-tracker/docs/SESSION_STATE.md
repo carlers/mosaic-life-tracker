@@ -1,3 +1,14 @@
+# Task checkpoint — #854 public GitHub Issues candidate v0.61.1
+Updated: 2026-11-01 Asia/Manila
+
+- User accepted earlier mobile private reporting and explicitly authorized public GitHub issue creation. Revised UI requires explicit per-submission publication consent and preview of public content.
+- Base stable v0.61.0 bug-report integration SHA 7b99b4d3633826d97eec9cc81ff0c8c453ed2a1a. Implement v0.61.1 on isolated Preview, without dev/main/Production promotion.
+- Server uses hard-coded destination carlers/mosaic-life-tracker, fail-closed enable flag and GitHub token, private report reservation and issue receipt, duplicate reconciliation and short retry lease. Private reports from older clients remain private. Public issues survive private 30-day retention and account erasure.
+- Scratch Function variables currently have no GitHub publishing token. Operator must provision short-lived repository-specific Issues read/write token through Appwrite Console, never paste secrets in chat. Do not activate publishing without explicit operator configuration.
+- Complete focused CI, stable canonical, hosted Preview, managed additive migration 019, active shared Function reconciliation, approved inactive deployment and dummy public acceptance. No dev/main/Production changes authorized.
+
+---
+
 # Task checkpoint — #854 private bug reporting accepted mobile Preview; dev-forward integration candidate v0.61.0
 Updated: 2026-11-01 Asia/Manila
 
