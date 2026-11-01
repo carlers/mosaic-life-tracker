@@ -18,6 +18,7 @@ interface MessageActionSheetProps {
   onReact: (emoji: string) => void;
   onMoreEmoji: () => void;
   reactionsEnabled?: boolean;
+  copyEnabled?: boolean;
 }
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -34,13 +35,14 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   onReact,
   onMoreEmoji,
   reactionsEnabled = true,
+  copyEnabled = true,
 }) => {
   const { value: message, onExitComplete } = useRetainedSheetValue(incomingMessage, isOpen);
   if (!message) return null;
 
   const hasContent = message.content.trim().length > 0;
   const hasTaskRef = message.taskRefTitle.trim().length > 0;
-  const canCopy = hasContent || hasTaskRef;
+  const canCopy = copyEnabled && (hasContent || hasTaskRef);
   const isUnsent = message.isUnsent;
 
   if (isUnsent) {

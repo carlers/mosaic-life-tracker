@@ -33,6 +33,8 @@ export const FEATURE_DISABLE_FLAGS = {
   chatPhotoUpload: 'mosaic_disable_chat_photo_upload',
   chatReactions: 'mosaic_disable_chat_reactions',
   chatStickerSending: 'mosaic_disable_chat_sticker_sending',
+  calendarWeekView: 'mosaic_disable_calendar_week_view',
+  chatMessageCopy: 'mosaic_disable_chat_message_copy',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;

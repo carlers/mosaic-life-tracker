@@ -33,6 +33,8 @@ project/rollout determines which clients receive the change.
 | Chat photo uploads | `mosaic_disable_chat_photo_upload` | Hide chat photo chooser and block new image staging; preserve stored, queued and received photos plus photo deletion/unsend |
 | Chat reactions | `mosaic_disable_chat_reactions` | Hide new reaction controls and block initiating reaction changes; keep existing reaction badges and incoming updates visible |
 | Chat stickers | `mosaic_disable_chat_sticker_sending` | Hide sticker composer entry and block new pack/GIPHY sticker sends; preserve received and already queued stickers and ordinary text messages |
+| Calendar Week view | `mosaic_disable_calendar_week_view` | Hide the Week switch, show Month while disabled and restore the selected Week mode on re-enable; preserve date and tasks |
+| Chat message copying | `mosaic_disable_chat_message_copy` | Hide the Copy action and guard clipboard copying; leave message text, Reply, Unsend and reactions intact |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.
@@ -60,6 +62,8 @@ authorization, or data-retention enforcement.
 **Initiation-only controls:** Bucket List creation may be paused without hiding goals or stopping replication of pending local writes. A disabled friend-request initiation gate blocks new requests before adding offline intent; already queued requests may still flush, and existing relationships, accept/cancel/block and discovery remain operational. Push enrollment must be blocked before `Notification.requestPermission()` or service-worker subscription; existing devices continue to receive and may unsubscribe, and reconciliation and settings remain available. These are **not** global social/push kill switches or server authorization.
 
 **Chat initiation-only contract:** Disabling chat photo upload blocks new photo selection/staging, but must not cancel previously queued image messages or erase stored attachments. Disabling reactions leaves historical badges visible (read-only). Disabling sticker sending blocks fresh pack and GIPHY sends while preserving existing message payloads, delivery retry and ordinary text. These client kill switches do not revoke server permissions or affect older installed clients.
+
+**Week/Copy display controls:** A paused Week view renders Month and hides the mode switch, retaining the selected Week mode for re-enable; the command handler checks the latest flag state. Message Copy is an optional clipboard action, not text visibility or access control; disabling it does not revoke system clipboard or OS selection/copy and does not alter messages. Existing Reply, Unsend and reaction actions remain available.
 
 **Data-preservation contract:** Never erase task/diary photos when uploads are
 disabled. Existing images can still be viewed/removed; already queued offline

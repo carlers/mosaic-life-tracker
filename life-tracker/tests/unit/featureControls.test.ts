@@ -16,7 +16,7 @@ describe('operational feature controls', () => {
   beforeEach(() => disabled.clear());
 
   it('starts with all supported optional features available', () => {
-    expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(24);
+    expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(26);
     for (const feature of Object.keys(FEATURE_DISABLE_FLAGS) as Array<keyof typeof FEATURE_DISABLE_FLAGS>) {
       expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS[feature])).toBe(true);
     }
@@ -24,7 +24,7 @@ describe('operational feature controls', () => {
 
   it('binds every operator control to a unique, canonical, non-empty PostHog key', () => {
     const flagKeys = Object.values(FEATURE_DISABLE_FLAGS);
-    expect(flagKeys).toHaveLength(24);
+    expect(flagKeys).toHaveLength(26);
     expect(new Set(flagKeys).size).toBe(flagKeys.length);
     for (const flag of flagKeys) {
       expect(flag).toMatch(/^mosaic_disable_[a-z]+(?:_[a-z]+)*$/);

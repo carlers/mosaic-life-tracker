@@ -1,3 +1,12 @@
+# Feature controls #1026 — Calendar Week and Chat Copy v0.68.0
+Updated: 2026-11-02 Asia/Manila
+
+- Owner approved continued work. Previously verified v0.67.0 Chat controls promoted via PR #1600 to dev@e0094b386d47bcdb02a2bc69c57d02a10935db7c. Exact source tree and canonical #41321445772, protected promotion preflight #41324221117, trusted Preview #41322551343 succeeded. No main/Production change.
+- New independent v0.68.0 Preview controls: Calendar Week view (Month display fallback, hide Week toggle, preserve selected Week state and reject stale mode actions) and optional Chat message Copy (hide action, guard callback, preserve text, Reply, Unsend, reactions). Neither alters records, offline sync or backend capabilities.
+- Next: local tests, lint, Node22 production build and size; task focused CI, stable full canonical and trusted Scratch Preview. Create exactly two inactive flags only after validated Preview delivery; obtain owner testing before any dev promotion. No backend/schema/Function/main/Production changes.
+
+---
+
 # Issue #1026 — optional chat initiation controls v0.67.0 (2026-11-01 Asia/Manila)
 
 - Owner completed v0.66.0 manual flag testing and explicitly approved promotion to `dev` and continuation. Stable `feature/1026-safe-initiation-controls-v0660-20261101@12aa12dfe4fffcd4353093c1e7634be7aef0a884` accepted via focused #41312035664, full canonical #41312320442, trusted Preview #41312668961, and protected promotion preflight #41318187620. PR #1593 merged to `dev@53c70b9f26ce5ad835adcd35f0152705679cf824`; accepted source tree identical, exact-SHA dev Vercel READY. No `main` or Production promotion.
