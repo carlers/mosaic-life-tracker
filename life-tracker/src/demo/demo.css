@@ -1,0 +1,32 @@
+:root{color-scheme:dark}
+body{margin:0;background:#090909;color:#fafafa;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+.mosaic-demo{min-height:100vh;background:#090909}
+.demo-banner{background:#1a1621;border-bottom:1px solid #493a63;padding:12px max(15px,calc((100% - 1160px)/2));display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:12px;color:#c8c0ce}
+.demo-banner strong{color:#fff}.demo-banner>div{display:flex;gap:14px;align-items:center}
+.demo-banner button,.demo-banner a{background:none;border:0;color:#ded4ee;font:inherit;text-decoration:underline;cursor:pointer}
+.demo-banner button:disabled{opacity:.4}
+.demo-app-frame{max-width:1100px;margin:0 auto;min-height:calc(100vh - 52px);border-left:1px solid #292929;border-right:1px solid #292929;background:#111;display:flex;flex-direction:column}
+.demo-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #282828;padding:14px 22px}.demo-header strong{font-size:19px}.demo-header span{font-size:12px;color:#c4a8f4}
+.demo-content{min-height:440px;flex:1}.demo-month{padding:0 8px 14px;min-height:410px}.demo-hint{text-align:center;color:#aaa;font-size:12px;padding:8px}
+.demo-day-header{display:flex;justify-content:space-between;gap:14px;padding:12px 18px;border-bottom:1px solid #303030}
+.demo-day-header button{background:#242424;color:white;border:0;border-radius:8px;padding:8px 11px;cursor:pointer}
+.demo-day-area{padding:20px;max-width:860px;margin:auto;touch-action:pan-y}
+.demo-day-area h2{font-size:19px;font-weight:700}.demo-day-area h2 small{font-weight:400;color:#aaa;font-size:12px}
+.demo-category{padding:6px 0 12px}.demo-category h3{display:flex;gap:9px;align-items:center;font-size:14px;font-weight:700;margin:7px 0}.demo-category h3 span{width:9px;height:9px;border-radius:50%}
+.demo-task-entry{border-bottom:1px solid #292929;background:#171717;margin:5px 0;border-radius:8px;padding:10px}
+.demo-task-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;margin-left:16px}
+.demo-task-actions button,.demo-task-actions input,.demo-task-actions select,.demo-create input,.demo-create button,.demo-create select,.demo-category-row input,.demo-category-row button{background:#262626;color:#fff;border:1px solid #454545;border-radius:7px;padding:8px;font-size:12px}
+.demo-task-actions button,.demo-create button,.demo-category-row button{cursor:pointer}
+.demo-create{display:flex;flex-wrap:wrap;gap:8px;padding:16px 0}.demo-create>input{min-width:155px;flex:2}.demo-create>select{flex:1}.demo-create>button{background:#754bc6}
+.demo-page{padding:23px 20px;max-width:800px;margin:auto}.demo-page h2{font-size:21px;font-weight:700}.demo-page>p{font-size:12px;color:#aaa}
+.demo-category-row{display:flex;gap:9px;align-items:center;margin:9px 0}.demo-category-row input[type=color]{width:44px;height:38px;padding:3px}.demo-category-row input:not([type=color]){flex:1;min-width:70px}
+.demo-category-row button:disabled{opacity:.3}.demo-error{color:#f8a7a7;padding:8px 20px}.demo-status{padding:20px;color:#bbb}
+.demo-nav{position:sticky;bottom:0;display:flex;justify-content:space-around;border-top:1px solid #292929;background:#151515;padding:8px}.demo-nav button{flex:1;padding:12px;color:#aaa;background:transparent;border:0;cursor:pointer}.demo-nav button.active{color:#b79bea;font-weight:700;border-bottom:2px solid #b79bea}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #bb9afa;outline-offset:2px}
+@media(max-width:640px){.demo-app-frame{border:0}.demo-banner{padding:12px}.demo-day-area{padding:12px}.demo-day-header{padding:9px 12px}.demo-month{min-height:350px}.demo-task-actions input{max-width:152px}}
+
+.demo-header strong{display:flex;align-items:center;gap:8px}
+
+.demo-calendar-toolbar{display:flex;align-items:center;justify-content:center;gap:14px;padding:16px;border-bottom:1px solid #303030}
+.demo-calendar-toolbar button{background:transparent;color:#fff;border:1px solid #303030;border-radius:8px;cursor:pointer;padding:8px 14px}
+.demo-calendar-toolbar .demo-month-label{font-size:17px;font-weight:700;border:0;min-width:150px}

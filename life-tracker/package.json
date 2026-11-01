@@ -61,7 +61,8 @@
     "version:check": "node scripts/version.mjs check",
     "version:bump": "node scripts/version.mjs bump",
     "version:set": "node scripts/version.mjs set",
-    "promotion:preflight": "node scripts/preflight-promotion.mjs"
+    "promotion:preflight": "node scripts/preflight-promotion.mjs",
+    "build:demo": "tsc -b && vite build -c vite.demo.config.ts"
   },
   "dependencies": {
     "@dnd-kit/abstract": "^0.5.0",
