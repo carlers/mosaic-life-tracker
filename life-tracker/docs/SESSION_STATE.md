@@ -1,3 +1,12 @@
+# #857 read-only persisted category inventory foundation (2026-11-01)
+
+- Parent protected Preview `feature/857-category-retirement-v0560-20261101@e54587609c33fe6ab5aa72d7195a32f0430a7b76` v0.56.1 passed exact canonical #41295185602, Vercel READY. No dev/main/Production promotion approval.
+- New isolated task branch `chatgpt/857-category-server-inventory-v0561-20261101` adds `get_category_lifecycle_preflight` handler to message-action. Authenticated owner-only read of one existing nondeleted category; query total of all currently persisted nondeleted owner tasks by category independent of task date (including Backlogs), with no row details and no writes; absent total fails closed. Foreign/missing/deleted categories share 404.
+- **Not a deletion authorization**: offline/old-PWA queues may not be represented; `safeToDelete:false` always. Move+Delete and Delete All remain disabled; task-create/update server cutover, legacy row permissions, synchronized owner transaction, share/media dependencies and signed multi-device checks remain required. Do not deploy this task branch Function wholesale over concurrent Scratch handlers.
+- Validate focused handler tests, diff, isolated GitHub CI, and preserve exact main Function alongside concurrent live handlers before any Scratch activation. No new user-facing release version.
+
+---
+
 # #856 / #857 v0.56.1 held Day View edge-drag settle recovery (2026-11-01)
 
 - Stable v0.56.1 exact-SHA `b8b2ba6274f025bac07ea44f23b0548b0732e719`, full canonical #41294126700 build/DOM/checks passed, browser shard 2 failed a repeated held-touch edge navigation scenario on both attempt 1 and rerun attempt 2. Source and fixture for this scenario were unchanged from previous green stable Preview, but repeated failure requires repair.
