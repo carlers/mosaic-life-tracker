@@ -1,3 +1,12 @@
+# #857 v0.56.1 category task move TypeScript build repair (2026-11-01)
+
+- Protected Preview `a4945c1941d690e65358a8f6ccbf19a0e3aa1e99`, canonical #41274105881: DOM, browser, checks and audit succeeded, TypeScript build failed on `moveCategoryTasks` returning `Promise<{moved,total}>` to `useSheetSaveAction` which requires `Promise<void>`.
+- Move handler's return value is unused by the sole UI caller; remove returned progress object, preserve partial-failure count in thrown error, the task moves, access checks and same complete/Backlogs privacy semantics.
+- Task branch `chatgpt/857-category-move-save-void-v0561-20261101`; focused Quality Gate, squash to protected Preview, exact-SHA canonical and Vercel READY required. No move+delete/delete-all enabled; old-client direct row permissions remain unsafe and need a carefully staged backend-owned access-control cutover.
+- Existing Scratch source bridge `6ae6c2ce2476f38f95c0` active at last check and preserves other feature handlers. No new provider write in this task.
+
+---
+
 # #857 backend legacy-category-CAS deletion containment (2026-11-01)
 
 - Parent stable v0.56.1 `58ece409de186cfe148edabe9b85a1c8f6f614dd`: inline Retire/Restore and non-destructive owner task move are implemented. Phase C/D full category deletion remains disabled.

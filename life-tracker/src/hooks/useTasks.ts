@@ -424,7 +424,7 @@ export function useTasks(enabled = true) {
         throw new Error(`Moved ${moved} of ${assignments.length} tasks. Review and retry remaining tasks.`);
       }
     }
-    return { moved, total: assignments.length };
+    // useSheetSaveAction accepts Promise<void>; progress is reported on errors.
   }, [user?.$id]);
 
   return {
