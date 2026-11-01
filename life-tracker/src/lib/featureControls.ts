@@ -48,6 +48,10 @@ export const FEATURE_DISABLE_FLAGS = {
   diaryEmojiPicker: 'mosaic_disable_diary_emoji_picker',
   bucketAchievementToggle: 'mosaic_disable_bucket_achievement_toggle',
   bucketStepCreation: 'mosaic_disable_bucket_step_creation',
+  chatTextSending: 'mosaic_disable_chat_text_sending',
+  chatReplies: 'mosaic_disable_chat_replies',
+  alertReactions: 'mosaic_disable_alert_reactions',
+  alertReplies: 'mosaic_disable_alert_replies',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;

@@ -19,6 +19,7 @@ interface MessageActionSheetProps {
   onMoreEmoji: () => void;
   reactionsEnabled?: boolean;
   copyEnabled?: boolean;
+  replyEnabled?: boolean;
 }
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -36,6 +37,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   onMoreEmoji,
   reactionsEnabled = true,
   copyEnabled = true,
+  replyEnabled = true,
 }) => {
   const { value: message, onExitComplete } = useRetainedSheetValue(incomingMessage, isOpen);
   if (!message) return null;
@@ -98,7 +100,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
           </button>
         </div>}
 
-        <button
+        {replyEnabled && <button
           onClick={() => {
             onReply();
             onClose();
@@ -109,7 +111,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
             <Reply size={16} className="text-black" />
           </div>
           <span className="text-base font-medium">Reply</span>
-        </button>
+        </button>}
 
         {canCopy && (
           <button
