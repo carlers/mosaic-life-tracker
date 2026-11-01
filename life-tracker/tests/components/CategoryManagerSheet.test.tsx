@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   retireCategory: vi.fn().mockResolvedValue(undefined),
   restoreCategory: vi.fn().mockResolvedValue(undefined),
   deleteCategory: vi.fn().mockResolvedValue(undefined),
+  moveCategoryTasks: vi.fn().mockResolvedValue({ moved: 0, total: 0 }),
   reorderCategories: vi.fn().mockResolvedValue(undefined),
   startDrag: vi.fn(),
 }));
@@ -62,7 +63,7 @@ vi.mock('../../src/hooks/useCategories', () => ({
 }));
 
 vi.mock('../../src/hooks/useTasks', () => ({
-  useTasks: () => ({ tasks: visibleTasks, isLoading: false }),
+  useTasks: () => ({ tasks: visibleTasks, isLoading: false, moveCategoryTasks: mocks.moveCategoryTasks }),
 }));
 
 vi.mock('../../src/hooks/useAuth', () => ({
@@ -102,6 +103,18 @@ vi.mock('framer-motion', async (importOriginal) => {
   };
 });
 
+vi.mock('../../src/components/ui/MosaicSelect', () => ({
+  MosaicSelect: ({ label, value, onChange, options }: {
+    label: string; value: string; onChange: (value: string) => void;
+    options: { value: string; label: string }[];
+  }) => (
+    <select aria-label={label} value={value} onChange={event => onChange(event.target.value)}>
+      <option value="">Select destination category</option>
+      {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+  ),
+}));
+
 import { CategoryManagerSheet } from '../../src/components/modals/CategoryManagerSheet';
 
 describe('CategoryManagerSheet', () => {
@@ -112,6 +125,7 @@ describe('CategoryManagerSheet', () => {
     mocks.retireCategory.mockReset().mockResolvedValue(undefined);
     mocks.restoreCategory.mockReset().mockResolvedValue(undefined);
     mocks.deleteCategory.mockReset().mockResolvedValue(undefined);
+    mocks.moveCategoryTasks.mockReset().mockResolvedValue({ moved: 2, total: 2 });
     mocks.reorderCategories.mockReset().mockResolvedValue(undefined);
     visibleCategories = categories;
     visibleTasks = [];
@@ -139,6 +153,24 @@ describe('CategoryManagerSheet', () => {
     expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
     expect(within(second).getByRole('button', { name: 'Manage retirement for Second' }))
       .toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('moves local owner tasks across dates/Backlogs without deleting the category', async () => {
+    visibleTasks = [
+      { id: 'a', title: 'Dated', date: '2026-11-01', completed: true, categoryId: 'first', userId: 'user', isDeleted: false },
+      { id: 'b', title: 'Backlog', date: '', completed: false, categoryId: 'first', userId: 'user', isDeleted: false },
+    ];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Move tasks from First' }));
+    expect(within(first).getByText(/2 tasks available on this device/)).toBeInTheDocument();
+    fireEvent.change(within(first).getByRole('combobox', { name: 'Move to category' }), {
+      target: { value: 'second' },
+    });
+    fireEvent.click(within(first).getByRole('button', { name: 'Move 2 tasks' }));
+    await waitFor(() => expect(mocks.moveCategoryTasks).toHaveBeenCalledWith('first', 'second'));
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+    expect(mocks.retireCategory).not.toHaveBeenCalled();
   });
 
   it('retires the selected category using an inclusive calendar cutoff', async () => {
