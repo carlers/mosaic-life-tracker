@@ -4,7 +4,7 @@ const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
-const { handleSubmitBugReport, pruneExpiredBugReports } = require('./bug-reports');
+const { handleSubmitBugReport, handlePublishBugReport, pruneExpiredBugReports } = require('./bug-reports');
 const {
   handleGetNotifications,
   handleGetNotification,
@@ -1859,6 +1859,9 @@ const handler = async ({ req, res, log, error }) => {
 
     let result;
     switch (action) {
+      case 'publish_bug_report':
+        result = await handlePublishBugReport(tablesDB, callerId, payload);
+        break;
       case 'submit_bug_report':
         result = await handleSubmitBugReport(tablesDB, callerId, payload);
         break;
@@ -2040,7 +2043,7 @@ const handler = async ({ req, res, log, error }) => {
     }
     return res.json(result.body, result.status);
   } catch (err) {
-    if (action === 'submit_bug_report') {
+    if (action === 'submit_bug_report' || action === 'publish_bug_report') {
       error('Private bug report storage failed');
       return res.json({ error: 'Report storage unavailable' }, 503);
     }

@@ -27,7 +27,7 @@ export async function migrateBugReportsBackend({
     throw new Error('Private bug report table permissions differ from the manifest');
   }
   const columns = new Map((actual.columns || []).map(column => [column.key, column]));
-  for (const field of expected.columns) {
+  for (const field of expected.columns.filter(column => !column.key.startsWith('github_'))) {
     const present = columns.get(field.key);
     if (!present || present.type !== field.type || present.required !== field.required ||
         (Object.hasOwn(field, 'size') && present.size !== field.size)) {

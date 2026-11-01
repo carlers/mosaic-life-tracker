@@ -1,19 +1,66 @@
-# Private user bug reports — issue #854
+# Public GitHub bug reporting — issue #854
 
-## Scope and privacy
-The first milestone is text-only, authenticated and online-only. Settings → About Mosaic opens a shared BottomSheet form. Users can report a short title, description and optional reproduction steps. They can **opt in** to previewed, allowlisted browser/OS/build metadata; no full user-agent, URL, query string, task, diary, message, email, account ID, stack trace, session replay, or file is automatically submitted.
+## Consent and scope
+Settings → About Mosaic → Report a bug publishes an issue to the public
+GitHub repository carlers/mosaic-life-tracker only after the signed-in user
+checks a required, per-submission public-consent checkbox. The form previews
+the title, description and reproduction steps that will be public. Editing
+those fields clears consent. Existing client action submit_bug_report still
+stores private reports and will never retroactively publish them.
 
-Reports are stored in the server-owned `bug_reports` table with **no client table permissions**, using the existing authenticated `message-action` Function. Function caller identity, not browser-supplied IDs, owns a report. Row IDs are SHA-256 derived from authenticated caller and client-generated request nonce; the same submission yields the same reference even after a network timeout. A different body with the same nonce conflicts. The backend limits five reports per hour per account (distinct concurrent requests may race the sliding-window check).
+Public GitHub Issues can be read, searched, copied and archived by anyone.
+They do not disappear after 30 days or automatically disappear when the Mosaic
+account is deleted. Do not publish personal data, tasks, diary entries, chat,
+passwords or secrets. The server does not publish identity, account IDs,
+emails, full URLs, optional device diagnostics or private attachments.
+Diagnostics stay in the private Appwrite bug_reports table.
 
-The first version does **not** provide a user-facing report history, automated GitHub publishing, developer response, or delivery guarantee. Auth/offline failures preserve the current open form draft and provide an optional copyable/public GitHub fallback; users must consent to publication separately.
+The new publish_bug_report action requires authenticated Mosaic caller,
+publicConsent true, and five-per-hour rate limiting per caller. It returns
+the real issue URL upon confirmed creation, with a private report receipt.
 
-## Storage, retention and erasure
-Reports expire after **30 days**, with bounded hourly server cleanup. Only a separately redacted, explicitly reviewed public GitHub issue may be retained afterward. Reports are server-only records, not RxDB-synced data. The new table is included in Git-managed schema and backup/restore discovery, account-erasure policy, and the account deletion worker's owned-table scan. Account erasure follows the existing DR privacy marker first; never bypass that boundary. The original reporter ID is never returned by the public submission API.
+## Server configuration
+Publishing is disabled by default. The message-action Function requires:
+- GITHUB_BUG_REPORT_ENABLED=true
+- GITHUB_BUG_REPORT_TOKEN=an operator-provisioned fine-grained PAT with
+  Issues: read/write restricted to carlers/mosaic-life-tracker ONLY.
 
-Do not reuse `task_images` to attach screenshots. A future image phase requires separate review of private storage, retention, metadata removal and DR erasure. Keep PostHog's minimal exception adapter independent and replay/autocapture disabled.
+Never put credentials in frontend code, public GitHub content, CI output or
+ChatGPT chat. Use GitHub Settings → Developer settings → Personal access tokens
+→ Fine-grained tokens to create a short-expiry token. Set the two variables
+securely in Scratch Appwrite Console → Functions → message-action → Variables.
+If Function changes require redeployment, redeploy exact reviewed source.
+To disable, set the enable flag false or revoke the token. The server hard
+codes the destination repository; the browser cannot choose another.
 
-## Deployment
-1. On the **explicitly confirmed disposable Scratch project**, reconcile migration `018-bug-reports` through `appwrite:preview:prepare --apply` (or the explicitly selected managed migration); verify table permissions, columns, indexes and status. No permission drift is implicitly repaired.
-2. Deploy the reviewed exact-SHA `message-action` Function **inactive**, then explicitly activate in Scratch and verify an authenticated synthetic report, duplicate retry, cross-account rejection, rate limiting and private operator retrieval.
-3. Check the exact-SHA Preview canonical suite, size budgets and Vercel READY, then manual PWA/theme/keyboard acceptance. No Production migration, Function activation or `dev`/`main` promotion without separate approval.
-4. Read reports only from an operator terminal with appropriately scoped project credentials: `APPWRITE_ENDPOINT=... APPWRITE_PROJECT_ID=... APPWRITE_API_KEY=... npm run bug-reports:inbox -- --project PROJECT_ID --confirm-project PROJECT_ID [--report-id bug_...]`. This deliberately has no browser admin UI. Console output is sensitive; never paste raw reports into public GitHub Issues or CI logs.
+A private record reserves each submission with a two-minute publication
+lease before posting. The server stores the GitHub issue number and URL.
+Exact retries return the same URL, and uncertain results reconcile by checking
+recent GitHub Issues for an anonymous per-report marker before creating again.
+GitHub has no true idempotent issue-creation endpoint: extremely rare races
+or delayed issue visibility may still cause duplicates. Failed requests retain
+the form text and never report success without verified GitHub URL.
+
+The private table remains server-only, row secured with no direct client grants.
+Its 30-day expiry and account-erasure rules do not extend to external GitHub
+copies. A public issue is not user-owned in the Appwrite database.
+
+## Deployment and verification
+1. Verify disposable Scratch project explicitly. Run managed additive migration
+   019-public-bug-report-issues after 018; it adds private github_issue_url,
+   github_issue_number, github_publish_started_at fields. Revalidate drift.
+2. Reconcile the current active shared Function source (preserve photos,
+   diary, notifications, task behavior), build and deploy exact source
+   INACTIVE, then activate after exact-SHA canonical and fresh checks. Never
+   replace unrelated newer Scratch behavior or touch Production.
+3. Configure restricted token privately; until enabled, publication returns
+   503 and does not create a public Issue.
+4. Test no-consent/disabled fail closed, consenting dummy issue creation,
+   URL receipt and link, duplicate retry, private row permissions and URL,
+   rate limit, legacy private action, mobile/PWA/keyboard/theme, and existing
+   diary/photo/task operations. Close the synthetic public issue afterwards.
+   Never put private user data in a test issue.
+5. Promotions to dev, main or Production require separate explicit approval.
+
+Operator private inbox remains via npm run bug-reports:inbox with a confirmed
+Appwrite project ID and appropriately scoped operator credentials.

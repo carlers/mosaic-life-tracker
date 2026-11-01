@@ -43,13 +43,17 @@ export async function submitBugReport(
   draft: BugReportDraft,
   requestId: string,
   diagnostics: Record<string, string> | undefined,
-): Promise<string> {
+): Promise<{ reportId: string; issueUrl: string }> {
   const result = await sendAppAction({
-    action: 'submit_bug_report', requestId, ...draft,
+    action: 'publish_bug_report', requestId, publicConsent: true, ...draft,
     ...(diagnostics ? { diagnostics } : {}),
   });
   if (typeof result.reportId !== 'string' || !/^bug_[a-f0-9]{32}$/.test(result.reportId)) {
     throw new Error('Report confirmation unavailable');
   }
-  return result.reportId;
+  if (typeof result.issueUrl !== 'string' ||
+    !/^https:\/\/github\.com\/carlers\/mosaic-life-tracker\/issues\/[1-9]\d*$/.test(result.issueUrl)) {
+    throw new Error('Public GitHub issue confirmation unavailable');
+  }
+  return { reportId: result.reportId, issueUrl: result.issueUrl };
 }
