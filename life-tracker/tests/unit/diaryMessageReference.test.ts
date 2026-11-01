@@ -20,7 +20,7 @@ describe('typed diary message references', () => {
   });
 
   it('migrates historical messages without inventing diary context', () => {
-    expect(messagesSchema.version).toBe(5);
+    expect(messagesSchema.version).toBe(6);
     const old = { id: 'msg_legacy', content: 'unchanged' };
     expect(messagesMigrationStrategies[4](old)).toEqual({
       ...old, diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',
@@ -28,5 +28,24 @@ describe('typed diary message references', () => {
     expect(messagesMigrationStrategies[5]({ ...old, diaryRefExcerpt: 'sensitive' })).toEqual({
       ...old, diaryRefEpoch: 0, diaryRefExcerpt: '', attachmentType: '', attachmentFileId: '',
     });
+  });
+
+  it('migrates pre-photo v5 messages to v6 without losing authored content or delivery state', () => {
+    const old = { id: 'pre_photo_message', content: 'keep me', deliveryStatus: 'pending' };
+    const upgraded = messagesMigrationStrategies[6](old);
+    expect(upgraded).toEqual({ ...old, attachmentType: '', attachmentFileId: '' });
+    expect(messagesSchema.properties.attachmentType).toBeDefined();
+    expect(messagesSchema.properties.attachmentFileId).toBeDefined();
+  });
+
+  it('preserves queued chat photo references when upgrading v5 storage', () => {
+    const old = {
+      id: 'photo_message',
+      content: '',
+      deliveryStatus: 'pending',
+      attachmentType: 'image',
+      attachmentFileId: 'file_abc123',
+    };
+    expect(messagesMigrationStrategies[6](old)).toEqual(old);
   });
 });
