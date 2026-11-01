@@ -33,5 +33,5 @@ for (const path of ['/demo', '/demo/', '/demo/index.html']) {
   assert(h.some(x=>x.key==='Content-Security-Policy'&&x.value.includes("connect-src 'none'")&&x.value.includes("frame-ancestors 'self'")), 'Missing exact demo document CSP: '+path);
   assert(h.some(x=>x.key==='X-Frame-Options'&&x.value==='SAMEORIGIN'), 'Missing exact demo document XFO: '+path);
 }
-assert(config.rewrites.some(x=>x.source==='/demo/:path*'&&x.destination==='/demo/index.html'), 'Demo deep-link rewrite missing');
+assert(config.rewrites.some(x=>x.source==='/demo/:path*'&&x.destination==='/demo/index'), 'Demo deep-link rewrite missing');
 console.log('MOSAIC_DEMO_STATIC_CONTRACT_PASS');

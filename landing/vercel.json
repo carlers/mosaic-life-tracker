@@ -90,7 +90,7 @@
   "rewrites": [
     {
       "source": "/demo/:path*",
-      "destination": "/demo/index.html"
+      "destination": "/demo/index"
     }
   ]
 }
