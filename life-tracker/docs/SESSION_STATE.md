@@ -1,3 +1,12 @@
+# #1026 — global social-off stale command/backfill hardening v0.74.0
+
+- Based on canonical-and-trusted-verified v0.73.0 Preview source 0e04ac0153a312a1f4feaf4423ba2c6aa44b0d0a, tree 06020969d90fc85c7c5359a94b0c3c8f19b7db99. New Preview remains inactive pending CI, trusted deployment and owner device tests; no dev/main/Production promotion.
+- Harden mosaic_disable_all_social across Home friend bio backfill, stale friend request/accept handlers, friend carousel reorder/visibility commands, fresh chat/social message/reaction/task-reply initiation. Existing user safety actions (Unsend, block, remove, decline/cancel), ordinary task/account data, queued previous operations and local sync remain available.
+- This is still client-only. Offline cold start fails open and provider replication/push are not disabled. A deterministic provider-aware core-only profile requires a separate capability/replication contract and tests before any backend cutover.
+- Next: focused tests, lint, Node22 build/size, focused CI, stable full canonical/trusted Scratch Preview and manually verify flag ON/OFF and stale handlers. No new flag needed.
+
+---
+
 # #1026 — Chat and Alerts optional controls v0.73.0
 
 - Four reversible opt-out flags: new Chat plain-text messages, Chat reply initiation, new Alerts task reactions and new Alerts replies. Existing messages, queued delivery, Chat photos/stickers, Unsend, notification read and historical reaction badges remain available. Flags are client presentation/initiation, not server authorization or guaranteed offline revocation.

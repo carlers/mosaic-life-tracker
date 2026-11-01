@@ -59,6 +59,7 @@ export function useMessageActions(
 
   const sendMessage = useCallback(
     async (content: string, replyTo?: ReplyContext) => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot send: User not authenticated');
@@ -76,6 +77,7 @@ export function useMessageActions(
   );
 
   const sendPhoto = useCallback(async (file: File, caption = '', replyTo?: ReplyContext) => {
+    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
     const uid = user?.$id;
     if (!uid || !friendId) throw new Error('Chat photo requires a signed-in user and friend.');
     if (!isFeatureEnabled('mosaic_disable_chat_photo_upload')) throw new Error('New chat photos are temporarily unavailable.');
@@ -85,6 +87,7 @@ export function useMessageActions(
 
   const sendTaskReply = useCallback(
     async (task: TaskDocument, content: string, categoryColor: string) => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot reply: User not authenticated');
@@ -102,6 +105,7 @@ export function useMessageActions(
   );
 
   const sendDiaryReply = useCallback(async (diary: DiaryDocument, content: string) => {
+    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
     const uid = user?.$id;
     if (!uid || !friendId || !content.trim() || diary.userId !== friendId) {
       throw new Error('Diary reply unavailable.');
@@ -111,6 +115,7 @@ export function useMessageActions(
 
   const sendTaskReaction = useCallback(
     async (task: TaskDocument, emoji: string, categoryColor: string) => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot react: User not authenticated');
@@ -258,6 +263,7 @@ export function useMessageActions(
 
   const toggleReaction = useCallback(
     async (id: string, emoji: string): Promise<ToggleReactionResult> => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot react: User not authenticated');

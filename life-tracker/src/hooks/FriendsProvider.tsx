@@ -24,6 +24,7 @@ import type { FriendshipDocument } from '../db/schema';
 import type { ProfileCard } from '../lib/social';
 import { markStartup } from '../lib/startupMetrics';
 import { useFeatureEnabled } from './useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 interface FriendsProviderProps {
   children: ReactNode;
 }
@@ -116,6 +117,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
   );
   const sendRequest = useCallback(
     async (myProfile: MyProfileSummary, friend: ProfileCard) => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
       const uid = user?.$id;
       if (!uid) {
         console.error(
@@ -136,6 +138,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
   );
   const accept = useCallback(
     async (friendUserId: string) => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
       const uid = user?.$id;
       if (!uid) {
         console.error(
