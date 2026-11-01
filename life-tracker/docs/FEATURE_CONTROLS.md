@@ -30,6 +30,9 @@ project/rollout determines which clients receive the change.
 | Bucket List creation | `mosaic_disable_bucket_list_creation` | Prevent new aspirations while retaining existing goals, edits, linked tasks and sync |
 | New friend requests | `mosaic_disable_friend_requests` | Hide Add on search results and reject initiating new requests; retain queued previous requests and all response/removal/blocking actions |
 | Push enrollment | `mosaic_disable_push_enrollment` | Block new device opt-in and browser permission prompts; retain existing subscriptions, opt-out, preferences and in-app Alerts |
+| Chat photo uploads | `mosaic_disable_chat_photo_upload` | Hide chat photo chooser and block new image staging; preserve stored, queued and received photos plus photo deletion/unsend |
+| Chat reactions | `mosaic_disable_chat_reactions` | Hide new reaction controls and block initiating reaction changes; keep existing reaction badges and incoming updates visible |
+| Chat stickers | `mosaic_disable_chat_sticker_sending` | Hide sticker composer entry and block new pack/GIPHY sticker sends; preserve received and already queued stickers and ordinary text messages |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.
@@ -55,6 +58,8 @@ authorization, or data-retention enforcement.
 **Low-risk display controls:** Disabling Keyboard shortcuts never disables Tab, Arrow, Enter, Space or ordinary navigation; it only overrides the Mosaic single-key command provider. Calendar task previews may display a task count but no task titles when disabled; tap the day to access its tasks. Timestamp labels and the optional Day View Diary panel are hidden without changing task/diary data or existing saved preferences. These four controls are distinct from users' own presentation settings.
 
 **Initiation-only controls:** Bucket List creation may be paused without hiding goals or stopping replication of pending local writes. A disabled friend-request initiation gate blocks new requests before adding offline intent; already queued requests may still flush, and existing relationships, accept/cancel/block and discovery remain operational. Push enrollment must be blocked before `Notification.requestPermission()` or service-worker subscription; existing devices continue to receive and may unsubscribe, and reconciliation and settings remain available. These are **not** global social/push kill switches or server authorization.
+
+**Chat initiation-only contract:** Disabling chat photo upload blocks new photo selection/staging, but must not cancel previously queued image messages or erase stored attachments. Disabling reactions leaves historical badges visible (read-only). Disabling sticker sending blocks fresh pack and GIPHY sends while preserving existing message payloads, delivery retry and ordinary text. These client kill switches do not revoke server permissions or affect older installed clients.
 
 **Data-preservation contract:** Never erase task/diary photos when uploads are
 disabled. Existing images can still be viewed/removed; already queued offline

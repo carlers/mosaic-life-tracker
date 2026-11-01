@@ -1,3 +1,12 @@
+# Issue #1026 — optional chat initiation controls v0.67.0 (2026-11-01 Asia/Manila)
+
+- Owner completed v0.66.0 manual flag testing and explicitly approved promotion to `dev` and continuation. Stable `feature/1026-safe-initiation-controls-v0660-20261101@12aa12dfe4fffcd4353093c1e7634be7aef0a884` accepted via focused #41312035664, full canonical #41312320442, trusted Preview #41312668961, and protected promotion preflight #41318187620. PR #1593 merged to `dev@53c70b9f26ce5ad835adcd35f0152705679cf824`; accepted source tree identical, exact-SHA dev Vercel READY. No `main` or Production promotion.
+- Current isolated v0.67.0 task branches from exact dev SHA. New PostHog disable keys: `mosaic_disable_chat_photo_upload`, `mosaic_disable_chat_reactions`, `mosaic_disable_chat_sticker_sending`. UI presents optional controls only when enabled; handlers recheck before new photo staging, reaction mutations or pack/GIPHY sticker sends. Historical incoming/outgoing photos, queued message delivery, rendered reaction badges, sticker payloads and ordinary text/reply/unsend actions remain unaffected. Flags remain client presentation/initiation only, not permissions, revocation or backend capability.
+- Node 22.23.4 sandbox: six focused test files 14/14 passing (including new chat-control UI/hook and photo-staging guard), zero changed-file ESLint errors (one unrelated existing ChatPage dependency warning), `version:check` and `contracts:check` passing, production/PWA/size build passing (Home closure 380389/381000 gzip bytes). No backend/schema/Function changes and no PostHog state changes yet.
+- Next: scoped `[verify:focused]` task commit and focused CI, squash onto fresh stable v0.67.0 Preview, full canonical and trusted exact-SHA Scratch Vercel READY. Only then create three unique inactive PostHog Preview flags and read back all flags. User device testing is required before v0.67.0 can be promoted to dev; never promote to main/Production without a separately explicit authorization.
+
+---
+
 # Feature flags #1026 — three safe initiation controls v0.66.0 in task verification
 Updated: 2026-11-01 Asia/Manila
 

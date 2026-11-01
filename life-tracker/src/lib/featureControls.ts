@@ -30,6 +30,9 @@ export const FEATURE_DISABLE_FLAGS = {
   bucketListCreation: 'mosaic_disable_bucket_list_creation',
   friendRequests: 'mosaic_disable_friend_requests',
   pushEnrollment: 'mosaic_disable_push_enrollment',
+  chatPhotoUpload: 'mosaic_disable_chat_photo_upload',
+  chatReactions: 'mosaic_disable_chat_reactions',
+  chatStickerSending: 'mosaic_disable_chat_sticker_sending',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;
