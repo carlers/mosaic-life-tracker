@@ -1418,6 +1418,91 @@ test('DayView reopens on another and the same date after teardown', async ({ pag
     .toContainText('Sunday, November 15, 2026');
 });
 
+
+test('scrollable bottom sheets pull from content only at the initial scroll top', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Synthetic touch requires Chromium CDP');
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.getByTestId('nested-parent-open').click();
+  const dialog = page.getByRole('dialog', { name: 'Task list' });
+  await waitForStableVerticalPosition(dialog);
+  const scroller = dialog.locator('.overflow-y-auto').first();
+  const bounds = await scroller.boundingBox();
+  if (!bounds) throw new Error('Missing sheet scroll container');
+  const x = bounds.x + bounds.width * 0.75;
+  const y = bounds.y + Math.min(bounds.height * 0.42, bounds.height - 195);
+  const session = await page.context().newCDPSession(page);
+  const pull = async (distance, slow = false, hold = false) => {
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    for (let step = 1; step <= 8; step++) {
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove', touchPoints: [{ x, y: y + distance * step / 8 }],
+      });
+      if (slow) await page.waitForTimeout(30);
+    }
+    if (hold) await page.waitForTimeout(350);
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+
+  // Native scroll owns the whole gesture when it starts below the top.
+  await scroller.evaluate(element => { element.scrollTop = 260; });
+  const original = await dialog.boundingBox();
+  await pull(110, true);
+  await expect(dialog).toBeVisible();
+  const afterScroll = await dialog.boundingBox();
+  expect(Math.abs((afterScroll?.y ?? 0) - (original?.y ?? 0))).toBeLessThan(12);
+
+  // A short downward pull moves the sheet live and then snaps back.
+  await scroller.evaluate(element => { element.scrollTop = 0; });
+  const top = await dialog.boundingBox();
+  if (!top) throw new Error('Missing open sheet bounds');
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (let step = 1; step <= 6; step++) {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove', touchPoints: [{ x, y: y + step * 10 }],
+    });
+  }
+  await expect.poll(async () => (await dialog.boundingBox())?.y ?? top.y)
+    .toBeGreaterThan(top.y + 24);
+  await page.waitForTimeout(350);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(dialog).toBeVisible();
+  await expect.poll(async () => Math.abs(((await dialog.boundingBox())?.y ?? top.y) - top.y))
+    .toBeLessThan(12);
+
+  // A deliberate second pull dismisses through the normal history stack.
+  await pull(175);
+  await expect(dialog).toHaveCount(0);
+  await session.detach();
+});
+
+// Regression: sheet-mode Day View has an internal task scroller, not BottomSheet's default scroll region.
+test('Day View task-content pull dismisses at top without changing its date', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Synthetic touch requires Chromium CDP');
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await waitForStableVerticalPosition(dialog);
+  const content = dialog.locator('.swiper-slide-active [data-testid="day-slide"]');
+  await expect(content).toBeVisible();
+  await content.evaluate(element => { element.scrollTop = 0; });
+  const box = await content.boundingBox();
+  if (!box) throw new Error('Missing Day View task area');
+  const x = box.x + box.width * 0.58;
+  const y = box.y + Math.min(40, box.height * 0.25);
+  const dateBefore = await dialog.getAttribute('aria-label');
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (let step = 1; step <= 8; step++) {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove', touchPoints: [{ x, y: y + step * 20 }],
+    });
+  }
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(dialog).toHaveCount(0);
+  expect(dateBefore).not.toBeNull();
+  await session.detach();
+});
+
 // Regression: §2/§7 (Day View date row owns horizontal navigation and vertical close).
 test('sheet date row follows the finger horizontally and still supports vertical drag-to-close', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);

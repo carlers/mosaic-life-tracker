@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { motion, AnimatePresence, useDragControls, usePresence } from 'framer-motion';
+import { animate, motion, AnimatePresence, useDragControls, useMotionValue, usePresence } from 'framer-motion';
 import ReactDOM from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { AppearanceContext } from '../../hooks/appearanceContext';
@@ -27,6 +27,8 @@ interface BottomSheetProps {
   deferChildrenUntilPaint?: boolean;
   /** Consume Escape/Android Back without dismissing the sheet (for transient modes). */
   onTransientDismiss?: () => boolean;
+  /** Allow touch pull-down dismissal from content when its scroll containers start at the top. */
+  pullDownToDismiss?: boolean;
 }
 
 type SheetStackEntry = {
@@ -114,6 +116,10 @@ const HORIZONTAL_SWIPE_MIN_DISTANCE = 48;
 const HORIZONTAL_SWIPE_AXIS_RATIO = 1.2;
 const DIRECTIONAL_DRAG_MIN_DISTANCE = 8;
 const DIRECTIONAL_DRAG_AXIS_RATIO = 1.15;
+const PULL_DISMISS_DISTANCE = 100;
+const PULL_DISMISS_VELOCITY = 0.5; // px/ms
+const PULL_DISMISS_MIN_FLING_DISTANCE = 24;
+const PULL_START_EXCLUSION = '[data-bottom-sheet-no-pull-dismiss], [data-bottom-sheet-drag-handle], [data-bottom-sheet-directional-drag-handle], input, textarea, select, [contenteditable="true"], [contenteditable=""], [role="slider"], [role="spinbutton"], [data-diary-drag-source]';
 // #9: hoisted so React sees a stable reference and skips re-diffing the style prop.
 const SHEET_SURFACE_STYLE: React.CSSProperties = { contain: 'paint' };
 
@@ -128,6 +134,25 @@ type TouchSwipeStart = {
   x: number;
   y: number;
 };
+
+type PullTouchStart = TouchSwipeStart & {
+  time: number;
+  dragging: boolean;
+  scrollParents: HTMLElement[];
+};
+
+/** Snapshot all scroll owners at touchstart: never convert an in-progress scroll to dismissal. */
+function findVerticalScrollParents(target: Element, sheet: HTMLElement): HTMLElement[] {
+  const owners: HTMLElement[] = [];
+  for (let node: Element | null = target; node; node = node.parentElement) {
+    if (node instanceof HTMLElement && node.scrollHeight > node.clientHeight + 2) {
+      const overflow = window.getComputedStyle(node).overflowY;
+      if (overflow === 'auto' || overflow === 'scroll') owners.push(node);
+    }
+    if (node === sheet) break;
+  }
+  return owners;
+}
 
 function readHistoryGuardToken(state: unknown): string | null {
   if (typeof state !== 'object' || state === null || Array.isArray(state)) {
@@ -362,6 +387,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   onExitComplete,
   deferChildrenUntilPaint = false,
   onTransientDismiss,
+  pullDownToDismiss = true,
 }) => {
   const appearance = useContext(AppearanceContext);
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
@@ -372,6 +398,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const horizontalSwipeStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalDragStartRef = useRef<HorizontalSwipeStart | null>(null);
   const directionalTouchStartRef = useRef<TouchSwipeStart | null>(null);
+  const pullTouchRef = useRef<PullTouchStart | null>(null);
+  // Framer's header drag and content touch drag share one position value.
+  const sheetOffsetY = useMotionValue(0);
   const dragControls = useDragControls();
   const sheetId = React.useId();
   const titleId = React.useId();
@@ -428,6 +457,79 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const layerDepth = Math.max(0, layerIndex);
   const isBehindLayer = layerIndex >= 0 && topOpenSheetId !== null && topOpenSheetId !== sheetId;
   const isBlockedLayer = suspendInteraction || !isTopLayer;
+
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet || !isOpen || !pullDownToDismiss || isLocked || preventDismiss || isBlockedLayer) return;
+    const settle = () => {
+      const start = pullTouchRef.current;
+      pullTouchRef.current = null;
+      if (start?.dragging) animate(sheetOffsetY, 0, { type: 'spring', stiffness: 450, damping: 38 });
+    };
+    const onStart = (event: TouchEvent) => {
+      pullTouchRef.current = null;
+      if (event.touches.length !== 1) return;
+      const target = event.target;
+      if (!(target instanceof Element) || target.closest(PULL_START_EXCLUSION)) return;
+      const touch = event.touches[0];
+      const scrollParents = findVerticalScrollParents(target, sheet);
+      if (scrollParents.some(parent => parent.scrollTop > 1)) return;
+      pullTouchRef.current = {
+        identifier: touch.identifier, x: touch.clientX, y: touch.clientY,
+        time: performance.now(), dragging: false, scrollParents,
+      };
+    };
+    const onMove = (event: TouchEvent) => {
+      const start = pullTouchRef.current;
+      if (!start) return;
+      if (event.touches.length !== 1) { settle(); return; }
+      const touch = event.touches[0];
+      if (touch.identifier !== start.identifier) { settle(); return; }
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      if (!start.dragging) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < DIRECTIONAL_DRAG_MIN_DISTANCE) return;
+        // Horizontal navigation and upward scrolling retain their native owners.
+        if (dy <= 0 || dy <= Math.abs(dx) * DIRECTIONAL_DRAG_AXIS_RATIO ||
+            start.scrollParents.some(parent => parent.scrollTop > 1)) {
+          pullTouchRef.current = null;
+          return;
+        }
+        start.dragging = true;
+      }
+      // React's delegated touchmove is passive in modern browsers; this native
+      // non-passive listener prevents scroll only after a downward axis lock.
+      if (event.cancelable) event.preventDefault();
+      sheetOffsetY.set(Math.max(0, dy));
+    };
+    const onEnd = (event: TouchEvent) => {
+      const start = pullTouchRef.current;
+      if (!start) return;
+      const touch = Array.from(event.changedTouches).find(candidate => candidate.identifier === start.identifier);
+      if (!touch) return;
+      pullTouchRef.current = null;
+      if (!start.dragging) return;
+      const distance = Math.max(0, touch.clientY - start.y);
+      const velocity = distance / Math.max(1, performance.now() - start.time);
+      if (distance >= PULL_DISMISS_DISTANCE ||
+          (distance >= PULL_DISMISS_MIN_FLING_DISTANCE && velocity >= PULL_DISMISS_VELOCITY)) {
+        requestSheetClose(sheetId);
+      } else {
+        animate(sheetOffsetY, 0, { type: 'spring', stiffness: 450, damping: 38 });
+      }
+    };
+    sheet.addEventListener('touchstart', onStart, { capture: true, passive: true });
+    sheet.addEventListener('touchmove', onMove, { capture: true, passive: false });
+    sheet.addEventListener('touchend', onEnd, true);
+    sheet.addEventListener('touchcancel', settle, true);
+    return () => {
+      sheet.removeEventListener('touchstart', onStart, true);
+      sheet.removeEventListener('touchmove', onMove, true);
+      sheet.removeEventListener('touchend', onEnd, true);
+      sheet.removeEventListener('touchcancel', settle, true);
+      pullTouchRef.current = null;
+    };
+  }, [isOpen, pullDownToDismiss, isLocked, preventDismiss, isBlockedLayer, sheetId, sheetOffsetY]);
 
   useFocusTrap(
     sheetRef,
@@ -692,10 +794,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 requestSheetClose(sheetId);
               }
             }}
-            style={{ ...SHEET_SURFACE_STYLE, zIndex: 60 + layerDepth * 20, transformOrigin: 'bottom center' }}
+            style={{ ...SHEET_SURFACE_STYLE, y: sheetOffsetY, zIndex: 60 + layerDepth * 20, transformOrigin: 'bottom center' }}
             className={`mosaic-bottom-sheet fixed bottom-0 left-0 right-0 bg-surface text-white shadow-2xl border flex flex-col overflow-hidden ${layerIndex > 0 ? 'border-[var(--mosaic-border-strong)] shadow-[0_-12px_30px_rgba(0,0,0,0.28)]' : 'border-[var(--mosaic-border)]'} ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
           >
             <div
+              data-bottom-sheet-drag-handle="true"
               className={`flex-shrink-0 pt-3 pb-2 px-4 flex flex-col items-center transition-all duration-300 ${
                 isLocked
                   ? 'cursor-default opacity-50 blur-sm pointer-events-none'
