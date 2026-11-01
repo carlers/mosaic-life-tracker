@@ -1,3 +1,11 @@
+# Emergency recovery — RxDB messages DB6 (2026-11-01)
+
+- Dev v0.63.0 introduced chat photo fields on the messages collection at schema version 5, changing the schema hash without a required version bump; v0.64.0 retained the regression. Older devices fail startup with RxDB DB6.
+- Emergency Vercel dev alias was reassigned to the existing READY v0.62.0 deployment (SHA 8dccaddc8d5045b96b18e81dc818c84af3db28d6). GitHub dev HEAD remains 67289fe56f7f78631e325a7d2e98b7eed768f176; direct update was blocked by branch protection. Do not clear local app storage.
+- This v0.64.1 fix increments messages schema to 6, supplies the v5→v6 data-preserving migration, and adds regression tests for old and queued-photo rows. No backend migrations or Production changes. Complete task focused verification, canonical Preview, and Vercel READY before protected dev promotion; do not replace the temporary dev alias early.
+
+---
+
 # Task checkpoint — #854 integrated public bug reports v0.64.0 on latest dev baseline
 Updated: 2026-11-01 Asia/Manila
 

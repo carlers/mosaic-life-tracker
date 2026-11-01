@@ -315,8 +315,9 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
     ['friendId', 'userId'],
   ],
 };
+// v6 adds chat-photo attachment fields; v5 on-disk records use the old shape.
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 5,
+  version: 6,
   primaryKey: 'id',
   type: 'object',
   required: [
