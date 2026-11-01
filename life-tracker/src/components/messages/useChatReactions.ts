@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { isFeatureEnabled } from '../../lib/featureControls';
 import type { ToggleReactionResult } from '../../lib/messageReactions';
 
 interface UseChatReactionsOptions {
@@ -16,6 +17,7 @@ export function useChatReactions({
 }: UseChatReactionsOptions): UseChatReactionsReturn {
   const reactToMessage = useCallback(
     (messageId: string, emoji: string) => {
+      if (!isFeatureEnabled('mosaic_disable_chat_reactions')) return;
       toggleReaction(messageId, emoji)
         .then((r) => {
           if (r === 'timeout') {

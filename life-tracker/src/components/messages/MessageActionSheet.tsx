@@ -17,6 +17,7 @@ interface MessageActionSheetProps {
   onUnsend: () => void;
   onReact: (emoji: string) => void;
   onMoreEmoji: () => void;
+  reactionsEnabled?: boolean;
 }
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -32,6 +33,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   onUnsend,
   onReact,
   onMoreEmoji,
+  reactionsEnabled = true,
 }) => {
   const { value: message, onExitComplete } = useRetainedSheetValue(incomingMessage, isOpen);
   if (!message) return null;
@@ -66,7 +68,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
       height="auto"
     >
       <div className="pt-2 pb-8 px-1">
-        <div className="flex items-center justify-center gap-1.5 mb-4 px-2">
+        {reactionsEnabled && <div className="flex items-center justify-center gap-1.5 mb-4 px-2">
           {QUICK_REACTIONS.map((emoji) => (
             <button
               key={emoji}
@@ -92,7 +94,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
           >
             <Plus size={18} />
           </button>
-        </div>
+        </div>}
 
         <button
           onClick={() => {

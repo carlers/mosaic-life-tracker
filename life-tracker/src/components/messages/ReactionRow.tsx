@@ -8,7 +8,7 @@ interface ReactionRowProps {
   reactions: Reaction[];
   currentUserId: string;
   isOutgoing: boolean;
-  onToggle: (emoji: string) => void;
+  onToggle?: (emoji: string) => void;
 }
 
 export const ReactionRow: React.FC<ReactionRowProps> = ({
@@ -29,10 +29,11 @@ export const ReactionRow: React.FC<ReactionRowProps> = ({
         return (
           <motion.button
             key={reaction.emoji}
-            whileTap={{ scale: 0.9 }}
+            whileTap={onToggle ? { scale: 0.9 } : undefined}
+            disabled={!onToggle}
             onClick={(e) => {
               e.stopPropagation();
-              onToggle(reaction.emoji);
+              onToggle?.(reaction.emoji);
             }}
             onPointerDown={(e) => e.stopPropagation()}
             className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
@@ -40,7 +41,7 @@ export const ReactionRow: React.FC<ReactionRowProps> = ({
                 ? 'bg-[#2563EB]/30 border border-[#2563EB]'
                 : 'bg-[#2A2A2A] border border-transparent'
             }`}
-            aria-label={`React with ${reaction.emoji}`}
+            aria-label={onToggle ? `React with ${reaction.emoji}` : `Reaction ${reaction.emoji}: ${reaction.userIds.length}`}
           >
             <span>{reaction.emoji}</span>
             <span className="text-gray-300">{reaction.userIds.length}</span>

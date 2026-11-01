@@ -1,3 +1,4 @@
+import { isFeatureEnabled } from '../lib/featureControls';
 import { useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
@@ -77,6 +78,7 @@ export function useMessageActions(
   const sendPhoto = useCallback(async (file: File, caption = '', replyTo?: ReplyContext) => {
     const uid = user?.$id;
     if (!uid || !friendId) throw new Error('Chat photo requires a signed-in user and friend.');
+    if (!isFeatureEnabled('mosaic_disable_chat_photo_upload')) throw new Error('New chat photos are temporarily unavailable.');
     const { sendPhotoMessage } = await import('../lib/chatPhotoComposer');
     await sendPhotoMessage(uid, friendId, file, caption, replyTo);
   }, [user?.$id, friendId]);
