@@ -1,3 +1,12 @@
+# Task checkpoint — #1478 Phase 3B read-only pagination and subtotal integrity
+Updated: 2026-11-01 Asia/Manila
+
+- Resume from exact verified isolated Preview `feature/1478-owner-media-audit-20261101@5c6a50b56cb710b61de5bf7ec8b3bf05254a3944`, whose canonical #41233760358 and trusted delivery #41234095617 succeeded. No Phase 3 promotion to dev/main, no Scratch Function activation.
+- Scope: fail closed when server audit pagination repeats/misses item identities, or when summing individually valid file sizes loses safe integer precision; preserve generic errors and zero writes. Add handler regressions and update the safety contract. No new schema, UI, cloud mutations, user-facing version or deletion authorization.
+- Next: verify focused exact-SHA CI, stable Preview canonical and Vercel. Design a separate durable server-mediated upload provenance/reference ledger with compatible old-client write fencing before considering any deletion. Three-account Scratch approval and explicit destructive authorization remain required.
+
+---
+
 # Task checkpoint — #1478 Phase 3B metadata validation and canonical artifact retry
 Updated: 2026-11-01 Asia/Manila
 
