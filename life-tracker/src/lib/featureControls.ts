@@ -40,6 +40,7 @@ export const FEATURE_DISABLE_FLAGS = {
   taskBulkActions: 'mosaic_disable_task_bulk_actions',
   dayViewLayoutSwitch: 'mosaic_disable_day_view_layout_switch',
   categoryReorder: 'mosaic_disable_category_reorder',
+  allSocial: 'mosaic_disable_all_social',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;
