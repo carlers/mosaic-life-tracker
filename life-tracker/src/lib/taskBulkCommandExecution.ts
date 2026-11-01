@@ -2,9 +2,9 @@ import type { CategoryDocument, TaskDocument } from '../db/schema';
 import type { BulkMoveDraft } from './taskBulkCommandPreview';
 
 export type FrozenMoveRow = Pick<TaskDocument,
-  'id' | 'userId' | 'categoryId' | 'date' | 'completed' | 'updatedAt' | 'visibility' | 'isDeleted'>;
+  'id' | 'userId' | 'categoryId' | 'date' | 'completed' | 'completedAt' | 'updatedAt' | 'visibility' | 'isDeleted'>;
 export type MovePatch = Pick<TaskDocument, 'updatedAt'> &
-  Partial<Pick<TaskDocument, 'categoryId' | 'date' | 'visibility'>>;
+  Partial<Pick<TaskDocument, 'categoryId' | 'date' | 'visibility' | 'completed' | 'completedAt' | 'isDeleted'>>;
 export type BulkMovePlan = {
   ownerId: string; sourceCategoryId: string;
   destination: { type: 'backlogs' } | { type: 'category'; categoryId: string };
@@ -33,7 +33,7 @@ export function freezeMovePlan(draft: BulkMoveDraft): BulkMovePlan {
   const noOps = new Set(draft.noOps.map(row => row.id));
   const rows = draft.matches.filter(row => !noOps.has(row.id)).map(row => ({
     id: row.id, userId: row.userId, categoryId: row.categoryId,
-    date: row.date, completed: row.completed, updatedAt: row.updatedAt,
+    date: row.date, completed: row.completed, completedAt: row.completedAt, updatedAt: row.updatedAt,
     visibility: row.visibility, isDeleted: row.isDeleted,
   }));
   if (rows.length < 1 || rows.length > 100 ||
@@ -51,7 +51,7 @@ function unchanged(current: TaskDocument | null, frozen: FrozenMoveRow): boolean
   return Boolean(current && current.id === frozen.id &&
     current.userId === frozen.userId && !current.isDeleted &&
     current.categoryId === frozen.categoryId && current.date === frozen.date &&
-    current.completed === frozen.completed && current.visibility === frozen.visibility &&
+    current.completed === frozen.completed && current.completedAt === frozen.completedAt && current.visibility === frozen.visibility &&
     current.updatedAt === frozen.updatedAt);
 }
 
@@ -134,7 +134,7 @@ export async function undoMovePlan(plan: BulkMovePlan, result: BulkMoveOutcome,
     }
     const before: FrozenMoveRow = {
       id: current.id, userId: current.userId, categoryId: current.categoryId,
-      date: current.date, completed: current.completed, updatedAt: current.updatedAt,
+      date: current.date, completed: current.completed, completedAt: current.completedAt, updatedAt: current.updatedAt,
       visibility: current.visibility, isDeleted: current.isDeleted,
     };
     try {

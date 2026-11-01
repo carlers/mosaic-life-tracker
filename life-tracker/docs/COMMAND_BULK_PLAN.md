@@ -1,6 +1,6 @@
 # Natural-language bulk commands — design proposal (#1441)
 
-**Status:** B0 delivered; B1 guarded owner-only bulk move UI implemented as v0.55.0 Preview candidate. B2/B3, external MCP and production promotion remain outstanding. Single-task create remains explicitly confirmed.
+**Status:** B0 and B1 delivered; B2/B3 completion/rescheduling and reversible soft-deletion implemented in v0.56.0 Preview candidate. External MCP and production promotion remain outstanding. All writes require explicit review and confirmation.
 
 ## Goal and semantics
 
@@ -58,3 +58,10 @@ An isolated, **unwired and non-executable-from-UI** pure bulk-move coordinator n
 ## B1 guarded bulk move candidate (2026-11-02)
 
 The lazy Home command sheet now supports owner-only bulk move confirmations. The user selects at most 20 reviewed changed tasks, with no preselection if over 20 matched, and types MOVE N. A completed full-app Sync Now within five minutes and online connectivity are required; the domain hook re-queries owner task scopes before applying sequential RxDB incrementalModify operations with per-task owner/state/version checks within the atomic modifier. Backlogs moves enforce privacy. Partial failures, conflicts and cancel remaining are reported. Owner-scoped sessionStorage holds an expiring 15-minute undo receipt with conflict-aware comparison and reload recovery. Cross-device atomicity and absence of network races are not guaranteed. Physical-device sync/undo acceptance and B2/B3/MCP remain outstanding.
+
+
+## B2/B3 guarded mutation candidate (2026-11-02)
+
+Strict owner-only commands now support completion of unfinished/overdue tasks in an existing category, rescheduling unfinished tasks to a concrete local calendar date, and soft-deleting all tasks in a category. Selection is limited to 20 per confirmation; more than 20 matches defaults to nothing selected. The user must type COMPLETE N, RESCHEDULE N or DELETE N; soft-deletion additionally requires a separate checkbox. No hard delete or automatic AI-induced write.
+
+The separate pure task mutation coordinator uses exact owner and source category rechecks, a full frozen task/version snapshot, bounded sequential writes through the existing owner-scoped atomic RxDB compare-and-patch adapter, and itemized partial success/failure/cancellation outcomes. Undo is scoped to the authenticated owner, expiring after 15 minutes, and declines to overwrite concurrent changes, including tombstones after an intervening edit. Actual cross-device sync, device deletion and durable undo acceptance still require tests on Scratch accounts; no server lock or global atomicity is claimed.

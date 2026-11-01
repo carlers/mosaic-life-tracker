@@ -107,3 +107,14 @@ worker. Delete downloaded AI model unloads it and deletes only its own CacheStor
 namespace. Unsupported WebGPU and failed inference preserve typed commands.
 Test permissions, model-download cancellation, offline reuse, deletion and reload,
 and model accuracy on physical Brave/Android devices before acceptance.
+
+## v0.56.0 bulk completion, rescheduling and reversible soft deletion
+
+Commands are strict: Complete all unfinished tasks in School; Complete my overdue
+tasks in School; Reschedule all unfinished tasks in School to 2026-11-15 or
+tomorrow; Delete all tasks in School. Each reviews exact owner-local rows,
+with a maximum of 20 selected per confirmation. Type COMPLETE N, RESCHEDULE N,
+or DELETE N. Soft-deletion additionally requires the explicit destruction
+checkbox; deleted rows are tombstones, not hard deletes. Changes require
+fresh successful online sync, reject stale/foreign rows, and keep a brief
+owner-scoped undo receipt. A cross-device transaction is not promised.

@@ -289,3 +289,38 @@ describe('confirmed bulk moves', () => {
     expect((screen.getByRole('button', {name:'Move 0 selected tasks'}) as HTMLButtonElement).disabled).toBe(true);
   });
 });
+
+describe('bulk completion, rescheduling and destructive confirmation',()=>{
+  const a:TaskDocument={id:'owned',userId:'owner',categoryId:'school',
+    date:'2026-11-02',completed:false,completedAt:'',title:'Owned',order:0,
+    visibility:'private',isDeleted:false,createdAt:'',updatedAt:'2026-11-02T00:00:00Z'};
+  it('requires the typed count AND separate deletion checkbox',()=>{
+    open({tasks:[a]});
+    fireEvent.change(screen.getByLabelText('Command'),{target:{
+      value:'delete all tasks in School',
+    }});
+    fireEvent.click(screen.getByRole('button',{name:'Review command'}));
+    expect(screen.getByRole('region',{name:'Bulk task action review'})).toBeTruthy();
+    const confirm=screen.getByRole('button',{name:'Confirm delete for 1 tasks'}) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Confirm bulk task action'),{
+      target:{value:'DELETE 1'},
+    });
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText(/Confirm that I want to soft-delete/));
+    expect(confirm.disabled).toBe(false);
+  });
+  it('requires a full preview and typed count for completion',()=>{
+    open({tasks:[a]});
+    fireEvent.change(screen.getByLabelText('Command'),{target:{
+      value:'complete all unfinished tasks in School',
+    }});
+    fireEvent.click(screen.getByRole('button',{name:'Review command'}));
+    const confirm=screen.getByRole('button',{name:'Confirm complete for 1 tasks'}) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Confirm bulk task action'),{
+      target:{value:'COMPLETE 1'},
+    });
+    expect(confirm.disabled).toBe(false);
+  });
+});
