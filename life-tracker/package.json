@@ -66,7 +66,7 @@
     "@dnd-kit/abstract": "^0.5.0",
     "@dnd-kit/dom": "^0.5.0",
     "@dnd-kit/react": "^0.5.0",
-    "@huggingface/transformers": "3.8.1",
+    "@huggingface/transformers": "4.3.2",
     "ajv": "^8.20.0",
     "appwrite": "^26.2.0",
     "browser-image-compression": "^2.0.2",
