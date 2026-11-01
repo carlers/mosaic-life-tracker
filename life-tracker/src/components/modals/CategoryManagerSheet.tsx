@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
 import { BottomSheet } from '../ui/BottomSheet';
 import { ColorPalettePicker } from '../ui/ColorPalettePicker';
@@ -6,7 +6,11 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
-import { ArrowDownUp, Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
+import { Archive, ArrowDownUp, ArrowRightLeft, Pencil, Plus, RotateCcw, Trash2, GripVertical } from 'lucide-react';
+import { MosaicSelect } from '../ui/MosaicSelect';
+import { format } from 'date-fns';
+import { validLocalDateKey } from '../../lib/categoryLifecycle';
+import { categoryLifecycleInventory, executeCategoryLifecycle, type CategoryLifecycleInventory } from '../../lib/categoryLifecycleAction';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
 import { useAuth } from '../../hooks/useAuth';
@@ -61,9 +65,15 @@ interface CategoryRowProps {
   cat: CategoryDocument;
   overriddenCount: number;
   onEditStart: (cat: CategoryDocument) => void;
+  onManageRetirement: (cat: CategoryDocument) => void;
+  onMoveTasks: (cat: CategoryDocument) => void;
+  onManageDeletion: (cat: CategoryDocument) => void;
   onReorderEnd: () => void;
   disabled: boolean;
   isEditing: boolean;
+  isRetiring: boolean;
+  isMoving: boolean;
+  isDeleting: boolean;
   orderSignature: string | string[];
   children?: React.ReactNode;
 }
@@ -72,15 +82,21 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   cat,
   overriddenCount,
   onEditStart,
+  onManageRetirement,
+  onMoveTasks,
+  onManageDeletion,
   onReorderEnd,
   disabled,
   isEditing,
+  isRetiring,
+  isMoving,
+  isDeleting,
   orderSignature,
   children,
 }) => {
   const dragControls = useDragControls();
   const [exitContent, setExitContent] = useState(children);
-  if (isEditing && exitContent !== children) setExitContent(children);
+  if ((isEditing || isRetiring || isMoving || isDeleting) && exitContent !== children) setExitContent(children);
 
   return (
     <Reorder.Item
@@ -114,6 +130,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-white truncate">{cat.name}</span>
             {visibilityIcon(cat.visibility)}
+            {cat.retiredOn && <span className="text-xs text-gray-400">Retired {cat.retiredOn}</span>}
           </div>
           {overriddenCount > 0 && (
             <span className="text-xs text-gray-400">
@@ -133,21 +150,37 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
         </button>
         <button
           type="button"
-          disabled
-          title="Deletion temporarily unavailable to protect tasks"
-          className="p-2 text-gray-500"
-          aria-label="Delete category (temporarily unavailable)"
+          onClick={() => onManageRetirement(cat)}
+          disabled={disabled}
+          className="p-2 text-gray-400"
+          aria-label={`Manage retirement for ${cat.name}`}
+          aria-expanded={isRetiring}
+        >
+          {cat.retiredOn ? <RotateCcw size={16} /> : <Archive size={16} />}
+        </button>
+        <button type="button" onClick={() => onMoveTasks(cat)} disabled={disabled}
+          className="p-2 text-gray-400" aria-label={`Move tasks from ${cat.name}`}
+          aria-expanded={isMoving}>
+          <ArrowRightLeft size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onManageDeletion(cat)}
+          disabled={disabled}
+          className="p-2 text-gray-400"
+          aria-label={`Manage deletion for ${cat.name}`}
+          aria-expanded={isDeleting}
         >
           <Trash2 size={16} />
         </button>
       </div>
       <div
         className="grid transition-all duration-200 ease-in-out"
-        style={{ gridTemplateRows: isEditing ? '1fr' : '0fr' }}
+        style={{ gridTemplateRows: isEditing || isRetiring || isMoving || isDeleting ? '1fr' : '0fr' }}
       >
-        <div className="min-h-0 overflow-hidden" inert={!isEditing} aria-hidden={!isEditing}>
+        <div className="min-h-0 overflow-hidden" inert={!isEditing && !isRetiring && !isMoving && !isDeleting} aria-hidden={!isEditing && !isRetiring && !isMoving && !isDeleting}>
           <div className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
-            {isEditing ? children : exitContent}
+            {isEditing || isRetiring || isMoving || isDeleting ? children : exitContent}
           </div>
         </div>
       </div>
@@ -169,9 +202,11 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     isLoading: categoriesLoading,
     addCategory,
     updateCategory,
+    retireCategory,
+    restoreCategory,
     reorderCategories,
   } = useCategories();
-  const { tasks = [], isLoading: tasksLoading } = useTasks();
+  const { tasks = [], isLoading: tasksLoading, moveCategoryTasks } = useTasks();
   const { user } = useAuth();
   const [orphanLimit, setOrphanLimit] = useState(25);
   const orphanedTasks = useMemo(() =>
@@ -185,6 +220,16 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [newColor, setNewColor] = useState('#3B82F6');
   const [newVisibility, setNewVisibility] = useState<Visibility>('private');
 
+  const [retireId, setRetireId] = useState<string | null>(null);
+  const [moveId, setMoveId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState('');
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleteInventory, setDeleteInventory] = useState<CategoryLifecycleInventory | null>(null);
+  const [deleteInventoryError, setDeleteInventoryError] = useState('');
+  const [deleteProgress, setDeleteProgress] = useState<number | null>(null);
+  const [moveToId, setMoveToId] = useState('');
+  const [lastActiveDate, setLastActiveDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('#3B82F6');
@@ -220,8 +265,30 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     if (!isOpen) {
       resetForm();
       setEditingId(null);
+      setRetireId(null);
+      setMoveId(null);
+      setDeleteId(null);
+      setMoveToId('');
     }
   }
+
+  useEffect(() => {
+    if (!isOpen || !deleteId) return;
+    let cancelled = false;
+    void categoryLifecycleInventory(deleteId).then(
+      inventory => { if (!cancelled) setDeleteInventory(inventory); },
+      () => { if (!cancelled) setDeleteInventoryError('Could not verify tasks on the server. Check sync and retry.'); },
+    );
+    return () => { cancelled = true; };
+  }, [isOpen, deleteId]);
+
+  const taskCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    tasks.forEach(task => {
+      if (task.userId === user?.$id && !task.isDeleted) counts[task.categoryId] = (counts[task.categoryId] || 0) + 1;
+    });
+    return counts;
+  }, [tasks, user?.$id]);
 
   const overriddenCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -255,7 +322,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full" preventDismiss={isSaving}>
       <div className="pt-2 pb-8 px-4">
-        {!editingId && <SheetErrorBanner message={error} />}
+        {!editingId && !retireId && !moveId && !deleteId && <SheetErrorBanner message={error} />}
         <div className="mb-3 flex justify-end">
           <Button
             variant="ghost"
@@ -282,14 +349,51 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               cat={cat}
               overriddenCount={overriddenCounts[cat.id] || 0}
               isEditing={editingId === cat.id}
+              isRetiring={retireId === cat.id}
+              isMoving={moveId === cat.id}
+              isDeleting={deleteId === cat.id}
               orderSignature={orderedIds}
               onEditStart={(c) => {
                 reset();
                 setIsAdding(false);
+                setRetireId(null);
+                setMoveId(null);
+                setDeleteId(null);
                 setEditingId(c.id);
                 setEditName(c.name);
                 setEditColor(c.color);
                 setEditVisibility(c.visibility);
+              }}
+              onManageRetirement={(category) => {
+                reset();
+                setEditingId(null);
+                setIsAdding(false);
+                setMoveId(null);
+                setDeleteId(null);
+                setRetireId(category.id);
+                setLastActiveDate(category.retiredOn || format(new Date(), 'yyyy-MM-dd'));
+              }}
+              onMoveTasks={(category) => {
+                reset();
+                setEditingId(null);
+                setRetireId(null);
+                setIsAdding(false);
+                setDeleteId(null);
+                setMoveId(category.id);
+                setMoveToId('');
+              }}
+              onManageDeletion={(category) => {
+                reset();
+                setEditingId(null);
+                setRetireId(null);
+                setMoveId(null);
+                setIsAdding(false);
+                setDeleteInventory(null);
+                setDeleteInventoryError('');
+                setDeleteConfirmName('');
+                setDeleteTargetId('');
+                setDeleteProgress(null);
+                setDeleteId(current => current === category.id ? null : category.id);
               }}
               onReorderEnd={() => {
                 if (!isSaving) {
@@ -339,13 +443,123 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   </Button>
                 </>
               )}
+              {moveId === cat.id && (
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-white">Move tasks from {cat.name}</p>
+                  <p className="text-xs text-gray-400">
+                    {taskCounts[cat.id] || 0} tasks available on this device, including completed tasks,
+                    future dates and Backlogs. The original category is preserved for offline devices.
+                  </p>
+                  <MosaicSelect label="Move to category" value={moveToId} onChange={setMoveToId}
+                    placeholder="Select destination category"
+                    disabled={isSaving || tasksLoading || categoriesLoading}
+                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && !c.retiredOn)
+                      .map(c => ({ value: c.id, label: c.name, color: c.color }))} />
+                  <p className="text-xs text-gray-400">
+                    This preserves each task's effective visibility and date. To remove the original
+                    category from future days, retire it separately. This is not a category deletion.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button disabled={!moveToId || isSaving || tasksLoading || categoriesLoading ||
+                        !taskCounts[cat.id] || !orderedCategories.some(c => c.id === moveToId && !c.retiredOn)}
+                      onClick={() => void save(
+                        () => moveCategoryTasks(cat.id, moveToId),
+                        () => { setMoveId(null); setMoveToId(''); },
+                        'Task move incomplete. Some tasks may have moved; review the remaining tasks before retrying.'
+                      )}>
+                      Move {taskCounts[cat.id] || 0} tasks
+                    </Button>
+                    <Button variant="ghost" disabled={isSaving} onClick={() => setMoveId(null)}>Cancel</Button>
+                  </div>
+                  <SheetErrorBanner message={error} />
+                </div>
+              )}
+              {deleteId === cat.id && (
+                <section className="space-y-3" aria-label={`Category deletion options for ${cat.name}`}>
+                  <p className="text-sm font-semibold text-white">Remove {cat.name}</p>
+                  {deleteInventory?.categoryId === cat.id ? (
+                    <p className="text-xs text-gray-400">
+                      {deleteInventory.persistedTaskCount} server-synced task{deleteInventory.persistedTaskCount === 1 ? '' : 's'}
+                      {' '}across all dates and Backlogs, including completed tasks.
+                    </p>
+                  ) : <p className="text-xs text-gray-400">Checking affected tasks on the server…</p>}
+                  {deleteInventoryError && <p role="alert" className="text-xs text-red-400">{deleteInventoryError}</p>}
+                  {deleteProgress !== null && <p role="status" className="text-xs text-gray-300">
+                    Processing category; {deleteProgress} tasks remaining. If interrupted, retry the same operation.
+                  </p>}
+                  <MosaicSelect label="Move tasks to category before deleting" value={deleteTargetId}
+                    onChange={setDeleteTargetId} placeholder="Choose destination"
+                    disabled={isSaving}
+                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && !c.retiredOn)
+                      .map(c => ({value:c.id,label:c.name,color:c.color}))} />
+                  <Input label={`Type ${cat.name} to confirm deletion`} value={deleteConfirmName}
+                    onChange={event => setDeleteConfirmName(event.target.value)} />
+                  <p className="text-xs text-gray-400">
+                    Deleting all tasks also revokes task shares and removes Bucket List task links.
+                    Task and category tombstones are retained for recovery. Do not start while another
+                    device has unsynced changes.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button disabled={isSaving || !user?.$id || !deleteInventory?.safeToDelete ||
+                        deleteInventory.categoryId !== cat.id || deleteConfirmName !== cat.name ||
+                        !deleteTargetId}
+                      onClick={() => void save(
+                        () => executeCategoryLifecycle(user!.$id, cat.id, cat.name, 'move', deleteTargetId, setDeleteProgress),
+                        () => { setDeleteId(null); setDeleteProgress(null); },
+                        'Migration incomplete. Retry with the same destination to resume safely.'
+                      )}>
+                      Move tasks &amp; delete category
+                    </Button>
+                    <Button disabled={isSaving || !user?.$id || !deleteInventory?.safeToDelete ||
+                        deleteInventory.categoryId !== cat.id || deleteConfirmName !== cat.name}
+                      onClick={() => void save(
+                        () => executeCategoryLifecycle(user!.$id, cat.id, cat.name, 'delete', '', setDeleteProgress),
+                        () => { setDeleteId(null); setDeleteProgress(null); },
+                        'Deletion incomplete. Retry Delete All to resume safely.'
+                      )}>
+                      Delete category and all tasks
+                    </Button>
+                    <Button variant="ghost" disabled={isSaving} onClick={() => {
+                      setDeleteId(null);
+                      setRetireId(cat.id);
+                      setLastActiveDate(cat.retiredOn || format(new Date(), 'yyyy-MM-dd'));
+                    }}>Retire instead</Button>
+                    <Button variant="ghost" disabled={isSaving} onClick={() => setDeleteId(null)}>Cancel</Button>
+                  </div>
+                  <SheetErrorBanner message={error} />
+                </section>
+              )}
+              {retireId === cat.id && (
+              <div className="mt-4 rounded-xl border border-[#333333] bg-[#1A1A1A] p-3 space-y-3">
+                <p className="text-sm font-semibold text-white">{cat.retiredOn ? 'Manage retirement' : 'Retire category'}: {cat.name}</p>
+                <label className="block text-xs text-gray-400" htmlFor={`category-last-active-date-${cat.id}`}>Last active date (inclusive)</label>
+                <input id={`category-last-active-date-${cat.id}`} type="date" value={lastActiveDate}
+                  onChange={event => setLastActiveDate(event.target.value)}
+                  className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
+                <p className="text-xs text-gray-400">The category stays visible on this date and earlier. Existing tasks on later dates and in Backlogs remain accessible; new later tasks use active categories.</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => void save(
+                    () => retireCategory(cat.id, lastActiveDate),
+                    () => setRetireId(null),
+                    'Could not retire category. Try again.'
+                  )} disabled={isSaving || !validLocalDateKey(lastActiveDate)}>
+                    {cat.retiredOn ? 'Update last active date' : 'Retire category'}
+                  </Button>
+                  {cat.retiredOn && (
+                    <Button variant="ghost" disabled={isSaving} onClick={() => void save(
+                      () => restoreCategory(cat.id),
+                      () => setRetireId(null),
+                      'Could not restore category. Try again.'
+                    )}>Restore category</Button>
+                  )}
+                  <Button variant="ghost" disabled={isSaving} onClick={() => setRetireId(null)}>Cancel</Button>
+                </div>
+                <SheetErrorBanner message={error} />
+              </div>
+            )}
             </CategoryRow>
           ))}
         </Reorder.Group>
-        <p className="mt-3 text-xs text-gray-400">
-          Category deletion is temporarily unavailable to protect existing tasks.
-        </p>
-
         {isAdding ? (
           <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
             <Input
@@ -374,6 +588,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             onClick={() => {
               reset();
               setEditingId(null);
+              setRetireId(null);
+              setMoveId(null);
+              setDeleteId(null);
               setIsAdding(true);
             }}
             disabled={isSaving}

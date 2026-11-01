@@ -22,9 +22,13 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
+import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { FirstCategoryPrompt } from './FirstCategoryPrompt';
 import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
 const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
+const LazyBulkTaskActionSheet = lazy(() => import('./BulkTaskActionSheet').then(m => ({ default: m.BulkTaskActionSheet })));
+const LazyBulkCategoryPickerSheet = lazy(() => import('./BulkCategoryPickerSheet').then(m => ({ default: m.BulkCategoryPickerSheet })));
+const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(m => ({ default: m.BulkVisibilitySheet })));
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { TaskActionSheet } from './TaskActionSheet';
@@ -38,12 +42,9 @@ import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { editSharedTask } from '../../../lib/taskShareQueue';
 import { parseSharedPlacement, placementKey, planSharedTaskMove } from '../../../lib/sharedTaskPlacement';
-import { MemoSheet } from './MemoSheet';
-import { ImagePickerSheet } from './ImagePickerSheet';
+const LazyMemoSheet = lazy(() => import('./MemoSheet').then(m => ({ default: m.MemoSheet })));
+const LazyImagePickerSheet = lazy(() => import('./ImagePickerSheet').then(m => ({ default: m.ImagePickerSheet })));
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
-import { BulkTaskActionSheet } from './BulkTaskActionSheet';
-import { BulkCategoryPickerSheet } from './BulkCategoryPickerSheet';
-import { BulkVisibilitySheet } from './BulkVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import { useAuth } from '../../../hooks/useAuth';
@@ -343,8 +344,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [validCategoryIds, sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor, setSetting]);
   const assignSharedCategory = useCallback(async (item: SharedTaskItem, categoryId: string) => {
     if (categoryId && !validCategoryIds.has(categoryId)) throw new Error('Category unavailable');
+    if (categoryId && !canAddNewTaskToCategory(categories.find(cat => cat.id === categoryId)!, item.date)) {
+      throw new Error('Cannot assign shared task to a retired category on this date');
+    }
     await setSetting(placementKey(item.id), categoryId ? { categoryId, order: 0 } : null);
-  }, [setSetting, validCategoryIds]);
+  }, [setSetting, validCategoryIds, categories]);
   const copySharedToMine = useCallback(async (item: SharedTaskItem, categoryId: string) => {
     if (!validCategoryIds.has(categoryId)) throw new Error('Choose one of your categories');
     await addTask({ title: item.title, categoryId, date: item.date,
@@ -829,7 +833,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleAddTask = useCallback(
     (title: string, categoryId: string, dateStr: string, completed = false) => {
-      addTask(
+      void Promise.resolve(addTask(
         {
           title,
           categoryId,
@@ -839,9 +843,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           visibility: dateStr === '' ? 'private' : '',
         },
         addTasksToTop ? 'top' : 'bottom'
-      );
+      )).catch(error => showFeedback(error instanceof Error ? error.message : 'Could not create task'));
     },
-    [addTask, addTasksToTop]
+    [addTask, addTasksToTop, showFeedback]
   );
 
   const handleOpenActions = useCallback((task: TaskDocument) => {
@@ -1629,7 +1633,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         )}
       </AnimatePresence>
       <AnimatePresence>
-        <BulkTaskActionSheet
+        <Suspense fallback={null}>
+        <LazyBulkTaskActionSheet
             isOpen={isBulkActionOpen}
             count={selectedTasks.length}
             isWorking={isBulkWorking}
@@ -1645,17 +1650,19 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
           />
 
-        <BulkCategoryPickerSheet
+        <LazyBulkCategoryPickerSheet
             isOpen={isBulkCategoryOpen}
             categories={categories.filter(
               (category) =>
-                category.userId === currentUserId && !category.isDeleted
+                category.userId === currentUserId &&
+                canAddNewTaskToCategory(category, activeDateStr)
             )}
             isWorking={isBulkWorking}
             onClose={() => setIsBulkCategoryOpen(false)}
             onSelect={handleBulkMoveCategory}
           />
-        <BulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
+        <LazyBulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
+        </Suspense>
       </AnimatePresence>
       <TaskActionSheet
         isOpen={isActionSheetOpen && !!activeTask}
@@ -1692,8 +1699,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       {isBucketLinkOpen && (
         <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
       )}
-      <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
+      <Suspense fallback={null}>
+      <LazyMemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
+      </Suspense>
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
         onClose={handleCloseVisibility} task={activeTask} category={activeTaskCategory}
         onSave={handleVisibilitySave} />
@@ -1744,7 +1753,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           </Suspense>
         ) : isViewingImageLoading ? <ImageViewerLoadingFallback /> : imageViewerUnavailable
       )}
-      <ImagePickerSheet
+      <Suspense fallback={null}>
+      <LazyImagePickerSheet
         isOpen={!!imagePickerTaskId}
         onClose={handleCloseImagePicker}
         variant="task"
@@ -1753,6 +1763,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onSave={handleImagePickerSave}
         onRemove={handleImagePickerRemove}
       />
+      </Suspense>
       {deleteFeedback && (
         <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {deleteFeedback}
