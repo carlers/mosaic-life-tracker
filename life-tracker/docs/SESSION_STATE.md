@@ -1,3 +1,15 @@
+# Task checkpoint — #1026 four independent optional presentation controls v0.63.0
+Updated: 2026-11-01 Asia/Manila
+
+- Owner accepted all 14 feature controls and authorized promotion to dev, not main or Production. Integrated v0.62.0 dev merge PR #1569 at `8dccaddc8d5045b96b18e81dc818c84af3db28d6`, tree identical to accepted Preview `2540bdc25294dcf879de85032da7501b8bf88dce`, canonical #41294486684 SUCCESS, trusted Vercel READY and dev promotion-check #41294962557 SUCCESS. Existing PostHog 619969 flags all inactive.
+- Continue separately scoped registry P2 batch on `chatgpt/1026-display-controls-v0630-20261101` from exact dev v0.62.0 baseline. Active v0.63.0 Preview collisions checked before task; none found. Add four independent opt-out controls: Mosaic keyboard shortcuts, Calendar task previews, task timestamp metadata display, optional Diary panel in Day View.
+- Controls are presentation/interaction-only; do not delete or alter user keyboard/Calendar/task/Diary preferences or stored records. Keep date counts and day tap, ordinary accessible keyboard navigation, all task created/completed timestamp data, original Diary route, and preexisting backup/sync.
+- Code scope registry, KeyboardShortcutsProvider, CalendarBody/Carousel/MonthView/WeekView/DayCell, DayViewSheet, Preferences, tests for reversible optional behavior, operator guide and synchronized v0.63.0 version. Calendar limit 0 is an *effective rendered override*, not a stored user preference.
+- Delivery: task focused CI, squash to stable Preview `feature/1026-display-controls-v0630-20261101`, fresh canonical (including Home closure budget), trusted Vercel Scratch READY; then provision four new inactive 100%-rollout PostHog flags in verified project 619969 and request manual owner acceptance. **No dev/main/Production merge for this batch without separate owner instruction.**
+- High-risk remaining registry subjects (Bucket List navigation/records, direct messages and social queues, push alerts, task shares/reactions) are deferred until independent data-preserving design and privacy/backend boundaries verified.
+
+---
+
 # Task checkpoint — #1026 accepted 14 control registry dev reconciliation v0.62.0
 Updated: 2026-11-01 Asia/Manila
 
