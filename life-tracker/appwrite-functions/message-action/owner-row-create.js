@@ -84,6 +84,7 @@ async function handleOwnerRowCreate(db, callerId, payload) {
       throw error;
     }
     if (!category || category.user_id !== callerId || category.deleted !== false ||
+      category.lifecycle_state ||
       (category.retired_on && (data.date === '' || data.date > category.retired_on))) {
       return { status: 409, body: { error: 'Task category unavailable' } };
     }
@@ -92,12 +93,26 @@ async function handleOwnerRowCreate(db, callerId, payload) {
   try {
     await db.createRow({
       databaseId: DATABASE_ID, tableId, rowId, data,
-      permissions: [
-        Permission.read(Role.user(callerId)),
-        Permission.update(Role.user(callerId)),
-        Permission.delete(Role.user(callerId)),
-      ],
+      // Direct client mutation is deliberately excluded. Writes are routed
+      // through authenticated Function handlers and CAS.
+      permissions: [Permission.read(Role.user(callerId))],
     });
+    // Close the in-flight create vs. category-lock race. An already-started
+    // create may pass the first read just before lifecycle claim. Re-read
+    // after creation and compensate before exposing successful creation.
+    if (tableId === 'tasks') {
+      const current = await db.getRow({
+        databaseId: DATABASE_ID, tableId: 'categories', rowId: data.category_id,
+      });
+      if (!current || current.user_id !== callerId || current.deleted ||
+          current.lifecycle_state) {
+        await db.updateRow({
+          databaseId: DATABASE_ID, tableId: 'tasks', rowId,
+          data: {deleted: true, updated_at: new Date().toISOString()},
+        });
+        return { status: 409, body: { error: 'Task category unavailable' } };
+      }
+    }
     return { status: 200, body: { ok: true, status: 'created' } };
   } catch (error) {
     if (error?.code !== 409) throw error;

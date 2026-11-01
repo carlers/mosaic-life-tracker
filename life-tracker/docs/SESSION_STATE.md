@@ -1,3 +1,13 @@
+# #857 v0.56.3 resumable destructive category lifecycle — 2026-11-01
+
+- Baseline protected Preview v0.56.2 `feature/857-category-retirement-v0560-20261101@b9d7e5485561704385876bd410c509474afc6c1c`. Owner explicitly confirmed no older clients and authorized finishing #857, safe Scratch Appwrite permissions cutover, Function deployment and isolated Vercel Preview; NOT Production or dev/main.
+- Task `chatgpt/857-resumable-lifecycle-20261101` adds server-driven category Move+Delete and Delete-All (bounded batches of 12, owner-scoped CAS lifecycle lock, idempotent resumption, source effective visibility materialized on move, shares revoked and Bucket List links tombstoned before task tombstone). Owner creates and CAS now check deletion/operation state with compensation for in-flight creates. A separate privileged, admin-only `harden_category_owner_acls` action pages over existing tasks/categories, retains all read grants and revokes direct owner update/delete. The client shows accurate server task counts, typed confirmation, destination Mosaic picker and progress inside the selected category row.
+- Destructive action is **disabled by default** via `CATEGORY_DESTRUCTIVE_ENABLED !== 'true'` and server preflight `safeToDelete` stays false until tested ACL cutover and explicit Function gate. Do not activate before table create("users") revoked and existing row permission inventory audited. All retry, crash, cross-owner and offline-frontier tests must be passed with synthetic Scratch identities.
+- Scratch **additive** `categories.lifecycle_state` and `categories.lifecycle_target` optional varchar columns with default empty were created via Appwrite Updated and both verified AVAILABLE. Scratch active Function remained `6ae753f41003d59c5bc7` before the bridge rollout; it includes media/bug handlers, so only deploy a reconciled exact live-source archive.
+- Local checks: category-specific handler and ACL security tests, all handlers, category DOM/replication tests, TypeScript/Vite/PWA build and size gates. Task remains open until latest bridge exact-source deployed, ACL migration verified, full signed two-owner Scratch cascade tests, protected Preview exact-SHA canonical CI/READY, and final owner Android/laptop acceptance. No actual user category/task tombstones authorized by this engineering stage.
+
+---
+
 # #857 server-owned task/category creation migration — 2026-11-01
 
 - Protected stable Preview `feature/857-category-retirement-v0560-20261101@52a44d025567a29dbc976c6c9023114dff028956` v0.56.2; no dev/main/Production promotion authorized. Issue #857 still open; destructive Move+Delete and Delete-All deliberately disabled while older offline PWAs can write directly to Appwrite.

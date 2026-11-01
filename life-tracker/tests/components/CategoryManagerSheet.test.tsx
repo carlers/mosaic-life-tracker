@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   deleteCategory: vi.fn().mockResolvedValue(undefined),
   moveCategoryTasks: vi.fn().mockResolvedValue({ moved: 0, total: 0 }),
   reorderCategories: vi.fn().mockResolvedValue(undefined),
+  categoryLifecycleInventory: vi.fn(),
+  executeCategoryLifecycle: vi.fn().mockResolvedValue(undefined),
   startDrag: vi.fn(),
 }));
 
@@ -115,6 +117,11 @@ vi.mock('../../src/components/ui/MosaicSelect', () => ({
   ),
 }));
 
+vi.mock('../../src/lib/categoryLifecycleAction', () => ({
+  categoryLifecycleInventory: mocks.categoryLifecycleInventory,
+  executeCategoryLifecycle: mocks.executeCategoryLifecycle,
+}));
+
 import { CategoryManagerSheet } from '../../src/components/modals/CategoryManagerSheet';
 
 describe('CategoryManagerSheet', () => {
@@ -125,6 +132,7 @@ describe('CategoryManagerSheet', () => {
     mocks.retireCategory.mockReset().mockResolvedValue(undefined);
     mocks.restoreCategory.mockReset().mockResolvedValue(undefined);
     mocks.deleteCategory.mockReset().mockResolvedValue(undefined);
+    mocks.categoryLifecycleInventory.mockReset().mockImplementation(async (categoryId: string) => ({categoryId, persistedTaskCount: 1, safeToDelete: false}));
     mocks.moveCategoryTasks.mockReset().mockResolvedValue({ moved: 2, total: 2 });
     mocks.reorderCategories.mockReset().mockResolvedValue(undefined);
     visibleCategories = categories;
@@ -155,7 +163,32 @@ describe('CategoryManagerSheet', () => {
       .toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('shows category deletion safety details inside only the selected category', () => {
+  it('requires server approval and exact confirmation before either destructive operation', async () => {
+    mocks.categoryLifecycleInventory.mockImplementation(async (categoryId: string) => ({
+      categoryId, persistedTaskCount: 13, safeToDelete: true,
+    }));
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first=screen.getByRole('listitem',{name:'First category'});
+    fireEvent.click(within(first).getByRole('button',{name:'Manage deletion for First'}));
+    const deleteAll=within(first).getByRole('button',{name:'Delete category and all tasks'});
+    const moveDelete=within(first).getByRole('button',{name:'Move tasks & delete category'});
+    await waitFor(()=>expect(within(first).getByText(/13 server-synced tasks/)).toBeInTheDocument());
+    expect(deleteAll).toBeDisabled();
+    expect(moveDelete).toBeDisabled();
+    fireEvent.change(within(first).getByRole('textbox',{name:'Type First to confirm deletion'}),
+      {target:{value:'First'}});
+    expect(deleteAll).toBeEnabled();
+    expect(moveDelete).toBeDisabled();
+    fireEvent.change(within(first).getByRole('combobox',{name:'Move tasks to category before deleting'}),
+      {target:{value:'second'}});
+    expect(moveDelete).toBeEnabled();
+    fireEvent.click(moveDelete);
+    await waitFor(()=>expect(mocks.executeCategoryLifecycle).toHaveBeenCalledWith(
+      'user','first','First','move','second',expect.any(Function)));
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+  });
+
+  it('shows category deletion safety details inside only the selected category', async () => {
     visibleTasks = [{ id: 'task_a', title: 'Keep me', date: '',
       completed: false, categoryId: 'first', userId: 'user', isDeleted: false }];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
@@ -166,7 +199,7 @@ describe('CategoryManagerSheet', () => {
     expect(within(first).getByRole('region', { name: 'Category deletion options for First' })).toBeInTheDocument();
     expect(within(second).queryByRole('region', { name: 'Category deletion options for First' })).toBeNull();
     expect(within(first).getByRole('button', { name: 'Delete category and all tasks' })).toBeDisabled();
-    expect(within(first).getByText(/1 task on this device/)).toBeInTheDocument();
+    await waitFor(() => expect(within(first).getByText(/1 server-synced task/)).toBeInTheDocument());
     expect(mocks.deleteCategory).not.toHaveBeenCalled();
 
     fireEvent.click(within(first).getByRole('button', { name: 'Retire instead' }));
