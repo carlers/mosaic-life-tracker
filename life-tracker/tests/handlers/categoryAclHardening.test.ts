@@ -18,6 +18,17 @@ describe('internal-only ACL cutover for category/task owner rows', () => {
     expect(db.updateRow).not.toHaveBeenCalled();
   });
 
+  it('permits only the configured synthetic authenticated operator', async () => {
+    process.env.CATEGORY_ACL_MIGRATION_OWNER_ID='m857_operator';
+    try {
+      expect((await call({},'user_a')).status).toBe(403);
+      const r=await call({tableId:'tasks'},'m857_operator');
+      expect(r.body).toMatchObject({ok:true,scanned:1,modified:1});
+    } finally {
+      delete process.env.CATEGORY_ACL_MIGRATION_OWNER_ID;
+    }
+  });
+
   it('refuses unsupported table names', async () => {
     expect((await call({tableId:'messages'})).status).toBe(400);
     expect(db.listRows).not.toHaveBeenCalled();
