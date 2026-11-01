@@ -15,6 +15,8 @@ import { migrateDiaryPhotosBackend } from './migrate-diary-photos.mjs';
 import { migrateDiaryReactionsBackend } from './migrate-diary-reactions.mjs';
 import { migrateMessageDiaryReferences } from './migrate-message-diary-references.mjs';
 import { migrateDiaryQuotePrivacy } from './migrate-diary-quote-privacy.mjs';
+import { migrateBugReportsBackend } from './migrate-bug-reports.mjs';
+import { migratePublicBugReportBackend } from './migrate-public-bug-report.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
 import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
@@ -81,6 +83,8 @@ export const APPWRITE_MIGRATIONS = [
   { id: '014-diary-reactions', description: 'Server-owned diary reaction ledger', run: ({ request, log }) => migrateDiaryReactionsBackend({ request, log }) },
   { id: '015-message-diary-references', description: 'Typed private message diary references', run: ({ request, log, sleep }) => migrateMessageDiaryReferences({ request, log, sleep }) },
   { id: '016-diary-quote-privacy', description: 'Durable diary quote revocation epochs and lookup index', run: ({ request, log, sleep }) => migrateDiaryQuotePrivacy({ request, log, sleep }) },
+  { id: '018-bug-reports', description: 'Private, server-only bug report inbox', run: ({ request, log }) => migrateBugReportsBackend({ request, log }) },
+  { id: '019-public-bug-report-issues', description: 'Server-only GitHub publication receipts', run: ({ request, log, sleep }) => migratePublicBugReportBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {

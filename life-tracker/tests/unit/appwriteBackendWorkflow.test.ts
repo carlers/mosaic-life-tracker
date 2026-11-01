@@ -282,6 +282,27 @@ describe('Appwrite managed-state drift checks', () => {
     );
   });
 
+  it('treats GitHub issue publication as opt-in with secret token enforcement', async () => {
+    const definitions = await readBackendDefinitions();
+    const expected = definitions.functions['message-action'].config;
+    expect(expected.optionalNonSecretVariables).toContain('GITHUB_BUG_REPORT_ENABLED');
+    expect(expected.optionalSecretVariables).toContain('GITHUB_BUG_REPORT_TOKEN');
+    const vars = [
+      ...Object.entries(expected.nonSecretVariables).map(([key, value]) => ({
+        key, value, secret: false,
+      })),
+      { key: 'GITHUB_BUG_REPORT_ENABLED', value: 'true', secret: false },
+      { key: 'GITHUB_BUG_REPORT_TOKEN', value: '', secret: true },
+    ];
+    expect(diffFunctionVariables({ vars }, expected)).toEqual([]);
+    expect(diffFunctionVariables({
+      vars: vars.map(item => item.key === 'GITHUB_BUG_REPORT_TOKEN'
+        ? { ...item, secret: false } : item),
+    }, expected)).toContain(
+      'function message-action variable GITHUB_BUG_REPORT_TOKEN: expected secret'
+    );
+  });
+
   it('tolerates only the declared pre-foundation table placeholders', () => {
     expect(
       diffTableInventory({
@@ -360,6 +381,8 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '014-diary-reactions',
       '015-message-diary-references',
       '016-diary-quote-privacy',
+      '018-bug-reports',
+      '019-public-bug-report-issues',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');

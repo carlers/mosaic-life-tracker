@@ -1,3 +1,13 @@
+# Task checkpoint — #854 public bug-report copy reference and dev integration v0.64.0
+Updated: 2026-11-01 Asia/Manila
+
+- Owner accepted v0.61.1 public issue reporting on Scratch device and authorized a small copy icon beside the confirmation's internal reference, then promotion into dev. Preserve the current v0.62.0 dev feature-registry changes and all other concurrent work.
+- Integration source: dev@8dccaddc8d5045b96b18e81dc818c84af3db28d6 + accepted bug-report Preview@eab8ead35ad67dac7320c672ce6ece16969b9c76; common ancestor 50d5afb2cf7d04c3739a482736b815008eea1405. Version 0.63.0 is reserved by concurrent workstreams, so assign v0.64.0 to this new integrated Preview. Four mechanical conflicts (package version/lock, appVersion and checkpoint) resolved using current dev metadata plus fresh version bump; merged Home/Settings and backend handlers preserve existing code.
+- UI: icon copies precisely the internal receipt ID, offers accessible label and success check indicator, and reports clipboard failures without losing the reference. No changes to report publication consent, backend, or secrets.
+- Next: focused tests, source/size/CI, stable isolated Preview canonical and Vercel READY. User has explicitly approved Preview-to-dev promotion; perform merge only after the accepted integrated Preview passes the repository promotion preflight. Do not modify main or Production.
+
+---
+
 # Task checkpoint — #1026 accepted 14 control registry dev reconciliation v0.62.0
 Updated: 2026-11-01 Asia/Manila
 
