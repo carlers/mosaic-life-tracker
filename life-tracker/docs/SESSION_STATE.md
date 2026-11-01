@@ -1,3 +1,13 @@
+# Task checkpoint — #854 private bug reporting accepted mobile Preview; dev-forward integration candidate v0.61.0
+Updated: 2026-11-01 Asia/Manila
+
+- Owner tested original feature/854-private-bug-reports-v0450-20261031 mobile Preview and confirmed successful private report receipt on Scratch; server-side row existence, zero row permissions, and 30-day expiry verified. Never publish private report contents/reference in public Issue/PR.
+- This branch forward-ports the accepted original bug-report feature to dev@50d5afb2cf7d04c3739a482736b815008eea1405, retaining all newer settings/diary/photo features and adopting nonconflicting migration 018-bug-reports (016 is diary quote privacy, 017 reserved for photo integration).
+- New independent candidate v0.61.0; feature work approved, but dev and main promotion have not been explicitly approved. Preserve existing shared Scratch function and schema. Complete focused, canonical Preview and Vercel checks, manual compatibility, read-only promotion preflight, then request explicit permission before dev merge.
+- Product remains text-first, diagnostics opt-in, reports private, bounded retries, 5/hour rate limit, 30-day retention and account erasure. Verify current Scratch Function handler independently before any backend activation; no automatic Production changes.
+
+---
+
 # Task checkpoint — #1461 integrated v0.58.0 canonical Home-size repair
 Updated: 2026-11-01 Asia/Manila
 
