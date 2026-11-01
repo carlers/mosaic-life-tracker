@@ -136,8 +136,7 @@ describe('CategoryManagerSheet', () => {
 
     fireEvent.click(within(second).getByRole('button', { name: 'Edit category' }));
     expect(within(second).getByRole('textbox', { name: 'Name' })).toBeInTheDocument();
-    expect(within(second).getByLabelText('Last active date (inclusive)').closest('[inert]'))
-      .not.toBeNull();
+    expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
     expect(within(second).getByRole('button', { name: 'Manage retirement for Second' }))
       .toHaveAttribute('aria-expanded', 'false');
   });
