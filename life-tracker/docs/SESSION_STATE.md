@@ -1,3 +1,13 @@
+# Current task: #1460 accepted chat-photo feature on latest dev v0.63.0
+Updated: 2026-11-01 Asia/Manila
+
+- User accepted chat-photo v0.46.1 and authorized dev promotion. Previous v0.59.0 integration at stable Preview `feature/1460-chat-photos-dev-integrated-v0590-20261101@82730953df66301ed664e7949ef0554bee8511c5` passed canonical #41293693312 and Vercel READY but could not promote because dev advanced from v0.58.0 to v0.62.0.
+- New dev baseline `8dccaddc8d5045b96b18e81dc818c84af3db28d6` v0.62.0. This candidate merges the canonical passed v0.59.0 source atop v0.62.0, preserving all later feature controls, bug reports and Home/UI code; version now v0.63.0. No Production/main change.
+- Requires fresh focused and full canonical CI, Scratch-only Preview Vercel READY, read-only Scratch deployment/feature-scope proof, and manual acceptance of changed integration tree before stable→dev promotion per DELIVERY.md. No backend writes required. Do not claim unperformed device/ACL tests.
+- Issue: https://github.com/carlers/mosaic-life-tracker/issues/1460.
+
+---
+
 # Task checkpoint — #1026 accepted 14 control registry dev reconciliation v0.62.0
 Updated: 2026-11-01 Asia/Manila
 

@@ -2,6 +2,7 @@ import { purgeAccountFromDatabase } from '../db/database';
 import { clearMessageActionQueue } from './messageActionQueue';
 import { clearSocialOutbox } from './socialOutbox';
 import { clearPendingImagesForUser } from './pendingImages';
+import { clearStagedChatPhotosForUser } from './chatPhotoStorage';
 import { clearAllFriendCaches } from './friendCache';
 import { clearCachedOwnProfile } from './profileCache';
 import { clearAllCachedImages } from './imageCache';
@@ -46,6 +47,7 @@ export async function clearDeletedAccountLocalData(
 
   await Promise.allSettled([
     clearPendingImagesForUser(userId),
+    clearStagedChatPhotosForUser(userId),
     clearAllFriendCaches(),
     clearAllCachedImages(),
   ]);
