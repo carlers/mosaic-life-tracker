@@ -163,6 +163,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | Module | Source |
 |---|---|
 | AccountSettingsSheet | [src/components/modals/AccountSettingsSheet.tsx](../src/components/modals/AccountSettingsSheet.tsx) |
+| BugReportSheet | [src/components/modals/BugReportSheet.tsx](../src/components/modals/BugReportSheet.tsx) |
 | CategoryManagerSheet | [src/components/modals/CategoryManagerSheet.tsx](../src/components/modals/CategoryManagerSheet.tsx) |
 | ChangeEmailSheet | [src/components/modals/ChangeEmailSheet.tsx](../src/components/modals/ChangeEmailSheet.tsx) |
 | ChangePasswordSheet | [src/components/modals/ChangePasswordSheet.tsx](../src/components/modals/ChangePasswordSheet.tsx) |
