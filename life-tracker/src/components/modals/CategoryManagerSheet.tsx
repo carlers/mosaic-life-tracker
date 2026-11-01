@@ -10,7 +10,9 @@ import { Archive, ArrowDownUp, ArrowRightLeft, Pencil, Plus, RotateCcw, Trash2, 
 import { MosaicSelect } from '../ui/MosaicSelect';
 import { format } from 'date-fns';
 import { validLocalDateKey } from '../../lib/categoryLifecycle';
-import { categoryLifecycleInventory, executeCategoryLifecycle, type CategoryLifecycleInventory } from '../../lib/categoryLifecycleAction';
+import { categoryLifecycleInventory, executeCategoryLifecycle,
+  listRecoverableCategories, recoverDeletedCategory,
+  type RecoverableCategory, type CategoryLifecycleInventory } from '../../lib/categoryLifecycleAction';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
 import { useAuth } from '../../hooks/useAuth';
@@ -70,11 +72,13 @@ interface CategoryRowProps {
   onManageDeletion: (cat: CategoryDocument) => void;
   onReorderEnd: () => void;
   disabled: boolean;
+  reorderDisabled: boolean;
   isEditing: boolean;
   isRetiring: boolean;
   isMoving: boolean;
   isDeleting: boolean;
   orderSignature: string | string[];
+  today: string;
   children?: React.ReactNode;
 }
 
@@ -87,11 +91,13 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   onManageDeletion,
   onReorderEnd,
   disabled,
+  reorderDisabled,
   isEditing,
   isRetiring,
   isMoving,
   isDeleting,
   orderSignature,
+  today,
   children,
 }) => {
   const dragControls = useDragControls();
@@ -115,11 +121,11 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           type="button"
           onPointerDown={(e) => {
             e.stopPropagation();
-            if (!disabled) dragControls.start(e);
+            if (!disabled && !reorderDisabled) dragControls.start(e);
           }}
           className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
           aria-label="Drag to reorder"
-          disabled={disabled}
+          disabled={disabled || reorderDisabled}
         >
           <GripVertical size={18} />
         </button>
@@ -131,7 +137,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-white truncate">{cat.name}</span>
             {visibilityIcon(cat.visibility)}
-            {cat.retiredOn && <span className="text-xs text-gray-400">Last active {cat.retiredOn}</span>}
+            {cat.retiredOn && <span className="text-xs text-gray-400">{cat.retiredOn < today ? 'Retired' : 'Retires'}: {cat.retiredOn}</span>}
           </div>
           {overriddenCount > 0 && (
             <span className="text-xs text-gray-400">
@@ -245,6 +251,38 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [deleteInventory, setDeleteInventory] = useState<CategoryLifecycleInventory | null>(null);
   const [deleteInventoryError, setDeleteInventoryError] = useState('');
   const [deleteProgress, setDeleteProgress] = useState<number | null>(null);
+  const [recoverable, setRecoverable] = useState<RecoverableCategory[]>([]);
+  const [recoveryOwnerId, setRecoveryOwnerId] = useState<string | null>(null);
+  const [recoveryCursor, setRecoveryCursor] = useState<string | null>(null);
+  const visibleRecoverable = recoveryOwnerId === user?.$id ? recoverable : [];
+  const [recoveryExpanded, setRecoveryExpanded] = useState(false);
+  const [recoverError, setRecoverError] = useState('');
+  const [recoveryTarget, setRecoveryTarget] = useState<string | null>(null);
+  const [recoveryConfirm, setRecoveryConfirm] = useState('');
+  const [recoveryProgress, setRecoveryProgress] = useState<number | null>(null);
+
+  const loadRecoverable = async (cursor?: string) => {
+    const page = await listRecoverableCategories(cursor);
+    setRecoverable(current => cursor ? [...current,...page.categories] : page.categories);
+    setRecoveryCursor(page.nextCursor);
+    setRecoverError('');
+  };
+  useEffect(() => {
+    if (!isOpen || !user?.$id) return;
+    let cancelled=false;
+    void listRecoverableCategories().then(page => {
+      if (cancelled) return;
+      setRecoverable(page.categories);
+      setRecoveryOwnerId(user.$id);
+      setRecoveryCursor(page.nextCursor);
+      setRecoveryTarget(null);
+      setRecoverError('');
+    }, () => {
+      if (!cancelled) setRecoverError('Recovery is unavailable until the server upgrade is complete.');
+    });
+    return () => { cancelled=true; };
+  }, [isOpen, user?.$id]);
+
   const [moveToId, setMoveToId] = useState('');
   const [lastActiveDate, setLastActiveDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -402,6 +440,62 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
         <input type="search" aria-label="Search categories" placeholder="Search categories"
           value={search} onChange={event => setSearch(event.target.value)}
           className="mb-3 w-full rounded-lg border border-[#333333] bg-surface px-3 py-2 text-sm text-white placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+        <section aria-label="Recently deleted categories" className="mb-3 rounded-lg border border-[#333333] p-2">
+          <button type="button" aria-expanded={recoveryExpanded}
+            onClick={() => setRecoveryExpanded(value => !value)}
+            className="w-full text-left text-sm text-white">
+            Recently deleted ({visibleRecoverable.length})
+          </button>
+          {recoveryExpanded && (
+            <div className="mt-3 space-y-3">
+              <p className="text-xs text-gray-400">
+                Recover Delete All operations created after recovery tracking was enabled.
+                Previously deleted tasks are not resurrected. Revoked task shares and
+                removed Bucket List links are not automatically restored.
+              </p>
+              {recoverError && <p role="alert" className="text-xs text-gray-400">{recoverError}</p>}
+              {visibleRecoverable.length===0 && !recoverError && <p className="text-xs text-gray-400">No recoverable categories.</p>}
+              {visibleRecoverable.map(category => (
+                <div key={category.id} className="space-y-2 rounded-lg bg-surface px-3 py-3">
+                  <p className="text-sm text-white">{category.name}</p>
+                  <p className="text-xs text-gray-400">Deleted {category.deletedAt}</p>
+                  {recoveryTarget === category.id && (
+                    <Input label={`Type ${category.name} to confirm recovery`}
+                      value={recoveryConfirm} onChange={event => setRecoveryConfirm(event.target.value)} />
+                  )}
+                  {recoveryTarget === category.id && recoveryProgress !== null &&
+                    <p role="status" className="text-xs text-gray-300">
+                      {recoveryProgress} tasks remaining. Retry recovery if interrupted.
+                    </p>}
+                  {recoveryTarget !== category.id ? (
+                    <Button disabled={isSaving} onClick={() => {
+                      setRecoveryTarget(category.id); setRecoveryConfirm('');setRecoveryProgress(null);
+                    }}>Recover category</Button>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      <Button disabled={isSaving || !user?.$id || recoveryConfirm !== category.name}
+                        onClick={() => void save(
+                          () => recoverDeletedCategory(user!.$id,category.id,category.name,setRecoveryProgress),
+                          () => {
+                            setRecoveryTarget(null);setRecoveryProgress(null);
+                            void loadRecoverable().catch(() => setRecoverError('Could not refresh recoverable categories.'));
+                          },
+                          'Recovery incomplete. Retry the same category to resume safely.',
+                        )}>Restore category and tasks</Button>
+                      <Button variant="ghost" disabled={isSaving}
+                        onClick={() => setRecoveryTarget(null)}>Cancel</Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {recoveryCursor && <Button variant="ghost" disabled={isSaving}
+                onClick={() => void loadRecoverable(recoveryCursor).catch(
+                  () => setRecoverError('Could not load more recoverable categories.'))}>
+                Load more deleted categories
+              </Button>}
+            </div>
+          )}
+        </section>
         <div className="mb-3 flex justify-end">
           <Button
             variant="ghost"
@@ -432,6 +526,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               isMoving={moveId === cat.id}
               isDeleting={deleteId === cat.id}
               orderSignature={orderedIds}
+              today={today}
               onEditStart={(c) => {
                 reset();
                 setIsAdding(false);
@@ -483,7 +578,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   );
                 }
               }}
-              disabled={isSaving || !canReorder}
+              disabled={isSaving}
+              reorderDisabled={!canReorder}
             >
               {editingId === cat.id && (
                 <>
@@ -584,7 +680,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                         !deleteTargetId}
                       onClick={() => void save(
                         () => executeCategoryLifecycle(user!.$id, cat.id, cat.name, 'move', deleteTargetId, setDeleteProgress),
-                        () => { setDeleteId(null); setDeleteProgress(null); },
+                        () => { setDeleteId(null); setDeleteProgress(null); void loadRecoverable().catch(() => {}); },
                         'Migration incomplete. Retry with the same destination to resume safely.'
                       )}>
                       Move tasks &amp; delete category
@@ -593,7 +689,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                         deleteInventory.categoryId !== cat.id || deleteConfirmName !== cat.name}
                       onClick={() => void save(
                         () => executeCategoryLifecycle(user!.$id, cat.id, cat.name, 'delete', '', setDeleteProgress),
-                        () => { setDeleteId(null); setDeleteProgress(null); },
+                        () => { setDeleteId(null); setDeleteProgress(null); setRecoveryExpanded(true); void loadRecoverable().catch(() => {}); },
                         'Deletion incomplete. Retry Delete All to resume safely.'
                       )}>
                       Delete category and all tasks
