@@ -1,3 +1,11 @@
+# #857 Scratch shared Function source reconciliation — 2026-11-01
+
+- Exact live-source baseline: all 17 JS files in active Scratch message-action deployment `6ae72cdf493f8a25d2d9` match `feature/1478-media-integrated-v0650-20261101@51d2f366d32c38fa8c034c326af51b13b947461d` byte-for-byte by SHA-256. Bridge adds only `create_owner_row`, `get_category_lifecycle_preflight`, retirement-safe CAS and owner-checked TodoMate batch; preserves media, photos, bug reports and notifications.
+- Bridge task `chatgpt/857-scratch-reconciled-owner-create-20261101`; local handler suite 282/282 PASS across 27 files, changed-file lint and JavaScript syntax PASS. Deploy inactive reviewed Function via Appwrite Updated only after focused GitHub CI; recheck currently active Scratch deployment before activation. No schema/ACL/data or Production mutations; no dev/main promotion.
+- Current Scratch tasks/categories still grant `create("users")` and existing row owner direct update/delete; old offline PWAs bypass Function. Destructive Move+Delete/Delete-All remain disabled pending safe old-client queue cutover, owner-serialized transaction and signed multi-device tests. Do not claim full #857 complete.
+
+---
+
 # Task checkpoint — #1478 v0.65.0 current-dev media lifecycle integration, Scratch approval
 Updated: 2026-11-01 Asia/Manila
 

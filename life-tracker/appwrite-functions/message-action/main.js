@@ -4,6 +4,8 @@ const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
+const { handleOwnerRowCreate } = require('./owner-row-create');
+const { handleCategoryLifecyclePreflight } = require('./category-lifecycle-preflight');
 const { auditOwnerMedia } = require('./owner-media-audit');
 const { reserveMediaUpload, confirmMediaUpload } = require('./media-provenance');
 const { handleSubmitBugReport, handlePublishBugReport, pruneExpiredBugReports } = require('./bug-reports');
@@ -2024,6 +2026,12 @@ const handler = async ({ req, res, log, error }) => {
             occurrenceKey: payload.emoji,
           }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
         }
+        break;
+      case 'get_category_lifecycle_preflight':
+        result = await handleCategoryLifecyclePreflight(tablesDB, callerId, payload);
+        break;
+      case 'create_owner_row':
+        result = await handleOwnerRowCreate(tablesDB, callerId, payload);
         break;
       case 'compare_and_set_owner_row':
         result = await handleOwnerWriteCas(tablesDB, callerId, payload);
