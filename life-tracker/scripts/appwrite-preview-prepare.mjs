@@ -29,6 +29,10 @@ export function classifyScratchDrift(diffs) {
   // cannot be treated as permission to mutate a nonempty scratch project.
   const allowed = [
     /^table account_deletions: missing$/,
+    /^table bug_reports: missing$/,
+    /^table bug_reports\.github_issue_url: missing column$/,
+    /^table bug_reports\.github_issue_number: missing column$/,
+    /^table bug_reports\.github_publish_started_at: missing column$/,
     /^table diary\.created_at: missing column$/,
     /^table diary\.emoji: missing column$/,
     /^table diary\.quote_(epoch|revoke_revision): missing column$/,
@@ -78,7 +82,8 @@ export async function runPreviewPrepare({
         '004-notifications', '005-notification-retention',
         '006-push-details', '007-task-shares', '009-share-permissions',
         '010-bucket-list', '011-bucket-task-links',
-        '016-diary-quote-privacy', '017-message-chat-photos'].includes(m.id));
+        '016-diary-quote-privacy', '017-message-chat-photos',
+        '018-bug-reports', '019-public-bug-report-issues'].includes(m.id));
     // The bucket-security migration remains a separate reviewed action;
     // it can remove a grant and is not a safe implicit Preview prerequisite.
     await migrate({ request, migrations: additions, log });

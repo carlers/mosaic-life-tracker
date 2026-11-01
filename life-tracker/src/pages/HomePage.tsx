@@ -288,11 +288,8 @@ export const HomePage: React.FC = () => {
       // Slash retains its native typing/overlay exclusions before the
       // modifier-gated Home shortcuts share this one listener.
       if (event.key === '/' && taskSearchEnabled) {
-        if (event.defaultPrevented || event.isComposing ||
-          event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
-          (event.target instanceof Element && event.target.closest(
-            'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'
-          )) || document.querySelector('[aria-modal="true"]')) return;
+        if (!canUseKeyboardShortcut(event) ||
+          document.querySelector('[aria-modal="true"]')) return;
         event.preventDefault();
         handleOpenSearch();
         return;
