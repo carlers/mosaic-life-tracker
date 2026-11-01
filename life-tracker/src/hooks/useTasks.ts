@@ -5,7 +5,6 @@ import { planCategoryTaskMoves } from '../lib/categoryTaskMoves';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
-import { canAddNewTaskToCategory } from '../lib/categoryLifecycle';
 
 import { hasCachedOwnedSharedTask, markOwnerCompletionPending, restoreOwnerCompletionPending } from '../lib/ownerCompletionPending';
 import {
