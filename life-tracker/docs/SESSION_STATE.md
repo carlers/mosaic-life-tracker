@@ -1,9 +1,11 @@
-# #1026 Feature controls — dev-integrated v0.75.0 (2026-11-02)
+# #1026 Feature controls — dev-integrated v0.76.0 (2026-11-02)
 
 - Integrate the accepted 43 PostHog opt-out feature controls and global social-off mode from stable `feature/1026-solo-command-hardening-v0740-20261102@329c41ed743d9fbefdb523d8e4c0d362a0a74a5e` (tree `2b194fdb15da347636077c1166184649914a3bd0`) onto dev baseline `8dc5074c33250a5d9a449aad4c486fab489e8448`.
-- Dev has independent v0.74.0 category lifecycle/discoverability and shared BottomSheet changes; preserve and reconcile Category Manager filters, reorder constraints, new lifecycle actions and the operator reorder flag. Version collision resolved by allocating 0.75.0. User expressly approved Preview acceptance and dev promotion, not main or Production.
+- Dev has independent v0.74.0 category lifecycle/discoverability and shared BottomSheet changes; preserve and reconcile Category Manager filters, reorder constraints, new lifecycle actions and the operator reorder flag. Version collision resolved by allocating 0.76.0. User expressly approved Preview acceptance and dev promotion, not main or Production.
 - Next: focused integration/regression tests, contracts, Node22 PWA/size, exact-tree task focused gate, fresh stable full canonical/trusted Scratch Preview, read-only guarded promotion preflight and dev PR/CI/Vercel READY. Manual device ON/OFF acceptance still not performed; remote master mode remains client-only, not provider capability or security enforcement.
 - Separately track immutable provider-aware offline core-only profile, pause of social replication/push/realtime and safe cursor lifecycle; do not silently enable that high-risk mode on dev or Production.
+
+- Version adjusted to 0.76.0 after detection of independent active storage Preview v0.75.0; feature source unchanged.
 
 ---
 
