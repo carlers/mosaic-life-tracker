@@ -1,3 +1,14 @@
+# Task checkpoint — #1478 current Scratch Function parity, synthetic cleanup
+Updated: 2026-11-01 Asia/Manila
+
+- Parent stable isolated media Preview `feature/1478-synthetic-cleanup-parity-20261101@19825b778d78d1400789e34c8d32811c57af943d`. User disregards support for older PWA clients but has NOT approved deletion of any existing user media, Production mutation or protected-branch promotion.
+- Current shared Scratch `message-action` active deployment observed `6ae76372325352a1611f` with newer category-lifecycle execution, ACL hardening and owner CAS. Exact source package read into sandbox; reconstructed `main.js` with only the two synthetic cleanup routes removed yields Git blob `cc8e6127a03ae79c91807c70887f62d4a0c772d5`, matching live. All other changed active Function modules were copied byte-identically from Git `chatgpt/857-resumable-lifecycle-20261101`; storage/Chat/Bug/erasure modules are already identical on parent.
+- Added category handler regressions and `MockQuery.notEqual` mock needed by the live operation, plus newer owner CAS tests. Never weaken real category/tombstone guards to make a storage deployment work. Tests must pass before activation.
+- Two-stage Scratch-only media cleanup requires disposable synthetic account runtime opt-in; no real user file deletion path exists. Stage the exact reviewed integrated Function inactive, preserve `dr-backup`, verify source archive and active SHA then activate, perform synthetic three-account grace/receipt tests, remove test variables/rows/users. Keep issue open for eventual real-media lifecycle and manual device checks.
+- Direct browser grants remain; ignored older PWA compatibility is not a proof of safety. No production or dev/main mutation.
+
+---
+
 # Task checkpoint — #1478 Phase 3H exact Scratch Function parity
 Updated: 2026-11-01 Asia/Manila
 

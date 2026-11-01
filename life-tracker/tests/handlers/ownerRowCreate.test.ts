@@ -34,7 +34,7 @@ describe('owner-only server row create foundation', () => {
     });
     expect(db.createRow).toHaveBeenCalledWith(expect.objectContaining({
       tableId: 'tasks', rowId: 'row_1', data: task(),
-      permissions: expect.arrayContaining(['read("user:owner")']),
+      permissions: ['read("user:owner")'],
     }));
   });
 
@@ -70,6 +70,17 @@ describe('owner-only server row create foundation', () => {
     expect((await send('categories', category({ retired_on: '2026-10-31' }))).status).toBe(200);
     expect((await send('categories', category({ retired_on: '2026-02-31' }))).status).toBe(400);
     expect(db.createRow).toHaveBeenCalledTimes(1);
+  });
+
+  it('compensates for a category locked after the initial create check', async () => {
+    db.getRow.mockResolvedValueOnce({ user_id: 'owner', deleted: false })
+      .mockResolvedValueOnce({ user_id: 'owner', deleted: false, lifecycle_state: 'delete' });
+    const r=await send('tasks', task());
+    expect(r.status).toBe(409);
+    expect(db.createRow).toHaveBeenCalledTimes(1);
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId:'tasks',rowId:'row_1',data:expect.objectContaining({deleted:true}),
+    }));
   });
 
   it('returns an existing owner collision but never leaks a foreign row', async () => {

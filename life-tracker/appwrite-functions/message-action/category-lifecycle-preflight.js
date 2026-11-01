@@ -53,7 +53,7 @@ async function handleCategoryLifecyclePreflight(db, callerId, payload) {
       categoryId,
       persistedTaskCount: page.total,
       scope: 'synced_server_rows_only',
-      safeToDelete: false,
+      safeToDelete: process.env.CATEGORY_DESTRUCTIVE_ENABLED === 'true' && !category.lifecycle_state,
     },
   };
 }

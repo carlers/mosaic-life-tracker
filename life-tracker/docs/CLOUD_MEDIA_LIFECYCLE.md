@@ -221,3 +221,14 @@ Category preflight, owner-row creation, owner CAS and TodoMate task validation
 modules are taken from the same tested Git source as the deployed function.
 Targeted handler regressions from that source are retained. Future activation
 must use the accepted *integrated* SHA, preserving Chat/Bug/Category behavior.
+
+## Live Scratch category lifecycle v2 parity
+
+The storage Function's latest integrated source additionally carries the
+already-active `run_category_lifecycle` server routing, internal category
+ACL migration guard, category lifecycle operation, ACL hardening, owner-row
+create and current owner-write CAS/TodoMate checks. Its `main.js` minus only
+the synthetic media actions has the exact downloaded active Git blob
+`cc8e6127a03ae79c91807c70887f62d4a0c772d5`. Associated regression
+tests and complete mock Query support are included so Scratch media
+activation does not roll back category lifecycle, Chat, reports or privacy.
