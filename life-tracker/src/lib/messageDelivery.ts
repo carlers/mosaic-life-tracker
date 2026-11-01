@@ -1,4 +1,3 @@
-import type { RxDocument } from 'rxdb';
 import { getDatabase } from '../db/database';
 import { dispatchUnauthorized, isUnauthorizedError } from './authEvents';
 import { clearDeniedOutgoing, isDeniedOutgoing, markDeniedOutgoing } from './messageSendDenials';
@@ -7,7 +6,6 @@ import {
   flushMessageActionQueue,
   setMessageActionSender,
 } from './messageActionQueue';
-import type { MessageDocument } from '../db/schema';
 import { getConnectivitySnapshot } from './connectivity';
 import { APPWRITE_MESSAGE_ACTION_FUNCTION_ID } from './appwriteConfig';
 import { sendAppAction } from './appAction';
@@ -132,7 +130,8 @@ export async function deliverPendingMessages(userId: string): Promise<void> {
           // the local message but require explicit review/retry.
           if (isDeniedOutgoing(userId, doc.id)) continue;
           try {
-            await deliverOne(doc);
+            const { deliverOne } = await import('./messageDeliveryOne');
+            await deliverOne(doc, sendMessageAction);
           } catch (err) {
             if (!isAccountWorkCurrent(userId, generation)) break;
             if (isPermanentSendDenial(err)) {
@@ -190,34 +189,6 @@ export async function retryDeniedOutgoing(userId: string, messageId: string): Pr
   await deliverPendingMessages(userId);
 }
 
-async function deliverOne(doc: RxDocument<MessageDocument>): Promise<void> {
-  const result = await sendMessageAction({
-    action: 'deliver',
-    messageId: doc.id,
-    recipientId: doc.recipientId,
-    content: doc.content,
-    taskRefId: doc.taskRefId,
-    taskRefTitle: doc.taskRefTitle,
-    taskRefDate: doc.taskRefDate,
-    taskRefColor: doc.taskRefColor,
-    diaryRefId: doc.diaryRefId || '',
-    diaryRefOwnerId: doc.diaryRefOwnerId || '',
-    diaryRefDate: doc.diaryRefDate || '',
-    diaryRefExcerpt: '',
-    diaryRefEpoch: doc.diaryRefEpoch ?? 0,
-    replyToId: doc.replyToId || '',
-    replyToContent: doc.replyToContent || '',
-    replyToSenderId: doc.replyToSenderId || '',
-    createdAt: doc.createdAt,
-  });
-  // A completed Function invocation is not proof both rows were committed.
-  if (
-    result.ok !== true ||
-    !String(result.recipientRowId).startsWith('rmsg_') ||
-    result.threadId !== doc.threadId ||
-    (result.messageId != null && result.messageId !== doc.id)
-  ) throw new Error('Delivery not confirmed');
-}
 export async function markReadOnRemote(
   userId: string,
   partnerId: string,
@@ -249,15 +220,16 @@ export async function unsendOnRemote(
   userId: string,
   messageId: string,
   recipientId: string
-): Promise<void> {
+): Promise<boolean> {
   const generation = captureAccountWorkGeneration(userId);
-  if (generation === null) return;
+  if (generation === null) return false;
   try {
     await sendMessageAction({
       action: 'unsend',
       messageId,
       recipientId,
     });
+    return true;
   } catch (err) {
     if (
       shouldQueueMessageAction(err) &&
@@ -270,6 +242,7 @@ export async function unsendOnRemote(
       });
     }
     console.error('Chat unsend failed:', err);
+    return false;
   }
 }
 export async function reactOnRemote(

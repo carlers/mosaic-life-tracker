@@ -8,6 +8,7 @@ export interface UseMessagesReturn {
   messages: MessageDocument[];
   isLoading: boolean;
   sendMessage: (content: string, replyTo?: import('./useMessageActions').ReplyContext) => Promise<void>;
+  sendPhoto: (file: File, caption?: string, replyTo?: import('./useMessageActions').ReplyContext) => Promise<void>;
   sendDiaryReply: (diary: DiaryDocument, content: string) => Promise<void>;
   sendTaskReply: (
     task: TaskDocument,
@@ -41,6 +42,7 @@ export function useMessages(friendId: string | null): UseMessagesReturn {
     messages,
     isLoading,
     sendMessage: actions.sendMessage,
+    sendPhoto: actions.sendPhoto,
     sendDiaryReply: actions.sendDiaryReply,
     sendTaskReply: actions.sendTaskReply,
     sendTaskReaction: actions.sendTaskReaction,

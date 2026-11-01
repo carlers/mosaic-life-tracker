@@ -23,6 +23,7 @@ vi.mock('../../src/lib/connectivity', () => ({
 
 vi.mock('../../src/lib/appwriteConfig', () => ({
   APPWRITE_MESSAGE_ACTION_FUNCTION_ID: 'message-action-test',
+  APPWRITE_STORAGE_BUCKET_ID: 'task_images',
 }));
 
 function makeDeferred<T>() {
