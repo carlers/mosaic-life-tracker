@@ -1,3 +1,12 @@
+# #857 v0.56.2 selected-category deletion panel — 2026-11-01
+
+- Protected stable Preview at `8d4f66bae96e47e80de2f5abb234f54002e4ebf4` is baseline (v0.56.1). User requested all forms beneath their own category, not at the bottom of sheet. Edit, Retire and Move were already inline; new Delete options now expand inside the selected Reorder.Item. Delete is still disabled: offline old clients retain direct server writes, and a local count cannot prove absence of remote or unsynced tasks.
+- Delete options show only local count, include Retire Instead and Cancel. Switching rows/action/Add closes the panel. Existing local orphan inventory and domain deletion guard remain intact. DOM tests cover within-row positioning, action handoff, no accidental delete, owner orphan filtering. User-visible refinement version 0.56.2.
+- Full lifecycle remains gated on legacy-client write ACL cutover, server-only create/update, all task/share/photo/reminder/Bucket links, a durable owner-fenced transaction, stale PWA queue acceptance, two-owner signed Scratch tests. Do not enable destructive actions based on local inventory. No Scratch Function, dev, main, or Production change is authorized by this commit.
+- Task `chatgpt/857-inline-deletion-panel-v0562-20261101`: focused gate, then squash into protected Preview, exact-SHA canonical and Vercel READY required. Manual mobile acceptance distinct.
+
+---
+
 # #857 read-only persisted category inventory foundation (2026-11-01)
 
 - Parent protected Preview `feature/857-category-retirement-v0560-20261101@e54587609c33fe6ab5aa72d7195a32f0430a7b76` v0.56.1 passed exact canonical #41295185602, Vercel READY. No dev/main/Production promotion approval.

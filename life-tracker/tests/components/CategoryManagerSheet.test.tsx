@@ -155,6 +155,33 @@ describe('CategoryManagerSheet', () => {
       .toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('shows category deletion safety details inside only the selected category', () => {
+    visibleTasks = [{ id: 'task_a', title: 'Keep me', date: '',
+      completed: false, categoryId: 'first', userId: 'user', isDeleted: false }];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    const second = screen.getByRole('listitem', { name: 'Second category' });
+
+    fireEvent.click(within(first).getByRole('button', { name: 'Manage deletion for First' }));
+    expect(within(first).getByRole('region', { name: 'Category deletion options for First' })).toBeInTheDocument();
+    expect(within(second).queryByRole('region', { name: 'Category deletion options for First' })).toBeNull();
+    expect(within(first).getByRole('button', { name: 'Delete category and all tasks' })).toBeDisabled();
+    expect(within(first).getByText(/1 task on this device/)).toBeInTheDocument();
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+
+    fireEvent.click(within(first).getByRole('button', { name: 'Retire instead' }));
+    expect(within(first).getByLabelText('Last active date (inclusive)')).toBeInTheDocument();
+    expect(within(first).queryByRole('region', { name: 'Category deletion options for First' })).toBeNull();
+
+    fireEvent.click(within(second).getByRole('button', { name: 'Manage deletion for Second' }));
+    expect(within(first).getByLabelText('Last active date (inclusive)').closest('[inert]')).not.toBeNull();
+    expect(within(second).getByRole('region', { name: 'Category deletion options for Second' })).toBeInTheDocument();
+    fireEvent.click(within(second).getByRole('button', { name: 'Cancel' }));
+    expect(within(second).getByRole('button', { name: 'Manage deletion for Second' }))
+      .toHaveAttribute('aria-expanded', 'false');
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+  });
+
   it('moves local owner tasks across dates/Backlogs without deleting the category', async () => {
     visibleTasks = [
       { id: 'a', title: 'Dated', date: '2026-11-01', completed: true, categoryId: 'first', userId: 'user', isDeleted: false },
@@ -569,10 +596,9 @@ describe('CategoryManagerSheet', () => {
       { id: 'foreign', title: 'Foreign assignment', date: '2026-10-30', completed: false, categoryId: 'removed', userId: 'other', isDeleted: false },
     ];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    expect(screen.getAllByRole('button', { name: /Delete category \(temporarily unavailable\)/ })).toHaveLength(2);
-    for (const button of screen.getAllByRole('button', { name: /Delete category \(temporarily unavailable\)/ })) {
-      expect(button).toBeDisabled();
-    }
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Manage deletion for First' }));
+    expect(within(first).getByRole('button', { name: 'Delete category and all tasks' })).toBeDisabled();
     fireEvent.click(screen.getByText('Tasks without an active category (1)'));
     expect(screen.getByText('Preserved assignment')).toBeInTheDocument();
     expect(screen.queryByText('Foreign assignment')).toBeNull();

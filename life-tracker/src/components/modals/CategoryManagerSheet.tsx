@@ -66,11 +66,13 @@ interface CategoryRowProps {
   onEditStart: (cat: CategoryDocument) => void;
   onManageRetirement: (cat: CategoryDocument) => void;
   onMoveTasks: (cat: CategoryDocument) => void;
+  onManageDeletion: (cat: CategoryDocument) => void;
   onReorderEnd: () => void;
   disabled: boolean;
   isEditing: boolean;
   isRetiring: boolean;
   isMoving: boolean;
+  isDeleting: boolean;
   orderSignature: string | string[];
   children?: React.ReactNode;
 }
@@ -81,17 +83,19 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   onEditStart,
   onManageRetirement,
   onMoveTasks,
+  onManageDeletion,
   onReorderEnd,
   disabled,
   isEditing,
   isRetiring,
   isMoving,
+  isDeleting,
   orderSignature,
   children,
 }) => {
   const dragControls = useDragControls();
   const [exitContent, setExitContent] = useState(children);
-  if ((isEditing || isRetiring || isMoving) && exitContent !== children) setExitContent(children);
+  if ((isEditing || isRetiring || isMoving || isDeleting) && exitContent !== children) setExitContent(children);
 
   return (
     <Reorder.Item
@@ -160,21 +164,22 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
         </button>
         <button
           type="button"
-          disabled
-          title="Deletion temporarily unavailable to protect tasks"
-          className="p-2 text-gray-500"
-          aria-label="Delete category (temporarily unavailable)"
+          onClick={() => onManageDeletion(cat)}
+          disabled={disabled}
+          className="p-2 text-gray-400"
+          aria-label={`Manage deletion for ${cat.name}`}
+          aria-expanded={isDeleting}
         >
           <Trash2 size={16} />
         </button>
       </div>
       <div
         className="grid transition-all duration-200 ease-in-out"
-        style={{ gridTemplateRows: isEditing || isRetiring || isMoving ? '1fr' : '0fr' }}
+        style={{ gridTemplateRows: isEditing || isRetiring || isMoving || isDeleting ? '1fr' : '0fr' }}
       >
-        <div className="min-h-0 overflow-hidden" inert={!isEditing && !isRetiring && !isMoving} aria-hidden={!isEditing && !isRetiring && !isMoving}>
+        <div className="min-h-0 overflow-hidden" inert={!isEditing && !isRetiring && !isMoving && !isDeleting} aria-hidden={!isEditing && !isRetiring && !isMoving && !isDeleting}>
           <div className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
-            {isEditing || isRetiring || isMoving ? children : exitContent}
+            {isEditing || isRetiring || isMoving || isDeleting ? children : exitContent}
           </div>
         </div>
       </div>
@@ -216,6 +221,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 
   const [retireId, setRetireId] = useState<string | null>(null);
   const [moveId, setMoveId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [moveToId, setMoveToId] = useState('');
   const [lastActiveDate, setLastActiveDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -255,6 +261,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       setEditingId(null);
       setRetireId(null);
       setMoveId(null);
+      setDeleteId(null);
       setMoveToId('');
     }
   }
@@ -299,7 +306,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full" preventDismiss={isSaving}>
       <div className="pt-2 pb-8 px-4">
-        {!editingId && !retireId && !moveId && <SheetErrorBanner message={error} />}
+        {!editingId && !retireId && !moveId && !deleteId && <SheetErrorBanner message={error} />}
         <div className="mb-3 flex justify-end">
           <Button
             variant="ghost"
@@ -328,12 +335,14 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               isEditing={editingId === cat.id}
               isRetiring={retireId === cat.id}
               isMoving={moveId === cat.id}
+              isDeleting={deleteId === cat.id}
               orderSignature={orderedIds}
               onEditStart={(c) => {
                 reset();
                 setIsAdding(false);
                 setRetireId(null);
                 setMoveId(null);
+                setDeleteId(null);
                 setEditingId(c.id);
                 setEditName(c.name);
                 setEditColor(c.color);
@@ -344,6 +353,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setEditingId(null);
                 setIsAdding(false);
                 setMoveId(null);
+                setDeleteId(null);
                 setRetireId(category.id);
                 setLastActiveDate(category.retiredOn || format(new Date(), 'yyyy-MM-dd'));
               }}
@@ -352,8 +362,17 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setEditingId(null);
                 setRetireId(null);
                 setIsAdding(false);
+                setDeleteId(null);
                 setMoveId(category.id);
                 setMoveToId('');
+              }}
+              onManageDeletion={(category) => {
+                reset();
+                setEditingId(null);
+                setRetireId(null);
+                setMoveId(null);
+                setIsAdding(false);
+                setDeleteId(current => current === category.id ? null : category.id);
               }}
               onReorderEnd={() => {
                 if (!isSaving) {
@@ -434,6 +453,30 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   <SheetErrorBanner message={error} />
                 </div>
               )}
+              {deleteId === cat.id && (
+                <section className="space-y-3" aria-label={`Category deletion options for ${cat.name}`}>
+                  <p className="text-sm font-semibold text-white">Remove {cat.name}</p>
+                  <p className="text-xs text-gray-400">
+                    {taskCounts[cat.id] || 0} task{taskCounts[cat.id] === 1 ? '' : 's'} on this device,
+                    including completed, future-dated, and Backlogs tasks. Other devices may have unsynced tasks.
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Delete category and tasks is unavailable until old offline clients can no longer
+                    recreate or modify deleted tasks. Retirement preserves the category and its history.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button disabled title="Server-side deletion protection not ready">
+                      Delete category and all tasks
+                    </Button>
+                    <Button variant="ghost" disabled={isSaving} onClick={() => {
+                      setDeleteId(null);
+                      setRetireId(cat.id);
+                      setLastActiveDate(cat.retiredOn || format(new Date(), 'yyyy-MM-dd'));
+                    }}>Retire instead</Button>
+                    <Button variant="ghost" disabled={isSaving} onClick={() => setDeleteId(null)}>Cancel</Button>
+                  </div>
+                </section>
+              )}
               {retireId === cat.id && (
               <div className="mt-4 rounded-xl border border-[#333333] bg-[#1A1A1A] p-3 space-y-3">
                 <p className="text-sm font-semibold text-white">{cat.retiredOn ? 'Manage retirement' : 'Retire category'}: {cat.name}</p>
@@ -465,10 +508,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             </CategoryRow>
           ))}
         </Reorder.Group>
-        <p className="mt-3 text-xs text-gray-400">
-          Category deletion is temporarily unavailable to protect existing tasks.
-        </p>
-
         {isAdding ? (
           <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
             <Input
@@ -499,6 +538,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               setEditingId(null);
               setRetireId(null);
               setMoveId(null);
+              setDeleteId(null);
               setIsAdding(true);
             }}
             disabled={isSaving}
