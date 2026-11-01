@@ -44,6 +44,8 @@ import {
   ALERTS_READ_RETENTION_SETTING_KEY, ALERTS_UNREAD_RETENTION_SETTING_KEY,
 } from '../lib/notificationRetention';
 import { useSettings } from '../hooks/useSettings';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 import { useSharedTasks } from '../hooks/useSharedTasks';
 import { groupNotificationActivity } from '../lib/notificationGrouping';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
@@ -122,6 +124,8 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   const userId = user?.$id ?? '';
   const connectivity = useConnectivity();
   const { sendTaskReaction } = useTaskActivityActions();
+  const alertReactionsEnabled = useFeatureEnabled('mosaic_disable_alert_reactions');
+  const alertRepliesEnabled = useFeatureEnabled('mosaic_disable_alert_replies');
   const [items, setItems] = useState<NotificationEntry[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState('');
@@ -454,6 +458,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   const handleReaction = useCallback(
     async (item: NotificationItem, emoji: string) => {
       if (
+        !isFeatureEnabled('mosaic_disable_alert_reactions') ||
         preview ||
         !feedIsCurrent ||
         !userId ||
@@ -746,41 +751,36 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                                     reactions={reactions}
                                     currentUserId={userId}
                                     isOutgoing={false}
-                                    onToggle={(emoji) =>
+                                    onToggle={alertReactionsEnabled ? (emoji) =>
                                       void handleReaction(
                                         item,
                                         emoji
-                                      )
-                                    }
+                                      ) : undefined}
                                   />
                                 </div>
                               )}
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
-                              <motion.button
+                              {alertRepliesEnabled && <motion.button
                                 type="button"
                                 whileTap={{ scale: 0.9 }}
                                 disabled={!canInteract}
-                                onClick={() =>
-                                  setReplyTarget(item)
-                                }
+                                onClick={() => { if (isFeatureEnabled('mosaic_disable_alert_replies')) setReplyTarget(item); }}
                                 className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-[#252525] hover:text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                                 aria-label={`Reply to ${item.task.title}`}
                               >
                                 <MessageSquare size={16} />
-                              </motion.button>
-                              <motion.button
+                              </motion.button>}
+                              {alertReactionsEnabled && <motion.button
                                 type="button"
                                 whileTap={{ scale: 0.9 }}
                                 disabled={!canInteract}
-                                onClick={() =>
-                                  setReactionTarget(item)
-                                }
+                                onClick={() => { if (isFeatureEnabled('mosaic_disable_alert_reactions')) setReactionTarget(item); }}
                                 className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-[#252525] hover:text-pink-400 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                                 aria-label={`React to ${item.task.title}`}
                               >
                                 <Heart size={17} />
-                              </motion.button>
+                              </motion.button>}
                             </div>
                           </div>
                         </div>
@@ -807,7 +807,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       )}
 
       <EmojiPickerSheet
-        isOpen={Boolean(currentReactionTarget)}
+        isOpen={Boolean(currentReactionTarget) && alertReactionsEnabled}
         onClose={() => setReactionTarget(null)}
         onPick={(emoji) => {
           if (currentReactionTarget) {
@@ -817,7 +817,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
       />
 
       <ReplyComposerSheet
-        isOpen={Boolean(currentReplyTarget)}
+        isOpen={Boolean(currentReplyTarget) && alertRepliesEnabled}
         onClose={() => setReplyTarget(null)}
         task={currentReplyTarget?.task ?? null}
         categoryColor={currentReplyTarget?.categoryColor ?? ''}

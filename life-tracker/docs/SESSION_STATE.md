@@ -1,3 +1,12 @@
+# #1026 Feature controls — dev-integrated v0.75.0 (2026-11-02)
+
+- Integrate the accepted 43 PostHog opt-out feature controls and global social-off mode from stable `feature/1026-solo-command-hardening-v0740-20261102@329c41ed743d9fbefdb523d8e4c0d362a0a74a5e` (tree `2b194fdb15da347636077c1166184649914a3bd0`) onto dev baseline `8dc5074c33250a5d9a449aad4c486fab489e8448`.
+- Dev has independent v0.74.0 category lifecycle/discoverability and shared BottomSheet changes; preserve and reconcile Category Manager filters, reorder constraints, new lifecycle actions and the operator reorder flag. Version collision resolved by allocating 0.75.0. User expressly approved Preview acceptance and dev promotion, not main or Production.
+- Next: focused integration/regression tests, contracts, Node22 PWA/size, exact-tree task focused gate, fresh stable full canonical/trusted Scratch Preview, read-only guarded promotion preflight and dev PR/CI/Vercel READY. Manual device ON/OFF acceptance still not performed; remote master mode remains client-only, not provider capability or security enforcement.
+- Separately track immutable provider-aware offline core-only profile, pause of social replication/push/realtime and safe cursor lifecycle; do not silently enable that high-risk mode on dev or Production.
+
+---
+
 # Universal scroll-aware BottomSheet v0.74.0 — version collision reconciliation (2026-11-02)
 
 - Previous v0.73.0 stable Preview `feature/universal-sheet-pull-v0730-20261102@9a5f2deb271d236695e5b7e8a0a7f24403450598` passed focused run #41337496807, canonical run #41337846522 and trusted Preview #41338196300. Exact-SHA Vercel deployment `dpl_EHV4Zzs8CYRtxRE8eQdLyqPsfhKK` READY. Another concurrent stable feature `feature/1026-chat-alerts-controls-v0730-20261102` independently published the same v0.73.0. Preserve the accepted implementation but assign the next unoccupied line v0.74.0; the v0.73.0 branch must not be promoted.

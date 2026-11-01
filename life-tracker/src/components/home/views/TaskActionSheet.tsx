@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../../lib/featureControls';
 import { TaskDateEditor } from './TaskDateEditor';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -65,6 +66,11 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onLinkToBucketList,
 }) => {
   const taskPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_task_photo_upload');
+  const textCopyEnabled = useFeatureEnabled('mosaic_disable_task_text_copy');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const quickRescheduleEnabled = useFeatureEnabled('mosaic_disable_task_quick_reschedule');
+  const quickBacklogEnabled = useFeatureEnabled('mosaic_disable_task_move_to_backlog');
+  const bucketLinkEnabled = useFeatureEnabled('mosaic_disable_task_bucket_link');
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
   const pendingEditRef = useRef(false);
@@ -85,6 +91,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
     : labelForVisibility(effective as TaskVisibility);
 
   const handleCopyTaskText = async () => {
+    if (!isFeatureEnabled('mosaic_disable_task_text_copy')) return;
     try {
       await navigator.clipboard.writeText(task.title);
       onClose();
@@ -168,9 +175,9 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
           <span className="text-xs text-gray-400">{visibilityLabel}</span>
         </button>
 
-        {task.date !== '' && <button
+        {socialEnabled && task.date !== '' && <button
           type="button"
-          onClick={() => { onShare(); onClose(); }}
+          onClick={() => { if (isFeatureEnabled('mosaic_disable_all_social')) { onShare(); onClose(); } }}
           className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white mb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         >
           <div className="w-8 h-8 rounded-full bg-surfaceHighlight flex items-center justify-center" aria-hidden="true">
@@ -206,7 +213,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
 
         {/* Actions list */}
         <div className="space-y-1">
-          <button
+          {textCopyEnabled && <button
             type="button"
             onClick={handleCopyTaskText}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
@@ -218,9 +225,9 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               <Copy size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Copy Task Text</span>
-          </button>
+          </button>}
 
-          {onLinkToBucketList && <button type="button" onClick={() => { onClose(); onLinkToBucketList(); }}
+          {bucketLinkEnabled && onLinkToBucketList && <button type="button" onClick={() => { if (!isFeatureEnabled('mosaic_disable_task_bucket_link')) return; onClose(); onLinkToBucketList(); }}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-surfaceHighlight text-foreground focus-visible:ring-2 focus-visible:ring-current">
             <span className="w-8 h-8 rounded-full bg-surfaceHighlight flex items-center justify-center"><Link2 size={16} aria-hidden="true"/></span>
             <span className="text-base font-medium">Link to Bucket List</span>
@@ -329,9 +336,10 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-base font-medium">Open Timer</span>
           </button>
 
-          {task.date !== yesterday && <button
+          {quickRescheduleEnabled && task.date !== yesterday && <button
             type="button"
             onClick={async () => {
+              if (!isFeatureEnabled('mosaic_disable_task_quick_reschedule')) return;
               await onChangeDate(yesterday);
               dismiss();
             }}
@@ -343,9 +351,10 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-base font-medium">Do It Yesterday</span>
           </button>}
 
-          <button
+          {quickRescheduleEnabled && <button
             type="button"
             onClick={() => {
+              if (!isFeatureEnabled('mosaic_disable_task_quick_reschedule')) return;
               onDoItTomorrowOrToday();
               onClose();
             }}
@@ -358,7 +367,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               <ArrowRight size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">{tomorrowOrTodayLabel}</span>
-          </button>
+          </button>}
 
           <button
             type="button"
@@ -388,9 +397,9 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-base font-medium">Make It a Routine</span>
           </button>
 
-          {task.date !== '' && <button
+          {quickBacklogEnabled && task.date !== '' && <button
             type="button"
-            onClick={() => { onMoveToBacklog(); onClose(); }}
+            onClick={() => { if (!isFeatureEnabled('mosaic_disable_task_move_to_backlog')) return; onMoveToBacklog(); onClose(); }}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <div

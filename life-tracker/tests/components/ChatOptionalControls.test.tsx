@@ -55,4 +55,19 @@ describe('non-destructive chat controls', () => {
     expect(screen.getByRole('button', { name: 'Attach photo' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Open stickers' })).toBeEnabled();
   });
+
+  it('hides optional message copying without changing reply, unsend or historical text', () => {
+    const onCopy = vi.fn();
+    const props = { isOpen: true, message, isOwn: true, currentUserId: 'owner',
+      onClose: vi.fn(), onReply: vi.fn(), onCopy, onUnsend: vi.fn(),
+      onReact: vi.fn(), onMoreEmoji: vi.fn() };
+    const { rerender } = render(<MessageActionSheet {...props} copyEnabled={false} />);
+    expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reply' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Unsend' })).toBeEnabled();
+    rerender(<MessageActionSheet {...props} copyEnabled />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(onCopy).toHaveBeenCalledTimes(1);
+  });
+
 });
