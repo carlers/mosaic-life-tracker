@@ -1,3 +1,12 @@
+# Issue #1441 — read-only MCP gateway security code candidate (2026-11-02 Asia/Manila)
+
+- Stable source: v0.56.0 Preview `feature/1441-local-whisper-preview-v0524-20261101@41b0bb32da4d8732cc89c6e0c47ef1431e833152`, focused #41338750231 SUCCESS, canonical #41339031232 SUCCESS, exact Preview dpl_CCYpdhi8yND9WH7mi9e5Dc5WeoKn READY.
+- New disabled-by-default *read-only* MCP resource code: two owner-only tools, Scratch project/Preview-only env gates, exact JWT issuer/audience/RS256/expiry/scope validation, static allowlist and narrow row projections, protected-resource metadata and 401 challenges. No model or MCP tool executes task mutations. Runtime cloud settings and user consent are **not configured**.
+- Required missing security work: Mosaic OAuth grant consent UI, stable resource/consent origins, Scratch Appwrite OAuth server enablement and separate rows.read-only secret, real authorization-code/PKCE/CIMD or DCR handshake, cross-owner/revocation/security acceptance. No deployable authenticated MCP can be claimed yet; do not expose Function execution publicly.
+- Physical device Brave/Android transcription/model deletion, and multi-device task-sync/undo acceptance remain open. No dev/main/Production promotion. Issue remains OPEN.
+
+---
+
 # Issue #1441 — B2/B3 completion, reschedule and soft-delete v0.56.0 candidate (2026-11-02 Asia/Manila)
 
 - Owner authorized one-Go completion of voice, optional AI, B0–B3 commands and secure Scratch-only MCP. Whisper and AI model files must remain independently deletable. No dev/main/Production promotion without new explicit authorization.
