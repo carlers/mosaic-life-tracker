@@ -1,3 +1,14 @@
+# Task checkpoint — #854 public GitHub issue runtime acceptance and managed variables
+Updated: 2026-11-01 Asia/Manila
+
+- Owner configured Scratch Function variables GITHUB_BUG_REPORT_TOKEN (secret) and GITHUB_BUG_REPORT_ENABLED (non-secret). Active Scratch deployment 6ae70935d57984fb68f0 is READY and was built after variables were configured; its downloaded source exactly matches reviewed backend SHA 444865a6fb24c331e74f3d01bfe8f83a37297c13 for 15/16 files. The remaining owner-write-cas.js is newer and must not be overwritten.
+- Live synthetic public report with explicit consent returned HTTP 201 and created public GitHub issue #1567. No-consent returned 400; identical retry returned 200 and same issue; modified retry returned 409. Public issue did not contain private diagnostics or owner ID; private row had no client grants. Closed synthetic issue #1567 as not_planned; deleted synthetic private row and confirmed 404.
+- v0.61.1 frontend Preview stable SHA 9bd91f267c375f142f3dec0b7adc4e3b29646ab2 has canonical CI #41282835012 SUCCESS and immutable Vercel deployment READY. No dev/main/Production promotion.
+- This internal-only task patch declares the two previously missing optional Function variables (enabled nonsecret, token secret) in the Git-owned contract; absence remains a valid fail-closed configuration. Do not store any token value in Git, chat, or CI logs. Focused CI and stable Preview canonical gate must pass before delivery.
+- Manual real-device form and authenticated browser acceptance remain separate. Public GitHub issues survive Mosaic's private 30-day retention and account deletion.
+
+---
+
 # Task checkpoint — #854 public GitHub reporting v0.61.1 Home acceptance repair
 Updated: 2026-11-01 Asia/Manila
 
