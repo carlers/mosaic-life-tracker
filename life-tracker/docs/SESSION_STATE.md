@@ -1,3 +1,13 @@
+# Task checkpoint — #854 public GitHub reporting v0.61.1 Home acceptance repair
+Updated: 2026-11-01 Asia/Manila
+
+- Authorized: public GitHub Issue publication with explicit form consent, no private owner/diagnostics in public issue, and server-only GitHub token. Frontend source stable Preview `feature/854-bug-reports-dev-integrated-v0610-20261101@847d35cfaf95744afcba545b8647f9ca1acd4d80` failed the canonical Home gzip budget by 11 B at run #41280759606; do not relax budget.
+- Scoped repair: Home Slash shortcut uses existing `canUseKeyboardShortcut` guard instead of duplicated editable/modifier checks; retains direct synchronous keyboard registration, modal exclusion, and all existing Home controls. Existing tested Home Search, bootstrap and keyboard DOM tests pass (15/15), changed-file ESLint, contracts, version, build/PWA passed. Local Home gzip 380,790/381,000. CI exact-SHA and stable Preview still needed.
+- Scratch backend compatible public reporting Function `6ae6dbd5b77ac0f065e3` active after canonical #41280550776 PASS; the private report table's three new receipt fields are available. Disabled-mode public action returns HTTP 503 with no private row added; legacy private action synthetic HTTP 201 and no row grants. GitHub publishing credential and enabled flag are **absent**, so public issue posting has not yet been tested live. Operator must provision GitHub PAT with only Issues read/write for repo carlers/mosaic-life-tracker privately; never paste token into chat.
+- No dev/main/Production promotion authorized. Next: focused task CI, squash stable Preview, full canonical and Vercel READY, operator token setup, then consented dummy public issue test and manual mobile acceptance.
+
+---
+
 # Task checkpoint — #854 public GitHub Issues candidate v0.61.1
 Updated: 2026-11-01 Asia/Manila
 
