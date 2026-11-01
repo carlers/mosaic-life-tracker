@@ -127,7 +127,7 @@ async function request(url: URL, signal?: AbortSignal): Promise<unknown> {
 }
 
 export async function searchGiphyStickers(query: string, signal?: AbortSignal): Promise<GiphySticker[]> {
-  if (!isFeatureEnabled('giphySearch')) return [];
+  if (!isFeatureEnabled('mosaic_disable_giphy_search')) return [];
   if (query.trim().length < 2) return [];
   const url = new URL('https://api.giphy.com/v1/stickers/search');
   // Respect the user's search words without silently adding "sticker" or other terms.
