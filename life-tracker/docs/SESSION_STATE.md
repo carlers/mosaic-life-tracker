@@ -1,3 +1,11 @@
+# #857 Category recovery reconciled on dev v0.74.0 — 2026-11-02
+
+- Base: `dev@8dc5074c33250a5d9a449aad4c486fab489e8448`; carry accepted isolated recovery Preview `d73995ddb2bb0271e8205b6b81f5ae7b7821e8f8` into v0.75.0 task with existing BottomSheet v0.74.0 retained. Git merge had four metadata/version conflicts, resolved by preserving current dev session state and bumping the next unused version. No behavioral source conflicts.
+- Add category action/drag separation, scheduled retirement, Day View focus restoration and provenance-safe category Delete-All recovery including managed additive migration 021 and Scratch active Function parity. Backend deployed in Scratch previously, not modified by this reconciliation.
+- Verified locally in isolated dev-SHA sandbox: 126 focused unit/DOM/handler/backend-contract tests PASS; scoped ESLint PASS; `npm run version:check` and `npm run contracts:check` PASS; TypeScript/Vite/PWA build and blocking size budgets PASS (Home closure 376163/381000 gzip). Pending: task focused CI, full canonical stable Preview, exact-SHA READY Vercel, real signed Scratch Delete-All/Recover and Android/desktop acceptance. Scratch destructive test was blocked by safety tooling; do not claim live provider acceptance. No dev/main/Production promotion authorized in this batch.
+
+---
+
 # Universal scroll-aware BottomSheet v0.74.0 — version collision reconciliation (2026-11-02)
 
 - Previous v0.73.0 stable Preview `feature/universal-sheet-pull-v0730-20261102@9a5f2deb271d236695e5b7e8a0a7f24403450598` passed focused run #41337496807, canonical run #41337846522 and trusted Preview #41338196300. Exact-SHA Vercel deployment `dpl_EHV4Zzs8CYRtxRE8eQdLyqPsfhKK` READY. Another concurrent stable feature `feature/1026-chat-alerts-controls-v0730-20261102` independently published the same v0.73.0. Preserve the accepted implementation but assign the next unoccupied line v0.74.0; the v0.73.0 branch must not be promoted.

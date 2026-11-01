@@ -50,7 +50,7 @@ describe('server owned resumable category lifecycle', () => {
     expect(r.body).toMatchObject({ok:true, status:'done', remaining:0});
     expect(db.updateRows).toHaveBeenCalledTimes(2);
     expect(db.updateRows).toHaveBeenLastCalledWith(expect.objectContaining({
-      tableId:'categories', data:expect.objectContaining({deleted:true}),
+      tableId:'categories', data:expect.objectContaining({deleted:true,lifecycle_target:'recoverable'}),
     }));
   });
 
@@ -79,7 +79,7 @@ describe('server owned resumable category lifecycle', () => {
       tableId:'bucket_task_links',data:expect.objectContaining({deleted:true}),
     }));
     expect(db.updateRows).toHaveBeenCalledWith(expect.objectContaining({
-      tableId:'tasks',data:expect.objectContaining({deleted:true}),
+      tableId:'tasks',data:expect.objectContaining({deleted:true,category_delete_marker:'cat_a'}),
     }));
   });
 

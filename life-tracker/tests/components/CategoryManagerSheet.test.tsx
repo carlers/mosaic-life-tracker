@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   moveCategoryTasks: vi.fn().mockResolvedValue({ moved: 0, total: 0 }),
   reorderCategories: vi.fn().mockResolvedValue(undefined),
   categoryLifecycleInventory: vi.fn(),
+  listRecoverableCategories: vi.fn(),
+  recoverDeletedCategory: vi.fn().mockResolvedValue(undefined),
   executeCategoryLifecycle: vi.fn().mockResolvedValue(undefined),
   startDrag: vi.fn(),
 }));
@@ -119,6 +121,8 @@ vi.mock('../../src/components/ui/MosaicSelect', () => ({
 
 vi.mock('../../src/lib/categoryLifecycleAction', () => ({
   categoryLifecycleInventory: mocks.categoryLifecycleInventory,
+  listRecoverableCategories: mocks.listRecoverableCategories,
+  recoverDeletedCategory: mocks.recoverDeletedCategory,
   executeCategoryLifecycle: mocks.executeCategoryLifecycle,
 }));
 
@@ -133,6 +137,8 @@ describe('CategoryManagerSheet', () => {
     mocks.restoreCategory.mockReset().mockResolvedValue(undefined);
     mocks.deleteCategory.mockReset().mockResolvedValue(undefined);
     mocks.categoryLifecycleInventory.mockReset().mockImplementation(async (categoryId: string) => ({categoryId, persistedTaskCount: 1, safeToDelete: false}));
+    mocks.listRecoverableCategories.mockReset().mockResolvedValue({categories:[],nextCursor:null});
+    mocks.recoverDeletedCategory.mockClear();
     mocks.moveCategoryTasks.mockReset().mockResolvedValue({ moved: 2, total: 2 });
     mocks.reorderCategories.mockReset().mockResolvedValue(undefined);
     visibleCategories = categories;
@@ -168,6 +174,52 @@ describe('CategoryManagerSheet', () => {
       {target:{value:''}});
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
     expect(screen.getByRole('button', {name:'Reverse order'})).toBeEnabled();
+  });
+
+  it('permits editing and restoring categories within filtered or searched results', async () => {
+    visibleCategories=[{...categories[0],name:'Old School',retiredOn:'2025-01-01'},categories[1]];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button',{name:'Retired (1)'}));
+    const row=screen.getByRole('listitem',{name:'Old School category'});
+    expect(within(row).getByRole('button',{name:'Drag to reorder'})).toBeDisabled();
+    expect(within(row).getByRole('button',{name:'Manage retirement for Old School'})).toBeEnabled();
+    fireEvent.click(within(row).getByRole('button',{name:'Manage retirement for Old School'}));
+    expect(within(row).getByRole('button',{name:'Restore category'})).toBeEnabled();
+    fireEvent.click(within(row).getByRole('button',{name:'Restore category'}));
+    await waitFor(()=>expect(mocks.restoreCategory).toHaveBeenCalledWith('first'));
+    fireEvent.change(screen.getByRole('searchbox',{name:'Search categories'}),{target:{value:'school'}});
+    expect(within(row).getByRole('button',{name:'Edit category'})).toBeEnabled();
+    fireEvent.click(within(row).getByRole('button',{name:'Edit category'}));
+    expect(within(row).getByRole('textbox',{name:'Name'})).toHaveValue('Old School');
+  });
+
+  it('distinguishes future scheduled retirement from already retired categories', () => {
+    visibleCategories=[{...categories[0],retiredOn:'2099-01-01'},
+      {...categories[1],retiredOn:'2025-01-01'}];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const upcoming=screen.getByRole('listitem',{name:'First category'});
+    expect(within(upcoming).getByText('Retires: 2099-01-01')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Retired (1)'}));
+    expect(screen.queryByRole('listitem',{name:'First category'})).toBeNull();
+    expect(screen.getByRole('listitem',{name:'Second category'})).toBeInTheDocument();
+  });
+
+  it('only offers server-tagged recoverable categories and requires exact name confirmation', async () => {
+    mocks.listRecoverableCategories.mockResolvedValue({
+      categories:[{id:'cat_deleted',name:'Old Tasks',deletedAt:'2026-10-20T00:00:00Z',status:'delete'}],
+      nextCursor:null,
+    });
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Recently deleted (1)'})).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button',{name:'Recently deleted (1)'}));
+    fireEvent.click(screen.getByRole('button',{name:'Recover category'}));
+    const restore=screen.getByRole('button',{name:'Restore category and tasks'});
+    expect(restore).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox',{name:'Type Old Tasks to confirm recovery'}),{target:{value:'Old Tasks'}});
+    expect(restore).toBeEnabled();
+    fireEvent.click(restore);
+    await waitFor(()=>expect(mocks.recoverDeletedCategory).toHaveBeenCalledWith(
+      'user','cat_deleted','Old Tasks',expect.any(Function)));
   });
 
   it('opens the requested retired category inline from Day View', async () => {
