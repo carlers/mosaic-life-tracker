@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -26,6 +26,13 @@ beforeEach(() => {
     return defaultValue;
   });
 });
+
+vi.mock('../../src/components/modals/CategoryManagerSheet', () => ({
+  CategoryManagerSheet: ({isOpen, onClose}: {isOpen:boolean;onClose:()=>void}) =>
+    isOpen ? <div role="dialog" aria-label="Category manager">
+      <button onClick={onClose}>Close category manager</button>
+    </div> : null,
+}));
 
 vi.mock('../../src/hooks/useAppearance', () => ({
   useAppearance: () => ({
@@ -74,6 +81,15 @@ function renderPreference(section: 'appearance' | 'tasks' | 'day-view' | 'calend
 }
 
 describe('PreferencesPage', () => {
+  it('opens Category Manager from Tasks & Categories settings without navigation', async () => {
+    renderPreference('tasks');
+    fireEvent.click(screen.getByRole('button', {name:'Manage categories'}));
+    await waitFor(() => expect(screen.getByRole('dialog',{name:'Category manager'})).toBeInTheDocument());
+    expect(screen.getByRole('heading',{name:'Tasks & Categories'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Close category manager'}));
+    expect(screen.queryByRole('dialog',{name:'Category manager'})).toBeNull();
+  });
+
   it('renders the requested destination rather than the current route during swipe preview', () => {
     render(
       <MemoryRouter initialEntries={['/settings/preferences/calendar']}>

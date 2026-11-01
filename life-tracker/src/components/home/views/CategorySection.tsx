@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useId, useRef, useState } from 'react';
 import { CategoryPillActionContext } from './categoryPillActionContext';
+import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
 import { ColorPalettePicker } from '../../ui/ColorPalettePicker';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CheckSquare, ChevronDown, MoreHorizontal, Plus, Square } from 'lucide-react';
@@ -131,6 +132,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   categoryActions: suppliedCategoryActions,
 }) => {
   const contextualActions = useContext(CategoryPillActionContext);
+  const openCategoryManager = useContext(CategoryManagerOpenContext);
   const categoryActions = suppliedCategoryActions ?? contextualActions;
   const prefersReducedMotion = useReducedMotion();
   const animatePositions = animateDragProjection && !prefersReducedMotion;
@@ -475,6 +477,16 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
                 className="rounded-lg px-4 py-2 text-left text-sm text-white hover:bg-surfaceHighlight">
                 Edit
               </button>
+              {openCategoryManager && (
+                <button type="button"
+                  onClick={() => {
+                    categoryActions.setMenuOpen(false);
+                    openCategoryManager(categoryId);
+                  }}
+                  className="rounded-lg px-4 py-2 text-left text-sm text-white hover:bg-surfaceHighlight">
+                  Manage category…
+                </button>
+              )}
               <button type="button" disabled={!categoryActions.moveUp}
                 onClick={() => { categoryActions.moveUp?.(); categoryActions.setMenuOpen(false); }}
                 className="rounded-lg px-4 py-2 text-left text-sm text-white hover:bg-surfaceHighlight disabled:opacity-40">

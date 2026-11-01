@@ -107,6 +107,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
       dragControls={dragControls}
       onDragEnd={onReorderEnd}
       aria-label={`${cat.name} category`}
+      data-category-manager-id={cat.id}
       className="relative bg-[#1A1A1A] rounded-lg"
     >
       <div className="flex items-center gap-3 py-3 px-2">
@@ -130,7 +131,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-white truncate">{cat.name}</span>
             {visibilityIcon(cat.visibility)}
-            {cat.retiredOn && <span className="text-xs text-gray-400">Retired {cat.retiredOn}</span>}
+            {cat.retiredOn && <span className="text-xs text-gray-400">Last active {cat.retiredOn}</span>}
           </div>
           {overriddenCount > 0 && (
             <span className="text-xs text-gray-400">
@@ -188,14 +189,22 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   );
 };
 
+type CategoryViewFilter = 'all' | 'active' | 'retired';
+
+const isRetiredCategory = (cat: CategoryDocument, today: string) =>
+  Boolean(cat.retiredOn && cat.retiredOn < today);
+
 interface CategoryManagerSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Optional Day View shortcut: reveal this category and open its inline edit controls. */
+  initialCategoryId?: string | null;
 }
 
 export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   isOpen,
   onClose,
+  initialCategoryId = null,
 }) => {
   const {
     categories = [],
@@ -214,6 +223,14 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       findTasksWithoutActiveCategory(tasks, categories, user?.$id),
     [tasks, categories, user?.$id, categoriesLoading, tasksLoading]);
   const { save, reset, isSaving, error } = useSheetSaveAction();
+
+  const [viewFilter, setViewFilter] = useState<CategoryViewFilter>('all');
+  const [search, setSearch] = useState('');
+  const [targetAppliedId, setTargetAppliedId] = useState<string | null>(null);
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const activeCount = categories.filter(cat => !cat.isDeleted && !isRetiredCategory(cat, today)).length;
+  const retiredCount = categories.filter(cat => !cat.isDeleted && isRetiredCategory(cat, today)).length;
+  const canReorder = viewFilter === 'all' && search.trim() === '';
 
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
@@ -247,6 +264,40 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     });
   }, [categories, orderedIds]);
   const pendingOrder = useRef(orderedCategories);
+  const visibleCategories = useMemo(() => orderedCategories.filter(cat => {
+    if (viewFilter === 'active' && isRetiredCategory(cat, today)) return false;
+    if (viewFilter === 'retired' && !isRetiredCategory(cat, today)) return false;
+    return cat.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
+  }), [orderedCategories, viewFilter, search, today]);
+
+  // Apply an incoming category request before painting the manager, including
+  // after a slow local category hydrate. This is a guarded prop/state sync,
+  // rather than a cascading state update inside an effect.
+  if (isOpen && initialCategoryId && targetAppliedId !== initialCategoryId) {
+    const target = categories.find(cat => cat.id === initialCategoryId && !cat.isDeleted);
+    if (target) {
+      setTargetAppliedId(initialCategoryId);
+      setViewFilter(isRetiredCategory(target, today) ? 'retired' : 'active');
+      setSearch('');
+      setEditingId(target.id);
+      setRetireId(null);
+      setMoveId(null);
+      setDeleteId(null);
+      setEditName(target.name);
+      setEditColor(target.color);
+      setEditVisibility(target.visibility);
+    }
+  }
+
+  useEffect(() => {
+    if (!isOpen || !initialCategoryId || targetAppliedId !== initialCategoryId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const row = Array.from(document.querySelectorAll<HTMLElement>('[data-category-manager-id]'))
+        .find(element => element.dataset.categoryManagerId === initialCategoryId);
+      row?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen, initialCategoryId, targetAppliedId, visibleCategories]);
 
   const resetForm = () => {
     setIsAdding(false);
@@ -260,6 +311,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     setSyncedIsOpen(isOpen);
     if (isOpen) {
       setOrderedIds(categories.map((cat) => cat.id));
+      setViewFilter('all');
+      setSearch('');
+      setTargetAppliedId(null);
       reset();
     }
     if (!isOpen) {
@@ -307,7 +361,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   };
 
   const handleReverse = () => {
-    if (isSaving || orderedCategories.length < 2) return;
+    if (isSaving || !canReorder || orderedCategories.length < 2) return;
     const reversed = [...orderedCategories].reverse();
     void save(
       () => reorderCategories(reversed),
@@ -323,11 +377,36 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full" preventDismiss={isSaving}>
       <div className="pt-2 pb-8 px-4">
         {!editingId && !retireId && !moveId && !deleteId && <SheetErrorBanner message={error} />}
+        <div role="group" aria-label="Filter categories"
+          className="mb-3 flex flex-wrap gap-1 rounded-lg border border-[#333333] bg-surface p-1">
+          {([
+            ['all', 'All', categories.length],
+            ['active', 'Active', activeCount],
+            ['retired', 'Retired', retiredCount],
+          ] as const).map(([value, label, count]) => (
+            <button key={value} type="button" aria-pressed={viewFilter === value}
+              onClick={() => {
+                setViewFilter(value);
+                setEditingId(null);
+                setRetireId(null);
+                setMoveId(null);
+                setDeleteId(null);
+              }}
+              className={`flex-1 min-w-20 rounded-md px-2 py-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                viewFilter === value ? 'bg-surfaceHighlight text-white' : 'text-gray-400 hover:text-white'
+              }`}>
+              {label} ({count})
+            </button>
+          ))}
+        </div>
+        <input type="search" aria-label="Search categories" placeholder="Search categories"
+          value={search} onChange={event => setSearch(event.target.value)}
+          className="mb-3 w-full rounded-lg border border-[#333333] bg-surface px-3 py-2 text-sm text-white placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
         <div className="mb-3 flex justify-end">
           <Button
             variant="ghost"
             onClick={handleReverse}
-            disabled={isSaving || orderedCategories.length < 2}
+            disabled={isSaving || !canReorder || orderedCategories.length < 2}
           >
             <ArrowDownUp size={16} />
             <span className="mosaic-sheet-text">Reverse order</span>
@@ -335,15 +414,15 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
         </div>
         <Reorder.Group
           axis="y"
-          values={orderedCategories}
+          values={visibleCategories}
           onReorder={(newOrder) => {
-            if (isSaving) return;
+            if (isSaving || !canReorder) return;
             pendingOrder.current = newOrder;
             setOrderedIds(newOrder.map((cat) => cat.id));
           }}
           className="space-y-2"
         >
-          {orderedCategories.map((cat) => (
+          {visibleCategories.map((cat) => (
             <CategoryRow
               key={cat.id}
               cat={cat}
@@ -396,7 +475,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setDeleteId(current => current === category.id ? null : category.id);
               }}
               onReorderEnd={() => {
-                if (!isSaving) {
+                if (!isSaving && canReorder) {
                   void save(
                     () => reorderCategories(pendingOrder.current),
                     () => {},
@@ -404,7 +483,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   );
                 }
               }}
-              disabled={isSaving}
+              disabled={isSaving || !canReorder}
             >
               {editingId === cat.id && (
                 <>
@@ -560,6 +639,11 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             </CategoryRow>
           ))}
         </Reorder.Group>
+        {visibleCategories.length === 0 && (
+          <p className="rounded-lg bg-surface px-3 py-4 text-center text-sm text-gray-400">
+            No matching categories.
+          </p>
+        )}
         {isAdding ? (
           <div className="mt-4 p-3 bg-[#1A1A1A] rounded-lg space-y-3">
             <Input
@@ -591,6 +675,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               setRetireId(null);
               setMoveId(null);
               setDeleteId(null);
+              setViewFilter('all');
+              setSearch('');
               setIsAdding(true);
             }}
             disabled={isSaving}

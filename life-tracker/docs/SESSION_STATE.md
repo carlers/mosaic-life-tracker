@@ -1,3 +1,11 @@
+# #857 Category Manager discovery and filters v0.68.1 — 2026-11-02
+
+- User approved next user-visible category-lifecycle refinement after approved `dev@5c29f7d32b140ff1c1130a6235e8e9736acc2524` v0.68.0. Scope is **frontend only**: Day View three-dot category menu gains context-specific `Manage category…` action, opening the same lazily imported Category Manager with that category’s inline edit form expanded and scrolled to; Preferences → Tasks & Categories gains a separate `Manage categories` row; Category Manager adds All/Active/Retired filters, case-insensitive search, zero-match state and reorder protection during filtering.
+- Active/Retired classification follows date-effective retirement: a category is retired when its inclusive last-active date is before the owner’s current local date. Future scheduled retirement stays Active. Original full-list ordering and reverse controls remain available under `All` with empty search; filtering never rewrites hidden-category order. No task/category server or RxDB changes.
+- Task branch `chatgpt/857-category-discoverability-v0681-20261102`; version 0.68.1 set in three files, regenerated component index, Settings search index updated. Targeted 80 category/settings/reorder DOM tests initially green; targeted shortcut and semantic tests added; ESLint with eight pre-existing DayViewSheet hook warnings, no new errors; contracts/version and TypeScript/Vite/PWA blocking size checks green. Final focused GitHub CI, stable v0.68.1 canonical acceptance/READY Preview and owner manual device acceptance still required. No dev/main/Production promotion authorized for this refinement.
+
+---
+
 # #857 Category lifecycle accepted Preview integrated with dev v0.67.0 — 2026-11-02
 
 - User explicitly approved category lifecycle #857 for dev. Accepted stable Preview `feature/857-category-retirement-v0560-20261101@052202b1e0794cef5ea39b86a93b10958f91d335` v0.56.3, full canonical #41323791699 SUCCESS and exact-SHA Vercel Preview READY. Signed Scratch two-account acceptance: 14-task resumable move, Delete-All and empty-category deletion, cross-owner denial, ACL cutover verified; synthetic records cleared. Shared active Scratch Function deployment `6ae765943b465ba13e8c` READY, gate enabled; Production untouched.

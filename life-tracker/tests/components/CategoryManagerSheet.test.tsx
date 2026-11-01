@@ -139,6 +139,49 @@ describe('CategoryManagerSheet', () => {
     visibleTasks = [];
   });
 
+  it('filters active and retired categories as of today, searches names, and protects ordering', () => {
+    visibleCategories = [
+      {...categories[0], retiredOn: '2025-01-01', name: 'Archived School'},
+      {...categories[1], name: 'Current Work'},
+      {...categories[1], id: 'scheduled', order: 2, name: 'Future retirement', retiredOn: '2099-01-01'},
+    ];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    fireEvent.click(screen.getByRole('button', {name: 'Retired (1)'}));
+    expect(screen.getByRole('listitem', {name:'Archived School category'})).toBeInTheDocument();
+    expect(screen.queryByRole('listitem', {name:'Current Work category'})).toBeNull();
+    fireEvent.click(screen.getByRole('button', {name:'Simulate reorder'}));
+    expect(mocks.reorderCategories).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', {name:'Reverse order'})).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', {name:'Active (2)'}));
+    expect(screen.getByRole('listitem', {name:'Future retirement category'})).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', {name:'Search categories'}),
+      {target:{value:'work'}});
+    expect(screen.getByRole('listitem', {name:'Current Work category'})).toBeInTheDocument();
+    expect(screen.queryByRole('listitem', {name:'Future retirement category'})).toBeNull();
+    fireEvent.change(screen.getByRole('searchbox', {name:'Search categories'}),
+      {target:{value:'not found'}});
+    expect(screen.getByText('No matching categories.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name:'All (3)'}));
+    fireEvent.change(screen.getByRole('searchbox', {name:'Search categories'}),
+      {target:{value:''}});
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(screen.getByRole('button', {name:'Reverse order'})).toBeEnabled();
+  });
+
+  it('opens the requested retired category inline from Day View', async () => {
+    visibleCategories = [
+      categories[0],
+      {...categories[1], retiredOn:'2025-01-01', name:'Old Projects'},
+    ];
+    render(<CategoryManagerSheet isOpen initialCategoryId="second" onClose={vi.fn()} />);
+    const target = await screen.findByRole('listitem', {name:'Old Projects category'});
+    expect(screen.getByRole('button', {name:'Retired (1)'})).toHaveAttribute('aria-pressed','true');
+    expect(within(target).getByRole('textbox', {name:'Name'})).toHaveValue('Old Projects');
+    expect(screen.queryByRole('listitem', {name:'First category'})).toBeNull();
+  });
+
   it('positions the retirement form immediately inside the selected category and switches correctly', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     const first = screen.getByRole('listitem', { name: 'First category' });
