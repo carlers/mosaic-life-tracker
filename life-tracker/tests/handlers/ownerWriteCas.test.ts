@@ -20,6 +20,13 @@ describe('message-action owner write CAS', () => {
 
   beforeEach(() => {
     mockDb = makeMockDb();
+    mockDb.getRow.mockImplementation(async ({ tableId }: { tableId: string }) =>
+      tableId === 'tasks' ?
+        { $id: 'task_1', user_id: 'user_A', category_id: 'cat_1', deleted: false,
+          $updatedAt: '2026-10-10T10:00:00.000Z' } :
+        tableId === 'categories' ?
+          { $id: 'cat_1', user_id: 'user_A', deleted: false, lifecycle_state: '' } :
+          Promise.reject(Object.assign(new Error('Not found'), { code: 404 })));
   });
 
   it('updates exactly the owner row at the expected server revision', async () => {

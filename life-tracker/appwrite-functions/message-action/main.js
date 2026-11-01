@@ -6,6 +6,8 @@ const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
 const { handleOwnerRowCreate } = require('./owner-row-create');
 const { handleCategoryLifecyclePreflight } = require('./category-lifecycle-preflight');
+const { handleCategoryLifecycleOperation } = require('./category-lifecycle-operation');
+const { hardenCategoryOwnerAcls } = require('./category-acl-hardening');
 const { auditOwnerMedia } = require('./owner-media-audit');
 const { reserveMediaUpload, confirmMediaUpload } = require('./media-provenance');
 const { handleSubmitBugReport, handlePublishBugReport, pruneExpiredBugReports } = require('./bug-reports');
@@ -1880,6 +1882,23 @@ const handler = async ({ req, res, log, error }) => {
   }
 
   const callerId = req.headers['x-appwrite-user-id'];
+  if (action === 'harden_category_owner_acls') {
+    const migrationOwnerId = process.env.CATEGORY_ACL_MIGRATION_OWNER_ID;
+    const privilegedSyntheticOperator =
+      typeof migrationOwnerId === 'string' && migrationOwnerId.length > 0 &&
+      callerId === migrationOwnerId;
+    if (!privilegedSyntheticOperator &&
+        (callerId || !req.headers['x-appwrite-key'])) {
+      return res.json({ error: 'Forbidden' }, 403);
+    }
+    try {
+      const result = await hardenCategoryOwnerAcls(tablesDB, payload);
+      return res.json(result.body, result.status);
+    } catch (cause) {
+      error('Category ACL migration failed: ' + cause.message);
+      return res.json({error: 'Category ACL migration unavailable'}, 503);
+    }
+  }
   const internalDeletionResume = action === 'resume_account_deletion';
   if (internalDeletionResume) {
     if (callerId || !req.headers['x-appwrite-key']) {
@@ -2026,6 +2045,9 @@ const handler = async ({ req, res, log, error }) => {
             occurrenceKey: payload.emoji,
           }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
         }
+        break;
+      case 'run_category_lifecycle':
+        result = await handleCategoryLifecycleOperation(tablesDB, callerId, payload);
         break;
       case 'get_category_lifecycle_preflight':
         result = await handleCategoryLifecyclePreflight(tablesDB, callerId, payload);
