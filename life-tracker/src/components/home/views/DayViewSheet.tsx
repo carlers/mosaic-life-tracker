@@ -60,6 +60,7 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
   CONFIRM_TASK_DELETE_SETTING_KEY,
@@ -272,7 +273,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     showCompleted: showCompletedTime,
     labelStyle: timestampLabelStyle,
   }), [showCreatedTime, showCompletedTime, timestampLabelStyle]);
-  const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
+  const timelineModeEnabled = useFeatureEnabled('mosaic_disable_timeline_mode');
+  // Fall back in presentation only; retain the saved preference for restoration.
+  const dayViewMode = timelineModeEnabled ? resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories')) : 'categories';
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
   const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
   const taskSortMode = resolveTaskCompletionSortMode(
@@ -1441,7 +1444,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                             aria-expanded={i === activeIndex ? keyboardHelpOpen : false}
                             className="hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#444444] bg-surfaceHighlight text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                           ><CircleHelp size={16} aria-hidden="true" /></button>
-                          <button
+                          {timelineModeEnabled && <button
                             type="button"
                             tabIndex={i === activeIndex ? 0 : -1}
                             disabled={isBackgroundLocked || editingTaskId !== null || isTaskReorderActive || Boolean(continuousDrag.carried)}
@@ -1454,7 +1457,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                               : 'border-[#444444] bg-surfaceHighlight text-gray-300 hover:bg-[#333333]'}`}
                           >
                             <ListOrdered size={16} aria-hidden="true" />
-                          </button>
+                          </button>}
                           <button
                             type="button"
                             onClick={handleToggleSelectMode}

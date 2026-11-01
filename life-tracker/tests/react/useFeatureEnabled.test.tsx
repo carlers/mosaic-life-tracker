@@ -23,7 +23,7 @@ describe('useFeatureEnabled', () => {
   beforeEach(() => { store.disabled = false; store.listener = null; });
 
   it('updates optional feature rendering after a remote kill switch changes', () => {
-    const { result } = renderHook(() => useFeatureEnabled('settingsSearch'));
+    const { result } = renderHook(() => useFeatureEnabled('mosaic_disable_settings_search'));
     expect(result.current).toBe(true);
     act(() => { store.disabled = true; store.listener?.(); });
     expect(result.current).toBe(false);

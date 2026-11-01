@@ -40,7 +40,7 @@ function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
-  const taskSearchEnabled = useFeatureEnabled('taskSearch');
+  const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
   const location = useLocation();
   const {
     persons,

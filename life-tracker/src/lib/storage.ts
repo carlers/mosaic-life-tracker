@@ -128,7 +128,7 @@ async function uploadImageWithId(
 /** Task attachments are visible through the authorized friend calendar. */
 /** Diary photos retain owner-only storage ACL, unlike friend-readable task photos. */
 export async function saveDiaryImage(file: File, userId: string): Promise<string> {
-  if (!isFeatureEnabled('diaryPhotoUpload')) throw new Error('Diary photo uploads are currently unavailable.');
+  if (!isFeatureEnabled('mosaic_disable_diary_photo_upload')) throw new Error('Diary photo uploads are currently unavailable.');
   if (!userId) throw new Error('Sign in before adding a diary photo.');
   if (getConnectivitySnapshot().status !== 'online') throw new Error('Connect to upload diary photos.');
   const blob = await compressImage(file);
@@ -164,7 +164,7 @@ export async function saveImage(
 
 /** New task uploads can be disabled without blocking existing pending replay. */
 export async function saveTaskImage(file: File, userId: string): Promise<string> {
-  if (!isFeatureEnabled('taskPhotoUpload')) throw new Error('Task photo uploads are currently unavailable.');
+  if (!isFeatureEnabled('mosaic_disable_task_photo_upload')) throw new Error('Task photo uploads are currently unavailable.');
   return saveImage(file, userId);
 }
 
@@ -198,6 +198,7 @@ export async function uploadPendingImage(
 // Profiles and task photos share the same upload, staging, and permissions
 // contract; retain the profile-specific missing-user diagnostic.
 export async function saveProfileImage(file: File, userId: string): Promise<string> {
+  if (!isFeatureEnabled('mosaic_disable_profile_photo_upload')) throw new Error('New profile photo uploads are currently unavailable.');
   if (!userId) throw new Error('Cannot save profile image: no authenticated user');
   return saveImage(file, userId);
 }

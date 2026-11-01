@@ -1,7 +1,7 @@
 import { useFeatureFlag } from './useFeatureFlag';
-import { FEATURE_DISABLE_FLAGS, type FeatureControl } from '../lib/featureControls';
+import type { FeatureDisableFlag } from '../lib/featureControls';
 
 /** Optional capabilities are on unless their specific remote kill switch is active. */
-export function useFeatureEnabled(feature: FeatureControl): boolean {
-  return !useFeatureFlag(FEATURE_DISABLE_FLAGS[feature]).enabled;
+export function useFeatureEnabled(flag: FeatureDisableFlag): boolean {
+  return !useFeatureFlag(flag).enabled;
 }
