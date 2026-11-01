@@ -8,6 +8,15 @@ import {
   within,
 } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+const pausedControls = vi.hoisted(() => new Set<string>());
+vi.mock('../../src/hooks/useFeatureEnabled', () => ({
+  useFeatureEnabled: (flag: string) => !pausedControls.has(flag),
+}));
+vi.mock('../../src/lib/featureControls', () => ({
+  isFeatureEnabled: (flag: string) => !pausedControls.has(flag),
+}));
+
+
 import type { CategoryDocument } from '../../src/db/schema';
 
 const mocks = vi.hoisted(() => ({
@@ -99,6 +108,8 @@ vi.mock('framer-motion', async (importOriginal) => {
 });
 
 import { CategoryManagerSheet } from '../../src/components/modals/CategoryManagerSheet';
+
+beforeEach(() => pausedControls.clear());
 
 describe('CategoryManagerSheet', () => {
   beforeEach(() => {
@@ -512,6 +523,16 @@ describe('CategoryManagerSheet', () => {
     const secondName = screen.getByRole('textbox', { name: 'Name' });
     expect(secondName).toHaveFocus();
     expect(secondName).toHaveValue('Second');
+  });
+
+  it('pauses category reorder without blocking category editing', () => {
+    pausedControls.add('mosaic_disable_category_reorder');
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Reverse order' })).not.toBeInTheDocument();
+    for (const control of screen.getAllByRole('button', { name: 'Drag to reorder' })) {
+      expect(control).toBeDisabled();
+    }
+    expect(screen.getAllByRole('button', { name: 'Edit category' }).length).toBeGreaterThan(0);
   });
 
 });

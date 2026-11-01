@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../../lib/featureControls';
 import { TaskDateEditor } from './TaskDateEditor';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -65,6 +66,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onLinkToBucketList,
 }) => {
   const taskPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_task_photo_upload');
+  const textCopyEnabled = useFeatureEnabled('mosaic_disable_task_text_copy');
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
   const pendingEditRef = useRef(false);
@@ -85,6 +87,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
     : labelForVisibility(effective as TaskVisibility);
 
   const handleCopyTaskText = async () => {
+    if (!isFeatureEnabled('mosaic_disable_task_text_copy')) return;
     try {
       await navigator.clipboard.writeText(task.title);
       onClose();
@@ -206,7 +209,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
 
         {/* Actions list */}
         <div className="space-y-1">
-          <button
+          {textCopyEnabled && <button
             type="button"
             onClick={handleCopyTaskText}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
@@ -218,7 +221,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               <Copy size={16} className="text-black" />
             </div>
             <span className="text-base font-medium">Copy Task Text</span>
-          </button>
+          </button>}
 
           {onLinkToBucketList && <button type="button" onClick={() => { onClose(); onLinkToBucketList(); }}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-surfaceHighlight text-foreground focus-visible:ring-2 focus-visible:ring-current">
