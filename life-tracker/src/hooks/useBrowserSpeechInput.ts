@@ -24,6 +24,28 @@ function recognizer(): SpeechConstructor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+/** Separate microphone denial from a blocked/unavailable speech service. */
+export function speechRecognitionErrorMessage(code: string | undefined): string {
+  switch (code) {
+    case 'not-allowed':
+      return 'Microphone access is blocked. Allow Microphone for this Preview site in browser settings, then try again.';
+    case 'service-not-allowed':
+      return 'The browser did not allow its speech-recognition service. Microphone permission may be fine; try your device keyboard dictation or type the command.';
+    case 'audio-capture':
+      return 'No usable microphone was found. Check microphone hardware or another app using the microphone.';
+    case 'network':
+      return 'The browser speech service could not connect. Check internet access or use typed input.';
+    case 'language-not-supported':
+      return 'The selected speech language is not supported by your browser. Use typed input.';
+    case 'no-speech':
+      return 'No speech was detected. Try again or type your command.';
+    case 'aborted':
+      return '';
+    default:
+      return 'Speech recognition failed (' + (code || 'unknown error') + '). You can still type.';
+  }
+}
+
 /** Browser-provided recognition may use network services. */
 export function useBrowserSpeechInput(onTranscript: (text: string) => void) {
   const [listening, setListening] = useState(false);
@@ -68,9 +90,7 @@ export function useBrowserSpeechInput(onTranscript: (text: string) => void) {
     };
     rec.onerror = (event) => {
       if (live.current !== rec) return;
-      setError(event.error === 'not-allowed' || event.error === 'service-not-allowed'
-        ? 'Microphone or speech recognition permission was denied.'
-        : 'Speech recognition failed (' + (event.error || 'unknown error') + '). You can still type.');
+      setError(speechRecognitionErrorMessage(event.error));
     };
     rec.onend = () => {
       if (live.current === rec) {
