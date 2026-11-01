@@ -4,6 +4,7 @@ const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
+const { handleOwnerRowCreate } = require('./owner-row-create');
 const { handleCategoryLifecyclePreflight } = require('./category-lifecycle-preflight');
 const {
   handleGetNotifications,
@@ -1754,6 +1755,9 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'get_category_lifecycle_preflight':
         result = await handleCategoryLifecyclePreflight(tablesDB, callerId, payload);
+        break;
+      case 'create_owner_row':
+        result = await handleOwnerRowCreate(tablesDB, callerId, payload);
         break;
       case 'compare_and_set_owner_row':
         result = await handleOwnerWriteCas(tablesDB, callerId, payload);

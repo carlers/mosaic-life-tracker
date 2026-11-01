@@ -428,7 +428,14 @@ describe('task RxDB replication pilot', () => {
       await vi.advanceTimersByTimeAsync(3_000);
       await expect(push).resolves.toEqual([]);
 
-      expect(sendAppActionMock).toHaveBeenCalledTimes(1);
+      // Batch support and owner-create support are independently detected.
+      // An older Scratch Function lacks both, so direct writes retain their
+      // existing paced compatibility lane until the reviewed ACL cutover.
+      expect(sendAppActionMock).toHaveBeenCalledTimes(5);
+      expect(sendAppActionMock).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'create_owner_row', tableId: 'tasks' }),
+        15_000
+      );
       expect(createRowMock).toHaveBeenCalledTimes(4);
       for (let index = 1; index < starts.length; index += 1) {
         expect(starts[index] - starts[index - 1]).toBeGreaterThanOrEqual(510);
