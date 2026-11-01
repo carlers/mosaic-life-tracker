@@ -15,8 +15,7 @@ import { PersonPane } from '../components/home/PersonPane';
 import { preloadTodoListView } from '../components/home/views/todoListViewModule';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
 import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
-import { useTasks } from '../hooks/useTasks';
-import { useCategories } from '../hooks/useCategories';
+import { useHomeOwnerCollections } from '../hooks/useHomeOwnerCollections';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
@@ -52,11 +51,12 @@ export const HomePage: React.FC = () => {
     hidden,
     isLoading: carouselLoading,
   } = useFriendCarousel();
-  const { tasks: ownerTasks = [], isLoading: tasksLoading } = useTasks();
   const {
+    tasks: ownerTasks = [],
     categories: ownerCategories = [],
-    isLoading: categoriesLoading,
-  } = useCategories();
+    isTasksLoading: tasksLoading,
+    isCategoriesLoading: categoriesLoading,
+  } = useHomeOwnerCollections();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
   const [renderWindow, setRenderWindow] = useState(0);

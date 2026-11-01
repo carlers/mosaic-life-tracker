@@ -50,6 +50,7 @@ export const categoriesMigrationStrategies = {
     ...oldDoc,
     updatedAt: '',
   }),
+  2: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, retiredOn: '' }),
 };
 export const diaryMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, emoji: '' }),

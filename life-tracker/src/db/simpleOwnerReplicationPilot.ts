@@ -8,7 +8,7 @@ import { APPWRITE_DATABASE_ID } from '../lib/appwriteConfig';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier, type SyncedCollectionName } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
-import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
+import { createOwnerRowViaFunction, readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 import { captureReplicationPushCheckpoint, pullOwnerRowsByUpdatedAtId, subscribeToOwnerRealtime } from './replicationPilotPrimitives';
 import { createReplicationPilotLifecycleQueue } from './replicationPilotLifecycle';
 
@@ -51,12 +51,18 @@ export function createSimpleOwnerReplicationPilot<D extends OwnerDocument>(confi
     readOwnerMaster(config.tableId, id, userId, mapRow);
 
   async function create(next: Replicated, userId: string): Promise<Replicated | null> {
+    const data = toAppwriteFormat(next as unknown as Record<string, unknown>, config.collectionName, userId);
+    if (config.collectionName === 'categories') {
+      const server = await createOwnerRowViaFunction('categories', next.id, userId, data);
+      if (server.status === 'created') return null;
+      if (server.status === 'existing') return mapRow(server.row);
+    }
     try {
       await guardedTablesDB.createRow({
         databaseId: APPWRITE_DATABASE_ID,
         tableId: config.tableId,
         rowId: next.id,
-        data: toAppwriteFormat(next as unknown as Record<string, unknown>, config.collectionName, userId),
+        data,
         permissions: [
           Permission.read(Role.user(userId)),
           Permission.update(Role.user(userId)),

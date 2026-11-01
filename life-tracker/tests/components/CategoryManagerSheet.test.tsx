@@ -13,8 +13,13 @@ import type { CategoryDocument } from '../../src/db/schema';
 const mocks = vi.hoisted(() => ({
   addCategory: vi.fn().mockResolvedValue(undefined),
   updateCategory: vi.fn().mockResolvedValue(undefined),
+  retireCategory: vi.fn().mockResolvedValue(undefined),
+  restoreCategory: vi.fn().mockResolvedValue(undefined),
   deleteCategory: vi.fn().mockResolvedValue(undefined),
+  moveCategoryTasks: vi.fn().mockResolvedValue({ moved: 0, total: 0 }),
   reorderCategories: vi.fn().mockResolvedValue(undefined),
+  categoryLifecycleInventory: vi.fn(),
+  executeCategoryLifecycle: vi.fn().mockResolvedValue(undefined),
   startDrag: vi.fn(),
 }));
 
@@ -52,13 +57,15 @@ vi.mock('../../src/hooks/useCategories', () => ({
     isLoading: false,
     addCategory: mocks.addCategory,
     updateCategory: mocks.updateCategory,
+    retireCategory: mocks.retireCategory,
+    restoreCategory: mocks.restoreCategory,
     deleteCategory: mocks.deleteCategory,
     reorderCategories: mocks.reorderCategories,
   }),
 }));
 
 vi.mock('../../src/hooks/useTasks', () => ({
-  useTasks: () => ({ tasks: visibleTasks, isLoading: false }),
+  useTasks: () => ({ tasks: visibleTasks, isLoading: false, moveCategoryTasks: mocks.moveCategoryTasks }),
 }));
 
 vi.mock('../../src/hooks/useAuth', () => ({
@@ -98,6 +105,23 @@ vi.mock('framer-motion', async (importOriginal) => {
   };
 });
 
+vi.mock('../../src/components/ui/MosaicSelect', () => ({
+  MosaicSelect: ({ label, value, onChange, options }: {
+    label: string; value: string; onChange: (value: string) => void;
+    options: { value: string; label: string }[];
+  }) => (
+    <select aria-label={label} value={value} onChange={event => onChange(event.target.value)}>
+      <option value="">Select destination category</option>
+      {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+  ),
+}));
+
+vi.mock('../../src/lib/categoryLifecycleAction', () => ({
+  categoryLifecycleInventory: mocks.categoryLifecycleInventory,
+  executeCategoryLifecycle: mocks.executeCategoryLifecycle,
+}));
+
 import { CategoryManagerSheet } from '../../src/components/modals/CategoryManagerSheet';
 
 describe('CategoryManagerSheet', () => {
@@ -105,10 +129,128 @@ describe('CategoryManagerSheet', () => {
     vi.clearAllMocks();
     mocks.addCategory.mockReset().mockResolvedValue(undefined);
     mocks.updateCategory.mockReset().mockResolvedValue(undefined);
+    mocks.retireCategory.mockReset().mockResolvedValue(undefined);
+    mocks.restoreCategory.mockReset().mockResolvedValue(undefined);
     mocks.deleteCategory.mockReset().mockResolvedValue(undefined);
+    mocks.categoryLifecycleInventory.mockReset().mockImplementation(async (categoryId: string) => ({categoryId, persistedTaskCount: 1, safeToDelete: false}));
+    mocks.moveCategoryTasks.mockReset().mockResolvedValue({ moved: 2, total: 2 });
     mocks.reorderCategories.mockReset().mockResolvedValue(undefined);
     visibleCategories = categories;
     visibleTasks = [];
+  });
+
+  it('positions the retirement form immediately inside the selected category and switches correctly', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    const second = screen.getByRole('listitem', { name: 'Second category' });
+
+    fireEvent.click(within(first).getByRole('button', { name: 'Manage retirement for First' }));
+    expect(within(first).getByLabelText('Last active date (inclusive)')).toBeInTheDocument();
+    expect(within(first).getByRole('button', { name: 'Retire category' })).toBeInTheDocument();
+    expect(within(first).getByRole('button', { name: 'Manage retirement for First' }))
+      .toHaveAttribute('aria-expanded', 'true');
+    expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
+
+    fireEvent.click(within(second).getByRole('button', { name: 'Manage retirement for Second' }));
+    expect(within(first).getByLabelText('Last active date (inclusive)').closest('[inert]'))
+      .not.toBeNull();
+    expect(within(second).getByLabelText('Last active date (inclusive)')).toBeInTheDocument();
+
+    fireEvent.click(within(second).getByRole('button', { name: 'Edit category' }));
+    expect(within(second).getByRole('textbox', { name: 'Name' })).toBeInTheDocument();
+    expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
+    expect(within(second).getByRole('button', { name: 'Manage retirement for Second' }))
+      .toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('requires server approval and exact confirmation before either destructive operation', async () => {
+    mocks.categoryLifecycleInventory.mockImplementation(async (categoryId: string) => ({
+      categoryId, persistedTaskCount: 13, safeToDelete: true,
+    }));
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first=screen.getByRole('listitem',{name:'First category'});
+    fireEvent.click(within(first).getByRole('button',{name:'Manage deletion for First'}));
+    const deleteAll=within(first).getByRole('button',{name:'Delete category and all tasks'});
+    const moveDelete=within(first).getByRole('button',{name:'Move tasks & delete category'});
+    await waitFor(()=>expect(within(first).getByText(/13 server-synced tasks/)).toBeInTheDocument());
+    expect(deleteAll).toBeDisabled();
+    expect(moveDelete).toBeDisabled();
+    fireEvent.change(within(first).getByRole('textbox',{name:'Type First to confirm deletion'}),
+      {target:{value:'First'}});
+    expect(deleteAll).toBeEnabled();
+    expect(moveDelete).toBeDisabled();
+    fireEvent.change(within(first).getByRole('combobox',{name:'Move tasks to category before deleting'}),
+      {target:{value:'second'}});
+    expect(moveDelete).toBeEnabled();
+    fireEvent.click(moveDelete);
+    await waitFor(()=>expect(mocks.executeCategoryLifecycle).toHaveBeenCalledWith(
+      'user','first','First','move','second',expect.any(Function)));
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+  });
+
+  it('shows category deletion safety details inside only the selected category', async () => {
+    visibleTasks = [{ id: 'task_a', title: 'Keep me', date: '',
+      completed: false, categoryId: 'first', userId: 'user', isDeleted: false }];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    const second = screen.getByRole('listitem', { name: 'Second category' });
+
+    fireEvent.click(within(first).getByRole('button', { name: 'Manage deletion for First' }));
+    expect(within(first).getByRole('region', { name: 'Category deletion options for First' })).toBeInTheDocument();
+    expect(within(second).queryByRole('region', { name: 'Category deletion options for First' })).toBeNull();
+    expect(within(first).getByRole('button', { name: 'Delete category and all tasks' })).toBeDisabled();
+    await waitFor(() => expect(within(first).getByText(/1 server-synced task/)).toBeInTheDocument());
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+
+    fireEvent.click(within(first).getByRole('button', { name: 'Retire instead' }));
+    expect(within(first).getByLabelText('Last active date (inclusive)')).toBeInTheDocument();
+    expect(within(first).queryByRole('region', { name: 'Category deletion options for First' })).toBeNull();
+
+    fireEvent.click(within(second).getByRole('button', { name: 'Manage deletion for Second' }));
+    expect(within(first).getByLabelText('Last active date (inclusive)').closest('[inert]')).not.toBeNull();
+    expect(within(second).getByRole('region', { name: 'Category deletion options for Second' })).toBeInTheDocument();
+    fireEvent.click(within(second).getByRole('button', { name: 'Cancel' }));
+    expect(within(second).getByRole('button', { name: 'Manage deletion for Second' }))
+      .toHaveAttribute('aria-expanded', 'false');
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+  });
+
+  it('moves local owner tasks across dates/Backlogs without deleting the category', async () => {
+    visibleTasks = [
+      { id: 'a', title: 'Dated', date: '2026-11-01', completed: true, categoryId: 'first', userId: 'user', isDeleted: false },
+      { id: 'b', title: 'Backlog', date: '', completed: false, categoryId: 'first', userId: 'user', isDeleted: false },
+    ];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Move tasks from First' }));
+    expect(within(first).getByText(/2 tasks available on this device/)).toBeInTheDocument();
+    fireEvent.change(within(first).getByRole('combobox', { name: 'Move to category' }), {
+      target: { value: 'second' },
+    });
+    fireEvent.click(within(first).getByRole('button', { name: 'Move 2 tasks' }));
+    await waitFor(() => expect(mocks.moveCategoryTasks).toHaveBeenCalledWith('first', 'second'));
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+    expect(mocks.retireCategory).not.toHaveBeenCalled();
+  });
+
+  it('retires the selected category using an inclusive calendar cutoff', async () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Manage retirement for First' }));
+    fireEvent.change(screen.getByLabelText('Last active date (inclusive)'), {
+      target: { value: '2026-11-01' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Retire category' }));
+    await waitFor(() => expect(mocks.retireCategory).toHaveBeenCalledWith('first', '2026-11-01'));
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+  });
+
+  it('restores the same category without modifying any tasks', async () => {
+    visibleCategories = [{ ...categories[0], retiredOn: '2026-10-31' }, categories[1]];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Manage retirement for First' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore category' }));
+    await waitFor(() => expect(mocks.restoreCategory).toHaveBeenCalledWith('first'));
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
   });
 
   it('starts reordering only from the category grip button', () => {
@@ -487,10 +629,9 @@ describe('CategoryManagerSheet', () => {
       { id: 'foreign', title: 'Foreign assignment', date: '2026-10-30', completed: false, categoryId: 'removed', userId: 'other', isDeleted: false },
     ];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    expect(screen.getAllByRole('button', { name: /Delete category \(temporarily unavailable\)/ })).toHaveLength(2);
-    for (const button of screen.getAllByRole('button', { name: /Delete category \(temporarily unavailable\)/ })) {
-      expect(button).toBeDisabled();
-    }
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Manage deletion for First' }));
+    expect(within(first).getByRole('button', { name: 'Delete category and all tasks' })).toBeDisabled();
     fireEvent.click(screen.getByText('Tasks without an active category (1)'));
     expect(screen.getByText('Preserved assignment')).toBeInTheDocument();
     expect(screen.queryByText('Foreign assignment')).toBeNull();

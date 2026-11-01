@@ -3,6 +3,7 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { CategoryDocument } from '../db/schema';
+import { validLocalDateKey } from '../lib/categoryLifecycle';
 
 export function useCategories(enabled = true) {
   const { user } = useAuth();
@@ -38,6 +39,7 @@ export function useCategories(enabled = true) {
         id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId: uid,
         isDeleted: false,
+        retiredOn: '',
         updatedAt: new Date().toISOString(),
       };
       try {
@@ -57,10 +59,20 @@ export function useCategories(enabled = true) {
       if (updates.isDeleted === true) {
         throw new Error('Category deletion is temporarily unavailable to protect tasks');
       }
+      if (updates.retiredOn !== undefined &&
+          updates.retiredOn !== '' && !validLocalDateKey(updates.retiredOn)) {
+        throw new Error('Choose a valid last-active date');
+      }
       const db = getDatabase();
       try {
         const doc = await db.categories.findOne(id).exec();
-        if (!doc) throw new Error('Category no longer exists');
+        if (!doc || doc.isDeleted || !userId || doc.userId !== userId) {
+          throw new Error('Category no longer belongs to this account');
+        }
+        if ((updates.userId !== undefined && updates.userId !== userId) ||
+            (updates.id !== undefined && updates.id !== id)) {
+          throw new Error('Cannot reassign category ownership');
+        }
         let changed = false;
         for (const key of Object.keys(updates) as (keyof CategoryDocument)[]) {
           // `updatedAt` is hook-managed; a caller passing it is not a
@@ -81,8 +93,17 @@ export function useCategories(enabled = true) {
         throw err;
       }
     },
-    []
+    [userId]
   );
+
+  const retireCategory = useCallback(async (id: string, lastActiveDate: string) => {
+    if (!validLocalDateKey(lastActiveDate)) throw new Error('Choose a valid last-active date');
+    await updateCategory(id, { retiredOn: lastActiveDate });
+  }, [updateCategory]);
+
+  const restoreCategory = useCallback(async (id: string) => {
+    await updateCategory(id, { retiredOn: '' });
+  }, [updateCategory]);
 
   const deleteCategory = useCallback(
     async (id: string) => {
@@ -135,6 +156,8 @@ export function useCategories(enabled = true) {
     isLoading,
     addCategory,
     updateCategory,
+    retireCategory,
+    restoreCategory,
     deleteCategory,
     reorderCategories,
   };

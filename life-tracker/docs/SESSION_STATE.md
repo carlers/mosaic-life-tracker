@@ -1,3 +1,11 @@
+# #857 Category lifecycle accepted Preview integrated with dev v0.67.0 — 2026-11-02
+
+- User explicitly approved category lifecycle #857 for dev. Accepted stable Preview `feature/857-category-retirement-v0560-20261101@052202b1e0794cef5ea39b86a93b10958f91d335` v0.56.3, full canonical #41323791699 SUCCESS and exact-SHA Vercel Preview READY. Signed Scratch two-account acceptance: 14-task resumable move, Delete-All and empty-category deletion, cross-owner denial, ACL cutover verified; synthetic records cleared. Shared active Scratch Function deployment `6ae765943b465ba13e8c` READY, gate enabled; Production untouched.
+- Live dev advanced independently to v0.67.0 `e0094b386d47bcdb02a2bc69c57d02a10935db7c`; direct category Preview promotion is divergent and would regress version. Preserve newest dev messaging/photo/bug-report features; integrate the accepted category branch in isolated v0.68.0 Preview with unique Appwrite migration id `020-category-retirement` (existing dev 016–019 reserved). Run focused unit/handler/DOM and full PWA size, canonical exact-SHA and trusted Vercel Preview. Promotion to dev is authorized, main/Production are not. Integrated tree needs new Preview verification before promotion.
+- Keep destructive category operations source-controlled. Do not independently deploy the merged older source Function to Scratch: current live shared media-safe Function is separately verified. Manual device acceptance of integrated dev still remains separate.
+
+---
+
 # Issue #1026 — optional chat initiation controls v0.67.0 (2026-11-01 Asia/Manila)
 
 - Owner completed v0.66.0 manual flag testing and explicitly approved promotion to `dev` and continuation. Stable `feature/1026-safe-initiation-controls-v0660-20261101@12aa12dfe4fffcd4353093c1e7634be7aef0a884` accepted via focused #41312035664, full canonical #41312320442, trusted Preview #41312668961, and protected promotion preflight #41318187620. PR #1593 merged to `dev@53c70b9f26ce5ad835adcd35f0152705679cf824`; accepted source tree identical, exact-SHA dev Vercel READY. No `main` or Production promotion.
