@@ -9,6 +9,7 @@ import { ADD_TASKS_TO_TOP_SETTING_KEY } from '../../lib/preferences';
 import { useSettings } from '../../hooks/useSettings';
 import { useBrowserSpeechInput, BRAVE_SPEECH_GUIDANCE } from '../../hooks/useBrowserSpeechInput';
 import { useLocalWhisperInput } from '../../hooks/useLocalWhisperInput';
+import { useLocalIntent } from '../../hooks/useLocalIntent';
 
 type TaskDraft = {
   title: string;
@@ -63,11 +64,15 @@ export const HomeCommandSheet: React.FC<Props> = ({
     setBulkPreview(null);
     setMessage('Local transcript captured. Review before creating a task.');
   });
+  const intent = useLocalIntent();
+  const [intentConsent, setIntentConsent] = useState(false);
   const [localConsent, setLocalConsent] = useState(false);
+  const [voiceLanguage, setVoiceLanguage] = useState<'en' | 'multi'>('en');
   const dismiss = () => {
     if (pendingRef.current) return;
     voice.stop();
     localVoice.cancel();
+    intent.stop();
     onClose();
   };
   const reviewCommand = () => {
@@ -136,6 +141,7 @@ export const HomeCommandSheet: React.FC<Props> = ({
       setReviewState(null);
       voice.stop();
       localVoice.cancel();
+      intent.stop();
       onClose();
     } catch (error) {
       setMessage(error instanceof Error ? error.message :
@@ -169,9 +175,9 @@ export const HomeCommandSheet: React.FC<Props> = ({
         <div className="space-y-2 rounded-xl border border-emerald-500/20 bg-[#17221D] p-3">
           <div className="text-sm font-semibold text-white">Local voice — works without Brave's speech service</div>
           <p className="text-xs text-gray-300">
-            Uses Whisper Tiny English (~45 MB of model files, plus runtime). The first use downloads
-            model files from Hugging Face; transcription runs only on this device. No recorded audio
-            is uploaded. Downloads and processing may be slow on mobile.
+            Uses optional Whisper Tiny English or multilingual (~45–90 MB of model files, plus runtime).
+            Models download from Hugging Face only after opt-in. Audio stays on this device.
+            Filipino/Taglish accuracy depends on the model and device; review every transcript.
           </p>
           <label className="flex items-start gap-2 text-xs text-gray-300">
             <input type="checkbox" className="mt-0.5" checked={localConsent}
@@ -181,10 +187,16 @@ export const HomeCommandSheet: React.FC<Props> = ({
               }} />
             Enable optional local model download and microphone recording
           </label>
+          <MosaicSelect label="Local voice language" value={voiceLanguage}
+            options={[{value:'en',label:'English'}, {value:'multi',label:'Multilingual / Filipino'}]}
+            onChange={value => {
+              localVoice.cancel();
+              setVoiceLanguage(value === 'multi' ? 'multi' : 'en');
+            }} />
           <div className="flex flex-wrap gap-2">
             {localVoice.stage === 'idle' || localVoice.stage === 'error' ? (
               <button type="button" disabled={!localConsent || working || localVoice.deleting}
-                onClick={localVoice.prepare}
+                onClick={() => localVoice.prepare(voiceLanguage)}
                 className="rounded-lg border border-emerald-500/50 px-3 py-2 text-sm disabled:opacity-40">
                 Prepare local voice
               </button>
@@ -211,12 +223,54 @@ export const HomeCommandSheet: React.FC<Props> = ({
             <button type="button" disabled={working || localVoice.deleting}
               onClick={() => void localVoice.deleteDownloadedModel()}
               className="rounded-lg border border-white/20 px-3 py-2 text-sm disabled:opacity-40">
-              {localVoice.deleting ? 'Deleting Whisper…' : 'Delete downloaded Whisper'}
+              {localVoice.deleting ? 'Deleting Whisper…' : 'Delete downloaded Whisper models'}
             </button>
           </div>
           <p className="text-xs text-gray-400">Deleting the model clears only its managed browser cache and unloads it. You can download it again later; unrelated Mosaic data is preserved.</p>
           {localVoice.notice && <p role="status" className="text-xs text-emerald-200">{localVoice.notice}</p>}
         </div>
+        <section className="space-y-2 rounded-xl border border-white/10 p-3"
+          aria-label="Optional local AI model">
+          <p className="text-sm font-semibold">Optional local AI command suggestions</p>
+          <p className="text-xs text-gray-300">Qwen3 0.6B requires WebGPU and a
+            large opt-in download. It proposes editable text only. No AI
+            output creates or changes tasks without your confirmation.</p>
+          <label className="flex items-start gap-2 text-xs text-gray-300">
+            <input type="checkbox" checked={intentConsent}
+              onChange={e=>{setIntentConsent(e.target.checked);
+                if(!e.target.checked)intent.stop();}}/>
+            Enable optional local AI model
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {(intent.stage==='idle'||intent.stage==='error')&&
+              <button type="button" onClick={intent.prepare}
+                disabled={!intentConsent||working||intent.deleting}
+                className="rounded-lg border border-white/30 px-3 py-2 text-sm disabled:opacity-40">
+                Prepare AI</button>}
+            {intent.stage==='ready'&&
+              <button type="button" onClick={()=>intent.suggest(input)}
+                disabled={!input.trim()||working}
+                className="rounded-lg border border-white/30 px-3 py-2 text-sm disabled:opacity-40">
+                Suggest command</button>}
+            {(intent.stage==='loading'||intent.stage==='working')&&
+              <button type="button" onClick={intent.stop}
+                className="rounded-lg border border-white/30 px-3 py-2 text-sm">
+                Cancel AI</button>}
+            <button type="button" disabled={intent.deleting||working}
+              onClick={()=>void intent.deleteDownloadedModel()}
+              className="rounded-lg border border-white/30 px-3 py-2 text-sm disabled:opacity-40">
+              {intent.deleting?'Deleting AI model…':'Delete downloaded AI model'}</button>
+          </div>
+          {intent.suggestion&&<div className="space-y-2">
+            <p className="text-xs text-gray-300">Suggestion: {intent.suggestion}</p>
+            <button type="button" onClick={()=>{setInput(intent.suggestion);
+              setReviewState(null);setBulkPreview(null);setMessage(
+                'Review this suggestion before saving.');}}
+              className="rounded-lg bg-emerald-700 px-3 py-2 text-sm">
+              Use suggestion</button></div>}
+          {intent.message&&<p role="status" className="text-xs text-gray-300">
+            {intent.message}</p>}
+        </section>
         {voice.available ? (
           <div className="space-y-2 rounded-xl border border-white/10 p-3">
             <label className="flex items-start gap-2 text-xs text-gray-300">

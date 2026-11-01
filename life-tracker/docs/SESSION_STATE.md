@@ -1,3 +1,14 @@
+# Issue #1441 — local model language + optional AI v0.54.0 (2026-11-02 Asia/Manila)
+
+- Owner's single-Go authorization covers voice refinement, local AI, bulk B0–B3 and external MCP. **Separate deletion controls for Whisper and AI are mandatory.** Scope is isolated Scratch Preview; dev/main/Production promotion requires separate approval.
+- This task adds opt-in **multilingual Whisper Tiny**, retaining the existing opt-in English model. An explicit MosaicSelect switches languages and restarts the worker; both English and multilingual CacheStorage keys are independently isolated and **Delete downloaded Whisper models** clears both model namespaces and matching prior legacy Whisper requests without touching PWA/task offline data.
+- Optional local Qwen3 0.6B ONNX q4f16 WebGPU command suggester runs in a separate opt-in Worker with pinned revision and cache namespace \`mosaic-local-intent-v1\`. UI includes consent, Prepare, Cancel and **Delete downloaded AI model**, also available with consent disabled. Suggestions are editable text; user must explicitly choose Use suggestion and review or confirm within existing deterministic command UI. AI cannot access RxDB or create, edit, or delete any task; typed parser always works without WebGPU/model. No automatic AI download.
+- Model cards at HF: \`onnx-community/whisper-tiny@ff4177021cc41f7db950912b73ea4fdf7d01d8e7\`, \`onnx-community/Qwen3-0.6B-ONNX@58ca03a5e7b354b480b1a82b34bde8dc7b854cc0\`. Real Brave/Android download, GPU memory, WebGPU inference, accuracy, Taglish and deletion testing remain **manual**, not proven by unit/CI.
+- Previous v0.53.0 stable Preview \`feature/1441-local-whisper-preview-v0524-20261101@db0b887e41690461bfaba79243d1d8fa027586e5\`: canonical #41330577033 SUCCESS, Vercel \`dpl_GkLsJnaFmC1SfXvgRLcKtH76A9oJ\` READY. B0 read-only bulk move visible; B1 pure guarded executor unwired. B1–B3 execution, MCP, and broad model benchmarking remain incomplete; no backend/Production changes.
+- Next verify focused unit/DOM/TypeScript and build, publish task branch + focused CI, squash stable Preview, full canonical and exact-SHA Vercel READY; run manual device acceptance; continue scope on isolated task branches. Keep issue open.
+
+---
+
 # Issue #1441 — bounded optimistic bulk move execution core, not enabled (2026-11-02 Asia/Manila)
 
 - Owner's one-Go authorization remains in force: complete Whisper/mobile voice, optional AI model evaluation, safe B0–B3 bulk commands, secured external MCP on Scratch Preview. Model weights must be individually deletable. Never promote dev/main/Production without explicit user instruction.

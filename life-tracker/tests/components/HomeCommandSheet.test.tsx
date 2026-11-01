@@ -229,3 +229,15 @@ describe('bulk move read-only preview', () => {
     expect(onCreate).not.toHaveBeenCalled();
   });
 });
+
+describe('separate optional local AI model lifecycle', () => {
+  it('does not prepare a model before opt-in and exposes model deletion without opt-in', () => {
+    open();
+    const prepare = screen.getByRole('button', { name: 'Prepare AI' }) as HTMLButtonElement;
+    const remove = screen.getByRole('button', { name: 'Delete downloaded AI model' }) as HTMLButtonElement;
+    expect(prepare.disabled).toBe(true);
+    expect(remove.disabled).toBe(false);
+    fireEvent.click(screen.getByLabelText('Enable optional local AI model'));
+    expect(prepare.disabled).toBe(false);
+  });
+});

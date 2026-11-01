@@ -90,3 +90,20 @@ The local Whisper controls contain **Delete downloaded Whisper** even when recor
 The separate reserved `mosaic-local-intent-v1` namespace is for any *future* optional local AI model; such a model must expose its own individual delete/unload button before shipment. No Qwen/other local AI model is bundled or downloaded in v0.52.5.
 
 Deletion is best-effort within the browser-managed Cache Storage API. Browser HTTP caching of static runtime assets and downloaded files outside that storage remain browser-controlled; no task, note, photo, auth, Appwrite or PWA offline cache is cleared. If deletion is blocked, the UI reports the failure rather than claiming success. Manual acceptance: prepare, record, delete, prepare again; test offline and on Brave/Android with actual storage conditions.
+
+
+## v0.54.0 on-device models
+
+English Whisper remains the default. Choose Multilingual / Filipino to opt into separate
+pinned multilingual Whisper weights; switching stops the prior worker. Delete downloaded
+Whisper models clears both the English and multilingual model storage and the legacy
+Whisper entries only; no task/PWA cache is deleted.
+
+The AI helper is a separate, opt-in Qwen3 0.6B WebGPU model. Prepare AI initiates
+the download only after checking consent. Suggest command returns plain editable text;
+Use suggestion copies it into the editor, but no task mutation occurs without the
+existing Review command and subsequent manual confirmation. Cancel AI unloads the
+worker. Delete downloaded AI model unloads it and deletes only its own CacheStorage
+namespace. Unsupported WebGPU and failed inference preserve typed commands.
+Test permissions, model-download cancellation, offline reuse, deletion and reload,
+and model accuracy on physical Brave/Android devices before acceptance.
