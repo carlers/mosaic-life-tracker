@@ -108,3 +108,12 @@ writes from other clients, disable pre-existing server-side push subscriptions,
 or guarantee an offline cold start begins in solo mode. Core local-first
 replication continues; a later provider-aware core-only capability profile
 must additionally gate social replication pilots and server delivery.
+
+**Stale-command hardening (v0.74.0):** Global social-off also guards
+new message/photo/reaction/task-reply commands and new friend request/accept
+commands at the hook boundary (not only hidden UI). Friend carousel no longer
+starts bio-backfill requests while solo mode is active. Friend block/removal,
+request decline/cancel, message unsend, previous queued operations and
+existing local data remain accessible as safety/data-preserving operations.
+This still does not disable provider replication, existing push subscriptions
+or guarantee an offline cold-start operator mode.
