@@ -41,6 +41,11 @@ export const FEATURE_DISABLE_FLAGS = {
   dayViewLayoutSwitch: 'mosaic_disable_day_view_layout_switch',
   categoryReorder: 'mosaic_disable_category_reorder',
   allSocial: 'mosaic_disable_all_social',
+  diaryEmojiPicker: 'mosaic_disable_diary_emoji_picker',
+  diaryTodayShortcut: 'mosaic_disable_diary_today_shortcut',
+  bucketStepCreation: 'mosaic_disable_bucket_step_creation',
+  bucketStepLinking: 'mosaic_disable_bucket_step_linking',
+  bucketAchievement: 'mosaic_disable_bucket_achievement',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;

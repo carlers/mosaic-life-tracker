@@ -11,6 +11,8 @@ import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 import { useTaskImage } from '../hooks/useTaskImage';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 import { LinkedTaskPhoto } from './LinkedTaskPhoto';
 
 // PhotoSwipe is only downloaded when a linked task photo is opened.
@@ -21,6 +23,9 @@ export function BucketListDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate(), location = useLocation();
   const { items, editItem, setAchieved, deleteItem } = useBucketList();
+  const stepCreationEnabled = useFeatureEnabled('mosaic_disable_bucket_step_creation');
+  const stepLinkingEnabled = useFeatureEnabled('mosaic_disable_bucket_step_linking');
+  const achievementEnabled = useFeatureEnabled('mosaic_disable_bucket_achievement');
   const { links, setLinked } = useBucketTaskLinks();
   const { tasks, addTask, toggleTaskCompletion } = useTasks();
   const { categories } = useCategories();
@@ -49,6 +54,7 @@ export function BucketListDetailPage() {
   const run = async (fn: () => Promise<void>) => { setError(''); try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : 'Something went wrong.'); } };
   const openEdit = () => { if (!goal) return; setName(goal.title); setNote(goal.description); setMode('edit'); setError(''); };
   const openTask = () => {
+    if (!isFeatureEnabled('mosaic_disable_bucket_step_creation') || !isFeatureEnabled('mosaic_disable_bucket_step_linking')) return;
     setTaskTitle('');setCategoryId(categories[0]?.id??'');setDate('');setPendingCreatedTask(null);
     setMode('createTask');setError('');
   };
@@ -57,7 +63,7 @@ export function BucketListDetailPage() {
     try { await run(async()=>{await editItem(goal.id,name,note);setMode('none');}); } finally {setBusy(false);}
   };
   const saveTask = async (e: FormEvent) => {
-    e.preventDefault(); if (!goal||busy) return;
+    e.preventDefault(); if (!goal||busy || !isFeatureEnabled('mosaic_disable_bucket_step_creation') || !isFeatureEnabled('mosaic_disable_bucket_step_linking')) return;
     setBusy(true);setError('');
     try {
       let taskId = pendingCreatedTask;
@@ -100,8 +106,8 @@ export function BucketListDetailPage() {
           <div className="mb-8 rounded-2xl border border-border bg-surface p-4">
             <div className="flex items-center gap-3">
               <span className="flex-1 font-medium">{goal.achieved?'A memory worth keeping':'This dream is yours to live'}</span>
-              <button type="button" disabled={busy} onClick={()=>void run(async()=>{await setAchieved(goal.id,!goal.achieved);setMessage(goal.achieved?'Aspiration reopened.':'You lived it. ✨');})}
-                className="rounded-xl bg-surfaceHighlight px-4 py-2 text-sm font-semibold disabled:opacity-50">{goal.achieved?'Reopen':'I lived it'}</button>
+              {achievementEnabled && <button type="button" disabled={busy} onClick={()=>void run(async()=>{if (!isFeatureEnabled("mosaic_disable_bucket_achievement")) return; await setAchieved(goal.id,!goal.achieved);setMessage(goal.achieved?'Aspiration reopened.':'You lived it. ✨');})}
+                className="rounded-xl bg-surfaceHighlight px-4 py-2 text-sm font-semibold disabled:opacity-50">{goal.achieved?'Reopen':'I lived it'}</button>}
             </div>
           </div>
           <section aria-label="Steps toward this dream">
@@ -126,8 +132,8 @@ export function BucketListDetailPage() {
               </li>;
             })}</ul>}
             <div className="grid grid-cols-2 gap-3">
-              <button type="button" onClick={openTask} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surfaceHighlight px-3 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-current"><Plus size={17}/> New task</button>
-              <button type="button" onClick={()=>{setSearch('');setError('');setMode('linkTask');}} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-current"><Link2 size={17}/> Link existing</button>
+              {stepCreationEnabled && stepLinkingEnabled && <button type="button" onClick={openTask} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surfaceHighlight px-3 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-current"><Plus size={17}/> New task</button>}
+              {stepLinkingEnabled && <button type="button" onClick={()=>{if (!isFeatureEnabled("mosaic_disable_bucket_step_linking")) return; setSearch('');setError('');setMode('linkTask');}} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-current"><Link2 size={17}/> Link existing</button>}
             </div>
           </section>
           <button type="button" onClick={()=>setConfirmDelete(true)} className="mt-12 flex items-center gap-2 text-sm text-muted-foreground focus-visible:underline"><Trash2 size={16}/> Delete aspiration</button>
@@ -161,7 +167,7 @@ export function BucketListDetailPage() {
         <button disabled={busy} className="w-full rounded-xl bg-surfaceHighlight px-4 py-3 font-semibold">Save changes</button>
       </form>
     </BottomSheet>
-    <BottomSheet isOpen={mode==='createTask'} onClose={()=>setMode('none')} title="A step toward your dream" height="auto" preventDismiss={busy}>
+    <BottomSheet isOpen={mode==='createTask' && stepCreationEnabled && stepLinkingEnabled} onClose={()=>setMode('none')} title="A step toward your dream" height="auto" preventDismiss={busy}>
       <form onSubmit={saveTask} className="space-y-4 px-4 pb-9 pt-3">
         <label htmlFor="goal-new-task" className="block text-sm">Task</label>
         <input id="goal-new-task" autoFocus required maxLength={255} value={taskTitle} disabled={Boolean(pendingCreatedTask)} onChange={e=>setTaskTitle(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3" placeholder="Research the trip"/>
@@ -189,7 +195,7 @@ export function BucketListDetailPage() {
         <button disabled={busy||(!pendingCreatedTask&&!taskTitle.trim())} className="w-full rounded-xl bg-surfaceHighlight px-4 py-3 font-semibold disabled:opacity-50">{pendingCreatedTask?'Retry linking task':'Create and link task'}</button>
       </form>
     </BottomSheet>
-    <BottomSheet isOpen={mode==='linkTask'} onClose={()=>setMode('none')} title="Link existing tasks" height="full">
+    <BottomSheet isOpen={mode==='linkTask' && stepLinkingEnabled} onClose={()=>setMode('none')} title="Link existing tasks" height="full">
       <div className="flex h-full min-h-0 flex-col px-4 pb-9 pt-3">
         <label htmlFor="goal-task-search" className="mb-2 block text-sm">Find a task in your Calendar or Backlogs</label>
         <input id="goal-task-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search title or category" className="mb-3 w-full rounded-xl border border-border bg-background px-3 py-3"/>
@@ -198,7 +204,7 @@ export function BucketListDetailPage() {
           {availableTasks.length===0 && <p className="py-8 text-center text-sm text-muted-foreground">No available tasks found.</p>}
           <ul className="space-y-2">{availableTasks.map(task=><li key={task.id}>
             <button type="button" className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left focus-visible:ring-2 focus-visible:ring-current"
-              onClick={()=>void run(async()=>{if(!goal)return;await setLinked(goal.id,task.id,true);setMessage('Linked '+task.title);})}>
+              onClick={()=>void run(async()=>{if(!goal || !isFeatureEnabled('mosaic_disable_bucket_step_linking'))return;await setLinked(goal.id,task.id,true);setMessage('Linked '+task.title);})}>
               <span className="min-w-0"><span className="block truncate text-sm font-medium">{task.title}</span>
               <span className="block text-xs text-muted-foreground">{categoryMap.get(task.categoryId)?.name??'Uncategorized'} · {task.date||'Backlog'} · {task.completed?'Done':'To do'}</span></span>
               <Plus size={17} className="shrink-0"/>

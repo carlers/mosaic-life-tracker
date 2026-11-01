@@ -68,6 +68,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   const taskPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_task_photo_upload');
   const textCopyEnabled = useFeatureEnabled('mosaic_disable_task_text_copy');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const bucketStepLinkingEnabled = useFeatureEnabled('mosaic_disable_bucket_step_linking');
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
   const pendingEditRef = useRef(false);
@@ -224,7 +225,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-base font-medium">Copy Task Text</span>
           </button>}
 
-          {onLinkToBucketList && <button type="button" onClick={() => { onClose(); onLinkToBucketList(); }}
+          {onLinkToBucketList && bucketStepLinkingEnabled && <button type="button" onClick={() => { if (!isFeatureEnabled('mosaic_disable_bucket_step_linking')) return; onClose(); onLinkToBucketList(); }}
             className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-surfaceHighlight text-foreground focus-visible:ring-2 focus-visible:ring-current">
             <span className="w-8 h-8 rounded-full bg-surfaceHighlight flex items-center justify-center"><Link2 size={16} aria-hidden="true"/></span>
             <span className="text-base font-medium">Link to Bucket List</span>
