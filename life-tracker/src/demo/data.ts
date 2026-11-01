@@ -1,7 +1,11 @@
-import { createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
+import { addRxPlugin, createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
+import { categoriesMigrationStrategies, tasksMigrationStrategies } from '../db/migrations';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { tasksSchema, categoriesSchema, type TaskDocument, type CategoryDocument } from '../db/schema';
 import { DEMO_DB_NAME, DEMO_OWNER, makeDemoFixtures } from './fixtures';
+
+addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const metaSchema = {
   title:'Demo metadata',version:0,primaryKey:'id',type:'object',
@@ -32,7 +36,9 @@ async function initialize():Promise<DemoDatabase> {
   const db=await createRxDatabase<DemoCollections>({name:DEMO_DB_NAME,storage:getRxStorageDexie(),multiInstance:true,eventReduce:true});
   try {
     await db.addCollections({
-      tasks:{schema:tasksSchema},categories:{schema:categoriesSchema},metadata:{schema:metaSchema},
+      tasks:{schema:tasksSchema,migrationStrategies:tasksMigrationStrategies},
+      categories:{schema:categoriesSchema,migrationStrategies:categoriesMigrationStrategies},
+      metadata:{schema:metaSchema},
     });
     // The metadata row survives user deletions. An existing demo is never automatically reseeded.
     const initialized=await db.metadata.findOne('initial').exec();

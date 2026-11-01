@@ -22,4 +22,9 @@ const landingHeaders=config.headers.find(h=>h.source==='/')?.headers||[];
 assert(landingHeaders.some(h=>h.key==='X-Frame-Options'&&h.value==='DENY'), 'Landing root must reject embedding');
 assert(landingHeaders.some(h=>h.key==='Content-Security-Policy'&&h.value.includes("frame-ancestors 'none'")), 'Landing root must reject embedding via CSP');
 assert(demoHeaders.some(h=>h.key==='X-Frame-Options'&&h.value==='SAMEORIGIN'), 'Demo must permit same-origin framing');
+for (const path of ['/demo', '/demo/', '/demo/index.html']) {
+  const h=config.headers.find(x=>x.source===path)?.headers||[];
+  assert(h.some(x=>x.key==='Content-Security-Policy'&&x.value.includes("connect-src 'none'")&&x.value.includes("frame-ancestors 'self'")), 'Missing exact demo document CSP: '+path);
+  assert(h.some(x=>x.key==='X-Frame-Options'&&x.value==='SAMEORIGIN'), 'Missing exact demo document XFO: '+path);
+}
 console.log('MOSAIC_DEMO_STATIC_CONTRACT_PASS');
