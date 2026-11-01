@@ -56,6 +56,7 @@ authorization, Scratch checks, or release gates.
 | Tombstones, garbage collection, and stale-client recovery | [Retention procedure](TOMBSTONE_RETENTION.md) |
 | User-controlled backup format and restore behavior | [Backup and restore](BACKUP_RESTORE.md) |
 | Device cache reporting and safe media eviction | [Device storage](DEVICE_STORAGE.md) |
+| Cloud media lifecycle, safe task detach, and private audit | [Cloud media lifecycle](CLOUD_MEDIA_LIFECYCLE.md) |
 | Private Bucket List and canonical task links | [Bucket List links](BUCKET_LIST_LINKS.md) |
 | One-way TodoMate personal-data import and mapping | [TodoMate import](TODOMATE_IMPORT.md) |
 
