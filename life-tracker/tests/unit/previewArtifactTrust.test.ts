@@ -53,6 +53,26 @@ describe('trust boundary: unprivileged CI archive (#592)', () => {
     } finally { await rm(f.dir, { recursive: true, force: true }); }
   });
 
+  it('allows only a bounded optional Whisper WASM archive entry', async () => {
+    const f = await fixture();
+    try {
+      const wasm = join(f.dist, 'assets', 'ort-wasm-simd-threaded.asyncify-CxOG5pUO.wasm');
+      await writeFile(wasm, Buffer.alloc(26_861_770));
+      const inventory = await inventoryBuild(f.dist);
+      const evidence = { ...f.evidence, inventory: { digest: inventory.digest, count: inventory.files.length } };
+      const archive = f.pack('.');
+      expect(inspectGzipTar(archive).some(file => file.name.endsWith('CxOG5pUO.wasm'))).toBe(true);
+      expect(check(archive, evidence, inventory).files).toBe(5);
+
+      await rm(wasm); // Preserve the unchanged 32 MiB total decompression bound.
+      await writeFile(join(f.dist, 'assets', 'other-runtime.wasm'), Buffer.alloc(8 * 1024 * 1024 + 1));
+      expect(() => inspectGzipTar(f.pack('.'))).toThrow(/Oversized tar entry/);
+      await rm(join(f.dist, 'assets', 'other-runtime.wasm'));
+      await writeFile(wasm, Buffer.alloc(28 * 1024 * 1024 + 1));
+      expect(() => inspectGzipTar(f.pack('.'))).toThrow(/Oversized tar entry/);
+    } finally { await rm(f.dir, { recursive: true, force: true }); }
+  });
+
   it('rejects compressed checksum changes and content changes even with a fresh checksum', async () => {
     const f = await fixture();
     try {

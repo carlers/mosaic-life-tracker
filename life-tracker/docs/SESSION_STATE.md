@@ -1,3 +1,13 @@
+# Whisper v0.52.4 Preview CI repair — issue #1441
+Updated: 2026-11-01 Asia/Manila
+
+- PR #1592 merged into stable `feature/1441-local-whisper-preview-v0524-20261101@95c336426d8cc0ca435d48475c9e5f0cebe3cf48` after task focused CI success (#41313327568). Stable full CI #41321625617 exposed a build-artifact trust failure: the optional bundled 26.86 MB `ort-wasm-simd-threaded.asyncify` asset exceeded the ordinary 8 MiB per-file tar limit. App build and blocking startup/Home/PWA budgets passed; no deployment was accepted.
+- Repair on `chatgpt/**`: permit only Vite-hashed `assets/ort-wasm-simd-threaded.asyncify-XXXXXXXX.wasm` up to 28 MiB; preserve 8 MiB for all other files, 32 MiB total decompression, tar structural checks, exact inventory digests and CI authorization fences. Tests cover the expected asset, unrelated oversize and over-limit rejection.
+- Exact stable-SHA isolated Vercel Sandbox: five archive-trust unit tests passed, contracts and diff checks passed, Preview-mode Vite production build/PWA and blocking size checks passed, 200-file archived build verified successfully. No Appwrite changes.
+- Next safe step: pass task focused gate, squash repair into stable Preview, pass full canonical and exact-SHA Scratch Vercel READY. Require real Brave/Android mic, model download, transcription, cancellation and memory acceptance. No dev/main/Production promotion without approval; bulk commands unapproved.
+
+---
+
 # Task checkpoint — #1441 experimental Brave-compatible local Whisper voice v0.52.4
 Updated: 2026-11-01 Asia/Manila
 

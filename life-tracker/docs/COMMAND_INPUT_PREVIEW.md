@@ -78,3 +78,7 @@ This version adds a **separate opt-in Local voice** option on the Task Command s
 **Verification completed in an isolated sandbox:** pinned model q8 loaded and ran inference with the Node CPU backend; the Vite/PWA build and blocking initial/Home gzip budgets passed, with optional aggregate assets exceeding advisory limits; 27 focused UI/parser/speech tests and project contracts passed. **Not yet verified:** exact browser WebAssembly model loading, real Brave/Android microphone PCM handling, model cache/offline reuse, Taglish quality, real-time speed, device thermals/memory.
 
 **User manual test:** use Brave laptop on the immutable Preview URL, opt in to Local voice, note actual model download/time and transcript accuracy, Stop+Cancel and account logout, and confirm no task is written until Create task. For Android use a short phrase and test that insufficient-memory cases do not corrupt other app functionality.
+
+### CI artifact verification for the optional local runtime
+
+The production bundle contains a self-hosted ONNX Runtime WASM asset of approximately 26.9 MB uncompressed. CI's tar integrity validator retains its ordinary 8 MiB per-file limit but accepts only the hashed `assets/ort-wasm-simd-threaded.asyncify-XXXXXXXX.wasm` path with a 28 MiB ceiling. The existing 32 MiB maximum expanded archive, path/type checks, expected SHA, per-file inventory checksums and non-deployable CI trust boundary remain required. Regression tests reject unrelated large files and an oversized runtime. The opt-in runtime remains excluded from the PWA install precache.

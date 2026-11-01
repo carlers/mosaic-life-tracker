@@ -7,6 +7,10 @@ const SAFE_NAME = /^[a-zA-Z0-9.][a-zA-Z0-9._/-]*$/;
 const BLOCK = 512;
 const MAX_TAR_BYTES = 32 * 1024 * 1024;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
+// The optional on-device Whisper WASM runtime exceeds the ordinary file limit.
+// Its exact hashed path and 28 MiB ceiling preserve all other archive guards.
+const OPTIONAL_WHISPER_WASM = /^assets\/ort-wasm-simd-threaded\.asyncify-[a-zA-Z0-9_-]{8}\.wasm$/;
+const MAX_OPTIONAL_WHISPER_WASM_BYTES = 28 * 1024 * 1024;
 const sha256 = data => createHash('sha256').update(data).digest('hex');
 
 function safeName(value) {
@@ -28,11 +32,11 @@ function stringField(block, offset, size) {
   return field.subarray(0, terminator >= 0 ? terminator : size).toString('utf8');
 }
 
-function sizeField(block) {
+function sizeField(block, maximum = MAX_FILE_BYTES) {
   const raw = stringField(block, 124, 12).trim();
   if (!/^[0-7]+$/.test(raw)) throw new Error('Malformed tar size');
   const parsed = parseInt(raw, 8);
-  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > MAX_FILE_BYTES)
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > maximum)
     throw new Error('Oversized tar entry');
   return parsed;
 }
@@ -67,23 +71,26 @@ export function inspectGzipTar(archive, maxLength = MAX_TAR_BYTES, includeData =
     }
     assertTarChecksum(header);
     const kind = header[156];
-    const size = sizeField(header);
     const prefix = stringField(header, 345, 155);
     const base = stringField(header, 0, 100);
     const rawName = prefix ? `${prefix}/${base}` : base;
     if (!rawName || (kind !== 0 && kind !== 48 && kind !== 53))
       throw new Error('Archive contains link, extension or unsupported entry');
+    const normalizedName = kind === 53 ? rawName.replace(/\/$/, '') : rawName;
+    const name = kind === 53 && (normalizedName === '.' || normalizedName === './')
+      ? '.' : safeName(normalizedName);
+    const maxFileBytes = kind !== 53 && OPTIONAL_WHISPER_WASM.test(name)
+      ? MAX_OPTIONAL_WHISPER_WASM_BYTES : MAX_FILE_BYTES;
+    const size = sizeField(header, maxFileBytes);
     if (kind === 53) {
       // GNU tar writes a root directory and file parent directories.
       const directory = rawName.replace(/\/$/, '');
       if (directory !== '.' && directory !== './') {
-        const name = safeName(directory);
         if (seenDirs.has(name) || found.has(name)) throw new Error('Duplicate tar directory');
         seenDirs.add(name);
       }
       if (size !== 0) throw new Error('Directory contains data');
     } else {
-      const name = safeName(rawName);
       if (seenDirs.has(name) || found.has(name)) throw new Error('Duplicate archive file');
       const start = offset + BLOCK;
       if (start + size > tar.length) throw new Error('Truncated tar entry');
