@@ -1,3 +1,13 @@
+# Task checkpoint — #854 integrated public bug reports v0.64.0 on latest dev baseline
+Updated: 2026-11-01 Asia/Manila
+
+- Owner confirmed public GitHub bug reporting working on mobile and authorized adding an internal-reference copy icon and promoting to dev. Merge the full accepted bug report capability, not just the icon, while preserving newer work.
+- New baseline dev@f00c0dd63c9a6907c320db267d9a9d4dfbd97d5b (v0.63.0) includes accepted private chat photos; accepted bug-report Preview@eab8ead35ad67dac7320c672ce6ece16969b9c76. The reconciled v0.64.0 candidate retains migration 017 chat photos, 018 private reports and 019 public GitHub receipt, both chat photo orphan cleanup and private report expiry, and newer dev handlers/schema.
+- Confirmation UI adds an accessible copy icon for the exact internal reference, success checkmark and visible error on clipboard failure; public consent and private diagnostics handling unchanged.
+- Gate: 48 focused unit, 20 handler, two copy-icon DOM tests, lint/contracts, production build and PWA size from previous dev baseline passed. Re-run on latest baseline, focused task CI, canonical exact-SHA stable Preview and READY Vercel. User already approved Preview to dev, but merge only exact verified integration without losing newer dev data. Main and Production remain untouched.
+
+---
+
 # Current task: #1460 accepted chat-photo feature on latest dev v0.63.0
 Updated: 2026-11-01 Asia/Manila
 
