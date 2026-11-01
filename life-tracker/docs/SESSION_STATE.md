@@ -1,3 +1,14 @@
+# Issue #1441 — optional model storage control v0.52.5 (2026-11-02 Asia/Manila)
+
+- Owner authorized completion of voice, local intent evaluation, safe bulk commands, and external MCP against Scratch Preview only; specifically requires both Whisper and any future local AI model to be individually deletable. Preserve typed commands, no silent model downloads, and no dev/main/Production promotion.
+- First scoped task from accepted Whisper stable Preview `feature/1441-local-whisper-preview-v0524-20261101@995a5024b5eba8b5115507e8700988532d857468`: dedicate Transformers.js CacheStorage key `mosaic-local-whisper-v1` for Whisper and reserve distinct `mosaic-local-intent-v1` for a future optional AI model. New local model manager deletes the specified namespace; Whisper deletion additionally removes **only** previous `onnx-community/whisper-tiny.en` weights from legacy shared `transformers-cache`. Cancel terminates worker/releases mic before deleting; unrelated PWA/task/media caches stay untouched.
+- Inline Delete downloaded Whisper button is available without opt-in and immediately unloads the active worker. Failed cache deletion reports a failure; no unsupported full-browser/HTTP runtime cache deletion is claimed. Future optional AI model must use its isolated key and expose its own Delete action before release; no AI model is installed by this task.
+- Isolated sandbox on original stable SHA: 3 new cache-isolation unit tests PASS; existing Whisper DOM tests PASS; contracts and original v0.52.4 production/PWA/size build PASS. v0.52.5 version contract passed; focused CI/canonical and exact Preview deployment pending until publishing.
+- Forward reconciliation experiment against dev@e0094b386d47bcdb02a2bc69c57d02a10935db7c (v0.67.0): resolved six initial file conflicts, installed existing Whisper/Chrono dependencies and verified 13/13 focused units. Combined build exceeded enforced Home gzip budget by 13 B after replacing wand with mic; not accepted and not published. Preserve dev safety gates; re-evaluate from live refs.
+- Next: focused gate on task branch, squash into isolated stable Preview, full canonical and exact SHA Preview; continue #1441 with multilingual/device acceptance and separately staged safe bulk B0-B3 and secure MCP read-only-first. No dev/main/Production promotion.
+
+---
+
 # Whisper v0.52.4 Preview CI repair — issue #1441
 Updated: 2026-11-01 Asia/Manila
 

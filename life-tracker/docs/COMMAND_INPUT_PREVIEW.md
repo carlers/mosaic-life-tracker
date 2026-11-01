@@ -82,3 +82,11 @@ This version adds a **separate opt-in Local voice** option on the Task Command s
 ### CI artifact verification for the optional local runtime
 
 The production bundle contains a self-hosted ONNX Runtime WASM asset of approximately 26.9 MB uncompressed. CI's tar integrity validator retains its ordinary 8 MiB per-file limit but accepts only the hashed `assets/ort-wasm-simd-threaded.asyncify-XXXXXXXX.wasm` path with a 28 MiB ceiling. The existing 32 MiB maximum expanded archive, path/type checks, expected SHA, per-file inventory checksums and non-deployable CI trust boundary remain required. Regression tests reject unrelated large files and an oversized runtime. The opt-in runtime remains excluded from the PWA install precache.
+
+## Optional model deletion — v0.52.5 Preview
+
+The local Whisper controls contain **Delete downloaded Whisper** even when recording consent is disabled. Selecting it stops any ongoing local worker/model preparation, releases microphone capture and removes this Whisper model's browser CacheStorage namespace. The previous v0.52.4 shared Transformers.js cache is selectively cleaned of matching Whisper files without deleting the rest of its contents. After deletion, **Prepare local voice** downloads weights again with explicit opt-in.
+
+The separate reserved `mosaic-local-intent-v1` namespace is for any *future* optional local AI model; such a model must expose its own individual delete/unload button before shipment. No Qwen/other local AI model is bundled or downloaded in v0.52.5.
+
+Deletion is best-effort within the browser-managed Cache Storage API. Browser HTTP caching of static runtime assets and downloaded files outside that storage remain browser-controlled; no task, note, photo, auth, Appwrite or PWA offline cache is cleared. If deletion is blocked, the UI reports the failure rather than claiming success. Manual acceptance: prepare, record, delete, prepare again; test offline and on Brave/Android with actual storage conditions.
