@@ -45,6 +45,9 @@ export const FEATURE_DISABLE_FLAGS = {
   taskQuickReschedule: 'mosaic_disable_task_quick_reschedule',
   taskMoveToBacklog: 'mosaic_disable_task_move_to_backlog',
   taskBucketLink: 'mosaic_disable_task_bucket_link',
+  diaryEmojiPicker: 'mosaic_disable_diary_emoji_picker',
+  bucketAchievementToggle: 'mosaic_disable_bucket_achievement_toggle',
+  bucketStepCreation: 'mosaic_disable_bucket_step_creation',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;
