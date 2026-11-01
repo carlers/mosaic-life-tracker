@@ -1,3 +1,14 @@
+# Task checkpoint — #1478 Phase 3D read-only audit forward-port into v0.60.0 Preview
+Updated: 2026-11-01 Asia/Manila
+
+- Owner requested completion. Latest dev at task start: `50d5afb2cf7d04c3739a482736b815008eea1405`; `main@8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89`. v0.60.0 safe photo detach stable `fix/1478-safe-photo-detach-v0600-20261101@cdd83a60cc9b2eb5cb814f7b79b9a40b0d78e60e`, full canonical #41277877338 SUCCESS, trusted Delivery #41278135526 SUCCESS, exact Vercel READY; no dev promotion.
+- Phase 3B private read-only audit stable `feature/1478-owner-media-audit-20261101@487b1df8b87dab236d8bf51a34d57b34c438743a`, full canonical #41274970237 and Delivery #41275205725 SUCCESS, had not been integrated with newer Diary/Chat Function.
+- Current isolated source-only integration copies audited `owner-media-audit.js`, pure `media-lifecycle.js`, and both handler test suites into v0.60.0, then adds only the read-only owner-audit router action to newer `message-action/main.js`. Forged owner IDs denied before involved-account erasure lookups. No UI, schema or cloud mutations; no new client-facing version. Function deployment still requires Scratch parity, review and explicit approval.
+- Missing production-safe prerequisites: authenticated durable server upload provenance, complete cross-record reference generations, enforced old-PWA/offline write fencing, legacy unknown migration, multi-account Scratch privacy/older-client/crash drills, user consent, durable mark/grace/recheck/receipt worker and explicit destructive authorization. Never use owner ACL subtotals as deletion proof. No automatic orphan sweep, client/cloud deletion, protected-branch or Production change.
+- Verify integrated router and handler tests, backend consumer compatibility, static build-size, focused GitHub CI; stage only an isolated Preview, finish full canonical and trusted READY before handoff.
+
+---
+
 # Task checkpoint — #1478 v0.60.0 isolated Preview browser gate follow-up
 Updated: 2026-11-01 Asia/Manila
 
