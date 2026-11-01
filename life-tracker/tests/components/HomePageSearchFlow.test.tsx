@@ -71,6 +71,14 @@ vi.mock('../../src/hooks/useTasks', () => ({
 vi.mock('../../src/hooks/useCategories', () => ({
   useCategories: () => ({ categories: [ownerCategory], isLoading: false }),
 }));
+vi.mock('../../src/hooks/useHomeOwnerCollections', () => ({
+  useHomeOwnerCollections: () => ({
+    tasks: [ownerTask],
+    categories: [ownerCategory],
+    isTasksLoading: false,
+    isCategoriesLoading: false,
+  }),
+}));
 
 vi.mock('../../src/components/home/HomeTaskSearch', () => ({
   HomeTaskSearch: ({

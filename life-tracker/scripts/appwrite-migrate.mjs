@@ -13,6 +13,7 @@ import { migrateDiaryCreatedAtBackend } from './migrate-diary-created-at.mjs';
 import { migrateDiaryEmojiBackend } from './migrate-diary-emoji.mjs';
 import { migrateDiaryPhotosBackend } from './migrate-diary-photos.mjs';
 import { migrateDiaryReactionsBackend } from './migrate-diary-reactions.mjs';
+import { migrateCategoryRetirementBackend } from './migrate-category-retirement.mjs';
 import { migrateMessageDiaryReferences } from './migrate-message-diary-references.mjs';
 import { migrateMessageChatPhotos } from './migrate-message-chat-photos.mjs';
 import { migrateDiaryQuotePrivacy } from './migrate-diary-quote-privacy.mjs';
@@ -87,6 +88,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '017-message-chat-photos', description: 'Optional private chat media identifiers', run: ({ request, log, sleep }) => migrateMessageChatPhotos({ request, log, sleep }) },
   { id: '018-bug-reports', description: 'Private, server-only bug report inbox', run: ({ request, log }) => migrateBugReportsBackend({ request, log }) },
   { id: '019-public-bug-report-issues', description: 'Server-only GitHub publication receipts', run: ({ request, log, sleep }) => migratePublicBugReportBackend({ request, log, sleep }) },
+  { id: '020-category-retirement', description: 'Date-effective category retirement metadata', run: ({ request, log, sleep }) => migrateCategoryRetirementBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {

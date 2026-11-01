@@ -1,5 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
+import { canAddNewTaskToCategory } from '../lib/categoryLifecycle';
+import { planCategoryTaskMoves } from '../lib/categoryTaskMoves';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
@@ -40,6 +42,10 @@ export function useTasks(enabled = true) {
         return;
       }
       const db = getDatabase();
+      const target = await db.categories.findOne(task.categoryId).exec();
+      if (!target || target.userId !== uid || !canAddNewTaskToCategory(target, task.date)) {
+        throw new Error('Choose an active category for this date');
+      }
       const now = new Date().toISOString();
       const siblingDocs = await db.tasks
         .find({
@@ -74,6 +80,16 @@ export function useTasks(enabled = true) {
       if (doc) {
         const now = new Date().toISOString();
         const uid = user?.$id;
+        if (!uid || doc.userId !== uid || doc.isDeleted) {
+          throw new Error('Task no longer belongs to this account');
+        }
+        if (updates.categoryId && updates.categoryId !== doc.categoryId) {
+          const target = await db.categories.findOne(updates.categoryId).exec();
+          if (!target || target.userId !== uid ||
+              !canAddNewTaskToCategory(target, updates.date ?? doc.date)) {
+            throw new Error('Choose an active category for this date');
+          }
+        }
         const isSharedCompletion = Boolean(uid && doc.userId === uid &&
           typeof updates.completed === 'boolean' && updates.completed !== doc.completed &&
           hasCachedOwnedSharedTask(uid, id));
@@ -172,6 +188,14 @@ export function useTasks(enabled = true) {
         const docsById = new Map(
           affectedDayTasks.map((task) => [task.id, task])
         );
+        for (const assignment of assignments) {
+          const existing = docsById.get(assignment.id);
+          const target = categoryDocs.find(c => c?.id === assignment.categoryId);
+          if (existing && existing.categoryId !== assignment.categoryId &&
+              (!target || !canAddNewTaskToCategory(target, date))) {
+            throw new Error('Cannot move a task into a retired category on this date');
+          }
+        }
         const updatedAt = new Date().toISOString();
 
         await Promise.all(
@@ -212,6 +236,9 @@ export function useTasks(enabled = true) {
         if (!task || task.isDeleted || task.userId !== uid || task.date !== expectedDate ||
             !category || category.isDeleted || category.userId !== uid) {
           throw new Error('Task or category changed while dragging');
+        }
+        if (task.categoryId !== categoryId && !canAddNewTaskToCategory(category, date)) {
+          throw new Error('Cannot move a task into a retired category on this date');
         }
         const siblings = await db.tasks.find({ selector: {
           userId: uid, date, categoryId, isDeleted: false,
@@ -296,6 +323,12 @@ export function useTasks(enabled = true) {
             },
           })
           .exec();
+        const destination = orderedCategories.find(category => category.id === destinationCategoryId);
+        if (affectedDayTasks.some(task => selectedTaskIds.includes(task.id) &&
+            task.categoryId !== destinationCategoryId) &&
+            (!destination || !canAddNewTaskToCategory(destination, date))) {
+          throw new Error('Cannot move tasks into a retired category on this date');
+        }
         const groups = buildBulkMoveTaskOrderGroups(
           affectedDayTasks,
           selectedTaskIds,
@@ -340,6 +373,60 @@ export function useTasks(enabled = true) {
     [user?.$id]
   );
 
+
+  // Explicitly non-destructive: only synchronized/local owner tasks available to
+  // this device are migrated. Source category is retained to protect offline peers.
+  const moveCategoryTasks = useCallback(async (sourceId: string, destinationId: string) => {
+    const uid = user?.$id;
+    if (!uid || !sourceId || !destinationId || sourceId === destinationId) {
+      throw new Error('Choose a different destination category');
+    }
+    const db = getDatabase();
+    const [source, destination] = await Promise.all([
+      db.categories.findOne(sourceId).exec(),
+      db.categories.findOne(destinationId).exec(),
+    ]);
+    if (!source || !destination || source.isDeleted || destination.isDeleted ||
+        source.userId !== uid || destination.userId !== uid) {
+      throw new Error('Category changed; reload and choose another destination');
+    }
+    if (destination.retiredOn) {
+      throw new Error('Choose a category that is active on all dates');
+    }
+    const [sourceTasks, destinationTasks] = await Promise.all([
+      db.tasks.find({ selector: { userId: uid, categoryId: sourceId, isDeleted: false } }).exec(),
+      db.tasks.find({ selector: { userId: uid, categoryId: destinationId, isDeleted: false } }).exec(),
+    ]);
+    if (sourceTasks.some(task => !canAddNewTaskToCategory(destination, task.date))) {
+      throw new Error('Destination is retired for an affected task date');
+    }
+    const assignments = planCategoryTaskMoves(sourceTasks, destinationTasks, destinationId, source.visibility);
+    const docs = new Map(sourceTasks.map(task => [task.id, task]));
+    let moved = 0;
+    for (const assignment of assignments) {
+      const task = docs.get(assignment.id);
+      if (!task) throw new Error('Task changed while moving; review before retrying');
+      try {
+        await task.incrementalModify(current => {
+          if (current.userId !== uid || current.isDeleted || current.categoryId !== sourceId) {
+            throw new Error('Task changed while moving; review before retrying');
+          }
+          return {
+            ...current,
+            categoryId: assignment.categoryId,
+            order: assignment.order,
+            visibility: assignment.visibility,
+            updatedAt: new Date().toISOString(),
+          };
+        });
+        moved++;
+      } catch {
+        throw new Error(`Moved ${moved} of ${assignments.length} tasks. Review and retry remaining tasks.`);
+      }
+    }
+    // useSheetSaveAction accepts Promise<void>; progress is reported on errors.
+  }, [user?.$id]);
+
   return {
     tasks,
     isLoading,
@@ -350,5 +437,6 @@ export function useTasks(enabled = true) {
     reorderTasks,
     moveTasksToCategory,
     moveTaskAcrossDays,
+    moveCategoryTasks,
   };
 }
