@@ -24,6 +24,7 @@ interface MessageComposerProps {
   onOpenStickers?: () => void;
   onPrepareStickers?: () => void;
   disabled?: boolean;
+  textEnabled?: boolean;
   placeholder?: string;
   replyTo?: ReplyToContext | null;
   replyPhotoFileId?: string;
@@ -51,6 +52,7 @@ export const MessageComposer = forwardRef<
       onOpenStickers,
       onPrepareStickers,
       disabled = false,
+      textEnabled = true,
       placeholder = 'Message…',
       replyTo = null,
       replyPhotoFileId,
@@ -92,7 +94,7 @@ export const MessageComposer = forwardRef<
 
     const handleSend = async () => {
       const trimmed = value.trim();
-      if ((!trimmed && !photo) || disabled || sendingRef.current ||
+      if ((!trimmed && !photo) || disabled || (!textEnabled && !photo) || sendingRef.current ||
           Boolean(photo && trimmed.length > MAX_LENGTH - 8)) return;
       sendingRef.current = true;
       try {
@@ -172,7 +174,8 @@ export const MessageComposer = forwardRef<
               value={value}
               onChange={(e) => setValue(e.target.value.slice(0, MAX_LENGTH))}
               onKeyDown={handleKeyDown}
-              placeholder={placeholder}
+              placeholder={!textEnabled && !photo ? 'Text messages paused' : placeholder}
+              disabled={!textEnabled && !photo}
               rows={1}
               aria-label="Message"
               aria-describedby={showCounter ? counterId : undefined}
@@ -196,7 +199,7 @@ export const MessageComposer = forwardRef<
               e.preventDefault();
               e.stopPropagation();
             }}
-            disabled={(!value.trim() && !photo) || disabled || remaining < 0}
+            disabled={(!value.trim() && !photo) || disabled || (!textEnabled && !photo) || remaining < 0}
             className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
             aria-label="Send"
           >

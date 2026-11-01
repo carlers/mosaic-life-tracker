@@ -18,11 +18,18 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   markCachedNotificationsRead: vi.fn().mockResolvedValue(undefined),
   retentionSettings: {} as Record<string, unknown>,
+  pausedControls: new Set<string>(),
 }));
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mocks.navigate,
   useLocation: () => ({ key: 'default', state: null, search: mocks.locationSearch }),
+}));
+vi.mock('../../src/hooks/useFeatureEnabled', () => ({
+  useFeatureEnabled: (key: string) => !mocks.pausedControls.has(key),
+}));
+vi.mock('../../src/lib/featureControls', () => ({
+  isFeatureEnabled: (key: string) => !mocks.pausedControls.has(key),
 }));
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({
@@ -167,6 +174,7 @@ describe('NotificationsPage', () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-10T12:00:00.000Z'));
     mocks.userId = 'user_b';
     mocks.retentionSettings = {};
+    mocks.pausedControls.clear();
     mocks.connectivityStatus = 'online';
     mocks.fetchNotifications.mockReset();
     mocks.fetchNotificationById.mockReset();
@@ -440,6 +448,25 @@ describe('NotificationsPage', () => {
     render(<NotificationsPage preview />);
     expect(await screen.findByText('sent you a message')).toBeInTheDocument();
     expect(screen.queryByText(/Private information should not be visible/)).not.toBeInTheDocument();
+  });
+
+  it('pauses new alert reactions and replies without hiding existing task activity', async () => {
+    mocks.connectivityStatus = 'offline';
+    mocks.getCachedNotifications.mockResolvedValue({
+      items: [notification()],
+      nextCursor: '',
+      fetchedAt: '2026-10-07T10:00:01.000Z',
+    });
+    mocks.pausedControls.add('mosaic_disable_alert_reactions');
+    mocks.pausedControls.add('mosaic_disable_alert_replies');
+    const { rerender } = render(<NotificationsPage />);
+    expect(await screen.findByText('Ship alerts')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'React to Ship alerts' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reply to Ship alerts' })).not.toBeInTheDocument();
+    mocks.pausedControls.clear();
+    rerender(<NotificationsPage />);
+    expect(screen.getByRole('button', { name: 'React to Ship alerts' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reply to Ship alerts' })).toBeInTheDocument();
   });
 
 });

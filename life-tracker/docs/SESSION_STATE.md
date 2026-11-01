@@ -1,3 +1,11 @@
+# #1026 — Chat and Alerts optional controls v0.73.0
+
+- Four reversible opt-out flags: new Chat plain-text messages, Chat reply initiation, new Alerts task reactions and new Alerts replies. Existing messages, queued delivery, Chat photos/stickers, Unsend, notification read and historical reaction badges remain available. Flags are client presentation/initiation, not server authorization or guaranteed offline revocation.
+- Base v0.72.0 stable Preview exact source tree e177ee4eaac806fe5a755f838dd5aad4eb722605. v0.72 canonical acceptance/Preview delivery must be verified independently. No backend/schema/Function changes, dev/main/Production promotion remains unapproved.
+- Next: Node22 tests/lint/version/contracts/build/size, task focused CI, stable Preview full canonical/trusted Scratch, inactive PostHog registrations, owner device acceptance. Provider-aware single-user capability shutdown is still a separate architectural milestone.
+
+---
+
 # #1026 — Diary and Bucket optional controls v0.72.0 (2026-11-02 Asia/Manila)
 
 - Three reversible optional flags: Diary emoji picker, Bucket achievement toggle, Bucket goal-linked task creation. The existing task-to-Bucket link flag also disables the Bucket detail Link existing entry/handler. Diary social reaction/reply initiation additionally respects the single-user operator switch while preserving historical reaction display.

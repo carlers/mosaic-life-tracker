@@ -48,6 +48,10 @@ project/rollout determines which clients receive the change.
 | Diary emoji picker | `mosaic_disable_diary_emoji_picker` | Hide new Diary emoji selection while keeping saved emoji and text |
 | Bucket achievement toggle | `mosaic_disable_bucket_achievement_toggle` | Pause Mark achieved/Reopen initiation; preserve achieved status, edit and deletion |
 | Bucket step creation | `mosaic_disable_bucket_step_creation` | Hide new goal-linked task creation; existing steps and ordinary task creation remain |
+| Chat text sending | `mosaic_disable_chat_text_sending` | Pause new plain-text sends; existing messages and queued sends, photo/stickers and Unsend remain available |
+| Chat replies | `mosaic_disable_chat_replies` | Hide new Reply actions and quoted composer, preserve historic replies and normal message sending |
+| Alerts reactions | `mosaic_disable_alert_reactions` | Hide new task activity reactions, retain existing reaction badges read-only |
+| Alerts replies | `mosaic_disable_alert_replies` | Hide new task activity replies, retain incoming Alerts and read history |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.
