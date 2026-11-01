@@ -1,3 +1,11 @@
+# #857 Scratch rebridge after concurrent Function deployment (2026-11-01)
+
+- Read back active Function deployment `6ae6dbd5b77ac0f065e3` (16 source files, ready). Exact 16 archived file Git blob hashes validated. It replaced our earlier Scratch guard and omitted `categories.retired_on` and the CAS legacy delete fence.
+- This integration branch preserves the active deployment's **other 15 exact file blobs** without replacing any newer chat photos/bug reports. Only `owner-write-cas.js` is the already focused-green additive `retired_on` and owner-fenced `deleted=true` refusal at Git blob `63bbb9c9f3899a5dc0b1d497f8fd8df6092e117f`.
+- Need build and inactive Function deployment and exact active-source preflight before activation; no Production changes. Do not merge into unrelated feature branches or dev/main without reconciliation.
+
+---
+
 # Scratch Function bridge for #857, preserving #1460 runtime (2026-11-01)
 
 - Parent: Git-owned #1460 privacy-preview function source 19c4a716df424b016f87452b19778fb9051bb2b8; archived Scratch deployment `6ae63655cb10b393c5e3` source files match this exact git tree (verified all 15 Git blobs).
