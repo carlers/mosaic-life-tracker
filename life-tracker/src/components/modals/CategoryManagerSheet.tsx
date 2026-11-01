@@ -423,7 +423,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                     <Button disabled={!moveToId || isSaving || tasksLoading || categoriesLoading ||
                         !taskCounts[cat.id] || !orderedCategories.some(c => c.id === moveToId && !c.retiredOn)}
                       onClick={() => void save(
-                        () => moveCategoryTasks(cat.id, moveToId),
+                        async () => { await moveCategoryTasks(cat.id, moveToId); },
                         () => { setMoveId(null); setMoveToId(''); },
                         'Task move incomplete. Some tasks may have moved; review the remaining tasks before retrying.'
                       )}>
