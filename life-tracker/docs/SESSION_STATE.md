@@ -1,3 +1,20 @@
+# #857 Scratch category lifecycle destructive-operation source bridge — 2026-11-01
+
+- Scratch active shared Function at start: `message-action@6ae753f41003d59c5bc7`, built from the exact 19-file reconciled media/bug-report source `chatgpt/857-scratch-reconciled-owner-create-20261101@9c600e2eca513e255573e49a1f35574ffe8a0df7`. This branch adds only lifecycle operation/owner ACL migration handlers plus CAS/owner create/import guards and regression tests. Preserve unrelated live media, bug reports, notifications, friendships and account-deletion handlers.
+- The protected category Preview candidate `chatgpt/857-resumable-lifecycle-20261101@9c2d0a01e6ee35f47bbd55075dbe5d9fedd2f20e` implements matching v0.56.3 category-specific form. Scratch `categories.lifecycle_state` and `categories.lifecycle_target` are available optional empty-default columns.
+- Destructive action MUST remain disabled until table `create("users")` is revoked for tasks/categories AND all existing owner task/category rows have direct mutation grants removed; verify with signed test accounts and endpoint, then flip `CATEGORY_DESTRUCTIVE_ENABLED=true` only after ACL acceptance. Current code defaults FALSE.
+- Use Appwrite Updated for Scratch-only backend deployment from a reviewed exact live-source archive. Never promote to dev/main/Production. Issue #857 remains open until signed cascade tests and final device acceptance.
+
+---
+
+# #857 Scratch shared Function source reconciliation — 2026-11-01
+
+- Exact live-source baseline: all 17 JS files in active Scratch message-action deployment `6ae72cdf493f8a25d2d9` match `feature/1478-media-integrated-v0650-20261101@51d2f366d32c38fa8c034c326af51b13b947461d` byte-for-byte by SHA-256. Bridge adds only `create_owner_row`, `get_category_lifecycle_preflight`, retirement-safe CAS and owner-checked TodoMate batch; preserves media, photos, bug reports and notifications.
+- Bridge task `chatgpt/857-scratch-reconciled-owner-create-20261101`; local handler suite 282/282 PASS across 27 files, changed-file lint and JavaScript syntax PASS. Deploy inactive reviewed Function via Appwrite Updated only after focused GitHub CI; recheck currently active Scratch deployment before activation. No schema/ACL/data or Production mutations; no dev/main promotion.
+- Current Scratch tasks/categories still grant `create("users")` and existing row owner direct update/delete; old offline PWAs bypass Function. Destructive Move+Delete/Delete-All remain disabled pending safe old-client queue cutover, owner-serialized transaction and signed multi-device tests. Do not claim full #857 complete.
+
+---
+
 # Task checkpoint — #1478 v0.65.0 current-dev media lifecycle integration, Scratch approval
 Updated: 2026-11-01 Asia/Manila
 
