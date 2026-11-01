@@ -53,6 +53,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   const [isRemoving, setIsRemoving] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const removePendingRef = useRef(false);
   const logPrefix = variant === 'profile' ? '[EditProfileImage]' : '[ImagePicker]';
 
   useSheetReset(isOpen, () => {
@@ -63,7 +64,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || isUploading || isRemoving || removePendingRef.current) return;
     if (variant === 'task' && !isFeatureEnabled('taskPhotoUpload')) {
       setError('Task photo uploads are currently unavailable.');
       return;
@@ -86,7 +87,8 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   };
 
   const handleRemove = async () => {
-    if (isRemoving || isUploading) return;
+    if (removePendingRef.current || isRemoving || isUploading) return;
+    removePendingRef.current = true;
     setIsRemoving(true);
     setError('');
     try {
@@ -96,6 +98,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
       setError('Failed to remove image. Please try again.');
       console.error(`${logPrefix} Remove failed:`, err);
     } finally {
+      removePendingRef.current = false;
       setIsRemoving(false);
     }
   };
@@ -134,6 +137,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
           <input
             ref={fileInputRef}
             type="file"
+            disabled={isUploading || isRemoving}
             accept="image/*"
             onChange={handleFileSelect}
             className="hidden"
