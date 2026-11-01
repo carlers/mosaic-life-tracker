@@ -24,17 +24,33 @@ function recognizer(): SpeechConstructor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+/** Brave can expose Web Speech constructors without a usable transcription provider. */
+type BraveNavigator = Navigator & { brave?: { isBrave?: () => Promise<boolean> | boolean } };
+export async function detectBraveBrowser(nav: BraveNavigator): Promise<boolean> {
+  try {
+    return typeof nav.brave?.isBrave === 'function' && await nav.brave.isBrave() === true;
+  } catch {
+    // Browser identification is advisory and must not prevent typed commands.
+    return false;
+  }
+}
+
+export const BRAVE_SPEECH_GUIDANCE =
+  'Brave may not have an available speech-to-text service, even with a working microphone and internet. Try Chrome for voice input, or use device dictation or typing in the command field.';
+
 /** Separate microphone denial from a blocked/unavailable speech service. */
-export function speechRecognitionErrorMessage(code: string | undefined): string {
+export function speechRecognitionErrorMessage(code: string | undefined, isBrave = false): string {
   switch (code) {
     case 'not-allowed':
       return 'Microphone access is blocked. Allow Microphone for this Preview site in browser settings, then try again.';
     case 'service-not-allowed':
+      if (isBrave) return BRAVE_SPEECH_GUIDANCE;
       return 'The browser did not allow its speech-recognition service. Microphone permission may be fine; try your device keyboard dictation or type the command.';
     case 'audio-capture':
       return 'No usable microphone was found. Check microphone hardware or another app using the microphone.';
     case 'network':
-      return 'The browser speech service could not connect. Check internet access or use typed input.';
+      if (isBrave) return BRAVE_SPEECH_GUIDANCE;
+      return 'Your browser could not reach its speech-to-text provider. This can happen even if internet access is working. Try Chrome, use device dictation, or type your command.';
     case 'language-not-supported':
       return 'The selected speech language is not supported by your browser. Use typed input.';
     case 'no-speech':
@@ -49,6 +65,21 @@ export function speechRecognitionErrorMessage(code: string | undefined): string 
 /** Browser-provided recognition may use network services. */
 export function useBrowserSpeechInput(onTranscript: (text: string) => void) {
   const [listening, setListening] = useState(false);
+  const [isBrave, setIsBrave] = useState(false);
+  const isBraveRef = useRef(false);
+  useEffect(() => {
+    let mounted = true;
+    if (typeof navigator !== 'undefined') {
+      void detectBraveBrowser(navigator as BraveNavigator).then(result => {
+        if (!mounted) return;
+        if (result) {
+          isBraveRef.current = true;
+          setIsBrave(true);
+        }
+      });
+    }
+    return () => { mounted = false; };
+  }, []);
   const [error, setError] = useState('');
   const live = useRef<BrowserRecognition | null>(null);
   const callback = useRef(onTranscript);
@@ -90,7 +121,7 @@ export function useBrowserSpeechInput(onTranscript: (text: string) => void) {
     };
     rec.onerror = (event) => {
       if (live.current !== rec) return;
-      setError(speechRecognitionErrorMessage(event.error));
+      setError(speechRecognitionErrorMessage(event.error, isBraveRef.current));
     };
     rec.onend = () => {
       if (live.current === rec) {
@@ -110,5 +141,5 @@ export function useBrowserSpeechInput(onTranscript: (text: string) => void) {
       return false;
     }
   }, []);
-  return { available: Boolean(recognizer()), listening, error, start, stop };
+  return { available: Boolean(recognizer()), isBrave, listening, error, start, stop };
 }

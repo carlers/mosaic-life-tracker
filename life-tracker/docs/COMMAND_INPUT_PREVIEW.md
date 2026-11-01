@@ -51,3 +51,14 @@ Mosaic now distinguishes not-allowed (microphone/browser security permission den
 6. Test Stop, Android Back, deny permission, offline typing, and the installed PWA. Device-level speech acceptance is outstanding.
 
 Bulk execution is not enabled. See [bulk-command plan](COMMAND_BULK_PLAN.md).
+
+
+## Brave recognition feedback — v0.52.3 Preview
+
+The microphone header fix in v0.52.2 resolves a site-level permission denial, but does not supply a transcription engine. On Brave desktop, the `webkitSpeechRecognition` / `SpeechRecognition` constructor can be present while the service used for transcription is unavailable. Its `network` callback can therefore indicate **provider incompatibility even with internet access and a working microphone**. Brave's on-device Web Speech support is under active development (brave/brave-browser#56487 as of 2026-11-01); do not promise that every Brave release can run it.
+
+Mosaic now checks Brave's documented `navigator.brave.isBrave()` API as an **advisory only**. It does not use a Chrome-like User-Agent guess or preemptively disable voice for future compatible versions. It displays specific guidance before voice capture and on `network` or `service-not-allowed` events. Browser permission denial still has its original separate guidance. Typed input and the mandatory review/create step remain available regardless of detection.
+
+For browser transcription today, use current Google Chrome with browser microphone permission; for Brave, use any available device/OS keyboard dictation to fill Mosaic's command textarea, or type. No new third-party audio upload, credentials, background recording, Appwrite schema or backend were added.
+
+**Potential future option (not implemented/approved):** opt-in on-device speech-to-text for Brave and other browsers independent of a browser vendor's backend. Requires a sandboxed model/worker, explicit model download and storage/CPU budgets, accessibility/Android memory testing, security review and privacy controls before any integration. Do not silently download language models. Bulk-command execution remains out of scope.
