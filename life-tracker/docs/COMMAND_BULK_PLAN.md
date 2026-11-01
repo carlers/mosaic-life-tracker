@@ -1,6 +1,6 @@
 # Natural-language bulk commands — design proposal (#1441)
 
-**Status:** Planning only. No bulk parser, queue, batch execution, or release authorization. The initial task-command Preview remains single-task and explicitly-confirmed.
+**Status:** B0 read-only parser and preview implemented in the v0.53.0 dedicated Preview candidate. Bulk mutation, queue, execution, undo and production promotion remain outstanding. Single-task create still requires explicit confirmation.
 
 ## Goal and semantics
 
@@ -47,4 +47,4 @@ Support commands such as:
 
 Unit tests: lower-case categories, overlapping category names in titles, owner-switch, malicious/untrusted transcript, all-vs-current-day, backlogs vs category, mixed completed/unfinished, none/many/too many results, duplicate IDs, deleted categories and stale documents, repeated confirmation and rapid double-click, offline/reload, concurrent tabs, partial failure and retry, undo after unrelated edits, follower/public visibility, routine/reminder and sync convergence. Browser tests: sheet focus, virtualized long previews, mobile accessibility, Android Back, voice transcript correction. Never weaken the existing CI/Appwrite/Production gates.
 
-**The current issue #1441's bulk operations remain disabled.** Implementation requires an explicit follow-up authorization and a new Preview candidate. No dev/main/Production promotion without separate approval.
+**B0 shows read-only matches for narrowly parsed bulk moves, but execution remains disabled.** Implementation requires an explicit follow-up authorization and a new Preview candidate. No dev/main/Production promotion without separate approval.

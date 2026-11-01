@@ -2,7 +2,8 @@ import React, { useMemo, useRef, useState } from 'react';
 import { CalendarDays, Mic, MicOff, Sparkles } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { MosaicSelect } from '../ui/MosaicSelect';
-import type { CategoryDocument } from '../../db/schema';
+import type { CategoryDocument, TaskDocument } from '../../db/schema';
+import { previewBulkMoveCommand, type BulkMoveDraft } from '../../lib/taskBulkCommandPreview';
 import { parseTaskCommandPreview, isValidCommandDate } from '../../lib/taskCommands';
 import { ADD_TASKS_TO_TOP_SETTING_KEY } from '../../lib/preferences';
 import { useSettings } from '../../hooks/useSettings';
@@ -20,6 +21,7 @@ type Props = {
   onClose: () => void;
   ownerId: string | null;
   categories: CategoryDocument[];
+  tasks?: TaskDocument[];
   isLoading: boolean;
   onCreate: (task: TaskDraft, position: 'top' | 'bottom') => Promise<void>;
 };
@@ -34,10 +36,11 @@ function localDate(offset: number) {
 }
 
 export const HomeCommandSheet: React.FC<Props> = ({
-  isOpen, onClose, ownerId, categories, isLoading, onCreate,
+  isOpen, onClose, ownerId, categories, tasks = [], isLoading, onCreate,
 }) => {
   const [input, setInput] = useState('');
   const [reviewState, setReviewState] = useState<Review | null>(null);
+  const [bulkPreview, setBulkPreview] = useState<BulkMoveDraft | null>(null);
   const review = reviewState?.ownerId === ownerId ? reviewState : null;
   const [message, setMessage] = useState('');
   const [working, setWorking] = useState(false);
@@ -51,11 +54,13 @@ export const HomeCommandSheet: React.FC<Props> = ({
   const voice = useBrowserSpeechInput(transcript => {
     setInput(transcript);
     setReviewState(null);
+    setBulkPreview(null);
     setMessage('Transcript captured. Review the words before creating anything.');
   });
   const localVoice = useLocalWhisperInput(transcript => {
     setInput(transcript);
     setReviewState(null);
+    setBulkPreview(null);
     setMessage('Local transcript captured. Review before creating a task.');
   });
   const [localConsent, setLocalConsent] = useState(false);
@@ -73,6 +78,14 @@ export const HomeCommandSheet: React.FC<Props> = ({
     }
     if (isLoading || !ownerId) {
       setMessage('Your categories are still loading.');
+      return;
+    }
+    const bulk = previewBulkMoveCommand(input, ownerId, ownedCategories, tasks);
+    setBulkPreview(bulk);
+    if (bulk) {
+      setReviewState(null);
+      setMessage(bulk.status === 'preview' ?
+        'Read-only local preview. Global task sync is not verified; bulk execution is disabled.' : bulk.reason);
       return;
     }
     const parsed = parseTaskCommandPreview(input, ownedCategories.map(c => c.name));
@@ -148,7 +161,7 @@ export const HomeCommandSheet: React.FC<Props> = ({
           <textarea id="command-input" value={input} rows={3} maxLength={1024}
             placeholder="Add do physics to School"
             className={fieldClass}
-            onChange={e => { setInput(e.target.value); setReviewState(null); setMessage(''); }} />
+            onChange={e => { setInput(e.target.value); setReviewState(null); setBulkPreview(null); setMessage(''); }} />
           <p className="mt-1.5 text-xs text-gray-400">
             Dates are optional. Example: Add buy milk to Errands tomorrow.
           </p>
@@ -232,13 +245,37 @@ export const HomeCommandSheet: React.FC<Props> = ({
         ) : (
           <p className="text-xs text-gray-400">Voice input is unavailable in this browser. Typed commands still work.</p>
         )}
-        {!review ? (
+        {bulkPreview?.status === 'preview' && (
+          <section aria-label="Bulk move preview" className="space-y-2 rounded-xl border border-white/20 p-3">
+            <p className="text-sm font-semibold">Bulk move — read-only preview</p>
+            <p className="text-sm text-gray-300">
+              {bulkPreview.sourceCategory.name} → {bulkPreview.destination.type === 'backlogs' ?
+                'Backlogs (unscheduled)' : bulkPreview.destination.category.name}
+            </p>
+            <p className="text-xs text-gray-300">
+              {bulkPreview.matches.length} local matching tasks; {bulkPreview.noOps.length} already at destination.
+              This does not prove all cloud tasks are synced. No bulk changes can be confirmed here yet.
+            </p>
+            <ul className="max-h-52 space-y-1 overflow-y-auto text-xs text-gray-300">
+              {bulkPreview.matches.slice(0, 40).map(t => (
+                <li key={t.id} className="rounded-md border border-white/10 p-2">
+                  {t.title} · {t.date || 'Backlogs'} · {t.completed ? 'Completed' : 'Uncompleted'}
+                  {bulkPreview.noOps.some(n => n.id === t.id) ? ' · No change' : ''}
+                </li>
+              ))}
+            </ul>
+            {bulkPreview.matches.length > 40 && <p className="text-xs text-amber-200">
+              Showing 40 of {bulkPreview.matches.length} matching local tasks. No tasks were changed.
+            </p>}
+          </section>
+        )}
+        {!review && !bulkPreview ? (
           <button type="button" disabled={!input.trim() || working || isLoading || !ownerId}
             onClick={reviewCommand}
             className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40">
             Review command
           </button>
-        ) : (
+        ) : review ? (
           <form onSubmit={submit} className="space-y-4 rounded-xl border border-white/10 bg-[#191919] p-3">
             <p className="text-sm font-semibold">Review task</p>
             <div>
@@ -309,7 +346,7 @@ export const HomeCommandSheet: React.FC<Props> = ({
               </button>
             </div>
           </form>
-        )}
+        ) : null}
         {message && <p role="status" className="text-sm text-gray-300">{message}</p>}
       </div>
     </BottomSheet>

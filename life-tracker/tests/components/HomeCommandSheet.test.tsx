@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { HomeCommandSheet } from '../../src/components/home/HomeCommandSheet';
-import type { CategoryDocument } from '../../src/db/schema';
+import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
   BottomSheet: ({ isOpen, children }: { isOpen: boolean; children: React.ReactNode }) =>
@@ -205,6 +205,27 @@ describe('local speech model consent', () => {
     expect(onCreate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('checkbox', {name:/Enable optional local model download and microphone recording/}));
     expect(prepare).toHaveProperty('disabled',false);
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('bulk move read-only preview', () => {
+  it('shows only owned tasks, does not expose a write action', () => {
+    const makeTask = (id: string, owner = 'owner'): TaskDocument => ({
+      id, userId: owner, categoryId: 'school', date: '2026-11-02', completed: false,
+      isDeleted: false, title: id, order: 0, createdAt: '', updatedAt: '',
+      visibility: 'private',
+    });
+    const { onCreate } = open({ tasks: [makeTask('my physics'), makeTask('friend secret', 'other')] });
+    fireEvent.change(screen.getByLabelText('Command'), {
+      target: { value: 'move all unfinished tasks from School to Backlogs' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Review command' }));
+    expect(screen.getByRole('region', { name: 'Bulk move preview' })).toBeTruthy();
+    expect(screen.getByText(/1 local matching tasks/)).toBeTruthy();
+    expect(screen.getByText(/my physics/)).toBeTruthy();
+    expect(screen.queryByText(/friend secret/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Create task' })).toBeNull();
     expect(onCreate).not.toHaveBeenCalled();
   });
 });
