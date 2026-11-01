@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { getDatabase } from '../db/database';
+import { isFeatureEnabled } from '../lib/featureControls';
 import type { BucketListDocument } from '../db/schema';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
@@ -21,6 +22,7 @@ export function useBucketList() {
   const userId = user?.$id;
   const createItem = useCallback(async (title: string, description = '') => {
     if (!userId) throw new Error('Sign in to manage your Bucket List.');
+    if (!isFeatureEnabled('mosaic_disable_bucket_list_creation')) throw new Error('New Bucket List aspirations are temporarily unavailable.');
     const fields = validateBucketListInput(title, description);
     const now = new Date().toISOString();
     await getDatabase().bucketList.insert({

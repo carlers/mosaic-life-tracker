@@ -12,6 +12,7 @@ import { FriendActionSheet } from './FriendActionSheet';
 import { useFriends } from '../../hooks/useFriends';
 import { useProfileLookup } from '../../hooks/useProfileLookup';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../lib/featureControls';
 import { useMyProfile } from '../../hooks/useMyProfile';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import {
@@ -51,6 +52,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onFeedback,
 }) => {
   const friendDiscoveryEnabled = useFeatureEnabled('mosaic_disable_friend_discovery');
+  const friendRequestsEnabled = useFeatureEnabled('mosaic_disable_friend_requests');
   const location = useLocation();
   const friendsSectionRef = useRef<HTMLElement>(null);
   const { profile, isLoading: profileLoading } = useMyProfile();
@@ -124,7 +126,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
   const handleAdd = useCallback(
     async (p: ProfileCard) => {
-      if (!profile) return;
+      if (!profile || !isFeatureEnabled('mosaic_disable_friend_requests')) return;
       setSendingTo(p.user_id);
       try {
         const result = await sendRequest(
@@ -237,6 +239,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                 profile={p}
                 relationship={relationshipFor(p)}
                 onAdd={handleAdd}
+                allowRequests={friendRequestsEnabled}
                 isSending={sendingTo === p.user_id}
               />
             ))}
@@ -285,7 +288,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             </div>
           ) : friends.length === 0 ? (
             <p className="text-xs text-gray-400 px-2">
-              No friends yet.{friendDiscoveryEnabled ? ' Search above to add someone.' : ''}
+              No friends yet.{friendDiscoveryEnabled && friendRequestsEnabled ? ' Search above to add someone.' : ''}
             </p>
           ) : (
             friends.map((f) => (

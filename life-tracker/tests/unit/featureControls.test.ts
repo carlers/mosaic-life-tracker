@@ -16,7 +16,7 @@ describe('operational feature controls', () => {
   beforeEach(() => disabled.clear());
 
   it('starts with all supported optional features available', () => {
-    expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(18);
+    expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(21);
     for (const feature of Object.keys(FEATURE_DISABLE_FLAGS) as Array<keyof typeof FEATURE_DISABLE_FLAGS>) {
       expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS[feature])).toBe(true);
     }
@@ -24,7 +24,7 @@ describe('operational feature controls', () => {
 
   it('binds every operator control to a unique, canonical, non-empty PostHog key', () => {
     const flagKeys = Object.values(FEATURE_DISABLE_FLAGS);
-    expect(flagKeys).toHaveLength(18);
+    expect(flagKeys).toHaveLength(21);
     expect(new Set(flagKeys).size).toBe(flagKeys.length);
     for (const flag of flagKeys) {
       expect(flag).toMatch(/^mosaic_disable_[a-z]+(?:_[a-z]+)*$/);
@@ -69,6 +69,13 @@ describe('operational feature controls', () => {
       FEATURE_DISABLE_FLAGS.dayViewDiaryPanel,
     ]) {
       expect(isFeatureEnabled(key)).toBe(false);
+    }
+    for (const flag of [FEATURE_DISABLE_FLAGS.bucketListCreation, FEATURE_DISABLE_FLAGS.friendRequests, FEATURE_DISABLE_FLAGS.pushEnrollment]) {
+      disabled.add(flag);
+      expect(isFeatureEnabled(flag)).toBe(false);
+      expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.settingsSearch)).toBe(true);
+      disabled.delete(flag);
+      expect(isFeatureEnabled(flag)).toBe(true);
     }
     expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS.settingsSearch)).toBe(true);
     disabled.clear();

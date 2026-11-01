@@ -27,6 +27,9 @@ project/rollout determines which clients receive the change.
 | Calendar task previews | `mosaic_disable_calendar_task_previews` | Hide per-day task previews in Calendar while preserving counts, task data and date navigation |
 | Task timestamp display | `mosaic_disable_task_timestamps` | Hide created/completed time metadata in Day View while retaining timestamps and display preferences |
 | Diary panel in Day View | `mosaic_disable_day_view_diary_panel` | Hide the optional embedded Diary panel while retaining the Diary, entries and original layout settings |
+| Bucket List creation | `mosaic_disable_bucket_list_creation` | Prevent new aspirations while retaining existing goals, edits, linked tasks and sync |
+| New friend requests | `mosaic_disable_friend_requests` | Hide Add on search results and reject initiating new requests; retain queued previous requests and all response/removal/blocking actions |
+| Push enrollment | `mosaic_disable_push_enrollment` | Block new device opt-in and browser permission prompts; retain existing subscriptions, opt-out, preferences and in-app Alerts |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.
@@ -50,6 +53,8 @@ preventing existing stickers from being sent. These controls are not privacy,
 authorization, or data-retention enforcement.
 
 **Low-risk display controls:** Disabling Keyboard shortcuts never disables Tab, Arrow, Enter, Space or ordinary navigation; it only overrides the Mosaic single-key command provider. Calendar task previews may display a task count but no task titles when disabled; tap the day to access its tasks. Timestamp labels and the optional Day View Diary panel are hidden without changing task/diary data or existing saved preferences. These four controls are distinct from users' own presentation settings.
+
+**Initiation-only controls:** Bucket List creation may be paused without hiding goals or stopping replication of pending local writes. A disabled friend-request initiation gate blocks new requests before adding offline intent; already queued requests may still flush, and existing relationships, accept/cancel/block and discovery remain operational. Push enrollment must be blocked before `Notification.requestPermission()` or service-worker subscription; existing devices continue to receive and may unsubscribe, and reconciliation and settings remain available. These are **not** global social/push kill switches or server authorization.
 
 **Data-preservation contract:** Never erase task/diary photos when uploads are
 disabled. Existing images can still be viewed/removed; already queued offline
