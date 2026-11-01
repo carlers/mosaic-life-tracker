@@ -1,3 +1,11 @@
+# #1026 — task operation switches v0.71.0
+
+- New four opt-out frontend flags: task drag reordering, quick date shortcuts, Move to Backlog shortcut, task-to-Bucket linking from Task Action Sheet. Normal task CRUD and date editor, existing Bucket links, task/category data, sync and preferences remain. No backend/schema/Function writes.
+- Base exact v0.70.0 stable solo-mode Preview 1eaca3ba478b229bacaac6c05bc1c38271ffea96 (tree 7a6ab2b41cad009f0a49a1ef73a41f0b48fe76a0). Predecessor manual approval and dev promotion not presumed. No main/Production changes.
+- Next: local Node22 tests/lint/build/size, focused task CI, isolated full canonical/trusted Scratch Preview, create four inactive PostHog flags and verify roster, manual owner acceptance before dev promotion. Follow-up Diary/Bucket/Alerts and provider-aware core-only shutdown remain outstanding.
+
+---
+
 # #1026 — global social-off Preview v0.70.0
 
 - Task starts from exact v0.69.0 productivity tree 098d3eced465c098e334b87ec52170030be44106; full canonical/trusted delivery of that predecessor must be verified independently.

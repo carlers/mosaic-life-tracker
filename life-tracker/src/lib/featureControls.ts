@@ -41,6 +41,10 @@ export const FEATURE_DISABLE_FLAGS = {
   dayViewLayoutSwitch: 'mosaic_disable_day_view_layout_switch',
   categoryReorder: 'mosaic_disable_category_reorder',
   allSocial: 'mosaic_disable_all_social',
+  taskDragReorder: 'mosaic_disable_task_drag_reorder',
+  taskQuickReschedule: 'mosaic_disable_task_quick_reschedule',
+  taskMoveToBacklog: 'mosaic_disable_task_move_to_backlog',
+  taskBucketLink: 'mosaic_disable_task_bucket_link',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;
