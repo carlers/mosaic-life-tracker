@@ -28,6 +28,7 @@ describe('portable Mosaic backend manifest', () => {
       enabled: true,
     });
     expect(MOSAIC_TABLES.map((table) => table.id)).toEqual([
+      'media_uploads',
       'diary_reactions',
       'bucket_task_links',
       'bucket_list_items',

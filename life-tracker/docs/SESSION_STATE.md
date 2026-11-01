@@ -1,3 +1,13 @@
+# Task checkpoint — #1478 server-minted upload provenance foundation, Scratch-only authorization
+Updated: 2026-11-01 Asia/Manila
+
+- Owner explicitly approved additive **Scratch-only** schema, reviewed Function activation, compatible Storage policy changes, and deletion/recovery tests exclusively on new synthetic files. No approval for Production, protected-branch promotions, or deletion of any existing user media.
+- Current isolated v0.60.0 storage Preview `feature/1478-unified-storage-audit-v0600-20261101@f6f0c37db7f1768d8425648dc725404f5627d4a2` passed canonical #41295336569, Trusted Delivery #41295670756, Vercel READY. Current dev `8dccaddc8d5045b96b18e81dc818c84af3db28d6` v0.62.0, main unchanged. Shared Scratch Function active deployment observed `6ae70935d57984fb68f0` and includes independently deployed bug reports; do not replace it with older v0.60.0 source.
+- This task adds server-only media upload reservation table + migration 017 and authenticated `reserve_media_upload` / `confirm_media_upload` API, including strict file permissions, upload ID provenance, metadata/expiry and CAS confirmation. Existing older uploads remain unknown/protected. No cloud deletion, implicit old-client write fence or provenance backfill.
+- Before activating shared Scratch Function, ensure exact reviewed merged source includes active independent Chat/bug-report changes. Create isolated deployment, never overwrite shared active Function without this parity. Run historical-client compatibility and three-account synthetic Scratch denial/crash/restore tests. Keep direct bucket create enabled while old PWAs require it; do not misreport phase completion.
+
+---
+
 # Task checkpoint — #1478 Phase 3D read-only audit forward-port into v0.60.0 Preview
 Updated: 2026-11-01 Asia/Manila
 

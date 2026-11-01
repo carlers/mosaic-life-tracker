@@ -130,3 +130,29 @@ unreferenced ACL totals or tombstone retention periods.
 
 The current supported policy intentionally never claims completeness or
 authorizes a delete, including when all current rows are scanned.
+
+## Phase 3E — server-minted upload identity foundation
+
+Migration `017-media-uploads` creates the private, server-owned `media_uploads`
+provenance table. Browser table permissions are empty; the Function is the only
+writer. `reserve_media_upload` mints an unguessable one-hour upload file ID
+bound to the authenticated caller and one of task/Diary/profile/chat purposes.
+`confirm_media_upload` checks the original reservation, fresh Storage
+metadata, owner-exclusive write/delete permissions, media type and size, and
+atomically marks the reservation verified. Retries are idempotent and recheck
+Storage metadata. The authenticated user ID is taken exclusively from the
+platform Function header; user-provided owner IDs are ignored. No user-supplied
+file ID may create a reservation.
+
+**Neither reservation nor verification authorizes file removal.** They are
+future-upload provenance only. Old/unknown uploads remain unverified, protected
+and outside every cleanup scan. This stage does not yet change the existing
+browser upload paths or supported offline-client requirements. The current
+bucket keeps its legacy `create("users")` permission until a separately tested
+old-client/queued-upload cutover, and the Function does not delete files.
+Reference revision fencing and the complete cross-owner graph remain absent.
+
+The durable account-erasure worker also queries `media_uploads.owner_id` as
+a private cross-reference and removes the reservation ledger for erased owners.
+This avoids preserving account identifiers after deletion; erasure's existing
+DR privacy marker must still be acknowledged before any deletion.

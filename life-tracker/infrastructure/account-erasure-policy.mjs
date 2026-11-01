@@ -6,6 +6,8 @@ import {
 export const ACCOUNT_ERASURE_POLICY = {
   tables: {
     bucket_task_links: { kind: 'owned', ownerField: 'user_id' },
+    // Server-owned ledger uses owner_id, not user_id; deletion worker queries this field.
+    media_uploads: { kind: 'cross_reference', fields: ['owner_id'] },
     bucket_list_items: { kind: 'owned', ownerField: 'user_id' },
     tasks: {
       kind: 'owned',
