@@ -190,6 +190,40 @@ describe('Phase 3B read-only server owner media audit', () => {
     expect(result.body.deletionAuthorized).toBe(false);
   });
 
+  it('fails closed on repeated page identities instead of silently inventing completeness', async () => {
+    const db = makeMockDb(), storage = makeMockStorage();
+    storage.listFiles.mockResolvedValue({ files: [f('img_same'), f('img_same')] });
+    const repeated = await respond(db, storage);
+    expect(repeated).toMatchObject({status:500,body:{error:'An internal error occurred'}});
+    expect(storage.deleteFile).not.toHaveBeenCalled();
+
+    const db2 = makeMockDb(), storage2 = makeMockStorage();
+    storage2.listFiles
+      .mockResolvedValueOnce({files: Array.from({length:100}, (_, i) => f('img_' + i))})
+      .mockResolvedValueOnce({files: [f('img_0')]});
+    const r2 = await respond(db2, storage2);
+    expect(r2).toMatchObject({status:500,body:{error:'An internal error occurred'}});
+    expect(storage2.listFiles).toHaveBeenCalledTimes(2);
+
+    const db3 = makeMockDb(), storage3 = makeMockStorage();
+    db3.listRows.mockImplementation(async ({tableId}: any) => ({
+      rows: tableId === 'tasks' ? [task('same_task','img_1'),task('same_task','img_2')] : [],
+    }));
+    const r3 = await respond(db3, storage3);
+    expect(r3.status).toBe(500);
+    expect(storage3.listFiles).not.toHaveBeenCalled();
+  });
+
+  it('fails closed if valid individual file sizes overflow safe aggregate precision', async () => {
+    const db = makeMockDb(), storage = makeMockStorage();
+    storage.listFiles.mockResolvedValue({ files: [
+      f('img_large', Number.MAX_SAFE_INTEGER), f('img_tiny', 1),
+    ]});
+    const r = await respond(db, storage);
+    expect(r).toMatchObject({status:500,body:{error:'An internal error occurred'}});
+    expect(storage.deleteFile).not.toHaveBeenCalled();
+  });
+
   it('fails closed and does not return an inventory if storage pagination fails', async () => {
     const db = makeMockDb(),storage = makeMockStorage();
     storage.listFiles.mockRejectedValue(new Error('provider offline'));

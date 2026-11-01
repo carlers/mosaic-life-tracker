@@ -90,3 +90,12 @@ startup subscription. This is a technical Function contract only; Scratch
 Function activation, an authenticated browser consumer and device acceptance
 remain gated. Old Function handlers remain unchanged.
 
+## Phase 3B audit integrity hardening
+
+The bounded read-only audit rejects pages containing missing or repeated row/file
+identities, including duplicates across cursor boundaries. It also refuses to
+publish a subtotal once the sum of individually valid file sizes would exceed
+JavaScript's safe integer precision. Both faults produce the existing generic
+server error without partial file inventories; no write or deletion occurs.
+A failed audit is not evidence of empty or reclaimable storage.
+

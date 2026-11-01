@@ -31,11 +31,19 @@ function soleOwnerControl(permissions, ownerId) {
 
 async function paginate(fetchPage, cap) {
   const items = [];
+  const seenIds = new Set();
   let cursor = null;
   for (let page = 0; page < cap; page++) {
     const result = await fetchPage(cursor);
     if (!Array.isArray(result)) throw new Error('Invalid pagination response');
     if (result.length > PAGE_SIZE) throw new Error('Unexpected page size');
+    for (const item of result) {
+      const id = item?.$id;
+      if (typeof id !== 'string' || !id || seenIds.has(id)) {
+        throw new Error('Invalid or duplicate media audit page identity');
+      }
+      seenIds.add(id);
+    }
     items.push(...result);
     if (result.length < PAGE_SIZE) return { items, truncated: false };
     const next = result.at(-1)?.$id;
@@ -91,8 +99,12 @@ function flattenedOwnerRow(row, ownerId) {
 
 function emptyCount() { return { files: 0, bytes: 0 }; }
 function addCount(count, file) {
+  const nextBytes = count.bytes + file.sizeOriginal;
+  if (!Number.isSafeInteger(nextBytes)) {
+    throw new Error('Media audit byte aggregate exceeds safe integer precision');
+  }
   count.files += 1;
-  count.bytes += file.sizeOriginal;
+  count.bytes = nextBytes;
 }
 
 async function auditOwnerMedia({ db, storage, callerId, requestedOwnerId }) {
