@@ -1,3 +1,15 @@
+# Task checkpoint — #1441 Brave browser Web Speech provider feedback v0.52.3
+Updated: 2026-11-01 Asia/Manila
+
+- Owner reports speech error "The browser speech service could not connect" specifically on desktop Brave after v0.52.2 microphone Permissions-Policy repair. Brave public upstream issues #18569, #2802 and on-device project #56487 support browser-level transcription backend incompatibility independent of microphone permission. User's device-specific failure is not proof of internet outage or application microphone denial.
+- Next Preview v0.52.3 on accepted fix/1441-speech-microphone-v0522-20261101@3082f71341235b8cc1ce05c9f85e67a55a1b99b6. Use navigator.brave.isBrave() only as an advisory; keep actual WebSpeech attempts allowed, show Brave-specific guidance on network/service refusal and explain typed/OS dictation/Chrome fallback. No new engine/remote transcript handling, data model or elevated operations.
+- Unit and DOM coverage includes async Brave identification, error classification, the review sheet warning, and create actions remaining gated behind manual confirmation. User still must test real Brave and Android devices; voice in Brave cannot be guaranteed until browser provider or independent opt-in on-device STT is available.
+- Future offline on-device speech model is planning only, subject to download, memory and privacy acceptance. Bulk-command execution remains disabled.
+- Candidate scoped CI/Preview verification pending. Never promote Preview to dev/main/Production without separate approval.
+
+---
+
+
 # Task checkpoint — #1441 microphone permission policy repair and bulk command plan v0.52.2
 Updated: 2026-11-01 Asia/Manila
 

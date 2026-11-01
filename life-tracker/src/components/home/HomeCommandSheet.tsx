@@ -6,7 +6,7 @@ import type { CategoryDocument } from '../../db/schema';
 import { parseTaskCommandPreview, isValidCommandDate } from '../../lib/taskCommands';
 import { ADD_TASKS_TO_TOP_SETTING_KEY } from '../../lib/preferences';
 import { useSettings } from '../../hooks/useSettings';
-import { useBrowserSpeechInput } from '../../hooks/useBrowserSpeechInput';
+import { useBrowserSpeechInput, BRAVE_SPEECH_GUIDANCE } from '../../hooks/useBrowserSpeechInput';
 
 type TaskDraft = {
   title: string;
@@ -157,6 +157,11 @@ export const HomeCommandSheet: React.FC<Props> = ({
               {voice.listening ? <MicOff size={17}/> : <Mic size={17}/>}
               {voice.listening ? 'Stop listening' : 'Speak command'}
             </button>
+            {voice.isBrave && !voice.error && (
+              <p role="note" className="text-xs text-amber-300">
+                {BRAVE_SPEECH_GUIDANCE}
+              </p>
+            )}
             {voice.error && <p role="alert" className="text-xs text-amber-300">{voice.error}</p>}
             {voice.listening && <p role="status" className="text-xs text-emerald-300">Listening…</p>}
           </div>

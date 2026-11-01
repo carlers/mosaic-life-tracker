@@ -170,3 +170,28 @@ describe('Browser speech consent and lifecycle', () => {
     }
   });
 });
+
+
+describe('Brave speech provider guidance', () => {
+  it('warns when the Brave API is detected without claiming the microphone is denied', async () => {
+    Object.defineProperty(navigator, 'brave', {
+      configurable: true,
+      value: { isBrave: async () => true },
+    });
+    const previous = Object.getOwnPropertyDescriptor(window, 'SpeechRecognition');
+    Object.defineProperty(window, 'SpeechRecognition', {
+      configurable: true,
+      value: class { start() {} abort() {} },
+    });
+    try {
+      const { onCreate } = open();
+      expect((await screen.findByRole('note')).textContent).toMatch(/Brave may not have an available speech-to-text service/);
+      expect(screen.getByRole('button', {name: 'Speak command'})).toHaveProperty('disabled', true);
+      expect(onCreate).not.toHaveBeenCalled();
+    } finally {
+      delete (navigator as Navigator & { brave?: unknown }).brave;
+      if (previous) Object.defineProperty(window, 'SpeechRecognition', previous);
+      else delete (window as Window & { SpeechRecognition?: unknown }).SpeechRecognition;
+    }
+  });
+});

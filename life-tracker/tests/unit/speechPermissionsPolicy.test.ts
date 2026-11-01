@@ -4,7 +4,7 @@ import { TRUSTED_HIGH_LEVEL_CONFIG_SHA256 } from '../../scripts/lib/prebuilt-can
 import { PREBUILT_ROUTING_SHA256 } from '../../scripts/lib/prebuilt-receiver-gate.mjs';
 import { readFileSync } from 'node:fs';
 import { preparePreviewRoutes } from '../../scripts/lib/preview-build-routes.mjs';
-import { speechRecognitionErrorMessage } from '../../src/hooks/useBrowserSpeechInput';
+import { BRAVE_SPEECH_GUIDANCE, detectBraveBrowser, speechRecognitionErrorMessage } from '../../src/hooks/useBrowserSpeechInput';
 
 const expected = 'camera=(), microphone=(self), geolocation=()';
 const json = (path: string) => JSON.parse(readFileSync(new URL('../../' + path, import.meta.url), 'utf8'));
@@ -38,6 +38,25 @@ describe('speech and trusted deployment permission policy', () => {
     const routes = readFileSync(new URL('../fixtures/trusted-preview-routes-v3.json', import.meta.url));
     expect(digest(highLevel)).toBe(TRUSTED_HIGH_LEVEL_CONFIG_SHA256);
     expect(digest(routes)).toBe(PREBUILT_ROUTING_SHA256);
+  });
+
+  it('recognizes Brave using its official asynchronous browser API, not Chrome-like UA', async () => {
+    const yes = { brave: { isBrave: async () => true } } as unknown as Navigator;
+    const no = { brave: { isBrave: async () => false } } as unknown as Navigator;
+    const unavailable = {} as Navigator;
+    const failure = { brave: { isBrave: async () => { throw new Error('not available'); } } } as unknown as Navigator;
+    expect(await detectBraveBrowser(yes)).toBe(true);
+    expect(await detectBraveBrowser(no)).toBe(false);
+    expect(await detectBraveBrowser(unavailable)).toBe(false);
+    expect(await detectBraveBrowser(failure)).toBe(false);
+  });
+
+  it('treats Brave recognition network failures as provider incompatibility, not offline internet', () => {
+    expect(speechRecognitionErrorMessage('network', true)).toBe(BRAVE_SPEECH_GUIDANCE);
+    expect(speechRecognitionErrorMessage('service-not-allowed', true)).toBe(BRAVE_SPEECH_GUIDANCE);
+    expect(speechRecognitionErrorMessage('network', true)).not.toMatch(/check internet/i);
+    expect(speechRecognitionErrorMessage('network', false)).toMatch(/provider/i);
+    expect(speechRecognitionErrorMessage('not-allowed', true)).toMatch(/Microphone access is blocked/i);
   });
 
   it('distinguishes microphone denial from browser speech service rejection', () => {
