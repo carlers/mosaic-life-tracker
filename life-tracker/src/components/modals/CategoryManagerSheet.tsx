@@ -373,8 +373,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               {retireId === cat.id && (
               <div className="mt-4 rounded-xl border border-[#333333] bg-[#1A1A1A] p-3 space-y-3">
                 <p className="text-sm font-semibold text-white">{cat.retiredOn ? 'Manage retirement' : 'Retire category'}: {cat.name}</p>
-                <label className="block text-xs text-gray-400" htmlFor="category-last-active-date">Last active date (inclusive)</label>
-                <input id="category-last-active-date" type="date" value={lastActiveDate}
+                <label className="block text-xs text-gray-400" htmlFor={`category-last-active-date-${cat.id}`}>Last active date (inclusive)</label>
+                <input id={`category-last-active-date-${cat.id}`} type="date" value={lastActiveDate}
                   onChange={event => setLastActiveDate(event.target.value)}
                   className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
                 <p className="text-xs text-gray-400">The category stays visible on this date and earlier. Existing tasks on later dates and in Backlogs remain accessible; new later tasks use active categories.</p>

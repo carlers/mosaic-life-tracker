@@ -130,12 +130,14 @@ describe('CategoryManagerSheet', () => {
     expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
 
     fireEvent.click(within(second).getByRole('button', { name: 'Manage retirement for Second' }));
-    expect(within(first).queryByLabelText('Last active date (inclusive)')).toBeNull();
+    expect(within(first).getByLabelText('Last active date (inclusive)').closest('[inert]'))
+      .not.toBeNull();
     expect(within(second).getByLabelText('Last active date (inclusive)')).toBeInTheDocument();
 
     fireEvent.click(within(second).getByRole('button', { name: 'Edit category' }));
-    expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
     expect(within(second).getByRole('textbox', { name: 'Name' })).toBeInTheDocument();
+    expect(within(second).getByLabelText('Last active date (inclusive)').closest('[inert]'))
+      .not.toBeNull();
     expect(within(second).getByRole('button', { name: 'Manage retirement for Second' }))
       .toHaveAttribute('aria-expanded', 'false');
   });
