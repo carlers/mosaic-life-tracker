@@ -45,6 +45,9 @@ project/rollout determines which clients receive the change.
 | Quick date shortcuts | `mosaic_disable_task_quick_reschedule` | Hide Yesterday/Today/Tomorrow task shortcuts; retain full date editor |
 | Move to Backlog shortcut | `mosaic_disable_task_move_to_backlog` | Hide optional single-task Move to Backlog action; retain date editor and backlog data |
 | Task-to-Bucket shortcut | `mosaic_disable_task_bucket_link` | Hide/guard Task Action Sheet linking, retain existing links and Bucket List |
+| Diary emoji picker | `mosaic_disable_diary_emoji_picker` | Hide new Diary emoji selection while keeping saved emoji and text |
+| Bucket achievement toggle | `mosaic_disable_bucket_achievement_toggle` | Pause Mark achieved/Reopen initiation; preserve achieved status, edit and deletion |
+| Bucket step creation | `mosaic_disable_bucket_step_creation` | Hide new goal-linked task creation; existing steps and ordinary task creation remain |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.

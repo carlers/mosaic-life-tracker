@@ -1,3 +1,11 @@
+# #1026 — Diary and Bucket optional controls v0.72.0 (2026-11-02 Asia/Manila)
+
+- Three reversible optional flags: Diary emoji picker, Bucket achievement toggle, Bucket goal-linked task creation. The existing task-to-Bucket link flag also disables the Bucket detail Link existing entry/handler. Diary social reaction/reply initiation additionally respects the single-user operator switch while preserving historical reaction display.
+- No local rows/queued work are deleted. Existing goals, steps, Diary text and emoji remain; ordinary tasks, edit/delete and task unlink remain usable. Version 0.72.0 from exact v0.71.0 tested tree e308d8a37bdb5fa1c673bd93fb7a3435d56a1318, pending v0.71.0 full Preview acceptance. No backend/schema/Function or dev/main/Production changes.
+- Next: Node22 focused tests, lint, full build and size, exact-tree task focused CI, stable Preview canonical/trusted deployment, new PostHog flags inactive only after verified delivery. Owner manual ON/OFF testing and separate dev promotion approval are outstanding. Alerts/Chat/true provider-aware core-only capability work remains.
+
+---
+
 # #1026 — task operation switches v0.71.0
 
 - New four opt-out frontend flags: task drag reordering, quick date shortcuts, Move to Backlog shortcut, task-to-Bucket linking from Task Action Sheet. Normal task CRUD and date editor, existing Bucket links, task/category data, sync and preferences remain. No backend/schema/Function writes.
