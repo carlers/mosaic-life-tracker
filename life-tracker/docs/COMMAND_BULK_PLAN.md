@@ -48,3 +48,8 @@ Support commands such as:
 Unit tests: lower-case categories, overlapping category names in titles, owner-switch, malicious/untrusted transcript, all-vs-current-day, backlogs vs category, mixed completed/unfinished, none/many/too many results, duplicate IDs, deleted categories and stale documents, repeated confirmation and rapid double-click, offline/reload, concurrent tabs, partial failure and retry, undo after unrelated edits, follower/public visibility, routine/reminder and sync convergence. Browser tests: sheet focus, virtualized long previews, mobile accessibility, Android Back, voice transcript correction. Never weaken the existing CI/Appwrite/Production gates.
 
 **B0 shows read-only matches for narrowly parsed bulk moves, but execution remains disabled.** Implementation requires an explicit follow-up authorization and a new Preview candidate. No dev/main/Production promotion without separate approval.
+
+
+## B1 core preparation (2026-11-02)
+
+An isolated, **unwired and non-executable-from-UI** pure bulk-move coordinator now provides bounded owner-scoped optimistic validation, serialized compare-and-patch calls, observable per-item conflict/partial failure outcomes, Backlogs privacy and conflict-checked compensation. It cannot itself mutate RxDB or Appwrite: the eventual adapter is required to compare all reviewed owner/task fields atomically at write time. This is *not B1 user-visible release acceptance*: source-wide sync completeness, ordering, durable account-scoped undo and explicit UI confirmation still need implementation and device verification. Bulk writes remain disabled.

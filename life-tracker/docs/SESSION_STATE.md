@@ -1,3 +1,13 @@
+# Issue #1441 — bounded optimistic bulk move execution core, not enabled (2026-11-02 Asia/Manila)
+
+- Owner's one-Go authorization remains in force: complete Whisper/mobile voice, optional AI model evaluation, safe B0–B3 bulk commands, secured external MCP on Scratch Preview. Model weights must be individually deletable. Never promote dev/main/Production without explicit user instruction.
+- B0 v0.53.0 stable Preview at SHA `2106b5ae6ba79cf348868dbf74ab64ed9730fa8e` accepted: focused CI #41329180682, full canonical #41329464519, exact commit Vercel deployment `dpl_71dynSN8f2Nvxcq7wHzMo5SoohEX` READY. B0 is strictly read-only and warns local/offline selection is not complete remote state.
+- New **unwired** bulk move executor `src/lib/taskBulkCommandExecution.ts`: max 100 distinct signed-in owner rows per batch; explicit owner/source/destination validation; frozen snapshot IDs and fields; serial per-row reads plus required *atomic compare-and-patch adapter* (no unconditional updates); conflict/partial failure/cancellation/progress outcomes; Backlogs privacy; conflict-aware undo refusing intervening edits/owner changes. Adapter intentionally not connected to RxDB or UI; no task writes can be invoked by this unshipped core. Does **not** claim cross-device completeness, persistent undo journal, or resolved destination order semantics.
+- Isolated exact-source sandbox focused verification: 8 unit tests (4 prior B0 + 4 new execution) PASS, TypeScript noEmit PASS, changed-file ESLint PASS. This milestone is no user-visible behavior change (version remains 0.53.0); CI and stable Preview canonical pending.
+- Next: implement and verify atomic owner-scoped RxDB adapter, bounded queue with confirmation and deterministic destination ordering, per-owner undo journal and sync completeness checks; then enable safe B1 UI. B2 completion/rescheduling and B3 soft deletion remain unimplemented. Additional Whisper/AI/MCP tasks remain outstanding. No app backend changes.
+
+---
+
 # Issue #1441 — B0 read-only bulk command preview v0.53.0 (2026-11-02 Asia/Manila)
 
 - Owner's one-Go authorization covers voice and on-device models, AI evaluation, B0–B3 bulk commands, and secured external MCP. Models must be *individually deletable*. Do not promote to dev/main/Production without further authorization.
