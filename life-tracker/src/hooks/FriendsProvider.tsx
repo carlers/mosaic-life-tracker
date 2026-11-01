@@ -23,6 +23,7 @@ import {
 import type { FriendshipDocument } from '../db/schema';
 import type { ProfileCard } from '../lib/social';
 import { markStartup } from '../lib/startupMetrics';
+import { useFeatureEnabled } from './useFeatureEnabled';
 interface FriendsProviderProps {
   children: ReactNode;
 }
@@ -31,11 +32,12 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
 }) => {
   const { user } = useAuth();
   const userId = user?.$id;
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const [confirmedRows, setRows] = useState<FriendshipDocument[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   useEffect(() => {
     scopeFriendshipCommands(userId ?? null);
-    if (!userId) return;
+    if (!userId || !socialEnabled) return;
     const uid = userId;
     let subscription: { unsubscribe: () => void } | undefined;
     let isMounted = true;
@@ -82,16 +84,16 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
       scopeFriendshipCommands(null);
       if (subscription) subscription.unsubscribe();
     };
-  }, [userId]);
+  }, [socialEnabled, userId]);
   const queueRevision = useSyncExternalStore(subscribeFriendshipCommands, getFriendshipRevision);
   const rows = useMemo(() => {
     const visible = userId && loadedUserId === userId ? confirmedRows : [];
-    if (!userId) return [];
+    if (!userId || !socialEnabled) return [];
     // External-store revision invalidates the persisted queue projection.
     void queueRevision;
     const pending = pendingFriendshipRows(userId);
     return [...visible, ...pending.filter(p => !visible.some(r => r.friendId === p.friendId))];
-  }, [confirmedRows, userId, loadedUserId, queueRevision]);
+  }, [confirmedRows, userId, loadedUserId, queueRevision, socialEnabled]);
   const friends = useMemo(
     () => rows.filter((r) => r.status === 'accepted'),
     [rows]
@@ -201,7 +203,7 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
     },
     [user?.$id]
   );
-  const isLoading = !!userId && loadedUserId !== userId;
+  const isLoading = socialEnabled && !!userId && loadedUserId !== userId;
   const value = useMemo<UseFriendsReturn>(
     () => ({
       friends: userId && loadedUserId === userId ? friends : [],

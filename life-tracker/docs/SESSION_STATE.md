@@ -1,3 +1,12 @@
+# #1026 — global social-off Preview v0.70.0
+
+- Task starts from exact v0.69.0 productivity tree 098d3eced465c098e334b87ec52170030be44106; full canonical/trusted delivery of that predecessor must be verified independently.
+- Owner requested one dev-only PostHog switch to present Mosaic as a single-user app. New key mosaic_disable_all_social pauses social routes/nav/deep links and social view entry points, guards new shared/social actions and suspends foreground friendship/message/shared-task fetches and AppLayout social outbox flush. Existing records and pending queues remain stored; Home personal data, Calendar, tasks, categories, Backlogs, Bucket List, local sync, account and privacy functions remain.
+- Security boundary: this cannot revoke server permissions, suppress already-delivered OS push, prevent historic offline clients from accessing social, or turn off backend social replication without a provider-aware capability layer. This mode is not guaranteed at offline cold start, as PostHog is remote and optional. No backend/schema/Function/main/Production writes.
+- Next: scoped regression tests, Node22 lint/build/size, remote focused CI, full canonical and trusted Scratch Preview, verify inactive key in correct PostHog project, device tests and owner approval before dev.
+
+---
+
 # #1026 — five productivity controls v0.69.0
 
 - Owner authorized continuing batched controls. Exact baseline accepted v0.68.0 Preview 095f6df54ce9196677a0302089df3151a48160ec, dev e0094b386d47bcdb02a2bc69c57d02a10935db7c. No main/Production changes.

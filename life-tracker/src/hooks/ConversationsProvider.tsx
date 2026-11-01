@@ -7,6 +7,7 @@ import React, {
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useFriends } from './useFriends';
+import { useFeatureEnabled } from './useFeatureEnabled';
 import {
   ConversationsContext,
   type Conversation,
@@ -31,12 +32,13 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
 }) => {
   const { user } = useAuth();
   const userId = user?.$id;
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const { friends, isLoading: friendsLoading } = useFriends();
   const [allMessages, setAllMessages] = useState<MessageDocument[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !socialEnabled) return;
     const uid = userId;
     let isMounted = true;
     let subscription: { unsubscribe: () => void } | undefined;
@@ -82,10 +84,10 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
       isMounted = false;
       if (subscription) subscription.unsubscribe();
     };
-  }, [userId, includeConversations]);
+  }, [userId, includeConversations, socialEnabled]);
 
   const aggregation = useMemo(() => {
-    if (!userId || loadedUserId !== userId) {
+    if (!socialEnabled || !userId || loadedUserId !== userId) {
       return {
         totalUnread: 0,
         byFriend: null as Map<
@@ -137,6 +139,7 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
     allMessages,
     friends,
     includeConversations,
+    socialEnabled,
     loadedUserId,
     userId,
   ]);
@@ -180,7 +183,7 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
   }, [aggregation.byFriend, friends, includeConversations]);
 
   const totalUnread = aggregation.totalUnread;
-  const isLoading = !!userId && (loadedUserId !== userId || friendsLoading);
+  const isLoading = socialEnabled && !!userId && (loadedUserId !== userId || friendsLoading);
 
   const conversationValue = useMemo<ConversationsContextValue>(
     () => ({ conversations, totalUnread, isLoading }),
