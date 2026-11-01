@@ -306,6 +306,12 @@ describe('storage.saveImage — offline staging', () => {
     );
   });
 
+  it('refuses remote image deletion from the browser even if referenced by a task', async () => {
+    await expect(deleteImage('img_cloud')).rejects.toThrow('Direct cloud image deletion is disabled');
+    expect(sdkRef.guardedStorageDeleteFile).not.toHaveBeenCalled();
+    expect(imageCacheRef.remove).not.toHaveBeenCalled();
+  });
+
   it('deletes a pending image locally without issuing a Storage delete', async () => {
     await deleteImage('localimg_0123456789abcdef0123456789');
 

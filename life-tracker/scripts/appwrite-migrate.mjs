@@ -87,6 +87,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '017-message-chat-photos', description: 'Optional private chat media identifiers', run: ({ request, log, sleep }) => migrateMessageChatPhotos({ request, log, sleep }) },
   { id: '018-bug-reports', description: 'Private, server-only bug report inbox', run: ({ request, log }) => migrateBugReportsBackend({ request, log }) },
   { id: '019-public-bug-report-issues', description: 'Server-only GitHub publication receipts', run: ({ request, log, sleep }) => migratePublicBugReportBackend({ request, log, sleep }) },
+  { id: '020-media-uploads', description: 'Server-owned media upload reservations', run: ({ request, log }) => migrateMediaUploadsBackend({ request, log }) },
 ];
 
 export function selectMigrations(argv = []) {

@@ -1,3 +1,15 @@
+# Task checkpoint — #1478 v0.65.0 current-dev media lifecycle integration, Scratch approval
+Updated: 2026-11-01 Asia/Manila
+
+- Explicit owner authorization: finish Scratch-only schema/Function/synthetic test work; no protected branch/Production promotion and no removal of existing user files. Existing media and unknown legacy client references remain protected.
+- Source base: `dev@67289fe56f7f78631e325a7d2e98b7eed768f176` v0.64.0, includes newer Chat media + bug reporting. Original Phase 3E stable `feature/1478-media-provenance-scratch-20261101@e98b336082c3ac80dd41683f7c7382411c4b8fa3` canonical #41298087371 SUCCESS, but is based on older v0.60.0 and cannot overwrite the shared Function.
+- This reconciliation adds authoritative private `media_uploads` reservation/verification source as additive migration **020** (earlier isolated migration 017 collides with new Chat photos), restores account erasure coverage, preserves existing Chat/Bug source, adds read-only audit, and v0.65.0 reference-first task image removal without bytes deletion. No automatic cleanup, old-client bucket permission tightening, or Production actions.
+- Scratch `life_tracker.media_uploads` private ACL, nine columns and composite index were created and read back under authorization in the earlier turn. Active shared Function source download was compared with `dev`; all modules match but newer dev contains extra edits in main and owner-write-cas. Build only from the current integrated code, not old v0.60.0. Scratch Free plan has only two Function slots, `message-action` and vital `dr-backup`; do not delete either.
+- Validate full unit/handler, type/lint/contracts/size, pinned supported clients, stable canonical/Trusted Preview, then stage and test exact integrated Scratch Function using authenticated synthetic owner/friend/stranger. Do not activate until exact current Scratch Function baseline and unrelated behaviors are preserved. No physical cloud deletion is authorized by the registry.
+- Remaining physical cleanup prerequisites: complete cross-owner/chat/Diary/profile and backup reference generations, old/offline client write fences, legacy unknown migration policy, durable mark/grace/recheck/receipt and mobile/3-account recovery acceptance. Never claim Phase 3 complete on source tests alone.
+
+---
+
 # Task checkpoint — #854 integrated public bug reports v0.64.0 on latest dev baseline
 Updated: 2026-11-01 Asia/Manila
 
