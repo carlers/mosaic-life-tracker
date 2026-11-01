@@ -181,6 +181,7 @@ class MockTablesDB {
 const MockQuery = {
   equal: (key: string, value: unknown) => ({ op: 'equal', key, value }),
   lessThan: (key: string, value: unknown) => ({ op: 'lessThan', key, value }),
+  notEqual: (key: string, value: unknown) => ({ op: 'notEqual', key, value }),
   limit: (n: number) => ({ op: 'limit', n }),
   orderAsc: (field: string) => ({ op: 'orderAsc', field }),
   orderDesc: (field: string) => ({ op: 'orderDesc', field }),
