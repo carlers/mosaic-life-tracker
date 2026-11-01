@@ -1,3 +1,10 @@
+# Universal scroll-aware BottomSheet v0.74.0 — version collision reconciliation (2026-11-02)
+
+- Previous v0.73.0 stable Preview `feature/universal-sheet-pull-v0730-20261102@9a5f2deb271d236695e5b7e8a0a7f24403450598` passed focused run #41337496807, canonical run #41337846522 and trusted Preview #41338196300. Exact-SHA Vercel deployment `dpl_EHV4Zzs8CYRtxRE8eQdLyqPsfhKK` READY. Another concurrent stable feature `feature/1026-chat-alerts-controls-v0730-20261102` independently published the same v0.73.0. Preserve the accepted implementation but assign the next unoccupied line v0.74.0; the v0.73.0 branch must not be promoted.
+- New task branch `chatgpt/universal-sheet-pull-v0740-20261102`, new stable `feature/universal-sheet-pull-v0740-20261102`; version-only change in package/package-lock/appVersion plus this checkpoint. Require fresh focused and full canonical exact-source + trusted READY. Scratch/Production schema unchanged. Manual Android/iOS acceptance and dev promotion remain gated.
+
+---
+
 # Universal scroll-aware BottomSheet dismissal v0.73.0 — 2026-11-02
 
 - User authorized extending Day View pull-down-to-close to standard bottom sheets globally. Base `dev@62a839fb4c2d22f1a77ee357f797df4ed19f98c8` v0.68.1; isolated task branch `chatgpt/universal-sheet-pull-v0730-20261102`. Planned Preview v0.73.0 (v0.69–0.72 active feature lines); confirm no later version conflicts before publishing.
