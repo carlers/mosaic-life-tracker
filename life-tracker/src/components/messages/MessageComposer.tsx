@@ -7,7 +7,7 @@ import React, {
   forwardRef,
 } from 'react';
 import { motion } from 'framer-motion';
-import { Send, Sticker } from 'lucide-react';
+import { Send, Sticker, ImagePlus, X } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
 
 interface ReplyToContext {
@@ -19,12 +19,16 @@ interface ReplyToContext {
 
 interface MessageComposerProps {
   onSend: (content: string) => void | Promise<void>;
+  onSendPhoto?: (file: File, caption: string) => void | Promise<void>;
   onSendError?: () => void;
   onOpenStickers?: () => void;
   onPrepareStickers?: () => void;
   disabled?: boolean;
   placeholder?: string;
   replyTo?: ReplyToContext | null;
+  replyPhotoFileId?: string;
+  replySourceUnsent?: boolean;
+  replyPhotoUserId?: string;
   onCancelReply?: () => void;
 }
 
@@ -42,18 +46,31 @@ export const MessageComposer = forwardRef<
   (
     {
       onSend,
+      onSendPhoto,
       onSendError,
       onOpenStickers,
       onPrepareStickers,
       disabled = false,
       placeholder = 'Message…',
       replyTo = null,
+      replyPhotoFileId,
+      replySourceUnsent,
+      replyPhotoUserId,
       onCancelReply,
     },
     ref
   ) => {
     const [value, setValue] = useState('');
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const photoInputRef = useRef<HTMLInputElement>(null);
+    const [photo, setPhoto] = useState<File | null>(null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    useEffect(() => {
+      if (!photo) { setPhotoPreview(null); return; }
+      const url = URL.createObjectURL(photo);
+      setPhotoPreview(url);
+      return () => URL.revokeObjectURL(url);
+    }, [photo]);
     const counterId = useId();
     const sendingRef = useRef(false);
 
@@ -75,11 +92,15 @@ export const MessageComposer = forwardRef<
 
     const handleSend = async () => {
       const trimmed = value.trim();
-      if (!trimmed || disabled || sendingRef.current) return;
+      if ((!trimmed && !photo) || disabled || sendingRef.current ||
+          Boolean(photo && trimmed.length > MAX_LENGTH - 8)) return;
       sendingRef.current = true;
       try {
         // Do not discard the draft before its durable local insert succeeds.
-        await onSend(trimmed);
+        if (photo && onSendPhoto) await onSendPhoto(photo, trimmed);
+        else await onSend(trimmed);
+        setPhoto(null);
+        if (photoInputRef.current) photoInputRef.current.value = '';
         setValue((current) => current === value ? '' : current);
       } catch {
         onSendError?.();
@@ -96,7 +117,8 @@ export const MessageComposer = forwardRef<
       }
     };
 
-    const remaining = MAX_LENGTH - value.length;
+    // The old-client '[Photo]\\n' fallback occupies eight message characters.
+    const remaining = MAX_LENGTH - (photo ? 8 : 0) - value.length;
     const showCounter = remaining < CHAR_COUNT_THRESHOLD;
 
     return (
@@ -107,11 +129,32 @@ export const MessageComposer = forwardRef<
           <ReplyPreview
             senderName={replyTo.senderName}
             content={replyTo.content}
+            isDeleted={replySourceUnsent}
+            photoFileId={replyPhotoFileId}
+            photoUserId={replyPhotoUserId}
             onCancel={onCancelReply}
             variant="composer"
           />
         )}
+        {photoPreview && (
+          <div className="mb-2 flex items-start gap-2" aria-label="Selected chat photo">
+            <img src={photoPreview} alt="Photo to send" className="max-h-28 max-w-36 rounded-lg object-contain" />
+            <button type="button" aria-label="Remove photo" onClick={() => { setPhoto(null); if (photoInputRef.current) photoInputRef.current.value = ''; }}
+              className="rounded-full p-2 text-gray-300 focus-visible:ring-2 focus-visible:ring-emerald-500"><X size={18} /></button>
+          </div>
+        )}
         <div className="flex items-end gap-2">
+          {onSendPhoto && (
+            <>
+              <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
+                aria-label="Choose chat photo" onChange={event => setPhoto(event.target.files?.[0] || null)} />
+              <button type="button" aria-label="Attach photo" disabled={disabled}
+                onClick={() => photoInputRef.current?.click()}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-300 hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50">
+                <ImagePlus size={21} aria-hidden="true" />
+              </button>
+            </>
+          )}
           {onOpenStickers && (
             <button type="button" aria-label="Open stickers" disabled={disabled}
               onClick={onOpenStickers}
@@ -153,7 +196,7 @@ export const MessageComposer = forwardRef<
               e.preventDefault();
               e.stopPropagation();
             }}
-            disabled={!value.trim() || disabled}
+            disabled={(!value.trim() && !photo) || disabled || remaining < 0}
             className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
             aria-label="Send"
           >
