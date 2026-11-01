@@ -39,6 +39,7 @@ project/rollout determines which clients receive the change.
 | Task text copying | `mosaic_disable_task_text_copy` | Hide/guard Copy Task Text while retaining task content |
 | Task bulk actions | `mosaic_disable_task_bulk_actions` | Pause new bulk selection; allow existing work to finish |
 | Day View quick layout | `mosaic_disable_day_view_layout_switch` | Hide/guard quick layout switch; retain stored layout |
+| Single-user / all social off | `mosaic_disable_all_social` | Hide social navigation, friend calendars, Chat, Alerts and shared-task initiation; suppress foreground friend/message/shared-task subscriptions and pending social outbox flush; retain all records/queues and core personal workflows |
 | Category reorder | `mosaic_disable_category_reorder` | Pause drag and reverse reorder, preserve category CRUD |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
@@ -87,4 +88,12 @@ object itself is developer/test-facing and intentionally not a runtime import,
 so new optional controls do not bloat the Home critical dependency closure.
 Never call React hooks conditionally.
 Remote controls are not authorization, backend capability detection, account
+
+**Global social-off limitation:** This developer-only PostHog switch is a reversible
+client operating mode, not enforcement of backend privacy. It cannot revoke
+Appwrite permissions, stop already running requests, unsend existing queued
+writes from other clients, disable pre-existing server-side push subscriptions,
+or guarantee an offline cold start begins in solo mode. Core local-first
+replication continues; a later provider-aware core-only capability profile
+must additionally gate social replication pilots and server delivery.
 erasure, or a substitute for GitHub CI and Preview acceptance on code changes.

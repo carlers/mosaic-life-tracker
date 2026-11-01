@@ -1,6 +1,7 @@
 import React from 'react';
 import { Home, Compass, Bell, MessageCircle, User } from 'lucide-react';
 import { useUnreadMessages } from '../../hooks/useUnreadMessages';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 
 export type TabId = 'home' | 'explore' | 'notifications' | 'messages' | 'account';
@@ -27,13 +28,15 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   onTabChange,
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const visibleTabs = socialEnabled ? tabs : tabs.filter(tab => tab.id === 'home' || tab.id === 'account');
 }) => {
   const { totalUnread } = useUnreadMessages();
   const { items: invitations } = useSharedTasks('received');
   const pendingInvitations = invitations.filter(item => item.status === 'pending').length;
   const activeIndex = Math.max(
     0,
-    tabs.findIndex((tab) => tab.id === activeTab)
+    visibleTabs.findIndex((tab) => tab.id === activeTab)
   );
 
   return (
@@ -44,14 +47,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       <div className="relative flex justify-around items-center h-[calc(4rem+env(safe-area-inset-bottom))] max-w-lg mx-auto pb-[env(safe-area-inset-bottom)]">
         <div
           data-testid="active-tab-indicator"
-          className="pointer-events-none absolute left-0 top-2 flex w-1/5 justify-center transition-transform duration-200 ease-out motion-reduce:transition-none"
-          style={{ transform: `translateX(${activeIndex * 100}%)` }}
+          className="pointer-events-none absolute left-0 top-2 flex justify-center transition-transform duration-200 ease-out motion-reduce:transition-none"
+          style={{ width: (100 / visibleTabs.length) + '%', transform: `translateX(${activeIndex * 100}%)` }}
           aria-hidden="true"
         >
           <div className="mosaic-navigation-active w-1 h-1 bg-current rounded-full" />
         </div>
 
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
           const badgeCount = tab.id === 'messages' ? totalUnread :

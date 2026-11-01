@@ -14,7 +14,9 @@ import { buildProfileShareData, shareProfile } from '../lib/profileShare';
 import { hasExpectedRouteParent, resolveRouteParent } from '../lib/primarySwipeNavigation';
 
 export const ProfilePage: React.FC = () => {
-  const profileSharingEnabled = useFeatureEnabled('mosaic_disable_profile_sharing');
+  const profileSharingFlagEnabled = useFeatureEnabled('mosaic_disable_profile_sharing');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const profileSharingEnabled = profileSharingFlagEnabled && socialEnabled;
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -43,6 +45,7 @@ export const ProfilePage: React.FC = () => {
       navigate(parent, { replace: true });
     }
   };
+    if (!isFeatureEnabled('mosaic_disable_all_social')) return;
   const handleShare = async () => {
     if (!isFeatureEnabled('mosaic_disable_profile_sharing')) return;
     const result = await shareProfile(buildProfileShareData(

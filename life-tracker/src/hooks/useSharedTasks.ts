@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './useAuth';
+import { useFeatureEnabled } from './useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 import { useConnectivity } from './useConnectivity';
 import {
   changeSharedTaskMembership, enqueueSharedCompletion, flushSharedCompletions,
@@ -86,6 +88,8 @@ export function clearSharedTaskCache(userId: string): void {
   }
 }
 
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const allowSocial = enabled && socialEnabled;
 export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   const { user } = useAuth();
   const userId = user?.$id ?? null;
@@ -104,7 +108,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   ), []);
 
   const reload = useCallback(async () => {
-    if (!userId) return;
+    if (!isFeatureEnabled('mosaic_disable_all_social') || !userId) return;
     const list = await listDeduped(userId, scope);
     writeSharedTaskCache(userId, scope, list);
     setState(list);
@@ -113,7 +117,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   }, [scope, userId]);
 
   useEffect(() => {
-    if (!userId || !key || !enabled) return;
+    if (!userId || !key || !allowSocial) return;
     let active = true;
     if (!online) return () => { active = false; };
     void listDeduped(userId, scope).then(items => {
@@ -129,11 +133,11 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
       setAttemptedKey(key);
     });
     return () => { active = false; };
-  }, [userId, key, scope, online, enabled]);
+  }, [userId, key, scope, online, allowSocial]);
 
   // Peer actions change membership outside this tab; revalidate on return.
   useEffect(() => {
-    if (!userId || !online || !enabled) return;
+    if (!userId || !online || !allowSocial) return;
     let lastCheck = 0;
     const recheck = () => {
       if (document.visibilityState === 'hidden' || Date.now() - lastCheck < 15_000) return;
@@ -146,7 +150,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
       window.removeEventListener('focus', recheck);
       document.removeEventListener('visibilitychange', recheck);
     };
-  }, [enabled, online, reload, userId]);
+  }, [allowSocial, online, reload, userId]);
 
   useEffect(() => subscribeSharedTaskSettlements(result => {
     if (!userId || result.userId !== userId) return;
@@ -159,6 +163,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     }
   }), [reload, userId]);
 
+    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
   const updateCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
     if (!userId || !key || item.status !== 'accepted') {
       throw new Error('Shared-task membership unavailable');
@@ -181,6 +186,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
 
   const updateMembership = useCallback(async (
     item: SharedTaskItem, operation: 'accept' | 'decline' | 'leave' | 'revoke'
+    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
   ): Promise<SharedCommandResult | { status: 'pending' }> => {
     if (!userId) throw new Error('Not authenticated');
     if (operation === 'revoke') {
@@ -202,6 +208,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     return outcome;
   }, [online, reload, userId]);
 
+    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
   const invite = useCallback(async (taskId: string, friendUserId: string) => {
     await changeSharedTaskMembership({ operation: 'invite', taskId, friendUserId });
     await reload();
@@ -210,8 +217,8 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   // The account-scoped key prevents a retained view showing a prior user's data.
   const cachedItems = useMemo(() => userId ? readSharedTaskCache(userId, scope) : [],
     [userId, scope]);
-  const items = useMemo(() => loadedKey === key ? state : cachedItems,
-    [loadedKey, key, state, cachedItems]);
+  const items = useMemo(() => !allowSocial ? [] : loadedKey === key ? state : cachedItems,
+    [allowSocial, loadedKey, key, state, cachedItems]);
   const activeItems = useMemo(() => items.filter(item => item.status === 'accepted'), [items]);
   const failure = useMemo(() => {
     void queueRevision;
@@ -231,7 +238,7 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   }, [queueRevision, userId]);
 
   return {
-    items, activeItems, isLoading: Boolean(online && enabled && key && loadedKey !== key && attemptedKey !== key), error: error || failure, clearFailure, online, pendingFor,
+    items, activeItems, isLoading: Boolean(online && allowSocial && key && loadedKey !== key && attemptedKey !== key), error: error || failure, clearFailure, online, pendingFor,
     lastMutation, invite, updateCompletion, updateMembership, pendingMembershipFor, reload,
   };
 }
