@@ -9,6 +9,7 @@ interface UserResultCardProps {
   relationship: 'none' | 'outgoing' | 'incoming' | 'friends' | 'self';
   onAdd: (profile: ProfileCard) => void;
   isSending?: boolean;
+  allowRequests?: boolean;
 }
 
 export const UserResultCard: React.FC<UserResultCardProps> = ({
@@ -16,6 +17,7 @@ export const UserResultCard: React.FC<UserResultCardProps> = ({
   relationship,
   onAdd,
   isSending = false,
+  allowRequests = true,
 }) => {
   const renderAction = () => {
     switch (relationship) {
@@ -47,6 +49,7 @@ export const UserResultCard: React.FC<UserResultCardProps> = ({
         );
       case 'none':
       default:
+        if (!allowRequests) return <span className="text-xs text-gray-400 px-3 py-1.5">Requests paused</span>;
         return (
           <motion.button
             whileTap={{ scale: 0.95 }}

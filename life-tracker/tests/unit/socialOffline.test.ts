@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ send: vi.fn(), upsert: vi.fn(), find: vi.fn(), update: vi.fn(), create: vi.fn() }));
+const mocks = vi.hoisted(() => ({ send: vi.fn(), upsert: vi.fn(), find: vi.fn(), update: vi.fn(), create: vi.fn(), requestsPaused: false }));
+vi.mock('../../src/lib/posthog', () => ({ getPostHogFeatureFlagState: (key: string) => ({ enabled: key === 'mosaic_disable_friend_requests' && mocks.requestsPaused, isLoaded: true, hasError: false }) }));
 vi.mock('../../src/lib/messageDelivery', () => ({ sendMessageAction: mocks.send }));
 vi.mock('../../src/lib/friendCache', () => ({ clearCachedCalendar: vi.fn() }));
 vi.mock('../../src/lib/sdk', () => ({ guardedTablesDB: { updateRow: mocks.update, createRow: mocks.create } }));
@@ -18,10 +19,31 @@ const row = { $id: 'fr_test', user_id: 'alice', friend_id: 'bob', friend_usernam
 beforeEach(() => {
   const data = new Map<string, string>();
   vi.stubGlobal('localStorage', { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => data.set(k, v), removeItem: (k: string) => data.delete(k) });
-  vi.resetAllMocks(); scopeFriendshipCommands('alice');
+  vi.resetAllMocks(); mocks.requestsPaused = false; scopeFriendshipCommands('alice');
   mocks.find.mockResolvedValue(null); mocks.send.mockResolvedValue({ ok: true, row });
 });
 describe('friendship command delivery', () => {
+  it('rejects new requests before local queueing when paused, without stopping existing relationship commands', async () => {
+    mocks.requestsPaused = true;
+    await expect(sendFriendRequest(input)).rejects.toThrow('New friend requests are temporarily unavailable.');
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(pendingFriendshipCount('alice')).toBe(0);
+    await acceptFriendRequest('alice', 'bob');
+    expect(mocks.send).toHaveBeenCalledWith(expect.objectContaining({ operation: 'accept' }));
+  });
+
+  it('preserves and flushes an already queued request when the initiation switch turns on', async () => {
+    mocks.send.mockRejectedValueOnce(new Error('Offline'));
+    expect(await sendFriendRequest(input)).toEqual({ status: 'queued' });
+    expect(pendingFriendshipCount('alice')).toBe(1);
+    mocks.requestsPaused = true;
+    mocks.send.mockResolvedValue({ ok: true, row });
+    await flushFriendshipCommands('alice');
+    expect(pendingFriendshipCount('alice')).toBe(0);
+    expect(mocks.send).toHaveBeenCalledWith(expect.objectContaining({ operation: 'send' }));
+    expect(mocks.upsert).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending_outgoing' }));
+  });
+
   it('queues offline intent without writing a phantom local relationship', async () => {
     mocks.send.mockRejectedValue(new Error('Offline'));
     expect(await sendFriendRequest(input)).toEqual({ status: 'queued' });

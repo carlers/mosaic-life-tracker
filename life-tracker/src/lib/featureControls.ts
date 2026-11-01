@@ -27,6 +27,9 @@ export const FEATURE_DISABLE_FLAGS = {
   calendarTaskPreviews: 'mosaic_disable_calendar_task_previews',
   taskTimestamps: 'mosaic_disable_task_timestamps',
   dayViewDiaryPanel: 'mosaic_disable_day_view_diary_panel',
+  bucketListCreation: 'mosaic_disable_bucket_list_creation',
+  friendRequests: 'mosaic_disable_friend_requests',
+  pushEnrollment: 'mosaic_disable_push_enrollment',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;

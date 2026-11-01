@@ -3,10 +3,13 @@ import { ChevronLeft, Plus, ArrowUpRight, Sparkles, CheckCircle2 } from 'lucide-
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { useBucketList } from '../hooks/useBucketList';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 import { hasExpectedRouteParent, resolveRouteParent } from '../lib/primarySwipeNavigation';
 
 export function BucketListPage() {
   const { items, isLoading, createItem } = useBucketList();
+  const creationEnabled = useFeatureEnabled('mosaic_disable_bucket_list_creation');
   const navigate = useNavigate(), location = useLocation();
   const parent = resolveRouteParent('/bucket-list', location.state) ?? '/home';
   const [adding, setAdding] = useState(false), [title, setTitle] = useState(''), [description, setDescription] = useState('');
@@ -14,7 +17,7 @@ export function BucketListPage() {
   const close = () => { setAdding(false); setTitle(''); setDescription(''); setError(''); };
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy) return;
+    if (busy || !isFeatureEnabled('mosaic_disable_bucket_list_creation')) return;
     setBusy(true); setError('');
     try { await createItem(title, description); close(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save aspiration.'); }
@@ -28,7 +31,7 @@ export function BucketListPage() {
       <button type="button" aria-label="Back" className="rounded-lg p-2 focus-visible:ring-2 focus-visible:ring-current" onClick={() =>
         hasExpectedRouteParent(location.key, location.state, parent) ? navigate(-1) : navigate(parent, { replace: true })}><ChevronLeft size={20}/></button>
       <h1 className="mosaic-general-text flex-1 text-lg font-semibold">Bucket List</h1>
-      <button type="button" aria-label="Add aspiration" className="rounded-xl bg-surfaceHighlight p-2.5 focus-visible:ring-2 focus-visible:ring-current" onClick={() => setAdding(true)}><Plus size={19}/></button>
+      {creationEnabled && <button type="button" aria-label="Add aspiration" className="rounded-xl bg-surfaceHighlight p-2.5 focus-visible:ring-2 focus-visible:ring-current" onClick={() => setAdding(true)}><Plus size={19}/></button>}
     </header>
     <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-7" aria-label="Bucket List aspirations">
       <div className="mx-auto w-full max-w-2xl">
@@ -66,7 +69,7 @@ export function BucketListPage() {
         </li>)}</ul>}
       </div>
     </main>
-    <BottomSheet isOpen={adding} onClose={close} title="A new dream" height="auto" preventDismiss={busy}>
+    <BottomSheet isOpen={adding && creationEnabled} onClose={close} title="A new dream" height="auto" preventDismiss={busy}>
       <form onSubmit={save} className="space-y-4 px-4 pb-9 pt-3">
         <label className="block text-sm font-medium" htmlFor="bucket-new-title">What would you love to do?</label>
         <input id="bucket-new-title" autoFocus required maxLength={255} value={title} onChange={e=>setTitle(e.target.value)}
@@ -75,7 +78,7 @@ export function BucketListPage() {
         <textarea id="bucket-new-note" maxLength={2000} rows={3} value={description} onChange={e=>setDescription(e.target.value)}
           className="w-full rounded-xl border border-border bg-background px-3 py-3"/>
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
-        <button type="submit" disabled={busy} className="w-full rounded-xl bg-surfaceHighlight px-4 py-3 font-semibold disabled:opacity-50">{busy?'Saving…':'Add to my Bucket List'}</button>
+        <button type="submit" disabled={busy || !creationEnabled} className="w-full rounded-xl bg-surfaceHighlight px-4 py-3 font-semibold disabled:opacity-50">{busy?'Saving…':'Add to my Bucket List'}</button>
       </form>
     </BottomSheet>
   </div>;
