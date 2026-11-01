@@ -1,3 +1,14 @@
+# Task checkpoint — #854 public GitHub Issues Scratch-compatible server integration
+Updated: 2026-11-01 Asia/Manila
+
+- This isolated backend branch is based on the byte-verified active Scratch message-action source SHA 49c818b370d0faf86f645032173edd56991cd393; preserve photo, diary and messaging handlers.
+- Add public reporting action alongside legacy private reports. Default is fail closed without GITHUB_BUG_REPORT_ENABLED=true and GITHUB_BUG_REPORT_TOKEN. Client consent is required; no raw Appwrite identity or diagnostics in public issues. Additive schema migration 019 stores only private issue URL/receipt metadata.
+- The user-authorized frontend is on separate isolated v0.61.1 Preview task branch chatgpt/854-public-github-issues-v0611-20261101, with future stable Preview deployment. Do not change dev, main or Production.
+- Stage with focused CI, canonical stable backend Preview, compare exact current Scratch deployment before inactive deployment and explicit activation. Operator must privately provision repository-scoped GitHub Issues token to turn publication on. Never post real user data to public GitHub.
+- Public GitHub Issues survive Mosaic private 30-day retention/account deletion; this is disclosed and consented in frontend UI.
+
+---
+
 # Task checkpoint — #854 Scratch-compatible private bug reports
 Updated: 2026-11-01 Asia/Manila
 

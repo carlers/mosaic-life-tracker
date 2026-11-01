@@ -24,6 +24,7 @@ import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
 import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
 import { migrateBugReportsBackend } from './migrate-bug-reports.mjs';
+import { migratePublicBugReportBackend } from './migrate-public-bug-report.mjs';
 
 export const APPWRITE_MIGRATIONS = [
   {
@@ -85,6 +86,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '016-diary-quote-privacy', description: 'Durable diary quote revocation epochs and lookup index', run: ({ request, log, sleep }) => migrateDiaryQuotePrivacy({ request, log, sleep }) },
   { id: '017-message-chat-photos', description: 'Optional private chat media identifiers', run: ({ request, log, sleep }) => migrateMessageChatPhotos({ request, log, sleep }) },
   { id: '018-bug-reports', description: 'Server-only private bug report inbox', run: ({ request, log }) => migrateBugReportsBackend({ request, log }) },
+  { id: '019-public-bug-report-issues', description: 'Server-only GitHub publication receipts', run: ({ request, log, sleep }) => migratePublicBugReportBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {
