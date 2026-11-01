@@ -267,6 +267,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const taskTimestampsEnabled = useFeatureEnabled('mosaic_disable_task_timestamps');
   const bulkActionsEnabled = useFeatureEnabled('mosaic_disable_task_bulk_actions');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const taskDragReorderEnabled = useFeatureEnabled('mosaic_disable_task_drag_reorder');
+  const taskBucketLinkEnabled = useFeatureEnabled('mosaic_disable_task_bucket_link');
   const dayViewDiaryPanelEnabled = useFeatureEnabled('mosaic_disable_day_view_diary_panel');
   const showCreatedTime = taskTimestampsEnabled && getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
   const showCompletedTime = taskTimestampsEnabled && getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
@@ -1320,7 +1322,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onShowKeyboardHelp={showKeyboardHelp}
             selectedTaskIds={selectedTaskIds}
             onToggleTaskSelection={handleToggleTaskSelection}
-            reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
+            reorderEnabled={taskDragReorderEnabled && isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
             reorderRuntimeActive={isOpen}
             onReorderTasks={reorderTasks}
             onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
@@ -1573,6 +1575,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       onToggleTaskSelection={handleToggleTaskSelection}
                       onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
                       reorderEnabled={
+                        taskDragReorderEnabled &&
                         isOpen &&
                         i === activeIndex &&
                         !isSelectMode &&
@@ -1691,7 +1694,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
         onMoveToBacklog={handleMoveToBacklog}
-        onLinkToBucketList={() => setIsBucketLinkOpen(true)}
+        onLinkToBucketList={() => { if (isFeatureEnabled('mosaic_disable_task_bucket_link')) setIsBucketLinkOpen(true); }}
       />
       {shareSheetMounted && (
         <LazyShareTaskSheet
@@ -1701,7 +1704,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         />
       )}
       {isBucketLinkOpen && (
-        <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
+        <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && taskBucketLinkEnabled && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
       )}
       <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />

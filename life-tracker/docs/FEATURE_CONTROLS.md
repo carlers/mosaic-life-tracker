@@ -41,6 +41,10 @@ project/rollout determines which clients receive the change.
 | Day View quick layout | `mosaic_disable_day_view_layout_switch` | Hide/guard quick layout switch; retain stored layout |
 | Category reorder | `mosaic_disable_category_reorder` | Pause drag and reverse reorder, preserve category CRUD |
 | Single-user / all social off | `mosaic_disable_all_social` | Hide social navigation, friend calendars, Chat, Alerts and shared-task initiation; suppress foreground friend/message/shared-task subscriptions and pending social outbox flush; retain all records/queues and core personal workflows |
+| Task drag reordering | `mosaic_disable_task_drag_reorder` | Pause task drag initiation in Day View/Backlogs, preserve order and ordinary task edits |
+| Quick date shortcuts | `mosaic_disable_task_quick_reschedule` | Hide Yesterday/Today/Tomorrow task shortcuts; retain full date editor |
+| Move to Backlog shortcut | `mosaic_disable_task_move_to_backlog` | Hide optional single-task Move to Backlog action; retain date editor and backlog data |
+| Task-to-Bucket shortcut | `mosaic_disable_task_bucket_link` | Hide/guard Task Action Sheet linking, retain existing links and Bucket List |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.
